@@ -9,6 +9,8 @@
 # Description:
 #   SMB 2 and 3 Protocol Structures and constants [MS-SMB2]
 #
+from __future__ import division
+from __future__ import print_function
 
 from impacket.structure import Structure
 
@@ -431,7 +433,7 @@ class SMBPacketBase(Structure):
 
     def isValidAnswer(self, status):
         if self['Status'] != status:
-            import smb3
+            from . import smb3
             raise smb3.SessionError(self['Status'], self)
         return True
 
@@ -903,7 +905,7 @@ class SMB2Read(Structure):
         ('_AlignPad','_-AlignPad','self["ReadChannelInfoOffset"] - (64 + self["StructureSize"] - 1)'),
         ('AlignPad',':=""'),
         ('_Buffer','_-Buffer','self["ReadChannelInfoLength"]'),
-        ('Buffer',':=0'),
+        ('Buffer',':="0"'),
     )
     def __init__(self, data = None):
         Structure.__init__(self,data)

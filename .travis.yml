@@ -8,15 +8,16 @@ matrix:
       env: NO_REMOTE=true, TOXENV=py27
     - python: 3.6
       env: NO_REMOTE=true, TOXENV=py36
-  allow_failures:
-    - python: 3.6
+    - python: 3.7
+      env: NO_REMOTE=true, TOXENV=py37
+      dist: xenial  # required for Python >= 3.7
 
-install: pip install flake8==3.6.0 tox -r requirements.txt
+install: pip install flake8 tox -r requirements.txt
   
 before_script:
   # stop the build if there are Python syntax errors or undefined names
-  - flake8 . --count --select=E901,E999,F821,F822,F823 --show-source --statistics
+  - flake8 . --count --select=E9,F72,F82 --show-source --statistics
   # exit-zero treats all errors as warnings.  The GitHub editor is 127 chars wide
-  - flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+  - flake8 . --count --ignore=E1,E2,E3,E501,W291,W293 --exit-zero --max-complexity=65 --max-line-length=127 --statistics
 
 script: tox

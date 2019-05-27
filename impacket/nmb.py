@@ -42,9 +42,9 @@ import string
 import time
 import random
 from struct import pack, unpack
-from six import byte2int
+from six import byte2int, indexbytes, b
 
-from .structure import Structure
+from impacket.structure import Structure
 
 # Our random number generator
 try:
@@ -160,32 +160,39 @@ NETBIOS_SESSION_KEEP_ALIVE = 0x85
 ################################################################################
 # HELPERS
 ################################################################################
-def encode_name(name, type, scope):
+def encode_name(name, nametype, scope):
     # ToDo: Rewrite this simpler, we're using less than written
     """
     Perform first and second level encoding of name as specified in RFC 1001 (Section 4)
     
     :param string name: the name to encode
-    :param integer type: the name type constants
+    :param integer nametype: the name type constants
     :param string scope: the name's scope 
     
-    :return string: the encoded name.
+    :return string/bytes: the encoded name.
     """
     if name == '*':
         name += '\0' * 15
     elif len(name) > 15:
-        name = name[:15] + chr(type)
+        name = name[:15] + chr(nametype)
     else:
-        name = name.ljust(15) + chr(type)
+        name = name.ljust(15) + chr(nametype)
 
     encoded_name = chr(len(name) * 2) + re.sub('.', _do_first_level_encoding, name)
+
+    try:
+        if isinstance(encoded_name, unicode):
+            encoded_name = encoded_name.encode('utf-8')
+    except NameError:
+        pass
     if scope:
         encoded_scope = ''
-        for s in string.split(scope, '.'):
+        for s in scope.split('.'):
             encoded_scope = encoded_scope + chr(len(s)) + s
-        return (encoded_name + encoded_scope) + '\0'
+
+        return b(encoded_name + encoded_scope) + b'\0'
     else:
-        return encoded_name + '\0'
+        return b(encoded_name) + b'\0'
 
 # Internal method for use in encode_name()
 def _do_first_level_encoding(m):
@@ -197,16 +204,16 @@ def decode_name(name):
     """
     Perform first and second level decoding of name as specified in RFC 1001 (Section 4)
 
-    :param string name: the name to dencode
+    :param string/bytes name: the name to decode
 
     :return string: the decoded name.
     """
 
-    name_length = ord(name[0])
+    name_length = ord(name[0:1])
     assert name_length == 32
 
-    decoded_name = re.sub('..', _do_first_level_decoding, name[1:33])
-    if name[33] == '\0':
+    decoded_name = re.sub('..', _do_first_level_decoding, name[1:33].decode('utf-8'))
+    if name[33:34] == b'\0':
         return 34, decoded_name, ''
     else:
         decoded_domain = ''
@@ -215,7 +222,7 @@ def decode_name(name):
             domain_length = byte2int(name[offset:offset+1])
             if domain_length == 0:
                 break
-            decoded_domain = '.' + name[offset:offset + domain_length]
+            decoded_domain = '.' + name[offset:offset + domain_length].decode('utf-8')
             offset += domain_length
         return offset + 1, decoded_name, decoded_domain
 
@@ -367,16 +374,16 @@ class RESOURCE_RECORD(Structure):
 # 4.2.2.  NAME REGISTRATION REQUEST
 class NAME_REGISTRATION_REQUEST(NAME_SERVICE_PACKET):
     structure = (
-        ('QUESTION_NAME', 'z'),
+        ('QUESTION_NAME', ':'),
         ('QUESTION_TYPE', '>H=0'),
         ('QUESTION_CLASS', '>H=0'),
-        ('RR_NAME','z', ),
+        ('RR_NAME',':', ),
         ('RR_TYPE', '>H=0'),
         ('RR_CLASS','>H=0'),
         ('TTL', '>L=0'),
         ('RDLENGTH', '>H=6'),
         ('NB_FLAGS', '>H=0'),
-        ('NB_ADDRESS', '4s=""'),
+        ('NB_ADDRESS', '4s=b""'),
     )
     def __init__(self, data=None):
         NAME_SERVICE_PACKET.__init__(self,data)
@@ -431,7 +438,7 @@ class NAME_CONFLICT_DEMAND(NAME_REGISTRATION_REQUEST):
 # 4.2.12.  NAME QUERY REQUEST
 class NAME_QUERY_REQUEST(NAME_SERVICE_PACKET):
     structure = (
-        ('QUESTION_NAME', 'z'),
+        ('QUESTION_NAME', ':'),
         ('QUESTION_TYPE', '>H=0'),
         ('QUESTION_CLASS', '>H=0'),
     )
@@ -451,7 +458,7 @@ class NAME_QUERY_REQUEST(NAME_SERVICE_PACKET):
 class ADDR_ENTRY(Structure):
     structure = (
         ('NB_FLAGS', '>H=0'),
-        ('NB_ADDRESS', '4s=""'),
+        ('NB_ADDRESS', '4s=b""'),
     )
 
 # ToDo: 4.2.15.  REDIRECT NAME QUERY RESPONSE
@@ -468,14 +475,14 @@ class NODE_STATUS_REQUEST(NAME_QUERY_REQUEST):
 # 4.2.18.  NODE STATUS RESPONSE
 class NODE_NAME_ENTRY(Structure):
     structure = (
-        ('NAME','15s=""'),
+        ('NAME','15s=b""'),
         ('TYPE','B=0'),
         ('NAME_FLAGS','>H'),
     )
 
 class STATISTICS(Structure):
     structure = (
-        ('UNIT_ID','6s=""'),
+        ('UNIT_ID','6s=b""'),
         ('JUMPERS','B'),
         ('TEST_RESULT','B'),
         ('VERSION_NUMBER','>H'),
@@ -601,15 +608,14 @@ class NetBIOS:
 
         p = NAME_REGISTRATION_REQUEST()
         p['NAME_TRN_ID'] = rand.randint(1, 32000)
-        p['QUESTION_NAME'] = qn_label[:-1]
-        p['RR_NAME'] = qn_label[:-1]
+        p['QUESTION_NAME'] = qn_label[:-1] + b'\x00'
+        p['RR_NAME'] = qn_label[:-1] + b'\x00'
         p['TTL'] = 0xffff
         p['NB_FLAGS'] = nb_flags
         p['NB_ADDRESS'] = socket.inet_aton(nb_address)
         if not destaddr:
             p['FLAGS'] |= NM_FLAGS_BROADCAST
             destaddr = self.__broadcastaddr
-        req = p.getData()
 
         res = self.send(p, destaddr, 1)
         return res
@@ -620,13 +626,12 @@ class NetBIOS:
 
         p = NAME_QUERY_REQUEST()
         p['NAME_TRN_ID'] = rand.randint(1, 32000)
-        p['QUESTION_NAME'] = qn_label[:-1]
+        p['QUESTION_NAME'] = qn_label[:-1] + b'\x00'
         p['FLAGS'] = NM_FLAGS_RD
         if not destaddr:
             p['FLAGS'] |= NM_FLAGS_BROADCAST
 
             destaddr = self.__broadcastaddr
-        req = p.getData()
 
         res = self.send(p, destaddr, timeout)
         return NBPositiveNameQueryResponse(res['ANSWERS'])
@@ -636,7 +641,7 @@ class NetBIOS:
         qn_label = encode_name(netbios_name, type, scope)
         p = NODE_STATUS_REQUEST()
         p['NAME_TRN_ID'] = rand.randint(1, 32000)
-        p['QUESTION_NAME'] = qn_label[:-1]
+        p['QUESTION_NAME'] = qn_label[:-1] + b'\x00'
 
         if not destaddr:
             p['FLAGS'] = NM_FLAGS_BROADCAST
@@ -660,11 +665,11 @@ class NetBIOSSessionPacket:
             self._trailer = b''
         else:
             try:
-                self.type = ord(data[0])
+                self.type = indexbytes(data,0)
                 if self.type == NETBIOS_SESSION_MESSAGE:
-                    self.length = ord(data[1]) << 16 | (unpack('!H', data[2:4])[0])
+                    self.length = indexbytes(data,1) << 16 | (unpack('!H', data[2:4])[0])
                 else:
-                    self.flags = ord(data[1])
+                    self.flags = data[1]
                     self.length = unpack('!H', data[2:4])[0]
 
                 self._trailer = data[4:]
@@ -709,9 +714,9 @@ class NetBIOSSession:
         :param socket sock: Socket for already established connection
         """
         if len(myname) > 15:
-            self.__myname = string.upper(myname[:15])
+            self.__myname = myname[:15].upper()
         else:
-            self.__myname = string.upper(myname)
+            self.__myname = myname.upper()
         self.__local_type = local_type
 
         assert remote_name
@@ -721,6 +726,7 @@ class NetBIOSSession:
             remote_name = remote_host
 
         # If remote name is *SMBSERVER let's try to query its name.. if can't be guessed, continue and hope for the best
+
         if remote_name == '*SMBSERVER':
             nb = NetBIOS()
             try:
@@ -733,9 +739,9 @@ class NetBIOSSession:
                 remote_name = res
 
         if len(remote_name) > 15:
-            self.__remote_name = string.upper(remote_name[:15])
+            self.__remote_name = remote_name[:15].upper()
         else:
-            self.__remote_name = string.upper(remote_name)
+            self.__remote_name = remote_name.upper()
         self.__remote_type = remote_type
         self.__remote_host = remote_host
 
@@ -858,7 +864,8 @@ class NetBIOSUDPSession(NetBIOSSession):
         while 1:
             data, peer = self._sock.recvfrom(8192)
 #            print "peer: %r  self.peer: %r" % (peer, self.peer)
-            if peer == self.peer: break
+            if peer == self.peer:
+                break
 
         return NetBIOSUDPSessionPacket(data)
 
@@ -912,7 +919,7 @@ class NetBIOSTCPSession(NetBIOSSession):
         remote_name = encode_name(self.get_remote_name(), remote_type, '')
         myname = encode_name(self.get_myname(), local_type, '')
         p.set_type(NETBIOS_SESSION_REQUEST)
-        p.set_trailer(remote_name.encode('latin-1') + myname.encode('latin-1'))
+        p.set_trailer(remote_name + myname)
 
         self._sock.sendall(p.rawData())
         while 1:
@@ -956,17 +963,21 @@ class NetBIOSTCPSession(NetBIOSSession):
                 if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
                     raise NetBIOSError('Error occurs while reading from remote', ERRCLASS_OS, ex[0])
 
-        return data
+        return bytes(data)
 
     def non_polling_read(self, read_length, timeout):
         data = b''
+        if timeout is None:
+            timeout = 3600
+
+        start_time = time.time()
         bytes_left = read_length
 
         while bytes_left > 0:
             try:
                 ready, _, _ = select.select([self._sock.fileno()], [], [], timeout)
 
-                if not ready:
+                if not ready or (time.time() - start_time) > timeout:
                     raise NetBIOSTimeout
 
                 received = self._sock.recv(bytes_left)
@@ -979,7 +990,7 @@ class NetBIOSTCPSession(NetBIOSSession):
                 if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
                     raise NetBIOSError('Error occurs while reading from remote', ERRCLASS_OS, ex[0])
 
-        return data
+        return bytes(data)
 
     def __read(self, timeout = None):
         data = self.read_function(4, timeout)

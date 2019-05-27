@@ -66,5 +66,3 @@ class EAPOL(ProtocolPacket):
     version = Byte(0)
     packet_type = Byte(1)
     body_length = Word(2, ">")
-    
-

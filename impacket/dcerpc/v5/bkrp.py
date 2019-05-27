@@ -20,7 +20,8 @@
 #
 # ToDo:
 # [ ] 2.2.2 Client-Side-Wrapped Secret
-
+from __future__ import division
+from __future__ import print_function
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRPOINTER, NDRUniConformantArray
 from impacket.dcerpc.v5.dtypes import DWORD, NTSTATUS, GUID, RPC_SID, NULL
 from impacket.dcerpc.v5.rpcrt import DCERPCException
@@ -36,7 +37,7 @@ class DCERPCSessionError(DCERPCException):
 
     def __str__( self ):
         key = self.error_code
-        if system_errors.ERROR_MESSAGES.has_key(key):
+        if key in system_errors.ERROR_MESSAGES:
             error_msg_short = system_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
             return 'BKRP SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -124,4 +125,3 @@ def hBackuprKey(dce, pguidActionAgent, pDataIn, dwParam=0):
         request['cbDataIn'] = len(pDataIn)
     request['dwParam'] = dwParam
     return dce.request(request)
-

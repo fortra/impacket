@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 # Copyright (c) 2003-2013 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
@@ -36,7 +35,7 @@ class TestTLVContainer(unittest.TestCase):
         tlvc = wps.TLVContainer(builders=BUILDERS)
         
         KINDS_N_VALUES = (
-            (1, "Sarlanga"),
+            (1, b"Sarlanga"),
             (2, 1),
             (3, 1024),
             (4, array.array("B", [1,2,3]))
@@ -51,7 +50,7 @@ class TestTLVContainer(unittest.TestCase):
             self.assertEqual(v, tlvc2.first(k))
         
         self.assertEqual(tlvc.to_ary(), tlvc2.to_ary())
-        self.assertEquals("Sarlanga", tlvc.first(1))
+        self.assertEquals(b"Sarlanga", tlvc.first(1))
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestTLVContainer)
 unittest.TextTestRunner(verbosity=1).run(suite)

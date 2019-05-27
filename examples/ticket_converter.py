@@ -35,15 +35,15 @@ def main():
     args = parse_args()
 
     if is_kirbi_file(args.input_file):
-        print '[*] Converting kirbi to ccache...'
+        print('[*] converting kirbi to ccache...')
         convert_kirbi_to_ccache(args.input_file, args.output_file)
-        print '[+] Done'
+        print('[+] done')
     elif is_ccache_file(args.input_file):
-        print '[*] Converting ccache to kirbi...'
+        print('[*] converting ccache to kirbi...')
         convert_ccache_to_kirbi(args.input_file, args.output_file)
-        print '[+] Done'
+        print('[+] done')
     else:
-        print 'Unknown File Type'
+        print('[X] unknown file format')
 
 
 def is_kirbi_file(filename):

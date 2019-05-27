@@ -17,12 +17,13 @@
 # [ ] Handle better the SOCKS specification (RFC1928), e.g. BIND
 # [ ] Port handlers should be dynamically subscribed, and coded in another place. This will help coding
 #     proxies for different protocols (e.g. MSSQL)
-
-import SocketServer
+from __future__ import division
+from __future__ import print_function
+import socketserver
 import socket
 import time
 import logging
-from Queue import Queue
+from queue import Queue
 from struct import unpack, pack
 from threading import Timer, Thread
 
@@ -177,23 +178,24 @@ class SocksRelay:
 def keepAliveTimer(server):
     LOG.debug('KeepAlive Timer reached. Updating connections')
 
-    for target in server.activeRelays.keys():
-        for port in server.activeRelays[target].keys():
+    for target in list(server.activeRelays.keys()):
+        for port in list(server.activeRelays[target].keys()):
             # Now cycle through the users
-            for user in server.activeRelays[target][port].keys():
+            for user in list(server.activeRelays[target][port].keys()):
                 if user != 'data' and user != 'scheme':
                     # Let's call the keepAlive method for the handler to keep the connection alive
                     if server.activeRelays[target][port][user]['inUse'] is False:
                         LOG.debug('Calling keepAlive() for %s@%s:%s' % (user, target, port))
                         try:
                             server.activeRelays[target][port][user]['protocolClient'].keepAlive()
-                        except Exception, e:
+                        except Exception as e:
+                            LOG.debug("Exception:",exc_info=True)
                             LOG.debug('SOCKS: %s' % str(e))
                             if str(e).find('Broken pipe') >= 0 or str(e).find('reset by peer') >=0 or \
                                             str(e).find('Invalid argument') >= 0 or str(e).find('Server not connected') >=0:
                                 # Connection died, taking out of the active list
                                 del (server.activeRelays[target][port][user])
-                                if len(server.activeRelays[target][port].keys()) == 1:
+                                if len(list(server.activeRelays[target][port].keys())) == 1:
                                     del (server.activeRelays[target][port])
                                 LOG.debug('Removing active relay for %s@%s:%s' % (user, target, port))
                     else:
@@ -204,12 +206,12 @@ def activeConnectionsWatcher(server):
         # This call blocks until there is data, so it doesn't loop endlessly
         target, port, scheme, userName, client, data = activeConnections.get()
         # ToDo: Careful. Dicts are not thread safe right?
-        if server.activeRelays.has_key(target) is not True:
+        if (target in server.activeRelays) is not True:
             server.activeRelays[target] = {}
-        if server.activeRelays[target].has_key(port) is not True:
+        if (port in server.activeRelays[target]) is not True:
             server.activeRelays[target][port] = {}
 
-        if server.activeRelays[target][port].has_key(userName) is not True:
+        if (userName in server.activeRelays[target][port]) is not True:
             LOG.info('SOCKS: Adding %s@%s(%s) to active SOCKS connection. Enjoy' % (userName, target, port))
             server.activeRelays[target][port][userName] = {}
             # This is the protocolClient. Needed because we need to access the killConnection from time to time.
@@ -248,7 +250,7 @@ def webService(server):
 
     @app.route('/')
     def index():
-        print server.activeRelays
+        print(server.activeRelays)
         return "Relays available: %s!" % (len(server.activeRelays))
 
     @app.route('/ntlmrelayx/api/v1.0/relays', methods=['GET'])
@@ -269,7 +271,7 @@ def webService(server):
 
     app.run(host='0.0.0.0', port=9090)
 
-class SocksRequestHandler(SocketServer.BaseRequestHandler):
+class SocksRequestHandler(socketserver.BaseRequestHandler):
     def __init__(self, request, client_address, server):
         self.__socksServer = server
         self.__ip, self.__port = client_address
@@ -278,7 +280,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
         self.targetHost = None
         self.targetPort = None
         self.__NBSession= None
-        SocketServer.BaseRequestHandler.__init__(self, request, client_address, server)
+        socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
     def sendReplyError(self, error = replyField.CONNECTION_REFUSED):
 
@@ -322,11 +324,11 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
         # SOCKS4
         else:
             self.targetPort = request['PORT']
-            
+
             # SOCKS4a
             if request['ADDR'][:3] == "\x00\x00\x00" and request['ADDR'][3] != "\x00":
-                nullBytePos = request['PAYLOAD'].find("\x00");
-            
+                nullBytePos = request['PAYLOAD'].find("\x00")
+
                 if nullBytePos == -1:
                     LOG.error('Error while reading SOCKS4a header!')
                 else:
@@ -339,8 +341,8 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
         if self.targetPort != 53:
             # Do we have an active connection for the target host/port asked?
             # Still don't know the username, but it's a start
-            if self.__socksServer.activeRelays.has_key(self.targetHost):
-                if self.__socksServer.activeRelays[self.targetHost].has_key(self.targetPort) is not True:
+            if self.targetHost in self.__socksServer.activeRelays:
+                if (self.targetPort in self.__socksServer.activeRelays[self.targetHost]) is not True:
                     LOG.error('SOCKS: Don\'t have a relay for %s(%s)' % (self.targetHost, self.targetPort))
                     self.sendReplyError(replyField.CONNECTION_REFUSED)
                     return
@@ -356,10 +358,8 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
             try:
                 LOG.debug('SOCKS: Connecting to %s(%s)' %(self.targetHost, self.targetPort))
                 s.connect((self.targetHost, self.targetPort))
-            except Exception, e:
-                if LOG.level == logging.DEBUG:
-                    import traceback
-                    traceback.print_exc()
+            except Exception as e:
+                LOG.debug("Exception:", exc_info=True)
                 LOG.error('SOCKS: %s' %str(e))
                 self.sendReplyError(replyField.CONNECTION_REFUSED)
                 return
@@ -377,21 +377,19 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
             while True:
                 try:
                     data = self.__connSocket.recv(8192)
-                    if data == '':
+                    if data == b'':
                         break
                     s.sendall(data)
                     data = s.recv(8192)
                     self.__connSocket.sendall(data)
-                except Exception, e:
-                    if LOG.level == logging.DEBUG:
-                        import traceback
-                        traceback.print_exc()
-                    LOG.error('SOCKS: ', str(e))
+                except Exception as e:
+                    LOG.debug("Exception:", exc_info=True)
+                    LOG.error('SOCKS: %s', str(e))
 
         # Let's look if there's a relayed connection for our host/port
         scheme = None
-        if self.__socksServer.activeRelays.has_key(self.targetHost):
-            if self.__socksServer.activeRelays[self.targetHost].has_key(self.targetPort):
+        if self.targetHost in self.__socksServer.activeRelays:
+            if self.targetPort in self.__socksServer.activeRelays[self.targetHost]:
                 scheme = self.__socksServer.activeRelays[self.targetHost][self.targetPort]['scheme']
 
         if scheme is not None:
@@ -424,16 +422,14 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
                 self.__socksServer.activeRelays[self.targetHost][self.targetPort][relay.username]['inUse'] = True
 
                 relay.tunnelConnection()
-            except Exception, e:
-                if LOG.level == logging.DEBUG:
-                    import traceback
-                    traceback.print_exc()
+            except Exception as e:
+                LOG.debug("Exception:", exc_info=True)
                 LOG.debug('SOCKS: %s' % str(e))
                 if str(e).find('Broken pipe') >= 0 or str(e).find('reset by peer') >=0 or \
                                 str(e).find('Invalid argument') >= 0:
                     # Connection died, taking out of the active list
                     del(self.__socksServer.activeRelays[self.targetHost][self.targetPort][relay.username])
-                    if len(self.__socksServer.activeRelays[self.targetHost][self.targetPort].keys()) == 1:
+                    if len(list(self.__socksServer.activeRelays[self.targetHost][self.targetPort].keys())) == 1:
                         del(self.__socksServer.activeRelays[self.targetHost][self.targetPort])
                     LOG.debug('Removing active relay for %s@%s:%s' % (relay.username, self.targetHost, self.targetPort))
                     self.sendReplyError(replyField.CONNECTION_REFUSED)
@@ -449,11 +445,11 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
         LOG.debug('SOCKS: Shutting down connection')
         try:
             self.sendReplyError(replyField.CONNECTION_REFUSED)
-        except Exception, e:
+        except Exception as e:
             LOG.debug('SOCKS END: %s' % str(e))
 
 
-class SOCKS(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
+class SOCKS(socketserver.ThreadingMixIn, socketserver.TCPServer):
     def __init__(self, server_address=('0.0.0.0', 1080), handler_class=SocksRequestHandler):
         LOG.info('SOCKS proxy started. Listening at port %d', server_address[1] )
 
@@ -462,8 +458,8 @@ class SOCKS(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         self.restAPI = None
         self.activeConnectionsWatcher = None
         self.supportedSchemes = []
-        SocketServer.TCPServer.allow_reuse_address = True
-        SocketServer.TCPServer.__init__(self, server_address, handler_class)
+        socketserver.TCPServer.allow_reuse_address = True
+        socketserver.TCPServer.__init__(self, server_address, handler_class)
 
         # Let's register the socksplugins plugins we have
         from impacket.examples.ntlmrelayx.servers.socksplugins import SOCKS_RELAYS
@@ -490,12 +486,10 @@ class SOCKS(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         self.__timer.stop()
         del self.restAPI
         del self.activeConnectionsWatcher
-        return SocketServer.TCPServer.shutdown(self)
+        return socketserver.TCPServer.shutdown(self)
 
 if __name__ == '__main__':
     from impacket.examples import logger
     logger.init()
     s = SOCKS()
     s.serve_forever()
-
-

@@ -1,7 +1,7 @@
 try:
-   import configparser
+    import ConfigParser
 except ImportError:
-   import ConfigParser as configparser
+    import configparser as ConfigParser
 import unittest
 
 from impacket import nmb
@@ -17,7 +17,7 @@ class NMBTests(unittest.TestCase):
         encoded = nmb.encode_name(name,nmb.TYPE_SERVER,None)
         hexdump(encoded)
         decoded = nmb.decode_name(encoded)
-        hexdump(decoded[1])
+        hexdump(bytearray(decoded[1],'utf-8'))
 
         #self.assertTrue(nmb.TYPE_SERVER==decoded[0])
         self.assertTrue(name[:15]==decoded[1].strip())
@@ -41,13 +41,15 @@ class NMBTests(unittest.TestCase):
     def test_getnodestatus(self):
         n = nmb.NetBIOS()
         resp = n.getnodestatus(self.serverName.upper(), self.machine)
+        for r in resp:
+            r.dump()
         print(resp)
 
     def test_gethostbyname(self):
         n = nmb.NetBIOS()
         n.set_nameserver(self.serverName)
         resp = n.gethostbyname(self.serverName, nmb.TYPE_SERVER)
-        print(resp.entries)
+        print((resp.entries))
 
     def test_name_registration_request(self):
         n = nmb.NetBIOS()
@@ -57,7 +59,7 @@ class NMBTests(unittest.TestCase):
             resp = n.name_registration_request('*JSMBSERVER', self.serverName, nmb.TYPE_WORKSTATION, None,nmb.NB_FLAGS_ONT_P, '1.1.1.2')
             resp.dump()
         except Exception as e:
-            print str(e)
+            print(str(e))
             if str(e).find('NETBIOS') <= 0:
                 raise e
 
@@ -66,13 +68,13 @@ class NMBTests(unittest.TestCase):
         # ToDo: Look at this
         # resp = n.name_registration_request('*SMBSERVER', self.serverName, nmb.TYPE_WORKSTATION, None,nmb.NB_FLAGS_G, '1.1.1.1')
         resp = n.name_query_request(self.serverName, self.machine)
-        print(resp.entries)
+        print((resp.entries))
 
 class NetBIOSTests(NMBTests):
     def setUp(self):
         NMBTests.setUp(self)
         # Put specific configuration for target machine with SMB1
-        configFile = configparser.ConfigParser()
+        configFile = ConfigParser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.serverName = configFile.get('SMBTransport', 'servername')
         self.machine  = configFile.get('SMBTransport', 'machine')

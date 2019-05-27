@@ -12,13 +12,14 @@
 # [X] Unions and rest of the structured types
 # [ ] Documentation for this library, especially the support for Arrays
 #
-
+from __future__ import division
+from __future__ import print_function
 import random
 import inspect
 from struct import pack, unpack, calcsize
+from six import with_metaclass, PY3
 
 from impacket import LOG
-from impacket.winregistry import hexdump
 from impacket.dcerpc.v5.enum import Enum
 from impacket.uuid import uuidtup_to_bin
 
@@ -58,7 +59,7 @@ class NDR(object):
             if self.isNDR(fieldTypeOrClass):
                self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64)
             elif fieldTypeOrClass == ':':
-               self.fields[fieldName] = ''
+               self.fields[fieldName] = b''
             elif len(fieldTypeOrClass.split('=')) == 2: 
                try:
                    self.fields[fieldName] = eval(fieldTypeOrClass.split('=')[1])
@@ -76,7 +77,7 @@ class NDR(object):
             if self._isNDR64 is False:
                 # Ok, let's change everything
                 self._isNDR64 = True
-                for fieldName in self.fields.keys():
+                for fieldName in list(self.fields.keys()):
                     if isinstance(self.fields[fieldName], NDR):
                         self.fields[fieldName].changeTransferSyntax(newSyntax)
                 # Finally, I change myself
@@ -94,7 +95,7 @@ class NDR(object):
                         if fieldTypeOrClass != self.fields[fieldName].__class__ and isinstance(self.fields[fieldName], NDRPOINTERNULL) is False:
                             backupData = self[fieldName]
                             self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64)
-                            if self.fields[fieldName].fields.has_key('Data'):
+                            if 'Data' in self.fields[fieldName].fields:
                                 self.fields[fieldName].fields['Data'] = backupData
                             else:
                                 self[fieldName] = backupData
@@ -102,14 +103,14 @@ class NDR(object):
         else:
             if self._isNDR64 is True:
                 # Ok, nothing for now
-                raise
+                raise Exception('Shouldn\'t be here')
 
     def __setitem__(self, key, value):
         if isinstance(value, NDRPOINTERNULL):
             value = NDRPOINTERNULL(isNDR64 = self._isNDR64)
             if isinstance(self.fields[key], NDRPOINTER):
                 self.fields[key] = value
-            elif self.fields[key].fields.has_key('Data'):
+            elif 'Data' in self.fields[key].fields:
                 if isinstance(self.fields[key].fields['Data'], NDRPOINTER):
                     self.fields[key].fields['Data'] = value
         elif isinstance(value, NDR):
@@ -131,7 +132,7 @@ class NDR(object):
 
     def __getitem__(self, key):
         if isinstance(self.fields[key], NDR):
-            if self.fields[key].fields.has_key('Data'):
+            if 'Data' in self.fields[key].fields:
                 return self.fields[key]['Data']
         return self.fields[key]
 
@@ -154,40 +155,42 @@ class NDR(object):
         return False
 
     def dumpRaw(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         ind = ' '*indent
-        print "\n%s" % msg
+        print("\n%s" % msg)
         for field in self.commonHdr+self.structure+self.referent:
             i = field[0] 
             if i in self.fields:
                 if isinstance(self.fields[i], NDR):
                     self.fields[i].dumpRaw('%s%s:{' % (ind,i), indent = indent + 4)
-                    print "%s}" % ind
+                    print("%s}" % ind)
 
                 elif isinstance(self.fields[i], list):
-                    print "%s[" % ind
+                    print("%s[" % ind)
                     for num,j in enumerate(self.fields[i]):
                        if isinstance(j, NDR):
                            j.dumpRaw('%s%s:' % (ind,i), indent = indent + 4)
-                           print "%s," % ind
+                           print("%s," % ind)
                        else:
-                           print "%s%s: {%r}," % (ind, i, j)
-                    print "%s]" % ind
+                           print("%s%s: {%r}," % (ind, i, j))
+                    print("%s]" % ind)
 
                 else:
-                    print "%s%s: {%r}" % (ind,i,self[i])
+                    print("%s%s: {%r}" % (ind,i,self[i]))
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         ind = ' '*indent
         if msg != '':
-            print "%s" % msg,
+            print("%s" % msg, end=' ')
         for fieldName, fieldType in self.commonHdr+self.structure+self.referent:
             if fieldName in self.fields:
                 if isinstance(self.fields[fieldName], NDR):
                     self.fields[fieldName].dump('\n%s%-31s' % (ind, fieldName+':'), indent = indent + 4),
                 else:
-                    print " %r" % (self[fieldName]),
+                    print(" %r" % (self[fieldName]), end=' ')
 
     def getAlignment(self):
         return self.align
@@ -207,7 +210,7 @@ class NDR(object):
         return pad
 
     def getData(self, soFar = 0):
-        data = ''
+        data = b''
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
                 # Alignment of Primitive Types
@@ -222,13 +225,13 @@ class NDR(object):
                 pad = self.calculatePad(fieldTypeOrClass, soFar)
                 if pad > 0:
                     soFar += pad
-                    data += '\xbf'*pad
+                    data += b'\xbf'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
 
                 data += res
                 soFar += len(res)
-            except Exception, e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
@@ -257,7 +260,7 @@ class NDR(object):
 
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
@@ -270,7 +273,7 @@ class NDR(object):
         data = self.fields[fieldName]
         # void specifier
         if fieldTypeOrClass[:1] == '_':
-            return ''
+            return b''
 
         # code specifier
         two = fieldTypeOrClass.split('=')
@@ -286,7 +289,9 @@ class NDR(object):
 
         # literal specifier
         if fieldTypeOrClass[:1] == ':':
-            return str(data)
+            if hasattr(data, 'getData'):
+                return data.getData()
+            return data
 
         # struct like specifier
         return pack(fieldTypeOrClass, data)
@@ -367,14 +372,15 @@ class NDRUSMALL(NDR):
 
 class NDRBOOLEAN(NDRSMALL):
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
-            print msg,
+            print(msg, end=' ')
 
         if self['Data'] > 0:
-            print " TRUE"
+            print(" TRUE")
         else:
-            print " FALSE"
+            print(" FALSE")
 
 class NDRCHAR(NDR):
     align = 1
@@ -434,8 +440,7 @@ class EnumType(type):
     def __getattr__(self, attr):
         return self.enumItems[attr].value
 
-class NDRENUM(NDR):
-    __metaclass__ = EnumType
+class NDRENUM(with_metaclass(EnumType, NDR)):
     align = 2
     align64 = 4
     structure = (
@@ -460,11 +465,12 @@ class NDRENUM(NDR):
            return NDR.__setitem__(self,key,value)
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
-            print msg,
+            print(msg, end=' ')
 
-        print " %s" % self.enumItems(self.fields['Data']).name,
+        print(" %s" % self.enumItems(self.fields['Data']).name, end=' ')
 
 # NDR Constructed Types (arrays, strings, structures, unions, variant structures, pipes and pointers)
 class NDRCONSTRUCTEDTYPE(NDR):
@@ -485,7 +491,7 @@ class NDRCONSTRUCTEDTYPE(NDR):
         return False
 
     def getDataReferents(self, soFar = 0):
-        data = ''
+        data = b''
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
                data += self.fields[fieldName].getDataReferents(len(data)+soFar)
@@ -493,14 +499,14 @@ class NDRCONSTRUCTEDTYPE(NDR):
         return data
 
     def getDataReferent(self, soFar=0):
-        data = ''
+        data = b''
         soFar0 = soFar
         if hasattr(self,'referent') is False:
-            return ''
+            return b''
 
-        if self.fields.has_key('ReferentID'):
+        if 'ReferentID' in self.fields:
             if self['ReferentID'] == 0:
-                return ''
+                return b''
 
         for fieldName, fieldTypeOrClass in self.referent:
             try:
@@ -523,9 +529,9 @@ class NDRCONSTRUCTEDTYPE(NDR):
                     pad0 = (arrayItemSize - (soFar % arrayItemSize)) % arrayItemSize
                     if pad0 > 0:
                         soFar += pad0
-                        arrayPadding = '\xef'*pad0
+                        arrayPadding = b'\xef'*pad0
                     else:
-                        arrayPadding = ''
+                        arrayPadding = b''
                     # And now, let's pretend we put the item in
                     soFar += arrayItemSize
                     data = self.fields[fieldName].getData(soFar)
@@ -534,7 +540,7 @@ class NDRCONSTRUCTEDTYPE(NDR):
                     pad = self.calculatePad(fieldTypeOrClass, soFar)
                     if pad > 0:
                         soFar += pad
-                        data += '\xcc'*pad
+                        data += b'\xcc'*pad
 
                     data += self.pack(fieldName, fieldTypeOrClass, soFar)
 
@@ -544,7 +550,7 @@ class NDRCONSTRUCTEDTYPE(NDR):
                     data += self.fields[fieldName].getDataReferent(soFar0 + len(data))
                 soFar = soFar0 + len(data)
 
-            except Exception, e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
@@ -570,7 +576,7 @@ class NDRCONSTRUCTEDTYPE(NDR):
             return NDR.calcPackSize(self, fieldTypeOrClass, data)
 
     def getArrayMaximumSize(self, fieldName):
-        if self.fields[fieldName].fields['MaximumCount'] > 0:
+        if self.fields[fieldName].fields['MaximumCount'] is not None and self.fields[fieldName].fields['MaximumCount'] > 0:
             return self.fields[fieldName].fields['MaximumCount']
         else:
             return self.fields[fieldName].getArraySize()
@@ -623,7 +629,7 @@ class NDRCONSTRUCTEDTYPE(NDR):
 
         soFar0 = soFar
 
-        if self.fields.has_key('ReferentID'):
+        if 'ReferentID' in self.fields:
             if self['ReferentID'] == 0:
                 # NULL Pointer, there's no referent for it
                 return 0
@@ -653,7 +659,7 @@ class NDRCONSTRUCTEDTYPE(NDR):
                     size += self.fields[fieldName].fromStringReferent(data[size:], soFar + size)
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
@@ -673,23 +679,24 @@ class NDRCONSTRUCTEDTYPE(NDR):
 # Uni-dimensional Fixed Arrays
 class NDRArray(NDRCONSTRUCTEDTYPE):
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         ind = ' '*indent
         if msg != '':
-            print msg,
+            print(msg, end=' ')
 
         if isinstance(self['Data'], list):
-            print "\n%s[" % ind
+            print("\n%s[" % ind)
             ind += ' '*4
             for num,j in enumerate(self.fields['Data']):
                if isinstance(j, NDR):
                    j.dump('%s' % ind, indent = indent + 4),
-                   print "," 
+                   print(",") 
                else:
-                   print "%s %r," % (ind,j)
-            print "%s]" % ind[:-4],
+                   print("%s %r," % (ind,j))
+            print("%s]" % ind[:-4], end=' ')
         else:
-            print " %r" % self['Data'],
+            print(" %r" % self['Data'], end=' ')
 
     def setArraySize(self, size):
         self.arraySize = size
@@ -715,13 +722,13 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
             if self.isNDR(self.item):
                 tmpAlign = self.item().getAlignment()
             else:
-                tmpAlign = self.calcPackSize(self.item, '')
+                tmpAlign = self.calcPackSize(self.item, b'')
             if tmpAlign > align:
                 align = tmpAlign
         return align
 
     def getData(self, soFar = 0):
-        data = ''
+        data = b''
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.structure:
             try:
@@ -731,12 +738,12 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
                     pad = self.calculatePad(fieldTypeOrClass, soFar)
                     if pad > 0:
                         soFar += pad
-                        data += '\xca'*pad
+                        data += b'\xca'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
                 soFar = soFar0 + len(data)
-            except Exception, e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
@@ -747,7 +754,7 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
         # array specifier
         two = fieldTypeOrClass.split('*')
         if len(two) == 2:
-            answer = ''
+            answer = b''
             if self.isNDR(self.item):
                 item = ':'
                 dataClass = self.item
@@ -757,11 +764,14 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
                 dataClass = None
                 self.fields['_tmpItem'] = item
 
-            for each in self.fields[fieldName]:
+            for each in (self.fields[fieldName]):
                 pad = self.calculatePad(self.item, len(answer)+soFar)
                 if pad > 0:
-                    answer += '\xdd' * pad
+                    answer += b'\xdd' * pad
                 if dataClass is None:
+                    if item == 'c' and PY3 and isinstance(each, int):
+                        # Special case when dealing with PY3, here we have an integer we need to convert
+                        each = bytes([each])
                     answer += pack(item, each)
                 else:
                     answer += each.getData(len(answer)+soFar)
@@ -799,7 +809,7 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
 
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
@@ -946,19 +956,19 @@ class NDRUniConformantVaryingArray(NDRArray):
         return NDRArray.__setitem__(self, key, value)
 
     def getData(self, soFar = 0):
-        data = ''
+        data = b''
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
                 pad = self.calculatePad(fieldTypeOrClass, soFar)
                 if pad > 0:
                     soFar += pad
-                    data += '\xcb'*pad
+                    data += b'\xcb'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
                 soFar = soFar0 + len(data)
-            except Exception, e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
@@ -973,8 +983,11 @@ class NDRVaryingString(NDRUniVaryingArray):
         # The last element of a string is a terminator of the same size as the other elements. 
         # If the string element size is one octet, the terminator is a NULL character. 
         # The terminator for a string of multi-byte characters is the array element zero (0).
-        if self["Data"][-1:] != '\x00':
-            self["Data"] = ''.join(self["Data"]) + '\x00'
+        if self["Data"][-1:] != b'\x00':
+            if PY3 and isinstance(self["Data"],list) is False:
+                self["Data"] = self["Data"] + b'\x00'
+            else:
+                self["Data"] = b''.join(self["Data"]) + b'\x00'
         return NDRUniVaryingArray.getData(self, soFar)
 
     def fromString(self, data, soFar = 0):
@@ -992,8 +1005,8 @@ class NDRConformantVaryingString(NDRUniConformantVaryingArray):
 # Structures Containing a Conformant and Varying Array 
 class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
     def getData(self, soFar = 0):
-        data = ''
-        arrayPadding = ''
+        data = b''
+        arrayPadding = b''
         soFar0 = soFar
         # 14.3.7.1 Structures Containing a Conformant Array
         # A structure can contain a conformant array only as its last member.
@@ -1027,9 +1040,9 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
             pad0 = (arrayItemSize - (soFar % arrayItemSize)) % arrayItemSize 
             if pad0 > 0:
                 soFar += pad0
-                arrayPadding = '\xee'*pad0
+                arrayPadding = b'\xee'*pad0
             else:
-                arrayPadding = ''
+                arrayPadding = b''
             # And now, let's pretend we put the item in
             soFar += arrayItemSize
         else:
@@ -1045,8 +1058,8 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
             pad = (alignment - (soFar % alignment)) % alignment
             if pad > 0:
                 soFar += pad
-                data += '\xAB'*pad
- 
+                data += b'\xAB'*pad
+
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
                 if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
@@ -1057,13 +1070,13 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
                         data = pointerData + arrayPadding + pack(arrayPackStr ,self.getArrayMaximumSize(fieldName)) + data
                     else:
                         data = arrayPadding + pack(arrayPackStr, self.getArrayMaximumSize(fieldName)) + data
-                    arrayPadding = ''
+                    arrayPadding = b''
                     arrayItemSize = 0
                 else:
                     res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
                 soFar = soFar0 + len(data) + len(arrayPadding) + arrayItemSize
-            except Exception, e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
@@ -1159,7 +1172,7 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
 
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
@@ -1195,7 +1208,7 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
             if isinstance(self.fields[fieldName], NDR):
                 tmpAlign = self.fields[fieldName].getAlignment()
             else:
-                tmpAlign = self.calcPackSize(fieldTypeOrClass, '')
+                tmpAlign = self.calcPackSize(fieldTypeOrClass, b'')
             if tmpAlign > align:
                 align = tmpAlign
         return align
@@ -1253,14 +1266,14 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
         if key == 'tag':
             # We're writing the tag, we now should set the right item for the structure
             self.structure = ()
-            if self.union.has_key(value):
+            if value in self.union:
                 self.structure = (self.union[value]),
                 # Init again the structure
                 self.__init__(None, isNDR64=self._isNDR64, topLevel = self.topLevel)
                 self.fields['tag']['Data'] = value
             else:
                 # Let's see if we have a default value
-                if self.union.has_key('default'):
+                if 'default' in self.union:
                     if self.union['default'] is None:
                         self.structure = ()
                     else:
@@ -1274,7 +1287,7 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
             return NDRCONSTRUCTEDTYPE.__setitem__(self,key,value)
 
     def getData(self, soFar = 0):
-        data = ''
+        data = b''
         soFar0 = soFar
 
         # Let's align ourselves
@@ -1285,19 +1298,19 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
             pad = 0
         if pad > 0:
             soFar += pad
-            data += '\xbc'*pad
+            data += b'\xbc'*pad
 
         for fieldName, fieldTypeOrClass in self.commonHdr:
             try:
                 pad = self.calculatePad(fieldTypeOrClass, soFar)
                 if pad > 0:
                     soFar += pad
-                    data += '\xbb'*pad
+                    data += b'\xbb'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
                 soFar = soFar0 + len(data)
-            except Exception, e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
@@ -1317,7 +1330,7 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
 
         pad = (align - (soFar % align)) % align
         if pad > 0:
-            data += '\xbd'*pad
+            data += b'\xbd'*pad
             soFar += pad
 
         if self.structure is ():
@@ -1328,12 +1341,12 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
                 pad = self.calculatePad(fieldTypeOrClass, soFar)
                 if pad > 0:
                     soFar += pad
-                    data += '\xbe'*pad
+                    data += b'\xbe'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
                 soFar = soFar0 + len(data)
-            except Exception, e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
@@ -1357,12 +1370,12 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
             # We need to know the tag type and unpack it
             tagtype = self.commonHdr[0][1].structure[0][1].split('=')[0]
             tag = unpack(tagtype, data[:calcsize(tagtype)])[0]
-            if self.union.has_key(tag):
+            if tag in self.union:
                 self.structure = (self.union[tag]),
                 self.__init__(None, isNDR64=self._isNDR64, topLevel = self.topLevel)
             else:
                 # Let's see if we have a default value
-                if self.union.has_key('default'):
+                if 'default' in self.union:
                     if self.union['default'] is None:
                         self.structure = ()
                     else:
@@ -1384,7 +1397,7 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
 
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
@@ -1421,7 +1434,7 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
 
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
@@ -1443,12 +1456,12 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
             if isinstance(self.fields[fieldName], NDR):
                 tmpAlign = self.fields[fieldName].getAlignment()
             else:
-                tmpAlign = self.calcPackSize(fieldTypeOrClass, '')
+                tmpAlign = self.calcPackSize(fieldTypeOrClass, b'')
             if tmpAlign > align:
                 align = tmpAlign
 
         if self._isNDR64:
-            for fieldName, fieldTypeOrClass in self.union.itervalues():
+            for fieldName, fieldTypeOrClass in self.union.values():
                 tmpAlign = fieldTypeOrClass(isNDR64 = self._isNDR64).getAlignment()
                 if tmpAlign > align:
                     align = tmpAlign
@@ -1468,11 +1481,12 @@ class NDRPOINTERNULL(NDR):
     )
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
-            print "%s" % msg,
+            print("%s" % msg, end=' ')
         # Here we just print NULL
-        print " NULL",
+        print(" NULL", end=' ')
 
 NULL = NDRPOINTERNULL()
 
@@ -1507,16 +1521,16 @@ class NDRPOINTER(NDRSTRUCT):
            self.fromString(data)
 
     def __setitem__(self, key, value):
-        if self.fields.has_key(key) is False:
+        if (key in self.fields) is False:
             # Key not found.. let's send it to the referent to handle, maybe it's there
             return self.fields['Data'].__setitem__(key,value)
         else:
             return NDRSTRUCT.__setitem__(self,key,value)
 
     def __getitem__(self, key):
-        if self.fields.has_key(key):
+        if key in self.fields:
             if isinstance(self.fields[key], NDR):
-                if self.fields[key].fields.has_key('Data'):
+                if 'Data' in self.fields[key].fields:
                     return self.fields[key]['Data']
             return self.fields[key]
         else:
@@ -1525,20 +1539,20 @@ class NDRPOINTER(NDRSTRUCT):
 
     def getData(self, soFar = 0):
         # First of all we need to align ourselves
-        data = ''
+        data = b''
         pad = self.calculatePad(self.commonHdr[0][1], soFar)
         if pad > 0:
             soFar += pad
-            data = '\xaa'*pad
+            data = b'\xaa'*pad
         # If we have a ReferentID == 0, means there's no data
         if self.fields['ReferentID'] == 0:
             if len(self.referent) > 0:
-                self['Data'] = ''
+                self['Data'] = b''
             else:
                 if self._isNDR64 is True:
-                    return data+'\x00'*8
+                    return data+b'\x00'*8
                 else:
-                    return data+'\x00'*4
+                    return data+b'\x00'*4
 
         return data + NDRSTRUCT.getData(self, soFar)
 
@@ -1558,7 +1572,7 @@ class NDRPOINTER(NDRSTRUCT):
         if unpack(unpackStr, data[:calcsize(unpackStr)])[0] == 0:
             # Let's save the value
             self['ReferentID'] = 0
-            self.fields['Data'] = ''
+            self.fields['Data'] = b''
             if self._isNDR64 is True:
                 return pad + 8
             else:
@@ -1568,17 +1582,18 @@ class NDRPOINTER(NDRSTRUCT):
             return retVal + pad
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
-            print "%s" % msg,
+            print("%s" % msg, end=' ')
         # Here we just print the referent
         if isinstance(self.fields['Data'], NDR):
             self.fields['Data'].dump('', indent = indent)
         else:
             if self['ReferentID'] == 0:
-                print " NULL",
+                print(" NULL", end=' ')
             else:
-                print " %r" % (self['Data']),
+                print(" %r" % (self['Data']), end=' ')
 
     def getAlignment(self):
         if self._isNDR64 is True:
@@ -1649,17 +1664,17 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
 
     def dump(self, msg = None, indent = 0):
         NDRCONSTRUCTEDTYPE.dump(self, msg, indent)
-        print '\n\n'
+        print('\n\n')
 
     def getData(self, soFar = 0):
-        data = ''
+        data = b''
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
                 pad = self.calculatePad(fieldTypeOrClass, soFar)
                 if pad > 0:
                     soFar += pad
-                    data += '\xab'*pad
+                    data += b'\xab'*pad
 
                 # Are we dealing with an array?
                 if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName],
@@ -1675,10 +1690,10 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
                     arraySize = self.getArrayMaximumSize(fieldName)
                     if self._isNDR64:
                         pad = (8 - (soFar % 8)) % 8
-                        data += '\xce'*pad + pack('<Q', arraySize) + res
+                        data += b'\xce'*pad + pack('<Q', arraySize) + res
                     else:
                         pad = (4 - (soFar % 4)) % 4
-                        data += '\xce'*pad + pack('<L', arraySize) + res
+                        data += b'\xce'*pad + pack('<L', arraySize) + res
                 else:
                     data += self.pack(fieldName, fieldTypeOrClass, soFar)
 
@@ -1692,7 +1707,7 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
                     soFar = soFar0 + len(data)
                     data += self.fields[fieldName].getDataReferent(soFar)
                     soFar = soFar0 + len(data)
-            except Exception, e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
@@ -1720,7 +1735,7 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
                     size += self.fields[fieldName].fromStringReferent(data[size:], soFar + size)
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
@@ -1735,133 +1750,3 @@ class UNKNOWNDATA(NDR):
     structure = (
         ('Data', ':'),
     )
-
-################################################################################
-# Tests
-
-class NDRTest:
-    def create(self,data = None, isNDR64 = False):
-        if data is not None:
-            return self.theClass(data, isNDR64 = isNDR64)
-        else:
-            return self.theClass(isNDR64 = isNDR64)
-
-    def test(self, isNDR64 = False):
-        print
-        print "-"*70
-        testName = self.__class__.__name__
-        print "starting test: %s (NDR64 = %s)....." % (testName, isNDR64)
-        a = self.create(isNDR64 = isNDR64)
-        self.populate(a)
-        a.dump("packing.....")
-        a_str = str(a)
-        print "packed:" 
-        hexdump(a_str)
-        print "unpacking....."
-        b = self.create(a_str, isNDR64 = isNDR64)
-        b.dump("unpacked.....")
-        print "\nrepacking....."
-        b_str = str(b)
-        if b_str != a_str:
-            print "ERROR: original packed and repacked don't match"
-            print "packed: " 
-            hexdump(b_str)
-            raise
-
-    def run(self):
-        self.test(False)
-        # Now the same tests but with NDR64
-        self.test(True)
-
-class TestUniFixedArray(NDRTest):
-    class theClass(NDRSTRUCT):
-        structure = (
-            ('Array', NDRUniFixedArray),
-        )
-    def populate(self, a):
-        a['Array'] = '12345678'
-
-class TestStructWithPad(NDRTest):
-    class theClass(NDRSTRUCT):
-        structure = (
-            ('long', NDRLONG),
-            ('short', NDRSHORT),
-        )
-    def populate(self, a):
-        a['long'] = 0xaa
-        a['short'] = 0xbb
-
-#class TestUniConformantArray(NDRTest):
-#    class theClass(NDRCall):
-#        structure = (
-#            ('Array', PNDRUniConformantArray),
-#            ('Array2', PNDRUniConformantArray),
-#        )
-#        def __init__(self, data = None,isNDR64 = False):
-#            NDRCall.__init__(self, None, isNDR64)
-#            self.fields['Array'].fields['Data'].item = RPC_UNICODE_STRING
-#            self.fields['Array2'].fields['Data'].item = RPC_UNICODE_STRING
-#            if data is not None:
-#                self.fromString(data)
-#        
-#    def populate(self, a):
-#        array = []
-#        strstr = RPC_UNICODE_STRING()
-#        strstr['Data'] = 'ThisIsMe'
-#        array.append(strstr)
-#        strstr = RPC_UNICODE_STRING()
-#        strstr['Data'] = 'ThisIsYou'
-#        array.append(strstr)
-#        a['Array'] = array
-#        a['Array2'] = array
-
-class TestUniVaryingArray(NDRTest):
-    class theClass(NDRSTRUCT):
-        structure = (
-            ('Array', NDRUniVaryingArray),
-        )
-    def populate(self, a):
-        a['Array'] = '12345678'
-
-class TestUniConformantVaryingArray(NDRTest):
-    class theClass(NDRSTRUCT):
-        structure = (
-            ('Array', NDRUniConformantVaryingArray),
-        )
-    def populate(self, a):
-        a['Array'] = '12345678'
-
-class TestVaryingString(NDRTest):
-    class theClass(NDRSTRUCT):
-        structure = (
-            ('Array', NDRVaryingString),
-        )
-    def populate(self, a):
-        a['Array'] = '12345678'
-
-class TestConformantVaryingString(NDRTest):
-    class theClass(NDRSTRUCT):
-        structure = (
-            ('Array', NDRConformantVaryingString),
-        )
-        
-    def populate(self, a):
-        a['Array'] = '12345678'
-
-class TestPointerNULL(NDRTest):
-    class theClass(NDRSTRUCT):
-        structure = (
-            ('Array', NDRPOINTERNULL),
-        )
-    def populate(self, a):
-        pass
-
-if __name__ == '__main__':
-    TestUniFixedArray().run()
-    #TestUniConformantArray().run()
-    TestUniVaryingArray().run()
-    TestUniConformantVaryingArray().run()
-    TestVaryingString().run()
-    TestConformantVaryingString().run()
-    TestPointerNULL().run()
-    TestStructWithPad().run()

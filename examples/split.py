@@ -17,9 +17,9 @@
 # Reference for:
 #  pcapy: open_offline, pcapdumper.
 #  ImpactDecoder.
-
+from __future__ import division
+from __future__ import print_function
 import sys
-from exceptions import Exception
 import pcapy
 from pcapy import open_offline
 
@@ -103,18 +103,18 @@ class Decoder:
 
         # If there isn't an entry associated yetwith this connection,
         # open a new pcapdumper and create an association.
-        if not self.connections.has_key(con):
+        if ('%s%s' % (con.p1, con.p2)) not in self.connections:
             fn = con.getFilename()
-            print "Found a new connection, storing into:", fn
+            print("Found a new connection, storing into:", fn)
             try:
                 dumper = self.pcap.dump_open(fn)
-            except pcapy.PcapError, e:
-                print "Can't write packet to:", fn
+            except pcapy.PcapError:
+                print("Can't write packet to:", fn)
                 return
-            self.connections[con] = dumper
+            self.connections['%s%s' % (con.p1, con.p2)] = dumper
 
         # Write the packet to the corresponding file.
-        self.connections[con].dump(hdr, data)
+        self.connections['%s%s' % (con.p1, con.p2)].dump(hdr, data)
 
 
 
@@ -125,7 +125,7 @@ def main(filename):
     # At the moment the callback only accepts TCP/IP packets.
     p.setfilter(r'ip proto \tcp')
 
-    print "Reading from %s: linktype=%d" % (filename, p.datalink())
+    print("Reading from %s: linktype=%d" % (filename, p.datalink()))
 
     # Start decoding process.
     Decoder(p).start()
@@ -134,7 +134,7 @@ def main(filename):
 # Process command-line arguments.
 if __name__ == '__main__':
     if len(sys.argv) <= 1:
-        print "Usage: %s <filename>" % sys.argv[0]
+        print("Usage: %s <filename>" % sys.argv[0])
         sys.exit(1)
 
     main(sys.argv[1])

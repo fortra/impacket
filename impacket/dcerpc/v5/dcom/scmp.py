@@ -19,6 +19,8 @@
 #   classes described in the standards developed. 
 #   There are test cases for them too. 
 #
+from __future__ import division
+from __future__ import print_function
 from impacket.dcerpc.v5.ndr import NDRENUM, NDRSTRUCT, NDRUNION
 from impacket.dcerpc.v5.dcomrt import PMInterfacePointer, INTERFACE, DCOMCALL, DCOMANSWER, IRemUnknown2
 from impacket.dcerpc.v5.dtypes import LONG, LONGLONG, ULONG, WSTR
@@ -32,7 +34,7 @@ class DCERPCSessionError(DCERPCException):
         DCERPCException.__init__(self, error_string, error_code, packet)
 
     def __str__( self ):
-        if hresult_errors.ERROR_MESSAGES.has_key(self.error_code):
+        if self.error_code in hresult_errors.ERROR_MESSAGES:
             error_msg_short = hresult_errors.ERROR_MESSAGES[self.error_code][0]
             error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1] 
             return 'SCMP SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -53,7 +55,7 @@ IID_ShadowCopyProvider = string_to_bin('B5946137-7B9F-4925-AF80-51ABD60B20D5')
 # 2.2.1.1 VSS_ID
 class VSS_ID(NDRSTRUCT):
     structure = (
-        ('Data','16s=""'),
+        ('Data','16s=b""'),
     )
 
     def getAlignment(self):
@@ -301,8 +303,8 @@ class IVssSnapshotMgmt(IRemUnknown2):
         req['ProviderId'] = providerId
         try:
             resp = self.request(req, self._iid, uuid = self.get_iPid())
-        except DCERPCException, e:
-            print e
+        except DCERPCException as e:
+            print(e)
             from impacket.winregistry import hexdump
             data = e.get_packet()
             hexdump(data)
@@ -333,7 +335,3 @@ class IVssDifferentialSoftwareSnapshotMgmt(IRemUnknown2):
         req['pwszVolumeName'] = pwszVolumeName
         resp = self.request(req, self._iid, uuid = self.get_iPid())
         return IVssEnumMgmtObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
-
-
-
-

@@ -16,6 +16,8 @@
 #
 #
 
+from __future__ import print_function
+
 import argparse
 import logging
 import re
@@ -24,14 +26,6 @@ import sys
 from impacket import version
 from impacket.examples import logger
 from impacket.mqtt import CONNECT_ACK_ERROR_MSGS, MQTTConnection
-
-try:
-    import OpenSSL
-    from OpenSSL import SSL, crypto
-except:
-    logging.critical("pyOpenSSL is not installed, can't continue")
-    raise
-
 
 class MQTT_LOGIN:
     def __init__(self, username, password, target, options):
@@ -58,7 +52,7 @@ class MQTT_LOGIN:
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
     parser = argparse.ArgumentParser(add_help=False,
                                      description="MQTT login check")
     parser.add_argument("--help", action="help", help='show this help message and exit')
@@ -69,10 +63,10 @@ if __name__ == '__main__':
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     try:
-       options = parser.parse_args()
-    except Exception, e:
-       logging.error(str(e))
-       sys.exit(1)
+        options = parser.parse_args()
+    except Exception as e:
+        logging.error(str(e))
+        sys.exit(1)
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -90,10 +84,8 @@ if __name__ == '__main__':
     check_mqtt = MQTT_LOGIN(username, password, address, options)
     try:
         check_mqtt.run()
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
         logging.error(e)
-
-

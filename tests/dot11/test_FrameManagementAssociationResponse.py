@@ -1,12 +1,11 @@
 #!/usr/bin/env python
-
 # sorry, this is very ugly, but I'm in python 2.5
 import sys
 sys.path.insert(0,"../..")
 
-from impacket.dot11 import Dot11, Dot11Types, Dot11ManagementFrame, Dot11ManagementAssociationResponse
+from impacket.dot11 import Dot11Types
 from impacket.ImpactDecoder import RadioTapDecoder
-from binascii import hexlify
+from six import PY2
 import unittest
 
 class TestDot11ManagementAssociationResponseFrames(unittest.TestCase):
@@ -14,14 +13,20 @@ class TestDot11ManagementAssociationResponseFrames(unittest.TestCase):
     def setUp(self):
         # 802.11 Management Frame 
         #
-        self.rawframe="\x00\x00\x1c\x00\xef\x18\x00\x00\xc2L\xfa\x00<\x00\x00\x00\x10\x02\x85\t\xa0\x00\xb4\x9e_\x00\x00\x16\x10\x00:\x01p\x1a\x04T\xe3\x86\x00\x18\xf8lvB\x00\x18\xf8lvB\xf0\x02\x11\x04\x00\x00\x04\xc0\x01\x08\x82\x84\x8b\x96$0Hl2\x04\x0c\x12\x18`\xdd\t\x00\x10\x18\x02\x02\xf0\x00\x00\x00f%\xdf7"
+        self.rawframe=b"\x00\x00\x1c\x00\xef\x18\x00\x00\xc2L\xfa\x00<\x00\x00\x00\x10\x02\x85\t\xa0\x00\xb4\x9e_\x00\x00\x16\x10\x00:\x01p\x1a\x04T\xe3\x86\x00\x18\xf8lvB\x00\x18\xf8lvB\xf0\x02\x11\x04\x00\x00\x04\xc0\x01\x08\x82\x84\x8b\x96$0Hl2\x04\x0c\x12\x18`\xdd\t\x00\x10\x18\x02\x02\xf0\x00\x00\x00f%\xdf7"
         self.radiotap_decoder = RadioTapDecoder()
         radiotap=self.radiotap_decoder.decode(self.rawframe)
 
-        self.assertEqual(str(radiotap.__class__), "impacket.dot11.RadioTap")
+        if PY2:
+            self.assertEqual(str(radiotap.__class__), "impacket.dot11.RadioTap")
+        else:
+            self.assertEqual(str(radiotap.__class__), "<class 'impacket.dot11.RadioTap'>")
 
         self.dot11=radiotap.child()
-        self.assertEqual(str(self.dot11.__class__), "impacket.dot11.Dot11")
+        if PY2:
+            self.assertEqual(str(self.dot11.__class__), "impacket.dot11.Dot11")
+        else:
+            self.assertEqual(str(self.dot11.__class__), "<class 'impacket.dot11.Dot11'>")
 
         type = self.dot11.get_type()
         self.assertEqual(type,Dot11Types.DOT11_TYPE_MANAGEMENT)
@@ -33,10 +38,16 @@ class TestDot11ManagementAssociationResponseFrames(unittest.TestCase):
         self.assertEqual(typesubtype,Dot11Types.DOT11_TYPE_MANAGEMENT_SUBTYPE_ASSOCIATION_RESPONSE)
         
         self.management_base=self.dot11.child()
-        self.assertEqual(str(self.management_base.__class__), "impacket.dot11.Dot11ManagementFrame")
+        if PY2:
+            self.assertEqual(str(self.management_base.__class__), "impacket.dot11.Dot11ManagementFrame")
+        else:
+            self.assertEqual(str(self.management_base.__class__), "<class 'impacket.dot11.Dot11ManagementFrame'>")
         
         self.management_association_response=self.management_base.child()
-        self.assertEqual(str(self.management_association_response.__class__), "impacket.dot11.Dot11ManagementAssociationResponse")
+        if PY2:
+            self.assertEqual(str(self.management_association_response.__class__), "impacket.dot11.Dot11ManagementAssociationResponse")
+        else:
+            self.assertEqual(str(self.management_association_response.__class__), "<class 'impacket.dot11.Dot11ManagementAssociationResponse'>")
             
         
     def test_01(self):
@@ -106,7 +117,7 @@ class TestDot11ManagementAssociationResponseFrames(unittest.TestCase):
         
     def test_09(self):
         'Test Management Frame Data field'
-        frame_body="\x11\x04\x00\x00\x04\xc0\x01\x08\x82\x84\x8b\x96$0Hl2\x04\x0c\x12\x18`\xdd\t\x00\x10\x18\x02\x02\xf0\x00\x00\x00"
+        frame_body=b"\x11\x04\x00\x00\x04\xc0\x01\x08\x82\x84\x8b\x96$0Hl2\x04\x0c\x12\x18`\xdd\t\x00\x10\x18\x02\x02\xf0\x00\x00\x00"
         self.assertEqual(self.management_base.get_frame_body(), frame_body)
 
     def test_10(self):
@@ -140,13 +151,13 @@ class TestDot11ManagementAssociationResponseFrames(unittest.TestCase):
 
     def test_14(self):
         'Test Management Vendor Specific getter/setter methods'
-        self.assertEqual(self.management_association_response.get_vendor_specific(), [("\x00\x10\x18","\x02\x02\xf0\x00\x00\x00")])
+        self.assertEqual(self.management_association_response.get_vendor_specific(), [(b"\x00\x10\x18",b"\x02\x02\xf0\x00\x00\x00")])
 
-        self.management_association_response.add_vendor_specific("\x00\x00\x40", "\x04\x04\x04\x04\x04\x04")
+        self.management_association_response.add_vendor_specific(b"\x00\x00\x40", b"\x04\x04\x04\x04\x04\x04")
 
         self.assertEqual(self.management_association_response.get_vendor_specific(), 
-            [("\x00\x10\x18", "\x02\x02\xf0\x00\x00\x00"),
-             ("\x00\x00\x40", "\x04\x04\x04\x04\x04\x04"),
+            [(b"\x00\x10\x18", b"\x02\x02\xf0\x00\x00\x00"),
+             (b"\x00\x00\x40", b"\x04\x04\x04\x04\x04\x04"),
             ])
         self.assertEqual(self.management_association_response.get_header_size(), 33+11)
         

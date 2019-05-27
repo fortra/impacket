@@ -14,7 +14,6 @@
 #
 from struct import unpack, pack
 from impacket.structure import Structure
-from impacket.uuid import string_to_bin
 
 # Global constant if the library should recalculate ACE sizes in objects that are decoded/re-encoded.
 # This defaults to True, but this causes the ACLs to not match on a binary level
@@ -39,7 +38,7 @@ class LDAP_SID(Structure):
     )
 
     def formatCanonical(self):
-        ans = 'S-%d-%d' % (self['Revision'], ord(self['IdentifierAuthority']['Value'][5]))
+        ans = 'S-%d-%d' % (self['Revision'], ord(self['IdentifierAuthority']['Value'][5:6]))
         for i in range(self['SubAuthorityCount']):
             ans += '-%d' % ( unpack('<L',self['SubAuthority'][i*4:i*4+4])[0])
         return ans
@@ -48,9 +47,9 @@ class LDAP_SID(Structure):
         items = canonical.split('-')
         self['Revision'] = int(items[1])
         self['IdentifierAuthority'] = LDAP_SID_IDENTIFIER_AUTHORITY()
-        self['IdentifierAuthority']['Value'] = '\x00\x00\x00\x00\x00' + pack('B',int(items[2]))
+        self['IdentifierAuthority']['Value'] = b'\x00\x00\x00\x00\x00' + pack('B',int(items[2]))
         self['SubAuthorityCount'] = len(items) - 3
-        self['SubAuthority'] = ''
+        self['SubAuthority'] = b''
         for i in range(self['SubAuthorityCount']):
             self['SubAuthority'] += pack('<L', int(items[i+3]))
 
@@ -81,22 +80,22 @@ class SR_SECURITY_DESCRIPTOR(Structure):
         if self['OffsetOwner'] != 0:
             self['OwnerSid'] = LDAP_SID(data=data[self['OffsetOwner']:])
         else:
-            self['OwnerSid'] = ''
+            self['OwnerSid'] = b''
 
         if self['OffsetGroup'] != 0:
             self['GroupSid'] = LDAP_SID(data=data[self['OffsetGroup']:])
         else:
-            self['GroupSid'] = ''
+            self['GroupSid'] = b''
 
         if self['OffsetSacl'] != 0:
             self['Sacl'] = ACL(data=data[self['OffsetSacl']:])
         else:
-            self['Sacl'] = ''
+            self['Sacl'] = b''
 
         if self['OffsetDacl'] != 0:
             self['Dacl'] = ACL(data=data[self['OffsetDacl']:])
         else:
-            self['Sacl'] = ''
+            self['Sacl'] = b''
 
     def getData(self):
         headerlen = 20
@@ -104,25 +103,25 @@ class SR_SECURITY_DESCRIPTOR(Structure):
         # flags are currently not set automatically
         # TODO: do this?
         datalen = 0
-        if self['Sacl'] != '':
+        if self['Sacl'] != b'':
             self['OffsetSacl'] = headerlen + datalen
             datalen += len(self['Sacl'].getData())
         else:
             self['OffsetSacl'] = 0
 
-        if self['Dacl'] != '':
+        if self['Dacl'] != b'':
             self['OffsetDacl'] = headerlen + datalen
             datalen += len(self['Dacl'].getData())
         else:
             self['OffsetDacl'] = 0
 
-        if self['OwnerSid'] != '':
+        if self['OwnerSid'] != b'':
             self['OffsetOwner'] = headerlen + datalen
             datalen += len(self['OwnerSid'].getData())
         else:
             self['OffsetOwner'] = 0
 
-        if self['GroupSid'] != '':
+        if self['GroupSid'] != b'':
             self['OffsetGroup'] = headerlen + datalen
             datalen += len(self['GroupSid'].getData())
         else:
@@ -189,17 +188,17 @@ https://msdn.microsoft.com/en-us/library/cc230294.aspx
 """
 class ACCESS_MASK(Structure):
     # Flag constants
-    GENERIC_READ            = 0x80000000L
-    GENERIC_WRITE           = 0x04000000L
-    GENERIC_EXECUTE         = 0x20000000L
-    GENERIC_ALL             = 0x10000000L
-    MAXIMUM_ALLOWED         = 0x02000000L
-    ACCESS_SYSTEM_SECURITY  = 0x01000000L
-    SYNCHRONIZE             = 0x00100000L
-    WRITE_OWNER             = 0x00080000L
-    WRITE_DACL              = 0x00040000L
-    READ_CONTROL            = 0x00020000L
-    DELETE                  = 0x00010000L
+    GENERIC_READ            = 0x80000000
+    GENERIC_WRITE           = 0x04000000
+    GENERIC_EXECUTE         = 0x20000000
+    GENERIC_ALL             = 0x10000000
+    MAXIMUM_ALLOWED         = 0x02000000
+    ACCESS_SYSTEM_SECURITY  = 0x01000000
+    SYNCHRONIZE             = 0x00100000
+    WRITE_OWNER             = 0x00080000
+    WRITE_DACL              = 0x00040000
+    READ_CONTROL            = 0x00020000
+    DELETE                  = 0x00010000
 
     structure = (
         ('Mask', '<L'),
@@ -273,9 +272,9 @@ class ACCESS_ALLOWED_OBJECT_ACE(Structure):
 
     def getData(self):
         # Set the correct flags
-        if self['ObjectType'] != '':
+        if self['ObjectType'] != b'':
             self['Flags'] |= self.ACE_OBJECT_TYPE_PRESENT
-        if self['InheritedObjectType'] != '':
+        if self['InheritedObjectType'] != b'':
             self['Flags'] |= self.ACE_INHERITED_OBJECT_TYPE_PRESENT
         return Structure.getData(self)
 
@@ -460,7 +459,7 @@ class ACL(Structure):
         for i in range(self['AceCount']):
             # If we don't have any data left, return
             if len(self['Data']) == 0:
-                raise Exception, "ACL header indicated there are more ACLs to unpack, but there is no more data"
+                raise Exception("ACL header indicated there are more ACLs to unpack, but there is no more data")
             ace = ACE(data=self['Data'])
             self.aces.append(ace)
             self['Data'] = self['Data'][ace['AceSize']:]
@@ -470,7 +469,7 @@ class ACL(Structure):
         self['AceCount'] = len(self.aces)
         # We modify the data field to be able to use the
         # parent class parsing
-        self['Data'] = ''.join([ace.getData() for ace in self.aces])
+        self['Data'] = b''.join([ace.getData() for ace in self.aces])
         self['AclSize'] = len(self['Data'])+8 # Header size (8 bytes) is included
         data = Structure.getData(self)
         # Put the ACEs back in data
@@ -484,9 +483,9 @@ Reference:
 Can also be queried from the Schema
 """
 OBJECTTYPE_GUID_MAP = {
-    'group': 'bf967a9c-0de6-11d0-a285-00aa003049e2',
-    'domain': '19195a5a-6da0-11d0-afd3-00c04fd930c9',
-    'organizationalUnit': 'bf967aa5-0de6-11d0-a285-00aa003049e2',
-    'user': 'bf967aba-0de6-11d0-a285-00aa003049e2',
-    'groupPolicyContainer': 'f30e3bc2-9ff0-11d1-b603-0000f80367c1'
+    b'group': 'bf967a9c-0de6-11d0-a285-00aa003049e2',
+    b'domain': '19195a5a-6da0-11d0-afd3-00c04fd930c9',
+    b'organizationalUnit': 'bf967aa5-0de6-11d0-a285-00aa003049e2',
+    b'user': 'bf967aba-0de6-11d0-a285-00aa003049e2',
+    b'groupPolicyContainer': 'f30e3bc2-9ff0-11d1-b603-0000f80367c1'
 }

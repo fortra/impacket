@@ -19,7 +19,6 @@
 #
 # Made available under the Apache license by the pyopenssl team
 #   See https://github.com/pyca/pyopenssl/blob/master/LICENSE
-import os
 from OpenSSL import crypto, SSL
 from impacket import LOG
 

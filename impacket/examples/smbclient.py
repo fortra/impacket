@@ -13,16 +13,21 @@
 # Reference for:
 #  SMB DCE/RPC
 #
-
+from __future__ import division
+from __future__ import print_function
 import sys
 import time
 import cmd
 import os
+import ntpath
 
-from impacket import LOG
+from six import PY2
 from impacket.dcerpc.v5 import samr, transport, srvs
 from impacket.dcerpc.v5.dtypes import NULL
-from impacket.smbconnection import *
+from impacket import LOG
+from impacket.smbconnection import SMBConnection, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB_DIALECT, SessionError, \
+    FILE_READ_DATA, FILE_SHARE_READ, FILE_SHARE_WRITE
+from impacket.smb3structs import FILE_DIRECTORY_FILE, FILE_LIST_DIRECTORY
 
 
 # If you wanna have readline like functionality in Windows, install pyreadline
@@ -63,16 +68,17 @@ class MiniImpacketShell(cmd.Cmd):
 
     def precmd(self,line):
         # switch to unicode
-        return line.decode('utf-8')
+        if PY2:
+            return line.decode('utf-8')
+        return line
 
     def onecmd(self,s):
         retVal = False
         try:
            retVal = cmd.Cmd.onecmd(self,s)
-        except Exception, e:
-           #import traceback
-           #traceback.print_exc()
+        except Exception as e:
            LOG.error(e)
+           LOG.debug('Exception info', exc_info=True)
 
         return retVal
 
@@ -83,11 +89,11 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_shell(self, line):
         output = os.popen(line).read()
-        print output
+        print(output)
         self.last_output = output
 
     def do_help(self,line):
-        print """
+        print("""
  open {host,port=445} - opens a SMB connection against the target host/port
  login {domain/username,passwd} - logs into the current SMB connection, no parameters for NULL connection. If no password specified, it'll be prompted
  kerberos_login {domain/username,passwd} - logs into the current SMB connection using Kerberos. If no password specified, it'll be prompted. Use the DNS resolvable domain name
@@ -112,7 +118,7 @@ class MiniImpacketShell(cmd.Cmd):
  close - closes the current SMB Session
  exit - terminates the server process (and this session)
 
-"""
+""")
 
     def do_password(self, line):
         if self.loggedIn is False:
@@ -282,12 +288,12 @@ class MiniImpacketShell(cmd.Cmd):
         dce.bind(srvs.MSRPC_UUID_SRVS)
         resp = srvs.hNetrServerGetInfo(dce, 102)
 
-        print "Version Major: %d" % resp['InfoStruct']['ServerInfo102']['sv102_version_major']
-        print "Version Minor: %d" % resp['InfoStruct']['ServerInfo102']['sv102_version_minor']
-        print "Server Name: %s" % resp['InfoStruct']['ServerInfo102']['sv102_name']
-        print "Server Comment: %s" % resp['InfoStruct']['ServerInfo102']['sv102_comment']
-        print "Server UserPath: %s" % resp['InfoStruct']['ServerInfo102']['sv102_userpath']
-        print "Simultaneous Users: %d" % resp['InfoStruct']['ServerInfo102']['sv102_users']
+        print("Version Major: %d" % resp['InfoStruct']['ServerInfo102']['sv102_version_major'])
+        print("Version Minor: %d" % resp['InfoStruct']['ServerInfo102']['sv102_version_minor'])
+        print("Server Name: %s" % resp['InfoStruct']['ServerInfo102']['sv102_name'])
+        print("Server Comment: %s" % resp['InfoStruct']['ServerInfo102']['sv102_comment'])
+        print("Server UserPath: %s" % resp['InfoStruct']['ServerInfo102']['sv102_userpath'])
+        print("Simultaneous Users: %d" % resp['InfoStruct']['ServerInfo102']['sv102_users'])
 
     def do_who(self, line):
         if self.loggedIn is False:
@@ -300,9 +306,9 @@ class MiniImpacketShell(cmd.Cmd):
         resp = srvs.hNetrSessionEnum(dce, NULL, NULL, 10)
 
         for session in resp['InfoStruct']['SessionInfo']['Level10']['Buffer']:
-            print "host: %15s, user: %5s, active: %5d, idle: %5d" % (
+            print("host: %15s, user: %5s, active: %5d, idle: %5d" % (
             session['sesi10_cname'][:-1], session['sesi10_username'][:-1], session['sesi10_time'],
-            session['sesi10_idle_time'])
+            session['sesi10_idle_time']))
 
     def do_shares(self, line):
         if self.loggedIn is False:
@@ -310,7 +316,7 @@ class MiniImpacketShell(cmd.Cmd):
             return
         resp = self.smb.listShares()
         for i in range(len(resp)):
-            print resp[i]['shi1_netname'][:-1]
+            print(resp[i]['shi1_netname'][:-1])
 
     def do_use(self,line):
         if self.loggedIn is False:
@@ -328,7 +334,7 @@ class MiniImpacketShell(cmd.Cmd):
         if self.tid is None:
             LOG.error("No share selected")
             return
-        p = string.replace(line,'/','\\')
+        p = line.replace('/','\\')
         oldpwd = self.pwd
         if p[0] == '\\':
            self.pwd = line
@@ -337,19 +343,17 @@ class MiniImpacketShell(cmd.Cmd):
         self.pwd = ntpath.normpath(self.pwd)
         # Let's try to open the directory to see if it's valid
         try:
-            fid = self.smb.openFile(self.tid, self.pwd, creationOption = FILE_DIRECTORY_FILE \
-                                    , desiredAccess = FILE_READ_DATA | FILE_LIST_DIRECTORY \
-                                    , shareMode = FILE_SHARE_READ | FILE_SHARE_WRITE \
-                                    )
+            fid = self.smb.openFile(self.tid, self.pwd, creationOption = FILE_DIRECTORY_FILE, desiredAccess = FILE_READ_DATA |
+                                   FILE_LIST_DIRECTORY, shareMode = FILE_SHARE_READ | FILE_SHARE_WRITE )
             self.smb.closeFile(self.tid,fid)
         except SessionError:
             self.pwd = oldpwd
             raise
 
     def do_lcd(self, s):
-        print s
+        print(s)
         if s == '':
-           print os.getcwd()
+           print(os.getcwd())
         else:
            os.chdir(s)
 
@@ -357,7 +361,7 @@ class MiniImpacketShell(cmd.Cmd):
         if self.loggedIn is False:
             LOG.error("Not logged in")
             return
-        print self.pwd
+        print(self.pwd)
 
     def do_ls(self, wildcard, display = True):
         if self.loggedIn is False:
@@ -371,13 +375,13 @@ class MiniImpacketShell(cmd.Cmd):
         else:
            pwd = ntpath.join(self.pwd, wildcard)
         self.completion = []
-        pwd = string.replace(pwd,'/','\\')
+        pwd = pwd.replace('/','\\')
         pwd = ntpath.normpath(pwd)
         for f in self.smb.listPath(self.share, pwd):
             if display is True:
-                print "%crw-rw-rw- %10d  %s %s" % (
+                print("%crw-rw-rw- %10d  %s %s" % (
                 'd' if f.is_directory() > 0 else '-', f.get_filesize(), time.ctime(float(f.get_mtime_epoch())),
-                f.get_longname())
+                f.get_longname()))
             self.completion.append((f.get_longname(), f.is_directory()))
 
 
@@ -386,7 +390,7 @@ class MiniImpacketShell(cmd.Cmd):
             LOG.error("No share selected")
             return
         f = ntpath.join(self.pwd, filename)
-        file = string.replace(f,'/','\\')
+        file = f.replace('/','\\')
         self.smb.deleteFile(self.share, file)
 
     def do_mkdir(self, path):
@@ -394,7 +398,7 @@ class MiniImpacketShell(cmd.Cmd):
             LOG.error("No share selected")
             return
         p = ntpath.join(self.pwd, path)
-        pathname = string.replace(p,'/','\\')
+        pathname = p.replace('/','\\')
         self.smb.createDirectory(self.share,pathname)
 
     def do_rmdir(self, path):
@@ -402,7 +406,7 @@ class MiniImpacketShell(cmd.Cmd):
             LOG.error("No share selected")
             return
         p = ntpath.join(self.pwd, path)
-        pathname = string.replace(p,'/','\\')
+        pathname = p.replace('/','\\')
         self.smb.deleteDirectory(self.share, pathname)
 
     def do_put(self, pathname):
@@ -414,7 +418,7 @@ class MiniImpacketShell(cmd.Cmd):
 
         fh = open(pathname, 'rb')
         f = ntpath.join(self.pwd,dst_name)
-        finalpath = string.replace(f,'/','\\')
+        finalpath = f.replace('/','\\')
         self.smb.putFile(self.share, finalpath, fh.read)
         fh.close()
 
@@ -422,7 +426,7 @@ class MiniImpacketShell(cmd.Cmd):
         # include means
         # 1 just files
         # 2 just directories
-        p = string.replace(line,'/','\\')
+        p = line.replace('/','\\')
         if p.find('\\') < 0:
             items = []
             if include == 1:
@@ -444,7 +448,7 @@ class MiniImpacketShell(cmd.Cmd):
         if self.tid is None:
             LOG.error("No share selected")
             return
-        filename = string.replace(filename,'/','\\')
+        filename = filename.replace('/','\\')
         fh = open(ntpath.basename(filename),'wb')
         pathname = ntpath.join(self.pwd,filename)
         try:
@@ -461,8 +465,8 @@ class MiniImpacketShell(cmd.Cmd):
     def do_mount(self, line):
         l = line.split(' ')
         if len(l) > 1:
-            target  = string.replace(l[0],'/','\\')
-            pathName= string.replace(l[1],'/','\\')
+            target  = l[0].replace('/','\\')
+            pathName= l[1].replace('/','\\')
 
         # Relative or absolute path?
         if pathName.startswith('\\') is not True:
@@ -471,7 +475,7 @@ class MiniImpacketShell(cmd.Cmd):
         self.smb.createMountPoint(self.tid, pathName, target)
 
     def do_umount(self, mountpoint):
-        mountpoint = string.replace(mountpoint,'/','\\')
+        mountpoint = mountpoint.replace('/','\\')
 
         # Relative or absolute path?
         if mountpoint.startswith('\\') is not True:

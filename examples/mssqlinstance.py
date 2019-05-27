@@ -14,10 +14,10 @@
 #  Structure
 #
 
-
+from __future__ import division
+from __future__ import print_function
 import argparse
 import sys
-import string
 import logging
 
 from impacket.examples import logger
@@ -25,7 +25,7 @@ from impacket import version, tds
 
 if __name__ == '__main__':
 
-    print version.BANNER
+    print(version.BANNER)
     # Init the example's logger theme
     logger.init()
 
@@ -41,12 +41,11 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     ms_sql = tds.MSSQL(options.host)
-    instances = ms_sql.getInstances(string.atoi(options.timeout))
+    instances = ms_sql.getInstances(int(options.timeout))
     if len(instances) == 0:
         "No MSSQL Instances found"
     else:
         for i, instance in enumerate(instances):
             logging.info("Instance %d" % i)
-            for key in instance.keys():
-               print key + ":" + instance[key]
- 
+            for key in list(instance.keys()):
+               print(key + ":" + instance[key])

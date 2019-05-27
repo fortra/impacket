@@ -7,20 +7,26 @@
 #
 ################################################################################
 
+from __future__ import division
+from __future__ import print_function
+
 import unittest
-import ConfigParser
+
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 
 from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import epm, bkrp
+from impacket.dcerpc.v5 import bkrp
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
-from impacket.dcerpc.v5.dtypes import NULL, MAXIMUM_ALLOWED
-from impacket.winregistry import hexdump
+from impacket.dcerpc.v5.dtypes import NULL
 
 try:
     from cryptography import x509
     from cryptography.hazmat.backends import default_backend
 except ImportError:
-    print "In order to run these test cases you need the cryptography package"
+    print("In order to run these test cases you need the cryptography package")
 
 
 class BKRPTests(unittest.TestCase):
@@ -43,9 +49,9 @@ class BKRPTests(unittest.TestCase):
 
     def test_BackuprKey_BACKUPKEY_BACKUP_GUID_BACKUPKEY_RESTORE_GUID(self):
         dce, rpctransport = self.connect()
-        DataIn = "Huh? wait wait, let me, let me explain something to you. Uh, I am not Mr. Lebowski; " \
-                 "you're Mr. Lebowski. I'm the Dude. So that's what you call me. You know, uh, That, or uh, " \
-                 "his Dudeness, or uh Duder, or uh El Duderino, if, you know, you're not into the whole brevity thing--uh."
+        DataIn = b"Huh? wait wait, let me, let me explain something to you. Uh, I am not Mr. Lebowski; " \
+                 b"you're Mr. Lebowski. I'm the Dude. So that's what you call me. You know, uh, That, or uh, " \
+                 b"his Dudeness, or uh Duder, or uh El Duderino, if, you know, you're not into the whole brevity thing--uh."
         request = bkrp.BackuprKey()
         request['pguidActionAgent'] = bkrp.BACKUPKEY_BACKUP_GUID
         request['pDataIn'] = DataIn
@@ -57,12 +63,12 @@ class BKRPTests(unittest.TestCase):
         resp.dump()
 
         wrapped = bkrp.WRAPPED_SECRET()
-        wrapped.fromString(''.join(resp['ppDataOut']))
+        wrapped.fromString(b''.join(resp['ppDataOut']))
         wrapped.dump()
 
         request = bkrp.BackuprKey()
         request['pguidActionAgent'] = bkrp.BACKUPKEY_RESTORE_GUID
-        request['pDataIn'] = ''.join(resp['ppDataOut'])
+        request['pDataIn'] = b''.join(resp['ppDataOut'])
         request['cbDataIn'] = resp['pcbDataOut']
         request['dwParam'] = 0
 
@@ -70,33 +76,33 @@ class BKRPTests(unittest.TestCase):
 
         resp.dump()
 
-        assert(DataIn == ''.join(resp['ppDataOut']))
+        assert(DataIn == b''.join(resp['ppDataOut']))
 
     def test_hBackuprKey_BACKUPKEY_BACKUP_GUID_BACKUPKEY_RESTORE_GUID(self):
         dce, rpctransport = self.connect()
 
-        DataIn = "Huh? wait wait, let me, let me explain something to you. Uh, I am not Mr. Lebowski; " \
-                 "you're Mr. Lebowski. I'm the Dude. So that's what you call me. You know, uh, That, or uh, " \
-                 "his Dudeness, or uh Duder, or uh El Duderino, if, you know, you're not into the whole brevity thing--uh."
+        DataIn = b"Huh? wait wait, let me, let me explain something to you. Uh, I am not Mr. Lebowski; " \
+                 b"you're Mr. Lebowski. I'm the Dude. So that's what you call me. You know, uh, That, or uh, " \
+                 b"his Dudeness, or uh Duder, or uh El Duderino, if, you know, you're not into the whole brevity thing--uh."
         resp = bkrp.hBackuprKey(dce, bkrp.BACKUPKEY_BACKUP_GUID, DataIn)
 
         resp.dump()
 
         wrapped = bkrp.WRAPPED_SECRET()
-        wrapped.fromString(''.join(resp['ppDataOut']))
+        wrapped.fromString(b''.join(resp['ppDataOut']))
         wrapped.dump()
 
-        resp = bkrp.hBackuprKey(dce, bkrp.BACKUPKEY_RESTORE_GUID, ''.join(resp['ppDataOut']))
+        resp = bkrp.hBackuprKey(dce, bkrp.BACKUPKEY_RESTORE_GUID, b''.join(resp['ppDataOut']))
 
         resp.dump()
 
-        assert (DataIn == ''.join(resp['ppDataOut']))
+        assert (DataIn == b''.join(resp['ppDataOut']))
 
     def test_BackuprKey_BACKUPKEY_BACKUP_GUID_BACKUPKEY_RESTORE_GUID_WIN2K(self):
         dce, rpctransport = self.connect()
-        DataIn = "Huh? wait wait, let me, let me explain something to you. Uh, I am not Mr. Lebowski; " \
-                 "you're Mr. Lebowski. I'm the Dude. So that's what you call me. You know, uh, That, or uh, " \
-                 "his Dudeness, or uh Duder, or uh El Duderino, if, you know, you're not into the whole brevity thing--uh."
+        DataIn = b"Huh? wait wait, let me, let me explain something to you. Uh, I am not Mr. Lebowski; " \
+                 b"you're Mr. Lebowski. I'm the Dude. So that's what you call me. You know, uh, That, or uh, " \
+                 b"his Dudeness, or uh Duder, or uh El Duderino, if, you know, you're not into the whole brevity thing--uh."
         request = bkrp.BackuprKey()
         request['pguidActionAgent'] = bkrp.BACKUPKEY_BACKUP_GUID
         request['pDataIn'] = DataIn
@@ -108,12 +114,12 @@ class BKRPTests(unittest.TestCase):
         resp.dump()
 
         wrapped = bkrp.WRAPPED_SECRET()
-        wrapped.fromString(''.join(resp['ppDataOut']))
+        wrapped.fromString(b''.join(resp['ppDataOut']))
         wrapped.dump()
 
         request = bkrp.BackuprKey()
         request['pguidActionAgent'] = bkrp.BACKUPKEY_RESTORE_GUID_WIN2K
-        request['pDataIn'] = ''.join(resp['ppDataOut'])
+        request['pDataIn'] = b''.join(resp['ppDataOut'])
         request['cbDataIn'] = resp['pcbDataOut']
         request['dwParam'] = 0
 
@@ -121,27 +127,27 @@ class BKRPTests(unittest.TestCase):
 
         resp.dump()
 
-        assert(DataIn == ''.join(resp['ppDataOut']))
+        assert(DataIn == b''.join(resp['ppDataOut']))
 
     def test_hBackuprKey_BACKUPKEY_BACKUP_GUID_BACKUPKEY_RESTORE_GUID_WIN2K(self):
         dce, rpctransport = self.connect()
 
-        DataIn = "Huh? wait wait, let me, let me explain something to you. Uh, I am not Mr. Lebowski; " \
-                 "you're Mr. Lebowski. I'm the Dude. So that's what you call me. You know, uh, That, or uh, " \
-                 "his Dudeness, or uh Duder, or uh El Duderino, if, you know, you're not into the whole brevity thing--uh."
+        DataIn = b"Huh? wait wait, let me, let me explain something to you. Uh, I am not Mr. Lebowski; " \
+                 b"you're Mr. Lebowski. I'm the Dude. So that's what you call me. You know, uh, That, or uh, " \
+                 b"his Dudeness, or uh Duder, or uh El Duderino, if, you know, you're not into the whole brevity thing--uh."
         resp = bkrp.hBackuprKey(dce, bkrp.BACKUPKEY_BACKUP_GUID, DataIn )
 
         resp.dump()
 
         wrapped = bkrp.WRAPPED_SECRET()
-        wrapped.fromString(''.join(resp['ppDataOut']))
+        wrapped.fromString(b''.join(resp['ppDataOut']))
         wrapped.dump()
 
-        resp = bkrp.hBackuprKey(dce, bkrp.BACKUPKEY_RESTORE_GUID_WIN2K, ''.join(resp['ppDataOut']) )
+        resp = bkrp.hBackuprKey(dce, bkrp.BACKUPKEY_RESTORE_GUID_WIN2K, b''.join(resp['ppDataOut']) )
 
         resp.dump()
 
-        assert(DataIn == ''.join(resp['ppDataOut']))
+        assert(DataIn == b''.join(resp['ppDataOut']))
 
 
     def test_BackuprKey_BACKUPKEY_RETRIEVE_BACKUP_KEY_GUID(self):
@@ -159,11 +165,11 @@ class BKRPTests(unittest.TestCase):
         #print "LEN: %d" % len(''.join(resp['ppDataOut']))
         #hexdump(''.join(resp['ppDataOut']))
 
-        cert = x509.load_der_x509_certificate(''.join(resp['ppDataOut']), default_backend())
+        cert = x509.load_der_x509_certificate(b''.join(resp['ppDataOut']), default_backend())
 
-        print cert.subject
-        print cert.issuer
-        print cert.signature
+        print(cert.subject)
+        print(cert.issuer)
+        print(cert.signature)
 
     def test_hBackuprKey_BACKUPKEY_RETRIEVE_BACKUP_KEY_GUID(self):
         dce, rpctransport = self.connect()
@@ -180,11 +186,11 @@ class BKRPTests(unittest.TestCase):
         #print "LEN: %d" % len(''.join(resp['ppDataOut']))
         #hexdump(''.join(resp['ppDataOut']))
 
-        cert = x509.load_der_x509_certificate(''.join(resp['ppDataOut']), default_backend())
+        cert = x509.load_der_x509_certificate(b''.join(resp['ppDataOut']), default_backend())
 
-        print cert.subject
-        print cert.issuer
-        print cert.signature
+        print(cert.subject)
+        print(cert.issuer)
+        print(cert.signature)
 
 
 class SMBTransport(BKRPTests):

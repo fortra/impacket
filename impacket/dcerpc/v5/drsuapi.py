@@ -18,8 +18,12 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
+from __future__ import division
+from __future__ import print_function
+from builtins import bytes
 import hashlib
 from struct import pack
+from six import PY2
 
 from impacket import LOG
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUNION, NDR, NDRENUM
@@ -32,6 +36,7 @@ from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.krb5 import crypto
 from pyasn1.type import univ
 from pyasn1.codec.ber import decoder
+from impacket.crypto import transformKey
 
 try:
     from Cryptodome.Cipher import ARC4, DES
@@ -47,11 +52,11 @@ class DCERPCSessionError(DCERPCException):
 
     def __str__( self ):
         key = self.error_code
-        if hresult_errors.ERROR_MESSAGES.has_key(key):
+        if key in hresult_errors.ERROR_MESSAGES:
             error_msg_short = hresult_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = hresult_errors.ERROR_MESSAGES[key][1]
             return 'DRSR SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
-        elif system_errors.ERROR_MESSAGES.has_key(key & 0xffff):
+        elif key & 0xffff in system_errors.ERROR_MESSAGES:
             error_msg_short = system_errors.ERROR_MESSAGES[key & 0xffff][0]
             error_msg_verbose = system_errors.ERROR_MESSAGES[key & 0xffff][1]
             return 'DRSR SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -87,14 +92,15 @@ class EXOP_ERR(NDRENUM):
         EXOP_ERR_PARAM_ERROR           = 0x00000010
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
-            print msg,
+            print(msg, end=' ')
 
         try:
-            print " %s" % self.enumItems(self.fields['Data']).name,
+            print(" %s" % self.enumItems(self.fields['Data']).name, end=' ')
         except ValueError:
-            print " %d" % self.fields['Data']
+            print(" %d" % self.fields['Data'])
 
 # 4.1.10.2.18 EXOP_REQ Codes
 EXOP_FSMO_REQ_ROLE = 0x00000001
@@ -269,7 +275,7 @@ class ENCRYPTED_PAYLOAD(Structure):
 # 5.136 NT4SID
 class NT4SID(NDRSTRUCT):
     structure =  (
-        ('Data','28s=""'),
+        ('Data','28s=b""'),
     )
     def getAlignment(self):
         return 4
@@ -277,7 +283,7 @@ class NT4SID(NDRSTRUCT):
 # 5.40 DRS_HANDLE
 class DRS_HANDLE(NDRSTRUCT):
     structure =  (
-        ('Data','20s=""'),
+        ('Data','20s=b""'),
     )
     def getAlignment(self):
         return 4
@@ -311,11 +317,11 @@ class PDRS_EXTENSIONS(NDRPOINTER):
 class DRS_EXTENSIONS_INT(Structure):
     structure =  (
         ('dwFlags','<L=0'),
-        ('SiteObjGuid','16s=""'),
+        ('SiteObjGuid','16s=b""'),
         ('Pid','<L=0'),
         ('dwReplEpoch','<L=0'),
         ('dwFlagsExt','<L=0'),
-        ('ConfigObjGUID','16s=""'),
+        ('ConfigObjGUID','16s=b""'),
         ('dwExtCaps','<L=0'),
     )
 
@@ -607,7 +613,7 @@ class WCHAR_ARRAY(NDRUniConformantArray):
                 # We might have Unicode chars in here, let's use unichr instead
                 LOG.debug('ValueError exception on %s' % self.fields[key])
                 LOG.debug('Switching to unichr()')
-                return ''.join([unichr(i) for i in self.fields[key]])
+                return ''.join([chr(i) for i in self.fields[key]])
 
         else:
             return NDR.__getitem__(self,key)
@@ -1362,23 +1368,6 @@ def hDRSCrackNames(dce, hDrs, flags, formatOffered, formatDesired, rpNames = ())
 
     return dce.request(request)
 
-def transformKey(InputKey):
-        # Section 2.2.11.1.2 Encrypting a 64-Bit Block with a 7-Byte Key
-        OutputKey = []
-        OutputKey.append( chr(ord(InputKey[0]) >> 0x01) )
-        OutputKey.append( chr(((ord(InputKey[0])&0x01)<<6) | (ord(InputKey[1])>>2)) )
-        OutputKey.append( chr(((ord(InputKey[1])&0x03)<<5) | (ord(InputKey[2])>>3)) )
-        OutputKey.append( chr(((ord(InputKey[2])&0x07)<<4) | (ord(InputKey[3])>>4)) )
-        OutputKey.append( chr(((ord(InputKey[3])&0x0F)<<3) | (ord(InputKey[4])>>5)) )
-        OutputKey.append( chr(((ord(InputKey[4])&0x1F)<<2) | (ord(InputKey[5])>>6)) )
-        OutputKey.append( chr(((ord(InputKey[5])&0x3F)<<1) | (ord(InputKey[6])>>7)) )
-        OutputKey.append( chr(ord(InputKey[6]) & 0x7F) )
-
-        for i in range(8):
-            OutputKey[i] = chr((ord(OutputKey[i]) << 1) & 0xfe)
-
-        return "".join(OutputKey)
-
 def deriveKey(baseKey):
         # 2.2.11.1.3 Deriving Key1 and Key2 from a Little-Endian, Unsigned Integer Key
         # Let I be the little-endian, unsigned integer.
@@ -1387,9 +1376,12 @@ def deriveKey(baseKey):
         # Key1 is a concatenation of the following values: I[0], I[1], I[2], I[3], I[0], I[1], I[2].
         # Key2 is a concatenation of the following values: I[3], I[0], I[1], I[2], I[3], I[0], I[1]
         key = pack('<L',baseKey)
-        key1 = key[0] + key[1] + key[2] + key[3] + key[0] + key[1] + key[2]
-        key2 = key[3] + key[0] + key[1] + key[2] + key[3] + key[0] + key[1]
-        return transformKey(key1),transformKey(key2)
+        key1 = [key[0] , key[1] , key[2] , key[3] , key[0] , key[1] , key[2]]
+        key2 = [key[3] , key[0] , key[1] , key[2] , key[3] , key[0] , key[1]]
+        if PY2:
+            return transformKey(b''.join(key1)),transformKey(b''.join(key2))
+        else:
+            return transformKey(bytes(key1)),transformKey(bytes(key2))
 
 def removeDESLayer(cryptedHash, rid):
         Key1,Key2 = deriveKey(rid)
@@ -1473,7 +1465,7 @@ def MakeAttid(prefixTable, oid):
 
 def OidFromAttid(prefixTable, attr):
     # separate the ATTRTYP into two parts
-    upperWord = attr / 65536
+    upperWord = attr // 65536
     lowerWord = attr % 65536
 
     # search in the prefix table to find the upperWord, if found,
@@ -1485,18 +1477,17 @@ def OidFromAttid(prefixTable, attr):
         if item['ndx'] == upperWord:
             binaryOID = item['prefix']['elements'][:item['prefix']['length']]
             if lowerWord < 128:
-                binaryOID.append(chr(lowerWord))
+                binaryOID.append(pack('B',lowerWord))
             else:
                 if lowerWord >= 32768:
                     lowerWord -= 32768
-                binaryOID.append(chr(((lowerWord/128) % 128)+128))
-                binaryOID.append(chr(lowerWord%128))
+                binaryOID.append(pack('B',(((lowerWord//128) % 128)+128)))
+                binaryOID.append(pack('B',(lowerWord%128)))
             break
 
     if binaryOID is None:
         return None
-
-    return str(decoder.decode('\x06' + chr(len(binaryOID)) + ''.join(binaryOID), asn1Spec = univ.ObjectIdentifier())[0])
+    return str(decoder.decode(b'\x06' + pack('B',(len(binaryOID))) + b''.join(binaryOID), asn1Spec = univ.ObjectIdentifier())[0])
 
 if __name__ == '__main__':
     prefixTable = []
@@ -1507,22 +1498,22 @@ if __name__ == '__main__':
     oid4 = '1.2.840.113556.1.5.7000.53'
 
     o0 = MakeAttid(prefixTable, oid0)
-    print hex(o0)
+    print(hex(o0))
     o1 = MakeAttid(prefixTable, oid1)
-    print hex(o1)
+    print(hex(o1))
     o2 = MakeAttid(prefixTable, oid2)
-    print hex(o2)
+    print(hex(o2))
     o3 = MakeAttid(prefixTable, oid3)
-    print hex(o3)
+    print(hex(o3))
     o4 = MakeAttid(prefixTable, oid4)
-    print hex(o4)
+    print(hex(o4))
     jj = OidFromAttid(prefixTable, o0)
-    print jj
+    print(jj)
     jj = OidFromAttid(prefixTable, o1)
-    print jj
+    print(jj)
     jj = OidFromAttid(prefixTable, o2)
-    print jj
+    print(jj)
     jj = OidFromAttid(prefixTable, o3)
-    print jj
+    print(jj)
     jj = OidFromAttid(prefixTable, o4)
-    print jj
+    print(jj)

@@ -36,7 +36,11 @@ import argparse
 import sys
 import logging
 import cmd
-import urllib2
+try:
+    from urllib.request import ProxyHandler, build_opener, Request
+except ImportError:
+    from urllib2 import ProxyHandler, build_opener, Request
+
 import json
 from threading import Thread
 
@@ -70,32 +74,32 @@ class MiniShell(cmd.Cmd):
         outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(colLen)])
 
         # Print header
-        print outputFormat.format(*header)
-        print '  '.join(['-' * itemLen for itemLen in colLen])
+        print(outputFormat.format(*header))
+        print('  '.join(['-' * itemLen for itemLen in colLen]))
 
         # And now the rows
         for row in items:
-            print outputFormat.format(*row)
+            print(outputFormat.format(*row))
 
     def emptyline(self):
         pass
 
     def do_targets(self, line):
         for url in self.relayConfig.target.originalTargets:
-            print url.geturl()
+            print(url.geturl())
         return
 
     def do_socks(self, line):
         headers = ["Protocol", "Target", "Username", "AdminStatus", "Port"]
         url = "http://localhost:9090/ntlmrelayx/api/v1.0/relays"
         try:
-            proxy_handler = urllib2.ProxyHandler({})
-            opener = urllib2.build_opener(proxy_handler)
-            response = urllib2.Request(url)
+            proxy_handler = ProxyHandler({})
+            opener = build_opener(proxy_handler)
+            response = Request(url)
             r = opener.open(response)
             result = r.read()
             items = json.loads(result)
-        except Exception, e:
+        except Exception as e:
             logging.error("ERROR: %s" % str(e))
         else:
             if len(items) > 0:
@@ -120,7 +124,7 @@ class MiniShell(cmd.Cmd):
             logging.error('Relay servers are already stopped!')
 
     def do_exit(self, line):
-        print "Shutting down, please wait!"
+        print("Shutting down, please wait!")
         return True
 
     def do_EOF(self, line):
@@ -187,7 +191,7 @@ if __name__ == '__main__':
 
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
     #Parse arguments
     parser = argparse.ArgumentParser(add_help = False, description = "For every connection received, this module will "
                                     "try to relay that connection to specified target(s) system or the original client")
@@ -337,7 +341,7 @@ if __name__ == '__main__':
 
     c = start_servers(options, threads)
 
-    print ""
+    print("")
     logging.info("Servers started, waiting for connections")
     try:
         if options.socks:
@@ -358,6 +362,3 @@ if __name__ == '__main__':
         del s
 
     sys.exit(0)
-
-
-

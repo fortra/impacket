@@ -2,6 +2,7 @@ from __future__ import print_function
 import unittest
 import struct
 
+from six import b
 from impacket import ntlm
 from impacket.structure import hexdump
 
@@ -16,13 +17,13 @@ class NTLMTests(unittest.TestCase):
         self.password = "Password"
         self.serverName = "Server"
         self.workstationName = "COMPUTER"
-        self.randomSessionKey = "U"*16
-        self.time = "\x00"*8
-        self.clientChallenge = "\xaa"*8
-        self.serverChallenge = "\x01\x23\x45\x67\x89\xab\xcd\xef"
+        self.randomSessionKey = b("U"*16)
+        self.time = b('\x00'*8)
+        self.clientChallenge = b("\xaa"*8)
+        self.serverChallenge = b("\x01\x23\x45\x67\x89\xab\xcd\xef")
         self.flags =  ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH | ntlm.NTLMSSP_NEGOTIATE_56 | ntlm.NTLMSSP_NEGOTIATE_128 | ntlm.NTLMSSP_NEGOTIATE_VERSION | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_NEGOTIATE_ALWAYS_SIGN | ntlm.NTLMSSP_NEGOTIATE_NTLM | ntlm.NTLMSSP_NEGOTIATE_SEAL | ntlm.NTLMSSP_NEGOTIATE_SIGN | ntlm.NTLM_NEGOTIATE_OEM | ntlm.NTLMSSP_NEGOTIATE_UNICODE
         self.seqNum = 0
-        self.nonce = '\x00' * 4
+        self.nonce = b('\x00'*16)
         self.plaintext = 'Plaintext'.encode('utf-16le')
 
         print("## BEFORE RUNNING THESE TESTS")
@@ -36,7 +37,6 @@ class NTLMTests(unittest.TestCase):
         ntlm.USE_NTLMv2 = False
         print("4.2.2.1 LMOWFv1()")
         res = ntlm.LMOWFv1(self.password)
-        print(repr(res))
         hexdump(res)
         self.assertTrue(res==bytearray(b'\xe5,\xacgA\x9a\x9a"J;\x10\x8f?\xa6\xcbm'))
         print("\n")
@@ -161,7 +161,7 @@ class NTLMTests(unittest.TestCase):
         #self.assertTrue(ntResponse==bytearray(b'\x75\x37\xf8\x03\xae\x36\x71\x28\xca\x45\x82\x04\xbd\xe7\xca\xf8\x1e\x97\xed\x26\x83\x26\x72\x32'))
         print("\n")
         print("AUTHENTICATE MESSAGE")
-        encryptedSessionKey = ntlm.generateEncryptedSessionKey(keyExchangeKey,self.randomSessionKey)
+        ntlm.generateEncryptedSessionKey(keyExchangeKey,self.randomSessionKey)
         ntlmChallengeResponse = ntlm.NTLMAuthChallengeResponse(self.user, self.password, self.serverChallenge)
         ntlmChallengeResponse['flags'] = flags2
         ntlmChallengeResponse['host_name'] = self.workstationName.encode('utf-16le')
@@ -180,13 +180,10 @@ class NTLMTests(unittest.TestCase):
 
         exportedSessionKey = keyExchangeKey
         clientSigningKey = ntlm.SIGNKEY(flags, exportedSessionKey)
-        serverSigningKey = ntlm.SIGNKEY(flags, exportedSessionKey, "Server")
         clientSealingKey = ntlm.SEALKEY(flags, exportedSessionKey)
-        serverSealingKey = ntlm.SEALKEY(flags, exportedSessionKey, "Server")
 
         from Cryptodome.Cipher import ARC4
         cipher = ARC4.new(clientSigningKey)
-        client_signing_h = cipher.encrypt
 
         cipher2 = ARC4.new(clientSealingKey)
         client_sealing_h = cipher2.encrypt
@@ -213,7 +210,7 @@ class NTLMTests(unittest.TestCase):
     def test_ntlmv2(self):
         print("####### 4.2.4 NTLMv2 Authentication")
         ntlm.USE_NTLMv2 = True
-        serverName = '\x02\x00\x0c\x00\x44\x00\x6f\x00\x6d\x00\x61\x00\x69\x00\x6e\x00\x01\x00\x0c\x00\x53\x00\x65\x00\x72\x00\x76\x00\x65\x00\x72\x00\x00\x00\x00\x00'
+        serverName = b('\x02\x00\x0c\x00\x44\x00\x6f\x00\x6d\x00\x61\x00\x69\x00\x6e\x00\x01\x00\x0c\x00\x53\x00\x65\x00\x72\x00\x76\x00\x65\x00\x72\x00\x00\x00\x00\x00')
         # Still the aTime won't be set to zero. that must be changed in ntlm.computeResponseNTLM2. Gotta make this more automated
 
         flags = ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH | ntlm.NTLMSSP_NEGOTIATE_56 | ntlm.NTLMSSP_NEGOTIATE_128 | \
@@ -272,13 +269,9 @@ class NTLMTests(unittest.TestCase):
 
         exportedSessionKey = self.randomSessionKey
         clientSigningKey = ntlm.SIGNKEY(flags, exportedSessionKey)
-        serverSigningKey = ntlm.SIGNKEY(flags, exportedSessionKey, "Server")
         clientSealingKey = ntlm.SEALKEY(flags, exportedSessionKey)
-        serverSealingKey = ntlm.SEALKEY(flags, exportedSessionKey, "Server")
 
         from Cryptodome.Cipher import ARC4
-        cipher = ARC4.new(clientSigningKey)
-        client_signing_h = cipher.encrypt
 
         cipher2 = ARC4.new(clientSealingKey)
         client_sealing_h = cipher2.encrypt

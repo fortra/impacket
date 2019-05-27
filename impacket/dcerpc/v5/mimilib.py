@@ -18,6 +18,8 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
+from __future__ import division
+from __future__ import print_function
 import binascii
 import random
 
@@ -36,7 +38,7 @@ class DCERPCSessionError(DCERPCException):
 
     def __str__( self ):
         key = self.error_code
-        if nt_errors.ERROR_MESSAGES.has_key(key):
+        if key in nt_errors.ERROR_MESSAGES:
             error_msg_short = nt_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
             return 'Mimikatz SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -87,8 +89,8 @@ class PUBLICKEYBLOB(Structure):
     )
     def __init__(self, data = None, alignment = 0):
         Structure.__init__(self,data,alignment)
-        self['publickeystruc'] = str(PUBLICKEYSTRUC())
-        self['dhpubkey'] = str(DHPUBKEY())
+        self['publickeystruc'] = PUBLICKEYSTRUC().getData()
+        self['dhpubkey'] = DHPUBKEY().getData()
 
 class MIMI_HANDLE(NDRSTRUCT):
     structure =  (
@@ -180,7 +182,7 @@ OPNUMS = {
 class MimiDiffeH:
     def __init__(self):
         self.G = 2
-        self.P = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE65381FFFFFFFFFFFFFFFFL
+        self.P = 0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE65381FFFFFFFFFFFFFFFF
         self.privateKey = random.getrandbits(1024)
         #self.privateKey = int('A'*128, base=16)
 
@@ -224,13 +226,11 @@ if __name__ == '__main__':
     bob.P = 23
     bob.privateKey = 15
 
-    print 'Alice pubKey'
+    print('Alice pubKey')
     hexdump(alice.genPublicKey())
-    print 'Bob pubKey'
+    print('Bob pubKey')
     hexdump(bob.genPublicKey())
 
-    print 'Secret'
+    print('Secret')
     hexdump(alice.getSharedSecret(bob.genPublicKey()))
     hexdump(bob.getSharedSecret(alice.genPublicKey()))
-
-

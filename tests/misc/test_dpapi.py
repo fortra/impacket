@@ -12,7 +12,6 @@ import unittest
 from binascii import unhexlify
 
 from impacket.dpapi import DPAPI_SYSTEM, MasterKeyFile, MasterKey, CredentialFile, DPAPI_BLOB, CREDENTIAL_BLOB, VAULT_VPOL, VAULT_VPOL_KEYS, VAULT_VCRD, VAULT_KNOWN_SCHEMAS
-from impacket.structure import hexdump
 from Cryptodome.Cipher import AES
 from Cryptodome.Hash import HMAC, MD4, SHA1
 
@@ -197,7 +196,7 @@ class DPAPITests(unittest.TestCase):
                 # Found one. Cast it and print
                 vault = VAULT_KNOWN_SCHEMAS[blob['FriendlyName'].decode('utf-16le')[:-1]](cleartext)
                 vault.dump()
-                self.assertEqual(vault['Username'], 'CONTOSO\Administrator\x00'.encode('utf-16le'))
+                self.assertEqual(vault['Username'], 'CONTOSO\\Administrator\x00'.encode('utf-16le'))
             else:
                 raise Exception('No valid Schema')
 
