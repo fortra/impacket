@@ -151,13 +151,13 @@ def outputToJohnFormat(challenge, username, domain, lmresponse, ntresponse):
             if len(ntresponse) > 24:
                 # Extended Security - NTLMv2
                 ret_value = {'hash_string': '%s::%s:%s:%s:%s' % (
-                    username.decode('utf-16le'), domain.decode('utf-16le'), hexlify(challenge).decode('latin-1'),
+                    username.decode('latin-1'), domain.decode('latin-1'), hexlify(challenge).decode('latin-1'),
                     hexlify(ntresponse)[:32].decode('latin-1'), hexlify(ntresponse)[32:].decode('latin-1')),
                              'hash_version': 'ntlmv2'}
             else:
                 # NTLMv1
                 ret_value = {'hash_string': '%s::%s:%s:%s:%s' % (
-                    username.decode('utf-16le'), domain.decode('utf-16le'), hexlify(lmresponse).decode('latin-1'), hexlify(ntresponse).decode('latin-1'),
+                    username, domain, hexlify(lmresponse).decode('latin-1'), hexlify(ntresponse).decode('latin-1'),
                     hexlify(challenge).decode('latin-1')), 'hash_version': 'ntlm'}
         except Exception as e:
             import traceback
