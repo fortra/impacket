@@ -613,7 +613,7 @@ class WCHAR_ARRAY(NDRUniConformantArray):
                 # We might have Unicode chars in here, let's use unichr instead
                 LOG.debug('ValueError exception on %s' % self.fields[key])
                 LOG.debug('Switching to unichr()')
-                return ''.join([chr(i) for i in self.fields[key]])
+                return ''.join([unichr(i) for i in self.fields[key]])
 
         else:
             return NDR.__getitem__(self,key)
