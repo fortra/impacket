@@ -50,6 +50,7 @@ class NTLMRelayxConfig:
         # SMB options
         self.exeFile = None
         self.command = None
+        self.raw = False
         self.interactive = False
         self.enumLocalAdmins = False
 
@@ -79,7 +80,7 @@ class NTLMRelayxConfig:
 
     def setInterfaceIp(self, ip):
         self.interfaceIp = ip
-    
+
     def setListeningPort(self, port):
         self.listeningPort = port
 
@@ -98,6 +99,9 @@ class NTLMRelayxConfig:
 
     def setCommand(self, command):
         self.command = command
+
+    def setRaw(self, raw):
+        self.raw = raw
 
     def setEnumLocalAdmins(self, enumLocalAdmins):
         self.enumLocalAdmins = enumLocalAdmins
