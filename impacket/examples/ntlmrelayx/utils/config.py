@@ -120,6 +120,8 @@ class NTLMRelayxConfig:
         self.redirecthost = redirecthost
 
     def setDomainAccount(self, machineAccount, machineHashes, domainIp):
+        if machineAccount is None or machineHashes is None or domainIp is None:
+            raise Exception("You must specify machine-account/hashes/domain all together!")
         self.machineAccount = machineAccount
         self.machineHashes = machineHashes
         self.domainIp = domainIp

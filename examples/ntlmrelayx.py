@@ -267,7 +267,7 @@ if __name__ == '__main__':
                             help='Domain machine hashes, format is LMHASH:NTHASH')
     httpoptions.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
     httpoptions.add_argument('-remove-target', action='store_true', default=False,
-                            help='Try to remove the target in the challenge message (in case CVE-2019-1019 is not installed)')
+                            help='Try to remove the target in the challenge message (in case CVE-2019-1019 patch is not installed)')
 
     #LDAP options
     ldapoptions = parser.add_argument_group("LDAP client options")
