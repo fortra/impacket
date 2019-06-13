@@ -1698,7 +1698,7 @@ class SMB3:
         fileId = self.create(tid,fileName,desired_access, open_mode, FILE_NON_DIRECTORY_FILE, open_mode, 0)
         return fileId, 0, 0, 0, 0, 0, 0, 0, 0
 
-    def enable_signing(self, signingKey):
+    def set_session_key(self, signingKey):
         self._Session['SessionKey'] = signingKey
         self._Session['SigningActivated'] = True
         self._Session['SigningRequired'] = True

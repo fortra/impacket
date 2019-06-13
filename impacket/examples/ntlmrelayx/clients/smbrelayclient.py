@@ -484,13 +484,11 @@ class SMBRelayClient(ProtocolClient):
             res = NTLMAuthChallengeResponse()
             res.fromString(authenticateMessageBlob)
 
-            new_auth_blob = hexlify(authenticateMessageBlob)[0:144] + b'00000000000000000000000000000000' + hexlify(authenticateMessageBlob)[176:]
-            relay_MIC = hmac_md5(signingKey, self.negotiate_message + self.challenge_message + unhexlify(new_auth_blob))
-            res['MIC'] = relay_MIC
-            authData = res.getData()
+            new_auth_blob = authenticateMessageBlob[0:0x48] + b'\x00'*16 + authenticateMessageBlob[0x58:]
+            relay_MIC = hmac_md5(signingKey, self.negotiate_message + self.challenge_message + new_auth_blob)
 
             respToken2 = SPNEGO_NegTokenResp()
-            respToken2['ResponseToken'] = authData
+            respToken2['ResponseToken'] = authenticateMessageBlob[0:0x48] + relay_MIC + authenticateMessageBlob[0x58:]
             authData = respToken2.getData()
 
         if self.session.getDialect() == SMB_DIALECT:
@@ -500,7 +498,7 @@ class SMBRelayClient(ProtocolClient):
 
         if signingKey:
             logging.info("Enabling session signing")
-            self.session._SMBConnection.enable_signing(signingKey)
+            self.session._SMBConnection.set_session_key(signingKey)
 
         return token, errorCode
 
