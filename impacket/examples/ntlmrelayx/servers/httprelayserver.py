@@ -266,6 +266,15 @@ class HTTPRelayServer(Thread):
                 if not self.client.initConnection():
                     return False
                 self.challengeMessage = self.client.sendNegotiate(token)
+
+                # Remove target NetBIOS field from the NTLMSSP_CHALLENGE
+                if self.server.config.remove_target:
+                    av_pairs = ntlm.AV_PAIRS(self.challengeMessage['TargetInfoFields'])
+                    del av_pairs[ntlm.NTLMSSP_AV_HOSTNAME]
+                    self.challengeMessage['TargetInfoFields'] = av_pairs.getData()
+                    self.challengeMessage['TargetInfoFields_len'] = len(av_pairs.getData())
+                    self.challengeMessage['TargetInfoFields_max_len'] = len(av_pairs.getData())
+
                 # Check for errors
                 if self.challengeMessage is False:
                     return False

@@ -2771,6 +2771,8 @@ class SMB:
         return self._SigningSessionKey
 
     def set_session_key(self, key):
+        self._SignatureEnabled = True
+        self._SignSequenceNumber = 2
         self._SigningSessionKey = key
 
     def get_encryption_key(self):

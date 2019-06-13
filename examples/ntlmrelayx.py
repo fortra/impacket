@@ -157,6 +157,8 @@ def start_servers(options, threads):
 
         if server is HTTPRelayServer:
             c.setListeningPort(options.http_port)
+            c.setTargetRemoval(options.remove_target)
+            c.setDomainAccount(options.machine_account, options.machine_hashes, options.domain)
         elif server is SMBRelayServer:
             c.setListeningPort(options.smb_port)
 
@@ -255,6 +257,17 @@ if __name__ == '__main__':
     mssqloptions = parser.add_argument_group("MSSQL client options")
     mssqloptions.add_argument('-q','--query', action='append', required=False, metavar = 'QUERY', help='MSSQL query to execute'
                         '(can specify multiple)')
+
+    #HTTPS options
+    httpoptions = parser.add_argument_group("HTTP options")
+    httpoptions.add_argument('-machine-account', action='store', required=False,
+                            help='Domain machine account to use when interacting with the domain to grab a session key for '
+                                 'signing, format is domain/machine_name')
+    httpoptions.add_argument('-machine-hashes', action="store", metavar="LMHASH:NTHASH",
+                            help='Domain machine hashes, format is LMHASH:NTHASH')
+    httpoptions.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
+    httpoptions.add_argument('-remove-target', action='store_true', default=False,
+                            help='Try to remove the target in the challenge message (in case CVE-2019-1019 patch is not installed)')
 
     #LDAP options
     ldapoptions = parser.add_argument_group("LDAP client options")

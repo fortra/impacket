@@ -105,7 +105,10 @@ class STR(NDRSTRUCT):
     def __setitem__(self, key, value):
         if key == 'Data':
             try:
-                self.fields[key] = value.encode('utf-8')
+                if not isinstance(value, bytes):
+                    self.fields[key] = value.encode('utf-8')
+                else:
+                    self.fields[key] = value
             except UnicodeDecodeError:
                 import sys
                 self.fields[key] = value.decode(sys.getfilesystemencoding()).encode('utf-8')

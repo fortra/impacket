@@ -35,13 +35,13 @@ class NTLMRelayxConfig:
         self.encoding = None
         self.ipv6 = False
 
-        #WPAD options
+        # WPAD options
         self.serve_wpad = False
         self.wpad_host = None
         self.wpad_auth_num = 0
         self.smb2support = False
 
-        #WPAD options
+        # WPAD options
         self.serve_wpad = False
         self.wpad_host = None
         self.wpad_auth_num = 0
@@ -70,6 +70,8 @@ class NTLMRelayxConfig:
         self.runSocks = False
         self.socksServer = None
 
+        # HTTP options
+        self.remove_target = False
 
     def setSMB2Support(self, value):
         self.smb2support = value
@@ -79,7 +81,7 @@ class NTLMRelayxConfig:
 
     def setInterfaceIp(self, ip):
         self.interfaceIp = ip
-    
+
     def setListeningPort(self, port):
         self.listeningPort = port
 
@@ -114,10 +116,12 @@ class NTLMRelayxConfig:
     def setLootdir(self, lootdir):
         self.lootdir = lootdir
 
-    def setRedirectHost(self,redirecthost):
+    def setRedirectHost(self, redirecthost):
         self.redirecthost = redirecthost
 
-    def setDomainAccount( self, machineAccount,  machineHashes, domainIp):
+    def setDomainAccount(self, machineAccount, machineHashes, domainIp):
+        if machineAccount is None or machineHashes is None or domainIp is None:
+            raise Exception("You must specify machine-account/hashes/domain all together!")
         self.machineAccount = machineAccount
         self.machineHashes = machineHashes
         self.domainIp = domainIp
@@ -154,3 +158,6 @@ class NTLMRelayxConfig:
             self.serve_wpad = True
         self.wpad_host = wpad_host
         self.wpad_auth_num = wpad_auth_num
+
+    def setTargetRemoval(self, remove_target):
+        self.remove_target = remove_target
