@@ -121,6 +121,9 @@ class NTLMRelayxConfig:
         self.redirecthost = redirecthost
 
     def setDomainAccount(self, machineAccount, machineHashes, domainIp):
+        # Don't set this if we're not exploiting it
+        if not self.remove_target:
+            return
         if machineAccount is None or machineHashes is None or domainIp is None:
             raise Exception("You must specify machine-account/hashes/domain all together!")
         self.machineAccount = machineAccount
