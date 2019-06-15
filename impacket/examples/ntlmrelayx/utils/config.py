@@ -34,6 +34,7 @@ class NTLMRelayxConfig:
         self.randomtargets = False
         self.encoding = None
         self.ipv6 = False
+        self.remove_mic = False
 
         # WPAD options
         self.serve_wpad = False
@@ -120,6 +121,9 @@ class NTLMRelayxConfig:
         self.redirecthost = redirecthost
 
     def setDomainAccount(self, machineAccount, machineHashes, domainIp):
+        # Don't set this if we're not exploiting it
+        if not self.remove_target:
+            return
         if machineAccount is None or machineHashes is None or domainIp is None:
             raise Exception("You must specify machine-account/hashes/domain all together!")
         self.machineAccount = machineAccount
@@ -159,5 +163,6 @@ class NTLMRelayxConfig:
         self.wpad_host = wpad_host
         self.wpad_auth_num = wpad_auth_num
 
-    def setTargetRemoval(self, remove_target):
+    def setExploitOptions(self, remove_mic, remove_target):
+        self.remove_mic = remove_mic
         self.remove_target = remove_target
