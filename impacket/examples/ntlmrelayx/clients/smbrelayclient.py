@@ -131,7 +131,6 @@ class SMBRelayClient(ProtocolClient):
         ProtocolClient.__init__(self, serverConfig, target, targetPort, extendedSecurity)
         self.extendedSecurity = extendedSecurity
 
-        self.domainIp = None
         self.machineAccount = None
         self.machineHashes = None
         self.sessionData = {}
@@ -144,7 +143,7 @@ class SMBRelayClient(ProtocolClient):
 
     def netlogonSessionKey(self, authenticateMessageBlob):
         # Here we will use netlogon to get the signing session key
-        logging.info("Connecting to %s NETLOGON service" % self.domainIp)
+        logging.info("Connecting to %s NETLOGON service" % self.serverConfig.domainIp)
 
         respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
         authenticateMessage = NTLMAuthChallengeResponse()
