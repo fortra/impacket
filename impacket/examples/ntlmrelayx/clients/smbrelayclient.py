@@ -62,7 +62,7 @@ class MYSMB3(SMB3):
         self._Connection['ClientSecurityMode'] = 0
 
         if self.RequireMessageSigning is True:
-            LOG.error('Signing is required, attack won\'t work!')
+            LOG.error('Signing is required, attack won\'t work unless using -remove-target / --remove-mic')
             return
 
         self._Connection['Capabilities'] = SMB2_GLOBAL_CAP_ENCRYPTION
@@ -103,7 +103,7 @@ class MYSMB3(SMB3):
         self._Connection['GSSNegotiateToken'] = negResp['Buffer']
         self._Connection['Dialect']           = negResp['DialectRevision']
         if (negResp['SecurityMode'] & SMB2_NEGOTIATE_SIGNING_REQUIRED) == SMB2_NEGOTIATE_SIGNING_REQUIRED:
-            LOG.error('Signing is required, attack won\'t work!')
+            LOG.error('Signing is required, attack won\'t work unless using -remove-target / --remove-mic')
             return
         if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_LEASING) == SMB2_GLOBAL_CAP_LEASING:
             self._Connection['SupportsFileLeasing'] = True
@@ -290,10 +290,12 @@ class SMBRelayClient(ProtocolClient):
             # Currently only works with SMB2_DIALECT_002 or SMB2_DIALECT_21
             if self.serverConfig.remove_target:
                 preferredDialect = SMB2_DIALECT_21
-            smbClient = MYSMB3(self.targetHost, self.targetPort, self.extendedSecurity,nmbSession=self.session.getNMBServer(), negPacket=packet, preferredDialect=preferredDialect)
+            smbClient = MYSMB3(self.targetHost, self.targetPort, self.extendedSecurity,nmbSession=self.session.getNMBServer(),
+                               negPacket=packet, preferredDialect=preferredDialect)
         else:
             # Answer is SMB packet, sticking to SMBv1
-            smbClient = MYSMB(self.targetHost, self.targetPort, self.extendedSecurity,nmbSession=self.session.getNMBServer(), negPacket=packet)
+            smbClient = MYSMB(self.targetHost, self.targetPort, self.extendedSecurity,nmbSession=self.session.getNMBServer(),
+                              negPacket=packet)
 
         self.session = SMBConnection(self.targetHost, self.targetHost, sess_port= self.targetPort,
                                      existingConnection=smbClient, manualNegotiate=True)
