@@ -240,7 +240,7 @@ class SMBRelayClient(ProtocolClient):
         else:
             signingKey = resp['ValidationInformation']['ValidationSam4']['UserSessionKey']
 
-        logging.info("SMB Signing key: %s " % hexlify(signingKey))
+        logging.info("SMB Signing key: %s " % hexlify(signingKey).decode('utf-8'))
 
         return STATUS_SUCCESS, signingKey
 

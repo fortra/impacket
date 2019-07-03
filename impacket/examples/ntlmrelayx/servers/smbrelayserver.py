@@ -165,7 +165,7 @@ class SMBRelayServer(Thread):
                 #respSMBCommand['DialectRevision'] = smb3.SMB2_DIALECT_21
             else:
                 # Client does not support SMB2 fallbacking
-                raise Exception('SMB2 not supported, fallbacking')
+                raise Exception('Client does not support SMB2, fallbacking')
         else:
             respSMBCommand['DialectRevision'] = smb3.SMB2_DIALECT_002
             #respSMBCommand['DialectRevision'] = smb3.SMB2_DIALECT_21
