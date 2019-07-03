@@ -506,7 +506,7 @@ class SMBRelayClient(ProtocolClient):
         signingKey = None
         if self.serverConfig.remove_target:
             # Trying to exploit CVE-2019-1019
-            # Discovery and Implementation by @simakov_marina
+            # Discovery and Implementation by @simakov_marina and @YaronZi
             respToken2 = SPNEGO_NegTokenResp(authData)
             authenticateMessageBlob = respToken2['ResponseToken']
 
