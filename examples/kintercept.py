@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # MIT Licensed
 # Copyright (c) 2019 Isaac Boukris <iboukris@gmail.com>
 #
@@ -13,10 +14,11 @@
 #
 # Example: kintercept.py --request-handler s4u2else:administrator dc-ip-addr
 
-import struct, socket, sys, argparse, asyncore
+import struct, socket, argparse, asyncore
 from binascii import crc32
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type.univ import noValue
+from impacket import version
 from impacket.krb5 import constants
 from impacket.krb5.crypto import Cksumtype
 from impacket.krb5.asn1 import TGS_REQ, TGS_REP, seq_set, PA_FOR_USER_ENC
@@ -38,9 +40,9 @@ def process_s4u2else_req(data, impostor):
     pa_tgs_req = pa_for_user = None
 
     for pa in tgs['padata']:
-        if (pa['padata-type'] == constants.PreAuthenticationDataTypes.PA_TGS_REQ.value):
+        if pa['padata-type'] == constants.PreAuthenticationDataTypes.PA_TGS_REQ.value:
             pa_tgs_req = pa
-        elif (pa['padata-type'] == constants.PreAuthenticationDataTypes.PA_FOR_USER.value):
+        elif pa['padata-type'] == constants.PreAuthenticationDataTypes.PA_FOR_USER.value:
             pa_for_user = pa
 
     if not pa_tgs_req or not pa_for_user:
@@ -118,7 +120,7 @@ class InterceptConn(asyncore.dispatcher):
         self.peer.buffer.extend(data)
 
     def buffer_empty(self):
-        return (len(self.buffer) == 0)
+        return len(self.buffer) == 0
 
     def max_read_size(self):
         space = MAX_BUFF_SIZE - min(MAX_BUFF_SIZE, len(self.peer.buffer))
@@ -178,7 +180,7 @@ def InterceptKRB5Tcp(process_record_func, arg):
             self.proto_buffer.extend(data)
 
             while len(self.proto_buffer):
-                if (len(self.proto_buffer) < 4):
+                if len(self.proto_buffer) < 4:
                     break
 
                 header = ''.join(reversed(str(self.proto_buffer[:4])))
@@ -255,6 +257,8 @@ def parse_args():
 
 
 if __name__ == '__main__':
+
+    print(version.BANNER)
 
     args = parse_args()
 
