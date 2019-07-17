@@ -812,10 +812,8 @@ class INSTANCE_TYPE(Structure):
             # if itemValue == 0, default value remains
             if itemValue != 0:
                 value = ENCODED_VALUE.getValue( properties[key]['type'], itemValue, heap)
-            else:
-                value = 0
-            properties[key]['value'] = value
-            valueTable = valueTable[dataSize:]
+                properties[key]['value'] = value
+            valueTable = valueTable[dataSize:] 
         return properties
 
 # 2.2.12 ParentClass

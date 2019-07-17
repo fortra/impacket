@@ -165,7 +165,7 @@ class SMBRelayServer(Thread):
                 #respSMBCommand['DialectRevision'] = smb3.SMB2_DIALECT_21
             else:
                 # Client does not support SMB2 fallbacking
-                raise Exception('SMB2 not supported, fallbacking')
+                raise Exception('Client does not support SMB2, fallbacking')
         else:
             respSMBCommand['DialectRevision'] = smb3.SMB2_DIALECT_002
             #respSMBCommand['DialectRevision'] = smb3.SMB2_DIALECT_21
@@ -255,7 +255,8 @@ class SMBRelayServer(Thread):
             client = connData['SMBClient']
             try:
                 challengeMessage = self.do_ntlm_negotiate(client, token)
-            except Exception:
+            except Exception as e:
+                LOG.debug("Exception:", exc_info=True)
                 # Log this target as processed for this client
                 self.targetprocessor.logTarget(self.target)
                 # Raise exception again to pass it on to the SMB server
@@ -298,12 +299,13 @@ class SMBRelayServer(Thread):
 
                 self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
                                             authenticateMessage['user_name'].decode('utf-16le'))).upper()
+
                 if rawNTLM is True:
                     respToken2 = SPNEGO_NegTokenResp()
                     respToken2['ResponseToken'] = securityBlob
                     securityBlob = respToken2.getData()
 
-                clientResponse, errorCode = self.do_ntlm_auth(client, securityBlob,
+                clientResponse, errorCode = self.do_ntlm_auth(client, token,
                                                               connData['CHALLENGE_MESSAGE']['challenge'])
             else:
                 # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials

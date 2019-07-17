@@ -12,6 +12,7 @@
 from __future__ import division
 from __future__ import print_function
 from struct import pack
+from six import binary_type
 
 from impacket.dcerpc.v5.ndr import NDRULONG, NDRUHYPER, NDRSHORT, NDRLONG, NDRPOINTER, NDRUniConformantArray, \
     NDRUniFixedArray, NDR, NDRHYPER, NDRSMALL, NDRPOINTERNULL, NDRSTRUCT, \
@@ -105,7 +106,11 @@ class STR(NDRSTRUCT):
     def __setitem__(self, key, value):
         if key == 'Data':
             try:
-                self.fields[key] = value.encode('utf-8')
+                if not isinstance(value, binary_type):
+                    self.fields[key] = value.encode('utf-8')
+                else:
+                    # if it is a binary type (str in Python 2, bytes in Python 3), then we assume it is a raw buffer
+                    self.fields[key] = value
             except UnicodeDecodeError:
                 import sys
                 self.fields[key] = value.decode(sys.getfilesystemencoding()).encode('utf-8')
@@ -117,7 +122,11 @@ class STR(NDRSTRUCT):
 
     def __getitem__(self, key):
         if key == 'Data':
-            return self.fields[key].decode('utf-8')
+            try:
+                return self.fields[key].decode('utf-8')
+            except UnicodeDecodeError:
+                # if we could't decode it, we assume it is a raw buffer
+                return self.fields[key]
         else:
             return NDR.__getitem__(self,key)
 

