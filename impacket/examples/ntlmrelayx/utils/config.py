@@ -74,6 +74,9 @@ class NTLMRelayxConfig:
         # HTTP options
         self.remove_target = False
 
+        # WebDAV options
+        self.serve_image = False
+
     def setSMB2Support(self, value):
         self.smb2support = value
 
@@ -166,3 +169,6 @@ class NTLMRelayxConfig:
     def setExploitOptions(self, remove_mic, remove_target):
         self.remove_mic = remove_mic
         self.remove_target = remove_target
+
+    def setWebDAVOptions(self, serve_image):
+        self.serve_image = serve_image
