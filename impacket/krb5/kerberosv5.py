@@ -299,7 +299,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
             tgt = sendReceive(encoder.encode(asReq), domain, kdcHost)
         except Exception as e:
             if str(e).find('KDC_ERR_ETYPE_NOSUPP') >= 0:
-                if lmhash is b'' and nthash is b'' and (aesKey is b'' or aesKey is None):
+                if lmhash == b'' and nthash == b'' and (aesKey == b'' or aesKey is None):
                     from impacket.ntlm import compute_lmhash, compute_nthash
                     lmhash = compute_lmhash(password)
                     nthash = compute_nthash(password)
@@ -576,7 +576,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                         # So, if that's the case we'll force using RC4 by converting
                         # the password to lm/nt hashes and hope for the best. If that's already
                         # done, byebye.
-                        if lmhash is b'' and nthash is b'' and (aesKey is b'' or aesKey is None) and TGT is None and TGS is None:
+                        if lmhash == b'' and nthash == b'' and (aesKey == b'' or aesKey is None) and TGT is None and TGS is None:
                             from impacket.ntlm import compute_lmhash, compute_nthash
                             LOG.debug('Got KDC_ERR_ETYPE_NOSUPP, fallback to RC4')
                             lmhash = compute_lmhash(password)
@@ -604,7 +604,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                     # So, if that's the case we'll force using RC4 by converting
                     # the password to lm/nt hashes and hope for the best. If that's already
                     # done, byebye.
-                    if lmhash is b'' and nthash is b'' and (aesKey is b'' or aesKey is None) and TGT is None and TGS is None:
+                    if lmhash == b'' and nthash == b'' and (aesKey == b'' or aesKey is None) and TGT is None and TGS is None:
                         from impacket.ntlm import compute_lmhash, compute_nthash
                         LOG.debug('Got KDC_ERR_ETYPE_NOSUPP, fallback to RC4')
                         lmhash = compute_lmhash(password)
