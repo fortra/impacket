@@ -154,7 +154,7 @@ def start_servers(options, threads):
         c.setSMB2Support(options.smb2support)
         c.setInterfaceIp(options.interface_ip)
         c.setExploitOptions(options.remove_mic, options.remove_target)
-
+        c.setWebDAVOptions(options.serve_image)
 
         if server is HTTPRelayServer:
             c.setListeningPort(options.http_port)
@@ -243,6 +243,7 @@ if __name__ == '__main__':
                                                                    'before serving a WPAD file.')
     parser.add_argument('-6','--ipv6', action='store_true',help='Listen on both IPv6 and IPv4')
     parser.add_argument('--remove-mic', action='store_true',help='Remove MIC (exploit CVE-2019-1040)')
+    parser.add_argument('--serve-image', action='store',help='local path of the image that will we returned to clients')
 
     #SMB arguments
     smboptions = parser.add_argument_group("SMB client options")
