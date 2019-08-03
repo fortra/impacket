@@ -1192,7 +1192,7 @@ class SAMHashes(OfflineRegistry):
             # No SAM file provided
             return
 
-        LOG.info('Dumping local SAM hashes (uid:rid:lmhash:nthash)')
+        LOG.info('Dumping local SAM hashes (uid:rid:lmhash:nthash:userpasswordhint)')
         self.getHBootKey()
 
         usersKey = 'SAM\\Domains\\Account\\Users'
@@ -1204,9 +1204,15 @@ class SAMHashes(OfflineRegistry):
             rids.remove('Names')
         except:
             pass
-
+        
         for rid in rids:
             userAccount = USER_ACCOUNT_V(self.getValue(ntpath.join(usersKey,rid,'V'))[1])
+            
+            userPasswordHint = ''
+            userPasswordHint_ispresent = 'UserPasswordHint' in self.enumValues(ntpath.join(usersKey,rid))
+            if userPasswordHint_ispresent:
+                userPasswordHint = self.getValue(ntpath.join(usersKey,rid,'UserPasswordHint'))[1].decode('utf-16le')
+            
             rid = int(rid,16)
 
             V = userAccount['Data']
@@ -1243,8 +1249,8 @@ class SAMHashes(OfflineRegistry):
                 lmHash = ntlm.LMOWFv1('','')
             if ntHash == b'':
                 ntHash = ntlm.NTOWFv1('','')
-
-            answer =  "%s:%d:%s:%s:::" % (userName, rid, hexlify(lmHash).decode('utf-8'), hexlify(ntHash).decode('utf-8'))
+            
+            answer =  "%s:%d:%s:%s:%s::" % (userName, rid, hexlify(lmHash).decode('utf-8'), hexlify(ntHash).decode('utf-8'), userPasswordHint)
             self.__itemsFound[rid] = answer
             self.__perSecretCallback(answer)
 
