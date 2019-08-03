@@ -18,6 +18,8 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
+from __future__ import division
+from __future__ import print_function
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRUNION, NDRPOINTER, NDRUniConformantArray, \
     NDRUniFixedArray, NDRBOOLEAN, NDRUniConformantVaryingArray, PNDRUniConformantArray
@@ -34,7 +36,7 @@ class DCERPCSessionError(DCERPCException):
 
     def __str__( self ):
         key = self.error_code
-        if system_errors.ERROR_MESSAGES.has_key(key):
+        if key in system_errors.ERROR_MESSAGES:
             error_msg_short = system_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
             return 'SRVS SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -83,6 +85,9 @@ STYPE_CLUSTER_DFS  = 0x08000000
 
 STYPE_SPECIAL      = 0x80000000
 STYPE_TEMPORARY    = 0x40000000
+
+# AND with shi_type to extract the Share Type part
+STYPE_MASK         = 0x000000FF
 
 # 2.2.2.5 Client-Side Caching (CSC) States
 CSC_CACHE_MANUAL_REINT = 0x00
@@ -1740,22 +1745,23 @@ class LPSERVER_INFO_1556(NDRPOINTER):
 class WCHAR_ARRAY(NDRSTRUCT):
     commonHdr = (
         ('Offset','<L=0'),
-        ('ActualCount','<L=len(Data)/2'),
+        ('ActualCount','<L=len(Data)//2'),
     )
     commonHdr64 = (
         ('Offset','<Q=0'),
-        ('ActualCount','<Q=len(Data)/2'),
+        ('ActualCount','<Q=len(Data)//2'),
     )
     structure = (
         ('Data',':'),
     )
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
-            print "%s" % msg,
+            print("%s" % msg, end=' ')
         # Here just print the data
-        print " %r" % (self['Data']),
+        print(" %r" % (self['Data']), end=' ')
 
     def __setitem__(self, key, value):
         if key == 'Data':
@@ -3194,7 +3200,7 @@ def hNetrpGetFileSecurity(dce, shareName, lpFileName, requestedInformation):
     request['lpFileName'] = lpFileName
     request['RequestedInformation'] = requestedInformation
     retVal = dce.request(request)
-    return ''.join(retVal['SecurityDescriptor']['Buffer'])
+    return b''.join(retVal['SecurityDescriptor']['Buffer'])
 
 def hNetrpSetFileSecurity(dce, shareName, lpFileName, securityInformation, securityDescriptor):
     request = NetrpSetFileSecurity()
@@ -3288,4 +3294,3 @@ def hNetrServerAliasEnum(dce, level, resumeHandle = 0, preferedMaximumLength = 0
     request['PreferedMaximumLength'] = preferedMaximumLength
     request['ResumeHandle'] = resumeHandle
     return dce.request(request)
-

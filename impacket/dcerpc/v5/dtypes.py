@@ -9,7 +9,10 @@
 # Description:
 #   [MS-DTYP] Interface mini implementation
 #
+from __future__ import division
+from __future__ import print_function
 from struct import pack
+from six import binary_type
 
 from impacket.dcerpc.v5.ndr import NDRULONG, NDRUHYPER, NDRSHORT, NDRLONG, NDRPOINTER, NDRUniConformantArray, \
     NDRUniFixedArray, NDR, NDRHYPER, NDRSMALL, NDRPOINTERNULL, NDRSTRUCT, \
@@ -57,7 +60,7 @@ class PCHAR(NDRPOINTER):
 
 class WIDESTR(NDRUniFixedArray):
     def getDataLen(self, data):
-        return data.find('\x00\x00\x00')+3
+        return data.find(b'\x00\x00\x00')+3
 
     def __setitem__(self, key, value):
         if key == 'Data':
@@ -93,20 +96,39 @@ class STR(NDRSTRUCT):
     )
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
-            print "%s" % msg,
+            print("%s" % msg, end=' ')
         # Here just print the data
-        print " %r" % (self['Data']),
+        print(" %r" % (self['Data']), end=' ')
 
     def __setitem__(self, key, value):
         if key == 'Data':
-            self.fields[key] = value
+            try:
+                if not isinstance(value, binary_type):
+                    self.fields[key] = value.encode('utf-8')
+                else:
+                    # if it is a binary type (str in Python 2, bytes in Python 3), then we assume it is a raw buffer
+                    self.fields[key] = value
+            except UnicodeDecodeError:
+                import sys
+                self.fields[key] = value.decode(sys.getfilesystemencoding()).encode('utf-8')
             self.fields['MaximumCount'] = None
             self.fields['ActualCount'] = None
             self.data = None        # force recompute
         else:
             return NDR.__setitem__(self, key, value)
+
+    def __getitem__(self, key):
+        if key == 'Data':
+            try:
+                return self.fields[key].decode('utf-8')
+            except UnicodeDecodeError:
+                # if we could't decode it, we assume it is a raw buffer
+                return self.fields[key]
+        else:
+            return NDR.__getitem__(self,key)
 
     def getDataLen(self, data):
         return self["ActualCount"]
@@ -118,25 +140,26 @@ class LPSTR(NDRPOINTER):
 
 class WSTR(NDRSTRUCT):
     commonHdr = (
-        ('MaximumCount', '<L=len(Data)/2'),
+        ('MaximumCount', '<L=len(Data)//2'),
         ('Offset','<L=0'),
-        ('ActualCount','<L=len(Data)/2'),
+        ('ActualCount','<L=len(Data)//2'),
     )
     commonHdr64 = (
-        ('MaximumCount', '<Q=len(Data)/2'),
+        ('MaximumCount', '<Q=len(Data)//2'),
         ('Offset','<Q=0'),
-        ('ActualCount','<Q=len(Data)/2'),
+        ('ActualCount','<Q=len(Data)//2'),
     )
     structure = (
         ('Data',':'),
     )
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
-            print "%s" % msg,
+            print("%s" % msg, end=' ')
         # Here just print the data
-        print " %r" % (self['Data']),
+        print(" %r" % (self['Data']), end=' ')
 
     def getDataLen(self, data):
         return self["ActualCount"]*2 
@@ -237,7 +260,7 @@ DWORD_PTR = ULONG_PTR
 # 2.3.2 GUID and UUID
 class GUID(NDRSTRUCT):
     structure = (
-        ('Data','16s=""'),
+        ('Data','16s=b""'),
     )
 
     def getAlignment(self):
@@ -356,14 +379,15 @@ class RPC_UNICODE_STRING(NDRSTRUCT):
         return NDRSTRUCT.__setitem__(self, key, value)
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
-            print "%s" % msg,
+            print("%s" % msg, end=' ')
 
         if isinstance(self.fields['Data'] , NDRPOINTERNULL):
-            print " NULL",
+            print(" NULL", end=' ')
         elif self.fields['Data']['ReferentID'] == 0:
-            print " NULL",
+            print(" NULL", end=' ')
         else:
             return self.fields['Data'].dump('',indent)
 
@@ -440,13 +464,13 @@ class RPC_SID(NDRSTRUCT):
         items = canonical.split('-')
         self['Revision'] = int(items[1])
         self['IdentifierAuthority'] = RPC_SID_IDENTIFIER_AUTHORITY()
-        self['IdentifierAuthority'] = '\x00\x00\x00\x00\x00' + pack('B',int(items[2]))
+        self['IdentifierAuthority'] = b'\x00\x00\x00\x00\x00' + pack('B',int(items[2]))
         self['SubAuthorityCount'] = len(items) - 3
         for i in range(self['SubAuthorityCount']):
             self['SubAuthority'].append(int(items[i+3]))
 
     def formatCanonical(self):
-        ans = 'S-%d-%d' % (self['Revision'], ord(self['IdentifierAuthority'][5]))
+        ans = 'S-%d-%d' % (self['Revision'], ord(self['IdentifierAuthority'][5:6]))
         for i in range(self['SubAuthorityCount']):
             ans += '-%d' % self['SubAuthority'][i]
         return ans
@@ -459,17 +483,17 @@ class PRPC_SID(NDRPOINTER):
 PSID = PRPC_SID
 
 # 2.4.3 ACCESS_MASK
-GENERIC_READ            = 0x80000000L
-GENERIC_WRITE           = 0x4000000L
-GENERIC_EXECUTE         = 0x20000000L
-GENERIC_ALL             = 0x10000000L
-MAXIMUM_ALLOWED         = 0x02000000L
-ACCESS_SYSTEM_SECURITY  = 0x01000000L
-SYNCHRONIZE             = 0x00100000L
-WRITE_OWNER             = 0x00080000L
-WRITE_DACL              = 0x00040000L
-READ_CONTROL            = 0x00020000L
-DELETE                  = 0x00010000L
+GENERIC_READ            = 0x80000000
+GENERIC_WRITE           = 0x4000000
+GENERIC_EXECUTE         = 0x20000000
+GENERIC_ALL             = 0x10000000
+MAXIMUM_ALLOWED         = 0x02000000
+ACCESS_SYSTEM_SECURITY  = 0x01000000
+SYNCHRONIZE             = 0x00100000
+WRITE_OWNER             = 0x00080000
+WRITE_DACL              = 0x00040000
+READ_CONTROL            = 0x00020000
+DELETE                  = 0x00010000
 
 # 2.4.5.1 ACL--RPC Representation
 class ACL(NDRSTRUCT):

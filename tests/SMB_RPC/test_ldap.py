@@ -8,9 +8,13 @@
 # Shouldn't dump errors against a win7
 #
 ################################################################################
-
+from __future__ import division
+from __future__ import print_function
 import unittest
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 
 from impacket.ldap import ldap, ldapasn1
 import impacket.ldap.ldaptypes
@@ -25,7 +29,7 @@ class LDAPTests(unittest.TestCase):
                                      attributes=['servicePrincipalName', 'sAMAccountName', 'userPrincipalName',
                                                  'MemberOf', 'pwdLastSet', 'whenCreated'])
         for item in resp:
-            print item.prettyPrint()
+            print(item.prettyPrint())
 
     def test_security_descriptor(self):
         # Comment by @dirkjanm:

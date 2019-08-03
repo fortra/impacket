@@ -18,18 +18,15 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
-from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRENUM, NDRPOINTER, NDRUniConformantArray
+from impacket import nt_errors
 from impacket.dcerpc.v5.dtypes import ULONG, LONG, PRPC_SID, RPC_UNICODE_STRING, LPWSTR, PRPC_UNICODE_STRING, NTSTATUS, \
     NULL
-from impacket import nt_errors
-from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5.enum import Enum
-from impacket.dcerpc.v5.lsad import LSAPR_HANDLE, LSAPR_ACL, SECURITY_DESCRIPTOR_CONTROL, LSAPR_SECURITY_DESCRIPTOR, \
-    PLSAPR_SECURITY_DESCRIPTOR, SECURITY_IMPERSONATION_LEVEL, SECURITY_CONTEXT_TRACKING_MODE, \
-    SECURITY_QUALITY_OF_SERVICE, LSAPR_OBJECT_ATTRIBUTES, LSAPR_TRUST_INFORMATION, PLSAPR_TRUST_INFORMATION_ARRAY, \
-    PRPC_UNICODE_STRING_ARRAY, LsarOpenPolicy2, LsarOpenPolicy, LsarClose, hLsarOpenPolicy2, hLsarOpenPolicy, hLsarClose
-from impacket.dcerpc.v5.samr import SID_NAME_USE
+from impacket.dcerpc.v5.lsad import LSAPR_HANDLE, PLSAPR_TRUST_INFORMATION_ARRAY
+from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRENUM, NDRPOINTER, NDRUniConformantArray
 from impacket.dcerpc.v5.rpcrt import DCERPCException
+from impacket.dcerpc.v5.samr import SID_NAME_USE
+from impacket.uuid import uuidtup_to_bin
 
 MSRPC_UUID_LSAT  = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AB','0.0'))
 
@@ -39,7 +36,7 @@ class DCERPCSessionError(DCERPCException):
 
     def __str__( self ):
         key = self.error_code
-        if nt_errors.ERROR_MESSAGES.has_key(key):
+        if key in nt_errors.ERROR_MESSAGES:
             error_msg_short = nt_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
             return 'LSAT SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -495,4 +492,3 @@ def hLsarLookupSids(dce, policyHandle, sids, lookupLevel = LSAP_LOOKUP_LEVEL.Lsa
     request['LookupLevel'] = lookupLevel
 
     return dce.request(request)
-

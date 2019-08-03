@@ -23,6 +23,8 @@ operation at that number.
 
 Author: Catalin Patulea <cat@vv.carleton.ca>
 """
+from __future__ import division
+from __future__ import print_function
 import sys
 
 from impacket.examples import logger
@@ -32,7 +34,7 @@ from impacket.dcerpc.v5 import transport
 
 def main(args):
   if len(args) != 4:
-    print "usage: opdump.py hostname port interface version"
+    print("usage: opdump.py hostname port interface version")
     return 1
 
   host, port, interface, version = args[0],  int(args[1]), args[2], args[3]
@@ -52,7 +54,7 @@ def main(args):
     dce.call(i, "")
     try:
       dce.recv()
-    except Exception, e:
+    except Exception as e:
       result = str(e)
     else:
       result = "success"
@@ -67,9 +69,9 @@ def main(args):
     results.pop()
 
   for i, result in enumerate(results):
-    print "op %d (0x%02x): %s" % (i, i, result)
+    print("op %d (0x%02x): %s" % (i, i, result))
 
-  print "ops %d-%d: %s" % (len(results), 255, suffix)
+  print("ops %d-%d: %s" % (len(results), 255, suffix))
 
 if __name__ == "__main__":
   # Init the example's logger theme

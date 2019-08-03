@@ -40,13 +40,17 @@
 #
 ################################################################################
 
+from __future__ import division
+from __future__ import print_function
 import unittest
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import epm, rrp, scmr
 from impacket.dcerpc.v5.dtypes import NULL, MAXIMUM_ALLOWED, OWNER_SECURITY_INFORMATION
-from impacket import ntlm
 
 
 class RRPTests(unittest.TestCase):
@@ -173,8 +177,8 @@ class RRPTests(unittest.TestCase):
         try: 
             resp = rrp.hBaseRegSetValue(dce, phKey, 'BETO2\x00',  rrp.REG_SZ, 'HOLA COMO TE VA\x00')
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
 
         type, data = rrp.hBaseRegQueryValue(dce, phKey, 'BETO2\x00')
         #print data
@@ -217,13 +221,13 @@ class RRPTests(unittest.TestCase):
         try: 
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
 
         request = rrp.BaseRegQueryValue()
         request['hKey'] = phKey
         request['lpValueName'] = 'BETO\x00'
-        request['lpData'] = ' '*100
+        request['lpData'] = b' '*100
         request['lpcbData'] = 100
         request['lpcbLen'] = 100
         resp = dce.request(request)
@@ -235,7 +239,8 @@ class RRPTests(unittest.TestCase):
         request['lpSubKey'] = 'BETO\x00'
         resp = dce.request(request)
         resp.dump()
-        self.assertTrue( 'HOLA COMO TE VA\x00' == ''.join(resData).decode('utf-16le'))
+        print(b''.join(resData).decode('utf-16le'))
+        self.assertTrue( 'HOLA COMO TE VA\x00' == b''.join(resData).decode('utf-16le'))
 
     def test_BaseRegEnumKey(self):
         dce, rpctransport, phKey = self.connect()
@@ -285,7 +290,7 @@ class RRPTests(unittest.TestCase):
         request['hKey'] = resp['phkResult']
         request['dwIndex'] = 6
         request['lpValueNameIn'] = ' '*100
-        request['lpData'] = ' '*100
+        request['lpData'] = b' '*100
         request['lpcbData'] = 100
         request['lpcbLen'] = 100
         resp = dce.request(request)
@@ -350,7 +355,7 @@ class RRPTests(unittest.TestCase):
         request = rrp.BaseRegQueryValue()
         request['hKey'] = resp['phkResult']
         request['lpValueName'] = 'ProductName\x00'
-        request['lpData'] = ' '*100
+        request['lpData'] = b' '*100
         request['lpcbData'] = 100
         request['lpcbLen'] = 100
         resp = dce.request(request)
@@ -375,7 +380,7 @@ class RRPTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_FILE_NOT_FOUND') < 0:
                 raise
 
@@ -385,7 +390,7 @@ class RRPTests(unittest.TestCase):
         try:
             resp = rrp.hBaseRegReplaceKey(dce, phKey, 'SOFTWARE\x00', 'SOFTWARE\x00', 'SOFTWARE\x00')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_FILE_NOT_FOUND') < 0:
                 raise
 
@@ -399,7 +404,7 @@ class RRPTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_FILE_NOT_FOUND') < 0:
                 raise
 
@@ -409,7 +414,7 @@ class RRPTests(unittest.TestCase):
         try:
             resp = rrp.hBaseRegRestoreKey(dce, phKey, 'SOFTWARE\x00')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_FILE_NOT_FOUND') < 0:
                 raise
 
@@ -509,7 +514,7 @@ class RRPTests(unittest.TestCase):
         request['val_listIn'].append(item2)
         request['val_listIn'].append(item3)
         request['num_vals'] = len(request['val_listIn'])
-        request['lpvalueBuf'] = list(' '*128)
+        request['lpvalueBuf'] = list(b' '*128)
         request['ldwTotsize'] = 128
         resp = dce.request(request)
         resp.dump()
@@ -537,8 +542,7 @@ class RRPTests(unittest.TestCase):
         item3['ValueType'] = rrp.REG_BINARY
         #valueIn.append(item3)
 
-        resp = rrp.hBaseRegQueryMultipleValues(dce, resp['phkResult'], valueIn)
-        #print resp
+        rrp.hBaseRegQueryMultipleValues(dce, resp['phkResult'], valueIn)
 
     def test_BaseRegSaveKeyEx(self):
         dce, rpctransport, phKey = self.connect()
@@ -638,7 +642,7 @@ class RRPTests(unittest.TestCase):
         request['val_listIn'].append(item2)
         request['val_listIn'].append(item3)
         request['num_vals'] = len(request['val_listIn'])
-        request['lpvalueBuf'] = list(' '*128)
+        request['lpvalueBuf'] = list(b' '*128)
         request['ldwTotsize'] = 128
         resp = dce.request(request)
         resp.dump()
@@ -662,7 +666,6 @@ class RRPTests(unittest.TestCase):
         request['lpdwDisposition'] = rrp.REG_CREATED_NEW_KEY
         resp = dce.request(request)
         resp.dump()
-        phKey = resp['phkResult']
 
         request = rrp.BaseRegDeleteKeyEx()
         request['hKey'] = regHandle
@@ -783,4 +786,5 @@ if __name__ == '__main__':
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
+        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
     unittest.TextTestRunner(verbosity=1).run(suite)

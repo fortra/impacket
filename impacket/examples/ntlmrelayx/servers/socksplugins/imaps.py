@@ -43,7 +43,7 @@ class IMAPSSocksRelay(SSLServerMixin, IMAPSocksRelay):
                 # Shut down TLS connection
                 self.socksSocket.shutdown()
                 return False
-        except Exception, e:
+        except Exception as e:
             LOG.debug('IMAPS: %s' % str(e))
             return False
         # Change our outgoing socket to the SSL object of IMAP4_SSL

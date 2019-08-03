@@ -42,13 +42,18 @@
 # Shouldn't dump errors against a win7
 #
 ################################################################################
-
+from __future__ import division
+from __future__ import print_function
 import unittest
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 
-from impacket.dcerpc.v5 import transport, epm, lsad
+from impacket.dcerpc.v5 import transport, lsad
 from impacket.dcerpc.v5.ndr import NULL
 from impacket.dcerpc.v5.dtypes import MAXIMUM_ALLOWED, RPC_UNICODE_STRING, DELETE
+from impacket.structure import hexdump
 
 class LSADTests(unittest.TestCase):
     def connect(self):
@@ -245,7 +250,7 @@ class LSADTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_INVALID_PARAMETER') < 0:
                 raise
 
@@ -253,7 +258,7 @@ class LSADTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
                 raise
 
@@ -261,7 +266,7 @@ class LSADTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
                 raise
 
@@ -270,21 +275,21 @@ class LSADTests(unittest.TestCase):
         try:
             resp = lsad.hLsarQueryDomainInformationPolicy(dce, policyHandle, lsad.POLICY_DOMAIN_INFORMATION_CLASS.PolicyDomainQualityOfServiceInformation)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_INVALID_PARAMETER') < 0:
                 raise
 
         try:
             resp = lsad.hLsarQueryDomainInformationPolicy(dce, policyHandle, lsad.POLICY_DOMAIN_INFORMATION_CLASS.PolicyDomainEfsInformation)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
                 raise
 
         try:
             resp = lsad.hLsarQueryDomainInformationPolicy(dce, policyHandle, lsad.POLICY_DOMAIN_INFORMATION_CLASS.PolicyDomainKerberosTicketInformation)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
                 raise
 
@@ -327,7 +332,7 @@ class LSADTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_MORE_ENTRIES') < 0:
                 raise
 
@@ -336,7 +341,7 @@ class LSADTests(unittest.TestCase):
         try:
             resp = lsad.hLsarEnumerateTrustedDomainsEx(dce, policyHandle)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_MORE_ENTRIES') < 0:
                 raise
 
@@ -349,7 +354,7 @@ class LSADTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_MORE_ENTRIES') < 0:
                 raise
 
@@ -358,7 +363,7 @@ class LSADTests(unittest.TestCase):
         try:
             resp = lsad.hLsarEnumerateTrustedDomains(dce, policyHandle)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_MORE_ENTRIES') < 0:
                 raise
 
@@ -760,7 +765,7 @@ class LSADTests(unittest.TestCase):
 
         request = lsad.LsarLookupPrivilegeValue()
         request['PolicyHandle'] = policyHandle
-        request['Name'] = u'SeTimeZonePrivilege'
+        request['Name'] = 'SeTimeZonePrivilege'
         resp = dce.request(request)
         resp.dump()
 
@@ -788,7 +793,7 @@ class LSADTests(unittest.TestCase):
 
         request = lsad.LsarLookupPrivilegeDisplayName()
         request['PolicyHandle'] = policyHandle
-        request['Name'] = u'SeTimeZonePrivilege'
+        request['Name'] = 'SeTimeZonePrivilege'
         request['ClientLanguage'] = 1
         request['ClientSystemDefaultLanguage'] = 1
         resp = dce.request(request)
@@ -816,7 +821,7 @@ class LSADTests(unittest.TestCase):
         dce, rpctransport, policyHandle = self.connect()
 
         resp = lsad.hLsarQuerySecurityObject(dce, policyHandle, lsad.OWNER_SECURITY_INFORMATION)
-        #hexdump(resp)
+        hexdump(resp)
 
         resp = lsad.hLsarSetSecurityObject(dce, policyHandle, lsad.OWNER_SECURITY_INFORMATION,resp)
         resp.dump()
@@ -831,7 +836,7 @@ class LSADTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
 

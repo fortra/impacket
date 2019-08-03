@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 # sorry, this is very ugly, but I'm in python 2.5
 import sys
 import unittest
@@ -13,90 +12,90 @@ class TestRadioTap(unittest.TestCase):
 
     def setUp(self):
         # RadioTap + 802.11 Data Frame + LLC SNAP + ARP Reply
-        self.frame_0 = str()
-        self.frame_0 += '\x00'  # Header Revision
-        self.frame_0 += '\x00'  # Header Pad
-        self.frame_0 += '\x18\x00'  # Header Length
-        self.frame_0 += '\x0e\x58\x00\x00'  # Present Flags (flags, rate, channel, antenna, db antenna signal, rx flags)
-        self.frame_0 += '\x10'  # Flags (FCS at end)
-        self.frame_0 += '\x6c'  # Data Rate
-        self.frame_0 += '\x6c\x09'  # Channel Frequency
-        self.frame_0 += '\x80\x04'  # Channel Type
-        self.frame_0 += '\x00'  # Antenna
-        self.frame_0 += '\x1e'  # SSI Signal
-        self.frame_0 += '\x00\x00'  # RX Flags
-        self.frame_0 += '\x00\x00\x00\x00\x00\x00\x08\x02\x2c\x00\x00\x1f\xe1\x19\xe4\xe4\x00\x1b\x9e\xce\x54\x09\x00' \
-                        '\x1b\x9e\xce\x54\x09\xe0\xac\xaa\xaa\x03\x00\x00\x00\x08\x06\x00\x01\x08\x00\x06\x04\x00\x02' \
-                        '\x00\x1b\x9e\xce\x54\x09\xc0\xa8\x01\x01\x00\x1f\xe1\x19\xe4\xe4\xc0\xa8\x01\x70\x01\x70\xe0' \
-                        '\x00\x00\xfb\x94\x04\x00\x00\x16\x00\x00\x00\xe0\x00\x00\xfb\x17\x5c\xa6\xca'
+        self.frame_0 = b''
+        self.frame_0 += b'\x00'  # Header Revision
+        self.frame_0 += b'\x00'  # Header Pad
+        self.frame_0 += b'\x18\x00'  # Header Length
+        self.frame_0 += b'\x0e\x58\x00\x00'  # Present Flags (flags, rate, channel, antenna, db antenna signal, rx flags)
+        self.frame_0 += b'\x10'  # Flags (FCS at end)
+        self.frame_0 += b'\x6c'  # Data Rate
+        self.frame_0 += b'\x6c\x09'  # Channel Frequency
+        self.frame_0 += b'\x80\x04'  # Channel Type
+        self.frame_0 += b'\x00'  # Antenna
+        self.frame_0 += b'\x1e'  # SSI Signal
+        self.frame_0 += b'\x00\x00'  # RX Flags
+        self.frame_0 += b'\x00\x00\x00\x00\x00\x00\x08\x02\x2c\x00\x00\x1f\xe1\x19\xe4\xe4\x00\x1b\x9e\xce\x54\x09\x00' \
+                        b'\x1b\x9e\xce\x54\x09\xe0\xac\xaa\xaa\x03\x00\x00\x00\x08\x06\x00\x01\x08\x00\x06\x04\x00\x02' \
+                        b'\x00\x1b\x9e\xce\x54\x09\xc0\xa8\x01\x01\x00\x1f\xe1\x19\xe4\xe4\xc0\xa8\x01\x70\x01\x70\xe0' \
+                        b'\x00\x00\xfb\x94\x04\x00\x00\x16\x00\x00\x00\xe0\x00\x00\xfb\x17\x5c\xa6\xca'
         self.rt0 = RadioTap(self.frame_0)
 
         # RadioTap + 802.11 Data Frame + LLC SNAP + ARP Request
-        self.frame_1 = str()
-        self.frame_1 += '\x00'  # Header Revision
-        self.frame_1 += '\x00'  # Header Pad
-        self.frame_1 += '\x20\x00'  # Header Length
+        self.frame_1 = b''
+        self.frame_1 += b'\x00'  # Header Revision
+        self.frame_1 += b'\x00'  # Header Pad
+        self.frame_1 += b'\x20\x00'  # Header Length
         # Present Flags (tsft, flags, rate, dbm antenna signal, dbm antenna noise, antenna, channel+)
-        self.frame_1 += '\x67\x08\x04\x00'
-        self.frame_1 += '\x30\x03\x1a\x25\x00\x00\x00\x00'  # TSFT
-        self.frame_1 += '\x22'  # Flags (Data pad, preamble short)
-        self.frame_1 += '\x0c'  # Data Rate
-        self.frame_1 += '\xd9'  # SSI Signal
-        self.frame_1 += '\xa0'  # SSI Noise
-        self.frame_1 += '\x02'  # Antenna
-        self.frame_1 += '\x00\x00\x00'  # ???
-        self.frame_1 += '\x40\x01\x00\x00'  # Channel Type
-        self.frame_1 += '\x3c\x14'  # Channel Frequency
-        self.frame_1 += '\x24'  # Channel Number
-        self.frame_1 += '\x11'  # ???
-        self.frame_1 += '\x08\x02\x00\x00\xff\xff\xff\xff\xff\xff\x06\x03\x7f\x07\xa0\x16\x00\x19\xe3\xd3\x53\x52' \
-                        '\x90\x7f\xaa\xaa\x03\x00\x00\x00\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\x00\x19\xe3\xd3' \
-                        '\x53\x52\xa9\xfe\xf7\x00\x00\x00\x00\x00\x00\x00\x43\x08\x0e\x36'
+        self.frame_1 += b'\x67\x08\x04\x00'
+        self.frame_1 += b'\x30\x03\x1a\x25\x00\x00\x00\x00'  # TSFT
+        self.frame_1 += b'\x22'  # Flags (Data pad, preamble short)
+        self.frame_1 += b'\x0c'  # Data Rate
+        self.frame_1 += b'\xd9'  # SSI Signal
+        self.frame_1 += b'\xa0'  # SSI Noise
+        self.frame_1 += b'\x02'  # Antenna
+        self.frame_1 += b'\x00\x00\x00'  # ???
+        self.frame_1 += b'\x40\x01\x00\x00'  # Channel Type
+        self.frame_1 += b'\x3c\x14'  # Channel Frequency
+        self.frame_1 += b'\x24'  # Channel Number
+        self.frame_1 += b'\x11'  # ???
+        self.frame_1 += b'\x08\x02\x00\x00\xff\xff\xff\xff\xff\xff\x06\x03\x7f\x07\xa0\x16\x00\x19\xe3\xd3\x53\x52' \
+                        b'\x90\x7f\xaa\xaa\x03\x00\x00\x00\x08\x06\x00\x01\x08\x00\x06\x04\x00\x01\x00\x19\xe3\xd3' \
+                        b'\x53\x52\xa9\xfe\xf7\x00\x00\x00\x00\x00\x00\x00\x43\x08\x0e\x36'
         self.rt1 = RadioTap(self.frame_1)
 
         # RadioTap + 802.11 Data Frame + LLC SNAP + ARP Request
-        self.frame_2 = str()
-        self.frame_2 += '\x00'  # Header Revision
-        self.frame_2 += '\x00'  # Header Pad
-        self.frame_2 += '\x24\x00'  # Header Length
+        self.frame_2 = b''
+        self.frame_2 += b'\x00'  # Header Revision
+        self.frame_2 += b'\x00'  # Header Pad
+        self.frame_2 += b'\x24\x00'  # Header Length
         # Present Flags (tsft, flags, rate, channel, dbm antenna signal, rx flags, ns next, ext)
-        self.frame_2 += '\x2f\x40\x00\xa0'
-        self.frame_2 += '\x20\x08\x00\x00'  # Present Flags (dbm antenna signal, antenna)
-        self.frame_2 += '\x00\x00\x00\x00'  # ???
-        self.frame_2 += '\x97\xd3\x26\x44\x06\x00\x00\x00'  # TSFT
-        self.frame_2 += '\x10'  # Flags
-        self.frame_2 += '\x02'  # Data Rate
-        self.frame_2 += '\x6c\x09'  # Channel Frequency
-        self.frame_2 += '\xc0\x00'  # Channel Type
-        self.frame_2 += '\xa6'  # SSI Signal
-        self.frame_2 += '\x00'  # ???
-        self.frame_2 += '\x00\x00'  # RX flags
-        self.frame_2 += '\xa6'  # SSI Signal
-        self.frame_2 += '\x00'  # ???
-        self.frame_2 += '\xd4\x00\x00\x00\x9c\x04\xeb\x4d\xdb\x53\x8d\xf3\xc6\xc3'
+        self.frame_2 += b'\x2f\x40\x00\xa0'
+        self.frame_2 += b'\x20\x08\x00\x00'  # Present Flags (dbm antenna signal, antenna)
+        self.frame_2 += b'\x00\x00\x00\x00'  # ???
+        self.frame_2 += b'\x97\xd3\x26\x44\x06\x00\x00\x00'  # TSFT
+        self.frame_2 += b'\x10'  # Flags
+        self.frame_2 += b'\x02'  # Data Rate
+        self.frame_2 += b'\x6c\x09'  # Channel Frequency
+        self.frame_2 += b'\xc0\x00'  # Channel Type
+        self.frame_2 += b'\xa6'  # SSI Signal
+        self.frame_2 += b'\x00'  # ???
+        self.frame_2 += b'\x00\x00'  # RX flags
+        self.frame_2 += b'\xa6'  # SSI Signal
+        self.frame_2 += b'\x00'  # ???
+        self.frame_2 += b'\xd4\x00\x00\x00\x9c\x04\xeb\x4d\xdb\x53\x8d\xf3\xc6\xc3'
         self.rt2 = RadioTap(self.frame_2)
 
         # RadioTap + 802.11 Data Frame + LLC SNAP + ARP Request
-        self.frame_3 = str()
-        self.frame_3 += '\x00'  # Header Revision
-        self.frame_3 += '\x00'  # Header Pad
-        self.frame_3 += '\x24\x00'  # Header Length
+        self.frame_3 = b''
+        self.frame_3 += b'\x00'  # Header Revision
+        self.frame_3 += b'\x00'  # Header Pad
+        self.frame_3 += b'\x24\x00'  # Header Length
         # Present Flags (tsft, flags, rate, channel, dbm antenna signal, rx flags, ns next, ext)
-        self.frame_3 += '\x2f\x40\x00\xa0'
-        self.frame_3 += '\x20\x08\x00\x80'  # Present Flags (dbm antenna signal, antenna)
-        self.frame_3 += '\x00\x00\x00\x00'  # Present Flags
+        self.frame_3 += b'\x2f\x40\x00\xa0'
+        self.frame_3 += b'\x20\x08\x00\x80'  # Present Flags (dbm antenna signal, antenna)
+        self.frame_3 += b'\x00\x00\x00\x00'  # Present Flags
         # self.frame_3 += '\x00\x00\x00\x00'  # ???
-        self.frame_3 += '\x97\xd3\x26\x44\x06\x00\x00\x00'  # TSFT
-        self.frame_3 += '\x10'  # Flags
-        self.frame_3 += '\x02'  # Data Rate
-        self.frame_3 += '\x6c\x09'  # Channel Frequency
-        self.frame_3 += '\xc0\x00'  # Channel Type
-        self.frame_3 += '\xa6'  # SSI Signal
-        self.frame_3 += '\x00'  # ???
-        self.frame_3 += '\x00\x00'  # RX flags
-        self.frame_3 += '\xa6'  # SSI Signal
-        self.frame_3 += '\x00'  # ???
-        self.frame_3 += '\xd4\x00\x00\x00\x9c\x04\xeb\x4d\xdb\x53\x8d\xf3\xc6\xc3'
+        self.frame_3 += b'\x97\xd3\x26\x44\x06\x00\x00\x00'  # TSFT
+        self.frame_3 += b'\x10'  # Flags
+        self.frame_3 += b'\x02'  # Data Rate
+        self.frame_3 += b'\x6c\x09'  # Channel Frequency
+        self.frame_3 += b'\xc0\x00'  # Channel Type
+        self.frame_3 += b'\xa6'  # SSI Signal
+        self.frame_3 += b'\x00'  # ???
+        self.frame_3 += b'\x00\x00'  # RX flags
+        self.frame_3 += b'\xa6'  # SSI Signal
+        self.frame_3 += b'\x00'  # ???
+        self.frame_3 += b'\xd4\x00\x00\x00\x9c\x04\xeb\x4d\xdb\x53\x8d\xf3\xc6\xc3'
         self.rt3 = RadioTap(self.frame_3)
 
 
@@ -546,21 +545,21 @@ class TestRadioTap(unittest.TestCase):
         #   4 bytes present flags
         self.assertEqual(rt.get_header_length(), 0x08)
         raw_packet = rt.get_packet()
-        self.assertEqual(raw_packet, "\x00\x00\x08\x00\x00\x00\x00\x00")
+        self.assertEqual(raw_packet, b"\x00\x00\x08\x00\x00\x00\x00\x00")
         # RadioTap from scratch without call to get_length()
         raw_packet = RadioTap().get_packet()
-        self.assertEqual(raw_packet, "\x00\x00\x08\x00\x00\x00\x00\x00")        
+        self.assertEqual(raw_packet, b"\x00\x00\x08\x00\x00\x00\x00\x00")
 
     def test_30_radiotap_length_filed_with_payload(self):
         """Test RadioTap header length field with payload"""
         # RadioTap from scratch calling get_length() and then get_packet()
         rt = RadioTap()
         self.assertEqual(rt.get_header_length(), 0x08) 
-        data = Data("aa")
+        data = Data(b"aa")
         rt.contains(data)
         self.assertEqual(rt.get_header_length(), 0x08)  # The header length is the same
         raw_packet = rt.get_packet()
-        self.assertEqual(raw_packet, "\x00\x00\x08\x00\x00\x00\x00\x00aa")
+        self.assertEqual(raw_packet, b"\x00\x00\x08\x00\x00\x00\x00\x00aa")
 
     def test_31_radiotap_present_flags_extended(self):
         """Test RadioTap extended present flags"""

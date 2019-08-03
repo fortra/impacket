@@ -1,27 +1,32 @@
 #!/usr/bin/env python
-
 # sorry, this is very ugly, but I'm in python 2.5
 import sys
 sys.path.insert(0,"../..")
 
-from impacket.dot11 import Dot11, Dot11Types, Dot11ManagementFrame,Dot11ManagementDeauthentication
+from impacket.dot11 import Dot11Types
 from impacket.ImpactDecoder import RadioTapDecoder
-from binascii import hexlify
 import unittest
+from six import PY2
 
 class TestDot11ManagementBeaconFrames(unittest.TestCase):
 
     def setUp(self):
         # 802.11 Management Frame 
         #
-        self.rawframe='\x00\x00\x10\x00\x6e\x00\x00\x00\x00\x02\x94\x09\xa0\x00\x3a\x00\xc0\x00\x3a\x01\x00\x15\xaf\x64\xac\xbd\x00\x18\x39\xc1\xfc\xe2\x00\x18\x39\xc1\xfc\xe2\x20\x3b\x0f\x00'
+        self.rawframe=b'\x00\x00\x10\x00\x6e\x00\x00\x00\x00\x02\x94\x09\xa0\x00\x3a\x00\xc0\x00\x3a\x01\x00\x15\xaf\x64\xac\xbd\x00\x18\x39\xc1\xfc\xe2\x00\x18\x39\xc1\xfc\xe2\x20\x3b\x0f\x00'
         self.radiotap_decoder = RadioTapDecoder()
         radiotap=self.radiotap_decoder.decode(self.rawframe)
 
-        self.assertEqual(str(radiotap.__class__), "impacket.dot11.RadioTap")
+        if PY2:
+            self.assertEqual(str(radiotap.__class__), "impacket.dot11.RadioTap")
+        else:
+            self.assertEqual(str(radiotap.__class__), "<class 'impacket.dot11.RadioTap'>")
 
         self.dot11=radiotap.child()
-        self.assertEqual(str(self.dot11.__class__), "impacket.dot11.Dot11")
+        if PY2:
+            self.assertEqual(str(self.dot11.__class__), "impacket.dot11.Dot11")
+        else:
+            self.assertEqual(str(self.dot11.__class__), "<class 'impacket.dot11.Dot11'>")
 
         type = self.dot11.get_type()
         self.assertEqual(type,Dot11Types.DOT11_TYPE_MANAGEMENT)
@@ -33,10 +38,16 @@ class TestDot11ManagementBeaconFrames(unittest.TestCase):
         self.assertEqual(typesubtype,Dot11Types.DOT11_TYPE_MANAGEMENT_SUBTYPE_DEAUTHENTICATION)
         
         self.management_base=self.dot11.child()
-        self.assertEqual(str(self.management_base.__class__), "impacket.dot11.Dot11ManagementFrame")
+        if PY2:
+            self.assertEqual(str(self.management_base.__class__), "impacket.dot11.Dot11ManagementFrame")
+        else:
+            self.assertEqual(str(self.management_base.__class__), "<class 'impacket.dot11.Dot11ManagementFrame'>")
         
         self.management_deauthentication=self.management_base.child()
-        self.assertEqual(str(self.management_deauthentication.__class__), "impacket.dot11.Dot11ManagementDeauthentication")
+        if PY2:
+            self.assertEqual(str(self.management_deauthentication.__class__), "impacket.dot11.Dot11ManagementDeauthentication")
+        else:
+            self.assertEqual(str(self.management_deauthentication.__class__), "<class 'impacket.dot11.Dot11ManagementDeauthentication'>")
             
         
     def test_01(self):
@@ -106,7 +117,7 @@ class TestDot11ManagementBeaconFrames(unittest.TestCase):
         
     def test_09(self):
         'Test Management Frame Data field'
-        frame_body="\x0f\x00"
+        frame_body=b"\x0f\x00"
         self.assertEqual(self.management_base.get_frame_body(), frame_body)
 
     def test_10(self):

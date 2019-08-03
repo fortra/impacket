@@ -20,6 +20,8 @@ class NTLMRelayxConfig:
         # Set the value of the interface ip address
         self.interfaceIp = None
 
+        self.listeningPort = None
+
         self.domainIp = None
         self.machineAccount = None
         self.machineHashes = None
@@ -32,14 +34,15 @@ class NTLMRelayxConfig:
         self.randomtargets = False
         self.encoding = None
         self.ipv6 = False
+        self.remove_mic = False
 
-        #WPAD options
+        # WPAD options
         self.serve_wpad = False
         self.wpad_host = None
         self.wpad_auth_num = 0
         self.smb2support = False
 
-        #WPAD options
+        # WPAD options
         self.serve_wpad = False
         self.wpad_host = None
         self.wpad_auth_num = 0
@@ -55,6 +58,7 @@ class NTLMRelayxConfig:
         self.dumpdomain = True
         self.addda = True
         self.aclattack = True
+        self.validateprivs = True
         self.escalateuser = None
 
         # MSSQL options
@@ -67,6 +71,11 @@ class NTLMRelayxConfig:
         self.runSocks = False
         self.socksServer = None
 
+        # HTTP options
+        self.remove_target = False
+
+        # WebDAV options
+        self.serve_image = False
 
     def setSMB2Support(self, value):
         self.smb2support = value
@@ -76,6 +85,9 @@ class NTLMRelayxConfig:
 
     def setInterfaceIp(self, ip):
         self.interfaceIp = ip
+
+    def setListeningPort(self, port):
+        self.listeningPort = port
 
     def setRunSocks(self, socks, server):
         self.runSocks = socks
@@ -108,10 +120,15 @@ class NTLMRelayxConfig:
     def setLootdir(self, lootdir):
         self.lootdir = lootdir
 
-    def setRedirectHost(self,redirecthost):
+    def setRedirectHost(self, redirecthost):
         self.redirecthost = redirecthost
 
-    def setDomainAccount( self, machineAccount,  machineHashes, domainIp):
+    def setDomainAccount(self, machineAccount, machineHashes, domainIp):
+        # Don't set this if we're not exploiting it
+        if not self.remove_target:
+            return
+        if machineAccount is None or machineHashes is None or domainIp is None:
+            raise Exception("You must specify machine-account/hashes/domain all together!")
         self.machineAccount = machineAccount
         self.machineHashes = machineHashes
         self.domainIp = domainIp
@@ -119,11 +136,14 @@ class NTLMRelayxConfig:
     def setRandomTargets(self, randomtargets):
         self.randomtargets = randomtargets
 
-    def setLDAPOptions(self, dumpdomain, addda, aclattack, escalateuser):
+    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser, addcomputer, delegateaccess):
         self.dumpdomain = dumpdomain
         self.addda = addda
         self.aclattack = aclattack
+        self.validateprivs = validateprivs
         self.escalateuser = escalateuser
+        self.addcomputer = addcomputer
+        self.delegateaccess = delegateaccess
 
     def setMSSQLOptions(self, queries):
         self.queries = queries
@@ -141,7 +161,14 @@ class NTLMRelayxConfig:
         self.ipv6 = use_ipv6
 
     def setWpadOptions(self, wpad_host, wpad_auth_num):
-        if wpad_host != None:
+        if wpad_host is not None:
             self.serve_wpad = True
         self.wpad_host = wpad_host
         self.wpad_auth_num = wpad_auth_num
+
+    def setExploitOptions(self, remove_mic, remove_target):
+        self.remove_mic = remove_mic
+        self.remove_target = remove_target
+
+    def setWebDAVOptions(self, serve_image):
+        self.serve_image = serve_image

@@ -45,21 +45,28 @@ class ProtocolAttack(Thread):
         raise RuntimeError('Virtual Function')
 
 for file in pkg_resources.resource_listdir('impacket.examples.ntlmrelayx', 'attacks'):
-    if file.find('__') >=0 or os.path.splitext(file)[1] == '.pyc':
+    if file.find('__') >= 0 or file.endswith('.py') is False:
         continue
-    __import__(__package__ + '.' + os.path.splitext(file)[0])
-    module = sys.modules[__package__ + '.' + os.path.splitext(file)[0]]
+    # This seems to be None in some case (py3 only)
+    # __spec__ is py3 only though, but I haven't seen this being None on py2
+    # so it should cover all cases.
+    try:
+        package = __spec__.name  # Python 3
+    except NameError:
+        package = __package__    # Python 2
+    __import__(package + '.' + os.path.splitext(file)[0])
+    module = sys.modules[package + '.' + os.path.splitext(file)[0]]
     try:
         pluginClasses = set()
         try:
-            if hasattr(module,'PROTOCOL_ATTACK_CLASSES'):
+            if hasattr(module, 'PROTOCOL_ATTACK_CLASSES'):
                 # Multiple classes
                 for pluginClass in module.PROTOCOL_ATTACK_CLASSES:
                     pluginClasses.add(getattr(module, pluginClass))
             else:
                 # Single class
                 pluginClasses.add(getattr(module, getattr(module, 'PROTOCOL_ATTACK_CLASS')))
-        except Exception, e:
+        except Exception as e:
             LOG.debug(e)
             pass
 
@@ -67,6 +74,5 @@ for file in pkg_resources.resource_listdir('impacket.examples.ntlmrelayx', 'atta
             for pluginName in pluginClass.PLUGIN_NAMES:
                 LOG.debug('Protocol Attack %s loaded..' % pluginName)
                 PROTOCOL_ATTACKS[pluginName] = pluginClass
-    except Exception, e:
+    except Exception as e:
         LOG.debug(str(e))
-

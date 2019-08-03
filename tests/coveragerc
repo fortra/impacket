@@ -3,6 +3,7 @@
 branch = True
 source = impacket
 omit = *remcom*
+       *.tox*
 
 [report]
 # Regexes for lines to exclude from consideration
@@ -25,6 +26,3 @@ ignore_errors = True
 
 [html]
 directory = coverage_html_report
-
-[report]
-ignore_errors = True

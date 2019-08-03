@@ -14,7 +14,7 @@
 from struct import unpack
 import socket
 
-from ImpactPacket import Header
+from impacket.ImpactPacket import Header
 from impacket import LOG
 
 IP_ADDRESS_LENGTH = 4
@@ -49,10 +49,8 @@ class CDP(Header):
         # Remove version (1 byte), TTL (1 byte), and checksum (2 bytes)
         buff = aBuffer[4:]
         l = []
-        finish = False
         while buff:
             elem = CDPElementFactory.create(buff)
-            data = elem.get_data()
             l.append( elem )
             buff = buff[ elem.get_length() : ]
         return l
@@ -80,7 +78,6 @@ class CDP(Header):
 
 
     def __str__(self):
-        knowcode = 0
         tmp_str = 'CDP Details:\n'
         for element in self._elements:
             tmp_str += "** Type:" + str(element.get_type()) + " " + str(element) + "\n"

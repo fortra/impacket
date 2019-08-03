@@ -18,6 +18,8 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
+
+
 from struct import unpack, pack
 
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantVaryingArray, NDRUniConformantArray
@@ -35,7 +37,7 @@ class DCERPCSessionError(DCERPCException):
 
     def __str__( self ):
         key = self.error_code
-        if system_errors.ERROR_MESSAGES.has_key(key):
+        if key in system_errors.ERROR_MESSAGES:
             error_msg_short = system_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
             return 'RRP SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -709,7 +711,7 @@ def packValue(valueType, value):
 
 def unpackValue(valueType, value):
     if valueType == REG_DWORD:
-        retData = unpack('<L', ''.join(value))[0]
+        retData = unpack('<L', b''.join(value))[0]
     elif valueType == REG_DWORD_BIG_ENDIAN:
         retData = unpack('>L', ''.join(value))[0]
     elif valueType == REG_EXPAND_SZ:
@@ -721,9 +723,9 @@ def unpackValue(valueType, value):
     elif valueType == REG_QWORD_LITTLE_ENDIAN:
         retData = unpack('>Q', ''.join(value))[0]
     elif valueType == REG_SZ:
-        retData = ''.join(value).decode('utf-16le')
+        retData = b''.join(value).decode('utf-16le')
     else:
-        retData = ''.join(value)
+        retData = b''.join(value)
 
     return retData
 
@@ -788,7 +790,7 @@ def hBaseRegEnumKey(dce, hKey, dwIndex, lpftLastWriteTime = NULL):
     request['hKey'] = hKey
     request['dwIndex'] = dwIndex
     request.fields['lpNameIn'].fields['MaximumLength'] = 1024
-    request.fields['lpNameIn'].fields['Data'].fields['Data'].fields['MaximumCount'] = 1024/2
+    request.fields['lpNameIn'].fields['Data'].fields['Data'].fields['MaximumCount'] = 1024//2
     request['lpClassIn'] = ' '* 64
     request['lpftLastWriteTime'] = lpftLastWriteTime
 
@@ -809,11 +811,11 @@ def hBaseRegEnumValue(dce, hKey, dwIndex, dataLen=256):
             request.fields['lpValueNameIn'].fields['MaximumLength'] = dataLen*2
             request.fields['lpValueNameIn'].fields['Data'].fields['Data'].fields['MaximumCount'] = dataLen
 
-            request['lpData'] = ' ' * dataLen
+            request['lpData'] = b' ' * dataLen
             request['lpcbData'] = dataLen
             request['lpcbLen'] = dataLen
             resp = dce.request(request)
-        except DCERPCSessionError, e:
+        except DCERPCSessionError as e:
             if retries > 1:
                 LOG.debug('Too many retries when calling hBaseRegEnumValue, aborting')
                 raise
@@ -870,7 +872,7 @@ def hBaseRegQueryInfoKey(dce, hKey):
     # Not the cleanest way, but oh well
     # Plus, Windows XP needs MaximumCount also set
     request.fields['lpClassIn'].fields['MaximumLength'] = 1024
-    request.fields['lpClassIn'].fields['Data'].fields['Data'].fields['MaximumCount'] = 1024/2
+    request.fields['lpClassIn'].fields['Data'].fields['Data'].fields['MaximumCount'] = 1024//2
     return dce.request(request)
 
 def hBaseRegQueryValue(dce, hKey, lpValueName, dataLen=512):
@@ -882,11 +884,11 @@ def hBaseRegQueryValue(dce, hKey, lpValueName, dataLen=512):
     # We need to be aware the size might not be enough, so let's catch ERROR_MORE_DATA exception
     while True:
         try:
-            request['lpData'] = ' ' * dataLen
+            request['lpData'] =b' ' * dataLen
             request['lpcbData'] = dataLen
             request['lpcbLen'] = dataLen
             resp = dce.request(request)
-        except DCERPCSessionError, e:
+        except DCERPCSessionError as e:
             if retries > 1:
                 LOG.debug('Too many retries when calling hBaseRegQueryValue, aborting')
                 raise
@@ -960,7 +962,7 @@ def hBaseRegQueryMultipleValues(dce, hKey, val_listIn):
         request['val_listIn'].append(itemn)
 
     request['num_vals'] = len(request['val_listIn'])
-    request['lpvalueBuf'] = list(' '*128)
+    request['lpvalueBuf'] = list(b' '*128)
     request['ldwTotsize'] = 128
 
     resp = dce.request(request)
@@ -998,4 +1000,3 @@ def hBaseRegDeleteValue(dce, hKey, lpValueName):
     request['hKey'] = hKey
     request['lpValueName'] = checkNullString(lpValueName)
     return dce.request(request)
-

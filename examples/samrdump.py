@@ -13,7 +13,8 @@
 #
 # Reference for:
 #  DCE/RPC for SAMR
-
+from __future__ import division
+from __future__ import print_function
 import sys
 import logging
 import argparse
@@ -63,7 +64,7 @@ class SAMRDump:
 
         logging.info('Retrieving endpoint list from %s' % remoteName)
 
-        stringbinding = 'ncacn_np:%s[\pipe\samr]' % remoteName
+        stringbinding = r'ncacn_np:%s[\pipe\samr]' % remoteName
         logging.debug('StringBinding %s'%stringbinding)
         rpctransport = transport.DCERPCTransportFactory(stringbinding)
         rpctransport.set_dport(self.__port)
@@ -79,13 +80,13 @@ class SAMRDump:
 
         try:
             entries = self.__fetchList(rpctransport)
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
 
         # Display results.
 
         if self.__csvOutput is True:
-            print '#Name,RID,FullName,PrimaryGroupId,BadPasswordCount,LogonCount,PasswordLastSet,PasswordDoesNotExpire,AccountIsDisabled,UserComment,ScriptPath'
+            print('#Name,RID,FullName,PrimaryGroupId,BadPasswordCount,LogonCount,PasswordLastSet,PasswordDoesNotExpire,AccountIsDisabled,UserComment,ScriptPath')
 
         for entry in entries:
             (username, uid, user) = entry
@@ -106,21 +107,21 @@ class SAMRDump:
                 accountDisabled = 'False'
 
             if self.__csvOutput is True:
-                print '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (username, uid, user['FullName'], user['PrimaryGroupId'],
+                print('%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (username, uid, user['FullName'], user['PrimaryGroupId'],
                                                       user['BadPasswordCount'], user['LogonCount'],pwdLastSet,
                                                       dontExpire, accountDisabled, user['UserComment'].replace(',','.'),
-                                                      user['ScriptPath']  )
+                                                      user['ScriptPath']  ))
             else:
                 base = "%s (%d)" % (username, uid)
-                print base + '/FullName:', user['FullName']
-                print base + '/UserComment:', user['UserComment']
-                print base + '/PrimaryGroupId:', user['PrimaryGroupId']
-                print base + '/BadPasswordCount:', user['BadPasswordCount']
-                print base + '/LogonCount:', user['LogonCount']
-                print base + '/PasswordLastSet:',pwdLastSet
-                print base + '/PasswordDoesNotExpire:',dontExpire
-                print base + '/AccountIsDisabled:',accountDisabled
-                print base + '/ScriptPath:', user['ScriptPath']
+                print(base + '/FullName:', user['FullName'])
+                print(base + '/UserComment:', user['UserComment'])
+                print(base + '/PrimaryGroupId:', user['PrimaryGroupId'])
+                print(base + '/BadPasswordCount:', user['BadPasswordCount'])
+                print(base + '/LogonCount:', user['LogonCount'])
+                print(base + '/PasswordLastSet:',pwdLastSet)
+                print(base + '/PasswordDoesNotExpire:',dontExpire)
+                print(base + '/AccountIsDisabled:',accountDisabled)
+                print(base + '/ScriptPath:', user['ScriptPath'])
 
         if entries:
             num = len(entries)
@@ -147,9 +148,9 @@ class SAMRDump:
             resp = samr.hSamrEnumerateDomainsInSamServer(dce, serverHandle)
             domains = resp['Buffer']['Buffer']
 
-            print 'Found domain(s):'
+            print('Found domain(s):')
             for domain in domains:
-                print " . %s" % domain['Name']
+                print(" . %s" % domain['Name'])
 
             logging.info("Looking up users in domain %s" % domains[0]['Name'])
 
@@ -163,14 +164,14 @@ class SAMRDump:
             while status == STATUS_MORE_ENTRIES:
                 try:
                     resp = samr.hSamrEnumerateUsersInDomain(dce, domainHandle, enumerationContext = enumerationContext)
-                except DCERPCException, e:
+                except DCERPCException as e:
                     if str(e).find('STATUS_MORE_ENTRIES') < 0:
                         raise 
                     resp = e.get_packet()
 
                 for user in resp['Buffer']['Buffer']:
                     r = samr.hSamrOpenUser(dce, domainHandle, samr.MAXIMUM_ALLOWED, user['RelativeId'])
-                    print "Found user: %s, uid = %d" % (user['Name'], user['RelativeId'] )
+                    print("Found user: %s, uid = %d" % (user['Name'], user['RelativeId'] ))
                     info = samr.hSamrQueryInformationUser2(dce, r['UserHandle'],samr.USER_INFORMATION_CLASS.UserAllInformation)
                     entry = (user['Name'], user['RelativeId'], info['Buffer']['All'])
                     entries.append(entry)
@@ -179,7 +180,7 @@ class SAMRDump:
                 enumerationContext = resp['EnumerationContext'] 
                 status = resp['ErrorCode']
 
-        except ListUsersException, e:
+        except ListUsersException as e:
             logging.critical("Error listing users: %s" % e)
 
         dce.disconnect()
@@ -195,7 +196,7 @@ if __name__ == '__main__':
     if sys.stdout.encoding is None:
         # Output is redirected to a file
         sys.stdout = codecs.getwriter('utf8')(sys.stdout)
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "This script downloads the list of users for the "
                                                                     "target system.")

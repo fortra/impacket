@@ -8,8 +8,8 @@
 import array
 import struct
 
-from ImpactPacket import Header, Data
-from IP6_Address import IP6_Address
+from impacket.ImpactPacket import Header, Data
+from impacket.IP6_Address import IP6_Address
 
 
 class ICMP6(Header):    
@@ -524,4 +524,3 @@ class ICMP6(Header):
         
     def get_originating_packet_data(self):
         return self.child().get_bytes()[4:]
-                    

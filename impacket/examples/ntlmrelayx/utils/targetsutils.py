@@ -33,7 +33,10 @@
 import os
 import random
 import time
-from urlparse import urlparse
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
 from impacket import LOG
 from threading import Thread
 
@@ -77,21 +80,27 @@ class TargetsProcessor:
                 self.originalTargets = []
                 for line in f:
                     target = line.strip()
-                    if target is not None:
+                    if target != '':
                         self.originalTargets.extend(self.processTarget(target, self.protocolClients))
-        except IOError, e:
-            LOG.error("Could not open file: %s - " % (self.filename, str(e)))
+        except IOError as e:
+            LOG.error("Could not open file: %s - %s", self.filename, str(e))
 
         if len(self.originalTargets) == 0:
             LOG.critical("Warning: no valid targets specified!")
 
         self.candidates = [x for x in self.originalTargets if x not in self.finishedAttacks]
 
-    def logTarget(self, target, gotRelay = False):
+    def logTarget(self, target, gotRelay = False, gotUsername = None):
         # If the target has a username, we can safely remove it from the list. Mission accomplished.
         if gotRelay is True:
             if target.username is not None:
                 self.finishedAttacks.append(target)
+            elif gotUsername is not None:
+                # We have data about the username we relayed the connection for,
+                # for a target that didn't have username specified.
+                # Let's log it
+                newTarget = urlparse('%s://%s@%s%s' % (target.scheme, gotUsername, target.netloc, target.path))
+                self.finishedAttacks.append(newTarget)
 
     def getTarget(self, choose_random=False):
         if len(self.candidates) > 0:
@@ -113,7 +122,6 @@ class TargetsFileWatcher(Thread):
         Thread.__init__(self)
         self.targetprocessor = targetprocessor
         self.lastmtime = os.stat(self.targetprocessor.filename).st_mtime
-        #print self.lastmtime
 
     def run(self):
         while True:

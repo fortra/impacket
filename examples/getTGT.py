@@ -15,10 +15,12 @@
 #         ./getTGT.py -hashes lm:nt contoso.com/user
 #
 #
+from __future__ import division
+from __future__ import print_function
 import argparse
 import logging
 import sys
-from binascii import hexlify, unhexlify
+from binascii import unhexlify
 
 from impacket import version
 from impacket.examples import logger
@@ -58,7 +60,7 @@ class GETTGT:
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help=True, description="Given a password, hash or aesKey, it will request a "
                                                                 "TGT and save it as ccache")
@@ -79,9 +81,9 @@ if __name__ == '__main__':
 
     if len(sys.argv)==1:
         parser.print_help()
-        print "\nExamples: "
-        print "\t./getTGT.py -hashes lm:nt contoso.com/user\n"
-        print "\tit will use the lm:nt hashes for authentication. If you don't specify them, a password will be asked"
+        print("\nExamples: ")
+        print("\t./getTGT.py -hashes lm:nt contoso.com/user\n")
+        print("\tit will use the lm:nt hashes for authentication. If you don't specify them, a password will be asked")
         sys.exit(1)
 
     options = parser.parse_args()
@@ -110,8 +112,8 @@ if __name__ == '__main__':
 
         executer = GETTGT(username, password, domain, options)
         executer.run()
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
-        print str(e)
+        print(str(e))

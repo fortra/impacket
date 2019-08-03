@@ -21,16 +21,11 @@ rm -f $OUTPUTFILE
 
 # Start running the tests
 
+echo Python Version
+python -V
+
 echo Walking modules
 $RUNLOCAL ./walkmodules.py
-
-echo Running __main__ on some important files
-$RUNLOCAL -m impacket.crypto __main__
-$RUNLOCAL -m impacket.krb5.crypto __main__
-$RUNLOCAL -m impacket.structure __main__
-$RUNLOCAL -m impacket.dns __main__ 
-$RUNLOCAL -m impacket.IP6_Address __main__
-$RUNLOCAL -m impacket.dcerpc.v5.ndr __main__
 
 echo Testing ImpactPacket
 cd ImpactPacket
@@ -59,13 +54,11 @@ if [ -z "$NO_REMOTE" ]; then
     $RUN test_nmb.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
     ./rundce.sh $COVERAGE 2>&1 1>/dev/null | tee -a $OUTPUTFILE
 fi
-cd ..
 
-echo Testing MISC
-cd misc
-export PYTHONPATH=../../:$PYTHONPATH
-echo test_dpapi.py
-$RUN test_dpapi.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+echo Testing misc
+cd ../misc
+./runalltestcases.sh $COVERAGE 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+
 cd ..
 
 if [ $COVERAGE ]

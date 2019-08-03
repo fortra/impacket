@@ -19,8 +19,9 @@
 # Reference for:
 #     LDAP
 #
-
-
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import argparse
 import logging
 import sys
@@ -75,7 +76,7 @@ class GetADUsers:
             s.login('', '')
         except Exception:
             if s.getServerName() == '':
-                raise('Error while anonymous logging into %s' % self.__domain)
+                raise 'Error while anonymous logging into %s'
         else:
             s.logoff()
         return s.getServerName()
@@ -95,25 +96,26 @@ class GetADUsers:
         lastLogon = 'N/A'
         try:
             for attribute in item['attributes']:
-                if attribute['type'] == 'sAMAccountName':
-                    if str(attribute['vals'][0]).endswith('$') is False:
+                if str(attribute['type']) == 'sAMAccountName':
+                    if attribute['vals'][0].asOctets().decode('utf-8').endswith('$') is False:
                         # User Account
-                        sAMAccountName = str(attribute['vals'][0])
-                elif attribute['type'] == 'pwdLastSet':
+                        sAMAccountName = attribute['vals'][0].asOctets().decode('utf-8')
+                elif str(attribute['type']) == 'pwdLastSet':
                     if str(attribute['vals'][0]) == '0':
                         pwdLastSet = '<never>'
                     else:
                         pwdLastSet = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
-                elif attribute['type'] == 'lastLogon':
+                elif str(attribute['type']) == 'lastLogon':
                     if str(attribute['vals'][0]) == '0':
                         lastLogon = '<never>'
                     else:
                         lastLogon = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
-                elif attribute['type'] == 'mail':
+                elif str(attribute['type']) == 'mail':
                     mail = str(attribute['vals'][0])
 
-            print(self.__outputFormat.format(*[sAMAccountName, mail, pwdLastSet, lastLogon]))
+            print((self.__outputFormat.format(*[sAMAccountName, mail, pwdLastSet, lastLogon])))
         except Exception as e:
+            logging.debug("Exception", exc_info=True)
             logging.error('Skipping item, cannot process due to error %s' % str(e))
             pass
 
@@ -148,8 +150,8 @@ class GetADUsers:
 
         logging.info('Querying %s for information about domain.' % self.__target)
         # Print header
-        print(self.__outputFormat.format(*self.__header))
-        print('  '.join(['-' * itemLen for itemLen in self.__colLen]))
+        print((self.__outputFormat.format(*self.__header)))
+        print(('  '.join(['-' * itemLen for itemLen in self.__colLen])))
 
         # Building the search filter
         if self.__all:
@@ -165,10 +167,10 @@ class GetADUsers:
         try:
             logging.debug('Search Filter=%s' % searchFilter)
             sc = ldap.SimplePagedResultsControl(size=100)
-            resp = ldapConnection.search(searchFilter=searchFilter,
-                                         attributes=['sAMAccountName', 'pwdLastSet', 'mail', 'lastLogon'],
-                                         sizeLimit=0, searchControls = [sc], perRecordCallback=self.processRecord)
-        except ldap.LDAPSearchError as e:
+            ldapConnection.search(searchFilter=searchFilter,
+                                  attributes=['sAMAccountName', 'pwdLastSet', 'mail', 'lastLogon'],
+                                  sizeLimit=0, searchControls = [sc], perRecordCallback=self.processRecord)
+        except ldap.LDAPSearchError:
                 raise
 
         ldapConnection.close()
@@ -177,7 +179,7 @@ class GetADUsers:
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-    print(version.BANNER)
+    print((version.BANNER))
 
     parser = argparse.ArgumentParser(add_help = True, description = "Queries target domain for users data")
 
@@ -242,4 +244,4 @@ if __name__ == '__main__':
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
-        print (str(e))
+        print((str(e)))

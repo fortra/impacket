@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-
 #Impact test version
 try:
     from impacket.ImpactDecoder import EthDecoder
     from impacket.ImpactPacket import TCP
 except:
+    raise
     pass
 
 #Standalone test version
@@ -16,7 +16,6 @@ try:
 except:
     pass
 
-from binascii import hexlify
 import unittest
 
 class TestTCP(unittest.TestCase):
@@ -24,9 +23,9 @@ class TestTCP(unittest.TestCase):
     def setUp(self):
         # TCP - sport: 60655, dport: 80, sec: 0, HLen: 40, Flags: 0x02, win_size: 5840
         #  cksum: 0x64cb, Options: 0x20
-        self.frame = '\xec\xef\x00\x50\xa8\xbd\xea\x4c\x00\x00\x00\x00\xa0\x02\x16\xd0' \
-                     '\x64\xcb\x00\x00\x02\x04\x05\xb4\x04\x02\x08\x0a\x00\xdc\xd6\x12' \
-                     '\x00\x00\x00\x00\x01\x03\x03\x06'
+        self.frame = b'\xec\xef\x00\x50\xa8\xbd\xea\x4c\x00\x00\x00\x00\xa0\x02\x16\xd0' \
+                     b'\x64\xcb\x00\x00\x02\x04\x05\xb4\x04\x02\x08\x0a\x00\xdc\xd6\x12' \
+                     b'\x00\x00\x00\x00\x01\x03\x03\x06'
 
         self.tcp = TCP(self.frame)
         
@@ -144,4 +143,3 @@ class TestTCP(unittest.TestCase):
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestTCP)
 unittest.TextTestRunner(verbosity=1).run(suite)
-
