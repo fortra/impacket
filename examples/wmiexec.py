@@ -226,8 +226,8 @@ class RemoteShell(cmd.Cmd):
                 # Drive valid, now we should get the current path
                 self.__pwd = line
                 self.execute_remote('cd ')
-                self.__pwd = self.__outputBuffer.strip('\r\n').encode(CODEC)
-                self.prompt = (self.__pwd + b'>')
+                self.__pwd = self.__outputBuffer.strip('\r\n')
+                self.prompt = (self.__pwd + '>')
                 self.__outputBuffer = ''
         else:
             if line != '':
