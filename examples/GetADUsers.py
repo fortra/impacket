@@ -76,7 +76,7 @@ class GetADUsers:
             s.login('', '')
         except Exception:
             if s.getServerName() == '':
-                raise 'Error while anonymous logging into %s' % self.__domain
+                raise Exception('Error while anonymous logging into %s' % self.__domain)
         else:
             s.logoff()
         return s.getServerName()
