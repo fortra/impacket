@@ -533,8 +533,9 @@ KNOWN_DES_INPUT = b"KGS!@#$%"
 
 def __expand_DES_key(key):
     # Expand the key from a 7-byte password key into a 8-byte DES key
-    key  = key[:7]
-    key += bytearray(7-len(key))
+    if not isinstance(key, bytes):
+        key = bytes(key)
+    key  = bytearray(key[:7]).ljust(7, b'\x00')
     s = bytearray()
     s.append(((key[0] >> 1) & 0x7f) << 1)
     s.append(((key[0] & 0x01) << 6 | ((key[1] >> 2) & 0x3f)) << 1)
