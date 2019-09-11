@@ -22,7 +22,6 @@ import os
 import re
 import socket
 from binascii import unhexlify
-from six import u
 
 from pyasn1.codec.ber import encoder, decoder
 from pyasn1.error import SubstrateUnderrunError
@@ -468,9 +467,10 @@ class LDAPConnection:
 
     def _parseFilter(self, filterStr):
         try:
-            filterList = list(reversed(u(filterStr)))
-        except UnicodeDecodeError:
-            filterList = list(reversed(filterStr))
+            filterStr = filterStr.decode()
+        except AttributeError:
+            pass
+        filterList = list(reversed(filterStr))
         searchFilter = self._consumeCompositeFilter(filterList)
         if filterList:  # we have not consumed the whole filter string
             raise LDAPFilterSyntaxError("unexpected token: '%s'" % filterList[-1])
