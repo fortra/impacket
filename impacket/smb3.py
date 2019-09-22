@@ -1310,7 +1310,7 @@ class SMB3:
 
         queryInfo = SMB2QueryInfo()
         queryInfo['FileID']                = fileId
-        queryInfo['InfoType']              = SMB2_0_INFO_FILE 
+        queryInfo['InfoType']              = infoType 
         queryInfo['FileInfoClass']         = fileInfoClass 
         queryInfo['OutputBufferLength']    = 65535
         queryInfo['AdditionalInformation'] = additionalInformation
@@ -1341,7 +1341,7 @@ class SMB3:
         packet['TreeID']  = treeId
 
         setInfo = SMB2SetInfo()
-        setInfo['InfoType']              = SMB2_0_INFO_FILE 
+        setInfo['InfoType']              = infoType 
         setInfo['FileInfoClass']         = fileInfoClass 
         setInfo['BufferLength']          = len(inputBlob)
         setInfo['AdditionalInformation'] = additionalInformation
