@@ -567,7 +567,10 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(add_help = True, description = "Adds a computer account to domain")
 
-    parser.add_argument('account', action='store', metavar='[domain/]username[:password]', help='Account used to authenticate to DC.')
+    if sys.version_info.major == 2 and sys.version_info.minor == 7 and sys.version_info.micro < 16: #workaround for https://bugs.python.org/issue11874
+        parser.add_argument('account', action='store', help='[domain/]username[:password] Account used to authenticate to DC.')
+    else:
+        parser.add_argument('account', action='store', metavar='[domain/]username[:password]', help='Account used to authenticate to DC.')
     parser.add_argument('-domain-netbios', action='store', metavar='NETBIOSNAME', help='Domain NetBIOS name. Required if the DC has multiple domains.')
     parser.add_argument('-computer-name', action='store', metavar='COMPUTER-NAME$', help='Name of computer to add.'
                                                                                  'If omitted, a random DESKTOP-[A-Z0-9]{8} will be used.')
