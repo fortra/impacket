@@ -843,17 +843,14 @@ class SMBConnection:
         if snapshotData['SnapShotArraySize'] >= 52:
             # now send an appropriate sized buffer
             try:
-               snapshotData2 = SRV_SNAPSHOT_ARRAY(self._SMBConnection.ioctl(tid, fid, FSCTL_SRV_ENUMERATE_SNAPSHOTS,
+               snapshotData = SRV_SNAPSHOT_ARRAY(self._SMBConnection.ioctl(tid, fid, FSCTL_SRV_ENUMERATE_SNAPSHOTS,
                                   flags=SMB2_0_IOCTL_IS_FSCTL, maxOutputResponse=snapshotData['SnapShotArraySize']+12))
             except (smb.SessionError, smb3.SessionError) as e:
                self.closeFile(tid, fid)
                raise SessionError(e.get_error_code(), e.get_error_packet())
 
-            for label in snapshotData2['SnapShots'].decode('utf16').split('\x00'):
-                print(label)
-        else:
-            print("No snapshots found")
         self.closeFile(tid, fid)
+        return filter(None, snapshotData['SnapShots'].decode('utf16').split('\x00'))
 
     def createMountPoint(self, tid, path, target):
         """

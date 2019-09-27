@@ -472,7 +472,14 @@ class MiniImpacketShell(cmd.Cmd):
         if pathName.startswith('\\') is not True:
             pathName = ntpath.join(self.pwd, pathName)
 
-        self.smb.listSnapshots(self.tid, pathName)
+        snapshotList = self.smb.listSnapshots(self.tid, pathName)
+
+        if not snapshotList:
+            print("No snapshots found")
+            return
+
+        for timestamp in snapshotList:
+            print(timestamp)
 
     def do_mount(self, line):
         l = line.split(' ')
