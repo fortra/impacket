@@ -850,7 +850,7 @@ class SMBConnection:
                raise SessionError(e.get_error_code(), e.get_error_packet())
 
         self.closeFile(tid, fid)
-        return filter(None, snapshotData['SnapShots'].decode('utf16').split('\x00'))
+        return list(filter(None, snapshotData['SnapShots'].decode('utf16').split('\x00')))
 
     def createMountPoint(self, tid, path, target):
         """
