@@ -1569,6 +1569,13 @@ class SMB3:
         return True
 
     def retrieveFile(self, shareName, path, callback, mode = FILE_OPEN, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ):
+        createContexts = None
+
+        if self.isSnapshotRequest(path):
+            createContexts = []
+            path, ctx = self.timestampForSnapshot(path)
+            createContexts.append(ctx)
+
         # ToDo: Handle situations where share is password protected
         path = path.replace('/', '\\')
         path = ntpath.normpath(path)
@@ -1579,7 +1586,7 @@ class SMB3:
         fileId = None
         from impacket import smb
         try:
-            fileId = self.create(treeId, path, FILE_READ_DATA, shareAccessMode, FILE_NON_DIRECTORY_FILE, mode, 0)
+            fileId = self.create(treeId, path, FILE_READ_DATA, shareAccessMode, FILE_NON_DIRECTORY_FILE, mode, 0, createContexts=createContexts)
             res = self.queryInfo(treeId, fileId)
             fileInfo = smb.SMBQueryFileStandardInfo(res)
             fileSize = fileInfo['EndOfFile']
