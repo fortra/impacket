@@ -963,17 +963,17 @@ class SMB3:
        
         smb2Create['NameLength']           = len(fileName)*2
         if fileName != '':
-            smb2Create['Buffer']               = fileName.encode('utf-16le')
+            smb2Create['Buffer']           = fileName.encode('utf-16le')
         else:
-            smb2Create['Buffer']               = '\x00'
+            smb2Create['Buffer']           = b'\x00'
 
         if createContexts is not None:
-            contextsBuf = ''.join(x.getData() for x in createContexts)
+            contextsBuf = b''.join(x.getData() for x in createContexts)
             smb2Create['CreateContextsOffset'] = len(SMB2Packet()) + SMB2Create.SIZE + len(smb2Create['Buffer'])
 
             # pad offset to 8-byte align
             if (smb2Create['CreateContextsOffset'] % 8):
-                smb2Create['Buffer'] += '\x00'*(8-(smb2Create['CreateContextsOffset'] % 8))
+                smb2Create['Buffer'] += b'\x00'*(8-(smb2Create['CreateContextsOffset'] % 8))
                 smb2Create['CreateContextsOffset'] = len(SMB2Packet()) + SMB2Create.SIZE + len(smb2Create['Buffer'])
 
             smb2Create['CreateContextsLength'] = len(contextsBuf)
@@ -1438,8 +1438,8 @@ class SMB3:
         ctx['NameLength'] = len('TWrp')
         ctx['DataOffset'] = 24
         ctx['DataLength'] = 8
-        ctx['Buffer'] = 'TWrp'
-        ctx['Buffer'] += '\x00'*4 # 4 bytes to 8-byte align
+        ctx['Buffer'] = b'TWrp'
+        ctx['Buffer'] += b'\x00'*4 # 4 bytes to 8-byte align
         ctx['Buffer'] += token.getData()
 
         # fix-up the path
