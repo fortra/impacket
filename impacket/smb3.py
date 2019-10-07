@@ -963,14 +963,21 @@ class SMB3:
        
         smb2Create['NameLength']           = len(fileName)*2
         if fileName != '':
-            smb2Create['Buffer']               = fileName.encode('utf-16le')
+            smb2Create['Buffer']           = fileName.encode('utf-16le')
         else:
-            smb2Create['Buffer']               = '\x00'
+            smb2Create['Buffer']           = b'\x00'
 
         if createContexts is not None:
-            smb2Create['Buffer'] += createContexts
-            smb2Create['CreateContextsOffset'] = len(SMB2Packet()) + SMB2Create.SIZE + smb2Create['NameLength']
-            smb2Create['CreateContextsLength'] = len(createContexts)
+            contextsBuf = b''.join(x.getData() for x in createContexts)
+            smb2Create['CreateContextsOffset'] = len(SMB2Packet()) + SMB2Create.SIZE + len(smb2Create['Buffer'])
+
+            # pad offset to 8-byte align
+            if (smb2Create['CreateContextsOffset'] % 8):
+                smb2Create['Buffer'] += b'\x00'*(8-(smb2Create['CreateContextsOffset'] % 8))
+                smb2Create['CreateContextsOffset'] = len(SMB2Packet()) + SMB2Create.SIZE + len(smb2Create['Buffer'])
+
+            smb2Create['CreateContextsLength'] = len(contextsBuf)
+            smb2Create['Buffer'] += contextsBuf
         else:
             smb2Create['CreateContextsOffset'] = 0
             smb2Create['CreateContextsLength'] = 0
@@ -1410,7 +1417,45 @@ class SMB3:
             writeOffset += written
         return writeOffset - offset
 
+    def isSnapshotRequest(self, path):
+        #TODO: use a regex here?
+        return '@GMT-' in path
+
+    def timestampForSnapshot(self, path):
+        timestamp = path[path.index("@GMT-"):path.index("@GMT-")+24]
+        path = path.replace(timestamp, '')
+        from datetime import datetime
+        fTime = int((datetime.strptime(timestamp, '@GMT-%Y.%m.%d-%H.%M.%S') - datetime(1970,1,1)).total_seconds())
+        fTime *= 10000000
+        fTime += 116444736000000000
+
+        token = SMB2_CREATE_TIMEWARP_TOKEN()
+        token['Timestamp'] = fTime
+
+        ctx = SMB2CreateContext()
+        ctx['Next'] = 0
+        ctx['NameOffset'] = 16
+        ctx['NameLength'] = len('TWrp')
+        ctx['DataOffset'] = 24
+        ctx['DataLength'] = 8
+        ctx['Buffer'] = b'TWrp'
+        ctx['Buffer'] += b'\x00'*4 # 4 bytes to 8-byte align
+        ctx['Buffer'] += token.getData()
+
+        # fix-up the path
+        path = path.replace(timestamp, '').replace('\\\\', '\\')
+        if path == '\\':
+            path += '*'
+        return path, ctx
+
     def listPath(self, shareName, path, password = None):
+        createContexts = None
+
+        if self.isSnapshotRequest(path):
+            createContexts = []
+            path, ctx = self.timestampForSnapshot(path)
+            createContexts.append(ctx)
+
         # ToDo: Handle situations where share is password protected
         path = path.replace('/', '\\')
         path = ntpath.normpath(path)
@@ -1424,7 +1469,8 @@ class SMB3:
             # ToDo, we're assuming it's a directory, we should check what the file type is
             fileId = self.create(treeId, ntpath.dirname(path), FILE_READ_ATTRIBUTES | FILE_READ_DATA, FILE_SHARE_READ |
                                  FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                                 FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT, FILE_OPEN, 0)
+                                 FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT, FILE_OPEN, 0,
+                                 createContexts=createContexts)
             res = ''
             files = []
             from impacket import smb
@@ -1523,6 +1569,13 @@ class SMB3:
         return True
 
     def retrieveFile(self, shareName, path, callback, mode = FILE_OPEN, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ):
+        createContexts = None
+
+        if self.isSnapshotRequest(path):
+            createContexts = []
+            path, ctx = self.timestampForSnapshot(path)
+            createContexts.append(ctx)
+
         # ToDo: Handle situations where share is password protected
         path = path.replace('/', '\\')
         path = ntpath.normpath(path)
@@ -1533,7 +1586,7 @@ class SMB3:
         fileId = None
         from impacket import smb
         try:
-            fileId = self.create(treeId, path, FILE_READ_DATA, shareAccessMode, FILE_NON_DIRECTORY_FILE, mode, 0)
+            fileId = self.create(treeId, path, FILE_READ_DATA, shareAccessMode, FILE_NON_DIRECTORY_FILE, mode, 0, createContexts=createContexts)
             res = self.queryInfo(treeId, fileId)
             fileInfo = smb.SMBQueryFileStandardInfo(res)
             fileSize = fileInfo['EndOfFile']

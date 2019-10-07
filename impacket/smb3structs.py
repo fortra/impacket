@@ -787,7 +787,7 @@ class SMB2_CREATE_ALLOCATION_SIZE(Structure):
 
 class SMB2_CREATE_TIMEWARP_TOKEN(Structure):
     structure = (
-        ('AllocationSize','<Q=0'),
+        ('Timestamp','<Q=0'),
     )
 
 class SMB2_CREATE_REQUEST_LEASE(Structure):

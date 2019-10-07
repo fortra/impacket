@@ -113,6 +113,7 @@ class MiniImpacketShell(cmd.Cmd):
  get {filename} - downloads the filename from the current path
  mount {target,path} - creates a mount point from {path} to {target} (admin required)
  umount {path} - removes the mount point at {path} without deleting the directory (admin required)
+ list_snapshots {path} - lists the vss snapshots for the specified path
  info - returns NetrServerInfo main results
  who - returns the sessions currently connected at the target host (admin required)
  close - closes the current SMB Session
@@ -461,6 +462,24 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_close(self, line):
         self.do_logoff(line)
+
+    def do_list_snapshots(self, line):
+        l = line.split(' ')
+        if len(l) > 0:
+            pathName= l[0].replace('/','\\')
+
+        # Relative or absolute path?
+        if pathName.startswith('\\') is not True:
+            pathName = ntpath.join(self.pwd, pathName)
+
+        snapshotList = self.smb.listSnapshots(self.tid, pathName)
+
+        if not snapshotList:
+            print("No snapshots found")
+            return
+
+        for timestamp in snapshotList:
+            print(timestamp)
 
     def do_mount(self, line):
         l = line.split(' ')
