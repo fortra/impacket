@@ -292,7 +292,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
-    parser.add_argument('command', nargs='*', default = ' ', help='command to execute at the target. If empty it will '
+    parser.add_argument('command', default = ' ', help='command to execute at the target. If empty it will '
                                                                   'launch a semi-interactive shell')
     
     parser.add_argument('-share', action='store', default = 'C$', help='share where the output will be grabbed from '
