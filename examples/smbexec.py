@@ -109,9 +109,10 @@ class SMBServer(Thread):
         self._Thread__stop()
 
 class CMDEXEC:
-    def __init__(self, username='', password='', domain='', hashes=None, aesKey=None,
+    def __init__(self, command='', username='', password='', domain='', hashes=None, aesKey=None,
                  doKerberos=None, kdcHost=None, mode=None, share=None, port=445):
 
+        self.__command = command
         self.__username = username
         self.__password = password
         self.__port = port
@@ -149,7 +150,10 @@ class CMDEXEC:
                 serverThread.daemon = True
                 serverThread.start()
             self.shell = RemoteShell(self.__share, rpctransport, self.__mode, self.__serviceName)
-            self.shell.cmdloop()
+            if self.__command != ' ':
+                self.shell.onecmd(self.__command)
+            else:
+                self.shell.cmdloop()
             if self.__mode == 'SERVER':
                 serverThread.stop()
         except  (Exception, KeyboardInterrupt) as e:
@@ -288,6 +292,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
+    parser.add_argument('command', nargs='*', default = ' ', help='command to execute at the target. If empty it will '
+                                                                  'launch a semi-interactive shell')
+    
     parser.add_argument('-share', action='store', default = 'C$', help='share where the output will be grabbed from '
                                                                        '(default C$)')
     parser.add_argument('-mode', action='store', choices = {'SERVER','SHARE'}, default='SHARE',
@@ -348,7 +355,7 @@ if __name__ == '__main__':
         options.k = True
 
     try:
-        executer = CMDEXEC(username, password, domain, options.hashes, options.aesKey, options.k,
+        executer = CMDEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey, options.k,
                            options.dc_ip, options.mode, options.share, int(options.port))
         executer.run(remoteName, options.target_ip)
     except Exception as e:
