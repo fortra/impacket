@@ -95,7 +95,7 @@ class TargetsProcessor:
 
         self.generalCandidates = [x for x in self.originalTargets if x not in self.finishedAttacks and x.username is None]
         self.namedCandidates = [x for x in self.originalTargets if x not in self.finishedAttacks and x.username is not None]
-        
+
     def logTarget(self, target, gotRelay = False, gotUsername = None):
         # If the target has a username, we can safely remove it from the list. Mission accomplished.
         if gotRelay is True:
@@ -109,6 +109,8 @@ class TargetsProcessor:
                 self.finishedAttacks.append(newTarget)
 
     def getTarget(self, identity=None):
+        # ToDo: We should have another list of failed attempts (with user) and check that inside this method so we do not
+        # retry those targets.
         if identity is not None and len(self.namedCandidates) > 0:
             # We've been asked to match a username that is connected to us
             # Do we have an explicit request for it?
