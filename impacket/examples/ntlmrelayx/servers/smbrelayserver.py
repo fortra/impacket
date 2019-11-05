@@ -305,8 +305,12 @@ class SMBRelayServer(Thread):
                     respToken2['ResponseToken'] = securityBlob
                     securityBlob = respToken2.getData()
 
-                clientResponse, errorCode = self.do_ntlm_auth(client, token,
-                                                              connData['CHALLENGE_MESSAGE']['challenge'])
+                if self.config.remove_mic:
+                    clientResponse, errorCode = self.do_ntlm_auth(client, token,
+                                                                  connData['CHALLENGE_MESSAGE']['challenge'])
+                else:
+                    clientResponse, errorCode = self.do_ntlm_auth(client, securityBlob,
+                                                                  connData['CHALLENGE_MESSAGE']['challenge'])
             else:
                 # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials
                 errorCode = STATUS_ACCESS_DENIED

@@ -477,10 +477,10 @@ class SMBRelayClient(ProtocolClient):
 
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
 
-        authMessage = NTLMAuthChallengeResponse()
-        authMessage.fromString(authenticateMessageBlob)
         # When exploiting CVE-2019-1040, remove flags
         if self.serverConfig.remove_mic:
+            authMessage = NTLMAuthChallengeResponse()
+            authMessage.fromString(authenticateMessageBlob)
             if authMessage['flags'] & NTLMSSP_NEGOTIATE_SIGN == NTLMSSP_NEGOTIATE_SIGN:
                 authMessage['flags'] ^= NTLMSSP_NEGOTIATE_SIGN
             if authMessage['flags'] & NTLMSSP_NEGOTIATE_ALWAYS_SIGN == NTLMSSP_NEGOTIATE_ALWAYS_SIGN:
