@@ -127,10 +127,10 @@ class LPWKSSVC_IMPERSONATE_HANDLE(NDRPOINTER):
 # 2.2.3.1 NETSETUP_JOIN_STATUS
 class NETSETUP_JOIN_STATUS(NDRENUM):
     class enumItems(Enum):
-        NetSetupUnknownStatus = 1
-        NetSetupUnjoined      = 2
-        NetSetupWorkgroupName = 3
-        NetSetupDomainName    = 4
+        NetSetupUnknownStatus = 0
+        NetSetupUnjoined      = 1
+        NetSetupWorkgroupName = 2
+        NetSetupDomainName    = 3
 
 # 2.2.3.2 NETSETUP_NAME_TYPE
 class NETSETUP_NAME_TYPE(NDRENUM):
