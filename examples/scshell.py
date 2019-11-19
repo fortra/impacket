@@ -31,19 +31,13 @@ from impacket.examples import logger
 from impacket.dcerpc.v5 import transport, scmr, epm
 from impacket.dcerpc.v5.ndr import NULL
 from impacket import ntlm
-
+try:
+    raw_input
+except:
+    raw_input = input
 
 def capture_input(prompt):
-    data = ''
-    sys.stdout.write(prompt)
-
-    while True:
-        c = sys.stdin.read(1)
-        if not ord(c) == 10:
-            data += c
-        else:
-            return data
-
+    return raw_input(prompt)
 
 class SCSHELL:
 
@@ -96,7 +90,7 @@ class SCSHELL:
         self.__scmr.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
         try:
             self.__scmr.connect()
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             sys.exit(1)
 
@@ -140,7 +134,7 @@ class SCSHELL:
                 logging.debug('Starting service %s' % serviceName)
                 try:
                     scmr.hRStartServiceW(self.__scmr, serviceHandle)
-                except Exception, e:
+                except Exception as e:
                     error = str(e)
 
                     # ignoring error 1053 ERROR_SERVICE_REQUEST_TIMEOUT since it will happen if the target binary is not a service
@@ -252,7 +246,7 @@ if __name__ == '__main__':
             )
         executer.run(remoteName, options.target_ip,
                      options.service_name, options.no_cmd)
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
