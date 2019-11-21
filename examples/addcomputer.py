@@ -196,12 +196,12 @@ class ADDCOMPUTER:
                     if self.__noAdd:
                         logging.info("Succesfully set password of %s to %s." % (self.__computerName, self.__computerPassword))
                     else:
-                        logging.info("Succesfully deleted %s." % (self.__computerName))
+                        logging.info("Succesfully deleted %s." % self.__computerName)
 
             else:
                 if self.__computerName is not None:
                     if self.LDAPComputerExists(ldapConn, self.__computerName):
-                        raise Exception("Account %s already exists! If you just want to set a password, use -no-add." % (self.__computerName))
+                        raise Exception("Account %s already exists! If you just want to set a password, use -no-add." % self.__computerName)
                 else:
                     while True:
                         self.__computerName = self.generateComputerName()
@@ -232,15 +232,15 @@ class ADDCOMPUTER:
                     if ldapConn.result['result'] == ldap3.core.results.RESULT_UNWILLING_TO_PERFORM:
                         error_code = int(ldapConn.result['message'].split(':')[0].strip(), 16)
                         if error_code == 0x216D:
-                            raise Exception("User %s machine quota exceeded!" % (self.__username))
+                            raise Exception("User %s machine quota exceeded!" % self.__username)
                         else:
                             raise Exception(str(ldapConn.result))
                     elif ldapConn.result['result'] == ldap3.core.results.RESULT_INSUFFICIENT_ACCESS_RIGHTS:
-                        raise Exception("User %s doesn't have right to create a machine account!" % (self.__username))
+                        raise Exception("User %s doesn't have right to create a machine account!" % self.__username)
                     else:
                         raise Exception(str(ldapConn.result))
                 else:
-                    logging.info("Succesfully added machine account %s with password %s." % (self.__computerName, self.__computerPassword))
+                    logging.info("Successfully added machine account %s with password %s." % (self.__computerName, self.__computerPassword))
         except Exception as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
@@ -260,7 +260,6 @@ class ADDCOMPUTER:
     def LDAP3KerberosLogin(self, connection, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost=None, TGT=None,
                       TGS=None, useCache=True):
         from pyasn1.codec.ber import encoder, decoder
-        from pyasn1.error import SubstrateUnderrunError
         from pyasn1.type.univ import noValue
         """
         logins into the target system explicitly using Kerberos. Hashes are used if RC4_HMAC is supported.
@@ -420,8 +419,6 @@ class ADDCOMPUTER:
 
         return True
 
-
-
     def generateComputerName(self):
         return 'DESKTOP-' + (''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8)) + '$')
 
@@ -493,7 +490,7 @@ class ADDCOMPUTER:
                 if self.__computerName is not None:
                     try:
                         checkForUser = samr.hSamrLookupNamesInDomain(dce, domainHandle, [self.__computerName])
-                        raise Exception("Account %s already exists! If you just want to set a password, use -no-add." % (self.__computerName))
+                        raise Exception("Account %s already exists! If you just want to set a password, use -no-add." % self.__computerName)
                     except samr.DCERPCSessionError as e:
                         if e.error_code != 0xc0000073:
                             raise
@@ -513,9 +510,9 @@ class ADDCOMPUTER:
                     createUser = samr.hSamrCreateUser2InDomain(dce, domainHandle, self.__computerName, samr.USER_WORKSTATION_TRUST_ACCOUNT, samr.USER_FORCE_PASSWORD_CHANGE,)
                 except samr.DCERPCSessionError as e:
                     if e.error_code == 0xc0000022:
-                        raise Exception("User %s doesn't have right to create a machine account!" % (self.__username))
+                        raise Exception("User %s doesn't have right to create a machine account!" % self.__username)
                     elif e.error_code == 0xc00002e7:
-                        raise Exception("User %s machine quota exceeded!" % (self.__username))
+                        raise Exception("User %s machine quota exceeded!" % self.__username)
                     else:
                         raise
 
@@ -523,17 +520,14 @@ class ADDCOMPUTER:
 
             if self.__delete:
                 samr.hSamrDeleteUser(dce, userHandle)
-                logging.info("Succesfully deleted %s." % (self.__computerName))
+                logging.info("Successfully deleted %s." % self.__computerName)
                 userHandle = None
             else:
                 samr.hSamrSetPasswordInternal4New(dce, userHandle, self.__computerPassword)
                 if self.__noAdd:
-                    logging.info("Succesfully set password of %s to %s." % (self.__computerName, self.__computerPassword))
+                    logging.info("Successfully set password of %s to %s." % (self.__computerName, self.__computerPassword))
                 else:
-                    logging.info("Succesfully added machine account %s with password %s." % (self.__computerName, self.__computerPassword))
-
-
-
+                    logging.info("Successfully added machine account %s with password %s." % (self.__computerName, self.__computerPassword))
 
         except Exception as e:
             if logging.getLogger().level == logging.DEBUG:
@@ -549,8 +543,6 @@ class ADDCOMPUTER:
             if servHandle is not None:
                 samr.hSamrCloseHandle(dce, servHandle)
             dce.disconnect()
-
-
 
     def run(self):
         if self.__method == 'SAMR':
