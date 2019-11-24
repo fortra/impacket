@@ -22,6 +22,7 @@ import os
 import re
 import socket
 from binascii import unhexlify
+import random
 
 from pyasn1.codec.ber import encoder, decoder
 from pyasn1.error import SubstrateUnderrunError
@@ -78,7 +79,6 @@ class LDAPConnection:
         self._dstHost = 0
         self._socket = None
         self._baseDN = baseDN
-        self._messageId = 1
         self._dstIp = dstIp
 
         if url.startswith('ldap://'):
@@ -417,7 +417,7 @@ class LDAPConnection:
 
     def send(self, request, controls=None):
         message = LDAPMessage()
-        message['messageID'] = self._messageId
+        message['messageID'] = random.randrange(1, 2147483647)
         message['protocolOp'].setComponentByType(request.getTagSet(), request)
         if controls is not None:
             message['controls'].setComponents(*controls)
@@ -458,7 +458,6 @@ class LDAPConnection:
                 response.append(message)
             data = remaining
 
-        self._messageId += 1
         return response
 
     def sendReceive(self, request, controls=None):
