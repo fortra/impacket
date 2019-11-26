@@ -67,6 +67,7 @@ class LDAPAttack(ProtocolAttack):
     GENERIC_ALL             = 0x000F01FF
 
     def __init__(self, config, LDAPClient, username):
+        self.computerName = '' if config.addcomputer == 'Rand' else config.addcomputer
         ProtocolAttack.__init__(self, config, LDAPClient, username)
 
     def addComputer(self, parent, domainDumper):
@@ -86,8 +87,13 @@ class LDAPAttack(ProtocolAttack):
         domaindn = domainDumper.root
         domain = re.sub(',DC=', '.', domaindn[domaindn.find('DC='):], flags=re.I)[3:]
 
-        # Random computername
-        newComputer = (''.join(random.choice(string.ascii_letters) for _ in range(8)) + '$').upper()
+        computerName = self.computerName
+        if computerName == '':
+            # Random computername
+            newComputer = (''.join(random.choice(string.ascii_letters) for _ in range(8)) + '$').upper()
+        else:
+            newComputer = computerName if computerName.endswith('$') else computerName + '$'
+
         computerHostname = newComputer[:-1]
         newComputerDn = ('CN=%s,%s' % (computerHostname, parent)).encode('utf-8')
 
