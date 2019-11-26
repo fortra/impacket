@@ -3869,7 +3869,7 @@ class SMB:
                         if self.__flags2 & SMB.FLAGS2_UNICODE:
                             findNextParameter['FileName'] = resume_filename + b'\x00\x00'
                         else:
-                            findNextParameter['FileName'] = resume_filename + '\x00'
+                            findNextParameter['FileName'] = resume_filename + b'\x00'
                         self.send_trans2(tid, SMB.TRANS2_FIND_NEXT2, '\x00', findNextParameter, '')
                         findData = b''
                         findNext2ParameterBlock = b''
