@@ -326,7 +326,7 @@ class DRSRTests(unittest.TestCase):
         #        thisObject.dump()
         #        print thisObject['Entinf']['pName']['StringName']
         #        thisObject = nextObject
-        #        if nextObject is '':
+        #        if nextObject == '':
         #            done = True
         #    request['pmsgIn']['V8']['uuidInvocIdSrc'] = resp['pmsgOut']['V6']['uuidInvocIdSrc']
         #    request['pmsgIn']['V8']['usnvecFrom'] = resp['pmsgOut']['V6']['usnvecTo']
@@ -345,7 +345,7 @@ class DRSRTests(unittest.TestCase):
                 #print '\n'
                 #print thisObject['Entinf']['pName']['StringName']
             #    thisObject = nextObject
-            #    if nextObject is '':
+            #    if nextObject == '':
             #        done = True
 
             request['pmsgIn']['V10']['uuidInvocIdSrc'] = resp['pmsgOut']['V6']
@@ -446,7 +446,7 @@ class DRSRTests(unittest.TestCase):
         #        #print '\n'
         #        #print thisObject['Entinf']['pName']['StringName']
         #        thisObject = nextObject
-        #        if nextObject is '':
+        #        if nextObject == '':
         #            done = True
 #
 #            print "B"*80

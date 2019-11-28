@@ -2409,7 +2409,7 @@ class IWbemClassObject(IRemUnknown):
                 if itemValue is None:
                     ndTable |= 3 << (2*i)
             else:
-                if itemValue is '':
+                if itemValue == '':
                     ndTable |= 1 << (2*i)
                     valueTable += pack('<L', 0)
                 else:

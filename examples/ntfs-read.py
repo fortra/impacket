@@ -497,7 +497,7 @@ class AttributeNonResident(Attribute):
         if offset % self.ClusterSize:
             # Read the whole VCN
             bufTemp = self.readVCN(vcnToStart, 1)
-            if bufTemp is b'':
+            if bufTemp == b'':
                 # Something went wrong
                 return None
             buf = bufTemp[offset % self.ClusterSize:]
@@ -513,7 +513,7 @@ class AttributeNonResident(Attribute):
         if curLength // self.ClusterSize:
             # Yep.. so let's read full clusters
             bufTemp = self.readVCN(vcnToStart, curLength // self.ClusterSize)
-            if bufTemp is b'':
+            if bufTemp == b'':
                 # Something went wrong
                 return None
             if len(bufTemp) > curLength:

@@ -1103,7 +1103,7 @@ class RAISECHILD:
                     # Windows XP). So, if that's the case we'll force using RC4 by converting
                     # the password to lm/nt hashes and hope for the best. If that's already
                     # done, byebye.
-                    if childCreds['lmhash'] is '' and childCreds['nthash'] is '':
+                    if childCreds['lmhash'] == '' and childCreds['nthash'] == '':
                         from impacket.ntlm import compute_lmhash, compute_nthash
                         childCreds['lmhash'] = compute_lmhash(childCreds['password'])
                         childCreds['nthash'] = compute_nthash(childCreds['password'])
@@ -1144,7 +1144,7 @@ class RAISECHILD:
                     # Windows XP). So, if that's the case we'll force using RC4 by converting
                     # the password to lm/nt hashes and hope for the best. If that's already
                     # done, byebye.
-                    if childCreds['lmhash'] is '' and childCreds['nthash'] is '':
+                    if childCreds['lmhash'] == '' and childCreds['nthash'] == '':
                         from impacket.ntlm import compute_lmhash, compute_nthash
                         childCreds['lmhash'] = compute_lmhash(childCreds['password'])
                         childCreds['nthash'] = compute_nthash(childCreds['password'])
@@ -1271,7 +1271,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    if domain is '':
+    if domain == '':
         logging.critical('Domain should be specified!')
         sys.exit(1)
 
