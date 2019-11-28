@@ -775,7 +775,7 @@ class MSSQL:
                             # So, if that's the case we'll force using RC4 by converting
                             # the password to lm/nt hashes and hope for the best. If that's already
                             # done, byebye.
-                            if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None) and TGT is None and TGS is None:
+                            if lmhash == '' and nthash == '' and (aesKey == '' or aesKey is None) and TGT is None and TGS is None:
                                 from impacket.ntlm import compute_lmhash, compute_nthash
                                 LOG.debug('Got KDC_ERR_ETYPE_NOSUPP, fallback to RC4')
                                 lmhash = compute_lmhash(password)
@@ -810,7 +810,7 @@ class MSSQL:
                         # So, if that's the case we'll force using RC4 by converting
                         # the password to lm/nt hashes and hope for the best. If that's already
                         # done, byebye.
-                        if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None) and TGT is None and TGS is None:
+                        if lmhash == '' and nthash == '' and (aesKey == '' or aesKey is None) and TGT is None and TGS is None:
                             from impacket.ntlm import compute_lmhash, compute_nthash
                             LOG.debug('Got KDC_ERR_ETYPE_NOSUPP, fallback to RC4')
                             lmhash = compute_lmhash(password)

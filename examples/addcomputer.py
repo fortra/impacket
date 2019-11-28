@@ -620,7 +620,7 @@ if __name__ == '__main__':
         '')
 
     try:
-        if domain is None or domain is '':
+        if domain is None or domain == '':
             logging.critical('Domain should be specified!')
             sys.exit(1)
 

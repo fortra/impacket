@@ -936,7 +936,7 @@ class MS14_068:
                         # Windows XP). So, if that's the case we'll force using RC4 by converting
                         # the password to lm/nt hashes and hope for the best. If that's already
                         # done, byebye.
-                        if self.__lmhash is '' and self.__nthash is '':
+                        if self.__lmhash == '' and self.__nthash == '':
                             from impacket.ntlm import compute_lmhash, compute_nthash
                             self.__lmhash = compute_lmhash(self.__password)
                             self.__nthash = compute_nthash(self.__password)
@@ -991,7 +991,7 @@ class MS14_068:
                         # Windows XP). So, if that's the case we'll force using RC4 by converting
                         # the password to lm/nt hashes and hope for the best. If that's already
                         # done, byebye.
-                        if self.__lmhash is '' and self.__nthash is '':
+                        if self.__lmhash == '' and self.__nthash == '':
                             from impacket.ntlm import compute_lmhash, compute_nthash
                             self.__lmhash = compute_lmhash(self.__password)
                             self.__nthash = compute_nthash(self.__password)
@@ -1116,7 +1116,7 @@ if __name__ == '__main__':
         password = password + '@' + address.rpartition('@')[0]
         address = address.rpartition('@')[2]
 
-    if domain is '':
+    if domain == '':
         logging.critical('Domain should be specified!')
         sys.exit(1)
 
