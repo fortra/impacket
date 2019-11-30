@@ -974,21 +974,22 @@ class NetBIOSTCPSession(NetBIOSSession):
         bytes_left = read_length
 
         while bytes_left > 0:
+            self._sock.settimeout(timeout)
             try:
-                ready, _, _ = select.select([self._sock.fileno()], [], [], timeout)
-
-                if not ready or (time.time() - start_time) > timeout:
-                    raise NetBIOSTimeout
-
                 received = self._sock.recv(bytes_left)
-                if len(received) == 0:
-                    raise NetBIOSError('Error while reading from remote', ERRCLASS_OS, None)
+            except socket.timeout:
+                raise NetBIOSTimeout
+            except Exception as ex:
+                raise NetBIOSError('Error occurs while reading from remote', ERRCLASS_OS, ex[0])
 
-                data = data + received
-                bytes_left = read_length - len(data)
-            except select.error as ex:
-                if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
-                    raise NetBIOSError('Error occurs while reading from remote', ERRCLASS_OS, ex[0])
+            if (time.time() - start_time) > timeout:
+                raise NetBIOSTimeout
+
+            if len(received) == 0:
+                raise NetBIOSError('Error while reading from remote', ERRCLASS_OS, None)
+
+            data = data + received
+            bytes_left = read_length - len(data)
 
         return bytes(data)
 
