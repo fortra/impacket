@@ -139,6 +139,7 @@ def start_servers(options, threads):
         c.setTargets(targetSystem)
         c.setExeFile(options.e)
         c.setCommand(options.c)
+        c.setRaw(options.raw)
         c.setEnumLocalAdmins(options.enum_local_admins)
         c.setEncoding(codec)
         c.setMode(mode)
@@ -253,6 +254,7 @@ if __name__ == '__main__':
     smboptions.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on '
                         'target system. If not specified, hashes will be dumped (secretsdump.py must be in the same '
                                                           'directory).')
+    smboptions.add_argument('--raw', action='store_true', help='Executes the raw supplied command without first saving it as a batch file. (No output)')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
 
     #MSSQL arguments
