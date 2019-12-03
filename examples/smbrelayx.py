@@ -148,7 +148,7 @@ class doAttack(Thread):
                         print(self.__answerTMP.decode(CODEC))
                     except UnicodeDecodeError:
                         logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
-                                      'https://docs.python.org/2.4/lib/standard-encodings.html\nand then execute wmiexec.py '
+                                      'https://docs.python.org/3/library/codecs.html#standard-encodings\nand then execute smbrelayx.py '
                                   'again with -codec and the corresponding codec')
                         print(self.__answerTMP)
 
@@ -1132,7 +1132,7 @@ if __name__ == '__main__':
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
                                                        '"%s"). If errors are detected, run chcp.com at the target, '
                                                        'map the result with '
-                                                       'https://docs.python.org/2.4/lib/standard-encodings.html and then execute wmiexec.py '
+                                                       'https://docs.python.org/3/library/codecs.html#standard-encodings and then execute smbrelayx.py '
                                                        'again with -codec and the corresponding codec ' % CODEC)
     parser.add_argument('-outputfile', action='store',
                         help='base output filename for encrypted hashes. Suffixes will be added for ntlm and ntlmv2')

@@ -49,6 +49,7 @@ OUTPUT_FILENAME = '__output'
 BATCH_FILENAME  = 'execute.bat'
 SMBSERVER_DIR   = '__tmp'
 DUMMY_SHARE     = 'TMP'
+CODEC = sys.stdout.encoding
 
 class SMBServer(Thread):
     def __init__(self):
@@ -275,7 +276,13 @@ class RemoteShell(cmd.Cmd):
 
     def send_data(self, data):
         self.execute_remote(data)
-        print(self.__outputBuffer.decode())
+        try:
+            print(self.__outputBuffer.decode(CODEC))
+        except UnicodeDecodeError:
+            logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
+                          'https://docs.python.org/3/library/codecs.html#standard-encodings\nand then execute smbexec.py '
+                          'again with -codec and the corresponding codec')
+            print(self.__outputBuffer.decode(CODEC, errors='replace'))
         self.__outputBuffer = b''
 
 
@@ -293,6 +300,11 @@ if __name__ == '__main__':
     parser.add_argument('-mode', action='store', choices = {'SERVER','SHARE'}, default='SHARE',
                         help='mode to use (default SHARE, SERVER needs root!)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
+                                                       '"%s"). If errors are detected, run chcp.com at the target, '
+                                                       'map the result with '
+                          'https://docs.python.org/3/library/codecs.html#standard-encodings and then execute smbexec.py '
+                          'again with -codec and the corresponding codec ' % CODEC)
 
     group = parser.add_argument_group('connection')
 
@@ -320,6 +332,12 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
+
+    if options.codec is not None:
+        CODEC = options.codec
+    else:
+        if CODEC is None:
+            CODEC = 'UTF-8'
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
