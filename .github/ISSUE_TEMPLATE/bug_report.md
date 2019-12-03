@@ -1,13 +1,17 @@
-### Describe the bug  
-A clear and concise description of what the bug is.
-  
-  
+---
+name: Bug report
+about: Create a report to help us improve
+title: ''
+labels: ''
+assignees: ''
+
+---
+
 ### Configuration  
 impacket version:  
 Python version:  
 Target OS:  
-  
-  
+
 ### Debug Output With Command String  
 i.e.  
 smbexec -debug domain/user:password@127.0.0.1  
@@ -23,11 +27,9 @@ Traceback (most recent call last):
     func = getattr(self, 'do_' + cmd)
 AttributeError: 'RemoteShell' object has no attribute 'do_net'
 ```
-  
 
 ### PCAP  
 If applicable, add a packet capture to help explain your problem.
-  
 
 ### Additional context  
 Space for additional context, investigative results, suspected issue.
