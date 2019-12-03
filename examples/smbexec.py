@@ -280,7 +280,7 @@ class RemoteShell(cmd.Cmd):
             print(self.__outputBuffer.decode(CODEC))
         except UnicodeDecodeError:
             logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
-                          'https://docs.python.org/2.4/lib/standard-encodings.html\nand then execute smbexec.py '
+                          'https://docs.python.org/3/library/codecs.html#standard-encodings\nand then execute smbexec.py '
                           'again with -codec and the corresponding codec')
             print(self.__outputBuffer.decode(CODEC, errors='replace'))
         self.__outputBuffer = b''
@@ -303,7 +303,7 @@ if __name__ == '__main__':
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
                                                        '"%s"). If errors are detected, run chcp.com at the target, '
                                                        'map the result with '
-                          'https://docs.python.org/2.4/lib/standard-encodings.html and then execute smbexec.py '
+                          'https://docs.python.org/3/library/codecs.html#standard-encodings and then execute smbexec.py '
                           'again with -codec and the corresponding codec ' % CODEC)
 
     group = parser.add_argument_group('connection')
