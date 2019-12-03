@@ -22,7 +22,6 @@ from impacket.ntlm import compute_lmhash, compute_nthash
 if __name__ == '__main__':
 
     # Init the example's logger theme
-    logger.init()
     print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "This script will launch a SMB Server and add a "
@@ -36,6 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('-username', action="store", help='Username to authenticate clients')
     parser.add_argument('-password', action="store", help='Password for the Username')
     parser.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes for the Username, format is LMHASH:NTHASH')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-ip', '--interface-address', action='store', default='0.0.0.0', help='ip address of listening interface')
     parser.add_argument('-port', action='store', default='445', help='TCP port for listening incoming connections (default 445)')
@@ -50,6 +50,8 @@ if __name__ == '__main__':
     except Exception as e:
        logging.critical(str(e))
        sys.exit(1)
+
+    logger.init(options.ts)
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
