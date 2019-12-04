@@ -1659,7 +1659,7 @@ def ComputeSessionKeyStrongKey(sharedSecret, clientChallenge, serverChallenge, s
     md5.update(clientChallenge)
     md5.update(serverChallenge)
     finalMD5 = md5.digest()
-    hm = hmac.new(M4SS) 
+    hm = hmac.new(M4SS, digestmod=hashlib.md5)
     hm.update(finalMD5)
     return hm.digest()
 
@@ -1690,16 +1690,16 @@ def ComputeNetlogonSignatureMD5(authSignature, message, confounder, sessionKey):
     md5.update(confounder)
     md5.update(str(message))
     finalMD5 = md5.digest()
-    hm = hmac.new(sessionKey)
+    hm = hmac.new(sessionKey, digestmod=hashlib.md5)
     hm.update(finalMD5)
     return hm.digest()[:8]
 
 def encryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey):
     # [MS-NRPC] Section 3.3.4.2.1, point 9
 
-    hm = hmac.new(sessionKey)
+    hm = hmac.new(sessionKey, digestmod=hashlib.md5)
     hm.update('\x00'*4)
-    hm2 = hmac.new(hm.digest())
+    hm2 = hmac.new(hm.digest(), digestmod=hashlib.md5)
     hm2.update(checkSum)
     encryptionKey = hm2.digest()
 
@@ -1754,9 +1754,9 @@ def SEAL(data, confounder, sequenceNum, key, aes = False):
 
     XorKey = ''.join(XorKey)
     if aes is False:
-        hm = hmac.new(XorKey)
+        hm = hmac.new(XorKey, digestmod=hashlib.md5)
         hm.update('\x00'*4)
-        hm2 = hmac.new(hm.digest())
+        hm2 = hmac.new(hm.digest(), digestmod=hashlib.md5)
         hm2.update(sequenceNum)
         encryptionKey = hm2.digest()
 
@@ -1787,9 +1787,9 @@ def UNSEAL(data, auth_data, key, aes = False):
     XorKey = ''.join(XorKey)
     if aes is False:
         sequenceNum = decryptSequenceNumberRC4(auth_data['SequenceNumber'], auth_data['Checksum'],  key)
-        hm = hmac.new(XorKey)
+        hm = hmac.new(XorKey, digestmod=hashlib.md5)
         hm.update('\x00'*4)
-        hm2 = hmac.new(hm.digest())
+        hm2 = hmac.new(hm.digest(), digestmod=hashlib.md5)
         hm2.update(sequenceNum)
         encryptionKey = hm2.digest()
 

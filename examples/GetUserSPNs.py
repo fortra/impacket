@@ -435,7 +435,7 @@ if __name__ == '__main__':
         password = password + '@' + address.rpartition('@')[0]
         address = address.rpartition('@')[2]
 
-    if userDomain is '':
+    if userDomain == '':
         logging.critical('userDomain should be specified!')
         sys.exit(1)
 

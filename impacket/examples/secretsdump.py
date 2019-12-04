@@ -1318,7 +1318,7 @@ class LSASecrets(OfflineRegistry):
         return secret['Secret']
 
     def __decryptHash(self, key, value, iv):
-        hmac_md5 = HMAC.new(key,iv)
+        hmac_md5 = HMAC.new(key,iv,digestmod=hashlib.md5)
         rc4key = hmac_md5.digest()
 
         rc4 = ARC4.new(rc4key)

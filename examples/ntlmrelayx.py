@@ -236,7 +236,7 @@ if __name__ == '__main__':
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
                                                        '"%s"). If errors are detected, run chcp.com at the target, '
                                                        'map the result with '
-                                                       'https://docs.python.org/2.4/lib/standard-encodings.html and then execute ntlmrelayx.py '
+                                                       'https://docs.python.org/3/library/codecs.html#standard-encodings and then execute ntlmrelayx.py '
                                                        'again with -codec and the corresponding codec ' % sys.getdefaultencoding())
     parser.add_argument('-smb2support', action="store_true", default=False, help='SMB2 Support (experimental!)')
     parser.add_argument('-socks', action='store_true', default=False,

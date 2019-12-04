@@ -242,6 +242,8 @@ class Structure:
 
         # asciiz specifier
         if format[:1] == 'z':
+            if isinstance(data,bytes):
+                return data + b('\0')
             return bytes(b(data)+b('\0'))
 
         # unicode specifier

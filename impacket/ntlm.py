@@ -879,7 +879,7 @@ def KXKEY(flags, sessionBaseKey, lmChallengeResponse, serverChallenge, password,
       
 def hmac_md5(key, data):
     import hmac
-    h = hmac.new(key)
+    h = hmac.new(key, digestmod=hashlib.md5)
     h.update(data)
     return h.digest()
 
