@@ -14,7 +14,6 @@
 # [*] Add capability to send a bad user ID if the user is not authenticated,
 #     right now you can ask for any command without actually being authenticated
 # [ ] PATH TRAVERSALS EVERYWHERE.. BE WARNED!
-# [ ] Check the credentials.. now we're just letting everybody to log in.
 # [ ] Check error situation (now many places assume the right data is coming)
 # [ ] Implement IPC to the main process so the connectionData is on a single place
 # [ ] Hence.. implement locking
