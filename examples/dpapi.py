@@ -88,6 +88,21 @@ class DPAPI:
 
         return key1, key2, key3
 
+    def deriveKeysFromUserkey(self, sid, pwdhash):
+        if len(pwdhash) == 20:
+            # SHA1
+            key1 = HMAC.new(pwdhash, (sid + '\0').encode('utf-16le'), SHA1).digest()
+            key2 = None
+        else:
+            # Assume MD4
+            key1 = HMAC.new(pwdhash, (sid + '\0').encode('utf-16le'), SHA1).digest()
+            # For Protected users
+            tmpKey = pbkdf2_hmac('sha256', pwdhash, sid.encode('utf-16le'), 10000)
+            tmpKey2 = pbkdf2_hmac('sha256', tmpKey, sid.encode('utf-16le'), 1)[:16]
+            key2 = HMAC.new(tmpKey2, (sid + '\0').encode('utf-16le'), SHA1).digest()[:20]
+
+        return key1, key2
+
     def run(self):
         if self.options.action.upper() == 'MASTERKEY':
             fp = open(options.file, 'rb')
@@ -112,7 +127,7 @@ class DPAPI:
                 dk = DomainKey(data[:mkf['DomainKeyLen']])
                 data = data[len(dk):]
 
-            if self.options.system and self.options.security:
+            if self.options.system and self.options.security and self.options.sid is None:
                 # We have hives, let's try to decrypt with them
                 self.getLSA()
                 decryptedKey = mk.decrypt(self.dpapiSystem['UserKey'])
@@ -133,6 +148,44 @@ class DPAPI:
                 decryptedKey = bkmk.decrypt(self.dpapiSystem['MachineKey'])
                 if decryptedKey:
                     print('Decrypted Backup key with MachineKey')
+                    print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
+                    return
+            elif self.options.system and self.options.security:
+                # Use SID + hash
+                # We have hives, let's try to decrypt with them
+                self.getLSA()
+                key1, key2 = self.deriveKeysFromUserkey(self.options.sid, self.dpapiSystem['UserKey'])
+                decryptedKey = mk.decrypt(key1)
+                if decryptedKey:
+                    print('Decrypted key with UserKey + SID')
+                    print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
+                    return
+                decryptedKey = bkmk.decrypt(key1)
+                if decryptedKey:
+                    print('Decrypted Backup key with UserKey + SID')
+                    print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
+                    return
+                decryptedKey = mk.decrypt(key2)
+                if decryptedKey:
+                    print('Decrypted key with UserKey + SID')
+                    print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
+                    return
+                decryptedKey = bkmk.decrypt(key2)
+                if decryptedKey:
+                    print('Decrypted Backup key with UserKey + SID')
+                    print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
+                    return
+            elif self.options.key and self.options.sid:
+                key = unhexlify(self.options.key[2:])
+                key1, key2 = self.deriveKeysFromUserkey(self.options.sid, key)
+                decryptedKey = mk.decrypt(key1)
+                if decryptedKey:
+                    print('Decrypted key with key provided + SID')
+                    print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
+                    return
+                decryptedKey = mk.decrypt(key2)
+                if decryptedKey:
+                    print('Decrypted key with key provided + SID')
                     print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
                     return
             elif self.options.key:
