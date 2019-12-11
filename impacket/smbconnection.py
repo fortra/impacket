@@ -220,6 +220,9 @@ class SMBConnection:
     def getServerDNSDomainName(self):
         return self._SMBConnection.get_server_dns_domain_name()
 
+    def getServerDNSHostName(self):
+        return self._SMBConnection.get_server_dns_host_name()
+
     def getServerOS(self):
         return self._SMBConnection.get_server_os()
 
@@ -351,7 +354,7 @@ class SMBConnection:
                     # done, byebye.
                     if lmhash == '' and nthash == '' and (aesKey == '' or aesKey is None) and TGT is None and TGS is None:
                         lmhash = compute_lmhash(password)
-                        nthash = compute_nthash(password) 
+                        nthash = compute_nthash(password)
                     else:
                         raise e
                 else:
@@ -629,7 +632,7 @@ class SMBConnection:
         """
         removes a file
 
-        :param string shareName: a valid name for the share where the file is to be deleted 
+        :param string shareName: a valid name for the share where the file is to be deleted
         :param string pathName: the path name to remove
 
         :return: None, raises a SessionError exception if error.
@@ -967,7 +970,10 @@ class SMBConnection:
             return self._SMBConnection.set_session_key(key)
         else:
             return self._SMBConnection.setSessionKey(key)
-            
+
+    def setHostnameValidation(self, validate, accept_empty, hostname):
+        return self._SMBConnection.set_hostname_validation(validate, accept_empty, hostname)
+
     def close(self):
         """
         logs off and closes the underlying _NetBIOSSession()
@@ -990,7 +996,7 @@ class SessionError(Exception):
         Exception.__init__(self)
         self.error = error
         self.packet = packet
-       
+
     def getErrorCode( self ):
         return self.error
 
