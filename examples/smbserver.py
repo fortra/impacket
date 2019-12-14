@@ -51,7 +51,7 @@ if __name__ == '__main__':
        logging.critical(str(e))
        sys.exit(1)
 
-    logger.init(options.ts)
+    logger.init()
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
