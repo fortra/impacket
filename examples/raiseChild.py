@@ -19,7 +19,7 @@
 #           1) child-domain Admin credentials (password, hashes or aesKey) in the form of 'domain/username[:password]'
 #              The domain specified MUST be the domain FQDN.
 #           2) Optionally a pathname to save the generated golden ticket (-w switch)
-#           3) Optionally a target-user RID/SID to get credentials (-targetSID switch)
+#           3) Optionally a target-user RID to get credentials (-targetRID switch)
 #              Administrator by default.
 #           4) Optionally a target to PSEXEC with the target-user privileges to (-target-exec switch).
 #              Enterprise Admin by default.
@@ -454,7 +454,7 @@ class RemoteStdInPipe(Pipes):
 class RAISECHILD:
     def __init__(self, target = None, username = '', password = '', domain='', options = None, command=''):
         self.__rid = 0
-        self.__targetSID = options.targetSID
+        self.__targetRID = options.targetRID
         self.__target = target
         self.__kdcHost = None
         self.__command = command
@@ -568,7 +568,7 @@ class RAISECHILD:
             s.logoff()
         return s.getServerName() + '.' + s.getServerDNSDomainName()
 
-    def getParentSidAndTargetName(self, parentDC, creds, targetSID):
+    def getParentSidAndTargetName(self, parentDC, creds, targetRID):
         if self.__doKerberos is True:
             # In Kerberos we need the target's name
             machineNameOrIp = self.getDNSMachineName(gethostbyname(parentDC))
@@ -599,7 +599,7 @@ class RAISECHILD:
 
         # Now that we have the Sid, let's get the Administrator's account name
         sids = list()
-        sids.append(domainSid+'-'+targetSID)
+        sids.append(domainSid+'-'+targetRID)
         resp = hLsarLookupSids(dce, policyHandle, sids, LSAP_LOOKUP_LEVEL.LsapLookupWksta)
         targetName = resp['TranslatedNames']['Names'][0]['Name']
 
@@ -1082,7 +1082,7 @@ class RAISECHILD:
         logging.info('Raising %s to %s' % (childName, parentName))
 
         # 3) Get the parents's Enterprise Admin SID (via [MS-LSAT])
-        entepriseSid, targetName = self.getParentSidAndTargetName(parentName, childCreds, self.__targetSID)
+        entepriseSid, targetName = self.getParentSidAndTargetName(parentName, childCreds, self.__targetRID)
         logging.info('%s Enterprise Admin SID is: %s-519' % (parentName,entepriseSid))
 
         # 4) Get the child domain's krbtgt credentials (via [MS-DRSR])
@@ -1233,7 +1233,7 @@ if __name__ == '__main__':
     #parser.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller (needed to get the user''s SID). If omitted it will use the domain part (FQDN) specified in the target parameter')
     parser.add_argument('-target-exec', action='store',metavar = "target address",  help='Target host you want to PSEXEC '
                         'against once the main attack finished')
-    parser.add_argument('-targetSID', action='store', default='500', help='Target user RID/SID you want to dump credentials. Administrator (500) by default)')
+    parser.add_argument('-targetRID', action='store', default='500', help='Target user RID you want to dump credentials. Administrator (500) by default)')
 
     group = parser.add_argument_group('authentication')
 
@@ -1302,3 +1302,6 @@ if __name__ == '__main__':
     except Exception as e:
         logging.debug('Exception:', exc_info=True)
         logging.critical(str(e))
+        if hasattr(e, 'error_code'):
+            if e.error_code == 0xc0000073:
+                logging.info("Account not found in domain. (RID:%s)", options.targetRID)
