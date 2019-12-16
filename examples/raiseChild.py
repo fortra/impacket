@@ -1233,7 +1233,8 @@ if __name__ == '__main__':
     #parser.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller (needed to get the user''s SID). If omitted it will use the domain part (FQDN) specified in the target parameter')
     parser.add_argument('-target-exec', action='store',metavar = "target address",  help='Target host you want to PSEXEC '
                         'against once the main attack finished')
-    parser.add_argument('-targetRID', action='store', default='500', help='Target user RID you want to dump credentials. Administrator (500) by default)')
+    parser.add_argument('-targetRID', action='store', metavar = "RID", default='500', help='Target user RID you want to '
+                        'dump credentials. Administrator (500) by default.')
 
     group = parser.add_argument_group('authentication')
 
@@ -1256,6 +1257,8 @@ if __name__ == '__main__':
 
         print("\tThis will perform the attack and then psexec against target-exec as Enterprise Admin")
         print("\tpython raiseChild.py -target-exec targetHost childDomainn.net/adminuser\n")
+        print("\tThis will perform the attack and then psexec against target-exec as User with RID 1101")
+        print("\tpython raiseChild.py -target-exec targetHost -targetRID 1101 childDomainn.net/adminuser\n")
         print("\tThis will save the final goldenTicket generated in the ccache target file")
         print("\tpython raiseChild.py -w ccache childDomain.net/adminuser\n")
         sys.exit(1)
