@@ -7,20 +7,20 @@
 # Copyright (C) 2001 Michael Teo <michaelteo@bigfoot.com>
 # smb.py - SMB/CIFS library
 #
-# This software is provided 'as-is', without any express or implied warranty. 
-# In no event will the author be held liable for any damages arising from the 
+# This software is provided 'as-is', without any express or implied warranty.
+# In no event will the author be held liable for any damages arising from the
 # use of this software.
 #
-# Permission is granted to anyone to use this software for any purpose, 
-# including commercial applications, and to alter it and redistribute it 
+# Permission is granted to anyone to use this software for any purpose,
+# including commercial applications, and to alter it and redistribute it
 # freely, subject to the following restrictions:
 #
-# 1. The origin of this software must not be misrepresented; you must not 
-#    claim that you wrote the original software. If you use this software 
+# 1. The origin of this software must not be misrepresented; you must not
+#    claim that you wrote the original software. If you use this software
 #    in a product, an acknowledgment in the product documentation would be
 #    appreciated but is not required.
 #
-# 2. Altered source versions must be plainly marked as such, and must not be 
+# 2. Altered source versions must be plainly marked as such, and must not be
 #    misrepresented as being the original software.
 #
 # 3. This notice cannot be removed or altered from any source distribution.
@@ -1075,7 +1075,7 @@ class SMBFindNext2_Data(Structure):
      )
 
 
-# TRANS2_FIND_FIRST2 
+# TRANS2_FIND_FIRST2
 class SMBFindFirst2Response_Parameters(Structure):
      structure = (
          ('SID','<H'),
@@ -2194,7 +2194,11 @@ class SMBNTLMDialect_Data(Structure):
         self['DomainName'] = ''
         self['ServerName'] = ''
 
-class SMB:
+class SMB(object):
+
+    class HostnameValidationException(Exception):
+        pass
+
     # SMB Command Codes
     SMB_COM_CREATE_DIRECTORY                = 0x00
     SMB_COM_DELETE_DIRECTORY                = 0x01
@@ -2245,7 +2249,7 @@ class SMB:
     SMB_COM_TRANSACTION2_SECONDARY          = 0x33
     SMB_COM_FIND_CLOSE2                     = 0x34
     SMB_COM_FIND_NOTIFY_CLOSE               = 0x35
-    # Used by Xenix/Unix 0x60 - 0x6E 
+    # Used by Xenix/Unix 0x60 - 0x6E
     SMB_COM_TREE_CONNECT                    = 0x70
     SMB_COM_TREE_DISCONNECT                 = 0x71
     SMB_COM_NEGOTIATE                       = 0x72
@@ -2352,6 +2356,7 @@ class SMB:
         self.__server_lanman = ''
         self.__server_domain = ''
         self.__server_dns_domain_name = ''
+        self.__server_dns_host_name = ''
         self.__remote_name = remote_name.upper()
         self.__remote_host = remote_host
         self.__isNTLMv2 = True
@@ -2371,7 +2376,7 @@ class SMB:
         self.__TGS      = None
 
         # Negotiate Protocol Result, used everywhere
-        # Could be extended or not, flags should be checked before 
+        # Could be extended or not, flags should be checked before
         self._dialect_data = 0
         self._dialect_parameters = 0
         self._action = 0
@@ -2379,6 +2384,11 @@ class SMB:
         self.encrypt_passwords = True
         self.tid = 0
         self.fid = 0
+
+        # Strict host validation - off by default
+        self._strict_hostname_validation = False
+        self._validation_allow_absent = True
+        self._accepted_hostname = ''
 
         # Signing stuff
         self._SignSequenceNumber = 0
@@ -2397,9 +2407,9 @@ class SMB:
         else:
             self.__timeout = timeout
 
-        # If port 445 and the name sent is *SMBSERVER we're setting the name to the IP. 
-        # This is to help some old applications still believing 
-        # *SMSBSERVER will work against modern OSes. If port is NETBIOS_SESSION_PORT the user better 
+        # If port 445 and the name sent is *SMBSERVER we're setting the name to the IP.
+        # This is to help some old applications still believing
+        # *SMSBSERVER will work against modern OSes. If port is NETBIOS_SESSION_PORT the user better
         # know about *SMBSERVER's limitations
         if sess_port == 445 and remote_name == '*SMBSERVER':
            self.__remote_name = remote_host
@@ -2426,7 +2436,7 @@ class SMB:
                 # Initialize session values (_dialect_data and _dialect_parameters)
                 self.neg_session()
 
-                # Call login() without any authentication information to 
+                # Call login() without any authentication information to
                 # setup a session if the remote server
                 # is in share mode.
                 if (self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SHARE_MASK) == SMB.SECURITY_SHARE_SHARE:
@@ -2434,7 +2444,7 @@ class SMB:
         else:
             self._sess = session
             self.neg_session(negPacket = negPacket)
-            # Call login() without any authentication information to 
+            # Call login() without any authentication information to
             # setup a session if the remote server
             # is in share mode.
             if (self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SHARE_MASK) == SMB.SECURITY_SHARE_SHARE:
@@ -2453,6 +2463,11 @@ class SMB:
     def set_remote_name(self, name):
         self.__remote_name = name
         return True
+
+    def set_hostname_validation(self, validate, accept_empty, hostname):
+        self._strict_hostname_validation = validate
+        self._validation_allow_absent = accept_empty
+        self._accepted_hostname = hostname
 
     def get_remote_host(self):
         return self.__remote_host
@@ -2524,8 +2539,8 @@ class SMB:
         #  * The client or server that sends the message MUST provide the 32-bit sequence number for this
         #    message, as specified in sections 3.2.4.1 and 3.3.4.1.
         #  * The SMB_FLAGS2_SMB_SECURITY_SIGNATURE flag in the header MUST be set.
-        #  * To generate the signature, a 32-bit sequence number is copied into the 
-        #    least significant 32 bits of the SecuritySignature field and the remaining 
+        #  * To generate the signature, a 32-bit sequence number is copied into the
+        #    least significant 32 bits of the SecuritySignature field and the remaining
         #    4 bytes are set to 0x00.
         #  * The MD5 algorithm, as specified in [RFC1321], MUST be used to generate a hash of the SMB
         #    message from the start of the SMB Header, which is defined as follows.
@@ -2704,7 +2719,7 @@ class SMB:
         else:
             smb = smb_packet
 
-        # Just in case this came with the full path ,let's just leave 
+        # Just in case this came with the full path ,let's just leave
         # the sharename, we'll take care of the rest
 
         share = path.split('\\')[-1]
@@ -3005,6 +3020,9 @@ class SMB:
     def get_server_dns_domain_name(self):
         return self.__server_dns_domain_name
 
+    def get_server_dns_host_name(self):
+        return self.__server_dns_host_name
+
     def get_server_os(self):
         return self.__server_os
 
@@ -3024,7 +3042,7 @@ class SMB:
         return self.__server_lanman
 
     def is_login_required(self):
-        # Login is required if share mode is user. 
+        # Login is required if share mode is user.
         # Otherwise only public services or services in share mode
         # are allowed.
         return (self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SHARE_MASK) == SMB.SECURITY_SHARE_USER
@@ -3035,6 +3053,16 @@ class SMB:
     def get_ntlmv1_response(self, key):
         challenge = self._dialects_data['Challenge']
         return ntlm.get_ntlmv1_response(key, challenge)
+
+    def perform_hostname_validation(self):
+        if self.__server_name == '':
+            if not self._validation_allow_absent:
+                raise self.HostnameValidationException('Hostname was not supplied by target host and absent validation is disallowed')
+            return
+        if self.__server_name.lower() != self._accepted_hostname.lower() and self.__server_dns_host_name.lower() != self._accepted_hostname.lower():
+            raise self.HostnameValidationException('Supplied hostname %s does not match reported hostnames %s or %s' %
+                (self._accepted_hostname.lower(), self.__server_name.lower(), self.__server_dns_host_name.lower()))
+
 
     def kerberos_login(self, user, password, domain = '', lmhash = '', nthash = '', aesKey = '', kdcHost = '', TGT=None, TGS=None):
         # Importing down here so pyasn1 is not required if kerberos is not used.
@@ -3282,6 +3310,16 @@ class SMB:
                    except UnicodeDecodeError:
                        # For some reason, we couldn't decode Unicode here.. silently discard the operation
                        pass
+
+                if av_pairs[ntlm.NTLMSSP_AV_DNS_HOSTNAME] is not None:
+                   try:
+                       self.__server_dns_host_name = av_pairs[ntlm.NTLMSSP_AV_DNS_HOSTNAME][1].decode('utf-16le')
+                   except UnicodeDecodeError:
+                       # For some reason, we couldn't decode Unicode here.. silently discard the operation
+                       pass
+
+            if self._strict_hostname_validation:
+                self.perform_hostname_validation()
 
             # Parse Version to know the target Operating system name. Not provided elsewhere anymore
             if 'Version' in ntlmChallenge.fields:
