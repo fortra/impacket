@@ -707,8 +707,6 @@ class TICKETER:
             self.saveTicket(ticket, sessionKey)
 
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
     print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help=True, description="Creates a Kerberos golden/silver tickets based on "
@@ -731,6 +729,7 @@ if __name__ == '__main__':
     parser.add_argument('-extra-sid', action="store", help='Comma separated list of ExtraSids to be included inside the ticket\'s PAC')
     parser.add_argument('-duration', action="store", default = '3650', help='Amount of days till the ticket expires '
                                                                             '(default = 365*10)')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
@@ -759,6 +758,9 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
+
+    # Init the example's logger theme
+    logger.init(options.ts)
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)

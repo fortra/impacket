@@ -385,8 +385,6 @@ class GETST:
         self.saveTicket(tgs,oldSessionKey)
 
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
     print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help=True, description="Given a password, hash or aesKey, it will request a "
@@ -398,6 +396,7 @@ if __name__ == '__main__':
                                                               ' for quering the ST. Keep in mind this will only work if '
                                                               'the identity provided in this scripts is allowed for '
                                                               'delegation to the SPN specified')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
@@ -420,6 +419,9 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
+
+    # Init the example's logger theme
+    logger.init(options.ts)
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
