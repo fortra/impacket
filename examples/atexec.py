@@ -178,15 +178,12 @@ class TSCH_EXEC:
 # Process command-line arguments.
 if __name__ == '__main__':
     print(version.BANNER)
-    # Init the example's logger theme
-    logger.init()
-
-    logging.warning("This will work ONLY on Windows >= Vista")
 
     parser = argparse.ArgumentParser()
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('command', action='store', nargs='*', default = ' ', help='command to execute at the target ')
+    parser.add_argument('-ts', action='store_true', help='adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
@@ -206,6 +203,11 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
+
+    # Init the example's logger theme
+    logger.init(options.ts)
+
+    logging.warning("This will work ONLY on Windows >= Vista")
 
     if ''.join(options.command) == ' ':
         logging.error('You need to specify a command to execute!')
