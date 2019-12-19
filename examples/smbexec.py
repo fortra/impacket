@@ -326,7 +326,7 @@ if __name__ == '__main__':
                        'ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
                                                                             '(128 or 256 bits)')
-    group.add_argument('-service-name', action='store', metavar="service name", default = SERVICE_NAME, help='The name of the service used to trigger the payload')
+    group.add_argument('-service-name', action='store', metavar="service_name", default = SERVICE_NAME, help='The name of the service used to trigger the payload')
 
 
     if len(sys.argv)==1:
