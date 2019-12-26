@@ -127,7 +127,7 @@ class USERENUM:
     def getDomainMachines(self):
         if self.__kdcHost is not None:
             domainController = self.__kdcHost
-        elif self.__domain is not '':
+        elif self.__domain != '':
             domainController = self.__domain
         else:
             raise Exception('A domain is needed!')
