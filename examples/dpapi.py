@@ -275,14 +275,18 @@ class DPAPI:
         elif self.options.action.upper() == 'BACKUPKEYS':
             domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
                 self.options.target).groups('')
-            if password == '' and username != '':
+            if password == '' and username != '' and options.hashes is None:
                 from getpass import getpass
                 password = getpass ("Password:")
+            if self.options.hashes is not None:
+                lmhash, nthash = self.options.hashes.split(':')
+            else:
+                lmhash, nthash = '',''
             connection = SMBConnection(address, address)
             if self.options.k:
                 connection.kerberosLogin(username, password, domain)
             else:
-                connection.login(username, password, domain)
+                connection.login(username, password, domain, lmhash=lmhash, nthash=nthash)
 
             rpctransport = transport.DCERPCTransportFactory(r'ncacn_np:445[\pipe\lsarpc]')
             rpctransport.set_smb_connection(connection)
@@ -425,6 +429,7 @@ if __name__ == '__main__':
     backupkeys = subparsers.add_parser('backupkeys', help='domain backup key related functions')
     backupkeys.add_argument('-t', '--target', action='store', required=True, help='[[domain/]username[:password]@]<targetName or address>')
     backupkeys.add_argument('-k', action='store_true', required=False, help='use kerberos')
+    backupkeys.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     backupkeys.add_argument('--export', action='store_true', required=False, help='export keys to file')
 
     # A masterkey command
