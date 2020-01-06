@@ -138,8 +138,6 @@ class LSALookupSid:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
     # Explicitly changing the stdout encoding format
     if sys.stdout.encoding is None:
         # Output is redirected to a file
@@ -150,6 +148,7 @@ if __name__ == '__main__':
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('maxRid', action='store', default = '4000', nargs='?', help='max Rid to check (default 4000)')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
 
     group = parser.add_argument_group('connection')
 
@@ -170,6 +169,9 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
+
+    # Init the example's logger theme
+    logger.init(options.ts)
 
     import re
 

@@ -1211,8 +1211,6 @@ class RAISECHILD:
                 executer.run(self.__target)
 
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
 
     print(version.BANNER)
 
@@ -1220,6 +1218,7 @@ if __name__ == '__main__':
                                                                     "forest")
 
     parser.add_argument('target', action='store', help='domain/username[:password]')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-w', action='store',metavar = "pathname",  help='writes the golden ticket in CCache format '
                                                                          'into the <pathname> file')
@@ -1253,6 +1252,9 @@ if __name__ == '__main__':
         sys.exit(1)
  
     options = parser.parse_args()
+
+    # Init the example's logger theme
+    logger.init(options.ts)
 
     import re
     # This is because I'm lazy with regex

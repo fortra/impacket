@@ -1036,8 +1036,6 @@ class MS14_068:
                 executer.run(self.__target)
 
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
     import argparse
     import sys
     try:
@@ -1073,6 +1071,7 @@ if __name__ == '__main__':
                                                  "target or saves the TGT for later use.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName>')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('command', nargs='*', default=' ',
                         help='command (or arguments if -c is used) to execute at the target (w/o path). Defaults to '
@@ -1105,6 +1104,9 @@ if __name__ == '__main__':
         sys.exit(1)
  
     options = parser.parse_args()
+
+    # Init the example's logger theme
+    logger.init(options.ts)
 
     import re
 

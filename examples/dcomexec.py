@@ -496,8 +496,6 @@ def load_smbclient_auth_file(path):
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
     print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Executes a semi-interactive shell using the "
@@ -507,6 +505,7 @@ if __name__ == '__main__':
                                                                            '(default ADMIN$)')
     parser.add_argument('-nooutput', action='store_true', default = False, help='whether or not to print the output '
                                                                                 '(no SMB connection created)')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-object', choices=['ShellWindows', 'ShellBrowserWindow', 'MMC20'], nargs='?', default='ShellWindows',
                         help='DCOM object to be used to execute the shell command (default=ShellWindows)')
@@ -533,6 +532,9 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
+
+    # Init the example's logger theme
+    logger.init(options.ts)
 
     if ' '.join(options.command) == ' ' and options.nooutput is True:
         logging.error("-nooutput switch and interactive shell not supported")

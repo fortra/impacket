@@ -288,8 +288,6 @@ class RemoteShell(cmd.Cmd):
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
     print(version.BANNER)
 
     parser = argparse.ArgumentParser()
@@ -299,6 +297,7 @@ if __name__ == '__main__':
                                                                        '(default C$)')
     parser.add_argument('-mode', action='store', choices = {'SERVER','SHARE'}, default='SHARE',
                         help='mode to use (default SHARE, SERVER needs root!)')
+    parser.add_argument('-ts', action='store_true', help='adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
                                                        '"%s"). If errors are detected, run chcp.com at the target, '
@@ -326,12 +325,14 @@ if __name__ == '__main__':
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
                                                                             '(128 or 256 bits)')
 
- 
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
 
     options = parser.parse_args()
+
+    # Init the example's logger theme
+    logger.init(options.ts)
 
     if options.codec is not None:
         CODEC = options.codec
