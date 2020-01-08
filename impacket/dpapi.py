@@ -1032,7 +1032,10 @@ def privatekeyblob_to_pkcs1(key):
     if PY3:
         pubExp = int(key['rsapubkey']['pubexp']) # e
     else:
-        pubExp = long(key['rsapubkey']['pubexp']) # e
+        try:
+            pubExp = long(key['rsapubkey']['pubexp']) # e
+        except:
+            pubExp=0
     # RSA.Integer(prime2).inverse(prime1) # u
 
     r = RSA.construct((modulus, pubExp, privateExp, prime1, prime2))
