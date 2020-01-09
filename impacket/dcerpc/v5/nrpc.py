@@ -1579,7 +1579,7 @@ class NL_AUTH_MESSAGE(Structure):
     def __init__(self, data = None, alignment = 0):
         Structure.__init__(self, data, alignment)
         if data is None:
-            self['Buffer'] = '\x00'*4
+            self['Buffer'] = b'\x00'*4
 
 class NL_AUTH_SIGNATURE(Structure):
     structure = (
@@ -1675,20 +1675,20 @@ def deriveSequenceNumber(sequenceNum):
 def ComputeNetlogonSignatureAES(authSignature, message, confounder, sessionKey):
     # [MS-NRPC] Section 3.3.4.2.1, point 7
     hm = hmac.new(key=sessionKey, digestmod=hashlib.sha256)
-    hm.update(str(authSignature)[:8])
+    hm.update(authSignature.getData()[:8])
     # If no confidentiality requested, it should be ''
     hm.update(confounder)
-    hm.update(str(message))
+    hm.update(bytes(message))
     return hm.digest()[:8]+'\x00'*24
 
 def ComputeNetlogonSignatureMD5(authSignature, message, confounder, sessionKey):
     # [MS-NRPC] Section 3.3.4.2.1, point 7
     md5 = hashlib.new('md5')
-    md5.update('\x00'*4)
-    md5.update(str(authSignature)[:8])
+    md5.update(b'\x00'*4)
+    md5.update(authSignature.getData()[:8])
     # If no confidentiality requested, it should be ''
     md5.update(confounder)
-    md5.update(str(message))
+    md5.update(bytes(message))
     finalMD5 = md5.digest()
     hm = hmac.new(sessionKey, digestmod=hashlib.md5)
     hm.update(finalMD5)
@@ -1698,7 +1698,7 @@ def encryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey):
     # [MS-NRPC] Section 3.3.4.2.1, point 9
 
     hm = hmac.new(sessionKey, digestmod=hashlib.md5)
-    hm.update('\x00'*4)
+    hm.update(b'\x00'*4)
     hm2 = hmac.new(hm.digest(), digestmod=hashlib.md5)
     hm2.update(checkSum)
     encryptionKey = hm2.digest()
@@ -1748,14 +1748,16 @@ def SIGN(data, confounder, sequenceNum, key, aes = False):
 def SEAL(data, confounder, sequenceNum, key, aes = False):
     signature = SIGN(data, confounder, sequenceNum, key, aes)
     sequenceNum = deriveSequenceNumber(sequenceNum)
-    XorKey = []
-    for i in key:
-       XorKey.append(chr(ord(i) ^ 0xf0))
 
-    XorKey = ''.join(XorKey)
+    XorKey = bytearray(key)
+    for i in range(len(XorKey)):
+        XorKey[i] = XorKey[i] ^ 0xf0
+
+    XorKey = bytes(XorKey)
+
     if aes is False:
         hm = hmac.new(XorKey, digestmod=hashlib.md5)
-        hm.update('\x00'*4)
+        hm.update(b'\x00'*4)
         hm2 = hmac.new(hm.digest(), digestmod=hashlib.md5)
         hm2.update(sequenceNum)
         encryptionKey = hm2.digest()
@@ -1780,15 +1782,16 @@ def SEAL(data, confounder, sequenceNum, key, aes = False):
         
 def UNSEAL(data, auth_data, key, aes = False):
     auth_data = NL_AUTH_SIGNATURE(auth_data)
-    XorKey = []
-    for i in key:
-       XorKey.append(chr(ord(i) ^ 0xf0))
+    XorKey = bytearray(key)
+    for i in range(len(XorKey)):
+        XorKey[i] = XorKey[i] ^ 0xf0
 
-    XorKey = ''.join(XorKey)
+    XorKey = bytes(XorKey)
+
     if aes is False:
         sequenceNum = decryptSequenceNumberRC4(auth_data['SequenceNumber'], auth_data['Checksum'],  key)
         hm = hmac.new(XorKey, digestmod=hashlib.md5)
-        hm.update('\x00'*4)
+        hm.update(b'\x00'*4)
         hm2 = hmac.new(hm.digest(), digestmod=hashlib.md5)
         hm2.update(sequenceNum)
         encryptionKey = hm2.digest()
