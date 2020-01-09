@@ -19,6 +19,7 @@
 #   There are test cases for them too. 
 #
 from struct import pack
+from six import b
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRENUM, NDRUNION, NDRPOINTER, NDRUniConformantArray, \
     NDRUniFixedArray, NDRUniConformantVaryingArray
 from impacket.dcerpc.v5.dtypes import WSTR, LPWSTR, DWORD, ULONG, USHORT, PGUID, NTSTATUS, NULL, LONG, UCHAR, PRPC_SID, \
@@ -1814,24 +1815,26 @@ def UNSEAL(data, auth_data, key, aes = False):
 def getSSPType1(workstation='', domain='', signingRequired=False):
     auth = NL_AUTH_MESSAGE()
     auth['Flags'] = 0
-    auth['Buffer'] = ''
+    auth['Buffer'] = b''
     auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_DOMAIN 
     if domain != '':
-        auth['Buffer'] = auth['Buffer'] + domain + '\x00'
+        auth['Buffer'] = auth['Buffer'] + b(domain) + b'\x00'
     else:
-        auth['Buffer'] += 'WORKGROUP\x00'
+        auth['Buffer'] += b'WORKGROUP\x00'
 
-    auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_HOST 
-    if workstation != '':
-        auth['Buffer'] = auth['Buffer'] + workstation + '\x00'
-    else:
-        auth['Buffer'] += 'MYHOST\x00'
+    auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_HOST
 
-    auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_HOST_UTF8 
     if workstation != '':
-        auth['Buffer'] += pack('<B',len(workstation)) + workstation + '\x00'
+        auth['Buffer'] = auth['Buffer'] + b(workstation) + b'\x00'
     else:
-        auth['Buffer'] += '\x06MYHOST\x00'
+        auth['Buffer'] += b'MYHOST\x00'
+
+    auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_HOST_UTF8
+
+    if workstation != '':
+        auth['Buffer'] += pack('<B',len(workstation)) + b(workstation) + b'\x00'
+    else:
+        auth['Buffer'] += b'\x06MYHOST\x00'
 
     return auth
 
