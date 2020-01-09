@@ -311,7 +311,7 @@ class GetUserSPNs:
             pwdLastSet = ''
             userAccountControl = 0
             lastLogon = 'N/A'
-	    delegation = ''
+            delegation = ''
             try:
                 for attribute in item['attributes']:
                     if str(attribute['type']) == 'sAMAccountName':
@@ -319,10 +319,10 @@ class GetUserSPNs:
                         mustCommit = True
                     elif str(attribute['type']) == 'userAccountControl':
                         userAccountControl = str(attribute['vals'][0])
-			if int(userAccountControl) & UF_TRUSTED_FOR_DELEGATION:
-			    delegation = 'unconstrained'
-			elif int(userAccountControl) & UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION:
-			    delegation = 'constrained'
+                        if int(userAccountControl) & UF_TRUSTED_FOR_DELEGATION:
+                            delegation = 'unconstrained'
+                        elif int(userAccountControl) & UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION:
+                            delegation = 'constrained'
                     elif str(attribute['type']) == 'memberOf':
                         memberOf = str(attribute['vals'][0])
                     elif str(attribute['type']) == 'pwdLastSet':
