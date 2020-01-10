@@ -21,7 +21,7 @@ import random
 import struct
 import string
 from threading import Thread
-from six import PY2
+from six import PY2, b
 
 from impacket import ntlm, LOG
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
@@ -90,7 +90,7 @@ class HTTPRelayServer(Thread):
             self.send_header('Content-type', 'application/x-ns-proxy-autoconfig')
             self.send_header('Content-Length',len(wpadResponse))
             self.end_headers()
-            self.wfile.write(wpadResponse)
+            self.wfile.write(b(wpadResponse))
             return
 
         def should_serve_wpad(self, client):
