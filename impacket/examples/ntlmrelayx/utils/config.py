@@ -136,7 +136,7 @@ class NTLMRelayxConfig:
     def setRandomTargets(self, randomtargets):
         self.randomtargets = randomtargets
 
-    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser, addcomputer, delegateaccess):
+    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser, addcomputer, delegateaccess, sid):
         self.dumpdomain = dumpdomain
         self.addda = addda
         self.aclattack = aclattack
@@ -144,6 +144,7 @@ class NTLMRelayxConfig:
         self.escalateuser = escalateuser
         self.addcomputer = addcomputer
         self.delegateaccess = delegateaccess
+        self.sid = sid
 
     def setMSSQLOptions(self, queries):
         self.queries = queries

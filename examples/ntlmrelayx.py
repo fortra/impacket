@@ -145,7 +145,7 @@ def start_servers(options, threads):
         c.setAttacks(PROTOCOL_ATTACKS)
         c.setLootdir(options.lootdir)
         c.setOutputFile(options.output_file)
-        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access)
+        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.sid)
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
         c.setIMAPOptions(options.keyword, options.mailbox, options.all, options.imap_max)
@@ -279,6 +279,7 @@ if __name__ == '__main__':
     ldapoptions.add_argument('--escalate-user', action='store', required=False, help='Escalate privileges of this user instead of creating a new one')
     ldapoptions.add_argument('--add-computer', action='store', metavar='COMPUTERNAME', required=False, const='Rand', nargs='?', help='Attempt to add a new computer account')
     ldapoptions.add_argument('--delegate-access', action='store_true', required=False, help='Delegate access on relayed computer account to the specified account')
+    ldapoptions.add_argument('--sid', action='store_true', required=False, help='Use a SID to delegate access rather than an account name')
 
     #IMAP options
     imapoptions = parser.add_argument_group("IMAP client options")
