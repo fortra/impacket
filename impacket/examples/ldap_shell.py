@@ -30,7 +30,7 @@ class LdapShell(cmd.Cmd):
 
         if PY2:
             # switch to unicode.
-            reload(sys)
+            reload(sys) # noqa: F821 pylint:disable=undefined-variable
             sys.setdefaultencoding('utf8')
 
         sys.stdout = tcp_shell.stdout
