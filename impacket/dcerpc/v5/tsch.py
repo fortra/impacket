@@ -143,7 +143,6 @@ TASK_DISABLE                      = 1<<(31-28)
 TASK_DON_ADD_PRINCIPAL_ACE        = 1<<(31-27)
 TASK_IGNORE_REGISTRATION_TRIGGERS = 1<<(31-26)
 
-
 # 3.2.5.4.5 SchRpcSetSecurity (Opnum 4)
 TASK_DONT_ADD_PRINCIPAL_ACE = 1<<(31-27)
 SCH_FLAG_FOLDER             = 1<<(31-2)
@@ -640,6 +639,7 @@ OPNUMS = {
  16 : (SchRpcGetLastRunInfo,SchRpcGetLastRunInfoResponse ),
  17 : (SchRpcGetTaskInfo,SchRpcGetTaskInfoResponse ),
  18 : (SchRpcGetNumberOfMissedRuns,SchRpcGetNumberOfMissedRunsResponse),
+ 19 : (SchRpcEnableTask,SchRpcEnableTaskResponse),
 }
 
 ################################################################################
