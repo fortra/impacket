@@ -38,7 +38,7 @@ from binascii import hexlify, unhexlify
 
 from pyasn1.codec.der import decoder
 from impacket import version
-from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE
+from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_TRUSTED_FOR_DELEGATION, UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION
 from impacket.examples import logger
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import TGS_REP
@@ -311,6 +311,7 @@ class GetUserSPNs:
             pwdLastSet = ''
             userAccountControl = 0
             lastLogon = 'N/A'
+            delegation = ''
             try:
                 for attribute in item['attributes']:
                     if str(attribute['type']) == 'sAMAccountName':
@@ -318,6 +319,10 @@ class GetUserSPNs:
                         mustCommit = True
                     elif str(attribute['type']) == 'userAccountControl':
                         userAccountControl = str(attribute['vals'][0])
+                        if int(userAccountControl) & UF_TRUSTED_FOR_DELEGATION:
+                            delegation = 'unconstrained'
+                        elif int(userAccountControl) & UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION:
+                            delegation = 'constrained'
                     elif str(attribute['type']) == 'memberOf':
                         memberOf = str(attribute['vals'][0])
                     elif str(attribute['type']) == 'pwdLastSet':
@@ -339,13 +344,13 @@ class GetUserSPNs:
                         logging.debug('Bypassing disabled account %s ' % sAMAccountName)
                     else:
                         for spn in SPNs:
-                            answers.append([spn, sAMAccountName,memberOf, pwdLastSet, lastLogon])
+                            answers.append([spn, sAMAccountName,memberOf, pwdLastSet, lastLogon, delegation])
             except Exception as e:
                 logging.error('Skipping item, cannot process due to error %s' % str(e))
                 pass
 
         if len(answers)>0:
-            self.printTable(answers, header=[ "ServicePrincipalName", "Name", "MemberOf", "PasswordLastSet", "LastLogon"])
+            self.printTable(answers, header=[ "ServicePrincipalName", "Name", "MemberOf", "PasswordLastSet", "LastLogon", "Delegation"])
             print('\n\n')
 
             if self.__requestTGS is True or self.__requestUser is not None:
