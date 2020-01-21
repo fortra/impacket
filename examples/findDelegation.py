@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright 2020 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -17,18 +17,17 @@
 #
 from __future__ import division
 from __future__ import print_function
+
 import argparse
 import logging
-import os
 import sys
 
 from impacket import version
 from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_TRUSTED_FOR_DELEGATION, UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION
 from impacket.examples import logger
 from impacket.ldap import ldap, ldapasn1
-from impacket.smbconnection import SMBConnection
 from impacket.ldap import ldaptypes
-from impacket.ldap.ldaptypes import ACCESS_ALLOWED_OBJECT_ACE, ACCESS_MASK, ACCESS_ALLOWED_ACE, ACE, OBJECTTYPE_GUID_MAP
+from impacket.smbconnection import SMBConnection
 
 
 class FindDelegation:
@@ -85,7 +84,7 @@ class FindDelegation:
             s.login('', '')
         except Exception:
             if s.getServerName() == '':
-                raise 'Error while anonymous logging into %s'
+                raise Exception('Error while anonymous logging into %s')
         else:
             try:
                 s.logoff()
@@ -125,13 +124,16 @@ class FindDelegation:
                                                  self.__aesKey, kdcHost=self.__kdcHost)
             else:
                 raise
-        
-        searchFilter = "(&(|(UserAccountControl:1.2.840.113556.1.4.803:=16777216)(UserAccountControl:1.2.840.113556.1.4.803:=524288)(msDS-AllowedToDelegateTo=*)(msDS-AllowedToActOnBehalfOfOtherIdentity=*))(!(UserAccountControl:1.2.840.113556.1.4.803:=2))(!(UserAccountControl:1.2.840.113556.1.4.803:=8192)))"
+
+        searchFilter = "(&(|(UserAccountControl:1.2.840.113556.1.4.803:=16777216)(UserAccountControl:1.2.840.113556.1.4.803:=" \
+                       "524288)(msDS-AllowedToDelegateTo=*)(msDS-AllowedToActOnBehalfOfOtherIdentity=*))" \
+                       "(!(UserAccountControl:1.2.840.113556.1.4.803:=2))(!(UserAccountControl:1.2.840.113556.1.4.803:=8192)))"
 
         try:
             resp = ldapConnection.search(searchFilter=searchFilter,
                                          attributes=['sAMAccountName',
-                                                     'pwdLastSet', 'userAccountControl', 'objectCategory', 'msDS-AllowedToActOnBehalfOfOtherIdentity', 'msDS-AllowedToDelegateTo'],
+                                                     'pwdLastSet', 'userAccountControl', 'objectCategory',
+                                                     'msDS-AllowedToActOnBehalfOfOtherIdentity', 'msDS-AllowedToDelegateTo'],
                                          sizeLimit=999)
         except ldap.LDAPSearchError as e:
             if e.getErrorString().find('sizeLimitExceeded') >= 0:
@@ -272,7 +274,7 @@ if __name__ == '__main__':
         password = password + '@' + address.rpartition('@')[0]
         address = address.rpartition('@')[2]
 
-    if userDomain is '':
+    if userDomain == '':
         logging.critical('userDomain should be specified!')
         sys.exit(1)
 
