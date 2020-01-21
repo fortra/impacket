@@ -1106,8 +1106,8 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     # Init the example's logger theme
-    logger.init(options.ts)
-
+    #logger.init(options.ts)
+    #comment out line 1109 as a temporary patch. the call to init takes no arguments and halts the script
     import re
 
     domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
