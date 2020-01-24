@@ -110,7 +110,7 @@ class SMBServer(Thread):
 
 class CMDEXEC:
     def __init__(self, command='', username='', password='', domain='', hashes=None, aesKey=None,
-                 doKerberos=None, kdcHost=None, mode=None, share=None, port=445):
+                 doKerberos=None, kdcHost=None, mode=None, share=None, port=445, serviceName=SERVICE_NAME):
 
         self.__command = command
         self.__username = username
@@ -356,7 +356,7 @@ if __name__ == '__main__':
 
     try:
         executer = CMDEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey, options.k,
-                           options.dc_ip, options.mode, options.share, int(options.port))
+                           options.dc_ip, options.mode, options.share, int(options.port), options.service_name)
         executer.run(remoteName, options.target_ip)
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
