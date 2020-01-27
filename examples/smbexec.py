@@ -42,7 +42,6 @@ from threading import Thread
 
 from impacket.examples import logger
 from impacket import version, smbserver
-from impacket.smbconnection import SMB_DIALECT
 from impacket.dcerpc.v5 import transport, scmr
 
 OUTPUT_FILENAME = '__output'
@@ -136,8 +135,6 @@ class CMDEXEC:
         rpctransport = transport.DCERPCTransportFactory(stringbinding)
         rpctransport.set_dport(self.__port)
         rpctransport.setRemoteHost(remoteHost)
-        if hasattr(rpctransport,'preferred_dialect'):
-            rpctransport.preferred_dialect(SMB_DIALECT)
         if hasattr(rpctransport, 'set_credentials'):
             # This method exists only for selected protocol sequences.
             rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash,

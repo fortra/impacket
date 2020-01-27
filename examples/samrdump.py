@@ -26,7 +26,6 @@ from impacket import version
 from impacket.nt_errors import STATUS_MORE_ENTRIES
 from impacket.dcerpc.v5 import transport, samr
 from impacket.dcerpc.v5.rpcrt import DCERPCException
-from impacket.smb import SMB_DIALECT
 
 class ListUsersException(Exception):
     pass
@@ -70,8 +69,6 @@ class SAMRDump:
         rpctransport.set_dport(self.__port)
         rpctransport.setRemoteHost(remoteHost)
 
-        if hasattr(rpctransport,'preferred_dialect'):
-            rpctransport.preferred_dialect(SMB_DIALECT)
         if hasattr(rpctransport, 'set_credentials'):
             # This method exists only for selected protocol sequences.
             rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash,
