@@ -3,6 +3,6 @@ six
 pyasn1>=0.2.3
 pycryptodomex
 pyOpenSSL>=0.16.2
-ldap3==2.5.1
+ldap3>=2.5,!=2.5.2,!=2.5.0,!=2.6
 ldapdomaindump>=0.9.0
 flask>=1.0
