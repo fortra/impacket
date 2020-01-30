@@ -185,7 +185,7 @@ class GUID_ARRAY(NDRUniConformantArray):
 
 class PGUID_ARRAY(NDRPOINTER):
     referent = (
-        ('Data',TASK_NAMES_ARRAY),
+        ('Data',GUID_ARRAY),
     )
 
 # 3.2.5.4.13 SchRpcRun (Opnum 12)
