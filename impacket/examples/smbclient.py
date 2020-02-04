@@ -37,15 +37,15 @@ except ImportError:
   import readline
 
 class MiniImpacketShell(cmd.Cmd):
-    def __init__(self, smbClient,tcpShell=None):
+    def __init__(self, smbClient, tcpShell=None):
         #If the tcpShell parameter is passed (used in ntlmrelayx),
         # all input and output is redirected to a tcp socket
         # instead of to stdin / stdout
         if tcpShell is not None:
-            cmd.Cmd.__init__(self,stdin=tcpShell,stdout=tcpShell)
-            sys.stdout = tcpShell
-            sys.stdin = tcpShell
-            sys.stderr = tcpShell
+            cmd.Cmd.__init__(self, stdin=tcpShell.stdin, stdout=tcpShell.stdout)
+            sys.stdout = tcpShell.stdout
+            sys.stdin = tcpShell.stdin
+            sys.stderr = tcpShell.stdout
             self.use_rawinput = False
             self.shell = tcpShell
         else:

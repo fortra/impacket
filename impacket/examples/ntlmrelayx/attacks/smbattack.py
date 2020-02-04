@@ -57,7 +57,7 @@ class SMBAttack(ProtocolAttack):
             LOG.info('Started interactive SMB client shell via TCP on 127.0.0.1:%d' % self.tcpshell.port)
             #Start listening and launch interactive shell
             self.tcpshell.listen()
-            self.shell = MiniImpacketShell(self.__SMBConnection,self.tcpshell.socketfile)
+            self.shell = MiniImpacketShell(self.__SMBConnection, self.tcpshell)
             self.shell.cmdloop()
             return
         if self.config.exeFile is not None:

@@ -46,6 +46,8 @@ from impacket import crypto
 from impacket.smbconnection import SMBConnection
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import lsad
+from impacket.dcerpc.v5 import bkrp
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from impacket import version
 from impacket.examples import logger
 from impacket.examples.secretsdump import LocalOperations, LSASecrets
@@ -88,6 +90,21 @@ class DPAPI:
 
         return key1, key2, key3
 
+    def deriveKeysFromUserkey(self, sid, pwdhash):
+        if len(pwdhash) == 20:
+            # SHA1
+            key1 = HMAC.new(pwdhash, (sid + '\0').encode('utf-16le'), SHA1).digest()
+            key2 = None
+        else:
+            # Assume MD4
+            key1 = HMAC.new(pwdhash, (sid + '\0').encode('utf-16le'), SHA1).digest()
+            # For Protected users
+            tmpKey = pbkdf2_hmac('sha256', pwdhash, sid.encode('utf-16le'), 10000)
+            tmpKey2 = pbkdf2_hmac('sha256', tmpKey, sid.encode('utf-16le'), 1)[:16]
+            key2 = HMAC.new(tmpKey2, (sid + '\0').encode('utf-16le'), SHA1).digest()[:20]
+
+        return key1, key2
+
     def run(self):
         if self.options.action.upper() == 'MASTERKEY':
             fp = open(options.file, 'rb')
@@ -112,7 +129,7 @@ class DPAPI:
                 dk = DomainKey(data[:mkf['DomainKeyLen']])
                 data = data[len(dk):]
 
-            if self.options.system and self.options.security:
+            if self.options.system and self.options.security and self.options.sid is None:
                 # We have hives, let's try to decrypt with them
                 self.getLSA()
                 decryptedKey = mk.decrypt(self.dpapiSystem['UserKey'])
@@ -133,6 +150,44 @@ class DPAPI:
                 decryptedKey = bkmk.decrypt(self.dpapiSystem['MachineKey'])
                 if decryptedKey:
                     print('Decrypted Backup key with MachineKey')
+                    print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
+                    return
+            elif self.options.system and self.options.security:
+                # Use SID + hash
+                # We have hives, let's try to decrypt with them
+                self.getLSA()
+                key1, key2 = self.deriveKeysFromUserkey(self.options.sid, self.dpapiSystem['UserKey'])
+                decryptedKey = mk.decrypt(key1)
+                if decryptedKey:
+                    print('Decrypted key with UserKey + SID')
+                    print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
+                    return
+                decryptedKey = bkmk.decrypt(key1)
+                if decryptedKey:
+                    print('Decrypted Backup key with UserKey + SID')
+                    print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
+                    return
+                decryptedKey = mk.decrypt(key2)
+                if decryptedKey:
+                    print('Decrypted key with UserKey + SID')
+                    print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
+                    return
+                decryptedKey = bkmk.decrypt(key2)
+                if decryptedKey:
+                    print('Decrypted Backup key with UserKey + SID')
+                    print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
+                    return
+            elif self.options.key and self.options.sid:
+                key = unhexlify(self.options.key[2:])
+                key1, key2 = self.deriveKeysFromUserkey(self.options.sid, key)
+                decryptedKey = mk.decrypt(key1)
+                if decryptedKey:
+                    print('Decrypted key with key provided + SID')
+                    print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
+                    return
+                decryptedKey = mk.decrypt(key2)
+                if decryptedKey:
+                    print('Decrypted key with key provided + SID')
                     print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
                     return
             elif self.options.key:
@@ -204,6 +259,57 @@ class DPAPI:
                     print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
                     return
 
+            elif self.options.target is not None:
+                domain, username, password, remoteName = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(self.options.target).groups('')
+                #In case the password contains '@'
+                if '@' in remoteName:
+                    password = password + '@' + remoteName.rpartition('@')[0]
+                    remoteName = remoteName.rpartition('@')[2]
+
+                if domain is None:
+                    domain = ''
+
+                if password == '' and username != '' and self.options.hashes is None and self.options.no_pass is False and self.options.aesKey is None:
+                    from getpass import getpass
+                    password = getpass("Password:")
+
+                if self.options.hashes is not None:
+                    lmhash, nthash = self.options.hashes.split(':')
+                else:
+                    lmhash, nthash = '',''
+                rpctransport = transport.DCERPCTransportFactory(r'ncacn_np:%s[\PIPE\protected_storage]' % remoteName)
+
+                if hasattr(rpctransport, 'set_credentials'):
+                    # This method exists only for selected protocol sequences.
+                    rpctransport.set_credentials(username, password, domain, lmhash, nthash, self.options.aesKey)
+                
+                rpctransport.set_kerberos(self.options.k, self.options.dc_ip)
+                
+                dce = rpctransport.get_dce_rpc()
+                dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
+                dce.connect()
+                dce.bind(bkrp.MSRPC_UUID_BKRP, transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0'))
+                
+                request = bkrp.BackuprKey()
+                request['pguidActionAgent'] = bkrp.BACKUPKEY_RESTORE_GUID
+                request['pDataIn'] = dk.getData()
+                request['cbDataIn'] = len(dk.getData())
+                request['dwParam'] = 0
+
+                resp = dce.request(request)
+                
+                ## Stripping heading zeros resulting from asymetric decryption
+                beginning=0
+                for i in range(len(resp['ppDataOut'])):
+                    if resp['ppDataOut'][i]==b'\x00':
+                        beginning+=1
+                    else:
+                        break
+                masterkey=b''.join(resp['ppDataOut'][beginning:])
+                print('Decrypted key using rpc call')
+                print('Decrypted key: 0x%s' % hexlify(masterkey[beginning:]).decode())
+                return
+
             else:
                 # Just print key's data
                 if mkf['MasterKeyLen'] > 0:
@@ -222,14 +328,18 @@ class DPAPI:
         elif self.options.action.upper() == 'BACKUPKEYS':
             domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
                 self.options.target).groups('')
-            if password == '' and username != '':
+            if password == '' and username != '' and options.hashes is None:
                 from getpass import getpass
                 password = getpass ("Password:")
+            if self.options.hashes is not None:
+                lmhash, nthash = self.options.hashes.split(':')
+            else:
+                lmhash, nthash = '',''
             connection = SMBConnection(address, address)
             if self.options.k:
                 connection.kerberosLogin(username, password, domain)
             else:
-                connection.login(username, password, domain)
+                connection.login(username, password, domain, lmhash=lmhash, nthash=nthash)
 
             rpctransport = transport.DCERPCTransportFactory(r'ncacn_np:445[\pipe\lsarpc]')
             rpctransport.set_smb_connection(connection)
@@ -372,6 +482,7 @@ if __name__ == '__main__':
     backupkeys = subparsers.add_parser('backupkeys', help='domain backup key related functions')
     backupkeys.add_argument('-t', '--target', action='store', required=True, help='[[domain/]username[:password]@]<targetName or address>')
     backupkeys.add_argument('-k', action='store_true', required=False, help='use kerberos')
+    backupkeys.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     backupkeys.add_argument('--export', action='store_true', required=False, help='export keys to file')
 
     # A masterkey command
@@ -383,6 +494,17 @@ if __name__ == '__main__':
     masterkey.add_argument('-password', action='store', help='User\'s password. If you specified the SID and not the password it will be prompted')
     masterkey.add_argument('-system', action='store', help='SYSTEM hive to parse')
     masterkey.add_argument('-security', action='store', help='SECURITY hive to parse')
+    masterkey.add_argument('-t', '--target', action='store', help='The masterkey owner\'s credentails to ask the DC for decryption'
+                                                                  'Format: [[domain/]username[:password]@]<targetName or address>')
+    masterkey.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    masterkey.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
+    masterkey.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
+                       '(KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the '
+                       'ones specified in the command line')
+    masterkey.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
+                                                                            '(128 or 256 bits)')
+    masterkey.add_argument('-dc-ip', action='store',metavar = "ip address", help='IP Address of the domain controller. '
+                       'If omitted it will use the domain part (FQDN) specified in the target parameter')
 
     # A credential command
     credential = subparsers.add_parser('credential', help='credential related functions')

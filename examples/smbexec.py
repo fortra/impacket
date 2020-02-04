@@ -7,21 +7,21 @@
 #
 # A similar approach to psexec w/o using RemComSvc. The technique is described here
 # https://www.optiv.com/blog/owning-computers-without-shell-access
-# Our implementation goes one step further, instantiating a local smbserver to receive the 
+# Our implementation goes one step further, instantiating a local smbserver to receive the
 # output of the commands. This is useful in the situation where the target machine does NOT
 # have a writeable share available.
-# Keep in mind that, although this technique might help avoiding AVs, there are a lot of 
-# event logs generated and you can't expect executing tasks that will last long since Windows 
-# will kill the process since it's not responding as a Windows service. 
+# Keep in mind that, although this technique might help avoiding AVs, there are a lot of
+# event logs generated and you can't expect executing tasks that will last long since Windows
+# will kill the process since it's not responding as a Windows service.
 # Certainly not a stealthy way.
 #
 # This script works in two ways:
 # 1) share mode: you specify a share, and everything is done through that share.
 # 2) server mode: if for any reason there's no share available, this script will launch a local
 #    SMB server, so the output of the commands executed are sent back by the target machine
-#    into a locally shared folder. Keep in mind you would need root access to bind to port 445 
+#    into a locally shared folder. Keep in mind you would need root access to bind to port 445
 #    in the local machine.
-# 
+#
 # Author:
 #  beto (@agsolino)
 #
@@ -42,13 +42,13 @@ from threading import Thread
 
 from impacket.examples import logger
 from impacket import version, smbserver
-from impacket.smbconnection import SMB_DIALECT
 from impacket.dcerpc.v5 import transport, scmr
 
 OUTPUT_FILENAME = '__output'
 BATCH_FILENAME  = 'execute.bat'
 SMBSERVER_DIR   = '__tmp'
 DUMMY_SHARE     = 'TMP'
+SERVICE_NAME    = 'BTOBTO'
 CODEC = sys.stdout.encoding
 
 class SMBServer(Thread):
@@ -111,12 +111,12 @@ class SMBServer(Thread):
 
 class CMDEXEC:
     def __init__(self, username='', password='', domain='', hashes=None, aesKey=None,
-                 doKerberos=None, kdcHost=None, mode=None, share=None, port=445):
+                 doKerberos=None, kdcHost=None, mode=None, share=None, port=445, serviceName=SERVICE_NAME):
 
         self.__username = username
         self.__password = password
         self.__port = port
-        self.__serviceName = 'BTOBTO'
+        self.__serviceName = serviceName
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
@@ -135,8 +135,6 @@ class CMDEXEC:
         rpctransport = transport.DCERPCTransportFactory(stringbinding)
         rpctransport.set_dport(self.__port)
         rpctransport.setRemoteHost(remoteHost)
-        if hasattr(rpctransport,'preferred_dialect'):
-            rpctransport.preferred_dialect(SMB_DIALECT)
         if hasattr(rpctransport, 'set_credentials'):
             # This method exists only for selected protocol sequences.
             rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash,
@@ -169,7 +167,7 @@ class RemoteShell(cmd.Cmd):
         self.__share = share
         self.__mode = mode
         self.__output = '\\\\127.0.0.1\\' + self.__share + '\\' + OUTPUT_FILENAME
-        self.__batchFile = '%TEMP%\\' + BATCH_FILENAME 
+        self.__batchFile = '%TEMP%\\' + BATCH_FILENAME
         self.__outputBuffer = b''
         self.__command = ''
         self.__shell = '%COMSPEC% /Q /c '
@@ -202,7 +200,7 @@ class RemoteShell(cmd.Cmd):
         # Just in case the service is still created
         try:
            self.__scmr = self.__rpc.get_dce_rpc()
-           self.__scmr.connect() 
+           self.__scmr.connect()
            self.__scmr.bind(scmr.MSRPC_UUID_SCMR)
            resp = scmr.hROpenSCManagerW(self.__scmr)
            self.__scHandle = resp['lpScHandle']
@@ -259,7 +257,7 @@ class RemoteShell(cmd.Cmd):
                   self.__shell + self.__batchFile
         if self.__mode == 'SERVER':
             command += ' & ' + self.__copyBack
-        command += ' & ' + 'del ' + self.__batchFile 
+        command += ' & ' + 'del ' + self.__batchFile
 
         logging.debug('Executing %s' % command)
         resp = scmr.hRCreateServiceW(self.__scmr, self.__scHandle, self.__serviceName, self.__serviceName,
@@ -288,8 +286,6 @@ class RemoteShell(cmd.Cmd):
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
     print(version.BANNER)
 
     parser = argparse.ArgumentParser()
@@ -299,6 +295,7 @@ if __name__ == '__main__':
                                                                        '(default C$)')
     parser.add_argument('-mode', action='store', choices = {'SERVER','SHARE'}, default='SHARE',
                         help='mode to use (default SHARE, SERVER needs root!)')
+    parser.add_argument('-ts', action='store_true', help='adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
                                                        '"%s"). If errors are detected, run chcp.com at the target, '
@@ -325,13 +322,17 @@ if __name__ == '__main__':
                        'ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
                                                                             '(128 or 256 bits)')
+    group.add_argument('-service-name', action='store', metavar="service_name", default = SERVICE_NAME, help='The name of the service used to trigger the payload')
 
- 
+
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
 
     options = parser.parse_args()
+
+    # Init the example's logger theme
+    logger.init(options.ts)
 
     if options.codec is not None:
         CODEC = options.codec
@@ -367,7 +368,7 @@ if __name__ == '__main__':
 
     try:
         executer = CMDEXEC(username, password, domain, options.hashes, options.aesKey, options.k,
-                           options.dc_ip, options.mode, options.share, int(options.port))
+                           options.dc_ip, options.mode, options.share, int(options.port), options.service_name)
         executer.run(remoteName, options.target_ip)
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:

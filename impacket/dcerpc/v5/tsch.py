@@ -143,6 +143,11 @@ TASK_DISABLE                      = 1<<(31-28)
 TASK_DON_ADD_PRINCIPAL_ACE        = 1<<(31-27)
 TASK_IGNORE_REGISTRATION_TRIGGERS = 1<<(31-26)
 
+# 3.2.5.4.5 SchRpcSetSecurity (Opnum 4)
+TASK_DONT_ADD_PRINCIPAL_ACE = 1<<(31-27)
+SCH_FLAG_FOLDER             = 1<<(31-2)
+SCH_FLAG_TASK               = 1<<(31-1) 
+
 # 3.2.5.4.7 SchRpcEnumFolders (Opnum 6)
 TASK_ENUM_HIDDEN = 1
 
@@ -180,7 +185,7 @@ class GUID_ARRAY(NDRUniConformantArray):
 
 class PGUID_ARRAY(NDRPOINTER):
     referent = (
-        ('Data',TASK_NAMES_ARRAY),
+        ('Data',GUID_ARRAY),
     )
 
 # 3.2.5.4.13 SchRpcRun (Opnum 12)
@@ -366,6 +371,34 @@ class SchRpcCreateFolder(NDRCALL):
 
 class SchRpcCreateFolderResponse(NDRCALL):
     structure = (
+        ('ErrorCode',ULONG),
+    )
+
+# 3.2.5.4.5 SchRpcSetSecurity (Opnum 4)
+class SchRpcSetSecurity(NDRCALL):
+    opnum = 4
+    structure = (
+        ('path', WSTR),
+        ('sddl', WSTR),
+        ('flags', DWORD),
+    )
+
+class SchRpcSetSecurityResponse(NDRCALL):
+    structure = (
+        ('ErrorCode',ULONG),
+    )
+
+# 3.2.5.4.6 SchRpcGetSecurity (Opnum 5)
+class SchRpcGetSecurity(NDRCALL):
+    opnum = 5
+    structure = (
+        ('path', WSTR),
+        ('securityInformation', DWORD),
+    )
+
+class SchRpcGetSecurityResponse(NDRCALL):
+    structure = (
+        ('sddl',LPWSTR),
         ('ErrorCode',ULONG),
     )
 
@@ -591,6 +624,8 @@ OPNUMS = {
  1 : (SchRpcRegisterTask,SchRpcRegisterTaskResponse ),
  2 : (SchRpcRetrieveTask,SchRpcRetrieveTaskResponse ),
  3 : (SchRpcCreateFolder,SchRpcCreateFolderResponse ),
+ 4 : (SchRpcSetSecurity,SchRpcSetSecurityResponse ),
+ 5 : (SchRpcGetSecurity,SchRpcGetSecurityResponse ),
  6 : (SchRpcEnumFolders,SchRpcEnumFoldersResponse ),
  7 : (SchRpcEnumTasks,SchRpcEnumTasksResponse ),
  8 : (SchRpcEnumInstances,SchRpcEnumInstancesResponse ),
@@ -604,6 +639,7 @@ OPNUMS = {
  16 : (SchRpcGetLastRunInfo,SchRpcGetLastRunInfoResponse ),
  17 : (SchRpcGetTaskInfo,SchRpcGetTaskInfoResponse ),
  18 : (SchRpcGetNumberOfMissedRuns,SchRpcGetNumberOfMissedRunsResponse),
+ 19 : (SchRpcEnableTask,SchRpcEnableTaskResponse),
 }
 
 ################################################################################
@@ -649,6 +685,19 @@ def hSchRpcCreateFolder(dce, path, sddl = NULL):
     schRpcCreateFolder['sddl'] = sddl
     schRpcCreateFolder['flags'] = 0
     return dce.request(schRpcCreateFolder)
+
+def hSchRpcSetSecurity(dce, path, sddl, flags):
+    schRpcSetSecurity = SchRpcSetSecurity()
+    schRpcSetSecurity['path'] = checkNullString(path)
+    schRpcSetSecurity['sddl'] = checkNullString(sddl)
+    schRpcSetSecurity['flags'] = flags
+    return dce.request(schRpcSetSecurity)
+
+def hSchRpcGetSecurity(dce, path, securityInformation=0xffffffff):
+    schRpcGetSecurity = SchRpcGetSecurity()
+    schRpcGetSecurity['path'] = checkNullString(path)
+    schRpcGetSecurity['securityInformation'] = securityInformation
+    return dce.request(schRpcGetSecurity)
 
 def hSchRpcEnumFolders(dce, path, flags=TASK_ENUM_HIDDEN, startIndex=0, cRequested=0xffffffff):
     schRpcEnumFolders = SchRpcEnumFolders()

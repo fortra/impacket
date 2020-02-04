@@ -140,6 +140,11 @@ class DCERPCTransport:
         self._TGS      = None
         self._kdcHost  = None
         self.set_credentials('','')
+        # Strict host validation - off by default and currently only for
+        # SMBTransport
+        self._strict_hostname_validation = False
+        self._validation_allow_absent = True
+        self._accepted_hostname = ''
 
     def connect(self):
         raise RuntimeError('virtual function')
@@ -203,6 +208,11 @@ class DCERPCTransport:
         else:
             self._max_send_frag = send_fragment_size
 
+    def set_hostname_validation(self, validate, accept_empty, hostname):
+        self._strict_hostname_validation = validate
+        self._validation_allow_absent = accept_empty
+        self._accepted_hostname = hostname
+
     def set_default_max_fragment_size(self):
         # default is 0: don't fragment.
         # subclasses may override this method
@@ -216,7 +226,7 @@ class DCERPCTransport:
             self._lmhash,
             self._nthash,
             self._aesKey,
-            self._TGT, 
+            self._TGT,
             self._TGS)
 
     def set_credentials(self, username, password, domain='', lmhash='', nthash='', aesKey='', TGT=None, TGS=None):
@@ -385,6 +395,8 @@ class SMBTransport(DCERPCTransport):
         if not self.__smb_connection:
             self.__smb_connection = SMBConnection(self.getRemoteName(), self.getRemoteHost(), sess_port=self.get_dport(),
                                                   preferredDialect=self.__prefDialect)
+            if self._strict_hostname_validation:
+                self.__smb_connection.setHostnameValidation(self._strict_hostname_validation, self._validation_allow_absent, self._accepted_hostname)
 
     def connect(self):
         # Check if we have a smb connection already setup
