@@ -17,9 +17,16 @@ VER_PREREL = "dev1"
 if call(["git", "branch"], stderr=STDOUT, stdout=open(os.devnull, 'w')) == 0:
     p = Popen("git log -1 --format=%cd --date=format:%Y%m%d.%H%M%S", shell=True, stdin=PIPE, stderr=PIPE, stdout=PIPE)
     (outstr, errstr) = p.communicate()
-    VER_TSTAMP = "+" + outstr.strip().decode("utf-8")
+    (VER_CDATE,VER_CTIME) = outstr.strip().decode("utf-8").split('.')
+
+    p = Popen("git rev-parse --short HEAD", shell=True, stdin=PIPE, stderr=PIPE, stdout=PIPE)
+    (outstr, errstr) = p.communicate()
+    VER_CHASH = outstr.strip().decode("utf-8")
+    
+    VER_LOCAL = "+{}.{}.{}".format(VER_CDATE, VER_CTIME, VER_CHASH)
+
 else:
-    VER_TSTAMP = ""
+    VER_LOCAL = ""
 
 if platform.system() != 'Darwin':
     data_files = [(os.path.join('share', 'doc', PACKAGE_NAME), ['README.md', 'LICENSE']+glob.glob('doc/*'))]
@@ -30,7 +37,7 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 setup(name = PACKAGE_NAME,
-      version = "{}.{}.{}.{}{}".format(VER_MAJOR,VER_MINOR,VER_MAINT,VER_PREREL,VER_TSTAMP),
+      version = "{}.{}.{}.{}{}".format(VER_MAJOR,VER_MINOR,VER_MAINT,VER_PREREL,VER_LOCAL),
       description = "Network protocols Constructors and Dissectors",
       url = "https://www.secureauth.com/labs/open-source-tools/impacket",
       author = "SecureAuth Corporation",
