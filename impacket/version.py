@@ -5,10 +5,10 @@
 # for more information.
 #
 import pkg_resources
-from impacket import LOG, __path__
+from impacket import __path__
 
 
 BANNER = "Impacket v{} - Copyright 2020 SecureAuth Corporation\n".format(pkg_resources.get_distribution('impacket').version)
 
 def getInstallationPath():
-    LOG.debug('Impacket Library Installation Path: {}'.format(__path__))
+    return 'Impacket Library Installation Path: {}'.format(__path__[0])
