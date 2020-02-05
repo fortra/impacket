@@ -40,7 +40,7 @@ import os
 import sys
 import time
 
-from six import PY3
+from six import PY2, PY3
 from impacket import version
 from impacket.dcerpc.v5.dcom.oaut import IID_IDispatch, string_to_bin, IDispatch, DISPPARAMS, DISPATCH_PROPERTYGET, \
     VARIANT, VARENUM, DISPATCH_METHOD
@@ -53,6 +53,7 @@ from impacket.examples import logger
 from impacket.smbconnection import SMBConnection, SMB_DIALECT, SMB2_DIALECT_002, SMB2_DIALECT_21
 
 OUTPUT_FILENAME = '__' + str(time.time())[:5]
+CODEC = sys.stdout.encoding
 
 class DCOMEXEC:
     def __init__(self, command='', username='', password='', domain='', hashes=None, aesKey=None, share=None,
@@ -290,10 +291,13 @@ class RemoteShell(cmd.Cmd):
             print(self.__outputBuffer)
             self.__outputBuffer = ''
         else:
-            self._pwd = ntpath.normpath(ntpath.join(self._pwd, s))
+            if PY2:
+                self._pwd = ntpath.normpath(ntpath.join(self._pwd, s.decode(sys.stdin.encoding)))
+            else:
+                self._pwd = ntpath.normpath(ntpath.join(self._pwd, s))
             self.execute_remote('cd ')
             self._pwd = self.__outputBuffer.strip('\r\n')
-            self.prompt = self._pwd + '>'
+            self.prompt = (self._pwd + '>')
             self.__outputBuffer = ''
 
     def default(self, line):
@@ -318,7 +322,13 @@ class RemoteShell(cmd.Cmd):
 
     def get_output(self):
         def output_callback(data):
-            self.__outputBuffer += data.decode('utf-8')
+            try:
+                self.__outputBuffer += data.decode(CODEC)
+            except UnicodeDecodeError:
+                logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
+                              'https://docs.python.org/3/library/codecs.html#standard-encodings\nand then execute dcomexec.py '
+                              'again with -codec and the corresponding codec')
+                self.__outputBuffer += data.decode(CODEC, errors='replace')
 
         if self._noOutput is True:
             self.__outputBuffer = ''
@@ -507,6 +517,11 @@ if __name__ == '__main__':
                                                                                 '(no SMB connection created)')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
+                                                       '"%s"). If errors are detected, run chcp.com at the target, '
+                                                       'map the result with '
+                          'https://docs.python.org/3/library/codecs.html#standard-encodings and then execute wmiexec.py '
+                          'again with -codec and the corresponding codec ' % CODEC)
     parser.add_argument('-object', choices=['ShellWindows', 'ShellBrowserWindow', 'MMC20'], nargs='?', default='ShellWindows',
                         help='DCOM object to be used to execute the shell command (default=ShellWindows)')
 
@@ -535,6 +550,12 @@ if __name__ == '__main__':
 
     # Init the example's logger theme
     logger.init(options.ts)
+
+    if options.codec is not None:
+        CODEC = options.codec
+    else:
+        if CODEC is None:
+            CODEC = 'UTF-8'
 
     if ' '.join(options.command) == ' ' and options.nooutput is True:
         logging.error("-nooutput switch and interactive shell not supported")
