@@ -4,8 +4,7 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
+import pkg_resources
 
-VER_MAJOR = "0"
-VER_MINOR = "9.21-dev"
 
-BANNER = "Impacket v%s.%s - Copyright 2019 SecureAuth Corporation\n" % (VER_MAJOR,VER_MINOR)
+BANNER = "Impacket v{} - Copyright 2019 SecureAuth Corporation\n".format(pkg_resources.get_distribution('impacket').version)
