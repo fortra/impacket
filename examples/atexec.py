@@ -28,11 +28,13 @@ from impacket import version
 from impacket.dcerpc.v5 import tsch, transport
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_GSS_NEGOTIATE
+from six import PY2
 
+CODEC = sys.stdout.encoding
 
 class TSCH_EXEC:
     def __init__(self, username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False, kdcHost=None,
-                 command=None):
+                 command=None, sessionId=None):
         self.__username = username
         self.__password = password
         self.__domain = domain
@@ -42,6 +44,8 @@ class TSCH_EXEC:
         self.__doKerberos = doKerberos
         self.__kdcHost = kdcHost
         self.__command = command
+        self.sessionId = sessionId
+
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
@@ -66,7 +70,30 @@ class TSCH_EXEC:
 
     def doStuff(self, rpctransport):
         def output_callback(data):
-            print(data.decode('utf-8'))
+            try:
+                print(data.decode(CODEC))
+            except UnicodeDecodeError:
+                logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
+                              'https://docs.python.org/3/library/codecs.html#standard-encodings\nand then execute atexec.py '
+                              'again with -codec and the corresponding codec')
+                print(data.decode(CODEC, errors='replace'))
+
+        def xml_escape(data):
+            replace_table = {
+                 "&": "&amp;",
+                 '"': "&quot;",
+                 "'": "&apos;",
+                 ">": "&gt;",
+                 "<": "&lt;",
+                 }
+            return ''.join(replace_table.get(c, c) for c in data)
+
+        def cmd_split(cmdline):
+            cmdline = cmdline.split(" ", 1)
+            cmd = cmdline[0]
+            args = cmdline[1] if len(cmdline) > 1 else ''
+
+            return [cmd, args]
 
         dce = rpctransport.get_dce_rpc()
 
@@ -78,6 +105,12 @@ class TSCH_EXEC:
         dce.bind(tsch.MSRPC_UUID_TSCHS)
         tmpName = ''.join([random.choice(string.ascii_letters) for _ in range(8)])
         tmpFileName = tmpName + '.tmp'
+
+        if self.sessionId is not None:
+            cmd, args = cmd_split(self.__command)
+        else:
+            cmd = "cmd.exe"
+            args = "/C %s > %%windir%%\\Temp\\%s 2>&1" % (self.__command, tmpFileName)
 
         xml = """<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
@@ -116,12 +149,12 @@ class TSCH_EXEC:
   </Settings>
   <Actions Context="LocalSystem">
     <Exec>
-      <Command>cmd.exe</Command>
-      <Arguments>/C %s &gt; %%windir%%\\Temp\\%s 2&gt;&amp;1</Arguments>
+      <Command>%s</Command>
+      <Arguments>%s</Arguments>
     </Exec>
   </Actions>
 </Task>
-        """ % (self.__command, tmpFileName)
+        """ % (xml_escape(cmd), xml_escape(args))
         taskCreated = False
         try:
             logging.info('Creating task \\%s' % tmpName)
@@ -129,9 +162,20 @@ class TSCH_EXEC:
             taskCreated = True
 
             logging.info('Running task \\%s' % tmpName)
-            tsch.hSchRpcRun(dce, '\\%s' % tmpName)
-
             done = False
+
+            if self.sessionId is None:
+                tsch.hSchRpcRun(dce, '\\%s' % tmpName)
+            else:
+                try:
+                    tsch.hSchRpcRun(dce, '\\%s' % tmpName, flags=tsch.TASK_RUN_USE_SESSION_ID, sessionId=self.sessionId)
+                except Exception as e:
+                    if str(e).find('ERROR_FILE_NOT_FOUND') >= 0 or str(e).find('E_INVALIDARG') >= 0 :
+                        logging.info('The specified session doesn\'t exist!')
+                        done = True
+                    else:
+                        raise
+
             while not done:
                 logging.debug('Calling SchRpcGetLastRunInfo for \\%s' % tmpName)
                 resp = tsch.hSchRpcGetLastRunInfo(dce, '\\%s' % tmpName)
@@ -149,6 +193,10 @@ class TSCH_EXEC:
         finally:
             if taskCreated is True:
                 tsch.hSchRpcDelete(dce, '\\%s' % tmpName)
+
+        if self.sessionId is not None:
+            dce.disconnect()
+            return
 
         smbConnection = rpctransport.get_smb_connection()
         waitOnce = True
@@ -182,9 +230,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
-    parser.add_argument('command', action='store', nargs='*', default = ' ', help='command to execute at the target ')
+    parser.add_argument('command', action='store', nargs='*', default=' ', help='command to execute at the target ')
+    parser.add_argument('-session-id', action='store', type=int, help='an existed logon session to use (no output, no cmd.exe)')
+
     parser.add_argument('-ts', action='store_true', help='adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
+                                                       '"%s"). If errors are detected, run chcp.com at the target, '
+                                                       'map the result with '
+                          'https://docs.python.org/3/library/codecs.html#standard-encodings and then execute wmiexec.py '
+                          'again with -codec and the corresponding codec ' % CODEC)
 
     group = parser.add_argument_group('authentication')
 
@@ -206,6 +261,12 @@ if __name__ == '__main__':
 
     # Init the example's logger theme
     logger.init(options.ts)
+
+    if options.codec is not None:
+        CODEC = options.codec
+    else:
+        if CODEC is None:
+            CODEC = 'UTF-8'
 
     logging.warning("This will work ONLY on Windows >= Vista")
 
@@ -240,5 +301,5 @@ if __name__ == '__main__':
         options.k = True
 
     atsvc_exec = TSCH_EXEC(username, password, domain, options.hashes, options.aesKey, options.k, options.dc_ip,
-                           ' '.join(options.command))
+                           ' '.join(options.command), options.session_id)
     atsvc_exec.play(address)
