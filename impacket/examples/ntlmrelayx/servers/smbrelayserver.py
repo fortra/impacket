@@ -328,7 +328,7 @@ class SMBRelayServer(Thread):
             if rawNTLM is False:
                 respToken = SPNEGO_NegTokenResp()
                 # accept-completed
-                respToken['NegResult'] = '\x00'
+                respToken['NegResult'] = b'\x00'
             else:
                 respToken = ''
             # Let's store it in the connection data
@@ -351,6 +351,7 @@ class SMBRelayServer(Thread):
         connData = smbServer.getConnectionData(connId)
 
         authenticateMessage = connData['AUTHENTICATE_MESSAGE']
+
         self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode ('utf-16le'),
                                     authenticateMessage['user_name'].decode ('utf-16le'))).upper ()
 
@@ -383,7 +384,7 @@ class SMBRelayServer(Thread):
                 extSec = True
             # Init the correct client for our target
             client = self.init_client(extSec)
-        except Exception, e:
+        except Exception as e:
             LOG.error("Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
             self.targetprocessor.logTarget(self.target)
         else:
@@ -452,6 +453,7 @@ class SMBRelayServer(Thread):
             # Just call the original SessionSetup
             return self.origSmbSessionSetupAndX(connId, smbServer, SMBCommand, recvPacket)
 
+        # We have confirmed we want to relay to the target host.
         respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_SESSION_SETUP_ANDX)
 
         if connData['_dialects_parameters']['Capabilities'] & smb.SMB.CAP_EXTENDED_SECURITY:
@@ -465,7 +467,7 @@ class SMBRelayServer(Thread):
             connData['Capabilities'] = sessionSetupParameters['Capabilities']
 
             rawNTLM = False
-            if struct.unpack('B',sessionSetupData['SecurityBlob'][0])[0] != ASN1_AID:
+            if struct.unpack('B',sessionSetupData['SecurityBlob'][0:1])[0] != ASN1_AID:
                # If there no GSSAPI ID, it must be an AUTH packet
                blob = SPNEGO_NegTokenResp(sessionSetupData['SecurityBlob'])
                token = blob['ResponseToken']
@@ -698,7 +700,7 @@ class SMBRelayServer(Thread):
                 extSec = True
             # Init the correct client for our target
             client = self.init_client(extSec)
-        except Exception, e:
+        except Exception as e:
             LOG.error("Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
             self.targetprocessor.logTarget(self.target)
         else:
@@ -746,7 +748,7 @@ class SMBRelayServer(Thread):
         # It will loop until all targets are processed for this user
         errorCode = STATUS_NETWORK_SESSION_EXPIRED
         resp['ErrorCode'] = errorCode >> 16
-        resp['_reserved'] = 03
+        resp['_reserved'] = 0o3
         resp['ErrorClass'] = errorCode & 0xff
 
         if path == 'IPC$':

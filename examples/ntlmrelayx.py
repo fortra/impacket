@@ -91,7 +91,7 @@ class MiniShell(cmd.Cmd):
 
     def do_finished_attacks(self, line):
         for url in self.relayConfig.target.finishedAttacks:
-            print url.geturl()
+            print (url.geturl())
         return
 
     def do_socks(self, line):
