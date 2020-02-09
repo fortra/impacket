@@ -507,13 +507,14 @@ class LDAPAttack(ProtocolAttack):
         # Create new dumper object
         domainDumper = ldapdomaindump.domainDumper(self.client.server, self.client, domainDumpConfig)
 
-        if self.tcp_shell is not None:
-            LOG.info('Started interactive Ldap shell via TCP on 127.0.0.1:%d' % self.tcp_shell.port)
-            # Start listening and launch interactive shell.
-            self.tcp_shell.listen()
-            ldap_shell = LdapShell(self.tcp_shell, domainDumper, self.client)
-            ldap_shell.cmdloop()
-            return
+        if self.config.interactive:
+            if self.tcp_shell is not None:
+                LOG.info('Started interactive Ldap shell via TCP on 127.0.0.1:%d' % self.tcp_shell.port)
+                # Start listening and launch interactive shell.
+                self.tcp_shell.listen()
+                ldap_shell = LdapShell(self.tcp_shell, domainDumper, self.client)
+                ldap_shell.cmdloop()
+                return
 
         # If specified validate the user's privileges. This might take a while on large domains but will
         # identify the proper containers for escalating via the different techniques.
