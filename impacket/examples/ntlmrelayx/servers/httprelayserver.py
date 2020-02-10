@@ -59,7 +59,10 @@ class HTTPRelayServer(Thread):
                 if self.server.config.target is None:
                     # Reflection mode, defaults to SMB at the target, for now
                     self.server.config.target = TargetsProcessor(singleTarget='SMB://%s:445/' % client_address[0])
-                self.target = self.server.config.target.getTarget(self.server.config.randomtargets)
+                self.target = self.server.config.target.getTarget()
+                if self.target is None:
+                    LOG.info("HTTPD: Received connection from %s, but there are no more targets left!" % client_address[0])
+                    return
                 LOG.info("HTTPD: Received connection from %s, attacking target %s://%s" % (client_address[0] ,self.target.scheme, self.target.netloc))
             try:
                 http.server.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
