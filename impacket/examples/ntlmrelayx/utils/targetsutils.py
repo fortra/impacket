@@ -143,14 +143,13 @@ class TargetsProcessor:
             if len(self.originalTargets) > 0:
                 self.generalCandidates = [x for x in self.originalTargets if
                                           x not in self.finishedAttacks and x.username is None]
-                return self.getTarget(identity)
 
         if len(self.generalCandidates) == 0 and len(self.namedCandidates) == 0:
             #We are here, which means all the targets are already exhausted by the client
             LOG.info("All targets processed!")
             return None
 
-        return self.generalCandidates.pop()
+        return None
 
 class TargetsFileWatcher(Thread):
     def __init__(self,targetprocessor):
