@@ -205,8 +205,10 @@ if __name__ == '__main__':
     parser.add_argument("-h","--help", action="help", help='show this help message and exit')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
-    parser.add_argument('-t',"--target", action='store', metavar = 'TARGET', help='Target to relay the credentials to, '
-                  'can be an IP, hostname or URL like smb://server:445 If unspecified, it will relay back to the client')
+    parser.add_argument('-t',"--target", action='store', metavar = 'TARGET', help="Target to relay the credentials to, "
+                                  "can be an IP, hostname or URL like domain\\username@host:port (domain\\username and port "
+                                  "are optional, and don't forget to escape the '\\'). If unspecified, it will relay back "
+                                  "to the client')")
     parser.add_argument('-tf', action='store', metavar = 'TARGETSFILE', help='File that contains targets by hostname or '
                                                                              'full URL, one per line')
     parser.add_argument('-w', action='store_true', help='Watch the target file for changes and update target list '
