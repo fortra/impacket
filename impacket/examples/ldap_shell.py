@@ -20,6 +20,9 @@ from ldap3.utils.conv import escape_filter_chars
 from six import PY2
 import shlex
 from impacket import LOG
+from ldap3.protocol.microsoft import security_descriptor_control
+from impacket.ldap.ldaptypes import ACCESS_ALLOWED_OBJECT_ACE, ACCESS_MASK, ACCESS_ALLOWED_ACE, ACE, OBJECTTYPE_GUID_MAP
+from impacket.ldap import ldaptypes
 
 
 class LdapShell(cmd.Cmd):
@@ -61,6 +64,56 @@ class LdapShell(cmd.Cmd):
             LOG.debug('Exception info', exc_info=True)
 
         return ret_val
+
+    def create_allow_ace(self, sid):
+        nace = ldaptypes.ACE()
+        nace['AceType'] = ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE
+        nace['AceFlags'] = 0x00
+        acedata = ldaptypes.ACCESS_ALLOWED_ACE()
+        acedata['Mask'] = ldaptypes.ACCESS_MASK()
+        acedata['Mask']['Mask'] = 983551 # Full control
+        acedata['Sid'] = ldaptypes.LDAP_SID()
+        acedata['Sid'].fromCanonical(sid)
+        nace['Ace'] = acedata
+        return nace
+
+
+    def do_write_gpo_dacl(self,line):
+        args = shlex.split(line)
+        print ("Adding %s to GPO with GUID %s" % (args[0], args[1]))
+        if len(args) != 2:
+            raise Exception("A samaccountname and GPO sid are required.")
+
+        tgtUser = args[0]
+        gposid = args[1]
+        self.client.search(self.domain_dumper.root, '(&(objectclass=person)(sAMAccountName=%s))' % tgtUser, attributes=['objectSid'])
+        if len( self.client.entries) <= 0:
+            raise Exception("Didnt find the given user")
+
+        user = self.client.entries[0]
+
+        controls = security_descriptor_control(sdflags=0x04)
+        self.client.search(self.domain_dumper.root, '(&(objectclass=groupPolicyContainer)(name=%s))' % gposid, attributes=['objectSid','nTSecurityDescriptor'], controls=controls)
+
+        if len( self.client.entries) <= 0:
+            raise Exception("Didnt find the given gpo")
+        gpo = self.client.entries[0]
+
+        secDescData = gpo['nTSecurityDescriptor'].raw_values[0]
+        secDesc = ldaptypes.SR_SECURITY_DESCRIPTOR(data=secDescData)
+        newace = self.create_allow_ace(str(user['objectSid']))
+        secDesc['Dacl']['Data'].append(newace)
+        data = secDesc.getData()
+
+        self.client.modify(gpo.entry_dn, {'nTSecurityDescriptor':(ldap3.MODIFY_REPLACE, [data])}, controls=controls)
+        if self.client.result["result"] == 0:
+            print('LDAP server claims to have taken the secdescriptor. Have fun')
+        else:
+            raise Exception("something wasnt right")
+
+
+
+
 
     def do_add_user(self, line):
         args = shlex.split(line)
@@ -182,6 +235,7 @@ class LdapShell(cmd.Cmd):
 
     def do_help(self, line):
         print("""
+ write_gpo_dacl user gpoSID - write a full control ACE to the gpo for the given user
  add_user new_user [parent] - Creates a new user.
  add_user_to_group user group - Adds a user to a group.
  dump - Dumps the domain.
