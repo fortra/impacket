@@ -94,7 +94,7 @@ class LDAPAttack(ProtocolAttack):
         domain = re.sub(',DC=', '.', domaindn[domaindn.find('DC='):], flags=re.I)[3:]
 
         computerName = self.computerName
-        if computerName == '':
+        if not computerName:
             # Random computername
             newComputer = (''.join(random.choice(string.ascii_letters) for _ in range(8)) + '$').upper()
         else:
