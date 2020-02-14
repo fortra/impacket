@@ -607,14 +607,18 @@ class WCHAR_ARRAY(NDRUniConformantArray):
 
     def __getitem__(self, key):
         if key == 'Data':
-            try:
-                return ''.join([chr(i) for i in self.fields[key]])
-            except ValueError:
-                # We might have Unicode chars in here, let's use unichr instead
-                LOG.debug('ValueError exception on %s' % self.fields[key])
-                LOG.debug('Switching to unichr()')
-                return ''.join([chr(i) for i in self.fields[key]])
-
+            if PY2:
+                try:
+                    return ''.join([unichr(i) for i in self.fields[key]])
+                except ValueError as e:
+                    LOG.debug("ValueError Exception", exc_info=True)
+                    LOG.error(str(e))
+            else:
+                try:
+                    return ''.join([chr(i) for i in self.fields[key]])
+                except ValueError as e:
+                    LOG.debug("ValueError Exception", exc_info=True)
+                    LOG.error(str(e))
         else:
             return NDR.__getitem__(self,key)
 
