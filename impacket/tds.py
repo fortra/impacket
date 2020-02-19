@@ -522,8 +522,7 @@ class MSSQL:
         return TDS_PRELOGIN(tds['Data'])
     
     def encryptPassword(self, password ):
-
-        return ''.join([chr(((ord(x) & 0x0f) << 4) + ((ord(x) & 0xf0) >> 4) ^ 0xa5) for x in password])
+        return bytes(bytearray([((x & 0x0f) << 4) + ((x & 0xf0) >> 4) ^ 0xa5 for x in bytearray(password)]))
 
     def connect(self):
         af, socktype, proto, canonname, sa = socket.getaddrinfo(self.server, self.port, 0, socket.SOCK_STREAM)[0]
@@ -992,7 +991,7 @@ class MSSQL:
                 col['Length'] = 36
                 fmt = '%%%ds' 
             elif col['Type'] in [TDS_DECIMALNTYPE,TDS_NUMERICNTYPE]:
-                col['Length'] = ord(col['TypeData'][0])
+                col['Length'] = ord(col['TypeData'][0:1])
                 fmt = '%%%ds' 
             elif col['Type'] in [TDS_DATETIMNTYPE]:
                 col['Length'] = 19
@@ -1088,6 +1087,11 @@ class MSSQL:
 
         origDataLen = len(token['Data'])
         data = token['Data']
+        print("="*80)
+        print(repr(data))
+        from impacket.structure import hexdump
+        hexdump(data)
+        print("="*80)
         for col in self.colMeta:
             _type = col['Type']
             if (_type == TDS_NVARCHARTYPE) |\
@@ -1111,7 +1115,7 @@ class MSSQL:
                     value = 'NULL'
 
             elif _type == TDS_GUIDTYPE:
-                uuidLen = ord(data[0])
+                uuidLen = ord(data[0:1])
                 data = data[1:]
                 if uuidLen > 0:
                     uu = data[:uuidLen]
@@ -1123,7 +1127,7 @@ class MSSQL:
             elif (_type == TDS_NTEXTTYPE) |\
                  (_type == TDS_IMAGETYPE) :
                 # Skip the pointer data
-                charLen = ord(data[0])
+                charLen = ord(data[0:1])
                 if charLen == 0:
                     value = 'NULL'
                     data = data[1:]
@@ -1142,7 +1146,7 @@ class MSSQL:
                 
             elif _type == TDS_TEXTTYPE:
                 # Skip the pointer data
-                charLen = ord(data[0])
+                charLen = ord(data[0:1])
                 if charLen == 0:
                     value = 'NULL'
                     data = data[1:]
@@ -1173,9 +1177,9 @@ class MSSQL:
                 if _type == TDS_DATETIMNTYPE:
                     # For DATETIMNTYPE, the only valid lengths are 0x04 and 0x08, which map to smalldatetime and
                     # datetime SQL data _types respectively.
-                    if ord(data[0]) == 4:
+                    if ord(data[0:1]) == 4:
                         _type = TDS_DATETIM4TYPE
-                    elif ord(data[0]) == 8:
+                    elif ord(data[0:1]) == 8:
                         _type = TDS_DATETIMETYPE
                     else:
                         value = 'NULL'
@@ -1300,10 +1304,10 @@ class MSSQL:
                 data = data[1:]
                 value = data[:valueLen]
                 data = data[valueLen:]
-                precision = ord(col['TypeData'][1])
-                scale = ord(col['TypeData'][2])
+                precision = ord(col['TypeData'][1:2])
+                scale = ord(col['TypeData'][2:3])
                 if valueLen > 0:
-                    isPositiveSign = ord(value[0])
+                    isPositiveSign = ord(value[0:1])
                     if (valueLen-1) == 2:
                         fmt = '<H'
                     elif (valueLen-1) == 4:
@@ -1407,13 +1411,13 @@ class MSSQL:
                  (colType == TDS_MONEYNTYPE) |\
                  (colType == TDS_GUIDTYPE) |\
                  (colType == TDS_BITNTYPE):
-                typeData = ord(data[0])
+                typeData = ord(data[0:1])
                 data = data[1:]
 
             elif colType == TDS_DATETIMNTYPE:
                 # For DATETIMNTYPE, the only valid lengths are 0x04 and 0x08, which map to smalldatetime and
                 # datetime SQL data types respectively.
-                typeData = ord(data[0])
+                typeData = ord(data[0:1])
                 data = data[1:]
 
             elif (colType == TDS_BIGVARBINTYPE) |\
