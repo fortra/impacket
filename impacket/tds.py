@@ -1087,11 +1087,6 @@ class MSSQL:
 
         origDataLen = len(token['Data'])
         data = token['Data']
-        print("="*80)
-        print(repr(data))
-        from impacket.structure import hexdump
-        hexdump(data)
-        print("="*80)
         for col in self.colMeta:
             _type = col['Type']
             if (_type == TDS_NVARCHARTYPE) |\
