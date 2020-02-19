@@ -813,7 +813,10 @@ class INSTANCE_TYPE(Structure):
             if itemValue != 0:
                 value = ENCODED_VALUE.getValue( properties[key]['type'], itemValue, heap)
                 properties[key]['value'] = value
-            valueTable = valueTable[dataSize:] 
+            # is the value set valid or should we clear it? ( if not inherited )
+            elif properties[key]['inherited'] == 0:
+                properties[key]['value'] = None
+            valueTable = valueTable[dataSize:]
         return properties
 
 # 2.2.12 ParentClass
