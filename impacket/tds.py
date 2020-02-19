@@ -523,7 +523,7 @@ class MSSQL:
     
     def encryptPassword(self, password ):
 
-        return ''.join([chr(((ord(x) & 0x0f) << 4) + ((ord(x) & 0xf0) >> 4) ^ 0xa5) for x in password])
+        return ''.join([chr(((x & 0x0f) << 4) + ((x & 0xf0) >> 4) ^ 0xa5) for x in password])
 
     def connect(self):
         af, socktype, proto, canonname, sa = socket.getaddrinfo(self.server, self.port, 0, socket.SOCK_STREAM)[0]
@@ -1407,13 +1407,13 @@ class MSSQL:
                  (colType == TDS_MONEYNTYPE) |\
                  (colType == TDS_GUIDTYPE) |\
                  (colType == TDS_BITNTYPE):
-                typeData = ord(data[0])
+                typeData = data[0]
                 data = data[1:]
 
             elif colType == TDS_DATETIMNTYPE:
                 # For DATETIMNTYPE, the only valid lengths are 0x04 and 0x08, which map to smalldatetime and
                 # datetime SQL data types respectively.
-                typeData = ord(data[0])
+                typeData = data[0]
                 data = data[1:]
 
             elif (colType == TDS_BIGVARBINTYPE) |\
