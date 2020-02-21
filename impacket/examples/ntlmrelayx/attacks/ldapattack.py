@@ -686,7 +686,7 @@ class LDAPAttack(ProtocolAttack):
                         hash = MD4.new ()
                         hash.update (blob['CurrentPassword'][:-2])
                         passwd = binascii.hexlify(hash.digest()).decode("utf-8")
-                        userpass = sam + ':' + passwd
+                        userpass = sam + ':::' + passwd
                         LOG.info(userpass)
                         count += 1
                         if fd is None:
