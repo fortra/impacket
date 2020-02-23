@@ -14,6 +14,7 @@ from six import b
 from binascii import hexlify
 
 from impacket.structure import Structure
+from impacket import LOG
 
 
 class Enctype(Enum):
@@ -47,12 +48,17 @@ class KeyBlock(Structure):
         ('keyvalue',':', CountedOctetString),
     )
 
-    def prettyPrint(self):
+    def prettyKeytype(self):
         try:
-            keytype = Enctype(int(self['keytype'])).name
+            return Enctype(self['keytype']).name
         except:
-            keytype = "UNKNOWN:0x%x" % (self['keytype'])
-        return "(%s)%s" % (keytype, hexlify(self['keyvalue']['data']))
+            return "UNKNOWN:0x%x" % (self['keytype'])
+
+    def hexlifiedValue(self):
+        return hexlify(self['keyvalue']['data'])
+
+    def prettyPrint(self):
+        return "(%s)%s" % (self.prettyKeytype(), self.hexlifiedValue())
 
 
 class KeytabPrincipal:
@@ -176,6 +182,11 @@ class KeytabEntry:
 
 
 class Keytab:
+
+    GetkeyEnctypePreference = (Enctype.AES256.value,
+                                 Enctype.AES128.value,
+                                 Enctype.RC4.value)
+
     class MiniHeader(Structure):
         structure = (
             ('file_format_version', '!H=0x0502'),
@@ -197,6 +208,33 @@ class Keytab:
         for entry in self.entries:
             data += entry.getData()
         return data
+
+    def getKey(self, principal, specificEncType=None, ignoreRealm=True):
+        principal = b(principal.upper())
+        if ignoreRealm:
+            principal = principal.split(b'@')[0]
+        matching_keys = {}
+        for entry in self.entries:
+            entry_principal = entry.main_part['principal'].prettyPrint().upper()
+            if entry_principal == principal or (ignoreRealm and entry_principal.split(b'@')[0] == principal):
+                keytype = entry.main_part["keyblock"]["keytype"]
+                if keytype == specificEncType:
+                    LOG.debug('Returning %s key for %s' % (entry.main_part['keyblock'].prettyKeytype(),
+                                                           entry.main_part['principal'].prettyPrint()))
+                    return entry.main_part["keyblock"]
+                elif specificEncType is None:
+                    matching_keys[keytype] = entry
+
+        if specificEncType is None and matching_keys:
+            for preference in self.GetkeyEnctypePreference:
+                if preference in matching_keys:
+                    entry = matching_keys[preference]
+                    LOG.debug('Returning %s key for %s' % (entry.main_part['keyblock'].prettyKeytype(),
+                                                           entry.main_part['principal'].prettyPrint()))
+                    return entry.main_part["keyblock"]
+
+        LOG.debug('Principal %s not found in keytab' % principal)
+        return None
 
     @classmethod
     def loadFile(cls, fileName):
