@@ -198,16 +198,17 @@ class Keytab:
             data += entry.getData()
         return data
 
-
     @classmethod
     def loadFile(cls, fileName):
-        with open(fileName, 'rb') as f:
-            data = f.read()
+        f = open(fileName, 'rb')
+        data = f.read()
+        f.close()
         return cls(data)
 
     def saveFile(self, fileName):
-        with open(fileName, 'wb+') as f:
-            f.write(self.getData())
+        f = open(fileName, 'wb+')
+        f.write(self.getData())
+        f.close()
 
     def prettyPrint(self):
         print("Keytab Entries:")
