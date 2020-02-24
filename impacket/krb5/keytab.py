@@ -11,6 +11,7 @@ from datetime import datetime
 from enum import Enum
 from six import b
 
+from struct import pack, unpack, calcsize
 from binascii import hexlify
 
 from impacket.structure import Structure
@@ -153,18 +154,27 @@ class KeytabEntry:
             ('keyblock', ':', KeyBlock),
         )
 
-    def __init__(self, data):
+    def __init__(self, data=None):
         self.rest = b''
         if data:
             self.main_part = self.KeytabEntryMainpart(data)
-            if self.main_part['size'] > len(self.main_part):
-                rest_size = self.main_part['size'] - len(self.main_part)
-                self.rest = data[len(self.main_part):rest_size]
+            self.size = abs(self.main_part['size']) + 4  # size field itself not included
+            self.kvno = self.main_part['vno8']
+            self.deleted = self.main_part['size'] < 0
+            len_main = len(self.main_part)
+            if self.size > len_main:
+                self.rest = data[len_main:self.size]
+                if len(self.rest) >= 4 and \
+                        self.rest[:4] != [0, 0, 0, 0]:  # if "field" is present but all 0, it seems to gets ignored
+                    self.kvno = unpack('!L', self.rest[:4])[0]
         else:
             self.main_part = self.KeytabEntryMainpart()
+            self.deleted = True
+            self.size = len(self.main_part)
+            self.kvno = 0
 
     def __len__(self):
-        return max(self.main_part['size'], len(self.main_part))
+        return self.size
 
     def getData(self):
         data = self.main_part.getData()
@@ -173,12 +183,16 @@ class KeytabEntry:
         return data
 
     def prettyPrint(self, indent=''):
-        text = "%sPrincipal: %s\n" %(indent, self.main_part['principal'].prettyPrint())
-        text += "%sTimestamp: %s\n" % (indent, datetime.fromtimestamp(self.main_part['timestamp']).isoformat())
-        text += "%sKey: %s" % (indent, self.main_part['keyblock'].prettyPrint())
-        if self.rest:
-            text += "\n%sRest: %s" % (indent, self.rest)
-        return text
+        if self.deleted:
+            return "%s[DELETED]" % indent
+        else:
+            text = "%sPrincipal: %s\n" %(indent, self.main_part['principal'].prettyPrint())
+            text += "%sTimestamp: %s" % (indent, datetime.fromtimestamp(self.main_part['timestamp']).isoformat())
+            text += "\tKVNO: %i\n" % self.kvno
+            text += "%sKey: %s" % (indent, self.main_part['keyblock'].prettyPrint())
+            #if self.rest:
+            #    text += "\n%sRest: %s" % (indent, self.rest)
+            return text
 
 
 class Keytab:
