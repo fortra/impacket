@@ -68,8 +68,8 @@ class KerbruteArgumentParser:
 
         if len(sys.argv) == 1:
             self._parser.print_help()
-            print "\nExamples: "
-            print "\t./kerbrute.py -users users_file.txt -passwords passwords_file.txt -domain contoso.com\n"
+            print("\nExamples: ")
+            print("\t./kerbrute.py -users users_file.txt -passwords passwords_file.txt -domain contoso.com\n")
             sys.exit(1)
 
         args = self._parser.parse_args()
@@ -94,7 +94,7 @@ class KerbruteArgumentParser:
 
 def main():
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = KerbruteArgumentParser()
     args = parser.parse_args()
