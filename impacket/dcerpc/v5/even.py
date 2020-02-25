@@ -353,7 +353,6 @@ def hElfrOpenELW(dce, moduleName = NULL, regModuleName = NULL):
 
 def hElfrCloseEL(dce, logHandle):
     request = ElfrCloseEL()
-
     request['LogHandle'] = logHandle
     resp = dce.request(request)
     return resp
@@ -390,14 +389,12 @@ def hElfrBackupELFW(dce, logHandle = '', backupFileName = NULL):
 
 def hElfrNumberOfRecords(dce, logHandle):
     request = ElfrNumberOfRecords()
-
     request['LogHandle'] = logHandle
     resp = dce.request(request)
     return resp
 
 def hElfrOldestRecordNumber(dce, logHandle):
     request = ElfrOldestRecord()
-
     request['LogHandle'] = logHandle
     resp = dce.request(request)
     return resp
