@@ -51,6 +51,7 @@ from impacket.dcerpc.v5.dcomrt import OBJREF, FLAGS_OBJREF_CUSTOM, OBJREF_CUSTOM
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.examples import logger
 from impacket.smbconnection import SMBConnection, SMB_DIALECT, SMB2_DIALECT_002, SMB2_DIALECT_21
+from impacket.krb5.keytab import Keytab
 
 OUTPUT_FILENAME = '__' + str(time.time())[:5]
 CODEC = sys.stdout.encoding
@@ -541,6 +542,7 @@ if __name__ == '__main__':
                        'ommited it use the domain part (FQDN) specified in the target parameter')
     group.add_argument('-A', action="store", metavar = "authfile", help="smbclient/mount.cifs-style authentication file. "
                                                                         "See smbclient man page's -A option.")
+    group.add_argument('-keytab', action="store", help='Read keys for SPN from keytab file')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -585,6 +587,10 @@ if __name__ == '__main__':
 
         if domain is None:
             domain = ''
+
+        if options.keytab is not None:
+            Keytab.loadKeysFromKeytab(options.keytab, username, domain, options)
+            options.k = True
 
         if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
             from getpass import getpass

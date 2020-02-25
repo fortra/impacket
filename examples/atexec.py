@@ -28,6 +28,7 @@ from impacket import version
 from impacket.dcerpc.v5 import tsch, transport
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_GSS_NEGOTIATE
+from impacket.krb5.keytab import Keytab
 from six import PY2
 
 CODEC = sys.stdout.encoding
@@ -252,6 +253,7 @@ if __name__ == '__main__':
                                                                             '(128 or 256 bits)')
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. '
                                          'If omitted it will use the domain part (FQDN) specified in the target parameter')
+    group.add_argument('-keytab', action="store", help='Read keys for SPN from keytab file')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -293,6 +295,10 @@ if __name__ == '__main__':
 
     if domain is None:
         domain = ''
+
+    if options.keytab is not None:
+        Keytab.loadKeysFromKeytab (options.keytab, username, domain, options)
+        options.k = True
 
     if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
         from getpass import getpass

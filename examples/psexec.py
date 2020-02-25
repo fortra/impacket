@@ -30,6 +30,7 @@ from impacket.smbconnection import SMBConnection
 from impacket.dcerpc.v5 import transport
 from impacket.structure import Structure
 from impacket.examples import remcomsvc, serviceinstall
+from impacket.krb5.keytab import Keytab
 
 
 class RemComMessage(Structure):
@@ -443,6 +444,7 @@ if __name__ == '__main__':
                        'ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
                                                                             '(128 or 256 bits)')
+    group.add_argument('-keytab', action="store", help='Read keys for SPN from keytab file')
 
     group = parser.add_argument_group('connection')
 
@@ -454,8 +456,10 @@ if __name__ == '__main__':
                             'This is useful when target is the NetBIOS name and you cannot resolve it')
     group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port",
                        help='Destination port to connect to SMB Server')
-    group.add_argument('-service-name', action='store', metavar="service_name", default = '', help='The name of the service used to trigger the payload')
-    group.add_argument('-remote-binary-name', action='store', metavar="remote_binary_name", default = None, help='This will be the name of the executable uploaded on the target')
+    group.add_argument('-service-name', action='store', metavar="service_name", default = '', help='The name of the service'
+                                                                                ' used to trigger the payload')
+    group.add_argument('-remote-binary-name', action='store', metavar="remote_binary_name", default = None, help='This will '
+                                                            'be the name of the executable uploaded on the target')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -485,6 +489,10 @@ if __name__ == '__main__':
 
     if domain is None:
         domain = ''
+
+    if options.keytab is not None:
+        Keytab.loadKeysFromKeytab (options.keytab, username, domain, options)
+        options.k = True
 
     if options.target_ip is None:
         options.target_ip = remoteName

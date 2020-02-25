@@ -43,6 +43,7 @@ from threading import Thread
 from impacket.examples import logger
 from impacket import version, smbserver
 from impacket.dcerpc.v5 import transport, scmr
+from impacket.krb5.keytab import Keytab
 
 OUTPUT_FILENAME = '__output'
 BATCH_FILENAME  = 'execute.bat'
@@ -312,6 +313,8 @@ if __name__ == '__main__':
                        'name and you cannot resolve it')
     group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port",
                        help='Destination port to connect to SMB Server')
+    group.add_argument('-service-name', action='store', metavar="service_name", default = SERVICE_NAME, help='The name of the'
+                                         'service used to trigger the payload')
 
     group = parser.add_argument_group('authentication')
 
@@ -322,7 +325,7 @@ if __name__ == '__main__':
                        'ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
                                                                             '(128 or 256 bits)')
-    group.add_argument('-service-name', action='store', metavar="service_name", default = SERVICE_NAME, help='The name of the service used to trigger the payload')
+    group.add_argument('-keytab', action="store", help='Read keys for SPN from keytab file')
 
 
     if len(sys.argv)==1:
@@ -357,6 +360,10 @@ if __name__ == '__main__':
 
     if domain is None:
         domain = ''
+
+    if options.keytab is not None:
+        Keytab.loadKeysFromKeytab (options.keytab, username, domain, options)
+        options.k = True
 
     if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
         from getpass import getpass

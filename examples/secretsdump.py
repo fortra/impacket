@@ -56,6 +56,7 @@ from impacket.examples import logger
 from impacket.smbconnection import SMBConnection
 
 from impacket.examples.secretsdump import LocalOperations, RemoteOperations, SAMHashes, LSASecrets, NTDSHashes
+from impacket.krb5.keytab import Keytab
 try:
     input = raw_input
 except NameError:
@@ -317,6 +318,7 @@ if __name__ == '__main__':
                              ' the ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication'
                                                                             ' (128 or 256 bits)')
+    group.add_argument('-keytab', action="store", help='Read keys for SPN from keytab file')
     group = parser.add_argument_group('connection')
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
                                  'ommited it use the domain part (FQDN) specified in the target parameter')
@@ -383,6 +385,10 @@ if __name__ == '__main__':
 
         if domain is None:
             domain = ''
+
+        if options.keytab is not None:
+            Keytab.loadKeysFromKeytab(options.keytab, username, domain, options)
+            options.k = True
 
         if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
             from getpass import getpass

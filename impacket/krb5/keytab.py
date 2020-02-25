@@ -257,6 +257,19 @@ class Keytab:
         f.close()
         return cls(data)
 
+    @classmethod
+    def loadKeysFromKeytab(cls, fileName, username, domain, options):
+        keytab = Keytab.loadFile(fileName)
+        keyblock = keytab.getKey("%s@%s" % (username, domain))
+        if keyblock:
+            if keyblock["keytype"] == Enctype.AES256.value or keyblock["keytype"] == Enctype.AES128.value:
+                options.aesKey = keyblock.hexlifiedValue()
+            elif keyblock["keytype"] == Enctype.RC4.value:
+                options.hashes= ':' + keyblock.hexlifiedValue().decode('ascii')
+        else:
+            LOG.warning("No matching key for SPN '%s' in given keytab found!", username)
+
+
     def saveFile(self, fileName):
         f = open(fileName, 'wb+')
         f.write(self.getData())
