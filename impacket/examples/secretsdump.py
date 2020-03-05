@@ -1793,7 +1793,7 @@ class NTDSHashes:
             ('Header','8s=b""'),
             ('KeyMaterial','16s=b""'),
             ('Unknown','<L=0'),
-            ('EncryptedHash','32s=b""'),
+            ('EncryptedHash', ':'),
         )
 
     class CRYPTED_HISTORY(Structure):
@@ -2139,6 +2139,8 @@ class NTDSHashes:
 
                     if encryptedNTHistory['Header'][:4] == b'\x13\x00\x00\x00':
                         # Win2016 TP4 decryption is different
+                        encryptedNTHistory = self.CRYPTED_HASHW16(
+                            unhexlify(record[self.NAME_TO_INTERNAL['ntPwdHistory']]))
                         pekIndex = hexlify(encryptedNTHistory['Header'])
                         tmpNTHistory = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])],
                                                                       encryptedNTHistory['EncryptedHash'],
