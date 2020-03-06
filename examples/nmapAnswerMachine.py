@@ -745,7 +745,7 @@ class nmap2_ICMP_2(NMAP2ICMPResponder):
 
 class Machine:
    AssumedTimeIntervalPerPacket = 0.11 # seconds
-   def __init__(self, emmulating, interface, ipAddress, macAddress, openTCPPorts = [], openUDPPorts = [], nmapOSDB = 'nmap-os-db'):
+   def __init__(self, emmulating, interface, ipAddress, macAddress, openTCPPorts = None, openUDPPorts = None, nmapOSDB = 'nmap-os-db'):
        self.interface = interface
        self.ipAddress = ipAddress
        self.macAddress = macAddress
@@ -756,7 +756,11 @@ class Machine:
        self.initFingerprint(emmulating, nmapOSDB)
 
        self.initSequenceGenerators()
+       if openTCPPorts is None:
+           openTCPPorts = []
        self.openTCPPorts = openTCPPorts
+       if openUDPPorts is None:
+           openUDPPorts = []
        self.openUDPPorts = openUDPPorts
        print(self)
 
