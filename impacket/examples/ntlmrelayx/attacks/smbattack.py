@@ -39,7 +39,7 @@ class SMBAttack(ProtocolAttack):
             self.__SMBConnection = SMBConnection(existingConnection=SMBClient)
         else:
             self.__SMBConnection = SMBClient
-        self.__answerTMP = ''
+        self.__answerTMP = bytearray()
         if self.config.interactive:
             #Launch locally listening interactive shell
             self.tcpshell = TcpShell()
@@ -100,7 +100,6 @@ class SMBAttack(ProtocolAttack):
                 if self.config.command is not None:
                     remoteOps._RemoteOperations__executeRemote(self.config.command)
                     LOG.info("Executed specified command on host: %s", self.__SMBConnection.getRemoteHost())
-                    self.__answerTMP = ''
                     self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
                     self.__SMBConnection.deleteFile('ADMIN$', 'Temp\\__output')
                     print(self.__answerTMP.decode(self.config.encoding, 'replace'))
