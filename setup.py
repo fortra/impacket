@@ -14,18 +14,21 @@ VER_MAJOR = 0
 VER_MINOR = 9
 VER_MAINT = 21
 VER_PREREL = "dev1"
-if call(["git", "branch"], stderr=STDOUT, stdout=open(os.devnull, 'w')) == 0:
-    p = Popen("git log -1 --format=%cd --date=format:%Y%m%d.%H%M%S", shell=True, stdin=PIPE, stderr=PIPE, stdout=PIPE)
-    (outstr, errstr) = p.communicate()
-    (VER_CDATE,VER_CTIME) = outstr.strip().decode("utf-8").split('.')
+try:
+    if call(["git", "branch"], stderr=STDOUT, stdout=open(os.devnull, 'w')) == 0:
+        p = Popen("git log -1 --format=%cd --date=format:%Y%m%d.%H%M%S", shell=True, stdin=PIPE, stderr=PIPE, stdout=PIPE)
+        (outstr, errstr) = p.communicate()
+        (VER_CDATE,VER_CTIME) = outstr.strip().decode("utf-8").split('.')
 
-    p = Popen("git rev-parse --short HEAD", shell=True, stdin=PIPE, stderr=PIPE, stdout=PIPE)
-    (outstr, errstr) = p.communicate()
-    VER_CHASH = outstr.strip().decode("utf-8")
-    
-    VER_LOCAL = "+{}.{}.{}".format(VER_CDATE, VER_CTIME, VER_CHASH)
+        p = Popen("git rev-parse --short HEAD", shell=True, stdin=PIPE, stderr=PIPE, stdout=PIPE)
+        (outstr, errstr) = p.communicate()
+        VER_CHASH = outstr.strip().decode("utf-8")
 
-else:
+        VER_LOCAL = "+{}.{}.{}".format(VER_CDATE, VER_CTIME, VER_CHASH)
+
+    else:
+        VER_LOCAL = ""
+except Exception:
     VER_LOCAL = ""
 
 if platform.system() != 'Darwin':
