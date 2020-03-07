@@ -557,10 +557,10 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
 
                 # retrieve user information from CCache file if needed
                 if username == '' and creds is not None:
-                    username = creds['client'].prettyPrint().split(b'@')[0]
+                    username = creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')
                     LOG.debug('Username retrieved from CCache: %s' % username)
                 elif username == '' and len(ccache.principal.components) > 0:
-                    username = ccache.principal.components[0]['data']
+                    username = ccache.principal.components[0]['data'].decode('utf-8')
                     LOG.debug('Username retrieved from CCache: %s' % username)
 
     # First of all, we need to get a TGT for the user

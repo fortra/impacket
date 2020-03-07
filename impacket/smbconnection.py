@@ -331,10 +331,10 @@ class SMBConnection:
 
                 # retrieve user information from CCache file if needed
                 if user == '' and creds is not None:
-                    user = creds['client'].prettyPrint().split(b'@')[0]
+                    user = creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')
                     LOG.debug('Username retrieved from CCache: %s' % user)
                 elif user == '' and len(ccache.principal.components) > 0:
-                    user = ccache.principal.components[0]['data']
+                    user = ccache.principal.components[0]['data'].decode('utf-8')
                     LOG.debug('Username retrieved from CCache: %s' % user)
 
         while True:
