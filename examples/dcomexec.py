@@ -557,7 +557,7 @@ if __name__ == '__main__':
         CODEC = options.codec
     else:
         if CODEC is None:
-            CODEC = 'UTF-8'
+            CODEC = 'utf-8'
 
     if ' '.join(options.command) == ' ' and options.nooutput is True:
         logging.error("-nooutput switch and interactive shell not supported")

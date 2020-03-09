@@ -359,7 +359,7 @@ class CCache:
         for c in self.credentials:
             if c['server'].prettyPrint().upper() == b(server.upper()) or c['server'].prettyPrint().upper().split(b'@')[0] == b(server.upper())\
                     or c['server'].prettyPrint().upper().split(b'@')[0] == b(server.upper().split('@')[0]):
-                LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper())
+                LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper().decode('utf-8'))
                 return c
         LOG.debug('SPN %s not found in cache' % server.upper())
         if anySPN is True:
@@ -373,7 +373,7 @@ class CCache:
                     searchSPN = '%s@%s' % (server.upper().split('/')[1].split('@')[0].split(':')[0],
                                                server.upper().split('/')[1].split('@')[1])
                     if cachedSPN == b(searchSPN):
-                        LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper())
+                        LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper().decode('utf-8'))
                         return c
 
         return None
