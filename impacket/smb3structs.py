@@ -57,6 +57,23 @@ SYMLINK_FLAG_RELATIVE         = 0x1
 SMB2_NEGOTIATE_SIGNING_ENABLED  = 0x1
 SMB2_NEGOTIATE_SIGNING_REQUIRED = 0x2
 
+# SMB2_NEGOTIATE_CONTEXT
+SMB2_PREAUTH_INTEGRITY_CAPABILITIES = 0x1
+SMB2_ENCRYPTION_CAPABILITIES        = 0x2
+SMB2_COMPRESSION_CAPABILITIES       = 0x3
+SMB2_NETNAME_NEGOTIATE_CONTEXT_ID   = 0x5
+
+# SMB2_COMPRESSION_CAPABILITIES
+SMB2_COMPRESSION_CAPABILITIES_FLAG_NONE    = 0x0
+SMB2_COMPRESSION_CAPABILITIES_FLAG_CHAINED = 0x1
+
+# Compression Algorithms
+COMPRESSION_ALGORITHM_NONE         = 0x0
+COMPRESSION_ALGORITHM_LZNT1        = 0x1
+COMPRESSION_ALGORITHM_LZ77         = 0x2
+COMPRESSION_ALGORITHM_LZ77_HUFFMAN = 0x3
+COMPRESSION_ALGORITHM_PATTERN_V1   = 0x4
+
 # Capabilities
 SMB2_GLOBAL_CAP_DFS                = 0x01
 SMB2_GLOBAL_CAP_LEASING            = 0x02
@@ -548,16 +565,26 @@ class SMB2Negotiate(Structure):
         ('Reserved','<H=0'),
         ('Capabilities','<L=0'),
         ('ClientGuid','16s=""'),
-        ('ClientStartTime','<Q=0'),
+        ('ClientStartTime','8s=""'),  # or (NegotiateContextOffset/NegotiateContextCount/Reserved2) in SMB 3.1.1
         ('Dialects','*<H'),
+        # SMB 3.1.1
+        ('Padding',':=""'),
+        ('NegotiateContextList',':=""'),
     )
 
+class SMB311ContextData(Structure):
+    structure = (
+        ('NegotiateContextOffset','<L=0'),
+        ('NegotiateContextCount','<H=0'),
+        ('Reserved2','<H=0'),
+    )
 class SMB2Negotiate_Response(Structure):
     structure = (
         ('StructureSize','<H=65'),
         ('SecurityMode','<H=0'),
         ('DialectRevision','<H=0'),
-        ('Reserved','<H=0'),
+        # SMB 3.1.1 only. Otherwise Reserved
+        ('NegotiateContextCount','<H=0'),
         ('ServerGuid','16s=""'),
         ('Capabilities','<L=0'),
         ('MaxTransactSize','<L=0'),
@@ -567,11 +594,58 @@ class SMB2Negotiate_Response(Structure):
         ('ServerStartTime','<Q=0'),
         ('SecurityBufferOffset','<H=0'),
         ('SecurityBufferLength','<H=0'),
-        ('Reserved2','<L=0'),
+        # SMB 3.1.1 only. Otherwise Reserved
+        ('NegotiateContextOffset','<L=0'),
         ('_AlignPad','_-AlignPad','self["SecurityBufferOffset"] - (64 + self["StructureSize"] - 1)'),
         ('AlignPad',':=""'),
         ('_Buffer','_-Buffer','self["SecurityBufferLength"]'),
         ('Buffer',':'),
+        ('_Padding','_-Padding', '0 if self["NegotiateContextOffset"] == 0 else (self["NegotiateContextOffset"] - '
+                                 'self["SecurityBufferOffset"] - self["SecurityBufferLength"])'),
+        ('Padding',':=""'),
+        ('_NegotiateContextList','_-NegotiateContextList', '0 if self["NegotiateContextOffset"] == 0 else '
+                                                           'len(self.rawData)-self["NegotiateContextOffset"]+64'),
+        ('NegotiateContextList',':=""'),
+    )
+
+# SMB2 NEGOTIATE_CONTEXT
+class SMB2NegotiateContext(Structure):
+    structure = (
+        ('ContextType','<H=0'),
+        ('DataLength','<H=0'),
+        ('Reserved','<L=0'),
+        ('Data',':=""'),
+    )
+
+# SMB2_PREAUTH_INTEGRITY_CAPABILITIES
+class SMB2PreAuthIntegrityCapabilities(Structure):
+    structure = (
+        ('HashAlgorithmCount','<H=0'),
+        ('SaltLength','<H=0'),
+        ('HashAlgorithms',':=""'),
+        ('Salt',':=""'),
+    )
+
+# SMB2_ENCRYPTION_CAPABILITIES
+class SMB2EncryptionCapabilities(Structure):
+    structure = (
+        ('CipherCount','<H=0'),
+        ('Ciphers','<H=0'),
+    )
+
+# SMB2_COMPRESSION_CAPABILITIES
+class SMB2CompressionCapabilities(Structure):
+    structure = (
+        ('CompressionAlgorithmCount','<H=0'),
+        ('Padding','<H=0'),
+        ('Flags','<L=0'),
+        ('CompressionAlgorithms',':=""'),
+    )
+
+# SMB2_NETNAME_NEGOTIATE_CONTEXT_ID
+class SMB2NetNameNegotiateContextID(Structure):
+    structure = (
+        ('NetName',':=""'),
     )
 
 # SMB2_SESSION_SETUP 
@@ -1390,6 +1464,30 @@ class SMB2_TRANSFORM_HEADER(Structure):
         ('Reserved','<H=0'),
         ('EncryptionAlgorithm','<H=0'),
         ('SessionID','<Q=0'),
+    )
+
+class SMB2_COMPRESSION_TRANSFORM_HEADER(Structure):
+    structure = (
+        ('ProtocolID','<L=0'),
+        ('OriginalCompressedSegmentSize','<L=0'),
+        ('CompressionAlgorithm','<H=0'),
+        ('Flags','<H=0'),
+        ('Offset_Length','<L=0'),
+    )
+
+class SMB2_COMPRESSION_PAYLOAD_HEADER(Structure):
+    structure = (
+        ('AlgorithmId','<H=0'),
+        ('Reserved','<H=0'),
+        ('Length','<L=0'),
+    )
+
+class SMB2_COMPRESSION_PATTERN_PAYLOAD_V1(Structure):
+    structure = (
+        ('Pattern','B=0'),
+        ('Reserved1','B=0'),
+        ('Reserved2','B=0'),
+        ('Repetitions','<L=0'),
     )
 
 # SMB2_FILE_INTERNAL_INFO

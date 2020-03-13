@@ -206,6 +206,8 @@ class SMB3:
             'ServerDNSHostName'        : '',    #
             'ServerOS'                 : '',    #
             'SigningActivated'         : False, #
+            'PreauthIntegrityHashValue': a2b_hex(b'0'*128),
+            'CalculatePreAuthHash'     : True,
         }
 
         self.SMB_PACKET = SMB2Packet
@@ -271,6 +273,13 @@ class SMB3:
         print("SESSION")
         for i in list(self._Session.items()):
             print("%-40s : %s" % i)
+
+    def __UpdatePreAuthHash(self, data):
+        from Cryptodome.Hash import SHA512
+        calculatedHash =  SHA512.new()
+        calculatedHash.update(self._Session['PreauthIntegrityHashValue'])
+        calculatedHash.update(data)
+        self._Session['PreauthIntegrityHashValue'] = calculatedHash.digest()
 
     def getKerberos(self):
         return self._doKerberos
@@ -391,7 +400,11 @@ class SMB3:
 
             self._NetBIOSSession.send_packet(packet)
         else:
-            self._NetBIOSSession.send_packet(packet.getData())
+            data = packet.getData()
+            if self._Session['CalculatePreAuthHash'] is True:
+                self.__UpdatePreAuthHash(data)
+
+            self._NetBIOSSession.send_packet(data)
 
         return messageId
 
@@ -471,6 +484,52 @@ class SMB3:
             negSession['ClientGuid'] = self.ClientGuid
             if preferredDialect is not None:
                 negSession['Dialects'] = [preferredDialect]
+                if preferredDialect == SMB2_DIALECT_311:
+                    # Build the Contexts
+                    contextData = SMB311ContextData()
+                    contextData['NegotiateContextOffset'] = 64+38+2
+                    contextData['NegotiateContextCount'] = 0
+                    # Add an SMB2_NEGOTIATE_CONTEXT with ContextType as SMB2_PREAUTH_INTEGRITY_CAPABILITIES
+                    # to the negotiate request as specified in section 2.2.3.1:
+                    negotiateContext = SMB2NegotiateContext()
+                    negotiateContext['ContextType'] = SMB2_PREAUTH_INTEGRITY_CAPABILITIES
+
+                    preAuthIntegrityCapabilities = SMB2PreAuthIntegrityCapabilities()
+                    preAuthIntegrityCapabilities['HashAlgorithmCount'] = 1
+                    preAuthIntegrityCapabilities['SaltLength'] = 32
+                    preAuthIntegrityCapabilities['HashAlgorithms'] = b'\x01\x00'
+                    preAuthIntegrityCapabilities['Salt'] = ''.join([rand.choice(string.ascii_letters) for _ in
+                                                                     range(preAuthIntegrityCapabilities['SaltLength'])])
+
+                    negotiateContext['Data'] = preAuthIntegrityCapabilities.getData()
+                    negotiateContext['DataLength'] = len(negotiateContext['Data'])
+                    contextData['NegotiateContextCount'] += 1
+                    pad = b'\xFF' * (8 - (negotiateContext['DataLength'] % 8))
+
+                    # Add an SMB2_NEGOTIATE_CONTEXT with ContextType as SMB2_ENCRYPTION_CAPABILITIES
+                    # to the negotiate request as specified in section 2.2.3.1 and initialize
+                    # the Ciphers field with the ciphers supported by the client in the order of preference.
+
+                    negotiateContext2 = SMB2NegotiateContext ()
+                    negotiateContext2['ContextType'] = SMB2_ENCRYPTION_CAPABILITIES
+
+                    encryptionCapabilities = SMB2EncryptionCapabilities()
+                    encryptionCapabilities['CipherCount'] = 1
+                    encryptionCapabilities['Ciphers'] = 1
+
+                    negotiateContext2['Data'] = encryptionCapabilities.getData()
+                    negotiateContext2['DataLength'] = len(negotiateContext2['Data'])
+                    contextData['NegotiateContextCount'] += 1
+
+                    negSession['ClientStartTime'] = contextData.getData()
+                    negSession['Padding'] = b'\xFF\xFF'
+                    # Subsequent negotiate contexts MUST appear at the first 8-byte aligned offset following the
+                    # previous negotiate context.
+                    negSession['NegotiateContextList'] = negotiateContext.getData() + pad + negotiateContext2.getData()
+
+                    # Do you want to enforce encryption? Uncomment here:
+                    #self._Connection['SupportsEncryption'] = True
+
             else:
                 negSession['Dialects'] = [SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30]
             negSession['DialectCount'] = len(negSession['Dialects'])
@@ -480,6 +539,8 @@ class SMB3:
             ans = self.recvSMB(packetID)
             if ans.isValidAnswer(STATUS_SUCCESS):
                 negResp = SMB2Negotiate_Response(ans['Data'])
+                if negResp['DialectRevision']  == SMB2_DIALECT_311:
+                    self.__UpdatePreAuthHash(ans.rawData)
 
         self._Connection['MaxTransactSize']   = min(0x100000,negResp['MaxTransactSize'])
         self._Connection['MaxReadSize']       = min(0x100000,negResp['MaxReadSize'])
@@ -487,14 +548,19 @@ class SMB3:
         self._Connection['ServerGuid']        = negResp['ServerGuid']
         self._Connection['GSSNegotiateToken'] = negResp['Buffer']
         self._Connection['Dialect']           = negResp['DialectRevision']
-        if (negResp['SecurityMode'] & SMB2_NEGOTIATE_SIGNING_REQUIRED) == SMB2_NEGOTIATE_SIGNING_REQUIRED:
+        if (negResp['SecurityMode'] & SMB2_NEGOTIATE_SIGNING_REQUIRED) == SMB2_NEGOTIATE_SIGNING_REQUIRED or \
+                self._Connection['Dialect'] == SMB2_DIALECT_311:
             self._Connection['RequireSigning'] = True
+        if self._Connection['Dialect'] == SMB2_DIALECT_311:
+            # Always Sign
+            self._Connection['RequireSigning'] = True
+
         if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_LEASING) == SMB2_GLOBAL_CAP_LEASING:
             self._Connection['SupportsFileLeasing'] = True
         if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_LARGE_MTU) == SMB2_GLOBAL_CAP_LARGE_MTU:
             self._Connection['SupportsMultiCredit'] = True
 
-        if self._Connection['Dialect'] == SMB2_DIALECT_30:
+        if self._Connection['Dialect'] >= SMB2_DIALECT_30:
             # Switching to the right packet format
             self.SMB_PACKET = SMB3Packet
             if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_DIRECTORY_LEASING) == SMB2_GLOBAL_CAP_DIRECTORY_LEASING:
@@ -658,23 +724,56 @@ class SMB3:
             self._Session['Connection']      = self._NetBIOSSession.get_socket()
 
             self._Session['SessionKey']  = sessionKey.contents[:16]
-            if self._Session['SigningRequired'] is True and self._Connection['Dialect'] == SMB2_DIALECT_30:
-                self._Session['SigningKey']  = crypto.KDF_CounterMode(self._Session['SessionKey'], b"SMB2AESCMAC\x00", b"SmbSign\x00", 128)
+            if self._Session['SigningRequired'] is True and self._Connection['Dialect'] >= SMB2_DIALECT_30:
+                # If Connection.Dialect is "3.1.1", the case-sensitive ASCII string "SMBSigningKey" as the label;
+                # otherwise, the case - sensitive ASCII string "SMB2AESCMAC" as the label.
+                # If Connection.Dialect is "3.1.1", Session.PreauthIntegrityHashValue as the context; otherwise,
+                # the case-sensitive ASCII string "SmbSign" as context for the algorithm.
+                if self._Connection['Dialect'] == SMB2_DIALECT_311:
+                    self._Session['SigningKey'] = crypto.KDF_CounterMode (self._Session['SessionKey'], b"SMBSigningKey\x00",
+                                                                          self._Session['PreauthIntegrityHashValue'], 128)
+                else:
+                    self._Session['SigningKey'] = crypto.KDF_CounterMode (self._Session['SessionKey'], b"SMB2AESCMAC\x00",
+                                                                          b"SmbSign\x00", 128)
 
             # Do not encrypt anonymous connections
             if user == '' or self.isGuestSession():
                 self._Connection['SupportsEncryption'] = False
 
-            # Calculate the key derivations for dialect 3.0
             if self._Session['SigningRequired'] is True:
                 self._Session['SigningActivated'] = True
-            if self._Connection['Dialect'] == SMB2_DIALECT_30 and self._Connection['SupportsEncryption'] is True:
-                # SMB 3.0. Encryption available. Let's enforce it if we have AES CCM available
+            if self._Connection['Dialect'] >= SMB2_DIALECT_30 and self._Connection['SupportsEncryption'] is True:
+                # Encryption available. Let's enforce it if we have AES CCM available
                 self._Session['SessionFlags'] |= SMB2_SESSION_FLAG_ENCRYPT_DATA
-                self._Session['ApplicationKey']  = crypto.KDF_CounterMode(self._Session['SessionKey'], b"SMB2APP\x00", b"SmbRpc\x00", 128)
-                self._Session['EncryptionKey']   = crypto.KDF_CounterMode(self._Session['SessionKey'], b"SMB2AESCCM\x00", b"ServerIn \x00", 128)
-                self._Session['DecryptionKey']   = crypto.KDF_CounterMode(self._Session['SessionKey'], b"SMB2AESCCM\x00", b"ServerOut\x00", 128)
+                # Application Key
+                # If Connection.Dialect is "3.1.1",the case-sensitive ASCII string "SMBAppKey" as the label;
+                # otherwise, the case-sensitive ASCII string "SMB2APP" as the label. Session.PreauthIntegrityHashValue
+                # as the context; otherwise, the case-sensitive ASCII string "SmbRpc" as context for the algorithm.
+                # Encryption Key
+                # If Connection.Dialect is "3.1.1",the case-sensitive ASCII string "SMBC2SCipherKey" as # the label;
+                # otherwise, the case-sensitive ASCII string "SMB2AESCCM" as the label. Session.PreauthIntegrityHashValue
+                # as the context; otherwise, the case-sensitive ASCII string "ServerIn " as context for the algorithm
+                # (note the blank space at the end)
+                # Decryption Key
+                # If Connection.Dialect is "3.1.1", the case-sensitive ASCII string "SMBS2CCipherKey" as the label;
+                # otherwise, the case-sensitive ASCII string "SMB2AESCCM" as the label. Session.PreauthIntegrityHashValue
+                # as the context; otherwise, the case-sensitive ASCII string "ServerOut" as context for the algorithm.
+                if self._Connection['Dialect'] == SMB2_DIALECT_311:
+                    self._Session['ApplicationKey'] = crypto.KDF_CounterMode (self._Session['SessionKey'], b"SMBAppKey\x00",
+                                                                              self._Session['PreauthIntegrityHashValue'], 128)
+                    self._Session['EncryptionKey'] = crypto.KDF_CounterMode (self._Session['SessionKey'], b"SMBC2SCipherKey\x00",
+                                                                             self._Session['PreauthIntegrityHashValue'], 128)
+                    self._Session['DecryptionKey'] = crypto.KDF_CounterMode (self._Session['SessionKey'], b"SMBS2CCipherKey\x00",
+                                                                             self._Session['PreauthIntegrityHashValue'], 128)
+                else:
+                    self._Session['ApplicationKey'] = crypto.KDF_CounterMode (self._Session['SessionKey'], b"SMB2APP\x00",
+                                                                              b"SmbRpc\x00", 128)
+                    self._Session['EncryptionKey'] = crypto.KDF_CounterMode (self._Session['SessionKey'], b"SMB2AESCCM\x00",
+                                                                             b"ServerIn \x00", 128)
+                    self._Session['DecryptionKey'] = crypto.KDF_CounterMode (self._Session['SessionKey'], b"SMB2AESCCM\x00",
+                                                                             b"ServerOut\x00", 128)
 
+            self._Session['CalculatePreAuthHash'] = False
             return True
         else:
             # We clean the stuff we used in case we want to authenticate again
@@ -686,6 +785,8 @@ class SMB3:
             self._Session['SigningKey']        = ''
             self._Session['SessionKey']        = ''
             self._Session['SigningActivated']  = False
+            self._Session['CalculatePreAuthHash'] = False
+            self._Session['PreauthIntegrityHashValue'] = a2b_hex(b'0'*128)
             raise Exception('Unsuccessful Login')
 
 
@@ -745,6 +846,9 @@ class SMB3:
 
         packetID = self.sendSMB(packet)
         ans = self.recvSMB(packetID)
+        if self._Connection['Dialect'] == SMB2_DIALECT_311:
+            self.__UpdatePreAuthHash (ans.rawData)
+
         if ans.isValidAnswer(STATUS_MORE_PROCESSING_REQUIRED):
             self._Session['SessionID']       = ans['SessionID']
             self._Session['SigningRequired'] = self._Connection['RequireSigning']
@@ -799,10 +903,7 @@ class SMB3:
 
             type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash)
 
-            if exportedSessionKey is not None:
-                self._Session['SessionKey']  = exportedSessionKey
-                if self._Session['SigningRequired'] is True and self._Connection['Dialect'] == SMB2_DIALECT_30:
-                    self._Session['SigningKey']  = crypto.KDF_CounterMode(exportedSessionKey, b"SMB2AESCMAC\x00", b"SmbSign\x00", 128)
+
 
             respToken2 = SPNEGO_NegTokenResp()
             respToken2['ResponseToken'] = type3.getData()
@@ -813,6 +914,23 @@ class SMB3:
 
             packetID = self.sendSMB(packet)
             packet = self.recvSMB(packetID)
+
+            # Let's calculate Key Materials before moving on
+            if exportedSessionKey is not None:
+                self._Session['SessionKey']  = exportedSessionKey
+                if self._Session['SigningRequired'] is True and self._Connection['Dialect'] >= SMB2_DIALECT_30:
+                    # If Connection.Dialect is "3.1.1", the case-sensitive ASCII string "SMBSigningKey" as the label;
+                    # otherwise, the case - sensitive ASCII string "SMB2AESCMAC" as the label.
+                    # If Connection.Dialect is "3.1.1", Session.PreauthIntegrityHashValue as the context; otherwise,
+                    # the case-sensitive ASCII string "SmbSign" as context for the algorithm.
+                    if self._Connection['Dialect'] == SMB2_DIALECT_311:
+                        self._Session['SigningKey'] = crypto.KDF_CounterMode (exportedSessionKey,
+                                                                              b"SMBSigningKey\x00",
+                                                                              self._Session['PreauthIntegrityHashValue'],
+                                                                              128)
+                    else:
+                        self._Session['SigningKey'] = crypto.KDF_CounterMode (exportedSessionKey, b"SMB2AESCMAC\x00",
+                                                                              b"SmbSign\x00", 128)
             try:
                 if packet.isValidAnswer(STATUS_SUCCESS):
                     sessionSetupResponse = SMB2SessionSetup_Response(packet['Data'])
@@ -826,13 +944,38 @@ class SMB3:
                     # Calculate the key derivations for dialect 3.0
                     if self._Session['SigningRequired'] is True:
                         self._Session['SigningActivated'] = True
-                    if self._Connection['Dialect'] == SMB2_DIALECT_30 and self._Connection['SupportsEncryption'] is True:
+                    if self._Connection['Dialect'] >= SMB2_DIALECT_30 and self._Connection['SupportsEncryption'] is True:
                         # SMB 3.0. Encryption available. Let's enforce it if we have AES CCM available
                         self._Session['SessionFlags'] |= SMB2_SESSION_FLAG_ENCRYPT_DATA
-                        self._Session['ApplicationKey']  = crypto.KDF_CounterMode(exportedSessionKey, b"SMB2APP\x00", b"SmbRpc\x00", 128)
-                        self._Session['EncryptionKey']   = crypto.KDF_CounterMode(exportedSessionKey, b"SMB2AESCCM\x00",b"ServerIn \x00", 128)
-                        self._Session['DecryptionKey']   = crypto.KDF_CounterMode(exportedSessionKey, b"SMB2AESCCM\x00",b"ServerOut\x00", 128)
+                        # Application Key
+                        # If Connection.Dialect is "3.1.1",the case-sensitive ASCII string "SMBAppKey" as the label;
+                        # otherwise, the case-sensitive ASCII string "SMB2APP" as the label. Session.PreauthIntegrityHashValue
+                        # as the context; otherwise, the case-sensitive ASCII string "SmbRpc" as context for the algorithm.
+                        # Encryption Key
+                        # If Connection.Dialect is "3.1.1",the case-sensitive ASCII string "SMBC2SCipherKey" as # the label;
+                        # otherwise, the case-sensitive ASCII string "SMB2AESCCM" as the label. Session.PreauthIntegrityHashValue
+                        # as the context; otherwise, the case-sensitive ASCII string "ServerIn " as context for the algorithm
+                        # (note the blank space at the end)
+                        # Decryption Key
+                        # If Connection.Dialect is "3.1.1", the case-sensitive ASCII string "SMBS2CCipherKey" as the label;
+                        # otherwise, the case-sensitive ASCII string "SMB2AESCCM" as the label. Session.PreauthIntegrityHashValue
+                        # as the context; otherwise, the case-sensitive ASCII string "ServerOut" as context for the algorithm.
+                        if self._Connection['Dialect'] == SMB2_DIALECT_311:
+                            self._Session['ApplicationKey']  = crypto.KDF_CounterMode(exportedSessionKey, b"SMBAppKey\x00",
+                                                                             self._Session['PreauthIntegrityHashValue'], 128)
+                            self._Session['EncryptionKey']   = crypto.KDF_CounterMode(exportedSessionKey, b"SMBC2SCipherKey\x00",
+                                                                             self._Session['PreauthIntegrityHashValue'], 128)
+                            self._Session['DecryptionKey'] = crypto.KDF_CounterMode (exportedSessionKey, b"SMBS2CCipherKey\x00",
+                                                                             self._Session['PreauthIntegrityHashValue'], 128)
 
+                        else:
+                            self._Session['ApplicationKey'] = crypto.KDF_CounterMode (exportedSessionKey, b"SMB2APP\x00",
+                                                                                      b"SmbRpc\x00", 128)
+                            self._Session['EncryptionKey'] = crypto.KDF_CounterMode (exportedSessionKey, b"SMB2AESCCM\x00",
+                                                                                     b"ServerIn \x00", 128)
+                            self._Session['DecryptionKey'] = crypto.KDF_CounterMode (exportedSessionKey, b"SMB2AESCCM\x00",
+                                                                                     b"ServerOut\x00", 128)
+                    self._Session['CalculatePreAuthHash'] = False
                     return True
             except:
                 # We clean the stuff we used in case we want to authenticate again
@@ -844,6 +987,8 @@ class SMB3:
                 self._Session['SigningKey']        = ''
                 self._Session['SessionKey']        = ''
                 self._Session['SigningActivated']  = False
+                self._Session['CalculatePreAuthHash'] = False
+                self._Session['PreauthIntegrityHashValue'] = a2b_hex(b'0'*128)
                 raise
 
     def connectTree(self, share):
@@ -889,7 +1034,7 @@ class SMB3:
            if (treeConnectResponse['Capabilities'] & SMB2_SHARE_CAP_CONTINUOUS_AVAILABILITY) == SMB2_SHARE_CAP_CONTINUOUS_AVAILABILITY:
                treeEntry['IsCAShare'] = True
 
-           if self._Connection['Dialect'] == SMB2_DIALECT_30:
+           if self._Connection['Dialect'] >= SMB2_DIALECT_30:
                if (self._Connection['SupportsEncryption'] is True) and ((treeConnectResponse['ShareFlags'] & SMB2_SHAREFLAG_ENCRYPT_DATA) == SMB2_SHAREFLAG_ENCRYPT_DATA):
                    treeEntry['EncryptData'] = True
                    # ToDo: This and what follows
@@ -955,7 +1100,7 @@ class SMB3:
         fileEntry['LeaseState'] = SMB2_LEASE_NONE
         self.GlobalFileTable[pathName] = fileEntry
 
-        if self._Connection['Dialect'] == SMB2_DIALECT_30 and self._Connection['SupportsDirectoryLeasing'] is True:
+        if self._Connection['Dialect'] >= SMB2_DIALECT_30 and self._Connection['SupportsDirectoryLeasing'] is True:
            # Is this file NOT on the root directory?
            if len(fileName.split('\\')) > 2:
                parentDir = ntpath.dirname(pathName)
@@ -1021,7 +1166,7 @@ class SMB3:
             openFile['FileName'] = pathName
 
             # ToDo: Complete the OperationBuckets
-            if self._Connection['Dialect'] == SMB2_DIALECT_30:
+            if self._Connection['Dialect'] >= SMB2_DIALECT_30:
                 openFile['DesiredAccess']     = oplockLevel
                 openFile['ShareMode']         = oplockLevel
                 openFile['CreateOptions']     = oplockLevel
@@ -1385,13 +1530,13 @@ class SMB3:
             return True
 
     def getSessionKey(self):
-        if self.getDialect() == SMB2_DIALECT_30:
+        if self.getDialect() >= SMB2_DIALECT_30:
            return self._Session['ApplicationKey']
         else:
            return self._Session['SessionKey']
 
     def setSessionKey(self, key):
-        if self.getDialect() == SMB2_DIALECT_30:
+        if self.getDialect() >= SMB2_DIALECT_30:
            self._Session['ApplicationKey'] = key
         else:
            self._Session['SessionKey'] = key
