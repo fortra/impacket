@@ -504,7 +504,7 @@ class SMB3:
                     negotiateContext['Data'] = preAuthIntegrityCapabilities.getData()
                     negotiateContext['DataLength'] = len(negotiateContext['Data'])
                     contextData['NegotiateContextCount'] += 1
-                    pad = b'\xFF' * (8 - (negotiateContext['DataLength'] % 8))
+                    pad = b'\xFF' * ((8 - (negotiateContext['DataLength'] % 8)) % 8)
 
                     # Add an SMB2_NEGOTIATE_CONTEXT with ContextType as SMB2_ENCRYPTION_CAPABILITIES
                     # to the negotiate request as specified in section 2.2.3.1 and initialize
