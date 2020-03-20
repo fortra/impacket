@@ -77,7 +77,6 @@ class LdapShell(cmd.Cmd):
         nace['Ace'] = acedata
         return nace
 
-
     def do_write_gpo_dacl(self,line):
         args = shlex.split(line)
         print ("Adding %s to GPO with GUID %s" % (args[0], args[1]))
@@ -109,11 +108,7 @@ class LdapShell(cmd.Cmd):
         if self.client.result["result"] == 0:
             print('LDAP server claims to have taken the secdescriptor. Have fun')
         else:
-            raise Exception("something wasnt right")
-
-
-
-
+            raise Exception("Something wasnt right: %s" %str(self.client.result['description']))
 
     def do_add_user(self, line):
         args = shlex.split(line)
@@ -149,7 +144,7 @@ class LdapShell(cmd.Cmd):
             if self.client.result['result'] == RESULT_UNWILLING_TO_PERFORM and not self.client.server.ssl:
                 raise Exception('Failed to add a new user. The server denied the operation. Try relaying to LDAP with TLS enabled (ldaps) or escalating an existing user.')
             else:
-                raise Exception('Failed to add a new user: %s' % str(self.client.result))
+                raise Exception('Failed to add a new user: %s' % str(self.client.result['description']))
         else:
             print('Adding new user with username: %s and password: %s result: OK' % (new_user, new_password))
 
@@ -171,7 +166,7 @@ class LdapShell(cmd.Cmd):
         if res:
             print('Adding user: %s to group %s result: OK' % (user_name, group_name))
         else:
-            raise Exception('Failed to add user to %s group: %s' % (group_name, str(self.client.result)))
+            raise Exception('Failed to add user to %s group: %s' % (group_name, str(self.client.result['description'])))
 
     def do_dump(self, line):
         print('Dumping domain info...')
@@ -235,13 +230,13 @@ class LdapShell(cmd.Cmd):
 
     def do_help(self, line):
         print("""
- write_gpo_dacl user gpoSID - write a full control ACE to the gpo for the given user
  add_user new_user [parent] - Creates a new user.
  add_user_to_group user group - Adds a user to a group.
  dump - Dumps the domain.
  search query [attributes,] - Search users and groups by name, distinguishedName and sAMAccountName.
  get_user_groups user - Retrieves all groups this user is a member of.
  get_group_users group - Retrieves all members of a group.
+ write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
  exit - Terminates this session.""")
 
     def do_EOF(self, line):
