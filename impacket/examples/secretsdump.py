@@ -1213,6 +1213,10 @@ class SAMHashes(OfflineRegistry):
 
             userName = V[userAccount['NameOffset']:userAccount['NameOffset']+userAccount['NameLength']].decode('utf-16le')
 
+            if userAccount['NTHashLength'] == 0:
+                logging.error('SAM hashes extraction for user %s failed. The account doesn\'t have hash information.' % userName)
+                continue
+
             encNTHash = b''
             if V[userAccount['NTHashOffset']:][2:3] == b'\x01':
                 # Old Style hashes
