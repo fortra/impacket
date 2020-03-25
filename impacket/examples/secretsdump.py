@@ -1213,23 +1213,27 @@ class SAMHashes(OfflineRegistry):
 
             userName = V[userAccount['NameOffset']:userAccount['NameOffset']+userAccount['NameLength']].decode('utf-16le')
 
+            encLMHash = b''
             encNTHash = b''
             if V[userAccount['NTHashOffset']:][2:3] == b'\x01':
                 # Old Style hashes
+                # the encrypted hash length must be 24
                 newStyle = False
-                if userAccount['LMHashLength'] == 20:
+                if userAccount['LMHashLength'] > 0:
                     encLMHash = SAM_HASH(V[userAccount['LMHashOffset']:][:userAccount['LMHashLength']])
-                if userAccount['NTHashLength'] == 20:
+                if userAccount['NTHashLength'] > 0:
                     encNTHash = SAM_HASH(V[userAccount['NTHashOffset']:][:userAccount['NTHashLength']])
             else:
                 # New Style hashes
+                # the encrypted hash length must be 24 or 56
                 newStyle = True
-                if userAccount['LMHashLength'] == 24:
+                if userAccount['LMHashLength'] > 0:
                     encLMHash = SAM_HASH_AES(V[userAccount['LMHashOffset']:][:userAccount['LMHashLength']])
-                encNTHash = SAM_HASH_AES(V[userAccount['NTHashOffset']:][:userAccount['NTHashLength']])
+                if userAccount['NTHashLength'] > 0:
+                    encNTHash = SAM_HASH_AES(V[userAccount['NTHashOffset']:][:userAccount['NTHashLength']])
 
             LOG.debug('NewStyle hashes is: %s' % newStyle)
-            if userAccount['LMHashLength'] >= 20:
+            if encLMHash != b'':
                 lmHash = self.__decryptHash(rid, encLMHash, LMPASSWORD, newStyle)
             else:
                 lmHash = b''
