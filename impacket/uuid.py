@@ -18,6 +18,8 @@ import re
 from random import randrange
 from struct import pack, unpack
 
+EMPTY_UUID = b'\x00'*16
+
 def generate():
     # UHm... crappy Python has an maximum integer of 2**31-1.
     top = (1<<31)-1
