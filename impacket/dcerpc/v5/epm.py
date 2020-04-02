@@ -1336,7 +1336,7 @@ def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-
         dce.disconnect()
     return result
 
-def PrintStringBinding(floors, serverAddr = '0.0.0.0'):
+def PrintStringBinding(floors):
     tmp_address = ''
     for floor in floors[3:]:
         if floor['ProtocolData'] == b'\x07':
@@ -1345,9 +1345,6 @@ def PrintStringBinding(floors, serverAddr = '0.0.0.0'):
             tmp_address = 'ncadg_ip_udp:%%s[%d]' % unpack('!H',floor['RelatedData'])
         elif floor['ProtocolData'] == b'\x09':
             tmp_address2 = socket.inet_ntoa(floor['RelatedData'])
-            # If the address were 0.0.0.0 it would have to be replaced by the remote host's IP.
-            if tmp_address2 == '0.0.0.0':
-                tmp_address2 = serverAddr
             if tmp_address != '':
                 return tmp_address % tmp_address2
             else:
