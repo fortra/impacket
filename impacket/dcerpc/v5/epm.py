@@ -1192,7 +1192,7 @@ class ept_mapResponse(NDRCALL):
 # HELPER FUNCTIONS
 ################################################################################
 
-def hept_lookup(destHost, inquiry_type = RPC_C_EP_ALL_ELTS, objectUUID = NULL, ifId = NULL, vers_option = RPC_C_VERS_ALL,  entry_handle = ept_lookup_handle_t(), max_ents = 499, dce = None):
+def hept_lookup(destHost, inquiry_type = RPC_C_EP_ALL_ELTS, objectUUID = NULL, ifId = NULL, vers_option = RPC_C_VERS_ALL, dce = None):
     if dce is None:
         stringBinding = r'ncacn_ip_tcp:%s[135]' % destHost
         rpctransport = transport.DCERPCTransportFactory(stringBinding)
@@ -1203,29 +1203,37 @@ def hept_lookup(destHost, inquiry_type = RPC_C_EP_ALL_ELTS, objectUUID = NULL, i
         disconnect = False
 
     dce.bind(MSRPC_UUID_PORTMAP)
-    request = ept_lookup()
-    request['inquiry_type'] = inquiry_type
-    request['object'] = objectUUID
-    if ifId != NULL:
-        request['Ifid']['Uuid'] = ifId[:16]
-        request['Ifid']['VersMajor'] = ifId[16:][:2]
-        request['Ifid']['VersMinor'] = ifId[18:]
-    else:
-        request['Ifid'] = ifId
-    request['vers_option'] = vers_option
-    request['entry_handle'] = entry_handle
-    request['max_ents'] = max_ents
-      
-    resp = dce.request(request)
 
     entries = []
-    for i in range(resp['num_ents']):
-        tmpEntry = {}
-        entry = resp['entries'][i]
-        tmpEntry['object'] = entry['object'] 
-        tmpEntry['annotation'] = b''.join(entry['annotation'])
-        tmpEntry['tower'] = EPMTower(b''.join(entry['tower']['tower_octet_string']))
-        entries.append(tmpEntry)
+    entry_handle = ept_lookup_handle_t()
+
+    while True:
+        request = ept_lookup()
+        request['inquiry_type'] = inquiry_type
+        request['object'] = objectUUID
+        if ifId != NULL:
+            request['Ifid']['Uuid'] = ifId[:16]
+            request['Ifid']['VersMajor'] = ifId[16:][:2]
+            request['Ifid']['VersMinor'] = ifId[18:]
+        else:
+            request['Ifid'] = ifId
+        request['vers_option'] = vers_option
+        request['entry_handle'] = entry_handle
+        request['max_ents'] = 500
+
+        resp = dce.request(request)
+
+        for i in range(resp['num_ents']):
+            tmpEntry = {}
+            entry = resp['entries'][i]
+            tmpEntry['object'] = entry['object']
+            tmpEntry['annotation'] = b''.join(entry['annotation'])
+            tmpEntry['tower'] = EPMTower(b''.join(entry['tower']['tower_octet_string']))
+            entries.append(tmpEntry)
+
+        entry_handle = resp['entry_handle']
+        if entry_handle.isNull():
+            break
 
     if disconnect is True:
         dce.disconnect()
