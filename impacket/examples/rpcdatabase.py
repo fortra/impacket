@@ -1,48 +1,18 @@
-#!/usr/bin/env python
-"""ifmap - scan for listening DCERPC interfaces
-
-Usage: ifmap.py hostname port
-
-First, this binds to the MGMT interface and gets a list of interface IDs. It
-adds to this a large list of interface UUIDs seen in the wild. It then tries to
-bind to each interface and reports whether the interface is listed and/or
-listening.
-
-This will generate a burst of TCP connections to the given host:port!
-
-Example:
-$ ./ifmap.py 10.0.0.30 135
-('00000136-0000-0000-C000-000000000046', '0.0'): listed, listening
-('000001A0-0000-0000-C000-000000000046', '0.0'): listed, listening
-('0B0A6584-9E0F-11CF-A3CF-00805F68CB1B', '1.0'): other version listed, listening
-('0B0A6584-9E0F-11CF-A3CF-00805F68CB1B', '1.1'): listed, listening
-('1D55B526-C137-46C5-AB79-638F2A68E869', '1.0'): listed, listening
-('412F241E-C12A-11CE-ABFF-0020AF6E7A17', '0.0'): other version listed, listening
-('412F241E-C12A-11CE-ABFF-0020AF6E7A17', '0.2'): listed, listening
-('4D9F4AB8-7D1C-11CF-861E-0020AF6E7C57', '0.0'): listed, listening
-('99FCFEC4-5260-101B-BBCB-00AA0021347A', '0.0'): listed, listening
-('AFA8BD80-7D8A-11C9-BEF4-08002B102989', '1.0'): not listed, listening
-('B9E79E60-3D52-11CE-AAA1-00006901293F', '0.0'): other version listed, listening
-('B9E79E60-3D52-11CE-AAA1-00006901293F', '0.2'): listed, listening
-('C6F3EE72-CE7E-11D1-B71E-00C04FC3111A', '1.0'): listed, listening
-('E1AF8308-5D1F-11C9-91A4-08002B14A0FA', '3.0'): listed, listening
-('E60C73E6-88F9-11CF-9AF1-0020AF6E72F4', '2.0'): listed, listening
-
-Usually, only AFA8BD80-...-89, the MGMT interface, is not listed but always
-listening on any port. This is imposed by the DCERPC spec.
-
-Author: Catalin Patulea <cat@vv.carleton.ca>
-"""
-from __future__ import division
-from __future__ import print_function
-import sys
+# SECUREAUTH LABS. Copyright 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Description: A list of DCE/RPC UUIDs to bruteforce
+#
+# Author:
+#  Catalin Patulea <cat@vv.carleton.ca>
+#
 import struct
 
-from impacket.examples import logger
 from impacket import uuid
 from impacket.dcerpc.v5.epm import KNOWN_UUIDS
-from impacket.dcerpc.v5 import transport, rpcrt, epm
-from impacket.dcerpc.v5 import mgmt
 
 uuid_database = set(uuid.string_to_uuidtup(line) for line in """
 00000001-0000-0000-c000-000000000046 v0.0
@@ -281,82 +251,18 @@ fd7a0523-dc70-43dd-9b2e-9c5ed48225b1 v1.0
 fdb3a030-065f-11d1-bb9b-00a024ea5525 v1.0
 ffe561b8-bf15-11cf-8c5e-08002bb49649 v2.0
 """.splitlines() if line)
-uuid_database = set((uuidstr.upper(), ver) for uuidstr, ver in uuid_database)
+
+uuid_database = set((uuidstr.upper(), ver) for (uuidstr, ver) in
+                    uuid_database)
 
 # add the ones from ndrutils
 k = list(KNOWN_UUIDS.keys())[0]
+
 def fix_ndr_uuid(ndruuid):
-  assert len(ndruuid) == 18
-  uuid = ndruuid[:16]
-  maj, min = struct.unpack("BB", ndruuid[16:])
-  return uuid + struct.pack("<HH", maj, min)
-uuid_database.update(
-  uuid.bin_to_uuidtup(fix_ndr_uuid(bin)) for bin in list(KNOWN_UUIDS.keys())
-)
+    assert len(ndruuid) == 18
+    uuid = ndruuid[:16]
+    (maj, min) = struct.unpack('BB', ndruuid[16:])
+    return uuid + struct.pack('<HH', maj, min)
 
-def main(args):
-  # Init the example's logger theme
-  logger.init()
-  if len(args) != 2:
-    print("usage: ./ifmap.py <host> <port>")
-    return 1
-
-  host = args[0]
-  port = int(args[1])
-
-  stringbinding = "ncacn_ip_tcp:%s" % host
-  trans = transport.DCERPCTransportFactory(stringbinding)
-  trans.set_dport(port)
-
-  dce = trans.get_dce_rpc()
-  dce.connect()
-
-  dce.bind(mgmt.MSRPC_UUID_MGMT)
-
-  ifids = mgmt.hinq_if_ids(dce)
-
-  uuidtups = set(
-    uuid.bin_to_uuidtup(ifids['if_id_vector']['if_id'][index]['Data'].getData())
-    for index in range(ifids['if_id_vector']['count'])
-  )
-
-  dce.disconnect()
-
-  probes = uuidtups | uuid_database
-
-  for tup in sorted(probes):
-
-    dce.connect()
-
-    binuuid = uuid.uuidtup_to_bin(tup)
-    try:
-      dce.bind(binuuid)
-    except rpcrt.DCERPCException as e:
-      if str(e).find('abstract_syntax_not_supported') >= 0:
-        listening = False
-      else:
-        raise
-    else:
-      listening = True
-
-    listed = tup in uuidtups
-    otherversion = any(tup[0] == uuidstr for uuidstr, ver in uuidtups)
-    if listed or listening:
-      if tup[0] in epm.KNOWN_PROTOCOLS:
-          print("Protocol: %s" % (epm.KNOWN_PROTOCOLS[tup[0]]))
-      else:
-          print("Procotol: N/A")
-
-      if uuid.uuidtup_to_bin(tup)[:18] in KNOWN_UUIDS:
-          print("Provider: %s" % (KNOWN_UUIDS[uuid.uuidtup_to_bin(tup)[:18]]))
-      else:
-          print("Provider: N/A")
-      print("UUID     : %s v%s: %s, %s\n" % (
-        tup[0], tup[1],
-        "listed" if listed else "other version listed" if otherversion else "not listed",
-        "listening" if listening else "not listening"
-      ))
-
-
-if __name__ == "__main__":
-  sys.exit(main(sys.argv[1:]))
+uuid_database.update(uuid.bin_to_uuidtup(fix_ndr_uuid(bin)) for bin in
+                     list(KNOWN_UUIDS.keys()))
