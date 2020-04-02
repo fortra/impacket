@@ -36,16 +36,21 @@ class DCERPCStringBinding:
         options = match.group(4)
         if options:
             options = options.split(',')
+            
             self.__endpoint = options[0]
             try:
                 self.__endpoint.index('endpoint=')
                 self.__endpoint = self.__endpoint[len('endpoint='):]
             except:
                 pass
-            self.__options = options[1:]
+
+            self.__options = {}
+            for option in options[1:]:
+                vv = option.split('=', 1)
+                self.__options[vv[0]] = vv[1] if len(vv) > 1 else ''
         else:
             self.__endpoint = ''
-            self.__options = []
+            self.__options = {}
 
     def get_uuid(self):
         return self.__uuid
@@ -56,16 +61,28 @@ class DCERPCStringBinding:
     def get_network_address(self):
         return self.__na
 
+    def set_network_address(self, addr):
+        self.__na = addr
+
     def get_endpoint(self):
         return self.__endpoint
 
     def get_options(self):
         return self.__options
 
+    def get_option(self, option_name):
+        return self.__options[option_name]
+
+    def is_option_set(self, option_name):
+        return option_name in self.__options
+
+    def unset_option(self, option_name):
+        del self.__options[option_name]
+
     def __str__(self):
         return DCERPCStringBindingCompose(self.__uuid, self.__ps, self.__na, self.__endpoint, self.__options)
 
-def DCERPCStringBindingCompose(uuid=None, protocol_sequence='', network_address='', endpoint='', options=[]):
+def DCERPCStringBindingCompose(uuid=None, protocol_sequence='', network_address='', endpoint='', options={}):
     s = ''
     if uuid:
         s += uuid + '@'
@@ -75,7 +92,7 @@ def DCERPCStringBindingCompose(uuid=None, protocol_sequence='', network_address=
     if endpoint or options:
         s += '[' + endpoint
         if options:
-            s += ',' + ','.join(options)
+            s += ',' + ','.join([key if str(val) == '' else "=".join([key, str(val)]) for key, val in options.items()])
         s += ']'
 
     return s
