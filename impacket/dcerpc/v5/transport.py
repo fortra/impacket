@@ -420,19 +420,17 @@ class HTTPTransport(TCPTransport, RPCProxyClient):
                 self.set_rpc_proxy_url('http://%s/rpc/rpcproxy.dll' % rpcproxy[0])
             else:
                 # 2.1.2.1
-                # RPC over HTTP v2 always uses port 80 for HTTP traffic and port 443 for HTTPS traffic.
-                # But you can use set_rpc_proxy_url method to set any URL you want.
+                # RPC over HTTP always uses port 80 for HTTP traffic and port 443 for HTTPS traffic.
+                # But you can use set_rpc_proxy_url method to set any URL / query you want.
                 raise DCERPCException("RPC Proxy port must be 80 or 443")
 
     def connect(self):
-        if self._version == RPC_OVER_HTTP_v1:
-            # Can be useful only for Windows NT, Windows 2000, and Windows XP without SP1
-            raise DCERPCException("RPC over HTTP v1 Not Implemented!")
-        elif self._useRpcProxy == False:
+        if self._useRpcProxy == False:
             # Connecting directly to the ncacn_http port
             #
-            # Here we can use 2 connections with complex RPC over HTTP v2 syntax,
-            # but it's also possible to use regular DCE/RPC
+            # Here we using RPC over HTTPv1 instead complex RPC over HTTP v2 syntax
+            # RPC over HTTP v2 here can be implemented in the future
+            self._version = RPC_OVER_HTTP_v1
 
             TCPTransport.connect(self)
 
