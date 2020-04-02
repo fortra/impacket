@@ -29,7 +29,6 @@ from impacket.dcerpc.v5.rpcrt import DCERPCException
 
 class LSALookupSid:
     KNOWN_PROTOCOLS = {
-        135: {'bindstr': r'ncacn_ip_tcp:%s',           'set_host': False},
         139: {'bindstr': r'ncacn_np:%s[\pipe\lsarpc]', 'set_host': True},
         445: {'bindstr': r'ncacn_np:%s[\pipe\lsarpc]', 'set_host': True},
         }
@@ -155,7 +154,7 @@ if __name__ == '__main__':
     group.add_argument('-target-ip', action='store', metavar="ip address", help='IP Address of the target machine. '
                        'If omitted it will use whatever was specified as target. This is useful when target is the '
                        'NetBIOS name and you cannot resolve it')
-    group.add_argument('-port', choices=['135', '139', '445'], nargs='?', default='445', metavar="destination port",
+    group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port",
                        help='Destination port to connect to SMB Server')
     group.add_argument('-domain-sids', action='store_true', help='Enumerate Domain SIDs (will likely forward requests to the DC)')
 
