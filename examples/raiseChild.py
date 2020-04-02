@@ -1269,7 +1269,7 @@ if __name__ == '__main__':
 
     import re
     domain, username, password, address = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(
-        targetParam).groups('')
+        options.target).groups('')
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)

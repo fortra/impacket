@@ -29,6 +29,7 @@ import logging
 import argparse
 
 from impacket.examples import logger, rpcdatabase
+from impacket.krb5.keytab import Keytab
 from impacket import uuid, version
 from impacket.dcerpc.v5.epm import KNOWN_UUIDS
 from impacket.dcerpc.v5 import transport, rpcrt, epm
@@ -269,8 +270,6 @@ if __name__ == '__main__':
                                                                             '(128 or 256 bits)')
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
                        'ommited it use the domain part (FQDN) specified in the -auth-rpc')
-    group.add_argument('-A', action="store", metavar = "authfile", help="smbclient/mount.cifs-style authentication file. "
-                                                                        "See smbclient man page's -A option.")
     group.add_argument('-keytab', action="store", help='Read keys for SPN from keytab file')
 
     if len(sys.argv)==1:
@@ -288,10 +287,6 @@ if __name__ == '__main__':
 
     rpcdomain, rpcuser, rpcpass = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.auth_rpc).groups('')
     proxydomain, proxyuser, proxypass = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.auth_rpcproxy).groups('')
-
-    if options.A is not None:
-        (rpcdomain, rpcuser, rpcpass) = load_smbclient_auth_file(options.A)
-        logging.debug('loaded smbclient auth file: domain=%s, username=%s, password=%s' % (repr(rpcdomain), repr(rpcuser), repr(rpcpass)))
         
     if rpcdomain is None:
         rpcdomain = ''
@@ -300,7 +295,7 @@ if __name__ == '__main__':
         proxydomain = ''
 
     if options.keytab is not None:
-        Keytab.loadKeysFromKeytab (options.keytab, username, domain, options)
+        Keytab.loadKeysFromKeytab (options.keytab, rpcuser, rpcdomain, options)
         options.k = True
 
     if options.aesKey is not None:

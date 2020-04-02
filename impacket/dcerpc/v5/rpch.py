@@ -15,6 +15,7 @@ import re
 import ssl
 import socket
 import base64
+import binascii
 
 try:
     from http.client import HTTPConnection, HTTPSConnection, ResponseNotReady
