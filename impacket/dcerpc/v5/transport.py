@@ -105,33 +105,36 @@ def DCERPCTransportFactory(stringbinding):
     if 'ncadg_ip_udp' == ps:
         port = sb.get_endpoint()
         if port:
-            return UDPTransport(na, int(port))
+            rpctransport = UDPTransport(na, int(port))
         else:
-            return UDPTransport(na)
+            rpctransport = UDPTransport(na)
     elif 'ncacn_ip_tcp' == ps:
         port = sb.get_endpoint()
         if port:
-            return TCPTransport(na, int(port))
+            rpctransport = TCPTransport(na, int(port))
         else:
-            return TCPTransport(na)
+            rpctransport = TCPTransport(na)
     elif 'ncacn_http' == ps:
         port = sb.get_endpoint()
         if port:
-            return HTTPTransport(na, int(port))
+            rpctransport = HTTPTransport(na, int(port))
         else:
-            return HTTPTransport(na)
+            rpctransport = HTTPTransport(na)
     elif 'ncacn_np' == ps:
         named_pipe = sb.get_endpoint()
         if named_pipe:
             named_pipe = named_pipe[len(r'\pipe'):]
-            return SMBTransport(na, filename = named_pipe)
+            rpctransport = SMBTransport(na, filename = named_pipe)
         else:
-            return SMBTransport(na)
+            rpctransport = SMBTransport(na)
     elif 'ncalocal' == ps:
         named_pipe = sb.get_endpoint()
-        return LOCALTransport(filename = named_pipe)
+        rpctransport = LOCALTransport(filename = named_pipe)
     else:
         raise DCERPCException("Unknown protocol sequence.")
+
+    rpctransport.set_stringbinding(sb)
+    return rpctransport
 
 
 class DCERPCTransport:
@@ -142,6 +145,7 @@ class DCERPCTransport:
         self.__remoteName = remoteName
         self.__remoteHost = remoteName
         self.__dstport = dstport
+        self._stringbinding = None
         self._max_send_frag = None
         self._max_recv_frag = None
         self._domain = ''
@@ -198,6 +202,12 @@ class DCERPCTransport:
     def set_dport(self, dport):
         """This method only makes sense before connection for most protocols."""
         self.__dstport = dport
+
+    def get_stringbinding(self):
+        return self._stringbinding
+
+    def set_stringbinding(self, stringbinding):
+        self._stringbinding = stringbinding
 
     def get_addr(self):
         return self.getRemoteHost(), self.get_dport()
