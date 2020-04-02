@@ -432,7 +432,7 @@ if __name__ == '__main__':
 
 
     import re
-    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::([^@]*))?)?').match(options.identity).groups(
+    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.identity).groups(
         '')
 
     try:
