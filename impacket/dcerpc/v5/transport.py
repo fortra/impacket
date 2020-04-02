@@ -17,10 +17,15 @@ import os
 import re
 import socket
 
+try:
+    from urllib.parse import urlparse, urlunparse
+except ImportError:
+    from urlparse import urlparse, urlunparse
+
 from impacket import ntlm
 from impacket.dcerpc.v5.rpcrt import DCERPCException, DCERPC_v5, DCERPC_v4
+from impacket.dcerpc.v5.rpch import RPCProxyClient, RPCProxyClientException, RPC_OVER_HTTP_v1, RPC_OVER_HTTP_v2
 from impacket.smbconnection import SMBConnection
-
 
 class DCERPCStringBinding:
     parser = re.compile(r'(?:([a-fA-F0-9-]{8}(?:-[a-fA-F0-9-]{4}){3}-[a-fA-F0-9-]{12})@)?' # UUID (opt.)
@@ -135,7 +140,6 @@ def DCERPCTransportFactory(stringbinding):
 
     rpctransport.set_stringbinding(sb)
     return rpctransport
-
 
 class DCERPCTransport:
 
@@ -377,16 +381,83 @@ class TCPTransport(DCERPCTransport):
     def get_socket(self):
         return self.__socket
 
-class HTTPTransport(TCPTransport):
+class HTTPTransport(TCPTransport, RPCProxyClient):
     """Implementation of ncacn_http protocol sequence"""
+    TRANSPORT_class = TCPTransport
+
+    def __init__(self, remoteName=None, dstport=593):
+        self._useRpcProxy = False
+        self._rpcProxyUrl = None
+        self._transport   = TCPTransport
+        self._version     = RPC_OVER_HTTP_v2
+
+        DCERPCTransport.__init__(self, remoteName, dstport)
+        RPCProxyClient.__init__(self, remoteName, dstport)
+        self.set_connect_timeout(30)
+
+    def rpc_proxy_init(self):
+        self._useRpcProxy = True
+        self._transport   = RPCProxyClient
+
+    def set_rpc_proxy_url(self, url):
+        self.rpc_proxy_init()
+        self._rpcProxyUrl = urlparse(url)
+
+    def get_rpc_proxy_url(self):
+        return urlunparse(self._rpcProxyUrl)
+
+    def set_stringbinding(self, set_stringbinding):
+        DCERPCTransport.set_stringbinding(self, set_stringbinding)
+
+        if self._stringbinding.is_option_set("RpcProxy"):
+            self.rpc_proxy_init()
+
+            rpcproxy = self._stringbinding.get_option("RpcProxy").split(":")
+
+            if rpcproxy[1] == '443':
+                self.set_rpc_proxy_url('https://%s/rpc/rpcproxy.dll' % rpcproxy[0])
+            elif rpcproxy[1] == '80':
+                self.set_rpc_proxy_url('http://%s/rpc/rpcproxy.dll' % rpcproxy[0])
+            else:
+                # 2.1.2.1
+                # RPC over HTTP v2 always uses port 80 for HTTP traffic and port 443 for HTTPS traffic.
+                # But you can use set_rpc_proxy_url method to set any URL you want.
+                raise DCERPCException("RPC Proxy port must be 80 or 443")
 
     def connect(self):
-        TCPTransport.connect(self)
+        if self._version == RPC_OVER_HTTP_v1:
+            # Can be useful only for Windows NT, Windows 2000, and Windows XP without SP1
+            raise DCERPCException("RPC over HTTP v1 Not Implemented!")
+        elif self._useRpcProxy == False:
+            # Connecting directly to the ncacn_http port
+            #
+            # Here we can use 2 connections with complex RPC over HTTP v2 syntax,
+            # but it's also possible to use regular DCE/RPC
 
-        self.get_socket().send('RPC_CONNECT ' + self.getRemoteHost() + ':593 HTTP/1.0\r\n\r\n')
-        data = self.get_socket().recv(8192)
-        if data[10:13] != '200':
-            raise DCERPCException("Service not supported.")
+            TCPTransport.connect(self)
+
+            # Reading legacy server response
+            data = self.get_socket().recv(8192)
+
+            if data != b'ncacn_http/1.0':
+                raise DCERPCException("%s:%s service is not ncacn_http" % (self.__remoteName, self.__dstport))
+        else:
+            RPCProxyClient.connect(self)
+
+    def send(self, data, forceWriteAndx=0, forceRecv=0):
+        return self._transport.send(self, data, forceWriteAndx, forceRecv)
+
+    def recv(self, forceRecv=0, count=0):
+        return self._transport.recv(self, forceRecv, count)
+
+    def get_socket(self):
+        if self._useRpcProxy == False:
+            return TCPTransport.get_socket(self)
+        else:
+            raise DCERPCException("This method is not supported for RPC Proxy connections")
+
+    def disconnect(self):
+        return self._transport.disconnect(self)
 
 class SMBTransport(DCERPCTransport):
     """Implementation of ncacn_np protocol sequence"""
