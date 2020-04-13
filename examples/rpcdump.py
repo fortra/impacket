@@ -79,7 +79,7 @@ class RPCDump:
         except Exception as e:
             #raise
             logging.critical('Protocol failed: %s' % e)
-            if 'Invalid RPC Port' in str(e) in str(e):
+            if 'Invalid RPC Port' in str(e):
                 logging.critical("This usually means the target is a MS Exchange Server, "
                                  "which does not allow to connect to its epmapper using RpcProxy")
             if 'RPC Proxy CONN/A1 request failed, code: 0x6ba' in str(e):

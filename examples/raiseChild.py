@@ -1268,7 +1268,7 @@ if __name__ == '__main__':
     logger.init(options.ts)
 
     import re
-    domain, username, password, address = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(
+    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(
         options.target).groups('')
 
     if options.debug is True:

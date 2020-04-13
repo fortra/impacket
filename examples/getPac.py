@@ -306,7 +306,7 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(
-        options.target).groups('')
+        options.credentials).groups('')
 
     if domain is None:
         domain = ''
