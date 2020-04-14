@@ -175,7 +175,7 @@ class SMBRelayServer(Thread):
         #############################################################
         # SMBRelay
         # Are we ready to relay or should we just do local auth?
-        if 'relayToHost' not in connData:
+        if 'relayToHost' not in connData or ('Authenticated' in connData and connData['Authenticated']):
             # Just call the original SessionSetup
             return self.origSmbSessionSetup(connId, smbServer, recvPacket)
 
@@ -277,7 +277,7 @@ class SMBRelayServer(Thread):
             client = connData['SMBClient']
             authenticateMessage = ntlm.NTLMAuthChallengeResponse()
             authenticateMessage.fromString(token)
-            if authenticateMessage['user_name'] != '':
+            if authenticateMessage['user_name'] != b'':
                 # For some attacks it is important to know the authenticated username, so we store it
 
                 self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
@@ -300,8 +300,11 @@ class SMBRelayServer(Thread):
 
             if errorCode != STATUS_SUCCESS:
                 #Log this target as processed for this client
-                self.targetprocessor.logTarget(self.target)
-                LOG.error("Authenticating against %s://%s as %s FAILED" % (self.target.scheme, self.target.netloc, self.authUser))
+                if self.target:
+                    self.targetprocessor.logTarget(self.target)
+                    LOG.error("Authenticating against %s://%s as %s FAILED" % (self.target.scheme, self.target.netloc, self.authUser))
+                else:
+                    LOG.error("Authenticating as %s FAILED" % self.authUser)
                 client.killConnection()
             else:
                 # We have a session, create a thread and do whatever we want
