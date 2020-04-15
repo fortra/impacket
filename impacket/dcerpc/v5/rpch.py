@@ -18,14 +18,9 @@ import base64
 import binascii
 
 try:
-    from http.client import HTTPConnection, HTTPSConnection, ResponseNotReady
+    from http.client import HTTPConnection, HTTPSConnection
 except ImportError:
-    from httplib import HTTPConnection, HTTPSConnection, ResponseNotReady
-
-try:
-    from urllib.parse import urlunparse
-except ImportError:
-    from urlparse import urlunparse
+    from httplib import HTTPConnection, HTTPSConnection
 
 from impacket import ntlm, system_errors
 from impacket.dcerpc.v5.rpcrt import DCERPCException
@@ -423,7 +418,7 @@ class RPCProxyClient:
 
         headers['Authorization']  = b'NTLM ' + base64.b64encode(type3.getData())
 
-        self.__channels[method].request(method, urlunparse(self._rpcProxyUrl), headers=headers)
+        self.__channels[method].request(method, self._rpcProxyUrl.path + '?' + self._rpcProxyUrl.query, headers=headers)
 
         auth_resp = self.__channels[method].sock.recv(8192)
 
