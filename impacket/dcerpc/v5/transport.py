@@ -17,10 +17,15 @@ import os
 import re
 import socket
 
+try:
+    from urllib.parse import urlparse, urlunparse
+except ImportError:
+    from urlparse import urlparse, urlunparse
+
 from impacket import ntlm
 from impacket.dcerpc.v5.rpcrt import DCERPCException, DCERPC_v5, DCERPC_v4
+from impacket.dcerpc.v5.rpch import RPCProxyClient, RPCProxyClientException, RPC_OVER_HTTP_v1, RPC_OVER_HTTP_v2
 from impacket.smbconnection import SMBConnection
-
 
 class DCERPCStringBinding:
     parser = re.compile(r'(?:([a-fA-F0-9-]{8}(?:-[a-fA-F0-9-]{4}){3}-[a-fA-F0-9-]{12})@)?' # UUID (opt.)
@@ -36,16 +41,21 @@ class DCERPCStringBinding:
         options = match.group(4)
         if options:
             options = options.split(',')
+            
             self.__endpoint = options[0]
             try:
                 self.__endpoint.index('endpoint=')
                 self.__endpoint = self.__endpoint[len('endpoint='):]
             except:
                 pass
-            self.__options = options[1:]
+
+            self.__options = {}
+            for option in options[1:]:
+                vv = option.split('=', 1)
+                self.__options[vv[0]] = vv[1] if len(vv) > 1 else ''
         else:
             self.__endpoint = ''
-            self.__options = []
+            self.__options = {}
 
     def get_uuid(self):
         return self.__uuid
@@ -56,16 +66,28 @@ class DCERPCStringBinding:
     def get_network_address(self):
         return self.__na
 
+    def set_network_address(self, addr):
+        self.__na = addr
+
     def get_endpoint(self):
         return self.__endpoint
 
     def get_options(self):
         return self.__options
 
+    def get_option(self, option_name):
+        return self.__options[option_name]
+
+    def is_option_set(self, option_name):
+        return option_name in self.__options
+
+    def unset_option(self, option_name):
+        del self.__options[option_name]
+
     def __str__(self):
         return DCERPCStringBindingCompose(self.__uuid, self.__ps, self.__na, self.__endpoint, self.__options)
 
-def DCERPCStringBindingCompose(uuid=None, protocol_sequence='', network_address='', endpoint='', options=[]):
+def DCERPCStringBindingCompose(uuid=None, protocol_sequence='', network_address='', endpoint='', options={}):
     s = ''
     if uuid:
         s += uuid + '@'
@@ -75,7 +97,7 @@ def DCERPCStringBindingCompose(uuid=None, protocol_sequence='', network_address=
     if endpoint or options:
         s += '[' + endpoint
         if options:
-            s += ',' + ','.join(options)
+            s += ',' + ','.join([key if str(val) == '' else "=".join([key, str(val)]) for key, val in options.items()])
         s += ']'
 
     return s
@@ -88,34 +110,36 @@ def DCERPCTransportFactory(stringbinding):
     if 'ncadg_ip_udp' == ps:
         port = sb.get_endpoint()
         if port:
-            return UDPTransport(na, int(port))
+            rpctransport = UDPTransport(na, int(port))
         else:
-            return UDPTransport(na)
+            rpctransport = UDPTransport(na)
     elif 'ncacn_ip_tcp' == ps:
         port = sb.get_endpoint()
         if port:
-            return TCPTransport(na, int(port))
+            rpctransport = TCPTransport(na, int(port))
         else:
-            return TCPTransport(na)
+            rpctransport = TCPTransport(na)
     elif 'ncacn_http' == ps:
         port = sb.get_endpoint()
         if port:
-            return HTTPTransport(na, int(port))
+            rpctransport = HTTPTransport(na, int(port))
         else:
-            return HTTPTransport(na)
+            rpctransport = HTTPTransport(na)
     elif 'ncacn_np' == ps:
         named_pipe = sb.get_endpoint()
         if named_pipe:
             named_pipe = named_pipe[len(r'\pipe'):]
-            return SMBTransport(na, filename = named_pipe)
+            rpctransport = SMBTransport(na, filename = named_pipe)
         else:
-            return SMBTransport(na)
+            rpctransport = SMBTransport(na)
     elif 'ncalocal' == ps:
         named_pipe = sb.get_endpoint()
-        return LOCALTransport(filename = named_pipe)
+        rpctransport = LOCALTransport(filename = named_pipe)
     else:
         raise DCERPCException("Unknown protocol sequence.")
 
+    rpctransport.set_stringbinding(sb)
+    return rpctransport
 
 class DCERPCTransport:
 
@@ -125,6 +149,7 @@ class DCERPCTransport:
         self.__remoteName = remoteName
         self.__remoteHost = remoteName
         self.__dstport = dstport
+        self._stringbinding = None
         self._max_send_frag = None
         self._max_recv_frag = None
         self._domain = ''
@@ -181,6 +206,12 @@ class DCERPCTransport:
     def set_dport(self, dport):
         """This method only makes sense before connection for most protocols."""
         self.__dstport = dport
+
+    def get_stringbinding(self):
+        return self._stringbinding
+
+    def set_stringbinding(self, stringbinding):
+        self._stringbinding = stringbinding
 
     def get_addr(self):
         return self.getRemoteHost(), self.get_dport()
@@ -350,16 +381,81 @@ class TCPTransport(DCERPCTransport):
     def get_socket(self):
         return self.__socket
 
-class HTTPTransport(TCPTransport):
+class HTTPTransport(TCPTransport, RPCProxyClient):
     """Implementation of ncacn_http protocol sequence"""
+    TRANSPORT_class = TCPTransport
+
+    def __init__(self, remoteName=None, dstport=593):
+        self._useRpcProxy = False
+        self._rpcProxyUrl = None
+        self._transport   = TCPTransport
+        self._version     = RPC_OVER_HTTP_v2
+
+        DCERPCTransport.__init__(self, remoteName, dstport)
+        RPCProxyClient.__init__(self, remoteName, dstport)
+        self.set_connect_timeout(30)
+
+    def rpc_proxy_init(self):
+        self._useRpcProxy = True
+        self._transport   = RPCProxyClient
+
+    def set_rpc_proxy_url(self, url):
+        self.rpc_proxy_init()
+        self._rpcProxyUrl = urlparse(url)
+
+    def get_rpc_proxy_url(self):
+        return urlunparse(self._rpcProxyUrl)
+
+    def set_stringbinding(self, set_stringbinding):
+        DCERPCTransport.set_stringbinding(self, set_stringbinding)
+
+        if self._stringbinding.is_option_set("RpcProxy"):
+            self.rpc_proxy_init()
+
+            rpcproxy = self._stringbinding.get_option("RpcProxy").split(":")
+
+            if rpcproxy[1] == '443':
+                self.set_rpc_proxy_url('https://%s/rpc/rpcproxy.dll' % rpcproxy[0])
+            elif rpcproxy[1] == '80':
+                self.set_rpc_proxy_url('http://%s/rpc/rpcproxy.dll' % rpcproxy[0])
+            else:
+                # 2.1.2.1
+                # RPC over HTTP always uses port 80 for HTTP traffic and port 443 for HTTPS traffic.
+                # But you can use set_rpc_proxy_url method to set any URL / query you want.
+                raise DCERPCException("RPC Proxy port must be 80 or 443")
 
     def connect(self):
-        TCPTransport.connect(self)
+        if self._useRpcProxy == False:
+            # Connecting directly to the ncacn_http port
+            #
+            # Here we using RPC over HTTPv1 instead complex RPC over HTTP v2 syntax
+            # RPC over HTTP v2 here can be implemented in the future
+            self._version = RPC_OVER_HTTP_v1
 
-        self.get_socket().send('RPC_CONNECT ' + self.getRemoteHost() + ':593 HTTP/1.0\r\n\r\n')
-        data = self.get_socket().recv(8192)
-        if data[10:13] != '200':
-            raise DCERPCException("Service not supported.")
+            TCPTransport.connect(self)
+
+            # Reading legacy server response
+            data = self.get_socket().recv(8192)
+
+            if data != b'ncacn_http/1.0':
+                raise DCERPCException("%s:%s service is not ncacn_http" % (self.__remoteName, self.__dstport))
+        else:
+            RPCProxyClient.connect(self)
+
+    def send(self, data, forceWriteAndx=0, forceRecv=0):
+        return self._transport.send(self, data, forceWriteAndx, forceRecv)
+
+    def recv(self, forceRecv=0, count=0):
+        return self._transport.recv(self, forceRecv, count)
+
+    def get_socket(self):
+        if self._useRpcProxy == False:
+            return TCPTransport.get_socket(self)
+        else:
+            raise DCERPCException("This method is not supported for RPC Proxy connections")
+
+    def disconnect(self):
+        return self._transport.disconnect(self)
 
 class SMBTransport(DCERPCTransport):
     """Implementation of ncacn_np protocol sequence"""

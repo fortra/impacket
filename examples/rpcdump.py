@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright 2020 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -13,6 +13,7 @@
 #
 # Reference for:
 #  DCE/RPC.
+
 from __future__ import division
 from __future__ import print_function
 import sys
@@ -25,19 +26,21 @@ from impacket.dcerpc.v5 import transport, epm
 
 class RPCDump:
     KNOWN_PROTOCOLS = {
-        135: {'bindstr': r'ncacn_ip_tcp:%s',             'set_host': False},
-        139: {'bindstr': r'ncacn_np:%s[\pipe\epmapper]', 'set_host': True},
-        445: {'bindstr': r'ncacn_np:%s[\pipe\epmapper]', 'set_host': True}
+        135: {'bindstr': r'ncacn_ip_tcp:%s[135]'},
+        139: {'bindstr': r'ncacn_np:%s[\pipe\epmapper]'},
+        443: {'bindstr': r'ncacn_http:[593,RpcProxy=%s:443]'},
+        445: {'bindstr': r'ncacn_np:%s[\pipe\epmapper]'},
+        593: {'bindstr': r'ncacn_http:%s'}
         }
 
     def __init__(self, username = '', password = '', domain='', hashes = None, port=135):
-
         self.__username = username
         self.__password = password
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
         self.__port = port
+        self.__stringbinding = '' 
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
@@ -51,30 +54,43 @@ class RPCDump:
 
         entries = []
 
-        stringbinding = self.KNOWN_PROTOCOLS[self.__port]['bindstr'] % remoteName
-        logging.debug('StringBinding %s'%stringbinding)
-        rpctransport = transport.DCERPCTransportFactory(stringbinding)
-        rpctransport.set_dport(self.__port)
+        self.__stringbinding = self.KNOWN_PROTOCOLS[self.__port]['bindstr'] % remoteName
+        logging.debug('StringBinding %s' % self.__stringbinding)
+        rpctransport = transport.DCERPCTransportFactory(self.__stringbinding)
 
-        if self.KNOWN_PROTOCOLS[self.__port]['set_host']:
-            rpctransport.setRemoteHost(remoteHost)
-
-        if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
+        if self.__port in [139, 445]:
+            # Setting credentials for SMB
             rpctransport.set_credentials(self.__username, self.__password, self.__domain,
                                          self.__lmhash, self.__nthash)
+
+            # Setting remote host and port for SMB
+            rpctransport.setRemoteHost(remoteHost)
+            rpctransport.set_dport(self.__port)
+        elif self.__port in [443]:
+            # Setting credentials only for RpcProxy, but not for the RPC Transport
+            rpctransport.set_proxy_credentials(self.__username, self.__password, self.__domain,
+                                               self.__lmhash, self.__nthash)
+        else:
+            # We don't need to authenticate to 135 and 593 ports
+            pass
 
         try:
             entries = self.__fetchList(rpctransport)
         except Exception as e:
+            #raise
             logging.critical('Protocol failed: %s' % e)
+            if 'Invalid RPC Port' in str(e):
+                logging.critical("This usually means the target is a MS Exchange Server, "
+                                 "which does not allow to connect to its epmapper using RpcProxy")
+            if 'RPC Proxy CONN/A1 request failed, code: 0x6ba' in str(e):
+                logging.critical("This usually means the target has no ACL to connect to its epmapper using RpcProxy")
 
         # Display results.
 
         endpoints = {}
         # Let's groups the UUIDS
         for entry in entries:
-            binding = epm.PrintStringBinding(entry['tower']['Floors'], rpctransport.getRemoteHost())
+            binding = epm.PrintStringBinding(entry['tower']['Floors'])
             tmpUUID = str(entry['tower']['Floors'][0])
             if (tmpUUID in endpoints) is not True:
                 endpoints[tmpUUID] = {}
@@ -90,7 +106,7 @@ class RPCDump:
                 endpoints[tmpUUID]['Protocol'] = epm.KNOWN_PROTOCOLS[tmpUUID[:36]]
             else:
                 endpoints[tmpUUID]['Protocol'] = "N/A"
-            #print "Transfer Syntax: %s" % entry['Tower']['Floors'][1]
+            #print("Transfer Syntax: %s" % entry['tower']['Floors'][1])
      
         for endpoint in list(endpoints.keys()):
             print("Protocol: %s " % endpoints[endpoint]['Protocol'])
@@ -119,12 +135,14 @@ class RPCDump:
         #dce.bind(epm.MSRPC_UUID_PORTMAP)
         #rpcepm = epm.DCERPCEpm(dce)
 
+        if str(self.__stringbinding) != str(rpctransport.get_stringbinding()):
+            logging.debug('StringBinding has been changed to %s' % rpctransport.get_stringbinding())
+
         resp = epm.hept_lookup(None, dce=dce)
 
         dce.disconnect()
 
         return resp
-
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -132,7 +150,7 @@ if __name__ == '__main__':
     logger.init()
     print(version.BANNER)
 
-    parser = argparse.ArgumentParser(add_help = True, description = "Dumps the remote RPC enpoints information.")
+    parser = argparse.ArgumentParser(add_help = True, description = "Dumps the remote RPC enpoints information via epmapper.")
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
@@ -141,8 +159,8 @@ if __name__ == '__main__':
     group.add_argument('-target-ip', action='store', metavar="ip address", help='IP Address of the target machine. If '
                        'ommited it will use whatever was specified as target. This is useful when target is the NetBIOS '
                        'name and you cannot resolve it')
-    group.add_argument('-port', choices=['135', '139', '445'], nargs='?', default='135', metavar="destination port",
-                       help='Destination port to connect to SMB Server')
+    group.add_argument('-port', choices=['135', '139', '443', '445', '593'], nargs='?', default='135', metavar="destination port",
+                       help='Destination port to connect to RPC Endpoint Mapper')
 
     group = parser.add_argument_group('authentication')
 

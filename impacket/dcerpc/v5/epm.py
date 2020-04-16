@@ -715,7 +715,6 @@ KNOWN_PROTOCOLS = {
 '7D07F313-A53F-459A-BB12-012C15B1846E':'[MS-RSMP]: Removable Storage Manager (RSM) Remote Protocol',
 'BB39332C-BFEE-4380-AD8A-BADC8AFF5BB6':'[MS-RSMP]: Removable Storage Manager (RSM) Remote Protocol',
 'B057DC50-3059-11D1-8FAF-00A024CB6019':'[MS-RSMP]: Removable Storage Manager (RSM) Remote Protocol',
-'338CD001-2244-31F1-AAAA-900038001003':'[MS-RSP]: Remote Shutdown Protocol',
 '894DE0C0-0D55-11D3-A322-00C04FA321A1':'[MS-RSP]: Remote Shutdown Protocol',
 'D95AFE70-A6D5-4259-822E-2C84DA1DDB0D':'[MS-RSP]: Remote Shutdown Protocol',
 '12345778-1234-ABCD-EF00-0123456789AC':'[MS-SAMR]: Security Account Manager (SAM) Remote Protocol',
@@ -879,6 +878,7 @@ KNOWN_PROTOCOLS = {
 '5A7B91F8-FF00-11D0-A9B2-00C04FB6E6FC':'[MS-MSRP]: Messenger Service Remote Protocol',
 'F5CC5A18-4264-101A-8C59-08002B2F8426':'[MS-NSPI]: Name Service Provider Interface (NSPI) Protocol',
 'E33C0CC4-0482-101A-BC0C-02608C6BA218':'[MS-RPCL]: Remote Procedure Call Location Services Extensions',
+'AFA8BD80-7D8A-11C9-BEF4-08002B102989':'[C706]: Remote Management Interface'
 }
 
 # Inquire Type
@@ -1095,9 +1095,13 @@ class ept_lookup_handle_t(NDRSTRUCT):
         ('context_handle_attributes',ULONG),
         ('context_handle_uuid',UUID),
     )
-    def __init__(self, data = None,isNDR64 = False):
+
+    def __init__(self, data=None, isNDR64=False):
         NDRSTRUCT.__init__(self, data, isNDR64)
-        self['context_handle_uuid'] = b'\x00'*20
+        self['context_handle_uuid'] = b'\x00'*16
+
+    def isNull(self):
+        return self['context_handle_uuid'] == b'\x00'*16
 
 class twr_t(NDRSTRUCT):
     structure = (
@@ -1188,7 +1192,7 @@ class ept_mapResponse(NDRCALL):
 # HELPER FUNCTIONS
 ################################################################################
 
-def hept_lookup(destHost, inquiry_type = RPC_C_EP_ALL_ELTS, objectUUID = NULL, ifId = NULL, vers_option = RPC_C_VERS_ALL,  entry_handle = ept_lookup_handle_t(), max_ents = 499, dce = None):
+def hept_lookup(destHost, inquiry_type = RPC_C_EP_ALL_ELTS, objectUUID = NULL, ifId = NULL, vers_option = RPC_C_VERS_ALL, dce = None):
     if dce is None:
         stringBinding = r'ncacn_ip_tcp:%s[135]' % destHost
         rpctransport = transport.DCERPCTransportFactory(stringBinding)
@@ -1199,29 +1203,37 @@ def hept_lookup(destHost, inquiry_type = RPC_C_EP_ALL_ELTS, objectUUID = NULL, i
         disconnect = False
 
     dce.bind(MSRPC_UUID_PORTMAP)
-    request = ept_lookup()
-    request['inquiry_type'] = inquiry_type
-    request['object'] = objectUUID
-    if ifId != NULL:
-        request['Ifid']['Uuid'] = ifId[:16]
-        request['Ifid']['VersMajor'] = ifId[16:][:2]
-        request['Ifid']['VersMinor'] = ifId[18:]
-    else:
-        request['Ifid'] = ifId
-    request['vers_option'] = vers_option
-    request['entry_handle'] = entry_handle
-    request['max_ents'] = max_ents
-      
-    resp = dce.request(request)
 
     entries = []
-    for i in range(resp['num_ents']):
-        tmpEntry = {}
-        entry = resp['entries'][i]
-        tmpEntry['object'] = entry['object'] 
-        tmpEntry['annotation'] = b''.join(entry['annotation'])
-        tmpEntry['tower'] = EPMTower(b''.join(entry['tower']['tower_octet_string']))
-        entries.append(tmpEntry)
+    entry_handle = ept_lookup_handle_t()
+
+    while True:
+        request = ept_lookup()
+        request['inquiry_type'] = inquiry_type
+        request['object'] = objectUUID
+        if ifId != NULL:
+            request['Ifid']['Uuid'] = ifId[:16]
+            request['Ifid']['VersMajor'] = ifId[16:][:2]
+            request['Ifid']['VersMinor'] = ifId[18:]
+        else:
+            request['Ifid'] = ifId
+        request['vers_option'] = vers_option
+        request['entry_handle'] = entry_handle
+        request['max_ents'] = 500
+
+        resp = dce.request(request)
+
+        for i in range(resp['num_ents']):
+            tmpEntry = {}
+            entry = resp['entries'][i]
+            tmpEntry['object'] = entry['object']
+            tmpEntry['annotation'] = b''.join(entry['annotation'])
+            tmpEntry['tower'] = EPMTower(b''.join(entry['tower']['tower_octet_string']))
+            entries.append(tmpEntry)
+
+        entry_handle = resp['entry_handle']
+        if entry_handle.isNull():
+            break
 
     if disconnect is True:
         dce.disconnect()
@@ -1324,7 +1336,7 @@ def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-
         dce.disconnect()
     return result
 
-def PrintStringBinding(floors, serverAddr = '0.0.0.0'):
+def PrintStringBinding(floors):
     tmp_address = ''
     for floor in floors[3:]:
         if floor['ProtocolData'] == b'\x07':
@@ -1333,9 +1345,6 @@ def PrintStringBinding(floors, serverAddr = '0.0.0.0'):
             tmp_address = 'ncadg_ip_udp:%%s[%d]' % unpack('!H',floor['RelatedData'])
         elif floor['ProtocolData'] == b'\x09':
             tmp_address2 = socket.inet_ntoa(floor['RelatedData'])
-            # If the address were 0.0.0.0 it would have to be replaced by the remote host's IP.
-            if tmp_address2 == '0.0.0.0':
-                tmp_address2 = serverAddr
             if tmp_address != '':
                 return tmp_address % tmp_address2
             else:
