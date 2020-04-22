@@ -2994,6 +2994,8 @@ class SMB(object):
         while read_offset < datasize:
             data = self.read_andx(tid, fid, read_offset, max_buf_size)
 
+            if isinstance(data, bytes):
+                data = data.decode("utf-8")
             callback(data)
             read_offset += len(data)
 
