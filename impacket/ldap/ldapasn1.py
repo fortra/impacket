@@ -152,11 +152,11 @@ class AttributeDescription(LDAPString):
     pass
 
 
-class AttributeValue(univ.OctetString):
+class AttributeValue(LDAPString):
     pass
 
 
-class AssertionValue(univ.OctetString):
+class AssertionValue(LDAPString):
     pass
 
 
