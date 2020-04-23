@@ -145,6 +145,7 @@ def start_servers(options, threads):
         c.setExeFile(options.e)
         c.setCommand(options.c)
         c.setEnumLocalAdmins(options.enum_local_admins)
+        c.setDisableMulti(options.disable_multi)
         c.setEncoding(codec)
         c.setMode(mode)
         c.setAttacks(PROTOCOL_ATTACKS)
@@ -259,6 +260,7 @@ if __name__ == '__main__':
                         'target system. If not specified, hashes will be dumped (secretsdump.py must be in the same '
                                                           'directory).')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
+    smboptions.add_argument('--disable-multi', action='store_true', required=False, help='If set, disable multi-host relay (in case Guest authentication is disabled')
 
     #MSSQL arguments
     mssqloptions = parser.add_argument_group("MSSQL client options")

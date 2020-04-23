@@ -53,6 +53,7 @@ class NTLMRelayxConfig:
         self.command = None
         self.interactive = False
         self.enumLocalAdmins = False
+        self.disableMulti = False
 
         # LDAP options
         self.dumpdomain = True
@@ -107,6 +108,9 @@ class NTLMRelayxConfig:
 
     def setEnumLocalAdmins(self, enumLocalAdmins):
         self.enumLocalAdmins = enumLocalAdmins
+
+    def setDisableMulti(self, disableMulti):
+        self.disableMulti = disableMulti
 
     def setEncoding(self, encoding):
         self.encoding = encoding
