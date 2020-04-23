@@ -4418,7 +4418,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
             line = cred.readline()
             while line:
                 name, uid, lmhash, nthash = line.split(':')
-                self.__credentials[name] = (uid, lmhash, nthash.strip('\r\n'))
+                self.__credentials[name.lower()] = (uid, lmhash, nthash.strip('\r\n'))
                 line = cred.readline()
             cred.close()
         self.log('Config file parsed')
