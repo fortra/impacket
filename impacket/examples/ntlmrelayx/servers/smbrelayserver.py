@@ -320,6 +320,7 @@ class SMBRelayServer(Thread):
                                           self.server.getJTRdumpPath())
 
                 connData['Authenticated'] = True
+                del(connData['relayToHost'])
 
                 self.do_attack(client)
                 # Now continue with the server
@@ -372,7 +373,7 @@ class SMBRelayServer(Thread):
                          (connId, self.authUser, connData['ClientIP']))
                 return self.origsmb2TreeConnect (connId, smbServer, recvPacket)
 
-            LOG.info('SMBD-%s: Connection from %s@%s controlled, attacking target %s://%s' % ( connId, self.authUser,
+            LOG.info('SMBD-%s: Connection from %s@%s controlled, attacking target %s://%s' % (connId, self.authUser,
                                                         connData['ClientIP'], self.target.scheme, self.target.netloc))
 
             if self.config.mode.upper() == 'REFLECTION':
@@ -659,6 +660,7 @@ class SMBRelayServer(Thread):
 
         # From now on, the client can ask for other commands
         connData['Authenticated'] = True
+        del(connData['relayToHost'])
 
         smbServer.setConnectionData(connId, connData)
 
