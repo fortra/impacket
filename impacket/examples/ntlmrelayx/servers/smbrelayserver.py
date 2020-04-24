@@ -177,7 +177,11 @@ class SMBRelayServer(Thread):
         # Are we ready to relay or should we just do local auth?
         if 'relayToHost' not in connData:
             # Just call the original SessionSetup
-            return self.origSmbSessionSetup(connId, smbServer, recvPacket)
+            respCommands, respPackets, errorCode = self.origSmbSessionSetup(connId, smbServer, recvPacket)
+            # We remove the Guest flag
+            if 'SessionFlags' in respCommands[0].fields:
+                respCommands[0]['SessionFlags'] = 0x00
+            return respCommands, respPackets, errorCode
 
         # We have confirmed we want to relay to the target host.
         respSMBCommand = smb3.SMB2SessionSetup_Response()
