@@ -548,9 +548,20 @@ class RAISECHILD:
 
     @staticmethod
     def getMachineName(machineIP):
-        s = SMBConnection(machineIP, machineIP)
+        # Python 2: socket.error handling
+        from socket import error as SocketError
+
         try:
-            s.login('','')
+            s = SMBConnection(machineIP, machineIP)
+            s.login('', '')
+        except (SocketError, OSError) as e:
+            if str(e).find('timed out') > 0:
+                raise Exception('The connection is timed out. '
+                                'Probably 445/TCP port is closed. '
+                                'Try to specify corresponding NetBIOS name or FQDN '
+                                'instead of IP address')
+            else:
+                raise
         except Exception:
             logging.debug('Error while anonymous logging into %s' % machineIP)
         else:
@@ -559,9 +570,20 @@ class RAISECHILD:
 
     @staticmethod
     def getDNSMachineName(machineIP):
-        s = SMBConnection(machineIP, machineIP)
+        # Python 2: socket.error handling
+        from socket import error as SocketError
+
         try:
-            s.login('','')
+            s = SMBConnection(machineIP, machineIP)
+            s.login('', '')
+        except (SocketError, OSError) as e:
+            if str(e).find('timed out') > 0:
+                raise Exception('The connection is timed out. '
+                                'Probably 445/TCP port is closed. '
+                                'Try to specify corresponding NetBIOS name or FQDN '
+                                'instead of IP address')
+            else:
+                raise
         except Exception:
             logging.debug('Error while anonymous logging into %s' % machineIP)
         else:

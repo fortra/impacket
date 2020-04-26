@@ -89,15 +89,28 @@ class GetUserNoPreAuth:
         self.baseDN = self.baseDN[:-1]
 
     def getMachineName(self):
+        # Python 2: socket.error handling
+        from socket import error as SocketError
+
         if self.__kdcHost is not None:
-            s = SMBConnection(self.__kdcHost, self.__kdcHost)
+            target = self.__kdcHost
         else:
-            s = SMBConnection(self.__domain, self.__domain)
+            target = self.__domain
+
         try:
+            s = SMBConnection(target, target)
             s.login('', '')
+        except (SocketError, OSError) as e:
+            if str(e).find('timed out') > 0:
+                raise Exception('The connection is timed out. '
+                                'Probably 445/TCP port is closed. '
+                                'Try to specify corresponding NetBIOS name or FQDN '
+                                'instead of IP address')
+            else:
+                raise
         except Exception:
             if s.getServerName() == '':
-                raise Exception('Error while anonymous logging into %s')
+                raise Exception('Error while anonymous logging into %s' % target)
         else:
             s.logoff()
         return s.getServerName()
