@@ -61,6 +61,7 @@ import logging
 import random
 import string
 import sys
+import re
 import os
 import cmd
 import time
@@ -1240,7 +1241,6 @@ class RAISECHILD:
                 executer.run(self.__target)
 
 if __name__ == '__main__':
-
     print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Privilege Escalation from a child domain up to its "
@@ -1258,7 +1258,6 @@ if __name__ == '__main__':
                         'dump credentials. Administrator (500) by default.')
 
     group = parser.add_argument_group('authentication')
-
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
@@ -1289,9 +1288,7 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init(options.ts)
 
-    import re
-    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(
-        options.target).groups('')
+    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.target).groups('')
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)

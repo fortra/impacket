@@ -30,6 +30,7 @@ import datetime
 import logging
 import random
 import sys
+import re
 from binascii import hexlify
 
 from pyasn1.codec.der import decoder, encoder
@@ -67,6 +68,7 @@ class GetUserNoPreAuth:
         self.__username = username
         self.__password = password
         self.__domain = domain
+        self.__target = None
         self.__lmhash = ''
         self.__nthash = ''
         self.__no_pass = cmdLineOptions.no_pass
@@ -76,7 +78,9 @@ class GetUserNoPreAuth:
         self.__aesKey = cmdLineOptions.aesKey
         self.__doKerberos = cmdLineOptions.k
         self.__requestTGT = cmdLineOptions.request
-        self.__kdcHost = cmdLineOptions.dc_ip
+        #[!] in this script the value of -dc-ip option is self.__kdcIP and the value of -dc-host option is self.__kdcHost
+        self.__kdcIP = cmdLineOptions.dc_ip
+        self.__kdcHost = cmdLineOptions.dc_host
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
@@ -88,14 +92,9 @@ class GetUserNoPreAuth:
         # Remove last ','
         self.baseDN = self.baseDN[:-1]
 
-    def getMachineName(self):
+    def getMachineName(self, target):
         # Python 2: socket.error handling
         from socket import error as SocketError
-
-        if self.__kdcHost is not None:
-            target = self.__kdcHost
-        else:
-            target = self.__domain
 
         try:
             s = SMBConnection(target, target)
@@ -105,7 +104,7 @@ class GetUserNoPreAuth:
                 raise Exception('The connection is timed out. '
                                 'Probably 445/TCP port is closed. '
                                 'Try to specify corresponding NetBIOS name or FQDN '
-                                'instead of IP address')
+                                'as the value of the -dc-host option')
             else:
                 raise
         except Exception:
@@ -170,7 +169,7 @@ class GetUserNoPreAuth:
         message = encoder.encode(asReq)
 
         try:
-            r = sendReceive(message, domain, self.__kdcHost)
+            r = sendReceive(message, domain, self.__kdcIP)
         except KerberosError as e:
             if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                 # RC4 not available, OK, let's ask for newer types
@@ -178,7 +177,7 @@ class GetUserNoPreAuth:
                                     int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value),)
                 seq_set_iter(reqBody, 'etype', supportedCiphers)
                 message = encoder.encode(asReq)
-                r = sendReceive(message, domain, self.__kdcHost)
+                r = sendReceive(message, domain, self.__kdcIP)
             else:
                 raise e
 
@@ -212,13 +211,17 @@ class GetUserNoPreAuth:
             fd.write(entry + '\n')
 
     def run(self):
-        if self.__doKerberos:
-            target = self.getMachineName()
+        if self.__kdcHost is not None:
+            self.__target = self.__kdcHost
         else:
-            if self.__kdcHost is not None:
-                target = self.__kdcHost
+            if self.__kdcIP is not None:
+                self.__target = self.__kdcIP
             else:
-                target = self.__domain
+                self.__target = self.__domain
+
+            if self.__doKerberos:
+                logging.info('Getting machine hostname')
+                self.__target = self.getMachineName(self.__target)
 
         if self.__usersFile:
             self.request_users_file_TGTs()
@@ -235,21 +238,21 @@ class GetUserNoPreAuth:
 
         # Connect to LDAP
         try:
-            ldapConnection = ldap.LDAPConnection('ldap://%s' % target, self.baseDN, self.__kdcHost)
+            ldapConnection = ldap.LDAPConnection('ldap://%s' % self.__target, self.baseDN, self.__kdcIP)
             if self.__doKerberos is not True:
                 ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
             else:
                 ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
-                                             self.__aesKey, kdcHost=self.__kdcHost)
+                                             self.__aesKey, kdcHost=self.__kdcIP)
         except ldap.LDAPSessionError as e:
             if str(e).find('strongerAuthRequired') >= 0:
                 # We need to try SSL
-                ldapConnection = ldap.LDAPConnection('ldaps://%s' % target, self.baseDN, self.__kdcHost)
+                ldapConnection = ldap.LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcIP)
                 if self.__doKerberos is not True:
                     ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
                 else:
                     ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
-                                                 self.__aesKey, kdcHost=self.__kdcHost)
+                                                 self.__aesKey, kdcHost=self.__kdcIP)
             else:
                 # Cannot authenticate, we will try to get this users' TGT (hoping it has PreAuth disabled)
                 logging.info('Cannot authenticate %s, getting its TGT' % self.__username)
@@ -277,6 +280,8 @@ class GetUserNoPreAuth:
                 resp = e.getAnswers()
                 pass
             else:
+                if self.__kdcIP is not None and self.__kdcHost is not None:
+                    logging.critical("If the credentials are valid, check the hostname and IP address of KDC. They must match exactly each other")
                 raise
 
         answers = []
@@ -329,7 +334,6 @@ class GetUserNoPreAuth:
             print("No entries found!")
 
     def request_users_file_TGTs(self):
-
         with open(self.__usersFile) as fi:
             usernames = [line.strip() for line in fi]
 
@@ -358,7 +362,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help = True, description = "Queries target domain for users with "
                                   "'Do not require Kerberos preauthentication' set and export their TGTs for cracking")
 
-    parser.add_argument('target', action='store', help='domain/username[:password]')
+    parser.add_argument('target', action='store', help='[[domain/]username[:password]]')
     parser.add_argument('-request', action='store_true', default='False', help='Requests TGT for users and output them '
                                                                                'in JtR/hashcat format (default False)')
     parser.add_argument('-outputfile', action='store',
@@ -373,7 +377,6 @@ if __name__ == '__main__':
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
-
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
@@ -382,9 +385,14 @@ if __name__ == '__main__':
                                                        'line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
                                                                             '(128 or 256 bits)')
-    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
+
+    group = parser.add_argument_group('connection')
+    group.add_argument('-dc-ip', action='store', metavar='ip address', help='IP Address of the domain controller. If '
                                                                               'ommited it use the domain part (FQDN) '
                                                                               'specified in the target parameter')
+    group.add_argument('-dc-host', action='store', metavar='hostname', help='Hostname of the domain controller to use. '
+                                                                              'If ommited, the domain part (FQDN) '
+                                                                              'specified in the account parameter will be used')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -400,7 +408,7 @@ if __name__ == '__main__':
         print("\n3. Request TGTs for all users")
         print("\n\tGetNPUsers.py contoso.com/emily:password -request or GetNPUsers.py contoso.com/emily")
         print("\n4. Request TGTs for users in a file")
-        print("\n\tGetNPUsers.py contoso.com/ -no-pass -usersfile users.txt")
+        print("\n\tGetNPUsers.py -no-pass -usersfile users.txt contoso.com/")
         print("\nFor this operation you don\'t need credentials.")
         sys.exit(1)
 
@@ -416,7 +424,6 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
     domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.target).groups('')
 
     if domain == '':
