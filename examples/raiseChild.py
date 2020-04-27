@@ -1322,4 +1322,4 @@ if __name__ == '__main__':
         logging.critical(str(e))
         if hasattr(e, 'error_code'):
             if e.error_code == 0xc0000073:
-                logging.info("Account not found in domain. (RID:%s)", options.targetRID)
+                logging.info("Account not found in domain. (RID:%s)" % options.targetRID)

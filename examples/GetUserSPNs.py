@@ -151,7 +151,7 @@ class GetUserSPNs:
                 logging.debug('Using TGT from cache')
                 return TGT
             else:
-                logging.debug("No valid credentials found in cache. ")
+                logging.debug("No valid credentials found in cache.")
 
         # No TGT in cache, request it
         userName = Principal(self.__username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
