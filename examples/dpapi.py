@@ -68,8 +68,8 @@ class DPAPI:
             machineKey = machineKey.split(':')[1]
             userKey = userKey.split(':')[1]
             self.dpapiSystem = {}
-            self.dpapiSystem['MachineKey'] = unhexlify(machineKey[2:])
-            self.dpapiSystem['UserKey'] = unhexlify(userKey[2:])
+            self.dpapiSystem['MachineKey'] = unhexlify(machineKey)
+            self.dpapiSystem['UserKey'] = unhexlify(userKey)
 
     def getLSA(self):
         localOperations = LocalOperations(self.options.system)
@@ -178,7 +178,7 @@ class DPAPI:
                     print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
                     return
             elif self.options.key and self.options.sid:
-                key = unhexlify(self.options.key[2:])
+                key = unhexlify(self.options.key)
                 key1, key2 = self.deriveKeysFromUserkey(self.options.sid, key)
                 decryptedKey = mk.decrypt(key1)
                 if decryptedKey:
@@ -191,7 +191,7 @@ class DPAPI:
                     print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
                     return
             elif self.options.key:
-                key = unhexlify(self.options.key[2:])
+                key = unhexlify(self.options.key)
                 decryptedKey = mk.decrypt(key)
                 if decryptedKey:
                     print('Decrypted key with key provided')
@@ -406,7 +406,7 @@ class DPAPI:
             blob = DPAPI_BLOB(cred['Data'])
 
             if self.options.key is not None:
-                key = unhexlify(self.options.key[2:])
+                key = unhexlify(self.options.key)
                 decrypted = blob.decrypt(key)
                 if decrypted is not None:
                     creds = CREDENTIAL_BLOB(decrypted)
@@ -426,7 +426,7 @@ class DPAPI:
                 blob = VAULT_VCRD(data)
 
                 if self.options.key is not None:
-                    key = unhexlify(self.options.key[2:])
+                    key = unhexlify(self.options.key)
 
                     cleartext = None
                     for i, entry in enumerate(blob.attributesLen):
@@ -458,7 +458,7 @@ class DPAPI:
                 vpol.dump()
 
                 if self.options.key is not None:
-                    key = unhexlify(self.options.key[2:])
+                    key = unhexlify(self.options.key)
                     blob = vpol['Blob']
                     data = blob.decrypt(key)
                     if data is not None:
