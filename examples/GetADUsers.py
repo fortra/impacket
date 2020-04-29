@@ -220,15 +220,7 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.INFO)
 
     import re
-    # This is because I'm lazy with regex
-    # ToDo: We need to change the regex to fullfil domain/username[:password]
-    targetParam = options.target+'@'
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(targetParam).groups('')
-
-    #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.target).groups('')
 
     if domain == '':
         logging.critical('Domain should be specified!')

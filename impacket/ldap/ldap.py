@@ -397,8 +397,8 @@ class LDAPConnection:
             for requestControl in requestControls:
                 if responseControls is not None:
                     for responseControl in responseControls:
-                        if requestControl['controlType'] == CONTROL_PAGEDRESULTS:
-                            if responseControl['controlType'] == CONTROL_PAGEDRESULTS:
+                        if str(requestControl['controlType']) == CONTROL_PAGEDRESULTS:
+                            if str(responseControl['controlType']) == CONTROL_PAGEDRESULTS:
                                 if hasattr(responseControl, 'getCookie') is not True:
                                     responseControl = decoder.decode(encoder.encode(responseControl),
                                                                  asn1Spec=KNOWN_CONTROLS[CONTROL_PAGEDRESULTS]())[0]

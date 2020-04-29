@@ -2424,7 +2424,7 @@ class SMBCommands:
                 authenticateMessage['host_name'].decode('utf-16le')))
                 # Do we have credentials to check?
                 if len(smbServer.getCredentials()) > 0:
-                    identity = authenticateMessage['user_name'].decode('utf-16le')
+                    identity = authenticateMessage['user_name'].decode('utf-16le').lower()
                     # Do we have this user's credentials?
                     if identity in smbServer.getCredentials():
                         # Process data:
@@ -2801,7 +2801,7 @@ class SMB2Commands:
             # Do we have credentials to check?
             if len(smbServer.getCredentials()) > 0:
                 isGuest = False
-                identity = authenticateMessage['user_name'].decode('utf-16le')
+                identity = authenticateMessage['user_name'].decode('utf-16le').lower()
                 # Do we have this user's credentials?
                 if identity in smbServer.getCredentials():
                     # Process data:
@@ -4418,7 +4418,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
             line = cred.readline()
             while line:
                 name, uid, lmhash, nthash = line.split(':')
-                self.__credentials[name] = (uid, lmhash, nthash.strip('\r\n'))
+                self.__credentials[name.lower()] = (uid, lmhash, nthash.strip('\r\n'))
                 line = cred.readline()
             cred.close()
         self.log('Config file parsed')
@@ -4435,7 +4435,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
                 nthash = a2b_hex(nthash)
             except:
                 pass
-        self.__credentials[name] = (uid, lmhash, nthash)
+        self.__credentials[name.lower()] = (uid, lmhash, nthash)
 
 # For windows platforms, opening a directory is not an option, so we set a void FD
 VOID_FILE_DESCRIPTOR = -1
