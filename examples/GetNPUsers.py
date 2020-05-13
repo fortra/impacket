@@ -211,9 +211,8 @@ class GetUserNoPreAuth:
             self.request_users_file_TGTs()
             return
 
-
         # Are we asked not to supply a password?
-        if self.__no_pass is True:
+        if self.__doKerberos is False and self.__no_pass is True:
             # Yes, just ask the TGT and exit
             logging.info('Getting TGT for %s' % self.__username)
             entry = self.getTGT(self.__username)
@@ -416,6 +415,10 @@ if __name__ == '__main__':
 
     if options.aesKey is not None:
         options.k = True
+
+    if options.k is False and options.no_pass is True and username == '' and options.usersfile is None:
+        logging.critical('If the -no-pass option was specified, but Kerberos (-k) is not used, then a username or the -usersfile option should be specified!')
+        sys.exit(1)
 
     if options.outputfile is not None:
         options.request = True
