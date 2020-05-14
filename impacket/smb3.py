@@ -178,6 +178,8 @@ class SMB3:
             # Outside the protocol
             'ServerIP'                 : '',    #
             'ClientName'               : '',    #
+            #GSSoptions (MutualAuth and Delegate)
+            'GSSoptions'               : {},
         }
 
         self._Session = {
@@ -586,7 +588,7 @@ class SMB3:
             self.__TGT,
             self.__TGS)
 
-    def kerberosLogin(self, user, password, domain = '', lmhash = '', nthash = '', aesKey='', kdcHost = '', TGT=None, TGS=None):
+    def kerberosLogin(self, user, password, domain = '', lmhash = '', nthash = '', aesKey='', kdcHost = '', TGT=None, TGS=None, mutualAuth=False):
         # If TGT or TGS are specified, they are in the form of:
         # TGS['KDC_REP'] = the response from the server
         # TGS['cipher'] = the cipher used
@@ -680,7 +682,13 @@ class SMB3:
         apReq['pvno'] = 5
         apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
 
+        #Handle mutual authentication
         opts = list()
+
+        if mutualAuth == True:
+            from impacket.krb5.constants import APOptions
+            opts.append(constants.APOptions.mutual_required.value)
+
         apReq['ap-options'] = constants.encodeFlags(opts)
         seq_set(apReq,'ticket', ticket.to_asn1)
 
@@ -723,7 +731,47 @@ class SMB3:
             self._Session['UserCredentials'] = (user, password, domain, lmhash, nthash)
             self._Session['Connection']      = self._NetBIOSSession.get_socket()
 
-            self._Session['SessionKey']  = sessionKey.contents[:16]
+
+            if mutualAuth == True:
+                #Lets get the session key in the AP_REP
+                from impacket.krb5.asn1 import AP_REP, EncAPRepPart
+                from impacket.krb5.crypto import Key, _enctype_table
+                smbSessSetupResp = SMB2SessionSetup_Response(ans['Data'])
+
+                #in [KILE] 3.1.1.2:
+                #    The subkey in the EncAPRepPart of the KRB_AP_REP message is used as the session key when
+                #    MutualAuthentication is requested. (The KRB_AP_REP message and its fields are defined in [RFC4120]
+                #    section 5.5.2.) When DES and RC4 are used, the implementation is as described in [RFC1964]. With
+                #    DES and RC4, the subkey in the KRB_AP_REQ message can be used as the session key, as it is the
+                #    same as the subkey in KRB_AP_REP message; however when AES is used (see [RFC4121]), the
+                #    subkeys are different and the subkey in the KRB_AP_REP is used. (The KRB_AP_REQ message is
+                #    defined in [RFC4120] section 5.5.1).
+                negTokenResp = SPNEGO_NegTokenResp(smbSessSetupResp['Buffer'])
+
+                #TODO: Parse ResponseToken as krb5Blob depending on the supported mech indicated in the negTokenResp
+                ap_rep = decoder.decode(negTokenResp['ResponseToken'][16:], asn1Spec=AP_REP())[0]
+
+                if cipher.enctype != ap_rep['enc-part']['etype']:
+                    raise Exception('Unable to decrypt AP_REP: cipher does not match TGS session key')
+
+                # Key Usage 12
+                # AP-REP encrypted part (includes application session
+                # subkey), encrypted with the application session key
+                # (Section 5.5.2)
+                cipherText = ap_rep['enc-part']['cipher']
+                plainText = cipher.decrypt(sessionKey, 12, cipherText)
+
+                encAPRepPart = decoder.decode(plainText, asn1Spec = EncAPRepPart())[0]
+
+                apCipher = _enctype_table[int(encAPRepPart['subkey']['keytype'])]()
+                apSessionKey = Key(apCipher.enctype, encAPRepPart['subkey']['keyvalue'].asOctets())
+
+                sequenceNumber = int(encAPRepPart['seq-number'])
+                self._Session['SessionKey'] = apSessionKey.contents
+
+            else:
+                self._Session['SessionKey']  = sessionKey.contents[:16]
+
             if self._Session['SigningRequired'] is True and self._Connection['Dialect'] >= SMB2_DIALECT_30:
                 # If Connection.Dialect is "3.1.1", the case-sensitive ASCII string "SMBSigningKey" as the label;
                 # otherwise, the case - sensitive ASCII string "SMB2AESCMAC" as the label.
