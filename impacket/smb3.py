@@ -180,6 +180,7 @@ class SMB3:
             'ClientName'               : '',    #
             #GSSoptions (MutualAuth and Delegate)
             'GSSoptions'               : {},
+            'PreauthIntegrityHashValue': a2b_hex(b'0'*128)
         }
 
         self._Session = {
@@ -275,6 +276,13 @@ class SMB3:
         print("SESSION")
         for i in list(self._Session.items()):
             print("%-40s : %s" % i)
+
+    def __UpdateConnectionPreAuthHash(self, data):
+        from Cryptodome.Hash import SHA512
+        calculatedHash =  SHA512.new()
+        calculatedHash.update(self._Connection['PreauthIntegrityHashValue'])
+        calculatedHash.update(data)
+        self._Connection['PreauthIntegrityHashValue'] = calculatedHash.digest()
 
     def __UpdatePreAuthHash(self, data):
         from Cryptodome.Hash import SHA512
@@ -386,6 +394,14 @@ class SMB3:
             elif packet['TreeID'] == 0:
                 packet['Flags'] = SMB2_FLAGS_SIGNED
                 self.signSMB(packet)
+
+        if packet['Command'] is SMB2_NEGOTIATE:
+            data = packet.getData()
+            self.__UpdateConnectionPreAuthHash(data)
+            self._Session['CalculatePreAuthHash'] = False
+
+        if packet['Command'] is SMB2_SESSION_SETUP:
+            self._Session['CalculatePreAuthHash'] = True
 
         if (self._Session['SessionFlags'] & SMB2_SESSION_FLAG_ENCRYPT_DATA) or ( packet['TreeID'] != 0 and self._Session['TreeConnectTable'][packet['TreeID']]['EncryptData'] is True):
             plainText = packet.getData()
@@ -542,7 +558,7 @@ class SMB3:
             if ans.isValidAnswer(STATUS_SUCCESS):
                 negResp = SMB2Negotiate_Response(ans['Data'])
                 if negResp['DialectRevision']  == SMB2_DIALECT_311:
-                    self.__UpdatePreAuthHash(ans.rawData)
+                    self.__UpdateConnectionPreAuthHash(ans.rawData)
 
         self._Connection['MaxTransactSize']   = min(0x100000,negResp['MaxTransactSize'])
         self._Connection['MaxReadSize']       = min(0x100000,negResp['MaxReadSize'])
@@ -722,6 +738,9 @@ class SMB3:
         packet = self.SMB_PACKET()
         packet['Command'] = SMB2_SESSION_SETUP
         packet['Data']    = sessionSetup
+
+        #Initiate session preauth hash
+        self._Session['PreauthIntegrityHashValue'] = self._Connection['PreauthIntegrityHashValue']
 
         packetID = self.sendSMB(packet)
         ans = self.recvSMB(packetID)
