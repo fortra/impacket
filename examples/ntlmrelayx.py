@@ -151,6 +151,7 @@ def start_servers(options, threads):
         c.setLootdir(options.lootdir)
         c.setOutputFile(options.output_file)
         c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.sid)
+        c.setRPCOptions(options.rpc_mode, options.rpc_use_smb, options.auth_smb, options.hashes_smb, options.rpc_smb_port)
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
         c.setIMAPOptions(options.keyword, options.mailbox, options.all, options.imap_max)
@@ -250,15 +251,25 @@ if __name__ == '__main__':
     parser.add_argument('--remove-mic', action='store_true',help='Remove MIC (exploit CVE-2019-1040)')
     parser.add_argument('--serve-image', action='store',help='local path of the image that will we returned to clients')
 
+    parser.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on '
+                        'target system (for SMB and RPC). If not specified for SMB, hashes will be dumped (secretsdump.py must be'
+                        ' in the same directory). For RPC no output will be provided.')
+
     #SMB arguments
     smboptions = parser.add_argument_group("SMB client options")
 
     smboptions.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. '
                                      'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
-    smboptions.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on '
-                        'target system. If not specified, hashes will be dumped (secretsdump.py must be in the same '
-                                                          'directory).')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
+
+    #RPC arguments
+    rpcoptions = parser.add_argument_group("RPC client options")
+    rpcoptions.add_argument('-rpc-mode', choices=["TSCH"], default="TSCH", help='Protocol to attack, only TSCH supported')
+    rpcoptions.add_argument('-rpc-use-smb', action='store_true', required=False, help='Relay DCE/RPC to SMB pipes')
+    rpcoptions.add_argument('-auth-smb', action='store', required=False, default='', metavar='[domain/]username[:password]',
+        help='Use this credential to authenticate to SMB (low-privilege account)')
+    rpcoptions.add_argument('-hashes-smb', action='store', required=False, metavar="LMHASH:NTHASH")
+    rpcoptions.add_argument('-rpc-smb-port', type=int, choices=[139, 445], default=445, help='Destination port to connect to SMB')
 
     #MSSQL arguments
     mssqloptions = parser.add_argument_group("MSSQL client options")
@@ -303,6 +314,10 @@ if __name__ == '__main__':
        options = parser.parse_args()
     except Exception as e:
        logging.error(str(e))
+       sys.exit(1)
+
+    if options.rpc_use_smb and not options.auth_smb:
+       logging.error("Set -auth-smb to relay DCE/RPC to SMB pipes")
        sys.exit(1)
 
     # Init the example's logger theme
