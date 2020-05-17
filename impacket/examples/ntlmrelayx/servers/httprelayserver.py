@@ -141,7 +141,7 @@ class HTTPRelayServer(Thread):
 
             messageType = 0
             if self.headers.getheader('Authorization') is None:
-                self.do_AUTHHEAD(message='NTLM')
+                self.do_AUTHHEAD(message=b'NTLM')
                 pass
             else:
                 typeX = self.headers.getheader('Authorization')
