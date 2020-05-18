@@ -197,8 +197,11 @@ class NDR(object):
 
     @staticmethod
     def calculatePad(fieldType, soFar):
-        if isinstance(fieldType, str) and '=' in fieldType:
-            alignment = calcsize(fieldType.split('=')[0])
+        if isinstance(fieldType, str):
+            try:
+                alignment = calcsize(fieldType.split('=')[0])
+            except:
+                alignment = 0
         else:
             alignment = 0
 
