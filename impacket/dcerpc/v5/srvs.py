@@ -1781,7 +1781,7 @@ class WCHAR_ARRAY(NDRSTRUCT):
         else:
             return NDR.__getitem__(self,key)
 
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return self["ActualCount"]*2 
 
 
@@ -1889,7 +1889,7 @@ class LPSERVER_TRANSPORT_INFO_2_ARRAY(NDRPOINTER):
 
 # 2.2.4.96 SERVER_TRANSPORT_INFO_3
 class PASSWORD_ARRAY(NDRUniFixedArray):
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return 256
 
 class SERVER_TRANSPORT_INFO_3(NDRSTRUCT):

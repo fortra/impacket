@@ -59,8 +59,8 @@ class PCHAR(NDRPOINTER):
     )
 
 class WIDESTR(NDRUniFixedArray):
-    def getDataLen(self, data):
-        return data.find(b'\x00\x00\x00')+3
+    def getDataLen(self, data, offset=0):
+        return data.find(b'\x00\x00\x00', offset)+3-offset
 
     def __setitem__(self, key, value):
         if key == 'Data':
@@ -130,7 +130,7 @@ class STR(NDRSTRUCT):
         else:
             return NDR.__getitem__(self,key)
 
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return self["ActualCount"]
 
 class LPSTR(NDRPOINTER):
@@ -161,7 +161,7 @@ class WSTR(NDRSTRUCT):
         # Here just print the data
         print(" %r" % (self['Data']), end=' ')
 
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return self["ActualCount"]*2 
 
     def __setitem__(self, key, value):
@@ -446,7 +446,7 @@ class DWORD_ARRAY(NDRUniConformantArray):
 class RPC_SID_IDENTIFIER_AUTHORITY(NDRUniFixedArray):
     align = 1
     align64 = 1
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return 6
 
 class RPC_SID(NDRSTRUCT):

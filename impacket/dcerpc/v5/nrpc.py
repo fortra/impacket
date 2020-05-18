@@ -150,7 +150,7 @@ from impacket.dcerpc.v5.lsad import STRING
 
 # 2.2.1.1.3 LM_OWF_PASSWORD
 class CYPHER_BLOCK_ARRAY(NDRUniFixedArray):
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return len(CYPHER_BLOCK())*2
 
 class LM_OWF_PASSWORD(NDRSTRUCT):
@@ -165,7 +165,7 @@ ENCRYPTED_NT_OWF_PASSWORD = NT_OWF_PASSWORD
 # 2.2.1.3.4 NETLOGON_CREDENTIAL
 class UCHAR_FIXED_ARRAY(NDRUniFixedArray):
     align = 1
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return len(CYPHER_BLOCK())
 
 class NETLOGON_CREDENTIAL(NDRSTRUCT):
@@ -338,7 +338,7 @@ class PNETLOGON_WORKSTATION_INFO(NDRPOINTER):
 
 # 2.2.1.3.7 NL_TRUST_PASSWORD
 class WCHAR_ARRAY(NDRUniFixedArray):
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return 512
 
 class NL_TRUST_PASSWORD(NDRSTRUCT):
@@ -449,7 +449,7 @@ class NETLOGON_CAPABILITIES(NDRUNION):
 
 # 2.2.1.3.15 NL_OSVERSIONINFO_V1
 class UCHAR_FIXED_ARRAY(NDRUniFixedArray):
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return 128
 
 class NL_OSVERSIONINFO_V1(NDRSTRUCT):
@@ -515,7 +515,7 @@ class NL_OUT_CHAIN_SET_CLIENT_ATTRIBUTES(NDRUNION):
 
 # 2.2.1.4.1 LM_CHALLENGE
 class CHAR_FIXED_8_ARRAY(NDRUniFixedArray):
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return 8
 
 class LM_CHALLENGE(NDRSTRUCT):
@@ -654,7 +654,7 @@ class PGROUP_MEMBERSHIP_ARRAY(NDRPOINTER):
 
 # 2.2.1.4.11 NETLOGON_VALIDATION_SAM_INFO
 class LONG_ARRAY(NDRUniFixedArray):
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return 4*10
 
 class NETLOGON_VALIDATION_SAM_INFO(NDRSTRUCT):
@@ -1547,7 +1547,7 @@ class NETLOGON_DUMMY1(NDRUNION):
 
 # 3.5.4.8.2 NetrLogonComputeServerDigest (Opnum 24)
 class CHAR_FIXED_16_ARRAY(NDRUniFixedArray):
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return 16
 
 
