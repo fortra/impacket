@@ -1152,8 +1152,7 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
 
         for fieldName, fieldTypeOrClass in structureFields:
             try:
-                size = self.unpack(fieldName, fieldTypeOrClass, data, offset)
-                offset += size
+                offset += self.unpack(fieldName, fieldTypeOrClass, data, offset)
             except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[offset:offset+256]))
