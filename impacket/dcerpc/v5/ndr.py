@@ -1156,7 +1156,7 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
                 offset += size
             except Exception as e:
                 LOG.error(str(e))
-                LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
+                LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[offset:offset+256]))
                 raise
 
         return offset - offset0
