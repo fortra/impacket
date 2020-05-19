@@ -2657,9 +2657,39 @@ class IWbemClassObject(IRemUnknown):
                         packStr = CIM_TYPES_REF[pType][:-2]
 
                     if paramDefinition['type'] & CIM_ARRAY_FLAG:
-                        
                         if inArg is None:
                             valueTable += pack(packStr, 0)
+                        elif pType in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
+                                       CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
+                            arraySize = pack(HEAPREF[:-2], len(inArg))
+                            stringItems = []
+                            for j in range(len(inArg)):
+                                curVal = inArg[j]
+                                strIn = ENCODED_STRING()
+                                if type(curVal) is str:
+                                    # The Encoded-String-Flag is set to 0x01 if the sequence of characters that follows
+                                    # consists of UTF-16 characters (as specified in [UNICODE]) followed by a UTF-16 null
+                                    # terminator.
+                                    strIn['Encoded_String_Flag'] = 0x1
+                                    strIn.structure = strIn.tunicode
+                                    strIn['Character'] = curVal.encode('utf-16le')
+                                else:
+                                    strIn['Character'] = curVal
+                                stringItems.append(strIn)
+
+
+                            curStrHeapPtr = curHeapPtr + 4
+                            arrayItems = b''
+                            stringValueTable = b''
+                            for j in range(len(stringItems)):
+                                stringItem = stringItems[j]
+                                arrayItems += pack('<L', curStrHeapPtr + 4 * (len(stringItems) - j) + len(stringValueTable))
+                                stringValueTable += stringItem.getData()
+                                curStrHeapPtr += 4
+
+                            valueTable += pack('<L', curHeapPtr)
+                            instanceHeap += arraySize + arrayItems + stringValueTable
+                            curHeapPtr = len(instanceHeap)
                         else:
                             # ToDo
                             # Not yet ready
