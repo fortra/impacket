@@ -2662,9 +2662,16 @@ class IWbemClassObject(IRemUnknown):
                         elif pType in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
                                        CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                             arraySize = pack(HEAPREF[:-2], len(inArg))
-                            stringItems = []
+                            arrayItems = []
                             for j in range(len(inArg)):
                                 curVal = inArg[j]
+                                if pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
+                                    curObject = b''
+                                    marshaledObject = curVal.marshalMe()
+                                    curObject += pack('<L', marshaledObject['pObjectData']['ObjectEncodingLength'])
+                                    curObject += marshaledObject['pObjectData']['ObjectBlock'].getData()
+                                    arrayItems.append(curObject)
+                                    continue
                                 strIn = ENCODED_STRING()
                                 if type(curVal) is str:
                                     # The Encoded-String-Flag is set to 0x01 if the sequence of characters that follows
@@ -2675,20 +2682,19 @@ class IWbemClassObject(IRemUnknown):
                                     strIn['Character'] = curVal.encode('utf-16le')
                                 else:
                                     strIn['Character'] = curVal
-                                stringItems.append(strIn)
+                                arrayItems.append(strIn.getData())
 
 
                             curStrHeapPtr = curHeapPtr + 4
-                            arrayItems = b''
-                            stringValueTable = b''
-                            for j in range(len(stringItems)):
-                                stringItem = stringItems[j]
-                                arrayItems += pack('<L', curStrHeapPtr + 4 * (len(stringItems) - j) + len(stringValueTable))
-                                stringValueTable += stringItem.getData()
+                            arrayHeapPtrValues = b''
+                            arrayValueTable = b''
+                            for j in range(len(arrayItems)):
+                                arrayHeapPtrValues += pack('<L', curStrHeapPtr + 4 * (len(arrayItems) - j) + len(arrayValueTable))
+                                arrayValueTable += arrayItems[j]
                                 curStrHeapPtr += 4
 
                             valueTable += pack('<L', curHeapPtr)
-                            instanceHeap += arraySize + arrayItems + stringValueTable
+                            instanceHeap += arraySize + arrayHeapPtrValues + arrayValueTable
                             curHeapPtr = len(instanceHeap)
                         else:
                             # ToDo
@@ -2698,12 +2704,18 @@ class IWbemClassObject(IRemUnknown):
                                        CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                         valueTable += pack(packStr, inArg)
                     elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
-                        # For now we just pack None
-                        valueTable += b'\x00'*4
-                        # The default property value is NULL, and it is 
-                        # inherited from a parent class.
                         if inArg is None:
-                            ndTable |= 3 << (2*i)
+                            # For now we just pack None
+                            valueTable += b'\x00' * 4
+                            # The default property value is NULL, and it is
+                            # inherited from a parent class.
+                            ndTable |= 3 << (2 * i)
+                        else:
+                            valueTable += pack('<L', curHeapPtr)
+                            marshaledObject = inArg.marshalMe()
+                            instanceHeap += pack('<L', marshaledObject['pObjectData']['ObjectEncodingLength'])
+                            instanceHeap += marshaledObject['pObjectData']['ObjectBlock'].getData()
+                            curHeapPtr = len(instanceHeap)
                     else:
                         strIn = ENCODED_STRING()
                         if type(inArg) is str:
