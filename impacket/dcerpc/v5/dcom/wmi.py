@@ -2697,9 +2697,12 @@ class IWbemClassObject(IRemUnknown):
                             instanceHeap += arraySize + arrayHeapPtrValues + arrayValueTable
                             curHeapPtr = len(instanceHeap)
                         else:
-                            # ToDo
-                            # Not yet ready
-                            raise Exception('inArg not None')
+                            arraySize = pack(HEAPREF[:-2], len(inArg))
+                            valueTable += pack('<L', curHeapPtr)
+                            instanceHeap += arraySize
+                            for curVal in inArg:
+                                instanceHeap += pack(packStr, curVal)
+                            curHeapPtr = len(instanceHeap)
                     elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
                                        CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                         valueTable += pack(packStr, inArg)
