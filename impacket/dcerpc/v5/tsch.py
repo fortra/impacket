@@ -734,7 +734,7 @@ def hSchRpcStopInstance(dce, guid, flags = 0):
 
 def hSchRpcStop(dce, path, flags = 0):
     schRpcStop= SchRpcStop()
-    schRpcStop['path'] = path
+    schRpcStop['path'] = checkNullString(path)
     schRpcStop['flags'] = flags
     return dce.request(schRpcStop)
 
