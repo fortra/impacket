@@ -2388,6 +2388,7 @@ class IWbemClassObject(IRemUnknown):
 
             if propRecord['type'] & CIM_ARRAY_FLAG:
                 if itemValue is None:
+                    ndTable |= 2 << (2*i)
                     valueTable += pack(packStr, 0)
                 else:
                     valueTable += pack('<L', curHeapPtr)
@@ -2398,22 +2399,36 @@ class IWbemClassObject(IRemUnknown):
                         arrayItems += pack(packStrArray, itemValue[j])
                     instanceHeap += arraySize + arrayItems
                     curHeapPtr = len(instanceHeap)
+            elif pType in (CIM_TYPE_ENUM.CIM_TYPE_UINT8.value, CIM_TYPE_ENUM.CIM_TYPE_UINT16.value,
+                           CIM_TYPE_ENUM.CIM_TYPE_UINT32.value, CIM_TYPE_ENUM.CIM_TYPE_UINT64.value):
+                if itemValue is None:
+                    ndTable |= 2 << (2 * i)
+                    valueTable += pack(packStr, 0)
+                else:
+                    valueTable += pack(packStr, int(itemValue))
+            elif pType in (CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value,):
+                if itemValue is None:
+                    ndTable |= 2 << (2 * i)
+                    valueTable += pack(packStr, False)
+                else:
+                    valueTable += pack(packStr, bool(itemValue))
             elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
                                CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                 if itemValue is None:
+                    ndTable |= 2 << (2 * i)
                     valueTable += pack(packStr, -1)
                 else:
                     valueTable += pack(packStr, itemValue)
             elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
                 # For now we just pack None
                 valueTable += b'\x00'*4
-                # The default property value is NULL, and it is 
+                # The default property value is NULL, and it is
                 # inherited from a parent class.
                 if itemValue is None:
                     ndTable |= 3 << (2*i)
             else:
                 if itemValue == '':
-                    ndTable |= 1 << (2*i)
+                    ndTable |= 2 << (2*i)
                     valueTable += pack('<L', 0)
                 else:
                     strIn = ENCODED_STRING()
