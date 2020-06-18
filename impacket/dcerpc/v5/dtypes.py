@@ -463,7 +463,6 @@ class RPC_SID(NDRSTRUCT):
     def fromCanonical(self, canonical):
         items = canonical.split('-')
         self['Revision'] = int(items[1])
-        self['IdentifierAuthority'] = RPC_SID_IDENTIFIER_AUTHORITY()
         self['IdentifierAuthority'] = b'\x00\x00\x00\x00\x00' + pack('B',int(items[2]))
         self['SubAuthorityCount'] = len(items) - 3
         for i in range(self['SubAuthorityCount']):
