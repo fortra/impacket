@@ -189,7 +189,7 @@ https://msdn.microsoft.com/en-us/library/cc230294.aspx
 class ACCESS_MASK(Structure):
     # Flag constants
     GENERIC_READ            = 0x80000000
-    GENERIC_WRITE           = 0x04000000
+    GENERIC_WRITE           = 0x40000000
     GENERIC_EXECUTE         = 0x20000000
     GENERIC_ALL             = 0x10000000
     MAXIMUM_ALLOWED         = 0x02000000
