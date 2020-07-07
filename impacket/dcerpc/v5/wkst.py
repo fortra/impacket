@@ -467,11 +467,11 @@ class WKSTA_TRANSPORT_ENUM_STRUCT(NDRSTRUCT):
 
 # 2.2.5.17 JOINPR_USER_PASSWORD
 class WCHAR_ARRAY(WIDESTR):
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return JOIN_MAX_PASSWORD_LENGTH
 
 class CHAR_ARRAY(NDRUniFixedArray):
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return JOIN_OBFUSCATOR_LENGTH
 
 class JOINPR_USER_PASSWORD(NDRSTRUCT):
