@@ -105,7 +105,15 @@ RTS_CMD_PING_TRAFFIC_SENT_NOTIFY = 0x0000000E
 # 2.2.3.1 RTS Cookie
 class RTSCookie(Structure):
     structure = (
-        ('Cookie','16s=b"\x00"*16'),
+        ('Cookie','16s=b"\\x00"*16'),
+    )
+
+# 2.2.3.2 Client Address
+class EncodedClientAddress(Structure):
+    structure = (
+        ('AddressType','<L=(0 if len(ClientAddress) == 4 else 1)'),
+        ('ClientAddress','*(4 if AddressType == 0 else 16)'),
+        ('Padding',':','16s=b"\\x00"*16'),
     )
 
 # 2.2.3.4 Flow Control Acknowledgment
@@ -177,7 +185,32 @@ class Empty(Structure):
         ('CommandType','<L=7'),
     )
 
-# ...
+# 2.2.3.5.9 Padding
+class Padding(Structure):
+    structure = (
+        ('CommandType','<L=8'),
+        ('ConformanceCount','<L=len(Padding)'),
+        ('Padding','*ConformanceCount'),
+    )
+
+# 2.2.3.5.10 NegativeANCE
+class NegativeANCE(Structure):
+    structure = (
+        ('CommandType','<L=9'),
+    )
+
+# 2.2.3.5.11 ANCE
+class ANCE(Structure):
+    structure = (
+        ('CommandType','<L=0xA'),
+    )
+
+# 2.2.3.5.12 ClientAddress
+class ClientAddress(Structure):
+    structure = (
+        ('CommandType','<L=0xB'),
+        ('ClientAddress',EncodedClientAddress),
+    )
 
 # 2.2.3.5.13 AssociationGroupId
 class AssociationGroupId(Structure):
@@ -200,7 +233,28 @@ class PingTrafficSentNotify(Structure):
         ('PingTrafficSent','<L'),
     )
 
+COMMANDS = {
+    0x0: ReceiveWindowSize,
+    0x1: FlowControlAck,
+    0x2: ConnectionTimeout,
+    0x3: Cookie,
+    0x4: ChannelLifetime,
+    0x5: ClientKeepalive,
+    0x6: Version,
+    0x7: Empty,
+    0x8: Padding,
+    0x9: NegativeANCE,
+    0xA: ANCE,
+    0xB: ClientAddress,
+    0xC: AssociationGroupId,
+    0xD: Destination,
+    0xE: PingTrafficSentNotify,
+}
+
 # 2.2.3.6.1 RTS PDU Header
+# The RTS PDU Header has the same layout as the common header of
+# the connection-oriented RPC PDU as specified in [C706] section 12.6.1,
+# with a few additional requirements around the contents of the header fields.
 class RTSHeader(MSRPCHeader):
     _SIZE = 20
     commonHdr = MSRPCHeader.commonHdr + (
@@ -261,10 +315,17 @@ class CONN_C2_RTS_PDU(Structure):
         ('ConnectionTimeout',':',ConnectionTimeout),
     )
 
+# 2.2.4.51 FlowControlAckWithDestination RTS PDU
+class FlowControlAckWithDestination_RTS_PDU(Structure):
+    structure = (
+        ('Destination',':',Destination),
+        ('FlowControlAck',':',FlowControlAck),
+    )
+
 ################################################################################
 # HELPERS
 ################################################################################
-def hCONN_A1(virtualConnectionCookie=EMPTY_UUID, outChannelCookie=EMPTY_UUID):
+def hCONN_A1(virtualConnectionCookie=EMPTY_UUID, outChannelCookie=EMPTY_UUID, receiveWindowSize=262144):
     conn_a1 = CONN_A1_RTS_PDU()
     conn_a1['Version'] = Version()
     conn_a1['VirtualConnectionCookie'] = Cookie()
@@ -272,6 +333,7 @@ def hCONN_A1(virtualConnectionCookie=EMPTY_UUID, outChannelCookie=EMPTY_UUID):
     conn_a1['OutChannelCookie'] = Cookie()
     conn_a1['OutChannelCookie']['Cookie'] = outChannelCookie
     conn_a1['ReceiveWindowSize'] = ReceiveWindowSize()
+    conn_a1['ReceiveWindowSize']['ReceiveWindowSize'] = receiveWindowSize
 
     packet = RTSHeader()
     packet['Flags'] = RTS_FLAG_NONE
@@ -300,10 +362,35 @@ def hCONN_B1(virtualConnectionCookie=EMPTY_UUID, inChannelCookie=EMPTY_UUID, ass
 
     return packet.getData()
 
+def hFlowControlAckWithDestination(destination, bytesReceived, availableWindow, channelCookie):
+    rts_pdu = FlowControlAckWithDestination_RTS_PDU()
+    rts_pdu['Destination'] = Destination()
+    rts_pdu['Destination']['Destination'] = destination
+    rts_pdu['FlowControlAck'] = FlowControlAck()
+    rts_pdu['FlowControlAck']['Ack'] = Ack()
+    rts_pdu['FlowControlAck']['Ack']['BytesReceived'] = bytesReceived
+    rts_pdu['FlowControlAck']['Ack']['AvailableWindow'] = availableWindow
+
+    # Cookie of the channel for which the traffic received is being acknowledged
+    rts_pdu['FlowControlAck']['Ack']['ChannelCookie'] = RTSCookie()
+    rts_pdu['FlowControlAck']['Ack']['ChannelCookie']['Cookie'] = channelCookie
+
+    packet = RTSHeader()
+    packet['Flags'] = RTS_FLAG_OTHER_CMD
+    packet['NumberOfCommands'] = len(rts_pdu.structure)
+    packet['pduData'] = rts_pdu.getData()
+
+    return packet.getData()
+
+def hPing():
+    packet = RTSHeader()
+    packet['Flags'] = RTS_FLAG_PING
+
+    return packet.getData()
+
 ################################################################################
 # CLASSES
 ################################################################################
-
 class RPCProxyClient:
     default_headers = {'User-Agent'   : 'MSRPC',
                        'Cache-Control': 'no-cache',
