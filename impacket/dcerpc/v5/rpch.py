@@ -22,7 +22,7 @@ try:
 except ImportError:
     from httplib import HTTPConnection, HTTPSConnection
 
-from impacket import ntlm, system_errors
+from impacket import ntlm, system_errors, nt_errors
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 
 from impacket import uuid
@@ -50,7 +50,10 @@ class RPCProxyClientException(DCERPCException):
             key = self.error_code
             if key in system_errors.ERROR_MESSAGES:
                 error_msg_short = system_errors.ERROR_MESSAGES[key][0]
-                return '%s, code: 0x%x - %s ' % (self.error_string, self.error_code, error_msg_short)
+                return '%s, code: 0x%x - %s' % (self.error_string, self.error_code, error_msg_short)
+            elif key in nt_errors.ERROR_MESSAGES:
+                error_msg_short = nt_errors.ERROR_MESSAGES[key][0]
+                return '%s, code: 0x%x - %s' % (self.error_string, self.error_code, error_msg_short)
             else:
                 return '%s: unknown code: 0x%x' % (self.error_string, self.error_code)
         else:
