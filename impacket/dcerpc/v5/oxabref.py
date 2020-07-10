@@ -38,14 +38,14 @@ class DCERPCSessionError(DCERPCException):
 ################################################################################
 # STRUCTURES
 ################################################################################
-class PUCHAR_ARRAY2(NDRPOINTER):
+class PUCHAR_ARRAY(NDRPOINTER):
     referent = (
         ('Data', STR),
     )
 
-class PPUCHAR_ARRAY2(NDRPOINTER):
+class PPUCHAR_ARRAY(NDRPOINTER):
     referent = (
-        ('Data', PUCHAR_ARRAY2),
+        ('Data', PUCHAR_ARRAY),
     )
 
 ################################################################################
@@ -58,14 +58,14 @@ class RfrGetNewDSA(NDRCALL):
     structure = (
        ('ulFlags', ULONG),
        ('pUserDN', STR),
-       ('ppszUnused', PPUCHAR_ARRAY2),
-       ('ppszServer', PPUCHAR_ARRAY2),
+       ('ppszUnused', PPUCHAR_ARRAY),
+       ('ppszServer', PPUCHAR_ARRAY),
     )
 
 class RfrGetNewDSAResponse(NDRCALL):
     structure = (
-       ('ppszUnused', PPUCHAR_ARRAY2),
-       ('ppszServer', PPUCHAR_ARRAY2),
+       ('ppszUnused', PPUCHAR_ARRAY),
+       ('ppszServer', PPUCHAR_ARRAY),
     )
 
 # 3.1.4.2 RfrGetFQDNFromServerDN (opnum 1)
@@ -79,7 +79,7 @@ class RfrGetFQDNFromServerDN(NDRCALL):
 
 class RfrGetFQDNFromServerDNResponse(NDRCALL):
     structure = (
-       ('ppszServerFQDN', PUCHAR_ARRAY2),
+       ('ppszServerFQDN', PUCHAR_ARRAY),
        ('ErrorCode', ULONG),
     )
 
