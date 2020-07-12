@@ -12,23 +12,17 @@
 #
 
 import re
-import ssl
-import socket
-import base64
 import binascii
+from struct import unpack
 
-try:
-    from http.client import HTTPConnection, HTTPSConnection
-except ImportError:
-    from httplib import HTTPConnection, HTTPSConnection
-
-from impacket import ntlm, system_errors, nt_errors
+from impacket import uuid, ntlm, system_errors, nt_errors, LOG
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 
-from impacket import uuid
 from impacket.uuid import EMPTY_UUID
+from impacket.http import HTTPClientSecurityProvider, AUTH_BASIC
 from impacket.structure import Structure
-from impacket.dcerpc.v5.rpcrt import MSRPCHeader, MSRPC_RTS, PFC_FIRST_FRAG, PFC_LAST_FRAG
+from impacket.dcerpc.v5.rpcrt import MSRPCHeader, \
+    MSRPC_RTS, PFC_FIRST_FRAG, PFC_LAST_FRAG
 
 class RPCProxyClientException(DCERPCException):
     parser = re.compile(r'RPC Error: ([a-fA-F0-9]{1,8})')
@@ -65,6 +59,21 @@ class RPCProxyClientException(DCERPCException):
 
 RPC_OVER_HTTP_v1 = 1
 RPC_OVER_HTTP_v2 = 2
+
+# Errors which might need handling
+
+# RPCProxyClient internal errors
+RPC_PROXY_REMOTE_NAME_NEEDED_ERR = 'Basic authentication in RPC proxy is used, ' \
+                                   'so coudn\'t obtain a target NetBIOS name from NTLMSSP to connect.'
+
+# Errors below contain a part of server responses
+RPC_PROXY_INVALID_RPC_PORT_ERR = 'Invalid RPC Port'
+RPC_PROXY_CONN_A1_0X6BA_ERR    = 'RPC Proxy CONN/A1 request failed, code: 0x6ba'
+RPC_PROXY_CONN_A1_404_ERR      = 'CONN/A1 request failed: HTTP/1.1 404 Not Found'
+RPC_PROXY_RPC_OUT_DATA_404_ERR = 'RPC_OUT_DATA channel: HTTP/1.1 404 Not Found'
+RPC_PROXY_CONN_A1_401_ERR      = 'CONN/A1 request failed: HTTP/1.1 401 Unauthorized'
+RPC_PROXY_HTTP_IN_DATA_401_ERR = 'RPC_IN_DATA channel: HTTP/1.1 401 Unauthorized'
+
 
 # 2.2.3.3 Forward Destinations
 FDClient   = 0x00000000
@@ -391,7 +400,8 @@ def hPing():
 ################################################################################
 # CLASSES
 ################################################################################
-class RPCProxyClient:
+class RPCProxyClient(HTTPClientSecurityProvider):
+    RECV_SIZE = 8192
     default_headers = {'User-Agent'   : 'MSRPC',
                        'Cache-Control': 'no-cache',
                        'Connection'   : 'Keep-Alive',
@@ -401,43 +411,42 @@ class RPCProxyClient:
                       }
 
     def __init__(self, remoteName=None, dstport=593):
+        HTTPClientSecurityProvider.__init__(self)
         self.__remoteName  = remoteName
         self.__dstport     = dstport
-        self.__domain      = ''
-        self.__lmhash      = ''
-        self.__nthash      = ''
-        self.__username    = ''
-        self.__password    = ''
+
+        # Chosen auth type
+        self.__auth_type = None
+
+        self.init_state()
+
+    def init_state(self):
         self.__channels    = {}
-        self.__ntlmssp_info = None
 
         self.__inChannelCookie         = uuid.generate()
         self.__outChannelCookie        = uuid.generate()
         self.__associationGroupId      = uuid.generate()
         self.__virtualConnectionCookie = uuid.generate()
 
+        self.__serverConnectionTimeout = None
+        self.__serverReceiveWindowSize = None
+        self.__availableWindowAdvertised = 262144 # 256k
+        self.__receiverAvailableWindow = self.__availableWindowAdvertised
+        self.__bytesReceived = 0
+
         self.__serverChunked = False
-        self.__serverReceiveWindowSize = 262144 # 256k
+        self.__readBuffer = b''
+        self.__chunkLeft = 0
+
+        self.rts_ping_received = False
 
     def set_proxy_credentials(self, username, password, domain='', lmhash='', nthash=''):
-        self.__username = username
-        self.__password = password
-        self.__domain   = domain
-        if lmhash != '' or nthash != '':
-            if len(lmhash) % 2:
-                lmhash = '0%s' % lmhash
-            if len(nthash) % 2:
-                nthash = '0%s' % nthash
-            try: # just in case they were converted already
-                self.__lmhash = binascii.unhexlify(lmhash)
-                self.__nthash = binascii.unhexlify(nthash)
-            except:
-                self.__lmhash = lmhash
-                self.__nthash = nthash
-                pass
+        LOG.error("DeprecationWarning: Call to deprecated method set_proxy_credentials (use set_credentials).")
+        self.set_credentials(username, password, domain, lmhash, nthash)
 
-    def get_ntlmssp_info(self):
-        return self.__ntlmssp_info
+    def set_credentials(self, username, password, domain='', lmhash='', nthash='', aesKey='', TGT=None, TGS=None):
+        HTTPClientSecurityProvider.set_credentials(self, username, password,
+            domain, lmhash, nthash, aesKey, TGT, TGS)
 
     def create_rpc_in_channel(self):
         headers = self.default_headers.copy()
@@ -452,86 +461,80 @@ class RPCProxyClient:
         self.create_channel('RPC_OUT_DATA', headers)
 
     def create_channel(self, method, headers):
-        if self._rpcProxyUrl.scheme == 'http':
-            self.__channels[method] = HTTPConnection(self._rpcProxyUrl.netloc)
-        else:
-            try:
-                uv_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-                self.__channels[method] = HTTPSConnection(self._rpcProxyUrl.netloc, context=uv_context)
-            except AttributeError:
-                self.__channels[method] = HTTPSConnection(self._rpcProxyUrl.netloc)
+        self.__channels[method] = HTTPClientSecurityProvider.connect(self, self._rpcProxyUrl.scheme,
+                                    self._rpcProxyUrl.netloc)
 
-        auth = ntlm.getNTLMSSPType1(domain=self.__domain)
-        auth_headers = headers.copy()
-        auth_headers['Content-Length'] = '0'
-        auth_headers['Authorization']  = b'NTLM ' + base64.b64encode(auth.getData())
+        auth_headers = HTTPClientSecurityProvider.get_auth_headers(self, self.__channels[method],
+                           method, self._rpcProxyUrl.path, headers)[0]
 
-        self.__channels[method].request(method, self._rpcProxyUrl.path, headers=auth_headers)
+        headers_final = {}
+        headers_final.update(headers)
+        headers_final.update(auth_headers)
 
-        res = self.__channels[method].getresponse()
-        res.read()
+        self.__auth_type = HTTPClientSecurityProvider.get_auth_type(self)
 
-        if res.status != 401:
-            raise RPCProxyClientException('Status code returned: %d. Authentication does not seem required for url %s'
-                                  % (res.status, self._rpcProxyUrl.path))
-
-        if res.getheader('WWW-Authenticate') is None:
-            raise RPCProxyClientException('No authentication requested by the server for url %s' % self._rpcProxyUrl.path)
-
-        if 'NTLM' not in res.getheader('WWW-Authenticate'):
-            raise RPCProxyClientException('NTLM Auth not offered by URL, offered protocols: %s' % res.getheader('WWW-Authenticate'))
-
-        try:
-            serverChallengeBase64 = re.search('NTLM ([a-zA-Z0-9+/]+={0,2})', res.getheader('WWW-Authenticate')).group(1)
-            serverChallenge = base64.b64decode(serverChallengeBase64)
-        except (IndexError, KeyError, AttributeError):
-            raise RPCProxyClientException('No NTLM challenge returned from server for url %s' % self._rpcProxyUrl.path)
-
-        # Default ACL in HKLM\SOFTWARE\Microsoft\Rpc\ValidPorts allows connections only by NetBIOS name of the server.
-        # If remoteName is empty we assume the target is the rpcproxy server, and get its NetBIOS name from NTLMSSP.
-        #
-        # Interestingly, if Administrator renames the server, the ACL remains the original.
-        if not self.__ntlmssp_info:
-            challenge = ntlm.NTLMAuthChallenge(serverChallenge)
-            self.__ntlmssp_info = ntlm.AV_PAIRS(challenge['TargetInfoFields'])
+        # TODO: Add a complete description for this code
+        if not self.__remoteName and self.__auth_type == AUTH_BASIC:
+            raise RPCProxyClientException(RPC_PROXY_REMOTE_NAME_NEEDED_ERR)
 
         if not self.__remoteName:
-            self.__remoteName = self.__ntlmssp_info[ntlm.NTLMSSP_AV_HOSTNAME][1].decode('utf-16le')
+            ntlmssp = self.get_ntlmssp_info()
+            self.__remoteName = ntlmssp[ntlm.NTLMSSP_AV_HOSTNAME][1].decode('utf-16le')
             self._stringbinding.set_network_address(self.__remoteName)
+            LOG.debug('StringBinding has been changed to %s' % self._stringbinding)
 
         if not self._rpcProxyUrl.query:
             query = self.__remoteName + ':' + str(self.__dstport)
             self._rpcProxyUrl = self._rpcProxyUrl._replace(query=query)
 
-        type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, serverChallenge, self.__username, self.__password,
-                                                             self.__domain, self.__lmhash, self.__nthash)
+        path = self._rpcProxyUrl.path + '?' + self._rpcProxyUrl.query
 
-        headers['Authorization']  = b'NTLM ' + base64.b64encode(type3.getData())
+        self.__channels[method].request(method, path, headers=headers_final)
+        self._read_100_continue(method)
 
-        self.__channels[method].request(method, self._rpcProxyUrl.path + '?' + self._rpcProxyUrl.query, headers=headers)
+    def _read_100_continue(self, method):
+        resp = self.__channels[method].sock.recv(self.RECV_SIZE)
 
-        auth_resp = self.__channels[method].sock.recv(8192)
+        while resp.find(b'\r\n\r\n') == -1:
+            resp += self.__channels[method].sock.recv(self.RECV_SIZE)
 
-        if auth_resp != b'HTTP/1.1 100 Continue\r\n\r\n':
+        # Continue responses can have multiple lines, for example:
+        #
+        # HTTP/1.1 100 Continue
+        # Via: 1.1 FIREWALL1
+        #
+        # Don't expect the response to contain "100 Continue\r\n\r\n"
+        if resp[9:23] != b'100 Continue\r\n':
             try:
-                auth_resp = auth_resp.split(b'\r\n')[0].decode("utf-8", errors='replace')
-                raise RPCProxyClientException('RPC Proxy authentication failed in %s channel' % method, proxy_error=auth_resp)
+                # The server (IIS) may return localized error messages in
+                # the first line. Tests shown they are in UTF-8.
+                resp = resp.split(b'\r\n')[0].decode("UTF-8", errors='replace')
+
+                raise RPCProxyClientException('RPC Proxy Client: %s authentication failed in %s channel' %
+                    (self.__auth_type, method), proxy_error=resp)
             except (IndexError, KeyError, AttributeError):
-                raise RPCProxyClientException('RPC Proxy authentication failed in %s channel' % method)
+                raise RPCProxyClientException('RPC Proxy Client: %s authentication failed in %s channel' %
+                    (self.__auth_type, method))
 
     def create_tunnel(self):
         # 3.2.1.5.3.1 Connection Establishment
-        packet = hCONN_A1(self.__virtualConnectionCookie, self.__outChannelCookie)
+        packet = hCONN_A1(self.__virtualConnectionCookie, self.__outChannelCookie, self.__availableWindowAdvertised)
         self.get_socket_out().send(packet)
 
         packet = hCONN_B1(self.__virtualConnectionCookie, self.__inChannelCookie, self.__associationGroupId)
         self.get_socket_in().send(packet)
 
-        resp = self.get_socket_out().recv(8192)
+        resp = self.get_socket_out().recv(self.RECV_SIZE)
+
+        while resp.find(b'\r\n\r\n') == -1:
+            resp += self.get_socket_out().recv(self.RECV_SIZE)
 
         if resp[9:12] != b'200':
             try:
-                resp = resp.split(b'\r\n')[0].decode("utf-8", errors='replace')
+                # The server (IIS) may return localized error messages in
+                # the first line. Tests shown they are in UTF-8.
+                resp = resp.split(b'\r\n')[0].decode("UTF-8", errors='replace')
+
                 raise RPCProxyClientException('RPC Proxy CONN/A1 request failed', proxy_error=resp)
             except (IndexError, KeyError, AttributeError):
                 raise RPCProxyClientException('RPC Proxy CONN/A1 request failed')
@@ -539,20 +542,19 @@ class RPCProxyClient:
         if b'Transfer-Encoding: chunked' in resp:
             self.__serverChunked = True
 
-        resp_body = resp[resp.find(b'\r\n\r\n') + 4:]
+        # If the body is here, let's send it to rpc_out_recv1()
+        self.__readBuffer = resp[resp.find(b'\r\n\r\n') + 4:]
 
-        # Recieving CONN/A3
-        if len(resp_body) > 0:
-            # CONN/A3 is already received
-            pass
-        else:
-            conn_a3_rpc = self.recv()
+        # Recieving and parsing CONN/A3
+        conn_a3_rpc = self.rpc_out_read_pkt()
+        conn_a3_pdu = RTSHeader(conn_a3_rpc)['pduData']
+        conn_a3 = CONN_A3_RTS_PDU(conn_a3_pdu)
+        self.__serverConnectionTimeout = conn_a3['ConnectionTimeout']['ConnectionTimeout']
 
         # Recieving and parsing CONN/C2
-        conn_c2_rpc = self.recv()
+        conn_c2_rpc = self.rpc_out_read_pkt()
         conn_c2_pdu = RTSHeader(conn_c2_rpc)['pduData']
         conn_c2 = CONN_C2_RTS_PDU(conn_c2_pdu)
-
         self.__serverReceiveWindowSize = conn_c2['ReceiveWindowSize']['ReceiveWindowSize']
 
     def get_socket_in(self):
@@ -567,43 +569,201 @@ class RPCProxyClient:
     def close_rpc_out_channel(self):
         return self.__channels['RPC_OUT_DATA'].close()
 
-    def rpc_out_recv1(self, amt=None):
-        sock = self.get_socket_out()
-        buffer = sock.recv(amt)
-
+    def check_http_error(self, buffer):
         if buffer[:22] == b'HTTP/1.0 503 RPC Error':
             raise RPCProxyClientException('RPC Proxy request failed', proxy_error=buffer)
 
+    def rpc_out_recv1(self, amt=None):
+        # Read with at most one underlying system call.
+        # The function MUST return the maximum amt bytes.
+        #
+        # Strictly speaking, it may cause more than one read,
+        # but that is ok, since that is to satisfy the chunked protocol.
+        sock = self.get_socket_out()
+
         if self.__serverChunked is False:
-            return buffer
+            if len(self.__readBuffer) > 0:
+                buffer = self.__readBuffer
+                self.__readBuffer = b''
+            else:
+                # Let's read RECV_SIZE bytes and not amt bytes.
+                # We would need to check the answer for HTTP errors, as
+                # they can just appear in the middle of the stream.
+                buffer = sock.recv(self.RECV_SIZE)
+
+            self.check_http_error(buffer)
+
+            if len(buffer) <= amt:
+                return buffer
+
+            # We received more than we need
+            self.__readBuffer = buffer[amt:]
+            return buffer[:amt]
+
+        # Check if the previous chunk is still there
+        if self.__chunkLeft > 0:
+            # If the previous chunk is still there,
+            # just give the caller what we already have
+            if amt >= self.__chunkLeft:
+                buffer = self.__readBuffer[:self.__chunkLeft]
+                # We may have recieved a part of a new chunk
+                self.__readBuffer = self.__readBuffer[self.__chunkLeft + 2:]
+                self.__chunkLeft = 0
+
+                return buffer
+            else:
+                buffer = self.__readBuffer[:amt]
+                self.__readBuffer = self.__readBuffer[amt:]
+                self.__chunkLeft -= amt
+
+                return buffer
+
+        # Let's start to process a new chunk
+        buffer = self.__readBuffer
+        self.__readBuffer = b''
+
+        self.check_http_error(buffer)
+
+        # Let's receive a chunk size field which ends with CRLF
+        # For Microsoft TMG 2010 it can cause more than one read
+        while buffer.find(b'\r\n') == -1:
+            buffer += sock.recv(self.RECV_SIZE)
+            self.check_http_error(buffer)
+
+        chunksize = int(buffer[:buffer.find(b'\r\n')], 16)
+        buffer = buffer[buffer.find(b'\r\n') + 2:]
+
+        # Let's read at least our chunk including final CRLF
+        while len(buffer) - 2 < chunksize:
+            buffer += sock.recv(chunksize - len(buffer) + 2)
+
+        # We should not be using any information from
+        # the TCP level to determine HTTP boundaries.
+        # So, we may have received more than we need.
+        if len(buffer) - 2 > chunksize:
+            self.__readBuffer = buffer[chunksize + 2:]
+            buffer = buffer[:chunksize + 2]
+
+        # Checking the amt
+        if len(buffer) - 2 > amt:
+            self.__chunkLeft = chunksize - amt
+            # We may have recieved a part of a new chunk before,
+            # so the concatenation is crucual
+            self.__readBuffer = buffer[amt:] + self.__readBuffer
+
+            return buffer[:amt]
         else:
-            chunksize = int(buffer[:buffer.find(b'\r\n')], 16)
-            buffer = buffer[buffer.find(b'\r\n') + 2:]
-
-            while len(buffer) - 2 < chunksize:
-                buffer += sock.recv(chunksize - len(buffer) + 2)
-
+            # Removing CRLF
             return buffer[:-2]
 
     def send(self, data, forceWriteAndx=0, forceRecv=0):
-        sock_in = self.get_socket_in()
-        offset = 0
-        while 1:
-            toSend = data[offset:offset+self.__serverReceiveWindowSize]
-            if not toSend:
-                break
-            sock_in.send(toSend)
-            offset += len(toSend)
+        # We don't use chunked encoding for IN channel as
+        # Microsoft software is developed this way.
+        # If you do this, it may fail.
+        self.get_socket_in().send(data)
+
+    def rpc_out_read_pkt(self, handle_rts=False):
+        while True:
+            response_data = b''
+
+            # Let's receive common RPC header and no more
+            #
+            # C706
+            # 12.4 Common Fields
+            # Header encodings differ between connectionless and connection-oriented PDUs.
+            # However, certain fields use common sets of values with a consistent
+            # interpretation across the two protocols.
+            #
+            # This MUST recv MSRPCHeader._SIZE bytes, and not MSRPCRespHeader._SIZE bytes!
+            #
+            while len(response_data) < MSRPCHeader._SIZE:
+                response_data += self.rpc_out_recv1(MSRPCHeader._SIZE - len(response_data))
+
+            response_header = MSRPCHeader(response_data)
+
+            # frag_len contains the full length of the packet for both
+            # MSRPC and RTS
+            frag_len = response_header['frag_len']
+
+            # Receiving the full pkt and no more
+            while len(response_data) < frag_len:
+               response_data += self.rpc_out_recv1(frag_len - len(response_data))
+
+            # We need to do the Flow Control procedures
+            #
+            # 3.2.1.1.4
+            # This protocol specifies that only RPC PDUs are subject to the flow control abstract data
+            # model. RTS PDUs and the HTTP request and response headers are not subject to flow control.
+            if response_header['type'] != MSRPC_RTS:
+                self.flow_control(frag_len)
+
+            if handle_rts is True and response_header['type'] == MSRPC_RTS:
+                self.handle_out_of_sequence_rts(response_data)
+            else:
+                return response_data
 
     def recv(self, forceRecv=0, count=0):
-        if count:
-            buffer = b''
-            while len(buffer) < count:
-                buffer += self.rpc_out_recv1(count-len(buffer))
-        else:
-            buffer = self.rpc_out_recv1(8192)
+        return self.rpc_out_read_pkt(handle_rts=True)
 
-        return buffer
+    def handle_out_of_sequence_rts(self, response_data):
+        packet = RTSHeader(response_data)
+
+        #print("=========== RTS PKT ===========")
+        #print("RAW: %s" % binascii.hexlify(response_data))
+        #packet.dump()
+        #
+        #pduData = packet['pduData']
+        #numberOfCommands = packet['NumberOfCommands']
+        #
+        #server_cmds = []
+        #while numberOfCommands > 0:
+        #    numberOfCommands -= 1
+        #
+        #    cmd_type = unpack('<L', pduData[:4])[0]
+        #    cmd = COMMANDS[cmd_type](pduData)
+        #    server_cmds.append(cmd)
+        #    pduData = pduData[len(cmd):]
+        #
+        #for cmd in server_cmds:
+        #    cmd.dump()
+        #print("=========== / RTS PKT ===========")
+
+        # 2.2.4.49 Ping RTS PDU
+        if packet['Flags'] == RTS_FLAG_PING:
+            # 3.2.1.2.1 PingTimer
+            #
+            # If the SendingChannel is part of a Virtual Connection in the Outbound Proxy or Client roles, the
+            # SendingChannel maintains a PingTimer that on expiration indicates a PING PDU must be sent to the
+            # receiving channel. The PING PDU is sent to the receiving channel when no data has been sent within
+            # half of the value of the KeepAliveInterval.
+
+            # As we do not do long-term connections with no data transfer,
+            # it means something on the server-side is going wrong.
+            self.rts_ping_received = True
+            LOG.error("Ping RTS PDU packet received. Is the RPC Server alive?")
+
+            # Just in case it's a long operation, let's send PING PDU to IN Channel like in xfreerdp
+            # It's better to send more than one PING packet as it only 20 bytes long
+            packet = hPing()
+            self.send(packet)
+            self.send(packet)
+        # 2.2.4.24 OUT_R1/A2 RTS PDU
+        elif packet['Flags'] == RTS_FLAG_RECYCLE_CHANNEL:
+            raise RPCProxyClientException("The server requested recycling of a virtual OUT channel, " \
+                "but this function is not supported!")
+        # Ignore all other messages, most probably flow control acknowledgments
+        else:
+            pass
+
+    def flow_control(self, frag_len):
+        self.__bytesReceived += frag_len
+        self.__receiverAvailableWindow -= frag_len
+
+        if (self.__receiverAvailableWindow < self.__availableWindowAdvertised // 2):
+            self.__receiverAvailableWindow = self.__availableWindowAdvertised
+            packet = hFlowControlAckWithDestination(FDOutProxy, self.__bytesReceived,
+                self.__availableWindowAdvertised, self.__outChannelCookie)
+            self.send(packet)
 
     def connect(self):
         self.create_rpc_in_channel()
@@ -613,3 +773,4 @@ class RPCProxyClient:
     def disconnect(self):
         self.close_rpc_in_channel()
         self.close_rpc_out_channel()
+        self.init_state()
