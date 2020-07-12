@@ -32,6 +32,7 @@ import sys
 import logging
 import argparse
 
+from impacket.http import AUTH_BASIC
 from impacket.examples import logger, rpcdatabase
 from impacket import uuid, version
 from impacket.dcerpc.v5.epm import KNOWN_UUIDS
