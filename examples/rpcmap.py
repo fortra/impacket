@@ -56,6 +56,7 @@ class RPCMap():
         self.__uuids = uuids
         self.__rpctransport  = transport.DCERPCTransportFactory(stringbinding)
         self.__dce = None
+        self.__msrpc_lockout_protection = False
 
     def set_proxy_credentials(self, username, password, domain='', hashes=None):
         if hashes is not None:
@@ -77,6 +78,9 @@ class RPCMap():
         if hasattr(self.__rpctransport, 'set_credentials'):
             self.__rpctransport.set_credentials(username, password, domain, lmhash, nthash, aesKey)
             self.__rpctransport.set_kerberos(doKerberos, kdcHost)
+
+        if username != '' or password != '' or hashes != '':
+            self.__msrpc_lockout_protection = True
 
     def set_smb_info(self, smbhost=None, smbport=None):
         if isinstance(self.__rpctransport, SMBTransport):
@@ -138,6 +142,10 @@ class RPCMap():
                str(e).find('reason_not_specified') >= 0 or \
                str(e).find('abstract_syntax_not_supported') >= 0:
                 logging.info("MGMT Interface not available, bruteforcing UUIDs. The result may not be complete.\n")
+                self.bruteforce_uuids()
+            elif str(e).find('rpc_s_access_denied') and self.__msrpc_lockout_protection == False:
+                logging.info("Target MGMT interface interface requires authentication, but no credentials provided.")
+                logging.info("Bruteforcing UUIDs. The result may not be complete.")
                 self.bruteforce_uuids()
             else:
                 raise
