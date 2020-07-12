@@ -637,3 +637,22 @@ def hexdump(data, indent = ''):
         line += ''.join(pretty_print(x) for x in x[i:i+16] )
         print (line)
         i += 16
+
+def parse_bitmask(dict, value):
+    ret = ''
+    
+    for i in range(0, 31):
+        flag = 1 << i
+
+        if value & flag == 0:
+            continue
+
+        if flag in dict:
+            ret += '%s | ' % dict[flag]
+        else:
+            ret += "0x%.8X | " % flag
+
+    if len(ret) == 0:
+        return '0'
+    else:
+        return ret[:-3]
