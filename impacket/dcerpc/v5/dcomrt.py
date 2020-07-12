@@ -172,7 +172,7 @@ class COMVERSION(NDRSTRUCT):
         NDRSTRUCT.__init__(self, data, isNDR64)
         if data is None:
             self['MajorVersion'] = 5
-            self['MinorVersion'] = 6
+            self['MinorVersion'] = 7
 
 class PCOMVERSION(NDRPOINTER):
     referent = (
