@@ -473,7 +473,76 @@ class RPCProxyClient(HTTPClientSecurityProvider):
 
         self.__auth_type = HTTPClientSecurityProvider.get_auth_type(self)
 
-        # TODO: Add a complete description for this code
+        # To connect to an RPC Server, we need to let the RPC Proxy know
+        # where to connect. The target RPC Server name and its port are passed
+        # in the query of the HTTP request. The target RPC Server must be the ncacn_http
+        # service.
+        #
+        # The utilized format: /rpc/rpcproxy.dll?RemoteName:RemotePort
+        #
+        # For RDG servers, you can specify localhost:3388, but in other cases you cannot
+        # use localhost as there will be no ACL for it.
+        #
+        # To know what RemoteName to use, we rely on Default ACL. It's specified
+        # in the HKLM\SOFTWARE\Microsoft\Rpc\RpcProxy key:
+        #
+        # ValidPorts    REG_SZ   COMPANYSERVER04:593;COMPANYSERVER04:49152-65535
+        #
+        # In this way, we can at least connect to the endpoint mapper on port 593.
+        # So, if the caller set remoteName to an empty string, we assume the target
+        # is the RPC Proxy server itself, and get its NetBIOS name from the NTLMSSP.
+        #
+        # Interestingly, if the administrator renames the server after RPC Proxy installation
+        # or joins the server to the domain after RPC Proxy installation, the ACL will remain
+        # the original. So, sometimes the ValidPorts values have the format WIN-JCKEDQVDOQU, and
+        # we are not able to use them.
+        #
+        # For Exchange servers, the value of the default ACL doesn't matter as they
+        # allow connections by their own mechanisms:
+        # - Exchange 2003 / 2007 / 2010 servers add their own ACL, which includes
+        #   NetBIOS names of all Exchange servers (and some other servers).
+        #   This ACL is regularly and automatically updated on each server.
+        #   Allowed ports: 6001-6004
+        #
+        #   6001 is used for MS-OXCRPC
+        #   6002 is used for MS-OXABREF
+        #   6003 is not used
+        #   6004 is used for MS-OXNSPI
+        #
+        #   Tests on Exchange 2010 show that MS-OXNSPI and MS-OXABREF are available
+        #   on both 6002 and 6004.
+        #
+        # - Exchange 2013 / 2016 / 2019 servers process RemoteName on their own
+        #   (via RpcProxyShim.dll), and the NetBIOS name format is supported only for
+        #   backward compatibility.
+        #
+        #   ! Default ACL is never used, so there is no way to connect to the endpoint mapper!
+        #
+        #   Allowed ports: 6001-6004
+        #
+        #   6001 is used for MS-OXCRPC
+        #   6002 is used for MS-OXABREF
+        #   6003 is not used
+        #   6004 is used for MS-OXNSPI
+        #
+        # Tests show that all protocols are available on the 6001 / 6002 / 6004 ports via
+        # RPC over HTTP v2, and the separation is only used for backward compatibility.
+        #
+        # The pure ncacn_http endpoint is available only on the 6001 TCP/IP port.
+        #
+        # RpcProxyShim.dll allows you to skip authentication on the RPC level to get
+        # a faster connection, and it makes Exchange 2013 / 2016 / 2019 RPC over HTTP v2
+        # endpoints vulnerable to NTLM-Relaying attacks.
+        #
+        # If the target is Exchange behind Microsoft TMG, you most likely need to specify
+        # the remote name manually using the value from /autodiscover/autodiscover.xml.
+        # Note that /autodiscover/autodiscover.xml might not be available with
+        # a non-outlook User-Agent.
+        #
+        # There may be multiple RPC Proxy servers with different NetBIOS names on
+        # a single external IP. We store the first one's NetBIOS name and use it for all
+        # the following channels.
+        # It's acceptable to assume all RPC Proxies have the same ACLs (true for Exchange).
         if not self.__remoteName and self.__auth_type == AUTH_BASIC:
             raise RPCProxyClientException(RPC_PROXY_REMOTE_NAME_NEEDED_ERR)
 
