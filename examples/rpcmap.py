@@ -39,7 +39,8 @@ from impacket.dcerpc.v5.transport import DCERPCStringBinding, \
 from impacket.dcerpc.v5 import mgmt
 
 class RPCMap():
-    def __init__(self, stringbinding='', authLevel=6, bruteUUIDs=False, uuids=(), bruteOpnums=False, opnumMax=64):
+    def __init__(self, stringbinding='', authLevel=6, bruteUUIDs=False, uuids=(),
+        bruteOpnums=False, opnumMax=64, bruteVersions=False, versionMax=64):
         try:
             self.__stringbinding = DCERPCStringBinding(stringbinding)
         except:
@@ -49,13 +50,15 @@ class RPCMap():
            not self.__stringbinding.is_option_set("RpcProxy"):
             raise Exception("Provided stringbinding is not correct")
 
-        self.__authLevel     = authLevel
-        self.__brute_uuids   = bruteUUIDs
-        self.__brute_opnums  = bruteOpnums
-        self.__opnum_max     = opnumMax
-        self.__uuids = uuids
-        self.__rpctransport  = transport.DCERPCTransportFactory(stringbinding)
-        self.__dce = None
+        self.__authLevel      = authLevel
+        self.__brute_uuids    = bruteUUIDs
+        self.__brute_opnums   = bruteOpnums
+        self.__opnum_max      = opnumMax
+        self.__brute_versions = bruteVersions
+        self.__version_max    = versionMax
+        self.__uuids          = uuids
+        self.__rpctransport   = transport.DCERPCTransportFactory(stringbinding)
+        self.__dce            = None
         self.__msrpc_lockout_protection = False
 
     def set_proxy_credentials(self, username, password, domain='', hashes=None):
@@ -150,6 +153,37 @@ class RPCMap():
             else:
                 raise
 
+    def bruteforce_versions(self, interface_uuid):
+        results = []
+
+        for i in range(self.__version_max + 1):
+            binuuid = uuid.uuidtup_to_bin((interface_uuid, "%d.0" % i))
+            # Is there a way to test multiple opnums in a single rpc channel?
+            self.__dce.connect()
+
+            try:
+                self.__dce.bind(binuuid)
+            except Exception as e:
+                if str(e).find("abstract_syntax_not_supported") >= 0:
+                    results.append("abstract_syntax_not_supported (version not supported)")
+                else:
+                    results.append(str(e))
+            else:
+                results.append("success")
+
+        if len(results) > 1 and results[-1] == results[-2]:
+            suffix = results[-1]
+            while results and results[-1] == suffix:
+                results.pop()
+
+            for i, result in enumerate(results):
+                print("Versions %d: %s" % (i, result))
+
+            print("Versions %d-%d: %s" % (len(results), self.__version_max, suffix))
+        else:
+            for i, result in enumerate(results):
+                print("Versions %d: %s" % (i, result))
+
     def bruteforce_opnums(self, binuuid):
         results = []
 
@@ -158,7 +192,7 @@ class RPCMap():
             self.__dce.connect()
             self.__dce.bind(binuuid)
             self.__dce.call(i, b"")
-            
+
             try:
                 self.__dce.recv()
             except Exception as e:
@@ -217,7 +251,10 @@ class RPCMap():
             print("Provider: N/A")
 
         print("UUID: %s v%s" % (tup[0], tup[1]))
-        
+
+        if self.__brute_versions:
+            self.bruteforce_versions(tup[0])
+
         if self.__brute_opnums:
             try:
                 self.bruteforce_opnums(uuid.uuidtup_to_bin(tup))
@@ -240,8 +277,8 @@ if __name__ == '__main__':
             else:
                 return argparse.HelpFormatter._split_lines(self, text, width)
 
-    parser = argparse.ArgumentParser(add_help=True, formatter_class=SmartFormatter, description="Lookups listening DCE/RPC interfaces.")
-    parser.add_argument('stringbinding', help='R|String binding to connect to DCE/RPC, for example:\n'
+    parser = argparse.ArgumentParser(add_help=True, formatter_class=SmartFormatter, description="Lookups listening MSRPC interfaces.")
+    parser.add_argument('stringbinding', help='R|String binding to connect to MSRPC interface, for example:\n'
                                               'ncacn_ip_tcp:192.168.0.1[135]\n'
                                               'ncacn_np:192.168.0.1[\\pipe\\spoolss]\n'
                                               'ncacn_http:192.168.0.1[593]\n'
@@ -250,10 +287,12 @@ if __name__ == '__main__':
                                                )
     parser.add_argument('-brute-uuids', action='store_true', help='Bruteforce UUIDs even if MGMT interface is available')
     parser.add_argument('-brute-opnums', action='store_true', help='Bruteforce opnums for found UUIDs')
+    parser.add_argument('-brute-versions', action='store_true', help='Bruteforce major versions of found UUIDs')
     parser.add_argument('-opnum-max', action='store', type=int, default=64, help='Bruteforce opnums from 0 to N, default 64')
+    parser.add_argument('-version-max', action='store', type=int, default=64, help='Bruteforce versions from 0 to N, default 64')
     parser.add_argument('-auth-level', action='store', type=int, default=6, help='MS-RPCE auth level, from 1 to 6, default 6 '
                                                                                  '(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)')
-    parser.add_argument('-uuid', action='store', help='Test this UUID')
+    parser.add_argument('-uuid', action='store', help='Test only this UUID')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('ncacn-np-details')
@@ -324,7 +363,8 @@ if __name__ == '__main__':
         uuids = rpcdatabase.uuid_database
 
     try:
-        lookuper = RPCMap(options.stringbinding, options.auth_level, options.brute_uuids, uuids, options.brute_opnums, options.opnum_max)
+        lookuper = RPCMap(options.stringbinding, options.auth_level, options.brute_uuids, uuids,
+                          options.brute_opnums, options.opnum_max, options.brute_versions, options.version_max)
         lookuper.set_rpc_credentials(rpcuser, rpcpass, rpcdomain, options.hashes_rpc, options.aesKey, options.k, options.dc_ip)
         lookuper.set_proxy_credentials(proxyuser, proxypass, proxydomain, options.hashes_rpcproxy)
         lookuper.set_smb_info(options.target_ip, options.port)
