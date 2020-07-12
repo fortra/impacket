@@ -381,7 +381,7 @@ class TCPTransport(DCERPCTransport):
     def get_socket(self):
         return self.__socket
 
-class HTTPTransport(TCPTransport, RPCProxyClient):
+class HTTPTransport(RPCProxyClient, TCPTransport):
     """Implementation of ncacn_http protocol sequence"""
     TRANSPORT_class = TCPTransport
 
