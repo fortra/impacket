@@ -20,6 +20,10 @@
 #  Catalin Patulea <cat@vv.carleton.ca>
 #  Arseniy Sharoglazov <mohemiv@gmail.com> / Positive Technologies (https://www.ptsecurity.com/)
 #
+# TODO:
+#  [ ] The rpcmap.py connections are never closed. We need to close them.
+#      This will require changing SMB and RPC libraries.
+#
 
 from __future__ import division
 from __future__ import print_function
