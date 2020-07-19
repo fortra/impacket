@@ -878,7 +878,14 @@ KNOWN_PROTOCOLS = {
 '5A7B91F8-FF00-11D0-A9B2-00C04FB6E6FC':'[MS-MSRP]: Messenger Service Remote Protocol',
 'F5CC5A18-4264-101A-8C59-08002B2F8426':'[MS-NSPI]: Name Service Provider Interface (NSPI) Protocol',
 'E33C0CC4-0482-101A-BC0C-02608C6BA218':'[MS-RPCL]: Remote Procedure Call Location Services Extensions',
-'AFA8BD80-7D8A-11C9-BEF4-08002B102989':'[C706]: Remote Management Interface'
+'AFA8BD80-7D8A-11C9-BEF4-08002B102989':'[MS-RPCE]: Remote Management Interface',
+'00000134-0000-0000-C000-000000000046':'[MS-DCOM]: Distributed Component Object Model (DCOM)',
+'18F70770-8E64-11CF-9AF1-0020AF6E72F4':'[MS-DCOM]: Distributed Component Object Model (DCOM)',
+'958F92D8-DA20-467A-BBE3-65E7E9B4EDCF':'[MS-TSGU]: Terminal Services Gateway Server Management Interface',
+'6050B110-CE87-4126-A114-50AEFCFC95F8':'[MS-DCOM]: Distributed Component Object Model (DCOM)',
+'1544F5E0-613C-11D1-93DF-00C04FD7BD09':'[MS-OXABREF]: Address Book Name Service Provider Interface (NSPI) Referral Protocol',
+'A4F1DB00-CA47-1067-B31F-00DD010662DA':'[MS-OXCRPC]: Wire Format Protocol',
+'5261574A-4572-206E-B268-6B199213B4E4':'[MS-OXCRPC]: Wire Format Protocol',
 }
 
 # Inquire Type
