@@ -331,9 +331,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
 
     # Get the session key and the ticket
-    # We're assuming the cipher for this session key is the same
-    # as the one we used before.
-    # ToDo: change this
+    cipher = _enctype_table[encASRepPart['key']['keytype']]
     sessionKey = Key(cipher.enctype,encASRepPart['key']['keyvalue'].asOctets())
 
     # ToDo: Check Nonces!

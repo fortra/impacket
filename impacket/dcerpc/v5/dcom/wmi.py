@@ -2388,6 +2388,7 @@ class IWbemClassObject(IRemUnknown):
 
             if propRecord['type'] & CIM_ARRAY_FLAG:
                 if itemValue is None:
+                    ndTable |= 2 << (2*i)
                     valueTable += pack(packStr, 0)
                 else:
                     valueTable += pack('<L', curHeapPtr)
@@ -2398,22 +2399,36 @@ class IWbemClassObject(IRemUnknown):
                         arrayItems += pack(packStrArray, itemValue[j])
                     instanceHeap += arraySize + arrayItems
                     curHeapPtr = len(instanceHeap)
+            elif pType in (CIM_TYPE_ENUM.CIM_TYPE_UINT8.value, CIM_TYPE_ENUM.CIM_TYPE_UINT16.value,
+                           CIM_TYPE_ENUM.CIM_TYPE_UINT32.value, CIM_TYPE_ENUM.CIM_TYPE_UINT64.value):
+                if itemValue is None:
+                    ndTable |= 2 << (2 * i)
+                    valueTable += pack(packStr, 0)
+                else:
+                    valueTable += pack(packStr, int(itemValue))
+            elif pType in (CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value,):
+                if itemValue is None:
+                    ndTable |= 2 << (2 * i)
+                    valueTable += pack(packStr, False)
+                else:
+                    valueTable += pack(packStr, bool(itemValue))
             elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
                                CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                 if itemValue is None:
+                    ndTable |= 2 << (2 * i)
                     valueTable += pack(packStr, -1)
                 else:
                     valueTable += pack(packStr, itemValue)
             elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
                 # For now we just pack None
                 valueTable += b'\x00'*4
-                # The default property value is NULL, and it is 
+                # The default property value is NULL, and it is
                 # inherited from a parent class.
                 if itemValue is None:
                     ndTable |= 3 << (2*i)
             else:
                 if itemValue == '':
-                    ndTable |= 1 << (2*i)
+                    ndTable |= 2 << (2*i)
                     valueTable += pack('<L', 0)
                 else:
                     strIn = ENCODED_STRING()
@@ -2642,23 +2657,68 @@ class IWbemClassObject(IRemUnknown):
                         packStr = CIM_TYPES_REF[pType][:-2]
 
                     if paramDefinition['type'] & CIM_ARRAY_FLAG:
-                        
                         if inArg is None:
                             valueTable += pack(packStr, 0)
+                        elif pType in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
+                                       CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
+                            arraySize = pack(HEAPREF[:-2], len(inArg))
+                            arrayItems = []
+                            for j in range(len(inArg)):
+                                curVal = inArg[j]
+                                if pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
+                                    curObject = b''
+                                    marshaledObject = curVal.marshalMe()
+                                    curObject += pack('<L', marshaledObject['pObjectData']['ObjectEncodingLength'])
+                                    curObject += marshaledObject['pObjectData']['ObjectBlock'].getData()
+                                    arrayItems.append(curObject)
+                                    continue
+                                strIn = ENCODED_STRING()
+                                if type(curVal) is str:
+                                    # The Encoded-String-Flag is set to 0x01 if the sequence of characters that follows
+                                    # consists of UTF-16 characters (as specified in [UNICODE]) followed by a UTF-16 null
+                                    # terminator.
+                                    strIn['Encoded_String_Flag'] = 0x1
+                                    strIn.structure = strIn.tunicode
+                                    strIn['Character'] = curVal.encode('utf-16le')
+                                else:
+                                    strIn['Character'] = curVal
+                                arrayItems.append(strIn.getData())
+
+
+                            curStrHeapPtr = curHeapPtr + 4
+                            arrayHeapPtrValues = b''
+                            arrayValueTable = b''
+                            for j in range(len(arrayItems)):
+                                arrayHeapPtrValues += pack('<L', curStrHeapPtr + 4 * (len(arrayItems) - j) + len(arrayValueTable))
+                                arrayValueTable += arrayItems[j]
+                                curStrHeapPtr += 4
+
+                            valueTable += pack('<L', curHeapPtr)
+                            instanceHeap += arraySize + arrayHeapPtrValues + arrayValueTable
+                            curHeapPtr = len(instanceHeap)
                         else:
-                            # ToDo
-                            # Not yet ready
-                            raise Exception('inArg not None')
+                            arraySize = pack(HEAPREF[:-2], len(inArg))
+                            valueTable += pack('<L', curHeapPtr)
+                            instanceHeap += arraySize
+                            for curVal in inArg:
+                                instanceHeap += pack(packStr, curVal)
+                            curHeapPtr = len(instanceHeap)
                     elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
                                        CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                         valueTable += pack(packStr, inArg)
                     elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
-                        # For now we just pack None
-                        valueTable += b'\x00'*4
-                        # The default property value is NULL, and it is 
-                        # inherited from a parent class.
                         if inArg is None:
-                            ndTable |= 3 << (2*i)
+                            # For now we just pack None
+                            valueTable += b'\x00' * 4
+                            # The default property value is NULL, and it is
+                            # inherited from a parent class.
+                            ndTable |= 3 << (2 * i)
+                        else:
+                            valueTable += pack('<L', curHeapPtr)
+                            marshaledObject = inArg.marshalMe()
+                            instanceHeap += pack('<L', marshaledObject['pObjectData']['ObjectEncodingLength'])
+                            instanceHeap += marshaledObject['pObjectData']['ObjectBlock'].getData()
+                            curHeapPtr = len(instanceHeap)
                     else:
                         strIn = ENCODED_STRING()
                         if type(inArg) is str:

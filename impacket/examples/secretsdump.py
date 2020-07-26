@@ -1300,7 +1300,7 @@ class LSASecrets(OfflineRegistry):
 
     def __decryptSecret(self, key, value):
         # [MS-LSAD] Section 5.1.2
-        plainText = ''
+        plainText = b''
 
         encryptedSecretSize = unpack('<I', value[:4])[0]
         value = value[len(value)-encryptedSecretSize:]

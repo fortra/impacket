@@ -463,7 +463,6 @@ class RPC_SID(NDRSTRUCT):
     def fromCanonical(self, canonical):
         items = canonical.split('-')
         self['Revision'] = int(items[1])
-        self['IdentifierAuthority'] = RPC_SID_IDENTIFIER_AUTHORITY()
         self['IdentifierAuthority'] = b'\x00\x00\x00\x00\x00' + pack('B',int(items[2]))
         self['SubAuthorityCount'] = len(items) - 3
         for i in range(self['SubAuthorityCount']):
@@ -484,7 +483,7 @@ PSID = PRPC_SID
 
 # 2.4.3 ACCESS_MASK
 GENERIC_READ            = 0x80000000
-GENERIC_WRITE           = 0x4000000
+GENERIC_WRITE           = 0x40000000
 GENERIC_EXECUTE         = 0x20000000
 GENERIC_ALL             = 0x10000000
 MAXIMUM_ALLOWED         = 0x02000000

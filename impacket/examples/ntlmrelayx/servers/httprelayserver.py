@@ -140,11 +140,15 @@ class HTTPRelayServer(Thread):
                 content = """<?xml version="1.0"?><D:multistatus xmlns:D="DAV:"><D:response><D:href>http://webdavrelay/file/</D:href><D:propstat><D:prop><D:creationdate>2016-11-12T22:00:22Z</D:creationdate><D:displayname>a</D:displayname><D:getcontentlength></D:getcontentlength><D:getcontenttype></D:getcontenttype><D:getetag></D:getetag><D:getlastmodified>Mon, 20 Mar 2017 00:00:22 GMT</D:getlastmodified><D:resourcetype><D:collection></D:collection></D:resourcetype><D:supportedlock></D:supportedlock><D:ishidden>0</D:ishidden></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response></D:multistatus>"""
 
             messageType = 0
-            if self.headers.getheader('Authorization') is None:
-                self.do_AUTHHEAD(message='NTLM')
+            if PY2:
+                autorizationHeader = self.headers.getheader('Authorization')
+            else:
+                autorizationHeader = self.headers.get('Authorization')
+            if autorizationHeader is None:
+                self.do_AUTHHEAD(message=b'NTLM')
                 pass
             else:
-                typeX = self.headers.getheader('Authorization')
+                typeX = autorizationHeader
                 try:
                     _, blob = typeX.split('NTLM')
                     token = base64.b64decode(blob.strip())

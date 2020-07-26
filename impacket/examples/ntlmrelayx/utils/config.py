@@ -23,6 +23,7 @@ class NTLMRelayxConfig:
         self.listeningPort = None
 
         self.domainIp = None
+
         self.machineAccount = None
         self.machineHashes = None
         self.target = None
@@ -35,6 +36,8 @@ class NTLMRelayxConfig:
         self.encoding = None
         self.ipv6 = False
         self.remove_mic = False
+
+        self.command = None
 
         # WPAD options
         self.serve_wpad = False
@@ -50,9 +53,16 @@ class NTLMRelayxConfig:
 
         # SMB options
         self.exeFile = None
-        self.command = None
         self.interactive = False
         self.enumLocalAdmins = False
+
+        # RPC options
+        self.rpc_mode = None
+        self.rpc_use_smb = False
+        self.auth_smb = ''
+        self.smblmhash = None
+        self.smbnthash = None
+        self.port_smb = 445
 
         # LDAP options
         self.dumpdomain = True
@@ -150,6 +160,22 @@ class NTLMRelayxConfig:
 
     def setMSSQLOptions(self, queries):
         self.queries = queries
+
+    def setRPCOptions(self, rpc_mode, rpc_use_smb, auth_smb, hashes_smb, rpc_smb_port):
+        self.rpc_mode = rpc_mode
+        self.rpc_use_smb = rpc_use_smb
+
+        import re
+        auth_re = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?')
+        self.smbdomain, self.smbuser, self.smbpass =  auth_re.match(auth_smb).groups('')
+
+        if hashes_smb is not None:
+            self.smblmhash, self.smbnthash = hashes_smb.split(':')
+        else:
+            self.smblmhash = ''
+            self.smbnthash = ''
+
+        self.rpc_smb_port = rpc_smb_port
 
     def setInteractive(self, interactive):
         self.interactive = interactive
