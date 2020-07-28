@@ -333,7 +333,7 @@ class DUALSTRINGARRAYPACKED(NDRSTRUCT):
         ('wSecurityOffset',USHORT),
         ('aStringArray',':'),
     )
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return self['wNumEntries']*2
 
 # 2.2.18.7 OBJREF_EXTENDED

@@ -625,7 +625,7 @@ class DSNAME(NDRSTRUCT):
         ('NameLen',ULONG),
         ('StringName', WCHAR_ARRAY),
     )
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return self['NameLen']
     def getData(self, soFar = 0):
         return NDRSTRUCT.getData(self, soFar)
