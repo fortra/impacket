@@ -219,6 +219,15 @@ class HTTPRelayServer(Thread):
             return self.do_GET()
 
         def do_GET(self):
+            # Get the body of the request if any
+            # Otherwise, successive requests will not be handled properly
+            if PY2:
+                contentLength = self.headers.getheader("Content-Length")
+            else:
+                contentLength = self.headers.get("Content-Length")
+            if contentLength is not None:
+                body = self.rfile.read(int(contentLength))
+
             messageType = 0
             if self.server.config.mode == 'REDIRECT':
                 self.do_SMBREDIRECT()
