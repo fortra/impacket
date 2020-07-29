@@ -47,7 +47,7 @@ from impacket.smbconnection import SMBConnection
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import lsad
 from impacket.dcerpc.v5 import bkrp
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE
 from impacket import version
 from impacket.examples import logger
 from impacket.examples.secretsdump import LocalOperations, LSASecrets
@@ -294,6 +294,8 @@ class DPAPI:
                 
                 dce = rpctransport.get_dce_rpc()
                 dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
+                if self.options.k is True:
+                    dce.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
                 dce.connect()
                 dce.bind(bkrp.MSRPC_UUID_BKRP, transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0'))
                 
@@ -351,6 +353,8 @@ class DPAPI:
             rpctransport = transport.DCERPCTransportFactory(r'ncacn_np:445[\pipe\lsarpc]')
             rpctransport.set_smb_connection(connection)
             dce = rpctransport.get_dce_rpc()
+            if self.options.k:
+                dce.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
             try:
                 dce.connect()
                 dce.bind(lsad.MSRPC_UUID_LSAD)
