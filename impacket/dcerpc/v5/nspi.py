@@ -1196,18 +1196,6 @@ def hNspiSeekEntries(dce, handler, displayName, ContainerID=0, SortType=0, \
     resp = dce.request(request)
     return resp
 
-def hRfrGetFQDNFromServerDN(dce, szMailboxServerDN):
-    szMailboxServerDN = checkNullString(szMailboxServerDN)
-    request = RfrGetFQDNFromServerDN()
-    request['ulFlags'] = 0
-    request['szMailboxServerDN'] = szMailboxServerDN
-    request['cbMailboxServerDN'] = len(szMailboxServerDN)
-
-    resp = dce.request(request)
-    resp['ppszServerFQDN'] = resp['ppszServerFQDN'][:-1]
-
-    return resp
-
 def hNspiDNToMId(dce, handler, pNames=[]):
     request = NspiDNToMId()
     request['hRpc'] = handler

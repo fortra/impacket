@@ -371,7 +371,7 @@ class NSPIAttacks(Exchanger):
                     print("Name: %s" % self.htable[MId]['name'])
                     print("Guid: %s" % uuid.bin_to_string(self.htable[MId]['guid']).lower())
                     print("Parent guid: %s" % uuid.bin_to_string(self.htable[MId]['parent_guid']).lower())
-                    dword = _int_to_dword(MId) if MId < 0 else MId
+                    dword = NSPIAttacks._int_to_dword(MId) if MId < 0 else MId
                     print("Assigned MId: 0x%.08X (%d)" % (dword, MId))
                     flags = parse_bitmask(PR_CONTAINER_FLAGS_VALUES, self.htable[MId]['flags'])
                     print("Flags: %s" % flags)
