@@ -121,8 +121,9 @@ class RTSCookie(Structure):
 class EncodedClientAddress(Structure):
     structure = (
         ('AddressType','<L=(0 if len(ClientAddress) == 4 else 1)'),
-        ('ClientAddress','*(4 if AddressType == 0 else 16)'),
-        ('Padding',':','16s=b"\\x00"*16'),
+        ('_ClientAddress','_-ClientAddress','4 if AddressType == 0 else 16'),
+        ('ClientAddress',':'),
+        ('Padding','12s=b"\\x00"*12'),
     )
 
 # 2.2.3.4 Flow Control Acknowledgment
@@ -218,7 +219,7 @@ class ANCE(Structure):
 class ClientAddress(Structure):
     structure = (
         ('CommandType','<L=0xB'),
-        ('ClientAddress',EncodedClientAddress),
+        ('ClientAddress',':',EncodedClientAddress),
     )
 
 # 2.2.3.5.13 AssociationGroupId
