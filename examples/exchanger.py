@@ -8,7 +8,18 @@
 # Author:
 #  Arseniy Sharoglazov <mohemiv@gmail.com> / Positive Technologies (https://www.ptsecurity.com/)
 #
-# TODO: Add description
+# Description:
+#  A tool for connecting to MS Exchange via RPC over HTTP v2
+#
+# Notes about -rpc-hostname:
+#  Our RPC over HTTP v2 implementation tries to extract the
+#  target's NetBIOS name via NTLMSSP and use it as RPC Server name.
+#  If it fails, you have to manually get the target RPC Server name
+#  from the Autodiscover service and set it in the -rpc-hostname parameter.
+#
+# References:
+#  https://swarm.ptsecurity.com/attacking-ms-exchange-web-interfaces/
+#
 
 from __future__ import print_function
 import sys
