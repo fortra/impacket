@@ -902,7 +902,7 @@ class RAISECHILD:
             validationInfo = VALIDATION_INFO()
             validationInfo.fromString(pacInfos[PAC_LOGON_INFO])
             lenVal = len(validationInfo.getData())
-            validationInfo.fromStringReferents(data[lenVal:], lenVal)
+            validationInfo.fromStringReferents(data, lenVal)
 
             if logging.getLogger().level == logging.DEBUG:
                 logging.debug('VALIDATION_INFO before making it gold')
