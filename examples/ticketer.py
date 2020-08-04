@@ -414,7 +414,7 @@ class TICKETER:
             validationInfo = VALIDATION_INFO()
             validationInfo.fromString(pacInfos[PAC_LOGON_INFO])
             lenVal = len(validationInfo.getData())
-            validationInfo.fromStringReferents(data[lenVal:], lenVal)
+            validationInfo.fromStringReferents(data, lenVal)
 
             aTime = timegm(strptime(str(encTicketPart['authtime']), '%Y%m%d%H%M%SZ'))
 
