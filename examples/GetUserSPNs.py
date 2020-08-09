@@ -349,7 +349,7 @@ class GetUserSPNs:
                         logging.debug('Bypassing disabled account %s ' % sAMAccountName)
                     else:
                         for spn in SPNs:
-                            answers.append([spn, sAMAccountName,memberOf, pwdLastSet, lastLogon, delegation])
+                            answers.append([spn, sAMAccountName, memberOf, pwdLastSet, lastLogon, delegation])
             except Exception as e:
                 logging.error('Skipping item, cannot process due to error %s' % str(e))
                 pass
@@ -364,21 +364,30 @@ class GetUserSPNs:
 
                 # Get a TGT for the current user
                 TGT = self.getTGT()
+
                 if self.__outputFileName is not None:
                     fd = open(self.__outputFileName, 'w+')
                 else:
                     fd = None
+
                 for user, SPN in users.items():
+                    sAMAccountName = user
+                    downLevelLogonName = self.__targetDomain + "\\" + sAMAccountName
+
                     try:
-                        serverName = Principal(SPN, type=constants.PrincipalNameType.NT_SRV_INST.value)
-                        tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, self.__domain,
+                        principalName = Principal()
+                        principalName.type = constants.PrincipalNameType.NT_MS_PRINCIPAL.value
+                        principalName.components = [downLevelLogonName]
+
+                        tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
                                                                                 self.__kdcHost,
                                                                                 TGT['KDC_REP'], TGT['cipher'],
                                                                                 TGT['sessionKey'])
-                        self.outputTGS(tgs, oldSessionKey, sessionKey, user, SPN, fd)
+                        self.outputTGS(tgs, oldSessionKey, sessionKey, sAMAccountName, downLevelLogonName, fd)
                     except Exception as e:
                         logging.debug("Exception:", exc_info=True)
-                        logging.error('SPN: %s - %s' % (SPN,str(e)))
+                        logging.error('Principal: %s - %s' % (downLevelLogonName, str(e)))
+
                 if fd is not None:
                     fd.close()
 
