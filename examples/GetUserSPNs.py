@@ -383,7 +383,7 @@ class GetUserSPNs:
                                                                                 self.__kdcHost,
                                                                                 TGT['KDC_REP'], TGT['cipher'],
                                                                                 TGT['sessionKey'])
-                        self.outputTGS(tgs, oldSessionKey, sessionKey, sAMAccountName, downLevelLogonName, fd)
+                        self.outputTGS(tgs, oldSessionKey, sessionKey, sAMAccountName, self.__targetDomain + "/" + sAMAccountName, fd)
                     except Exception as e:
                         logging.debug("Exception:", exc_info=True)
                         logging.error('Principal: %s - %s' % (downLevelLogonName, str(e)))
