@@ -366,7 +366,7 @@ def hElfrRegisterEventSourceW(dce, moduleName = NULL, regModuleName = NULL):
     request['MinorVersion'] = 1
     return dce.request(request)
 
-def hElfrReadELW(dce, logHandle = '', readFlags = EVENTLOG_SEQUENTIAL_READ|EVENTLOG_FORWARDS_READ,
+def hElfrReadELW(dce, logHandle = '', readFlags = EVENTLOG_SEEK_READ|EVENTLOG_FORWARDS_READ,
                  recordOffset = 0, numberOfBytesToRead = MAX_BATCH_BUFF):
     request = ElfrReadELW()
     request['LogHandle'] = logHandle
