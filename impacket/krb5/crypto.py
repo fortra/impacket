@@ -301,9 +301,8 @@ class _DESCBC(_SimplifiedEnctype):
             return temp
         
         odd = True
-        s = string + salt
         tempstring = [0,0,0,0,0,0,0,0]
-        s = s + b'\x00'*( 8- (len(s)%8)) #pad(s); /* with nulls to 8 byte boundary */
+        s = _zeropad(string + salt, cls.padsize)
 
         for block in [s[i:i+8] for i in range(0, len(s), 8)]:
             temp56 = list()
