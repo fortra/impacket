@@ -22,12 +22,12 @@
 #
 
 from __future__ import print_function
-import sys
 import base64
 import codecs
 import logging
 import argparse
 import binascii
+import sys
 from six import PY3
 
 from impacket import uuid, version
@@ -43,6 +43,7 @@ from impacket.dcerpc.v5.rpch import RPC_PROXY_REMOTE_NAME_NEEDED_ERR, \
     RPC_PROXY_CONN_A1_404_ERR, RPC_PROXY_RPC_OUT_DATA_404_ERR, \
     RPC_PROXY_CONN_A1_401_ERR
 
+PY37ORHIGHER = sys.version_info >= (3, 7)
 PR_CONTAINER_FLAGS       = 0x36000003
 PR_ENTRYID               = 0x0fff0102
 PR_DEPTH                 = 0x30050003
@@ -880,7 +881,7 @@ if __name__ == '__main__':
     group = parser.add_argument_group('authentication')
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
 
-    if PY3:
+    if PY37ORHIGHER:
         subparsers = parser.add_subparsers(help='A module name', dest='module', required=True)
     else:
         subparsers = parser.add_subparsers(help='A module name', dest='module')
@@ -889,7 +890,7 @@ if __name__ == '__main__':
     nspi_parser = subparsers.add_parser('nspi', help='Attack NSPI interface')
 
     # Attacks for NSPI protocol
-    if PY3:
+    if PY37ORHIGHER:
         nspi_attacks = nspi_parser.add_subparsers(help='A submodule name', dest='submodule', required=True)
     else:
         nspi_attacks = nspi_parser.add_subparsers(help='A submodule name', dest='submodule')
