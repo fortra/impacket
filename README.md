@@ -22,7 +22,7 @@ What protocols are featured?
  * NMB and SMB1, SMB2 and SMB3 (high-level implementations).
  * MSRPC version 5, over different transports: TCP, SMB/TCP, SMB/NetBIOS and HTTP.
  * Plain, NTLM and Kerberos authentications, using password/hashes/tickets/keys.
- * Portions/full implementation of the following MSRPC interfaces: EPM, DTYPES, LSAD, LSAT, NRPC, RRP, SAMR, SRVS, WKST, SCMR, BKRP, DHCPM, EVEN6, MGMT, SASEC, TSCH, DCOM, WMI.
+ * Portions/full implementation of the following MSRPC interfaces: EPM, DTYPES, LSAD, LSAT, NRPC, RRP, SAMR, SRVS, WKST, SCMR, BKRP, DHCPM, EVEN6, MGMT, SASEC, TSCH, DCOM, WMI, OXABREF, NSPI, OXNSPI.
  * Portions of TDS (MSSQL) and LDAP protocol implementations.
 
 

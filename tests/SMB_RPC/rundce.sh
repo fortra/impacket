@@ -33,3 +33,4 @@ $RUN test_dhcpm.py
 $RUN test_secretsdump.py
 $RUN test_nrpc.py
 $RUN test_rprn.py
+$RUN test_rpch.py
