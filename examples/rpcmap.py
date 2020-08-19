@@ -5,7 +5,7 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Scan for listening DCE/RPC interfaces
+# Scan for listening MSRPC interfaces
 #
 # This binds to the MGMT interface and gets a list of interface UUIDs.
 # If the MGMT interface is not available, it takes a list of interface UUIDs
@@ -20,6 +20,10 @@
 #  Catalin Patulea <cat@vv.carleton.ca>
 #  Arseniy Sharoglazov <mohemiv@gmail.com> / Positive Technologies (https://www.ptsecurity.com/)
 #
+# TODO:
+#  [ ] The rpcmap.py connections are never closed. We need to close them.
+#      This will require changing SMB and RPC libraries.
+#
 
 from __future__ import division
 from __future__ import print_function
@@ -28,8 +32,8 @@ import sys
 import logging
 import argparse
 
+from impacket.http import AUTH_BASIC
 from impacket.examples import logger, rpcdatabase
-from impacket.krb5.keytab import Keytab
 from impacket import uuid, version
 from impacket.dcerpc.v5.epm import KNOWN_UUIDS
 from impacket.dcerpc.v5 import transport, rpcrt, epm
@@ -37,37 +41,41 @@ from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.dcerpc.v5.transport import DCERPCStringBinding, \
     SMBTransport
 from impacket.dcerpc.v5 import mgmt
+from impacket.dcerpc.v5.rpch import RPC_PROXY_CONN_A1_401_ERR, \
+    RPC_PROXY_INVALID_RPC_PORT_ERR, RPC_PROXY_HTTP_IN_DATA_401_ERR, \
+    RPC_PROXY_CONN_A1_0X6BA_ERR, RPC_PROXY_CONN_A1_404_ERR, \
+    RPC_PROXY_RPC_OUT_DATA_404_ERR
 
 class RPCMap():
-    def __init__(self, stringbinding='', authLevel=6, bruteUUIDs=False, uuids=(), bruteOpnums=False, opnumMax=64):
+    def __init__(self, stringbinding='', authLevel=6, bruteUUIDs=False, uuids=(),
+        bruteOpnums=False, opnumMax=64, bruteVersions=False, versionMax=64):
         try:
             self.__stringbinding = DCERPCStringBinding(stringbinding)
         except:
             raise Exception("Provided stringbinding is not correct")
 
+        # Empty network address is used to specify that the network address
+        # must be obtained from NTLMSSP of RPC proxy.
         if self.__stringbinding.get_network_address() == '' and \
            not self.__stringbinding.is_option_set("RpcProxy"):
             raise Exception("Provided stringbinding is not correct")
 
-        self.__authLevel     = authLevel
-        self.__brute_uuids   = bruteUUIDs
-        self.__brute_opnums  = bruteOpnums
-        self.__opnum_max     = opnumMax
-        self.__uuids = uuids
-        self.__rpctransport  = transport.DCERPCTransportFactory(stringbinding)
-        self.__dce = None
+        self.__authLevel      = authLevel
+        self.__brute_uuids    = bruteUUIDs
+        self.__uuids          = uuids
+        self.__brute_opnums   = bruteOpnums
+        self.__opnum_max      = opnumMax
+        self.__brute_versions = bruteVersions
+        self.__version_max    = versionMax
 
-    def set_proxy_credentials(self, username, password, domain='', hashes=None):
-        if hashes is not None:
-            lmhash, nthash = hashes.split(':')
-        else:
-            lmhash = ''
-            nthash = ''
+        self.__msrpc_lockout_protection = False
+        self.__rpctransport   = transport.DCERPCTransportFactory(stringbinding)
+        self.__dce            = self.__rpctransport.get_dce_rpc()
 
-        if hasattr(self.__rpctransport, 'set_proxy_credentials'):
-            self.__rpctransport.set_proxy_credentials(username, password, domain, lmhash, nthash)
+    def get_rpc_transport(self):
+        return self.__rpctransport
 
-    def set_rpc_credentials(self, username, password, domain='', hashes=None, aesKey=None, doKerberos=False, kdcHost=None):
+    def set_transport_credentials(self, username, password, domain='', hashes=None):
         if hashes is not None:
             lmhash, nthash = hashes.split(':')
         else:
@@ -75,8 +83,20 @@ class RPCMap():
             nthash = ''
 
         if hasattr(self.__rpctransport, 'set_credentials'):
-            self.__rpctransport.set_credentials(username, password, domain, lmhash, nthash, aesKey)
-            self.__rpctransport.set_kerberos(doKerberos, kdcHost)
+            self.__rpctransport.set_credentials(username, password, domain, lmhash, nthash)
+
+    def set_rpc_credentials(self, username, password, domain='', hashes=None):
+        if hashes is not None:
+            lmhash, nthash = hashes.split(':')
+        else:
+            lmhash = ''
+            nthash = ''
+
+        if hasattr(self.__dce, 'set_credentials'):
+            self.__dce.set_credentials(username, password, domain, lmhash, nthash)
+
+        if username != '' or password != '' or hashes != '':
+            self.__msrpc_lockout_protection = True
 
     def set_smb_info(self, smbhost=None, smbport=None):
         if isinstance(self.__rpctransport, SMBTransport):
@@ -86,25 +106,11 @@ class RPCMap():
                 self.__rpctransport.set_dport(smbport)
 
     def connect(self):
-        self.__dce = self.__rpctransport.get_dce_rpc()
-        self.__dce.set_credentials(*self.__rpctransport.get_credentials())
         self.__dce.set_auth_level(self.__authLevel)
-
-        try:
-            self.__dce.connect()
-        except:
-            if str(self.__stringbinding) != str(self.__rpctransport.get_stringbinding()):
-                logging.debug('StringBinding has been changed to %s' % self.__rpctransport.get_stringbinding())
-            raise
-
-        if str(self.__stringbinding) != str(self.__rpctransport.get_stringbinding()):
-            logging.debug('StringBinding has been changed to %s' % self.__rpctransport.get_stringbinding())
+        self.__dce.connect()
 
     def disconnect(self):
         self.__dce.disconnect()
-
-    def get_string_binding(self):
-        return self.__stringbinding
 
     def do(self):
         try:
@@ -137,10 +143,46 @@ class RPCMap():
             if str(e).find('nca_s_unk_if') >= 0 or \
                str(e).find('reason_not_specified') >= 0 or \
                str(e).find('abstract_syntax_not_supported') >= 0:
-                logging.info("MGMT Interface not available, bruteforcing UUIDs. The result may not be complete.\n")
+                logging.info("Target MGMT interface not available")
+                logging.info("Bruteforcing UUIDs. The result may not be complete.")
+                self.bruteforce_uuids()
+            elif str(e).find('rpc_s_access_denied') and self.__msrpc_lockout_protection == False:
+                logging.info("Target MGMT interface requires authentication, but no credentials provided.")
+                logging.info("Bruteforcing UUIDs. The result may not be complete.")
                 self.bruteforce_uuids()
             else:
                 raise
+
+    def bruteforce_versions(self, interface_uuid):
+        results = []
+
+        for i in range(self.__version_max + 1):
+            binuuid = uuid.uuidtup_to_bin((interface_uuid, "%d.0" % i))
+            # Is there a way to test multiple opnums in a single rpc channel?
+            self.__dce.connect()
+
+            try:
+                self.__dce.bind(binuuid)
+            except Exception as e:
+                if str(e).find("abstract_syntax_not_supported") >= 0:
+                    results.append("abstract_syntax_not_supported (version not supported)")
+                else:
+                    results.append(str(e))
+            else:
+                results.append("success")
+
+        if len(results) > 1 and results[-1] == results[-2]:
+            suffix = results[-1]
+            while results and results[-1] == suffix:
+                results.pop()
+
+            for i, result in enumerate(results):
+                print("Versions %d: %s" % (i, result))
+
+            print("Versions %d-%d: %s" % (len(results), self.__version_max, suffix))
+        else:
+            for i, result in enumerate(results):
+                print("Versions %d: %s" % (i, result))
 
     def bruteforce_opnums(self, binuuid):
         results = []
@@ -150,7 +192,7 @@ class RPCMap():
             self.__dce.connect()
             self.__dce.bind(binuuid)
             self.__dce.call(i, b"")
-            
+
             try:
                 self.__dce.recv()
             except Exception as e:
@@ -209,7 +251,10 @@ class RPCMap():
             print("Provider: N/A")
 
         print("UUID: %s v%s" % (tup[0], tup[1]))
-        
+
+        if self.__brute_versions:
+            self.bruteforce_versions(tup[0])
+
         if self.__brute_opnums:
             try:
                 self.bruteforce_opnums(uuid.uuidtup_to_bin(tup))
@@ -232,8 +277,8 @@ if __name__ == '__main__':
             else:
                 return argparse.HelpFormatter._split_lines(self, text, width)
 
-    parser = argparse.ArgumentParser(add_help=True, formatter_class=SmartFormatter, description="Lookups listening DCE/RPC interfaces.")
-    parser.add_argument('stringbinding', help='R|String binding to connect to DCE/RPC, for example:\n'
+    parser = argparse.ArgumentParser(add_help=True, formatter_class=SmartFormatter, description="Lookups listening MSRPC interfaces.")
+    parser.add_argument('stringbinding', help='R|String binding to connect to MSRPC interface, for example:\n'
                                               'ncacn_ip_tcp:192.168.0.1[135]\n'
                                               'ncacn_np:192.168.0.1[\\pipe\\spoolss]\n'
                                               'ncacn_http:192.168.0.1[593]\n'
@@ -242,10 +287,12 @@ if __name__ == '__main__':
                                                )
     parser.add_argument('-brute-uuids', action='store_true', help='Bruteforce UUIDs even if MGMT interface is available')
     parser.add_argument('-brute-opnums', action='store_true', help='Bruteforce opnums for found UUIDs')
+    parser.add_argument('-brute-versions', action='store_true', help='Bruteforce major versions of found UUIDs')
     parser.add_argument('-opnum-max', action='store', type=int, default=64, help='Bruteforce opnums from 0 to N, default 64')
+    parser.add_argument('-version-max', action='store', type=int, default=64, help='Bruteforce versions from 0 to N, default 64')
     parser.add_argument('-auth-level', action='store', type=int, default=6, help='MS-RPCE auth level, from 1 to 6, default 6 '
                                                                                  '(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)')
-    parser.add_argument('-uuid', action='store', help='Test this UUID')
+    parser.add_argument('-uuid', action='store', help='Test only this UUID')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('ncacn-np-details')
@@ -258,19 +305,10 @@ if __name__ == '__main__':
 
     group = parser.add_argument_group('authentication')
     group.add_argument('-auth-rpc', action='store', default='', help='[domain/]username[:password]')
-    group.add_argument('-auth-rpcproxy', action='store', default='', help='[domain/]username[:password]')
+    group.add_argument('-auth-transport', action='store', default='', help='[domain/]username[:password]')
     group.add_argument('-hashes-rpc', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
-    group.add_argument('-hashes-rpcproxy', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
-
-    group.add_argument('-k', action="store_true", help='Use Kerberos authentication (except rpcproxy).')
-    group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k) '
-                       'Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If '
-                       'valid credentials cannot be found, it will use the ones specified in the command line')
-    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
-                                                                            '(128 or 256 bits)')
-    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
-                       'ommited it use the domain part (FQDN) specified in the -auth-rpc')
-    group.add_argument('-keytab', action="store", help='Read keys for SPN from keytab file')
+    group.add_argument('-hashes-transport', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-no-pass', action="store_true", help='don\'t ask for passwords')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -286,28 +324,25 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.INFO)
 
     rpcdomain, rpcuser, rpcpass = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.auth_rpc).groups('')
-    proxydomain, proxyuser, proxypass = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.auth_rpcproxy).groups('')
-        
+    transportdomain, transportuser, transportpass = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.auth_transport).groups('')
+
+    if options.brute_opnums and options.brute_versions:
+       logging.error("Specify only -brute-opnums or -brute-versions")
+       sys.exit(1)
+
     if rpcdomain is None:
         rpcdomain = ''
 
-    if proxydomain is None:
-        proxydomain = ''
+    if transportdomain is None:
+        transportdomain = ''
 
-    if options.keytab is not None:
-        Keytab.loadKeysFromKeytab (options.keytab, rpcuser, rpcdomain, options)
-        options.k = True
+    if rpcpass == '' and rpcuser != '' and options.hashes_rpc is None and options.no_pass is False:
+         from getpass import getpass
+         rpcpass = getpass("Password for MSRPC communication:")
 
-    if options.aesKey is not None:
-        options.k = True
-
-    if rpcpass == '' and rpcuser != '' and options.hashes_rpc is None and options.no_pass is False and options.aesKey is None:
+    if transportpass == '' and transportuser != '' and options.hashes_transport is None and options.no_pass is False:
         from getpass import getpass
-        rpcpass = getpass("Password for DCE/RPC communication:")
-
-    if proxypass == '' and proxyuser != '' and options.hashes_rpcproxy is None:
-        from getpass import getpass
-        proxypass = getpass("Password for RPC proxy:")
+        transportpass = getpass("Password for RPC transport (SMB or HTTP):")
 
     if options.uuid is not None:
         uuids = [uuid.string_to_uuidtup(options.uuid)]
@@ -316,23 +351,43 @@ if __name__ == '__main__':
         uuids = rpcdatabase.uuid_database
 
     try:
-        lookuper = RPCMap(options.stringbinding, options.auth_level, options.brute_uuids, uuids, options.brute_opnums, options.opnum_max)
-        lookuper.set_rpc_credentials(rpcuser, rpcpass, rpcdomain, options.hashes_rpc, options.aesKey, options.k, options.dc_ip)
-        lookuper.set_proxy_credentials(proxyuser, proxypass, proxydomain, options.hashes_rpcproxy)
+        lookuper = RPCMap(options.stringbinding, options.auth_level, options.brute_uuids, uuids,
+                          options.brute_opnums, options.opnum_max, options.brute_versions, options.version_max)
+        lookuper.set_rpc_credentials(rpcuser, rpcpass, rpcdomain, options.hashes_rpc)
+        lookuper.set_transport_credentials(transportuser, transportpass, transportdomain, options.hashes_transport)
         lookuper.set_smb_info(options.target_ip, options.port)
         lookuper.connect()
         lookuper.do()
         lookuper.disconnect()
     except Exception as e:
         #raise
-        logging.critical('Protocol failed: %s' % e)
-        if 'Invalid RPC Port' in str(e):
+
+        # This may contain UTF-8
+        error_text = 'Protocol failed: %s' % e
+        logging.critical(error_text)
+
+        # Exchange errors
+        if RPC_PROXY_INVALID_RPC_PORT_ERR in error_text:
             logging.critical("This usually means the target is a MS Exchange Server, "
-                             "and connections to this rpc port on this host are not allowed")
-        if 'RPC_OUT_DATA channel: HTTP/1.1 404 Not Found' in str(e):
+                             "and connections to this rpc port on this host are not allowed (try port 6001)")
+
+        if RPC_PROXY_RPC_OUT_DATA_404_ERR in error_text or \
+           RPC_PROXY_CONN_A1_404_ERR in error_text:
             logging.critical("This usually means the target is a MS Exchange Server, "
-                             "and connections to this host are not allowed")
-        if 'RPC Proxy CONN/A1 request failed, code: 0x6ba' in str(e):
+                             "and connections to the specified RPC server are not allowed")
+
+        # Other errors
+        if RPC_PROXY_CONN_A1_0X6BA_ERR in error_text:
             logging.critical("This usually means the target has no ACL to connect to this endpoint using RpcProxy")
-        if 'rpc_s_access_denied' in str(e):
-            logging.critical("This usually means the credentials for RPC are invalid!")
+
+        if RPC_PROXY_HTTP_IN_DATA_401_ERR in error_text or RPC_PROXY_CONN_A1_401_ERR in error_text:
+           if lookuper.get_rpc_transport().get_auth_type() == AUTH_BASIC and transportdomain == '':
+                logging.critical("RPC proxy basic authentication might require you to specify the domain. "
+                                 "Your domain is empty!")
+
+        if RPC_PROXY_CONN_A1_401_ERR in error_text or \
+           RPC_PROXY_CONN_A1_404_ERR in error_text:
+            logging.info("A proxy in front of the target server detected (may be WAF / SIEM)")
+
+        if 'rpc_s_access_denied' in error_text:
+             logging.critical("This usually means the credentials on the MSRPC level are invalid!")

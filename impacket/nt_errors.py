@@ -1128,6 +1128,15 @@ ERROR_MESSAGES = {
         0xC0020062: ("RPC_NT_INVALID_ASYNC_HANDLE","Invalid asynchronous RPC handle."),
         0xC0020063: ("RPC_NT_INVALID_ASYNC_CALL","Invalid asynchronous RPC call handle for this operation."),
         0xC0020064: ("RPC_NT_PROXY_ACCESS_DENIED","Access to the HTTP proxy is denied."),
+        0xC0021007: ("RPC_P_RECEIVE_ALERTED","No description"),
+        0xC0021008: ("RPC_P_CONNECTION_CLOSED","No description"),
+        0xC0021009: ("RPC_P_RECEIVE_FAILED","No description"),
+        0xC002100A: ("RPC_P_SEND_FAILED","No description"),
+        0xC002100B: ("RPC_P_TIMEOUT","No description"),
+        0xC002100C: ("RPC_P_SERVER_TRANSPORT_ERROR","No description"),
+        0xC002100E: ("RPC_P_EXCEPTION_OCCURED","No description"),
+        0xC0021012: ("RPC_P_CONNECTION_SHUTDOWN","No description"),
+        0xC0021015: ("RPC_P_THREAD_LISTENING","No description"),
         0xC0030001: ("RPC_NT_NO_MORE_ENTRIES","The list of RPC servers available for auto-handle binding has been exhausted."),
         0xC0030002: ("RPC_NT_SS_CHAR_TRANS_OPEN_FAIL","The file designated by DCERPCCHARTRANS cannot be opened."),
         0xC0030003: ("RPC_NT_SS_CHAR_TRANS_SHORT_FILE","The file containing the character translation table has fewer than 512 bytes."),
@@ -2916,6 +2925,15 @@ RPC_NT_NOT_CANCELLED                                              = 0xC0020058
 RPC_NT_INVALID_ASYNC_HANDLE                                       = 0xC0020062
 RPC_NT_INVALID_ASYNC_CALL                                         = 0xC0020063
 RPC_NT_PROXY_ACCESS_DENIED                                        = 0xC0020064
+RPC_P_RECEIVE_ALERTED                                             = 0xC0021007
+RPC_P_CONNECTION_CLOSED                                           = 0xC0021008
+RPC_P_RECEIVE_FAILED                                              = 0xC0021009
+RPC_P_SEND_FAILED                                                 = 0xC002100A
+RPC_P_TIMEOUT                                                     = 0xC002100B
+RPC_P_SERVER_TRANSPORT_ERROR                                      = 0xC002100C
+RPC_P_EXCEPTION_OCCURED                                           = 0xC002100E
+RPC_P_CONNECTION_SHUTDOWN                                         = 0xC0021012
+RPC_P_THREAD_LISTENING                                            = 0xC0021015
 RPC_NT_NO_MORE_ENTRIES                                            = 0xC0030001
 RPC_NT_SS_CHAR_TRANS_OPEN_FAIL                                    = 0xC0030002
 RPC_NT_SS_CHAR_TRANS_SHORT_FILE                                   = 0xC0030003

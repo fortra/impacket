@@ -383,7 +383,6 @@ class TCPTransport(DCERPCTransport):
 
 class HTTPTransport(TCPTransport, RPCProxyClient):
     """Implementation of ncacn_http protocol sequence"""
-    TRANSPORT_class = TCPTransport
 
     def __init__(self, remoteName=None, dstport=593):
         self._useRpcProxy = False
@@ -394,6 +393,10 @@ class HTTPTransport(TCPTransport, RPCProxyClient):
         DCERPCTransport.__init__(self, remoteName, dstport)
         RPCProxyClient.__init__(self, remoteName, dstport)
         self.set_connect_timeout(30)
+
+    def set_credentials(self, username, password, domain='', lmhash='', nthash='', aesKey='', TGT=None, TGS=None):
+        return self._transport.set_credentials(self, username, password,
+            domain, lmhash, nthash, aesKey, TGT, TGS)
 
     def rpc_proxy_init(self):
         self._useRpcProxy = True

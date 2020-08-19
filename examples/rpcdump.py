@@ -20,9 +20,13 @@ import sys
 import logging
 import argparse
 
+from impacket.http import AUTH_NTLM
 from impacket.examples import logger
 from impacket import uuid, version
 from impacket.dcerpc.v5 import transport, epm
+from impacket.dcerpc.v5.rpch import RPC_PROXY_INVALID_RPC_PORT_ERR, \
+    RPC_PROXY_CONN_A1_0X6BA_ERR, RPC_PROXY_CONN_A1_404_ERR, \
+    RPC_PROXY_RPC_OUT_DATA_404_ERR
 
 class RPCDump:
     KNOWN_PROTOCOLS = {
@@ -67,9 +71,16 @@ class RPCDump:
             rpctransport.setRemoteHost(remoteHost)
             rpctransport.set_dport(self.__port)
         elif self.__port in [443]:
-            # Setting credentials only for RpcProxy, but not for the RPC Transport
-            rpctransport.set_proxy_credentials(self.__username, self.__password, self.__domain,
-                                               self.__lmhash, self.__nthash)
+            # Setting credentials only for RPC Proxy, but not for the MSRPC level
+            rpctransport.set_credentials(self.__username, self.__password, self.__domain,
+                                         self.__lmhash, self.__nthash)
+
+            # Usually when a server doesn't support NTLM, it also doesn't expose epmapper (nowadays
+            # only RDG servers may potentially expose a epmapper via RPC Proxy).
+            #
+            # Also if the auth is not NTLM, there is no way to get a target
+            # NetBIOS name, but epmapper ACL requires you to specify it.
+            rpctransport.set_auth_type(AUTH_NTLM)
         else:
             # We don't need to authenticate to 135 and 593 ports
             pass
@@ -78,12 +89,18 @@ class RPCDump:
             entries = self.__fetchList(rpctransport)
         except Exception as e:
             #raise
-            logging.critical('Protocol failed: %s' % e)
-            if 'Invalid RPC Port' in str(e):
-                logging.critical("This usually means the target is a MS Exchange Server, "
-                                 "which does not allow to connect to its epmapper using RpcProxy")
-            if 'RPC Proxy CONN/A1 request failed, code: 0x6ba' in str(e):
-                logging.critical("This usually means the target has no ACL to connect to its epmapper using RpcProxy")
+
+            # This may contain UTF-8
+            error_text = 'Protocol failed: %s' % e
+            logging.critical(error_text)
+
+            if RPC_PROXY_INVALID_RPC_PORT_ERR in error_text or \
+               RPC_PROXY_RPC_OUT_DATA_404_ERR in error_text or \
+               RPC_PROXY_CONN_A1_404_ERR in error_text or \
+               RPC_PROXY_CONN_A1_0X6BA_ERR in error_text:
+                logging.critical("This usually means the target does not allow "
+                                 "to connect to its epmapper using RpcProxy.")
+                return
 
         # Display results.
 
@@ -134,9 +151,6 @@ class RPCDump:
         #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
         #dce.bind(epm.MSRPC_UUID_PORTMAP)
         #rpcepm = epm.DCERPCEpm(dce)
-
-        if str(self.__stringbinding) != str(rpctransport.get_stringbinding()):
-            logging.debug('StringBinding has been changed to %s' % rpctransport.get_stringbinding())
 
         resp = epm.hept_lookup(None, dce=dce)
 
