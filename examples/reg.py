@@ -24,7 +24,8 @@ import codecs
 import logging
 import sys
 import time
-from struct import unpack
+from struct import unpack, pack
+import binascii
 
 from impacket import version
 from impacket.dcerpc.v5 import transport, rrp, scmr, rpcrt
@@ -170,6 +171,8 @@ class RegHandler:
 
             if self.__action == 'QUERY':
                 self.query(dce, self.__options.keyName)
+            elif self.__action == 'ADD':
+                self.add(dce, self.__options.keyName, self.__options.t, self.__options.data)
             else:
                 logging.error('Method %s not implemented yet!' % self.__action)
         except (Exception, KeyboardInterrupt) as e:
@@ -179,6 +182,58 @@ class RegHandler:
         finally:
             if self.__remoteOps:
                 self.__remoteOps.finish()
+
+    def add(self, dce, keyName, regType, regData):
+        # Let's strip the root key
+        try:
+            rootKey = keyName.split('\\')[0]
+            subKey = '\\'.join(keyName.split('\\')[1:])
+        except Exception:
+            raise Exception('Error parsing keyName %s' % keyName)
+
+        if rootKey.upper() == 'HKLM':
+            ans = rrp.hOpenLocalMachine(dce)
+        elif rootKey.upper() == 'HKU':
+            ans = rrp.hOpenCurrentUser(dce)
+        elif rootKey.upper() == 'HKCR':
+            ans = rrp.hOpenClassesRoot(dce)
+        else:
+            raise Exception('Invalid root key %s ' % rootKey)
+
+        hRootKey = ans['phKey']
+
+        ans2 = rrp.hBaseRegOpenKey(dce, hRootKey, subKey, samDesired=rrp.MAXIMUM_ALLOWED | rrp.KEY_SET_VALUE)
+        hKey = ans2['phkResult']
+
+        #get value
+        if regType.upper() == 'REG_SZ':
+            regTypeVal = rrp.REG_SZ
+            regDataVal = regData + "\x00"
+        elif regType.upper() == 'REG_BINARY':
+            regTypeVal = rrp.REG_BINARY
+            regDataVal = binascii.unhexlify(regData)
+        elif regType.upper() == 'REG_DWORD':
+            regTypeVal = rrp.REG_DWORD
+            regDataVal = int(regData)
+        elif regType.upper() == 'REG_QWORD':
+            regTypeVal = rrp.REG_QWORD
+            regDataVal = int(regData)
+        elif regType.upper() == 'REG_EXPAND_SZ':
+            regTypeVal = rrp.REG_EXPAND_SZ
+            regDataVal = regData + "\x00"
+        else:
+            raise Exception('Invalid reg type %s ' % regType)
+
+        if self.__options.v:
+            value = rrp.hBaseRegSetValue(dce, hKey, self.__options.v, regTypeVal, regDataVal)
+        else:
+            value = rrp.hBaseRegSetValue(dce, hKey, '', regTypeVal, regDataVal)
+
+        result = value['ErrorCode']
+        if result == 0:
+            print('Success')
+        else:
+            print('Error: %s' % result)
 
     def query(self, dce, keyName):
         # Let's strip the root key
@@ -333,7 +388,17 @@ if __name__ == '__main__':
                                                                              'names recursively.')
 
     # An add command
-    # add_parser = subparsers.add_parser('add', help='Adds a new subkey or entry to the registry')
+    add_parser = subparsers.add_parser('add', help='Adds a new registry value or overwrites an existing one')
+    add_parser.add_argument('-keyName', action='store', required=True,
+                              help='Specifies the full path of the subkey. The '
+                                   'keyName must include a valid root key. Valid root keys for the local computer are: HKLM,'
+                                   ' HKU.')
+    add_parser.add_argument('-v', action='store', metavar="VALUENAME", required=False, help='Specifies the registry '
+                           'value name that is to be set. Omit this option to set the default value')
+    add_parser.add_argument('-t', action='store', metavar="VALUETYPE", required=True, help='Specifies the registry '
+                           'type that is to be set, REG_SZ, REG_EXPAND_SZ, REG_DWORD, REG_QWORD, or REG_BINARY')
+    add_parser.add_argument('-data', action='store', metavar="VALUEDATA", required=True, help='Specifies the data to '
+                           'store.')
 
     # An delete command
     # delete_parser = subparsers.add_parser('delete', help='Deletes a subkey or entries from the registry')
