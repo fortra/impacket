@@ -26,9 +26,6 @@ class NTLMTests(unittest.TestCase):
         self.nonce = b('\x00'*16)
         self.plaintext = 'Plaintext'.encode('utf-16le')
 
-        print("## BEFORE RUNNING THESE TESTS")
-        print("Don't forget to set up aTime = '\\x00'*8 in computeResponseNTLMv2 otherwise the results won't be right. ")
-        print("Look for that in ntlm.py and uncomment the lines, comment the other ones and don't forget to revert everything back whenever finished testing")
         print("Flags")
         hexdump(struct.pack('<L',self.flags))
 
