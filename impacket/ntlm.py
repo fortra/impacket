@@ -251,16 +251,6 @@ class AV_PAIRS:
 
         return ans
 
-class NTLMAuthMixin:
-    def get_os_version(self):
-        if self['os_version'] == '':
-            return None
-        else:
-            mayor_v = struct.unpack('B',self['os_version'][0])[0]
-            minor_v = struct.unpack('B',self['os_version'][1])[0]
-            build_v = struct.unpack('H',self['os_version'][2:4])
-            return mayor_v,minor_v,build_v
-        
 # [MS-NLMP] 2.2.2.10 VERSION
 # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/b1a6ceb2-f8ad-462b-b5af-f18527c48175
 class VERSION(Structure):
@@ -387,7 +377,7 @@ class NTLMAuthChallenge(Structure):
         self['TargetInfoFields'] = data[self['TargetInfoFields_offset']:][:self['TargetInfoFields_len']]
         return self
         
-class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
+class NTLMAuthChallengeResponse(Structure):
 
     structure = (
         ('','"NTLMSSP\x00'),
@@ -505,11 +495,6 @@ class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
         lanman_offset = self['lanman_offset'] 
         lanman_end    = self['lanman_len'] + lanman_offset
         self['lanman'] = data[ lanman_offset : lanman_end]
-
-        #if len(data) >= 36: 
-        #    self['os_version'] = data[32:36]
-        #else:
-        #    self['os_version'] = ''
 
 class ImpacketStructure(Structure):
     def set_parent(self, other):
