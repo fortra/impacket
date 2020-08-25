@@ -14,6 +14,10 @@
 # Author:
 #  Sam Freeside (@snovvcrash)
 #
+# Example:
+#  python smbpasswd.py 'j.doe:Passw0rd!'@pc1.megacorp.local
+#  python smbpasswd.py 'j.doe:Passw0rd!'@10.10.13.37 -newpass 'N3wPassw0rd!'
+#
 # References:
 #  https://github.com/samba-team/samba/blob/master/source3/utils/smbpasswd.c
 #  https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/acb3204a-da8b-478e-9139-1ea589edb880
@@ -52,11 +56,37 @@ def hSamrUnicodeChangePasswordUser2(username, currpass, newpass, target):
 		print('[+] Password was changed successfully.')
 
 
-parser = ArgumentParser()
-parser.add_argument('username', help='username to change password for')
-parser.add_argument('oldpass', help='old password')
-parser.add_argument('newpass', help='new password')
-parser.add_argument('target', help='hostname or IP')
-args = parser.parse_args()
+def parse_target(target):
+	try:
+		userpass, hostname_or_ip = target.rsplit('@', 1)
+	except ValueError:
+		print('Wrong target string format. For more information run with --help option.')
+		sys.exit(1)
 
-hSamrUnicodeChangePasswordUser2(args.username, args.oldpass, args.newpass, args.target)
+	try:
+		username, currpass = userpass.split(':', 1)
+	except ValueError:
+		username = userpass
+		currpass = getpass('Current SMB password: ')
+
+	return (username, currpass, hostname_or_ip)
+
+
+if __name__ == '__main__':
+	parser = ArgumentParser()
+	parser.add_argument('target', help='<username[:currpass]>@<target_hostname_or_IP_address>')
+	parser.add_argument('-newpass', default=None, help='new SMB password')
+	args = parser.parse_args()
+
+	username, currpass, hostname_or_ip = parse_target(args.target)
+
+	if args.newpass is None:
+		newpass = getpass('New SMB password: ')
+		newpass_verify = getpass('Retype new SMB password: ')
+		if newpass != newpass_verify:
+			print('[-] Password does not match, try again.')
+			sys.exit(2)
+	else:
+		newpass = args.newpass
+
+	hSamrUnicodeChangePasswordUser2(username, currpass, newpass, hostname_or_ip)
