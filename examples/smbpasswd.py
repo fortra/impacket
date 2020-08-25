@@ -22,6 +22,8 @@
 #  https://github.com/samba-team/samba/blob/master/source3/utils/smbpasswd.c
 #  https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/acb3204a-da8b-478e-9139-1ea589edb880
 
+import sys
+from getpass import getpass
 from argparse import ArgumentParser
 
 from impacket.dcerpc.v5 import transport, samr
