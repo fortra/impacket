@@ -35,10 +35,21 @@ def connect(host_name_or_ip):
 	return dce
 
 
-def hSamrUnicodeChangePasswordUser2(username, oldpass, newpass, target):
+def hSamrUnicodeChangePasswordUser2(username, currpass, newpass, target):
 	dce = connect(target)
-	resp = samr.hSamrUnicodeChangePasswordUser2(dce, '\x00', username, oldpass, newpass)
-	resp.dump()
+
+	try:
+		resp = samr.hSamrUnicodeChangePasswordUser2(dce, '\x00', username, currpass, newpass)
+		#resp.dump()
+	except Exception as e:
+		if 'STATUS_WRONG_PASSWORD' in str(e):
+			print('[-] Current SMB password is not correct.')
+		elif 'STATUS_PASSWORD_RESTRICTION' in str(e):
+			print('[-] Some password update rule has been violated. For example, the password may not meet length criteria.')
+		else:
+			raise e
+	else:
+		print('[+] Password was changed successfully.')
 
 
 parser = ArgumentParser()
