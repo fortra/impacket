@@ -15,7 +15,7 @@
 #  Sam Freeside (@snovvcrash)
 #
 # Example:
-#  python smbpasswd.py 'j.doe:Passw0rd!'@pc1.megacorp.local
+#  python smbpasswd.py 'j.doe'@pc1.megacorp.local
 #  python smbpasswd.py 'j.doe:Passw0rd!'@10.10.13.37 -newpass 'N3wPassw0rd!'
 #
 # References:
@@ -86,7 +86,7 @@ if __name__ == '__main__':
 		newpass = getpass('New SMB password: ')
 		newpass_verify = getpass('Retype new SMB password: ')
 		if newpass != newpass_verify:
-			print('[-] Password does not match, try again.')
+			print('Password does not match, try again.')
 			sys.exit(2)
 	else:
 		newpass = args.newpass
