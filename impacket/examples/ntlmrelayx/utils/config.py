@@ -55,6 +55,7 @@ class NTLMRelayxConfig:
         self.exeFile = None
         self.interactive = False
         self.enumLocalAdmins = False
+        self.SMBServerChallenge = None
 
         # RPC options
         self.rpc_mode = None
@@ -86,6 +87,9 @@ class NTLMRelayxConfig:
 
         # WebDAV options
         self.serve_image = False
+
+    def setSMBChallenge(self, value):
+        self.SMBServerChallenge = value
 
     def setSMB2Support(self, value):
         self.smb2support = value

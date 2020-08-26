@@ -158,6 +158,7 @@ def start_servers(options, threads):
         c.setIPv6(options.ipv6)
         c.setWpadOptions(options.wpad_host, options.wpad_auth_num)
         c.setSMB2Support(options.smb2support)
+        c.setSMBChallenge(options.ntlmchallenge)
         c.setInterfaceIp(options.interface_ip)
         c.setExploitOptions(options.remove_mic, options.remove_target)
         c.setWebDAVOptions(options.serve_image)
@@ -240,7 +241,10 @@ if __name__ == '__main__':
                                                        'map the result with '
                                                        'https://docs.python.org/3/library/codecs.html#standard-encodings and then execute ntlmrelayx.py '
                                                        'again with -codec and the corresponding codec ' % sys.getdefaultencoding())
-    parser.add_argument('-smb2support', action="store_true", default=False, help='SMB2 Support (experimental!)')
+    parser.add_argument('-smb2support', action="store_true", default=False, help='SMB2 Support')
+    parser.add_argument('-ntlmchallenge', action="store", default=None, help='Specifies the NTLM server challenge used by the '
+                                                                             'SMB Server (16 hex bytes long. eg: 1122334455667788)')
+
     parser.add_argument('-socks', action='store_true', default=False,
                         help='Launch a SOCKS proxy for the connection relayed')
     parser.add_argument('-wh','--wpad-host', action='store',help='Enable serving a WPAD file for Proxy Authentication attack, '

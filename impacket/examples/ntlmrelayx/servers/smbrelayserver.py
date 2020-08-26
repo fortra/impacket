@@ -29,7 +29,7 @@ import string
 import socket
 import ntpath
 
-from binascii import hexlify
+from binascii import hexlify, unhexlify
 from six import b
 from impacket import smb, ntlm, LOG, smb3
 from impacket.nt_errors import STATUS_MORE_PROCESSING_REQUIRED, STATUS_ACCESS_DENIED, STATUS_SUCCESS, STATUS_NETWORK_SESSION_EXPIRED
@@ -71,6 +71,9 @@ class SMBRelayServer(Thread):
 
         if self.config.outputFile is not None:
             smbConfig.set('global','jtr_dump_path',self.config.outputFile)
+
+        if self.config.SMBServerChallenge is not None:
+            smbConfig.set('global', 'challenge', self.config.SMBServerChallenge)
 
         # IPC always needed
         smbConfig.add_section('IPC$')
