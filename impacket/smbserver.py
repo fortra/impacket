@@ -2495,7 +2495,7 @@ class SMBCommands:
             smbServer.log('User %s\\%s authenticated successfully (basic)' % (sessionSetupData['PrimaryDomain'], sessionSetupData['Account']))
             try:
                 jtr_dump_path = smbServer.getJTRdumpPath()
-                ntlm_hash_data = outputToJohnFormat( b'', sessionSetupData['Account'], sessionSetupData['PrimaryDomain'], sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'] )
+                ntlm_hash_data = outputToJohnFormat( b'', b(sessionSetupData['Account']), b(sessionSetupData['PrimaryDomain']), sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'] )
                 smbServer.log(ntlm_hash_data['hash_string'])
                 if jtr_dump_path != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], jtr_dump_path)
@@ -4392,7 +4392,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         self.__serverDomain = self.__serverConfig.get('global','server_domain')
         self.__logFile      = self.__serverConfig.get('global','log_file')
         if self.__serverConfig.has_option('global', 'challenge'):
-            self.__challenge    = b(self.__serverConfig.get('global', 'challenge'))
+            self.__challenge    = unhexlify(self.__serverConfig.get('global', 'challenge'))
         else:
             self.__challenge    = b'A'*8
 
