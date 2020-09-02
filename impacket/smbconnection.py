@@ -108,6 +108,9 @@ class SMBConnection:
             else:
                 self._remoteName = res
 
+        if self._sess_port == nmb.NETBIOS_SESSION_PORT:
+            negoData = '\x02NT LM 0.12\x00\x02SMB 2.002\x00'
+
         hostType = nmb.TYPE_SERVER
         if preferredDialect is None:
             # If no preferredDialect sent, we try the highest available one.
