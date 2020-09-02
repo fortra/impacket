@@ -121,7 +121,7 @@ class PSEXEC:
                 installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), remcomsvc.RemComSvc())
             else:
                 try:
-                    f = open(self.__exeFile)
+                    f = open(self.__exeFile, 'rb')
                 except Exception as e:
                     logging.critical(str(e))
                     sys.exit(1)
