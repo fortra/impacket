@@ -556,8 +556,8 @@ class NetBIOS:
                             raise NetBIOSError('Negative response', ERRCLASS_QUERY, res['FLAGS'] & 0xf)
                         return res
             except select.error as ex:
-                if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
-                    raise NetBIOSError('Error occurs while waiting for response', ERRCLASS_OS, ex[0])
+                if ex.errno != errno.EINTR and ex.errno != errno.EAGAIN:
+                    raise NetBIOSError('Error occurs while waiting for response', ERRCLASS_OS, ex.errno)
             except socket.error as ex:
                 raise NetBIOSError('Connection error: %s' % str(ex))
 
@@ -960,8 +960,8 @@ class NetBIOSTCPSession(NetBIOSSession):
                 data = data + received
                 bytes_left = read_length - len(data)
             except select.error as ex:
-                if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
-                    raise NetBIOSError('Error occurs while reading from remote', ERRCLASS_OS, ex[0])
+                if ex.errno != errno.EINTR and ex.errno != errno.EAGAIN:
+                    raise NetBIOSError('Error occurs while reading from remote', ERRCLASS_OS, ex.errno)
 
         return bytes(data)
 
@@ -980,7 +980,7 @@ class NetBIOSTCPSession(NetBIOSSession):
             except socket.timeout:
                 raise NetBIOSTimeout
             except Exception as ex:
-                raise NetBIOSError('Error occurs while reading from remote', ERRCLASS_OS, ex[0])
+                raise NetBIOSError('Error occurs while reading from remote', ERRCLASS_OS, ex.errno)
 
             if (time.time() - start_time) > timeout:
                 raise NetBIOSTimeout
