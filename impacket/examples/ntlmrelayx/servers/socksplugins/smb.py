@@ -304,7 +304,7 @@ class SMBSocksRelay(SocksRelay):
 
                 respToken = SPNEGO_NegTokenResp()
                 # accept-incomplete. We want more data
-                respToken['NegResult'] = b'\x01'
+                respToken['NegState'] = b'\x01'
                 respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
                 respToken['ResponseToken'] = challengeMessage.getData()
 
@@ -388,7 +388,7 @@ class SMBSocksRelay(SocksRelay):
                 else:
                     respToken = SPNEGO_NegTokenResp()
                     # accept-completed
-                    respToken['NegResult'] = b'\x00'
+                    respToken['NegState'] = b'\x00'
                     respParameters['SecurityBlobLength'] = len(respToken)
                     respData['SecurityBlobLength'] = respParameters['SecurityBlobLength']
                     respData['SecurityBlob'] = respToken.getData()
@@ -466,7 +466,7 @@ class SMBSocksRelay(SocksRelay):
             if rawNTLM is False:
                 respToken = SPNEGO_NegTokenResp()
                 # accept-incomplete. We want more data
-                respToken['NegResult'] = b'\x01'
+                respToken['NegState'] = b'\x01'
                 respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
 
                 respToken['ResponseToken'] = challengeMessage.getData()
@@ -524,7 +524,7 @@ class SMBSocksRelay(SocksRelay):
                 smbClient = None
 
             # accept-completed
-            respToken['NegResult'] = b'\x00'
+            respToken['NegState'] = b'\x00'
 
             resp = SMB2Packet()
             resp['Flags'] = SMB2_FLAGS_SERVER_TO_REDIR

@@ -257,7 +257,7 @@ class SMBRelayServer(Thread):
             if rawNTLM is False:
                 respToken = SPNEGO_NegTokenResp()
                 # accept-incomplete. We want more data
-                respToken['NegResult'] = b'\x01'
+                respToken['NegState'] = b'\x01'
                 respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
 
                 respToken['ResponseToken'] = challengeMessage.getData()
@@ -336,7 +336,7 @@ class SMBRelayServer(Thread):
             if rawNTLM is False:
                 respToken = SPNEGO_NegTokenResp()
                 # accept-completed
-                respToken['NegResult'] = b'\x00'
+                respToken['NegState'] = b'\x00'
             else:
                 respToken = ''
             # Let's store it in the connection data
@@ -511,7 +511,7 @@ class SMBRelayServer(Thread):
 
                 respToken = SPNEGO_NegTokenResp()
                 # accept-incomplete. We want more data
-                respToken['NegResult'] = b'\x01'
+                respToken['NegState'] = b'\x01'
                 respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
                 respToken['ResponseToken'] = challengeMessage.getData()
 
@@ -591,7 +591,7 @@ class SMBRelayServer(Thread):
 
                 respToken = SPNEGO_NegTokenResp()
                 # accept-completed
-                respToken['NegResult'] = b'\x00'
+                respToken['NegState'] = b'\x00'
 
                 # Status SUCCESS
                 errorCode = STATUS_SUCCESS
