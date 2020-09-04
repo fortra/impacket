@@ -276,14 +276,11 @@ class SMBRelayClient(ProtocolClient):
             packet = self.session.negotiateSessionWildcard(None, self.targetHost, self.targetHost, self.targetPort, 60, self.extendedSecurity,
                                                   flags1=SMB.FLAGS1_PATHCASELESS | SMB.FLAGS1_CANONICALIZED_PATHS,
                              flags2=flags2, data=data)
-        except socketerror as e:
-            if 'reset by peer' in str(e):
-                if not self.serverConfig.smb2support:
-                    LOG.error('SMBCLient error: Connection was reset. Possibly the target has SMBv1 disabled. Try running ntlmrelayx with -smb2support')
-                else:
-                    LOG.error('SMBCLient error: Connection was reset')
+        except Exception as e:
+            if not self.serverConfig.smb2support:
+                LOG.error('SMBClient error: Connection was reset. Possibly the target has SMBv1 disabled. Try running ntlmrelayx with -smb2support')
             else:
-                LOG.error('SMBCLient error: %s' % str(e))
+                LOG.error('SMBClient error: Connection was reset')
             return False
         if packet[0:1] == b'\xfe':
             preferredDialect = None
