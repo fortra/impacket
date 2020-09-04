@@ -22,7 +22,7 @@ from impacket.examples.ntlmrelayx.servers.socksserver import SocksRelay
 # Besides using this base class you need to define one global variable when
 # writing a plugin:
 PLUGIN_CLASS = "HTTPSocksRelay"
-EOL = '\r\n'
+EOL = b'\r\n'
 
 class HTTPSocksRelay(SocksRelay):
     PLUGIN_NAME = 'HTTP Socks Plugin'
@@ -48,7 +48,7 @@ class HTTPSocksRelay(SocksRelay):
             creds = headerDict['authorization']
             if 'Basic' not in creds:
                 raise KeyError()
-            basicAuth = base64.b64decode(creds[6:])
+            basicAuth = base64.b64decode(creds[6:]).decode("ascii")
             self.username = basicAuth.split(':')[0].upper()
             if '@' in self.username:
                 # Workaround for clients which specify users with the full FQDN
@@ -79,7 +79,7 @@ class HTTPSocksRelay(SocksRelay):
         except KeyError:
             # User didn't provide authentication yet, prompt for it
             LOG.debug('No authentication provided, prompting for basic authentication')
-            reply = ['HTTP/1.1 401 Unauthorized','WWW-Authenticate: Basic realm="ntlmrelayx - provide a DOMAIN/username"','Connection: close','','']
+            reply = [b'HTTP/1.1 401 Unauthorized',b'WWW-Authenticate: Basic realm="ntlmrelayx - provide a DOMAIN/username"',b'Connection: close',b'',b'']
             self.socksSocket.send(EOL.join(reply))
             return False
 
@@ -99,6 +99,7 @@ class HTTPSocksRelay(SocksRelay):
         # since this is the HTTP method, identifier, version
         headerSize = data.find(EOL+EOL)
         headers = data[:headerSize].split(EOL)[1:]
+        headers = [header.decode("ascii") for header in headers]
         headerDict = {hdrKey.split(':')[0].lower():hdrKey.split(':', 1)[1][1:] for hdrKey in headers}
         return headerDict
 
@@ -160,16 +161,16 @@ class HTTPSocksRelay(SocksRelay):
             if part == '':
                 break
             # Remove the Basic authentication header
-            if 'authorization' in part.lower():
+            if b'authorization' in part.lower():
                 continue
             # Don't close the connection
-            if 'connection: close' in part.lower():
+            if b'connection: close' in part.lower():
                 response.append('Connection: Keep-Alive')
                 continue
             # If we are here it means we want to keep the header
             response.append(part)
         # Append the body
-        response.append('')
+        response.append(b'')
         response.append(data.split(EOL+EOL)[1])
         senddata = EOL.join(response)
 
