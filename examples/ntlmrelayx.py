@@ -186,7 +186,7 @@ def start_servers(options, threads):
 def stop_servers(threads):
     todelete = []
     for thread in threads:
-        if isinstance(thread, RELAY_SERVERS):
+        if isinstance(thread, tuple(RELAY_SERVERS)):
             thread.server.shutdown()
             todelete.append(thread)
     # Now remove threads from the set
