@@ -12,6 +12,8 @@ try:
     version = pkg_resources.get_distribution('impacket').version
 except pkg_resources.DistributionNotFound:
     version = "?"
+    print("Cannot determine Impacket version. "
+          "If running from source you should at least run \"python setup.py egg_info\"")
 BANNER = "Impacket v{} - Copyright 2020 SecureAuth Corporation\n".format(version)
 
 def getInstallationPath():
