@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under under a slightly modified version
@@ -27,6 +28,8 @@ import socketserver
 import struct
 from binascii import hexlify
 from threading import Thread
+
+from six import PY2
 
 from impacket import ntlm, LOG
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
@@ -68,13 +71,16 @@ class WCFRelayServer(Thread):
             LOG.info("WCF: Received connection from %s, attacking target %s://%s" % (
                 client_address[0], self.target.scheme, self.target.netloc))
 
-            super().__init__(request, client_address, server)
+            socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
         # recv from socket for exact 'length' (even if fragmented over several packets)
         def recvall(self, length):
             buf = b''
             while not len(buf) == length:
                 buf += self.request.recv(length - len(buf))
+
+            if PY2:
+                buf = bytearray(buf)
             return buf
 
         def handle(self):
@@ -98,7 +104,7 @@ class WCFRelayServer(Thread):
                 LOG.error("WCF: wrong ViaRecord code")
                 return
             via_len = self.recvall(1)
-            via_len = int.from_bytes(via_len, byteorder="big")
+            via_len = struct.unpack("B", via_len)[0]
             via = self.recvall(via_len).decode("utf-8")
 
             if not via.startswith("net.tcp://"):
@@ -117,7 +123,7 @@ class WCFRelayServer(Thread):
                 LOG.error("WCF: wrong UpgradeRequestRecord code")
                 return
             upgrade_len = self.recvall(1)
-            upgrade_len = int.from_bytes(upgrade_len, byteorder="big")
+            upgrade_len = struct.unpack("B", upgrade_len)[0]
             upgrade = self.recvall(upgrade_len).decode("utf-8")
 
             if upgrade != "application/negotiate":
