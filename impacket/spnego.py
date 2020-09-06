@@ -250,7 +250,7 @@ class SPNEGO_NegTokenResp:
             print("%s: {%r}" % (i,self[i]))
     def getData(self):
         ans = pack('B',SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP)
-        if 'NegState' in self.fields and 'SupportedMech' in self.fields:
+        if 'NegState' in self.fields and 'SupportedMech' in self.fields and 'ResponseToken' in self.fields:
             # Server resp
             ans += asn1encode(
                pack('B', ASN1_SEQUENCE) +
@@ -266,6 +266,19 @@ class SPNEGO_NegTokenResp:
                pack('B',ASN1_RESPONSE_TOKEN ) +
                asn1encode(
                pack('B', ASN1_OCTET_STRING) + asn1encode(self['ResponseToken']))))
+        elif 'NegState' in self.fields and 'SupportedMech' in self.fields:
+            # Server resp
+            ans += asn1encode(
+               pack('B', ASN1_SEQUENCE) +
+               asn1encode(
+               pack('B',SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_TARG) +
+               asn1encode(
+               pack('B',ASN1_ENUMERATED) +
+               asn1encode( self['NegState'] )) +
+               pack('B',ASN1_SUPPORTED_MECH) +
+               asn1encode(
+               pack('B',ASN1_OID) +
+               asn1encode(self['SupportedMech']))))
         elif 'NegState' in self.fields:
             # Server resp
             ans += asn1encode(

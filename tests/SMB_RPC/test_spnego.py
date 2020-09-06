@@ -14,6 +14,8 @@ class Test(unittest.TestCase):
 
         self.negTokenResp3 = b'\xa1\x07\x30\x05\xa0\x03\x0a\x01\x00'
 
+        self.negTokenResp4 = b'\xa1\x15\x30\x13\xa0\x03\x0a\x01\x03\xa1\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
+
     def test_negTokenInit(self):
         token = smb.SPNEGO_NegTokenInit()
         token.fromString(self.negTokenInit)
@@ -38,6 +40,12 @@ class Test(unittest.TestCase):
         token = smb.SPNEGO_NegTokenResp()
         token.fromString(self.negTokenResp3)
         self.assertTrue(self.negTokenResp3, token.getData())
+
+    def test_negTokenResp4(self):
+        token = smb.SPNEGO_NegTokenResp()
+        token['NegState'] = b'\x03'  # request-mic
+        token['SupportedMech'] = smb.TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
+        self.assertTrue(self.negTokenResp4, token.getData())
 
 if __name__ == "__main__":
     unittest.main()

@@ -212,8 +212,10 @@ class SMBRelayServer(Thread):
                    smbServer.log("Unsupported MechType '%s'" % mechStr, logging.CRITICAL)
                    # We don't know the token, we answer back again saying
                    # we just support NTLM.
-                   # ToDo: Build this into a SPNEGO_NegTokenResp()
-                   respToken = b'\xa1\x15\x30\x13\xa0\x03\x0a\x01\x03\xa1\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
+                   respToken = SPNEGO_NegTokenResp()
+                   respToken['NegState'] = b'\x03'  # request-mic
+                   respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
+                   respToken = respToken.getData()
                    respSMBCommand['SecurityBufferOffset'] = 0x48
                    respSMBCommand['SecurityBufferLength'] = len(respToken)
                    respSMBCommand['Buffer'] = respToken
