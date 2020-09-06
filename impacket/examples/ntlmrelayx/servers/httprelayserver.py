@@ -13,8 +13,6 @@
 # Description:
 #             This is the HTTP server which relays the NTLMSSP  messages to other protocols
 
-import http.server
-import socketserver
 import socket
 import base64
 import random
@@ -22,6 +20,12 @@ import struct
 import string
 from threading import Thread
 from six import PY2, b
+if PY2:
+    from SimpleHTTPServer import SimpleHTTPRequestHandler
+    import SocketServer as socketserver
+else:
+    from http.server import SimpleHTTPRequestHandler
+    import socketserver
 
 from impacket import ntlm, LOG
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
@@ -41,7 +45,7 @@ class HTTPRelayServer(Thread):
             self.wpad_counters = {}
             socketserver.TCPServer.__init__(self,server_address, RequestHandlerClass)
 
-    class HTTPHandler(http.server.SimpleHTTPRequestHandler):
+    class HTTPHandler(SimpleHTTPRequestHandler):
         def __init__(self,request, client_address, server):
             self.server = server
             self.protocol_version = 'HTTP/1.1'
@@ -65,14 +69,14 @@ class HTTPRelayServer(Thread):
                     return
                 LOG.info("HTTPD: Received connection from %s, attacking target %s://%s" % (client_address[0] ,self.target.scheme, self.target.netloc))
             try:
-                http.server.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
+                SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
             except Exception as e:
                 LOG.debug("Exception:", exc_info=True)
                 LOG.error(str(e))
 
         def handle_one_request(self):
             try:
-                http.server.SimpleHTTPRequestHandler.handle_one_request(self)
+                SimpleHTTPRequestHandler.handle_one_request(self)
             except KeyboardInterrupt:
                 raise
             except Exception as e:
@@ -85,7 +89,7 @@ class HTTPRelayServer(Thread):
         def send_error(self, code, message=None):
             if message.find('RPC_OUT') >=0 or message.find('RPC_IN'):
                 return self.do_GET()
-            return http.server.SimpleHTTPRequestHandler.send_error(self,code,message)
+            return SimpleHTTPRequestHandler.send_error(self,code,message)
 
         def serve_wpad(self):
             wpadResponse = self.wpad % (self.server.config.wpad_host, self.server.config.wpad_host)
