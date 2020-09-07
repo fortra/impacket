@@ -122,13 +122,19 @@ class CDPElement(Header):
 
     def get_length(self):
         return self.get_word(2)
-                
-    def get_data(self):        
-        return self.get_bytes().tostring()[4:self.get_length()]
+
+    def get_data(self):
+        try:
+            return self.get_bytes().tobytes()[4:self.get_length()]
+        except AttributeError:  # Python < 3.2
+            return self.get_bytes().tostring()[4:self.get_length()]
 
     def get_ip_address(self, offset = 0, ip = None):
         if not ip:
-            ip = self.get_bytes().tostring()[offset : offset + IP_ADDRESS_LENGTH]
+            try:
+                ip = self.get_bytes().tobytes()[offset : offset + IP_ADDRESS_LENGTH]
+            except AttributeError:  # Python < 3.2
+                ip = self.get_bytes().tostring()[offset : offset + IP_ADDRESS_LENGTH]
         return socket.inet_ntoa( ip )
         
 class CDPDevice(CDPElement):
@@ -149,7 +155,10 @@ class Address(CDPElement):
     def __init__(self, aBuffer = None):
         CDPElement.__init__(self, aBuffer)
         if aBuffer:
-            data = self.get_bytes().tostring()[8:]
+            try:
+                data = self.get_bytes().tobytes()[8:]
+            except AttributeError:  # Python < 3.2
+                data = self.get_bytes().tostring()[8:]
             self._generateAddressDetails(data)
 
     def _generateAddressDetails(self, buff):
@@ -353,10 +362,16 @@ class ProtocolHello(CDPElement):
         return self.get_byte(19)
 
     def get_cluster_command_mac(self):
-        return self.get_bytes().tostring()[20:20+6]
+        try:
+            return self.get_bytes().tobytes()[20:20+6]
+        except AttributeError:  # Python < 3.2
+            return self.get_bytes().tostring()[20:20+6]
             
     def get_switch_mac(self):
-        return self.get_bytes().tostring()[28:28+6]
+        try:
+            return self.get_bytes().tobytes()[28:28+6]
+        except AttributeError:  # Python < 3.2
+            return self.get_bytes().tostring()[28:28+6]
             
     def get_management_vlan(self):
         return self.get_word(36)

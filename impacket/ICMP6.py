@@ -233,8 +233,11 @@ class ICMP6(Header):
         #Pack ICMP payload
         icmp_bytes = struct.pack('>H', id)
         icmp_bytes += struct.pack('>H', sequence_number)
-        if (arbitrary_data is not None):
-            icmp_bytes += array.array('B', arbitrary_data).tostring()
+        if arbitrary_data is not None:
+            try:
+                icmp_bytes += array.array('B', arbitrary_data).tobytes()
+            except AttributeError:  # Python < 3.2
+                icmp_bytes += array.array('B', arbitrary_data).tostring()
         icmp_payload = Data()
         icmp_payload.set_data(icmp_bytes)
         
@@ -273,9 +276,14 @@ class ICMP6(Header):
         icmp_packet.set_code(code)
         
         #Pack ICMP payload
-        icmp_bytes = array.array('B', data).tostring()
-        if (originating_packet_data is not None):
-            icmp_bytes += array.array('B', originating_packet_data).tostring()
+        try:
+            icmp_bytes = array.array('B', data).tobytes()
+            if (originating_packet_data is not None):
+                icmp_bytes += array.array('B', originating_packet_data).tobytes()
+        except AttributeError:  # Python < 3.2
+            icmp_bytes = array.array('B', data).tostring()
+            if (originating_packet_data is not None):
+                icmp_bytes += array.array('B', originating_packet_data).tostring()
         icmp_payload = Data()
         icmp_payload.set_data(icmp_bytes)
         
@@ -301,12 +309,16 @@ class ICMP6(Header):
         icmp_packet.set_type(msg_type)
         icmp_packet.set_code(0)
         
-        # Flags + Reserved
-        icmp_bytes = array.array('B', [0x00] * 4).tostring()       
+        try:
+            # Flags + Reserved
+            icmp_bytes = array.array('B', [0x00] * 4).tobytes()       
         
-        # Target Address: The IP address of the target of the solicitation.
-        # It MUST NOT be a multicast address.
-        icmp_bytes += array.array('B', IP6_Address(target_address).as_bytes()).tostring()
+            # Target Address: The IP address of the target of the solicitation.
+            # It MUST NOT be a multicast address.
+            icmp_bytes += array.array('B', IP6_Address(target_address).as_bytes()).tobytes()
+        except AttributeError:  # Python < 3.2
+            icmp_bytes = array.array('B', [0x00] * 4).tostring()       
+            icmp_bytes += array.array('B', IP6_Address(target_address).as_bytes()).tostring()
         
         icmp_payload = Data()
         icmp_payload.set_data(icmp_bytes)
@@ -394,10 +406,15 @@ class ICMP6(Header):
         
         icmp_bytes = struct.pack('>H', qtype)
         icmp_bytes += struct.pack('>H', flags)
-        icmp_bytes += array.array('B', nonce).tostring()
-        
-        if payload is not None:
-            icmp_bytes += array.array('B', payload).tostring()
+        try:
+            icmp_bytes += array.array('B', nonce).tobytes()        
+            if payload is not None:
+                icmp_bytes += array.array('B', payload).tobytes()
+        except AttributeError:  # Python < 3.2
+            icmp_bytes += array.array('B', nonce).tostring()
+            if payload is not None:
+                icmp_bytes += array.array('B', payload).tostring()
+
         
         icmp_payload = Data()
         icmp_payload.set_data(icmp_bytes)

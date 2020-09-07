@@ -354,7 +354,10 @@ class UDPCommandResponder(OpenUDPResponder):
           #in_onion[O_UDP].get_uh_dport() == self.port)
 
    def buildAnswer(self, in_onion):
-       cmd = in_onion[O_UDP_DATA].get_bytes().tostring()
+       try:
+           cmd = in_onion[O_UDP_DATA].get_bytes().tobytes()
+       except AttributeError:  # Python < 3.2
+           cmd = in_onion[O_UDP_DATA].get_bytes().tostring()
        if cmd[:4] == 'cmd:': cmd = cmd[4:].strip()
        print("Got command: %r" % cmd)
 

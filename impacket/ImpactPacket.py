@@ -59,8 +59,11 @@ class PacketBuffer(object):
         self.__bytes = array.array('B', data)
 
     def get_buffer_as_string(self):
-        "Returns the packet buffer as a string object"
-        return self.__bytes.tostring()
+        "Returns the packet buffer as a bytes object"
+        try:
+            return self.__bytes.tobytes()
+        except AttributeError:  # Python < 3.2
+            return self.__bytes.tostring()
 
     def get_bytes(self):
         "Returns the packet buffer as an array"
@@ -97,7 +100,10 @@ class PacketBuffer(object):
             bytes = self.__bytes[index:]
         else:
             bytes = self.__bytes[index:index+2]
-        (value,) = struct.unpack(order + 'H', bytes.tostring())
+        try:
+            (value,) = struct.unpack(order + 'H', bytes.tobytes())
+        except AttributeError:  # Python < 3.2
+            (value,) = struct.unpack(order + 'H', bytes.tostring())
         return value
 
     def set_long(self, index, value, order = '!'):
@@ -116,7 +122,10 @@ class PacketBuffer(object):
             bytes = self.__bytes[index:]
         else:
             bytes = self.__bytes[index:index+4]
-        (value,) = struct.unpack(order + 'L', bytes.tostring())
+        try:
+            (value,) = struct.unpack(order + 'L', bytes.tobytes())
+        except AttributeError:  # Python < 3.2
+            (value,) = struct.unpack(order + 'L', bytes.tostring())
         return value
 
     def set_long_long(self, index, value, order = '!'):
@@ -135,7 +144,10 @@ class PacketBuffer(object):
             bytes = self.__bytes[index:]
         else:
             bytes = self.__bytes[index:index+8]
-        (value,) = struct.unpack(order + 'Q', bytes.tostring())
+        try:
+            (value,) = struct.unpack(order + 'Q', bytes.tobytes())
+        except AttributeError:  # Python < 3.2
+            (value,) = struct.unpack(order + 'Q', bytes.tostring())
         return value
 
 
@@ -146,7 +158,11 @@ class PacketBuffer(object):
             bytes = self.__bytes[index:]
         else:
             bytes = self.__bytes[index:index+4]
-        return socket.inet_ntoa(bytes.tostring())
+        try:
+            return socket.inet_ntoa(bytes.tobytes())
+        except AttributeError:  # Python < 3.2
+            return socket.inet_ntoa(bytes.tostring())
+
 
     def set_ip_address(self, index, ip_string):
         "Set 4-byte value at 'index' from 'ip_string'"
@@ -719,7 +735,10 @@ class LinuxSLL(Header):
 
     def get_addr(self):
         "Returns the sender's address field"
-        return self.get_bytes()[6:14].tostring()
+        try:
+            return self.get_bytes()[6:14].tobytes()
+        except AttributeError:  # Python < 3.2
+            return self.get_bytes()[6:14].tostring()
 
     def set_ether_type(self, aValue):
         "Set ethernet data type field to 'aValue'"
@@ -808,10 +827,10 @@ class IP(Header):
         if self.auto_checksum:
             self.set_ip_sum(self.compute_checksum(my_bytes))
 
-        if child_data is None:
-            return my_bytes.tostring()
-        else:
-            return my_bytes.tostring() + child_data
+        try:
+            return my_bytes.tobytes() + (child_data or b"")
+        except AttributeError:  # Python < 3.2
+            return my_bytes.tostring() + (child_data or b"")
 
 
 
@@ -1504,10 +1523,10 @@ class TCP(Header):
         bytes = self.get_bytes() + self.get_padded_options()
         data = self.get_data_as_string()
 
-        if data:
-            return bytes.tostring() + data
-        else:
-            return bytes.tostring()
+        try:
+            return bytes.tobytes() + (data or b"")
+        except AttributeError:  # Python < 3.2
+            return bytes.tostring() + (data or b"")
 
     def load_header(self, aBuffer):
         self.set_bytes_from_string(aBuffer[:20])

@@ -100,8 +100,11 @@ class ThreeBytesBigEndian(Field):
         Field.__init__(self, index)
                 
     def getter(self, o):
-        b=o.header.get_bytes()[self.index:self.index+3].tostring()
-        #unpack requires a string argument of length 4 and b is 3 bytes long
+        try:
+            b=o.header.get_bytes()[self.index:self.index+3].tobytes()
+        except AttributeError:  # Python < 3.2
+            b=o.header.get_bytes()[self.index:self.index+3].tostring()
+        #unpack requires a bytes argument of length 4 and b is 3 bytes long
         (value,)=struct.unpack('!L', b'\x00'+b)
         return value
 

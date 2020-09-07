@@ -33,11 +33,14 @@ class ByteBuilder(object):
     
     def to_ary(self, value):
         return array.array('B', [value])
-    
+
 class StringBuilder(object):
     def from_ary(self, ary):
-        return ary.tostring()
-        
+        try:
+            return ary.tobytes()
+        except AttributeError:  # Python < 3.2
+            return ary.tostring()
+
     def to_ary(self, value):
         return array.array('B', value)
     
@@ -115,7 +118,11 @@ class TLVContainer(object):
 
     
     def get_packet(self):
-        return self.to_ary().tostring()
+        try:
+            return self.to_ary().tobytes()
+        except AttributeError:  # Python < 3.2
+            return self.to_ary().tostring()
+
     
     def set_parent(self, my_parent):
         self.__parent = my_parent
@@ -127,7 +134,11 @@ class TLVContainer(object):
         return array.array("B", struct.pack(">H",n))
     
     def ary2n(self, ary, i=0):
-        return struct.unpack(">H", ary[i:i+2].tostring())[0]
+        try:
+            return struct.unpack(">H", ary[i:i+2].tobytes())[0]
+        except AttributeError:  # Python < 3.2
+            return struct.unpack(">H", ary[i:i+2].tostring())[0]
+
     
     def __repr__(self):
         def desc(kind):

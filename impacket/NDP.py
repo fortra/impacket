@@ -49,9 +49,13 @@ class NDP(ICMP6):
         return class_object.__build_message(NDP.ROUTER_ADVERTISEMENT, message_data)
 
     @classmethod
-    def Neighbor_Solicitation(class_object, target_address):        
-        message_data = struct.pack('>L', 0) #Reserved bytes
-        message_data += target_address.as_bytes().tostring()
+    def Neighbor_Solicitation(class_object, target_address):
+        message_data = struct.pack('>L', 0)  # Reserved bytes
+
+        try:
+            message_data += target_address.as_bytes().tobytes()
+        except AttributeError:  # Python < 3.2
+            message_data += target_address.as_bytes().tostring()
         return class_object.__build_message(NDP.NEIGHBOR_SOLICITATION, message_data)
 
 
@@ -66,18 +70,25 @@ class NDP(ICMP6):
             flag_byte |= 0x20
             
         message_data = struct.pack('>BBBB', flag_byte, 0x00, 0x00, 0x00) #Flag byte and three reserved bytes
-        message_data += target_address.as_bytes().tostring()
+        try:
+            message_data += target_address.as_bytes().tobytes()
+        except AttributeError:  # Python < 3.2
+            message_data += target_address.as_bytes().tostring()
         return class_object.__build_message(NDP.NEIGHBOR_ADVERTISEMENT, message_data)
 
 
     @classmethod
     def Redirect(class_object, target_address, destination_address):        
-        message_data = struct.pack('>L', 0)# Reserved bytes
-        message_data += target_address.as_bytes().tostring()
-        message_data += destination_address.as_bytes().tostring()
+        message_data = struct.pack('>L', 0)  # Reserved bytes
+        try:
+            message_data += target_address.as_bytes().tobytes()
+            message_data += destination_address.as_bytes().tobytes()
+        except AttributeError:  # Python < 3.2
+            message_data += target_address.as_bytes().tostring()
+            message_data += destination_address.as_bytes().tostring()
         return class_object.__build_message(NDP.REDIRECT, message_data)
 
-    
+
     @classmethod
     def __build_message(class_object, type, message_data):
         #Build NDP header
@@ -118,7 +129,10 @@ class NDP_Option():
     #link_layer_address must have a size that is a multiple of 8 octets
     def __Link_Layer_Address(class_object, option_type, link_layer_address):
         option_length = (len(link_layer_address) / 8) + 1
-        option_data = array.array("B", link_layer_address).tostring()
+        try:
+            option_data = array.array("B", link_layer_address).tobytes()
+        except AttributeError:  # Python < 3.2
+            option_data = array.array("B", link_layer_address).tostring()
         return class_object.__build_option(option_type, option_length, option_data)
 
     @classmethod
@@ -133,19 +147,25 @@ class NDP_Option():
             flag_byte |= 0x40
         
         option_data = struct.pack('>BBLL', prefix_length, flag_byte, valid_lifetime, preferred_lifetime)
-        option_data += struct.pack('>L', 0) #Reserved bytes
-        option_data += array.array("B", prefix).tostring()
-        option_length = 4        
+        option_data += struct.pack('>L', 0)  # Reserved bytes
+        try:
+            option_data += array.array("B", prefix).tobytes()
+        except AttributeError:  # Python < 3.2
+            option_data += array.array("B", prefix).tostring()
+        option_length = 4
         return class_object.__build_option(NDP_Option.PREFIX_INFORMATION, option_length, option_data)
-        
-        
+
+
     @classmethod    
     def Redirected_Header(class_object, original_packet):
-        option_data = struct.pack('>BBBBBB', 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)# Reserved bytes
-        option_data += array.array("B", original_packet).tostring()
-        option_length = (len(option_data) + 4) / 8  
+        option_data = struct.pack('>BBBBBB', 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)  # Reserved bytes
+        try:
+            option_data += array.array("B", original_packet).tobytes()
+        except AttributeError:  # Python < 3.2
+            option_data += array.array("B", original_packet).tostring()
+        option_length = (len(option_data) + 4) / 8
         return class_object.__build_option(NDP_Option.REDIRECTED_HEADER, option_length, option_data)
-    
+
     @classmethod    
     def MTU(class_object, mtu):
         option_data = struct.pack('>BB', 0x00, 0x00)# Reserved bytes

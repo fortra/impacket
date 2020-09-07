@@ -997,8 +997,11 @@ class SNAP(ProtocolPacket):
 
     def get_OUI(self):
         "Get the three-octet Organizationally Unique Identifier (OUI) SNAP frame"
-        b=self.header.get_bytes()[0:3].tostring()
-        #unpack requires a string argument of length 4 and b is 3 bytes long
+        try:
+            b=self.header.get_bytes()[0:3].tobytes()
+        except AttributeError:  # Python < 3.2
+            b=self.header.get_bytes()[0:3].tostring()
+        #unpack requires a bytes argument of length 4 and b is 3 bytes long
         (oui,)=struct.unpack('!L', b'\x00'+b)
         return oui
 
@@ -1040,8 +1043,11 @@ class Dot11WEP(ProtocolPacket):
             
     def get_iv(self):
         'Return the \'WEP IV\' field'
-        b=self.header.get_bytes()[0:3].tostring()
-        #unpack requires a string argument of length 4 and b is 3 bytes long
+        try:
+            b=self.header.get_bytes()[0:3].tobytes()
+        except AttributeError:  # Python < 3.2
+            b=self.header.get_bytes()[0:3].tostring()
+        #unpack requires a bytes argument of length 4 and b is 3 bytes long
         (iv,)=struct.unpack('!L', b'\x00'+b)
         return iv
 
