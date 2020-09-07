@@ -34,8 +34,8 @@ class TestTCP(unittest.TestCase):
         thread_hangs.start()
 
         thread_hangs.join(1.0) # 1 seconds timeout
-        self.assertEqual(thread_hangs.isAlive(), False)
-        #if thread_hang.isAlive():
+        self.assertEqual(thread_hangs.is_alive(), False)
+        # if thread_hang.is_alive():
 
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestTCP)
