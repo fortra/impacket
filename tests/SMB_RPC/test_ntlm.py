@@ -26,9 +26,6 @@ class NTLMTests(unittest.TestCase):
         self.nonce = b('\x00'*16)
         self.plaintext = 'Plaintext'.encode('utf-16le')
 
-        print("## BEFORE RUNNING THESE TESTS")
-        print("Don't forget to set up aTime = '\\x00'*8 in computeResponseNTLMv2 otherwise the results won't be right. ")
-        print("Look for that in ntlm.py and uncomment the lines, comment the other ones and don't forget to revert everything back whenever finished testing")
         print("Flags")
         hexdump(struct.pack('<L',self.flags))
 
@@ -296,6 +293,44 @@ class NTLMTests(unittest.TestCase):
         #print (repr(bytearray(str(signature))))
         #raise
         print("\n")
+
+    def __pack_and_parse(self, message, expected):
+        data = message.getData()
+        hexdump(data)
+        self.assertEqual(data, expected)
+        parsed = ntlm.NTLMAuthNegotiate()
+        parsed.fromString(data)
+        return parsed
+
+    def test_refactor_negotiate_message(self):
+        print('#### Pack and parse, without version')
+        negoMsgToPack = ntlm.NTLMAuthNegotiate()
+        negoMsgParsed = self.__pack_and_parse(negoMsgToPack, bytearray(
+            b'NTLMSSP\x00\x01\x00\x00\x001\x02\x00`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+        ))
+        self.assertEqual(negoMsgParsed['flags'] & ntlm.NTLMSSP_NEGOTIATE_VERSION, 0)
+        self.assertEqual(negoMsgParsed['os_version'], '')
+
+        print('#### Pack and parse, with version')
+        major, minor, build = 10, 0, 19041
+        version = ntlm.VERSION()
+        version['ProductMajorVersion'], version['ProductMinorVersion'], version['ProductBuild'] = major, minor, build
+        negoMsgToPack = ntlm.NTLMAuthNegotiate()
+        negoMsgToPack['os_version'] = version
+        negoMsgParsed = self.__pack_and_parse(negoMsgToPack, bytearray(
+            b'NTLMSSP\x00\x01\x00\x00\x001\x02\x00b\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+            b'\x0a\x00aJ\x00\x00\x00\x0f'
+        ))
+        self.assertEqual(negoMsgParsed['flags'] & ntlm.NTLMSSP_NEGOTIATE_VERSION, ntlm.NTLMSSP_NEGOTIATE_VERSION)
+        self.assertEqual(negoMsgParsed['os_version']['ProductMajorVersion'], major)
+        self.assertEqual(negoMsgParsed['os_version']['ProductMinorVersion'], minor)
+        self.assertEqual(negoMsgParsed['os_version']['ProductBuild'], build)
+
+        print('#### Try to set the NTLMSSP_NEGOTIATE_VERSION flag without specifying os_version')
+        negoMsgToPack = ntlm.NTLMAuthNegotiate()
+        negoMsgToPack['flags'] |= ntlm.NTLMSSP_NEGOTIATE_VERSION
+        self.assertRaises(Exception, negoMsgToPack.getData)
+
 
 if __name__ == '__main__':
     import sys
