@@ -251,17 +251,20 @@ class AV_PAIRS:
 
         return ans
 
-class NTLMAuthMixin:
-    def get_os_version(self):
-        if self['os_version'] == '':
-            return None
-        else:
-            mayor_v = struct.unpack('B',self['os_version'][0])[0]
-            minor_v = struct.unpack('B',self['os_version'][1])[0]
-            build_v = struct.unpack('H',self['os_version'][2:4])
-            return mayor_v,minor_v,build_v
-        
-class NTLMAuthNegotiate(Structure, NTLMAuthMixin):
+# [MS-NLMP] 2.2.2.10 VERSION
+# https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/b1a6ceb2-f8ad-462b-b5af-f18527c48175
+class VERSION(Structure):
+    NTLMSSP_REVISION_W2K3 = 0x0F
+
+    structure = (
+        ('ProductMajorVersion', '<B=0'),
+        ('ProductMinorVersion', '<B=0'),
+        ('ProductBuild', '<H=0'),
+        ('Reserved', '3s=""'),
+        ('NTLMRevisionCurrent', '<B=self.NTLMSSP_REVISION_W2K3'),
+    )
+
+class NTLMAuthNegotiate(Structure):
 
     structure = (
         ('','"NTLMSSP\x00'),
@@ -301,17 +304,19 @@ class NTLMAuthNegotiate(Structure, NTLMAuthMixin):
     def getWorkstation(self):
         return self._workstation
 
+    def __hasNegotiateVersion(self):
+        return (self['flags'] & NTLMSSP_NEGOTIATE_VERSION) == NTLMSSP_NEGOTIATE_VERSION
+
     def getData(self):
         if len(self.fields['host_name']) > 0:
             self['flags'] |= NTLMSSP_NEGOTIATE_OEM_WORKSTATION_SUPPLIED
         if len(self.fields['domain_name']) > 0:
             self['flags'] |= NTLMSSP_NEGOTIATE_OEM_DOMAIN_SUPPLIED
-        if len(self.fields['os_version']) > 0:
+        version_len = len(self.fields['os_version'])
+        if version_len > 0:
             self['flags'] |= NTLMSSP_NEGOTIATE_VERSION
-        if (self['flags'] & NTLMSSP_NEGOTIATE_VERSION) == NTLMSSP_NEGOTIATE_VERSION:
-            version_len = 8
-        else:
-            version_len = 0
+        elif self.__hasNegotiateVersion():
+            raise Exception('Must provide the os_version field if the NTLMSSP_NEGOTIATE_VERSION flag is set')
         if (self['flags'] & NTLMSSP_NEGOTIATE_OEM_WORKSTATION_SUPPLIED) == NTLMSSP_NEGOTIATE_OEM_WORKSTATION_SUPPLIED:
             self['host_offset']=32 + version_len
         if (self['flags'] & NTLMSSP_NEGOTIATE_OEM_DOMAIN_SUPPLIED) == NTLMSSP_NEGOTIATE_OEM_DOMAIN_SUPPLIED:
@@ -329,9 +334,8 @@ class NTLMAuthNegotiate(Structure, NTLMAuthMixin):
         host_end    = self['host_len'] + host_offset
         self['host_name'] = data[ host_offset : host_end ]
 
-        hasOsInfo = self['flags'] & NTLMSSP_NEGOTIATE_VERSION
-        if len(data) >= 36 and hasOsInfo:
-            self['os_version'] = data[32:40]
+        if len(data) >= 36 and self.__hasNegotiateVersion():
+            self['os_version'] = VERSION(data[32:])
         else:
             self['os_version'] = ''
 
@@ -373,7 +377,7 @@ class NTLMAuthChallenge(Structure):
         self['TargetInfoFields'] = data[self['TargetInfoFields_offset']:][:self['TargetInfoFields_len']]
         return self
         
-class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
+class NTLMAuthChallengeResponse(Structure):
 
     structure = (
         ('','"NTLMSSP\x00'),
@@ -491,11 +495,6 @@ class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
         lanman_offset = self['lanman_offset'] 
         lanman_end    = self['lanman_len'] + lanman_offset
         self['lanman'] = data[ lanman_offset : lanman_end]
-
-        #if len(data) >= 36: 
-        #    self['os_version'] = data[32:36]
-        #else:
-        #    self['os_version'] = ''
 
 class ImpacketStructure(Structure):
     def set_parent(self, other):
