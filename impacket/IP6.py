@@ -78,9 +78,14 @@ class IP6(Header):
         pseudo_header = array.array('B')        
         pseudo_header.extend(source_address)
         pseudo_header.extend(destination_address)
-        pseudo_header.fromstring(struct.pack('!L', upper_layer_packet_length))
-        pseudo_header.fromlist(reserved_bytes)
-        pseudo_header.fromstring(struct.pack('B', upper_layer_protocol_number))
+        try:
+            pseudo_header.frombytes(struct.pack('!L', upper_layer_packet_length))
+            pseudo_header.fromlist(reserved_bytes)
+            pseudo_header.frombytes(struct.pack('B', upper_layer_protocol_number))
+        except AttributeError:  # Python < 3.2
+            pseudo_header.fromstring(struct.pack('!L', upper_layer_packet_length))
+            pseudo_header.fromlist(reserved_bytes)
+            pseudo_header.fromstring(struct.pack('B', upper_layer_protocol_number))
         return pseudo_header
     
 ############################################################################

@@ -163,7 +163,6 @@ class PacketBuffer(object):
         except AttributeError:  # Python < 3.2
             return socket.inet_ntoa(bytes.tostring())
 
-
     def set_ip_address(self, index, ip_string):
         "Set 4-byte value at 'index' from 'ip_string'"
         index = self.__validate_index(index, 4)
@@ -212,7 +211,10 @@ class PacketBuffer(object):
 
         diff = index + size - curlen
         if diff > 0:
-            self.__bytes.fromstring('\0' * diff)
+            try:
+                self.__bytes.frombytes(b'\0' * diff)
+            except AttributeError:  # Python < 3.2
+                self.__bytes.fromstring(b'\0' * diff)
             if orig_index < 0:
                 orig_index -= diff
 
@@ -816,7 +818,10 @@ class IP(Header):
         # Pad to a multiple of 4 bytes
         num_pad = (4 - (len(my_bytes) % 4)) % 4
         if num_pad:
-            my_bytes.fromstring(b"\0"* num_pad)
+            try:
+                my_bytes.frombytes(b"\0"* num_pad)
+            except AttributeError:  # Python < 3.2
+                my_bytes.fromstring(b"\0"* num_pad)
 
         # only change ip_hl value if options are present
         if len(self.__option_list):
@@ -854,7 +859,10 @@ class IP(Header):
 
         size_str = struct.pack("!H", tmp_size)
 
-        pseudo_buf.fromstring(size_str)
+        try:
+            pseudo_buf.frombytes(size_str)
+        except AttributeError:  # Python < 3.2
+            pseudo_buf.fromstring(size_str)
         return pseudo_buf
 
     def add_option(self, option):
@@ -1314,8 +1322,11 @@ class UDP(Header):
 
             buffer += self.get_bytes()
             data = self.get_data_as_string()
-            if(data):
-                buffer.fromstring(data)
+            if data:
+                try:
+                    buffer.frombytes(data)
+                except AttributeError:  # Python < 3.2
+                    buffer.fromstring(data)
             self.set_uh_sum(self.compute_checksum(buffer))
 
     def get_header_size(self):
@@ -1504,8 +1515,11 @@ class TCP(Header):
         buffer += self.get_padded_options()
 
         data = self.get_data_as_string()
-        if(data):
-            buffer.fromstring(data)
+        if data:
+            try:
+                buffer.frombytes(data)
+            except AttributeError:  # Python < 3.2
+                buffer.fromstring(data)
 
         res = self.compute_checksum(buffer)
 
@@ -1581,7 +1595,10 @@ class TCP(Header):
             op_buf += op.get_bytes()
         num_pad = (4 - (len(op_buf) % 4)) % 4
         if num_pad:
-            op_buf.fromstring("\0" * num_pad)
+            try:
+                op_buf.frombytes(b"\0" * num_pad)
+            except AttributeError:  # Python < 3.2
+                op_buf.fromstring(b"\0" * num_pad)
         return op_buf
 
     def __str__(self):
