@@ -344,7 +344,7 @@ class WCHAR_ARRAY(NDRUniFixedArray):
 class NL_TRUST_PASSWORD(NDRSTRUCT):
     structure = (
         ('Buffer', WCHAR_ARRAY),
-        ('Length', LPWSTR),
+        ('Length', ULONG),
     )
 
 class PNL_TRUST_PASSWORD(NDRPOINTER):
@@ -2098,7 +2098,7 @@ class NetrServerPasswordSet2(NDRCALL):
        ('SecureChannelType',NETLOGON_SECURE_CHANNEL_TYPE),
        ('ComputerName',WSTR),
        ('Authenticator',NETLOGON_AUTHENTICATOR),
-       ('ClearNewPassword',PNL_TRUST_PASSWORD),
+       ('ClearNewPassword',NL_TRUST_PASSWORD),
     )
 
 class NetrServerPasswordSet2Response(NDRCALL):
@@ -2648,7 +2648,7 @@ OPNUMS = {
  27 : (DsrGetDcNameEx, DsrGetDcNameExResponse),
  28 : (DsrGetSiteName, DsrGetSiteNameResponse),
  29 : (NetrLogonGetDomainInfo, NetrLogonGetDomainInfoResponse),
-# 30 : (NetrServerPasswordSet2, NetrServerPasswordSet2Response),
+ 30 : (NetrServerPasswordSet2, NetrServerPasswordSet2Response),
  31 : (NetrServerPasswordGet, NetrServerPasswordGetResponse),
  32 : (NetrLogonSendToSam, NetrLogonSendToSamResponse),
  33 : (DsrAddressToSiteNamesW, DsrAddressToSiteNamesWResponse),
@@ -2784,6 +2784,16 @@ def hNetrServerTrustPasswordsGet(dce, trustedDcName, accountName, secureChannelT
     request['SecureChannelType'] = secureChannelType
     request['ComputerName'] = checkNullString(computerName)
     request['Authenticator'] = authenticator
+    return dce.request(request)
+
+def hNetrServerPasswordSet2(dce, primaryName, accountName, secureChannelType, computerName, authenticator, clearNewPassword):
+    request = NetrServerPasswordSet2()
+    request['PrimaryName'] = checkNullString(primaryName)
+    request['AccountName'] = checkNullString(accountName)
+    request['SecureChannelType'] = secureChannelType
+    request['ComputerName'] = checkNullString(computerName)
+    request['Authenticator'] = authenticator
+    request['ClearNewPassword'] = clearNewPassword
     return dce.request(request)
 
 def hNetrLogonGetDomainInfo(dce, serverName, computerName, authenticator, returnAuthenticator=0, level=1):
