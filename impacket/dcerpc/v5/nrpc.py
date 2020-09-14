@@ -1639,7 +1639,7 @@ def ComputeNetlogonCredential(inputData, Sk):
 
 # Section 3.1.4.4.1
 def ComputeNetlogonCredentialAES(inputData, Sk):
-    IV='\x00'*16
+    IV=b'\x00'*16
     Crypt1 = AES.new(Sk, AES.MODE_CFB, IV)
     return Crypt1.encrypt(inputData)
 
