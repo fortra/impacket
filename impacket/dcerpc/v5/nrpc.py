@@ -337,6 +337,13 @@ class PNETLOGON_WORKSTATION_INFO(NDRPOINTER):
     )
 
 # 2.2.1.3.7 NL_TRUST_PASSWORD
+class NL_TRUST_PASSWORD_FIXED_ARRAY(NDRUniFixedArray):
+    def getDataLen(self, data, offset=0):
+        return 512+4
+
+    def getAlignment(self):
+        return 1
+
 class WCHAR_ARRAY(NDRUniFixedArray):
     def getDataLen(self, data, offset=0):
         return 512
@@ -2098,7 +2105,8 @@ class NetrServerPasswordSet2(NDRCALL):
        ('SecureChannelType',NETLOGON_SECURE_CHANNEL_TYPE),
        ('ComputerName',WSTR),
        ('Authenticator',NETLOGON_AUTHENTICATOR),
-       ('ClearNewPassword',NL_TRUST_PASSWORD),
+       #('ClearNewPassword',NL_TRUST_PASSWORD),
+       ('ClearNewPassword',NL_TRUST_PASSWORD_FIXED_ARRAY),
     )
 
 class NetrServerPasswordSet2Response(NDRCALL):
@@ -2786,14 +2794,14 @@ def hNetrServerTrustPasswordsGet(dce, trustedDcName, accountName, secureChannelT
     request['Authenticator'] = authenticator
     return dce.request(request)
 
-def hNetrServerPasswordSet2(dce, primaryName, accountName, secureChannelType, computerName, authenticator, clearNewPassword):
+def hNetrServerPasswordSet2(dce, primaryName, accountName, secureChannelType, computerName, authenticator, clearNewPasswordBlob):
     request = NetrServerPasswordSet2()
     request['PrimaryName'] = checkNullString(primaryName)
     request['AccountName'] = checkNullString(accountName)
     request['SecureChannelType'] = secureChannelType
     request['ComputerName'] = checkNullString(computerName)
     request['Authenticator'] = authenticator
-    request['ClearNewPassword'] = clearNewPassword
+    request['ClearNewPassword'] = clearNewPasswordBlob
     return dce.request(request)
 
 def hNetrLogonGetDomainInfo(dce, serverName, computerName, authenticator, returnAuthenticator=0, level=1):
