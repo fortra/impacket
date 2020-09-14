@@ -14,9 +14,9 @@
 #   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
 #
 #   Some calls have helper functions, which makes it even easier to use.
-#   They are located at the end of this file. 
+#   They are located at the end of this file.
 #   Helper functions start with "h"<name of the call>.
-#   There are test cases for them too. 
+#   There are test cases for them too.
 #
 from struct import pack
 from six import b
@@ -50,11 +50,11 @@ class DCERPCSessionError(DCERPCException):
         key = self.error_code
         if key in system_errors.ERROR_MESSAGES:
             error_msg_short = system_errors.ERROR_MESSAGES[key][0]
-            error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
+            error_msg_verbose = system_errors.ERROR_MESSAGES[key][1]
             return 'NRPC SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         elif key in nt_errors.ERROR_MESSAGES:
             error_msg_short = nt_errors.ERROR_MESSAGES[key][0]
-            error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
+            error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1]
             return 'NRPC SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
             return 'NRPC SessionError: unknown error code: 0x%x' % (self.error_code)
@@ -344,7 +344,12 @@ class WCHAR_ARRAY(NDRUniFixedArray):
 class NL_TRUST_PASSWORD(NDRSTRUCT):
     structure = (
         ('Buffer', WCHAR_ARRAY),
-        ('Length', LPWSTR),
+        ('Length', ULONG),
+    )
+
+class PNL_TRUST_PASSWORD(NDRPOINTER):
+    referent = (
+        ('Data', NL_TRUST_PASSWORD),
     )
 
 # 2.2.1.3.8 NL_PASSWORD_VERSION
@@ -953,7 +958,7 @@ class NETLOGON_DELTA_DOMAIN(NDRSTRUCT):
         ('DummyLong3', ULONG),
         ('DummyLong4', ULONG),
     )
-        
+
 class PNETLOGON_DELTA_DOMAIN(NDRPOINTER):
     referent = (
         ('Data', NETLOGON_DELTA_DOMAIN),
@@ -1780,7 +1785,7 @@ def SEAL(data, confounder, sequenceNum, key, aes = False):
         signature['Confounder'] = cfounder
 
         return encrypted, signature
-        
+
 def UNSEAL(data, auth_data, key, aes = False):
     auth_data = NL_AUTH_SIGNATURE(auth_data)
     XorKey = bytearray(key)
@@ -1810,13 +1815,13 @@ def UNSEAL(data, auth_data, key, aes = False):
         cfounder = cipher.decrypt(auth_data['Confounder'])
         plain = cipher.decrypt(data)
         return plain, cfounder
-        
-    
+
+
 def getSSPType1(workstation='', domain='', signingRequired=False):
     auth = NL_AUTH_MESSAGE()
     auth['Flags'] = 0
     auth['Buffer'] = b''
-    auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_DOMAIN 
+    auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_DOMAIN
     if domain != '':
         auth['Buffer'] = auth['Buffer'] + b(domain) + b'\x00'
     else:
@@ -2085,6 +2090,22 @@ class NetrServerAuthenticateResponse(NDRCALL):
     )
 
 # 3.5.4.4.5 NetrServerPasswordSet2 (Opnum 30)
+class NetrServerPasswordSet2(NDRCALL):
+    opnum = 30
+    structure = (
+       ('PrimaryName',PLOGONSRV_HANDLE),
+       ('AccountName',WSTR),
+       ('SecureChannelType',NETLOGON_SECURE_CHANNEL_TYPE),
+       ('ComputerName',WSTR),
+       ('Authenticator',NETLOGON_AUTHENTICATOR),
+       ('ClearNewPassword',NL_TRUST_PASSWORD),
+    )
+
+class NetrServerPasswordSet2Response(NDRCALL):
+    structure = (
+       ('ReturnAuthenticator',NETLOGON_AUTHENTICATOR),
+       ('ErrorCode',NTSTATUS),
+    )
 
 # 3.5.4.4.6 NetrServerPasswordSet (Opnum 6)
 
@@ -2627,7 +2648,7 @@ OPNUMS = {
  27 : (DsrGetDcNameEx, DsrGetDcNameExResponse),
  28 : (DsrGetSiteName, DsrGetSiteNameResponse),
  29 : (NetrLogonGetDomainInfo, NetrLogonGetDomainInfoResponse),
-# 30 : (NetrServerPasswordSet2, NetrServerPasswordSet2Response),
+ 30 : (NetrServerPasswordSet2, NetrServerPasswordSet2Response),
  31 : (NetrServerPasswordGet, NetrServerPasswordGetResponse),
  32 : (NetrLogonSendToSam, NetrLogonSendToSamResponse),
  33 : (DsrAddressToSiteNamesW, DsrAddressToSiteNamesWResponse),
@@ -2765,6 +2786,16 @@ def hNetrServerTrustPasswordsGet(dce, trustedDcName, accountName, secureChannelT
     request['Authenticator'] = authenticator
     return dce.request(request)
 
+def hNetrServerPasswordSet2(dce, primaryName, accountName, secureChannelType, computerName, authenticator, clearNewPassword):
+    request = NetrServerPasswordSet2()
+    request['PrimaryName'] = checkNullString(primaryName)
+    request['AccountName'] = checkNullString(accountName)
+    request['SecureChannelType'] = secureChannelType
+    request['ComputerName'] = checkNullString(computerName)
+    request['Authenticator'] = authenticator
+    request['ClearNewPassword'] = clearNewPassword
+    return dce.request(request)
+
 def hNetrLogonGetDomainInfo(dce, serverName, computerName, authenticator, returnAuthenticator=0, level=1):
     request = NetrLogonGetDomainInfo()
     request['ServerName'] = checkNullString(serverName)
@@ -2782,10 +2813,10 @@ def hNetrLogonGetDomainInfo(dce, serverName, computerName, authenticator, return
         request['WkstaBuffer']['WorkstationInfo']['DnsHostName'] = NULL
         request['WkstaBuffer']['WorkstationInfo']['SiteName'] = NULL
         request['WkstaBuffer']['WorkstationInfo']['OsName'] = ''
-        request['WkstaBuffer']['WorkstationInfo']['Dummy1'] = NULL 
-        request['WkstaBuffer']['WorkstationInfo']['Dummy2'] = NULL  
-        request['WkstaBuffer']['WorkstationInfo']['Dummy3'] = NULL 
-        request['WkstaBuffer']['WorkstationInfo']['Dummy4'] = NULL  
+        request['WkstaBuffer']['WorkstationInfo']['Dummy1'] = NULL
+        request['WkstaBuffer']['WorkstationInfo']['Dummy2'] = NULL
+        request['WkstaBuffer']['WorkstationInfo']['Dummy3'] = NULL
+        request['WkstaBuffer']['WorkstationInfo']['Dummy4'] = NULL
     else:
         request['WkstaBuffer']['tag'] = 2
         request['WkstaBuffer']['LsaPolicyInfo']['LsaPolicy'] = NULL
