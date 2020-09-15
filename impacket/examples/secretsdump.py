@@ -1528,10 +1528,11 @@ class LSASecrets(OfflineRegistry):
                                                   hexlify(md4.digest()).decode('utf-8'))
             # Attempt to calculate and print Kerberos keys
             if not self.__printMachineKerberos(secretItem, printname):
-                LOG.debug('Could not calculate machine account Kerberos keys, printing plain password (hex encoded)')
-                extrasecret = "$MACHINE.ACC:plain_password_hex:%s" % hexlify(secretItem).decode('utf-8')
-                self.__secretItems.append(extrasecret)
-                self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, extrasecret)
+                LOG.debug('Could not calculate machine account Kerberos keys, only printing plain password (hex encoded)')
+            # Always print plaintext anyway since this may be needed for some popular usecases
+            extrasecret = "%s:plain_password_hex:%s" % (printname, hexlify(secretItem).decode('utf-8'))
+            self.__secretItems.append(extrasecret)
+            self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, extrasecret)
 
         if secret != '':
             printableSecret = secret
