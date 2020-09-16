@@ -46,7 +46,6 @@ def hSamrUnicodeChangePasswordUser2(username, currpass, newpass, target):
 
 	try:
 		resp = samr.hSamrUnicodeChangePasswordUser2(dce, '\x00', username, currpass, newpass)
-		#resp.dump()
 	except Exception as e:
 		if 'STATUS_WRONG_PASSWORD' in str(e):
 			print('[-] Current SMB password is not correct.')
@@ -55,7 +54,11 @@ def hSamrUnicodeChangePasswordUser2(username, currpass, newpass, target):
 		else:
 			raise e
 	else:
-		print('[+] Password was changed successfully.')
+		if resp['ErrorCode'] == 0:
+			print('[+] Password was changed successfully.')
+		else:
+			print('[?] Non-zero return code, something weird happend.')
+			resp.dump()
 
 
 def parse_target(target):
