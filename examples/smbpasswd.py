@@ -57,7 +57,7 @@ def hSamrUnicodeChangePasswordUser2(username, currpass, newpass, target):
 		if resp['ErrorCode'] == 0:
 			print('[+] Password was changed successfully.')
 		else:
-			print('[?] Non-zero return code, something weird happend.')
+			print('[?] Non-zero return code, something weird happened.')
 			resp.dump()
 
 
@@ -87,8 +87,7 @@ if __name__ == '__main__':
 
 	if args.newpass is None:
 		newpass = getpass('New SMB password: ')
-		newpass_verify = getpass('Retype new SMB password: ')
-		if newpass != newpass_verify:
+		if newpass != getpass('Retype new SMB password: '):
 			print('Password does not match, try again.')
 			sys.exit(2)
 	else:
