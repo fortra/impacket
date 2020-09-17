@@ -93,47 +93,39 @@ except NameError:
 
 
 class SocksServer:
-    def __init__(self, remote_name, local_ip, local_port, target_ip, exec_method,
-                 username='', password='', domain='', aes_key=None, do_kerberos=False,
-                 dc_ip=None, hashes=None):
-        self.__remote_name = remote_name
+    MIN_DYNAMIC_PORT = 49888
+    MAX_DYNAMIC_PORT = 65535
+
+    def __init__(self, remote_ops, pivot_ip, local_ip, local_port, pivot_ports=None, no_netstat_check=False):
+        self.__remote_ops = remote_ops
+        self.__pivot_ip = pivot_ip
         self.__local_ip = local_ip
         self.__local_port = local_port
-        self.__remoteHost = target_ip
-        self.__exec_method = exec_method
-        self.__username = username
-        self.__password = password
-        self.__domain = domain
-        self.__aes_key = aes_key
-        self.__do_kerberos = do_kerberos
-        self.__dc_ip = dc_ip
-        if hashes is None:
-            self.__lmhash, self.__nthash = '', ''
+        if pivot_ports is None:
+            self.__pivot_ports = list(range(self.MIN_DYNAMIC_PORT, self.MAX_DYNAMIC_PORT+1))
+            random.shuffle(self.__pivot_ports)
         else:
-            self.__lmhash, self.__nthash = hashes.split(':')
+            self.__pivot_ports = list(pivot_ports)
+        self.__pivot_ports_lock = threading.Lock()
+        self.__no_netstat_check = no_netstat_check
+        if self.__no_netstat_check:
+            logging.warning('Will not ensure ports are not in use, legitimate clients of'
+                            ' the pivot might be disconnected.')
         self.__clients = set()
         self.__smb_connection = None
-        self.__remote_ops = None
-
-    def connect(self):
-        self.__smb_connection = SMBConnection(self.__remote_name, self.__remoteHost)
-        if self.__do_kerberos:
-            self.__smb_connection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash,
-                                                self.__nthash, self.__aes_key, self.__dc_ip)
-        else:
-            self.__smb_connection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
 
     def serve_connections(self):
-        try:
-            self.connect()
-        except Exception as e:
-            logging.warning('OPSEC: SMB Connection failed (%s), cannot check which ports are in use.', str(e))
-            ans = input('     Continue in blind? (small risk of resetting production connections) [y/N]')
-            if ans.lower() != 'y':
-                raise
-
-        self.__remote_ops = RemoteOperations(self.__smb_connection, self.__exec_method,
-                                             self.__do_kerberos, self.__dc_ip)
+        if not self.__no_netstat_check:
+            # Check in advance that we're able to read a simple netstat from the pivot
+            try:
+                self.__remote_ops.execute_remote('netstat -an -p tcp', get_output=True)
+                logging.debug('Remote code execution ready')
+            except Exception as e:
+                logging.exception(
+                    'SMB connection failed, use --no-netstat-check to force blind port forwardings'
+                    '(NOT OPSEC SAFE, small risk of resetting production connections,'
+                    ' use --pivot-ports with known-free ports to minimize that risk)')
+                return
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -143,8 +135,9 @@ class SocksServer:
                 while True:
                     conn, (client_addr, client_port) = s.accept()
                     logging.debug('Client connection from %s port %u', client_addr, client_port)
-                    client = SocksClient(conn, self.__smb_connection.getRemoteHost(), client_addr, client_port,
-                                         self.__remote_ops)
+                    client = SocksClient(conn, self.__pivot_ip, client_addr, client_port,
+                                         self.__remote_ops, self.__pivot_ports, self.__pivot_ports_lock,
+                                         self.__no_netstat_check)
                     client.start()
                     self.__clients.add(client)
         except KeyboardInterrupt:
@@ -173,7 +166,8 @@ class SocksClient(threading.Thread):
 
     RST_GRACE_SECONDS = 2.0
 
-    def __init__(self, conn, pivot_ip, client_ip, client_port, remote_ops):
+    def __init__(self, conn, pivot_ip, client_ip, client_port, remote_ops,
+                 pivot_ports, pivot_ports_lock, no_netstat_check):
         threading.Thread.__init__(self)
         self.__client_sock = conn
         self.__forwarded_sock = None
@@ -182,27 +176,34 @@ class SocksClient(threading.Thread):
         self.__bind_port = None
         self.__client_ip = ipaddress.ip_address(client_ip)
         self.__client_port = client_port
+        self.__pivot_ports = pivot_ports
+        self.__pivot_ports_lock = pivot_ports_lock
+        self.__no_netstat_check = no_netstat_check
         self.__dest_ip = None
         self.__dest_port = None
         self.__must_terminate = False
 
     def __find_free_port(self):
         logging.debug('Looking for an available port for %s', str(self))
-        free_ports = set(p for p in range(49888, 65535))
-        protocol = 'tcpv6' if self.__client_ip.version == 6 else 'tcp'
-        netstat = self.__remote_ops.execute_remote('netstat -an -p ' + protocol)
-        netstat = netstat.decode('utf-8', 'replace')
-        for row in filter(None, netstat.replace('\r\n', '\n').split('\n')):
-            binding = re.match(r'^\s*TCP\s+\S+:(?P<port>\d+).+LISTENING\s*$', row, re.IGNORECASE)
-            if binding is None:
-                continue
-            port = int(binding.group('port'))
-            if port in free_ports:
-                free_ports.remove(port)
-        if len(free_ports) > 0:
-            return random.choice(list(free_ports))
-        else:
-            raise RuntimeError('No free TCP port available on remote host')
+        with self.__pivot_ports_lock:
+            free_ports = self.__pivot_ports[:]
+            if not self.__no_netstat_check:
+                protocol = 'tcpv6' if self.__client_ip.version == 6 else 'tcp'
+                netstat = self.__remote_ops.execute_remote('netstat -an -p ' + protocol, get_output=True)
+                netstat = netstat.decode('utf-8', 'replace')
+                for row in filter(None, netstat.replace('\r\n', '\n').split('\n')):
+                    binding = re.match(r'^\s*TCP\s+\S+:(?P<port>\d+).+LISTENING\s*$', row, re.IGNORECASE)
+                    if binding is None:
+                        continue
+                    port = int(binding.group('port'))
+                    if port in free_ports:
+                        free_ports.remove(port)
+            if len(free_ports) > 0:
+                chosen_port = free_ports[0] # self.__pivot_ports has already been randomized
+                self.__pivot_ports.remove(chosen_port)
+                return chosen_port
+            else:
+                raise RuntimeError('No free TCP port available on remote host')
 
     def run(self):
         try:
@@ -222,7 +223,7 @@ class SocksClient(threading.Thread):
                              self.__bind_port, self.__dest_ip, self.__dest_port)
                 cmd = 'netsh interface portproxy add v4tov4 listenport=%u connectaddress=%s connectport=%u' % (
                     self.__bind_port, self.__dest_ip, self.__dest_port)
-                self.__remote_ops.execute_remote(cmd)
+                self.__remote_ops.execute_remote(cmd, get_output=False)
                 self.__forwarded_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.__forwarded_sock.connect((self.__pivot_ip, self.__bind_port))
 
@@ -278,9 +279,13 @@ class SocksClient(threading.Thread):
                 logging.debug('Cleaning up port forward from *:%u to %s:%u',
                               self.__bind_port, self.__dest_ip, self.__dest_port)
                 cmd = 'netsh interface portproxy delete v4tov4 listenport=%u' % self.__bind_port
-                self.__remote_ops.execute_remote(cmd)
+                self.__remote_ops.execute_remote(cmd, get_output=False)
                 logging.info('Cleaned up port forward from *:%u to %s:%u',
                              self.__bind_port, self.__dest_ip, self.__dest_port)
+                # Declare port as free once again
+                with self.__pivot_ports_lock:
+                    if self.__bind_port not in self.__pivot_ports:
+                        self.__pivot_ports.append(self.__bind_port)
 
     def force_stop(self):
         self.__must_terminate = True
@@ -381,22 +386,40 @@ class SocksClient(threading.Thread):
 
 
 class RemoteOperations:
-    def __init__(self, smb_connection, exec_method, do_kerberos, dc_ip=None):
-        self.__smb_connection = smb_connection
-        if self.__smb_connection is not None:
-            self.__smb_connection.setTimeout(5 * 60)
-
+    def __init__(self, remote_name, exec_method, username='', password='', domain='',
+                 aes_key=None, do_kerberos=False, dc_ip=None, hashes=None, target_ip=None):
+        self.__remote_name = remote_name
+        self.__exec_method = exec_method
+        self.__username = username
+        self.__password = password
+        self.__domain = domain
+        self.__aes_key = aes_key
         self.__do_kerberos = do_kerberos
         self.__dc_ip = dc_ip
-
+        if hashes is None:
+            self.__lmhash, self.__nthash = '', ''
+        else:
+            self.__lmhash, self.__nthash = hashes.split(':')
+        self.__remote_host = target_ip
         self.__batchFile = '%TEMP%\\execute.bat'
         self.__shell = '%COMSPEC% /Q /c '
         self.__output = '%SYSTEMROOT%\\Temp\\__output'
         self.__answerTMP = b''
+        self.__smb_connection = None
 
-        self.__exec_method = exec_method
+    def __smb_connect(self):
+        if self.__smb_connection is not None:
+            return
+        self.__smb_connection = SMBConnection(self.__remote_name, self.__remote_host)
+        logging.debug('SMB server is reachable, trying to authenticate...')
+        if self.__do_kerberos:
+            self.__smb_connection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash,
+                                                self.__nthash, self.__aes_key, self.__dc_ip)
+        else:
+            self.__smb_connection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
 
     def __smb_exec(self, command):
+        self.__smb_connect()
         rpc = transport.DCERPCTransportFactory(r'ncacn_np:445[\pipe\svcctl]')
         rpc.set_smb_connection(self.__smb_connection)
         h_scmr = rpc.get_dce_rpc()
@@ -421,9 +444,9 @@ class RemoteOperations:
     def __wmi_exec(self, command):
         # Convert command to wmi exec friendly format
         command = command.replace('%COMSPEC%', 'cmd.exe')
-        username, password, domain, lmhash, nthash, aes_key, _, _ = self.__smb_connection.getCredentials()
-        dcom = DCOMConnection(self.__smb_connection.getRemoteHost(), username, password, domain, lmhash, nthash,
-                              aes_key, oxidResolver=False, doKerberos=self.__do_kerberos, kdcHost=self.__dc_ip)
+        dcom = DCOMConnection(self.__remote_name, self.__username, self.__password, self.__domain,
+                              self.__lmhash, self.__nthash, self.__aes_key, oxidResolver=False,
+                              doKerberos=self.__do_kerberos, kdcHost=self.__dc_ip)
         i_interface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
         iwbemlevel1login = wmi.IWbemLevel1Login(i_interface)
         iwbemservices = iwbemlevel1login.NTLMLogin('//./root/cimv2', NULL, NULL)
@@ -432,10 +455,14 @@ class RemoteOperations:
         win32_process.Create(command, '\\', None)
         dcom.disconnect()
 
-    def execute_remote(self, cmd):
-        # Format a command to run
-        command = self.__shell + 'echo ' + cmd + ' ^> ' + self.__output + ' > ' + self.__batchFile + ' & ' + \
-                  self.__shell + self.__batchFile + ' & ' + 'del ' + self.__batchFile
+    def execute_remote(self, cmd, get_output=False):
+        if get_output:
+            self.__smb_connect()
+            command = self.__shell + 'echo ' + cmd + ' ^> ' + self.__output + ' > ' + self.__batchFile + ' & ' + \
+                      self.__shell + self.__batchFile + ' & ' + 'del ' + self.__batchFile
+        else:
+            command = self.__shell + 'echo ' + cmd + ' > ' + self.__batchFile + ' & ' + \
+                      self.__shell + self.__batchFile + ' & ' + 'del ' + self.__batchFile
         logging.debug('Executing remote command through %s : %s', self.__exec_method, cmd)
         if self.__exec_method == 'smbexec':
             self.__smb_exec(command)
@@ -443,6 +470,8 @@ class RemoteOperations:
             self.__wmi_exec(command)
         else:
             raise ValueError('Invalid exec method %s, aborting' % self.__exec_method)
+        if not get_output:
+            return
         time.sleep(1)
         tries = 0
         while True:
@@ -492,6 +521,10 @@ if __name__ == '__main__':
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-local-ip', default='127.0.0.1', help='local IP the socks server should listen on')
     parser.add_argument('-local-port', type=int, default=1080, help='local TCP port the socks server should listen on')
+    parser.add_argument('-pivot-ports', action='store', help='port(s) to use for port forwardings on the pivot'
+                                                             ' (use commas to list ports and dashes for ranges)')
+    parser.add_argument('-no-netstat-check', action='store_true', help='don\'t execute netstat first to ensure a port'
+                                                                       ' is free before using it')
     parser.add_argument('-exec-method', choices=['smbexec', 'wmiexec'], nargs='?', default='wmiexec',
                         help='Remote exec method to use at target. Default: wmiexec')
 
@@ -538,9 +571,6 @@ if __name__ == '__main__':
         password = password + '@' + remote_name.rpartition('@')[0]
         remote_name = remote_name.rpartition('@')[2]
 
-    if options.target_ip is None:
-        options.target_ip = remote_name
-
     if domain is None:
         domain = ''
 
@@ -556,9 +586,21 @@ if __name__ == '__main__':
     if options.aes_key is not None:
         options.k = True
 
-    server = SocksServer(remote_name, options.local_ip, options.local_port, options.target_ip,
-                         options.exec_method, username, password, domain, options.aes_key,
-                         options.k, options.dc_ip, options.hashes)
+    if options.pivot_ports is not None:
+        options.pivot_ports = filter(None, [a.split('-') for a in options.pivot_ports.split(',')])
+        options.pivot_ports = [
+            range(int(a[0]), int(a[1])+1) if len(a) == 2 else [int(a[0])] for a in options.pivot_ports
+        ]
+        options.pivot_ports = [p for l in options.pivot_ports for p in l]
+
+    if options.target_ip is None:
+        options.target_ip = remote_name
+
+    remote_ops = RemoteOperations(remote_name, options.exec_method, username, password, domain,
+                                  options.aes_key, options.k, options.dc_ip, options.hashes, options.target_ip)
+
+    server = SocksServer(remote_ops, remote_name, options.local_ip, options.local_port,
+                         options.pivot_ports, options.no_netstat_check)
     try:
         server.serve_connections()
     except Exception as e:
