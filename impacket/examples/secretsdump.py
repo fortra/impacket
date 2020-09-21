@@ -684,7 +684,7 @@ class RemoteOperations:
         if self.__disabled is True:
             LOG.info('Restoring the disabled state for service %s' % self.__serviceName)
             scmr.hRChangeServiceConfigW(self.__scmr, self.__serviceHandle, dwStartType = 0x4)
-        if self.__serviceDeleted is False:
+        if self.__serviceDeleted is False and self.__tmpServiceName is not None:
             # Check again the service we created does not exist, starting a new connection
             # Why?.. Hitting CTRL+C might break the whole existing DCE connection
             try:
