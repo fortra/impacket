@@ -372,7 +372,10 @@ class SMBRelayServer(Thread):
         try:
             if self.config.mode.upper () == 'REFLECTION':
                 self.targetprocessor = TargetsProcessor (singleTarget='SMB://%s:445/' % connData['ClientIP'])
-
+            if self.authUser == '/':
+                LOG.info('SMBD-%s: Connection from %s authenticated as guest (anonymous). Skipping target selection.' %
+                         (connId, connData['ClientIP']))
+                return self.origsmb2TreeConnect (connId, smbServer, recvPacket)
             self.target = self.targetprocessor.getTarget(identity = self.authUser)
             if self.target is None:
                 # No more targets to process, just let the victim to fail later
@@ -693,7 +696,10 @@ class SMBRelayServer(Thread):
         try:
             if self.config.mode.upper () == 'REFLECTION':
                 self.targetprocessor = TargetsProcessor (singleTarget='SMB://%s:445/' % connData['ClientIP'])
-
+            if self.authUser == '/':
+                LOG.info('SMBD-%s: Connection from %s authenticated as guest (anonymous). Skipping target selection.' %
+                         (connId, connData['ClientIP']))
+                return self.origsmb2TreeConnect (connId, smbServer, recvPacket)
             self.target = self.targetprocessor.getTarget(identity = self.authUser)
             if self.target is None:
                 # No more targets to process, just let the victim to fail later
