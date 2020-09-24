@@ -301,11 +301,6 @@ class DCSYNCRelayClient(ProtocolClient):
                     LOG.error('Could not dump administrator (renamed?)')
 
             return None, STATUS_SUCCESS
-        #     elif 'rpc_s_access_denied' in str(e):
-        #         return None, STATUS_ACCESS_DENIED
-        #     else:
-        #         LOG.info("Unexpected rpc code received from %s: %s" % (self.stringbinding, str(e)))
-        #         return None, STATUS_ACCESS_DENIED
         except Exception as e:
             traceback.print_exc()
         finally:
@@ -352,9 +347,9 @@ class DCSYNCRelayClient(ProtocolClient):
                 if ex.get_error_code() == 0xc0000022:
                     continue
                 else:
-                    print(f'Unexpected error code from DC: {ex.get_error_code()}.')
+                    LOG.error('Unexpected error code from DC: %d.', ex.get_error_code())
             except BaseException as ex:
-                print(f'Unexpected error: {ex}.')
+                LOG.error('Unexpected error: %s', str(ex))
             LOG.info('Netlogon Auth OK, successfully bypassed autentication using Zerologon after %d attempts!', attempt)
             break
         else:
