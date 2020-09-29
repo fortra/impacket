@@ -441,12 +441,12 @@ if __name__ == '__main__':
     parser.add_argument('-target-domain', action='store', help='Domain to query/request if different than the domain of the user. '
                                                                'Allows for Kerberoasting across trusts.')
     parser.add_argument('-usersfile', help='File with user per line to test')
-    parser.add_argument('-request', action='store_true', default='False', help='Requests TGS for users and output them '
-                                                                               'in JtR/hashcat format (default False)')
+    parser.add_argument('-request', action='store_true', default=False, help='Requests TGS for users and output them '
+                                                                             'in JtR/hashcat format (default False)')
     parser.add_argument('-request-user', action='store', metavar='username', help='Requests TGS for the SPN associated '
                                                           'to the user specified (just the username, no domain needed)')
-    parser.add_argument('-save', action='store_true', default='False', help='Saves TGS requested to disk. Format is '
-                                                                            '<username>.ccache. Auto selects -request')
+    parser.add_argument('-save', action='store_true', default=False, help='Saves TGS requested to disk. Format is '
+                                                                          '<username>.ccache. Auto selects -request')
     parser.add_argument('-outputfile', action='store',
                         help='Output filename to write ciphers in JtR/hashcat format')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')

@@ -345,8 +345,8 @@ if __name__ == '__main__':
                                   "'Do not require Kerberos preauthentication' set and export their TGTs for cracking")
 
     parser.add_argument('target', action='store', help='domain/username[:password]')
-    parser.add_argument('-request', action='store_true', default='False', help='Requests TGT for users and output them '
-                                                                               'in JtR/hashcat format (default False)')
+    parser.add_argument('-request', action='store_true', default=False, help='Requests TGT for users and output them '
+                                                                             'in JtR/hashcat format (default False)')
     parser.add_argument('-outputfile', action='store',
                         help='Output filename to write ciphers in JtR/hashcat format')
 
