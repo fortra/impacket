@@ -4448,17 +4448,24 @@ PIPE_FILE_DESCRIPTOR = -2
 from impacket.dcerpc.v5.rpcrt import DCERPCServer
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.dcerpc.v5.srvs import NetrShareEnum, NetrShareEnumResponse, SHARE_INFO_1, NetrServerGetInfo, NetrServerGetInfoResponse, NetrShareGetInfo, NetrShareGetInfoResponse
-from impacket.dcerpc.v5.wkst import NetrWkstaGetInfo, NetrWkstaGetInfoResponse
+from impacket.dcerpc.v5.wkst import NetrWkstaGetInfo, NetrWkstaGetInfoResponse, NetrWkstaUserEnum, NetrWkstaUserEnumResponse, WKSTA_USER_INFO_0, WKSTA_USER_INFO_1
 from impacket.system_errors import ERROR_INVALID_LEVEL
 
 class WKSTServer(DCERPCServer):
-    def __init__(self):
+    def __init__(self, wkui1_username, wkui1_logon_domain, wkui1_oth_domains, wkui1_logon_server):
+        self.wkui1_username     = wkui1_username
+        self.wkui1_logon_domain = wkui1_logon_domain
+        self.wkui1_oth_domains  = wkui1_oth_domains
+        self.wkui1_logon_server = wkui1_logon_server
+
         DCERPCServer.__init__(self)
         self.wkssvcCallBacks = {
             0: self.NetrWkstaGetInfo,
+            2: self.NetrWkstaUserEnum
         }
         self.addCallbacks(('6BFFD098-A112-3610-9833-46C3F87E345A', '1.0'),'\\PIPE\\wkssvc', self.wkssvcCallBacks)
 
+        
     def NetrWkstaGetInfo(self,data):
         request = NetrWkstaGetInfo(data)
         self.log("NetrWkstaGetInfo Level: %d" % request['Level'])
@@ -4488,6 +4495,43 @@ class WKSTServer(DCERPCServer):
             answer['WkstaInfo']['WkstaInfo101']['wki101_lanroot'] = NULL
 
         return answer
+
+    def NetrWkstaUserEnum(self, data):
+        request = NetrWkstaUserEnum(data)
+        UserEnum = NetrWkstaUserEnumResponse()
+        if self.wkui1_username is None:
+            self.log("NetrWkstaUserEnum: No spoofed username (wkui1_username) was supplied. Return ERROR_ACCESS_DENIED.")
+            UserEnum['ErrorCode'] = 5
+            UserEnum['UserInfo']['Level'] = 1
+            UserEnum['UserInfo']['WkstaUserInfo']['tag'] = 1
+        else:
+            UserEnum['ErrorCode']    = 0
+            UserEnum['TotalEntries'] = 1
+            if self.wkui1_logon_domain is None and self.wkui1_logon_server is None:
+                self.log("NetrWkstaUserEnum: Only wkui1_username is supplied. Returned " + self.wkui1_username + " as WKSTA_USER_INFO_0.")
+                UserEnum['UserInfo']['WkstaUserInfo']['tag'] = 0
+                UserEnum['UserInfo']['Level'] = 0
+                UserEnum['UserInfo']['WkstaUserInfo']['Level0']['EntriesRead'] = 1
+
+                # Setup WKSTA_USER_INFO_0 with supplied information and append it to the buffer.
+                UserInfo = WKSTA_USER_INFO_0()
+                UserInfo['wkui0_username'] = self.wkui1_username+'\x00'
+                UserEnum['UserInfo']['WkstaUserInfo']['Level0']['Buffer'].append(UserInfo)
+            elif self.wkui1_logon_domain and self.wkui1_logon_server:
+                self.log("NetrWkstaUserEnum: wkui1_username and wkui1_logon_domain are supplied as arguments. Returned " + self.wkui1_logon_domain + "\\" + self.wkui1_username + " as WKSTA_USER_INFO_1.")
+                UserEnum['UserInfo']['Level'] = 1
+                UserEnum['UserInfo']['WkstaUserInfo']['tag'] = 1
+                UserEnum['UserInfo']['WkstaUserInfo']['Level1']['EntriesRead'] = 1
+
+                # Setup WKSTA_USER_INFO_1 with supplied information and append it to the buffer.
+                UserInfo = WKSTA_USER_INFO_1()
+                UserInfo['wkui1_username']     = self.wkui1_username+'\x00'
+                UserInfo['wkui1_logon_domain'] = self.wkui1_logon_domain+'\x00'
+                UserInfo['wkui1_oth_domains']  = self.wkui1_oth_domains+'\x00'
+                UserInfo['wkui1_logon_server'] = self.wkui1_logon_server+'\x00'
+                UserEnum['UserInfo']['WkstaUserInfo']['Level1']['Buffer'].append(UserInfo)
+
+        return UserEnum
 
 class SRVSServer(DCERPCServer):
     def __init__(self):
@@ -4592,7 +4636,8 @@ class SimpleSMBServer:
     :param integer listenPort: the port number you want the server to listen on
     :param string configFile: a file with all the servers' configuration. If no file specified, this class will create the basic parameters needed to run. You will need to add your shares manually tho. See addShare() method
     """
-    def __init__(self, listenAddress = '0.0.0.0', listenPort=445, configFile=''):
+    def __init__(self, listenAddress = '0.0.0.0', listenPort=445, configFile='', wkui1_username='',
+                 wkui1_logon_domain='', wkui1_oth_domains='', wkui1_logon_server=''):
         if configFile != '':
             self.__server = SMBSERVER((listenAddress,listenPort))
             self.__server.processConfigFile(configFile)
@@ -4626,7 +4671,7 @@ class SimpleSMBServer:
 
         self.__srvsServer = SRVSServer()
         self.__srvsServer.daemon = True
-        self.__wkstServer = WKSTServer()
+        self.__wkstServer = WKSTServer(wkui1_username, wkui1_logon_domain, wkui1_oth_domains, wkui1_logon_server)
         self.__wkstServer.daemon = True
         self.__server.registerNamedPipe('srvsvc',('127.0.0.1',self.__srvsServer.getListenPort()))
         self.__server.registerNamedPipe('wkssvc',('127.0.0.1',self.__wkstServer.getListenPort()))

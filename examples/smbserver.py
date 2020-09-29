@@ -40,6 +40,10 @@ if __name__ == '__main__':
     parser.add_argument('-ip', '--interface-address', action='store', default='0.0.0.0', help='ip address of listening interface')
     parser.add_argument('-port', action='store', default='445', help='TCP port for listening incoming connections (default 445)')
     parser.add_argument('-smb2support', action='store_true', default=False, help='SMB2 Support (experimental!)')
+    parser.add_argument('-spoofed_username', action="store", help='The username to return on a NetrWkstaUserEnum request')
+    parser.add_argument('-spoofed_logon_domain', action="store", help='The logon domain to return on a NetrWkstaUserEnum request')
+    parser.add_argument('-spoofed_other_domains', action="store", default='', help='The other domains to return on a NetrWkstaUserEnum request')
+    parser.add_argument('-spoofed_logon_server', action="store", help='The logon server to return on a NetrWkstaUserEnum request')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -65,7 +69,26 @@ if __name__ == '__main__':
     else:
         comment = options.comment
 
-    server = smbserver.SimpleSMBServer(listenAddress=options.interface_address, listenPort=int(options.port))
+    # NetrWkstaUserEnum
+    # If spoofed_username is the only supplied argument the WKSTA_USER_INFO_0 structure will be send as a response.
+    # The WKSTA_USER_INFO_1 structure requires logon domain and logon server. If either spoofed_logon_server or
+    # spoofed_logon_domain is set as a argument ensure both are set.
+    if options.spoofed_username:
+        if options.spoofed_logon_domain and options.spoofed_logon_server is None:
+            logging.critical("The '-spoofed_logon_server' argument should be supplied when using the '-spoofed_username' and '-spoofed_logon_domain' arguments.")
+            sys.exit(1)
+        elif options.spoofed_logon_domain is None and options.spoofed_logon_server:
+            logging.critical("The '-spoofed_logon_domain' argument should be supplied when using the '-spoofed_username' and '-spoofed_logon_server' arguments.")
+            sys.exit(1)
+    elif (options.spoofed_username is None and options.spoofed_logon_domain) or (options.spoofed_username is None and options.spoofed_logon_server):
+        logging.critical("The '-spoofed_username' argument should be supplied when using the '-spoofed_logon_domain' and '-spoofed_logon_server' arguments.")
+        sys.exit(1)
+
+    server = smbserver.SimpleSMBServer(listenAddress=options.interface_address, listenPort=int(options.port),
+                                      wkui1_username=options.spoofed_username,
+                                      wkui1_logon_domain=options.spoofed_logon_domain,
+                                      wkui1_oth_domains=options.spoofed_other_domains,
+                                      wkui1_logon_server=options.spoofed_logon_server)
 
     server.addShare(options.shareName.upper(), options.sharePath, comment)
     server.setSMB2Support(options.smb2support)
