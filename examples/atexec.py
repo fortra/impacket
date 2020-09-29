@@ -27,7 +27,8 @@ from impacket.examples import logger
 from impacket import version
 from impacket.dcerpc.v5 import tsch, transport
 from impacket.dcerpc.v5.dtypes import NULL
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_GSS_NEGOTIATE
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_GSS_NEGOTIATE, \
+    RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from impacket.krb5.keytab import Keytab
 from six import PY2
 
@@ -102,7 +103,7 @@ class TSCH_EXEC:
         if self.__doKerberos is True:
             dce.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
         dce.connect()
-        #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
+        dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
         dce.bind(tsch.MSRPC_UUID_TSCHS)
         tmpName = ''.join([random.choice(string.ascii_letters) for _ in range(8)])
         tmpFileName = tmpName + '.tmp'
