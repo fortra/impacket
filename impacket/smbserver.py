@@ -3710,7 +3710,7 @@ class SMBSERVERHandler(socketserver.BaseRequestHandler):
 
                 if p.get_type() == nmb.NETBIOS_SESSION_REQUEST:
                    # Someone is requesting a session, we're gonna accept them all :)
-                   _, rn, my = p.get_trailer().split(' ')
+                   _, rn, my = p.get_trailer().split(b' ')
                    remote_name = nmb.decode_name(b'\x20'+rn)
                    myname = nmb.decode_name(b'\x20'+my)
                    self.__SMB.log("NetBIOS Session request (%s,%s,%s)" % (self.__ip, remote_name[1].strip(), myname[1])) 
@@ -4666,7 +4666,7 @@ class SimpleSMBServer:
 
     def setSMBChallenge(self, challenge):
         if challenge != '':
-            self.__smbConfig.set('global', 'challenge', unhexlify(challenge))
+            self.__smbConfig.set('global', 'challenge', challenge)
             self.__server.setServerConfig(self.__smbConfig)
             self.__server.processConfigFile()
         
