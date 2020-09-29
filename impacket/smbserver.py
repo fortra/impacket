@@ -4666,7 +4666,7 @@ class SimpleSMBServer:
 
     def setSMBChallenge(self, challenge):
         if challenge != '':
-            self.__smbConfig.set('global', 'challenge', unhexlify(challenge))
+            self.__smbConfig.set('global', 'challenge', challenge)
             self.__server.setServerConfig(self.__smbConfig)
             self.__server.processConfigFile()
         
