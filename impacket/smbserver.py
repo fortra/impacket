@@ -4452,11 +4452,10 @@ from impacket.dcerpc.v5.wkst import NetrWkstaGetInfo, NetrWkstaGetInfoResponse, 
 from impacket.system_errors import ERROR_INVALID_LEVEL
 
 class WKSTServer(DCERPCServer):
-    def __init__(self, wkui1_username, wkui1_logon_domain, wkui1_oth_domains, wkui1_logon_server):
-        self.wkui1_username     = wkui1_username
-        self.wkui1_logon_domain = wkui1_logon_domain
-        self.wkui1_oth_domains  = wkui1_oth_domains
-        self.wkui1_logon_server = wkui1_logon_server
+    def __init__(self):
+
+        self._users = None
+        self.__serverConfig = None
 
         DCERPCServer.__init__(self)
         self.wkssvcCallBacks = {
@@ -4465,7 +4464,25 @@ class WKSTServer(DCERPCServer):
         }
         self.addCallbacks(('6BFFD098-A112-3610-9833-46C3F87E345A', '1.0'),'\\PIPE\\wkssvc', self.wkssvcCallBacks)
 
-        
+    def setServerConfig(self, config):
+        self.__serverConfig = config
+
+    def processConfigFile(self, configFile=None):
+        if configFile is not None:
+            self.__serverConfig = configparser.ConfigParser()
+            self.__serverConfig.read(configFile)
+        sections = self.__serverConfig.sections()
+
+        # Remove the global section and ensure we only use sections that we actually expect.
+        del (sections[sections.index('global')])
+        self._users = {}
+        for section in sections:
+            if self.__serverConfig.has_option(section, 'wkui1_username') and \
+                    self.__serverConfig.has_option(section, 'wkui1_logon_domain') and \
+                    self.__serverConfig.has_option(section, 'wkui1_oth_domains') and \
+                    self.__serverConfig.has_option(section, 'wkui1_logon_server'):
+                self._users[section] = dict(self.__serverConfig.items(section))
+
     def NetrWkstaGetInfo(self,data):
         request = NetrWkstaGetInfo(data)
         self.log("NetrWkstaGetInfo Level: %d" % request['Level'])
@@ -4499,37 +4516,45 @@ class WKSTServer(DCERPCServer):
     def NetrWkstaUserEnum(self, data):
         request = NetrWkstaUserEnum(data)
         UserEnum = NetrWkstaUserEnumResponse()
-        if self.wkui1_username is None:
-            self.log("NetrWkstaUserEnum: No spoofed username (wkui1_username) was supplied. Return ERROR_ACCESS_DENIED.")
-            UserEnum['ErrorCode'] = 5
-            UserEnum['UserInfo']['Level'] = 1
-            UserEnum['UserInfo']['WkstaUserInfo']['tag'] = 1
-        else:
-            UserEnum['ErrorCode']    = 0
-            UserEnum['TotalEntries'] = 1
-            if self.wkui1_logon_domain is None and self.wkui1_logon_server is None:
-                self.log("NetrWkstaUserEnum: Only wkui1_username is supplied. Returned " + self.wkui1_username + " as WKSTA_USER_INFO_0.")
-                UserEnum['UserInfo']['WkstaUserInfo']['tag'] = 0
-                UserEnum['UserInfo']['Level'] = 0
-                UserEnum['UserInfo']['WkstaUserInfo']['Level0']['EntriesRead'] = 1
+        self.log("NetrWkstaGetInfo Level: %d" % request['UserInfo']['Level'])
 
-                # Setup WKSTA_USER_INFO_0 with supplied information and append it to the buffer.
-                UserInfo = WKSTA_USER_INFO_0()
-                UserInfo['wkui0_username'] = self.wkui1_username+'\x00'
-                UserEnum['UserInfo']['WkstaUserInfo']['Level0']['Buffer'].append(UserInfo)
-            elif self.wkui1_logon_domain and self.wkui1_logon_server:
-                self.log("NetrWkstaUserEnum: wkui1_username and wkui1_logon_domain are supplied as arguments. Returned " + self.wkui1_logon_domain + "\\" + self.wkui1_username + " as WKSTA_USER_INFO_1.")
-                UserEnum['UserInfo']['Level'] = 1
-                UserEnum['UserInfo']['WkstaUserInfo']['tag'] = 1
-                UserEnum['UserInfo']['WkstaUserInfo']['Level1']['EntriesRead'] = 1
+        if request['UserInfo']['Level'] not in (0, 1):
+            UserEnum['ErrorCode'] = ERROR_INVALID_LEVEL
+            return UserEnum
 
-                # Setup WKSTA_USER_INFO_1 with supplied information and append it to the buffer.
-                UserInfo = WKSTA_USER_INFO_1()
-                UserInfo['wkui1_username']     = self.wkui1_username+'\x00'
-                UserInfo['wkui1_logon_domain'] = self.wkui1_logon_domain+'\x00'
-                UserInfo['wkui1_oth_domains']  = self.wkui1_oth_domains+'\x00'
-                UserInfo['wkui1_logon_server'] = self.wkui1_logon_server+'\x00'
-                UserEnum['UserInfo']['WkstaUserInfo']['Level1']['Buffer'].append(UserInfo)
+        for key, user in self._users.items():
+            if user.get('wkui1_username') == '':
+                self.log("NetrWkstaUserEnum: No spoofed username (wkui1_username) was supplied. Return ERROR_ACCESS_DENIED.")
+                UserEnum['ErrorCode'] = 5
+                UserEnum['UserInfo']['Level'] = request['UserInfo']['Level']
+                UserEnum['UserInfo']['WkstaUserInfo']['tag'] = request['UserInfo']['WkstaUserInfo']['tag']
+                return UserEnum
+        
+        UserEnum['ErrorCode'] = 0
+        UserEnum['TotalEntries'] = len(self._users)
+        UserEnum['UserInfo']['Level'] = request['UserInfo']['Level']
+        UserEnum['UserInfo']['WkstaUserInfo']['tag'] = request['UserInfo']['WkstaUserInfo']['tag']
+        if request['UserInfo']['Level'] == 0:
+            UserEnum['UserInfo']['WkstaUserInfo']['Level0']['EntriesRead'] = len(self._users)
+        elif request['UserInfo']['Level'] == 1:
+            UserEnum['UserInfo']['WkstaUserInfo']['Level1']['EntriesRead'] = len(self._users)
+        for key, user in self._users.items():
+            if isinstance(user, dict):
+                if request['UserInfo']['Level'] == 0:
+                    self.log("NetrWkstaUserEnum: Returned " + user.get('wkui1_username') + " as WKSTA_USER_INFO_0.")
+                    # Setup WKSTA_USER_INFO_0 with supplied information and append it to the buffer.
+                    UserInfo = WKSTA_USER_INFO_0()
+                    UserInfo['wkui0_username'] = user.get('wkui1_username') + '\x00'
+                    UserEnum['UserInfo']['WkstaUserInfo']['Level0']['Buffer'].append(UserInfo)
+                elif request['UserInfo']['Level'] == 1:
+                    self.log("NetrWkstaUserEnum: Returned " + user.get('wkui1_logon_domain') + "\\" + user.get('wkui1_username') + " as WKSTA_USER_INFO_1.")
+                    # Setup WKSTA_USER_INFO_1 with supplied information and append it to the buffer.
+                    UserInfo = WKSTA_USER_INFO_1()
+                    UserInfo['wkui1_username']     = user.get('wkui1_username') + '\x00'
+                    UserInfo['wkui1_logon_domain'] = user.get('wkui1_logon_domain') + '\x00'
+                    UserInfo['wkui1_oth_domains']  = user.get('wkui1_oth_domains') + '\x00'
+                    UserInfo['wkui1_logon_server'] = user.get('wkui1_logon_server') + '\x00'
+                    UserEnum['UserInfo']['WkstaUserInfo']['Level1']['Buffer'].append(UserInfo)
 
         return UserEnum
 
@@ -4553,23 +4578,27 @@ class SRVSServer(DCERPCServer):
         self.__serverConfig = config
 
     def processConfigFile(self, configFile=None):
-       if configFile is not None:
-           self.__serverConfig = configparser.ConfigParser()
-           self.__serverConfig.read(configFile)
-       sections = self.__serverConfig.sections()
-       # Let's check the log file
-       self.__logFile      = self.__serverConfig.get('global','log_file')
-       if self.__logFile != 'None':
+        if configFile is not None:
+            self.__serverConfig = configparser.ConfigParser()
+            self.__serverConfig.read(configFile)
+        sections = self.__serverConfig.sections()
+        # Let's check the log file
+        self.__logFile      = self.__serverConfig.get('global','log_file')
+        if self.__logFile != 'None':
             logging.basicConfig(filename = self.__logFile, 
                              level = logging.DEBUG, 
                              format="%(asctime)s: %(levelname)s: %(message)s", 
                              datefmt = '%m/%d/%Y %I:%M:%S %p')
 
-       # Remove the global one
-       del(sections[sections.index('global')])
-       self._shares = {}
-       for i in sections:
-           self._shares[i] = dict(self.__serverConfig.items(i))
+        # Remove the global section and ensure we only use sections that we actually expect.
+        del(sections[sections.index('global')])
+        self._shares = {}
+        for section in sections:
+            if self.__serverConfig.has_option(section, 'comment') and \
+                    self.__serverConfig.has_option(section, 'read only') and \
+                    self.__serverConfig.has_option(section, 'share type') and \
+                    self.__serverConfig.has_option(section, 'path'):
+                self._shares[section] = dict(self.__serverConfig.items(section))
 
     def NetrShareGetInfo(self,data):
        request = NetrShareGetInfo(data)
@@ -4636,8 +4665,7 @@ class SimpleSMBServer:
     :param integer listenPort: the port number you want the server to listen on
     :param string configFile: a file with all the servers' configuration. If no file specified, this class will create the basic parameters needed to run. You will need to add your shares manually tho. See addShare() method
     """
-    def __init__(self, listenAddress = '0.0.0.0', listenPort=445, configFile='', wkui1_username='',
-                 wkui1_logon_domain='', wkui1_oth_domains='', wkui1_logon_server=''):
+    def __init__(self, listenAddress = '0.0.0.0', listenPort=445, configFile=''):
         if configFile != '':
             self.__server = SMBSERVER((listenAddress,listenPort))
             self.__server.processConfigFile(configFile)
@@ -4647,10 +4675,8 @@ class SimpleSMBServer:
             self.__smbConfig = configparser.ConfigParser()
             self.__smbConfig.add_section('global')
             self.__smbConfig.set('global','server_name',''.join([random.choice(string.ascii_letters) for _ in range(8)]))
-            self.__smbConfig.set('global','server_os',''.join([random.choice(string.ascii_letters) for _ in range(8)])
-)
-            self.__smbConfig.set('global','server_domain',''.join([random.choice(string.ascii_letters) for _ in range(8)])
-)
+            self.__smbConfig.set('global','server_os',''.join([random.choice(string.ascii_letters) for _ in range(8)]))
+            self.__smbConfig.set('global','server_domain',''.join([random.choice(string.ascii_letters) for _ in range(8)]))
             self.__smbConfig.set('global','log_file','None')
             self.__smbConfig.set('global','rpc_apis','yes')
             self.__smbConfig.set('global','credentials_file','')
@@ -4665,13 +4691,13 @@ class SimpleSMBServer:
             self.__server = SMBSERVER((listenAddress,listenPort), config_parser = self.__smbConfig)
             self.__server.processConfigFile()
 
-        # Now we have to register the MS-SRVS server. This specially important for 
-        # Windows 7+ and Mavericks clients since they WON'T (specially OSX) 
+        # Now we have to register the MS-SRVS server. This specially important for
+        # Windows 7+ and Mavericks clients since they WON'T (specially OSX)
         # ask for shares using MS-RAP.
 
         self.__srvsServer = SRVSServer()
         self.__srvsServer.daemon = True
-        self.__wkstServer = WKSTServer(wkui1_username, wkui1_logon_domain, wkui1_oth_domains, wkui1_logon_server)
+        self.__wkstServer = WKSTServer()
         self.__wkstServer.daemon = True
         self.__server.registerNamedPipe('srvsvc',('127.0.0.1',self.__srvsServer.getListenPort()))
         self.__server.registerNamedPipe('wkssvc',('127.0.0.1',self.__wkstServer.getListenPort()))
@@ -4735,3 +4761,13 @@ class SimpleSMBServer:
             self.__smbConfig.set("global", "SMB2Support", "False")
         self.__server.setServerConfig(self.__smbConfig)
         self.__server.processConfigFile()
+    
+    def addLoggedOnUser(self, wkui1_username, wkui1_logon_domain='', wkui1_oth_domains='', wkui1_logon_server=''):
+        user = wkui1_username
+        self.__smbConfig.add_section(user)
+        self.__smbConfig.set(user, 'wkui1_username', wkui1_username)
+        self.__smbConfig.set(user, 'wkui1_logon_domain', wkui1_logon_domain)
+        self.__smbConfig.set(user, 'wkui1_oth_domains', wkui1_oth_domains)
+        self.__smbConfig.set(user, 'wkui1_logon_server', wkui1_logon_server)
+        self.__wkstServer.setServerConfig(self.__smbConfig)
+        self.__wkstServer.processConfigFile()
