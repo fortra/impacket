@@ -82,7 +82,7 @@ from impacket.krb5 import constants
 from impacket.krb5.crypto import string_to_key
 try:
     from Cryptodome.Cipher import DES, ARC4, AES
-    from Cryptodome.Hash import HMAC, MD4
+    from Cryptodome.Hash import HMAC, MD4, MD5
 except ImportError:
     LOG.critical("Warning: You don't have any crypto installed. You need pycryptodomex")
     LOG.critical("See https://pypi.org/project/pycryptodomex/")
@@ -684,7 +684,7 @@ class RemoteOperations:
         if self.__disabled is True:
             LOG.info('Restoring the disabled state for service %s' % self.__serviceName)
             scmr.hRChangeServiceConfigW(self.__scmr, self.__serviceHandle, dwStartType = 0x4)
-        if self.__serviceDeleted is False:
+        if self.__serviceDeleted is False and self.__tmpServiceName is not None:
             # Check again the service we created does not exist, starting a new connection
             # Why?.. Hitting CTRL+C might break the whole existing DCE connection
             try:
@@ -1213,6 +1213,10 @@ class SAMHashes(OfflineRegistry):
 
             userName = V[userAccount['NameOffset']:userAccount['NameOffset']+userAccount['NameLength']].decode('utf-16le')
 
+            if userAccount['NTHashLength'] == 0:
+                logging.error('SAM hashes extraction for user %s failed. The account doesn\'t have hash information.' % userName)
+                continue
+
             encNTHash = b''
             if V[userAccount['NTHashOffset']:][2:3] == b'\x01':
                 # Old Style hashes
@@ -1296,7 +1300,7 @@ class LSASecrets(OfflineRegistry):
 
     def __decryptSecret(self, key, value):
         # [MS-LSAD] Section 5.1.2
-        plainText = ''
+        plainText = b''
 
         encryptedSecretSize = unpack('<I', value[:4])[0]
         value = value[len(value)-encryptedSecretSize:]
@@ -1318,7 +1322,7 @@ class LSASecrets(OfflineRegistry):
         return secret['Secret']
 
     def __decryptHash(self, key, value, iv):
-        hmac_md5 = HMAC.new(key,iv)
+        hmac_md5 = HMAC.new(key,iv,MD5)
         rc4key = hmac_md5.digest()
 
         rc4 = ARC4.new(rc4key)
@@ -1524,10 +1528,11 @@ class LSASecrets(OfflineRegistry):
                                                   hexlify(md4.digest()).decode('utf-8'))
             # Attempt to calculate and print Kerberos keys
             if not self.__printMachineKerberos(secretItem, printname):
-                LOG.debug('Could not calculate machine account Kerberos keys, printing plain password (hex encoded)')
-                extrasecret = "$MACHINE.ACC:plain_password_hex:%s" % hexlify(secretItem).decode('utf-8')
-                self.__secretItems.append(extrasecret)
-                self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, extrasecret)
+                LOG.debug('Could not calculate machine account Kerberos keys, only printing plain password (hex encoded)')
+            # Always print plaintext anyway since this may be needed for some popular usecases
+            extrasecret = "%s:plain_password_hex:%s" % (printname, hexlify(secretItem).decode('utf-8'))
+            self.__secretItems.append(extrasecret)
+            self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, extrasecret)
 
         if secret != '':
             printableSecret = secret
@@ -1793,7 +1798,7 @@ class NTDSHashes:
             ('Header','8s=b""'),
             ('KeyMaterial','16s=b""'),
             ('Unknown','<L=0'),
-            ('EncryptedHash','32s=b""'),
+            ('EncryptedHash', ':'),
         )
 
     class CRYPTED_HISTORY(Structure):
@@ -1888,8 +1893,21 @@ class NTDSHashes:
                 decryptedPekList = self.PEKLIST_PLAIN(
                     self.__cryptoCommon.decryptAES(self.__bootKey, encryptedPekList['EncryptedPek'],
                                                    encryptedPekList['KeyMaterial']))
-                self.__PEK.append(decryptedPekList['DecryptedPek'][4:][:16])
-                LOG.info("PEK # 0 found and decrypted: %s", hexlify(decryptedPekList['DecryptedPek'][4:][:16]).decode('utf-8'))
+
+                # PEK list entries take the form:
+                #   index (4 byte LE int), PEK (16 byte key)
+                # the entries are in ascending order, and the list is terminated
+                # by an entry with a non-sequential index (08080808 observed)
+                pos, cur_index = 0, 0
+                while True:
+                    pek_entry = decryptedPekList['DecryptedPek'][pos:pos+20]
+                    if len(pek_entry) < 20: break # if list truncated, should not happen
+                    index, pek = unpack('<L16s', pek_entry)
+                    if index != cur_index: break # break on non-sequential index
+                    self.__PEK.append(pek)
+                    LOG.info("PEK # %d found and decrypted: %s", index, hexlify(pek).decode('utf-8'))
+                    cur_index += 1
+                    pos += 20
 
     def __removeRC4Layer(self, cryptedHash):
         md5 = hashlib.new('md5')
@@ -2126,6 +2144,8 @@ class NTDSHashes:
 
                     if encryptedNTHistory['Header'][:4] == b'\x13\x00\x00\x00':
                         # Win2016 TP4 decryption is different
+                        encryptedNTHistory = self.CRYPTED_HASHW16(
+                            unhexlify(record[self.NAME_TO_INTERNAL['ntPwdHistory']]))
                         pekIndex = hexlify(encryptedNTHistory['Header'])
                         tmpNTHistory = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])],
                                                                       encryptedNTHistory['EncryptedHash'],

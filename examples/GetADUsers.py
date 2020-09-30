@@ -76,7 +76,7 @@ class GetADUsers:
             s.login('', '')
         except Exception:
             if s.getServerName() == '':
-                raise 'Error while anonymous logging into %s'
+                raise Exception('Error while anonymous logging into %s' % self.__domain)
         else:
             s.logoff()
         return s.getServerName()
@@ -177,8 +177,6 @@ class GetADUsers:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
     print((version.BANNER))
 
     parser = argparse.ArgumentParser(add_help = True, description = "Queries target domain for users data")
@@ -188,6 +186,7 @@ if __name__ == '__main__':
     parser.add_argument('-all', action='store_true', help='Return all users, including those with no email '
                                                            'addresses and disabled accounts. When used with -user it '
                                                           'will return user\'s info even if the account is disabled')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
@@ -210,23 +209,20 @@ if __name__ == '__main__':
 
     options = parser.parse_args()
 
+    # Init the example's logger theme
+    logger.init(options.ts)
+
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
+        # Print the Library's installation path
+        logging.debug(version.getInstallationPath())
     else:
         logging.getLogger().setLevel(logging.INFO)
 
     import re
-    # This is because I'm lazy with regex
-    # ToDo: We need to change the regex to fullfil domain/username[:password]
-    targetParam = options.target+'@'
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(targetParam).groups('')
+    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.target).groups('')
 
-    #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
-
-    if domain is '':
+    if domain == '':
         logging.critical('Domain should be specified!')
         sys.exit(1)
 

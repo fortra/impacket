@@ -29,7 +29,6 @@ from impacket.dcerpc.v5.rpcrt import DCERPCException
 
 class LSALookupSid:
     KNOWN_PROTOCOLS = {
-        135: {'bindstr': r'ncacn_ip_tcp:%s',           'set_host': False},
         139: {'bindstr': r'ncacn_np:%s[\pipe\lsarpc]', 'set_host': True},
         445: {'bindstr': r'ncacn_np:%s[\pipe\lsarpc]', 'set_host': True},
         }
@@ -138,8 +137,6 @@ class LSALookupSid:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
     # Explicitly changing the stdout encoding format
     if sys.stdout.encoding is None:
         # Output is redirected to a file
@@ -150,13 +147,14 @@ if __name__ == '__main__':
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('maxRid', action='store', default = '4000', nargs='?', help='max Rid to check (default 4000)')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
 
     group = parser.add_argument_group('connection')
 
     group.add_argument('-target-ip', action='store', metavar="ip address", help='IP Address of the target machine. '
                        'If omitted it will use whatever was specified as target. This is useful when target is the '
                        'NetBIOS name and you cannot resolve it')
-    group.add_argument('-port', choices=['135', '139', '445'], nargs='?', default='445', metavar="destination port",
+    group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port",
                        help='Destination port to connect to SMB Server')
     group.add_argument('-domain-sids', action='store_true', help='Enumerate Domain SIDs (will likely forward requests to the DC)')
 
@@ -170,6 +168,9 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
+
+    # Init the example's logger theme
+    logger.init(options.ts)
 
     import re
 

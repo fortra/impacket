@@ -86,6 +86,9 @@ STYPE_CLUSTER_DFS  = 0x08000000
 STYPE_SPECIAL      = 0x80000000
 STYPE_TEMPORARY    = 0x40000000
 
+# AND with shi_type to extract the Share Type part
+STYPE_MASK         = 0x000000FF
+
 # 2.2.2.5 Client-Side Caching (CSC) States
 CSC_CACHE_MANUAL_REINT = 0x00
 CSC_CACHE_AUTO_REINT   = 0x10
@@ -1778,7 +1781,7 @@ class WCHAR_ARRAY(NDRSTRUCT):
         else:
             return NDR.__getitem__(self,key)
 
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return self["ActualCount"]*2 
 
 
@@ -1886,7 +1889,7 @@ class LPSERVER_TRANSPORT_INFO_2_ARRAY(NDRPOINTER):
 
 # 2.2.4.96 SERVER_TRANSPORT_INFO_3
 class PASSWORD_ARRAY(NDRUniFixedArray):
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return 256
 
 class SERVER_TRANSPORT_INFO_3(NDRSTRUCT):

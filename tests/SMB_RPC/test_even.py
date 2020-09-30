@@ -204,6 +204,20 @@ class RRPTests(unittest.TestCase):
             if str(e).find('STATUS_ACCESS_DENIED') < 0:
                 raise
 
+    def test_hElfrNumberOfRecords(self):
+        dce, rpctransport = self.connect()
+        resp = even.hElfrOpenELW(dce, 'Security', '')
+        resp.dump()
+        resp = even.hElfrNumberOfRecords(dce, resp['LogHandle'])
+        resp.dump()
+
+    def test_hElfrOldestRecordNumber(self):
+        dce, rpctransport = self.connect()
+        resp = even.hElfrOpenELW(dce, 'Security', '')
+        resp.dump()
+        resp = even.hElfrOldestRecordNumber(dce, resp['LogHandle'])
+        resp.dump()
+
 class SMBTransport(RRPTests):
     def setUp(self):
         RRPTests.setUp(self)

@@ -23,6 +23,7 @@ class NTLMRelayxConfig:
         self.listeningPort = None
 
         self.domainIp = None
+
         self.machineAccount = None
         self.machineHashes = None
         self.target = None
@@ -34,14 +35,17 @@ class NTLMRelayxConfig:
         self.randomtargets = False
         self.encoding = None
         self.ipv6 = False
+        self.remove_mic = False
 
-        #WPAD options
+        self.command = None
+
+        # WPAD options
         self.serve_wpad = False
         self.wpad_host = None
         self.wpad_auth_num = 0
         self.smb2support = False
 
-        #WPAD options
+        # WPAD options
         self.serve_wpad = False
         self.wpad_host = None
         self.wpad_auth_num = 0
@@ -49,9 +53,17 @@ class NTLMRelayxConfig:
 
         # SMB options
         self.exeFile = None
-        self.command = None
         self.interactive = False
         self.enumLocalAdmins = False
+        self.SMBServerChallenge = None
+
+        # RPC options
+        self.rpc_mode = None
+        self.rpc_use_smb = False
+        self.auth_smb = ''
+        self.smblmhash = None
+        self.smbnthash = None
+        self.port_smb = 445
 
         # LDAP options
         self.dumpdomain = True
@@ -70,6 +82,14 @@ class NTLMRelayxConfig:
         self.runSocks = False
         self.socksServer = None
 
+        # HTTP options
+        self.remove_target = False
+
+        # WebDAV options
+        self.serve_image = False
+
+    def setSMBChallenge(self, value):
+        self.SMBServerChallenge = value
 
     def setSMB2Support(self, value):
         self.smb2support = value
@@ -79,7 +99,7 @@ class NTLMRelayxConfig:
 
     def setInterfaceIp(self, ip):
         self.interfaceIp = ip
-    
+
     def setListeningPort(self, port):
         self.listeningPort = port
 
@@ -114,10 +134,15 @@ class NTLMRelayxConfig:
     def setLootdir(self, lootdir):
         self.lootdir = lootdir
 
-    def setRedirectHost(self,redirecthost):
+    def setRedirectHost(self, redirecthost):
         self.redirecthost = redirecthost
 
-    def setDomainAccount( self, machineAccount,  machineHashes, domainIp):
+    def setDomainAccount(self, machineAccount, machineHashes, domainIp):
+        # Don't set this if we're not exploiting it
+        if not self.remove_target:
+            return
+        if machineAccount is None or machineHashes is None or domainIp is None:
+            raise Exception("You must specify machine-account/hashes/domain all together!")
         self.machineAccount = machineAccount
         self.machineHashes = machineHashes
         self.domainIp = domainIp
@@ -125,7 +150,7 @@ class NTLMRelayxConfig:
     def setRandomTargets(self, randomtargets):
         self.randomtargets = randomtargets
 
-    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser, addcomputer, delegateaccess):
+    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser, addcomputer, delegateaccess, dumplaps, dumpgmsa, sid):
         self.dumpdomain = dumpdomain
         self.addda = addda
         self.aclattack = aclattack
@@ -133,9 +158,28 @@ class NTLMRelayxConfig:
         self.escalateuser = escalateuser
         self.addcomputer = addcomputer
         self.delegateaccess = delegateaccess
+        self.dumplaps = dumplaps
+        self.dumpgmsa = dumpgmsa
+        self.sid = sid
 
     def setMSSQLOptions(self, queries):
         self.queries = queries
+
+    def setRPCOptions(self, rpc_mode, rpc_use_smb, auth_smb, hashes_smb, rpc_smb_port):
+        self.rpc_mode = rpc_mode
+        self.rpc_use_smb = rpc_use_smb
+
+        import re
+        auth_re = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?')
+        self.smbdomain, self.smbuser, self.smbpass =  auth_re.match(auth_smb).groups('')
+
+        if hashes_smb is not None:
+            self.smblmhash, self.smbnthash = hashes_smb.split(':')
+        else:
+            self.smblmhash = ''
+            self.smbnthash = ''
+
+        self.rpc_smb_port = rpc_smb_port
 
     def setInteractive(self, interactive):
         self.interactive = interactive
@@ -154,3 +198,10 @@ class NTLMRelayxConfig:
             self.serve_wpad = True
         self.wpad_host = wpad_host
         self.wpad_auth_num = wpad_auth_num
+
+    def setExploitOptions(self, remove_mic, remove_target):
+        self.remove_mic = remove_mic
+        self.remove_target = remove_target
+
+    def setWebDAVOptions(self, serve_image):
+        self.serve_image = serve_image

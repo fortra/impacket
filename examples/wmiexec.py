@@ -34,6 +34,7 @@ from impacket.smbconnection import SMBConnection, SMB_DIALECT, SMB2_DIALECT_002,
 from impacket.dcerpc.v5.dcomrt import DCOMConnection
 from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dtypes import NULL
+from impacket.krb5.keytab import Keytab
 from six import PY2
 
 OUTPUT_FILENAME = '__' + str(time.time())
@@ -231,8 +232,8 @@ class RemoteShell(cmd.Cmd):
                 # Drive valid, now we should get the current path
                 self.__pwd = line
                 self.execute_remote('cd ')
-                self.__pwd = self.__outputBuffer.strip('\r\n').encode(CODEC)
-                self.prompt = (self.__pwd + b'>')
+                self.__pwd = self.__outputBuffer.strip('\r\n')
+                self.prompt = (self.__pwd + '>')
                 self.__outputBuffer = ''
         else:
             if line != '':
@@ -244,7 +245,7 @@ class RemoteShell(cmd.Cmd):
                 self.__outputBuffer += data.decode(CODEC)
             except UnicodeDecodeError:
                 logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
-                              'https://docs.python.org/2.4/lib/standard-encodings.html\nand then execute wmiexec.py '
+                              'https://docs.python.org/3/library/codecs.html#standard-encodings\nand then execute wmiexec.py '
                               'again with -codec and the corresponding codec')
                 self.__outputBuffer += data.decode(CODEC, errors='replace')
 
@@ -334,8 +335,6 @@ def load_smbclient_auth_file(path):
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
     print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Executes a semi-interactive shell using Windows "
@@ -345,13 +344,13 @@ if __name__ == '__main__':
                                                                            '(default ADMIN$)')
     parser.add_argument('-nooutput', action='store_true', default = False, help='whether or not to print the output '
                                                                                 '(no SMB connection created)')
-    parser.add_argument('-silentcommand', action='store_true', default = False, help='does not execute cmd.exe to run given command '
-                                                                                '(cannot run dir/cd/etc.)')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
+    parser.add_argument('-silentcommand', action='store_true', default = False, help='does not execute cmd.exe to run given command ')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
                                                        '"%s"). If errors are detected, run chcp.com at the target, '
                                                        'map the result with '
-                          'https://docs.python.org/2.4/lib/standard-encodings.html and then execute wmiexec.py '
+                          'https://docs.python.org/3/library/codecs.html#standard-encodings and then execute wmiexec.py '
                           'again with -codec and the corresponding codec ' % CODEC)
 
     parser.add_argument('command', nargs='*', default = ' ', help='command to execute at the target. If empty it will '
@@ -370,6 +369,7 @@ if __name__ == '__main__':
                        'ommited it use the domain part (FQDN) specified in the target parameter')
     group.add_argument('-A', action="store", metavar = "authfile", help="smbclient/mount.cifs-style authentication file. "
                                                                         "See smbclient man page's -A option.")
+    group.add_argument('-keytab', action="store", help='Read keys for SPN from keytab file')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -377,11 +377,14 @@ if __name__ == '__main__':
 
     options = parser.parse_args()
 
+    # Init the example's logger theme
+    logger.init(options.ts)
+
     if options.codec is not None:
         CODEC = options.codec
     else:
         if CODEC is None:
-            CODEC = 'UTF-8'
+            CODEC = 'utf-8'
 
     if ' '.join(options.command) == ' ' and options.nooutput is True:
         logging.error("-nooutput switch and interactive shell not supported")
@@ -392,6 +395,8 @@ if __name__ == '__main__':
     
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
+        # Print the Library's installation path
+        logging.debug(version.getInstallationPath())
     else:
         logging.getLogger().setLevel(logging.INFO)
 
@@ -412,6 +417,10 @@ if __name__ == '__main__':
         
         if domain is None:
             domain = ''
+
+        if options.keytab is not None:
+            Keytab.loadKeysFromKeytab (options.keytab, username, domain, options)
+            options.k = True
 
         if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
             from getpass import getpass

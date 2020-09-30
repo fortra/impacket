@@ -37,15 +37,15 @@ except ImportError:
   import readline
 
 class MiniImpacketShell(cmd.Cmd):
-    def __init__(self, smbClient,tcpShell=None):
+    def __init__(self, smbClient, tcpShell=None):
         #If the tcpShell parameter is passed (used in ntlmrelayx),
         # all input and output is redirected to a tcp socket
         # instead of to stdin / stdout
         if tcpShell is not None:
-            cmd.Cmd.__init__(self,stdin=tcpShell,stdout=tcpShell)
-            sys.stdout = tcpShell
-            sys.stdin = tcpShell
-            sys.stderr = tcpShell
+            cmd.Cmd.__init__(self, stdin=tcpShell.stdin, stdout=tcpShell.stdout)
+            sys.stdout = tcpShell.stdout
+            sys.stdin = tcpShell.stdin
+            sys.stderr = tcpShell.stdout
             self.use_rawinput = False
             self.shell = tcpShell
         else:
@@ -113,6 +113,7 @@ class MiniImpacketShell(cmd.Cmd):
  get {filename} - downloads the filename from the current path
  mount {target,path} - creates a mount point from {path} to {target} (admin required)
  umount {path} - removes the mount point at {path} without deleting the directory (admin required)
+ list_snapshots {path} - lists the vss snapshots for the specified path
  info - returns NetrServerInfo main results
  who - returns the sessions currently connected at the target host (admin required)
  close - closes the current SMB Session
@@ -461,6 +462,24 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_close(self, line):
         self.do_logoff(line)
+
+    def do_list_snapshots(self, line):
+        l = line.split(' ')
+        if len(l) > 0:
+            pathName= l[0].replace('/','\\')
+
+        # Relative or absolute path?
+        if pathName.startswith('\\') is not True:
+            pathName = ntpath.join(self.pwd, pathName)
+
+        snapshotList = self.smb.listSnapshots(self.tid, pathName)
+
+        if not snapshotList:
+            print("No snapshots found")
+            return
+
+        for timestamp in snapshotList:
+            print(timestamp)
 
     def do_mount(self, line):
         l = line.split(' ')

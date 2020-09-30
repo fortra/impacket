@@ -14,9 +14,9 @@
 #   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
 #
 #   Some calls have helper functions, which makes it even easier to use.
-#   They are located at the end of this file. 
+#   They are located at the end of this file.
 #   Helper functions start with "h"<name of the call>.
-#   There are test cases for them too. 
+#   There are test cases for them too.
 #
 from __future__ import division
 from __future__ import print_function
@@ -32,6 +32,11 @@ from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5.enum import Enum
 from impacket.structure import Structure
 
+import struct
+import os
+from hashlib import md5
+from Cryptodome.Cipher import ARC4
+
 MSRPC_UUID_SAMR   = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AC', '1.0'))
 
 class DCERPCSessionError(DCERPCException):
@@ -42,7 +47,7 @@ class DCERPCSessionError(DCERPCException):
         key = self.error_code
         if key in nt_errors.ERROR_MESSAGES:
             error_msg_short = nt_errors.ERROR_MESSAGES[key][0]
-            error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
+            error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1]
             return 'SAMR SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
             return 'SAMR SessionError: unknown error code: 0x%x' % self.error_code
@@ -311,7 +316,7 @@ class PRPC_STRING(NDRPOINTER):
     referent = (
         ('Data', RPC_STRING),
     )
- 
+
 # 2.2.2.2 OLD_LARGE_INTEGER
 class OLD_LARGE_INTEGER(NDRSTRUCT):
     structure = (
@@ -498,7 +503,7 @@ class GROUP_MEMBERSHIP_ARRAY(NDRUniConformantArray):
 class PGROUP_MEMBERSHIP_ARRAY(NDRPOINTER):
     referent = (
         ('Data',GROUP_MEMBERSHIP_ARRAY),
-    ) 
+    )
 
 # 2.2.3.13 SAMPR_GET_GROUPS_BUFFER
 class SAMPR_GET_GROUPS_BUFFER(NDRSTRUCT):
@@ -723,7 +728,7 @@ class SAMPR_GROUP_ADM_COMMENT_INFORMATION(NDRSTRUCT):
 # 2.2.5.6 GROUP_INFORMATION_CLASS
 class GROUP_INFORMATION_CLASS(NDRENUM):
     class enumItems(Enum):
-        GroupGeneralInformation      = 1 
+        GroupGeneralInformation      = 1
         GroupNameInformation         = 2
         GroupAttributeInformation    = 3
         GroupAdminCommentInformation = 4
@@ -778,7 +783,7 @@ class SAMPR_ALIAS_INFO_BUFFER(NDRUNION):
         ALIAS_INFORMATION_CLASS.AliasNameInformation         : ('Name', SAMPR_ALIAS_NAME_INFORMATION),
         ALIAS_INFORMATION_CLASS.AliasAdminCommentInformation : ('AdminComment', SAMPR_ALIAS_ADM_COMMENT_INFORMATION),
     }
- 
+
 class PSAMPR_ALIAS_INFO_BUFFER(NDRPOINTER):
     referent = (
         ('Data', SAMPR_ALIAS_INFO_BUFFER),
@@ -819,7 +824,8 @@ class SAMPR_LOGON_HOURS(NDRSTRUCT):
     )
 
     def getData(self, soFar = 0):
-        self['UnitsPerWeek'] = len(self['LogonHours']) * 8 
+        if self['LogonHours'] != 0:
+            self['UnitsPerWeek'] = len(self['LogonHours']) * 8
         return NDR.getData(self, soFar)
 
 # 2.2.7.6 SAMPR_USER_ALL_INFORMATION
@@ -1015,7 +1021,7 @@ class PSAMPR_ENCRYPTED_USER_PASSWORD(NDRPOINTER):
 # 2.2.7.22 SAMPR_ENCRYPTED_USER_PASSWORD_NEW
 class SAMPR_ENCRYPTED_USER_PASSWORD_NEW(NDRSTRUCT):
     structure = (
-        ('Buffer', '522s=b""'),
+        ('Buffer', '532s=b""'),
     )
     def getAlignment(self):
         return 1
@@ -1112,7 +1118,7 @@ class SAMPR_USER_INFO_BUFFER(NDRUNION):
         USER_INFORMATION_CLASS.UserInternal4InformationNew: ('Internal4New', SAMPR_USER_INTERNAL4_INFORMATION_NEW),
         USER_INFORMATION_CLASS.UserInternal5InformationNew: ('Internal5New', SAMPR_USER_INTERNAL5_INFORMATION_NEW),
     }
- 
+
 class PSAMPR_USER_INFO_BUFFER(NDRPOINTER):
     referent = (
         ('Data', SAMPR_USER_INFO_BUFFER),
@@ -1121,7 +1127,7 @@ class PSAMPR_USER_INFO_BUFFER(NDRPOINTER):
 class PSAMPR_SERVER_NAME2(NDRPOINTER):
     referent = (
         ('Data', '4s=b""'),
-    ) 
+    )
 
 # 2.2.8.2 SAMPR_DOMAIN_DISPLAY_USER
 class SAMPR_DOMAIN_DISPLAY_USER(NDRSTRUCT):
@@ -1221,21 +1227,21 @@ class SAMPR_DOMAIN_DISPLAY_MACHINE_BUFFER(NDRSTRUCT):
         ('EntriesRead', ULONG),
         ('Buffer', PSAMPR_DOMAIN_DISPLAY_MACHINE_ARRAY),
     )
- 
+
 # 2.2.8.9 SAMPR_DOMAIN_DISPLAY_GROUP_BUFFER
 class SAMPR_DOMAIN_DISPLAY_GROUP_BUFFER(NDRSTRUCT):
     structure = (
         ('EntriesRead', ULONG),
         ('Buffer', PSAMPR_DOMAIN_DISPLAY_GROUP_ARRAY),
     )
- 
+
 # 2.2.8.10 SAMPR_DOMAIN_DISPLAY_OEM_USER_BUFFER
 class SAMPR_DOMAIN_DISPLAY_OEM_USER_BUFFER(NDRSTRUCT):
     structure = (
         ('EntriesRead', ULONG),
         ('Buffer', PSAMPR_DOMAIN_DISPLAY_OEM_USER_ARRAY),
     )
- 
+
 # 2.2.8.11 SAMPR_DOMAIN_DISPLAY_OEM_GROUP_BUFFER
 class SAMPR_DOMAIN_DISPLAY_OEM_GROUP_BUFFER(NDRSTRUCT):
     structure = (
@@ -2421,12 +2427,13 @@ OPNUMS = {
 # HELPER FUNCTIONS
 ################################################################################
 
-def hSamrConnect5(dce, serverName='\x00', desiredAccess=MAXIMUM_ALLOWED, inVersion=1):
+def hSamrConnect5(dce, serverName='\x00', desiredAccess=MAXIMUM_ALLOWED, inVersion=1, revision=3):
     request = SamrConnect5()
     request['ServerName'] = serverName
     request['DesiredAccess'] = desiredAccess
     request['InVersion'] = inVersion
     request['InRevisionInfo']['tag'] = inVersion
+    request['InRevisionInfo']['V1']['Revision'] = revision
     return dce.request(request)
 
 def hSamrConnect4(dce, serverName='\x00', desiredAccess=MAXIMUM_ALLOWED, clientRevision=2):
@@ -2743,7 +2750,7 @@ def hSamrChangePasswordUser(dce, userHandle, oldPassword, newPassword):
     request['NewLmEncryptedWithOldLm'] = NULL
     request['NtPresent'] = 1
     request['OldNtEncryptedWithNewNt'] = crypto.SamEncryptNTLMHash(oldPwdHashNT, newPwdHashNT)
-    request['NewNtEncryptedWithOldNt'] = crypto.SamEncryptNTLMHash(newPwdHashNT, oldPwdHashNT) 
+    request['NewNtEncryptedWithOldNt'] = crypto.SamEncryptNTLMHash(newPwdHashNT, oldPwdHashNT)
     request['NtCrossEncryptionPresent'] = 0
     request['NewNtEncryptedWithNewLm'] = NULL
     request['LmCrossEncryptionPresent'] = 1
@@ -2772,7 +2779,7 @@ def hSamrUnicodeChangePasswordUser2(dce, serverName='\x00', userName='', oldPass
             oldPwdHashLM = unhexlify(oldPwdHashLM)
         except:
             pass
-        try: 
+        try:
             oldPwdHashNT = unhexlify(oldPwdHashNT)
         except:
             pass
@@ -2876,4 +2883,47 @@ def hSamrLookupIdsInDomain(dce, domainHandle, ids):
 
     request.fields['RelativeIds'].fields['MaximumCount'] = 1000
 
+    return dce.request(request)
+
+def hSamrSetPasswordInternal4New(dce, userHandle, password):
+    request = SamrSetInformationUser2()
+    request['UserHandle'] = userHandle
+    request['UserInformationClass'] = USER_INFORMATION_CLASS.UserInternal4InformationNew
+    request['Buffer']['tag'] =  USER_INFORMATION_CLASS.UserInternal4InformationNew
+    request['Buffer']['Internal4New']['I1']['WhichFields'] = 0x01000000 | 0x08000000
+
+    request['Buffer']['Internal4New']['I1']['UserName'] = NULL
+    request['Buffer']['Internal4New']['I1']['FullName'] = NULL
+    request['Buffer']['Internal4New']['I1']['HomeDirectory'] = NULL
+    request['Buffer']['Internal4New']['I1']['HomeDirectoryDrive'] = NULL
+    request['Buffer']['Internal4New']['I1']['ScriptPath'] = NULL
+    request['Buffer']['Internal4New']['I1']['ProfilePath'] = NULL
+    request['Buffer']['Internal4New']['I1']['AdminComment'] = NULL
+    request['Buffer']['Internal4New']['I1']['WorkStations'] = NULL
+    request['Buffer']['Internal4New']['I1']['UserComment'] = NULL
+    request['Buffer']['Internal4New']['I1']['Parameters'] = NULL
+    request['Buffer']['Internal4New']['I1']['LmOwfPassword']['Buffer'] = NULL
+    request['Buffer']['Internal4New']['I1']['NtOwfPassword']['Buffer'] = NULL
+    request['Buffer']['Internal4New']['I1']['PrivateData'] = NULL
+    request['Buffer']['Internal4New']['I1']['SecurityDescriptor']['SecurityDescriptor'] = NULL
+    request['Buffer']['Internal4New']['I1']['LogonHours']['LogonHours'] = NULL
+    request['Buffer']['Internal4New']['I1']['PasswordExpired'] = 1
+
+    #crypto
+    pwdbuff = password.encode("utf-16le")
+    bufflen = len(pwdbuff)
+    pwdbuff = pwdbuff.rjust(512, b'\0')
+    pwdbuff += struct.pack('<I', bufflen)
+    salt = os.urandom(16)
+    session_key = dce.get_rpc_transport().get_smb_connection().getSessionKey()
+    keymd = md5()
+    keymd.update(salt)
+    keymd.update(session_key)
+    key = keymd.digest()
+
+    cipher = ARC4.new(key)
+    buffercrypt = cipher.encrypt(pwdbuff) + salt
+
+
+    request['Buffer']['Internal4New']['UserPassword']['Buffer'] = buffercrypt
     return dce.request(request)

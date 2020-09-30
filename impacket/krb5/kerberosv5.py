@@ -1,4 +1,4 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright 2019 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -80,7 +80,24 @@ def sendReceive(data, host, kdcHost):
     return r
 
 def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True):
-    
+
+    # Convert to binary form, just in case we're receiving strings
+    if isinstance(lmhash, str):
+        try:
+            lmhash = unhexlify(lmhash)
+        except TypeError:
+            pass
+    if isinstance(nthash, str):
+        try:
+            nthash = unhexlify(nthash)
+        except TypeError:
+            pass
+    if isinstance(aesKey, str):
+        try:
+            aesKey = unhexlify(aesKey)
+        except TypeError:
+            pass
+
     asReq = AS_REQ()
 
     domain = domain.upper()
@@ -121,17 +138,17 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
     # Yes.. this shouldn't happen but it's inherited from the past
     if aesKey is None:
-        aesKey = ''
+        aesKey = b''
 
-    if nthash == '':
+    if nthash == b'':
         # This is still confusing. I thought KDC_ERR_ETYPE_NOSUPP was enough, 
         # but I found some systems that accepts all ciphers, and trigger an error 
         # when requesting subsequent TGS :(. More research needed.
         # So, in order to support more than one cypher, I'm setting aes first
         # since most of the systems would accept it. If we're lucky and 
         # KDC_ERR_ETYPE_NOSUPP is returned, we will later try rc4.
-        if aesKey != '':
-            if len(aesKey) == 64:
+        if aesKey != b'':
+            if len(aesKey) == 32:
                 supportedCiphers = (int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),)
             else:
                 supportedCiphers = (int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value),)
@@ -149,7 +166,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
         r = sendReceive(message, domain, kdcHost)
     except KerberosError as e:
         if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
-            if supportedCiphers[0] in (constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value, constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value) and aesKey is '':
+            if supportedCiphers[0] in (constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value, constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value) and aesKey == b'':
                 supportedCiphers = (int(constants.EncryptionTypes.rc4_hmac.value),)
                 seq_set_iter(reqBody, 'etype', supportedCiphers)
                 message = encoder.encode(asReq)
@@ -211,10 +228,10 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     cipher = _enctype_table[enctype]
 
     # Pass the hash/aes key :P
-    if nthash != '' and (isinstance(nthash, bytes) and nthash != b''):
+    if nthash != b'' and (isinstance(nthash, bytes) and nthash != b''):
         key = Key(cipher.enctype, nthash)
-    elif aesKey != '':
-        key = Key(cipher.enctype, unhexlify(aesKey))
+    elif aesKey != b'':
+        key = Key(cipher.enctype, aesKey)
     else:
         key = cipher.string_to_key(password, encryptionTypesData[enctype], None)
 
@@ -282,7 +299,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
             tgt = sendReceive(encoder.encode(asReq), domain, kdcHost)
         except Exception as e:
             if str(e).find('KDC_ERR_ETYPE_NOSUPP') >= 0:
-                if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None):
+                if lmhash == b'' and nthash == b'' and (aesKey == b'' or aesKey is None):
                     from impacket.ntlm import compute_lmhash, compute_nthash
                     lmhash = compute_lmhash(password)
                     nthash = compute_nthash(password)
@@ -314,9 +331,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
 
     # Get the session key and the ticket
-    # We're assuming the cipher for this session key is the same
-    # as the one we used before.
-    # ToDo: change this
+    cipher = _enctype_table[encASRepPart['key']['keytype']]
     sessionKey = Key(cipher.enctype,encASRepPart['key']['keyvalue'].asOctets())
 
     # ToDo: Check Nonces!
@@ -490,7 +505,26 @@ def getKerberosType3(cipher, sessionKey, auth_data):
 
     return cipher, sessionKey2, resp.getData()
 
-def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT = None, TGS = None, targetName='', kdcHost = None, useCache = True):
+def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT = None, TGS = None, targetName='',
+                     kdcHost = None, useCache = True):
+
+    # Convert to binary form, just in case we're receiving strings
+    if isinstance(lmhash, str):
+        try:
+            lmhash = unhexlify(lmhash)
+        except TypeError:
+            pass
+    if isinstance(nthash, str):
+        try:
+            nthash = unhexlify(nthash)
+        except TypeError:
+            pass
+    if isinstance(aesKey, str):
+        try:
+            aesKey = unhexlify(aesKey)
+        except TypeError:
+            pass
+
     if TGT is None and TGS is None:
         if useCache is True:
             try:
@@ -521,10 +555,10 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
 
                 # retrieve user information from CCache file if needed
                 if username == '' and creds is not None:
-                    username = creds['client'].prettyPrint().split(b'@')[0]
+                    username = creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')
                     LOG.debug('Username retrieved from CCache: %s' % username)
                 elif username == '' and len(ccache.principal.components) > 0:
-                    username = ccache.principal.components[0]['data']
+                    username = ccache.principal.components[0]['data'].decode('utf-8')
                     LOG.debug('Username retrieved from CCache: %s' % username)
 
     # First of all, we need to get a TGT for the user
@@ -540,7 +574,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                         # So, if that's the case we'll force using RC4 by converting
                         # the password to lm/nt hashes and hope for the best. If that's already
                         # done, byebye.
-                        if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None) and TGT is None and TGS is None:
+                        if lmhash == b'' and nthash == b'' and (aesKey == b'' or aesKey is None) and TGT is None and TGS is None:
                             from impacket.ntlm import compute_lmhash, compute_nthash
                             LOG.debug('Got KDC_ERR_ETYPE_NOSUPP, fallback to RC4')
                             lmhash = compute_lmhash(password)
@@ -568,7 +602,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                     # So, if that's the case we'll force using RC4 by converting
                     # the password to lm/nt hashes and hope for the best. If that's already
                     # done, byebye.
-                    if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None) and TGT is None and TGS is None:
+                    if lmhash == b'' and nthash == b'' and (aesKey == b'' or aesKey is None) and TGT is None and TGS is None:
                         from impacket.ntlm import compute_lmhash, compute_nthash
                         LOG.debug('Got KDC_ERR_ETYPE_NOSUPP, fallback to RC4')
                         lmhash = compute_lmhash(password)

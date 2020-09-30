@@ -49,15 +49,20 @@ class ApplicationTagNumbers(Enum):
     KRB_ERROR      = 30
 
 class PrincipalNameType(Enum):
-    NT_UNKNOWN        = 0 
-    NT_PRINCIPAL      = 1
-    NT_SRV_INST       = 2
-    NT_SRV_HST        = 3
-    NT_SRV_XHST       = 4
-    NT_UID            = 5
-    NT_X500_PRINCIPAL = 6
-    NT_SMTP_NAME      = 7
-    NT_ENTERPRISE     = 10
+    NT_UNKNOWN              = 0
+    NT_PRINCIPAL            = 1
+    NT_SRV_INST             = 2
+    NT_SRV_HST              = 3
+    NT_SRV_XHST             = 4
+    NT_UID                  = 5
+    NT_X500_PRINCIPAL       = 6
+    NT_SMTP_NAME            = 7
+    NT_ENTERPRISE           = 10
+    NT_WELLKNOWN            = 11
+    NT_SRV_HST_DOMAIN       = 12
+    NT_MS_PRINCIPAL         = -128
+    NT_MS_PRINCIPAL_AND_ID  = -129
+    NT_ENT_PRINCIPAL_AND_ID = -130
 
 class PreAuthenticationDataTypes(Enum):
     PA_TGS_REQ                 = 1
@@ -161,19 +166,25 @@ class KerberosMessageTypes(Enum):
 
 # 7.5.8.  Name Types
 class NameTypes(Enum):
-    KRB_NT_UNKNOWN        = 0    # Name type not known
-    KRB_NT_PRINCIPAL      = 1    # Just the name of the principal as in DCE,
-                                 # or for users
-    KRB_NT_SRV_INST       = 2    # Service and other unique instance (krbtgt)
-    KRB_NT_SRV_HST        = 3    # Service with host name as instance
-                                 # (telnet, rcommands)
-    KRB_NT_SRV_XHST       = 4    # Service with host as remaining components
-    KRB_NT_UID            = 5    # Unique ID
-    KRB_NT_X500_PRINCIPAL = 6    # Encoded X.509 Distinguished name [RFC2253]
-    KRB_NT_SMTP_NAME      = 7    # Name in form of SMTP email name
-                                 # (e.g., user@example.com)
-    KRB_NT_ENTERPRISE     = 10   #   Enterprise name; may be mapped to
-                                 # principal name
+    KRB_NT_UNKNOWN              = 0    # Name type not known
+    KRB_NT_PRINCIPAL            = 1    # Just the name of the principal as in DCE,
+                                       # or for users
+    KRB_NT_SRV_INST             = 2    # Service and other unique instance (krbtgt)
+    KRB_NT_SRV_HST              = 3    # Service with host name as instance
+                                       # (telnet, rcommands)
+    KRB_NT_SRV_XHST             = 4    # Service with host as remaining components
+    KRB_NT_UID                  = 5    # Unique ID
+    KRB_NT_X500_PRINCIPAL       = 6    # Encoded X.509 Distinguished name [RFC2253]
+    KRB_NT_SMTP_NAME            = 7    # Name in form of SMTP email name
+                                       # (e.g., user@example.com)
+    KRB_NT_ENTERPRISE           = 10   #   Enterprise name; may be mapped to
+                                       # principal name
+    # Other Name Types
+    KRB_NT_WELLKNOWN            = 11
+    KRB_NT_SRV_HST_DOMAIN       = 12
+    KRB_NT_MS_PRINCIPAL         = -128
+    KRB_NT_MS_PRINCIPAL_AND_ID  = -129
+    KRB_NT_ENT_PRINCIPAL_AND_ID = -130
 
 # 7.5.9.  Error Codes
 class ErrorCodes(Enum):

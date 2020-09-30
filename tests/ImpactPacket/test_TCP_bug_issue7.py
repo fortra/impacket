@@ -23,10 +23,6 @@ class TestTCP(unittest.TestCase):
                     frame = '\x12\x34\x00\x50\x00\x00\x00\x01\x00\x00\x00\x00' \
                         '\x60\x00\x00\x00\x8d\x5c\x00\x00\x02\x00\x00\x00'
                     tcp = TCP(frame)
-                #except Exception,e:
-                #	print "aaaaaaaaaaaaaaa"
-                #	print e
-                #except Exception,e:
                 except ImpactPacketException as e:
                     if str(e) != "'TCP Option length is too low'":
                         raise e
