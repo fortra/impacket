@@ -37,6 +37,7 @@
 # NetrLogonControl
 # NetrLogonUasLogon
 # NetrLogonGetDomainInfo
+# NetrServerPasswordSet2
 #
 #  Not yet:
 # 
@@ -503,12 +504,54 @@ class NRPCTests(unittest.TestCase):
         resp = dce.request(request)
         resp.dump()
 
-    def test_hNetrServerTrustPasswordsGet(self):
+    def aaa_hNetrServerTrustPasswordsGet(self):
         dce, rpctransport = self.connect()
         resp = nrpc.hNetrServerTrustPasswordsGet(dce, NULL, self.machineUser,
                                                  nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
                                                  self.serverName, self.update_authenticator())
         resp.dump()
+
+    def test_NetrServerPasswordSet2(self):
+        # It doesn't do much, should throw STATUS_ACCESS_DENIED
+        dce, rpctransport = self.connect()
+        request = nrpc.NetrServerPasswordSet2()
+        request['PrimaryName'] = NULL
+        request['AccountName'] = self.machineUser + '\x00'
+        request['SecureChannelType'] = nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel
+        request['ComputerName'] = self.serverName + '\x00'
+        request['Authenticator'] = self.update_authenticator()
+        cnp = nrpc.NL_TRUST_PASSWORD()
+        cnp['Buffer'] = b'\x00'*512
+        cnp['Length'] = 0x8
+
+        request['ClearNewPassword'] = cnp.getData()
+        #request['ClearNewPassword'] = nrpc.NL_TRUST_PASSWORD()
+        #request['ClearNewPassword']['Buffer'] = b'\x00' *512
+        #request['ClearNewPassword']['Length'] = 0x8
+
+        try:
+            request.dump()
+            resp = dce.request(request)
+            resp.dump()
+        except Exception as e:
+            if str(e).find('STATUS_ACCESS_DENIED') < 0:
+                raise
+            
+    def test_hNetrServerPasswordSet2(self):
+        # It doesn't do much, should throw STATUS_ACCESS_DENIED
+        dce, rpctransport = self.connect()
+        cnp = nrpc.NL_TRUST_PASSWORD()
+        cnp['Buffer'] = b'\x00'*512
+        cnp['Length'] = 0x8
+
+        try:
+            resp = nrpc.hNetrServerPasswordSet2(dce, NULL, self.machineUser,
+                                                 nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
+                                                 self.serverName, self.update_authenticator(), cnp.getData())
+            resp.dump()
+        except Exception as e:
+            if str(e).find('STATUS_ACCESS_DENIED') < 0:
+                raise
 
     def test_NetrLogonGetDomainInfo(self):
         dce, rpctransport = self.connect()

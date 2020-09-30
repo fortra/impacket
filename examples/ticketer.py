@@ -65,6 +65,7 @@ from impacket.krb5.asn1 import AS_REP, TGS_REP, ETYPE_INFO2, AuthorizationData, 
 from impacket.krb5.constants import ApplicationTagNumbers, PreAuthenticationDataTypes, EncryptionTypes, \
     PrincipalNameType, ProtocolVersionNumber, TicketFlags, encodeFlags, ChecksumTypes, AuthorizationDataType, \
     KERB_NON_KERB_CKSUM_SALT
+from impacket.krb5.keytab import Keytab
 from impacket.krb5.crypto import Key, _enctype_table
 from impacket.krb5.crypto import _checksum_table, Enctype
 from impacket.krb5.pac import KERB_SID_AND_ATTRIBUTES, PAC_SIGNATURE_DATA, PAC_INFO_BUFFER, PAC_LOGON_INFO, \
@@ -84,6 +85,8 @@ class TICKETER:
             spn = options.spn.split('/')
             self.__service = spn[0]
             self.__server = spn[1]
+            if options.keytab is not None:
+                self.loadKeysFromKeytab(options.keytab)
 
         # we are creating a golden ticket
         else:
@@ -95,6 +98,17 @@ class TICKETER:
         t *= 10000000
         t += 116444736000000000
         return t
+
+    def loadKeysFromKeytab(self, filename):
+        keytab = Keytab.loadFile(filename)
+        keyblock = keytab.getKey("%s@%s" % (options.spn, self.__domain))
+        if keyblock:
+            if keyblock["keytype"] == Enctype.AES256 or keyblock["keytype"] == Enctype.AES128:
+                options.aesKey = keyblock.hexlifiedValue()
+            elif keyblock["keytype"] == Enctype.RC4:
+                options.nthash = keyblock.hexlifiedValue()
+        else:
+            logging.warning("No matching key for SPN '%s' in given keytab found!", options.spn)
 
     def createBasicValidationInfo(self):
         # 1) KERB_VALIDATION_INFO
@@ -400,7 +414,7 @@ class TICKETER:
             validationInfo = VALIDATION_INFO()
             validationInfo.fromString(pacInfos[PAC_LOGON_INFO])
             lenVal = len(validationInfo.getData())
-            validationInfo.fromStringReferents(data[lenVal:], lenVal)
+            validationInfo.fromStringReferents(data, lenVal)
 
             aTime = timegm(strptime(str(encTicketPart['authtime']), '%Y%m%d%H%M%SZ'))
 
@@ -707,8 +721,6 @@ class TICKETER:
             self.saveTicket(ticket, sessionKey)
 
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
     print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help=True, description="Creates a Kerberos golden/silver tickets based on "
@@ -724,6 +736,7 @@ if __name__ == '__main__':
     parser.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key used for signing the ticket '
                                                                              '(128 or 256 bits)')
     parser.add_argument('-nthash', action="store", help='NT hash used for signing the ticket')
+    parser.add_argument('-keytab', action="store", help='Read keys for SPN from keytab file (silver ticket only)')
     parser.add_argument('-groups', action="store", default = '513, 512, 520, 518, 519', help='comma separated list of '
                         'groups user will belong to (default = 513, 512, 520, 518, 519)')
     parser.add_argument('-user-id', action="store", default = '500', help='user id for the user the ticket will be '
@@ -731,6 +744,7 @@ if __name__ == '__main__':
     parser.add_argument('-extra-sid', action="store", help='Comma separated list of ExtraSids to be included inside the ticket\'s PAC')
     parser.add_argument('-duration', action="store", default = '3650', help='Amount of days till the ticket expires '
                                                                             '(default = 365*10)')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
@@ -760,8 +774,13 @@ if __name__ == '__main__':
 
     options = parser.parse_args()
 
+    # Init the example's logger theme
+    logger.init(options.ts)
+
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
+        # Print the Library's installation path
+        logging.debug(version.getInstallationPath())
     else:
         logging.getLogger().setLevel(logging.INFO)
 
@@ -769,8 +788,8 @@ if __name__ == '__main__':
         logging.critical('Domain should be specified!')
         sys.exit(1)
 
-    if options.aesKey is None and options.nthash is None:
-        logging.error('You have to specify either a aesKey or nthash')
+    if options.aesKey is None and options.nthash is None and options.keytab is None:
+        logging.error('You have to specify either aesKey, or nthash, or keytab')
         sys.exit(1)
 
     if options.aesKey is not None and options.nthash is not None and options.request is False:

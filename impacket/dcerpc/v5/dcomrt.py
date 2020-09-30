@@ -154,9 +154,13 @@ class handle_t(NDRSTRUCT):
         ('context_handle_attributes',ULONG),
         ('context_handle_uuid',UUID),
     )
-    def __init__(self, data = None,isNDR64 = False):
+
+    def __init__(self, data=None, isNDR64=False):
         NDRSTRUCT.__init__(self, data, isNDR64)
-        self['context_handle_uuid'] = '\x00'*20
+        self['context_handle_uuid'] = b'\x00'*16
+
+    def isNull(self):
+        return self['context_handle_uuid'] == b'\x00'*16
 
 # 2.2.11 COMVERSION
 class COMVERSION(NDRSTRUCT):
@@ -168,7 +172,7 @@ class COMVERSION(NDRSTRUCT):
         NDRSTRUCT.__init__(self, data, isNDR64)
         if data is None:
             self['MajorVersion'] = 5
-            self['MinorVersion'] = 6
+            self['MinorVersion'] = 7
 
 class PCOMVERSION(NDRPOINTER):
     referent = (
@@ -329,7 +333,7 @@ class DUALSTRINGARRAYPACKED(NDRSTRUCT):
         ('wSecurityOffset',USHORT),
         ('aStringArray',':'),
     )
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return self['wNumEntries']*2
 
 # 2.2.18.7 OBJREF_EXTENDED

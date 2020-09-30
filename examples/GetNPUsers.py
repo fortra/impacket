@@ -199,6 +199,10 @@ class GetUserNoPreAuth:
             fd.write(entry + '\n')
 
     def run(self):
+        if self.__usersFile:
+            self.request_users_file_TGTs()
+            return
+
         if self.__doKerberos:
             target = self.getMachineName()
         else:
@@ -207,13 +211,8 @@ class GetUserNoPreAuth:
             else:
                 target = self.__domain
 
-        if self.__usersFile:
-            self.request_users_file_TGTs()
-            return
-
-
         # Are we asked not to supply a password?
-        if self.__no_pass is True:
+        if self.__doKerberos is False and self.__no_pass is True:
             # Yes, just ask the TGT and exit
             logging.info('Getting TGT for %s' % self.__username)
             entry = self.getTGT(self.__username)
@@ -340,16 +339,14 @@ class GetUserNoPreAuth:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
     print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Queries target domain for users with "
                                   "'Do not require Kerberos preauthentication' set and export their TGTs for cracking")
 
     parser.add_argument('target', action='store', help='domain/username[:password]')
-    parser.add_argument('-request', action='store_true', default='False', help='Requests TGT for users and output them '
-                                                                               'in JtR/hashcat format (default False)')
+    parser.add_argument('-request', action='store_true', default=False, help='Requests TGT for users and output them '
+                                                                             'in JtR/hashcat format (default False)')
     parser.add_argument('-outputfile', action='store',
                         help='Output filename to write ciphers in JtR/hashcat format')
 
@@ -358,6 +355,7 @@ if __name__ == '__main__':
 
     parser.add_argument('-usersfile', help='File with user per line to test')
 
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
@@ -394,23 +392,20 @@ if __name__ == '__main__':
 
     options = parser.parse_args()
 
+    # Init the example's logger theme
+    logger.init(options.ts)
+
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
+        # Print the Library's installation path
+        logging.debug(version.getInstallationPath())
     else:
         logging.getLogger().setLevel(logging.INFO)
 
     import re
-    # This is because I'm lazy with regex
-    # ToDo: We need to change the regex to fullfil domain/username[:password]
-    targetParam = options.target+'@'
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(targetParam).groups('')
+    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.target).groups('')
 
-    #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
-
-    if domain is '':
+    if domain == '':
         logging.critical('Domain should be specified!')
         sys.exit(1)
 
@@ -420,6 +415,10 @@ if __name__ == '__main__':
 
     if options.aesKey is not None:
         options.k = True
+
+    if options.k is False and options.no_pass is True and username == '' and options.usersfile is None:
+        logging.critical('If the -no-pass option was specified, but Kerberos (-k) is not used, then a username or the -usersfile option should be specified!')
+        sys.exit(1)
 
     if options.outputfile is not None:
         options.request = True

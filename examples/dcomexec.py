@@ -40,7 +40,7 @@ import os
 import sys
 import time
 
-from six import PY3
+from six import PY2, PY3
 from impacket import version
 from impacket.dcerpc.v5.dcom.oaut import IID_IDispatch, string_to_bin, IDispatch, DISPPARAMS, DISPATCH_PROPERTYGET, \
     VARIANT, VARENUM, DISPATCH_METHOD
@@ -51,8 +51,10 @@ from impacket.dcerpc.v5.dcomrt import OBJREF, FLAGS_OBJREF_CUSTOM, OBJREF_CUSTOM
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.examples import logger
 from impacket.smbconnection import SMBConnection, SMB_DIALECT, SMB2_DIALECT_002, SMB2_DIALECT_21
+from impacket.krb5.keytab import Keytab
 
 OUTPUT_FILENAME = '__' + str(time.time())[:5]
+CODEC = sys.stdout.encoding
 
 class DCOMEXEC:
     def __init__(self, command='', username='', password='', domain='', hashes=None, aesKey=None, share=None,
@@ -169,7 +171,7 @@ class DCOMEXEC:
 
             if self.__command != ' ':
                 try:
-                    self.shell.onecmd(self.__command)[:5]
+                    self.shell.onecmd(self.__command)
                 except TypeError:
                     if not silentCommand:
                         raise
@@ -295,10 +297,13 @@ class RemoteShell(cmd.Cmd):
             print(self.__outputBuffer)
             self.__outputBuffer = ''
         else:
-            self._pwd = ntpath.normpath(ntpath.join(self._pwd, s))
+            if PY2:
+                self._pwd = ntpath.normpath(ntpath.join(self._pwd, s.decode(sys.stdin.encoding)))
+            else:
+                self._pwd = ntpath.normpath(ntpath.join(self._pwd, s))
             self.execute_remote('cd ')
             self._pwd = self.__outputBuffer.strip('\r\n')
-            self.prompt = self._pwd + '>'
+            self.prompt = (self._pwd + '>')
             self.__outputBuffer = ''
 
     def default(self, line):
@@ -323,7 +328,13 @@ class RemoteShell(cmd.Cmd):
 
     def get_output(self):
         def output_callback(data):
-            self.__outputBuffer += data.decode('utf-8')
+            try:
+                self.__outputBuffer += data.decode(CODEC)
+            except UnicodeDecodeError:
+                logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
+                              'https://docs.python.org/3/library/codecs.html#standard-encodings\nand then execute dcomexec.py '
+                              'again with -codec and the corresponding codec')
+                self.__outputBuffer += data.decode(CODEC, errors='replace')
 
         if self._noOutput is True:
             self.__outputBuffer = ''
@@ -509,8 +520,6 @@ def load_smbclient_auth_file(path):
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
     print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Executes a semi-interactive shell using the "
@@ -520,7 +529,13 @@ if __name__ == '__main__':
                                                                            '(default ADMIN$)')
     parser.add_argument('-nooutput', action='store_true', default = False, help='whether or not to print the output '
                                                                                 '(no SMB connection created)')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
+                                                       '"%s"). If errors are detected, run chcp.com at the target, '
+                                                       'map the result with '
+                          'https://docs.python.org/3/library/codecs.html#standard-encodings and then execute wmiexec.py '
+                          'again with -codec and the corresponding codec ' % CODEC)
     parser.add_argument('-object', choices=['ShellWindows', 'ShellBrowserWindow', 'MMC20'], nargs='?', default='ShellWindows',
                         help='DCOM object to be used to execute the shell command (default=ShellWindows)')
 
@@ -541,12 +556,22 @@ if __name__ == '__main__':
                        'ommited it use the domain part (FQDN) specified in the target parameter')
     group.add_argument('-A', action="store", metavar = "authfile", help="smbclient/mount.cifs-style authentication file. "
                                                                         "See smbclient man page's -A option.")
+    group.add_argument('-keytab', action="store", help='Read keys for SPN from keytab file')
 
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
 
     options = parser.parse_args()
+
+    # Init the example's logger theme
+    logger.init(options.ts)
+
+    if options.codec is not None:
+        CODEC = options.codec
+    else:
+        if CODEC is None:
+            CODEC = 'utf-8'
 
     if ' '.join(options.command) == ' ' and options.nooutput is True:
         logging.error("-nooutput switch and interactive shell not supported")
@@ -557,6 +582,8 @@ if __name__ == '__main__':
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
+        # Print the Library's installation path
+        logging.debug(version.getInstallationPath())
     else:
         logging.getLogger().setLevel(logging.INFO)
 
@@ -577,6 +604,10 @@ if __name__ == '__main__':
 
         if domain is None:
             domain = ''
+
+        if options.keytab is not None:
+            Keytab.loadKeysFromKeytab(options.keytab, username, domain, options)
+            options.k = True
 
         if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
             from getpass import getpass

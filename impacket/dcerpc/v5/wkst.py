@@ -127,10 +127,10 @@ class LPWKSSVC_IMPERSONATE_HANDLE(NDRPOINTER):
 # 2.2.3.1 NETSETUP_JOIN_STATUS
 class NETSETUP_JOIN_STATUS(NDRENUM):
     class enumItems(Enum):
-        NetSetupUnknownStatus = 1
-        NetSetupUnjoined      = 2
-        NetSetupWorkgroupName = 3
-        NetSetupDomainName    = 4
+        NetSetupUnknownStatus = 0
+        NetSetupUnjoined      = 1
+        NetSetupWorkgroupName = 2
+        NetSetupDomainName    = 3
 
 # 2.2.3.2 NETSETUP_NAME_TYPE
 class NETSETUP_NAME_TYPE(NDRENUM):
@@ -467,11 +467,11 @@ class WKSTA_TRANSPORT_ENUM_STRUCT(NDRSTRUCT):
 
 # 2.2.5.17 JOINPR_USER_PASSWORD
 class WCHAR_ARRAY(WIDESTR):
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return JOIN_MAX_PASSWORD_LENGTH
 
 class CHAR_ARRAY(NDRUniFixedArray):
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return JOIN_OBFUSCATOR_LENGTH
 
 class JOINPR_USER_PASSWORD(NDRSTRUCT):

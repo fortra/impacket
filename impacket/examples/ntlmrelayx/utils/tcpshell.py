@@ -30,5 +30,11 @@ class TcpShell:
         #Don't allow a backlog
         serversocket.listen(0)
         self.connection, host = serversocket.accept()
-        #Create a file object from the socket
-        self.socketfile = self.connection.makefile()
+        #Create file objects from the socket
+        self.stdin = self.connection.makefile("r")
+        self.stdout = self.connection.makefile("w")
+
+    def close(self):
+        self.stdout.close()
+        self.stdin.close()
+        self.connection.close()

@@ -148,7 +148,7 @@ class doAttack(Thread):
                         print(self.__answerTMP.decode(CODEC))
                     except UnicodeDecodeError:
                         logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
-                                      'https://docs.python.org/2.4/lib/standard-encodings.html\nand then execute wmiexec.py '
+                                      'https://docs.python.org/3/library/codecs.html#standard-encodings\nand then execute smbrelayx.py '
                                   'again with -codec and the corresponding codec')
                         print(self.__answerTMP)
 
@@ -1107,13 +1107,12 @@ class SMBRelayServer(Thread):
 if __name__ == '__main__':
 
     RELAY_SERVERS = ( SMBRelayServer, HTTPRelayServer )
-    # Init the example's logger theme
-    logger.init()
     print(version.BANNER)
     parser = argparse.ArgumentParser(add_help=False,
                                      description="For every connection received, this module will try to SMB relay that "
                                                  " connection to the target system or the original client")
     parser.add_argument("--help", action="help", help='show this help message and exit')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-h', action='store', metavar='HOST',
                         help='Host to relay the credentials to, if not it will relay it back to the client')
@@ -1132,7 +1131,7 @@ if __name__ == '__main__':
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
                                                        '"%s"). If errors are detected, run chcp.com at the target, '
                                                        'map the result with '
-                                                       'https://docs.python.org/2.4/lib/standard-encodings.html and then execute wmiexec.py '
+                                                       'https://docs.python.org/3/library/codecs.html#standard-encodings and then execute smbrelayx.py '
                                                        'again with -codec and the corresponding codec ' % CODEC)
     parser.add_argument('-outputfile', action='store',
                         help='base output filename for encrypted hashes. Suffixes will be added for ntlm and ntlmv2')
@@ -1149,11 +1148,16 @@ if __name__ == '__main__':
        logging.error(str(e))
        sys.exit(1)
 
+    # Init the example's logger theme
+    logger.init(options.ts)
+
     if options.codec is not None:
         CODEC = options.codec
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
+        # Print the Library's installation path
+        logging.debug(version.getInstallationPath())
     else:
         logging.getLogger().setLevel(logging.INFO)
         logging.getLogger('impacket.smbserver').setLevel(logging.ERROR)

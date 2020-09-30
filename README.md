@@ -22,7 +22,7 @@ What protocols are featured?
  * NMB and SMB1, SMB2 and SMB3 (high-level implementations).
  * MSRPC version 5, over different transports: TCP, SMB/TCP, SMB/NetBIOS and HTTP.
  * Plain, NTLM and Kerberos authentications, using password/hashes/tickets/keys.
- * Portions/full implementation of the following MSRPC interfaces: EPM, DTYPES, LSAD, LSAT, NRPC, RRP, SAMR, SRVS, WKST, SCMR, BKRP, DHCPM, EVEN6, MGMT, SASEC, TSCH, DCOM, WMI.
+ * Portions/full implementation of the following MSRPC interfaces: EPM, DTYPES, LSAD, LSAT, NRPC, RRP, SAMR, SRVS, WKST, SCMR, BKRP, DHCPM, EVEN6, MGMT, SASEC, TSCH, DCOM, WMI, OXABREF, NSPI, OXNSPI.
  * Portions of TDS (MSSQL) and LDAP protocol implementations.
 
 
@@ -71,7 +71,7 @@ If you want to run the library test cases you need to do mainly three things:
 
 1. Install and configure a Windows 2012 R2 Domain Controller.
    * Be sure the RemoteRegistry service is enabled and running.
-2. Configure the [dcetest.cfg](https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_19/tests/SMB_RPC/dcetests.cfg) file with the necessary information
+2. Configure the [dcetest.cfg](https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_21/tests/SMB_RPC/dcetests.cfg) file with the necessary information
 3. Install tox (`pip install tox`)
 
 Once that's done, you can run `tox` and wait for the results. If all goes well, all test cases should pass.
@@ -85,6 +85,10 @@ the Apache Software License. See the accompanying LICENSE file for
 more information.
 
 SMBv1 and NetBIOS support based on Pysmb by Michael Teo.
+
+Disclaimer
+==========
+The spirit of this open source initiative is hopefully to help the community to alleviate some of the hindrances associated with the implementation of networking protocols and stacks, aiming at speeding up research and educational activities. By no means this package is meant to be used in production environments / commercial products. If so, we would advise to include it into a proper SDLC process.
 
 
 Contact Us

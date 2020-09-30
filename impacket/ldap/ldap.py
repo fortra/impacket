@@ -22,7 +22,7 @@ import os
 import re
 import socket
 from binascii import unhexlify
-from six import u
+import random
 
 from pyasn1.codec.ber import encoder, decoder
 from pyasn1.error import SubstrateUnderrunError
@@ -79,7 +79,6 @@ class LDAPConnection:
         self._dstHost = 0
         self._socket = None
         self._baseDN = baseDN
-        self._messageId = 1
         self._dstIp = dstIp
 
         if url.startswith('ldap://'):
@@ -191,10 +190,10 @@ class LDAPConnection:
 
                 # retrieve user information from CCache file if needed
                 if user == '' and creds is not None:
-                    user = creds['client'].prettyPrint().split(b'@')[0]
+                    user = creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')
                     LOG.debug('Username retrieved from CCache: %s' % user)
                 elif user == '' and len(ccache.principal.components) > 0:
-                    user = ccache.principal.components[0]['data']
+                    user = ccache.principal.components[0]['data'].decode('utf-8')
                     LOG.debug('Username retrieved from CCache: %s' % user)
 
         # First of all, we need to get a TGT for the user
@@ -398,8 +397,8 @@ class LDAPConnection:
             for requestControl in requestControls:
                 if responseControls is not None:
                     for responseControl in responseControls:
-                        if requestControl['controlType'] == CONTROL_PAGEDRESULTS:
-                            if responseControl['controlType'] == CONTROL_PAGEDRESULTS:
+                        if str(requestControl['controlType']) == CONTROL_PAGEDRESULTS:
+                            if str(responseControl['controlType']) == CONTROL_PAGEDRESULTS:
                                 if hasattr(responseControl, 'getCookie') is not True:
                                     responseControl = decoder.decode(encoder.encode(responseControl),
                                                                  asn1Spec=KNOWN_CONTROLS[CONTROL_PAGEDRESULTS]())[0]
@@ -418,7 +417,7 @@ class LDAPConnection:
 
     def send(self, request, controls=None):
         message = LDAPMessage()
-        message['messageID'] = self._messageId
+        message['messageID'] = random.randrange(1, 2147483647)
         message['protocolOp'].setComponentByType(request.getTagSet(), request)
         if controls is not None:
             message['controls'].setComponents(*controls)
@@ -459,7 +458,6 @@ class LDAPConnection:
                 response.append(message)
             data = remaining
 
-        self._messageId += 1
         return response
 
     def sendReceive(self, request, controls=None):
@@ -468,9 +466,10 @@ class LDAPConnection:
 
     def _parseFilter(self, filterStr):
         try:
-            filterList = list(reversed(u(filterStr)))
-        except UnicodeDecodeError:
-            filterList = list(reversed(filterStr))
+            filterStr = filterStr.decode()
+        except AttributeError:
+            pass
+        filterList = list(reversed(filterStr))
         searchFilter = self._consumeCompositeFilter(filterList)
         if filterList:  # we have not consumed the whole filter string
             raise LDAPFilterSyntaxError("unexpected token: '%s'" % filterList[-1])

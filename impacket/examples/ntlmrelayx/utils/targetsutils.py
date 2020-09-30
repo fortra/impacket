@@ -42,7 +42,7 @@ from threading import Thread
 
 
 class TargetsProcessor:
-    def __init__(self, targetListFile=None, singleTarget=None, protocolClients=None):
+    def __init__(self, targetListFile=None, singleTarget=None, protocolClients=None, randomize=False):
         # Here we store the attacks that already finished, mostly the ones that have usernames, since the
         # other ones will never finish.
         self.finishedAttacks = []
@@ -55,7 +55,12 @@ class TargetsProcessor:
             self.originalTargets = []
             self.readTargets()
 
-        self.candidates = [x for x in self.originalTargets]
+        if randomize is True:
+            # Randomize the targets based
+            random.shuffle(self.originalTargets)
+
+        self.generalCandidates = [x for x in self.originalTargets if x.username is None]
+        self.namedCandidates = [x for x in self.originalTargets if x.username is not None]
 
     @staticmethod
     def processTarget(target, protocolClients):
@@ -80,7 +85,7 @@ class TargetsProcessor:
                 self.originalTargets = []
                 for line in f:
                     target = line.strip()
-                    if target != '':
+                    if target != '' and target[0] != '#':
                         self.originalTargets.extend(self.processTarget(target, self.protocolClients))
         except IOError as e:
             LOG.error("Could not open file: %s - %s", self.filename, str(e))
@@ -88,7 +93,8 @@ class TargetsProcessor:
         if len(self.originalTargets) == 0:
             LOG.critical("Warning: no valid targets specified!")
 
-        self.candidates = [x for x in self.originalTargets if x not in self.finishedAttacks]
+        self.generalCandidates = [x for x in self.originalTargets if x not in self.finishedAttacks and x.username is None]
+        self.namedCandidates = [x for x in self.originalTargets if x not in self.finishedAttacks and x.username is not None]
 
     def logTarget(self, target, gotRelay = False, gotUsername = None):
         # If the target has a username, we can safely remove it from the list. Mission accomplished.
@@ -99,23 +105,51 @@ class TargetsProcessor:
                 # We have data about the username we relayed the connection for,
                 # for a target that didn't have username specified.
                 # Let's log it
-                newTarget = urlparse('%s://%s@%s%s' % (target.scheme, gotUsername, target.netloc, target.path))
+                newTarget = urlparse('%s://%s@%s%s' % (target.scheme, gotUsername.replace('/','\\'), target.netloc, target.path))
                 self.finishedAttacks.append(newTarget)
 
-    def getTarget(self, choose_random=False):
-        if len(self.candidates) > 0:
-            if choose_random is True:
-                return random.choice(self.candidates)
+    def getTarget(self, identity=None):
+        # ToDo: We should have another list of failed attempts (with user) and check that inside this method so we do not
+        # retry those targets.
+        if identity is not None and len(self.namedCandidates) > 0:
+            # We've been asked to match a username that is connected to us
+            # Do we have an explicit request for it?
+            for target in self.namedCandidates:
+                if target.username is not None:
+                    if target.username.upper() == identity.replace('/', '\\'):
+                        self.namedCandidates.remove(target)
+                        return target
+                    if target.username.find('\\') < 0:
+                        # Username with no domain, let's compare that way
+                        if target.username.upper() == identity.split('/')[1]:
+                            self.namedCandidates.remove(target)
+                            return target
+
+        # No identity match, let's just grab something from the generalCandidates list
+        # Assuming it hasn't been relayed already
+        if len(self.generalCandidates) > 0:
+            if identity is not None:
+                for target in self.generalCandidates:
+                    tmpTarget =  '%s://%s@%s' % (target.scheme, identity.replace('/','\\'), target.netloc)
+                    match = [x for x in self.finishedAttacks if x.geturl().upper() == tmpTarget.upper()]
+                    if len(match) == 0:
+                        self.generalCandidates.remove(target)
+                        return target
+                LOG.debug("No more targets for user %s" % identity)
+                return None
             else:
-                return self.candidates.pop()
+                return self.generalCandidates.pop()
         else:
             if len(self.originalTargets) > 0:
-                self.candidates = [x for x in self.originalTargets if x not in self.finishedAttacks]
-            else:
-                #We are here, which means all the targets are already exhausted by the client
-                LOG.info("All targets processed!")
+                self.generalCandidates = [x for x in self.originalTargets if
+                                          x not in self.finishedAttacks and x.username is None]
 
-        return self.candidates.pop()
+        if len(self.generalCandidates) == 0 and len(self.namedCandidates) == 0:
+            #We are here, which means all the targets are already exhausted by the client
+            LOG.info("All targets processed!")
+            return None
+
+        return None
 
 class TargetsFileWatcher(Thread):
     def __init__(self,targetprocessor):

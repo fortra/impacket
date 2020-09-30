@@ -204,6 +204,9 @@ SERVICE_TRIGGER_DATA_TYPE_STRING = 0x00000002
 # STRUCTURES
 ################################################################################
 
+class BYTE_ARRAY(NDRUniConformantArray):
+    item = 'c'
+
 class SC_RPC_HANDLE(NDRSTRUCT):
     structure =  (
         ('Data','20s=""'),
@@ -666,7 +669,7 @@ class RQueryServiceObjectSecurity(NDRCALL):
 
 class RQueryServiceObjectSecurityResponse(NDRCALL):
     structure = (
-        ('lpSecurityDescriptor',LPBYTE),
+        ('lpSecurityDescriptor', BYTE_ARRAY),
         ('pcbBytesNeeded',BOUNDED_DWORD_256K),
         ('ErrorCode', DWORD),
     )
@@ -1172,12 +1175,22 @@ def hRLockServiceDatabase(dce, hSCManager):
     request['hSCManager'] = hSCManager
     return dce.request(request)
 
-def hRQueryServiceObjectSecurity(dce, hService, dwSecurityInformation, cbBufSize ):
+
+def hRQueryServiceObjectSecurity(dce, hService, dwSecurityInformation, cbBufSize=0):
     request = RQueryServiceObjectSecurity()
     request['hService'] = hService
     request['dwSecurityInformation'] = dwSecurityInformation
     request['cbBufSize'] = cbBufSize
-    return dce.request(request)
+    try:
+        resp = dce.request(request)
+    except DCERPCSessionError as e:
+        if e.get_error_code() == system_errors.ERROR_INSUFFICIENT_BUFFER:
+            resp = e.get_packet()
+            request['cbBufSize'] = resp['pcbBytesNeeded']
+            resp = dce.request(request)
+        else:
+            raise
+    return resp
 
 def hRSetServiceObjectSecurity(dce, hService, dwSecurityInformation, lpSecurityDescriptor, cbBufSize ):
     request = RSetServiceObjectSecurity()

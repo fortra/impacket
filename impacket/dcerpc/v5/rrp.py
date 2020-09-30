@@ -14,9 +14,9 @@
 #   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
 #
 #   Some calls have helper functions, which makes it even easier to use.
-#   They are located at the end of this file. 
+#   They are located at the end of this file.
 #   Helper functions start with "h"<name of the call>.
-#   There are test cases for them too. 
+#   There are test cases for them too.
 #
 
 
@@ -39,7 +39,7 @@ class DCERPCSessionError(DCERPCException):
         key = self.error_code
         if key in system_errors.ERROR_MESSAGES:
             error_msg_short = system_errors.ERROR_MESSAGES[key][0]
-            error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
+            error_msg_verbose = system_errors.ERROR_MESSAGES[key][1]
             return 'RRP SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
             return 'RRP SessionError: unknown error code: 0x%x' % self.error_code
@@ -78,7 +78,7 @@ REG_MULTI_SZ            = 7
 REG_NONE                = 0
 REG_QWORD               = 11
 REG_QWORD_LITTLE_ENDIAN = 11
-REG_SZ                  = 1 
+REG_SZ                  = 1
 
 # 3.1.5.7 BaseRegCreateKey (Opnum 6)
 REG_CREATED_NEW_KEY     = 0x00000001
@@ -100,9 +100,13 @@ class RPC_HKEY(NDRSTRUCT):
         ('context_handle_attributes',ULONG),
         ('context_handle_uuid',UUID),
     )
-    def __init__(self, data = None,isNDR64 = False):
+
+    def __init__(self, data=None, isNDR64=False):
         NDRSTRUCT.__init__(self, data, isNDR64)
-        self['context_handle_uuid'] = '\x00'*20
+        self['context_handle_uuid'] = b'\x00'*16
+
+    def isNull(self):
+        return self['context_handle_uuid'] == b'\x00'*16
 
 # 2.2.6 RVALENT
 class RVALENT(NDRSTRUCT):
@@ -713,15 +717,15 @@ def unpackValue(valueType, value):
     if valueType == REG_DWORD:
         retData = unpack('<L', b''.join(value))[0]
     elif valueType == REG_DWORD_BIG_ENDIAN:
-        retData = unpack('>L', ''.join(value))[0]
+        retData = unpack('>L', b''.join(value))[0]
     elif valueType == REG_EXPAND_SZ:
-        retData = ''.join(value).decode('utf-16le')
+        retData = b''.join(value).decode('utf-16le')
     elif valueType == REG_MULTI_SZ:
-        retData = ''.join(value).decode('utf-16le')
+        retData = b''.join(value).decode('utf-16le')
     elif valueType == REG_QWORD:
-        retData = unpack('<Q', ''.join(value))[0]
+        retData = unpack('<Q', b''.join(value))[0]
     elif valueType == REG_QWORD_LITTLE_ENDIAN:
-        retData = unpack('>Q', ''.join(value))[0]
+        retData = unpack('>Q', b''.join(value))[0]
     elif valueType == REG_SZ:
         retData = b''.join(value).decode('utf-16le')
     else:
@@ -863,7 +867,7 @@ def hBaseRegOpenKey(dce, hKey, lpSubKey, dwOptions=0x00000001, samDesired = MAXI
     request['hKey'] = hKey
     request['lpSubKey'] = checkNullString(lpSubKey)
     request['dwOptions'] = dwOptions
-    request['samDesired'] = samDesired 
+    request['samDesired'] = samDesired
     return dce.request(request)
 
 def hBaseRegQueryInfoKey(dce, hKey):
@@ -948,13 +952,13 @@ def hOpenCurrentConfig(dce, samDesired = MAXIMUM_ALLOWED):
     return dce.request(request)
 
 def hBaseRegQueryMultipleValues(dce, hKey, val_listIn):
-    # ToDo, check the result to see whether we need to 
+    # ToDo, check the result to see whether we need to
     # have a bigger buffer for the data to receive
     request = BaseRegQueryMultipleValues()
     request['hKey'] = hKey
 
     for item in  val_listIn:
-        itemn = RVALENT() 
+        itemn = RVALENT()
         itemn['ve_valuename'] = checkNullString(item['ValueName'])
         itemn['ve_valuelen'] = len(itemn['ve_valuename'])
         itemn['ve_valueptr'] = NULL
@@ -969,10 +973,10 @@ def hBaseRegQueryMultipleValues(dce, hKey, val_listIn):
     retVal = list()
     for item in resp['val_listOut']:
         itemn = dict()
-        itemn['ValueName'] = item['ve_valuename'] 
+        itemn['ValueName'] = item['ve_valuename']
         itemn['ValueData'] = unpackValue(item['ve_type'], resp['lpvalueBuf'][item['ve_valueptr'] : item['ve_valueptr']+item['ve_valuelen']])
         retVal.append(itemn)
- 
+
     return retVal
 
 def hBaseRegSaveKeyEx(dce, hKey, lpFile, pSecurityAttributes = NULL, flags=1):

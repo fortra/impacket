@@ -14,11 +14,12 @@
 #   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
 #
 #   Some calls have helper functions, which makes it even easier to use.
-#   They are located at the end of this file. 
+#   They are located at the end of this file.
 #   Helper functions start with "h"<name of the call>.
-#   There are test cases for them too. 
+#   There are test cases for them too.
 #
 from struct import pack
+from six import b
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRENUM, NDRUNION, NDRPOINTER, NDRUniConformantArray, \
     NDRUniFixedArray, NDRUniConformantVaryingArray
 from impacket.dcerpc.v5.dtypes import WSTR, LPWSTR, DWORD, ULONG, USHORT, PGUID, NTSTATUS, NULL, LONG, UCHAR, PRPC_SID, \
@@ -49,11 +50,11 @@ class DCERPCSessionError(DCERPCException):
         key = self.error_code
         if key in system_errors.ERROR_MESSAGES:
             error_msg_short = system_errors.ERROR_MESSAGES[key][0]
-            error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
+            error_msg_verbose = system_errors.ERROR_MESSAGES[key][1]
             return 'NRPC SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         elif key in nt_errors.ERROR_MESSAGES:
             error_msg_short = nt_errors.ERROR_MESSAGES[key][0]
-            error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
+            error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1]
             return 'NRPC SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
             return 'NRPC SessionError: unknown error code: 0x%x' % (self.error_code)
@@ -149,7 +150,7 @@ from impacket.dcerpc.v5.lsad import STRING
 
 # 2.2.1.1.3 LM_OWF_PASSWORD
 class CYPHER_BLOCK_ARRAY(NDRUniFixedArray):
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return len(CYPHER_BLOCK())*2
 
 class LM_OWF_PASSWORD(NDRSTRUCT):
@@ -164,7 +165,7 @@ ENCRYPTED_NT_OWF_PASSWORD = NT_OWF_PASSWORD
 # 2.2.1.3.4 NETLOGON_CREDENTIAL
 class UCHAR_FIXED_ARRAY(NDRUniFixedArray):
     align = 1
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return len(CYPHER_BLOCK())
 
 class NETLOGON_CREDENTIAL(NDRSTRUCT):
@@ -336,14 +337,26 @@ class PNETLOGON_WORKSTATION_INFO(NDRPOINTER):
     )
 
 # 2.2.1.3.7 NL_TRUST_PASSWORD
+class NL_TRUST_PASSWORD_FIXED_ARRAY(NDRUniFixedArray):
+    def getDataLen(self, data, offset=0):
+        return 512+4
+
+    def getAlignment(self):
+        return 1
+
 class WCHAR_ARRAY(NDRUniFixedArray):
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return 512
 
 class NL_TRUST_PASSWORD(NDRSTRUCT):
     structure = (
         ('Buffer', WCHAR_ARRAY),
-        ('Length', LPWSTR),
+        ('Length', ULONG),
+    )
+
+class PNL_TRUST_PASSWORD(NDRPOINTER):
+    referent = (
+        ('Data', NL_TRUST_PASSWORD),
     )
 
 # 2.2.1.3.8 NL_PASSWORD_VERSION
@@ -448,7 +461,7 @@ class NETLOGON_CAPABILITIES(NDRUNION):
 
 # 2.2.1.3.15 NL_OSVERSIONINFO_V1
 class UCHAR_FIXED_ARRAY(NDRUniFixedArray):
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return 128
 
 class NL_OSVERSIONINFO_V1(NDRSTRUCT):
@@ -514,7 +527,7 @@ class NL_OUT_CHAIN_SET_CLIENT_ATTRIBUTES(NDRUNION):
 
 # 2.2.1.4.1 LM_CHALLENGE
 class CHAR_FIXED_8_ARRAY(NDRUniFixedArray):
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return 8
 
 class LM_CHALLENGE(NDRSTRUCT):
@@ -653,7 +666,7 @@ class PGROUP_MEMBERSHIP_ARRAY(NDRPOINTER):
 
 # 2.2.1.4.11 NETLOGON_VALIDATION_SAM_INFO
 class LONG_ARRAY(NDRUniFixedArray):
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return 4*10
 
 class NETLOGON_VALIDATION_SAM_INFO(NDRSTRUCT):
@@ -952,7 +965,7 @@ class NETLOGON_DELTA_DOMAIN(NDRSTRUCT):
         ('DummyLong3', ULONG),
         ('DummyLong4', ULONG),
     )
-        
+
 class PNETLOGON_DELTA_DOMAIN(NDRPOINTER):
     referent = (
         ('Data', NETLOGON_DELTA_DOMAIN),
@@ -1546,7 +1559,7 @@ class NETLOGON_DUMMY1(NDRUNION):
 
 # 3.5.4.8.2 NetrLogonComputeServerDigest (Opnum 24)
 class CHAR_FIXED_16_ARRAY(NDRUniFixedArray):
-    def getDataLen(self, data):
+    def getDataLen(self, data, offset=0):
         return 16
 
 
@@ -1579,7 +1592,7 @@ class NL_AUTH_MESSAGE(Structure):
     def __init__(self, data = None, alignment = 0):
         Structure.__init__(self, data, alignment)
         if data is None:
-            self['Buffer'] = '\x00'*4
+            self['Buffer'] = b'\x00'*4
 
 class NL_AUTH_SIGNATURE(Structure):
     structure = (
@@ -1626,7 +1639,7 @@ def ComputeNetlogonCredential(inputData, Sk):
 
 # Section 3.1.4.4.1
 def ComputeNetlogonCredentialAES(inputData, Sk):
-    IV='\x00'*16
+    IV=b'\x00'*16
     Crypt1 = AES.new(Sk, AES.MODE_CFB, IV)
     return Crypt1.encrypt(inputData)
 
@@ -1659,7 +1672,7 @@ def ComputeSessionKeyStrongKey(sharedSecret, clientChallenge, serverChallenge, s
     md5.update(clientChallenge)
     md5.update(serverChallenge)
     finalMD5 = md5.digest()
-    hm = hmac.new(M4SS) 
+    hm = hmac.new(M4SS, digestmod=hashlib.md5)
     hm.update(finalMD5)
     return hm.digest()
 
@@ -1675,31 +1688,31 @@ def deriveSequenceNumber(sequenceNum):
 def ComputeNetlogonSignatureAES(authSignature, message, confounder, sessionKey):
     # [MS-NRPC] Section 3.3.4.2.1, point 7
     hm = hmac.new(key=sessionKey, digestmod=hashlib.sha256)
-    hm.update(str(authSignature)[:8])
+    hm.update(authSignature.getData()[:8])
     # If no confidentiality requested, it should be ''
     hm.update(confounder)
-    hm.update(str(message))
+    hm.update(bytes(message))
     return hm.digest()[:8]+'\x00'*24
 
 def ComputeNetlogonSignatureMD5(authSignature, message, confounder, sessionKey):
     # [MS-NRPC] Section 3.3.4.2.1, point 7
     md5 = hashlib.new('md5')
-    md5.update('\x00'*4)
-    md5.update(str(authSignature)[:8])
+    md5.update(b'\x00'*4)
+    md5.update(authSignature.getData()[:8])
     # If no confidentiality requested, it should be ''
     md5.update(confounder)
-    md5.update(str(message))
+    md5.update(bytes(message))
     finalMD5 = md5.digest()
-    hm = hmac.new(sessionKey)
+    hm = hmac.new(sessionKey, digestmod=hashlib.md5)
     hm.update(finalMD5)
     return hm.digest()[:8]
 
 def encryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey):
     # [MS-NRPC] Section 3.3.4.2.1, point 9
 
-    hm = hmac.new(sessionKey)
-    hm.update('\x00'*4)
-    hm2 = hmac.new(hm.digest())
+    hm = hmac.new(sessionKey, digestmod=hashlib.md5)
+    hm.update(b'\x00'*4)
+    hm2 = hmac.new(hm.digest(), digestmod=hashlib.md5)
     hm2.update(checkSum)
     encryptionKey = hm2.digest()
 
@@ -1748,15 +1761,17 @@ def SIGN(data, confounder, sequenceNum, key, aes = False):
 def SEAL(data, confounder, sequenceNum, key, aes = False):
     signature = SIGN(data, confounder, sequenceNum, key, aes)
     sequenceNum = deriveSequenceNumber(sequenceNum)
-    XorKey = []
-    for i in key:
-       XorKey.append(chr(ord(i) ^ 0xf0))
 
-    XorKey = ''.join(XorKey)
+    XorKey = bytearray(key)
+    for i in range(len(XorKey)):
+        XorKey[i] = XorKey[i] ^ 0xf0
+
+    XorKey = bytes(XorKey)
+
     if aes is False:
-        hm = hmac.new(XorKey)
-        hm.update('\x00'*4)
-        hm2 = hmac.new(hm.digest())
+        hm = hmac.new(XorKey, digestmod=hashlib.md5)
+        hm.update(b'\x00'*4)
+        hm2 = hmac.new(hm.digest(), digestmod=hashlib.md5)
         hm2.update(sequenceNum)
         encryptionKey = hm2.digest()
 
@@ -1777,19 +1792,20 @@ def SEAL(data, confounder, sequenceNum, key, aes = False):
         signature['Confounder'] = cfounder
 
         return encrypted, signature
-        
+
 def UNSEAL(data, auth_data, key, aes = False):
     auth_data = NL_AUTH_SIGNATURE(auth_data)
-    XorKey = []
-    for i in key:
-       XorKey.append(chr(ord(i) ^ 0xf0))
+    XorKey = bytearray(key)
+    for i in range(len(XorKey)):
+        XorKey[i] = XorKey[i] ^ 0xf0
 
-    XorKey = ''.join(XorKey)
+    XorKey = bytes(XorKey)
+
     if aes is False:
         sequenceNum = decryptSequenceNumberRC4(auth_data['SequenceNumber'], auth_data['Checksum'],  key)
-        hm = hmac.new(XorKey)
-        hm.update('\x00'*4)
-        hm2 = hmac.new(hm.digest())
+        hm = hmac.new(XorKey, digestmod=hashlib.md5)
+        hm.update(b'\x00'*4)
+        hm2 = hmac.new(hm.digest(), digestmod=hashlib.md5)
         hm2.update(sequenceNum)
         encryptionKey = hm2.digest()
 
@@ -1806,29 +1822,31 @@ def UNSEAL(data, auth_data, key, aes = False):
         cfounder = cipher.decrypt(auth_data['Confounder'])
         plain = cipher.decrypt(data)
         return plain, cfounder
-        
-    
+
+
 def getSSPType1(workstation='', domain='', signingRequired=False):
     auth = NL_AUTH_MESSAGE()
     auth['Flags'] = 0
-    auth['Buffer'] = ''
-    auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_DOMAIN 
+    auth['Buffer'] = b''
+    auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_DOMAIN
     if domain != '':
-        auth['Buffer'] = auth['Buffer'] + domain + '\x00'
+        auth['Buffer'] = auth['Buffer'] + b(domain) + b'\x00'
     else:
-        auth['Buffer'] += 'WORKGROUP\x00'
+        auth['Buffer'] += b'WORKGROUP\x00'
 
-    auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_HOST 
-    if workstation != '':
-        auth['Buffer'] = auth['Buffer'] + workstation + '\x00'
-    else:
-        auth['Buffer'] += 'MYHOST\x00'
+    auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_HOST
 
-    auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_HOST_UTF8 
     if workstation != '':
-        auth['Buffer'] += pack('<B',len(workstation)) + workstation + '\x00'
+        auth['Buffer'] = auth['Buffer'] + b(workstation) + b'\x00'
     else:
-        auth['Buffer'] += '\x06MYHOST\x00'
+        auth['Buffer'] += b'MYHOST\x00'
+
+    auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_HOST_UTF8
+
+    if workstation != '':
+        auth['Buffer'] += pack('<B',len(workstation)) + b(workstation) + b'\x00'
+    else:
+        auth['Buffer'] += b'\x06MYHOST\x00'
 
     return auth
 
@@ -2079,6 +2097,23 @@ class NetrServerAuthenticateResponse(NDRCALL):
     )
 
 # 3.5.4.4.5 NetrServerPasswordSet2 (Opnum 30)
+class NetrServerPasswordSet2(NDRCALL):
+    opnum = 30
+    structure = (
+       ('PrimaryName',PLOGONSRV_HANDLE),
+       ('AccountName',WSTR),
+       ('SecureChannelType',NETLOGON_SECURE_CHANNEL_TYPE),
+       ('ComputerName',WSTR),
+       ('Authenticator',NETLOGON_AUTHENTICATOR),
+       #('ClearNewPassword',NL_TRUST_PASSWORD),
+       ('ClearNewPassword',NL_TRUST_PASSWORD_FIXED_ARRAY),
+    )
+
+class NetrServerPasswordSet2Response(NDRCALL):
+    structure = (
+       ('ReturnAuthenticator',NETLOGON_AUTHENTICATOR),
+       ('ErrorCode',NTSTATUS),
+    )
 
 # 3.5.4.4.6 NetrServerPasswordSet (Opnum 6)
 
@@ -2621,7 +2656,7 @@ OPNUMS = {
  27 : (DsrGetDcNameEx, DsrGetDcNameExResponse),
  28 : (DsrGetSiteName, DsrGetSiteNameResponse),
  29 : (NetrLogonGetDomainInfo, NetrLogonGetDomainInfoResponse),
-# 30 : (NetrServerPasswordSet2, NetrServerPasswordSet2Response),
+ 30 : (NetrServerPasswordSet2, NetrServerPasswordSet2Response),
  31 : (NetrServerPasswordGet, NetrServerPasswordGetResponse),
  32 : (NetrLogonSendToSam, NetrLogonSendToSamResponse),
  33 : (DsrAddressToSiteNamesW, DsrAddressToSiteNamesWResponse),
@@ -2759,6 +2794,16 @@ def hNetrServerTrustPasswordsGet(dce, trustedDcName, accountName, secureChannelT
     request['Authenticator'] = authenticator
     return dce.request(request)
 
+def hNetrServerPasswordSet2(dce, primaryName, accountName, secureChannelType, computerName, authenticator, clearNewPasswordBlob):
+    request = NetrServerPasswordSet2()
+    request['PrimaryName'] = checkNullString(primaryName)
+    request['AccountName'] = checkNullString(accountName)
+    request['SecureChannelType'] = secureChannelType
+    request['ComputerName'] = checkNullString(computerName)
+    request['Authenticator'] = authenticator
+    request['ClearNewPassword'] = clearNewPasswordBlob
+    return dce.request(request)
+
 def hNetrLogonGetDomainInfo(dce, serverName, computerName, authenticator, returnAuthenticator=0, level=1):
     request = NetrLogonGetDomainInfo()
     request['ServerName'] = checkNullString(serverName)
@@ -2776,10 +2821,10 @@ def hNetrLogonGetDomainInfo(dce, serverName, computerName, authenticator, return
         request['WkstaBuffer']['WorkstationInfo']['DnsHostName'] = NULL
         request['WkstaBuffer']['WorkstationInfo']['SiteName'] = NULL
         request['WkstaBuffer']['WorkstationInfo']['OsName'] = ''
-        request['WkstaBuffer']['WorkstationInfo']['Dummy1'] = NULL 
-        request['WkstaBuffer']['WorkstationInfo']['Dummy2'] = NULL  
-        request['WkstaBuffer']['WorkstationInfo']['Dummy3'] = NULL 
-        request['WkstaBuffer']['WorkstationInfo']['Dummy4'] = NULL  
+        request['WkstaBuffer']['WorkstationInfo']['Dummy1'] = NULL
+        request['WkstaBuffer']['WorkstationInfo']['Dummy2'] = NULL
+        request['WkstaBuffer']['WorkstationInfo']['Dummy3'] = NULL
+        request['WkstaBuffer']['WorkstationInfo']['Dummy4'] = NULL
     else:
         request['WkstaBuffer']['tag'] = 2
         request['WkstaBuffer']['LsaPolicyInfo']['LsaPolicy'] = NULL

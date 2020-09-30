@@ -127,7 +127,7 @@ class USERENUM:
     def getDomainMachines(self):
         if self.__kdcHost is not None:
             domainController = self.__kdcHost
-        elif self.__domain is not '':
+        elif self.__domain != '':
             domainController = self.__domain
         else:
             raise Exception('A domain is needed!')
@@ -434,8 +434,6 @@ class USERENUM:
 # Process command-line arguments.
 if __name__ == '__main__':
     print(version.BANNER)
-    # Init the example's logger theme
-    logger.init()
 
     parser = argparse.ArgumentParser()
 
@@ -453,6 +451,7 @@ if __name__ == '__main__':
                                                                        '(default 10 seconds)')
     parser.add_argument('-max-connections', action='store', default='1000', help='Max amount of connections to keep '
                                                                                  'opened (default 1000)')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
@@ -473,14 +472,19 @@ if __name__ == '__main__':
 
     options = parser.parse_args()
 
+    # Init the example's logger theme
+    logger.init(options.ts)
+
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
+        # Print the Library's installation path
+        logging.debug(version.getInstallationPath())
     else:
         logging.getLogger().setLevel(logging.INFO)
 
     import re
 
-    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::([^@]*))?)?').match(options.identity).groups(
+    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.identity).groups(
         '')
 
     try:

@@ -14,7 +14,6 @@
 # [*] Add capability to send a bad user ID if the user is not authenticated,
 #     right now you can ask for any command without actually being authenticated
 # [ ] PATH TRAVERSALS EVERYWHERE.. BE WARNED!
-# [ ] Check the credentials.. now we're just letting everybody to log in.
 # [ ] Check error situation (now many places assume the right data is coming)
 # [ ] Implement IPC to the main process so the connectionData is on a single place
 # [ ] Hence.. implement locking
@@ -151,13 +150,13 @@ def outputToJohnFormat(challenge, username, domain, lmresponse, ntresponse):
             if len(ntresponse) > 24:
                 # Extended Security - NTLMv2
                 ret_value = {'hash_string': '%s::%s:%s:%s:%s' % (
-                    username.decode('utf-16le'), domain.decode('utf-16le'), hexlify(challenge).decode('latin-1'),
+                    username.decode('latin-1'), domain.decode('latin-1'), hexlify(challenge).decode('latin-1'),
                     hexlify(ntresponse)[:32].decode('latin-1'), hexlify(ntresponse)[32:].decode('latin-1')),
                              'hash_version': 'ntlmv2'}
             else:
                 # NTLMv1
                 ret_value = {'hash_string': '%s::%s:%s:%s:%s' % (
-                    username.decode('utf-16le'), domain.decode('utf-16le'), hexlify(lmresponse).decode('latin-1'), hexlify(ntresponse).decode('latin-1'),
+                    username, domain, hexlify(lmresponse).decode('latin-1'), hexlify(ntresponse).decode('latin-1'),
                     hexlify(challenge).decode('latin-1')), 'hash_version': 'ntlm'}
         except Exception as e:
             import traceback
@@ -805,7 +804,7 @@ class TRANS2Commands:
         connData = smbServer.getConnectionData(connId)
         errorCode = 0
         # Get the Tid associated
-        if connData['ConnectedShares'].has_key(recvPacket['Tid']):
+        if recvPacket['Tid'] in connData['ConnectedShares']:
             data = queryFsInformation(connData['ConnectedShares'][recvPacket['Tid']]['path'], '',
                                       struct.unpack('<H',parameters)[0], pktFlags = recvPacket['Flags2'])
 
@@ -2425,7 +2424,7 @@ class SMBCommands:
                 authenticateMessage['host_name'].decode('utf-16le')))
                 # Do we have credentials to check?
                 if len(smbServer.getCredentials()) > 0:
-                    identity = authenticateMessage['user_name'].decode('utf-16le')
+                    identity = authenticateMessage['user_name'].decode('utf-16le').lower()
                     # Do we have this user's credentials?
                     if identity in smbServer.getCredentials():
                         # Process data:
@@ -2451,8 +2450,8 @@ class SMBCommands:
                     # accept-completed
                     respToken['NegResult'] = b'\x00'
 
-                    smbServer.log('User %s\\%s authenticated successfully' % (authenticateMessage['user_name'].decode('utf-16le'),
-                                                                              authenticateMessage['host_name'].decode('utf-16le')))
+                    smbServer.log('User %s\\%s authenticated successfully' % (authenticateMessage['host_name'].decode('utf-16le'),
+                                                                              authenticateMessage['user_name'].decode('utf-16le')))
                     # Let's store it in the connection data
                     connData['AUTHENTICATE_MESSAGE'] = authenticateMessage
                     try:
@@ -2462,7 +2461,7 @@ class SMBCommands:
                                                             authenticateMessage['domain_name'],
                                                             authenticateMessage['lanman'], authenticateMessage['ntlm'])
                         smbServer.log(ntlm_hash_data['hash_string'])
-                        if jtr_dump_path is not '':
+                        if jtr_dump_path != '':
                             writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], jtr_dump_path)
                     except:
                         smbServer.log("Could not write NTLM Hashes to the specified JTR_Dump_Path %s" % jtr_dump_path)
@@ -2496,9 +2495,9 @@ class SMBCommands:
             smbServer.log('User %s\\%s authenticated successfully (basic)' % (sessionSetupData['PrimaryDomain'], sessionSetupData['Account']))
             try:
                 jtr_dump_path = smbServer.getJTRdumpPath()
-                ntlm_hash_data = outputToJohnFormat( b'', sessionSetupData['Account'], sessionSetupData['PrimaryDomain'], sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'] )
+                ntlm_hash_data = outputToJohnFormat( b'', b(sessionSetupData['Account']), b(sessionSetupData['PrimaryDomain']), sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'] )
                 smbServer.log(ntlm_hash_data['hash_string'])
-                if jtr_dump_path is not '':
+                if jtr_dump_path != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], jtr_dump_path)
             except:
                 smbServer.log("Could not write NTLM Hashes to the specified JTR_Dump_Path %s" % jtr_dump_path)
@@ -2802,7 +2801,7 @@ class SMB2Commands:
             # Do we have credentials to check?
             if len(smbServer.getCredentials()) > 0:
                 isGuest = False
-                identity = authenticateMessage['user_name'].decode('utf-16le')
+                identity = authenticateMessage['user_name'].decode('utf-16le').lower()
                 # Do we have this user's credentials?
                 if identity in smbServer.getCredentials():
                     # Process data:
@@ -2830,7 +2829,7 @@ class SMB2Commands:
                 # accept-completed
                 respToken['NegResult'] = b'\x00'
                 smbServer.log('User %s\\%s authenticated successfully' % (
-                authenticateMessage['user_name'].decode('utf-16le'), authenticateMessage['host_name'].decode('utf-16le')))
+                authenticateMessage['host_name'].decode('utf-16le'), authenticateMessage['user_name'].decode('utf-16le')))
                 # Let's store it in the connection data
                 connData['AUTHENTICATE_MESSAGE'] = authenticateMessage
                 try:
@@ -2840,7 +2839,7 @@ class SMB2Commands:
                                                         authenticateMessage['domain_name'],
                                                         authenticateMessage['lanman'], authenticateMessage['ntlm'])
                     smbServer.log(ntlm_hash_data['hash_string'])
-                    if jtr_dump_path is not '':
+                    if jtr_dump_path != '':
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                               jtr_dump_path)
                 except:
@@ -3711,7 +3710,7 @@ class SMBSERVERHandler(socketserver.BaseRequestHandler):
 
                 if p.get_type() == nmb.NETBIOS_SESSION_REQUEST:
                    # Someone is requesting a session, we're gonna accept them all :)
-                   _, rn, my = p.get_trailer().split(' ')
+                   _, rn, my = p.get_trailer().split(b' ')
                    remote_name = nmb.decode_name(b'\x20'+rn)
                    myname = nmb.decode_name(b'\x20'+my)
                    self.__SMB.log("NetBIOS Session request (%s,%s,%s)" % (self.__ip, remote_name[1].strip(), myname[1])) 
@@ -4393,7 +4392,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         self.__serverDomain = self.__serverConfig.get('global','server_domain')
         self.__logFile      = self.__serverConfig.get('global','log_file')
         if self.__serverConfig.has_option('global', 'challenge'):
-            self.__challenge    = b(self.__serverConfig.get('global', 'challenge'))
+            self.__challenge    = unhexlify(self.__serverConfig.get('global', 'challenge'))
         else:
             self.__challenge    = b'A'*8
 
@@ -4414,12 +4413,12 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
 
         # Process the credentials
         credentials_fname = self.__serverConfig.get('global','credentials_file')
-        if credentials_fname is not "":
+        if credentials_fname != "":
             cred = open(credentials_fname)
             line = cred.readline()
             while line:
                 name, uid, lmhash, nthash = line.split(':')
-                self.__credentials[name] = (uid, lmhash, nthash.strip('\r\n'))
+                self.__credentials[name.lower()] = (uid, lmhash, nthash.strip('\r\n'))
                 line = cred.readline()
             cred.close()
         self.log('Config file parsed')
@@ -4436,7 +4435,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
                 nthash = a2b_hex(nthash)
             except:
                 pass
-        self.__credentials[name] = (uid, lmhash, nthash)
+        self.__credentials[name.lower()] = (uid, lmhash, nthash)
 
 # For windows platforms, opening a directory is not an option, so we set a void FD
 VOID_FILE_DESCRIPTOR = -1
@@ -4646,7 +4645,7 @@ class SimpleSMBServer:
     def getRegisteredNamedPipes(self):
         return self.__server.getRegisteredNamedPipes()
 
-    def addShare(self, shareName, sharePath, shareComment='', shareType = 0, readOnly = 'no'):
+    def addShare(self, shareName, sharePath, shareComment='', shareType = '0', readOnly = 'no'):
         share = shareName.upper()
         self.__smbConfig.add_section(share)
         self.__smbConfig.set(share, 'comment', shareComment)
@@ -4667,7 +4666,7 @@ class SimpleSMBServer:
 
     def setSMBChallenge(self, challenge):
         if challenge != '':
-            self.__smbConfig.set('global', 'challenge', unhexlify(challenge))
+            self.__smbConfig.set('global', 'challenge', challenge)
             self.__server.setServerConfig(self.__smbConfig)
             self.__server.processConfigFile()
         

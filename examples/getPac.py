@@ -112,7 +112,7 @@ class S4U2SELF:
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
-    def dump(self, addr):
+    def dump(self):
         # Try all requested protocols until one works.
 
         userName = Principal(self.__username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
@@ -305,16 +305,8 @@ if __name__ == '__main__':
 
     options = parser.parse_args()
 
-    # This is because I'm lazy with regex
-    # ToDo: We need to change the regex to fullfil domain/username[:password]
-    targetParam = options.credentials + '@'
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-        targetParam).groups('')
-
-    # In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(
+        options.credentials).groups('')
 
     if domain is None:
         domain = ''
@@ -325,12 +317,14 @@ if __name__ == '__main__':
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
+        # Print the Library's installation path
+        logging.debug(version.getInstallationPath())
     else:
         logging.getLogger().setLevel(logging.INFO)
 
     try:
         dumper = S4U2SELF(options.targetUser, username, password, domain, options.hashes)
-        dumper.dump(address)
+        dumper.dump()
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback

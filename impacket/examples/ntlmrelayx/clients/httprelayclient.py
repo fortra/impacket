@@ -65,7 +65,7 @@ class HTTPRelayClient(ProtocolClient):
             return False
 
         #Negotiate auth
-        negotiate = base64.b64encode(negotiateMessage)
+        negotiate = base64.b64encode(negotiateMessage).decode("ascii")
         headers = {'Authorization':'NTLM %s' % negotiate}
         self.session.request('GET', self.path ,headers=headers)
         res = self.session.getresponse()
@@ -85,7 +85,7 @@ class HTTPRelayClient(ProtocolClient):
             token = respToken2['ResponseToken']
         else:
             token = authenticateMessageBlob
-        auth = base64.b64encode(token)
+        auth = base64.b64encode(token).decode("ascii")
         headers = {'Authorization':'NTLM %s' % auth}
         self.session.request('GET', self.path,headers=headers)
         res = self.session.getresponse()
