@@ -9,10 +9,11 @@
 #  Maxime Nadeau based on Alberto Solino (@agsolino) work
 #
 # Description:
-#     TODO
+#     This module will create a new ACE allowing full control for a user on a specific asset by abusing the msDS-AllowedToActOnBehalfOfOtherIdentity
+#     attribute. It can be used instead of the ntlmrelayx.py --delegate-access feature when relay is not possible / required. 
 #
-# Reference for:
-#     LDAP
+#     Delegation relationships can provide access to specific users on systems by allowing them to act on the behalf of another account.
+#     This module allows for easier exploitation of resource-based constrained delegation.
 #
 from __future__ import division
 from __future__ import print_function
@@ -23,17 +24,14 @@ import sys
 from datetime import datetime
 
 from impacket import version
-from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE
 from impacket.examples import logger
 from impacket.ldap import ldap, ldapasn1, ldaptypes
-from impacket.smbconnection import SMBConnection
 
 import ssl
 import ldap3
 from ldap3.utils.conv import escape_filter_chars
 
-
-class QueryLDAP:
+class DelegateAccess:
     def __init__(self, username, password, domain, cmdLineOptions):
         self.options = cmdLineOptions
         self.__username = username
@@ -49,7 +47,6 @@ class QueryLDAP:
         self.__kdcHost = cmdLineOptions.dc_ip
         self.__user = cmdLineOptions.user
         self.__targetComputer = cmdLineOptions.target_computer
-        self.__forceLdaps = cmdLineOptions.force_ldaps
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
@@ -59,27 +56,7 @@ class QueryLDAP:
         for i in domainParts:
             self.__baseDN += 'dc={},'.format(i)
         # Remove last ','
-        self.__baseDN = self.__baseDN[:-1]    
-
-    def getMachineName(self):
-        if self.__kdcHost is not None:
-            s = SMBConnection(self.__kdcHost, self.__kdcHost)
-        else:
-            s = SMBConnection(self.__domain, self.__domain)
-        try:
-            s.login('', '')
-        except Exception:
-            if s.getServerName() == '':
-                raise Exception('Error while anonymous logging into %s' % self.__domain)
-        else:
-            s.logoff()
-        return s.getServerName()
-
-    @staticmethod
-    def getUnixTime(t):
-        t -= 116444736000000000
-        t /= 10000000
-        return t
+        self.__baseDN = self.__baseDN[:-1]
 
     def run(self):
         connectTo = self.__target
@@ -214,13 +191,12 @@ class QueryLDAP:
 if __name__ == '__main__':
     print((version.BANNER))
 
-    parser = argparse.ArgumentParser(add_help = True, description = "Queries target domain for users data")
+    parser = argparse.ArgumentParser(add_help = True, description = "Enable delegation for the specified user on the target computer")
 
     parser.add_argument('target', action='store', help='domain/username[:password]')
-    parser.add_argument('-user', action='store', metavar='username', help='Requests data for specific user')
-    parser.add_argument('-target-computer', action='store', metavar='target_computer', help='The computer on which to enable delegation')
+    parser.add_argument('-user', action='store', metavar='username', help='Delegate access on the target computer account to the specified account')
+    parser.add_argument('-target-computer', action='store', metavar='target_computer', help='The computer on which to delegate access')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
-    parser.add_argument('-force-ldaps', action='store_true', help='Force the usage of LDAPS and return if not supported')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
 
     group = parser.add_argument_group('authentication')
@@ -276,7 +252,7 @@ if __name__ == '__main__':
         options.k = True
 
     try:
-        executer = QueryLDAP(username, password, domain, options)
+        executer = DelegateAccess(username, password, domain, options)
         executer.run()
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
