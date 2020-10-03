@@ -4516,7 +4516,7 @@ class WKSTServer(DCERPCServer):
     def NetrWkstaUserEnum(self, data):
         request = NetrWkstaUserEnum(data)
         UserEnum = NetrWkstaUserEnumResponse()
-        self.log("NetrWkstaGetInfo Level: %d" % request['UserInfo']['Level'])
+        self.log("NetrWkstaUserEnum Level: %d" % request['UserInfo']['Level'])
 
         if request['UserInfo']['Level'] not in (0, 1):
             UserEnum['ErrorCode'] = ERROR_INVALID_LEVEL
