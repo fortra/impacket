@@ -6,6 +6,7 @@ from binascii import hexlify, unhexlify
 from subprocess import check_call
 from datetime import datetime
 from struct import pack, unpack
+from platform import python_version
 
 import hmac, hashlib, struct, sys, socket, time, itertools, uuid, binascii, time, random
 
@@ -18,8 +19,14 @@ class userlog:
         self.dc_ip = dc_ip
 
 def fail(msg):
-    print(msg, file=sys.stderr)
-    print('This might have been caused by invalid arguments or network issues.', file=sys.stderr)
+    #print(msg, file=sys.stderr)
+    if ("2.7" in python_version()):
+        print >> sys.stderr, "fatal error"
+        print >> sys.stderr, "This might have been caused by invalid arguments or network issues."
+    else:
+        print(msg, file=sys.stderr)
+        print('This might have been caused by invalid arguments or network issues.', file=sys.stderr)
+
     sys.exit(2)
 
 def ConnectRPCServer(dc_ip):
@@ -38,7 +45,7 @@ def authenticate(rpc_con, user):
     Client_Challenge = bytes(random.getrandbits(8) for i in range(8))
     status = nrpc.hNetrServerReqChallenge(rpc_con, NULL, user.computer_name + '\x00', Client_Challenge)
     if (status == None or status['ErrorCode'] != 0):
-        fail(f'Error NetrServerReqChallenge')
+        fail('Error NetrServerReqChallenge')
     else:
         Server_Challenge = status['ServerChallenge']
         print("Client_Challenge : ", Client_Challenge)
@@ -55,7 +62,10 @@ def authenticate(rpc_con, user):
         resp = nrpc.hNetrLogonGetCapabilities(rpc_con, user.dc_name, user.computer_name, Authenticator)
         print("Secure Channel is UP !")
     except Exception as e:
-        fail(f'Unexpected error code from DC: {e}.')
+        if ("2.7" in python_version()):
+            fail('Unexpected error code from DC')
+        else:
+            fail(f'Unexpected error code from DC: {e}.')
 
 def InitiateSecureChannel(user):
     rpc_con = ConnectRPCServer(user.dc_ip)
@@ -66,9 +76,16 @@ def InitiateSecureChannel(user):
         if ex.get_error_code() == 0xc0000022:
             pass
         else:
-            fail(f'Unexpected error code from DC: {ex.get_error_code()}.')
+            if ("2.7" in python_version()):
+                fail('Unexpected error code from DC')
+            else:
+                fail(f'Unexpected error code from DC: {ex.get_error_code()}.')
     except BaseException as ex:
-        fail(f'Unexpected error: {ex}.')
+        if ("2.7" in python_version()):
+            fail('Unexpected error')
+        else:
+            fail(f'Unexpected error: {ex}.')
+
 
 
 def main():
