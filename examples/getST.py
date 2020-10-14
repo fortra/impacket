@@ -388,7 +388,7 @@ if __name__ == '__main__':
     print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help=True, description="Given a password, hash or aesKey, it will request a "
-                                                                "TGT and save it as ccache")
+                                                                "Service Ticket and save it as ccache")
     parser.add_argument('identity', action='store', help='[domain/]username[:password]')
     parser.add_argument('-spn', action="store", required=True,  help='SPN (service/server) of the target service the '
                                                                      'service ticket will' ' be generated for')
