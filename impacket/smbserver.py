@@ -4394,7 +4394,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         if self.__serverConfig.has_option('global', 'challenge'):
             self.__challenge    = unhexlify(self.__serverConfig.get('global', 'challenge'))
         else:
-            self.__challenge    = b'A'*8
+            self.__challenge    = b'A'*16
 
         if self.__serverConfig.has_option("global", "jtr_dump_path"):
             self.__jtr_dump_path = self.__serverConfig.get("global", "jtr_dump_path")
@@ -4609,7 +4609,7 @@ class SimpleSMBServer:
             self.__smbConfig.set('global','log_file','None')
             self.__smbConfig.set('global','rpc_apis','yes')
             self.__smbConfig.set('global','credentials_file','')
-            self.__smbConfig.set('global', 'challenge', "A"*8)
+            self.__smbConfig.set('global', 'challenge', "A"*16)
 
             # IPC always needed
             self.__smbConfig.add_section('IPC$')
