@@ -8,16 +8,40 @@ jobs:
   include:
     - python: 2.7
       env: NO_REMOTE=true, TOXENV=py27
+      arch: amd64
     - python: 3.6
       env: NO_REMOTE=true, TOXENV=py36
+      arch: amd64
     - python: 3.7
       env: NO_REMOTE=true, TOXENV=py37
+      arch: amd64
     - python: 3.8
       env: NO_REMOTE=true, TOXENV=py38
+      arch: amd64
     - python: 3.9-dev
       env: NO_REMOTE=true, TOXENV=py39
+      arch: amd64
+    - python: 2.7
+      env: NO_REMOTE=true, TOXENV=py27
+      arch: ppc64le
+    - python: 3.6
+      env: NO_REMOTE=true, TOXENV=py36
+      arch: ppc64le
+    - python: 3.7
+      env: NO_REMOTE=true, TOXENV=py37
+      arch: ppc64le
+    - python: 3.8
+      env: NO_REMOTE=true, TOXENV=py38
+      arch: ppc64le
+    - python: 3.9-dev
+      env: NO_REMOTE=true, TOXENV=py39
+      arch: ppc64le
   allow_failures:
     - python: 3.9-dev
+    - python: 2.7    #Support for not available for ubuntu 20.04 for ppc64le
+      arch: ppc64le 
+    - python: 3.7    #Support for not available for ubuntu 20.04 for ppc64le
+      arch: ppc64le
 
 install: pip install flake8 tox -r requirements.txt
   
