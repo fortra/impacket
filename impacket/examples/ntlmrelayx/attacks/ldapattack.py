@@ -709,7 +709,15 @@ class LDAPAttack(ProtocolAttack):
         # Add a new computer if that is requested
         # privileges required are not yet enumerated, neither is ms-ds-MachineAccountQuota
         if self.config.addcomputer:
-            self.addComputer('CN=Computers,%s' % domainDumper.root, domainDumper)
+            self.client.search(domainDumper.root, "(ObjectClass=domain)", attributes=['wellKnownObjects'])
+            # Computer well-known GUID
+            # https://social.technet.microsoft.com/Forums/windowsserver/en-US/d028952f-a25a-42e6-99c5-28beae2d3ac3/how-can-i-know-the-default-computer-container?forum=winservergen
+            computerscontainer = [
+                entry.decode('utf-8').split(":")[-1] for entry in self.client.entries[0]["wellKnownObjects"]
+                if b"AA312825768811D1ADED00C04FD8D5CD" in entry
+            ][0]
+            LOG.debug("Computer container is {}".format(computerscontainer))
+            self.addComputer(computerscontainer, domainDumper)
             return
 
         # Last attack, dump the domain if no special privileges are present
