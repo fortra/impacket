@@ -936,8 +936,12 @@ class RemoteOperations:
     def __answer(self, data):
         self.__answerTMP += data
 
-    def __getLastVSS(self):
-        self.__executeRemote('%COMSPEC% /C vssadmin list shadows')
+    def __getLastVSS(self, forDrive=None):
+        if forDrive:
+            command = '%COMSPEC% /C vssadmin list shadows /for=' + forDrive
+        else:
+            command = '%COMSPEC% /C vssadmin list shadows'
+        self.__executeRemote(command)
         time.sleep(5)
         tries = 0
         while True:
@@ -959,21 +963,28 @@ class RemoteOperations:
         lines = self.__answerTMP.split(b'\n')
         lastShadow = b''
         lastShadowFor = b''
+        lastShadowId = b''
 
         # Let's find the last one
         # The string used to search the shadow for drive. Wondering what happens
         # in other languages
         SHADOWFOR = b'Volume: ('
+        IDSTART = b'Shadow Copy ID: {'
+        IDLEN=len('3547017b-0ac9-478b-88e6-f9be7e1c11999')
 
         for line in lines:
            if line.find(b'GLOBALROOT') > 0:
                lastShadow = line[line.find(b'\\\\?'):][:-1]
            elif line.find(SHADOWFOR) > 0:
                lastShadowFor = line[line.find(SHADOWFOR)+len(SHADOWFOR):][:2]
+           elif line.find(IDSTART) > 0:
+               lastShadowId = line[line.find(IDSTART)+len(IDSTART):][:IDLEN-1]
 
         self.__smbConnection.deleteFile('ADMIN$', 'Temp\\__output')
 
-        return lastShadow.decode('utf-8'), lastShadowFor.decode('utf-8')
+        LOG.debug('__getLastVSS found last VSS %s on %s with ID of %s' % (lastShadow.decode('utf-8'), lastShadowFor.decode('utf-8'), lastShadowId.decode('utf-8')))
+
+        return lastShadow.decode('utf-8'), lastShadowFor.decode('utf-8'), lastShadowId.decode('utf-8')
 
     def saveNTDS(self):
         LOG.info('Searching for NTDS.dit')
@@ -1001,15 +1012,16 @@ class RemoteOperations:
         LOG.info('Registry says NTDS.dit is at %s. Calling vssadmin to get a copy. This might take some time' % ntdsLocation)
         LOG.info('Using %s method for remote execution' % self.__execMethod)
         # Get the list of remote shadows
-        shadow, shadowFor = self.__getLastVSS()
+        shadow, shadowFor, shadowId = self.__getLastVSS(forDrive=ntdsDrive)
         if shadow == '' or (shadow != '' and shadowFor != ntdsDrive):
             # No shadow, create one
             self.__executeRemote('%%COMSPEC%% /C vssadmin create shadow /For=%s' % ntdsDrive)
-            shadow, shadowFor = self.__getLastVSS()
+            shadow, shadowFor, shadowId = self.__getLastVSS(forDrive=ntdsDrive)
             shouldRemove = True
-            if shadow == '':
+            if shadow == '' or shadowFor != ntdsDrive:
                 raise Exception('Could not get a VSS')
         else:
+            # There was already a shadow, let's not delete this
             shouldRemove = False
 
         # Now copy the ntds.dit to the temp directory
@@ -1018,7 +1030,9 @@ class RemoteOperations:
         self.__executeRemote('%%COMSPEC%% /C copy %s%s %%SYSTEMROOT%%\\Temp\\%s' % (shadow, ntdsLocation[2:], tmpFileName))
 
         if shouldRemove is True:
-            self.__executeRemote('%%COMSPEC%% /C vssadmin delete shadows /For=%s /Quiet' % ntdsDrive)
+            LOG.debug('Trying to delete shadow copy using command : %%COMSPEC%% /C vssadmin delete shadows /shadow="{%s}" /Quiet' % shadowId)
+            self.__executeRemote('%%COMSPEC%% /C vssadmin delete shadows /shadow="{%s}" /Quiet' % shadowId)
+
 
         tries = 0
         while True:
@@ -1073,6 +1087,7 @@ class CryptoCommon:
             plainText += aes256.decrypt(cipherBuffer)
 
         return plainText
+
 
 class OfflineRegistry:
     def __init__(self, hiveFile = None, isRemote = False):
