@@ -2394,7 +2394,7 @@ class SMBCommands:
                 if rawNTLM is False:
                     respToken = SPNEGO_NegTokenResp()
                     # accept-incomplete. We want more data
-                    respToken['NegResult'] = b'\x01'
+                    respToken['NegState'] = b'\x01'
                     respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
 
                     respToken['ResponseToken'] = challengeMessage.getData()
@@ -2448,7 +2448,7 @@ class SMBCommands:
                     connData['Authenticated'] = True
                     respToken = SPNEGO_NegTokenResp()
                     # accept-completed
-                    respToken['NegResult'] = b'\x00'
+                    respToken['NegState'] = b'\x00'
 
                     smbServer.log('User %s\\%s authenticated successfully' % (authenticateMessage['host_name'].decode('utf-16le'),
                                                                               authenticateMessage['user_name'].decode('utf-16le')))
@@ -2467,7 +2467,7 @@ class SMBCommands:
                         smbServer.log("Could not write NTLM Hashes to the specified JTR_Dump_Path %s" % jtr_dump_path)
                 else:
                     respToken = SPNEGO_NegTokenResp()
-                    respToken['NegResult'] = b'\x02'
+                    respToken['NegState'] = b'\x02'
                     smbServer.log("Could not authenticate user!")
             else:
                 raise Exception("Unknown NTLMSSP MessageType %d" % messageType)
@@ -2770,7 +2770,7 @@ class SMB2Commands:
             if rawNTLM is False:
                 respToken = SPNEGO_NegTokenResp()
                 # accept-incomplete. We want more data
-                respToken['NegResult'] = b'\x01'
+                respToken['NegState'] = b'\x01'
                 respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
 
                 respToken['ResponseToken'] = challengeMessage.getData()
@@ -2827,7 +2827,7 @@ class SMB2Commands:
                 connData['Authenticated'] = True
                 respToken = SPNEGO_NegTokenResp()
                 # accept-completed
-                respToken['NegResult'] = b'\x00'
+                respToken['NegState'] = b'\x00'
                 smbServer.log('User %s\\%s authenticated successfully' % (
                 authenticateMessage['host_name'].decode('utf-16le'), authenticateMessage['user_name'].decode('utf-16le')))
                 # Let's store it in the connection data
@@ -2850,7 +2850,7 @@ class SMB2Commands:
 
             else:
                 respToken = SPNEGO_NegTokenResp()
-                respToken['NegResult'] = b'\x02'
+                respToken['NegState'] = b'\x02'
                 smbServer.log("Could not authenticate user!")
         else:
             raise Exception("Unknown NTLMSSP MessageType %d" % messageType)
