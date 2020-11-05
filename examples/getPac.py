@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under under a slightly modified version
