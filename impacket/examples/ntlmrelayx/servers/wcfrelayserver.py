@@ -17,7 +17,6 @@
 #             This is the WCF server (ADWS too) which relays the NTLMSSP messages to other protocols
 #             Only NetTcpBinding is supported!
 
-# FIXME tester en python 2 !
 # To support NetTcpBinding, this implements the ".NET Message Framing Protocol" [MC-NMF] and
 # ".NET NegotiateStream Protocol" [MS-NNS]
 # Thanks to inspiration from https://github.com/ernw/net.tcp-proxy/blob/master/nettcp/nmf.py
