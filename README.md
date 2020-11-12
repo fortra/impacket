@@ -76,6 +76,19 @@ If you want to run the library test cases you need to do mainly three things:
 Once that's done, you can run `tox` and wait for the results. If all goes well, all test cases should pass.
 You will also have a coverage HTML report located at `impacket/tests/htlmcov/index.html`
 
+Support Docker
+---------------
+
+Build Image Impacket
+To create image
+
+`docker build -t "impacket:latest" .`
+
+
+Using Impacket
+
+`docker run -it --rm "impacket:latest"`
+
 Licensing
 =========
 
