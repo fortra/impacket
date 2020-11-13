@@ -16,6 +16,7 @@ import functools
 from six import add_metaclass
 
 import impacket.ImpactPacket as ip
+from impacket.compat import tobytes
 
 
 def rebind(f):
@@ -100,7 +101,7 @@ class ThreeBytesBigEndian(Field):
         Field.__init__(self, index)
                 
     def getter(self, o):
-        b=o.header.get_bytes()[self.index:self.index+3].tostring()
+        b=tobytes(o.header.get_bytes()[self.index:self.index+3])
         #unpack requires a string argument of length 4 and b is 3 bytes long
         (value,)=struct.unpack('!L', b'\x00'+b)
         return value

@@ -21,6 +21,7 @@ import string
 import sys
 from binascii import hexlify
 from functools import reduce
+from impacket.compat import frombytes, tobytes
 
 """Classes to build network packets programmatically.
 
@@ -60,7 +61,7 @@ class PacketBuffer(object):
 
     def get_buffer_as_string(self):
         "Returns the packet buffer as a string object"
-        return self.__bytes.tostring()
+        return tobytes(self.__bytes)
 
     def get_bytes(self):
         "Returns the packet buffer as an array"
@@ -97,7 +98,7 @@ class PacketBuffer(object):
             bytes = self.__bytes[index:]
         else:
             bytes = self.__bytes[index:index+2]
-        (value,) = struct.unpack(order + 'H', bytes.tostring())
+        (value,) = struct.unpack(order + 'H', tobytes(bytes))
         return value
 
     def set_long(self, index, value, order = '!'):
@@ -116,7 +117,7 @@ class PacketBuffer(object):
             bytes = self.__bytes[index:]
         else:
             bytes = self.__bytes[index:index+4]
-        (value,) = struct.unpack(order + 'L', bytes.tostring())
+        (value,) = struct.unpack(order + 'L', tobytes(bytes))
         return value
 
     def set_long_long(self, index, value, order = '!'):
@@ -135,7 +136,7 @@ class PacketBuffer(object):
             bytes = self.__bytes[index:]
         else:
             bytes = self.__bytes[index:index+8]
-        (value,) = struct.unpack(order + 'Q', bytes.tostring())
+        (value,) = struct.unpack(order + 'Q', tobytes(bytes))
         return value
 
 
@@ -146,7 +147,7 @@ class PacketBuffer(object):
             bytes = self.__bytes[index:]
         else:
             bytes = self.__bytes[index:index+4]
-        return socket.inet_ntoa(bytes.tostring())
+        return socket.inet_ntoa(tobytes(bytes))
 
     def set_ip_address(self, index, ip_string):
         "Set 4-byte value at 'index' from 'ip_string'"
@@ -196,7 +197,7 @@ class PacketBuffer(object):
 
         diff = index + size - curlen
         if diff > 0:
-            self.__bytes.fromstring('\0' * diff)
+            frombytes(self.__bytes, '\0' * diff)
             if orig_index < 0:
                 orig_index -= diff
 
@@ -719,7 +720,7 @@ class LinuxSLL(Header):
 
     def get_addr(self):
         "Returns the sender's address field"
-        return self.get_bytes()[6:14].tostring()
+        return tobytes(self.get_bytes()[6:14])
 
     def set_ether_type(self, aValue):
         "Set ethernet data type field to 'aValue'"
@@ -797,7 +798,7 @@ class IP(Header):
         # Pad to a multiple of 4 bytes
         num_pad = (4 - (len(my_bytes) % 4)) % 4
         if num_pad:
-            my_bytes.fromstring(b"\0"* num_pad)
+            frombytes(my_bytes, b"\0"* num_pad)
 
         # only change ip_hl value if options are present
         if len(self.__option_list):
@@ -809,9 +810,9 @@ class IP(Header):
             self.set_ip_sum(self.compute_checksum(my_bytes))
 
         if child_data is None:
-            return my_bytes.tostring()
+            return tobytes(my_bytes)
         else:
-            return my_bytes.tostring() + child_data
+            return tobytes(my_bytes) + child_data
 
 
 
@@ -835,7 +836,7 @@ class IP(Header):
 
         size_str = struct.pack("!H", tmp_size)
 
-        pseudo_buf.fromstring(size_str)
+        frombytes(pseudo_buf, size_str)
         return pseudo_buf
 
     def add_option(self, option):
@@ -1296,7 +1297,7 @@ class UDP(Header):
             buffer += self.get_bytes()
             data = self.get_data_as_string()
             if(data):
-                buffer.fromstring(data)
+                frombytes(buffer, data)
             self.set_uh_sum(self.compute_checksum(buffer))
 
     def get_header_size(self):
@@ -1486,7 +1487,7 @@ class TCP(Header):
 
         data = self.get_data_as_string()
         if(data):
-            buffer.fromstring(data)
+            frombytes(buffer, data)
 
         res = self.compute_checksum(buffer)
 
@@ -1505,9 +1506,9 @@ class TCP(Header):
         data = self.get_data_as_string()
 
         if data:
-            return bytes.tostring() + data
+            return tobytes(bytes) + data
         else:
-            return bytes.tostring()
+            return tobytes(bytes)
 
     def load_header(self, aBuffer):
         self.set_bytes_from_string(aBuffer[:20])
@@ -1562,7 +1563,7 @@ class TCP(Header):
             op_buf += op.get_bytes()
         num_pad = (4 - (len(op_buf) % 4)) % 4
         if num_pad:
-            op_buf.fromstring("\0" * num_pad)
+            frombytes(op_buf, "\0" * num_pad)
         return op_buf
 
     def __str__(self):

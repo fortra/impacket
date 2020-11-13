@@ -15,6 +15,7 @@ from binascii import crc32
 
 from impacket.ImpactPacket import ProtocolPacket
 from impacket.Dot11Crypto import RC4
+from impacket.compat import tobytes
 frequency = {
     2412: 1,    2417: 2,    2422: 3,    2427: 4,    2432: 5,    2437: 6,    2442: 7,    2447: 8,    2452: 9,
     2457: 10,   2462: 11,   2467: 12,   2472: 13,   2484: 14,   5170: 34,   5180: 36,   5190: 38,   5200: 40,
@@ -997,7 +998,7 @@ class SNAP(ProtocolPacket):
 
     def get_OUI(self):
         "Get the three-octet Organizationally Unique Identifier (OUI) SNAP frame"
-        b=self.header.get_bytes()[0:3].tostring()
+        b=tobytes(self.header.get_bytes()[0:3])
         #unpack requires a string argument of length 4 and b is 3 bytes long
         (oui,)=struct.unpack('!L', b'\x00'+b)
         return oui
@@ -1040,7 +1041,7 @@ class Dot11WEP(ProtocolPacket):
             
     def get_iv(self):
         'Return the \'WEP IV\' field'
-        b=self.header.get_bytes()[0:3].tostring()
+        b=tobytes(self.header.get_bytes()[0:3])
         #unpack requires a string argument of length 4 and b is 3 bytes long
         (iv,)=struct.unpack('!L', b'\x00'+b)
         return iv
