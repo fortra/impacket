@@ -12,8 +12,8 @@ PACKAGE_NAME = "impacket"
 
 VER_MAJOR = 0
 VER_MINOR = 9
-VER_MAINT = 22
-VER_PREREL = ""
+VER_MAINT = 23
+VER_PREREL = "dev1"
 try:
     if call(["git", "branch"], stderr=STDOUT, stdout=open(os.devnull, 'w')) == 0:
         p = Popen("git log -1 --format=%cd --date=format:%Y%m%d.%H%M%S", shell=True, stdin=PIPE, stderr=PIPE, stdout=PIPE)
@@ -40,7 +40,7 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 setup(name = PACKAGE_NAME,
-      version="{}.{}.{}".format (VER_MAJOR, VER_MINOR, VER_MAINT),
+      version = "{}.{}.{}.{}{}".format(VER_MAJOR,VER_MINOR,VER_MAINT,VER_PREREL,VER_LOCAL),
       description = "Network protocols Constructors and Dissectors",
       url = "https://www.secureauth.com/labs/open-source-tools/impacket",
       author = "SecureAuth Corporation",
