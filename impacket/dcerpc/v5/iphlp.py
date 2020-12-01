@@ -15,7 +15,7 @@ from socket import inet_aton
 from impacket import uuid
 from impacket import hresult_errors
 from impacket.uuid import uuidtup_to_bin
-from impacket.dcerpc.v5.dtypes import BYTE, ULONG, WSTR, GUID
+from impacket.dcerpc.v5.dtypes import BYTE, ULONG, WSTR, GUID, NULL
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRUniConformantArray
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 
