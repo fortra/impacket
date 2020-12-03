@@ -486,6 +486,7 @@ class SMBTransport(DCERPCTransport):
 
         self.__prefDialect = None
         self.__smb_connection = smb_connection
+        self.set_connect_timeout(30)
 
     def preferred_dialect(self, dialect):
         self.__prefDialect = dialect
@@ -493,7 +494,7 @@ class SMBTransport(DCERPCTransport):
     def setup_smb_connection(self):
         if not self.__smb_connection:
             self.__smb_connection = SMBConnection(self.getRemoteName(), self.getRemoteHost(), sess_port=self.get_dport(),
-                                                  preferredDialect=self.__prefDialect)
+                                                  preferredDialect=self.__prefDialect, timeout=self.get_connect_timeout())
             if self._strict_hostname_validation:
                 self.__smb_connection.setHostnameValidation(self._strict_hostname_validation, self._validation_allow_absent, self._accepted_hostname)
 
