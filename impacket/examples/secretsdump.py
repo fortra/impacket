@@ -356,6 +356,7 @@ class RemoteOperations:
         self.__samr = None
         self.__domainHandle = None
         self.__domainName = None
+        self.__domainSid = None
 
         self.__drsr = None
         self.__hDrs = None
@@ -409,6 +410,8 @@ class RemoteOperations:
         serverHandle = resp['ServerHandle']
 
         resp = samr.hSamrLookupDomainInSamServer(self.__samr, serverHandle, domain)
+        self.__domainSid = resp['DomainId'].formatCanonical()
+
         resp = samr.hSamrOpenDomain(self.__samr, serverHandle=serverHandle, domainId=resp['DomainId'])
         self.__domainHandle = resp['DomainHandle']
         self.__domainName = domain
@@ -569,11 +572,14 @@ class RemoteOperations:
             resp = e.get_packet()
         return resp
 
-    def ridToSid(self, rid):
+    def getDomainSid(self):
+        if self.__domainSid is not None:
+            return self.__domainSid
+
         if self.__samr is None:
             self.connectSamr(self.getMachineNameAndDomain()[1])
-        resp = samr.hSamrRidToSid(self.__samr, self.__domainHandle , rid)
-        return resp['Sid']
+
+        return self.__domainSid
 
     def getMachineKerberosSalt(self):
         """
@@ -2472,15 +2478,15 @@ class NTDSHashes:
                         for user in resp['Buffer']['Buffer']:
                             userName = user['Name']
 
-                            userSid = self.__remoteOps.ridToSid(user['RelativeId'])
+                            userSid = "%s-%i" % (self.__remoteOps.getDomainSid(), user['RelativeId'])
                             if resumeSid is not None:
                                 # Means we're looking for a SID before start processing back again
-                                if resumeSid == userSid.formatCanonical():
+                                if resumeSid == userSid:
                                     # Match!, next round we will back processing
-                                    LOG.debug('resumeSid %s reached! processing users from now on' % userSid.formatCanonical())
+                                    LOG.debug('resumeSid %s reached! processing users from now on' % userSid)
                                     resumeSid = None
                                 else:
-                                    LOG.debug('Skipping SID %s since it was processed already' % userSid.formatCanonical())
+                                    LOG.debug('Skipping SID %s since it was processed already' % userSid)
                                 continue
 
                             # Let's crack the user sid into DS_FQDN_1779_NAME
@@ -2489,7 +2495,7 @@ class NTDSHashes:
                             # For some reason tho, I get ERROR_DS_DRA_BAD_DN when doing so.
                             crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NAME_FORMAT.DS_SID_OR_SID_HISTORY_NAME,
                                                                          drsuapi.DS_NAME_FORMAT.DS_UNIQUE_ID_NAME,
-                                                                         name=userSid.formatCanonical())
+                                                                         name=userSid)
 
                             if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
                                 if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
@@ -2519,7 +2525,7 @@ class NTDSHashes:
                                 LOG.error(str(e))
 
                             # Saving the session state
-                            self.__resumeSession.writeResumeData(userSid.formatCanonical())
+                            self.__resumeSession.writeResumeData(userSid)
 
                         enumerationContext = resp['EnumerationContext']
                         status = resp['ErrorCode']
