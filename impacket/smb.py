@@ -3884,9 +3884,9 @@ class SMB(object):
                 record = SMBFindFileBothDirectoryInfo(data = findData)
 
                 shortname = record['ShortName'].decode('utf-16le') if self.__flags2 & SMB.FLAGS2_UNICODE else \
-                                                                        record['ShortName'].decode('latin-1')
+                                                                        record['ShortName'].decode('cp437')
                 filename = record['FileName'].decode('utf-16le') if self.__flags2 & SMB.FLAGS2_UNICODE else \
-                                                                        record['FileName'].decode('latin-1')
+                                                                        record['FileName'].decode('cp437')
 
                 fileRecord = SharedFile(record['CreationTime'], record['LastAccessTime'], record['LastChangeTime'],
                                   record['EndOfFile'], record['AllocationSize'], record['ExtFileAttributes'],
