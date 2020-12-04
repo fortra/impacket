@@ -28,6 +28,7 @@ import datetime
 import socket
 import re
 import struct
+import pyasn1
 
 from pyasn1.codec.der import decoder
 
@@ -247,6 +248,8 @@ class KerberosTime(object):
 
     @staticmethod
     def from_asn1(data):
+        if isinstance(data._value, pyasn1.type.base.NoValue):
+            return KerberosTime.INDEFINITE
         data = str(data)
         year = int(data[0:4])
         month = int(data[4:6])
