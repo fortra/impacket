@@ -21,7 +21,6 @@ import sys
 import os
 import logging
 
-from impacket.examples import logger
 from impacket import version, tds
 
 if __name__ == '__main__':
@@ -110,8 +109,6 @@ if __name__ == '__main__':
         def do_exit(self, line):
             return True
 
-    # Init the example's logger theme
-    logger.init()
     print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "TDS client implementation (SSL supported).")
