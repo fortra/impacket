@@ -114,6 +114,7 @@ class MiniImpacketShell(cmd.Cmd):
  rmdir {dirname} - removes the directory under the current path
  put {filename} - uploads the filename into the current path
  get {filename} - downloads the filename from the current path
+ cat {filename} - reads the filename from the current path
  mount {target,path} - creates a mount point from {path} to {target} (admin required)
  umount {path} - removes the mount point at {path} without deleting the directory (admin required)
  list_snapshots {path} - lists the vss snapshots for the specified path
