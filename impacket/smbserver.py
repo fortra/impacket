@@ -42,7 +42,6 @@ import hmac
 from binascii import unhexlify, hexlify, a2b_hex
 from six import PY2, b, text_type
 from six.moves import configparser, socketserver
-
 # For signing
 from impacket import smb, nmb, ntlm, uuid
 from impacket import smb3structs as smb2
