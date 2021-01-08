@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright 2021 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -27,6 +27,7 @@ from getpass import getpass
 from argparse import ArgumentParser
 
 from impacket.dcerpc.v5 import transport, samr
+from impacket import version
 
 
 def connect(host_name_or_ip):
@@ -78,6 +79,7 @@ def parse_target(target):
 
 
 if __name__ == '__main__':
+	print (version.BANNER)
 	parser = ArgumentParser()
 	parser.add_argument('target', help='<username[:currpass]>@<target_hostname_or_IP_address>')
 	parser.add_argument('-newpass', default=None, help='new SMB password')
