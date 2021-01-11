@@ -42,7 +42,7 @@ import os
 import random
 import struct
 import sys
-from binascii import unhexlify
+from binascii import hexlify, unhexlify
 from six import b
 
 from pyasn1.codec.der import decoder, encoder
@@ -54,11 +54,12 @@ from impacket.krb5 import constants
 from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, seq_set, seq_set_iter, PA_FOR_USER_ENC, \
     Ticket as TicketAsn1, EncTGSRepPart, PA_PAC_OPTIONS, EncTicketPart
 from impacket.krb5.ccache import CCache
-from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, Enctype
+from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, _AES256CTS, Enctype
 from impacket.krb5.constants import TicketFlags, encodeFlags
 from impacket.krb5.kerberosv5 import getKerberosTGS
 from impacket.krb5.kerberosv5 import getKerberosTGT, sendReceive
 from impacket.krb5.types import Principal, KerberosTime, Ticket
+from impacket.ntlm import compute_nthash
 from impacket.winregistry import hexdump
 
 
@@ -227,8 +228,22 @@ class GETST:
                 try:
                     aesKey = unhexlify(aesKey)
                 except TypeError:
-                    pass         
-            
+                    pass
+
+            # Compute NTHash and AESKey if they're not provided in arguments
+            if self.__password != '' and self.__domain != '' and self.__user != '':
+                if not nthash:
+                    nthash = compute_nthash(self.__password)
+                    if logging.getLogger().level == logging.DEBUG:
+                        logging.debug('NTHash')
+                        print(hexlify(nthash).decode())
+                if not aesKey:
+                    salt = self.__domain.upper() + self.__user
+                    aesKey = _AES256CTS.string_to_key(self.__password, salt, params=None).contents
+                    if logging.getLogger().level == logging.DEBUG:
+                        logging.debug('AESKey')
+                        print(hexlify(aesKey).decode())
+
             # Get the encrypted ticket returned in the TGS. It's encrypted with one of our keys
             cipherText = tgs['ticket']['enc-part']['cipher']
             
