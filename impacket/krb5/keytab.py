@@ -30,7 +30,7 @@ class Enctype(Enum):
 
 class CountedOctetString(Structure):
     """
-    Note: This is very similar to the CountedOctetString structure in ccache, except Exception:
+    Note: This is very similar to the CountedOctetString structure in ccache, except:
       * `length` is uint16 instead of uint32
     """
     structure = (
@@ -64,7 +64,7 @@ class KeyBlock(Structure):
 
 class KeytabPrincipal:
     """
-    Note: This is very similar to the principal structure in ccache, except Exception:
+    Note: This is very similar to the principal structure in ccache, except:
       * `num_components` is just uint16
       * using other size type for CountedOctetString
       * `name_type` field follows the other fields behind.
