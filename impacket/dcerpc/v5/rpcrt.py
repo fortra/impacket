@@ -560,7 +560,7 @@ class DCERPCException(Exception):
         if packet is not None:
             try:
                 self.error_code = packet['ErrorCode']
-            except:
+            except Exception:
                 self.error_code = error_code
         else:
             self.error_code = error_code
@@ -870,7 +870,7 @@ class DCERPC:
                 try:
                     # Try to unpack the answer, even if it is an error, it works most of the times
                     response =  respClass(answer, isNDR64 = isNDR64)
-                except:
+                except Exception:
                     # No luck :(
                     exception = sessionErrorClass(error_code = error_code)
                 else:
@@ -956,7 +956,7 @@ class DCERPC_v5(DCERPC):
             try: # just in case they were converted already
                 self.__lmhash = unhexlify(lmhash)
                 self.__nthash = unhexlify(nthash)
-            except:
+            except Exception:
                 self.__lmhash = lmhash
                 self.__nthash = nthash
                 pass
@@ -1242,7 +1242,7 @@ class DCERPC_v5(DCERPC):
         try:
             if data['uuid'] != b'':
                 data['flags'] |= PFC_OBJECT_UUID
-        except:
+        except Exception:
             # Structure doesn't have uuid
             pass
         data['ctx_id'] = self._ctx

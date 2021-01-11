@@ -660,7 +660,7 @@ class LDAPAttack(ProtocolAttack):
                         fd.write(passwd)
                         fd.write("\n")
 
-                    except:
+                    except Exception:
                         continue
 
                 if fd is None:
@@ -693,7 +693,7 @@ class LDAPAttack(ProtocolAttack):
                             fd = open(filename, "a+")
                         fd.write(userpass)
                         fd.write("\n")
-                    except:
+                    except Exception:
                         continue
                 if fd is None:
                     LOG.info("The relayed user %s does not have permissions to read any gMSA passwords" % self.username)

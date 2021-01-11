@@ -100,7 +100,7 @@ class PcapFile:
           pkt = PCapFilePacket.fromFile(self.file)
           pkt['data'] = self.file.read(pkt['savedLength'])
           return pkt
-       except:
+       except Exception:
           return None
 
     def write(self, pkt):

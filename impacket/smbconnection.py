@@ -103,7 +103,7 @@ class SMBConnection:
             nb = nmb.NetBIOS()
             try:
                 res = nb.getnetbiosname(self._remoteHost)
-            except:
+            except Exception:
                 pass
             else:
                 self._remoteName = res
@@ -307,7 +307,7 @@ class SMBConnection:
         if useCache is True:
             try:
                 ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-            except:
+            except Exception:
                 # No cache present
                 pass
             else:
@@ -985,7 +985,7 @@ class SMBConnection:
         """
         try:
             self.logoff()
-        except:
+        except Exception:
             pass
         self._SMBConnection.close_session()
 

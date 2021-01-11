@@ -616,7 +616,7 @@ class SMB3:
             try: # just in case they were converted already
                 lmhash = a2b_hex(lmhash)
                 nthash = a2b_hex(nthash)
-            except:
+            except Exception:
                 pass
 
         self.__userName = user
@@ -865,7 +865,7 @@ class SMB3:
             try: # just in case they were converted already
                 lmhash = a2b_hex(lmhash)
                 nthash = a2b_hex(nthash)
-            except:
+            except Exception:
                 pass
 
         self.__userName = user
@@ -931,27 +931,27 @@ class SMB3:
                 if av_pairs[ntlm.NTLMSSP_AV_HOSTNAME] is not None:
                    try:
                        self._Session['ServerName'] = av_pairs[ntlm.NTLMSSP_AV_HOSTNAME][1].decode('utf-16le')
-                   except:
+                   except Exception:
                        # For some reason, we couldn't decode Unicode here.. silently discard the operation
                        pass
                 if av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME] is not None:
                    try:
                        if self._Session['ServerName'] != av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME][1].decode('utf-16le'):
                            self._Session['ServerDomain'] = av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME][1].decode('utf-16le')
-                   except:
+                   except Exception:
                        # For some reason, we couldn't decode Unicode here.. silently discard the operation
                        pass
                 if av_pairs[ntlm.NTLMSSP_AV_DNS_DOMAINNAME] is not None:
                    try:
                        self._Session['ServerDNSDomainName'] = av_pairs[ntlm.NTLMSSP_AV_DNS_DOMAINNAME][1].decode('utf-16le')
-                   except:
+                   except Exception:
                        # For some reason, we couldn't decode Unicode here.. silently discard the operation
                        pass
 
                 if av_pairs[ntlm.NTLMSSP_AV_DNS_HOSTNAME] is not None:
                    try:
                        self._Session['ServerDNSHostName'] = av_pairs[ntlm.NTLMSSP_AV_DNS_HOSTNAME][1].decode('utf-16le')
-                   except:
+                   except Exception:
                        # For some reason, we couldn't decode Unicode here.. silently discard the operation
                        pass
 
@@ -1044,7 +1044,7 @@ class SMB3:
                                                                                      b"ServerOut\x00", 128)
                     self._Session['CalculatePreAuthHash'] = False
                     return True
-            except:
+            except Exception:
                 # We clean the stuff we used in case we want to authenticate again
                 # within the same connection
                 self._Session['UserCredentials']   = ''
@@ -1076,7 +1076,7 @@ class SMB3:
         try:
             _, _, _, _, sockaddr = socket.getaddrinfo(self._Connection['ServerIP'], 80, 0, 0, socket.IPPROTO_TCP)[0]
             remoteHost = sockaddr[0]
-        except:
+        except Exception:
             remoteHost = self._Connection['ServerIP']
         path = '\\\\' + remoteHost + '\\' +share
 

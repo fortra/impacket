@@ -362,7 +362,7 @@ class BaseDot11Decoder(Decoder):
     def find_key(self, bssid):
         try:
             key = self.key_manager.get_key(bssid)
-        except:
+        except Exception:
             return False
         return key
 

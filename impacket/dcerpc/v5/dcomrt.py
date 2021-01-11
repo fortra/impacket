@@ -1207,11 +1207,11 @@ class INTERFACE:
         # Is it isn't both, then it is a FDQN
         try:
             socket.inet_aton(self.__target)
-        except:
+        except Exception:
             # Not an IPv4
             try:
                 self.__target.index(':')
-            except:
+            except Exception:
                 # Not an IPv6, it's a FDQN
                 return True
         return False

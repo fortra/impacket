@@ -34,7 +34,7 @@ class RPCProxyClientException(DCERPCException):
             try:
                 search = self.parser.search(proxy_error)
                 rpc_error_code = int(search.group(1), 16)
-            except:
+            except Exception:
                 error_string += ': ' + proxy_error
 
         DCERPCException.__init__(self, error_string, rpc_error_code)

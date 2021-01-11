@@ -78,7 +78,7 @@ class HTTPClientSecurityProvider:
             try: # just in case they were converted already
                 self.__lmhash = binascii.unhexlify(lmhash)
                 self.__nthash = binascii.unhexlify(nthash)
-            except:
+            except Exception:
                 self.__lmhash = lmhash
                 self.__nthash = nthash
                 pass

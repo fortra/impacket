@@ -38,7 +38,7 @@ from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 try:
     import OpenSSL
     from OpenSSL import SSL, crypto
-except:
+except Exception:
     LOG.critical("pyOpenSSL is not installed, can't continue")
     raise
 
@@ -163,7 +163,7 @@ class LDAPConnection:
         if useCache:
             try:
                 ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-            except:
+            except Exception:
                 # No cache present
                 pass
             else:

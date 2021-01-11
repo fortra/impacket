@@ -2777,11 +2777,11 @@ def hSamrUnicodeChangePasswordUser2(dce, serverName='\x00', userName='', oldPass
         # Let's convert the hashes to binary form, if not yet
         try:
             oldPwdHashLM = unhexlify(oldPwdHashLM)
-        except:
+        except Exception:
             pass
         try:
             oldPwdHashNT = unhexlify(oldPwdHashNT)
-        except:
+        except Exception:
             pass
 
     newPwdHashNT = ntlm.NTOWFv1(newPassword)

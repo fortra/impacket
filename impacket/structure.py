@@ -197,7 +197,7 @@ class Structure:
         if len(two) >= 2:
             try:
                 return self.pack(two[0], data)
-            except:
+            except Exception:
                 fields = {'self':self}
                 fields.update(self.fields)
                 return self.pack(two[0], eval(two[1], {}, fields))
@@ -207,7 +207,7 @@ class Structure:
         if len(two) == 2:
             try:
                 return self.pack(two[0], data)
-            except:
+            except Exception:
                 if (two[1] in self.fields) and (self[two[1]] is not None):
                     return self.pack(two[0], id(self[two[1]]) & ((1<<(calcsize(two[0])*8))-1) )
                 else:
@@ -218,7 +218,7 @@ class Structure:
         if len(two) == 2:
             try:
                 return self.pack(two[0],data)
-            except:
+            except Exception:
                 return self.pack(two[0], self.calcPackFieldSize(two[1]))
 
         # array specifier

@@ -454,7 +454,7 @@ class MiniImpacketShell(cmd.Cmd):
         pathname = ntpath.join(self.pwd,filename)
         try:
             self.smb.getFile(self.share, pathname, fh.write)
-        except:
+        except Exception:
             fh.close()
             os.remove(filename)
             raise

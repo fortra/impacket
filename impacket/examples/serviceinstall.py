@@ -59,7 +59,7 @@ class ServiceInstall:
             dce_srvs.bind(srvs.MSRPC_UUID_SRVS)
             resp = srvs.hNetrShareEnum(dce_srvs, 1)
             return resp['InfoStruct']['ShareInfo']['Level1']
-        except:
+        except Exception:
             LOG.critical("Error requesting shares on %s, aborting....." % (self.connection.getRemoteHost()))
             raise
 
@@ -86,7 +86,7 @@ class ServiceInstall:
         try:
             resp = scmr.hRCreateServiceW(self.rpcsvc, handle,self.__service_name + '\x00', self.__service_name + '\x00',
                                          lpBinaryPathName=command + '\x00', dwStartType=scmr.SERVICE_DEMAND_START)
-        except:
+        except Exception:
             LOG.critical("Error creating service %s on %s" % (self.__service_name, self.connection.getRemoteHost()))
             raise
         else:
@@ -102,7 +102,7 @@ class ServiceInstall:
         self.rpcsvc.bind(scmr.MSRPC_UUID_SCMR)
         try:
             resp = scmr.hROpenSCManagerW(self.rpcsvc)
-        except:
+        except Exception:
             LOG.critical("Error opening SVCManager on %s....." % self.connection.getRemoteHost())
             raise Exception('Unable to open SVCManager')
         else:
@@ -120,7 +120,7 @@ class ServiceInstall:
         pathname = f.replace('/','\\')
         try:
             self.connection.putFile(tree, pathname, fh.read)
-        except:
+        except Exception:
             LOG.critical("Error uploading file %s, aborting....." % dst)
             raise
         fh.close()
@@ -135,7 +135,7 @@ class ServiceInstall:
                try:
                    tid = self.connection.connectTree(share)
                    self.connection.openFile(tid, '\\', FILE_WRITE_DATA, creationOption=FILE_DIRECTORY_FILE)
-               except:
+               except Exception:
                    LOG.debug('Exception', exc_info=True)
                    LOG.critical("share '%s' is not writable." % share)
                    pass
@@ -182,7 +182,7 @@ class ServiceInstall:
                         LOG.info('Starting service %s.....' % self.__service_name)
                         try:
                             scmr.hRStartServiceW(self.rpcsvc, service)
-                        except:
+                        except Exception:
                             pass
                         scmr.hRCloseServiceHandle(self.rpcsvc, service)
                     scmr.hRCloseServiceHandle(self.rpcsvc, svcManager)
@@ -192,17 +192,17 @@ class ServiceInstall:
                 LOG.debug("Exception", exc_info=True)
                 try:
                     scmr.hRControlService(self.rpcsvc, service, scmr.SERVICE_CONTROL_STOP)
-                except:
+                except Exception:
                     pass
                 if fileCopied is True:
                     try:
                         self.connection.deleteFile(self.share, self.__binary_service_name)
-                    except:
+                    except Exception:
                         pass
                 if serviceCreated is True:
                     try:
                         scmr.hRDeleteService(self.rpcsvc, service)
-                    except:
+                    except Exception:
                         pass
             return False
 
@@ -219,7 +219,7 @@ class ServiceInstall:
                 LOG.info('Stopping service %s.....' % self.__service_name)
                 try:
                     scmr.hRControlService(self.rpcsvc, service, scmr.SERVICE_CONTROL_STOP)
-                except:
+                except Exception:
                     pass
                 LOG.info('Removing service %s.....' % self.__service_name)
                 scmr.hRDeleteService(self.rpcsvc, service)
@@ -231,19 +231,19 @@ class ServiceInstall:
             LOG.critical("Error performing the uninstallation, cleaning up" )
             try:
                 scmr.hRControlService(self.rpcsvc, service, scmr.SERVICE_CONTROL_STOP)
-            except:
+            except Exception:
                 pass
             if fileCopied is True:
                 try:
                     self.connection.deleteFile(self.share, self.__binary_service_name)
-                except:
+                except Exception:
                     try:
                         self.connection.deleteFile(self.share, self.__binary_service_name)
-                    except:
+                    except Exception:
                         pass
                     pass
             if serviceCreated is True:
                 try:
                     scmr.hRDeleteService(self.rpcsvc, service)
-                except:
+                except Exception:
                     pass

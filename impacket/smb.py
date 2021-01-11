@@ -3092,7 +3092,7 @@ class SMB(object):
             try: # just in case they were converted already
                 lmhash = a2b_hex(lmhash)
                 nthash = a2b_hex(nthash)
-            except:
+            except Exception:
                 pass
 
         self.__userName = user
@@ -3406,7 +3406,7 @@ class SMB(object):
             try: # just in case they were converted already
                 lmhash = a2b_hex(lmhash)
                 nthash = a2b_hex(nthash)
-            except:
+            except Exception:
                 pass
 
         self.__userName = user
@@ -3421,7 +3421,7 @@ class SMB(object):
         if self._dialects_parameters['Capabilities'] & SMB.CAP_EXTENDED_SECURITY:
             try:
                 self.login_extended(user, password, domain, lmhash, nthash, use_ntlmv2 = True)
-            except:
+            except Exception:
                 # If the target OS is Windows 5.0 or Samba, let's try using NTLMv1
                 if ntlm_fallback and ((self.get_server_lanman().find('Windows 2000') != -1) or (self.get_server_lanman().find('Samba') != -1)):
                     self.login_extended(user, password, domain, lmhash, nthash, use_ntlmv2 = False)
@@ -3633,7 +3633,7 @@ class SMB(object):
                     return ans
                 else:
                     return None
-            except:
+            except Exception:
                 return ans
 
         return None

@@ -566,11 +566,11 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlm
     if encoding is not None:
         try:
             workstation.encode('utf-16le')
-        except:
+        except Exception:
             workstation = workstation.decode(encoding)
         try:
             domain.encode('utf-16le')
-        except:
+        except Exception:
             domain = domain.decode(encoding)
 
     # Let's prepare a Type 1 NTLMSSP Message
@@ -603,15 +603,15 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
     if encoding is not None:
         try:
             user.encode('utf-16le')
-        except:
+        except Exception:
             user = user.decode(encoding)
         try:
             password.encode('utf-16le')
-        except:
+        except Exception:
             password = password.decode(encoding)
         try:
             domain.encode('utf-16le')
-        except:
+        except Exception:
             domain = user.decode(encoding)
 
     ntlmChallenge = NTLMAuthChallenge(type2)

@@ -152,7 +152,7 @@ class HTTPRelayServer(Thread):
                 try:
                     _, blob = typeX.split('NTLM')
                     token = base64.b64decode(blob.strip())
-                except:
+                except Exception:
                     self.do_AUTHHEAD()
                 messageType = struct.unpack('<L', token[len('NTLMSSP\x00'):len('NTLMSSP\x00') + 4])[0]
 

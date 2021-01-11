@@ -25,10 +25,10 @@ from __future__ import print_function
 from impacket import LOG
 try:
     from collections import OrderedDict
-except:
+except Exception:
     try:
         from ordereddict.ordereddict import OrderedDict
-    except:
+    except Exception:
         from ordereddict import OrderedDict
 from impacket.structure import Structure, hexdump
 from struct import unpack
