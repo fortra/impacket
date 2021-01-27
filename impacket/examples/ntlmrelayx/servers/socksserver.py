@@ -302,7 +302,7 @@ class SocksRequestHandler(socketserver.BaseRequestHandler):
 
         if self.__socksVersion == 5:
             # We need to answer back with a no authentication response. We're not dealing with auth for now
-            self.__connSocket.sendall(str(SOCKS5_GREETINGS_BACK()))
+            self.__connSocket.sendall(SOCKS5_GREETINGS_BACK().getData())
             data = self.__connSocket.recv(8192)
             request = SOCKS5_REQUEST(data)
         else:
