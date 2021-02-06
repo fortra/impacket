@@ -17,28 +17,31 @@
 #
 from __future__ import division
 from __future__ import print_function
+
 import argparse
 import logging
 import sys
 from binascii import unhexlify
+from os import path
 
 from impacket import version
 from impacket.examples import logger
-from impacket.krb5.kerberosv5 import getKerberosTGT
 from impacket.krb5 import constants
+from impacket.krb5.kerberosv5 import getKerberosTGT
 from impacket.krb5.types import Principal
 
 
 class GETTGT:
     def __init__(self, target, password, domain, options):
         self.__password = password
-        self.__user= target
+        self.__user = target
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
         self.__aesKey = options.aesKey
         self.__options = options
         self.__kdcHost = options.dc_ip
+
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
 
@@ -53,9 +56,11 @@ class GETTGT:
     def run(self):
         userName = Principal(self.__user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
         tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
-                                                                unhexlify(self.__lmhash), unhexlify(self.__nthash), self.__aesKey,
+                                                                unhexlify(self.__lmhash), unhexlify(self.__nthash),
+                                                                self.__aesKey,
                                                                 self.__kdcHost)
-        self.saveTicket(tgt,oldSessionKey)
+        self.saveTicket(tgt, oldSessionKey)
+
 
 if __name__ == '__main__':
     print(version.BANNER)
@@ -68,17 +73,18 @@ if __name__ == '__main__':
 
     group = parser.add_argument_group('authentication')
 
-    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
-    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
-                       '(KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the '
-                       'ones specified in the command line')
-    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
-                                                                            '(128 or 256 bits)')
-    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
-                       'ommited it use the domain part (FQDN) specified in the target parameter')
+    group.add_argument('-k', action="store_true",
+                       help='Use Kerberos authentication. Grabs credentials from ccache file '
+                            '(KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the '
+                            'ones specified in the command line')
+    group.add_argument('-aesKey', action="store", metavar="hex key", help='AES key to use for Kerberos Authentication '
+                                                                          '(128 or 256 bits)')
+    group.add_argument('-dc-ip', action='store', metavar="ip address", help='IP Address of the domain controller. If '
+                                                                            'ommited it use the domain part (FQDN) specified in the target parameter')
 
-    if len(sys.argv)==1:
+    if len(sys.argv) == 1:
         parser.print_help()
         print("\nExamples: ")
         print("\t./getTGT.py -hashes lm:nt contoso.com/user\n")
@@ -97,8 +103,8 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-
     import re
+
     domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.identity).groups(
         '')
 
@@ -109,15 +115,29 @@ if __name__ == '__main__':
 
         if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
             from getpass import getpass
+
             password = getpass("Password:")
 
         if options.aesKey is not None:
             options.k = True
 
-        executer = GETTGT(username, password, domain, options)
-        executer.run()
+        # check if hashes provided is file , if yes, read , loop and recurse this constructor to run for that file
+        if path.exists(options.hashes) and path.isfile(options.hashes):
+            print("Found a hashfile, looping each hash")
+            newOptions = options
+            hashFile = open(options.hashes)
+            for hash in hashFile:
+                newOptions.hashes = hash
+                executer = GETTGT(username, password, domain, newOptions)
+                executer.run()
+        else:
+            executer = GETTGT(username, password, domain, options)
+            executer.run()
+
+
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
+
             traceback.print_exc()
         print(str(e))
