@@ -42,20 +42,20 @@ REG_QWORD       = 0x0b
 class REG_REGF(Structure):
     structure = (
         ('Magic','"regf'),
-        ('Unknown','<L=0'),
-        ('Unknown2','<L=0'),
+        ('PrimarySeq','<L=0'),
+        ('SecondarySeq','<L=0'),
         ('lastChange','<Q=0'),
         ('MajorVersion','<L=0'),
         ('MinorVersion','<L=0'),
-        ('0','<L=0'),
-        ('11','<L=0'),
+        ('FileType','<L=0'),
+        ('FileFormat','<L=0'),
         ('OffsetFirstRecord','<L=0'),
         ('DataSize','<L=0'),
-        ('1111','<L=0'),
-        ('Name','48s=""'),
-        ('Remaining1','411s=b""'),
+        ('ClusterFactor','<L=0'),
+        ('Name','64s=""'),
+        ('Remaining1','396s=b""'),
         ('CheckSum','<L=0xffffffff'), # Sum of all DWORDs from 0x0 to 0x1FB
-        ('Remaining2','3585s=b""'),
+        ('Remaining2','3584s=b""'),
     )
 
 class REG_HBIN(Structure):
@@ -64,6 +64,9 @@ class REG_HBIN(Structure):
         ('OffsetFirstHBin','<L=0'),
         ('OffsetNextHBin','<L=0'),
         ('BlockSize','<L=0'),
+        ('Reserved','<L=0'),
+        ('Timestamp','<L=0'),
+        ('Spare','<L=0'),
     )
 
 class REG_HBINBLOCK(Structure):
@@ -78,12 +81,12 @@ class REG_NK(Structure):
         ('Magic','"nk'),
         ('Type','<H=0'),
         ('lastChange','<Q=0'),
-        ('Unknown','<L=0'),
+        ('AccessBits','<L=0'),
         ('OffsetParent','<l=0'),
         ('NumSubKeys','<L=0'),
-        ('Unknown2','<L=0'),
+        ('NumVolKeys','<L=0'),
         ('OffsetSubKeyLf','<l=0'),
-        ('Unknown3','<L=0'),
+        ('OffsetVolKeyLf','<L=0'),
         ('NumValues','<L=0'),
         ('OffsetValueList','<l=0'),
         ('OffsetSkRecord','<l=0'),
