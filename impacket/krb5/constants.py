@@ -105,6 +105,8 @@ class PreAuthenticationDataTypes(Enum):
     PA_FX_FAST                 = 136
     PA_FX_ERROR                = 137
     PA_ENCRYPTED_CHALLENGE     = 138
+    KERB_KEY_LIST_REQ          = 161
+    KERB_KEY_LIST_REP          = 162
     PA_SUPPORTED_ENCTYPES      = 165
     PA_PAC_OPTIONS             = 167
 
