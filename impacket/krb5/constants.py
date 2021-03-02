@@ -444,6 +444,7 @@ class EncryptionTypes(Enum):
     rc4_hmac                     = 23
     rc4_hmac_exp                 = 24
     subkey_keymaterial           = 65
+    rc4_hmac_old_exp             = -135
 
 class ChecksumTypes(Enum):
     rsa_md5_des       = 8
