@@ -32,12 +32,12 @@ from impacket import version
 
 class SMBPasswd():
 
-	def __init__(self, userName, oldPwd, oldPwdHashLM, oldPwdHashNT, newPwd, target):
+	def __init__(self, userName, oldPwd, newPwd, oldPwdHashLM, oldPwdHashNT, target):
 		self.userName = userName
 		self.oldPwd = oldPwd
+		self.newPwd = newPwd
 		self.oldPwdHashLM = oldPwdHashLM
 		self.oldPwdHashNT = oldPwdHashNT
-		self.newPwd = newPwd
 		self.target = target
 		self.dce = None
 		self.connect()
@@ -72,20 +72,20 @@ class SMBPasswd():
 
 def normalize_args(args):
 	try:
-		if args.hashes is not None:
-			oldPwdHashLM, oldPwdHashNT = args.hashes.split(':')
-		else:
-			oldPwdHashLM = ''
-			oldPwdHashNT = ''
-	except ValueError:
-		print('Wrong hashes string format. For more information run with --help option.')
-		sys.exit(1)
-
-	try:
 		credentials, target = args.target.rsplit('@', 1)
 	except ValueError:
 		print('Wrong target string format. For more information run with --help option.')
 		sys.exit(1)
+
+	if args.hashes is not None:
+		try:
+			oldPwdHashLM, oldPwdHashNT = args.hashes.split(':')
+		except ValueError:
+			print('Wrong hashes string format. For more information run with --help option.')
+			sys.exit(1)
+	else:
+		oldPwdHashLM = ''
+		oldPwdHashNT = ''
 
 	try:
 		userName, oldPwd = credentials.split(':', 1)
@@ -104,7 +104,7 @@ def normalize_args(args):
 	else:
 		newPwd = args.newpass
 
-	return (userName, oldPwd, oldPwdHashLM, oldPwdHashNT, newPwd, target)
+	return (userName, oldPwd, newPwd, oldPwdHashLM, oldPwdHashNT, target)
 
 
 if __name__ == '__main__':
@@ -116,10 +116,10 @@ if __name__ == '__main__':
 	parser.add_argument('-newpass', action='store', default=None, help='new SMB password')
 	args = parser.parse_args()
 
-	userName, oldPwd, oldPwdHashLM, oldPwdHashNT, newPwd, target = normalize_args(args)
+	userName, oldPwd, newPwd, oldPwdHashLM, oldPwdHashNT, target = normalize_args(args)
 
 	try:
-		smbpasswd = SMBPasswd(userName, oldPwd, oldPwdHashLM, oldPwdHashNT, newPwd, target)
+		smbpasswd = SMBPasswd(userName, oldPwd, newPwd, oldPwdHashLM, oldPwdHashNT, target)
 	except Exception as e:
 		if 'STATUS_ACCESS_DENIED' in str(e):
 			print('[-] Access was denied when attempting to initialize a null session. Try changing the password with smbclient.py.')
