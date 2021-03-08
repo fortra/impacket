@@ -7,18 +7,19 @@
 # for more information.
 #
 # Description:
-#  This script is an alternative to smbpasswd tool for changing passwords
-#  remotely over SMB (MSRPC-SAMR). Supports changing expired passwords.
+#  This script is an alternative to smbpasswd tool and intended to be used
+#  for changing expired passwords remotely over SMB (MSRPC-SAMR).
 #
 # Author:
 #  Sam Freeside (@snovvcrash)
 #
-# Example:
+# Examples:
 #  smbpasswd.py j.doe@PC01.megacorp.local
 #  smbpasswd.py j.doe:'Passw0rd!'@10.10.13.37 -newpass 'N3wPassw0rd!'
 #  smbpasswd.py -hashes :fc525c9683e8fe067095ba2ddc971889 j.doe@10.10.13.37 -newpass 'N3wPassw0rd!'
 #
 # References:
+#  https://snovvcrash.github.io/2020/10/31/pretending-to-be-smbpasswd-with-impacket.html
 #  https://github.com/samba-team/samba/blob/master/source3/utils/smbpasswd.c
 #  https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/acb3204a-da8b-478e-9139-1ea589edb880
 
@@ -40,12 +41,19 @@ class SMBPasswd():
 		self.oldPwdHashNT = oldPwdHashNT
 		self.target = target
 		self.dce = None
-		self.connect()
+
+		try:
+			self.connect()
+		except Exception as e:
+			if 'STATUS_ACCESS_DENIED' in str(e):
+				print('[-] Access was denied when attempting to initialize a null session. Try changing the password with smbclient.py.')
+			else:
+				raise e
 
 	def connect(self):
 		rpctransport = transport.SMBTransport(self.target, filename=r'\samr')
 		if hasattr(rpctransport, 'set_credentials'):
-			# Initializing a null sessions to be able to change an expired password
+			# Initializing a null session to be able to change an expired password
 			rpctransport.set_credentials(username='', password='', domain='', lmhash='', nthash='', aesKey='')
 
 		self.dce = rpctransport.get_dce_rpc()
@@ -118,12 +126,5 @@ if __name__ == '__main__':
 
 	userName, oldPwd, newPwd, oldPwdHashLM, oldPwdHashNT, target = normalize_args(args)
 
-	try:
-		smbpasswd = SMBPasswd(userName, oldPwd, newPwd, oldPwdHashLM, oldPwdHashNT, target)
-	except Exception as e:
-		if 'STATUS_ACCESS_DENIED' in str(e):
-			print('[-] Access was denied when attempting to initialize a null session. Try changing the password with smbclient.py.')
-		else:
-			raise e
-	else:
-		smbpasswd.hSamrUnicodeChangePasswordUser2()
+	smbpasswd = SMBPasswd(userName, oldPwd, newPwd, oldPwdHashLM, oldPwdHashNT, target)
+	smbpasswd.hSamrUnicodeChangePasswordUser2()
