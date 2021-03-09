@@ -12,7 +12,7 @@ PACKAGE_NAME = "impacket"
 
 VER_MAJOR = 0
 VER_MINOR = 9
-VER_MAINT = 22
+VER_MAINT = 23
 VER_PREREL = "dev1"
 try:
     if call(["git", "branch"], stderr=STDOUT, stdout=open(os.devnull, 'w')) == 0:
@@ -45,8 +45,8 @@ setup(name = PACKAGE_NAME,
       url = "https://www.secureauth.com/labs/open-source-tools/impacket",
       author = "SecureAuth Corporation",
       author_email = "oss@secureauth.com",
-      maintainer = "Alberto Solino",
-      maintainer_email = "bethus@gmail.com",
+      maintainer = "SecureAuth's Innovation Labs ",
+      maintainer_email = "oss@secureauth.com",
       license = "Apache modified",
       long_description = read('README.md'),
       long_description_content_type="text/markdown",

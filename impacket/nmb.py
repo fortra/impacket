@@ -912,6 +912,10 @@ class NetBIOSTCPSession(NetBIOSSession):
 
     def recv_packet(self, timeout = None):
         data = self.__read(timeout)
+        NBSPacket = NetBIOSSessionPacket(data)
+        if NBSPacket.get_type() == NETBIOS_SESSION_KEEP_ALIVE:
+            # Discard packet
+            return self.recv_packet(timeout)
         return NetBIOSSessionPacket(data)
 
     def _request_session(self, remote_type, local_type, timeout = None):

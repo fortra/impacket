@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright 2020 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -36,6 +36,7 @@ import argparse
 import logging
 import sys
 import re
+from six import b
 from binascii import unhexlify, hexlify
 from hashlib import pbkdf2_hmac
 
@@ -476,6 +477,30 @@ class DPAPI:
                         keys = VAULT_VPOL_KEYS(data)
                         keys.dump()
                         return
+        elif self.options.action.upper() == 'UNPROTECT':
+            fp = open(options.file, 'rb')
+            data = fp.read()
+            blob = DPAPI_BLOB(data)
+
+            if self.options.key is not None:
+                key = unhexlify(self.options.key[2:])
+                if self.options.entropy_file is not None:
+                    fp2 = open(self.options.entropy_file, 'rb')
+                    entropy = fp2.read()
+                    fp2.close()
+                elif self.options.entropy is not None:
+                    entropy = b(self.options.entropy) + b'\x00'
+                else:
+                    entropy = None
+
+                decrypted = blob.decrypt(key, entropy)
+                if decrypted is not None:
+                    print('Successfully decrypted data')
+                    hexdump(decrypted)
+                    return
+            else:
+                # Just print the data
+                blob.dump()
 
         print('Cannot decrypt (specify -key or -sid whenever applicable) ')
 
@@ -535,6 +560,13 @@ if __name__ == '__main__':
     vault.add_argument('-vpol', action='store', required=False, help='Vault Policy file')
     vault.add_argument('-key', action='store', required=False, help='Master key used for decryption')
 
+    # A CryptUnprotectData command
+    unprotect = subparsers.add_parser('unprotect', help='Provides CryptUnprotectData functionality')
+    unprotect.add_argument('-file', action='store', required=True, help='File with DATA_BLOB to decrypt')
+    unprotect.add_argument('-key', action='store', required=False, help='Key used for decryption')
+    unprotect.add_argument('-entropy', action='store', default=None, required=False, help='String with extra entropy needed for decryption')
+    unprotect.add_argument('-entropy-file', action='store', default=None, required=False, help='File with binary entropy contents (overwrites -entropy)')
+
     options = parser.parse_args()
 
     if len(sys.argv)==1:
@@ -556,4 +588,4 @@ if __name__ == '__main__':
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
-        print(str(e))
+        print('ERROR: %s' % str(e))

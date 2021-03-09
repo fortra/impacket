@@ -105,6 +105,8 @@ class PreAuthenticationDataTypes(Enum):
     PA_FX_FAST                 = 136
     PA_FX_ERROR                = 137
     PA_ENCRYPTED_CHALLENGE     = 138
+    KERB_KEY_LIST_REQ          = 161
+    KERB_KEY_LIST_REP          = 162
     PA_SUPPORTED_ENCTYPES      = 165
     PA_PAC_OPTIONS             = 167
 
@@ -442,6 +444,7 @@ class EncryptionTypes(Enum):
     rc4_hmac                     = 23
     rc4_hmac_exp                 = 24
     subkey_keymaterial           = 65
+    rc4_hmac_old_exp             = -135
 
 class ChecksumTypes(Enum):
     rsa_md5_des       = 8

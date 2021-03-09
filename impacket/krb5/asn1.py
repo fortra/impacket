@@ -502,3 +502,8 @@ class PA_PAC_OPTIONS(univ.Sequence):
         _sequence_component('flags', 0, KerberosFlags()),
     )
 
+class KERB_KEY_LIST_REQ(univ.SequenceOf):
+    componentType = Int32()
+
+class KERB_KEY_LIST_REP(univ.SequenceOf):
+    componentType = EncryptionKey()

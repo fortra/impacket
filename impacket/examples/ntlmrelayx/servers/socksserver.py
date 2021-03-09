@@ -224,7 +224,7 @@ def activeConnectionsWatcher(server):
             # Let's store the protocol scheme, needed be used later when trying to find the right socks relay server to use
             server.activeRelays[target][port]['scheme'] = scheme
 
-            # Default values in case somebody asks while we're gettting the data
+            # Default values in case somebody asks while we're getting the data
             server.activeRelays[target][port][userName]['isAdmin'] = 'N/A'
             # Do we have admin access in this connection?
             try:
@@ -302,7 +302,7 @@ class SocksRequestHandler(socketserver.BaseRequestHandler):
 
         if self.__socksVersion == 5:
             # We need to answer back with a no authentication response. We're not dealing with auth for now
-            self.__connSocket.sendall(str(SOCKS5_GREETINGS_BACK()))
+            self.__connSocket.sendall(SOCKS5_GREETINGS_BACK().getData())
             data = self.__connSocket.recv(8192)
             request = SOCKS5_REQUEST(data)
         else:
