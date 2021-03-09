@@ -20,6 +20,7 @@
 #
 from __future__ import division
 from __future__ import print_function
+from base64 import b64encode
 import sys
 import os
 import cmd
@@ -42,7 +43,7 @@ CODEC = sys.stdout.encoding
 
 class WMIEXEC:
     def __init__(self, command='', username='', password='', domain='', hashes=None, aesKey=None, share=None,
-                 noOutput=False, doKerberos=False, kdcHost=None):
+                 shell_type=None, noOutput=False, doKerberos=False, kdcHost=None):
         self.__command = command
         self.__username = username
         self.__password = password
@@ -51,6 +52,7 @@ class WMIEXEC:
         self.__nthash = ''
         self.__aesKey = aesKey
         self.__share = share
+        self.__shell_type = shell_type
         self.__noOutput = noOutput
         self.__doKerberos = doKerberos
         self.__kdcHost = kdcHost
@@ -89,7 +91,7 @@ class WMIEXEC:
 
             win32Process,_ = iWbemServices.GetObject('Win32_Process')
 
-            self.shell = RemoteShell(self.__share, win32Process, smbConnection)
+            self.shell = RemoteShell(self.__share, self.__shell_type, win32Process, smbConnection)
             if self.__command != ' ':
                 self.shell.onecmd(self.__command)
             else:
@@ -110,12 +112,14 @@ class WMIEXEC:
         dcom.disconnect()
 
 class RemoteShell(cmd.Cmd):
-    def __init__(self, share, win32Process, smbConnection):
+    def __init__(self, share, shell_type, win32Process, smbConnection):
         cmd.Cmd.__init__(self)
         self.__share = share
         self.__output = '\\' + OUTPUT_FILENAME
         self.__outputBuffer = str('')
         self.__shell = 'cmd.exe /Q /c '
+        self.__shell_type = shell_type
+        self.__pwsh = 'powershell.exe -NoP -NoL -sta -NonI -W Hidden -Exec Bypass -Enc '
         self.__win32Process = win32Process
         self.__transferClient = smbConnection
         self.__pwd = str('C:\\')
@@ -150,7 +154,7 @@ class RemoteShell(cmd.Cmd):
             except Exception as e:
                 logging.error(str(e))
 
-    def do_get(self, src_path):
+    def do_lget(self, src_path):
 
         try:
             import ntpath
@@ -168,9 +172,7 @@ class RemoteShell(cmd.Cmd):
             if os.path.exists(filename):
                 os.remove(filename)
 
-
-
-    def do_put(self, s):
+    def do_lput(self, s):
         try:
             params = s.split(' ')
             if len(params) > 1:
@@ -196,6 +198,10 @@ class RemoteShell(cmd.Cmd):
     def do_exit(self, s):
         return True
 
+    def do_EOF(self, s):
+        print()
+        return self.do_exit(s)
+
     def emptyline(self):
         return False
 
@@ -212,6 +218,8 @@ class RemoteShell(cmd.Cmd):
             self.execute_remote('cd ')
             self.__pwd = self.__outputBuffer.strip('\r\n')
             self.prompt = (self.__pwd + '>')
+            if self.__shell_type == 'powershell':
+                self.prompt = 'PS ' + self.prompt + ' '
             self.__outputBuffer = ''
 
     def default(self, line):
@@ -229,6 +237,8 @@ class RemoteShell(cmd.Cmd):
                 self.execute_remote('cd ')
                 self.__pwd = self.__outputBuffer.strip('\r\n')
                 self.prompt = (self.__pwd + '>')
+                if self.__shell_type == 'powershell':
+                    self.prompt = 'PS ' + self.prompt + ' '
                 self.__outputBuffer = ''
         else:
             if line != '':
@@ -264,8 +274,12 @@ class RemoteShell(cmd.Cmd):
                     return self.get_output()
         self.__transferClient.deleteFile(self.__share, self.__output)
 
-    def execute_remote(self, data):
-        command = self.__shell + data 
+    def execute_remote(self, data, shell_type='cmd'):
+        if shell_type == 'cmd':
+            command = self.__shell + data
+        elif shell_type == 'powershell':
+            data = '$ProgressPreference="SilentlyContinue";' + data
+            command = self.__shell + self.__pwsh + b64encode(data.encode('utf-16le')).decode()
         if self.__noOutput is False:
             command += ' 1> ' + '\\\\127.0.0.1\\%s' % self.__share + self.__output  + ' 2>&1'
         if PY2:
@@ -275,7 +289,7 @@ class RemoteShell(cmd.Cmd):
         self.get_output()
 
     def send_data(self, data):
-        self.execute_remote(data)
+        self.execute_remote(data, self.__shell_type)
         print(self.__outputBuffer)
         self.__outputBuffer = ''
 
@@ -337,6 +351,8 @@ if __name__ == '__main__':
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-share', action='store', default = 'ADMIN$', help='share where the output will be grabbed from '
                                                                            '(default ADMIN$)')
+    parser.add_argument('-shell-type', action='store', default = 'cmd', choices = ['cmd', 'powershell'], help='choose '
+                        'a command processor for the semi-interactive shell')
     parser.add_argument('-nooutput', action='store_true', default = False, help='whether or not to print the output '
                                                                                 '(no SMB connection created)')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
@@ -421,7 +437,7 @@ if __name__ == '__main__':
             options.k = True
 
         executer = WMIEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey,
-                           options.share, options.nooutput, options.k, options.dc_ip)
+                           options.share, options.shell_type, options.nooutput, options.k, options.dc_ip)
         executer.run(address)
     except KeyboardInterrupt as e:
         logging.error(str(e))
