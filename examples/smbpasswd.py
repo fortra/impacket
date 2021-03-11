@@ -31,7 +31,7 @@ from impacket.dcerpc.v5 import transport, samr
 from impacket import version
 
 
-class SMBPasswd():
+class SMBPasswd:
 
 	def __init__(self, userName, oldPwd, newPwd, oldPwdHashLM, oldPwdHashNT, target):
 		self.userName = userName
@@ -120,8 +120,9 @@ if __name__ == '__main__':
 
 	parser = ArgumentParser(description='Change password over SMB.')
 	parser.add_argument('target', action='store', help='<username[:password]>@<target_hostname_or_IP_address>')
-	parser.add_argument('-hashes', action='store', default=None, metavar='LMHASH:NTHASH', help='current NTLM hashes, format is LMHASH:NTHASH')
 	parser.add_argument('-newpass', action='store', default=None, help='new SMB password')
+	group = parser.add_argument_group('authentication')
+	group.add_argument('-hashes', action='store', default=None, metavar='LMHASH:NTHASH', help='current NTLM hashes, format is LMHASH:NTHASH')
 	args = parser.parse_args()
 
 	userName, oldPwd, newPwd, oldPwdHashLM, oldPwdHashNT, target = normalize_args(args)
