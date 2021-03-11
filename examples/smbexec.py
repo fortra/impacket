@@ -39,6 +39,7 @@ except ImportError:
     import configparser as ConfigParser
 import logging
 from threading import Thread
+from base64 import b64encode
 
 from impacket.examples import logger
 from impacket import version, smbserver
@@ -111,8 +112,8 @@ class SMBServer(Thread):
         self._Thread__stop()
 
 class CMDEXEC:
-    def __init__(self, username='', password='', domain='', hashes=None, aesKey=None,
-                 doKerberos=None, kdcHost=None, mode=None, share=None, port=445, serviceName=SERVICE_NAME):
+    def __init__(self, username='', password='', domain='', hashes=None, aesKey=None, doKerberos=None,
+                 kdcHost=None, mode=None, share=None, port=445, serviceName=SERVICE_NAME, shell_type=None):
 
         self.__username = username
         self.__password = password
@@ -126,6 +127,7 @@ class CMDEXEC:
         self.__kdcHost = kdcHost
         self.__share = share
         self.__mode  = mode
+        self.__shell_type = shell_type
         self.shell = None
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
@@ -148,7 +150,7 @@ class CMDEXEC:
                 serverThread = SMBServer()
                 serverThread.daemon = True
                 serverThread.start()
-            self.shell = RemoteShell(self.__share, rpctransport, self.__mode, self.__serviceName)
+            self.shell = RemoteShell(self.__share, rpctransport, self.__mode, self.__serviceName, self.__shell_type)
             self.shell.cmdloop()
             if self.__mode == 'SERVER':
                 serverThread.stop()
@@ -163,7 +165,7 @@ class CMDEXEC:
             sys.exit(1)
 
 class RemoteShell(cmd.Cmd):
-    def __init__(self, share, rpc, mode, serviceName):
+    def __init__(self, share, rpc, mode, serviceName, shell_type):
         cmd.Cmd.__init__(self)
         self.__share = share
         self.__mode = mode
@@ -172,6 +174,8 @@ class RemoteShell(cmd.Cmd):
         self.__outputBuffer = b''
         self.__command = ''
         self.__shell = '%COMSPEC% /Q /c '
+        self.__shell_type = shell_type
+        self.__pwsh = 'powershell.exe -NoP -NoL -sta -NonI -W Hidden -Exec Bypass -Enc '
         self.__serviceName = serviceName
         self.__rpc = rpc
         self.intro = '[!] Launching semi-interactive shell - Careful what you execute'
@@ -219,6 +223,10 @@ class RemoteShell(cmd.Cmd):
     def do_exit(self, s):
         return True
 
+    def do_EOF(self, s):
+        print()
+        return self.do_exit(s)
+
     def emptyline(self):
         return False
 
@@ -231,6 +239,8 @@ class RemoteShell(cmd.Cmd):
         if len(self.__outputBuffer) > 0:
             # Stripping CR/LF
             self.prompt = self.__outputBuffer.decode().replace('\r\n','') + '>'
+            if self.__shell_type == 'powershell':
+                self.prompt = 'PS ' + self.prompt + ' '
             self.__outputBuffer = b''
 
     def do_CD(self, s):
@@ -253,9 +263,14 @@ class RemoteShell(cmd.Cmd):
             fd.close()
             os.unlink(SMBSERVER_DIR + '/' + OUTPUT_FILENAME)
 
-    def execute_remote(self, data):
+    def execute_remote(self, data, shell_type='cmd'):
+        if shell_type == 'powershell':
+            data = '$ProgressPreference="SilentlyContinue";' + data
+            data = self.__pwsh + b64encode(data.encode('utf-16le')).decode()
+
         command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' 2^>^&1 > ' + self.__batchFile + ' & ' + \
                   self.__shell + self.__batchFile
+
         if self.__mode == 'SERVER':
             command += ' & ' + self.__copyBack
         command += ' & ' + 'del ' + self.__batchFile
@@ -274,7 +289,7 @@ class RemoteShell(cmd.Cmd):
         self.get_output()
 
     def send_data(self, data):
-        self.execute_remote(data)
+        self.execute_remote(data, self.__shell_type)
         try:
             print(self.__outputBuffer.decode(CODEC))
         except UnicodeDecodeError:
@@ -303,6 +318,8 @@ if __name__ == '__main__':
                                                        'map the result with '
                           'https://docs.python.org/3/library/codecs.html#standard-encodings and then execute smbexec.py '
                           'again with -codec and the corresponding codec ' % CODEC)
+    parser.add_argument('-shell-type', action='store', default = 'cmd', choices = ['cmd', 'powershell'], help='choose '
+                        'a command processor for the semi-interactive shell')
 
     group = parser.add_argument_group('connection')
 
@@ -376,8 +393,8 @@ if __name__ == '__main__':
         options.k = True
 
     try:
-        executer = CMDEXEC(username, password, domain, options.hashes, options.aesKey, options.k,
-                           options.dc_ip, options.mode, options.share, int(options.port), options.service_name)
+        executer = CMDEXEC(username, password, domain, options.hashes, options.aesKey, options.k, options.dc_ip,
+                           options.mode, options.share, int(options.port), options.service_name, options.shell_type)
         executer.run(remoteName, options.target_ip)
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
