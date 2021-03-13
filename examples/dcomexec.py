@@ -431,7 +431,7 @@ class RemoteShellMMC20(RemoteShell):
     def execute_remote(self, data, shell_type='cmd'):
         if shell_type == 'powershell':
             data = '$ProgressPreference="SilentlyContinue";' + data
-            data = self.__pwsh + b64encode(data.encode('utf-16le')).decode()
+            data = self._RemoteShell__pwsh + b64encode(data.encode('utf-16le')).decode()
 
         command = '/Q /c ' + data
         if self._noOutput is False:
