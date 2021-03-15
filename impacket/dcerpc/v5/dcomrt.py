@@ -1066,14 +1066,15 @@ class DCOMConnection:
         return DCOMConnection.PORTMAPS[self.__target]
 
     def disconnect(self):
-        if DCOMConnection.PINGTIMER is not None:
+        if self.__target in DCOMConnection.PORTMAPS:
             del(DCOMConnection.PORTMAPS[self.__target])
+        if self.__target in DCOMConnection.OID_SET:
             del(DCOMConnection.OID_SET[self.__target])
-            if len(DCOMConnection.PORTMAPS) == 0:
-                # This means there are no more clients using this object, kill it
-                DCOMConnection.PINGTIMER.cancel()
-                DCOMConnection.PINGTIMER.join()
-                DCOMConnection.PINGTIMER = None
+        if DCOMConnection.PINGTIMER is not None and len(DCOMConnection.PORTMAPS) == 0:
+            # This means there are no more clients using this object, kill it
+            DCOMConnection.PINGTIMER.cancel()
+            DCOMConnection.PINGTIMER.join()
+            DCOMConnection.PINGTIMER = None
         if self.__target in INTERFACE.CONNECTIONS:
             del(INTERFACE.CONNECTIONS[self.__target][currentThread().getName()])
         self.__portmap.disconnect()
