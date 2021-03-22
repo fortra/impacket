@@ -509,6 +509,14 @@ class CustomHeader(TypeSerialization1):
             TypeSerialization1.getDataReferents(self, soFar))
         self['cIfs'] = len(self['pclsid'])
         return TypeSerialization1.getData(self, soFar)
+    
+    def fromStringReferent(self, data, offset=0):
+        return (
+            TypeSerialization1.fromStringReferent(self, data, offset) +
+            self['headerSize'] -
+            len(TypeSerialization1.getData(self, 0)) -
+            len(TypeSerialization1.getDataReferents(self, 0))
+        )
 
 # 2.2.22 Activation Properties BLOB
 class ACTIVATION_BLOB(NDRTLSTRUCT):
