@@ -164,15 +164,28 @@ class handle_t(NDRSTRUCT):
 
 # 2.2.11 COMVERSION
 class COMVERSION(NDRSTRUCT):
+
+    default_major_version = 5
+    default_minor_version = 7
+
     structure = (
         ('MajorVersion',USHORT),
         ('MinorVersion',USHORT),
     )
+
+    @classmethod
+    def set_default_version(cls, major_version=None, minor_version=None):
+        # Set default dcom version for all new COMVERSION objects.
+        if major_version is not None:
+            cls.default_major_version = major_version
+        if minor_version is not None:
+            cls.default_minor_version = minor_version
+
     def __init__(self, data = None,isNDR64 = False):
         NDRSTRUCT.__init__(self, data, isNDR64)
         if data is None:
-            self['MajorVersion'] = 5
-            self['MinorVersion'] = 7
+            self['MajorVersion'] = self.default_major_version
+            self['MinorVersion'] = self.default_minor_version
 
 class PCOMVERSION(NDRPOINTER):
     referent = (

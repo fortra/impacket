@@ -51,7 +51,7 @@ import logging
 
 from impacket.examples import logger
 from impacket import version
-from impacket.dcerpc.v5.dcomrt import DCOMConnection
+from impacket.dcerpc.v5.dcomrt import DCOMConnection, COMVERSION
 from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dtypes import NULL
 
@@ -161,6 +161,8 @@ if __name__ == '__main__':
 
     parser.add_argument('target', action='store', help='[domain/][username[:password]@]<address>')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-com-version', action='store', metavar = "MAJOR_VERSOIN:MINOR_VERSION", help='DCOM versoin, '
+                        'format is MAJOR_VERSOIN:MINOR_VERSION e.g. 5.7')
     subparsers = parser.add_subparsers(help='actions', dest='action')
 
     # A start command
@@ -202,6 +204,15 @@ if __name__ == '__main__':
         logging.debug(version.getInstallationPath())
     else:
         logging.getLogger().setLevel(logging.INFO)
+
+    
+    if options.com_version is not None:
+        try:
+            major_version, minor_version = options.com_version.split('.')
+            COMVERSION.set_default_version(int(major_version), int(minor_version))
+        except Exception:
+            logging.error("Wrong COMVERSION format, use dot separated integers e.g. \"5.7\"")
+            sys.exit(1)
 
 
     if options.action.upper() == 'INSTALL':

@@ -32,7 +32,7 @@ from base64 import b64encode
 from impacket.examples import logger
 from impacket import version
 from impacket.smbconnection import SMBConnection, SMB_DIALECT, SMB2_DIALECT_002, SMB2_DIALECT_21
-from impacket.dcerpc.v5.dcomrt import DCOMConnection
+from impacket.dcerpc.v5.dcomrt import DCOMConnection, COMVERSION
 from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.krb5.keytab import Keytab
@@ -363,6 +363,8 @@ if __name__ == '__main__':
                           'again with -codec and the corresponding codec ' % CODEC)
     parser.add_argument('-shell-type', action='store', default = 'cmd', choices = ['cmd', 'powershell'], help='choose '
                         'a command processor for the semi-interactive shell')
+    parser.add_argument('-com-version', action='store', metavar = "MAJOR_VERSOIN:MINOR_VERSION", help='DCOM versoin, '
+                        'format is MAJOR_VERSOIN:MINOR_VERSION e.g. 5.7')
 
     parser.add_argument('command', nargs='*', default = ' ', help='command to execute at the target. If empty it will '
                                                                   'launch a semi-interactive shell')
@@ -407,6 +409,14 @@ if __name__ == '__main__':
         logging.debug(version.getInstallationPath())
     else:
         logging.getLogger().setLevel(logging.INFO)
+
+    if options.com_version is not None:
+        try:
+            major_version, minor_version = options.com_version.split('.')
+            COMVERSION.set_default_version(int(major_version), int(minor_version))
+        except Exception:
+            logging.error("Wrong COMVERSION format, use dot separated integers e.g. \"5.7\"")
+            sys.exit(1)
 
     import re
 
