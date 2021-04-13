@@ -43,7 +43,6 @@ from Cryptodome.Cipher import AES, PKCS1_v1_5
 from Cryptodome.Hash import HMAC, SHA1, MD4
 from impacket.uuid import bin_to_string
 from impacket import crypto
-from impacket.examples.utils import parse_target
 from impacket.smbconnection import SMBConnection
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import lsad
@@ -57,6 +56,7 @@ from impacket.structure import hexdump
 from impacket.dpapi import MasterKeyFile, MasterKey, CredHist, DomainKey, CredentialFile, DPAPI_BLOB, \
     CREDENTIAL_BLOB, VAULT_VCRD, VAULT_VPOL, VAULT_KNOWN_SCHEMAS, VAULT_VPOL_KEYS, P_BACKUP_KEY, PREFERRED_BACKUP_KEY, \
     PVK_FILE_HDR, PRIVATE_KEY_BLOB, privatekeyblob_to_pkcs1, DPAPI_DOMAIN_RSA_MASTER_KEY
+
 
 class DPAPI:
     def __init__(self, options):
