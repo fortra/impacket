@@ -35,7 +35,6 @@ import struct
 import argparse
 import logging
 import sys
-import re
 from six import b
 from binascii import unhexlify, hexlify
 from hashlib import pbkdf2_hmac
@@ -44,6 +43,7 @@ from Cryptodome.Cipher import AES, PKCS1_v1_5
 from Cryptodome.Hash import HMAC, SHA1, MD4
 from impacket.uuid import bin_to_string
 from impacket import crypto
+from impacket.examples.utils import parse_target
 from impacket.smbconnection import SMBConnection
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import lsad
@@ -51,6 +51,7 @@ from impacket.dcerpc.v5 import bkrp
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE
 from impacket import version
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket.examples.secretsdump import LocalOperations, LSASecrets
 from impacket.structure import hexdump
 from impacket.dpapi import MasterKeyFile, MasterKey, CredHist, DomainKey, CredentialFile, DPAPI_BLOB, \
@@ -267,11 +268,7 @@ class DPAPI:
                     return
 
             elif self.options.target is not None:
-                domain, username, password, remoteName = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(self.options.target).groups('')
-                #In case the password contains '@'
-                if '@' in remoteName:
-                    password = password + '@' + remoteName.rpartition('@')[0]
-                    remoteName = remoteName.rpartition('@')[2]
+                domain, username, password, remoteName = parse_target(self.options.target)
 
                 if domain is None:
                     domain = ''
@@ -336,8 +333,8 @@ class DPAPI:
 
         # credit to @gentilkiwi
         elif self.options.action.upper() == 'BACKUPKEYS':
-            domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-                self.options.target).groups('')
+            domain, username, password, address = parse_target(self.options.target)
+
             if password == '' and username != '' and self.options.hashes is None and self.options.no_pass is False and self.options.aesKey is None:
                 from getpass import getpass
                 password = getpass ("Password:")

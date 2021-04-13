@@ -30,6 +30,7 @@ import ntpath
 from base64 import b64encode
 
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket import version
 from impacket.smbconnection import SMBConnection, SMB_DIALECT, SMB2_DIALECT_002, SMB2_DIALECT_21
 from impacket.dcerpc.v5.dcomrt import DCOMConnection
@@ -408,15 +409,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-        options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    domain, username, password, remoteName = parse_target(options.target)
 
     try:
         if options.A is not None:
