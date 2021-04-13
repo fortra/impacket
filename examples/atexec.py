@@ -285,7 +285,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    domain, username, password, remoteName = parse_target(options.target)
+    domain, username, password, address = parse_target(options.target)
 
     if domain is None:
         domain = ''
