@@ -37,7 +37,7 @@ jobs:
 
     steps:
       - name: Checkout Impacket
-        uses: action/checkout@v2
+        uses: actions/checkout@v2
 
       - name: Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
@@ -68,9 +68,10 @@ jobs:
   docker:
     name: Build docker image
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Checkout Impacket
-        uses: action/checkout@v2
+        uses: actions/checkout@v2
 
       - name: Build docker image
         run: |
