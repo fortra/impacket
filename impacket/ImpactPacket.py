@@ -22,11 +22,14 @@ import sys
 from binascii import hexlify
 from functools import reduce
 
-# Alias function for compatibility with both Python <3.2 `tostring` method, and Python >3.2 `tobytes`
+# Alias function for compatibility with both Python <3.2 `tostring` and `fromstring` methods, and
+# Python >=3.2 `tobytes` and `tostring`
 if sys.version_info[0] >= 3 and sys.version_info[1] >= 2:
     array_tobytes = lambda array_object: array_object.tobytes()
+    array_frombytes = lambda array_object, bytes: array_object.frombytes(bytes)
 else:
     array_tobytes = lambda array_object: array_object.tostring()
+    array_frombytes = lambda array_object, bytes: array_object.fromstring(bytes)
 
 
 """Classes to build network packets programmatically.
@@ -153,7 +156,7 @@ class PacketBuffer(object):
             bytes = self.__bytes[index:]
         else:
             bytes = self.__bytes[index:index+4]
-        return socket.inet_ntoa(bytes.tobytes())
+        return socket.inet_ntoa(array_tobytes(bytes))
 
     def set_ip_address(self, index, ip_string):
         "Set 4-byte value at 'index' from 'ip_string'"
@@ -203,7 +206,7 @@ class PacketBuffer(object):
 
         diff = index + size - curlen
         if diff > 0:
-            self.__bytes.fromstring('\0' * diff)
+            array_frombytes(self.__bytes, '\0' * diff)
             if orig_index < 0:
                 orig_index -= diff
 
@@ -804,7 +807,7 @@ class IP(Header):
         # Pad to a multiple of 4 bytes
         num_pad = (4 - (len(my_bytes) % 4)) % 4
         if num_pad:
-            my_bytes.fromstring(b"\0"* num_pad)
+            array_frombytes(my_bytes, b"\0" * num_pad)
 
         # only change ip_hl value if options are present
         if len(self.__option_list):
@@ -842,7 +845,7 @@ class IP(Header):
 
         size_str = struct.pack("!H", tmp_size)
 
-        pseudo_buf.fromstring(size_str)
+        array_frombytes(pseudo_buf, size_str)
         return pseudo_buf
 
     def add_option(self, option):
@@ -1303,7 +1306,7 @@ class UDP(Header):
             buffer += self.get_bytes()
             data = self.get_data_as_string()
             if(data):
-                buffer.fromstring(data)
+                array_frombytes(buffer, data)
             self.set_uh_sum(self.compute_checksum(buffer))
 
     def get_header_size(self):
@@ -1493,7 +1496,7 @@ class TCP(Header):
 
         data = self.get_data_as_string()
         if(data):
-            buffer.fromstring(data)
+            array_frombytes(buffer, data)
 
         res = self.compute_checksum(buffer)
 
@@ -1569,7 +1572,7 @@ class TCP(Header):
             op_buf += op.get_bytes()
         num_pad = (4 - (len(op_buf) % 4)) % 4
         if num_pad:
-            op_buf.fromstring("\0" * num_pad)
+            array_frombytes(op_buf, "\0" * num_pad)
         return op_buf
 
     def __str__(self):
