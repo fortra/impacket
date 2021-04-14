@@ -22,6 +22,13 @@ import sys
 from binascii import hexlify
 from functools import reduce
 
+
+def array_tobytes(array_object):
+    """ Alias function for compatibility with both Python <3.2 `tostring` method, and Python >3.2 `tobytes`
+    """
+    return array_object.tobytes() if sys.version_info[1] >= 2 else array_object.tostring()
+
+
 """Classes to build network packets programmatically.
 
 Each protocol layer is represented by an object, and these objects are
@@ -60,7 +67,7 @@ class PacketBuffer(object):
 
     def get_buffer_as_string(self):
         "Returns the packet buffer as a string object"
-        return self.__bytes.tostring()
+        return array_tobytes(self.__bytes)
 
     def get_bytes(self):
         "Returns the packet buffer as an array"
@@ -97,7 +104,7 @@ class PacketBuffer(object):
             bytes = self.__bytes[index:]
         else:
             bytes = self.__bytes[index:index+2]
-        (value,) = struct.unpack(order + 'H', bytes.tostring())
+        (value,) = struct.unpack(order + 'H', array_tobytes(bytes))
         return value
 
     def set_long(self, index, value, order = '!'):
@@ -116,7 +123,7 @@ class PacketBuffer(object):
             bytes = self.__bytes[index:]
         else:
             bytes = self.__bytes[index:index+4]
-        (value,) = struct.unpack(order + 'L', bytes.tostring())
+        (value,) = struct.unpack(order + 'L', array_tobytes(bytes))
         return value
 
     def set_long_long(self, index, value, order = '!'):
@@ -135,7 +142,7 @@ class PacketBuffer(object):
             bytes = self.__bytes[index:]
         else:
             bytes = self.__bytes[index:index+8]
-        (value,) = struct.unpack(order + 'Q', bytes.tostring())
+        (value,) = struct.unpack(order + 'Q', array_tobytes(bytes))
         return value
 
 
@@ -146,7 +153,7 @@ class PacketBuffer(object):
             bytes = self.__bytes[index:]
         else:
             bytes = self.__bytes[index:index+4]
-        return socket.inet_ntoa(bytes.tostring())
+        return socket.inet_ntoa(bytes.tobytes())
 
     def set_ip_address(self, index, ip_string):
         "Set 4-byte value at 'index' from 'ip_string'"
@@ -719,7 +726,7 @@ class LinuxSLL(Header):
 
     def get_addr(self):
         "Returns the sender's address field"
-        return self.get_bytes()[6:14].tostring()
+        return array_tobytes(self.get_bytes()[6:14])
 
     def set_ether_type(self, aValue):
         "Set ethernet data type field to 'aValue'"
@@ -809,9 +816,9 @@ class IP(Header):
             self.set_ip_sum(self.compute_checksum(my_bytes))
 
         if child_data is None:
-            return my_bytes.tostring()
+            return array_tobytes(my_bytes)
         else:
-            return my_bytes.tostring() + child_data
+            return array_tobytes(my_bytes) + child_data
 
 
 
@@ -1505,9 +1512,9 @@ class TCP(Header):
         data = self.get_data_as_string()
 
         if data:
-            return bytes.tostring() + data
+            return array_tobytes(bytes) + data
         else:
-            return bytes.tostring()
+            return array_tobytes(bytes)
 
     def load_header(self, aBuffer):
         self.set_bytes_from_string(aBuffer[:20])
