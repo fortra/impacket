@@ -73,4 +73,5 @@ jobs:
         uses: action/checkout@v2
 
       - name: Build docker image
-        docker build -t ${{ DOCKER_TAG }} .
+        run: |
+          docker build -t ${{ DOCKER_TAG }} .
