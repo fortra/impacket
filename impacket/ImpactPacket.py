@@ -22,11 +22,11 @@ import sys
 from binascii import hexlify
 from functools import reduce
 
-
-def array_tobytes(array_object):
-    """ Alias function for compatibility with both Python <3.2 `tostring` method, and Python >3.2 `tobytes`
-    """
-    return array_object.tobytes() if sys.version_info[1] >= 2 else array_object.tostring()
+# Alias function for compatibility with both Python <3.2 `tostring` method, and Python >3.2 `tobytes`
+if sys.version_info[0] >= 3 and sys.version_info[1] >= 2:
+    array_tobytes = lambda array_object: array_object.tobytes()
+else:
+    array_tobytes = lambda array_object: array_object.tostring()
 
 
 """Classes to build network packets programmatically.
