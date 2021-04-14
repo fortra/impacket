@@ -14,6 +14,16 @@ target_regex = re.compile(r"(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)")
 
 
 def parse_target(target):
+    """ Helper function to parse target information. The expected format is:
+
+    <DOMAIN></USERNAME><:PASSWORD>@HOSTNAME
+
+    :param target: target to parse
+    :type target: string
+
+    :return: tuple of domain, username, password and remote name or IP address
+    :rtype: (string, string, string, string)
+    """
     domain, username, password, remote_name = target_regex.match(target).groups('')
 
     # In case the password contains '@'
