@@ -74,4 +74,4 @@ jobs:
 
       - name: Build docker image
         run: |
-          docker build -t ${{ DOCKER_TAG }} .
+          docker build -t ${{ env.DOCKER_TAG }} .
