@@ -12,28 +12,28 @@ env:
 jobs:
   test:
     name: Run unit tests and build wheel
-    runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: [2.7, 3.6, 3.7, 3.8, 3.9]
+        tox-env: [py27, py36, py37, py38, py39]
         experimental: [false]
         include:
-          - python-version: 2.7
-            tox-env: py27
-          - python-version: 3.6
-            tox-env: py36
-          - python-version: 3.7
-            tox-env: py37
-          - python-version: 3.8
-            tox-env: py38
-          - python-version: 3.9
-            tox-env: py39
+          - tox-env: py27
+            python-version: 2.7
+          - tox-env: py36
+            python-version: 3.6
+          - tox-env: py37
+            python-version: 3.7
+          - tox-env: py38
+            python-version: 3.8
+          - tox-env: py39
+            python-version: 3.9
             experimental: true
     env:
       TOXENV: ${{ matrix.tox-env }}
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental }}
 
     steps:
       - name: Checkout Impacket
