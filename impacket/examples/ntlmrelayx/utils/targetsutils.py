@@ -108,35 +108,6 @@ class TargetsProcessor:
                 newTarget = urlparse('%s://%s@%s%s' % (target.scheme, gotUsername.replace('/','\\'), target.netloc, target.path))
                 self.finishedAttacks.append(newTarget)
 
-    def checkFinishedAttacks(self, target):
-        for finishedTarget in self.finishedAttacks:
-            tmpTarget = '%s://%s' % (finishedTarget.scheme, finishedTarget.netloc)
-            if target.upper() == tmpTarget.upper():
-                return True
-        return False
-
-    def getOneShotTarget(self):
-        if len(self.generalCandidates) > 0:
-             return self.generalCandidates.pop()
-        else:
-            if len(self.originalTargets) > 0:
-                self.generalCandidates = [x for x in self.originalTargets if
-                                          x not in self.finishedAttacks and x.username is None]
-
-        if len(self.namedCandidates) > 0:
-            for target in self.namedCandidates:
-                if target.username is not None:
-                    self.namedCandidates.remove(target)
-                    return target
-
-        if len(self.generalCandidates) == 0:
-            if len(self.namedCandidates) == 0:
-                #We are here, which means all the targets are already exhausted by the client
-                LOG.info("All targets processed!")
-            return None
-        else:
-            return self.generalCandidates.pop()
-
     def getTarget(self, identity=None):
         # ToDo: We should have another list of failed attempts (with user) and check that inside this method so we do not
         # retry those targets.
@@ -173,16 +144,12 @@ class TargetsProcessor:
                 self.generalCandidates = [x for x in self.originalTargets if
                                           x not in self.finishedAttacks and x.username is None]
 
-        if len(self.generalCandidates) == 0:
-            if len(self.namedCandidates) == 0:
-                #We are here, which means all the targets are already exhausted by the client
-                LOG.info("All targets processed!")
-            elif identity is not None:
-                #This user has no more targets
-                LOG.debug("No more targets for user %s" % identity)
+        if len(self.generalCandidates) == 0 and len(self.namedCandidates) == 0:
+            #We are here, which means all the targets are already exhausted by the client
+            LOG.info("All targets processed!")
             return None
-        else:
-            return self.getTarget(identity)
+
+        return None
 
 class TargetsFileWatcher(Thread):
     def __init__(self,targetprocessor):
