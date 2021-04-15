@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tox-env: [py27, py36, py37, py38, py39]
+        tox-env: [py27, py36, py37, py38]
         experimental: [false]
         include:
           - tox-env: py27
