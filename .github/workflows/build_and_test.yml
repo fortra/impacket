@@ -12,10 +12,10 @@ env:
 jobs:
   test:
     name: Run unit tests and build wheel
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
         tox-env: [py27, py36, py37, py38, py39]
         experimental: [false]
         include:
@@ -32,7 +32,6 @@ jobs:
             experimental: true
     env:
       TOXENV: ${{ matrix.tox-env }}
-    runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.experimental }}
 
     steps:
