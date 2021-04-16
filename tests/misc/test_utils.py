@@ -8,13 +8,12 @@
 # Utility and helper functions for the example scripts
 #
 import unittest
-from impacket.examples.utils import parse_target
+from impacket.examples.utils import parse_target, parse_credentials
 
 
 class UtilsTests(unittest.TestCase):
 
     def test_parse_target(self):
-
         # Parse target returns a tuple with: domain, username, password, remote_name/address
         targets = {
             "": ("", "", "", ""),
@@ -26,10 +25,26 @@ class UtilsTests(unittest.TestCase):
             "DOMAIN/UserName@HostName": ("DOMAIN", "UserName", "", "HostName"),
             "DOMAIN/:Password@HostName": ("DOMAIN", "", "Password", "HostName"),
             "DOMAIN/UserName:Password@HostName": ("DOMAIN", "UserName", "Password", "HostName"),
+            "DOMAIN/UserName:Password/123@HostName": ("DOMAIN", "UserName", "Password/123", "HostName"),
         }
 
         for target, result in targets.items():
             self.assertTupleEqual(parse_target(target), result)
+
+    def test_parse_credentials(self):
+        # Parse credentials returns a tuple with: domain, username, password
+        creds = {
+            "": ("", "", ""),
+            "UserName": ("", "UserName", ""),
+            "UserName:Password": ("", "UserName", "Password"),
+            "UserName:Password:123": ("", "UserName", "Password:123"),
+            "DOMAIN/UserName": ("DOMAIN", "UserName", ""),
+            "DOMAIN/UserName:Password": ("DOMAIN", "UserName", "Password"),
+            "DOMAIN/UserName:Password/123": ("DOMAIN", "UserName", "Password/123"),
+        }
+
+        for cred, result in creds.items():
+            self.assertTupleEqual(parse_credentials(cred), result)
 
 
 if __name__ == "__main__":

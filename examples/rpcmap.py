@@ -34,6 +34,7 @@ import argparse
 
 from impacket.http import AUTH_BASIC
 from impacket.examples import logger, rpcdatabase
+from impacket.examples.utils import parse_credentials
 from impacket import uuid, version
 from impacket.dcerpc.v5.epm import KNOWN_UUIDS
 from impacket.dcerpc.v5 import transport, rpcrt, epm
@@ -45,6 +46,7 @@ from impacket.dcerpc.v5.rpch import RPC_PROXY_CONN_A1_401_ERR, \
     RPC_PROXY_INVALID_RPC_PORT_ERR, RPC_PROXY_HTTP_IN_DATA_401_ERR, \
     RPC_PROXY_CONN_A1_0X6BA_ERR, RPC_PROXY_CONN_A1_404_ERR, \
     RPC_PROXY_RPC_OUT_DATA_404_ERR
+
 
 class RPCMap():
     def __init__(self, stringbinding='', authLevel=6, bruteUUIDs=False, uuids=(),
@@ -323,8 +325,8 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    rpcdomain, rpcuser, rpcpass = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.auth_rpc).groups('')
-    transportdomain, transportuser, transportpass = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.auth_transport).groups('')
+    rpcdomain, rpcuser, rpcpass = parse_credentials(options.auth_rpc)
+    transportdomain, transportuser, transportpass = parse_credentials(options.auth_transport)
 
     if options.brute_opnums and options.brute_versions:
        logging.error("Specify only -brute-opnums or -brute-versions")

@@ -10,7 +10,12 @@
 import re
 
 
+# Regular expression to parse target information
 target_regex = re.compile(r"(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)")
+
+
+# Regular expression to parse credentials information
+credential_regex = re.compile(r"(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?")
 
 
 def parse_target(target):
@@ -32,3 +37,19 @@ def parse_target(target):
         remote_name = remote_name.rpartition('@')[2]
 
     return domain, username, password, remote_name
+
+
+def parse_credentials(credentials):
+    """ Helper function to parse credentials information. The expected format is:
+
+    <DOMAIN></USERNAME><:PASSWORD>
+
+    :param credentials: credentials to parse
+    :type credentials: string
+
+    :return: tuple of domain, username and password
+    :rtype: (string, string, string)
+    """
+    domain, username, password = credential_regex.match(credentials).groups('')
+
+    return domain, username, password

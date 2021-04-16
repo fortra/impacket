@@ -40,6 +40,7 @@ from pyasn1.codec.der import decoder
 from impacket import version
 from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_TRUSTED_FOR_DELEGATION, UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION
 from impacket.examples import logger
+from impacket.examples.utils import parse_credentials
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import TGS_REP
 from impacket.krb5.ccache import CCache
@@ -48,6 +49,7 @@ from impacket.krb5.types import Principal
 from impacket.ldap import ldap, ldapasn1
 from impacket.smbconnection import SMBConnection
 from impacket.ntlm import compute_lmhash, compute_nthash
+
 
 class GetUserSPNs:
     @staticmethod
@@ -479,8 +481,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-    userDomain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.target).groups('')
+    userDomain, username, password = parse_credentials(options.target)
 
     if userDomain == '':
         logging.critical('userDomain should be specified!')
