@@ -14,6 +14,7 @@
 import array
 import struct
 
+from impacket.ImpactPacket import array_tobytes
 from impacket.helper import ProtocolPacket, Byte, Bit
 from functools import reduce
 
@@ -36,7 +37,7 @@ class ByteBuilder(object):
     
 class StringBuilder(object):
     def from_ary(self, ary):
-        return ary.tostring()
+        return array_tobytes(ary)
         
     def to_ary(self, value):
         return array.array('B', value)
@@ -115,7 +116,7 @@ class TLVContainer(object):
 
     
     def get_packet(self):
-        return self.to_ary().tostring()
+        return array_tobytes(self.to_ary())
     
     def set_parent(self, my_parent):
         self.__parent = my_parent
@@ -127,7 +128,7 @@ class TLVContainer(object):
         return array.array("B", struct.pack(">H",n))
     
     def ary2n(self, ary, i=0):
-        return struct.unpack(">H", ary[i:i+2].tostring())[0]
+        return struct.unpack(">H", array_tobytes(ary[i:i+2]))[0]
     
     def __repr__(self):
         def desc(kind):
