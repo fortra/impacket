@@ -66,7 +66,7 @@ class NDP(ICMP6):
             flag_byte |= 0x20
             
         message_data = struct.pack('>BBBB', flag_byte, 0x00, 0x00, 0x00) #Flag byte and three reserved bytes
-        message_data += array_tobytes(target_address.as_bytes())
+        message_data += ImpactPacket.array_tobytes(target_address.as_bytes())
         return class_object.__build_message(NDP.NEIGHBOR_ADVERTISEMENT, message_data)
 
 
