@@ -49,7 +49,7 @@ icmp = ImpactPacket.ICMP()
 icmp.set_icmp_type(icmp.ICMP_ECHO)
 
 # Include a 156-character long payload inside the ICMP packet.
-icmp.contains(ImpactPacket.Data("A"*156))
+icmp.contains(ImpactPacket.Data(b"A"*156))
 
 # Have the IP packet contain the ICMP packet (along with its payload).
 ip.contains(icmp)
@@ -72,7 +72,7 @@ while 1:
     s.sendto(ip.get_packet(), (dst, 0))
 
     # Wait for incoming replies.
-    if s in select.select([s],[],[],1)[0]:
+    if s in select.select([s], [], [], 1)[0]:
        reply = s.recvfrom(2000)[0]
 
        # Use ImpactDecoder to reconstruct the packet hierarchy.
