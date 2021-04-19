@@ -8,7 +8,7 @@
 import array
 import struct
 
-from impacket.ImpactPacket import Header, Data
+from impacket.ImpactPacket import Header, Data, array_tobytes
 from impacket.IP6_Address import IP6_Address
 
 
@@ -234,7 +234,7 @@ class ICMP6(Header):
         icmp_bytes = struct.pack('>H', id)
         icmp_bytes += struct.pack('>H', sequence_number)
         if (arbitrary_data is not None):
-            icmp_bytes += array.array('B', arbitrary_data).tostring()
+            icmp_bytes += array_tobytes(array.array('B', arbitrary_data))
         icmp_payload = Data()
         icmp_payload.set_data(icmp_bytes)
         
@@ -273,9 +273,9 @@ class ICMP6(Header):
         icmp_packet.set_code(code)
         
         #Pack ICMP payload
-        icmp_bytes = array.array('B', data).tostring()
+        icmp_bytes = array_tobytes(array.array('B', data))
         if (originating_packet_data is not None):
-            icmp_bytes += array.array('B', originating_packet_data).tostring()
+            icmp_bytes += array_tobytes(array.array('B', originating_packet_data))
         icmp_payload = Data()
         icmp_payload.set_data(icmp_bytes)
         
@@ -302,11 +302,11 @@ class ICMP6(Header):
         icmp_packet.set_code(0)
         
         # Flags + Reserved
-        icmp_bytes = array.array('B', [0x00] * 4).tostring()       
+        icmp_bytes = array_tobytes(array.array('B', [0x00] * 4))
         
         # Target Address: The IP address of the target of the solicitation.
         # It MUST NOT be a multicast address.
-        icmp_bytes += array.array('B', IP6_Address(target_address).as_bytes()).tostring()
+        icmp_bytes += array_tobytes(array.array('B', IP6_Address(target_address).as_bytes()))
         
         icmp_payload = Data()
         icmp_payload.set_data(icmp_bytes)
@@ -394,10 +394,10 @@ class ICMP6(Header):
         
         icmp_bytes = struct.pack('>H', qtype)
         icmp_bytes += struct.pack('>H', flags)
-        icmp_bytes += array.array('B', nonce).tostring()
+        icmp_bytes += array_tobytes(array.array('B', nonce))
         
         if payload is not None:
-            icmp_bytes += array.array('B', payload).tostring()
+            icmp_bytes += array_tobytes(array.array('B', payload))
         
         icmp_payload = Data()
         icmp_payload.set_data(icmp_bytes)

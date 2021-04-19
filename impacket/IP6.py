@@ -8,7 +8,7 @@
 import struct
 import array
 
-from impacket.ImpactPacket import Header
+from impacket.ImpactPacket import Header, array_frombytes
 from impacket.IP6_Address import IP6_Address
 from impacket.IP6_Extension_Headers import IP6_Extension_Header
 
@@ -78,9 +78,9 @@ class IP6(Header):
         pseudo_header = array.array('B')        
         pseudo_header.extend(source_address)
         pseudo_header.extend(destination_address)
-        pseudo_header.fromstring(struct.pack('!L', upper_layer_packet_length))
+        array_frombytes(pseudo_header, struct.pack('!L', upper_layer_packet_length))
         pseudo_header.fromlist(reserved_bytes)
-        pseudo_header.fromstring(struct.pack('B', upper_layer_protocol_number))
+        array_frombytes(pseudo_header, struct.pack('B', upper_layer_protocol_number))
         return pseudo_header
     
 ############################################################################
