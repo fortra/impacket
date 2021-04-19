@@ -206,7 +206,7 @@ class PacketBuffer(object):
 
         diff = index + size - curlen
         if diff > 0:
-            array_frombytes(self.__bytes, '\0' * diff)
+            array_frombytes(self.__bytes, b'\0' * diff)
             if orig_index < 0:
                 orig_index -= diff
 
