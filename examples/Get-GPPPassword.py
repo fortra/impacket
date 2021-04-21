@@ -138,11 +138,11 @@ class GetGPPasswords(object):
 
     def show(self, results):
         for result in results:
-            logging.info(f"NewName\t: {result['newname']}")
-            logging.info(f"Changed\t: {result['changed']}")
-            logging.info(f"Username\t: {result['username']}")
-            logging.info(f"Password\t: {result['password']}")
-            logging.info(f"File\t: {result['file']}\n")
+            logging.info("NewName\t: %s" % result['newname'])
+            logging.info("Changed\t: %s" % result['changed'])
+            logging.info("Username\t: %s" % result['username'])
+            logging.info("Password\t: %s" % result['password'])
+            logging.info("File\t: %s \n" % result['file'])
 
 
 def parse_args():
