@@ -12,6 +12,10 @@
 # Description:
 #     Configuration class which holds the config specified on the
 # command line, this can be passed to the tools' servers and clients
+
+from impacket.examples.utils import parse_credentials
+
+
 class NTLMRelayxConfig:
     def __init__(self):
 
@@ -168,10 +172,7 @@ class NTLMRelayxConfig:
     def setRPCOptions(self, rpc_mode, rpc_use_smb, auth_smb, hashes_smb, rpc_smb_port):
         self.rpc_mode = rpc_mode
         self.rpc_use_smb = rpc_use_smb
-
-        import re
-        auth_re = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?')
-        self.smbdomain, self.smbuser, self.smbpass =  auth_re.match(auth_smb).groups('')
+        self.smbdomain, self.smbuser, self.smbpass = parse_credentials(auth_smb)
 
         if hashes_smb is not None:
             self.smblmhash, self.smbnthash = hashes_smb.split(':')

@@ -50,6 +50,7 @@ from pyasn1.type.univ import noValue
 
 from impacket import version
 from impacket.examples import logger
+from impacket.examples.utils import parse_credentials
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, seq_set, seq_set_iter, PA_FOR_USER_ENC, \
     Ticket as TicketAsn1, EncTGSRepPart, PA_PAC_OPTIONS, EncTicketPart
@@ -513,10 +514,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-
-    import re
-    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.identity).groups(
-        '')
+    domain, username, password = parse_credentials(options.identity)
 
     try:
         if domain is None:
