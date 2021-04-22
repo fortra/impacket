@@ -20,6 +20,7 @@
 from struct import pack, unpack
 
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket.structure import Structure
 from impacket.spnego import GSSAPI, ASN1_SEQUENCE, ASN1_OCTET_STRING, asn1decode, asn1encode
 
@@ -558,13 +559,7 @@ if __name__ == '__main__':
  
     options = parser.parse_args()
 
-    import re
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    domain, username, password, address = parse_target(options.target)
 
     if domain is None:
         domain = ''
