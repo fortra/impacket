@@ -46,7 +46,8 @@ from six.moves import configparser, socketserver
 # For signing
 from impacket import smb, nmb, ntlm, uuid
 from impacket import smb3structs as smb2
-from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, MechTypes, SPNEGO_NegTokenResp, ASN1_AID, ASN1_SUPPORTED_MECH
+from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, MechTypes, SPNEGO_NegTokenResp, ASN1_AID, \
+    ASN1_SUPPORTED_MECH
 from impacket.nt_errors import STATUS_NO_MORE_FILES, STATUS_NETWORK_NAME_DELETED, STATUS_INVALID_PARAMETER, \
     STATUS_FILE_CLOSED, STATUS_MORE_PROCESSING_REQUIRED, STATUS_OBJECT_PATH_NOT_FOUND, STATUS_DIRECTORY_NOT_EMPTY, \
     STATUS_FILE_IS_A_DIRECTORY, STATUS_NOT_IMPLEMENTED, STATUS_INVALID_HANDLE, STATUS_OBJECT_NAME_COLLISION, \
@@ -61,15 +62,15 @@ LOG = logging.getLogger(__name__)
 STATUS_SMB_BAD_UID = 0x005B0002
 STATUS_SMB_BAD_TID = 0x00050002
 
+
 # Utility functions
-# and general functions. 
-# There are some common functions that can be accessed from more than one SMB 
+# and general functions.
+# There are some common functions that can be accessed from more than one SMB
 # command (or either TRANSACTION). That's why I'm putting them here
 # TODO: Return NT ERROR Codes
 
 def computeNTLMv2(identity, lmhash, nthash, serverChallenge, authenticateMessage, ntlmChallenge, type1):
     # Let's calculate the NTLMv2 Response
-
 
     responseKeyNT = ntlm.NTOWFv2(identity, '', authenticateMessage['domain_name'].decode('utf-16le'), nthash)
     responseKeyLM = ntlm.LMOWFv2(identity, '', authenticateMessage['domain_name'].decode('utf-16le'), lmhash)
@@ -103,8 +104,8 @@ def computeNTLMv2(identity, lmhash, nthash, serverChallenge, authenticateMessage
         responseFlags &= 0xffffffff ^ ntlm.NTLMSSP_NEGOTIATE_ALWAYS_SIGN
 
     keyExchangeKey = ntlm.KXKEY(ntlmChallenge['flags'], sessionBaseKey, lmChallengeResponse,
-                           ntlmChallenge['challenge'], '',
-                           lmhash, nthash, True)
+                                ntlmChallenge['challenge'], '',
+                                lmhash, nthash, True)
 
     # If we set up key exchange, let's fill the right variables
     if ntlmChallenge['flags'] & ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH:
@@ -124,9 +125,9 @@ def computeNTLMv2(identity, lmhash, nthash, serverChallenge, authenticateMessage
 
 
 def outputToJohnFormat(challenge, username, domain, lmresponse, ntresponse):
-# We don't want to add a possible failure here, since this is an
-# extra bonus. We try, if it fails, returns nothing
-# ToDo: Document the parameter's types (bytes / string) and check all the places where it's called
+    # We don't want to add a possible failure here, since this is an
+    # extra bonus. We try, if it fails, returns nothing
+    # ToDo: Document the parameter's types (bytes / string) and check all the places where it's called
     ret_value = ''
     if type(challenge) is not bytes:
         challenge = challenge.decode('latin-1')
@@ -137,13 +138,13 @@ def outputToJohnFormat(challenge, username, domain, lmresponse, ntresponse):
             ret_value = {'hash_string': '%s::%s:%s:%s:%s' % (
                 username.decode('utf-16le'), domain.decode('utf-16le'), hexlify(challenge).decode('latin-1'),
                 hexlify(ntresponse).decode('latin-1')[:32],
-            hexlify(ntresponse).decode()[32:]), 'hash_version': 'ntlmv2'}
+                hexlify(ntresponse).decode()[32:]), 'hash_version': 'ntlmv2'}
         else:
             # NTLMv1
             ret_value = {'hash_string': '%s::%s:%s:%s:%s' % (
                 username.decode('utf-16le'), domain.decode('utf-16le'), hexlify(lmresponse).decode('latin-1'),
                 hexlify(ntresponse).decode('latin-1'),
-            hexlify(challenge).decode()), 'hash_version': 'ntlm'}
+                hexlify(challenge).decode()), 'hash_version': 'ntlm'}
     except:
         # Let's try w/o decoding Unicode
         try:
@@ -166,6 +167,7 @@ def outputToJohnFormat(challenge, username, domain, lmresponse, ntresponse):
 
     return ret_value
 
+
 def writeJohnOutputToFile(hash_string, hash_version, file_name):
     fn_data = os.path.splitext(file_name)
     if hash_version == "ntlmv2":
@@ -173,32 +175,36 @@ def writeJohnOutputToFile(hash_string, hash_version, file_name):
     else:
         output_filename = fn_data[0] + "_ntlm" + fn_data[1]
 
-    with open(output_filename,"a") as f:
-            f.write(hash_string)
-            f.write('\n')		        
+    with open(output_filename, "a") as f:
+        f.write(hash_string)
+        f.write('\n')
 
 
-def decodeSMBString( flags, text ):
+def decodeSMBString(flags, text):
     if flags & smb.SMB.FLAGS2_UNICODE:
         return text.decode('utf-16le')
     else:
         return text
 
-def encodeSMBString( flags, text ):
+
+def encodeSMBString(flags, text):
     if flags & smb.SMB.FLAGS2_UNICODE:
         return (text).encode('utf-16le')
     else:
         return text.encode('ascii')
-    
+
+
 def getFileTime(t):
     t *= 10000000
     t += 116444736000000000
     return t
 
+
 def getUnixTime(t):
     t -= 116444736000000000
     t //= 10000000
     return t
+
 
 def getSMBDate(t):
     # TODO: Fix this :P
@@ -207,35 +213,39 @@ def getSMBDate(t):
     ret = (year << 8) + (d.month << 4) + d.day
     return ret
 
+
 def getSMBTime(t):
     # TODO: Fix this :P
     d = datetime.datetime.fromtimestamp(t)
-    return (d.hour << 8) + (d.minute << 4) + d.second 
+    return (d.hour << 8) + (d.minute << 4) + d.second
+
 
 def getShares(connId, smbServer):
     config = smbServer.getServerConfig()
     sections = config.sections()
     # Remove the global one
-    del(sections[sections.index('global')])
+    del (sections[sections.index('global')])
     shares = {}
     for i in sections:
         shares[i] = dict(config.items(i))
     return shares
 
+
 def searchShare(connId, share, smbServer):
     config = smbServer.getServerConfig()
     if config.has_section(share):
-       return dict(config.items(share))
+        return dict(config.items(share))
     else:
-       return None
+        return None
 
-def openFile(path,fileName, accessMode, fileAttributes, openMode):
-    fileName = os.path.normpath(fileName.replace('\\','/'))
+
+def openFile(path, fileName, accessMode, fileAttributes, openMode):
+    fileName = os.path.normpath(fileName.replace('\\', '/'))
     errorCode = 0
     if len(fileName) > 0 and (fileName[0] == '/' or fileName[0] == '\\'):
-       # strip leading '/'
-       fileName = fileName[1:]
-    pathName = os.path.join(path,fileName)
+        # strip leading '/'
+        fileName = fileName[1:]
+    pathName = os.path.join(path, fileName)
     mode = 0
     # Check the Open Mode
     if openMode & 0x10:
@@ -245,61 +255,61 @@ def openFile(path,fileName, accessMode, fileAttributes, openMode):
         # If file does not exist, return an error
         if os.path.exists(pathName) is not True:
             errorCode = STATUS_NO_SUCH_FILE
-            return 0,mode, pathName, errorCode
+            return 0, mode, pathName, errorCode
 
     if os.path.isdir(pathName) and (fileAttributes & smb.ATTR_DIRECTORY) == 0:
         # Request to open a normal file and this is actually a directory
-            errorCode = STATUS_FILE_IS_A_DIRECTORY
-            return 0, mode, pathName, errorCode
+        errorCode = STATUS_FILE_IS_A_DIRECTORY
+        return 0, mode, pathName, errorCode
     # Check the Access Mode
     if accessMode & 0x7 == 1:
-       mode |= os.O_WRONLY
+        mode |= os.O_WRONLY
     elif accessMode & 0x7 == 2:
-       mode |= os.O_RDWR
+        mode |= os.O_RDWR
     else:
-       mode = os.O_RDONLY
+        mode = os.O_RDONLY
 
     try:
         if sys.platform == 'win32':
             mode |= os.O_BINARY
         fid = os.open(pathName, mode)
     except Exception as e:
-        LOG.error("openFile: %s,%s" % (pathName, mode) ,e)
+        LOG.error("openFile: %s,%s" % (pathName, mode), e)
         fid = 0
         errorCode = STATUS_ACCESS_DENIED
 
     return fid, mode, pathName, errorCode
 
-def queryFsInformation(path, filename, level=0, pktFlags = smb.SMB.FLAGS2_UNICODE):
 
+def queryFsInformation(path, filename, level=0, pktFlags=smb.SMB.FLAGS2_UNICODE):
     if pktFlags & smb.SMB.FLAGS2_UNICODE:
-         encoding = 'utf-16le'
+        encoding = 'utf-16le'
     else:
-         encoding = 'ascii'
+        encoding = 'ascii'
 
-    fileName = os.path.normpath(filename.replace('\\','/'))
+    fileName = os.path.normpath(filename.replace('\\', '/'))
     if len(fileName) > 0 and (fileName[0] == '/' or fileName[0] == '\\'):
-       # strip leading '/'
-       fileName = fileName[1:]
-    pathName = os.path.join(path,fileName)
+        # strip leading '/'
+        fileName = fileName[1:]
+    pathName = os.path.join(path, fileName)
     fileSize = os.path.getsize(pathName)
     (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(pathName)
     if level == smb.SMB_QUERY_FS_ATTRIBUTE_INFO or level == smb2.SMB2_FILESYSTEM_ATTRIBUTE_INFO:
         data = smb.SMBQueryFsAttributeInfo()
-        data['FileSystemAttributes']      = smb.FILE_CASE_SENSITIVE_SEARCH | smb.FILE_CASE_PRESERVED_NAMES
+        data['FileSystemAttributes'] = smb.FILE_CASE_SENSITIVE_SEARCH | smb.FILE_CASE_PRESERVED_NAMES
         data['MaxFilenNameLengthInBytes'] = 255
-        data['LengthOfFileSystemName']    = len('XTFS')*2
-        data['FileSystemName']            = 'XTFS'.encode('utf-16le')
+        data['LengthOfFileSystemName'] = len('XTFS') * 2
+        data['FileSystemName'] = 'XTFS'.encode('utf-16le')
         return data.getData()
     elif level == smb.SMB_INFO_VOLUME:
-        data = smb.SMBQueryFsInfoVolume( flags = pktFlags )
-        data['VolumeLabel']               = 'SHARE'.encode(encoding)
+        data = smb.SMBQueryFsInfoVolume(flags=pktFlags)
+        data['VolumeLabel'] = 'SHARE'.encode(encoding)
         return data.getData()
     elif level == smb.SMB_QUERY_FS_VOLUME_INFO or level == smb2.SMB2_FILESYSTEM_VOLUME_INFO:
         data = smb.SMBQueryFsVolumeInfo()
-        data['VolumeLabel']               = ''
-        data['VolumeCreationTime']        = getFileTime(ctime)
-        return data.getData() 
+        data['VolumeLabel'] = ''
+        data['VolumeCreationTime'] = getFileTime(ctime)
+        return data.getData()
     elif level == smb.SMB_QUERY_FS_SIZE_INFO:
         data = smb.SMBQueryFsSizeInfo()
         return data.getData()
@@ -319,225 +329,241 @@ def queryFsInformation(path, filename, level=0, pktFlags = smb.SMB.FLAGS2_UNICOD
         fileAttributes = attribs
         return fileSize, lastWriteTime, fileAttributes
 
-def findFirst2(path, fileName, level, searchAttributes, pktFlags = smb.SMB.FLAGS2_UNICODE, isSMB2 = False):
-     # TODO: Depending on the level, this could be done much simpler
-     
-     #print "FindFirs2 path:%s, filename:%s" % (path, fileName)
-     fileName = os.path.normpath(fileName.replace('\\','/'))
-     # Let's choose the right encoding depending on the request
-     if pktFlags & smb.SMB.FLAGS2_UNICODE:
-         encoding = 'utf-16le'
-     else:
-         encoding = 'ascii'
 
-     if len(fileName) > 0 and (fileName[0] == '/' or fileName[0] == '\\'):
+def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_UNICODE, isSMB2=False):
+    # TODO: Depending on the level, this could be done much simpler
+
+    # print "FindFirs2 path:%s, filename:%s" % (path, fileName)
+    fileName = os.path.normpath(fileName.replace('\\', '/'))
+    # Let's choose the right encoding depending on the request
+    if pktFlags & smb.SMB.FLAGS2_UNICODE:
+        encoding = 'utf-16le'
+    else:
+        encoding = 'ascii'
+
+    if len(fileName) > 0 and (fileName[0] == '/' or fileName[0] == '\\'):
         # strip leading '/'
         fileName = fileName[1:]
 
-     pathName = os.path.join(path,fileName)
-     files = []
+    if not isInFileJail(path, fileName):
+        LOG.error("Path not in current working directory")
+        return [], 0, STATUS_NOT_SUPPORTED
 
-     if pathName.find('*') == -1 and pathName.find('?') == -1:
-         # No search patterns
-         pattern = ''
-     else:
-         pattern = os.path.basename(pathName)
-         dirName = os.path.dirname(pathName)
+    pathName = os.path.join(path, fileName)
+    files = []
 
-     # Always add . and .. Not that important for Windows, but Samba whines if 
-     # not present (for * search only)
-     if pattern == '*':
-         files.append(os.path.join(dirName,'.'))
-         files.append(os.path.join(dirName,'..'))
+    if pathName.find('*') == -1 and pathName.find('?') == -1:
+        # No search patterns
+        pattern = ''
+    else:
+        pattern = os.path.basename(pathName)
+        dirName = os.path.dirname(pathName)
 
-     if pattern != '':
-         for file in os.listdir(dirName):
-             if fnmatch.fnmatch(file.lower(),pattern.lower()):
+    # Always add . and .. Not that important for Windows, but Samba whines if
+    # not present (for * search only)
+    if pattern == '*':
+        files.append(os.path.join(dirName, '.'))
+        files.append(os.path.join(dirName, '..'))
+
+    if pattern != '':
+        for file in os.listdir(dirName):
+            if fnmatch.fnmatch(file.lower(), pattern.lower()):
                 entry = os.path.join(dirName, file)
                 if os.path.isdir(entry):
                     if searchAttributes & smb.ATTR_DIRECTORY:
                         files.append(entry)
                 else:
                     files.append(entry)
-     else:
-         if os.path.exists(pathName):
-             files.append(pathName)
+    else:
+        if os.path.exists(pathName):
+            files.append(pathName)
 
-     searchResult = []
-     searchCount = len(files)
-     errorCode = STATUS_SUCCESS
+    searchResult = []
+    searchCount = len(files)
+    errorCode = STATUS_SUCCESS
 
-     for i in files:
+    for i in files:
         if level == smb.SMB_FIND_FILE_BOTH_DIRECTORY_INFO or level == smb2.SMB2_FILE_BOTH_DIRECTORY_INFO:
-            item = smb.SMBFindFileBothDirectoryInfo( flags = pktFlags )
+            item = smb.SMBFindFileBothDirectoryInfo(flags=pktFlags)
         elif level == smb.SMB_FIND_FILE_DIRECTORY_INFO or level == smb2.SMB2_FILE_DIRECTORY_INFO:
-            item = smb.SMBFindFileDirectoryInfo( flags = pktFlags )
+            item = smb.SMBFindFileDirectoryInfo(flags=pktFlags)
         elif level == smb.SMB_FIND_FILE_FULL_DIRECTORY_INFO or level == smb2.SMB2_FULL_DIRECTORY_INFO:
-            item = smb.SMBFindFileFullDirectoryInfo( flags = pktFlags )
+            item = smb.SMBFindFileFullDirectoryInfo(flags=pktFlags)
         elif level == smb.SMB_FIND_INFO_STANDARD:
-            item = smb.SMBFindInfoStandard( flags = pktFlags )
+            item = smb.SMBFindInfoStandard(flags=pktFlags)
         elif level == smb.SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO or level == smb2.SMB2_FILE_ID_FULL_DIRECTORY_INFO:
-            item = smb.SMBFindFileIdFullDirectoryInfo( flags = pktFlags )
+            item = smb.SMBFindFileIdFullDirectoryInfo(flags=pktFlags)
         elif level == smb.SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO or level == smb2.SMB2_FILE_ID_BOTH_DIRECTORY_INFO:
-            item = smb.SMBFindFileIdBothDirectoryInfo( flags = pktFlags )
+            item = smb.SMBFindFileIdBothDirectoryInfo(flags=pktFlags)
         elif level == smb.SMB_FIND_FILE_NAMES_INFO or level == smb2.SMB2_FILE_NAMES_INFO:
-            item = smb.SMBFindFileNamesInfo( flags = pktFlags )
+            item = smb.SMBFindFileNamesInfo(flags=pktFlags)
         else:
             LOG.error("Wrong level %d!" % level)
-            return  searchResult, searchCount, STATUS_NOT_SUPPORTED
-            
+            return searchResult, searchCount, STATUS_NOT_SUPPORTED
+
         (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(i)
         if os.path.isdir(i):
-           item['ExtFileAttributes'] = smb.ATTR_DIRECTORY
+            item['ExtFileAttributes'] = smb.ATTR_DIRECTORY
         else:
-           item['ExtFileAttributes'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
+            item['ExtFileAttributes'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
 
         item['FileName'] = os.path.basename(i).encode(encoding)
 
         if level == smb.SMB_FIND_FILE_BOTH_DIRECTORY_INFO or level == smb.SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO or level == smb2.SMB2_FILE_ID_BOTH_DIRECTORY_INFO or level == smb2.SMB2_FILE_BOTH_DIRECTORY_INFO:
-           item['EaSize']            = 0
-           item['EndOfFile']         = size
-           item['AllocationSize']    = size
-           item['CreationTime']      = getFileTime(ctime)
-           item['LastAccessTime']    = getFileTime(atime)
-           item['LastWriteTime']     = getFileTime(mtime)
-           item['LastChangeTime']    = getFileTime(mtime)
-           item['ShortName']         = '\x00'*24
-           item['FileName']          = os.path.basename(i).encode(encoding)
-           padLen = (8-(len(item) % 8)) % 8
-           item['NextEntryOffset']   = len(item) + padLen
+            item['EaSize'] = 0
+            item['EndOfFile'] = size
+            item['AllocationSize'] = size
+            item['CreationTime'] = getFileTime(ctime)
+            item['LastAccessTime'] = getFileTime(atime)
+            item['LastWriteTime'] = getFileTime(mtime)
+            item['LastChangeTime'] = getFileTime(mtime)
+            item['ShortName'] = '\x00' * 24
+            item['FileName'] = os.path.basename(i).encode(encoding)
+            padLen = (8 - (len(item) % 8)) % 8
+            item['NextEntryOffset'] = len(item) + padLen
         elif level == smb.SMB_FIND_FILE_DIRECTORY_INFO:
-           item['EndOfFile']         = size
-           item['AllocationSize']    = size
-           item['CreationTime']      = getFileTime(ctime)
-           item['LastAccessTime']    = getFileTime(atime)
-           item['LastWriteTime']     = getFileTime(mtime)
-           item['LastChangeTime']    = getFileTime(mtime)
-           item['FileName']          = os.path.basename(i).encode(encoding)
-           padLen = (8-(len(item) % 8)) % 8
-           item['NextEntryOffset']   = len(item) + padLen
+            item['EndOfFile'] = size
+            item['AllocationSize'] = size
+            item['CreationTime'] = getFileTime(ctime)
+            item['LastAccessTime'] = getFileTime(atime)
+            item['LastWriteTime'] = getFileTime(mtime)
+            item['LastChangeTime'] = getFileTime(mtime)
+            item['FileName'] = os.path.basename(i).encode(encoding)
+            padLen = (8 - (len(item) % 8)) % 8
+            item['NextEntryOffset'] = len(item) + padLen
         elif level == smb.SMB_FIND_FILE_FULL_DIRECTORY_INFO or level == smb.SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO or level == smb2.SMB2_FULL_DIRECTORY_INFO:
-           item['EaSize']            = 0
-           item['EndOfFile']         = size
-           item['AllocationSize']    = size
-           item['CreationTime']      = getFileTime(ctime)
-           item['LastAccessTime']    = getFileTime(atime)
-           item['LastWriteTime']     = getFileTime(mtime)
-           item['LastChangeTime']    = getFileTime(mtime)
-           padLen = (8-(len(item) % 8)) % 8
-           item['NextEntryOffset']   = len(item) + padLen
+            item['EaSize'] = 0
+            item['EndOfFile'] = size
+            item['AllocationSize'] = size
+            item['CreationTime'] = getFileTime(ctime)
+            item['LastAccessTime'] = getFileTime(atime)
+            item['LastWriteTime'] = getFileTime(mtime)
+            item['LastChangeTime'] = getFileTime(mtime)
+            padLen = (8 - (len(item) % 8)) % 8
+            item['NextEntryOffset'] = len(item) + padLen
         elif level == smb.SMB_FIND_INFO_STANDARD:
-           item['EaSize']            = size
-           item['CreationDate']      = getSMBDate(ctime)
-           item['CreationTime']      = getSMBTime(ctime)
-           item['LastAccessDate']    = getSMBDate(atime)
-           item['LastAccessTime']    = getSMBTime(atime)
-           item['LastWriteDate']     = getSMBDate(mtime)
-           item['LastWriteTime']     = getSMBTime(mtime)
+            item['EaSize'] = size
+            item['CreationDate'] = getSMBDate(ctime)
+            item['CreationTime'] = getSMBTime(ctime)
+            item['LastAccessDate'] = getSMBDate(atime)
+            item['LastAccessTime'] = getSMBTime(atime)
+            item['LastWriteDate'] = getSMBDate(mtime)
+            item['LastWriteTime'] = getSMBTime(mtime)
         searchResult.append(item)
 
-     # No more files
-     if (level >= smb.SMB_FIND_FILE_DIRECTORY_INFO or isSMB2 is True) and searchCount > 0:
-         searchResult[-1]['NextEntryOffset'] = 0
+    # No more files
+    if (level >= smb.SMB_FIND_FILE_DIRECTORY_INFO or isSMB2 is True) and searchCount > 0:
+        searchResult[-1]['NextEntryOffset'] = 0
 
-     return searchResult, searchCount, errorCode
+    return searchResult, searchCount, errorCode
+
 
 def queryFileInformation(path, filename, level):
-    #print "queryFileInfo path: %s, filename: %s, level:0x%x" % (path,filename,level)
-    return queryPathInformation(path,filename, level)
+    # print "queryFileInfo path: %s, filename: %s, level:0x%x" % (path,filename,level)
+    return queryPathInformation(path, filename, level)
+
 
 def queryPathInformation(path, filename, level):
     # TODO: Depending on the level, this could be done much simpler
-  #print("queryPathInfo path: %s, filename: %s, level:0x%x" % (path,filename,level))
-  try:
-    errorCode = 0
-    fileName = os.path.normpath(filename.replace('\\','/'))
-    if len(fileName) > 0 and (fileName[0] == '/' or fileName[0] == '\\') and path != '':
-       # strip leading '/'
-       fileName = fileName[1:]
-    pathName = os.path.join(path,fileName)
-    if os.path.exists(pathName):
-        (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(pathName)
-        if level == smb.SMB_QUERY_FILE_BASIC_INFO:
-            infoRecord = smb.SMBQueryFileBasicInfo()
-            infoRecord['CreationTime']         = getFileTime(ctime)
-            infoRecord['LastAccessTime']       = getFileTime(atime)
-            infoRecord['LastWriteTime']        = getFileTime(mtime)
-            infoRecord['LastChangeTime']       = getFileTime(mtime)
-            if os.path.isdir(pathName):
-               infoRecord['ExtFileAttributes'] = smb.ATTR_DIRECTORY
+    # print("queryPathInfo path: %s, filename: %s, level:0x%x" % (path,filename,level))
+    try:
+        errorCode = 0
+        fileName = os.path.normpath(filename.replace('\\', '/'))
+        if len(fileName) > 0 and (fileName[0] == '/' or fileName[0] == '\\') and path != '':
+            # strip leading '/'
+            fileName = fileName[1:]
+        pathName = os.path.join(path, fileName)
+        if os.path.exists(pathName):
+            (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(pathName)
+            if level == smb.SMB_QUERY_FILE_BASIC_INFO:
+                infoRecord = smb.SMBQueryFileBasicInfo()
+                infoRecord['CreationTime'] = getFileTime(ctime)
+                infoRecord['LastAccessTime'] = getFileTime(atime)
+                infoRecord['LastWriteTime'] = getFileTime(mtime)
+                infoRecord['LastChangeTime'] = getFileTime(mtime)
+                if os.path.isdir(pathName):
+                    infoRecord['ExtFileAttributes'] = smb.ATTR_DIRECTORY
+                else:
+                    infoRecord['ExtFileAttributes'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
+            elif level == smb.SMB_QUERY_FILE_STANDARD_INFO:
+                infoRecord = smb.SMBQueryFileStandardInfo()
+                infoRecord['AllocationSize'] = size
+                infoRecord['EndOfFile'] = size
+                if os.path.isdir(pathName):
+                    infoRecord['Directory'] = 1
+                else:
+                    infoRecord['Directory'] = 0
+            elif level == smb.SMB_QUERY_FILE_ALL_INFO or level == smb2.SMB2_FILE_ALL_INFO:
+                infoRecord = smb.SMBQueryFileAllInfo()
+                infoRecord['CreationTime'] = getFileTime(ctime)
+                infoRecord['LastAccessTime'] = getFileTime(atime)
+                infoRecord['LastWriteTime'] = getFileTime(mtime)
+                infoRecord['LastChangeTime'] = getFileTime(mtime)
+                if os.path.isdir(pathName):
+                    infoRecord['ExtFileAttributes'] = smb.ATTR_DIRECTORY
+                else:
+                    infoRecord['ExtFileAttributes'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
+                infoRecord['AllocationSize'] = size
+                infoRecord['EndOfFile'] = size
+                if os.path.isdir(pathName):
+                    infoRecord['Directory'] = 1
+                else:
+                    infoRecord['Directory'] = 0
+                infoRecord['FileName'] = filename.encode('utf-16le')
+            elif level == smb2.SMB2_FILE_NETWORK_OPEN_INFO:
+                infoRecord = smb.SMBFileNetworkOpenInfo()
+                infoRecord['CreationTime'] = getFileTime(ctime)
+                infoRecord['LastAccessTime'] = getFileTime(atime)
+                infoRecord['LastWriteTime'] = getFileTime(mtime)
+                infoRecord['ChangeTime'] = getFileTime(mtime)
+                infoRecord['AllocationSize'] = size
+                infoRecord['EndOfFile'] = size
+                if os.path.isdir(pathName):
+                    infoRecord['FileAttributes'] = smb.ATTR_DIRECTORY
+                else:
+                    infoRecord['FileAttributes'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
+            elif level == smb.SMB_QUERY_FILE_EA_INFO or level == smb2.SMB2_FILE_EA_INFO:
+                infoRecord = smb.SMBQueryFileEaInfo()
+            elif level == smb2.SMB2_FILE_STREAM_INFO:
+                infoRecord = smb.SMBFileStreamInformation()
             else:
-               infoRecord['ExtFileAttributes'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
-        elif level == smb.SMB_QUERY_FILE_STANDARD_INFO:
-            infoRecord = smb.SMBQueryFileStandardInfo()
-            infoRecord['AllocationSize']       = size
-            infoRecord['EndOfFile']            = size
-            if os.path.isdir(pathName):
-               infoRecord['Directory']         = 1
-            else:
-               infoRecord['Directory']         = 0
-        elif level == smb.SMB_QUERY_FILE_ALL_INFO or level == smb2.SMB2_FILE_ALL_INFO:
-            infoRecord = smb.SMBQueryFileAllInfo()
-            infoRecord['CreationTime']         = getFileTime(ctime)
-            infoRecord['LastAccessTime']       = getFileTime(atime)
-            infoRecord['LastWriteTime']        = getFileTime(mtime)
-            infoRecord['LastChangeTime']       = getFileTime(mtime)
-            if os.path.isdir(pathName):
-               infoRecord['ExtFileAttributes'] = smb.ATTR_DIRECTORY
-            else:
-               infoRecord['ExtFileAttributes'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
-            infoRecord['AllocationSize']       = size
-            infoRecord['EndOfFile']            = size
-            if os.path.isdir(pathName):
-               infoRecord['Directory']         = 1
-            else:
-               infoRecord['Directory']         = 0
-            infoRecord['FileName']             = filename.encode('utf-16le')
-        elif level == smb2.SMB2_FILE_NETWORK_OPEN_INFO:
-            infoRecord = smb.SMBFileNetworkOpenInfo()
-            infoRecord['CreationTime']         = getFileTime(ctime)
-            infoRecord['LastAccessTime']       = getFileTime(atime)
-            infoRecord['LastWriteTime']        = getFileTime(mtime)
-            infoRecord['ChangeTime']           = getFileTime(mtime)
-            infoRecord['AllocationSize']       = size
-            infoRecord['EndOfFile']            = size
-            if os.path.isdir(pathName):
-               infoRecord['FileAttributes'] = smb.ATTR_DIRECTORY
-            else:
-               infoRecord['FileAttributes'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
-        elif level == smb.SMB_QUERY_FILE_EA_INFO or level == smb2.SMB2_FILE_EA_INFO: 
-            infoRecord = smb.SMBQueryFileEaInfo()
-        elif level == smb2.SMB2_FILE_STREAM_INFO:
-            infoRecord = smb.SMBFileStreamInformation()
-        else:
-            LOG.error('Unknown level for query path info! 0x%x' % level)
-            # UNSUPPORTED
-            return None, STATUS_NOT_SUPPORTED
+                LOG.error('Unknown level for query path info! 0x%x' % level)
+                # UNSUPPORTED
+                return None, STATUS_NOT_SUPPORTED
 
-        return infoRecord, errorCode
-    else:
-        # NOT FOUND
-        return None, STATUS_OBJECT_NAME_NOT_FOUND
-  except Exception as e:
-      LOG.error('queryPathInfo: %s' % e)
-      raise
+            return infoRecord, errorCode
+        else:
+            # NOT FOUND
+            return None, STATUS_OBJECT_NAME_NOT_FOUND
+    except Exception as e:
+        LOG.error('queryPathInfo: %s' % e)
+        raise
+
 
 def queryDiskInformation(path):
-# TODO: Do something useful here :)
-# For now we just return fake values
-   totalUnits = 65535
-   freeUnits = 65535
-   return totalUnits, freeUnits
+    # TODO: Do something useful here :)
+    # For now we just return fake values
+    totalUnits = 65535
+    freeUnits = 65535
+    return totalUnits, freeUnits
+
+
+def isInFileJail(path, fileName):
+    pathName = os.path.join(path, fileName)
+    share_real_path = os.path.realpath(path)
+    return os.path.commonprefix((os.path.realpath(pathName), share_real_path)) == share_real_path
+
 
 # Here we implement the NT transaction handlers
 class NTTRANSCommands:
-    def default(self, connId, smbServer, recvPacket, parameters, data, maxDataCount = 0):
+    def default(self, connId, smbServer, recvPacket, parameters, data, maxDataCount=0):
         pass
+
 
 # Here we implement the NT transaction handlers
 class TRANSCommands:
     @staticmethod
-    def lanMan(connId, smbServer, recvPacket, parameters, data, maxDataCount = 0):
+    def lanMan(connId, smbServer, recvPacket, parameters, data, maxDataCount=0):
         # Minimal [MS-RAP] implementation, just to return the shares
         connData = smbServer.getConnectionData(connId)
 
@@ -545,20 +571,20 @@ class TRANSCommands:
         respParameters = b''
         respData = b''
         errorCode = STATUS_SUCCESS
-        if struct.unpack('<H',parameters[:2])[0] == 0:
+        if struct.unpack('<H', parameters[:2])[0] == 0:
             # NetShareEnum Request
             netShareEnum = smb.SMBNetShareEnum(parameters)
             if netShareEnum['InfoLevel'] == 1:
                 shares = getShares(connId, smbServer)
                 respParameters = smb.SMBNetShareEnumResponse()
-                respParameters['EntriesReturned']  = len(shares)
+                respParameters['EntriesReturned'] = len(shares)
                 respParameters['EntriesAvailable'] = len(shares)
                 tailData = ''
                 for i in shares:
                     # NetShareInfo1 len == 20
                     entry = smb.NetShareInfo1()
-                    entry['NetworkName'] = i + '\x00'*(13-len(i))
-                    entry['Type']        = int(shares[i]['share type'])
+                    entry['NetworkName'] = i + '\x00' * (13 - len(i))
+                    entry['Type'] = int(shares[i]['share type'])
                     # (beto) If offset == 0 it crashes explorer.exe on windows 7
                     entry['RemarkOffsetLow'] = 20 * len(shares) + len(tailData)
                     respData += entry.getData()
@@ -570,28 +596,28 @@ class TRANSCommands:
             else:
                 # We don't support other info levels
                 errorCode = STATUS_NOT_SUPPORTED
-        elif struct.unpack('<H',parameters[:2])[0] == 13:
+        elif struct.unpack('<H', parameters[:2])[0] == 13:
             # NetrServerGetInfo Request
             respParameters = smb.SMBNetServerGetInfoResponse()
             netServerInfo = smb.SMBNetServerInfo1()
             netServerInfo['ServerName'] = smbServer.getServerName()
             respData = netServerInfo.getData()
             respParameters['TotalBytesAvailable'] = len(respData)
-        elif struct.unpack('<H',parameters[:2])[0] == 1:
+        elif struct.unpack('<H', parameters[:2])[0] == 1:
             # NetrShareGetInfo Request
             request = smb.SMBNetShareGetInfo(parameters)
             respParameters = smb.SMBNetShareGetInfoResponse()
             shares = getShares(connId, smbServer)
             share = shares[request['ShareName'].upper()]
-            shareInfo = smb.NetShareInfo1() 
+            shareInfo = smb.NetShareInfo1()
             shareInfo['NetworkName'] = request['ShareName'].upper() + '\x00'
-            shareInfo['Type']        = int(share['share type'])
+            shareInfo['Type'] = int(share['share type'])
             respData = shareInfo.getData()
             if 'comment' in share:
                 shareInfo['RemarkOffsetLow'] = len(respData)
                 respData += share['comment'] + '\x00'
             respParameters['TotalBytesAvailable'] = len(respData)
-     
+
         else:
             # We don't know how to handle anything else
             errorCode = STATUS_NOT_SUPPORTED
@@ -601,15 +627,15 @@ class TRANSCommands:
         return respSetup, respParameters, respData, errorCode
 
     @staticmethod
-    def transactNamedPipe(connId, smbServer, recvPacket, parameters, data, maxDataCount = 0):
+    def transactNamedPipe(connId, smbServer, recvPacket, parameters, data, maxDataCount=0):
         connData = smbServer.getConnectionData(connId)
 
         respSetup = b''
         respParameters = b''
         respData = b''
         errorCode = STATUS_SUCCESS
-        SMBCommand  = smb.SMBCommand(recvPacket['Data'][0])
-        transParameters= smb.SMBTransaction_Parameters(SMBCommand['Parameters'])
+        SMBCommand = smb.SMBCommand(recvPacket['Data'][0])
+        transParameters = smb.SMBTransaction_Parameters(SMBCommand['Parameters'])
 
         # Extract the FID
         fid = struct.unpack('<H', transParameters['Setup'][2:])[0]
@@ -617,8 +643,8 @@ class TRANSCommands:
         if fid in connData['OpenedFiles']:
             fileHandle = connData['OpenedFiles'][fid]['FileHandle']
             if fileHandle != PIPE_FILE_DESCRIPTOR:
-                os.write(fileHandle,data)
-                respData = os.read(fileHandle,data)
+                os.write(fileHandle, data)
+                respData = os.read(fileHandle, data)
             else:
                 sock = connData['OpenedFiles'][fid]['Socket']
                 sock.send(data)
@@ -630,26 +656,27 @@ class TRANSCommands:
 
         return respSetup, respParameters, respData, errorCode
 
+
 # Here we implement the transaction2 handlers
 class TRANS2Commands:
     # All these commands return setup, parameters, data, errorCode
     @staticmethod
-    def setPathInformation(connId, smbServer, recvPacket, parameters, data, maxDataCount = 0):
+    def setPathInformation(connId, smbServer, recvPacket, parameters, data, maxDataCount=0):
         connData = smbServer.getConnectionData(connId)
 
         respSetup = b''
         respParameters = b''
         respData = b''
         errorCode = STATUS_SUCCESS
-        setPathInfoParameters = smb.SMBSetPathInformation_Parameters(flags = recvPacket['Flags2'], data = parameters)
+        setPathInfoParameters = smb.SMBSetPathInformation_Parameters(flags=recvPacket['Flags2'], data=parameters)
         if recvPacket['Tid'] in connData['ConnectedShares']:
-            path     = connData['ConnectedShares'][recvPacket['Tid']]['path']
+            path = connData['ConnectedShares'][recvPacket['Tid']]['path']
             fileName = decodeSMBString(recvPacket['Flags2'], setPathInfoParameters['FileName'])
-            fileName = os.path.normpath(fileName.replace('\\','/'))
+            fileName = os.path.normpath(fileName.replace('\\', '/'))
             if len(fileName) > 0 and (fileName[0] == '/' or fileName[0] == '\\') and path != '':
-               # strip leading '/'
-               fileName = fileName[1:]
-            pathName = os.path.join(path,fileName)
+                # strip leading '/'
+                fileName = fileName[1:]
+            pathName = os.path.join(path, fileName)
             if os.path.exists(pathName):
                 informationLevel = setPathInfoParameters['InformationLevel']
                 if informationLevel == smb.SMB_SET_FILE_BASIC_INFO:
@@ -666,11 +693,12 @@ class TRANS2Commands:
                     else:
                         mtime = getUnixTime(mtime)
                     if mtime != -1 or atime != -1:
-                        os.utime(pathName,(atime,mtime))
+                        os.utime(pathName, (atime, mtime))
                 else:
-                    smbServer.log('Unknown level for set path info! 0x%x' % setPathInfoParameters['InformationLevel'], logging.ERROR)
+                    smbServer.log('Unknown level for set path info! 0x%x' % setPathInfoParameters['InformationLevel'],
+                                  logging.ERROR)
                     # UNSUPPORTED
-                    errorCode =  STATUS_NOT_SUPPORTED
+                    errorCode = STATUS_NOT_SUPPORTED
             else:
                 errorCode = STATUS_OBJECT_NAME_NOT_FOUND
 
@@ -684,9 +712,8 @@ class TRANS2Commands:
 
         return respSetup, respParameters, respData, errorCode
 
-
     @staticmethod
-    def setFileInformation(connId, smbServer, recvPacket, parameters, data, maxDataCount = 0):
+    def setFileInformation(connId, smbServer, recvPacket, parameters, data, maxDataCount=0):
         connData = smbServer.getConnectionData(connId)
 
         respSetup = b''
@@ -702,9 +729,9 @@ class TRANS2Commands:
                 if informationLevel == smb.SMB_SET_FILE_DISPOSITION_INFO:
                     infoRecord = smb.SMBSetFileDispositionInfo(parameters)
                     if infoRecord['DeletePending'] > 0:
-                       # Mark this file for removal after closed
-                       connData['OpenedFiles'][setFileInfoParameters['FID']]['DeleteOnClose'] = True
-                       respParameters = smb.SMBSetFileInformationResponse_Parameters()
+                        # Mark this file for removal after closed
+                        connData['OpenedFiles'][setFileInfoParameters['FID']]['DeleteOnClose'] = True
+                        respParameters = smb.SMBSetFileInformationResponse_Parameters()
                 elif informationLevel == smb.SMB_SET_FILE_BASIC_INFO:
                     infoRecord = smb.SMBSetFileBasicInfo(data)
                     # Creation time won't be set,  the other ones we play with.
@@ -718,17 +745,18 @@ class TRANS2Commands:
                         mtime = -1
                     else:
                         mtime = getUnixTime(mtime)
-                    os.utime(fileName,(atime,mtime))
+                    os.utime(fileName, (atime, mtime))
                 elif informationLevel == smb.SMB_SET_FILE_END_OF_FILE_INFO:
                     fileHandle = connData['OpenedFiles'][setFileInfoParameters['FID']]['FileHandle']
                     infoRecord = smb.SMBSetFileEndOfFileInfo(data)
                     if infoRecord['EndOfFile'] > 0:
-                        os.lseek(fileHandle, infoRecord['EndOfFile']-1, 0)
+                        os.lseek(fileHandle, infoRecord['EndOfFile'] - 1, 0)
                         os.write(fileHandle, b'\x00')
                 else:
-                    smbServer.log('Unknown level for set file info! 0x%x' % setFileInfoParameters['InformationLevel'], logging.ERROR)
+                    smbServer.log('Unknown level for set file info! 0x%x' % setFileInfoParameters['InformationLevel'],
+                                  logging.ERROR)
                     # UNSUPPORTED
-                    errorCode =  STATUS_NOT_SUPPORTED
+                    errorCode = STATUS_NOT_SUPPORTED
             else:
                 errorCode = STATUS_NO_SUCH_FILE
 
@@ -742,7 +770,7 @@ class TRANS2Commands:
         return respSetup, respParameters, respData, errorCode
 
     @staticmethod
-    def queryFileInformation(connId, smbServer, recvPacket, parameters, data, maxDataCount = 0):
+    def queryFileInformation(connId, smbServer, recvPacket, parameters, data, maxDataCount=0):
         connData = smbServer.getConnectionData(connId)
 
         respSetup = b''
@@ -770,7 +798,7 @@ class TRANS2Commands:
         return respSetup, respParameters, respData, errorCode
 
     @staticmethod
-    def queryPathInformation(connId, smbServer, recvPacket, parameters, data, maxDataCount = 0):
+    def queryPathInformation(connId, smbServer, recvPacket, parameters, data, maxDataCount=0):
         connData = smbServer.getConnectionData(connId)
 
         respSetup = b''
@@ -778,7 +806,7 @@ class TRANS2Commands:
         respData = b''
         errorCode = 0
 
-        queryPathInfoParameters = smb.SMBQueryPathInformation_Parameters(flags = recvPacket['Flags2'], data = parameters)
+        queryPathInfoParameters = smb.SMBQueryPathInformation_Parameters(flags=recvPacket['Flags2'], data=parameters)
 
         if recvPacket['Tid'] in connData['ConnectedShares']:
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
@@ -787,30 +815,30 @@ class TRANS2Commands:
                                                                                    queryPathInfoParameters['FileName']),
                                                              queryPathInfoParameters['InformationLevel'])
             except Exception as e:
-               smbServer.log("queryPathInformation: %s" % e,logging.ERROR)
+                smbServer.log("queryPathInformation: %s" % e, logging.ERROR)
 
             if infoRecord is not None:
                 respParameters = smb.SMBQueryPathInformationResponse_Parameters()
                 respData = infoRecord
         else:
             errorCode = STATUS_SMB_BAD_TID
-           
+
         smbServer.setConnectionData(connId, connData)
 
         return respSetup, respParameters, respData, errorCode
 
     @staticmethod
-    def queryFsInformation(connId, smbServer, recvPacket, parameters, data, maxDataCount = 0):
+    def queryFsInformation(connId, smbServer, recvPacket, parameters, data, maxDataCount=0):
         connData = smbServer.getConnectionData(connId)
         errorCode = 0
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
             data = queryFsInformation(connData['ConnectedShares'][recvPacket['Tid']]['path'], '',
-                                      struct.unpack('<H',parameters)[0], pktFlags = recvPacket['Flags2'])
+                                      struct.unpack('<H', parameters)[0], pktFlags=recvPacket['Flags2'])
 
         smbServer.setConnectionData(connId, connData)
 
-        return b'',b'', data, errorCode
+        return b'', b'', data, errorCode
 
     @staticmethod
     def findNext2(connId, smbServer, recvPacket, parameters, data, maxDataCount):
@@ -820,7 +848,7 @@ class TRANS2Commands:
         respParameters = b''
         respData = b''
         errorCode = STATUS_SUCCESS
-        findNext2Parameters = smb.SMBFindNext2_Parameters(flags = recvPacket['Flags2'], data = parameters)
+        findNext2Parameters = smb.SMBFindNext2_Parameters(flags=recvPacket['Flags2'], data=parameters)
 
         sid = findNext2Parameters['SID']
         if recvPacket['Tid'] in connData['ConnectedShares']:
@@ -833,28 +861,28 @@ class TRANS2Commands:
                 for i in enumerate(searchResult):
                     data = i[1].getData()
                     lenData = len(data)
-                    if (totalData+lenData) >= maxDataCount or (i[0]+1) >= findNext2Parameters['SearchCount']:
+                    if (totalData + lenData) >= maxDataCount or (i[0] + 1) >= findNext2Parameters['SearchCount']:
                         # We gotta stop here and continue on a find_next2
                         endOfSearch = 0
                         connData['SIDs'][sid] = searchResult[i[0]:]
                         respParameters['LastNameOffset'] = totalData
                         break
                     else:
-                        searchCount +=1
+                        searchCount += 1
                         respData += data
                         totalData += lenData
-                    
+
                 # Have we reached the end of the search or still stuff to send?
                 if endOfSearch > 0:
                     # Let's remove the SID from our ConnData
-                    del(connData['SIDs'][sid])
+                    del (connData['SIDs'][sid])
 
                 respParameters['EndOfSearch'] = endOfSearch
                 respParameters['SearchCount'] = searchCount
-            else: 
+            else:
                 errorCode = STATUS_INVALID_HANDLE
         else:
-            errorCode = STATUS_SMB_BAD_TID   
+            errorCode = STATUS_SMB_BAD_TID
 
         smbServer.setConnectionData(connId, connData)
 
@@ -867,54 +895,57 @@ class TRANS2Commands:
         respSetup = b''
         respParameters = b''
         respData = b''
-        findFirst2Parameters = smb.SMBFindFirst2_Parameters( recvPacket['Flags2'], data = parameters)
+        findFirst2Parameters = smb.SMBFindFirst2_Parameters(recvPacket['Flags2'], data=parameters)
 
         if recvPacket['Tid'] in connData['ConnectedShares']:
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
 
-            searchResult, searchCount, errorCode = findFirst2(path, 
-                          decodeSMBString( recvPacket['Flags2'], findFirst2Parameters['FileName'] ), 
-                          findFirst2Parameters['InformationLevel'], 
-                          findFirst2Parameters['SearchAttributes'] , pktFlags = recvPacket['Flags2'])
+            searchResult, searchCount, errorCode = findFirst2(path,
+                                                              decodeSMBString(recvPacket['Flags2'],
+                                                                              findFirst2Parameters['FileName']),
+                                                              findFirst2Parameters['InformationLevel'],
+                                                              findFirst2Parameters['SearchAttributes'],
+                                                              pktFlags=recvPacket['Flags2'])
 
             respParameters = smb.SMBFindFirst2Response_Parameters()
             endOfSearch = 1
-            sid = 0x80 # default SID
+            sid = 0x80  # default SID
             searchCount = 0
             totalData = 0
             for i in enumerate(searchResult):
-                #i[1].dump()
+                # i[1].dump()
                 data = i[1].getData()
                 lenData = len(data)
-                if (totalData+lenData) >= maxDataCount or (i[0]+1) > findFirst2Parameters['SearchCount']:
+                if (totalData + lenData) >= maxDataCount or (i[0] + 1) > findFirst2Parameters['SearchCount']:
                     # We gotta stop here and continue on a find_next2
                     endOfSearch = 0
                     # Simple way to generate a fid
                     if len(connData['SIDs']) == 0:
-                       sid = 1
+                        sid = 1
                     else:
-                       sid = list(connData['SIDs'].keys())[-1] + 1
+                        sid = list(connData['SIDs'].keys())[-1] + 1
                     # Store the remaining search results in the ConnData SID
                     connData['SIDs'][sid] = searchResult[i[0]:]
                     respParameters['LastNameOffset'] = totalData
                     break
                 else:
-                    searchCount +=1
+                    searchCount += 1
                     respData += data
 
-                    padLen = (8-(lenData % 8)) %8
-                    respData += b'\xaa'*padLen
+                    padLen = (8 - (lenData % 8)) % 8
+                    respData += b'\xaa' * padLen
                     totalData += lenData + padLen
 
             respParameters['SID'] = sid
             respParameters['EndOfSearch'] = endOfSearch
             respParameters['SearchCount'] = searchCount
         else:
-            errorCode = STATUS_SMB_BAD_TID   
+            errorCode = STATUS_SMB_BAD_TID
 
         smbServer.setConnectionData(connId, connData)
 
         return respSetup, respParameters, respData, errorCode
+
 
 # Here we implement the commands handlers
 class SMBCommands:
@@ -925,16 +956,16 @@ class SMBCommands:
 
         respSMBCommand = smb.SMBCommand(recvPacket['Command'])
 
-        transParameters= smb.SMBTransaction_Parameters(SMBCommand['Parameters'])
+        transParameters = smb.SMBTransaction_Parameters(SMBCommand['Parameters'])
 
         # Do the stuff
         if transParameters['ParameterCount'] != transParameters['TotalParameterCount']:
-            # TODO: Handle partial parameters 
+            # TODO: Handle partial parameters
             raise Exception("Unsupported partial parameters in TRANSACT2!")
         else:
-            transData = smb.SMBTransaction_SData(flags = recvPacket['Flags2'])
-            # Standard says servers shouldn't trust Parameters and Data comes 
-            # in order, so we have to parse the offsets, ugly   
+            transData = smb.SMBTransaction_SData(flags=recvPacket['Flags2'])
+            # Standard says servers shouldn't trust Parameters and Data comes
+            # in order, so we have to parse the offsets, ugly
 
             paramCount = transParameters['ParameterCount']
             transData['Trans_ParametersLength'] = paramCount
@@ -943,126 +974,125 @@ class SMBCommands:
             transData.fromString(SMBCommand['Data'])
             if transParameters['ParameterOffset'] > 0:
                 paramOffset = transParameters['ParameterOffset'] - 63 - transParameters['SetupLength']
-                transData['Trans_Parameters'] = SMBCommand['Data'][paramOffset:paramOffset+paramCount]
+                transData['Trans_Parameters'] = SMBCommand['Data'][paramOffset:paramOffset + paramCount]
             else:
                 transData['Trans_Parameters'] = b''
 
             if transParameters['DataOffset'] > 0:
                 dataOffset = transParameters['DataOffset'] - 63 - transParameters['SetupLength']
                 transData['Trans_Data'] = SMBCommand['Data'][dataOffset:dataOffset + dataCount]
-            else: 
+            else:
                 transData['Trans_Data'] = b''
-            
+
             # Call the handler for this TRANSACTION
             if transParameters['SetupCount'] == 0:
                 # No subcommand, let's play with the Name
-                command = decodeSMBString(recvPacket['Flags2'],transData['Name'])
+                command = decodeSMBString(recvPacket['Flags2'], transData['Name'])
             else:
                 command = struct.unpack('<H', transParameters['Setup'][:2])[0]
-            
+
             if command in transCommands:
-               # Call the TRANS subcommand
-               setup = b''
-               parameters = b''
-               data = b''
-               try: 
-                   setup, parameters, data, errorCode = transCommands[command](connId,
-                                smbServer, 
-                                recvPacket, 
-                                transData['Trans_Parameters'], 
-                                transData['Trans_Data'],
-                                transParameters['MaxDataCount'])
-               except Exception as e:
-                   #print 'Transaction: %s' % e,e
-                   smbServer.log('Transaction: (%r,%s)' % (command, e), logging.ERROR)
-                   errorCode = STATUS_ACCESS_DENIED
-                   #raise
+                # Call the TRANS subcommand
+                setup = b''
+                parameters = b''
+                data = b''
+                try:
+                    setup, parameters, data, errorCode = transCommands[command](connId,
+                                                                                smbServer,
+                                                                                recvPacket,
+                                                                                transData['Trans_Parameters'],
+                                                                                transData['Trans_Data'],
+                                                                                transParameters['MaxDataCount'])
+                except Exception as e:
+                    # print 'Transaction: %s' % e,e
+                    smbServer.log('Transaction: (%r,%s)' % (command, e), logging.ERROR)
+                    errorCode = STATUS_ACCESS_DENIED
+                    # raise
 
-               if setup == b'' and parameters == b'' and data == b'':
-                   # Something wen't wrong
-                   respParameters = b''
-                   respData = b''
-               else:
-                   # Build the answer
-                   if hasattr(data, 'getData'):
-                       data = data.getData()
-                   remainingData = len(data)
-                   if hasattr(parameters, 'getData'):
-                       parameters = parameters.getData()
-                   remainingParameters = len(parameters)
-                   commands = []
-                   dataDisplacement = 0
-                   while remainingData > 0 or remainingParameters > 0: 
-                       respSMBCommand = smb.SMBCommand(recvPacket['Command'])
-                       respParameters = smb.SMBTransactionResponse_Parameters()
-                       respData       = smb.SMBTransaction2Response_Data()
+                if setup == b'' and parameters == b'' and data == b'':
+                    # Something wen't wrong
+                    respParameters = b''
+                    respData = b''
+                else:
+                    # Build the answer
+                    if hasattr(data, 'getData'):
+                        data = data.getData()
+                    remainingData = len(data)
+                    if hasattr(parameters, 'getData'):
+                        parameters = parameters.getData()
+                    remainingParameters = len(parameters)
+                    commands = []
+                    dataDisplacement = 0
+                    while remainingData > 0 or remainingParameters > 0:
+                        respSMBCommand = smb.SMBCommand(recvPacket['Command'])
+                        respParameters = smb.SMBTransactionResponse_Parameters()
+                        respData = smb.SMBTransaction2Response_Data()
 
-                       respParameters['TotalParameterCount'] = len(parameters)
-                       respParameters['ParameterCount']      = len(parameters)
-                       respData['Trans_ParametersLength']    = len(parameters)
-                       respParameters['TotalDataCount']      = len(data)
-                       respParameters['DataDisplacement']    = dataDisplacement
+                        respParameters['TotalParameterCount'] = len(parameters)
+                        respParameters['ParameterCount'] = len(parameters)
+                        respData['Trans_ParametersLength'] = len(parameters)
+                        respParameters['TotalDataCount'] = len(data)
+                        respParameters['DataDisplacement'] = dataDisplacement
 
-                       # TODO: Do the same for parameters
-                       if len(data) >  transParameters['MaxDataCount']:
-                           # Answer doesn't fit in this packet
-                           LOG.debug("Lowering answer from %d to %d" % (len(data),transParameters['MaxDataCount']) )
-                           respParameters['DataCount'] = transParameters['MaxDataCount']
-                       else:
-                           respParameters['DataCount'] = len(data)
+                        # TODO: Do the same for parameters
+                        if len(data) > transParameters['MaxDataCount']:
+                            # Answer doesn't fit in this packet
+                            LOG.debug("Lowering answer from %d to %d" % (len(data), transParameters['MaxDataCount']))
+                            respParameters['DataCount'] = transParameters['MaxDataCount']
+                        else:
+                            respParameters['DataCount'] = len(data)
 
-                       respData['Trans_DataLength']          = respParameters['DataCount']
-                       respParameters['SetupCount']          = len(setup)
-                       respParameters['Setup']               = setup
-                       # TODO: Make sure we're calculating the pad right
-                       if len(parameters) > 0:
-                           #padLen = 4 - (55 + len(setup)) % 4 
-                           padLen = (4 - (55 + len(setup)) % 4 ) % 4
-                           padBytes = b'\xFF' * padLen
-                           respData['Pad1'] = padBytes
-                           respParameters['ParameterOffset'] = 55 + len(setup) + padLen 
-                       else:
-                           padLen = 0
-                           respParameters['ParameterOffset'] = 0
-                           respData['Pad1']                  = b''
+                        respData['Trans_DataLength'] = respParameters['DataCount']
+                        respParameters['SetupCount'] = len(setup)
+                        respParameters['Setup'] = setup
+                        # TODO: Make sure we're calculating the pad right
+                        if len(parameters) > 0:
+                            # padLen = 4 - (55 + len(setup)) % 4
+                            padLen = (4 - (55 + len(setup)) % 4) % 4
+                            padBytes = b'\xFF' * padLen
+                            respData['Pad1'] = padBytes
+                            respParameters['ParameterOffset'] = 55 + len(setup) + padLen
+                        else:
+                            padLen = 0
+                            respParameters['ParameterOffset'] = 0
+                            respData['Pad1'] = b''
 
-                       if len(data) > 0:
-                           #pad2Len = 4 - (55 + len(setup) + padLen + len(parameters)) % 4
-                           pad2Len = (4 - (55 + len(setup) + padLen + len(parameters)) % 4) % 4
-                           respData['Pad2'] = b'\xFF' * pad2Len
-                           respParameters['DataOffset'] = 55 + len(setup) + padLen + len(parameters) + pad2Len
-                       else:
-                           respParameters['DataOffset'] = 0
-                           respData['Pad2']             = b''
+                        if len(data) > 0:
+                            # pad2Len = 4 - (55 + len(setup) + padLen + len(parameters)) % 4
+                            pad2Len = (4 - (55 + len(setup) + padLen + len(parameters)) % 4) % 4
+                            respData['Pad2'] = b'\xFF' * pad2Len
+                            respParameters['DataOffset'] = 55 + len(setup) + padLen + len(parameters) + pad2Len
+                        else:
+                            respParameters['DataOffset'] = 0
+                            respData['Pad2'] = b''
 
-                       respData['Trans_Parameters'] = parameters[:respParameters['ParameterCount']]
-                       respData['Trans_Data']       = data[:respParameters['DataCount']] 
-                       respSMBCommand['Parameters'] = respParameters
-                       respSMBCommand['Data']       = respData 
+                        respData['Trans_Parameters'] = parameters[:respParameters['ParameterCount']]
+                        respData['Trans_Data'] = data[:respParameters['DataCount']]
+                        respSMBCommand['Parameters'] = respParameters
+                        respSMBCommand['Data'] = respData
 
-                       data = data[respParameters['DataCount']:]
-                       remainingData -= respParameters['DataCount']
-                       dataDisplacement += respParameters['DataCount'] + 1
+                        data = data[respParameters['DataCount']:]
+                        remainingData -= respParameters['DataCount']
+                        dataDisplacement += respParameters['DataCount'] + 1
 
-                       parameters = parameters[respParameters['ParameterCount']:]
-                       remainingParameters -= respParameters['ParameterCount']
-                       commands.append(respSMBCommand)
+                        parameters = parameters[respParameters['ParameterCount']:]
+                        remainingParameters -= respParameters['ParameterCount']
+                        commands.append(respSMBCommand)
 
-                   smbServer.setConnectionData(connId, connData)
-                   return commands, None, errorCode
+                    smbServer.setConnectionData(connId, connData)
+                    return commands, None, errorCode
 
             else:
-               smbServer.log("Unsupported Transact command %r" % command, logging.ERROR)
-               respParameters = b''
-               respData = b''
-               errorCode = STATUS_NOT_IMPLEMENTED
+                smbServer.log("Unsupported Transact command %r" % command, logging.ERROR)
+                respParameters = b''
+                respData = b''
+                errorCode = STATUS_NOT_IMPLEMENTED
 
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
         smbServer.setConnectionData(connId, connData)
 
         return [respSMBCommand], None, errorCode
-
 
     @staticmethod
     def smbNTTransact(connId, smbServer, SMBCommand, recvPacket, transCommands):
@@ -1070,15 +1100,15 @@ class SMBCommands:
 
         respSMBCommand = smb.SMBCommand(recvPacket['Command'])
 
-        NTTransParameters= smb.SMBNTTransaction_Parameters(SMBCommand['Parameters'])
+        NTTransParameters = smb.SMBNTTransaction_Parameters(SMBCommand['Parameters'])
         # Do the stuff
         if NTTransParameters['ParameterCount'] != NTTransParameters['TotalParameterCount']:
-            # TODO: Handle partial parameters 
+            # TODO: Handle partial parameters
             raise Exception("Unsupported partial parameters in NTTrans!")
         else:
             NTTransData = smb.SMBNTTransaction_Data()
-            # Standard says servers shouldn't trust Parameters and Data comes 
-            # in order, so we have to parse the offsets, ugly   
+            # Standard says servers shouldn't trust Parameters and Data comes
+            # in order, so we have to parse the offsets, ugly
 
             paramCount = NTTransParameters['ParameterCount']
             NTTransData['NT_Trans_ParametersLength'] = paramCount
@@ -1087,121 +1117,120 @@ class SMBCommands:
 
             if NTTransParameters['ParameterOffset'] > 0:
                 paramOffset = NTTransParameters['ParameterOffset'] - 73 - NTTransParameters['SetupLength']
-                NTTransData['NT_Trans_Parameters'] = SMBCommand['Data'][paramOffset:paramOffset+paramCount]
+                NTTransData['NT_Trans_Parameters'] = SMBCommand['Data'][paramOffset:paramOffset + paramCount]
             else:
                 NTTransData['NT_Trans_Parameters'] = b''
 
             if NTTransParameters['DataOffset'] > 0:
                 dataOffset = NTTransParameters['DataOffset'] - 73 - NTTransParameters['SetupLength']
                 NTTransData['NT_Trans_Data'] = SMBCommand['Data'][dataOffset:dataOffset + dataCount]
-            else: 
+            else:
                 NTTransData['NT_Trans_Data'] = b''
 
             # Call the handler for this TRANSACTION
             command = NTTransParameters['Function']
             if command in transCommands:
-               # Call the NT TRANS subcommand
-               setup = b''
-               parameters = b''
-               data = b''
-               try: 
-                   setup, parameters, data, errorCode = transCommands[command](connId,
-                                smbServer, 
-                                recvPacket, 
-                                NTTransData['NT_Trans_Parameters'], 
-                                NTTransData['NT_Trans_Data'],
-                                NTTransParameters['MaxDataCount'])
-               except Exception as e:
-                   smbServer.log('NTTransaction: (0x%x,%s)' % (command, e), logging.ERROR)
-                   errorCode = STATUS_ACCESS_DENIED
-                   #raise
+                # Call the NT TRANS subcommand
+                setup = b''
+                parameters = b''
+                data = b''
+                try:
+                    setup, parameters, data, errorCode = transCommands[command](connId,
+                                                                                smbServer,
+                                                                                recvPacket,
+                                                                                NTTransData['NT_Trans_Parameters'],
+                                                                                NTTransData['NT_Trans_Data'],
+                                                                                NTTransParameters['MaxDataCount'])
+                except Exception as e:
+                    smbServer.log('NTTransaction: (0x%x,%s)' % (command, e), logging.ERROR)
+                    errorCode = STATUS_ACCESS_DENIED
+                    # raise
 
-               if setup == b'' and parameters == b'' and data == b'':
-                   # Something wen't wrong
-                   respParameters = b''
-                   respData = b''
-                   if errorCode == STATUS_SUCCESS:
-                       errorCode = STATUS_ACCESS_DENIED 
-               else:
-                   # Build the answer
-                   if hasattr(data, 'getData'):
-                       data = data.getData()
-                   remainingData = len(data)
-                   if hasattr(parameters, 'getData'):
-                       parameters = parameters.getData()
-                   remainingParameters = len(parameters)
-                   commands = []
-                   dataDisplacement = 0
-                   while remainingData > 0 or remainingParameters > 0: 
-                       respSMBCommand = smb.SMBCommand(recvPacket['Command'])
-                       respParameters = smb.SMBNTTransactionResponse_Parameters()
-                       respData       = smb.SMBNTTransactionResponse_Data()
+                if setup == b'' and parameters == b'' and data == b'':
+                    # Something wen't wrong
+                    respParameters = b''
+                    respData = b''
+                    if errorCode == STATUS_SUCCESS:
+                        errorCode = STATUS_ACCESS_DENIED
+                else:
+                    # Build the answer
+                    if hasattr(data, 'getData'):
+                        data = data.getData()
+                    remainingData = len(data)
+                    if hasattr(parameters, 'getData'):
+                        parameters = parameters.getData()
+                    remainingParameters = len(parameters)
+                    commands = []
+                    dataDisplacement = 0
+                    while remainingData > 0 or remainingParameters > 0:
+                        respSMBCommand = smb.SMBCommand(recvPacket['Command'])
+                        respParameters = smb.SMBNTTransactionResponse_Parameters()
+                        respData = smb.SMBNTTransactionResponse_Data()
 
-                       respParameters['TotalParameterCount'] = len(parameters)
-                       respParameters['ParameterCount']      = len(parameters)
-                       respData['Trans_ParametersLength']    = len(parameters)
-                       respParameters['TotalDataCount']      = len(data)
-                       respParameters['DataDisplacement']    = dataDisplacement
-                       # TODO: Do the same for parameters
-                       if len(data) >  NTTransParameters['MaxDataCount']:
-                           # Answer doesn't fit in this packet
-                           LOG.debug("Lowering answer from %d to %d" % (len(data),NTTransParameters['MaxDataCount']) )
-                           respParameters['DataCount'] = NTTransParameters['MaxDataCount']
-                       else:
-                           respParameters['DataCount'] = len(data)
+                        respParameters['TotalParameterCount'] = len(parameters)
+                        respParameters['ParameterCount'] = len(parameters)
+                        respData['Trans_ParametersLength'] = len(parameters)
+                        respParameters['TotalDataCount'] = len(data)
+                        respParameters['DataDisplacement'] = dataDisplacement
+                        # TODO: Do the same for parameters
+                        if len(data) > NTTransParameters['MaxDataCount']:
+                            # Answer doesn't fit in this packet
+                            LOG.debug("Lowering answer from %d to %d" % (len(data), NTTransParameters['MaxDataCount']))
+                            respParameters['DataCount'] = NTTransParameters['MaxDataCount']
+                        else:
+                            respParameters['DataCount'] = len(data)
 
-                       respData['NT_Trans_DataLength']          = respParameters['DataCount']
-                       respParameters['SetupCount']          = len(setup)
-                       respParameters['Setup']               = setup
-                       # TODO: Make sure we're calculating the pad right
-                       if len(parameters) > 0:
-                           #padLen = 4 - (71 + len(setup)) % 4 
-                           padLen = (4 - (73 + len(setup)) % 4 ) % 4
-                           padBytes = b'\xFF' * padLen
-                           respData['Pad1'] = padBytes
-                           respParameters['ParameterOffset'] = 73 + len(setup) + padLen 
-                       else:
-                           padLen = 0
-                           respParameters['ParameterOffset'] = 0
-                           respData['Pad1']                  = b''
+                        respData['NT_Trans_DataLength'] = respParameters['DataCount']
+                        respParameters['SetupCount'] = len(setup)
+                        respParameters['Setup'] = setup
+                        # TODO: Make sure we're calculating the pad right
+                        if len(parameters) > 0:
+                            # padLen = 4 - (71 + len(setup)) % 4
+                            padLen = (4 - (73 + len(setup)) % 4) % 4
+                            padBytes = b'\xFF' * padLen
+                            respData['Pad1'] = padBytes
+                            respParameters['ParameterOffset'] = 73 + len(setup) + padLen
+                        else:
+                            padLen = 0
+                            respParameters['ParameterOffset'] = 0
+                            respData['Pad1'] = b''
 
-                       if len(data) > 0:
-                           #pad2Len = 4 - (71 + len(setup) + padLen + len(parameters)) % 4
-                           pad2Len = (4 - (73 + len(setup) + padLen + len(parameters)) % 4) % 4
-                           respData['Pad2'] = b'\xFF' * pad2Len
-                           respParameters['DataOffset'] = 73 + len(setup) + padLen + len(parameters) + pad2Len
-                       else:
-                           respParameters['DataOffset'] = 0
-                           respData['Pad2']             = b''
+                        if len(data) > 0:
+                            # pad2Len = 4 - (71 + len(setup) + padLen + len(parameters)) % 4
+                            pad2Len = (4 - (73 + len(setup) + padLen + len(parameters)) % 4) % 4
+                            respData['Pad2'] = b'\xFF' * pad2Len
+                            respParameters['DataOffset'] = 73 + len(setup) + padLen + len(parameters) + pad2Len
+                        else:
+                            respParameters['DataOffset'] = 0
+                            respData['Pad2'] = b''
 
-                       respData['NT_Trans_Parameters'] = parameters[:respParameters['ParameterCount']]
-                       respData['NT_Trans_Data']       = data[:respParameters['DataCount']] 
-                       respSMBCommand['Parameters'] = respParameters
-                       respSMBCommand['Data']       = respData 
+                        respData['NT_Trans_Parameters'] = parameters[:respParameters['ParameterCount']]
+                        respData['NT_Trans_Data'] = data[:respParameters['DataCount']]
+                        respSMBCommand['Parameters'] = respParameters
+                        respSMBCommand['Data'] = respData
 
-                       data = data[respParameters['DataCount']:]
-                       remainingData -= respParameters['DataCount']
-                       dataDisplacement += respParameters['DataCount'] + 1
+                        data = data[respParameters['DataCount']:]
+                        remainingData -= respParameters['DataCount']
+                        dataDisplacement += respParameters['DataCount'] + 1
 
-                       parameters = parameters[respParameters['ParameterCount']:]
-                       remainingParameters -= respParameters['ParameterCount']
-                       commands.append(respSMBCommand)
+                        parameters = parameters[respParameters['ParameterCount']:]
+                        remainingParameters -= respParameters['ParameterCount']
+                        commands.append(respSMBCommand)
 
-                   smbServer.setConnectionData(connId, connData)
-                   return commands, None, errorCode
+                    smbServer.setConnectionData(connId, connData)
+                    return commands, None, errorCode
 
             else:
-               #smbServer.log("Unsupported NTTransact command 0x%x" % command, logging.ERROR)
-               respParameters = b''
-               respData = b''
-               errorCode = STATUS_NOT_IMPLEMENTED
+                # smbServer.log("Unsupported NTTransact command 0x%x" % command, logging.ERROR)
+                respParameters = b''
+                respData = b''
+                errorCode = STATUS_NOT_IMPLEMENTED
 
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
 
         smbServer.setConnectionData(connId, connData)
         return [respSMBCommand], None, errorCode
-
 
     @staticmethod
     def smbTransaction2(connId, smbServer, SMBCommand, recvPacket, transCommands):
@@ -1209,17 +1238,17 @@ class SMBCommands:
 
         respSMBCommand = smb.SMBCommand(recvPacket['Command'])
 
-        trans2Parameters= smb.SMBTransaction2_Parameters(SMBCommand['Parameters'])
+        trans2Parameters = smb.SMBTransaction2_Parameters(SMBCommand['Parameters'])
 
         # Do the stuff
         if trans2Parameters['ParameterCount'] != trans2Parameters['TotalParameterCount']:
-            # TODO: Handle partial parameters 
-            #print "Unsupported partial parameters in TRANSACT2!"
+            # TODO: Handle partial parameters
+            # print "Unsupported partial parameters in TRANSACT2!"
             raise Exception("Unsupported partial parameters in TRANSACT2!")
         else:
             trans2Data = smb.SMBTransaction2_Data()
-            # Standard says servers shouldn't trust Parameters and Data comes 
-            # in order, so we have to parse the offsets, ugly   
+            # Standard says servers shouldn't trust Parameters and Data comes
+            # in order, so we have to parse the offsets, ugly
 
             paramCount = trans2Parameters['ParameterCount']
             trans2Data['Trans_ParametersLength'] = paramCount
@@ -1228,113 +1257,113 @@ class SMBCommands:
 
             if trans2Parameters['ParameterOffset'] > 0:
                 paramOffset = trans2Parameters['ParameterOffset'] - 63 - trans2Parameters['SetupLength']
-                trans2Data['Trans_Parameters'] = SMBCommand['Data'][paramOffset:paramOffset+paramCount]
+                trans2Data['Trans_Parameters'] = SMBCommand['Data'][paramOffset:paramOffset + paramCount]
             else:
                 trans2Data['Trans_Parameters'] = b''
 
             if trans2Parameters['DataOffset'] > 0:
                 dataOffset = trans2Parameters['DataOffset'] - 63 - trans2Parameters['SetupLength']
                 trans2Data['Trans_Data'] = SMBCommand['Data'][dataOffset:dataOffset + dataCount]
-            else: 
+            else:
                 trans2Data['Trans_Data'] = b''
 
             # Call the handler for this TRANSACTION
             command = struct.unpack('<H', trans2Parameters['Setup'])[0]
             if command in transCommands:
-               # Call the TRANS2 subcommand
-               try:
-                   setup, parameters, data, errorCode = transCommands[command](connId,
-                                smbServer, 
-                                recvPacket, 
-                                trans2Data['Trans_Parameters'], 
-                                trans2Data['Trans_Data'],
-                                trans2Parameters['MaxDataCount'])
-               except Exception as e:
-                   smbServer.log('Transaction2: (0x%x,%s)' % (command, e), logging.ERROR)
-                   #import traceback
-                   #traceback.print_exc()
-                   raise
+                # Call the TRANS2 subcommand
+                try:
+                    setup, parameters, data, errorCode = transCommands[command](connId,
+                                                                                smbServer,
+                                                                                recvPacket,
+                                                                                trans2Data['Trans_Parameters'],
+                                                                                trans2Data['Trans_Data'],
+                                                                                trans2Parameters['MaxDataCount'])
+                except Exception as e:
+                    smbServer.log('Transaction2: (0x%x,%s)' % (command, e), logging.ERROR)
+                    # import traceback
+                    # traceback.print_exc()
+                    raise
 
-               if setup == b'' and parameters == b'' and data == b'':
-                   # Something wen't wrong
-                   respParameters = b''
-                   respData = b''
-               else:
-                   # Build the answer
-                   if hasattr(data, 'getData'):
-                       data = data.getData()
-                   remainingData = len(data)
-                   if hasattr(parameters, 'getData'):
-                       parameters = parameters.getData()
-                   remainingParameters = len(parameters)
-                   commands = []
-                   dataDisplacement = 0
-                   while remainingData > 0 or remainingParameters > 0: 
-                       respSMBCommand = smb.SMBCommand(recvPacket['Command'])
-                       respParameters = smb.SMBTransaction2Response_Parameters()
-                       respData       = smb.SMBTransaction2Response_Data()
+                if setup == b'' and parameters == b'' and data == b'':
+                    # Something wen't wrong
+                    respParameters = b''
+                    respData = b''
+                else:
+                    # Build the answer
+                    if hasattr(data, 'getData'):
+                        data = data.getData()
+                    remainingData = len(data)
+                    if hasattr(parameters, 'getData'):
+                        parameters = parameters.getData()
+                    remainingParameters = len(parameters)
+                    commands = []
+                    dataDisplacement = 0
+                    while remainingData > 0 or remainingParameters > 0:
+                        respSMBCommand = smb.SMBCommand(recvPacket['Command'])
+                        respParameters = smb.SMBTransaction2Response_Parameters()
+                        respData = smb.SMBTransaction2Response_Data()
 
-                       respParameters['TotalParameterCount'] = len(parameters)
-                       respParameters['ParameterCount']      = len(parameters)
-                       respData['Trans_ParametersLength']    = len(parameters)
-                       respParameters['TotalDataCount']      = len(data)
-                       respParameters['DataDisplacement']    = dataDisplacement
-                       # TODO: Do the same for parameters
-                       if len(data) >  trans2Parameters['MaxDataCount']:
-                           # Answer doesn't fit in this packet
-                           LOG.debug("Lowering answer from %d to %d" % (len(data),trans2Parameters['MaxDataCount']) )
-                           respParameters['DataCount'] = trans2Parameters['MaxDataCount']
-                       else:
-                           respParameters['DataCount'] = len(data)
+                        respParameters['TotalParameterCount'] = len(parameters)
+                        respParameters['ParameterCount'] = len(parameters)
+                        respData['Trans_ParametersLength'] = len(parameters)
+                        respParameters['TotalDataCount'] = len(data)
+                        respParameters['DataDisplacement'] = dataDisplacement
+                        # TODO: Do the same for parameters
+                        if len(data) > trans2Parameters['MaxDataCount']:
+                            # Answer doesn't fit in this packet
+                            LOG.debug("Lowering answer from %d to %d" % (len(data), trans2Parameters['MaxDataCount']))
+                            respParameters['DataCount'] = trans2Parameters['MaxDataCount']
+                        else:
+                            respParameters['DataCount'] = len(data)
 
-                       respData['Trans_DataLength']          = respParameters['DataCount']
-                       respParameters['SetupCount']          = len(setup)
-                       respParameters['Setup']               = setup
-                       # TODO: Make sure we're calculating the pad right
-                       if len(parameters) > 0:
-                           #padLen = 4 - (55 + len(setup)) % 4 
-                           padLen = (4 - (55 + len(setup)) % 4 ) % 4
-                           padBytes = b'\xFF' * padLen
-                           respData['Pad1'] = padBytes
-                           respParameters['ParameterOffset'] = 55 + len(setup) + padLen 
-                       else:
-                           padLen = 0
-                           respParameters['ParameterOffset'] = 0
-                           respData['Pad1']                  = b''
+                        respData['Trans_DataLength'] = respParameters['DataCount']
+                        respParameters['SetupCount'] = len(setup)
+                        respParameters['Setup'] = setup
+                        # TODO: Make sure we're calculating the pad right
+                        if len(parameters) > 0:
+                            # padLen = 4 - (55 + len(setup)) % 4
+                            padLen = (4 - (55 + len(setup)) % 4) % 4
+                            padBytes = b'\xFF' * padLen
+                            respData['Pad1'] = padBytes
+                            respParameters['ParameterOffset'] = 55 + len(setup) + padLen
+                        else:
+                            padLen = 0
+                            respParameters['ParameterOffset'] = 0
+                            respData['Pad1'] = b''
 
-                       if len(data) > 0:
-                           #pad2Len = 4 - (55 + len(setup) + padLen + len(parameters)) % 4
-                           pad2Len = (4 - (55 + len(setup) + padLen + len(parameters)) % 4) % 4
-                           respData['Pad2'] = b'\xFF' * pad2Len
-                           respParameters['DataOffset'] = 55 + len(setup) + padLen + len(parameters) + pad2Len
-                       else:
-                           respParameters['DataOffset'] = 0
-                           respData['Pad2']             = b''
+                        if len(data) > 0:
+                            # pad2Len = 4 - (55 + len(setup) + padLen + len(parameters)) % 4
+                            pad2Len = (4 - (55 + len(setup) + padLen + len(parameters)) % 4) % 4
+                            respData['Pad2'] = b'\xFF' * pad2Len
+                            respParameters['DataOffset'] = 55 + len(setup) + padLen + len(parameters) + pad2Len
+                        else:
+                            respParameters['DataOffset'] = 0
+                            respData['Pad2'] = b''
 
-                       respData['Trans_Parameters'] = parameters[:respParameters['ParameterCount']]
-                       respData['Trans_Data']       = data[:respParameters['DataCount']] 
-                       respSMBCommand['Parameters'] = respParameters
-                       respSMBCommand['Data']       = respData 
+                        respData['Trans_Parameters'] = parameters[:respParameters['ParameterCount']]
+                        respData['Trans_Data'] = data[:respParameters['DataCount']]
+                        respSMBCommand['Parameters'] = respParameters
+                        respSMBCommand['Data'] = respData
 
-                       data = data[respParameters['DataCount']:]
-                       remainingData -= respParameters['DataCount']
-                       dataDisplacement += respParameters['DataCount'] + 1
+                        data = data[respParameters['DataCount']:]
+                        remainingData -= respParameters['DataCount']
+                        dataDisplacement += respParameters['DataCount'] + 1
 
-                       parameters = parameters[respParameters['ParameterCount']:]
-                       remainingParameters -= respParameters['ParameterCount']
-                       commands.append(respSMBCommand)
+                        parameters = parameters[respParameters['ParameterCount']:]
+                        remainingParameters -= respParameters['ParameterCount']
+                        commands.append(respSMBCommand)
 
-                   smbServer.setConnectionData(connId, connData)
-                   return commands, None, errorCode
+                    smbServer.setConnectionData(connId, connData)
+                    return commands, None, errorCode
 
             else:
-               smbServer.log("Unsupported Transact/2 command 0x%x" % command, logging.ERROR)
-               respParameters = b''
-               respData = b''
-               errorCode = STATUS_NOT_IMPLEMENTED
+                smbServer.log("Unsupported Transact/2 command 0x%x" % command, logging.ERROR)
+                respParameters = b''
+                respData = b''
+                errorCode = STATUS_NOT_IMPLEMENTED
 
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
 
         smbServer.setConnectionData(connId, connData)
         return [respSMBCommand], None, errorCode
@@ -1343,59 +1372,58 @@ class SMBCommands:
     def smbComLockingAndX(connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_LOCKING_ANDX)
-        respParameters        = b''
-        respData              = b''
+        respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_LOCKING_ANDX)
+        respParameters = b''
+        respData = b''
 
         # I'm actually doing nothing.. just make MacOS happy ;)
         errorCode = STATUS_SUCCESS
 
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
         smbServer.setConnectionData(connId, connData)
 
         return [respSMBCommand], None, errorCode
-
 
     @staticmethod
     def smbComClose(connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_CLOSE)
-        respParameters        = b''
-        respData              = b''
+        respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_CLOSE)
+        respParameters = b''
+        respData = b''
 
-        comClose =  smb.SMBClose_Parameters(SMBCommand['Parameters'])
+        comClose = smb.SMBClose_Parameters(SMBCommand['Parameters'])
 
         if comClose['FID'] in connData['OpenedFiles']:
-             errorCode = STATUS_SUCCESS
-             fileHandle = connData['OpenedFiles'][comClose['FID']]['FileHandle']
-             try:
-                 if fileHandle == PIPE_FILE_DESCRIPTOR:
-                     connData['OpenedFiles'][comClose['FID']]['Socket'].close()
-                 elif fileHandle != VOID_FILE_DESCRIPTOR:
-                     os.close(fileHandle)
-             except Exception as e:
-                 smbServer.log("comClose %s" % e, logging.ERROR)
-                 errorCode = STATUS_ACCESS_DENIED
-             else:
-                 # Check if the file was marked for removal
-                 if connData['OpenedFiles'][comClose['FID']]['DeleteOnClose'] is True:
-                     try:
-                         os.remove(connData['OpenedFiles'][comClose['FID']]['FileName'])
-                     except Exception as e:
-                         smbServer.log("comClose %s" % e, logging.ERROR)
-                         errorCode = STATUS_ACCESS_DENIED
-                 del(connData['OpenedFiles'][comClose['FID']])
+            errorCode = STATUS_SUCCESS
+            fileHandle = connData['OpenedFiles'][comClose['FID']]['FileHandle']
+            try:
+                if fileHandle == PIPE_FILE_DESCRIPTOR:
+                    connData['OpenedFiles'][comClose['FID']]['Socket'].close()
+                elif fileHandle != VOID_FILE_DESCRIPTOR:
+                    os.close(fileHandle)
+            except Exception as e:
+                smbServer.log("comClose %s" % e, logging.ERROR)
+                errorCode = STATUS_ACCESS_DENIED
+            else:
+                # Check if the file was marked for removal
+                if connData['OpenedFiles'][comClose['FID']]['DeleteOnClose'] is True:
+                    try:
+                        os.remove(connData['OpenedFiles'][comClose['FID']]['FileName'])
+                    except Exception as e:
+                        smbServer.log("comClose %s" % e, logging.ERROR)
+                        errorCode = STATUS_ACCESS_DENIED
+                del (connData['OpenedFiles'][comClose['FID']])
         else:
             errorCode = STATUS_INVALID_HANDLE
 
         if errorCode > 0:
             respParameters = b''
-            respData       = b''
+            respData = b''
 
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
         smbServer.setConnectionData(connId, connData)
 
         return [respSMBCommand], None, errorCode
@@ -1404,310 +1432,308 @@ class SMBCommands:
     def smbComWrite(connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_WRITE)
-        respParameters        = smb.SMBWriteResponse_Parameters()
-        respData              = b''
+        respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_WRITE)
+        respParameters = smb.SMBWriteResponse_Parameters()
+        respData = b''
 
-        comWriteParameters =  smb.SMBWrite_Parameters(SMBCommand['Parameters'])
+        comWriteParameters = smb.SMBWrite_Parameters(SMBCommand['Parameters'])
         comWriteData = smb.SMBWrite_Data(SMBCommand['Data'])
 
         if comWriteParameters['Fid'] in connData['OpenedFiles']:
-             fileHandle = connData['OpenedFiles'][comWriteParameters['Fid']]['FileHandle']
-             errorCode = STATUS_SUCCESS
-             try:
-                 if fileHandle != PIPE_FILE_DESCRIPTOR:
-                     # TODO: Handle big size files
-                     # If we're trying to write past the file end we just skip the write call (Vista does this)
-                     if os.lseek(fileHandle, 0, 2) >= comWriteParameters['Offset']: 
-                         os.lseek(fileHandle,comWriteParameters['Offset'],0)
-                         os.write(fileHandle,comWriteData['Data'])
-                 else:
-                     sock = connData['OpenedFiles'][comWriteParameters['Fid']]['Socket']
-                     sock.send(comWriteData['Data'])
-                 respParameters['Count']    = comWriteParameters['Count']
-             except Exception as e:
-                 smbServer.log('smbComWrite: %s' % e, logging.ERROR)
-                 errorCode = STATUS_ACCESS_DENIED
+            fileHandle = connData['OpenedFiles'][comWriteParameters['Fid']]['FileHandle']
+            errorCode = STATUS_SUCCESS
+            try:
+                if fileHandle != PIPE_FILE_DESCRIPTOR:
+                    # TODO: Handle big size files
+                    # If we're trying to write past the file end we just skip the write call (Vista does this)
+                    if os.lseek(fileHandle, 0, 2) >= comWriteParameters['Offset']:
+                        os.lseek(fileHandle, comWriteParameters['Offset'], 0)
+                        os.write(fileHandle, comWriteData['Data'])
+                else:
+                    sock = connData['OpenedFiles'][comWriteParameters['Fid']]['Socket']
+                    sock.send(comWriteData['Data'])
+                respParameters['Count'] = comWriteParameters['Count']
+            except Exception as e:
+                smbServer.log('smbComWrite: %s' % e, logging.ERROR)
+                errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_INVALID_HANDLE
 
-
         if errorCode > 0:
             respParameters = b''
-            respData       = b''
+            respData = b''
 
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
         smbServer.setConnectionData(connId, connData)
 
         return [respSMBCommand], None, errorCode
 
     @staticmethod
-    def smbComFlush(connId, smbServer, SMBCommand,recvPacket ):
+    def smbComFlush(connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_FLUSH)
-        respParameters        = b''
-        respData              = b''
+        respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_FLUSH)
+        respParameters = b''
+        respData = b''
 
-        comFlush =  smb.SMBFlush_Parameters(SMBCommand['Parameters'])
+        comFlush = smb.SMBFlush_Parameters(SMBCommand['Parameters'])
 
         if comFlush['FID'] in connData['OpenedFiles']:
-             errorCode = STATUS_SUCCESS
-             fileHandle = connData['OpenedFiles'][comFlush['FID']]['FileHandle']
-             try:
-                 os.fsync(fileHandle)
-             except Exception as e:
-                 smbServer.log("comFlush %s" % e, logging.ERROR)
-                 errorCode = STATUS_ACCESS_DENIED
+            errorCode = STATUS_SUCCESS
+            fileHandle = connData['OpenedFiles'][comFlush['FID']]['FileHandle']
+            try:
+                os.fsync(fileHandle)
+            except Exception as e:
+                smbServer.log("comFlush %s" % e, logging.ERROR)
+                errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_INVALID_HANDLE
 
         if errorCode > 0:
             respParameters = b''
-            respData       = b''
+            respData = b''
 
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
         smbServer.setConnectionData(connId, connData)
 
         return [respSMBCommand], None, errorCode
 
-
     @staticmethod
-    def smbComCreateDirectory(connId, smbServer, SMBCommand,recvPacket ):
+    def smbComCreateDirectory(connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_CREATE_DIRECTORY)
-        respParameters        = b''
-        respData              = b''
+        respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_CREATE_DIRECTORY)
+        respParameters = b''
+        respData = b''
 
-        comCreateDirectoryData=  smb.SMBCreateDirectory_Data(flags = recvPacket['Flags2'], data = SMBCommand['Data'])
+        comCreateDirectoryData = smb.SMBCreateDirectory_Data(flags=recvPacket['Flags2'], data=SMBCommand['Data'])
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
-             errorCode = STATUS_SUCCESS
-             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
-             fileName = os.path.normpath(decodeSMBString(recvPacket['Flags2'],comCreateDirectoryData['DirectoryName']).replace('\\','/'))
-             if len(fileName) > 0:
+            errorCode = STATUS_SUCCESS
+            path = connData['ConnectedShares'][recvPacket['Tid']]['path']
+            fileName = os.path.normpath(
+                decodeSMBString(recvPacket['Flags2'], comCreateDirectoryData['DirectoryName']).replace('\\', '/'))
+            if len(fileName) > 0:
                 if fileName[0] == '/' or fileName[0] == '\\':
                     # strip leading '/'
                     fileName = fileName[1:]
-             pathName = os.path.join(path,fileName)
-             if os.path.exists(pathName):
+            pathName = os.path.join(path, fileName)
+            if os.path.exists(pathName):
                 errorCode = STATUS_OBJECT_NAME_COLLISION
 
-             # TODO: More checks here in the future.. Specially when we support
-             # user access
-             else:
-                 try:
-                     os.mkdir(pathName)
-                 except Exception as e:
-                     smbServer.log("smbComCreateDirectory: %s" % e, logging.ERROR)
-                     errorCode = STATUS_ACCESS_DENIED
+            # TODO: More checks here in the future.. Specially when we support
+            # user access
+            else:
+                try:
+                    os.mkdir(pathName)
+                except Exception as e:
+                    smbServer.log("smbComCreateDirectory: %s" % e, logging.ERROR)
+                    errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_SMB_BAD_TID
 
-
         if errorCode > 0:
             respParameters = b''
-            respData       = b''
+            respData = b''
 
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
         smbServer.setConnectionData(connId, connData)
 
         return [respSMBCommand], None, errorCode
 
     @staticmethod
-    def smbComRename(connId, smbServer, SMBCommand, recvPacket ):
+    def smbComRename(connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_RENAME)
-        respParameters        = b''
-        respData              = b''
+        respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_RENAME)
+        respParameters = b''
+        respData = b''
 
-        comRenameData      =  smb.SMBRename_Data(flags = recvPacket['Flags2'], data = SMBCommand['Data'])
+        comRenameData = smb.SMBRename_Data(flags=recvPacket['Flags2'], data=SMBCommand['Data'])
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
-             errorCode = STATUS_SUCCESS
-             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
-             oldFileName = os.path.normpath(decodeSMBString(recvPacket['Flags2'],comRenameData['OldFileName']).replace('\\','/'))
-             newFileName = os.path.normpath(decodeSMBString(recvPacket['Flags2'],comRenameData['NewFileName']).replace('\\','/'))
-             if len(oldFileName) > 0 and (oldFileName[0] == '/' or oldFileName[0] == '\\'):
+            errorCode = STATUS_SUCCESS
+            path = connData['ConnectedShares'][recvPacket['Tid']]['path']
+            oldFileName = os.path.normpath(
+                decodeSMBString(recvPacket['Flags2'], comRenameData['OldFileName']).replace('\\', '/'))
+            newFileName = os.path.normpath(
+                decodeSMBString(recvPacket['Flags2'], comRenameData['NewFileName']).replace('\\', '/'))
+            if len(oldFileName) > 0 and (oldFileName[0] == '/' or oldFileName[0] == '\\'):
                 # strip leading '/'
                 oldFileName = oldFileName[1:]
-             oldPathName = os.path.join(path,oldFileName)
-             if len(newFileName) > 0 and (newFileName[0] == '/' or newFileName[0] == '\\'):
+            oldPathName = os.path.join(path, oldFileName)
+            if len(newFileName) > 0 and (newFileName[0] == '/' or newFileName[0] == '\\'):
                 # strip leading '/'
                 newFileName = newFileName[1:]
-             newPathName = os.path.join(path,newFileName)
+            newPathName = os.path.join(path, newFileName)
 
-             if os.path.exists(oldPathName) is not True:
+            if os.path.exists(oldPathName) is not True:
                 errorCode = STATUS_NO_SUCH_FILE
 
-             # TODO: More checks here in the future.. Specially when we support
-             # user access
-             else:
-                 try:
-                     os.rename(oldPathName,newPathName)
-                 except OSError as e:
-                     smbServer.log("smbComRename: %s" % e, logging.ERROR)
-                     errorCode = STATUS_ACCESS_DENIED
+            # TODO: More checks here in the future.. Specially when we support
+            # user access
+            else:
+                try:
+                    os.rename(oldPathName, newPathName)
+                except OSError as e:
+                    smbServer.log("smbComRename: %s" % e, logging.ERROR)
+                    errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_SMB_BAD_TID
 
-
         if errorCode > 0:
             respParameters = b''
-            respData       = b''
+            respData = b''
 
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
         smbServer.setConnectionData(connId, connData)
 
         return [respSMBCommand], None, errorCode
 
     @staticmethod
-    def smbComDelete(connId, smbServer, SMBCommand, recvPacket ):
+    def smbComDelete(connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_DELETE)
-        respParameters        = b''
-        respData              = b''
+        respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_DELETE)
+        respParameters = b''
+        respData = b''
 
-        comDeleteData         =  smb.SMBDelete_Data(flags = recvPacket['Flags2'], data = SMBCommand['Data'])
+        comDeleteData = smb.SMBDelete_Data(flags=recvPacket['Flags2'], data=SMBCommand['Data'])
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
-             errorCode = STATUS_SUCCESS
-             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
-             fileName = os.path.normpath(decodeSMBString(recvPacket['Flags2'],comDeleteData['FileName']).replace('\\','/'))
-             if len(fileName) > 0 and (fileName[0] == '/' or fileName[0] == '\\'):
+            errorCode = STATUS_SUCCESS
+            path = connData['ConnectedShares'][recvPacket['Tid']]['path']
+            fileName = os.path.normpath(
+                decodeSMBString(recvPacket['Flags2'], comDeleteData['FileName']).replace('\\', '/'))
+            if len(fileName) > 0 and (fileName[0] == '/' or fileName[0] == '\\'):
                 # strip leading '/'
                 fileName = fileName[1:]
-             pathName = os.path.join(path,fileName)
-             if os.path.exists(pathName) is not True:
+            pathName = os.path.join(path, fileName)
+            if os.path.exists(pathName) is not True:
                 errorCode = STATUS_NO_SUCH_FILE
 
-             # TODO: More checks here in the future.. Specially when we support
-             # user access
-             else:
-                 try:
-                     os.remove(pathName)
-                 except OSError as e:
-                     smbServer.log("smbComDelete: %s" % e, logging.ERROR)
-                     errorCode = STATUS_ACCESS_DENIED
+            # TODO: More checks here in the future.. Specially when we support
+            # user access
+            else:
+                try:
+                    os.remove(pathName)
+                except OSError as e:
+                    smbServer.log("smbComDelete: %s" % e, logging.ERROR)
+                    errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_SMB_BAD_TID
 
         if errorCode > 0:
             respParameters = b''
-            respData       = b''
+            respData = b''
 
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
         smbServer.setConnectionData(connId, connData)
 
         return [respSMBCommand], None, errorCode
-
 
     @staticmethod
-    def smbComDeleteDirectory(connId, smbServer, SMBCommand, recvPacket ):
+    def smbComDeleteDirectory(connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_DELETE_DIRECTORY)
-        respParameters        = b''
-        respData              = b''
+        respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_DELETE_DIRECTORY)
+        respParameters = b''
+        respData = b''
 
-        comDeleteDirectoryData=  smb.SMBDeleteDirectory_Data(flags = recvPacket['Flags2'], data = SMBCommand['Data'])
+        comDeleteDirectoryData = smb.SMBDeleteDirectory_Data(flags=recvPacket['Flags2'], data=SMBCommand['Data'])
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
-             errorCode = STATUS_SUCCESS
-             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
-             fileName = os.path.normpath(decodeSMBString(recvPacket['Flags2'],comDeleteDirectoryData['DirectoryName']).replace('\\','/'))
-             if len(fileName) > 0 and (fileName[0] == '/' or fileName[0] == '\\'):
+            errorCode = STATUS_SUCCESS
+            path = connData['ConnectedShares'][recvPacket['Tid']]['path']
+            fileName = os.path.normpath(
+                decodeSMBString(recvPacket['Flags2'], comDeleteDirectoryData['DirectoryName']).replace('\\', '/'))
+            if len(fileName) > 0 and (fileName[0] == '/' or fileName[0] == '\\'):
                 # strip leading '/'
                 fileName = fileName[1:]
-             pathName = os.path.join(path,fileName)
-             if os.path.exists(pathName) is not True:
+            pathName = os.path.join(path, fileName)
+            if os.path.exists(pathName) is not True:
                 errorCode = STATUS_NO_SUCH_FILE
 
-             # TODO: More checks here in the future.. Specially when we support
-             # user access
-             else:
-                 try:
-                     os.rmdir(pathName)
-                 except OSError as e:
-                     smbServer.log("smbComDeleteDirectory: %s" % e,logging.ERROR)
-                     if e.errno == errno.ENOTEMPTY:
-                         errorCode = STATUS_DIRECTORY_NOT_EMPTY
-                     else:
-                         errorCode = STATUS_ACCESS_DENIED
+            # TODO: More checks here in the future.. Specially when we support
+            # user access
+            else:
+                try:
+                    os.rmdir(pathName)
+                except OSError as e:
+                    smbServer.log("smbComDeleteDirectory: %s" % e, logging.ERROR)
+                    if e.errno == errno.ENOTEMPTY:
+                        errorCode = STATUS_DIRECTORY_NOT_EMPTY
+                    else:
+                        errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_SMB_BAD_TID
 
         if errorCode > 0:
             respParameters = b''
-            respData       = b''
+            respData = b''
 
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
         smbServer.setConnectionData(connId, connData)
 
         return [respSMBCommand], None, errorCode
-
 
     @staticmethod
     def smbComWriteAndX(connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_WRITE_ANDX)
-        respParameters        = smb.SMBWriteAndXResponse_Parameters()
-        respData              = b''
+        respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_WRITE_ANDX)
+        respParameters = smb.SMBWriteAndXResponse_Parameters()
+        respData = b''
 
         if SMBCommand['WordCount'] == 0x0C:
-            writeAndX =  smb.SMBWriteAndX_Parameters_Short(SMBCommand['Parameters'])
+            writeAndX = smb.SMBWriteAndX_Parameters_Short(SMBCommand['Parameters'])
             writeAndXData = smb.SMBWriteAndX_Data_Short()
         else:
-            writeAndX =  smb.SMBWriteAndX_Parameters(SMBCommand['Parameters'])
+            writeAndX = smb.SMBWriteAndX_Parameters(SMBCommand['Parameters'])
             writeAndXData = smb.SMBWriteAndX_Data()
         writeAndXData['DataLength'] = writeAndX['DataLength']
         writeAndXData['DataOffset'] = writeAndX['DataOffset']
         writeAndXData.fromString(SMBCommand['Data'])
-        
 
         if writeAndX['Fid'] in connData['OpenedFiles']:
-             fileHandle = connData['OpenedFiles'][writeAndX['Fid']]['FileHandle']
-             errorCode = STATUS_SUCCESS
-             try:
-                 if fileHandle != PIPE_FILE_DESCRIPTOR:
-                     offset = writeAndX['Offset']
-                     if 'HighOffset' in writeAndX.fields:
-                         offset += (writeAndX['HighOffset'] << 32)
-                     # If we're trying to write past the file end we just skip the write call (Vista does this)
-                     if os.lseek(fileHandle, 0, 2) >= offset:
-                         os.lseek(fileHandle,offset,0)
-                         os.write(fileHandle,writeAndXData['Data'])
-                 else:
-                     sock = connData['OpenedFiles'][writeAndX['Fid']]['Socket']
-                     sock.send(writeAndXData['Data'])
+            fileHandle = connData['OpenedFiles'][writeAndX['Fid']]['FileHandle']
+            errorCode = STATUS_SUCCESS
+            try:
+                if fileHandle != PIPE_FILE_DESCRIPTOR:
+                    offset = writeAndX['Offset']
+                    if 'HighOffset' in writeAndX.fields:
+                        offset += (writeAndX['HighOffset'] << 32)
+                    # If we're trying to write past the file end we just skip the write call (Vista does this)
+                    if os.lseek(fileHandle, 0, 2) >= offset:
+                        os.lseek(fileHandle, offset, 0)
+                        os.write(fileHandle, writeAndXData['Data'])
+                else:
+                    sock = connData['OpenedFiles'][writeAndX['Fid']]['Socket']
+                    sock.send(writeAndXData['Data'])
 
-                 respParameters['Count']    = writeAndX['DataLength']
-                 respParameters['Available']= 0xff
-             except Exception as e:
-                 smbServer.log('smbComWriteAndx: %s' % e, logging.ERROR)
-                 errorCode = STATUS_ACCESS_DENIED
+                respParameters['Count'] = writeAndX['DataLength']
+                respParameters['Available'] = 0xff
+            except Exception as e:
+                smbServer.log('smbComWriteAndx: %s' % e, logging.ERROR)
+                errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_INVALID_HANDLE
 
         if errorCode > 0:
             respParameters = b''
-            respData       = b''
+            respData = b''
 
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
         smbServer.setConnectionData(connId, connData)
 
         return [respSMBCommand], None, errorCode
@@ -1716,38 +1742,38 @@ class SMBCommands:
     def smbComRead(connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_READ)
-        respParameters        = smb.SMBReadResponse_Parameters()
-        respData              = smb.SMBReadResponse_Data()
+        respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_READ)
+        respParameters = smb.SMBReadResponse_Parameters()
+        respData = smb.SMBReadResponse_Data()
 
-        comReadParameters =  smb.SMBRead_Parameters(SMBCommand['Parameters'])
+        comReadParameters = smb.SMBRead_Parameters(SMBCommand['Parameters'])
 
         if comReadParameters['Fid'] in connData['OpenedFiles']:
-             fileHandle = connData['OpenedFiles'][comReadParameters['Fid']]['FileHandle']
-             errorCode = STATUS_SUCCESS
-             try:
-                 if fileHandle != PIPE_FILE_DESCRIPTOR:
-                     # TODO: Handle big size files
-                     os.lseek(fileHandle,comReadParameters['Offset'],0)
-                     content = os.read(fileHandle,comReadParameters['Count'])
-                 else:
-                     sock = connData['OpenedFiles'][comReadParameters['Fid']]['Socket']
-                     content = sock.recv(comReadParameters['Count'])
-                 respParameters['Count']    = len(content)
-                 respData['DataLength']     = len(content)
-                 respData['Data']           = content
-             except Exception as e:
-                 smbServer.log('smbComRead: %s ' % e, logging.ERROR)
-                 errorCode = STATUS_ACCESS_DENIED
+            fileHandle = connData['OpenedFiles'][comReadParameters['Fid']]['FileHandle']
+            errorCode = STATUS_SUCCESS
+            try:
+                if fileHandle != PIPE_FILE_DESCRIPTOR:
+                    # TODO: Handle big size files
+                    os.lseek(fileHandle, comReadParameters['Offset'], 0)
+                    content = os.read(fileHandle, comReadParameters['Count'])
+                else:
+                    sock = connData['OpenedFiles'][comReadParameters['Fid']]['Socket']
+                    content = sock.recv(comReadParameters['Count'])
+                respParameters['Count'] = len(content)
+                respData['DataLength'] = len(content)
+                respData['Data'] = content
+            except Exception as e:
+                smbServer.log('smbComRead: %s ' % e, logging.ERROR)
+                errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_INVALID_HANDLE
 
         if errorCode > 0:
             respParameters = b''
-            respData       = b''
+            respData = b''
 
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
         smbServer.setConnectionData(connId, connData)
 
         return [respSMBCommand], None, errorCode
@@ -1756,45 +1782,45 @@ class SMBCommands:
     def smbComReadAndX(connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_READ_ANDX)
-        respParameters        = smb.SMBReadAndXResponse_Parameters()
-        respData              = b''
+        respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_READ_ANDX)
+        respParameters = smb.SMBReadAndXResponse_Parameters()
+        respData = b''
 
         if SMBCommand['WordCount'] == 0x0A:
-            readAndX =  smb.SMBReadAndX_Parameters2(SMBCommand['Parameters'])
+            readAndX = smb.SMBReadAndX_Parameters2(SMBCommand['Parameters'])
         else:
-            readAndX =  smb.SMBReadAndX_Parameters(SMBCommand['Parameters'])
+            readAndX = smb.SMBReadAndX_Parameters(SMBCommand['Parameters'])
 
         if readAndX['Fid'] in connData['OpenedFiles']:
-             fileHandle = connData['OpenedFiles'][readAndX['Fid']]['FileHandle']
-             errorCode = 0
-             try:
-                 if fileHandle != PIPE_FILE_DESCRIPTOR:
-                     offset = readAndX['Offset']
-                     if 'HighOffset' in readAndX.fields:
-                         offset += (readAndX['HighOffset'] << 32)
-                     os.lseek(fileHandle,offset,0)
-                     content = os.read(fileHandle,readAndX['MaxCount'])
-                 else:
-                     sock = connData['OpenedFiles'][readAndX['Fid']]['Socket']
-                     content = sock.recv(readAndX['MaxCount'])
-                 respParameters['Remaining']    = 0xffff
-                 respParameters['DataCount']    = len(content)
-                 respParameters['DataOffset']   = 59
-                 respParameters['DataCount_Hi'] = 0
-                 respData = content
-             except Exception as e:
-                 smbServer.log('smbComReadAndX: %s ' % e, logging.ERROR)
-                 errorCode = STATUS_ACCESS_DENIED
+            fileHandle = connData['OpenedFiles'][readAndX['Fid']]['FileHandle']
+            errorCode = 0
+            try:
+                if fileHandle != PIPE_FILE_DESCRIPTOR:
+                    offset = readAndX['Offset']
+                    if 'HighOffset' in readAndX.fields:
+                        offset += (readAndX['HighOffset'] << 32)
+                    os.lseek(fileHandle, offset, 0)
+                    content = os.read(fileHandle, readAndX['MaxCount'])
+                else:
+                    sock = connData['OpenedFiles'][readAndX['Fid']]['Socket']
+                    content = sock.recv(readAndX['MaxCount'])
+                respParameters['Remaining'] = 0xffff
+                respParameters['DataCount'] = len(content)
+                respParameters['DataOffset'] = 59
+                respParameters['DataCount_Hi'] = 0
+                respData = content
+            except Exception as e:
+                smbServer.log('smbComReadAndX: %s ' % e, logging.ERROR)
+                errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_INVALID_HANDLE
 
         if errorCode > 0:
             respParameters = b''
-            respData       = b''
+            respData = b''
 
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
         smbServer.setConnectionData(connId, connData)
 
         return [respSMBCommand], None, errorCode
@@ -1805,28 +1831,28 @@ class SMBCommands:
 
         respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_QUERY_INFORMATION)
         respParameters = smb.SMBQueryInformationResponse_Parameters()
-        respData       = b''
+        respData = b''
 
-        queryInformation= smb.SMBQueryInformation_Data(flags = recvPacket['Flags2'], data = SMBCommand['Data'])
+        queryInformation = smb.SMBQueryInformation_Data(flags=recvPacket['Flags2'], data=SMBCommand['Data'])
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
             fileSize, lastWriteTime, fileAttributes = queryFsInformation(
-                connData['ConnectedShares'][recvPacket['Tid']]['path'], 
-                decodeSMBString(recvPacket['Flags2'],queryInformation['FileName']), pktFlags = recvPacket['Flags2'])
+                connData['ConnectedShares'][recvPacket['Tid']]['path'],
+                decodeSMBString(recvPacket['Flags2'], queryInformation['FileName']), pktFlags=recvPacket['Flags2'])
 
-            respParameters['FileSize']       = fileSize
-            respParameters['LastWriteTime']  = lastWriteTime
+            respParameters['FileSize'] = fileSize
+            respParameters['LastWriteTime'] = lastWriteTime
             respParameters['FileAttributes'] = fileAttributes
             errorCode = STATUS_SUCCESS
         else:
             # STATUS_SMB_BAD_TID
             errorCode = STATUS_SMB_BAD_TID
-            respParameters  = b''
-            respData        = b''
+            respParameters = b''
+            respData = b''
 
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
 
         smbServer.setConnectionData(connId, connData)
         return [respSMBCommand], None, errorCode
@@ -1837,27 +1863,26 @@ class SMBCommands:
 
         respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_QUERY_INFORMATION_DISK)
         respParameters = smb.SMBQueryInformationDiskResponse_Parameters()
-        respData       = b''
+        respData = b''
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
             totalUnits, freeUnits = queryDiskInformation(
-                        connData['ConnectedShares'][recvPacket['Tid']]['path'])
+                connData['ConnectedShares'][recvPacket['Tid']]['path'])
 
-            respParameters['TotalUnits']    = totalUnits
+            respParameters['TotalUnits'] = totalUnits
             respParameters['BlocksPerUnit'] = 1
-            respParameters['BlockSize']     = 1
-            respParameters['FreeUnits']     = freeUnits
+            respParameters['BlockSize'] = 1
+            respParameters['FreeUnits'] = freeUnits
             errorCode = STATUS_SUCCESS
         else:
             # STATUS_SMB_BAD_TID
-            respData  = b''
+            respData = b''
             respParameters = b''
             errorCode = STATUS_SMB_BAD_TID
 
-
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
 
         smbServer.setConnectionData(connId, connData)
         return [respSMBCommand], None, errorCode
@@ -1868,15 +1893,15 @@ class SMBCommands:
 
         respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_ECHO)
         respParameters = smb.SMBEchoResponse_Parameters()
-        respData       = smb.SMBEchoResponse_Data()
+        respData = smb.SMBEchoResponse_Data()
 
-        echoData       = smb.SMBEcho_Data(SMBCommand['Data'])
+        echoData = smb.SMBEcho_Data(SMBCommand['Data'])
 
         respParameters['SequenceNumber'] = 1
-        respData['Data']                 = echoData['Data']
+        respData['Data'] = echoData['Data']
 
-        respSMBCommand['Parameters']     = respParameters
-        respSMBCommand['Data']           = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
 
         errorCode = STATUS_SUCCESS
         smbServer.setConnectionData(connId, connData)
@@ -1893,15 +1918,16 @@ class SMBCommands:
         respData = b''
 
         if recvPacket['Tid'] in connData['ConnectedShares']:
-            smbServer.log("Disconnecting Share(%d:%s)" % (recvPacket['Tid'],connData['ConnectedShares'][recvPacket['Tid']]['shareName']))
-            del(connData['ConnectedShares'][recvPacket['Tid']])
+            smbServer.log("Disconnecting Share(%d:%s)" % (
+            recvPacket['Tid'], connData['ConnectedShares'][recvPacket['Tid']]['shareName']))
+            del (connData['ConnectedShares'][recvPacket['Tid']])
             errorCode = STATUS_SUCCESS
         else:
             # STATUS_SMB_BAD_TID
             errorCode = STATUS_SMB_BAD_TID
 
         respSMBCommand['Parameters'] = respParameters
-        respSMBCommand['Data']       = respData 
+        respSMBCommand['Data'] = respData
 
         smbServer.setConnectionData(connId, connData)
         return [respSMBCommand], None, errorCode
@@ -1910,7 +1936,7 @@ class SMBCommands:
     def smbComLogOffAndX(connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_LOGOFF_ANDX)
+        respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_LOGOFF_ANDX)
 
         # Check if the Uid matches the user trying to logoff
         respParameters = b''
@@ -1921,8 +1947,8 @@ class SMBCommands:
         else:
             errorCode = STATUS_SUCCESS
 
-        respSMBCommand['Parameters']   = respParameters
-        respSMBCommand['Data']         = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
         connData['Uid'] = 0
         connData['Authenticated'] = False
 
@@ -1934,41 +1960,41 @@ class SMBCommands:
     def smbComQueryInformation2(connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_QUERY_INFORMATION2)
-        respParameters        = smb.SMBQueryInformation2Response_Parameters()
-        respData              = b''
+        respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_QUERY_INFORMATION2)
+        respParameters = smb.SMBQueryInformation2Response_Parameters()
+        respData = b''
 
         queryInformation2 = smb.SMBQueryInformation2_Parameters(SMBCommand['Parameters'])
         errorCode = 0xFF
         if queryInformation2['Fid'] in connData['OpenedFiles']:
-             errorCode = STATUS_SUCCESS
-             pathName = connData['OpenedFiles'][queryInformation2['Fid']]['FileName']
-             try:
-                 (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(pathName)
-                 respParameters['CreateDate']         = getSMBDate(ctime)
-                 respParameters['CreationTime']       = getSMBTime(ctime)
-                 respParameters['LastAccessDate']     = getSMBDate(atime)
-                 respParameters['LastAccessTime']     = getSMBTime(atime)
-                 respParameters['LastWriteDate']      = getSMBDate(mtime)
-                 respParameters['LastWriteTime']      = getSMBTime(mtime)
-                 respParameters['FileDataSize']       = size
-                 respParameters['FileAllocationSize'] = size
-                 attribs = 0
-                 if os.path.isdir(pathName):
-                     attribs = smb.SMB_FILE_ATTRIBUTE_DIRECTORY
-                 if os.path.isfile(pathName):
-                     attribs = smb.SMB_FILE_ATTRIBUTE_NORMAL
-                 respParameters['FileAttributes'] = attribs
-             except Exception as e:
-                 smbServer.log('smbComQueryInformation2 %s' % e,logging.ERROR)
-                 errorCode = STATUS_ACCESS_DENIED
+            errorCode = STATUS_SUCCESS
+            pathName = connData['OpenedFiles'][queryInformation2['Fid']]['FileName']
+            try:
+                (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(pathName)
+                respParameters['CreateDate'] = getSMBDate(ctime)
+                respParameters['CreationTime'] = getSMBTime(ctime)
+                respParameters['LastAccessDate'] = getSMBDate(atime)
+                respParameters['LastAccessTime'] = getSMBTime(atime)
+                respParameters['LastWriteDate'] = getSMBDate(mtime)
+                respParameters['LastWriteTime'] = getSMBTime(mtime)
+                respParameters['FileDataSize'] = size
+                respParameters['FileAllocationSize'] = size
+                attribs = 0
+                if os.path.isdir(pathName):
+                    attribs = smb.SMB_FILE_ATTRIBUTE_DIRECTORY
+                if os.path.isfile(pathName):
+                    attribs = smb.SMB_FILE_ATTRIBUTE_NORMAL
+                respParameters['FileAttributes'] = attribs
+            except Exception as e:
+                smbServer.log('smbComQueryInformation2 %s' % e, logging.ERROR)
+                errorCode = STATUS_ACCESS_DENIED
 
         if errorCode > 0:
             respParameters = b''
-            respData       = b''
+            respData = b''
 
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
         smbServer.setConnectionData(connId, connData)
 
         return [respSMBCommand], None, errorCode
@@ -1978,136 +2004,145 @@ class SMBCommands:
         # TODO: Fully implement this
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
-        respParameters        = smb.SMBNtCreateAndXResponse_Parameters()
-        respData              = b''
+        respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
+        respParameters = smb.SMBNtCreateAndXResponse_Parameters()
+        respData = b''
 
         ntCreateAndXParameters = smb.SMBNtCreateAndX_Parameters(SMBCommand['Parameters'])
-        ntCreateAndXData       = smb.SMBNtCreateAndX_Data( flags = recvPacket['Flags2'], data = SMBCommand['Data'])
+        ntCreateAndXData = smb.SMBNtCreateAndX_Data(flags=recvPacket['Flags2'], data=SMBCommand['Data'])
 
-        #if ntCreateAndXParameters['CreateFlags'] & 0x10:  # NT_CREATE_REQUEST_EXTENDED_RESPONSE
+        # if ntCreateAndXParameters['CreateFlags'] & 0x10:  # NT_CREATE_REQUEST_EXTENDED_RESPONSE
         #    respParameters        = smb.SMBNtCreateAndXExtendedResponse_Parameters()
         #    respParameters['VolumeGUID'] = '\x00'
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
-             # If we have a rootFid, the path is relative to that fid
-             errorCode = STATUS_SUCCESS
-             if ntCreateAndXParameters['RootFid'] > 0:
-                 path = connData['OpenedFiles'][ntCreateAndXParameters['RootFid']]['FileName']
-                 LOG.debug("RootFid present %s!" % path)
-             else:
-                 if 'path' in connData['ConnectedShares'][recvPacket['Tid']]:
-                     path = connData['ConnectedShares'][recvPacket['Tid']]['path']
-                 else:
-                     path = 'NONE'
-                     errorCode = STATUS_ACCESS_DENIED
+            # If we have a rootFid, the path is relative to that fid
+            errorCode = STATUS_SUCCESS
+            if ntCreateAndXParameters['RootFid'] > 0:
+                path = connData['OpenedFiles'][ntCreateAndXParameters['RootFid']]['FileName']
+                LOG.debug("RootFid present %s!" % path)
+            else:
+                if 'path' in connData['ConnectedShares'][recvPacket['Tid']]:
+                    path = connData['ConnectedShares'][recvPacket['Tid']]['path']
+                else:
+                    path = 'NONE'
+                    errorCode = STATUS_ACCESS_DENIED
 
-             deleteOnClose = False
+            deleteOnClose = False
 
-             fileName = os.path.normpath(decodeSMBString(recvPacket['Flags2'],ntCreateAndXData['FileName']).replace('\\','/'))
-             if len(fileName) > 0 and (fileName[0] == '/' or fileName[0] == '\\'):
+            fileName = os.path.normpath(
+                decodeSMBString(recvPacket['Flags2'], ntCreateAndXData['FileName']).replace('\\', '/'))
+            if len(fileName) > 0 and (fileName[0] == '/' or fileName[0] == '\\'):
                 # strip leading '/'
                 fileName = fileName[1:]
-             pathName = os.path.join(path,fileName)
-             createDisposition = ntCreateAndXParameters['Disposition']
-             mode = 0
 
-             if createDisposition == smb.FILE_SUPERSEDE:
-                 mode |= os.O_TRUNC | os.O_CREAT
-             elif createDisposition & smb.FILE_OVERWRITE_IF == smb.FILE_OVERWRITE_IF:
-                 mode |= os.O_TRUNC | os.O_CREAT
-             elif createDisposition & smb.FILE_OVERWRITE == smb.FILE_OVERWRITE:
-                 if os.path.exists(pathName) is True:
-                     mode |= os.O_TRUNC 
-                 else:
-                     errorCode = STATUS_NO_SUCH_FILE
-             elif createDisposition & smb.FILE_OPEN_IF == smb.FILE_OPEN_IF:
-                 if os.path.exists(pathName) is True:
-                     mode |= os.O_TRUNC 
-                 else:
-                     mode |= os.O_TRUNC | os.O_CREAT
-             elif createDisposition & smb.FILE_CREATE == smb.FILE_CREATE:
-                 if os.path.exists(pathName) is True:
-                     errorCode = STATUS_OBJECT_NAME_COLLISION
-                 else:
-                     mode |= os.O_CREAT
-             elif createDisposition & smb.FILE_OPEN == smb.FILE_OPEN:
-                 if os.path.exists(pathName) is not True and (str(pathName) in smbServer.getRegisteredNamedPipes()) is not True:
-                     errorCode = STATUS_NO_SUCH_FILE
+            if not isInFileJail(path, fileName):
+                LOG.error("Path not in current working directory")
+                respSMBCommand['Parameters'] = b''
+                respSMBCommand['Data'] = b''
+                return [respSMBCommand], None, STATUS_ACCESS_DENIED
 
-             if errorCode == STATUS_SUCCESS:
-                 desiredAccess = ntCreateAndXParameters['AccessMask']
-                 if (desiredAccess & smb.FILE_READ_DATA) or (desiredAccess & smb.GENERIC_READ):
-                     mode |= os.O_RDONLY
-                 if (desiredAccess & smb.FILE_WRITE_DATA) or (desiredAccess & smb.GENERIC_WRITE):
-                     if (desiredAccess & smb.FILE_READ_DATA) or (desiredAccess & smb.GENERIC_READ):
-                         mode |= os.O_RDWR #| os.O_APPEND
-                     else: 
-                         mode |= os.O_WRONLY #| os.O_APPEND
-                 if desiredAccess & smb.GENERIC_ALL:
-                     mode |= os.O_RDWR #| os.O_APPEND
+            pathName = os.path.join(path, fileName)
+            createDisposition = ntCreateAndXParameters['Disposition']
+            mode = 0
 
-                 createOptions =  ntCreateAndXParameters['CreateOptions']
-                 if mode & os.O_CREAT == os.O_CREAT:
-                     if createOptions & smb.FILE_DIRECTORY_FILE == smb.FILE_DIRECTORY_FILE: 
-                         try:
-                             # Let's create the directory
-                             os.mkdir(pathName)
-                             mode = os.O_RDONLY
-                         except Exception as e:
-                             smbServer.log("NTCreateAndX: %s,%s,%s" % (pathName,mode,e),logging.ERROR)
-                             errorCode = STATUS_ACCESS_DENIED
-                 if createOptions & smb.FILE_NON_DIRECTORY_FILE == smb.FILE_NON_DIRECTORY_FILE:
-                     # If the file being opened is a directory, the server MUST fail the request with
-                     # STATUS_FILE_IS_A_DIRECTORY in the Status field of the SMB Header in the server
-                     # response.
-                     if os.path.isdir(pathName) is True:
+            if createDisposition == smb.FILE_SUPERSEDE:
+                mode |= os.O_TRUNC | os.O_CREAT
+            elif createDisposition & smb.FILE_OVERWRITE_IF == smb.FILE_OVERWRITE_IF:
+                mode |= os.O_TRUNC | os.O_CREAT
+            elif createDisposition & smb.FILE_OVERWRITE == smb.FILE_OVERWRITE:
+                if os.path.exists(pathName) is True:
+                    mode |= os.O_TRUNC
+                else:
+                    errorCode = STATUS_NO_SUCH_FILE
+            elif createDisposition & smb.FILE_OPEN_IF == smb.FILE_OPEN_IF:
+                if os.path.exists(pathName) is True:
+                    mode |= os.O_TRUNC
+                else:
+                    mode |= os.O_TRUNC | os.O_CREAT
+            elif createDisposition & smb.FILE_CREATE == smb.FILE_CREATE:
+                if os.path.exists(pathName) is True:
+                    errorCode = STATUS_OBJECT_NAME_COLLISION
+                else:
+                    mode |= os.O_CREAT
+            elif createDisposition & smb.FILE_OPEN == smb.FILE_OPEN:
+                if os.path.exists(pathName) is not True and (
+                        str(pathName) in smbServer.getRegisteredNamedPipes()) is not True:
+                    errorCode = STATUS_NO_SUCH_FILE
+
+            if errorCode == STATUS_SUCCESS:
+                desiredAccess = ntCreateAndXParameters['AccessMask']
+                if (desiredAccess & smb.FILE_READ_DATA) or (desiredAccess & smb.GENERIC_READ):
+                    mode |= os.O_RDONLY
+                if (desiredAccess & smb.FILE_WRITE_DATA) or (desiredAccess & smb.GENERIC_WRITE):
+                    if (desiredAccess & smb.FILE_READ_DATA) or (desiredAccess & smb.GENERIC_READ):
+                        mode |= os.O_RDWR  # | os.O_APPEND
+                    else:
+                        mode |= os.O_WRONLY  # | os.O_APPEND
+                if desiredAccess & smb.GENERIC_ALL:
+                    mode |= os.O_RDWR  # | os.O_APPEND
+
+                createOptions = ntCreateAndXParameters['CreateOptions']
+                if mode & os.O_CREAT == os.O_CREAT:
+                    if createOptions & smb.FILE_DIRECTORY_FILE == smb.FILE_DIRECTORY_FILE:
+                        try:
+                            # Let's create the directory
+                            os.mkdir(pathName)
+                            mode = os.O_RDONLY
+                        except Exception as e:
+                            smbServer.log("NTCreateAndX: %s,%s,%s" % (pathName, mode, e), logging.ERROR)
+                            errorCode = STATUS_ACCESS_DENIED
+                if createOptions & smb.FILE_NON_DIRECTORY_FILE == smb.FILE_NON_DIRECTORY_FILE:
+                    # If the file being opened is a directory, the server MUST fail the request with
+                    # STATUS_FILE_IS_A_DIRECTORY in the Status field of the SMB Header in the server
+                    # response.
+                    if os.path.isdir(pathName) is True:
                         errorCode = STATUS_FILE_IS_A_DIRECTORY
 
-                 if createOptions & smb.FILE_DELETE_ON_CLOSE == smb.FILE_DELETE_ON_CLOSE:
-                     deleteOnClose = True
-                 
-                 if errorCode == STATUS_SUCCESS:
-                     try:
-                         if os.path.isdir(pathName) and sys.platform == 'win32':
+                if createOptions & smb.FILE_DELETE_ON_CLOSE == smb.FILE_DELETE_ON_CLOSE:
+                    deleteOnClose = True
+
+                if errorCode == STATUS_SUCCESS:
+                    try:
+                        if os.path.isdir(pathName) and sys.platform == 'win32':
                             fid = VOID_FILE_DESCRIPTOR
-                         else:
+                        else:
                             if sys.platform == 'win32':
-                               mode |= os.O_BINARY
+                                mode |= os.O_BINARY
                             if str(pathName) in smbServer.getRegisteredNamedPipes():
                                 fid = PIPE_FILE_DESCRIPTOR
                                 sock = socket.socket()
                                 sock.connect(smbServer.getRegisteredNamedPipes()[str(pathName)])
                             else:
                                 fid = os.open(pathName, mode)
-                     except Exception as e:
-                         smbServer.log("NTCreateAndX: %s,%s,%s" % (pathName,mode,e),logging.ERROR)
-                         #print e
-                         fid = 0
-                         errorCode = STATUS_ACCESS_DENIED
+                    except Exception as e:
+                        smbServer.log("NTCreateAndX: %s,%s,%s" % (pathName, mode, e), logging.ERROR)
+                        # print e
+                        fid = 0
+                        errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_SMB_BAD_TID
 
         if errorCode == STATUS_SUCCESS:
             # Simple way to generate a fid
             if len(connData['OpenedFiles']) == 0:
-               fakefid = 1
+                fakefid = 1
             else:
-               fakefid = list(connData['OpenedFiles'].keys())[-1] + 1
+                fakefid = list(connData['OpenedFiles'].keys())[-1] + 1
             respParameters['Fid'] = fakefid
             respParameters['CreateAction'] = createDisposition
             if fid == PIPE_FILE_DESCRIPTOR:
                 respParameters['FileAttributes'] = 0x80
                 respParameters['IsDirectory'] = 0
-                respParameters['CreateTime']     = 0
+                respParameters['CreateTime'] = 0
                 respParameters['LastAccessTime'] = 0
-                respParameters['LastWriteTime']  = 0
+                respParameters['LastWriteTime'] = 0
                 respParameters['LastChangeTime'] = 0
                 respParameters['AllocationSize'] = 4096
-                respParameters['EndOfFile']      = 0
-                respParameters['FileType']       = 2
-                respParameters['IPCState']       = 0x5ff
+                respParameters['EndOfFile'] = 0
+                respParameters['FileType'] = 2
+                respParameters['IPCState'] = 0x5ff
             else:
                 if os.path.isdir(pathName):
                     respParameters['FileAttributes'] = smb.SMB_FILE_ATTRIBUTE_DIRECTORY
@@ -2116,18 +2151,18 @@ class SMBCommands:
                     respParameters['IsDirectory'] = 0
                     respParameters['FileAttributes'] = ntCreateAndXParameters['FileAttributes']
                 # Let's get this file's information
-                respInfo, errorCode = queryPathInformation('',pathName,level= smb.SMB_QUERY_FILE_ALL_INFO)
+                respInfo, errorCode = queryPathInformation('', pathName, level=smb.SMB_QUERY_FILE_ALL_INFO)
                 if errorCode == STATUS_SUCCESS:
-                    respParameters['CreateTime']     = respInfo['CreationTime']
+                    respParameters['CreateTime'] = respInfo['CreationTime']
                     respParameters['LastAccessTime'] = respInfo['LastAccessTime']
-                    respParameters['LastWriteTime']  = respInfo['LastWriteTime']
+                    respParameters['LastWriteTime'] = respInfo['LastWriteTime']
                     respParameters['LastChangeTime'] = respInfo['LastChangeTime']
                     respParameters['FileAttributes'] = respInfo['ExtFileAttributes']
                     respParameters['AllocationSize'] = respInfo['AllocationSize']
-                    respParameters['EndOfFile']      = respInfo['EndOfFile']
+                    respParameters['EndOfFile'] = respInfo['EndOfFile']
                 else:
                     respParameters = b''
-                    respData       = b''
+                    respData = b''
 
             if errorCode == STATUS_SUCCESS:
                 # Let's store the fid for the connection
@@ -2135,15 +2170,15 @@ class SMBCommands:
                 connData['OpenedFiles'][fakefid] = {}
                 connData['OpenedFiles'][fakefid]['FileHandle'] = fid
                 connData['OpenedFiles'][fakefid]['FileName'] = pathName
-                connData['OpenedFiles'][fakefid]['DeleteOnClose']  = deleteOnClose
+                connData['OpenedFiles'][fakefid]['DeleteOnClose'] = deleteOnClose
                 if fid == PIPE_FILE_DESCRIPTOR:
                     connData['OpenedFiles'][fakefid]['Socket'] = sock
         else:
             respParameters = b''
-            respData       = b''
-        
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+            respData = b''
+
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
         smbServer.setConnectionData(connId, connData)
 
         return [respSMBCommand], None, errorCode
@@ -2152,31 +2187,32 @@ class SMBCommands:
     def smbComOpenAndX(connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_OPEN_ANDX)
-        respParameters        = smb.SMBOpenAndXResponse_Parameters()
-        respData              = b''
+        respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_OPEN_ANDX)
+        respParameters = smb.SMBOpenAndXResponse_Parameters()
+        respData = b''
 
         openAndXParameters = smb.SMBOpenAndX_Parameters(SMBCommand['Parameters'])
-        openAndXData       = smb.SMBOpenAndX_Data( flags = recvPacket['Flags2'], data = SMBCommand['Data'])
+        openAndXData = smb.SMBOpenAndX_Data(flags=recvPacket['Flags2'], data=SMBCommand['Data'])
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
-             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
-             openedFile, mode, pathName, errorCode = openFile(path,
-                     decodeSMBString(recvPacket['Flags2'],openAndXData['FileName']), 
-                     openAndXParameters['DesiredAccess'], 
-                     openAndXParameters['FileAttributes'], 
-                     openAndXParameters['OpenMode'])
+            path = connData['ConnectedShares'][recvPacket['Tid']]['path']
+            openedFile, mode, pathName, errorCode = openFile(path,
+                                                             decodeSMBString(recvPacket['Flags2'],
+                                                                             openAndXData['FileName']),
+                                                             openAndXParameters['DesiredAccess'],
+                                                             openAndXParameters['FileAttributes'],
+                                                             openAndXParameters['OpenMode'])
         else:
-           errorCode = STATUS_SMB_BAD_TID
+            errorCode = STATUS_SMB_BAD_TID
 
         if errorCode == STATUS_SUCCESS:
             # Simple way to generate a fid
-            fid = len(connData['OpenedFiles']) + 1 
+            fid = len(connData['OpenedFiles']) + 1
             if len(connData['OpenedFiles']) == 0:
-               fid = 1
+                fid = 1
             else:
-               fid = list(connData['OpenedFiles'].keys())[-1] + 1
+                fid = list(connData['OpenedFiles'].keys())[-1] + 1
             respParameters['Fid'] = fid
             if mode & os.O_CREAT:
                 # File did not exist and was created
@@ -2190,19 +2226,19 @@ class SMBCommands:
             else:
                 # File existed and was truncated
                 respParameters['Action'] = 0x3
-            
+
             # Let's store the fid for the connection
-            #smbServer.log('Opening file %s' % pathName)
+            # smbServer.log('Opening file %s' % pathName)
             connData['OpenedFiles'][fid] = {}
             connData['OpenedFiles'][fid]['FileHandle'] = openedFile
             connData['OpenedFiles'][fid]['FileName'] = pathName
-            connData['OpenedFiles'][fid]['DeleteOnClose']  = False
+            connData['OpenedFiles'][fid]['DeleteOnClose'] = False
         else:
             respParameters = b''
-            respData       = b''
-        
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+            respData = b''
+
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
         smbServer.setConnectionData(connId, connData)
 
         return [respSMBCommand], None, errorCode
@@ -2213,22 +2249,23 @@ class SMBCommands:
 
         resp = smb.NewSMBPacket()
         resp['Flags1'] = smb.SMB.FLAGS1_REPLY
-        resp['Flags2'] = smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_LONG_NAMES | recvPacket['Flags2'] & smb.SMB.FLAGS2_UNICODE
+        resp['Flags2'] = smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_LONG_NAMES | \
+                         recvPacket['Flags2'] & smb.SMB.FLAGS2_UNICODE
 
         resp['Tid'] = recvPacket['Tid']
         resp['Mid'] = recvPacket['Mid']
         resp['Pid'] = connData['Pid']
 
-        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_TREE_CONNECT_ANDX)
-        respParameters        = smb.SMBTreeConnectAndXResponse_Parameters()
-        respData              = smb.SMBTreeConnectAndXResponse_Data()
+        respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_TREE_CONNECT_ANDX)
+        respParameters = smb.SMBTreeConnectAndXResponse_Parameters()
+        respData = smb.SMBTreeConnectAndXResponse_Data()
 
         treeConnectAndXParameters = smb.SMBTreeConnectAndX_Parameters(SMBCommand['Parameters'])
 
         if treeConnectAndXParameters['Flags'] & 0x8:
-            respParameters        = smb.SMBTreeConnectAndXExtendedResponse_Parameters()
+            respParameters = smb.SMBTreeConnectAndXExtendedResponse_Parameters()
 
-        treeConnectAndXData                    = smb.SMBTreeConnectAndX_Data( flags = recvPacket['Flags2'] )
+        treeConnectAndXData = smb.SMBTreeConnectAndX_Data(flags=recvPacket['Flags2'])
         treeConnectAndXData['_PasswordLength'] = treeConnectAndXParameters['PasswordLength']
         treeConnectAndXData.fromString(SMBCommand['Data'])
 
@@ -2243,34 +2280,34 @@ class SMBCommands:
         else:
             path = ntpath.basename(UNCOrShare)
 
-        share = searchShare(connId, path, smbServer) 
+        share = searchShare(connId, path, smbServer)
         if share is not None:
             # Simple way to generate a Tid
             if len(connData['ConnectedShares']) == 0:
-               tid = 1
+                tid = 1
             else:
-               tid = list(connData['ConnectedShares'].keys())[-1] + 1
+                tid = list(connData['ConnectedShares'].keys())[-1] + 1
             connData['ConnectedShares'][tid] = share
             connData['ConnectedShares'][tid]['shareName'] = path
             resp['Tid'] = tid
-            #smbServer.log("Connecting Share(%d:%s)" % (tid,path))
+            # smbServer.log("Connecting Share(%d:%s)" % (tid,path))
         else:
             smbServer.log("TreeConnectAndX not found %s" % path, logging.ERROR)
             errorCode = STATUS_OBJECT_PATH_NOT_FOUND
-            resp['ErrorCode']   = errorCode >> 16
-            resp['ErrorClass']  = errorCode & 0xff
+            resp['ErrorCode'] = errorCode >> 16
+            resp['ErrorClass'] = errorCode & 0xff
         ##
         respParameters['OptionalSupport'] = smb.SMB.SMB_SUPPORT_SEARCH_BITS
 
         if path == 'IPC$':
-            respData['Service']               = 'IPC'
+            respData['Service'] = 'IPC'
         else:
-            respData['Service']               = path
-        respData['PadLen']                = 0
-        respData['NativeFileSystem']      = encodeSMBString(recvPacket['Flags2'], 'NTFS' ).decode()
+            respData['Service'] = path
+        respData['PadLen'] = 0
+        respData['NativeFileSystem'] = encodeSMBString(recvPacket['Flags2'], 'NTFS').decode()
 
-        respSMBCommand['Parameters']             = respParameters
-        respSMBCommand['Data']                   = respData 
+        respSMBCommand['Parameters'] = respParameters
+        respSMBCommand['Data'] = respData
 
         resp['Uid'] = connData['Uid']
         resp.addCommand(respSMBCommand)
@@ -2284,19 +2321,19 @@ class SMBCommands:
 
     @staticmethod
     def smbComSessionSetupAndX(connId, smbServer, SMBCommand, recvPacket):
-        connData = smbServer.getConnectionData(connId, checkStatus = False)
+        connData = smbServer.getConnectionData(connId, checkStatus=False)
 
         respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_SESSION_SETUP_ANDX)
 
         # From [MS-SMB]
-        # When extended security is being used (see section 3.2.4.2.4), the 
+        # When extended security is being used (see section 3.2.4.2.4), the
         # request MUST take the following form
         # [..]
         # WordCount (1 byte): The value of this field MUST be 0x0C.
         if SMBCommand['WordCount'] == 12:
             # Extended security. Here we deal with all SPNEGO stuff
             respParameters = smb.SMBSessionSetupAndX_Extended_Response_Parameters()
-            respData       = smb.SMBSessionSetupAndX_Extended_Response_Data(flags = recvPacket['Flags2'])
+            respData = smb.SMBSessionSetupAndX_Extended_Response_Data(flags=recvPacket['Flags2'])
             sessionSetupParameters = smb.SMBSessionSetupAndX_Extended_Parameters(SMBCommand['Parameters'])
             sessionSetupData = smb.SMBSessionSetupAndX_Extended_Data()
             sessionSetupData['SecurityBlobLength'] = sessionSetupParameters['SecurityBlobLength']
@@ -2304,45 +2341,45 @@ class SMBCommands:
             connData['Capabilities'] = sessionSetupParameters['Capabilities']
 
             rawNTLM = False
-            if struct.unpack('B',sessionSetupData['SecurityBlob'][0:1])[0] == ASN1_AID:
-               # NEGOTIATE packet
-               blob =  SPNEGO_NegTokenInit(sessionSetupData['SecurityBlob'])
-               token = blob['MechToken']
-               if len(blob['MechTypes'][0]) > 0:
-                   # Is this GSSAPI NTLM or something else we don't support?
-                   mechType = blob['MechTypes'][0]
-                   if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
-                       # Nope, do we know it?
-                       if mechType in MechTypes:
-                           mechStr = MechTypes[mechType]
-                       else:
-                           mechStr = hexlify(mechType)
-                       smbServer.log("Unsupported MechType '%s'" % mechStr, logging.CRITICAL)
-                       # We don't know the token, we answer back again saying 
-                       # we just support NTLM.
-                       # ToDo: Build this into a SPNEGO_NegTokenResp()
-                       respToken = b'\xa1\x15\x30\x13\xa0\x03\x0a\x01\x03\xa1\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
-                       respParameters['SecurityBlobLength'] = len(respToken)
-                       respData['SecurityBlobLength'] = respParameters['SecurityBlobLength'] 
-                       respData['SecurityBlob']       = respToken
-                       respData['NativeOS']     = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
-                       respData['NativeLanMan'] = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
-                       respSMBCommand['Parameters'] = respParameters
-                       respSMBCommand['Data']       = respData 
-                       return [respSMBCommand], None, STATUS_MORE_PROCESSING_REQUIRED
+            if struct.unpack('B', sessionSetupData['SecurityBlob'][0:1])[0] == ASN1_AID:
+                # NEGOTIATE packet
+                blob = SPNEGO_NegTokenInit(sessionSetupData['SecurityBlob'])
+                token = blob['MechToken']
+                if len(blob['MechTypes'][0]) > 0:
+                    # Is this GSSAPI NTLM or something else we don't support?
+                    mechType = blob['MechTypes'][0]
+                    if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
+                        # Nope, do we know it?
+                        if mechType in MechTypes:
+                            mechStr = MechTypes[mechType]
+                        else:
+                            mechStr = hexlify(mechType)
+                        smbServer.log("Unsupported MechType '%s'" % mechStr, logging.CRITICAL)
+                        # We don't know the token, we answer back again saying
+                        # we just support NTLM.
+                        # ToDo: Build this into a SPNEGO_NegTokenResp()
+                        respToken = b'\xa1\x15\x30\x13\xa0\x03\x0a\x01\x03\xa1\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
+                        respParameters['SecurityBlobLength'] = len(respToken)
+                        respData['SecurityBlobLength'] = respParameters['SecurityBlobLength']
+                        respData['SecurityBlob'] = respToken
+                        respData['NativeOS'] = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
+                        respData['NativeLanMan'] = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
+                        respSMBCommand['Parameters'] = respParameters
+                        respSMBCommand['Data'] = respData
+                        return [respSMBCommand], None, STATUS_MORE_PROCESSING_REQUIRED
 
-            elif struct.unpack('B',sessionSetupData['SecurityBlob'][0:1])[0] == ASN1_SUPPORTED_MECH:
-               # AUTH packet
-               blob = SPNEGO_NegTokenResp(sessionSetupData['SecurityBlob'])
-               token = blob['ResponseToken']
+            elif struct.unpack('B', sessionSetupData['SecurityBlob'][0:1])[0] == ASN1_SUPPORTED_MECH:
+                # AUTH packet
+                blob = SPNEGO_NegTokenResp(sessionSetupData['SecurityBlob'])
+                token = blob['ResponseToken']
             else:
-               # No GSSAPI stuff, raw NTLMSSP
-               rawNTLM = True
-               token = sessionSetupData['SecurityBlob']
+                # No GSSAPI stuff, raw NTLMSSP
+                rawNTLM = True
+                token = sessionSetupData['SecurityBlob']
 
-            # Here we only handle NTLMSSP, depending on what stage of the 
+            # Here we only handle NTLMSSP, depending on what stage of the
             # authentication we are, we act on it
-            messageType = struct.unpack('<L',token[len('NTLMSSP\x00'):len('NTLMSSP\x00')+4])[0]
+            messageType = struct.unpack('<L', token[len('NTLMSSP\x00'):len('NTLMSSP\x00') + 4])[0]
 
             if messageType == 0x01:
                 # NEGOTIATE_MESSAGE
@@ -2351,45 +2388,48 @@ class SMBCommands:
                 # Let's store it in the connection data
                 connData['NEGOTIATE_MESSAGE'] = negotiateMessage
                 # Let's build the answer flags
-                # TODO: Parse all the flags. With this we're leaving some clients out 
+                # TODO: Parse all the flags. With this we're leaving some clients out
 
                 ansFlags = 0
 
                 if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_56:
-                   ansFlags |= ntlm.NTLMSSP_NEGOTIATE_56
+                    ansFlags |= ntlm.NTLMSSP_NEGOTIATE_56
                 if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_128:
-                   ansFlags |= ntlm.NTLMSSP_NEGOTIATE_128
+                    ansFlags |= ntlm.NTLMSSP_NEGOTIATE_128
                 if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH:
-                   ansFlags |= ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH
+                    ansFlags |= ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH
                 if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
-                   ansFlags |= ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY
+                    ansFlags |= ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY
                 if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                   ansFlags |= ntlm.NTLMSSP_NEGOTIATE_UNICODE
+                    ansFlags |= ntlm.NTLMSSP_NEGOTIATE_UNICODE
                 if negotiateMessage['flags'] & ntlm.NTLM_NEGOTIATE_OEM:
-                   ansFlags |= ntlm.NTLM_NEGOTIATE_OEM
+                    ansFlags |= ntlm.NTLM_NEGOTIATE_OEM
 
                 ansFlags |= ntlm.NTLMSSP_NEGOTIATE_VERSION | ntlm.NTLMSSP_NEGOTIATE_TARGET_INFO | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_NEGOTIATE_NTLM | ntlm.NTLMSSP_REQUEST_TARGET
 
                 # Generate the AV_PAIRS
                 av_pairs = ntlm.AV_PAIRS()
                 # TODO: Put the proper data from SMBSERVER config
-                av_pairs[ntlm.NTLMSSP_AV_HOSTNAME] = av_pairs[ntlm.NTLMSSP_AV_DNS_HOSTNAME] = smbServer.getServerName().encode('utf-16le')
-                av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME] = av_pairs[ntlm.NTLMSSP_AV_DNS_DOMAINNAME] = smbServer.getServerDomain().encode('utf-16le')
-                av_pairs[ntlm.NTLMSSP_AV_TIME] = struct.pack('<q', (116444736000000000 + calendar.timegm(time.gmtime()) * 10000000) )
+                av_pairs[ntlm.NTLMSSP_AV_HOSTNAME] = av_pairs[
+                    ntlm.NTLMSSP_AV_DNS_HOSTNAME] = smbServer.getServerName().encode('utf-16le')
+                av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME] = av_pairs[
+                    ntlm.NTLMSSP_AV_DNS_DOMAINNAME] = smbServer.getServerDomain().encode('utf-16le')
+                av_pairs[ntlm.NTLMSSP_AV_TIME] = struct.pack('<q', (
+                            116444736000000000 + calendar.timegm(time.gmtime()) * 10000000))
 
                 challengeMessage = ntlm.NTLMAuthChallenge()
-                challengeMessage['flags']            = ansFlags
-                challengeMessage['domain_len']       = len(smbServer.getServerDomain().encode('utf-16le'))
-                challengeMessage['domain_max_len']   = challengeMessage['domain_len']
-                challengeMessage['domain_offset']    = 40 + 16
-                challengeMessage['challenge']        = smbServer.getSMBChallenge()
-                challengeMessage['domain_name']      = smbServer.getServerDomain().encode('utf-16le')
-                challengeMessage['TargetInfoFields_len']     = len(av_pairs)
+                challengeMessage['flags'] = ansFlags
+                challengeMessage['domain_len'] = len(smbServer.getServerDomain().encode('utf-16le'))
+                challengeMessage['domain_max_len'] = challengeMessage['domain_len']
+                challengeMessage['domain_offset'] = 40 + 16
+                challengeMessage['challenge'] = smbServer.getSMBChallenge()
+                challengeMessage['domain_name'] = smbServer.getServerDomain().encode('utf-16le')
+                challengeMessage['TargetInfoFields_len'] = len(av_pairs)
                 challengeMessage['TargetInfoFields_max_len'] = len(av_pairs)
                 challengeMessage['TargetInfoFields'] = av_pairs
-                challengeMessage['TargetInfoFields_offset']  = 40 + 16 + len(challengeMessage['domain_name'])
-                challengeMessage['Version']          = b'\xff'*8
-                challengeMessage['VersionLen']       = 8
+                challengeMessage['TargetInfoFields_offset'] = 40 + 16 + len(challengeMessage['domain_name'])
+                challengeMessage['Version'] = b'\xff' * 8
+                challengeMessage['VersionLen'] = 8
 
                 if rawNTLM is False:
                     respToken = SPNEGO_NegTokenResp()
@@ -2403,7 +2443,7 @@ class SMBCommands:
 
                 # Setting the packet to STATUS_MORE_PROCESSING
                 errorCode = STATUS_MORE_PROCESSING_REQUIRED
-                # Let's set up an UID for this connection and store it 
+                # Let's set up an UID for this connection and store it
                 # in the connection's data
                 # Picking a fixed value
                 # TODO: Manage more UIDs for the same session
@@ -2419,9 +2459,9 @@ class SMBCommands:
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
                 smbServer.log("AUTHENTICATE_MESSAGE (%s\\%s,%s)" % (
-                authenticateMessage['domain_name'].decode('utf-16le'),
-                authenticateMessage['user_name'].decode('utf-16le'),
-                authenticateMessage['host_name'].decode('utf-16le')))
+                    authenticateMessage['domain_name'].decode('utf-16le'),
+                    authenticateMessage['user_name'].decode('utf-16le'),
+                    authenticateMessage['host_name'].decode('utf-16le')))
                 # Do we have credentials to check?
                 if len(smbServer.getCredentials()) > 0:
                     identity = authenticateMessage['user_name'].decode('utf-16le').lower()
@@ -2432,7 +2472,8 @@ class SMBCommands:
                         uid, lmhash, nthash = smbServer.getCredentials()[identity]
 
                         errorCode, sessionKey = computeNTLMv2(identity, lmhash, nthash, smbServer.getSMBChallenge(),
-                                             authenticateMessage, connData['CHALLENGE_MESSAGE'], connData['NEGOTIATE_MESSAGE'])
+                                                              authenticateMessage, connData['CHALLENGE_MESSAGE'],
+                                                              connData['NEGOTIATE_MESSAGE'])
 
                         if sessionKey is not None:
                             connData['SignatureEnabled'] = False
@@ -2450,8 +2491,10 @@ class SMBCommands:
                     # accept-completed
                     respToken['NegState'] = b'\x00'
 
-                    smbServer.log('User %s\\%s authenticated successfully' % (authenticateMessage['host_name'].decode('utf-16le'),
-                                                                              authenticateMessage['user_name'].decode('utf-16le')))
+                    smbServer.log(
+                        'User %s\\%s authenticated successfully' % (authenticateMessage['host_name'].decode('utf-16le'),
+                                                                    authenticateMessage['user_name'].decode(
+                                                                        'utf-16le')))
                     # Let's store it in the connection data
                     connData['AUTHENTICATE_MESSAGE'] = authenticateMessage
                     try:
@@ -2462,7 +2505,8 @@ class SMBCommands:
                                                             authenticateMessage['lanman'], authenticateMessage['ntlm'])
                         smbServer.log(ntlm_hash_data['hash_string'])
                         if jtr_dump_path != '':
-                            writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], jtr_dump_path)
+                            writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
+                                                  jtr_dump_path)
                     except:
                         smbServer.log("Could not write NTLM Hashes to the specified JTR_Dump_Path %s" % jtr_dump_path)
                 else:
@@ -2473,13 +2517,13 @@ class SMBCommands:
                 raise Exception("Unknown NTLMSSP MessageType %d" % messageType)
 
             respParameters['SecurityBlobLength'] = len(respToken)
-            respData['SecurityBlobLength'] = respParameters['SecurityBlobLength'] 
-            respData['SecurityBlob']       = respToken.getData()
+            respData['SecurityBlobLength'] = respParameters['SecurityBlobLength']
+            respData['SecurityBlob'] = respToken.getData()
 
         else:
             # Process Standard Security
             respParameters = smb.SMBSessionSetupAndXResponse_Parameters()
-            respData       = smb.SMBSessionSetupAndXResponse_Data()
+            respData = smb.SMBSessionSetupAndXResponse_Data()
             sessionSetupParameters = smb.SMBSessionSetupAndX_Parameters(SMBCommand['Parameters'])
             sessionSetupData = smb.SMBSessionSetupAndX_Data()
             sessionSetupData['AnsiPwdLength'] = sessionSetupParameters['AnsiPwdLength']
@@ -2492,38 +2536,41 @@ class SMBCommands:
             connData['Uid'] = 10
             connData['Authenticated'] = True
             respParameters['Action'] = 0
-            smbServer.log('User %s\\%s authenticated successfully (basic)' % (sessionSetupData['PrimaryDomain'], sessionSetupData['Account']))
+            smbServer.log('User %s\\%s authenticated successfully (basic)' % (
+            sessionSetupData['PrimaryDomain'], sessionSetupData['Account']))
             try:
                 jtr_dump_path = smbServer.getJTRdumpPath()
-                ntlm_hash_data = outputToJohnFormat( b'', b(sessionSetupData['Account']), b(sessionSetupData['PrimaryDomain']), sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'] )
+                ntlm_hash_data = outputToJohnFormat(b'', b(sessionSetupData['Account']),
+                                                    b(sessionSetupData['PrimaryDomain']), sessionSetupData['AnsiPwd'],
+                                                    sessionSetupData['UnicodePwd'])
                 smbServer.log(ntlm_hash_data['hash_string'])
                 if jtr_dump_path != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], jtr_dump_path)
             except:
                 smbServer.log("Could not write NTLM Hashes to the specified JTR_Dump_Path %s" % jtr_dump_path)
 
-        respData['NativeOS']     = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
+        respData['NativeOS'] = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
         respData['NativeLanMan'] = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
         respSMBCommand['Parameters'] = respParameters
-        respSMBCommand['Data']       = respData 
+        respSMBCommand['Data'] = respData
 
         # From now on, the client can ask for other commands
         connData['Authenticated'] = True
         # For now, just switching to nobody
-        #os.setregid(65534,65534)
-        #os.setreuid(65534,65534)
+        # os.setregid(65534,65534)
+        # os.setreuid(65534,65534)
         smbServer.setConnectionData(connId, connData)
 
         return [respSMBCommand], None, errorCode
 
     @staticmethod
-    def smbComNegotiate(connId, smbServer, SMBCommand, recvPacket ):
-        connData = smbServer.getConnectionData(connId, checkStatus = False)
+    def smbComNegotiate(connId, smbServer, SMBCommand, recvPacket):
+        connData = smbServer.getConnectionData(connId, checkStatus=False)
         connData['Pid'] = recvPacket['Pid']
 
         SMBCommand = smb.SMBCommand(recvPacket['Data'][0])
         respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_NEGOTIATE)
-        
+
         resp = smb.NewSMBPacket()
         resp['Flags1'] = smb.SMB.FLAGS1_REPLY
         resp['Pid'] = connData['Pid']
@@ -2532,108 +2579,107 @@ class SMBCommands:
 
         # TODO: We support more dialects, and parse them accordingly
         dialects = SMBCommand['Data'].split(b'\x02')
-        try: 
-           index = dialects.index(b'NT LM 0.12\x00') - 1
-           # Let's fill the data for NTLM
-           if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY:
-                    resp['Flags2'] = smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_UNICODE
-                    #resp['Flags2'] = smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS 
-                    _dialects_data = smb.SMBExtended_Security_Data()
-                    _dialects_data['ServerGUID'] = b'A'*16
-                    blob = SPNEGO_NegTokenInit()
-                    blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
-                    _dialects_data['SecurityBlob'] = blob.getData()
-        
-                    _dialects_parameters = smb.SMBExtended_Security_Parameters()
-                    _dialects_parameters['Capabilities']    = smb.SMB.CAP_EXTENDED_SECURITY | smb.SMB.CAP_USE_NT_ERRORS | smb.SMB.CAP_NT_SMBS | smb.SMB.CAP_UNICODE 
-                    _dialects_parameters['ChallengeLength'] = 0
+        try:
+            index = dialects.index(b'NT LM 0.12\x00') - 1
+            # Let's fill the data for NTLM
+            if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY:
+                resp['Flags2'] = smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_UNICODE
+                # resp['Flags2'] = smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS
+                _dialects_data = smb.SMBExtended_Security_Data()
+                _dialects_data['ServerGUID'] = b'A' * 16
+                blob = SPNEGO_NegTokenInit()
+                blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
+                _dialects_data['SecurityBlob'] = blob.getData()
 
-           else:
-                    resp['Flags2'] = smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_UNICODE
-                    _dialects_parameters = smb.SMBNTLMDialect_Parameters()
-                    _dialects_data= smb.SMBNTLMDialect_Data()
-                    _dialects_data['Payload'] = ''
-                    if 'EncryptionKey' in connData:
-                        _dialects_data['Challenge'] = connData['EncryptionKey']
-                        _dialects_parameters['ChallengeLength'] = len(_dialects_data.getData())
-                    else:
-                        # TODO: Handle random challenges, now one that can be used with rainbow tables
-                        _dialects_data['Challenge'] = b'\x11\x22\x33\x44\x55\x66\x77\x88'
-                        _dialects_parameters['ChallengeLength'] = 8
-                    _dialects_parameters['Capabilities']    = smb.SMB.CAP_USE_NT_ERRORS | smb.SMB.CAP_NT_SMBS 
+                _dialects_parameters = smb.SMBExtended_Security_Parameters()
+                _dialects_parameters[
+                    'Capabilities'] = smb.SMB.CAP_EXTENDED_SECURITY | smb.SMB.CAP_USE_NT_ERRORS | smb.SMB.CAP_NT_SMBS | smb.SMB.CAP_UNICODE
+                _dialects_parameters['ChallengeLength'] = 0
 
-           # Let's see if we need to support RPC_REMOTE_APIS
-           config = smbServer.getServerConfig()
-           if config.has_option('global','rpc_apis'):
-               if config.getboolean('global', 'rpc_apis') is True:
-                  _dialects_parameters['Capabilities'] |= smb.SMB.CAP_RPC_REMOTE_APIS
+            else:
+                resp['Flags2'] = smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_UNICODE
+                _dialects_parameters = smb.SMBNTLMDialect_Parameters()
+                _dialects_data = smb.SMBNTLMDialect_Data()
+                _dialects_data['Payload'] = ''
+                if 'EncryptionKey' in connData:
+                    _dialects_data['Challenge'] = connData['EncryptionKey']
+                    _dialects_parameters['ChallengeLength'] = len(_dialects_data.getData())
+                else:
+                    # TODO: Handle random challenges, now one that can be used with rainbow tables
+                    _dialects_data['Challenge'] = b'\x11\x22\x33\x44\x55\x66\x77\x88'
+                    _dialects_parameters['ChallengeLength'] = 8
+                _dialects_parameters['Capabilities'] = smb.SMB.CAP_USE_NT_ERRORS | smb.SMB.CAP_NT_SMBS
 
-           _dialects_parameters['DialectIndex']    = index
-           #_dialects_parameters['SecurityMode']    = smb.SMB.SECURITY_AUTH_ENCRYPTED | smb.SMB.SECURITY_SHARE_USER | smb.SMB.SECURITY_SIGNATURES_REQUIRED
-           _dialects_parameters['SecurityMode']    = smb.SMB.SECURITY_AUTH_ENCRYPTED | smb.SMB.SECURITY_SHARE_USER
-           _dialects_parameters['MaxMpxCount']     = 1
-           _dialects_parameters['MaxNumberVcs']    = 1
-           _dialects_parameters['MaxBufferSize']   = 64000
-           _dialects_parameters['MaxRawSize']      = 65536
-           _dialects_parameters['SessionKey']      = 0
-           _dialects_parameters['LowDateTime']     = 0
-           _dialects_parameters['HighDateTime']    = 0
-           _dialects_parameters['ServerTimeZone']  = 0 
+                # Let's see if we need to support RPC_REMOTE_APIS
+            config = smbServer.getServerConfig()
+            if config.has_option('global', 'rpc_apis'):
+                if config.getboolean('global', 'rpc_apis') is True:
+                    _dialects_parameters['Capabilities'] |= smb.SMB.CAP_RPC_REMOTE_APIS
 
+            _dialects_parameters['DialectIndex'] = index
+            # _dialects_parameters['SecurityMode']    = smb.SMB.SECURITY_AUTH_ENCRYPTED | smb.SMB.SECURITY_SHARE_USER | smb.SMB.SECURITY_SIGNATURES_REQUIRED
+            _dialects_parameters['SecurityMode'] = smb.SMB.SECURITY_AUTH_ENCRYPTED | smb.SMB.SECURITY_SHARE_USER
+            _dialects_parameters['MaxMpxCount'] = 1
+            _dialects_parameters['MaxNumberVcs'] = 1
+            _dialects_parameters['MaxBufferSize'] = 64000
+            _dialects_parameters['MaxRawSize'] = 65536
+            _dialects_parameters['SessionKey'] = 0
+            _dialects_parameters['LowDateTime'] = 0
+            _dialects_parameters['HighDateTime'] = 0
+            _dialects_parameters['ServerTimeZone'] = 0
 
-           respSMBCommand['Data']           = _dialects_data
-           respSMBCommand['Parameters']     = _dialects_parameters
-           connData['_dialects_data']       = _dialects_data
-           connData['_dialects_parameters'] = _dialects_parameters
+            respSMBCommand['Data'] = _dialects_data
+            respSMBCommand['Parameters'] = _dialects_parameters
+            connData['_dialects_data'] = _dialects_data
+            connData['_dialects_parameters'] = _dialects_parameters
 
         except Exception as e:
-           # No NTLM throw an error
-           smbServer.log('smbComNegotiate: %s' % e, logging.ERROR)
-           respSMBCommand['Data'] = struct.pack('<H',0xffff) 
+            # No NTLM throw an error
+            smbServer.log('smbComNegotiate: %s' % e, logging.ERROR)
+            respSMBCommand['Data'] = struct.pack('<H', 0xffff)
 
-       
         smbServer.setConnectionData(connId, connData)
 
         resp.addCommand(respSMBCommand)
-        
+
         return None, [resp], STATUS_SUCCESS
 
     @staticmethod
     def default(connId, smbServer, SMBCommand, recvPacket):
         # By default we return an SMB Packet with error not implemented
-        smbServer.log("Not implemented command: 0x%x" % recvPacket['Command'],logging.DEBUG)
+        smbServer.log("Not implemented command: 0x%x" % recvPacket['Command'], logging.DEBUG)
         packet = smb.NewSMBPacket()
-        packet['Flags1']  = smb.SMB.FLAGS1_REPLY
-        packet['Flags2']  = smb.SMB.FLAGS2_NT_STATUS 
+        packet['Flags1'] = smb.SMB.FLAGS1_REPLY
+        packet['Flags2'] = smb.SMB.FLAGS2_NT_STATUS
         packet['Command'] = recvPacket['Command']
-        packet['Pid']     = recvPacket['Pid']
-        packet['Tid']     = recvPacket['Tid']
-        packet['Mid']     = recvPacket['Mid']
-        packet['Uid']     = recvPacket['Uid']
-        packet['Data']    = b'\x00\x00\x00'
+        packet['Pid'] = recvPacket['Pid']
+        packet['Tid'] = recvPacket['Tid']
+        packet['Mid'] = recvPacket['Mid']
+        packet['Uid'] = recvPacket['Uid']
+        packet['Data'] = b'\x00\x00\x00'
         errorCode = STATUS_NOT_IMPLEMENTED
-        packet['ErrorCode']   = errorCode >> 16
-        packet['ErrorClass']  = errorCode & 0xff
+        packet['ErrorCode'] = errorCode >> 16
+        packet['ErrorClass'] = errorCode & 0xff
 
         return None, [packet], errorCode
 
+
 class SMB2Commands:
     @staticmethod
-    def smb2Negotiate(connId, smbServer, recvPacket, isSMB1 = False):
-        connData = smbServer.getConnectionData(connId, checkStatus = False)
+    def smb2Negotiate(connId, smbServer, recvPacket, isSMB1=False):
+        connData = smbServer.getConnectionData(connId, checkStatus=False)
 
         respPacket = smb2.SMB2Packet()
-        respPacket['Flags']     = smb2.SMB2_FLAGS_SERVER_TO_REDIR
-        respPacket['Status']    = STATUS_SUCCESS
+        respPacket['Flags'] = smb2.SMB2_FLAGS_SERVER_TO_REDIR
+        respPacket['Status'] = STATUS_SUCCESS
         respPacket['CreditRequestResponse'] = 1
-        respPacket['Command']   = smb2.SMB2_NEGOTIATE
+        respPacket['Command'] = smb2.SMB2_NEGOTIATE
         respPacket['SessionID'] = 0
         if isSMB1 is False:
             respPacket['MessageID'] = recvPacket['MessageID']
         else:
             respPacket['MessageID'] = 0
-        respPacket['TreeID']    = 0
-
+        respPacket['TreeID'] = 0
 
         respSMBCommand = smb2.SMB2Negotiate_Response()
 
@@ -2641,7 +2687,7 @@ class SMB2Commands:
         if isSMB1 is True:
             # Let's first parse the packet to see if the client supports SMB2
             SMBCommand = smb.SMBCommand(recvPacket['Data'][0])
-        
+
             dialects = SMBCommand['Data'].split(b'\x02')
             if b'SMB 2.002\x00' in dialects or b'SMB 2.???\x00' in dialects:
                 respSMBCommand['DialectRevision'] = smb2.SMB2_DIALECT_002
@@ -2650,7 +2696,7 @@ class SMB2Commands:
                 raise Exception('SMB2 not supported, fallbacking')
         else:
             respSMBCommand['DialectRevision'] = smb2.SMB2_DIALECT_002
-        respSMBCommand['ServerGuid'] = b'A'*16
+        respSMBCommand['ServerGuid'] = b'A' * 16
         respSMBCommand['Capabilities'] = 0
         respSMBCommand['MaxTransactSize'] = 65536
         respSMBCommand['MaxReadSize'] = 65536
@@ -2665,7 +2711,7 @@ class SMB2Commands:
         respSMBCommand['Buffer'] = blob.getData()
         respSMBCommand['SecurityBufferLength'] = len(respSMBCommand['Buffer'])
 
-        respPacket['Data']      = respSMBCommand
+        respPacket['Data'] = respSMBCommand
 
         smbServer.setConnectionData(connId, connData)
 
@@ -2673,7 +2719,7 @@ class SMB2Commands:
 
     @staticmethod
     def smb2SessionSetup(connId, smbServer, recvPacket):
-        connData = smbServer.getConnectionData(connId, checkStatus = False)
+        connData = smbServer.getConnectionData(connId, checkStatus=False)
 
         respSMBCommand = smb2.SMB2SessionSetup_Response()
 
@@ -2684,41 +2730,41 @@ class SMB2Commands:
         securityBlob = sessionSetupData['Buffer']
 
         rawNTLM = False
-        if struct.unpack('B',securityBlob[0:1])[0] == ASN1_AID:
-           # NEGOTIATE packet
-           blob =  SPNEGO_NegTokenInit(securityBlob)
-           token = blob['MechToken']
-           if len(blob['MechTypes'][0]) > 0:
-               # Is this GSSAPI NTLM or something else we don't support?
-               mechType = blob['MechTypes'][0]
-               if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
-                   # Nope, do we know it?
-                   if mechType in MechTypes:
-                       mechStr = MechTypes[mechType]
-                   else:
-                       mechStr = hexlify(mechType)
-                   smbServer.log("Unsupported MechType '%s'" % mechStr, logging.CRITICAL)
-                   # We don't know the token, we answer back again saying 
-                   # we just support NTLM.
-                   # ToDo: Build this into a SPNEGO_NegTokenResp()
-                   respToken = b'\xa1\x15\x30\x13\xa0\x03\x0a\x01\x03\xa1\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
-                   respSMBCommand['SecurityBufferOffset'] = 0x48
-                   respSMBCommand['SecurityBufferLength'] = len(respToken)
-                   respSMBCommand['Buffer'] = respToken
+        if struct.unpack('B', securityBlob[0:1])[0] == ASN1_AID:
+            # NEGOTIATE packet
+            blob = SPNEGO_NegTokenInit(securityBlob)
+            token = blob['MechToken']
+            if len(blob['MechTypes'][0]) > 0:
+                # Is this GSSAPI NTLM or something else we don't support?
+                mechType = blob['MechTypes'][0]
+                if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
+                    # Nope, do we know it?
+                    if mechType in MechTypes:
+                        mechStr = MechTypes[mechType]
+                    else:
+                        mechStr = hexlify(mechType)
+                    smbServer.log("Unsupported MechType '%s'" % mechStr, logging.CRITICAL)
+                    # We don't know the token, we answer back again saying
+                    # we just support NTLM.
+                    # ToDo: Build this into a SPNEGO_NegTokenResp()
+                    respToken = b'\xa1\x15\x30\x13\xa0\x03\x0a\x01\x03\xa1\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
+                    respSMBCommand['SecurityBufferOffset'] = 0x48
+                    respSMBCommand['SecurityBufferLength'] = len(respToken)
+                    respSMBCommand['Buffer'] = respToken
 
-                   return [respSMBCommand], None, STATUS_MORE_PROCESSING_REQUIRED
-        elif struct.unpack('B',securityBlob[0:1])[0] == ASN1_SUPPORTED_MECH:
-           # AUTH packet
-           blob = SPNEGO_NegTokenResp(securityBlob)
-           token = blob['ResponseToken']
+                    return [respSMBCommand], None, STATUS_MORE_PROCESSING_REQUIRED
+        elif struct.unpack('B', securityBlob[0:1])[0] == ASN1_SUPPORTED_MECH:
+            # AUTH packet
+            blob = SPNEGO_NegTokenResp(securityBlob)
+            token = blob['ResponseToken']
         else:
-           # No GSSAPI stuff, raw NTLMSSP
-           rawNTLM = True
-           token = securityBlob
+            # No GSSAPI stuff, raw NTLMSSP
+            rawNTLM = True
+            token = securityBlob
 
-        # Here we only handle NTLMSSP, depending on what stage of the 
+        # Here we only handle NTLMSSP, depending on what stage of the
         # authentication we are, we act on it
-        messageType = struct.unpack('<L',token[len('NTLMSSP\x00'):len('NTLMSSP\x00')+4])[0]
+        messageType = struct.unpack('<L', token[len('NTLMSSP\x00'):len('NTLMSSP\x00') + 4])[0]
 
         if messageType == 0x01:
             # NEGOTIATE_MESSAGE
@@ -2727,45 +2773,48 @@ class SMB2Commands:
             # Let's store it in the connection data
             connData['NEGOTIATE_MESSAGE'] = negotiateMessage
             # Let's build the answer flags
-            # TODO: Parse all the flags. With this we're leaving some clients out 
+            # TODO: Parse all the flags. With this we're leaving some clients out
 
             ansFlags = 0
 
             if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_56:
-               ansFlags |= ntlm.NTLMSSP_NEGOTIATE_56
+                ansFlags |= ntlm.NTLMSSP_NEGOTIATE_56
             if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_128:
-               ansFlags |= ntlm.NTLMSSP_NEGOTIATE_128
+                ansFlags |= ntlm.NTLMSSP_NEGOTIATE_128
             if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH:
-               ansFlags |= ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH
+                ansFlags |= ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH
             if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
-               ansFlags |= ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY
+                ansFlags |= ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY
             if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-               ansFlags |= ntlm.NTLMSSP_NEGOTIATE_UNICODE
+                ansFlags |= ntlm.NTLMSSP_NEGOTIATE_UNICODE
             if negotiateMessage['flags'] & ntlm.NTLM_NEGOTIATE_OEM:
-               ansFlags |= ntlm.NTLM_NEGOTIATE_OEM
+                ansFlags |= ntlm.NTLM_NEGOTIATE_OEM
 
             ansFlags |= ntlm.NTLMSSP_NEGOTIATE_VERSION | ntlm.NTLMSSP_NEGOTIATE_TARGET_INFO | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_NEGOTIATE_NTLM | ntlm.NTLMSSP_REQUEST_TARGET
 
             # Generate the AV_PAIRS
             av_pairs = ntlm.AV_PAIRS()
             # TODO: Put the proper data from SMBSERVER config
-            av_pairs[ntlm.NTLMSSP_AV_HOSTNAME] = av_pairs[ntlm.NTLMSSP_AV_DNS_HOSTNAME] = smbServer.getServerName().encode('utf-16le')
-            av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME] = av_pairs[ntlm.NTLMSSP_AV_DNS_DOMAINNAME] = smbServer.getServerDomain().encode('utf-16le')
-            av_pairs[ntlm.NTLMSSP_AV_TIME] = struct.pack('<q', (116444736000000000 + calendar.timegm(time.gmtime()) * 10000000) )
+            av_pairs[ntlm.NTLMSSP_AV_HOSTNAME] = av_pairs[
+                ntlm.NTLMSSP_AV_DNS_HOSTNAME] = smbServer.getServerName().encode('utf-16le')
+            av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME] = av_pairs[
+                ntlm.NTLMSSP_AV_DNS_DOMAINNAME] = smbServer.getServerDomain().encode('utf-16le')
+            av_pairs[ntlm.NTLMSSP_AV_TIME] = struct.pack('<q', (
+                        116444736000000000 + calendar.timegm(time.gmtime()) * 10000000))
 
             challengeMessage = ntlm.NTLMAuthChallenge()
-            challengeMessage['flags']            = ansFlags
-            challengeMessage['domain_len']       = len(smbServer.getServerDomain().encode('utf-16le'))
-            challengeMessage['domain_max_len']   = challengeMessage['domain_len']
-            challengeMessage['domain_offset']    = 40 + 16
-            challengeMessage['challenge']        = smbServer.getSMBChallenge()
-            challengeMessage['domain_name']      = smbServer.getServerDomain().encode('utf-16le')
-            challengeMessage['TargetInfoFields_len']     = len(av_pairs)
+            challengeMessage['flags'] = ansFlags
+            challengeMessage['domain_len'] = len(smbServer.getServerDomain().encode('utf-16le'))
+            challengeMessage['domain_max_len'] = challengeMessage['domain_len']
+            challengeMessage['domain_offset'] = 40 + 16
+            challengeMessage['challenge'] = smbServer.getSMBChallenge()
+            challengeMessage['domain_name'] = smbServer.getServerDomain().encode('utf-16le')
+            challengeMessage['TargetInfoFields_len'] = len(av_pairs)
             challengeMessage['TargetInfoFields_max_len'] = len(av_pairs)
             challengeMessage['TargetInfoFields'] = av_pairs
-            challengeMessage['TargetInfoFields_offset']  = 40 + 16 + len(challengeMessage['domain_name'])
-            challengeMessage['Version']          = b'\xff'*8
-            challengeMessage['VersionLen']       = 8
+            challengeMessage['TargetInfoFields_offset'] = 40 + 16 + len(challengeMessage['domain_name'])
+            challengeMessage['Version'] = b'\xff' * 8
+            challengeMessage['VersionLen'] = 8
 
             if rawNTLM is False:
                 respToken = SPNEGO_NegTokenResp()
@@ -2779,11 +2828,11 @@ class SMB2Commands:
 
             # Setting the packet to STATUS_MORE_PROCESSING
             errorCode = STATUS_MORE_PROCESSING_REQUIRED
-            # Let's set up an UID for this connection and store it 
+            # Let's set up an UID for this connection and store it
             # in the connection's data
             # Picking a fixed value
             # TODO: Manage more UIDs for the same session
-            connData['Uid'] = random.randint(1,0xffffffff)
+            connData['Uid'] = random.randint(1, 0xffffffff)
             # Let's store it in the connection data
             connData['CHALLENGE_MESSAGE'] = challengeMessage
 
@@ -2795,8 +2844,9 @@ class SMB2Commands:
             authenticateMessage = ntlm.NTLMAuthChallengeResponse()
             authenticateMessage.fromString(token)
             smbServer.log("AUTHENTICATE_MESSAGE (%s\\%s,%s)" % (
-            authenticateMessage['domain_name'].decode('utf-16le'), authenticateMessage['user_name'].decode('utf-16le'),
-            authenticateMessage['host_name'].decode('utf-16le')))
+                authenticateMessage['domain_name'].decode('utf-16le'),
+                authenticateMessage['user_name'].decode('utf-16le'),
+                authenticateMessage['host_name'].decode('utf-16le')))
             # TODO: Check the credentials! Now granting permissions
             # Do we have credentials to check?
             if len(smbServer.getCredentials()) > 0:
@@ -2829,7 +2879,8 @@ class SMB2Commands:
                 # accept-completed
                 respToken['NegState'] = b'\x00'
                 smbServer.log('User %s\\%s authenticated successfully' % (
-                authenticateMessage['host_name'].decode('utf-16le'), authenticateMessage['user_name'].decode('utf-16le')))
+                    authenticateMessage['host_name'].decode('utf-16le'),
+                    authenticateMessage['user_name'].decode('utf-16le')))
                 # Let's store it in the connection data
                 connData['AUTHENTICATE_MESSAGE'] = authenticateMessage
                 try:
@@ -2862,8 +2913,8 @@ class SMB2Commands:
         # From now on, the client can ask for other commands
         connData['Authenticated'] = True
         # For now, just switching to nobody
-        #os.setregid(65534,65534)
-        #os.setreuid(65534,65534)
+        # os.setregid(65534,65534)
+        # os.setreuid(65534,65534)
         smbServer.setConnectionData(connId, connData)
 
         return [respSMBCommand], None, errorCode
@@ -2873,16 +2924,16 @@ class SMB2Commands:
         connData = smbServer.getConnectionData(connId)
 
         respPacket = smb2.SMB2Packet()
-        respPacket['Flags']     = smb2.SMB2_FLAGS_SERVER_TO_REDIR
-        respPacket['Status']    = STATUS_SUCCESS
+        respPacket['Flags'] = smb2.SMB2_FLAGS_SERVER_TO_REDIR
+        respPacket['Status'] = STATUS_SUCCESS
         respPacket['CreditRequestResponse'] = 1
-        respPacket['Command']   = recvPacket['Command']
+        respPacket['Command'] = recvPacket['Command']
         respPacket['SessionID'] = connData['Uid']
-        respPacket['Reserved']  = recvPacket['Reserved']
+        respPacket['Reserved'] = recvPacket['Reserved']
         respPacket['MessageID'] = recvPacket['MessageID']
-        respPacket['TreeID']    = recvPacket['TreeID']
+        respPacket['TreeID'] = recvPacket['TreeID']
 
-        respSMBCommand        = smb2.SMB2TreeConnect_Response()
+        respSMBCommand = smb2.SMB2TreeConnect_Response()
 
         treeConnectRequest = smb2.SMB2TreeConnect(recvPacket['Data'])
 
@@ -2902,13 +2953,13 @@ class SMB2Commands:
         if share is not None:
             # Simple way to generate a Tid
             if len(connData['ConnectedShares']) == 0:
-               tid = 1
+                tid = 1
             else:
-               tid = list(connData['ConnectedShares'].keys())[-1] + 1
+                tid = list(connData['ConnectedShares'].keys())[-1] + 1
             connData['ConnectedShares'][tid] = share
             connData['ConnectedShares'][tid]['shareName'] = path
-            respPacket['TreeID']    = tid
-            smbServer.log("Connecting Share(%d:%s)" % (tid,path))
+            respPacket['TreeID'] = tid
+            smbServer.log("Connecting Share(%d:%s)" % (tid, path))
         else:
             smbServer.log("SMB2_TREE_CONNECT not found %s" % path, logging.ERROR)
             errorCode = STATUS_OBJECT_PATH_NOT_FOUND
@@ -2938,104 +2989,111 @@ class SMB2Commands:
     def smb2Create(connId, smbServer, recvPacket):
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb2.SMB2Create_Response()
+        respSMBCommand = smb2.SMB2Create_Response()
 
-        ntCreateRequest       = smb2.SMB2Create(recvPacket['Data'])
+        ntCreateRequest = smb2.SMB2Create(recvPacket['Data'])
 
         respSMBCommand['Buffer'] = b'\x00'
         # Get the Tid associated
         if recvPacket['TreeID'] in connData['ConnectedShares']:
-             # If we have a rootFid, the path is relative to that fid
-             errorCode = STATUS_SUCCESS
-             if 'path' in connData['ConnectedShares'][recvPacket['TreeID']]:
-                 path = connData['ConnectedShares'][recvPacket['TreeID']]['path']
-             else:
-                 path = 'NONE'
-                 errorCode = STATUS_ACCESS_DENIED
+            # If we have a rootFid, the path is relative to that fid
+            errorCode = STATUS_SUCCESS
+            if 'path' in connData['ConnectedShares'][recvPacket['TreeID']]:
+                path = connData['ConnectedShares'][recvPacket['TreeID']]['path']
+            else:
+                path = 'NONE'
+                errorCode = STATUS_ACCESS_DENIED
 
-             deleteOnClose = False
+            deleteOnClose = False
 
-             fileName = os.path.normpath(ntCreateRequest['Buffer'][:ntCreateRequest['NameLength']].decode('utf-16le').replace('\\','/'))
-             if len(fileName) > 0 and (fileName[0] == '/' or fileName[0] == '\\'):
+            fileName = os.path.normpath(
+                ntCreateRequest['Buffer'][:ntCreateRequest['NameLength']].decode('utf-16le').replace('\\', '/'))
+            if len(fileName) > 0 and (fileName[0] == '/' or fileName[0] == '\\'):
                 # strip leading '/'
                 fileName = fileName[1:]
-             pathName = os.path.join(path,fileName)
-             createDisposition = ntCreateRequest['CreateDisposition']
-             mode = 0
 
-             if createDisposition == smb2.FILE_SUPERSEDE:
-                 mode |= os.O_TRUNC | os.O_CREAT
-             elif createDisposition & smb2.FILE_OVERWRITE_IF == smb2.FILE_OVERWRITE_IF:
-                 mode |= os.O_TRUNC | os.O_CREAT
-             elif createDisposition & smb2.FILE_OVERWRITE == smb2.FILE_OVERWRITE:
-                 if os.path.exists(pathName) is True:
-                     mode |= os.O_TRUNC 
-                 else:
-                     errorCode = STATUS_NO_SUCH_FILE
-             elif createDisposition & smb2.FILE_OPEN_IF == smb2.FILE_OPEN_IF:
-                 if os.path.exists(pathName) is True:
-                     mode |= os.O_TRUNC 
-                 else:
-                     mode |= os.O_TRUNC | os.O_CREAT
-             elif createDisposition & smb2.FILE_CREATE == smb2.FILE_CREATE:
-                 if os.path.exists(pathName) is True:
-                     errorCode = STATUS_OBJECT_NAME_COLLISION
-                 else:
-                     mode |= os.O_CREAT
-             elif createDisposition & smb2.FILE_OPEN == smb2.FILE_OPEN:
-                 if os.path.exists(pathName) is not True and (str(pathName) in smbServer.getRegisteredNamedPipes()) is not True:
-                     errorCode = STATUS_NO_SUCH_FILE
+            if not isInFileJail(path, fileName):
+                LOG.error("Path not in current working directory")
+                return [smb2.SMB2Error()], None, STATUS_ACCESS_DENIED
 
-             if errorCode == STATUS_SUCCESS:
-                 desiredAccess = ntCreateRequest['DesiredAccess']
-                 if (desiredAccess & smb2.FILE_READ_DATA) or (desiredAccess & smb2.GENERIC_READ):
-                     mode |= os.O_RDONLY
-                 if (desiredAccess & smb2.FILE_WRITE_DATA) or (desiredAccess & smb2.GENERIC_WRITE):
-                     if (desiredAccess & smb2.FILE_READ_DATA) or (desiredAccess & smb2.GENERIC_READ):
-                         mode |= os.O_RDWR #| os.O_APPEND
-                     else: 
-                         mode |= os.O_WRONLY #| os.O_APPEND
-                 if desiredAccess & smb2.GENERIC_ALL:
-                     mode |= os.O_RDWR #| os.O_APPEND
+            pathName = os.path.join(path, fileName)
+            createDisposition = ntCreateRequest['CreateDisposition']
+            mode = 0
 
-                 createOptions =  ntCreateRequest['CreateOptions']
-                 if mode & os.O_CREAT == os.O_CREAT:
-                     if createOptions & smb2.FILE_DIRECTORY_FILE == smb2.FILE_DIRECTORY_FILE: 
-                         try:
-                             # Let's create the directory
-                             os.mkdir(pathName)
-                             mode = os.O_RDONLY
-                         except Exception as e:
-                             smbServer.log("SMB2_CREATE: %s,%s,%s" % (pathName,mode,e),logging.ERROR)
-                             errorCode = STATUS_ACCESS_DENIED
-                 if createOptions & smb2.FILE_NON_DIRECTORY_FILE == smb2.FILE_NON_DIRECTORY_FILE:
-                     # If the file being opened is a directory, the server MUST fail the request with
-                     # STATUS_FILE_IS_A_DIRECTORY in the Status field of the SMB Header in the server
-                     # response.
-                     if os.path.isdir(pathName) is True:
+            if createDisposition == smb2.FILE_SUPERSEDE:
+                mode |= os.O_TRUNC | os.O_CREAT
+            elif createDisposition & smb2.FILE_OVERWRITE_IF == smb2.FILE_OVERWRITE_IF:
+                mode |= os.O_TRUNC | os.O_CREAT
+            elif createDisposition & smb2.FILE_OVERWRITE == smb2.FILE_OVERWRITE:
+                if os.path.exists(pathName) is True:
+                    mode |= os.O_TRUNC
+                else:
+                    errorCode = STATUS_NO_SUCH_FILE
+            elif createDisposition & smb2.FILE_OPEN_IF == smb2.FILE_OPEN_IF:
+                if os.path.exists(pathName) is True:
+                    mode |= os.O_TRUNC
+                else:
+                    mode |= os.O_TRUNC | os.O_CREAT
+            elif createDisposition & smb2.FILE_CREATE == smb2.FILE_CREATE:
+                if os.path.exists(pathName) is True:
+                    errorCode = STATUS_OBJECT_NAME_COLLISION
+                else:
+                    mode |= os.O_CREAT
+            elif createDisposition & smb2.FILE_OPEN == smb2.FILE_OPEN:
+                if os.path.exists(pathName) is not True and (
+                        str(pathName) in smbServer.getRegisteredNamedPipes()) is not True:
+                    errorCode = STATUS_NO_SUCH_FILE
+
+            if errorCode == STATUS_SUCCESS:
+                desiredAccess = ntCreateRequest['DesiredAccess']
+                if (desiredAccess & smb2.FILE_READ_DATA) or (desiredAccess & smb2.GENERIC_READ):
+                    mode |= os.O_RDONLY
+                if (desiredAccess & smb2.FILE_WRITE_DATA) or (desiredAccess & smb2.GENERIC_WRITE):
+                    if (desiredAccess & smb2.FILE_READ_DATA) or (desiredAccess & smb2.GENERIC_READ):
+                        mode |= os.O_RDWR  # | os.O_APPEND
+                    else:
+                        mode |= os.O_WRONLY  # | os.O_APPEND
+                if desiredAccess & smb2.GENERIC_ALL:
+                    mode |= os.O_RDWR  # | os.O_APPEND
+
+                createOptions = ntCreateRequest['CreateOptions']
+                if mode & os.O_CREAT == os.O_CREAT:
+                    if createOptions & smb2.FILE_DIRECTORY_FILE == smb2.FILE_DIRECTORY_FILE:
+                        try:
+                            # Let's create the directory
+                            os.mkdir(pathName)
+                            mode = os.O_RDONLY
+                        except Exception as e:
+                            smbServer.log("SMB2_CREATE: %s,%s,%s" % (pathName, mode, e), logging.ERROR)
+                            errorCode = STATUS_ACCESS_DENIED
+                if createOptions & smb2.FILE_NON_DIRECTORY_FILE == smb2.FILE_NON_DIRECTORY_FILE:
+                    # If the file being opened is a directory, the server MUST fail the request with
+                    # STATUS_FILE_IS_A_DIRECTORY in the Status field of the SMB Header in the server
+                    # response.
+                    if os.path.isdir(pathName) is True:
                         errorCode = STATUS_FILE_IS_A_DIRECTORY
 
-                 if createOptions & smb2.FILE_DELETE_ON_CLOSE == smb2.FILE_DELETE_ON_CLOSE:
-                     deleteOnClose = True
-                 
-                 if errorCode == STATUS_SUCCESS:
-                     try:
-                         if os.path.isdir(pathName) and sys.platform == 'win32':
+                if createOptions & smb2.FILE_DELETE_ON_CLOSE == smb2.FILE_DELETE_ON_CLOSE:
+                    deleteOnClose = True
+
+                if errorCode == STATUS_SUCCESS:
+                    try:
+                        if os.path.isdir(pathName) and sys.platform == 'win32':
                             fid = VOID_FILE_DESCRIPTOR
-                         else:
+                        else:
                             if sys.platform == 'win32':
-                               mode |= os.O_BINARY
+                                mode |= os.O_BINARY
                             if str(pathName) in smbServer.getRegisteredNamedPipes():
                                 fid = PIPE_FILE_DESCRIPTOR
                                 sock = socket.socket()
                                 sock.connect(smbServer.getRegisteredNamedPipes()[str(pathName)])
                             else:
                                 fid = os.open(pathName, mode)
-                     except Exception as e:
-                         smbServer.log("SMB2_CREATE: %s,%s,%s" % (pathName,mode,e),logging.ERROR)
-                         #print e
-                         fid = 0
-                         errorCode = STATUS_ACCESS_DENIED
+                    except Exception as e:
+                        smbServer.log("SMB2_CREATE: %s,%s,%s" % (pathName, mode, e), logging.ERROR)
+                        # print e
+                        fid = 0
+                        errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_SMB_BAD_TID
 
@@ -3047,12 +3105,12 @@ class SMB2Commands:
             respSMBCommand['CreateAction'] = createDisposition
 
             if fid == PIPE_FILE_DESCRIPTOR:
-                respSMBCommand['CreationTime']   = 0
+                respSMBCommand['CreationTime'] = 0
                 respSMBCommand['LastAccessTime'] = 0
-                respSMBCommand['LastWriteTime']  = 0
-                respSMBCommand['ChangeTime']     = 0
+                respSMBCommand['LastWriteTime'] = 0
+                respSMBCommand['ChangeTime'] = 0
                 respSMBCommand['AllocationSize'] = 4096
-                respSMBCommand['EndOfFile']      = 0
+                respSMBCommand['EndOfFile'] = 0
                 respSMBCommand['FileAttributes'] = 0x80
 
             else:
@@ -3061,15 +3119,15 @@ class SMB2Commands:
                 else:
                     respSMBCommand['FileAttributes'] = ntCreateRequest['FileAttributes']
                 # Let's get this file's information
-                respInfo, errorCode = queryPathInformation('',pathName,level= smb.SMB_QUERY_FILE_ALL_INFO)
+                respInfo, errorCode = queryPathInformation('', pathName, level=smb.SMB_QUERY_FILE_ALL_INFO)
                 if errorCode == STATUS_SUCCESS:
-                    respSMBCommand['CreationTime']   = respInfo['CreationTime']
+                    respSMBCommand['CreationTime'] = respInfo['CreationTime']
                     respSMBCommand['LastAccessTime'] = respInfo['LastAccessTime']
-                    respSMBCommand['LastWriteTime']  = respInfo['LastWriteTime']
+                    respSMBCommand['LastWriteTime'] = respInfo['LastWriteTime']
                     respSMBCommand['LastChangeTime'] = respInfo['LastChangeTime']
                     respSMBCommand['FileAttributes'] = respInfo['ExtFileAttributes']
                     respSMBCommand['AllocationSize'] = respInfo['AllocationSize']
-                    respSMBCommand['EndOfFile']      = respInfo['EndOfFile']
+                    respSMBCommand['EndOfFile'] = respInfo['EndOfFile']
 
             if errorCode == STATUS_SUCCESS:
                 # Let's store the fid for the connection
@@ -3077,15 +3135,15 @@ class SMB2Commands:
                 connData['OpenedFiles'][fakefid] = {}
                 connData['OpenedFiles'][fakefid]['FileHandle'] = fid
                 connData['OpenedFiles'][fakefid]['FileName'] = pathName
-                connData['OpenedFiles'][fakefid]['DeleteOnClose']  = deleteOnClose
-                connData['OpenedFiles'][fakefid]['Open']  = {}
+                connData['OpenedFiles'][fakefid]['DeleteOnClose'] = deleteOnClose
+                connData['OpenedFiles'][fakefid]['Open'] = {}
                 connData['OpenedFiles'][fakefid]['Open']['EnumerationLocation'] = 0
                 connData['OpenedFiles'][fakefid]['Open']['EnumerationSearchPattern'] = ''
                 if fid == PIPE_FILE_DESCRIPTOR:
                     connData['OpenedFiles'][fakefid]['Socket'] = sock
         else:
             respSMBCommand = smb2.SMB2Error()
-        
+
         if errorCode == STATUS_SUCCESS:
             connData['LastRequest']['SMB2_CREATE'] = respSMBCommand
         smbServer.setConnectionData(connId, connData)
@@ -3096,13 +3154,13 @@ class SMB2Commands:
     def smb2Close(connId, smbServer, recvPacket):
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb2.SMB2Close_Response()
+        respSMBCommand = smb2.SMB2Close_Response()
 
         closeRequest = smb2.SMB2Close(recvPacket['Data'])
 
-        if closeRequest['FileID'].getData() == b'\xff'*16:
+        if closeRequest['FileID'].getData() == b'\xff' * 16:
             # Let's take the data from the lastRequest
-            if  'SMB2_CREATE' in connData['LastRequest']:
+            if 'SMB2_CREATE' in connData['LastRequest']:
                 fileID = connData['LastRequest']['SMB2_CREATE']['FileID']
             else:
                 fileID = closeRequest['FileID'].getData()
@@ -3110,42 +3168,43 @@ class SMB2Commands:
             fileID = closeRequest['FileID'].getData()
 
         if fileID in connData['OpenedFiles']:
-             errorCode = STATUS_SUCCESS
-             fileHandle = connData['OpenedFiles'][fileID]['FileHandle']
-             pathName = connData['OpenedFiles'][fileID]['FileName']
-             infoRecord = None
-             try:
-                 if fileHandle == PIPE_FILE_DESCRIPTOR:
-                     connData['OpenedFiles'][fileID]['Socket'].close()
-                 elif fileHandle != VOID_FILE_DESCRIPTOR:
-                     os.close(fileHandle)
-                     infoRecord, errorCode = queryFileInformation(os.path.dirname(pathName), os.path.basename(pathName), smb2.SMB2_FILE_NETWORK_OPEN_INFO)
-             except Exception as e:
-                 smbServer.log("SMB2_CLOSE %s" % e, logging.ERROR)
-                 errorCode = STATUS_INVALID_HANDLE
-             else:
-                 # Check if the file was marked for removal
-                 if connData['OpenedFiles'][fileID]['DeleteOnClose'] is True:
-                     try:
-                         if os.path.isdir(pathName):
-                             shutil.rmtree(connData['OpenedFiles'][fileID]['FileName'])
-                         else:
-                             os.remove(connData['OpenedFiles'][fileID]['FileName'])
-                     except Exception as e:
-                         smbServer.log("SMB2_CLOSE %s" % e, logging.ERROR)
-                         errorCode = STATUS_ACCESS_DENIED
-    
-                 # Now fill out the response
-                 if infoRecord is not None:
-                     respSMBCommand['CreationTime']   = infoRecord['CreationTime']
-                     respSMBCommand['LastAccessTime'] = infoRecord['LastAccessTime']
-                     respSMBCommand['LastWriteTime']  = infoRecord['LastWriteTime']
-                     respSMBCommand['ChangeTime']     = infoRecord['ChangeTime']
-                     respSMBCommand['AllocationSize'] = infoRecord['AllocationSize']
-                     respSMBCommand['EndofFile']      = infoRecord['EndOfFile']
-                     respSMBCommand['FileAttributes'] = infoRecord['FileAttributes']
-                 if errorCode == STATUS_SUCCESS:
-                     del(connData['OpenedFiles'][fileID])
+            errorCode = STATUS_SUCCESS
+            fileHandle = connData['OpenedFiles'][fileID]['FileHandle']
+            pathName = connData['OpenedFiles'][fileID]['FileName']
+            infoRecord = None
+            try:
+                if fileHandle == PIPE_FILE_DESCRIPTOR:
+                    connData['OpenedFiles'][fileID]['Socket'].close()
+                elif fileHandle != VOID_FILE_DESCRIPTOR:
+                    os.close(fileHandle)
+                    infoRecord, errorCode = queryFileInformation(os.path.dirname(pathName), os.path.basename(pathName),
+                                                                 smb2.SMB2_FILE_NETWORK_OPEN_INFO)
+            except Exception as e:
+                smbServer.log("SMB2_CLOSE %s" % e, logging.ERROR)
+                errorCode = STATUS_INVALID_HANDLE
+            else:
+                # Check if the file was marked for removal
+                if connData['OpenedFiles'][fileID]['DeleteOnClose'] is True:
+                    try:
+                        if os.path.isdir(pathName):
+                            shutil.rmtree(connData['OpenedFiles'][fileID]['FileName'])
+                        else:
+                            os.remove(connData['OpenedFiles'][fileID]['FileName'])
+                    except Exception as e:
+                        smbServer.log("SMB2_CLOSE %s" % e, logging.ERROR)
+                        errorCode = STATUS_ACCESS_DENIED
+
+                # Now fill out the response
+                if infoRecord is not None:
+                    respSMBCommand['CreationTime'] = infoRecord['CreationTime']
+                    respSMBCommand['LastAccessTime'] = infoRecord['LastAccessTime']
+                    respSMBCommand['LastWriteTime'] = infoRecord['LastWriteTime']
+                    respSMBCommand['ChangeTime'] = infoRecord['ChangeTime']
+                    respSMBCommand['AllocationSize'] = infoRecord['AllocationSize']
+                    respSMBCommand['EndofFile'] = infoRecord['EndOfFile']
+                    respSMBCommand['FileAttributes'] = infoRecord['FileAttributes']
+                if errorCode == STATUS_SUCCESS:
+                    del (connData['OpenedFiles'][fileID])
         else:
             errorCode = STATUS_INVALID_HANDLE
 
@@ -3156,18 +3215,18 @@ class SMB2Commands:
     def smb2QueryInfo(connId, smbServer, recvPacket):
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb2.SMB2QueryInfo_Response()
+        respSMBCommand = smb2.SMB2QueryInfo_Response()
 
         queryInfo = smb2.SMB2QueryInfo(recvPacket['Data'])
-       
-        errorCode = STATUS_SUCCESS 
+
+        errorCode = STATUS_SUCCESS
 
         respSMBCommand['OutputBufferOffset'] = 0x48
         respSMBCommand['Buffer'] = b'\x00'
 
-        if queryInfo['FileID'].getData() == b'\xff'*16:
+        if queryInfo['FileID'].getData() == b'\xff' * 16:
             # Let's take the data from the lastRequest
-            if  'SMB2_CREATE' in connData['LastRequest']:
+            if 'SMB2_CREATE' in connData['LastRequest']:
                 fileID = connData['LastRequest']['SMB2_CREATE']['FileID']
             else:
                 fileID = queryInfo['FileID'].getData()
@@ -3189,15 +3248,16 @@ class SMB2Commands:
                                                                      queryInfo['FileInfoClass'])
                 elif queryInfo['InfoType'] == smb2.SMB2_0_INFO_FILESYSTEM:
                     if queryInfo['FileInfoClass'] == smb2.SMB2_FILE_EA_INFO:
-                        infoRecord = b'\x00'*4
+                        infoRecord = b'\x00' * 4
                     else:
-                        infoRecord = queryFsInformation(os.path.dirname(fileName), os.path.basename(fileName), queryInfo['FileInfoClass'])
+                        infoRecord = queryFsInformation(os.path.dirname(fileName), os.path.basename(fileName),
+                                                        queryInfo['FileInfoClass'])
                 elif queryInfo['InfoType'] == smb2.SMB2_0_INFO_SECURITY:
                     # Failing for now, until we support it
                     infoRecord = None
                     errorCode = STATUS_ACCESS_DENIED
                 else:
-                    smbServer.log("queryInfo not supported (%x)" %  queryInfo['InfoType'], logging.ERROR)
+                    smbServer.log("queryInfo not supported (%x)" % queryInfo['InfoType'], logging.ERROR)
 
                 if infoRecord is not None:
                     respSMBCommand['OutputBufferLength'] = len(infoRecord)
@@ -3207,7 +3267,6 @@ class SMB2Commands:
         else:
             errorCode = STATUS_SMB_BAD_TID
 
-
         smbServer.setConnectionData(connId, connData)
         return [respSMBCommand], None, errorCode
 
@@ -3215,15 +3274,15 @@ class SMB2Commands:
     def smb2SetInfo(connId, smbServer, recvPacket):
         connData = smbServer.getConnectionData(connId)
 
-        respSMBCommand        = smb2.SMB2SetInfo_Response()
+        respSMBCommand = smb2.SMB2SetInfo_Response()
 
         setInfo = smb2.SMB2SetInfo(recvPacket['Data'])
-       
-        errorCode = STATUS_SUCCESS 
 
-        if setInfo['FileID'].getData() == b'\xff'*16:
+        errorCode = STATUS_SUCCESS
+
+        if setInfo['FileID'].getData() == b'\xff' * 16:
             # Let's take the data from the lastRequest
-            if  'SMB2_CREATE' in connData['LastRequest']:
+            if 'SMB2_CREATE' in connData['LastRequest']:
                 fileID = connData['LastRequest']['SMB2_CREATE']['FileID']
             else:
                 fileID = setInfo['FileID'].getData()
@@ -3231,7 +3290,7 @@ class SMB2Commands:
             fileID = setInfo['FileID'].getData()
 
         if recvPacket['TreeID'] in connData['ConnectedShares']:
-            path     = connData['ConnectedShares'][recvPacket['TreeID']]['path']
+            path = connData['ConnectedShares'][recvPacket['TreeID']]['path']
             if fileID in connData['OpenedFiles']:
                 pathName = connData['OpenedFiles'][fileID]['FileName']
 
@@ -3241,8 +3300,8 @@ class SMB2Commands:
                     if informationLevel == smb2.SMB2_FILE_DISPOSITION_INFO:
                         infoRecord = smb.SMBSetFileDispositionInfo(setInfo['Buffer'])
                         if infoRecord['DeletePending'] > 0:
-                           # Mark this file for removal after closed
-                           connData['OpenedFiles'][fileID]['DeleteOnClose'] = True
+                            # Mark this file for removal after closed
+                            connData['OpenedFiles'][fileID]['DeleteOnClose'] = True
                     elif informationLevel == smb2.SMB2_FILE_BASIC_INFO:
                         infoRecord = smb.SMBSetFileBasicInfo(setInfo['Buffer'])
                         # Creation time won't be set,  the other ones we play with.
@@ -3257,47 +3316,46 @@ class SMB2Commands:
                         else:
                             mtime = getUnixTime(mtime)
                         if atime > 0 and mtime > 0:
-                            os.utime(pathName,(atime,mtime))
+                            os.utime(pathName, (atime, mtime))
                     elif informationLevel == smb2.SMB2_FILE_END_OF_FILE_INFO:
                         fileHandle = connData['OpenedFiles'][fileID]['FileHandle']
                         infoRecord = smb.SMBSetFileEndOfFileInfo(setInfo['Buffer'])
                         if infoRecord['EndOfFile'] > 0:
-                            os.lseek(fileHandle, infoRecord['EndOfFile']-1, 0)
+                            os.lseek(fileHandle, infoRecord['EndOfFile'] - 1, 0)
                             os.write(fileHandle, b'\x00')
                     elif informationLevel == smb2.SMB2_FILE_RENAME_INFO:
                         renameInfo = smb2.FILE_RENAME_INFORMATION_TYPE_2(setInfo['Buffer'])
-                        newPathName = os.path.join(path,renameInfo['FileName'].decode('utf-16le').replace('\\', '/')) 
+                        newPathName = os.path.join(path, renameInfo['FileName'].decode('utf-16le').replace('\\', '/'))
                         if renameInfo['ReplaceIfExists'] == 0 and os.path.exists(newPathName):
                             return [smb2.SMB2Error()], None, STATUS_OBJECT_NAME_COLLISION
                         try:
-                             os.rename(pathName,newPathName)
-                             connData['OpenedFiles'][fileID]['FileName'] = newPathName
+                            os.rename(pathName, newPathName)
+                            connData['OpenedFiles'][fileID]['FileName'] = newPathName
                         except Exception as e:
-                             smbServer.log("smb2SetInfo: %s" % e, logging.ERROR)
-                             errorCode = STATUS_ACCESS_DENIED
+                            smbServer.log("smb2SetInfo: %s" % e, logging.ERROR)
+                            errorCode = STATUS_ACCESS_DENIED
                     else:
                         smbServer.log('Unknown level for set file info! 0x%x' % informationLevel, logging.ERROR)
                         # UNSUPPORTED
-                        errorCode =  STATUS_NOT_SUPPORTED
-                #elif setInfo['InfoType'] == smb2.SMB2_0_INFO_FILESYSTEM:
+                        errorCode = STATUS_NOT_SUPPORTED
+                # elif setInfo['InfoType'] == smb2.SMB2_0_INFO_FILESYSTEM:
                 #    # The underlying object store information is being set.
                 #    setInfo = queryFsInformation('/', fileName, queryInfo['FileInfoClass'])
-                #elif setInfo['InfoType'] == smb2.SMB2_0_INFO_SECURITY:
+                # elif setInfo['InfoType'] == smb2.SMB2_0_INFO_SECURITY:
                 #    # The security information is being set.
                 #    # Failing for now, until we support it
                 #    infoRecord = None
                 #    errorCode = STATUS_ACCESS_DENIED
-                #elif setInfo['InfoType'] == smb2.SMB2_0_INFO_QUOTA:
+                # elif setInfo['InfoType'] == smb2.SMB2_0_INFO_QUOTA:
                 #    # The underlying object store quota information is being set.
                 #    setInfo = queryFsInformation('/', fileName, queryInfo['FileInfoClass'])
                 else:
-                    smbServer.log("setInfo not supported (%x)" %  setInfo['InfoType'], logging.ERROR)
+                    smbServer.log("setInfo not supported (%x)" % setInfo['InfoType'], logging.ERROR)
 
             else:
                 errorCode = STATUS_INVALID_HANDLE
         else:
             errorCode = STATUS_SMB_BAD_TID
-
 
         smbServer.setConnectionData(connId, connData)
         return [respSMBCommand], None, errorCode
@@ -3307,13 +3365,13 @@ class SMB2Commands:
         connData = smbServer.getConnectionData(connId)
 
         respSMBCommand = smb2.SMB2Write_Response()
-        writeRequest   = smb2.SMB2Write(recvPacket['Data'])
+        writeRequest = smb2.SMB2Write(recvPacket['Data'])
 
         respSMBCommand['Buffer'] = b'\x00'
 
-        if writeRequest['FileID'].getData() == b'\xff'*16:
+        if writeRequest['FileID'].getData() == b'\xff' * 16:
             # Let's take the data from the lastRequest
-            if  'SMB2_CREATE' in connData['LastRequest']:
+            if 'SMB2_CREATE' in connData['LastRequest']:
                 fileID = connData['LastRequest']['SMB2_CREATE']['FileID']
             else:
                 fileID = writeRequest['FileID'].getData()
@@ -3321,24 +3379,24 @@ class SMB2Commands:
             fileID = writeRequest['FileID'].getData()
 
         if fileID in connData['OpenedFiles']:
-             fileHandle = connData['OpenedFiles'][fileID]['FileHandle']
-             errorCode = STATUS_SUCCESS
-             try:
-                 if fileHandle != PIPE_FILE_DESCRIPTOR:
-                     offset = writeRequest['Offset']
-                     # If we're trying to write past the file end we just skip the write call (Vista does this)
-                     if os.lseek(fileHandle, 0, 2) >= offset:
-                         os.lseek(fileHandle,offset,0)
-                         os.write(fileHandle,writeRequest['Buffer'])
-                 else:
-                     sock = connData['OpenedFiles'][fileID]['Socket']
-                     sock.send(writeRequest['Buffer'])
+            fileHandle = connData['OpenedFiles'][fileID]['FileHandle']
+            errorCode = STATUS_SUCCESS
+            try:
+                if fileHandle != PIPE_FILE_DESCRIPTOR:
+                    offset = writeRequest['Offset']
+                    # If we're trying to write past the file end we just skip the write call (Vista does this)
+                    if os.lseek(fileHandle, 0, 2) >= offset:
+                        os.lseek(fileHandle, offset, 0)
+                        os.write(fileHandle, writeRequest['Buffer'])
+                else:
+                    sock = connData['OpenedFiles'][fileID]['Socket']
+                    sock.send(writeRequest['Buffer'])
 
-                 respSMBCommand['Count']    = writeRequest['Length']
-                 respSMBCommand['Remaining']= 0xff
-             except Exception as e:
-                 smbServer.log('SMB2_WRITE: %s' % e, logging.ERROR)
-                 errorCode = STATUS_ACCESS_DENIED
+                respSMBCommand['Count'] = writeRequest['Length']
+                respSMBCommand['Remaining'] = 0xff
+            except Exception as e:
+                smbServer.log('SMB2_WRITE: %s' % e, logging.ERROR)
+                errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_INVALID_HANDLE
 
@@ -3350,13 +3408,13 @@ class SMB2Commands:
         connData = smbServer.getConnectionData(connId)
 
         respSMBCommand = smb2.SMB2Read_Response()
-        readRequest   = smb2.SMB2Read(recvPacket['Data'])
+        readRequest = smb2.SMB2Read(recvPacket['Data'])
 
         respSMBCommand['Buffer'] = b'\x00'
 
-        if readRequest['FileID'].getData() == b'\xff'*16:
+        if readRequest['FileID'].getData() == b'\xff' * 16:
             # Let's take the data from the lastRequest
-            if  'SMB2_CREATE' in connData['LastRequest']:
+            if 'SMB2_CREATE' in connData['LastRequest']:
                 fileID = connData['LastRequest']['SMB2_CREATE']['FileID']
             else:
                 fileID = readRequest['FileID'].getData()
@@ -3364,24 +3422,24 @@ class SMB2Commands:
             fileID = readRequest['FileID'].getData()
 
         if fileID in connData['OpenedFiles']:
-             fileHandle = connData['OpenedFiles'][fileID]['FileHandle']
-             errorCode = 0
-             try:
-                 if fileHandle != PIPE_FILE_DESCRIPTOR:
-                     offset = readRequest['Offset']
-                     os.lseek(fileHandle,offset,0)
-                     content = os.read(fileHandle,readRequest['Length'])
-                 else:
-                     sock = connData['OpenedFiles'][fileID]['Socket']
-                     content = sock.recv(readRequest['Length'])
+            fileHandle = connData['OpenedFiles'][fileID]['FileHandle']
+            errorCode = 0
+            try:
+                if fileHandle != PIPE_FILE_DESCRIPTOR:
+                    offset = readRequest['Offset']
+                    os.lseek(fileHandle, offset, 0)
+                    content = os.read(fileHandle, readRequest['Length'])
+                else:
+                    sock = connData['OpenedFiles'][fileID]['Socket']
+                    content = sock.recv(readRequest['Length'])
 
-                 respSMBCommand['DataOffset']   = 0x50
-                 respSMBCommand['DataLength']   = len(content)
-                 respSMBCommand['DataRemaining']= 0
-                 respSMBCommand['Buffer']       = content
-             except Exception as e:
-                 smbServer.log('SMB2_READ: %s ' % e, logging.ERROR)
-                 errorCode = STATUS_ACCESS_DENIED
+                respSMBCommand['DataOffset'] = 0x50
+                respSMBCommand['DataLength'] = len(content)
+                respSMBCommand['DataRemaining'] = 0
+                respSMBCommand['Buffer'] = content
+            except Exception as e:
+                smbServer.log('SMB2_READ: %s ' % e, logging.ERROR)
+                errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_INVALID_HANDLE
 
@@ -3393,40 +3451,39 @@ class SMB2Commands:
         connData = smbServer.getConnectionData(connId)
 
         respSMBCommand = smb2.SMB2Flush_Response()
-        flushRequest   = smb2.SMB2Flush(recvPacket['Data'])
+        flushRequest = smb2.SMB2Flush(recvPacket['Data'])
 
         if flushRequest['FileID'].getData() in connData['OpenedFiles']:
-             fileHandle = connData['OpenedFiles'][flushRequest['FileID'].getData()]['FileHandle']
-             errorCode = STATUS_SUCCESS
-             try:
-                 os.fsync(fileHandle)
-             except Exception as e:
-                 smbServer.log("SMB2_FLUSH %s" % e, logging.ERROR)
-                 errorCode = STATUS_ACCESS_DENIED
+            fileHandle = connData['OpenedFiles'][flushRequest['FileID'].getData()]['FileHandle']
+            errorCode = STATUS_SUCCESS
+            try:
+                os.fsync(fileHandle)
+            except Exception as e:
+                smbServer.log("SMB2_FLUSH %s" % e, logging.ERROR)
+                errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_INVALID_HANDLE
 
         smbServer.setConnectionData(connId, connData)
         return [respSMBCommand], None, errorCode
 
-
     @staticmethod
     def smb2QueryDirectory(connId, smbServer, recvPacket):
         connData = smbServer.getConnectionData(connId)
         respSMBCommand = smb2.SMB2QueryDirectory_Response()
-        queryDirectoryRequest   = smb2.SMB2QueryDirectory(recvPacket['Data'])
+        queryDirectoryRequest = smb2.SMB2QueryDirectory(recvPacket['Data'])
 
         respSMBCommand['Buffer'] = b'\x00'
 
         # The server MUST locate the tree connection, as specified in section 3.3.5.2.11.
         if (recvPacket['TreeID'] in connData['ConnectedShares']) is False:
             return [smb2.SMB2Error()], None, STATUS_NETWORK_NAME_DELETED
-       
-        # Next, the server MUST locate the open for the directory to be queried 
+
+        # Next, the server MUST locate the open for the directory to be queried
         # If no open is found, the server MUST fail the request with STATUS_FILE_CLOSED
-        if queryDirectoryRequest['FileID'].getData() == b'\xff'*16:
+        if queryDirectoryRequest['FileID'].getData() == b'\xff' * 16:
             # Let's take the data from the lastRequest
-            if  'SMB2_CREATE' in connData['LastRequest']:
+            if 'SMB2_CREATE' in connData['LastRequest']:
                 fileID = connData['LastRequest']['SMB2_CREATE']['FileID']
             else:
                 fileID = queryDirectoryRequest['FileID'].getData()
@@ -3436,57 +3493,59 @@ class SMB2Commands:
         if (fileID in connData['OpenedFiles']) is False:
             return [smb2.SMB2Error()], None, STATUS_FILE_CLOSED
 
-        # If the open is not an open to a directory, the request MUST be failed 
+        # If the open is not an open to a directory, the request MUST be failed
         # with STATUS_INVALID_PARAMETER.
         if os.path.isdir(connData['OpenedFiles'][fileID]['FileName']) is False:
             return [smb2.SMB2Error()], None, STATUS_INVALID_PARAMETER
 
-        # If any other information class is specified in the FileInformationClass 
-        # field of the SMB2 QUERY_DIRECTORY Request, the server MUST fail the 
-        # operation with STATUS_INVALID_INFO_CLASS. 
+        # If any other information class is specified in the FileInformationClass
+        # field of the SMB2 QUERY_DIRECTORY Request, the server MUST fail the
+        # operation with STATUS_INVALID_INFO_CLASS.
         if queryDirectoryRequest['FileInformationClass'] not in (
-        smb2.FILE_DIRECTORY_INFORMATION, smb2.FILE_FULL_DIRECTORY_INFORMATION, smb2.FILEID_FULL_DIRECTORY_INFORMATION,
-        smb2.FILE_BOTH_DIRECTORY_INFORMATION, smb2.FILEID_BOTH_DIRECTORY_INFORMATION, smb2.FILENAMES_INFORMATION):
+                smb2.FILE_DIRECTORY_INFORMATION, smb2.FILE_FULL_DIRECTORY_INFORMATION,
+                smb2.FILEID_FULL_DIRECTORY_INFORMATION,
+                smb2.FILE_BOTH_DIRECTORY_INFORMATION, smb2.FILEID_BOTH_DIRECTORY_INFORMATION,
+                smb2.FILENAMES_INFORMATION):
             return [smb2.SMB2Error()], None, STATUS_INVALID_INFO_CLASS
 
-        # If SMB2_REOPEN is set in the Flags field of the SMB2 QUERY_DIRECTORY 
-        # Request, the server SHOULD<326> set Open.EnumerationLocation to 0 
+        # If SMB2_REOPEN is set in the Flags field of the SMB2 QUERY_DIRECTORY
+        # Request, the server SHOULD<326> set Open.EnumerationLocation to 0
         # and Open.EnumerationSearchPattern to an empty string.
         if queryDirectoryRequest['Flags'] & smb2.SMB2_REOPEN:
             connData['OpenedFiles'][fileID]['Open']['EnumerationLocation'] = 0
             connData['OpenedFiles'][fileID]['Open']['EnumerationSearchPattern'] = ''
-        
-        # If SMB2_RESTART_SCANS is set in the Flags field of the SMB2 
-        # QUERY_DIRECTORY Request, the server MUST set 
+
+        # If SMB2_RESTART_SCANS is set in the Flags field of the SMB2
+        # QUERY_DIRECTORY Request, the server MUST set
         # Open.EnumerationLocation to 0.
         if queryDirectoryRequest['Flags'] & smb2.SMB2_RESTART_SCANS:
             connData['OpenedFiles'][fileID]['Open']['EnumerationLocation'] = 0
 
-        # If Open.EnumerationLocation is 0 and Open.EnumerationSearchPattern 
-        # is an empty string, then Open.EnumerationSearchPattern MUST be set 
-        # to the search pattern specified in the SMB2 QUERY_DIRECTORY by 
-        # FileNameOffset and FileNameLength. If FileNameLength is 0, the server 
+        # If Open.EnumerationLocation is 0 and Open.EnumerationSearchPattern
+        # is an empty string, then Open.EnumerationSearchPattern MUST be set
+        # to the search pattern specified in the SMB2 QUERY_DIRECTORY by
+        # FileNameOffset and FileNameLength. If FileNameLength is 0, the server
         # SHOULD<327> set Open.EnumerationSearchPattern as "*" to search all entries.
 
         pattern = queryDirectoryRequest['Buffer'].decode('utf-16le')
-        if  connData['OpenedFiles'][fileID]['Open']['EnumerationLocation'] == 0 and \
-            connData['OpenedFiles'][fileID]['Open']['EnumerationSearchPattern'] == '':
+        if connData['OpenedFiles'][fileID]['Open']['EnumerationLocation'] == 0 and \
+                connData['OpenedFiles'][fileID]['Open']['EnumerationSearchPattern'] == '':
             if pattern == '':
                 pattern = '*'
             connData['OpenedFiles'][fileID]['Open']['EnumerationSearchPattern'] = pattern
 
-        # If SMB2_INDEX_SPECIFIED is set and FileNameLength is not zero, 
-        # the server MUST set Open.EnumerationSearchPattern to the search pattern 
+        # If SMB2_INDEX_SPECIFIED is set and FileNameLength is not zero,
+        # the server MUST set Open.EnumerationSearchPattern to the search pattern
         # specified in the request by FileNameOffset and FileNameLength.
         if queryDirectoryRequest['Flags'] & smb2.SMB2_INDEX_SPECIFIED and \
-           queryDirectoryRequest['FileNameLength'] > 0:
+                queryDirectoryRequest['FileNameLength'] > 0:
             connData['OpenedFiles'][fileID]['Open']['EnumerationSearchPattern'] = pattern
 
-        pathName = os.path.join(os.path.normpath(connData['OpenedFiles'][fileID]['FileName']),pattern)
+        pathName = os.path.join(os.path.normpath(connData['OpenedFiles'][fileID]['FileName']), pattern)
         searchResult, searchCount, errorCode = findFirst2(os.path.dirname(pathName),
-                  os.path.basename(pathName),
-                  queryDirectoryRequest['FileInformationClass'], 
-                  smb.ATTR_DIRECTORY, isSMB2 = True )
+                                                          os.path.basename(pathName),
+                                                          queryDirectoryRequest['FileInformationClass'],
+                                                          smb.ATTR_DIRECTORY, isSMB2=True)
 
         if errorCode != STATUS_SUCCESS:
             return [smb2.SMB2Error()], None, errorCode
@@ -3499,7 +3558,7 @@ class SMB2Commands:
         if searchCount == 0 and connData['OpenedFiles'][fileID]['Open']['EnumerationLocation'] == 0:
             return [smb2.SMB2Error()], None, STATUS_NO_SUCH_FILE
 
-        if  connData['OpenedFiles'][fileID]['Open']['EnumerationLocation'] < 0:
+        if connData['OpenedFiles'][fileID]['Open']['EnumerationLocation'] < 0:
             return [smb2.SMB2Error()], None, STATUS_NO_MORE_FILES
 
         totalData = 0
@@ -3511,20 +3570,20 @@ class SMB2Commands:
                 searchResult[nItem]['NextEntryOffset'] = 0
             data = searchResult[nItem].getData()
             lenData = len(data)
-            padLen = (8-(lenData % 8)) %8
- 
-            if (totalData+lenData) >= queryDirectoryRequest['OutputBufferLength']:
+            padLen = (8 - (lenData % 8)) % 8
+
+            if (totalData + lenData) >= queryDirectoryRequest['OutputBufferLength']:
                 connData['OpenedFiles'][fileID]['Open']['EnumerationLocation'] -= 1
                 break
             else:
-                respData += data + b'\x00'*padLen
+                respData += data + b'\x00' * padLen
                 totalData += lenData + padLen
 
             if queryDirectoryRequest['Flags'] & smb2.SL_RETURN_SINGLE_ENTRY:
                 break
 
         if connData['OpenedFiles'][fileID]['Open']['EnumerationLocation'] >= searchCount:
-             connData['OpenedFiles'][fileID]['Open']['EnumerationLocation'] = -1
+            connData['OpenedFiles'][fileID]['Open']['EnumerationLocation'] = -1
 
         respSMBCommand['OutputBufferOffset'] = 0x48
         respSMBCommand['OutputBufferLength'] = totalData
@@ -3553,13 +3612,12 @@ class SMB2Commands:
 
         if recvPacket['TreeID'] in connData['ConnectedShares']:
             smbServer.log("Disconnecting Share(%d:%s)" % (
-            recvPacket['TreeID'], connData['ConnectedShares'][recvPacket['TreeID']]['shareName']))
-            del(connData['ConnectedShares'][recvPacket['TreeID']])
+                recvPacket['TreeID'], connData['ConnectedShares'][recvPacket['TreeID']]['shareName']))
+            del (connData['ConnectedShares'][recvPacket['TreeID']])
             errorCode = STATUS_SUCCESS
         else:
             # STATUS_SMB_BAD_TID
             errorCode = STATUS_SMB_BAD_TID
-
 
         smbServer.setConnectionData(connId, connData)
         return [respSMBCommand], None, errorCode
@@ -3587,24 +3645,24 @@ class SMB2Commands:
         connData = smbServer.getConnectionData(connId)
 
         respSMBCommand = smb2.SMB2Ioctl_Response()
-        ioctlRequest   = smb2.SMB2Ioctl(recvPacket['Data'])
+        ioctlRequest = smb2.SMB2Ioctl(recvPacket['Data'])
 
         ioctls = smbServer.getIoctls()
         if ioctlRequest['CtlCode'] in ioctls:
             outputData, errorCode = ioctls[ioctlRequest['CtlCode']](connId, smbServer, ioctlRequest)
             if errorCode == STATUS_SUCCESS:
-                respSMBCommand['CtlCode']      = ioctlRequest['CtlCode']
-                respSMBCommand['FileID']       = ioctlRequest['FileID']
-                respSMBCommand['InputOffset']  = 0
-                respSMBCommand['InputCount']   = 0
+                respSMBCommand['CtlCode'] = ioctlRequest['CtlCode']
+                respSMBCommand['FileID'] = ioctlRequest['FileID']
+                respSMBCommand['InputOffset'] = 0
+                respSMBCommand['InputCount'] = 0
                 respSMBCommand['OutputOffset'] = 0x70
-                respSMBCommand['OutputCount']  = len(outputData)
-                respSMBCommand['Flags']        = 0
-                respSMBCommand['Buffer']       = outputData
+                respSMBCommand['OutputCount'] = len(outputData)
+                respSMBCommand['Flags'] = 0
+                respSMBCommand['Buffer'] = outputData
             else:
                 respSMBCommand = outputData
         else:
-            smbServer.log("Ioctl not implemented command: 0x%x" % ioctlRequest['CtlCode'],logging.DEBUG)
+            smbServer.log("Ioctl not implemented command: 0x%x" % ioctlRequest['CtlCode'], logging.DEBUG)
             errorCode = STATUS_INVALID_DEVICE_REQUEST
             respSMBCommand = smb2.SMB2Error()
 
@@ -3631,49 +3689,50 @@ class SMB2Commands:
     @staticmethod
     def default(connId, smbServer, recvPacket):
         # By default we return an SMB Packet with error not implemented
-        smbServer.log("Not implemented command: 0x%x" % recvPacket['Command'],logging.DEBUG)
+        smbServer.log("Not implemented command: 0x%x" % recvPacket['Command'], logging.DEBUG)
         return [smb2.SMB2Error()], None, STATUS_NOT_SUPPORTED
 
+
 class Ioctls:
-   @staticmethod
-   def fsctlDfsGetReferrals(connId, smbServer, ioctlRequest):
+    @staticmethod
+    def fsctlDfsGetReferrals(connId, smbServer, ioctlRequest):
         return smb2.SMB2Error(), STATUS_FS_DRIVER_REQUIRED
 
-   @staticmethod
-   def fsctlPipeTransceive(connId, smbServer, ioctlRequest):
+    @staticmethod
+    def fsctlPipeTransceive(connId, smbServer, ioctlRequest):
         connData = smbServer.getConnectionData(connId)
-        
+
         ioctlResponse = ''
 
         if ioctlRequest['FileID'].getData() in connData['OpenedFiles']:
-             fileHandle = connData['OpenedFiles'][ioctlRequest['FileID'].getData()]['FileHandle']
-             errorCode = STATUS_SUCCESS
-             try:
-                 if fileHandle != PIPE_FILE_DESCRIPTOR:
-                     errorCode = STATUS_INVALID_DEVICE_REQUEST
-                 else:
-                     sock = connData['OpenedFiles'][ioctlRequest['FileID'].getData()]['Socket']
-                     sock.sendall(ioctlRequest['Buffer'])
-                     ioctlResponse = sock.recv(ioctlRequest['MaxOutputResponse'])
-             except Exception as e:
-                 smbServer.log('fsctlPipeTransceive: %s ' % e, logging.ERROR)
-                 errorCode = STATUS_ACCESS_DENIED
+            fileHandle = connData['OpenedFiles'][ioctlRequest['FileID'].getData()]['FileHandle']
+            errorCode = STATUS_SUCCESS
+            try:
+                if fileHandle != PIPE_FILE_DESCRIPTOR:
+                    errorCode = STATUS_INVALID_DEVICE_REQUEST
+                else:
+                    sock = connData['OpenedFiles'][ioctlRequest['FileID'].getData()]['Socket']
+                    sock.sendall(ioctlRequest['Buffer'])
+                    ioctlResponse = sock.recv(ioctlRequest['MaxOutputResponse'])
+            except Exception as e:
+                smbServer.log('fsctlPipeTransceive: %s ' % e, logging.ERROR)
+                errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_INVALID_DEVICE_REQUEST
 
         smbServer.setConnectionData(connId, connData)
         return ioctlResponse, errorCode
 
-   @staticmethod
-   def fsctlValidateNegotiateInfo(connId, smbServer, ioctlRequest):
+    @staticmethod
+    def fsctlValidateNegotiateInfo(connId, smbServer, ioctlRequest):
         connData = smbServer.getConnectionData(connId)
-        
+
         errorCode = STATUS_SUCCESS
 
         validateNegotiateInfo = smb2.VALIDATE_NEGOTIATE_INFO(ioctlRequest['Buffer'])
         validateNegotiateInfoResponse = smb2.VALIDATE_NEGOTIATE_INFO_RESPONSE()
         validateNegotiateInfoResponse['Capabilities'] = 0
-        validateNegotiateInfoResponse['Guid'] = b'A'*16
+        validateNegotiateInfoResponse['Guid'] = b'A' * 16
         validateNegotiateInfoResponse['SecurityMode'] = 1
         validateNegotiateInfoResponse['Dialect'] = smb2.SMB2_DIALECT_002
 
@@ -3682,15 +3741,15 @@ class Ioctls:
 
 
 class SMBSERVERHandler(socketserver.BaseRequestHandler):
-    def __init__(self, request, client_address, server, select_poll = False):
+    def __init__(self, request, client_address, server, select_poll=False):
         self.__SMB = server
         # In case of AF_INET6 the client_address contains 4 items, ignore the last 2
         self.__ip, self.__port = client_address[:2]
         self.__request = request
         self.__connId = threading.currentThread().getName()
-        self.__timeOut = 60*5
+        self.__timeOut = 60 * 5
         self.__select_poll = select_poll
-        #self.__connId = os.getpid()
+        # self.__connId = os.getpid()
         socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
     def handle(self):
@@ -3706,31 +3765,32 @@ class SMBSERVERHandler(socketserver.BaseRequestHandler):
                 except nmb.NetBIOSTimeout:
                     raise
                 except nmb.NetBIOSError:
-                    break                 
+                    break
 
                 if p.get_type() == nmb.NETBIOS_SESSION_REQUEST:
-                   # Someone is requesting a session, we're gonna accept them all :)
-                   _, rn, my = p.get_trailer().split(b' ')
-                   remote_name = nmb.decode_name(b'\x20'+rn)
-                   myname = nmb.decode_name(b'\x20'+my)
-                   self.__SMB.log("NetBIOS Session request (%s,%s,%s)" % (self.__ip, remote_name[1].strip(), myname[1])) 
-                   r = nmb.NetBIOSSessionPacket()
-                   r.set_type(nmb.NETBIOS_SESSION_POSITIVE_RESPONSE)
-                   r.set_trailer(p.get_trailer())
-                   self.__request.send(r.rawData())
+                    # Someone is requesting a session, we're gonna accept them all :)
+                    _, rn, my = p.get_trailer().split(b' ')
+                    remote_name = nmb.decode_name(b'\x20' + rn)
+                    myname = nmb.decode_name(b'\x20' + my)
+                    self.__SMB.log(
+                        "NetBIOS Session request (%s,%s,%s)" % (self.__ip, remote_name[1].strip(), myname[1]))
+                    r = nmb.NetBIOSSessionPacket()
+                    r.set_type(nmb.NETBIOS_SESSION_POSITIVE_RESPONSE)
+                    r.set_trailer(p.get_trailer())
+                    self.__request.send(r.rawData())
                 else:
-                   resp = self.__SMB.processRequest(self.__connId, p.get_trailer())
-                   # Send all the packets received. Except for big transactions this should be
-                   # a single packet
-                   for i in resp:
-                       if hasattr(i, 'getData'):
-                           session.send_packet(i.getData())
-                       else:
-                           session.send_packet(i)
+                    resp = self.__SMB.processRequest(self.__connId, p.get_trailer())
+                    # Send all the packets received. Except for big transactions this should be
+                    # a single packet
+                    for i in resp:
+                        if hasattr(i, 'getData'):
+                            session.send_packet(i.getData())
+                        else:
+                            session.send_packet(i)
             except Exception as e:
                 self.__SMB.log("Handle: %s" % e)
-                #import traceback
-                #traceback.print_exc()
+                # import traceback
+                # traceback.print_exc()
                 break
 
     def finish(self):
@@ -3739,18 +3799,19 @@ class SMBSERVERHandler(socketserver.BaseRequestHandler):
         self.__SMB.removeConnection(self.__connId)
         return socketserver.BaseRequestHandler.finish(self)
 
+
 class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
-#class SMBSERVER(socketserver.ForkingMixIn, socketserver.TCPServer):
-    def __init__(self, server_address, handler_class=SMBSERVERHandler, config_parser = None):
+    # class SMBSERVER(socketserver.ForkingMixIn, socketserver.TCPServer):
+    def __init__(self, server_address, handler_class=SMBSERVERHandler, config_parser=None):
         socketserver.TCPServer.allow_reuse_address = True
         socketserver.TCPServer.__init__(self, server_address, handler_class)
 
         # Server name and OS to be presented whenever is necessary
-        self.__serverName   = ''
-        self.__serverOS     = ''
+        self.__serverName = ''
+        self.__serverOS = ''
         self.__serverDomain = ''
-        self.__challenge    = ''
-        self.__log          = None
+        self.__challenge = ''
+        self.__log = None
 
         # Our ConfigParser data
         self.__serverConfig = config_parser
@@ -3769,108 +3830,108 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
         # SMB2 Support flag = default not active
         self.__SMB2Support = False
- 
+
         # Our list of commands we will answer, by default the NOT IMPLEMENTED one
         self.__smbCommandsHandler = SMBCommands()
-        self.__smbTrans2Handler   = TRANS2Commands()
-        self.__smbTransHandler    = TRANSCommands()
-        self.__smbNTTransHandler  = NTTRANSCommands()
+        self.__smbTrans2Handler = TRANS2Commands()
+        self.__smbTransHandler = TRANSCommands()
+        self.__smbNTTransHandler = NTTRANSCommands()
         self.__smb2CommandsHandler = SMB2Commands()
-        self.__IoctlHandler       = Ioctls()
+        self.__IoctlHandler = Ioctls()
 
         self.__smbNTTransCommands = {
-        # NT IOCTL, can't find doc for this
-        0xff                               :self.__smbNTTransHandler.default
+            # NT IOCTL, can't find doc for this
+            0xff: self.__smbNTTransHandler.default
         }
 
-        self.__smbTransCommands  = {
-'\\PIPE\\LANMAN'                       :self.__smbTransHandler.lanMan,
-smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe,
+        self.__smbTransCommands = {
+            '\\PIPE\\LANMAN': self.__smbTransHandler.lanMan,
+            smb.SMB.TRANS_TRANSACT_NMPIPE: self.__smbTransHandler.transactNamedPipe,
         }
         self.__smbTrans2Commands = {
- smb.SMB.TRANS2_FIND_FIRST2            :self.__smbTrans2Handler.findFirst2,
- smb.SMB.TRANS2_FIND_NEXT2             :self.__smbTrans2Handler.findNext2,
- smb.SMB.TRANS2_QUERY_FS_INFORMATION   :self.__smbTrans2Handler.queryFsInformation,
- smb.SMB.TRANS2_QUERY_PATH_INFORMATION :self.__smbTrans2Handler.queryPathInformation,
- smb.SMB.TRANS2_QUERY_FILE_INFORMATION :self.__smbTrans2Handler.queryFileInformation,
- smb.SMB.TRANS2_SET_FILE_INFORMATION   :self.__smbTrans2Handler.setFileInformation,
- smb.SMB.TRANS2_SET_PATH_INFORMATION   :self.__smbTrans2Handler.setPathInformation
+            smb.SMB.TRANS2_FIND_FIRST2: self.__smbTrans2Handler.findFirst2,
+            smb.SMB.TRANS2_FIND_NEXT2: self.__smbTrans2Handler.findNext2,
+            smb.SMB.TRANS2_QUERY_FS_INFORMATION: self.__smbTrans2Handler.queryFsInformation,
+            smb.SMB.TRANS2_QUERY_PATH_INFORMATION: self.__smbTrans2Handler.queryPathInformation,
+            smb.SMB.TRANS2_QUERY_FILE_INFORMATION: self.__smbTrans2Handler.queryFileInformation,
+            smb.SMB.TRANS2_SET_FILE_INFORMATION: self.__smbTrans2Handler.setFileInformation,
+            smb.SMB.TRANS2_SET_PATH_INFORMATION: self.__smbTrans2Handler.setPathInformation
         }
 
-        self.__smbCommands = { 
- #smb.SMB.SMB_COM_FLUSH:              self.__smbCommandsHandler.smbComFlush, 
- smb.SMB.SMB_COM_CREATE_DIRECTORY:   self.__smbCommandsHandler.smbComCreateDirectory, 
- smb.SMB.SMB_COM_DELETE_DIRECTORY:   self.__smbCommandsHandler.smbComDeleteDirectory, 
- smb.SMB.SMB_COM_RENAME:             self.__smbCommandsHandler.smbComRename, 
- smb.SMB.SMB_COM_DELETE:             self.__smbCommandsHandler.smbComDelete, 
- smb.SMB.SMB_COM_NEGOTIATE:          self.__smbCommandsHandler.smbComNegotiate, 
- smb.SMB.SMB_COM_SESSION_SETUP_ANDX: self.__smbCommandsHandler.smbComSessionSetupAndX,
- smb.SMB.SMB_COM_LOGOFF_ANDX:        self.__smbCommandsHandler.smbComLogOffAndX,
- smb.SMB.SMB_COM_TREE_CONNECT_ANDX:  self.__smbCommandsHandler.smbComTreeConnectAndX,
- smb.SMB.SMB_COM_TREE_DISCONNECT:    self.__smbCommandsHandler.smbComTreeDisconnect,
- smb.SMB.SMB_COM_ECHO:               self.__smbCommandsHandler.smbComEcho,
- smb.SMB.SMB_COM_QUERY_INFORMATION:  self.__smbCommandsHandler.smbQueryInformation,
- smb.SMB.SMB_COM_TRANSACTION2:       self.__smbCommandsHandler.smbTransaction2,
- smb.SMB.SMB_COM_TRANSACTION:        self.__smbCommandsHandler.smbTransaction,
- # Not needed for now
- smb.SMB.SMB_COM_NT_TRANSACT:        self.__smbCommandsHandler.smbNTTransact,
- smb.SMB.SMB_COM_QUERY_INFORMATION_DISK: self.__smbCommandsHandler.smbQueryInformationDisk,
- smb.SMB.SMB_COM_OPEN_ANDX:          self.__smbCommandsHandler.smbComOpenAndX,
- smb.SMB.SMB_COM_QUERY_INFORMATION2: self.__smbCommandsHandler.smbComQueryInformation2,
- smb.SMB.SMB_COM_READ_ANDX:          self.__smbCommandsHandler.smbComReadAndX,
- smb.SMB.SMB_COM_READ:               self.__smbCommandsHandler.smbComRead,
- smb.SMB.SMB_COM_WRITE_ANDX:         self.__smbCommandsHandler.smbComWriteAndX,
- smb.SMB.SMB_COM_WRITE:              self.__smbCommandsHandler.smbComWrite,
- smb.SMB.SMB_COM_CLOSE:              self.__smbCommandsHandler.smbComClose,
- smb.SMB.SMB_COM_LOCKING_ANDX:       self.__smbCommandsHandler.smbComLockingAndX,
- smb.SMB.SMB_COM_NT_CREATE_ANDX:     self.__smbCommandsHandler.smbComNtCreateAndX,
- 0xFF:                               self.__smbCommandsHandler.default
-}
+        self.__smbCommands = {
+            # smb.SMB.SMB_COM_FLUSH:              self.__smbCommandsHandler.smbComFlush,
+            smb.SMB.SMB_COM_CREATE_DIRECTORY: self.__smbCommandsHandler.smbComCreateDirectory,
+            smb.SMB.SMB_COM_DELETE_DIRECTORY: self.__smbCommandsHandler.smbComDeleteDirectory,
+            smb.SMB.SMB_COM_RENAME: self.__smbCommandsHandler.smbComRename,
+            smb.SMB.SMB_COM_DELETE: self.__smbCommandsHandler.smbComDelete,
+            smb.SMB.SMB_COM_NEGOTIATE: self.__smbCommandsHandler.smbComNegotiate,
+            smb.SMB.SMB_COM_SESSION_SETUP_ANDX: self.__smbCommandsHandler.smbComSessionSetupAndX,
+            smb.SMB.SMB_COM_LOGOFF_ANDX: self.__smbCommandsHandler.smbComLogOffAndX,
+            smb.SMB.SMB_COM_TREE_CONNECT_ANDX: self.__smbCommandsHandler.smbComTreeConnectAndX,
+            smb.SMB.SMB_COM_TREE_DISCONNECT: self.__smbCommandsHandler.smbComTreeDisconnect,
+            smb.SMB.SMB_COM_ECHO: self.__smbCommandsHandler.smbComEcho,
+            smb.SMB.SMB_COM_QUERY_INFORMATION: self.__smbCommandsHandler.smbQueryInformation,
+            smb.SMB.SMB_COM_TRANSACTION2: self.__smbCommandsHandler.smbTransaction2,
+            smb.SMB.SMB_COM_TRANSACTION: self.__smbCommandsHandler.smbTransaction,
+            # Not needed for now
+            smb.SMB.SMB_COM_NT_TRANSACT: self.__smbCommandsHandler.smbNTTransact,
+            smb.SMB.SMB_COM_QUERY_INFORMATION_DISK: self.__smbCommandsHandler.smbQueryInformationDisk,
+            smb.SMB.SMB_COM_OPEN_ANDX: self.__smbCommandsHandler.smbComOpenAndX,
+            smb.SMB.SMB_COM_QUERY_INFORMATION2: self.__smbCommandsHandler.smbComQueryInformation2,
+            smb.SMB.SMB_COM_READ_ANDX: self.__smbCommandsHandler.smbComReadAndX,
+            smb.SMB.SMB_COM_READ: self.__smbCommandsHandler.smbComRead,
+            smb.SMB.SMB_COM_WRITE_ANDX: self.__smbCommandsHandler.smbComWriteAndX,
+            smb.SMB.SMB_COM_WRITE: self.__smbCommandsHandler.smbComWrite,
+            smb.SMB.SMB_COM_CLOSE: self.__smbCommandsHandler.smbComClose,
+            smb.SMB.SMB_COM_LOCKING_ANDX: self.__smbCommandsHandler.smbComLockingAndX,
+            smb.SMB.SMB_COM_NT_CREATE_ANDX: self.__smbCommandsHandler.smbComNtCreateAndX,
+            0xFF: self.__smbCommandsHandler.default
+        }
 
-        self.__smb2Ioctls = { 
- smb2.FSCTL_DFS_GET_REFERRALS:            self.__IoctlHandler.fsctlDfsGetReferrals, 
-# smb2.FSCTL_PIPE_PEEK:                    self.__IoctlHandler.fsctlPipePeek, 
-# smb2.FSCTL_PIPE_WAIT:                    self.__IoctlHandler.fsctlPipeWait, 
- smb2.FSCTL_PIPE_TRANSCEIVE:              self.__IoctlHandler.fsctlPipeTransceive, 
-# smb2.FSCTL_SRV_COPYCHUNK:                self.__IoctlHandler.fsctlSrvCopyChunk, 
-# smb2.FSCTL_SRV_ENUMERATE_SNAPSHOTS:      self.__IoctlHandler.fsctlSrvEnumerateSnapshots, 
-# smb2.FSCTL_SRV_REQUEST_RESUME_KEY:       self.__IoctlHandler.fsctlSrvRequestResumeKey, 
-# smb2.FSCTL_SRV_READ_HASH:                self.__IoctlHandler.fsctlSrvReadHash, 
-# smb2.FSCTL_SRV_COPYCHUNK_WRITE:          self.__IoctlHandler.fsctlSrvCopyChunkWrite, 
-# smb2.FSCTL_LMR_REQUEST_RESILIENCY:       self.__IoctlHandler.fsctlLmrRequestResiliency, 
-# smb2.FSCTL_QUERY_NETWORK_INTERFACE_INFO: self.__IoctlHandler.fsctlQueryNetworkInterfaceInfo, 
-# smb2.FSCTL_SET_REPARSE_POINT:            self.__IoctlHandler.fsctlSetReparsePoint, 
-# smb2.FSCTL_DFS_GET_REFERRALS_EX:         self.__IoctlHandler.fsctlDfsGetReferralsEx, 
-# smb2.FSCTL_FILE_LEVEL_TRIM:              self.__IoctlHandler.fsctlFileLevelTrim, 
- smb2.FSCTL_VALIDATE_NEGOTIATE_INFO:      self.__IoctlHandler.fsctlValidateNegotiateInfo, 
-}
+        self.__smb2Ioctls = {
+            smb2.FSCTL_DFS_GET_REFERRALS: self.__IoctlHandler.fsctlDfsGetReferrals,
+            # smb2.FSCTL_PIPE_PEEK:                    self.__IoctlHandler.fsctlPipePeek,
+            # smb2.FSCTL_PIPE_WAIT:                    self.__IoctlHandler.fsctlPipeWait,
+            smb2.FSCTL_PIPE_TRANSCEIVE: self.__IoctlHandler.fsctlPipeTransceive,
+            # smb2.FSCTL_SRV_COPYCHUNK:                self.__IoctlHandler.fsctlSrvCopyChunk,
+            # smb2.FSCTL_SRV_ENUMERATE_SNAPSHOTS:      self.__IoctlHandler.fsctlSrvEnumerateSnapshots,
+            # smb2.FSCTL_SRV_REQUEST_RESUME_KEY:       self.__IoctlHandler.fsctlSrvRequestResumeKey,
+            # smb2.FSCTL_SRV_READ_HASH:                self.__IoctlHandler.fsctlSrvReadHash,
+            # smb2.FSCTL_SRV_COPYCHUNK_WRITE:          self.__IoctlHandler.fsctlSrvCopyChunkWrite,
+            # smb2.FSCTL_LMR_REQUEST_RESILIENCY:       self.__IoctlHandler.fsctlLmrRequestResiliency,
+            # smb2.FSCTL_QUERY_NETWORK_INTERFACE_INFO: self.__IoctlHandler.fsctlQueryNetworkInterfaceInfo,
+            # smb2.FSCTL_SET_REPARSE_POINT:            self.__IoctlHandler.fsctlSetReparsePoint,
+            # smb2.FSCTL_DFS_GET_REFERRALS_EX:         self.__IoctlHandler.fsctlDfsGetReferralsEx,
+            # smb2.FSCTL_FILE_LEVEL_TRIM:              self.__IoctlHandler.fsctlFileLevelTrim,
+            smb2.FSCTL_VALIDATE_NEGOTIATE_INFO: self.__IoctlHandler.fsctlValidateNegotiateInfo,
+        }
 
-        self.__smb2Commands = { 
- smb2.SMB2_NEGOTIATE:       self.__smb2CommandsHandler.smb2Negotiate, 
- smb2.SMB2_SESSION_SETUP:   self.__smb2CommandsHandler.smb2SessionSetup, 
- smb2.SMB2_LOGOFF:          self.__smb2CommandsHandler.smb2Logoff, 
- smb2.SMB2_TREE_CONNECT:    self.__smb2CommandsHandler.smb2TreeConnect, 
- smb2.SMB2_TREE_DISCONNECT: self.__smb2CommandsHandler.smb2TreeDisconnect, 
- smb2.SMB2_CREATE:          self.__smb2CommandsHandler.smb2Create, 
- smb2.SMB2_CLOSE:           self.__smb2CommandsHandler.smb2Close, 
- smb2.SMB2_FLUSH:           self.__smb2CommandsHandler.smb2Flush, 
- smb2.SMB2_READ:            self.__smb2CommandsHandler.smb2Read, 
- smb2.SMB2_WRITE:           self.__smb2CommandsHandler.smb2Write, 
- smb2.SMB2_LOCK:            self.__smb2CommandsHandler.smb2Lock, 
- smb2.SMB2_IOCTL:           self.__smb2CommandsHandler.smb2Ioctl, 
- smb2.SMB2_CANCEL:          self.__smb2CommandsHandler.smb2Cancel, 
- smb2.SMB2_ECHO:            self.__smb2CommandsHandler.smb2Echo, 
- smb2.SMB2_QUERY_DIRECTORY: self.__smb2CommandsHandler.smb2QueryDirectory, 
- smb2.SMB2_CHANGE_NOTIFY:   self.__smb2CommandsHandler.smb2ChangeNotify, 
- smb2.SMB2_QUERY_INFO:      self.__smb2CommandsHandler.smb2QueryInfo, 
- smb2.SMB2_SET_INFO:        self.__smb2CommandsHandler.smb2SetInfo, 
-# smb2.SMB2_OPLOCK_BREAK:    self.__smb2CommandsHandler.smb2SessionSetup, 
- 0xFF:                      self.__smb2CommandsHandler.default
-}
+        self.__smb2Commands = {
+            smb2.SMB2_NEGOTIATE: self.__smb2CommandsHandler.smb2Negotiate,
+            smb2.SMB2_SESSION_SETUP: self.__smb2CommandsHandler.smb2SessionSetup,
+            smb2.SMB2_LOGOFF: self.__smb2CommandsHandler.smb2Logoff,
+            smb2.SMB2_TREE_CONNECT: self.__smb2CommandsHandler.smb2TreeConnect,
+            smb2.SMB2_TREE_DISCONNECT: self.__smb2CommandsHandler.smb2TreeDisconnect,
+            smb2.SMB2_CREATE: self.__smb2CommandsHandler.smb2Create,
+            smb2.SMB2_CLOSE: self.__smb2CommandsHandler.smb2Close,
+            smb2.SMB2_FLUSH: self.__smb2CommandsHandler.smb2Flush,
+            smb2.SMB2_READ: self.__smb2CommandsHandler.smb2Read,
+            smb2.SMB2_WRITE: self.__smb2CommandsHandler.smb2Write,
+            smb2.SMB2_LOCK: self.__smb2CommandsHandler.smb2Lock,
+            smb2.SMB2_IOCTL: self.__smb2CommandsHandler.smb2Ioctl,
+            smb2.SMB2_CANCEL: self.__smb2CommandsHandler.smb2Cancel,
+            smb2.SMB2_ECHO: self.__smb2CommandsHandler.smb2Echo,
+            smb2.SMB2_QUERY_DIRECTORY: self.__smb2CommandsHandler.smb2QueryDirectory,
+            smb2.SMB2_CHANGE_NOTIFY: self.__smb2CommandsHandler.smb2ChangeNotify,
+            smb2.SMB2_QUERY_INFO: self.__smb2CommandsHandler.smb2QueryInfo,
+            smb2.SMB2_SET_INFO: self.__smb2CommandsHandler.smb2SetInfo,
+            # smb2.SMB2_OPLOCK_BREAK:    self.__smb2CommandsHandler.smb2SessionSetup,
+            0xFF: self.__smb2CommandsHandler.default
+        }
 
         # List of active connections
         self.__activeConnections = {}
-  
+
     def getIoctls(self):
         return self.__smb2Ioctls
 
@@ -3879,39 +3940,39 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
 
     def removeConnection(self, name):
         try:
-           del(self.__activeConnections[name])
+            del (self.__activeConnections[name])
         except:
-           pass
+            pass
         self.log("Remaining connections %s" % list(self.__activeConnections.keys()))
 
     def addConnection(self, name, ip, port):
         self.__activeConnections[name] = {}
         # Let's init with some know stuff we will need to have
         # TODO: Document what's in there
-        #print "Current Connections", self.__activeConnections.keys()
-        self.__activeConnections[name]['PacketNum']       = 0
-        self.__activeConnections[name]['ClientIP']        = ip
-        self.__activeConnections[name]['ClientPort']      = port
-        self.__activeConnections[name]['Uid']             = 0
+        # print "Current Connections", self.__activeConnections.keys()
+        self.__activeConnections[name]['PacketNum'] = 0
+        self.__activeConnections[name]['ClientIP'] = ip
+        self.__activeConnections[name]['ClientPort'] = port
+        self.__activeConnections[name]['Uid'] = 0
         self.__activeConnections[name]['ConnectedShares'] = {}
-        self.__activeConnections[name]['OpenedFiles']     = {}
+        self.__activeConnections[name]['OpenedFiles'] = {}
         # SID results for findfirst2
-        self.__activeConnections[name]['SIDs']            = {}
-        self.__activeConnections[name]['LastRequest']     = {}
-        self.__activeConnections[name]['SignatureEnabled']= False
-        self.__activeConnections[name]['SigningChallengeResponse']= ''
-        self.__activeConnections[name]['SigningSessionKey']= b''
-        self.__activeConnections[name]['Authenticated']= False
+        self.__activeConnections[name]['SIDs'] = {}
+        self.__activeConnections[name]['LastRequest'] = {}
+        self.__activeConnections[name]['SignatureEnabled'] = False
+        self.__activeConnections[name]['SigningChallengeResponse'] = ''
+        self.__activeConnections[name]['SigningSessionKey'] = b''
+        self.__activeConnections[name]['Authenticated'] = False
 
     def getActiveConnections(self):
         return self.__activeConnections
 
     def setConnectionData(self, connId, data):
         self.__activeConnections[connId] = data
-        #print "setConnectionData" 
-        #print self.__activeConnections
+        # print "setConnectionData"
+        # print self.__activeConnections
 
-    def getConnectionData(self, connId, checkStatus = True):
+    def getConnectionData(self, connId, checkStatus=True):
         conn = self.__activeConnections[connId]
         if checkStatus is True:
             if ('Authenticated' in conn) is not True:
@@ -3928,16 +3989,16 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
 
     def unregisterNamedPipe(self, pipeName):
         if pipeName in self.__registeredNamedPipes:
-            del(self.__registeredNamedPipes[str(pipeName)])
+            del (self.__registeredNamedPipes[str(pipeName)])
             return True
         return False
 
     def unregisterTransaction(self, transCommand):
         if transCommand in self.__smbTransCommands:
-           del(self.__smbTransCommands[transCommand])
+            del (self.__smbTransCommands[transCommand])
 
     def hookTransaction(self, transCommand, callback):
-        # If you call this function, callback will replace 
+        # If you call this function, callback will replace
         # the current Transaction sub command.
         # (don't get confused with the Transaction smbCommand)
         # If the transaction sub command doesn't not exist, it is added
@@ -3948,14 +4009,14 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         #
         # WHERE:
         #
-        # connId      : the connection Id, used to grab/update information about 
+        # connId      : the connection Id, used to grab/update information about
         #               the current connection
-        # smbServer   : the SMBServer instance available for you to ask 
+        # smbServer   : the SMBServer instance available for you to ask
         #               configuration data
         # recvPacket  : the full SMBPacket that triggered this command
         # parameters  : the transaction parameters
         # data        : the transaction data
-        # maxDataCount: the max amount of data that can be transferred agreed 
+        # maxDataCount: the max amount of data that can be transferred agreed
         #               with the client
         #
         # and MUST return:
@@ -3966,53 +4027,53 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         # respSetup: the setup response of the transaction
         # respParameters: the parameters response of the transaction
         # respData: the data response of the transaction
-        # errorCode: the NT error code 
+        # errorCode: the NT error code
 
         if transCommand in self.__smbTransCommands:
-           originalCommand = self.__smbTransCommands[transCommand]
+            originalCommand = self.__smbTransCommands[transCommand]
         else:
-           originalCommand = None 
+            originalCommand = None
 
         self.__smbTransCommands[transCommand] = callback
         return originalCommand
 
     def unregisterTransaction2(self, transCommand):
         if transCommand in self.__smbTrans2Commands:
-           del(self.__smbTrans2Commands[transCommand])
+            del (self.__smbTrans2Commands[transCommand])
 
     def hookTransaction2(self, transCommand, callback):
         # Here we should add to __smbTrans2Commands
         # Same description as Transaction
         if transCommand in self.__smbTrans2Commands:
-           originalCommand = self.__smbTrans2Commands[transCommand]
+            originalCommand = self.__smbTrans2Commands[transCommand]
         else:
-           originalCommand = None 
+            originalCommand = None
 
         self.__smbTrans2Commands[transCommand] = callback
         return originalCommand
 
     def unregisterNTTransaction(self, transCommand):
         if transCommand in self.__smbNTTransCommands:
-           del(self.__smbNTTransCommands[transCommand])
+            del (self.__smbNTTransCommands[transCommand])
 
     def hookNTTransaction(self, transCommand, callback):
         # Here we should add to __smbNTTransCommands
         # Same description as Transaction
         if transCommand in self.__smbNTTransCommands:
-           originalCommand = self.__smbNTTransCommands[transCommand]
+            originalCommand = self.__smbNTTransCommands[transCommand]
         else:
-           originalCommand = None 
+            originalCommand = None
 
         self.__smbNTTransCommands[transCommand] = callback
         return originalCommand
 
     def unregisterSmbCommand(self, smbCommand):
         if smbCommand in self.__smbCommands:
-           del(self.__smbCommands[smbCommand])
+            del (self.__smbCommands[smbCommand])
 
     def hookSmbCommand(self, smbCommand, callback):
         # Here we should add to self.__smbCommands
-        # If you call this function, callback will replace 
+        # If you call this function, callback will replace
         # the current smbCommand.
         # If smbCommand doesn't not exist, it is added
         # If SMB command exists, it returns the original function replaced
@@ -4022,19 +4083,19 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         #
         # WHERE:
         #
-        # connId    : the connection Id, used to grab/update information about 
+        # connId    : the connection Id, used to grab/update information about
         #             the current connection
-        # smbServer : the SMBServer instance available for you to ask 
+        # smbServer : the SMBServer instance available for you to ask
         #             configuration data
-        # SMBCommand: the SMBCommand itself, with its data and parameters. 
+        # SMBCommand: the SMBCommand itself, with its data and parameters.
         #             Check smb.py:SMBCommand() for a reference
         # recvPacket: the full SMBPacket that triggered this command
         #
         # and MUST return:
         # <list of respSMBCommands>, <list of packets>, errorCode
-        # <list of packets> has higher preference over commands, in case you 
-        # want to change the whole packet 
-        # errorCode: the NT error code 
+        # <list of packets> has higher preference over commands, in case you
+        # want to change the whole packet
+        # errorCode: the NT error code
         #
         # For SMB_COM_TRANSACTION2, SMB_COM_TRANSACTION and SMB_COM_NT_TRANSACT
         # the callback function is slightly different:
@@ -4042,46 +4103,46 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         # callback(connId, smbServer, SMBCommand, recvPacket, transCommands)
         #
         # WHERE:
-        # 
+        #
         # transCommands: a list of transaction subcommands already registered
         #
 
         if smbCommand in self.__smbCommands:
-           originalCommand = self.__smbCommands[smbCommand]
+            originalCommand = self.__smbCommands[smbCommand]
         else:
-           originalCommand = None 
+            originalCommand = None
 
         self.__smbCommands[smbCommand] = callback
         return originalCommand
-  
+
     def unregisterSmb2Command(self, smb2Command):
         if smb2Command in self.__smb2Commands:
-           del(self.__smb2Commands[smb2Command])
+            del (self.__smb2Commands[smb2Command])
 
     def hookSmb2Command(self, smb2Command, callback):
         if smb2Command in self.__smb2Commands:
-           originalCommand = self.__smb2Commands[smb2Command]
+            originalCommand = self.__smb2Commands[smb2Command]
         else:
-           originalCommand = None 
+            originalCommand = None
 
         self.__smb2Commands[smb2Command] = callback
         return originalCommand
 
     def log(self, msg, level=logging.INFO):
-        self.__log.log(level,msg)
+        self.__log.log(level, msg)
 
     def getServerName(self):
         return self.__serverName
 
     def getServerOS(self):
         return self.__serverOS
-  
+
     def getServerDomain(self):
         return self.__serverDomain
 
     def getSMBChallenge(self):
         return self.__challenge
-  
+
     def getServerConfig(self):
         return self.__serverConfig
 
@@ -4116,47 +4177,47 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         # The resulting 8-byte signature MUST be copied into the SecuritySignature field of the SMB Header,
         # after which the message can be transmitted.
 
-        #print "seq(%d) signingSessionKey %r, signingChallengeResponse %r" % (connData['SignSequenceNumber'], signingSessionKey, signingChallengeResponse)
-        packet['SecurityFeatures'] = struct.pack('<q',connData['SignSequenceNumber'])
+        # print "seq(%d) signingSessionKey %r, signingChallengeResponse %r" % (connData['SignSequenceNumber'], signingSessionKey, signingChallengeResponse)
+        packet['SecurityFeatures'] = struct.pack('<q', connData['SignSequenceNumber'])
         # Sign with the sequence
         m = hashlib.md5()
-        m.update( signingSessionKey )
-        m.update( signingChallengeResponse )
+        m.update(signingSessionKey)
+        m.update(signingChallengeResponse)
         if hasattr(packet, 'getData'):
-            m.update( packet.getData() )
+            m.update(packet.getData())
         else:
-            m.update( packet )
+            m.update(packet)
         # Replace sequence with acual hash
         packet['SecurityFeatures'] = m.digest()[:8]
-        connData['SignSequenceNumber'] +=2
+        connData['SignSequenceNumber'] += 2
 
     def signSMBv2(self, packet, signingSessionKey):
-        packet['Signature'] = b'\x00'*16
+        packet['Signature'] = b'\x00' * 16
         packet['Flags'] |= smb2.SMB2_FLAGS_SIGNED
         signature = hmac.new(signingSessionKey, packet.getData(), hashlib.sha256).digest()
         packet['Signature'] = signature[:16]
-        #print "%s" % packet['Signature'].encode('hex')
+        # print "%s" % packet['Signature'].encode('hex')
 
     def processRequest(self, connId, data):
 
         # TODO: Process batched commands.
-        isSMB2      = False
-        SMBCommand  = None
+        isSMB2 = False
+        SMBCommand = None
         try:
-            packet = smb.NewSMBPacket(data = data)
-            SMBCommand  = smb.SMBCommand(packet['Data'][0])
+            packet = smb.NewSMBPacket(data=data)
+            SMBCommand = smb.SMBCommand(packet['Data'][0])
         except:
             # Maybe a SMB2 packet?
-            packet = smb2.SMB2Packet(data = data)
+            packet = smb2.SMB2Packet(data=data)
             connData = self.getConnectionData(connId, False)
             self.signSMBv2(packet, connData['SigningSessionKey'])
             isSMB2 = True
 
-        connData    = self.getConnectionData(connId, False)
+        connData = self.getConnectionData(connId, False)
 
         # We might have compound requests
         compoundedPacketsResponse = []
-        compoundedPackets         = []
+        compoundedPackets = []
         try:
             # Search out list of implemented commands
             # We provide them with:
@@ -4173,7 +4234,8 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
             # errorCode   : self explanatory
             if isSMB2 is False:
                 # Is the client authenticated already?
-                if connData['Authenticated'] is False and packet['Command'] not in (smb.SMB.SMB_COM_NEGOTIATE, smb.SMB.SMB_COM_SESSION_SETUP_ANDX):
+                if connData['Authenticated'] is False and packet['Command'] not in (
+                smb.SMB.SMB_COM_NEGOTIATE, smb.SMB.SMB_COM_SESSION_SETUP_ANDX):
                     # Nope.. in that case he should only ask for a few commands, if not throw him out.
                     errorCode = STATUS_ACCESS_DENIED
                     respPackets = None
@@ -4181,65 +4243,68 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
                 else:
                     if packet['Command'] == smb.SMB.SMB_COM_TRANSACTION2:
                         respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
-                                      connId,
-                                      self,
-                                      SMBCommand,
-                                      packet,
-                                      self.__smbTrans2Commands)
+                            connId,
+                            self,
+                            SMBCommand,
+                            packet,
+                            self.__smbTrans2Commands)
                     elif packet['Command'] == smb.SMB.SMB_COM_NT_TRANSACT:
                         respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
-                                      connId,
-                                      self,
-                                      SMBCommand,
-                                      packet,
-                                      self.__smbNTTransCommands)
+                            connId,
+                            self,
+                            SMBCommand,
+                            packet,
+                            self.__smbNTTransCommands)
                     elif packet['Command'] == smb.SMB.SMB_COM_TRANSACTION:
                         respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
-                                      connId,
-                                      self,
-                                      SMBCommand,
-                                      packet,
-                                      self.__smbTransCommands)
+                            connId,
+                            self,
+                            SMBCommand,
+                            packet,
+                            self.__smbTransCommands)
                     else:
                         if packet['Command'] in self.__smbCommands:
-                           if self.__SMB2Support is True:
-                               if packet['Command'] == smb.SMB.SMB_COM_NEGOTIATE:
-                                   try:
-                                       respCommands, respPackets, errorCode = self.__smb2Commands[smb2.SMB2_NEGOTIATE](connId, self, packet, True)
-                                       isSMB2 = True
-                                   except Exception as e:
-                                       import traceback
-                                       traceback.print_exc()
-                                       self.log('SMB2_NEGOTIATE: %s' % e, logging.ERROR)
-                                       # If something went wrong, let's fallback to SMB1
-                                       respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
-                                           connId,
-                                           self,
-                                           SMBCommand,
-                                           packet)
-                                       #self.__SMB2Support = False
-                                       pass
-                               else:
-                                   respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
-                                           connId,
-                                           self,
-                                           SMBCommand,
-                                           packet)
-                           else:
-                               respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
-                                           connId,
-                                           self,
-                                           SMBCommand,
-                                           packet)
+                            if self.__SMB2Support is True:
+                                if packet['Command'] == smb.SMB.SMB_COM_NEGOTIATE:
+                                    try:
+                                        respCommands, respPackets, errorCode = self.__smb2Commands[smb2.SMB2_NEGOTIATE](
+                                            connId, self, packet, True)
+                                        isSMB2 = True
+                                    except Exception as e:
+                                        import traceback
+                                        traceback.print_exc()
+                                        self.log('SMB2_NEGOTIATE: %s' % e, logging.ERROR)
+                                        # If something went wrong, let's fallback to SMB1
+                                        respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
+                                            connId,
+                                            self,
+                                            SMBCommand,
+                                            packet)
+                                        # self.__SMB2Support = False
+                                        pass
+                                else:
+                                    respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
+                                        connId,
+                                        self,
+                                        SMBCommand,
+                                        packet)
+                            else:
+                                respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
+                                    connId,
+                                    self,
+                                    SMBCommand,
+                                    packet)
                         else:
-                           respCommands, respPackets, errorCode = self.__smbCommands[255](connId, self, SMBCommand, packet)
+                            respCommands, respPackets, errorCode = self.__smbCommands[255](connId, self, SMBCommand,
+                                                                                           packet)
 
                 compoundedPacketsResponse.append((respCommands, respPackets, errorCode))
                 compoundedPackets.append(packet)
 
             else:
                 # Is the client authenticated already?
-                if connData['Authenticated'] is False and packet['Command'] not in (smb2.SMB2_NEGOTIATE, smb2.SMB2_SESSION_SETUP):
+                if connData['Authenticated'] is False and packet['Command'] not in (
+                smb2.SMB2_NEGOTIATE, smb2.SMB2_SESSION_SETUP):
                     # Nope.. in that case he should only ask for a few commands, if not throw him out.
                     errorCode = STATUS_ACCESS_DENIED
                     respPackets = None
@@ -4250,37 +4315,37 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
                     done = False
                     while not done:
                         if packet['Command'] in self.__smb2Commands:
-                           if self.__SMB2Support is True:
-                               respCommands, respPackets, errorCode = self.__smb2Commands[packet['Command']](
-                                       connId,
-                                       self,
-                                       packet)
-                           else:
-                               respCommands, respPackets, errorCode = self.__smb2Commands[255](connId, self, packet)
+                            if self.__SMB2Support is True:
+                                respCommands, respPackets, errorCode = self.__smb2Commands[packet['Command']](
+                                    connId,
+                                    self,
+                                    packet)
+                            else:
+                                respCommands, respPackets, errorCode = self.__smb2Commands[255](connId, self, packet)
                         else:
-                           respCommands, respPackets, errorCode = self.__smb2Commands[255](connId, self, packet)
+                            respCommands, respPackets, errorCode = self.__smb2Commands[255](connId, self, packet)
                         # Let's store the result for this compounded packet
                         compoundedPacketsResponse.append((respCommands, respPackets, errorCode))
                         compoundedPackets.append(packet)
                         if packet['NextCommand'] != 0:
                             data = data[packet['NextCommand']:]
-                            packet = smb2.SMB2Packet(data = data)
+                            packet = smb2.SMB2Packet(data=data)
                         else:
                             done = True
 
         except Exception as e:
-            #import traceback
-            #traceback.print_exc()
+            # import traceback
+            # traceback.print_exc()
             # Something wen't wrong, defaulting to Bad user ID
-            self.log('processRequest (0x%x,%s)' % (packet['Command'],e), logging.ERROR)
+            self.log('processRequest (0x%x,%s)' % (packet['Command'], e), logging.ERROR)
             raise
 
         # We prepare the response packet to commands don't need to bother about that.
-        connData    = self.getConnectionData(connId, False)
+        connData = self.getConnectionData(connId, False)
 
         # Force reconnection loop.. This is just a test.. client will send me back credentials :)
-        #connData['PacketNum'] += 1
-        #if connData['PacketNum'] == 15:
+        # connData['PacketNum'] += 1
+        # if connData['PacketNum'] == 15:
         #    connData['PacketNum'] = 0
         #    # Something wen't wrong, defaulting to Bad user ID
         #    self.log('Sending BAD USER ID!', logging.ERROR)
@@ -4292,7 +4357,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         #    packet['ErrorClass']  = errorCode & 0xff
         #    return [packet]
 
-        self.setConnectionData(connId, connData)    
+        self.setConnectionData(connId, connData)
 
         packetsToSend = []
         for packetNum in range(len(compoundedPacketsResponse)):
@@ -4301,49 +4366,51 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
             if respPackets is None:
                 for respCommand in respCommands:
                     if isSMB2 is False:
-                        respPacket           = smb.NewSMBPacket()
+                        respPacket = smb.NewSMBPacket()
                         respPacket['Flags1'] = smb.SMB.FLAGS1_REPLY
 
                         # TODO this should come from a per session configuration
-                        respPacket['Flags2'] = smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_LONG_NAMES | packet['Flags2'] & smb.SMB.FLAGS2_UNICODE
-                        #respPacket['Flags2'] = smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_LONG_NAMES 
-                        #respPacket['Flags1'] = 0x98
-                        #respPacket['Flags2'] = 0xc807
-                
+                        respPacket[
+                            'Flags2'] = smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_LONG_NAMES | \
+                                        packet['Flags2'] & smb.SMB.FLAGS2_UNICODE
+                        # respPacket['Flags2'] = smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_LONG_NAMES
+                        # respPacket['Flags1'] = 0x98
+                        # respPacket['Flags2'] = 0xc807
 
-                        respPacket['Tid']    = packet['Tid']
-                        respPacket['Mid']    = packet['Mid']
-                        respPacket['Pid']    = packet['Pid']
-                        respPacket['Uid']    = connData['Uid']
-        
-                        respPacket['ErrorCode']   = errorCode >> 16
-                        respPacket['_reserved']   = errorCode >> 8 & 0xff
-                        respPacket['ErrorClass']  = errorCode & 0xff
+                        respPacket['Tid'] = packet['Tid']
+                        respPacket['Mid'] = packet['Mid']
+                        respPacket['Pid'] = packet['Pid']
+                        respPacket['Uid'] = connData['Uid']
+
+                        respPacket['ErrorCode'] = errorCode >> 16
+                        respPacket['_reserved'] = errorCode >> 8 & 0xff
+                        respPacket['ErrorClass'] = errorCode & 0xff
                         respPacket.addCommand(respCommand)
 
                         if connData['SignatureEnabled']:
                             respPacket['Flags2'] |= smb.SMB.FLAGS2_SMB_SECURITY_SIGNATURE
-                            self.signSMBv1(connData, respPacket, connData['SigningSessionKey'], connData['SigningChallengeResponse'])
-            
+                            self.signSMBv1(connData, respPacket, connData['SigningSessionKey'],
+                                           connData['SigningChallengeResponse'])
+
                         packetsToSend.append(respPacket)
                     else:
                         respPacket = smb2.SMB2Packet()
-                        respPacket['Flags']     = smb2.SMB2_FLAGS_SERVER_TO_REDIR
+                        respPacket['Flags'] = smb2.SMB2_FLAGS_SERVER_TO_REDIR
                         if packetNum > 0:
                             respPacket['Flags'] |= smb2.SMB2_FLAGS_RELATED_OPERATIONS
-                        respPacket['Status']    = errorCode
+                        respPacket['Status'] = errorCode
                         respPacket['CreditRequestResponse'] = packet['CreditRequestResponse']
-                        respPacket['Command']   = packet['Command']
+                        respPacket['Command'] = packet['Command']
                         respPacket['CreditCharge'] = packet['CreditCharge']
-                        #respPacket['CreditCharge'] = 0
-                        respPacket['Reserved']  = packet['Reserved']
+                        # respPacket['CreditCharge'] = 0
+                        respPacket['Reserved'] = packet['Reserved']
                         respPacket['SessionID'] = connData['Uid']
                         respPacket['MessageID'] = packet['MessageID']
-                        respPacket['TreeID']    = packet['TreeID']
+                        respPacket['TreeID'] = packet['TreeID']
                         if hasattr(respCommand, 'getData'):
-                            respPacket['Data']      = respCommand.getData()
+                            respPacket['Data'] = respCommand.getData()
                         else:
-                            respPacket['Data']      = str(respCommand)
+                            respPacket['Data'] = str(respCommand)
 
                         if connData['SignatureEnabled']:
                             self.signSMBv2(respPacket, connData['SigningSessionKey'])
@@ -4357,21 +4424,21 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
             # Let's build a compound answer
             finalData = b''
             i = 0
-            for i in range(len(packetsToSend)-1):
+            for i in range(len(packetsToSend) - 1):
                 packet = packetsToSend[i]
                 # Align to 8-bytes
-                padLen = (8 - (len(packet) % 8) ) % 8
+                padLen = (8 - (len(packet) % 8)) % 8
                 packet['NextCommand'] = len(packet) + padLen
                 if hasattr(packet, 'getData'):
-                    finalData += packet.getData() + padLen*b'\x00'
+                    finalData += packet.getData() + padLen * b'\x00'
                 else:
-                    finalData += packet + padLen*b'\x00'
+                    finalData += packet + padLen * b'\x00'
 
             # Last one
-            if hasattr(packetsToSend[len(packetsToSend)-1], 'getData'):
-                finalData += packetsToSend[len(packetsToSend)-1].getData()
+            if hasattr(packetsToSend[len(packetsToSend) - 1], 'getData'):
+                finalData += packetsToSend[len(packetsToSend) - 1].getData()
             else:
-                finalData += packetsToSend[len(packetsToSend)-1]
+                finalData += packetsToSend[len(packetsToSend) - 1]
             packetsToSend = [finalData]
 
         # We clear the compound requests
@@ -4379,7 +4446,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
 
         return packetsToSend
 
-    def processConfigFile(self, configFile = None):
+    def processConfigFile(self, configFile=None):
         # TODO: Do a real config parser
         if self.__serverConfig is None:
             if configFile is None:
@@ -4387,32 +4454,32 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
             self.__serverConfig = configparser.ConfigParser()
             self.__serverConfig.read(configFile)
 
-        self.__serverName   = self.__serverConfig.get('global','server_name')
-        self.__serverOS     = self.__serverConfig.get('global','server_os')
-        self.__serverDomain = self.__serverConfig.get('global','server_domain')
-        self.__logFile      = self.__serverConfig.get('global','log_file')
+        self.__serverName = self.__serverConfig.get('global', 'server_name')
+        self.__serverOS = self.__serverConfig.get('global', 'server_os')
+        self.__serverDomain = self.__serverConfig.get('global', 'server_domain')
+        self.__logFile = self.__serverConfig.get('global', 'log_file')
         if self.__serverConfig.has_option('global', 'challenge'):
-            self.__challenge    = unhexlify(self.__serverConfig.get('global', 'challenge'))
+            self.__challenge = unhexlify(self.__serverConfig.get('global', 'challenge'))
         else:
-            self.__challenge    = b'A'*16
+            self.__challenge = b'A' * 16
 
         if self.__serverConfig.has_option("global", "jtr_dump_path"):
             self.__jtr_dump_path = self.__serverConfig.get("global", "jtr_dump_path")
 
         if self.__serverConfig.has_option("global", "SMB2Support"):
-            self.__SMB2Support = self.__serverConfig.getboolean("global","SMB2Support")
+            self.__SMB2Support = self.__serverConfig.getboolean("global", "SMB2Support")
         else:
             self.__SMB2Support = False
 
         if self.__logFile != 'None':
-            logging.basicConfig(filename = self.__logFile, 
-                             level = logging.DEBUG, 
-                             format="%(asctime)s: %(levelname)s: %(message)s", 
-                             datefmt = '%m/%d/%Y %I:%M:%S %p')
-        self.__log        = LOG
+            logging.basicConfig(filename=self.__logFile,
+                                level=logging.DEBUG,
+                                format="%(asctime)s: %(levelname)s: %(message)s",
+                                datefmt='%m/%d/%Y %I:%M:%S %p')
+        self.__log = LOG
 
         # Process the credentials
-        credentials_fname = self.__serverConfig.get('global','credentials_file')
+        credentials_fname = self.__serverConfig.get('global', 'credentials_file')
         if credentials_fname != "":
             cred = open(credentials_fname)
             line = cred.readline()
@@ -4430,12 +4497,13 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
                 lmhash = '0%s' % lmhash
             if len(nthash) % 2:
                 nthash = '0%s' % nthash
-            try: # just in case they were converted already
+            try:  # just in case they were converted already
                 lmhash = a2b_hex(lmhash)
                 nthash = a2b_hex(nthash)
             except:
                 pass
         self.__credentials[name.lower()] = (uid, lmhash, nthash)
+
 
 # For windows platforms, opening a directory is not an option, so we set a void FD
 VOID_FILE_DESCRIPTOR = -1
@@ -4447,9 +4515,11 @@ PIPE_FILE_DESCRIPTOR = -2
 
 from impacket.dcerpc.v5.rpcrt import DCERPCServer
 from impacket.dcerpc.v5.dtypes import NULL
-from impacket.dcerpc.v5.srvs import NetrShareEnum, NetrShareEnumResponse, SHARE_INFO_1, NetrServerGetInfo, NetrServerGetInfoResponse, NetrShareGetInfo, NetrShareGetInfoResponse
+from impacket.dcerpc.v5.srvs import NetrShareEnum, NetrShareEnumResponse, SHARE_INFO_1, NetrServerGetInfo, \
+    NetrServerGetInfoResponse, NetrShareGetInfo, NetrShareGetInfoResponse
 from impacket.dcerpc.v5.wkst import NetrWkstaGetInfo, NetrWkstaGetInfoResponse
 from impacket.system_errors import ERROR_INVALID_LEVEL
+
 
 class WKSTServer(DCERPCServer):
     def __init__(self):
@@ -4457,9 +4527,9 @@ class WKSTServer(DCERPCServer):
         self.wkssvcCallBacks = {
             0: self.NetrWkstaGetInfo,
         }
-        self.addCallbacks(('6BFFD098-A112-3610-9833-46C3F87E345A', '1.0'),'\\PIPE\\wkssvc', self.wkssvcCallBacks)
+        self.addCallbacks(('6BFFD098-A112-3610-9833-46C3F87E345A', '1.0'), '\\PIPE\\wkssvc', self.wkssvcCallBacks)
 
-    def NetrWkstaGetInfo(self,data):
+    def NetrWkstaGetInfo(self, data):
         request = NetrWkstaGetInfo(data)
         self.log("NetrWkstaGetInfo Level: %d" % request['Level'])
 
@@ -4489,6 +4559,7 @@ class WKSTServer(DCERPCServer):
 
         return answer
 
+
 class SRVSServer(DCERPCServer):
     def __init__(self):
         DCERPCServer.__init__(self)
@@ -4503,86 +4574,87 @@ class SRVSServer(DCERPCServer):
             21: self.NetrServerGetInfo,
         }
 
-        self.addCallbacks(('4B324FC8-1670-01D3-1278-5A47BF6EE188', '3.0'),'\\PIPE\\srvsvc', self.srvsvcCallBacks)
+        self.addCallbacks(('4B324FC8-1670-01D3-1278-5A47BF6EE188', '3.0'), '\\PIPE\\srvsvc', self.srvsvcCallBacks)
 
     def setServerConfig(self, config):
         self.__serverConfig = config
 
     def processConfigFile(self, configFile=None):
-       if configFile is not None:
-           self.__serverConfig = configparser.ConfigParser()
-           self.__serverConfig.read(configFile)
-       sections = self.__serverConfig.sections()
-       # Let's check the log file
-       self.__logFile      = self.__serverConfig.get('global','log_file')
-       if self.__logFile != 'None':
-            logging.basicConfig(filename = self.__logFile, 
-                             level = logging.DEBUG, 
-                             format="%(asctime)s: %(levelname)s: %(message)s", 
-                             datefmt = '%m/%d/%Y %I:%M:%S %p')
+        if configFile is not None:
+            self.__serverConfig = configparser.ConfigParser()
+            self.__serverConfig.read(configFile)
+        sections = self.__serverConfig.sections()
+        # Let's check the log file
+        self.__logFile = self.__serverConfig.get('global', 'log_file')
+        if self.__logFile != 'None':
+            logging.basicConfig(filename=self.__logFile,
+                                level=logging.DEBUG,
+                                format="%(asctime)s: %(levelname)s: %(message)s",
+                                datefmt='%m/%d/%Y %I:%M:%S %p')
 
-       # Remove the global one
-       del(sections[sections.index('global')])
-       self._shares = {}
-       for i in sections:
-           self._shares[i] = dict(self.__serverConfig.items(i))
+        # Remove the global one
+        del (sections[sections.index('global')])
+        self._shares = {}
+        for i in sections:
+            self._shares[i] = dict(self.__serverConfig.items(i))
 
-    def NetrShareGetInfo(self,data):
-       request = NetrShareGetInfo(data)
-       self.log("NetrGetShareInfo Level: %d" % request['Level'])
+    def NetrShareGetInfo(self, data):
+        request = NetrShareGetInfo(data)
+        self.log("NetrGetShareInfo Level: %d" % request['Level'])
 
-       s = request['NetName'][:-1].upper()
-       answer = NetrShareGetInfoResponse()
-       if s in self._shares:
-           share  = self._shares[s]
+        s = request['NetName'][:-1].upper()
+        answer = NetrShareGetInfoResponse()
+        if s in self._shares:
+            share = self._shares[s]
 
-           answer['InfoStruct']['tag'] = 1
-           answer['InfoStruct']['ShareInfo1']['shi1_netname']= s+'\x00'
-           answer['InfoStruct']['ShareInfo1']['shi1_type']   = share['share type']
-           answer['InfoStruct']['ShareInfo1']['shi1_remark'] = share['comment']+'\x00' 
-           answer['ErrorCode'] = 0
-       else:
-           answer['InfoStruct']['tag'] = 1
-           answer['InfoStruct']['ShareInfo1']= NULL
-           answer['ErrorCode'] = 0x0906 #WERR_NET_NAME_NOT_FOUND
+            answer['InfoStruct']['tag'] = 1
+            answer['InfoStruct']['ShareInfo1']['shi1_netname'] = s + '\x00'
+            answer['InfoStruct']['ShareInfo1']['shi1_type'] = share['share type']
+            answer['InfoStruct']['ShareInfo1']['shi1_remark'] = share['comment'] + '\x00'
+            answer['ErrorCode'] = 0
+        else:
+            answer['InfoStruct']['tag'] = 1
+            answer['InfoStruct']['ShareInfo1'] = NULL
+            answer['ErrorCode'] = 0x0906  # WERR_NET_NAME_NOT_FOUND
 
-       return answer
+        return answer
 
-    def NetrServerGetInfo(self,data):
-       request = NetrServerGetInfo(data)
-       self.log("NetrServerGetInfo Level: %d" % request['Level'])
-       answer = NetrServerGetInfoResponse()
-       answer['InfoStruct']['tag'] = 101
-       # PLATFORM_ID_NT = 500
-       answer['InfoStruct']['ServerInfo101']['sv101_platform_id'] = 500
-       answer['InfoStruct']['ServerInfo101']['sv101_name'] = request['ServerName']
-       # Windows 7 = 6.1
-       answer['InfoStruct']['ServerInfo101']['sv101_version_major'] = 6
-       answer['InfoStruct']['ServerInfo101']['sv101_version_minor'] = 1
-       # Workstation = 1
-       answer['InfoStruct']['ServerInfo101']['sv101_type'] = 1
-       answer['InfoStruct']['ServerInfo101']['sv101_comment'] = NULL
-       answer['ErrorCode'] = 0
-       return answer
+    def NetrServerGetInfo(self, data):
+        request = NetrServerGetInfo(data)
+        self.log("NetrServerGetInfo Level: %d" % request['Level'])
+        answer = NetrServerGetInfoResponse()
+        answer['InfoStruct']['tag'] = 101
+        # PLATFORM_ID_NT = 500
+        answer['InfoStruct']['ServerInfo101']['sv101_platform_id'] = 500
+        answer['InfoStruct']['ServerInfo101']['sv101_name'] = request['ServerName']
+        # Windows 7 = 6.1
+        answer['InfoStruct']['ServerInfo101']['sv101_version_major'] = 6
+        answer['InfoStruct']['ServerInfo101']['sv101_version_minor'] = 1
+        # Workstation = 1
+        answer['InfoStruct']['ServerInfo101']['sv101_type'] = 1
+        answer['InfoStruct']['ServerInfo101']['sv101_comment'] = NULL
+        answer['ErrorCode'] = 0
+        return answer
 
     def NetrShareEnum(self, data):
-       request = NetrShareEnum(data)
-       self.log("NetrShareEnum Level: %d" % request['InfoStruct']['Level'])
-       shareEnum = NetrShareEnumResponse()
-       shareEnum['InfoStruct']['Level'] = 1
-       shareEnum['InfoStruct']['ShareInfo']['tag'] = 1
-       shareEnum['TotalEntries'] = len(self._shares)
-       shareEnum['InfoStruct']['ShareInfo']['Level1']['EntriesRead'] = len(self._shares)
-       shareEnum['ErrorCode'] = 0
+        request = NetrShareEnum(data)
+        self.log("NetrShareEnum Level: %d" % request['InfoStruct']['Level'])
+        shareEnum = NetrShareEnumResponse()
+        shareEnum['InfoStruct']['Level'] = 1
+        shareEnum['InfoStruct']['ShareInfo']['tag'] = 1
+        shareEnum['TotalEntries'] = len(self._shares)
+        shareEnum['InfoStruct']['ShareInfo']['Level1']['EntriesRead'] = len(self._shares)
+        shareEnum['ErrorCode'] = 0
 
-       for i in self._shares:
-           shareInfo = SHARE_INFO_1()
-           shareInfo['shi1_netname'] = i+'\x00'
-           shareInfo['shi1_type'] = self._shares[i]['share type']
-           shareInfo['shi1_remark'] = self._shares[i]['comment']+'\x00'
-           shareEnum['InfoStruct']['ShareInfo']['Level1']['Buffer'].append(shareInfo)
+        for i in self._shares:
+            shareInfo = SHARE_INFO_1()
+            shareInfo['shi1_netname'] = i + '\x00'
+            shareInfo['shi1_type'] = self._shares[i]['share type']
+            shareInfo['shi1_remark'] = self._shares[i]['comment'] + '\x00'
+            shareEnum['InfoStruct']['ShareInfo']['Level1']['Buffer'].append(shareInfo)
 
-       return shareEnum
+        return shareEnum
+
 
 class SimpleSMBServer:
     """
@@ -4592,44 +4664,47 @@ class SimpleSMBServer:
     :param integer listenPort: the port number you want the server to listen on
     :param string configFile: a file with all the servers' configuration. If no file specified, this class will create the basic parameters needed to run. You will need to add your shares manually tho. See addShare() method
     """
-    def __init__(self, listenAddress = '0.0.0.0', listenPort=445, configFile=''):
+
+    def __init__(self, listenAddress='0.0.0.0', listenPort=445, configFile=''):
         if configFile != '':
-            self.__server = SMBSERVER((listenAddress,listenPort))
+            self.__server = SMBSERVER((listenAddress, listenPort))
             self.__server.processConfigFile(configFile)
             self.__smbConfig = None
         else:
             # Here we write a mini config for the server
             self.__smbConfig = configparser.ConfigParser()
             self.__smbConfig.add_section('global')
-            self.__smbConfig.set('global','server_name',''.join([random.choice(string.ascii_letters) for _ in range(8)]))
-            self.__smbConfig.set('global','server_os',''.join([random.choice(string.ascii_letters) for _ in range(8)])
-)
-            self.__smbConfig.set('global','server_domain',''.join([random.choice(string.ascii_letters) for _ in range(8)])
-)
-            self.__smbConfig.set('global','log_file','None')
-            self.__smbConfig.set('global','rpc_apis','yes')
-            self.__smbConfig.set('global','credentials_file','')
-            self.__smbConfig.set('global', 'challenge', "A"*16)
+            self.__smbConfig.set('global', 'server_name',
+                                 ''.join([random.choice(string.ascii_letters) for _ in range(8)]))
+            self.__smbConfig.set('global', 'server_os', ''.join([random.choice(string.ascii_letters) for _ in range(8)])
+                                 )
+            self.__smbConfig.set('global', 'server_domain',
+                                 ''.join([random.choice(string.ascii_letters) for _ in range(8)])
+                                 )
+            self.__smbConfig.set('global', 'log_file', 'None')
+            self.__smbConfig.set('global', 'rpc_apis', 'yes')
+            self.__smbConfig.set('global', 'credentials_file', '')
+            self.__smbConfig.set('global', 'challenge', "A" * 16)
 
             # IPC always needed
             self.__smbConfig.add_section('IPC$')
-            self.__smbConfig.set('IPC$','comment','')
-            self.__smbConfig.set('IPC$','read only','yes')
-            self.__smbConfig.set('IPC$','share type','3')
-            self.__smbConfig.set('IPC$','path','')
-            self.__server = SMBSERVER((listenAddress,listenPort), config_parser = self.__smbConfig)
+            self.__smbConfig.set('IPC$', 'comment', '')
+            self.__smbConfig.set('IPC$', 'read only', 'yes')
+            self.__smbConfig.set('IPC$', 'share type', '3')
+            self.__smbConfig.set('IPC$', 'path', '')
+            self.__server = SMBSERVER((listenAddress, listenPort), config_parser=self.__smbConfig)
             self.__server.processConfigFile()
 
-        # Now we have to register the MS-SRVS server. This specially important for 
-        # Windows 7+ and Mavericks clients since they WON'T (specially OSX) 
+        # Now we have to register the MS-SRVS server. This specially important for
+        # Windows 7+ and Mavericks clients since they WON'T (specially OSX)
         # ask for shares using MS-RAP.
 
         self.__srvsServer = SRVSServer()
         self.__srvsServer.daemon = True
         self.__wkstServer = WKSTServer()
         self.__wkstServer.daemon = True
-        self.__server.registerNamedPipe('srvsvc',('127.0.0.1',self.__srvsServer.getListenPort()))
-        self.__server.registerNamedPipe('wkssvc',('127.0.0.1',self.__wkstServer.getListenPort()))
+        self.__server.registerNamedPipe('srvsvc', ('127.0.0.1', self.__srvsServer.getListenPort()))
+        self.__server.registerNamedPipe('wkssvc', ('127.0.0.1', self.__wkstServer.getListenPort()))
 
     def start(self):
         self.__srvsServer.start()
@@ -4645,7 +4720,7 @@ class SimpleSMBServer:
     def getRegisteredNamedPipes(self):
         return self.__server.getRegisteredNamedPipes()
 
-    def addShare(self, shareName, sharePath, shareComment='', shareType = '0', readOnly = 'no'):
+    def addShare(self, shareName, sharePath, shareComment='', shareType='0', readOnly='no'):
         share = shareName.upper()
         self.__smbConfig.add_section(share)
         self.__smbConfig.set(share, 'comment', shareComment)
@@ -4669,14 +4744,14 @@ class SimpleSMBServer:
             self.__smbConfig.set('global', 'challenge', challenge)
             self.__server.setServerConfig(self.__smbConfig)
             self.__server.processConfigFile()
-        
+
     def setLogFile(self, logFile):
-        self.__smbConfig.set('global','log_file',logFile)
+        self.__smbConfig.set('global', 'log_file', logFile)
         self.__server.setServerConfig(self.__smbConfig)
         self.__server.processConfigFile()
 
     def setCredentialsFile(self, logFile):
-        self.__smbConfig.set('global','credentials_file',logFile)
+        self.__smbConfig.set('global', 'credentials_file', logFile)
         self.__server.setServerConfig(self.__smbConfig)
         self.__server.processConfigFile()
 
