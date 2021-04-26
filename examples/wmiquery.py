@@ -131,7 +131,7 @@ if __name__ == '__main__':
     parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the WQL shell')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-com-version', action='store', metavar = "MAJOR_VERSION:MINOR_VERSION", help='DCOM version, '
-                        'format is MAJOR_VERSOIN:MINOR_VERSION e.g. 5.7')
+                        'format is MAJOR_VERSION:MINOR_VERSION e.g. 5.7')
 
     group = parser.add_argument_group('authentication')
 
