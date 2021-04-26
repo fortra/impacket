@@ -19,7 +19,7 @@ from multiprocessing import Process
 
 from six import StringIO, BytesIO, b
 
-from impacket.smbserver import SimpleSMBServer
+from impacket.smbserver import isInFileJail, SimpleSMBServer
 from impacket.smbconnection import SMBConnection, SessionError, compute_lmhash, compute_nthash
 
 
@@ -27,7 +27,18 @@ class SMBServerUnitTests(unittest.TestCase):
     """Unit tests for the SMBServer
     """
 
-    pass
+    def test_isInFileJail(self):
+        """Test validation of common prefix path.
+        """
+        jail_path = "/tmp/jail_path"
+        self.assertTrue(isInFileJail(jail_path, "filename"))
+        self.assertTrue(isInFileJail(jail_path, "./filename"))
+        self.assertTrue(isInFileJail(jail_path, "../jail_path/filename"))
+
+        self.assertFalse(isInFileJail(jail_path, "/filename"))
+        self.assertFalse(isInFileJail(jail_path, "/tmp/filename"))
+        self.assertFalse(isInFileJail(jail_path, "../filename"))
+        self.assertFalse(isInFileJail(jail_path, "../../filename"))
 
 
 class SimpleSMBServerFuncTests(unittest.TestCase):
