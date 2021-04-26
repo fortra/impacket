@@ -545,7 +545,7 @@ if __name__ == '__main__':
                           'again with -codec and the corresponding codec ' % CODEC)
     parser.add_argument('-object', choices=['ShellWindows', 'ShellBrowserWindow', 'MMC20'], nargs='?', default='ShellWindows',
                         help='DCOM object to be used to execute the shell command (default=ShellWindows)')
-    parser.add_argument('-com-version', action='store', metavar = "MAJOR_VERSOIN:MINOR_VERSION", help='DCOM versoin, '
+    parser.add_argument('-com-version', action='store', metavar = "MAJOR_VERSION:MINOR_VERSION", help='DCOM version, '
                         'format is MAJOR_VERSOIN:MINOR_VERSION e.g. 5.7')
 
     parser.add_argument('-shell-type', action='store', default = 'cmd', choices = ['cmd', 'powershell'], help='choose '
