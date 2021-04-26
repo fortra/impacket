@@ -53,6 +53,7 @@ from impacket.krb5.pac import PKERB_VALIDATION_INFO, KERB_VALIDATION_INFO, KERB_
     PAC_SIGNATURE_DATA, PAC_INFO_BUFFER, PAC_LOGON_INFO, PAC_CLIENT_INFO_TYPE, PAC_SERVER_CHECKSUM, \
     PAC_PRIVSVR_CHECKSUM, PACTYPE
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket.examples import remcomsvc, serviceinstall
 from impacket.smbconnection import SMBConnection, smb
 from impacket.structure import Structure
@@ -1108,15 +1109,7 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init(options.ts)
 
-    import re
-
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-        options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    domain, username, password, address = parse_target(options.target)
 
     if domain == '':
         logging.critical('Domain should be specified!')

@@ -20,11 +20,11 @@ from __future__ import print_function
 
 import argparse
 import logging
-import re
 import sys
 
 from impacket import version
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket.mqtt import CONNECT_ACK_ERROR_MSGS, MQTTConnection
 
 class MQTT_LOGIN:
@@ -75,13 +75,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-        options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    domain, username, password, address = parse_target(options.target)
 
     check_mqtt = MQTT_LOGIN(username, password, address, options)
     try:

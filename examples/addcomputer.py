@@ -23,6 +23,7 @@ from __future__ import unicode_literals
 
 from impacket import version
 from impacket.examples import logger
+from impacket.examples.utils import parse_credentials
 from impacket.dcerpc.v5 import samr, epm, transport
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
@@ -617,9 +618,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.account).groups(
-        '')
+    domain, username, password = parse_credentials(options.account)
 
     try:
         if domain is None or domain == '':

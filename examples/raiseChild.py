@@ -87,6 +87,7 @@ from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, 
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type.univ import noValue
 from impacket.examples import logger
+from impacket.examples.utils import parse_credentials
 from impacket.ntlm import LMOWFv1, NTOWFv1
 from impacket.dcerpc.v5.dtypes import RPC_SID, MAXIMUM_ALLOWED
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE
@@ -1267,9 +1268,7 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init(options.ts)
 
-    import re
-    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(
-        options.target).groups('')
+    domain, username, password = parse_credentials(options.target)
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)

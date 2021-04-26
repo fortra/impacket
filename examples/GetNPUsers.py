@@ -38,6 +38,7 @@ from pyasn1.type.univ import noValue
 from impacket import version
 from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_DONT_REQUIRE_PREAUTH
 from impacket.examples import logger
+from impacket.examples.utils import parse_credentials
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import AS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, AS_REP, seq_set, seq_set_iter
 from impacket.krb5.kerberosv5 import sendReceive, KerberosError
@@ -402,8 +403,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.target).groups('')
+    domain, username, password = parse_credentials(options.target)
 
     if domain == '':
         logging.critical('Domain should be specified!')

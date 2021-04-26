@@ -25,6 +25,7 @@ import os
 import logging
 
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket import version
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.dcerpc.v5.dcom import wmi
@@ -170,15 +171,7 @@ if __name__ == '__main__':
             logging.error("Wrong COMVERSION format, use dot separated integers e.g. \"5.7\"")
             sys.exit(1)
 
-    import re
-
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-        options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    domain, username, password, address = parse_target(options.target)
 
     if domain is None:
         domain = ''
