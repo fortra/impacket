@@ -53,7 +53,7 @@ from impacket.nt_errors import STATUS_NO_MORE_FILES, STATUS_NETWORK_NAME_DELETED
     STATUS_FILE_IS_A_DIRECTORY, STATUS_NOT_IMPLEMENTED, STATUS_INVALID_HANDLE, STATUS_OBJECT_NAME_COLLISION, \
     STATUS_NO_SUCH_FILE, STATUS_CANCELLED, STATUS_OBJECT_NAME_NOT_FOUND, STATUS_SUCCESS, STATUS_ACCESS_DENIED, \
     STATUS_NOT_SUPPORTED, STATUS_INVALID_DEVICE_REQUEST, STATUS_FS_DRIVER_REQUIRED, STATUS_INVALID_INFO_CLASS, \
-    STATUS_LOGON_FAILURE
+    STATUS_LOGON_FAILURE, STATUS_OBJECT_PATH_SYNTAX_BAD
 
 # Setting LOG to current's module name
 LOG = logging.getLogger(__name__)
@@ -347,7 +347,7 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
 
     if not isInFileJail(path, fileName):
         LOG.error("Path not in current working directory")
-        return [], 0, STATUS_NOT_SUPPORTED
+        return [], 0, STATUS_OBJECT_PATH_SYNTAX_BAD
 
     pathName = os.path.join(path, fileName)
     files = []
@@ -2041,7 +2041,7 @@ class SMBCommands:
                 LOG.error("Path not in current working directory")
                 respSMBCommand['Parameters'] = b''
                 respSMBCommand['Data'] = b''
-                return [respSMBCommand], None, STATUS_ACCESS_DENIED
+                return [respSMBCommand], None, STATUS_OBJECT_PATH_SYNTAX_BAD
 
             pathName = os.path.join(path, fileName)
             createDisposition = ntCreateAndXParameters['Disposition']
@@ -3014,7 +3014,7 @@ class SMB2Commands:
 
             if not isInFileJail(path, fileName):
                 LOG.error("Path not in current working directory")
-                return [smb2.SMB2Error()], None, STATUS_ACCESS_DENIED
+                return [smb2.SMB2Error()], None, STATUS_OBJECT_PATH_SYNTAX_BAD
 
             pathName = os.path.join(path, fileName)
             createDisposition = ntCreateRequest['CreateDisposition']
