@@ -164,7 +164,6 @@ class handle_t(NDRSTRUCT):
 
 # 2.2.11 COMVERSION
 class COMVERSION(NDRSTRUCT):
-
     default_major_version = 5
     default_minor_version = 7
 
