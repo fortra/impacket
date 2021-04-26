@@ -161,7 +161,7 @@ if __name__ == '__main__':
 
     parser.add_argument('target', action='store', help='[domain/][username[:password]@]<address>')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
-    parser.add_argument('-com-version', action='store', metavar = "MAJOR_VERSOIN:MINOR_VERSION", help='DCOM versoin, '
+    parser.add_argument('-com-version', action='store', metavar = "MAJOR_VERSION:MINOR_VERSION", help='DCOM version, '
                         'format is MAJOR_VERSOIN:MINOR_VERSION e.g. 5.7')
     subparsers = parser.add_subparsers(help='actions', dest='action')
 
