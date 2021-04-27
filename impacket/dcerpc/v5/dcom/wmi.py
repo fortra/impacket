@@ -52,10 +52,10 @@ def format_structure(d, level=0):
     return x
 try:
     from collections import OrderedDict
-except:
+except Exception:
     try:
         from ordereddict.ordereddict import OrderedDict
-    except:
+    except Exception:
         from ordereddict import OrderedDict
 
 class DCERPCSessionError(DCERPCException):
@@ -71,7 +71,7 @@ class DCERPCSessionError(DCERPCException):
             # Let's see if we have it as WBEMSTATUS
             try:
                 return 'WMI Session Error: code: 0x%x - %s' % (self.error_code, WBEMSTATUS.enumItems(self.error_code).name)
-            except:
+            except Exception:
                 return 'WMI SessionError: unknown error code: 0x%x' % self.error_code
 
 ################################################################################
@@ -560,7 +560,7 @@ class CLASS_PART(Structure):
             dataSize = calcsize(unpackStr)
             try:
                 itemValue = unpack(unpackStr, valueTable[:dataSize])[0]
-            except: 
+            except Exception: 
                 LOG.error("getProperties: Error unpacking!!")
                 itemValue = 0xffffffff
 
@@ -805,7 +805,7 @@ class INSTANCE_TYPE(Structure):
             dataSize = calcsize(unpackStr)
             try:
                 itemValue = unpack(unpackStr, valueTable[:dataSize])[0]
-            except:
+            except Exception:
                 LOG.error("getValues: Error Unpacking!")
                 itemValue = 0xffffffff
 

@@ -626,7 +626,7 @@ class RemoteOperations:
                 return '%s\\%s' % (domain,username)
             else:
                 return username
-        except:
+        except Exception:
             return None
 
     def getServiceAccount(self, serviceName):
@@ -770,7 +770,7 @@ class RemoteOperations:
         keyHandle = ans['phkResult']
         try:
             dataType, noLMHash = rrp.hBaseRegQueryValue(self.__rrp, keyHandle, 'NoLmHash')
-        except:
+        except Exception:
             noLMHash = 0
 
         if noLMHash != 1:
@@ -786,7 +786,7 @@ class RemoteOperations:
         regHandle = ans['phKey']
         try:
             ans = rrp.hBaseRegCreateKey(self.__rrp, regHandle, hiveName)
-        except:
+        except Exception:
             raise Exception("Can't open %s hive" % hiveName)
         keyHandle = ans['phkResult']
         rrp.hBaseRegSaveKey(self.__rrp, keyHandle, tmpFileName)
@@ -811,7 +811,7 @@ class RemoteOperations:
         service = resp['lpServiceHandle']
         try:
             scmr.hRStartServiceW(self.__scmr, service)
-        except:
+        except Exception:
             pass
         scmr.hRDeleteService(self.__scmr, service)
         self.__serviceDeleted = True
@@ -1000,7 +1000,7 @@ class RemoteOperations:
         try:
             ans = rrp.hBaseRegOpenKey(self.__rrp, self.__regHandle, 'SYSTEM\\CurrentControlSet\\Services\\NTDS\\Parameters')
             keyHandle = ans['phkResult']
-        except:
+        except Exception:
             # Can't open the registry path, assuming no NTDS on the other end
             return None
 
@@ -1008,7 +1008,7 @@ class RemoteOperations:
             dataType, dataValue = rrp.hBaseRegQueryValue(self.__rrp, keyHandle, 'DSA Database file')
             ntdsLocation = dataValue[:-1]
             ntdsDrive = ntdsLocation[:2]
-        except:
+        except Exception:
             # Can't open the registry path, assuming no NTDS on the other end
             return None
 
@@ -1223,7 +1223,7 @@ class SAMHashes(OfflineRegistry):
         # Remove the Names item
         try:
             rids.remove('Names')
-        except:
+        except Exception:
             pass
 
         for rid in rids:
@@ -1417,7 +1417,7 @@ class LSASecrets(OfflineRegistry):
         try:
             # Remove unnecessary value
             values.remove(b'NL$Control')
-        except:
+        except Exception:
             pass
 
         iterationCount = 10240
@@ -1488,7 +1488,7 @@ class LSASecrets(OfflineRegistry):
             # Let's first try to decode the secret
             try:
                 strDecoded = secretItem.decode('utf-16le')
-            except:
+            except Exception:
                 pass
             else:
                 # We have to get the account the service
@@ -1508,7 +1508,7 @@ class LSASecrets(OfflineRegistry):
             # Let's first try to decode the secret
             try:
                 strDecoded = secretItem.decode('utf-16le')
-            except:
+            except Exception:
                 pass
             else:
                 # We have to get the account this password is for
@@ -1525,7 +1525,7 @@ class LSASecrets(OfflineRegistry):
         elif upperName.startswith('ASPNET_WP_PASSWORD'):
             try:
                 strDecoded = secretItem.decode('utf-16le')
-            except:
+            except Exception:
                 pass
             else:
                 secret = 'ASPNET: %s' % strDecoded
@@ -1616,7 +1616,7 @@ class LSASecrets(OfflineRegistry):
         try:
             # Remove unnecessary value
             keys.remove(b'NL$Control')
-        except:
+        except Exception:
             pass
 
         if self.__LSAKey == b'':
@@ -1872,7 +1872,7 @@ class NTDSHashes:
         while True:
             try:
                 record = self.__ESEDB.getNextRow(self.__cursor)
-            except:
+            except Exception:
                 LOG.error('Error while calling getNextRow(), trying the next one')
                 continue
 
@@ -2005,7 +2005,7 @@ class NTDSHashes:
                     if attr['AttrVal']['valCount'] > 0:
                         try:
                             domain = b''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le').split('@')[-1]
-                        except:
+                        except Exception:
                             domain = None
                     else:
                         domain = None
@@ -2013,7 +2013,7 @@ class NTDSHashes:
                     if attr['AttrVal']['valCount'] > 0:
                         try:
                             userName = b''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le')
-                        except:
+                        except Exception:
                             LOG.error(
                                 'Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
                             userName = 'unknown'
@@ -2032,7 +2032,7 @@ class NTDSHashes:
         if haveInfo is True:
             try:
                 userProperties = samr.USER_PROPERTIES(plainText)
-            except:
+            except Exception:
                 # On some old w2k3 there might be user properties that don't
                 # match [MS-SAMR] structure, discarding them
                 return
@@ -2229,7 +2229,7 @@ class NTDSHashes:
                     if attr['AttrVal']['valCount'] > 0:
                         try:
                             domain = b''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le').split('@')[-1]
-                        except:
+                        except Exception:
                             domain = None
                     else:
                         domain = None
@@ -2237,7 +2237,7 @@ class NTDSHashes:
                     if attr['AttrVal']['valCount'] > 0:
                         try:
                             userName = b''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le')
-                        except:
+                        except Exception:
                             LOG.error('Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
                             userName = 'unknown'
                     else:
@@ -2253,7 +2253,7 @@ class NTDSHashes:
                     if attr['AttrVal']['valCount'] > 0:
                         try:
                             pwdLastSet = self.__fileTimeToDateTime(unpack('<Q', b''.join(attr['AttrVal']['pAVal'][0]['pVal']))[0])
-                        except:
+                        except Exception:
                             LOG.error('Cannot get pwdLastSet for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
                             pwdLastSet = 'N/A'
                 elif self.__printUserStatus and attId == LOOKUP_TABLE['userAccountControl']:
@@ -2333,7 +2333,7 @@ class NTDSHashes:
                     if self.__remoteOps is not None:
                         try:
                             self.__remoteOps.connectSamr(self.__remoteOps.getMachineNameAndDomain()[1])
-                        except:
+                        except Exception:
                             if os.getenv('KRB5CCNAME') is not None and self.__justUser is not None:
                                 # RemoteOperations failed. That might be because there was no way to log into the
                                 # target system. We just have a last resort. Hope we have tickets cached and that they
@@ -2383,7 +2383,7 @@ class NTDSHashes:
                                     "Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
                                 LOG.error(str(e))
                                 pass
-                            except:
+                            except Exception:
                                 LOG.error("Error while processing row!")
                                 LOG.error(str(e))
                                 pass
@@ -2392,7 +2392,7 @@ class NTDSHashes:
                     while True:
                         try:
                             record = self.__ESEDB.getNextRow(self.__cursor)
-                        except:
+                        except Exception:
                             LOG.error('Error while calling getNextRow(), trying the next one')
                             continue
 
@@ -2410,7 +2410,7 @@ class NTDSHashes:
                                     "Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
                                 LOG.error(str(e))
                                 pass
-                            except:
+                            except Exception:
                                 LOG.error("Error while processing row!")
                                 LOG.error(str(e))
                                 pass

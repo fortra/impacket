@@ -71,7 +71,7 @@ def sendReceive(data, host, kdcHost):
 
     try:
         krbError = KerberosError(packet = decoder.decode(r, asn1Spec = KRB_ERROR())[0])
-    except:
+    except Exception:
         return r
 
     if krbError.getErrorCode() != constants.ErrorCodes.KDC_ERR_PREAUTH_REQUIRED.value:
@@ -181,7 +181,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     preAuth = True
     try:
         asRep = decoder.decode(r, asn1Spec = KRB_ERROR())[0]
-    except:
+    except Exception:
         # Most of the times we shouldn't be here, is this a TGT?
         asRep = decoder.decode(r, asn1Spec=AS_REP())[0]
         # Yes
@@ -343,7 +343,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     # Decode the TGT
     try:
         decodedTGT = decoder.decode(tgt, asn1Spec = AS_REP())[0]
-    except:
+    except Exception:
         decodedTGT = decoder.decode(tgt, asn1Spec = TGS_REP())[0]
 
     domain = domain.upper()
@@ -727,7 +727,7 @@ class KerberosError(SessionError):
                 eData = decoder.decode(self.packet['e-data'], asn1Spec = KERB_ERROR_DATA())[0]
                 nt_error = struct.unpack('<L', eData['data-value'].asOctets()[:4])[0]
                 retString += '\nNT ERROR: %s(%s)' % (nt_errors.ERROR_MESSAGES[nt_error])
-        except:
+        except Exception:
             pass
 
         return retString

@@ -33,7 +33,7 @@ from impacket.structure import Structure
 
 try:
     from OpenSSL import SSL
-except:
+except Exception:
     LOG.critical("pyOpenSSL is not installed, can't continue")
     raise
 
@@ -708,7 +708,7 @@ class MSSQL:
         if useCache is True:
             try:
                 ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-            except:
+            except Exception:
                 # No cache present
                 pass
             else:
@@ -733,7 +733,7 @@ class MSSQL:
                         try:
                             if int(i['tcp']) == self.port:
                                 instanceName = i['InstanceName']
-                        except:
+                        except Exception:
                             pass
 
                     if instanceName:

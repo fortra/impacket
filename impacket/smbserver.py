@@ -144,7 +144,7 @@ def outputToJohnFormat(challenge, username, domain, lmresponse, ntresponse):
                 username.decode('utf-16le'), domain.decode('utf-16le'), hexlify(lmresponse).decode('latin-1'),
                 hexlify(ntresponse).decode('latin-1'),
             hexlify(challenge).decode()), 'hash_version': 'ntlm'}
-    except:
+    except Exception:
         # Let's try w/o decoding Unicode
         try:
             if len(ntresponse) > 24:
@@ -2463,7 +2463,7 @@ class SMBCommands:
                         smbServer.log(ntlm_hash_data['hash_string'])
                         if jtr_dump_path != '':
                             writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], jtr_dump_path)
-                    except:
+                    except Exception:
                         smbServer.log("Could not write NTLM Hashes to the specified JTR_Dump_Path %s" % jtr_dump_path)
                 else:
                     respToken = SPNEGO_NegTokenResp()
@@ -2499,7 +2499,7 @@ class SMBCommands:
                 smbServer.log(ntlm_hash_data['hash_string'])
                 if jtr_dump_path != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], jtr_dump_path)
-            except:
+            except Exception:
                 smbServer.log("Could not write NTLM Hashes to the specified JTR_Dump_Path %s" % jtr_dump_path)
 
         respData['NativeOS']     = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
@@ -2842,7 +2842,7 @@ class SMB2Commands:
                     if jtr_dump_path != '':
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                               jtr_dump_path)
-                except:
+                except Exception:
                     smbServer.log("Could not write NTLM Hashes to the specified JTR_Dump_Path %s" % jtr_dump_path)
 
                 if isGuest:
@@ -3880,7 +3880,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
     def removeConnection(self, name):
         try:
            del(self.__activeConnections[name])
-        except:
+        except Exception:
            pass
         self.log("Remaining connections %s" % list(self.__activeConnections.keys()))
 
@@ -4145,7 +4145,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         try:
             packet = smb.NewSMBPacket(data = data)
             SMBCommand  = smb.SMBCommand(packet['Data'][0])
-        except:
+        except Exception:
             # Maybe a SMB2 packet?
             packet = smb2.SMB2Packet(data = data)
             connData = self.getConnectionData(connId, False)
@@ -4433,7 +4433,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
             try: # just in case they were converted already
                 lmhash = a2b_hex(lmhash)
                 nthash = a2b_hex(nthash)
-            except:
+            except Exception:
                 pass
         self.__credentials[name.lower()] = (uid, lmhash, nthash)
 

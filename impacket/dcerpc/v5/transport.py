@@ -46,7 +46,7 @@ class DCERPCStringBinding:
             try:
                 self.__endpoint.index('endpoint=')
                 self.__endpoint = self.__endpoint[len('endpoint='):]
-            except:
+            except Exception:
                 pass
 
             self.__options = {}
@@ -275,7 +275,7 @@ class DCERPCTransport:
             try: # just in case they were converted already
                self._lmhash = binascii.unhexlify(lmhash)
                self._nthash = binascii.unhexlify(nthash)
-            except:
+            except Exception:
                self._lmhash = lmhash
                self._nthash = nthash
                pass

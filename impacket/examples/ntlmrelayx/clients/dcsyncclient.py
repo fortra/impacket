@@ -321,7 +321,7 @@ class DCSYNCRelayClient(ProtocolClient):
             av_pairs = AV_PAIRS(av_pairs)
 
             serverName = av_pairs[NTLMSSP_AV_HOSTNAME][1].decode('utf-16le')
-        except:
+        except Exception:
             LOG.debug("Exception:", exc_info=True)
             # We're in NTLMv1, not supported
             return STATUS_ACCESS_DENIED

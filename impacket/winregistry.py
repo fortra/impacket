@@ -400,7 +400,7 @@ class Registry:
                     hexdump(valueData, self.indent)
                 else:
                     print(" NULL")
-            except:
+            except Exception:
                 print(" NULL")
         elif valueType == REG_MULTISZ:
             print("%s" % (valueData.decode('utf-16le')))

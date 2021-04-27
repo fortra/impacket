@@ -52,7 +52,7 @@ class KeyBlock(Structure):
     def prettyKeytype(self):
         try:
             return Enctype(self['keytype']).name
-        except:
+        except Exception:
             return "UNKNOWN:0x%x" % (self['keytype'])
 
     def hexlifiedValue(self):

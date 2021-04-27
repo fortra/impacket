@@ -63,7 +63,7 @@ class NDR(object):
             elif len(fieldTypeOrClass.split('=')) == 2: 
                try:
                    self.fields[fieldName] = eval(fieldTypeOrClass.split('=')[1])
-               except:
+               except Exception:
                    self.fields[fieldName] = None
             else:
                self.fields[fieldName] = []
@@ -200,7 +200,7 @@ class NDR(object):
         if isinstance(fieldType, str):
             try:
                 alignment = calcsize(fieldType.split('=')[0])
-            except:
+            except Exception:
                 alignment = 0
         else:
             alignment = 0
@@ -277,7 +277,7 @@ class NDR(object):
         if len(two) >= 2:
             try:
                 return self.pack(fieldName, two[0], soFar)
-            except:
+            except Exception:
                 self.fields[fieldName] = eval(two[1], {}, self.fields)
                 return self.pack(fieldName, two[0], soFar)
 
@@ -1238,7 +1238,7 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
             elif len(fieldTypeOrClass.split('=')) == 2: 
                try:
                    self.fields[fieldName] = eval(fieldTypeOrClass.split('=')[1])
-               except:
+               except Exception:
                    self.fields[fieldName] = None
             else:
                self.fields[fieldName] = 0
@@ -1618,7 +1618,7 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
             elif len(fieldTypeOrClass.split('=')) == 2:
                try:
                    self.fields[fieldName] = eval(fieldTypeOrClass.split('=')[1])
-               except:
+               except Exception:
                    self.fields[fieldName] = None
             else:
                self.fields[fieldName] = 0

@@ -637,7 +637,7 @@ class Ethernet(Header):
         if self.child():
             try:
                 self.set_ether_type(self.child().ethertype)
-            except:
+            except Exception:
                 " an Ethernet packet may have a Data() "
                 pass
         return Header.get_packet(self)

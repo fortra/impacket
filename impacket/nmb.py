@@ -673,7 +673,7 @@ class NetBIOSSessionPacket:
                     self.length = unpack('!H', data[2:4])[0]
 
                 self._trailer = data[4:]
-            except:
+            except Exception:
                 raise NetBIOSError('Wrong packet format ')
 
     def set_type(self, type):
@@ -731,7 +731,7 @@ class NetBIOSSession:
             nb = NetBIOS()
             try:
                 res = nb.getnetbiosname(remote_host)
-            except:
+            except Exception:
                 res = None
                 pass
 

@@ -153,7 +153,7 @@ class SMBRelayClient(ProtocolClient):
 
         try:
             serverName = machineAccount[:len(machineAccount)-1]
-        except:
+        except Exception:
             # We're in NTLMv1, not supported
             return STATUS_ACCESS_DENIED
 
@@ -455,7 +455,7 @@ class SMBRelayClient(ProtocolClient):
             smb = v1client.recvSMB()
             try:
                 smb.isValidAnswer(SMB.SMB_COM_SESSION_SETUP_ANDX)
-            except:
+            except Exception:
                 return None, STATUS_LOGON_FAILURE
             else:
                 v1client.set_uid(smb['Uid'])
@@ -608,7 +608,7 @@ class SMBRelayClient(ProtocolClient):
         dce = rpctransport.get_dce_rpc()
         try:
             dce.connect()
-        except:
+        except Exception:
             pass
         else:
             dce.bind(scmr.MSRPC_UUID_SCMR)

@@ -25,7 +25,7 @@ from impacket.tds import TDSPacket, TDS_STATUS_NORMAL, TDS_STATUS_EOM, TDS_PRE_L
 from impacket.ntlm import NTLMAuthChallengeResponse
 try:
     from OpenSSL import SSL
-except:
+except Exception:
     LOG.critical("pyOpenSSL is not installed, can't continue")
     raise
 
