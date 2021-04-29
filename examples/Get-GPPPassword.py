@@ -22,7 +22,7 @@ from Cryptodome.Cipher import AES
 from Cryptodome.Util.Padding import unpad
 
 from impacket import version
-from impacket.examples import logger
+from impacket.examples import logger, utils
 from impacket.smbconnection import SMBConnection, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB_DIALECT, SessionError
 
 
