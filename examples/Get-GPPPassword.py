@@ -183,13 +183,7 @@ def parse_args():
 
 
 def parse_target(args):
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-        args.target).groups('')
-
-    # In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    domain, username, password, address = utils.parse_target(args.target)
 
     if args.target_ip is None:
         args.target_ip = address
