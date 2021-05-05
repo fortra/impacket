@@ -920,7 +920,7 @@ class CREDENTIAL_BLOB(Structure):
         print("LastWritten : %s" % (datetime.utcfromtimestamp(getUnixTime(self['LastWritten']))))
         print("Flags       : 0x%.8x (%s)" % (self['Flags'], getFlags(CREDENTIAL_FLAGS, self['Flags'])))
         print("Persist     : 0x%.8x (%s)" % (self['Persist'], CREDENTIAL_PERSIST(self['Persist']).name))
-        print("Type        : 0x%.8x (%s)" % (self['Type'], CREDENTIAL_PERSIST(self['Type']).name))
+        print("Type        : 0x%.8x (%s)" % (self['Type'], CREDENTIAL_TYPE(self['Type']).name))
         print("Target      : %s" % (self['Target'].decode('utf-16le')))
         print("Description : %s" % (self['Description'].decode('utf-16le')))
         print("Unknown     : %s" % (self['Unknown'].decode('utf-16le')))
