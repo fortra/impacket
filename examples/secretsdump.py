@@ -299,8 +299,10 @@ if __name__ == '__main__':
                         'method to use at target (only when using -use-vss). Default: smbexec')
     group = parser.add_argument_group('display options')
     group.add_argument('-just-dc-user', action='store', metavar='USERNAME',
-                       help='Extract only NTDS.DIT data for the user specified. Only available for DRSUAPI approach. '
-                            'Implies also -just-dc switch')
+                       help='Extract only NTDS.DIT data for the specified user. Multiple users can be specified by command'
+                       ' line separated by commas, or by using a file with one username per line. '
+                       'It is recommended to use NetBIOS domain name instead of FQDN. ' 
+                       'Only available for DRSUAPI approach. Implies also -just-dc switch')
     group.add_argument('-just-dc', action='store_true', default=False,
                         help='Extract only NTDS.DIT data (NTLM hashes and Kerberos keys)')
     group.add_argument('-just-dc-ntlm', action='store_true', default=False,
