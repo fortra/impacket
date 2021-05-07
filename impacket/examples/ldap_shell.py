@@ -168,11 +168,63 @@ class LdapShell(cmd.Cmd):
         else:
             raise Exception('Failed to add user to %s group: %s' % (group_name, str(self.client.result['description'])))
 
+    def do_change_password(self, line):
+        args = shlex.split(line)
+
+        if len(args) != 1 and len(args) != 2:
+            raise Exception("Error expected a username and an optional password argument. Instead %d arguments were provided" % len(args))
+
+        user_dn = self.get_dn(args[0])
+        print("Got User DN: " + user_dn)
+
+        password = ""
+        if len(args) == 1:
+            password = ''.join(random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
+        else:
+            password = args[1]
+
+        print("Attempting to set new password of: %s" % password)
+        success = self.client.extend.microsoft.modify_password(user_dn, password)
+        if success:
+            print("Successfully modified the user's password!")
+        else:
+            print("Unable to set the user's password due to an unknown error. Double check the account's permissions and verify LDAPS is being used.")
+
     def do_dump(self, line):
         print('Dumping domain info...')
         self.stdout.flush()
         self.domain_dumper.domainDump()
         print('Domain info dumped into lootdir!')
+
+    def do_disable_account(self, username):
+        self.toggle_account_enable_disable(username, False)
+
+    def do_enable_account(self, username):
+        self.toggle_account_enable_disable(username, True)
+
+    def toggle_account_enable_disable(self, user_name, enable):
+        UF_ACCOUNT_DISABLE = 2
+        self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(user_name), attributes=['objectSid', 'userAccountControl'])
+
+        if len(self.client.entries) != 1:
+            raise Exception("Error expected only one search result got %d results", len(self.client.entries))
+
+        user_dn = self.client.entries[0].entry_dn
+        if not user_dn:
+            raise Exception("User not found in LDAP: %s" % user_name)
+
+        entry = self.client.entries[0]
+        userAccountControl = entry["userAccountControl"].value
+
+        print("Original userAccountControl: %d" % userAccountControl) 
+
+        if enable:
+            userAccountControl = userAccountControl & ~UF_ACCOUNT_DISABLE
+        else:
+            userAccountControl = userAccountControl | UF_ACCOUNT_DISABLE
+
+        print("Updated userAccountControl: %d" % userAccountControl) 
+        self.client.modify(user_dn, {'userAccountControl':(ldap3.MODIFY_REPLACE, [userAccountControl])})
 
     def do_search(self, line):
         arguments = shlex.split(line)
@@ -187,6 +239,44 @@ class LdapShell(cmd.Cmd):
 
         search_query = "".join("(%s=*%s*)" % (attribute, escape_filter_chars(arguments[0])) for attribute in filter_attributes)
         self.search('(|%s)' % search_query, *attributes)
+
+    def do_set_dontreqpreauth(self, line):
+        UF_DONT_REQUIRE_PREAUTH = 4194304
+
+        args = shlex.split(line)
+        if len(args) != 2:
+            raise Exception("Username (SAMAccountName) and true/false flag required (e.g. jsmith true).")
+
+        user_name = args[0]
+        flag_str = args[1]
+        flag = False
+
+        if flag_str.lower() == "true":
+            flag = True
+        elif flag_str.lower() == "false":
+            flag = False
+        else:
+            raise Exception("The specified flag must be either true or false")
+
+        self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(user_name), attributes=['objectSid', 'userAccountControl'])
+        if len(self.client.entries) != 1:
+            raise Exception("Error expected only one search result got %d results", len(self.client.entries))
+
+        user_dn = self.client.entries[0].entry_dn
+        if not user_dn:
+            raise Exception("User not found in LDAP: %s" % user_name)
+
+        entry = self.client.entries[0]
+        userAccountControl = entry["userAccountControl"].value
+        print("Original userAccountControl: %d" % userAccountControl) 
+
+        if flag:
+            userAccountControl = userAccountControl | UF_DONT_REQUIRE_PREAUTH
+        else:
+            userAccountControl = userAccountControl & ~UF_DONT_REQUIRE_PREAUTH
+
+        print("Updated userAccountControl: %d" % userAccountControl) 
+        self.client.modify(user_dn, {'userAccountControl':(ldap3.MODIFY_REPLACE, [userAccountControl])})
 
     def do_get_user_groups(self, user_name):
         user_dn = self.get_dn(user_name)
@@ -232,10 +322,16 @@ class LdapShell(cmd.Cmd):
         print("""
  add_user new_user [parent] - Creates a new user.
  add_user_to_group user group - Adds a user to a group.
+ change_password user [password] - Attempt to change a given user's password. Requires LDAPS.
+ disable_account user - Disable the user's account.
+ enable_account user - Enable the user's account.
  dump - Dumps the domain.
  search query [attributes,] - Search users and groups by name, distinguishedName and sAMAccountName.
+ set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
  get_user_groups user - Retrieves all groups this user is a member of.
  get_group_users group - Retrieves all members of a group.
+ grant_control target grantee - Grant full control of a given target object (sid) to the grantee (sid). - TODO
+ set_rbcd target grantee - Grant the grantee (sid) the ability to perform RBCD to the target (sid). - TODO
  write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
  exit - Terminates this session.""")
 
