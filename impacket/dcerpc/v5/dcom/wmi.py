@@ -2382,6 +2382,7 @@ class IWbemClassObject(IRemUnknown):
         for i, propName in enumerate(properties):
             propRecord = properties[propName]
             itemValue = getattr(self, propName)
+            propIsInherited = propRecord['inherited']
             print("PropName %r, Value: %r" % (propName,itemValue))
 
             pType = propRecord['type'] & (~(CIM_ARRAY_FLAG|Inherited)) 
@@ -2393,7 +2394,7 @@ class IWbemClassObject(IRemUnknown):
 
             if propRecord['type'] & CIM_ARRAY_FLAG:
                 if itemValue is None:
-                    ndTable |= self.__ndEntry(i, True, False)
+                    ndTable |= self.__ndEntry(i, True, propIsInherited)
                     valueTable += pack(packStr, 0)
                 else:
                     valueTable += pack('<L', curHeapPtr)
@@ -2407,20 +2408,20 @@ class IWbemClassObject(IRemUnknown):
             elif pType in (CIM_TYPE_ENUM.CIM_TYPE_UINT8.value, CIM_TYPE_ENUM.CIM_TYPE_UINT16.value,
                            CIM_TYPE_ENUM.CIM_TYPE_UINT32.value, CIM_TYPE_ENUM.CIM_TYPE_UINT64.value):
                 if itemValue is None:
-                    ndTable |= self.__ndEntry(i, True, False)
+                    ndTable |= self.__ndEntry(i, True, propIsInherited)
                     valueTable += pack(packStr, 0)
                 else:
                     valueTable += pack(packStr, int(itemValue))
             elif pType in (CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value,):
                 if itemValue is None:
-                    ndTable |= self.__ndEntry(i, True, False)
+                    ndTable |= self.__ndEntry(i, True, propIsInherited)
                     valueTable += pack(packStr, False)
                 else:
                     valueTable += pack(packStr, bool(itemValue))
             elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
                                CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                 if itemValue is None:
-                    ndTable |= self.__ndEntry(i, True, False)
+                    ndTable |= self.__ndEntry(i, True, propIsInherited)
                     valueTable += pack(packStr, -1)
                 else:
                     valueTable += pack(packStr, itemValue)
@@ -2432,7 +2433,7 @@ class IWbemClassObject(IRemUnknown):
                     ndTable |= self.__ndEntry(i, True, True)
             else:
                 if itemValue == '':
-                    ndTable |= self.__ndEntry(i, True, False)
+                    ndTable |= self.__ndEntry(i, True, propIsInherited)
                     valueTable += pack('<L', 0)
                 else:
                     strIn = ENCODED_STRING()
