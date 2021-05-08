@@ -2425,7 +2425,8 @@ class IWbemClassObject(IRemUnknown):
                 else:
                     valueTable += pack(packStr, itemValue)
             elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
-                # For now we just pack None
+                # For now we just pack None and set the default_value_is_inherited
+                # flag, just in case a parent class defines this for us
                 valueTable += b'\x00'*4
                 if itemValue is None:
                     ndTable |= self.__ndEntry(i, True, True)
@@ -2517,7 +2518,8 @@ class IWbemClassObject(IRemUnknown):
                                    CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                     valueTable += pack(packStr, 0)
                 elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
-                    # For now we just pack None
+                    # For now we just pack None and set the default_value_is_inherited
+                    # flag, just in case a parent class defines this for us
                     valueTable += b'\x00'*4
                     ndTable |= self.__ndEntry(i, True, True)
                 else:
@@ -2709,7 +2711,8 @@ class IWbemClassObject(IRemUnknown):
                         valueTable += pack(packStr, inArg)
                     elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
                         if inArg is None:
-                            # For now we just pack None
+                            # For now we just pack None and set the default_value_is_inherited
+                            # flag, just in case a parent class defines this for us
                             valueTable += b'\x00' * 4
                             ndTable |= self.__ndEntry(i, True, True)
                         else:
