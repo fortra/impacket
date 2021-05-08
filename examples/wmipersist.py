@@ -70,8 +70,14 @@ class WMIPERSISTENCE:
 
     @staticmethod
     def checkError(banner, resp):
-        if resp.GetCallStatus(0) != 0:
-            logging.error('%s - ERROR (0x%x)' % (banner, resp.GetCallStatus(0)))
+        call_status = resp.GetCallStatus(0) & 0xffffffff  # interpret as unsigned
+        if call_status != 0:
+            from impacket.dcerpc.v5.dcom.wmi import WBEMSTATUS
+            try:
+                error_name = WBEMSTATUS.enumItems(call_status).name
+            except ValueError:
+                error_name = 'Unknown'
+            logging.error('%s - ERROR: %s (0x%08x)' % (banner, error_name, call_status))
         else:
             logging.info('%s - OK' % banner)
 
