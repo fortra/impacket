@@ -2361,6 +2361,11 @@ class IWbemClassObject(IRemUnknown):
             return ()
         return self.encodingUnit['ObjectBlock'].ctCurrent['methods']
 
+    @staticmethod
+    def __ndEntry(index, default_value_is_null, default_value_is_inherited):
+        # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-wmio/ed436785-40fc-425e-ad3d-f9200eb1a122
+        return (bool(default_value_is_null) << 1 | bool(default_value_is_inherited)) << (2 * index)
+
     def marshalMe(self):
         # So, in theory, we have the OBJCUSTOM built, but 
         # we need to update the values
@@ -2388,7 +2393,7 @@ class IWbemClassObject(IRemUnknown):
 
             if propRecord['type'] & CIM_ARRAY_FLAG:
                 if itemValue is None:
-                    ndTable |= 2 << (2*i)
+                    ndTable |= self.__ndEntry(i, True, False)
                     valueTable += pack(packStr, 0)
                 else:
                     valueTable += pack('<L', curHeapPtr)
@@ -2402,33 +2407,31 @@ class IWbemClassObject(IRemUnknown):
             elif pType in (CIM_TYPE_ENUM.CIM_TYPE_UINT8.value, CIM_TYPE_ENUM.CIM_TYPE_UINT16.value,
                            CIM_TYPE_ENUM.CIM_TYPE_UINT32.value, CIM_TYPE_ENUM.CIM_TYPE_UINT64.value):
                 if itemValue is None:
-                    ndTable |= 2 << (2 * i)
+                    ndTable |= self.__ndEntry(i, True, False)
                     valueTable += pack(packStr, 0)
                 else:
                     valueTable += pack(packStr, int(itemValue))
             elif pType in (CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value,):
                 if itemValue is None:
-                    ndTable |= 2 << (2 * i)
+                    ndTable |= self.__ndEntry(i, True, False)
                     valueTable += pack(packStr, False)
                 else:
                     valueTable += pack(packStr, bool(itemValue))
             elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
                                CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                 if itemValue is None:
-                    ndTable |= 2 << (2 * i)
+                    ndTable |= self.__ndEntry(i, True, False)
                     valueTable += pack(packStr, -1)
                 else:
                     valueTable += pack(packStr, itemValue)
             elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
                 # For now we just pack None
                 valueTable += b'\x00'*4
-                # The default property value is NULL, and it is
-                # inherited from a parent class.
                 if itemValue is None:
-                    ndTable |= 3 << (2*i)
+                    ndTable |= self.__ndEntry(i, True, True)
             else:
                 if itemValue == '':
-                    ndTable |= 2 << (2*i)
+                    ndTable |= self.__ndEntry(i, True, False)
                     valueTable += pack('<L', 0)
                 else:
                     strIn = ENCODED_STRING()
@@ -2516,9 +2519,7 @@ class IWbemClassObject(IRemUnknown):
                 elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
                     # For now we just pack None
                     valueTable += b'\x00'*4
-                    # The default property value is NULL, and it is 
-                    # inherited from a parent class.
-                    ndTable |= 3 << (2*i)
+                    ndTable |= self.__ndEntry(i, True, True)
                 else:
                     strIn = ENCODED_STRING()
                     strIn['Character'] = ''
@@ -2710,9 +2711,7 @@ class IWbemClassObject(IRemUnknown):
                         if inArg is None:
                             # For now we just pack None
                             valueTable += b'\x00' * 4
-                            # The default property value is NULL, and it is
-                            # inherited from a parent class.
-                            ndTable |= 3 << (2 * i)
+                            ndTable |= self.__ndEntry(i, True, True)
                         else:
                             valueTable += pack('<L', curHeapPtr)
                             marshaledObject = inArg.marshalMe()
