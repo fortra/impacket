@@ -11,6 +11,7 @@
 #  Mathieu Gascon-Lefebvre (@mlefebvre)
 # - TODO
 #
+import re
 import string
 import sys
 import cmd
@@ -128,6 +129,61 @@ class LdapShell(cmd.Cmd):
             print('LDAP server claims to have taken the secdescriptor. Have fun')
         else:
             raise Exception("Something wasnt right: %s" %str(self.client.result['description']))
+
+    def do_add_computer(self, line):
+        args = shlex.split(line)
+
+        if not self.client.server.ssl:
+            print("Error adding a new computer with LDAP requires LDAPS.")
+
+        if len(args) != 1 and len(args) != 2:
+            raise Exception("Error expected a computer name and an optional password argument.")
+
+        computer_name = args[0]
+        if not computer_name.endswith('$'):
+            computer_name += '$'
+
+        print("Attempting to add a new computer with the name: %s" % computer_name)
+
+        password = ""
+        if len(args) == 1:
+            password = ''.join(random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
+        else:
+            password = args[1]
+
+        domain_dn = self.domain_dumper.root
+        domain = re.sub(',DC=', '.', domain_dn[domain_dn.find('DC='):], flags=re.I)[3:]
+
+        print("Inferred Domain DN: %s" % domain_dn)
+        print("Inferred Domain Name: %s" % domain)
+
+        computer_hostname = computer_name[:-1] # Remove $ sign
+        computer_dn = "CN=%s,CN=Computers,%s" % (computer_hostname, self.domain_dumper.root)
+        print("New Computer DN: %s" % computer_dn)
+
+        spns = [
+            'HOST/%s' % computer_hostname,
+            'HOST/%s.%s' % (computer_hostname, domain),
+            'RestrictedKrbHost/%s' % computer_hostname,
+            'RestrictedKrbHost/%s.%s' % (computer_hostname, domain),
+        ]
+        ucd = {
+            'dnsHostName': '%s.%s' % (computer_hostname, domain),
+            'userAccountControl': 4096,
+            'servicePrincipalName': spns,
+            'sAMAccountName': computer_name,
+            'unicodePwd': '"{}"'.format(password).encode('utf-16-le')
+        }
+
+        res = self.client.add(computer_dn, ['top','person','organizationalPerson','user','computer'], ucd)
+
+        if not res:
+            if self.client.result['result'] == RESULT_UNWILLING_TO_PERFORM: 
+                print("Failed to add a new computer. The server denied the operation.")
+            else:
+                print('Failed to add a new computer: %s' % str(self.client.result))
+        else:
+            print('Adding new computer with username: %s and password: %s result: OK' % (computer_name, password))
 
     def do_add_user(self, line):
         args = shlex.split(line)
@@ -520,7 +576,7 @@ class LdapShell(cmd.Cmd):
  search query [attributes,] - Search users and groups by name, distinguishedName and sAMAccountName.
  get_user_groups user - Retrieves all groups this user is a member of.
  get_group_users group - Retrieves all members of a group.
- get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName). - TODO
+ get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).
  grant_control target grantee - Grant full control of a given target object (sAMAccountName) to the grantee (sAMAccountName).
  set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
  set_rbcd target grantee - Grant the grantee (sAMAccountName) the ability to perform RBCD to the target (sAMAccountName).
