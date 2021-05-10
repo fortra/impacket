@@ -9,7 +9,6 @@
 #
 # Author:
 #  Mathieu Gascon-Lefebvre (@mlefebvre)
-# - TODO
 #
 import re
 import string
@@ -565,7 +564,7 @@ class LdapShell(cmd.Cmd):
 
     def do_help(self, line):
         print("""
- add_computer computer [password] - Adds a new computer to the domain with the specified password. - TODO
+ add_computer computer [password] - Adds a new computer to the domain with the specified password. Requires LDAPS.
  add_user new_user [parent] - Creates a new user.
  add_user_to_group user group - Adds a user to a group.
  change_password user [password] - Attempt to change a given user's password. Requires LDAPS.
