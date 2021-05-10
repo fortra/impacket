@@ -318,7 +318,7 @@ class LdapShell(cmd.Cmd):
             raise Exception("User not found in LDAP: %s" % user_name)
 
         entry = self.client.entries[0]
-        useraccountcontrol = entry["useraccountcontrol"].value
+        userAccountControl = entry["userAccountControl"].value
 
         print("Original userAccountControl: %d" % userAccountControl) 
 

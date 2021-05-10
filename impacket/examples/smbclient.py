@@ -118,6 +118,7 @@ class MiniImpacketShell(cmd.Cmd):
  who - returns the sessions currently connected at the target host (admin required)
  close - closes the current SMB Session
  exit - terminates the server process (and this session)
+
 """)
 
     def do_password(self, line):
