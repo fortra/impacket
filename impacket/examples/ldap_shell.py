@@ -9,7 +9,7 @@
 #
 # Author:
 #  Mathieu Gascon-Lefebvre (@mlefebvre)
-#
+# - TODO
 #
 import string
 import sys
@@ -96,7 +96,7 @@ class LdapShell(cmd.Cmd):
         nace['Ace'] = acedata
         return nace
 
-    def do_write_gpo_dacl(self,line):
+    def do_write_gpo_dacl(self, line):
         args = shlex.split(line)
         print ("Adding %s to GPO with GUID %s" % (args[0], args[1]))
         if len(args) != 2:
@@ -204,10 +204,40 @@ class LdapShell(cmd.Cmd):
 
         print("Attempting to set new password of: %s" % password)
         success = self.client.extend.microsoft.modify_password(user_dn, password)
-        if success:
-            print("Successfully modified the user's password!")
+
+        if self.client.result['result'] == 0:
+            print('Password changed successfully!')
         else:
-            print("Unable to set the user's password due to an unknown error. Double check the account's permissions and verify LDAPS is being used.")
+            if self.client.result['result'] == 50:
+                raise Exception('Could not modify object, the server reports insufficient rights: %s', self.client.result['message'])
+            elif self.client.result['result'] == 19:
+                raise Exception('Could not modify object, the server reports a constrained violation: %s', self.client.result['message'])
+            else:
+                raise Exception('The server returned an error: %s', self.client.result['message'])
+
+    def do_clear_rbcd(self, computer_name):
+
+        success = self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(computer_name), attributes=['objectSid', 'msDS-AllowedToActOnBehalfOfOtherIdentity'])
+        if success is False or len(self.client.entries) != 1:
+            raise Exception("Error expected only one search result got %d results", len(self.client.entries))
+
+        target = self.client.entries[0]
+        target_sid = target["objectsid"].value
+        print("Found Target DN: %s" % target.entry_dn)
+        print("Target SID: %s\n" % target_sid)
+
+        sd = self.create_empty_sd()
+
+        self.client.modify(target.entry_dn, {'msDS-AllowedToActOnBehalfOfOtherIdentity':[ldap3.MODIFY_REPLACE, [sd.getData()]]})
+        if self.client.result['result'] == 0:
+            print('Delegation rights cleared successfully!')
+        else:
+            if self.client.result['result'] == 50:
+                raise Exception('Could not modify object, the server reports insufficient rights: %s', self.client.result['message'])
+            elif self.client.result['result'] == 19:
+                raise Exception('Could not modify object, the server reports a constrained violation: %s', self.client.result['message'])
+            else:
+                raise Exception('The server returned an error: %s', self.client.result['message'])
 
     def do_dump(self, line):
         print('Dumping domain info...')
@@ -242,9 +272,17 @@ class LdapShell(cmd.Cmd):
         else:
             userAccountControl = userAccountControl | UF_ACCOUNT_DISABLE
 
-        print("Updated userAccountControl: %d" % userAccountControl) 
         self.client.modify(user_dn, {'userAccountControl':(ldap3.MODIFY_REPLACE, [userAccountControl])})
-        # TODO: Check if client.modify succeeded
+
+        if self.client.result['result'] == 0:
+            print("Updated userAccountControl attribute successfully")
+        else:
+            if self.client.result['result'] == 50:
+                raise Exception('Could not modify object, the server reports insufficient rights: %s', self.client.result['message'])
+            elif self.client.result['result'] == 19:
+                raise Exception('Could not modify object, the server reports a constrained violation: %s', self.client.result['message'])
+            else:
+                raise Exception('The server returned an error: %s', self.client.result['message'])
 
     def do_search(self, line):
         arguments = shlex.split(line)
@@ -297,7 +335,16 @@ class LdapShell(cmd.Cmd):
 
         print("Updated userAccountControl: %d" % userAccountControl) 
         self.client.modify(user_dn, {'userAccountControl':(ldap3.MODIFY_REPLACE, [userAccountControl])})
-        # TODO: Check if client.modify succeeded according to client
+
+        if self.client.result['result'] == 0:
+            print("Updated userAccountControl attribute successfully")
+        else:
+            if self.client.result['result'] == 50:
+                raise Exception('Could not modify object, the server reports insufficient rights: %s', self.client.result['message'])
+            elif self.client.result['result'] == 19:
+                raise Exception('Could not modify object, the server reports a constrained violation: %s', self.client.result['message'])
+            else:
+                raise Exception('The server returned an error: %s', self.client.result['message'])
 
     def do_get_user_groups(self, user_name):
         user_dn = self.get_dn(user_name)
@@ -312,6 +359,22 @@ class LdapShell(cmd.Cmd):
             raise Exception("Group not found in LDAP: %s" % group_name)
 
         self.search('(memberof:%s:=%s)' % (LdapShell.LDAP_MATCHING_RULE_IN_CHAIN, escape_filter_chars(group_dn)), "sAMAccountName", "name")
+
+    def do_get_laps_password(self, computer_name):
+
+        self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(computer_name), attributes=['ms-MCS-AdmPwd'])
+        if len(self.client.entries) != 1:
+            raise Exception("Error expected only one search result got %d results", len(self.client.entries))
+
+        computer = self.client.entries[0]
+        print("Found Computer DN: %s" % computer.entry_dn)
+
+        password = computer["ms-MCS-AdmPwd"].value
+
+        if password is not None:
+            print("LAPS Password: %s" % password)
+        else:
+            print("Unable to Read LAPS Password for Computer")
 
     def do_grant_control(self, line):
         args = shlex.split(line)
@@ -349,6 +412,7 @@ class LdapShell(cmd.Cmd):
 
         sd['Dacl'].aces.append(self.create_allow_ace(grantee_sid))
         self.client.modify(target.entry_dn, {'nTSecurityDescriptor':[ldap3.MODIFY_REPLACE, [sd.getData()]]}, controls=controls)
+
         if self.client.result['result'] == 0:
             print('DACL modified successfully!')
             print('%s now has control of %s' % (grantee_name, target_name))
@@ -405,6 +469,7 @@ class LdapShell(cmd.Cmd):
 
         sd['Dacl'].aces.append(self.create_allow_ace(grantee_sid))
         self.client.modify(target.entry_dn, {'msDS-AllowedToActOnBehalfOfOtherIdentity':[ldap3.MODIFY_REPLACE, [sd.getData()]]})
+
         if self.client.result['result'] == 0:
             print('Delegation rights modified successfully!')
             print('%s can now impersonate users on %s via S4U2Proxy' % (grantee_name, target_name))
@@ -415,8 +480,6 @@ class LdapShell(cmd.Cmd):
                 raise Exception('Could not modify object, the server reports a constrained violation: %s', self.client.result['message'])
             else:
                 raise Exception('The server returned an error: %s', self.client.result['message'])
-
-        return
 
     def search(self, query, *attributes):
         self.client.search(self.domain_dumper.root, query, attributes=attributes)
@@ -446,19 +509,21 @@ class LdapShell(cmd.Cmd):
 
     def do_help(self, line):
         print("""
+ add_computer computer [password] - Adds a new computer to the domain with the specified password. - TODO
  add_user new_user [parent] - Creates a new user.
  add_user_to_group user group - Adds a user to a group.
  change_password user [password] - Attempt to change a given user's password. Requires LDAPS.
+ clear_rbcd target - Clear the resource based constrained delegation configuration information.
  disable_account user - Disable the user's account.
  enable_account user - Enable the user's account.
  dump - Dumps the domain.
  search query [attributes,] - Search users and groups by name, distinguishedName and sAMAccountName.
- set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
  get_user_groups user - Retrieves all groups this user is a member of.
  get_group_users group - Retrieves all members of a group.
- get_laps_password [computer] - TODO: Retrieves the LAPS passwords associated with a given computer or all of them.
- grant_control target grantee - Grant full control of a given target object (sid) to the grantee (sid). - TODO
- set_rbcd target grantee - Grant the grantee (sid) the ability to perform RBCD to the target (sid). - TODO
+ get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName). - TODO
+ grant_control target grantee - Grant full control of a given target object (sAMAccountName) to the grantee (sAMAccountName).
+ set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
+ set_rbcd target grantee - Grant the grantee (sAMAccountName) the ability to perform RBCD to the target (sAMAccountName).
  write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
  exit - Terminates this session.""")
 
