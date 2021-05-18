@@ -46,7 +46,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip wheel
-          pip install flake8 tox -r requirements.txt
+          python -m pip install flake8 tox -r requirements.txt
 
       - name: Check syntax errors
         run: |
