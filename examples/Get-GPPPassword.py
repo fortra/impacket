@@ -256,7 +256,7 @@ def main():
     print(version.BANNER)
     args = parse_args()
     init_logger(args)
-    if args.target == "LOCAL" :
+    if args.target.upper() == "LOCAL" :
         if args.xmlfile is not None:
             # Only given decrypt XML file
             if os.path.exists(args.xmlfile):
