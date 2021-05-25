@@ -52,20 +52,23 @@ class GetGPPasswords(object):
             next_dirs = []
             for sdir in searchdirs:
                 logging.debug('Searching in %s ' % sdir)
-                for sharedfile in self.smb.listPath(self.share, sdir + '*', password=None):
-                    if sharedfile.get_longname() not in ['.', '..']:
-                        if sharedfile.is_directory():
-                            logging.debug('Found directory %s/' % sharedfile.get_longname())
-                            next_dirs.append(sdir + sharedfile.get_longname() + '/')
-                        else:
-                            if sharedfile.get_longname().endswith('.' + extension):
-                                logging.debug('Found matching file %s' % (sdir + sharedfile.get_longname()))
-                                results = self.parse(sdir + sharedfile.get_longname())
-                                if len(results) != 0:
-                                    self.show(results)
-                                    files.append({"filename": sdir + sharedfile.get_longname(), "results": results})
+                try:
+                    for sharedfile in self.smb.listPath(self.share, sdir + '*', password=None):
+                        if sharedfile.get_longname() not in ['.', '..']:
+                            if sharedfile.is_directory():
+                                logging.debug('Found directory %s/' % sharedfile.get_longname())
+                                next_dirs.append(sdir + sharedfile.get_longname() + '/')
                             else:
-                                logging.debug('Found file %s' % sharedfile.get_longname())
+                                if sharedfile.get_longname().endswith('.' + extension):
+                                    logging.debug('Found matching file %s' % (sdir + sharedfile.get_longname()))
+                                    results = self.parse(sdir + sharedfile.get_longname())
+                                    if len(results) != 0:
+                                        self.show(results)
+                                        files.append({"filename": sdir + sharedfile.get_longname(), "results": results})
+                                else:
+                                    logging.debug('Found file %s' % sharedfile.get_longname())
+                except SessionError as e:
+                    logging.debug(e)
             searchdirs = next_dirs
             logging.debug('Next iteration with %d folders.' % len(next_dirs))
         return files
