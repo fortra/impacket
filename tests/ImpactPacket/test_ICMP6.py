@@ -79,7 +79,7 @@ class TestICMP6(unittest.TestCase):
         icmp6_payload_buffer = icmp6_packet.child().get_bytes().tolist()
         generated_buffer = icmp6_header_buffer + icmp6_payload_buffer
         
-        self.assertEquals(generated_buffer, reference_buffer, test_fail_message)
+        self.assertEqual(generated_buffer, reference_buffer, test_fail_message)
         
     def generate_icmp6_constructed_packets(self):
         packet_list = []
@@ -157,19 +157,19 @@ class TestICMP6(unittest.TestCase):
         
         for i in range (0, len(self.reference_data_list)):
             p = d.decode(self.reference_data_list[i])
-            self.assertEquals(p.get_type(), msg_types[i], self.message_description_list[i] + " - Msg type mismatch")
-            self.assertEquals(p.get_code(), msg_codes[i], self.message_description_list[i] + " - Msg code mismatch")
+            self.assertEqual(p.get_type(), msg_types[i], self.message_description_list[i] + " - Msg type mismatch")
+            self.assertEqual(p.get_code(), msg_codes[i], self.message_description_list[i] + " - Msg code mismatch")
             
             if i in range(0, 2):
-                self.assertEquals(p.get_echo_id(), 1, self.message_description_list[i] + " - ID mismatch")
-                self.assertEquals(p.get_echo_sequence_number(), 2, self.message_description_list[i] + " - Sequence number mismatch")
-                self.assertEquals(p.get_echo_arbitrary_data().tolist(), [0xFE, 0x56, 0x88], self.message_description_list[i] + " - Arbitrary data mismatch")
+                self.assertEqual(p.get_echo_id(), 1, self.message_description_list[i] + " - ID mismatch")
+                self.assertEqual(p.get_echo_sequence_number(), 2, self.message_description_list[i] + " - Sequence number mismatch")
+                self.assertEqual(p.get_echo_arbitrary_data().tolist(), [0xFE, 0x56, 0x88], self.message_description_list[i] + " - Arbitrary data mismatch")
             if i in range(2, 5):
-                self.assertEquals(p.get_parm_problem_pointer(), 2, self.message_description_list[i] + " - Pointer mismatch")
+                self.assertEqual(p.get_parm_problem_pointer(), 2, self.message_description_list[i] + " - Pointer mismatch")
             if i in range(5, 15):
-                self.assertEquals(p.get_originating_packet_data().tolist(), [0xFE, 0x56, 0x88], self.message_description_list[i] + " - Originating packet data mismatch")
+                self.assertEqual(p.get_originating_packet_data().tolist(), [0xFE, 0x56, 0x88], self.message_description_list[i] + " - Originating packet data mismatch")
             if i in range(14, 15):
-                self.assertEquals(p.get_mtu(), 1300, self.message_description_list[i] + " - MTU mismatch")
+                self.assertEqual(p.get_mtu(), 1300, self.message_description_list[i] + " - MTU mismatch")
 
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestICMP6)
