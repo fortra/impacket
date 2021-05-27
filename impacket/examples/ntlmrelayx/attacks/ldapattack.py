@@ -125,8 +125,8 @@ class LDAPAttack(ProtocolAttack):
             LOG.error('New computer already added. Refusing to add another')
             return
 
-        # Random password
-        newPassword = ''.join(random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
+        # Random 20 char password, should be good for most password policies
+        newPassword = ''.join(random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(20))
 
         # Get the domain we are in
         domaindn = domainDumper.root
@@ -182,8 +182,8 @@ class LDAPAttack(ProtocolAttack):
             LOG.error('New user already added. Refusing to add another')
             return
 
-        # Random password
-        newPassword = ''.join(random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
+        # Random 20 char password, should be good for most password policies
+        newPassword = ''.join(random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(20))
 
         # Random username
         newUser = ''.join(random.choice(string.ascii_letters) for _ in range(10))
