@@ -203,7 +203,7 @@ class TSCH_EXEC:
             dce.disconnect()
             return
 
-        if not self.__silentCommand:
+        if self.__silentCommand:
             dce.disconnect()
             return
 
@@ -221,18 +221,14 @@ class TSCH_EXEC:
                     if waitOnce is True:
                         # We're giving it the chance to flush the file before giving up
                         time.sleep(3)
-                    elif str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') >= 0:
-                        if waitOnce is True:
-                            # We're giving it the chance to flush the file before giving up
-                            time.sleep(3)
-                            waitOnce = False
-                        else:
-                            raise
+                        waitOnce = False
                     else:
                         raise
-            logging.debug('Deleting file ADMIN$\\Temp\\%s' % tmpFileName)
-            smbConnection.deleteFile('ADMIN$', 'Temp\\%s' % tmpFileName)
- 
+                else:
+                    raise
+        logging.debug('Deleting file ADMIN$\\Temp\\%s' % tmpFileName)
+        smbConnection.deleteFile('ADMIN$', 'Temp\\%s' % tmpFileName)
+
         dce.disconnect()
 
 
@@ -286,9 +282,6 @@ if __name__ == '__main__':
 
     if ''.join(options.command) == ' ':
         logging.error('You need to specify a command to execute!')
-        sys.exit(1)
-    if options.silentcommand and options.command == ' ':
-        logging.error("-silentcommand switch and interactive shell not supported")
         sys.exit(1)
 
     if options.debug is True:
