@@ -35,6 +35,7 @@ from pyasn1.type.univ import noValue
 from impacket import version
 from impacket.dcerpc.v5.rpcrt import TypeSerialization1
 from impacket.examples import logger
+from impacket.examples.utils import parse_credentials
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, seq_set, seq_set_iter, PA_FOR_USER_ENC, \
     EncTicketPart, AD_IF_RELEVANT, Ticket as TicketAsn1
@@ -305,8 +306,7 @@ if __name__ == '__main__':
 
     options = parser.parse_args()
 
-    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(
-        options.credentials).groups('')
+    domain, username, password = parse_credentials(options.credentials)
 
     if domain is None:
         domain = ''

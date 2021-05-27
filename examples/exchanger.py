@@ -33,6 +33,7 @@ from six import PY3
 from impacket import uuid, version
 from impacket.http import AUTH_BASIC
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket.structure import parse_bitmask
 from impacket.dcerpc.v5 import transport, nspi
 from impacket.mapi_constants import PR_CONTAINER_FLAGS_VALUES, MAPI_PROPERTIES
@@ -966,13 +967,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-    domain, username, password, remoteName = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?([^:]*)').match(options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in remoteName:
-        password = password + '@' + remoteName.rpartition('@')[0]
-        remoteName = remoteName.rpartition('@')[2]
+    domain, username, password, remoteName = parse_target(options.target)
 
     if domain is None:
         domain = ''

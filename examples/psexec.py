@@ -30,6 +30,7 @@ from impacket.smbconnection import SMBConnection
 from impacket.dcerpc.v5 import transport
 from impacket.structure import Structure
 from impacket.examples import remcomsvc, serviceinstall
+from impacket.examples.utils import parse_target
 from impacket.krb5.keytab import Keytab
 
 
@@ -329,8 +330,8 @@ class RemoteShell(cmd.Cmd):
         print("""
  lcd {path}                 - changes the current local directory to {path}
  exit                       - terminates the server process (and this session)
- put {src_file, dst_path}   - uploads a local file to the dst_path RELATIVE to the connected share (%s)
- get {file}                 - downloads pathname RELATIVE to the connected share (%s) to the current local dir
+ lput {src_file, dst_path}   - uploads a local file to the dst_path RELATIVE to the connected share (%s)
+ lget {file}                 - downloads pathname RELATIVE to the connected share (%s) to the current local dir
  ! {cmd}                    - executes a local shell cmd
 """ % (self.share, self.share))
         self.send_data('\r\n', False)
@@ -339,7 +340,7 @@ class RemoteShell(cmd.Cmd):
         os.system(s)
         self.send_data('\r\n')
 
-    def do_get(self, src_path):
+    def do_lget(self, src_path):
         try:
             if self.transferClient is None:
                 self.connect_transferClient()
@@ -356,7 +357,7 @@ class RemoteShell(cmd.Cmd):
 
         self.send_data('\r\n')
 
-    def do_put(self, s):
+    def do_lput(self, s):
         try:
             if self.transferClient is None:
                 self.connect_transferClient()
@@ -477,15 +478,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-
-    domain, username, password, remoteName = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-        options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in remoteName:
-        password = password + '@' + remoteName.rpartition('@')[0]
-        remoteName = remoteName.rpartition('@')[2]
+    domain, username, password, remoteName = parse_target(options.target)
 
     if domain is None:
         domain = ''

@@ -7,18 +7,19 @@
 # for more information.
 #
 # Description:
-#  This script is an alternative to smbpasswd tool for changing Windows
-#  passwords over SMB (MSRPC-SAMR) remotely from Linux with a single shot to
-#  SamrUnicodeChangePasswordUser2 function (Opnum 55).
+#  This script is an alternative to smbpasswd tool and intended to be used
+#  for changing expired passwords remotely over SMB (MSRPC-SAMR).
 #
 # Author:
 #  Sam Freeside (@snovvcrash)
 #
-# Example:
-#  python smbpasswd.py 'j.doe'@pc1.megacorp.local
-#  python smbpasswd.py 'j.doe:Passw0rd!'@10.10.13.37 -newpass 'N3wPassw0rd!'
+# Examples:
+#  smbpasswd.py j.doe@PC01.megacorp.local
+#  smbpasswd.py j.doe:'Passw0rd!'@10.10.13.37 -newpass 'N3wPassw0rd!'
+#  smbpasswd.py -hashes :fc525c9683e8fe067095ba2ddc971889 j.doe@10.10.13.37 -newpass 'N3wPassw0rd!'
 #
 # References:
+#  https://snovvcrash.github.io/2020/10/31/pretending-to-be-smbpasswd-with-impacket.html
 #  https://github.com/samba-team/samba/blob/master/source3/utils/smbpasswd.c
 #  https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/acb3204a-da8b-478e-9139-1ea589edb880
 
@@ -30,69 +31,101 @@ from impacket.dcerpc.v5 import transport, samr
 from impacket import version
 
 
-def connect(host_name_or_ip):
-	rpctransport = transport.SMBTransport(host_name_or_ip, filename=r'\samr')
-	if hasattr(rpctransport, 'set_credentials'):
-		rpctransport.set_credentials(username='', password='', domain='', lmhash='', nthash='', aesKey='') # null session
+class SMBPasswd:
 
-	dce = rpctransport.get_dce_rpc()
-	dce.connect()
-	dce.bind(samr.MSRPC_UUID_SAMR)
+	def __init__(self, userName, oldPwd, newPwd, oldPwdHashLM, oldPwdHashNT, target):
+		self.userName = userName
+		self.oldPwd = oldPwd
+		self.newPwd = newPwd
+		self.oldPwdHashLM = oldPwdHashLM
+		self.oldPwdHashNT = oldPwdHashNT
+		self.target = target
+		self.dce = None
 
-	return dce
+		try:
+			self.connect()
+		except Exception as e:
+			if 'STATUS_ACCESS_DENIED' in str(e):
+				print('[-] Access was denied when attempting to initialize a null session. Try changing the password with smbclient.py.')
+			else:
+				raise e
 
+	def connect(self):
+		rpctransport = transport.SMBTransport(self.target, filename=r'\samr')
+		if hasattr(rpctransport, 'set_credentials'):
+			# Initializing a null session to be able to change an expired password
+			rpctransport.set_credentials(username='', password='', domain='', lmhash='', nthash='', aesKey='')
 
-def hSamrUnicodeChangePasswordUser2(username, currpass, newpass, target):
-	dce = connect(target)
+		self.dce = rpctransport.get_dce_rpc()
+		self.dce.connect()
+		self.dce.bind(samr.MSRPC_UUID_SAMR)
 
-	try:
-		resp = samr.hSamrUnicodeChangePasswordUser2(dce, '\x00', username, currpass, newpass)
-	except Exception as e:
-		if 'STATUS_WRONG_PASSWORD' in str(e):
-			print('[-] Current SMB password is not correct.')
-		elif 'STATUS_PASSWORD_RESTRICTION' in str(e):
-			print('[-] Some password update rule has been violated. For example, the password may not meet length criteria.')
+	def hSamrUnicodeChangePasswordUser2(self):
+		try:
+			resp = samr.hSamrUnicodeChangePasswordUser2(self.dce, '\x00', self.userName, self.oldPwd, self.newPwd, self.oldPwdHashLM, self.oldPwdHashNT)
+		except Exception as e:
+			if 'STATUS_WRONG_PASSWORD' in str(e):
+				print('[-] Current SMB password is not correct.')
+			elif 'STATUS_PASSWORD_RESTRICTION' in str(e):
+				print('[-] Some password update rule has been violated. For example, the password may not meet length criteria.')
+			else:
+				raise e
 		else:
-			raise e
-	else:
-		if resp['ErrorCode'] == 0:
-			print('[+] Password was changed successfully.')
-		else:
-			print('[?] Non-zero return code, something weird happened.')
-			resp.dump()
+			if resp['ErrorCode'] == 0:
+				print('[+] Password was changed successfully.')
+			else:
+				print('[?] Non-zero return code, something weird happened.')
+				resp.dump()
 
 
-def parse_target(target):
+def normalize_args(args):
 	try:
-		userpass, hostname_or_ip = target.rsplit('@', 1)
+		credentials, target = args.target.rsplit('@', 1)
 	except ValueError:
 		print('Wrong target string format. For more information run with --help option.')
 		sys.exit(1)
 
-	try:
-		username, currpass = userpass.split(':', 1)
-	except ValueError:
-		username = userpass
-		currpass = getpass('Current SMB password: ')
+	if args.hashes is not None:
+		try:
+			oldPwdHashLM, oldPwdHashNT = args.hashes.split(':')
+		except ValueError:
+			print('Wrong hashes string format. For more information run with --help option.')
+			sys.exit(1)
+	else:
+		oldPwdHashLM = ''
+		oldPwdHashNT = ''
 
-	return (username, currpass, hostname_or_ip)
+	try:
+		userName, oldPwd = credentials.split(':', 1)
+	except ValueError:
+		userName = credentials
+		if oldPwdHashNT == '':
+			oldPwd = getpass('Current SMB password: ')
+		else:
+			oldPwd = ''
+
+	if args.newpass is None:
+		newPwd = getpass('New SMB password: ')
+		if newPwd != getpass('Retype new SMB password: '):
+			print('Password does not match, try again.')
+			sys.exit(1)
+	else:
+		newPwd = args.newpass
+
+	return (userName, oldPwd, newPwd, oldPwdHashLM, oldPwdHashNT, target)
 
 
 if __name__ == '__main__':
 	print (version.BANNER)
-	parser = ArgumentParser()
-	parser.add_argument('target', help='<username[:currpass]>@<target_hostname_or_IP_address>')
-	parser.add_argument('-newpass', default=None, help='new SMB password')
+
+	parser = ArgumentParser(description='Change password over SMB.')
+	parser.add_argument('target', action='store', help='<username[:password]>@<target_hostname_or_IP_address>')
+	parser.add_argument('-newpass', action='store', default=None, help='new SMB password')
+	group = parser.add_argument_group('authentication')
+	group.add_argument('-hashes', action='store', default=None, metavar='LMHASH:NTHASH', help='current NTLM hashes, format is LMHASH:NTHASH')
 	args = parser.parse_args()
 
-	username, currpass, hostname_or_ip = parse_target(args.target)
+	userName, oldPwd, newPwd, oldPwdHashLM, oldPwdHashNT, target = normalize_args(args)
 
-	if args.newpass is None:
-		newpass = getpass('New SMB password: ')
-		if newpass != getpass('Retype new SMB password: '):
-			print('Password does not match, try again.')
-			sys.exit(2)
-	else:
-		newpass = args.newpass
-
-	hSamrUnicodeChangePasswordUser2(username, currpass, newpass, hostname_or_ip)
+	smbpasswd = SMBPasswd(userName, oldPwd, newPwd, oldPwdHashLM, oldPwdHashNT, target)
+	smbpasswd.hSamrUnicodeChangePasswordUser2()

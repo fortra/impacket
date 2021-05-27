@@ -130,7 +130,7 @@ class TargetsProcessor:
         if len(self.generalCandidates) > 0:
             if identity is not None:
                 for target in self.generalCandidates:
-                    tmpTarget =  '%s://%s@%s' % (target.scheme, identity.replace('/','\\'), target.netloc)
+                    tmpTarget = '%s://%s@%s' % (target.scheme, identity.replace('/', '\\'), target.netloc)
                     match = [x for x in self.finishedAttacks if x.geturl().upper() == tmpTarget.upper()]
                     if len(match) == 0:
                         self.generalCandidates.remove(target)
@@ -144,12 +144,16 @@ class TargetsProcessor:
                 self.generalCandidates = [x for x in self.originalTargets if
                                           x not in self.finishedAttacks and x.username is None]
 
-        if len(self.generalCandidates) == 0 and len(self.namedCandidates) == 0:
-            #We are here, which means all the targets are already exhausted by the client
-            LOG.info("All targets processed!")
+        if len(self.generalCandidates) == 0:
+            if len(self.namedCandidates) == 0:
+                # We are here, which means all the targets are already exhausted by the client
+                LOG.info("All targets processed!")
+            elif identity is not None:
+                # This user has no more targets
+                LOG.debug("No more targets for user %s" % identity)
             return None
-
-        return None
+        else:
+            return self.getTarget(identity)
 
 class TargetsFileWatcher(Thread):
     def __init__(self,targetprocessor):

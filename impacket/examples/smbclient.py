@@ -15,6 +15,7 @@
 #
 from __future__ import division
 from __future__ import print_function
+from io import BytesIO
 import sys
 import time
 import cmd
@@ -28,6 +29,8 @@ from impacket import LOG
 from impacket.smbconnection import SMBConnection, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB_DIALECT, SessionError, \
     FILE_READ_DATA, FILE_SHARE_READ, FILE_SHARE_WRITE
 from impacket.smb3structs import FILE_DIRECTORY_FILE, FILE_LIST_DIRECTORY
+
+import chardet
 
 
 # If you wanna have readline like functionality in Windows, install pyreadline
@@ -111,6 +114,7 @@ class MiniImpacketShell(cmd.Cmd):
  rmdir {dirname} - removes the directory under the current path
  put {filename} - uploads the filename into the current path
  get {filename} - downloads the filename from the current path
+ cat {filename} - reads the filename from the current path
  mount {target,path} - creates a mount point from {path} to {target} (admin required)
  umount {path} - removes the mount point at {path} without deleting the directory (admin required)
  list_snapshots {path} - lists the vss snapshots for the specified path
@@ -459,6 +463,31 @@ class MiniImpacketShell(cmd.Cmd):
             os.remove(filename)
             raise
         fh.close()
+
+    def do_cat(self, filename):
+        if self.tid is None:
+            LOG.error("No share selected")
+            return
+        filename = filename.replace('/','\\')
+        fh = BytesIO()
+        pathname = ntpath.join(self.pwd,filename)
+        try:
+            self.smb.getFile(self.share, pathname, fh.write)
+        except:
+            raise
+        output = fh.getvalue()
+        encoding = chardet.detect(output)["encoding"]
+        error_msg = "[-] Output cannot be correctly decoded, are you sure the text is readable ?"
+        if encoding:
+            try:
+                print(output.decode(encoding))
+            except:
+                print(error_msg)
+            finally:
+                fh.close()
+        else:
+            print(error_msg)
+            fh.close()
 
     def do_close(self, line):
         self.do_logoff(line)

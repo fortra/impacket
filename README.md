@@ -38,7 +38,7 @@ Setup
 Quick start
 -----------
 
-Grab the latest stable release, unpack it and run `pip3 install .` (`pip install .` for Python 2.x) from the directory where you placed it. Isn't that easy?
+Grab the latest stable release, unpack it and run `python3 -m pip install .` (`python2 -m pip install .` for Python 2.x) from the directory where you placed it. Isn't that easy?
 
 
 Requirements
@@ -58,7 +58,7 @@ Installing
 ----------
 
 In order to install the source execute the following command from the
-directory where the Impacket's distribution has been unpacked: `pip3 install .` (`pip install . `for Python 2.x).
+directory where the Impacket's distribution has been unpacked: `python3 -m pip install .` (`python2 -m pip install . `for Python 2.x).
 This will install the classes into the default
 Python modules path; note that you might need special permissions to
 write there. 
@@ -71,7 +71,7 @@ If you want to run the library test cases you need to do mainly three things:
 1. Install and configure a Windows 2012 R2 Domain Controller.
    * Be sure the RemoteRegistry service is enabled and running.
 2. Configure the [dcetest.cfg](https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_22/tests/SMB_RPC/dcetests.cfg) file with the necessary information
-3. Install tox (`pip3 install tox`)
+3. Install tox (`python3 -m pip install tox`)
 
 Once that's done, you can run `tox` and wait for the results. If all goes well, all test cases should pass.
 You will also have a coverage HTML report located at `impacket/tests/htlmcov/index.html`

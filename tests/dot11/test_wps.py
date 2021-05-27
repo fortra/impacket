@@ -50,7 +50,8 @@ class TestTLVContainer(unittest.TestCase):
             self.assertEqual(v, tlvc2.first(k))
         
         self.assertEqual(tlvc.to_ary(), tlvc2.to_ary())
-        self.assertEquals(b"Sarlanga", tlvc.first(1))
+        self.assertEqual(b"Sarlanga", tlvc.first(1))
+
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestTLVContainer)
 unittest.TextTestRunner(verbosity=1).run(suite)
