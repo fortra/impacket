@@ -363,18 +363,17 @@ if __name__ == '__main__':
                                                                               '(no SMB connection created)')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-silentcommand', action='store_true', default=False,
-                        help='does not execute cmd.exe to run given command ')
+                        help='does not execute cmd.exe to run given command (no output)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
                                                        '"%s"). If errors are detected, run chcp.com at the target, '
                                                        'map the result with '
                                                        'https://docs.python.org/3/library/codecs.html#standard-encodings and then execute wmiexec.py '
                                                        'again with -codec and the corresponding codec ' % CODEC)
-    parser.add_argument('-shell-type', action='store', default='cmd', choices=['cmd', 'powershell'], help='choose '
-                                                                                                          'a command processor for the semi-interactive shell')
-    parser.add_argument('-com-version', action='store', metavar="MAJOR_VERSION:MINOR_VERSION", help='DCOM version, '
-                                                                                                    'format is MAJOR_VERSION:MINOR_VERSION e.g. 5.7')
-
+    parser.add_argument('-shell-type', action='store', default='cmd', choices=['cmd', 'powershell'],
+                        help='choose a command processor for the semi-interactive shell')
+    parser.add_argument('-com-version', action='store', metavar="MAJOR_VERSION:MINOR_VERSION",
+                        help='DCOM version, format is MAJOR_VERSION:MINOR_VERSION e.g. 5.7')
     parser.add_argument('command', nargs='*', default=' ', help='command to execute at the target. If empty it will '
                                                                 'launch a semi-interactive shell')
 

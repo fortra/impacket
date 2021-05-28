@@ -242,7 +242,8 @@ if __name__ == '__main__':
     parser.add_argument('command', action='store', nargs='*', default=' ', help='command to execute at the target ')
     parser.add_argument('-session-id', action='store', type=int, help='an existed logon session to use (no output, no cmd.exe)')
     parser.add_argument('-ts', action='store_true', help='adds timestamp to every logging output')
-    parser.add_argument('-silentcommand', action='store_true', default = False, help='does not execute cmd.exe to run given command ')
+    parser.add_argument('-silentcommand', action='store_true', default = False, help='does not execute cmd.exe to run '
+                                                                                     'given command (no output)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
                                                        '"%s"). If errors are detected, run chcp.com at the target, '
