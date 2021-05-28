@@ -270,17 +270,17 @@ def main():
                 g.show(results)
             else:
                 print('[!] File does not exists or is not readable.')
-        else:
-            domain, username, password, address, lmhash, nthash = parse_target(args)
-            try:
-                smbClient= init_smb_session(args, domain, username, password, address, lmhash, nthash)
-                g = GetGPPasswords(smbClient, args.share)
-                g.list_shares()
-                g.find_cpasswords(args.base_dir)
-            except Exception as e:
-                if logging.getLogger().level == logging.DEBUG:
-                    traceback.print_exc()
-                logging.error(str(e))
+    else:
+        domain, username, password, address, lmhash, nthash = parse_target(args)
+        try:
+            smbClient= init_smb_session(args, domain, username, password, address, lmhash, nthash)
+            g = GetGPPasswords(smbClient, args.share)
+            g.list_shares()
+            g.find_cpasswords(args.base_dir)
+        except Exception as e:
+            if logging.getLogger().level == logging.DEBUG:
+                traceback.print_exc()
+            logging.error(str(e))
 
 
 if __name__ == '__main__':
