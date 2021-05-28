@@ -157,7 +157,8 @@ class GetGPPasswords(object):
 def parse_args():
     parser = argparse.ArgumentParser(add_help=True,
                                      description='Group Policy Preferences passwords finder and decryptor')
-    parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
+    parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address> or LOCAL'
+                                                       ' (if you want to parse local files)')
     parser.add_argument("-xmlfile", type=str, required=False, default=None, help="Group Policy Preferences XML files to parse")
     parser.add_argument("-share", type=str, required=False, default="SYSVOL", help="SMB Share")
     parser.add_argument("-base-dir", type=str, required=False, default="/", help="Directory to search in (Default: /)")
