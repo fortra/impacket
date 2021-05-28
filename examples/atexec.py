@@ -37,7 +37,7 @@ CODEC = sys.stdout.encoding
 
 class TSCH_EXEC:
     def __init__(self, username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False, kdcHost=None,
-                 command=None, sessionId=None):
+                 command=None, sessionId=None, silentCommand=False):
         self.__username = username
         self.__password = password
         self.__domain = domain
@@ -47,6 +47,7 @@ class TSCH_EXEC:
         self.__doKerberos = doKerberos
         self.__kdcHost = kdcHost
         self.__command = command
+        self.__silentCommand = silentCommand
         self.sessionId = sessionId
 
         if hashes is not None:
@@ -157,7 +158,8 @@ class TSCH_EXEC:
     </Exec>
   </Actions>
 </Task>
-        """ % (xml_escape(cmd), xml_escape(args))
+        """ % ((xml_escape(cmd) if self.__silentCommand is False else self.__command.split()[0]), 
+            (xml_escape(args) if self.__silentCommand is False else " ".join(self.__command.split()[1:])))
         taskCreated = False
         try:
             logging.info('Creating task \\%s' % tmpName)
@@ -201,6 +203,10 @@ class TSCH_EXEC:
             dce.disconnect()
             return
 
+        if self.__silentCommand:
+            dce.disconnect()
+            return
+
         smbConnection = rpctransport.get_smb_connection()
         waitOnce = True
         while True:
@@ -222,7 +228,7 @@ class TSCH_EXEC:
                     raise
         logging.debug('Deleting file ADMIN$\\Temp\\%s' % tmpFileName)
         smbConnection.deleteFile('ADMIN$', 'Temp\\%s' % tmpFileName)
- 
+
         dce.disconnect()
 
 
@@ -235,8 +241,9 @@ if __name__ == '__main__':
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('command', action='store', nargs='*', default=' ', help='command to execute at the target ')
     parser.add_argument('-session-id', action='store', type=int, help='an existed logon session to use (no output, no cmd.exe)')
-
     parser.add_argument('-ts', action='store_true', help='adds timestamp to every logging output')
+    parser.add_argument('-silentcommand', action='store_true', default = False, help='does not execute cmd.exe to run '
+                                                                                     'given command (no output)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
                                                        '"%s"). If errors are detected, run chcp.com at the target, '
@@ -303,5 +310,5 @@ if __name__ == '__main__':
         options.k = True
 
     atsvc_exec = TSCH_EXEC(username, password, domain, options.hashes, options.aesKey, options.k, options.dc_ip,
-                           ' '.join(options.command), options.session_id)
+                           ' '.join(options.command), options.session_id, options.silentcommand)
     atsvc_exec.play(address)

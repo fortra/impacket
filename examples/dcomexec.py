@@ -98,8 +98,8 @@ class DCOMEXEC:
                       oxid=objRef['std']['oxid'], oid=objRef['std']['oxid'],
                       target=interface.get_target()))
 
-    def run(self, addr):
-        if self.__noOutput is False:
+    def run(self, addr, silentCommand=False):
+        if self.__noOutput is False and silentCommand is False:
             smbConnection = SMBConnection(addr, addr)
             if self.__doKerberos is False:
                 smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
@@ -163,17 +163,21 @@ class DCOMEXEC:
 
                 iActiveView = IDispatch(self.getInterface(iMMC, resp['pVarResult']['_varUnion']['pdispVal']['abData']))
                 pExecuteShellCommand = iActiveView.GetIDsOfNames(('ExecuteShellCommand',))[0]
-                self.shell = RemoteShellMMC20(self.__share, (iMMC, pQuit), (iActiveView, pExecuteShellCommand), smbConnection, self.__shell_type)
+                self.shell = RemoteShellMMC20(self.__share, (iMMC, pQuit), (iActiveView, pExecuteShellCommand), smbConnection, self.__shell_type, silentCommand)
             else:
                 resp = iDocument.GetIDsOfNames(('Application',))
                 resp = iDocument.Invoke(resp[0], 0x409, DISPATCH_PROPERTYGET, dispParams, 0, [], [])
 
                 iActiveView = IDispatch(self.getInterface(iMMC, resp['pVarResult']['_varUnion']['pdispVal']['abData']))
                 pExecuteShellCommand = iActiveView.GetIDsOfNames(('ShellExecute',))[0]
-                self.shell = RemoteShell(self.__share, (iMMC, pQuit), (iActiveView, pExecuteShellCommand), smbConnection, self.__shell_type)
+                self.shell = RemoteShell(self.__share, (iMMC, pQuit), (iActiveView, pExecuteShellCommand), smbConnection, self.__shell_type, silentCommand)
 
             if self.__command != ' ':
-                self.shell.onecmd(self.__command)
+                try:
+                    self.shell.onecmd(self.__command)
+                except TypeError:
+                    if not silentCommand:
+                        raise
                 if self.shell is not None:
                     self.shell.do_exit('')
             else:
@@ -196,7 +200,7 @@ class DCOMEXEC:
         dcom.disconnect()
 
 class RemoteShell(cmd.Cmd):
-    def __init__(self, share, quit, executeShellCommand, smbConnection, shell_type):
+    def __init__(self, share, quit, executeShellCommand, smbConnection, shell_type, silentCommand=False):
         cmd.Cmd.__init__(self)
         self._share = share
         self._output = '\\' + OUTPUT_FILENAME
@@ -207,6 +211,7 @@ class RemoteShell(cmd.Cmd):
         self.__quit = quit
         self._executeShellCommand = executeShellCommand
         self.__transferClient = smbConnection
+        self._silentCommand = silentCommand
         self._pwd = 'C:\\windows\\system32'
         self._noOutput = False
         self.intro = '[!] Launching semi-interactive shell - Careful what you execute\n[!] Press help for extra shell commands'
@@ -365,11 +370,15 @@ class RemoteShell(cmd.Cmd):
         self.__transferClient.deleteFile(self._share, self._output)
 
     def execute_remote(self, data, shell_type='cmd'):
-        if shell_type == 'powershell':
-            data = '$ProgressPreference="SilentlyContinue";' + data
-            data = self.__pwsh + b64encode(data.encode('utf-16le')).decode()
+        if self._silentCommand is True:
+            self._shell = data.split()[0]
+            command = ' '.join(data.split()[1:])
+        else:
+            if shell_type == 'powershell':
+                data = '$ProgressPreference="SilentlyContinue";' + data
+                data = self.__pwsh + b64encode(data.encode('utf-16le')).decode()
+            command = '/Q /c ' + data
 
-        command = '/Q /c ' + data
         if self._noOutput is False:
             command += ' 1> ' + '\\\\127.0.0.1\\%s' % self._share + self._output + ' 2>&1'
 
@@ -430,11 +439,15 @@ class RemoteShell(cmd.Cmd):
 
 class RemoteShellMMC20(RemoteShell):
     def execute_remote(self, data, shell_type='cmd'):
-        if shell_type == 'powershell':
-            data = '$ProgressPreference="SilentlyContinue";' + data
-            data = self._RemoteShell__pwsh + b64encode(data.encode('utf-16le')).decode()
+        if self._silentCommand is True:
+            self._shell = data.split()[0]
+            command = ' '.join(data.split()[1:])
+        else:
+            if shell_type == 'powershell':
+                data = '$ProgressPreference="SilentlyContinue";' + data
+                data = self._RemoteShell__pwsh + b64encode(data.encode('utf-16le')).decode()
+            command = '/Q /c ' + data
 
-        command = '/Q /c ' + data
         if self._noOutput is False:
             command += ' 1> ' + '\\\\127.0.0.1\\%s' % self._share + self._output  + ' 2>&1'
 
@@ -532,6 +545,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(add_help = True, description = "Executes a semi-interactive shell using the "
                                                                     "ShellBrowserWindow DCOM object.")
+
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-share', action='store', default = 'ADMIN$', help='share where the output will be grabbed from '
                                                                            '(default ADMIN$)')
@@ -548,12 +562,12 @@ if __name__ == '__main__':
                         help='DCOM object to be used to execute the shell command (default=ShellWindows)')
     parser.add_argument('-com-version', action='store', metavar = "MAJOR_VERSION:MINOR_VERSION", help='DCOM version, '
                         'format is MAJOR_VERSION:MINOR_VERSION e.g. 5.7')
-
     parser.add_argument('-shell-type', action='store', default = 'cmd', choices = ['cmd', 'powershell'], help='choose '
                         'a command processor for the semi-interactive shell')
-
     parser.add_argument('command', nargs='*', default = ' ', help='command to execute at the target. If empty it will '
                                                                   'launch a semi-interactive shell')
+    parser.add_argument('-silentcommand', action='store_true', default = False,
+                        help='does not execute cmd.exe to run given command (no output, cannot run dir/cd/etc.)')
 
     group = parser.add_argument_group('authentication')
 
@@ -587,6 +601,9 @@ if __name__ == '__main__':
 
     if ' '.join(options.command) == ' ' and options.nooutput is True:
         logging.error("-nooutput switch and interactive shell not supported")
+        sys.exit(1)
+    if options.silentcommand and options.command == ' ':
+        logging.error("-silentcommand switch and interactive shell not supported")
         sys.exit(1)
 
     if options.debug is True:
@@ -627,7 +644,7 @@ if __name__ == '__main__':
 
         executer = DCOMEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey,
                             options.share, options.nooutput, options.k, options.dc_ip, options.object, options.shell_type)
-        executer.run(address)
+        executer.run(address, options.silentcommand)
     except (Exception, KeyboardInterrupt) as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
