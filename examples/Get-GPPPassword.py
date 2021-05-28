@@ -8,11 +8,12 @@
 #  Charlie Bromberg (@_nwodtuhs)
 
 import argparse
-import logging
-import chardet
 import base64
-import sys
+import chardet
+import logging
+import os
 import re
+import sys
 import traceback
 
 from xml.dom import minidom
@@ -73,6 +74,29 @@ class GetGPPasswords(object):
             logging.debug('Next iteration with %d folders.' % len(next_dirs))
         return files
 
+    def parse_xmlfile_content(self, filename, filecontent):
+        results = []
+        try:
+            root = minidom.parseString(filecontent)
+            properties_list = root.getElementsByTagName("Properties")
+            # function to get attribute if it exists, returns "" if empty
+            read_or_empty = lambda element, attribute: (
+                element.getAttribute(attribute) if element.getAttribute(attribute) != None else "")
+            for properties in properties_list:
+                results.append({
+                    'newname': read_or_empty(properties, 'newName'),
+                    'changed': read_or_empty(properties.parentNode, 'changed'),
+                    'cpassword': read_or_empty(properties, 'cpassword'),
+                    'password': self.decrypt_password(read_or_empty(properties, 'cpassword')),
+                    'username': read_or_empty(properties, 'userName'),
+                    'file': filename
+                })
+        except Exception as e:
+            if logging.getLogger().level == logging.DEBUG:
+                traceback.print_exc()
+            logging.debug(str(e))
+        return results
+
     def parse(self, filename):
         results = []
         filename = filename.replace('/', '\\')
@@ -92,25 +116,7 @@ class GetGPPasswords(object):
             filecontent = output.decode(encoding).rstrip()
             if 'cpassword' in filecontent:
                 logging.debug(filecontent)
-                try:
-                    root = minidom.parseString(filecontent)
-                    properties_list = root.getElementsByTagName("Properties")
-                    # function to get attribute if it exists, returns "" if empty
-                    read_or_empty = lambda element, attribute: (
-                        element.getAttribute(attribute) if element.getAttribute(attribute) != None else "")
-                    for properties in properties_list:
-                        results.append({
-                            'newname': read_or_empty(properties, 'newName'),
-                            'changed': read_or_empty(properties.parentNode, 'changed'),
-                            'cpassword': read_or_empty(properties, 'cpassword'),
-                            'password': self.decrypt_password(read_or_empty(properties, 'cpassword')),
-                            'username': read_or_empty(properties, 'userName'),
-                            'file': filename
-                        })
-                except Exception as e:
-                    if logging.getLogger().level == logging.DEBUG:
-                        traceback.print_exc()
-                    logging.debug(str(e))
+                results = self.parse_xmlfile_content(filename, filecontent)
                 fh.close()
             else:
                 logging.debug("No cpassword was found in %s" % filename)
@@ -151,7 +157,9 @@ class GetGPPasswords(object):
 def parse_args():
     parser = argparse.ArgumentParser(add_help=True,
                                      description='Group Policy Preferences passwords finder and decryptor')
-    parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
+    parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address> or LOCAL'
+                                                       ' (if you want to parse local files)')
+    parser.add_argument("-xmlfile", type=str, required=False, default=None, help="Group Policy Preferences XML files to parse")
     parser.add_argument("-share", type=str, required=False, default="SYSVOL", help="SMB Share")
     parser.add_argument("-base-dir", type=str, required=False, default="/", help="Directory to search in (Default: /)")
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
@@ -249,16 +257,30 @@ def main():
     print(version.BANNER)
     args = parse_args()
     init_logger(args)
-    domain, username, password, address, lmhash, nthash = parse_target(args)
-    try:
-        smbClient= init_smb_session(args, domain, username, password, address, lmhash, nthash)
-        g = GetGPPasswords(smbClient, args.share)
-        g.list_shares()
-        g.find_cpasswords(args.base_dir)
-    except Exception as e:
-        if logging.getLogger().level == logging.DEBUG:
-            traceback.print_exc()
-        logging.error(str(e))
+    if args.target.upper() == "LOCAL" :
+        if args.xmlfile is not None:
+            # Only given decrypt XML file
+            if os.path.exists(args.xmlfile):
+                g = GetGPPasswords(None, None)
+                logging.debug("Opening %s XML file for reading ..." % args.xmlfile)
+                f = open(args.xmlfile,'r')
+                rawdata = ''.join(f.readlines())
+                f.close()
+                results = g.parse_xmlfile_content(args.xmlfile, rawdata)
+                g.show(results)
+            else:
+                print('[!] File does not exists or is not readable.')
+    else:
+        domain, username, password, address, lmhash, nthash = parse_target(args)
+        try:
+            smbClient= init_smb_session(args, domain, username, password, address, lmhash, nthash)
+            g = GetGPPasswords(smbClient, args.share)
+            g.list_shares()
+            g.find_cpasswords(args.base_dir)
+        except Exception as e:
+            if logging.getLogger().level == logging.DEBUG:
+                traceback.print_exc()
+            logging.error(str(e))
 
 
 if __name__ == '__main__':
