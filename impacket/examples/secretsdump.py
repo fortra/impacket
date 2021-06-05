@@ -575,36 +575,33 @@ class RemoteOperations:
             resp = e.get_packet()
         return resp
 
-    def getDomainAdmins(self):
-        # Searching for users and computers with AdminCount=1
-        searchFilter = "(&(|(&(objectCategory=person)(objectClass=user))(&(objectCategory=computer)(objectClass=computer)))(adminCount=1))"
-
+    def getDomainUsersLDAP(self, searchFilter):
         try:
             LOG.debug('Search Filter=%s' % searchFilter)
             sc = SimplePagedResultsControl(size=100)
-            resp = self.__ldapConnection.search(searchFilter=searchFilter, attributes=['sAMAccountName'], sizeLimit=0, searchControls=[sc])
+            resp = self.__ldapConnection.search(searchFilter=searchFilter, attributes=['msDS-PrincipalName'], sizeLimit=0, searchControls=[sc])
         except LDAPSearchError:
             raise
 
         self.__ldapConnection.close()
 
-        domainAdmins = []
+        domainUsers = []
         for item in resp:
             if isinstance(item, SearchResultEntry):
-                sAMAccountName = ''
+                msDSPrincipalName = ''
                 try:
                     for attribute in item['attributes']:
-                        if str(attribute['type']) == 'sAMAccountName':
-                            sAMAccountName = attribute['vals'][0].asOctets().decode('utf-8')
+                        if str(attribute['type']) == 'msDS-PrincipalName':
+                            msDSPrincipalName = attribute['vals'][0].asOctets().decode('utf-8')
                 except Exception as e:
                     LOG.debug("Exception", exc_info=True)
                     LOG.error('Skipping item, cannot process due to error %s' % str(e))
                     pass
                 else:
-                    LOG.debug('DA sAMAccountName: %s' % sAMAccountName)
-                    domainAdmins.append(sAMAccountName)
+                    LOG.debug('DA msDS-PrincipalName: %s' % msDSPrincipalName)
+                    domainUsers.append(msDSPrincipalName)
 
-        return domainAdmins
+        return domainUsers
 
     def getDomainSid(self):
         if self.__domainSid is not None:
@@ -1872,7 +1869,7 @@ class NTDSHashes:
 
     def __init__(self, ntdsFile, bootKey, isRemote=False, history=False, noLMHash=True, remoteOps=None,
                  useVSSMethod=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None,
-                 justUser=None, justDomainAdmins=None, printUserStatus=False,
+                 justUser=None, ldapFilter=None, printUserStatus=False,
                  perSecretCallback = lambda secretType, secret : _print_helper(secret),
                  resumeSessionMgr=ResumeSessionMgrInFile):
         self.__bootKey = bootKey
@@ -1895,7 +1892,7 @@ class NTDSHashes:
         self.__resumeSession = resumeSessionMgr(resumeSession)
         self.__outputFileName = outputFileName
         self.__justUser = justUser
-        self.__justDomainAdmins = justDomainAdmins
+        self.__ldapFilter = ldapFilter
         self.__perSecretCallback = perSecretCallback
 
     def getResumeSessionFile(self):
@@ -2369,7 +2366,7 @@ class NTDSHashes:
                         try:
                             self.__remoteOps.connectSamr(self.__remoteOps.getMachineNameAndDomain()[1])
                         except:
-                            if os.getenv('KRB5CCNAME') is not None and (self.__justUser is not None or self.__justDomainAdmins is not None):
+                            if os.getenv('KRB5CCNAME') is not None and (self.__justUser is not None or self.__ldapFilter is not None):
                                 # RemoteOperations failed. That might be because there was no way to log into the
                                 # target system. We just have a last resort. Hope we have tickets cached and that they
                                 # will work
@@ -2461,7 +2458,7 @@ class NTDSHashes:
                 else:
                     resumeSid = None
                     # We do not create a resume file when asking for individual users
-                    if self.__justUser is None and self.__justDomainAdmins is None:
+                    if self.__justUser is None and self.__ldapFilter is None:
                         self.__resumeSession.beginTransaction()
 
                 if self.__justUser is not None:
@@ -2506,14 +2503,13 @@ class NTDSHashes:
                         LOG.error("Error while processing user!")
                         LOG.debug("Exception", exc_info=True)
                         LOG.error(str(e))
-                elif self.__justDomainAdmins is not None:
-                    resp = self.__remoteOps.getDomainAdmins()
+                elif self.__ldapFilter is not None:
+                    resp = self.__remoteOps.getDomainUsersLDAP(self.__ldapFilter)
                     formatOffered = drsuapi.DS_NAME_FORMAT.DS_NT4_ACCOUNT_NAME
-                    for item in resp:
-                        fullName = self.__justDomainAdmins + '\\' + item
+                    for user in resp:
                         crackedName = self.__remoteOps.DRSCrackNames(formatOffered,
                                                                      drsuapi.DS_NAME_FORMAT.DS_UNIQUE_ID_NAME,
-                                                                     name=fullName)
+                                                                     name=user)
 
                         if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
                             if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
@@ -2527,7 +2523,7 @@ class NTDSHashes:
                                 raise Exception('DRSGetNCChanges didn\'t return any object!')
                         else:
                             LOG.warning('DRSCrackNames returned %d items for user %s, skipping' % (
-                                        crackedName['pmsgOut']['V1']['pResult']['cItems'], self.fullName))
+                                        crackedName['pmsgOut']['V1']['pResult']['cItems'], user))
                         try:
                             self.__decryptHash(userRecord,
                                                userRecord['pmsgOut'][replyVersion]['PrefixTableSrc']['pPrefixEntry'],
@@ -2537,7 +2533,7 @@ class NTDSHashes:
                                                                'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
 
                         except Exception as e:
-                            LOG.error("Error while processing user %s!" % fullName)
+                            LOG.error("Error while processing user %s!" % user)
                             LOG.debug("Exception", exc_info=True)
                             LOG.error(str(e))
 
@@ -2602,7 +2598,7 @@ class NTDSHashes:
 
                 # Everything went well and we covered all the users
                 # Let's remove the resume file is we had created it
-                if self.__justUser is None and self.__justDomainAdmins is None:
+                if self.__justUser is None and self.__ldapFilter is None:
                     self.__resumeSession.clearResumeData()
 
             LOG.debug("Finished processing and printing user's hashes, now printing supplemental information")

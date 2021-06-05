@@ -94,7 +94,7 @@ class DumpSecrets:
         self.__justDC = options.just_dc
         self.__justDCNTLM = options.just_dc_ntlm
         self.__justUser = options.just_dc_user
-        self.__justDomainAdmins = options.just_dc_da
+        self.__ldapFilter = options.ldapfilter
         self.__pwdLastSet = options.pwd_last_set
         self.__printUserStatus= options.user_status
         self.__resumeFileName = options.resumefile
@@ -171,8 +171,8 @@ class DumpSecrets:
             else:
                 self.__isRemote = True
                 bootKey = None
-                if self.__justDomainAdmins is not None:
-                    logging.info('Querying %s for information about domain admins via LDAP' % self.__domain)
+                if self.__ldapFilter is not None:
+                    logging.info('Querying %s for information about domain users via LDAP' % self.__domain)
                     try:
                         self.ldapConnect()
                     except Exception as e:
@@ -256,7 +256,7 @@ class DumpSecrets:
                                            useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM,
                                            pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
                                            outputFileName=self.__outputFileName, justUser=self.__justUser,
-                                           justDomainAdmins=self.__justDomainAdmins, printUserStatus=self.__printUserStatus)
+                                           ldapFilter=self.__ldapFilter, printUserStatus=self.__printUserStatus)
             try:
                 self.__NTDSHashes.dump()
             except Exception as e:
@@ -270,7 +270,7 @@ class DumpSecrets:
                     if resumeFile is not None:
                         os.unlink(resumeFile)
                 logging.error(e)
-                if (self.__justUser or self.__justDomainAdmins) and str(e).find("ERROR_DS_NAME_ERROR_NOT_UNIQUE") >= 0:
+                if (self.__justUser or self.__ldapFilter) and str(e).find("ERROR_DS_NAME_ERROR_NOT_UNIQUE") >= 0:
                     logging.info("You just got that error because there might be some duplicates of the same name. "
                                  "Try specifying the domain name for the user as well. It is important to specify it "
                                  "in the form of NetBIOS domain name/user (e.g. contoso/Administratror).")
@@ -350,9 +350,9 @@ if __name__ == '__main__':
     group.add_argument('-just-dc-user', action='store', metavar='USERNAME',
                        help='Extract only NTDS.DIT data for the user specified. Only available for DRSUAPI approach. '
                             'Implies also -just-dc switch')
-    group.add_argument('-just-dc-da', action='store', metavar='TARGET_NETBIOS_NAME',
-                       help='Extract only NTDS.DIT data for domain admins (AdminCount=1). Only available for DRSUAPI approach. '
-                            'Implies also -just-dc switch')
+    group.add_argument('-ldapfilter', action='store', metavar='LDAPFILTER',
+                       help='Extract only NTDS.DIT data for specific users based on an LDAP filter. '
+                            'Only available for DRSUAPI approach. Implies also -just-dc switch')
     group.add_argument('-just-dc', action='store_true', default=False,
                         help='Extract only NTDS.DIT data (NTLM hashes and Kerberos keys)')
     group.add_argument('-just-dc-ntlm', action='store_true', default=False,
@@ -397,7 +397,7 @@ if __name__ == '__main__':
 
     domain, username, password, remoteName = parse_target(options.target)
 
-    if options.just_dc_user is not None or options.just_dc_da is not None:
+    if options.just_dc_user is not None or options.ldapfilter is not None:
         if options.use_vss is True:
             logging.error('-just-dc-user switch is not supported in VSS mode')
             sys.exit(1)
