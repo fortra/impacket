@@ -23,6 +23,7 @@ from struct import unpack, calcsize, pack
 from functools import partial
 import collections
 import logging
+import six
 
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER, NDRUniConformantVaryingArray, NDRUNION, \
     NDRENUM
@@ -794,7 +795,7 @@ class INSTANCE_TYPE(Structure):
     def processNdTable(self, properties):
         octetCount = (len(properties) - 1) // 4 + 1  # see [MS-WMIO]: 2.2.26 NdTable
         packedNdTable = self['NdTable_ValueTable'][:octetCount]
-        unpackedNdTable = [(ord(byte) >> shift) & 0b11 for byte in packedNdTable for shift in (0, 2, 4, 6)]
+        unpackedNdTable = [(byte >> shift) & 0b11 for byte in six.iterbytes(packedNdTable) for shift in (0, 2, 4, 6)]
         for key in properties:
             ndEntry = unpackedNdTable[properties[key]['order']]
             properties[key]['null_default'] = bool(ndEntry & 0b01)
