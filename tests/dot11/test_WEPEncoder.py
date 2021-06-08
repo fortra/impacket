@@ -120,4 +120,4 @@ class TestDot11WEPData(unittest.TestCase):
         #print "\nDot11 encrypted [%s]"%hexlify(self.dot11.get_packet())
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11WEPData)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

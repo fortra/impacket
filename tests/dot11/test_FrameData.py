@@ -98,4 +98,4 @@ class TestDot11DataFrames(unittest.TestCase):
         self.assertEqual(self.data.get_frame_body(), frame_body)
       
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11DataFrames)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

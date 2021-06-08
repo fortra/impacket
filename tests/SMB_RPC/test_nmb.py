@@ -81,4 +81,4 @@ class NetBIOSTests(NMBTests):
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(NetBIOSTests)
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

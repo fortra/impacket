@@ -60,4 +60,4 @@ class TestDot11FrameControlCFEndCFACK(unittest.TestCase):
         self.assertEqual(self.cfendcfack.get_bssid().tolist(), [0x12,0xae,0x0f,0xb0,0xd9,0x34])
       
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11FrameControlCFEndCFACK)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

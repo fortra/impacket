@@ -139,4 +139,4 @@ class TestDot11ManagementProbeRequestFrames(unittest.TestCase):
         self.assertEqual(self.management_probe_request.get_header_size(), 23-2)
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementProbeRequestFrames)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

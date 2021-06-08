@@ -53,4 +53,4 @@ class TestTLVContainer(unittest.TestCase):
         self.assertEquals(b"Sarlanga", tlvc.first(1))
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestTLVContainer)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

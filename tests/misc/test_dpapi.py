@@ -203,4 +203,4 @@ class DPAPITests(unittest.TestCase):
 # Process command-line arguments.
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(DPAPITests)
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')
