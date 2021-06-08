@@ -238,7 +238,7 @@ class TCPTransport64(WMITests):
 class OfflineTests(unittest.TestCase):
     def assertIWbemClassObjectAttr(self, _object, attribute_name, expected_value):
         actual_value = getattr(_object, attribute_name)
-        self.assertEqual(actual_value, expected_value, '{}.{} is {!r}, but was expecting {!r}'.format(
+        self.assertEqual(expected_value, actual_value, '{}.{} is {!r}, but was expecting {!r}'.format(
             _object.getClassName(), attribute_name, actual_value, expected_value
         ))
 
@@ -252,9 +252,9 @@ class OfflineTests(unittest.TestCase):
 
         The following lines were added in the impacket.dcerpc.v5.dcomrt.INTERFACE class constructor:
         https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_22/impacket/dcerpc/v5/dcomrt.py#L1111-L1112
-        >>> if objRef and b'Win32_CurrentTime' in objRef:
-        >>>     import base64, textwrap, zlib
-        >>>     print('\n'.join(textwrap.wrap(base64.b64encode(zlib.compress(objRef)), 96)))
+        if objRef and b'Win32_CurrentTime' in objRef:
+            import base64, textwrap, zlib
+            print('\n'.join(textwrap.wrap(base64.b64encode(zlib.compress(objRef)), 96)))
 
         Target's time had previously been set to 00:00 UTC
         """
