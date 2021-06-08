@@ -791,9 +791,20 @@ class INSTANCE_TYPE(Structure):
         else:
             self.data = None
 
+    def processNdTable(self, properties):
+        octetCount = (len(properties) - 1) // 4 + 1  # see [MS-WMIO]: 2.2.26 NdTable
+        packedNdTable = self['NdTable_ValueTable'][:octetCount]
+        unpackedNdTable = [(ord(byte) >> shift) & 0b11 for byte in packedNdTable for shift in (0, 2, 4, 6)]
+        for key in properties:
+            ndEntry = unpackedNdTable[properties[key]['order']]
+            properties[key]['null_default'] = bool(ndEntry & 0b01)
+            properties[key]['inherited_default'] = bool(ndEntry & 0b10)
+
+        return octetCount
+
     def getValues(self, properties):
         heap = self["InstanceHeap"]["HeapItem"]
-        valueTableOff = (len(properties) - 1) // 4 + 1
+        valueTableOff = self.processNdTable(properties)
         valueTable = self['NdTable_ValueTable'][valueTableOff:]
         sorted_props = sorted(list(properties.keys()), key=lambda k: properties[k]['order'])
         for key in sorted_props:
@@ -810,7 +821,7 @@ class INSTANCE_TYPE(Structure):
                 itemValue = 0xffffffff
 
             # if itemValue == 0, default value remains
-            if itemValue != 0:
+            if itemValue != 0 or not properties[key]['null_default']:
                 value = ENCODED_VALUE.getValue( properties[key]['type'], itemValue, heap)
                 properties[key]['value'] = value
             # is the value set valid or should we clear it? ( if not inherited )
