@@ -40,7 +40,9 @@
 from __future__ import division
 from __future__ import print_function
 
+import base64
 import unittest
+import zlib
 
 try:
     import ConfigParser
@@ -232,6 +234,51 @@ class TCPTransport64(WMITests):
             self.lmhash = ''
             self.nthash = ''
 
+
+class OfflineTests(unittest.TestCase):
+    def assertIWbemClassObjectAttr(self, _object, attribute_name, expected_value):
+        actual_value = getattr(_object, attribute_name)
+        self.assertEqual(actual_value, expected_value, '{}.{} is {!r}, but was expecting {!r}'.format(
+            _object.getClassName(), attribute_name, actual_value, expected_value
+        ))
+
+    def test_win32_current_time_class_parsing(self):
+        """
+        https://docs.microsoft.com/en-us/previous-versions/windows/desktop/wmitimepprov/win32-currenttime
+        Parse a Win32_CurrentTime instance object, response for the 'Select * from Win32_UTCTime' WMI query
+
+        The data was obtained by running the following command while patching impacket.dcerpc.v5.dcomrt.INTERFACE:
+        echo 'Select * from Win32_UTCTime' | wmiquery.py username:password@x.x.x.x -file -
+
+        The following lines were added in the impacket.dcerpc.v5.dcomrt.INTERFACE class constructor:
+        https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_22/impacket/dcerpc/v5/dcomrt.py#L1111-L1112
+        >>> if objRef and b'Win32_CurrentTime' in objRef:
+        >>>     import base64, textwrap, zlib
+        >>>     print('\n'.join(textwrap.wrap(base64.b64encode(zlib.compress(objRef)), 96)))
+
+        Target's time had previously been set to 00:00 UTC
+        """
+        current_time_obj_ref = zlib.decompress(base64.b64decode('''
+        eJzNks8vA0EUx7/bVutXQotEQkPSJg4Sh1YcnCTVhFC/WopIpKmhGzWbbHeFOCAcSBzEwR/g4ODmJP4CN5x6EiccHcWNN7Ok
+        I/bg6CWfnTcvn7d5szup5HjWB2D3PPSwXboLHqRwgZGeaOj9ONkfvg8edjh7UlD2AhszvaFbWv1IJ2eSY7N9vYBpGNZCXl9b
+        j6HghRPdRJtIsjqPxxYTtmkybmX0NYYmqnYRAWBHq6Pk48NPKaopbSAiRNyp19KzR2yJeYIRR8QJcU3cEK/EGxHWgCgxQmSI
+        LWKPuCCuiEfiSRNv/XOcemgs5wDTmYQc3tkmikZ+dcI01vUlZgJpna8UmWVwYDC3iaYBwCOPIyJI0Dl2IqIwJSq2zq14TLrj
+        y1nGVmWHF/VuHftqx5Bhm1L2o9VNvlTllF4s6iWWN/hSSTbVIOrW9PKzidsWk3oA7W56i6bqBrcK0tbgc7MTqj1p50yLOSeo
+        QrObX1L9tBxe6tXodNPPVF18ymFeGcmHRreestozx3LOPJX4IXs9ivx/YrSS1j8HxH2AvHAehe+IfK3i/2gN+H2lgU8VG67O
+        '''))
+        current_time_obj = wmi.IWbemClassObject(wmi.INTERFACE(objRef=current_time_obj_ref, target=''))
+        self.assertIWbemClassObjectAttr(current_time_obj, 'Year', 2021)
+        self.assertIWbemClassObjectAttr(current_time_obj, 'Month', 6)
+        self.assertIWbemClassObjectAttr(current_time_obj, 'Day', 8)
+        self.assertIWbemClassObjectAttr(current_time_obj, 'DayOfWeek', 2)
+        self.assertIWbemClassObjectAttr(current_time_obj, 'Hour', 0)
+        self.assertIWbemClassObjectAttr(current_time_obj, 'Minute', 0)
+        self.assertIWbemClassObjectAttr(current_time_obj, 'Second', 35)
+        # According to the Win32_CurrentTime class documentation, the Milliseconds property is not returned / used, the
+        # PowerShell "gwmi win32_currenttime" command output shows it empty indicating it is $null, so it should be None
+        self.assertIWbemClassObjectAttr(current_time_obj, 'Milliseconds', None)
+
+
 # Process command-line arguments.
 if __name__ == '__main__':
     import sys
@@ -241,4 +288,5 @@ if __name__ == '__main__':
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
+        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(OfflineTests))
     unittest.TextTestRunner(verbosity=1).run(suite)
