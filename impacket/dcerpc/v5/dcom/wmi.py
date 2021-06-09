@@ -282,6 +282,15 @@ CIM_TYPE_TO_NAME = {
     CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value   : 'object',
 }
 
+CIM_NUMBER_TYPES = (
+    CIM_TYPE_ENUM.CIM_TYPE_CHAR16.value, CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value,
+    CIM_TYPE_ENUM.CIM_TYPE_SINT8.value, CIM_TYPE_ENUM.CIM_TYPE_UINT8.value,
+    CIM_TYPE_ENUM.CIM_TYPE_SINT16.value, CIM_TYPE_ENUM.CIM_TYPE_UINT16.value,
+    CIM_TYPE_ENUM.CIM_TYPE_SINT32.value, CIM_TYPE_ENUM.CIM_TYPE_UINT32.value,
+    CIM_TYPE_ENUM.CIM_TYPE_SINT64.value, CIM_TYPE_ENUM.CIM_TYPE_UINT64.value,
+    CIM_TYPE_ENUM.CIM_TYPE_REAL32.value, CIM_TYPE_ENUM.CIM_TYPE_REAL64.value,
+)
+
 # 2.2.61 QualifierName
 QUALIFIER_NAME = HEAP_STRING_REF
 
@@ -792,7 +801,7 @@ class INSTANCE_TYPE(Structure):
         else:
             self.data = None
 
-    def processNdTable(self, properties):
+    def __processNdTable(self, properties):
         octetCount = (len(properties) - 1) // 4 + 1  # see [MS-WMIO]: 2.2.26 NdTable
         packedNdTable = self['NdTable_ValueTable'][:octetCount]
         unpackedNdTable = [(byte >> shift) & 0b11 for byte in six.iterbytes(packedNdTable) for shift in (0, 2, 4, 6)]
@@ -803,9 +812,13 @@ class INSTANCE_TYPE(Structure):
 
         return octetCount
 
+    @staticmethod
+    def __isNonNullNumber(prop):
+        return prop['type'] & ~Inherited in CIM_NUMBER_TYPES and not prop['null_default']
+
     def getValues(self, properties):
         heap = self["InstanceHeap"]["HeapItem"]
-        valueTableOff = self.processNdTable(properties)
+        valueTableOff = self.__processNdTable(properties)
         valueTable = self['NdTable_ValueTable'][valueTableOff:]
         sorted_props = sorted(list(properties.keys()), key=lambda k: properties[k]['order'])
         for key in sorted_props:
@@ -822,7 +835,7 @@ class INSTANCE_TYPE(Structure):
                 itemValue = 0xffffffff
 
             # if itemValue == 0, default value remains
-            if itemValue != 0 or not properties[key]['null_default']:
+            if itemValue != 0 or self.__isNonNullNumber(properties[key]):
                 value = ENCODED_VALUE.getValue( properties[key]['type'], itemValue, heap)
                 properties[key]['value'] = value
             # is the value set valid or should we clear it? ( if not inherited )
