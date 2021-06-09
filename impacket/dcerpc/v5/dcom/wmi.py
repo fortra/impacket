@@ -2387,9 +2387,9 @@ class IWbemClassObject(IRemUnknown):
         return self.encodingUnit['ObjectBlock'].ctCurrent['methods']
 
     @staticmethod
-    def __ndEntry(index, default_value_is_null, default_value_is_inherited):
+    def __ndEntry(index, null_default, inherited_default):
         # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-wmio/ed436785-40fc-425e-ad3d-f9200eb1a122
-        return (bool(default_value_is_null) << 1 | bool(default_value_is_inherited)) << (2 * index)
+        return (bool(null_default) << 1 | bool(inherited_default)) << (2 * index)
 
     def marshalMe(self):
         # So, in theory, we have the OBJCUSTOM built, but 
@@ -2451,7 +2451,7 @@ class IWbemClassObject(IRemUnknown):
                 else:
                     valueTable += pack(packStr, itemValue)
             elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
-                # For now we just pack None and set the default_value_is_inherited
+                # For now we just pack None and set the inherited_default
                 # flag, just in case a parent class defines this for us
                 valueTable += b'\x00'*4
                 if itemValue is None:
@@ -2544,7 +2544,7 @@ class IWbemClassObject(IRemUnknown):
                                    CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                     valueTable += pack(packStr, 0)
                 elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
-                    # For now we just pack None and set the default_value_is_inherited
+                    # For now we just pack None and set the inherited_default
                     # flag, just in case a parent class defines this for us
                     valueTable += b'\x00'*4
                     ndTable |= self.__ndEntry(i, True, True)
@@ -2737,7 +2737,7 @@ class IWbemClassObject(IRemUnknown):
                         valueTable += pack(packStr, inArg)
                     elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
                         if inArg is None:
-                            # For now we just pack None and set the default_value_is_inherited
+                            # For now we just pack None and set the inherited_default
                             # flag, just in case a parent class defines this for us
                             valueTable += b'\x00' * 4
                             ndTable |= self.__ndEntry(i, True, True)
