@@ -451,6 +451,9 @@ class MiniImpacketShell(cmd.Cmd):
                 return items
 
     def do_mget(self, mask):
+        if mask == '':
+            LOG.error("A mask must be provided")
+            return
         if self.tid is None:
             LOG.error("No share selected")
             return
