@@ -151,9 +151,6 @@ class WMIPERSISTENCE:
             filterBinding.Filter = '__EventFilter.Name="EF_%s"' % self.__options.name
             filterBinding.Consumer = 'ActiveScriptEventConsumer.Name="%s"' % self.__options.name
             filterBinding.CreatorSID = [1, 2, 0, 0, 0, 0, 0, 5, 32, 0, 0, 0, 32, 2, 0, 0]
-            # Even when the default value of DeliveryQoS is 0, we're explicitly assigning it to
-            # avoid the default tag
-            filterBinding.DeliveryQoS = 0  # WMIMSG_FLAG_QOS_SYNCHRONOUS
 
             self.checkError('Adding FilterToConsumerBinding',
                 iWbemServices.PutInstance(filterBinding.marshalMe()))
