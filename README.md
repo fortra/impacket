@@ -40,20 +40,6 @@ Quick start
 
 Grab the latest stable release, unpack it and run `python3 -m pip install .` (`python2 -m pip install .` for Python 2.x) from the directory where you placed it. Isn't that easy?
 
-
-Requirements
-============
-
- * A Python interpreter. Python 2.6/2.7 and Python 3.7 are known to work. 
-   1. If you want to run the examples and you have Python < 2.7, you
-      will need to install the `argparse` package for them to work.
-   2. For Kerberos support you will need `pyasn1` package
-   3. For cryptographic operations you will need `pycryptodomex` package
-   4. For some examples you will need `pyOpenSSL` (rdp_check.py) and ldap3 (ntlmrelayx.py)
-   5. For ntlmrelayx.py you will also need `ldapdomaindump`, `flask` and `ldap3`
-   6. If you're under Windows, you will need `pyReadline`
- * A recent release of Impacket.
-
 Installing
 ----------
 
@@ -70,7 +56,7 @@ If you want to run the library test cases you need to do mainly three things:
 
 1. Install and configure a Windows 2012 R2 Domain Controller.
    * Be sure the RemoteRegistry service is enabled and running.
-2. Configure the [dcetest.cfg](https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_22/tests/SMB_RPC/dcetests.cfg) file with the necessary information
+2. Configure the [dcetest.cfg](https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_23/tests/SMB_RPC/dcetests.cfg) file with the necessary information
 3. Install tox (`python3 -m pip install tox`)
 
 Once that's done, you can run `tox` and wait for the results. If all goes well, all test cases should pass.

@@ -12,7 +12,7 @@ PACKAGE_NAME = "impacket"
 
 VER_MAJOR = 0
 VER_MINOR = 9
-VER_MAINT = 23
+VER_MAINT = 24
 VER_PREREL = "dev1"
 try:
     if call(["git", "branch"], stderr=STDOUT, stdout=open(os.devnull, 'w')) == 0:
@@ -64,6 +64,7 @@ setup(name = PACKAGE_NAME,
                       'pyreadline:sys_platform=="win32"': [],
                     },
       classifiers = [
+          "Programming Language :: Python :: 3.9",
           "Programming Language :: Python :: 3.8",
           "Programming Language :: Python :: 3.7",
           "Programming Language :: Python :: 3.6",
