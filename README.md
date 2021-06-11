@@ -62,36 +62,47 @@ If you want to run the library test cases you need to do mainly three things:
 Once that's done, you can run `tox` and wait for the results. If all goes well, all test cases should pass.
 You will also have a coverage HTML report located at `impacket/tests/htlmcov/index.html`
 
-Support Docker
----------------
+Docker Support
+--------------
 
-Build Image Impacket
-To create image
+Build Impacket's image:
 
-`docker build -t "impacket:latest" .`
+      docker build -t "impacket:latest" .
 
+Using Impacket's image:
 
-Using Impacket
-
-`docker run -it --rm "impacket:latest"`
+      docker run -it --rm "impacket:latest"
 
 Licensing
 =========
 
-This software is provided under under a slightly modified version of
-the Apache Software License. See the accompanying LICENSE file for
+This software is provided under a slightly modified version of
+the Apache Software License. See the accompanying [LICENSE](LICENSE) file for
 more information.
 
 SMBv1 and NetBIOS support based on Pysmb by Michael Teo.
 
 Disclaimer
 ==========
-The spirit of this open source initiative is hopefully to help the community to alleviate some of the hindrances associated with the implementation of networking protocols and stacks, aiming at speeding up research and educational activities. By no means this package is meant to be used in production environments / commercial products. If so, we would advise to include it into a proper SDLC process.
+
+The spirit of this Open Source initiative is to help security researchers,
+and the community, speed up research and educational activities related to
+the implementation of networking protocols and stacks.
+
+The information in this repository is for research and educational purposes
+and not meant to be used in production environments and/or as part
+of commercial products.
+
+If you desire to use this code or some part of it for your own uses, we
+recommend applying proper security development life cycle and secure coding
+practices, as well as generate and track the respective indicators of
+compromise according to your needs.
 
 
 Contact Us
 ==========
 
-Whether you want to report a bug, send a patch or give some
-suggestions on this package, drop us a few lines at
-oss@secureauth.com.
+Whether you want to report a bug, send a patch, or give some suggestions
+on this package, drop us a few lines at oss@secureauth.com.
+
+For security-related questions check our [security policy](SECURITY.md).
