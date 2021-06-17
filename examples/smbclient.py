@@ -20,6 +20,7 @@ import sys
 import logging
 import argparse
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket.examples.smbclient import MiniImpacketShell
 from impacket import version
 from impacket.smbconnection import SMBConnection
@@ -69,14 +70,7 @@ def main():
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-        options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    domain, username, password, address = parse_target(options.target)
 
     if options.target_ip is None:
         options.target_ip = address

@@ -40,6 +40,7 @@ from pyasn1.codec.der import decoder
 from impacket import version
 from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_TRUSTED_FOR_DELEGATION, UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION
 from impacket.examples import logger
+from impacket.examples.utils import parse_credentials
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import TGS_REP
 from impacket.krb5.ccache import CCache
@@ -48,6 +49,7 @@ from impacket.krb5.types import Principal
 from impacket.ldap import ldap, ldapasn1
 from impacket.smbconnection import SMBConnection
 from impacket.ntlm import compute_lmhash, compute_nthash
+
 
 class GetUserSPNs:
     @staticmethod
@@ -441,12 +443,12 @@ if __name__ == '__main__':
     parser.add_argument('-target-domain', action='store', help='Domain to query/request if different than the domain of the user. '
                                                                'Allows for Kerberoasting across trusts.')
     parser.add_argument('-usersfile', help='File with user per line to test')
-    parser.add_argument('-request', action='store_true', default='False', help='Requests TGS for users and output them '
-                                                                               'in JtR/hashcat format (default False)')
+    parser.add_argument('-request', action='store_true', default=False, help='Requests TGS for users and output them '
+                                                                             'in JtR/hashcat format (default False)')
     parser.add_argument('-request-user', action='store', metavar='username', help='Requests TGS for the SPN associated '
                                                           'to the user specified (just the username, no domain needed)')
-    parser.add_argument('-save', action='store_true', default='False', help='Saves TGS requested to disk. Format is '
-                                                                            '<username>.ccache. Auto selects -request')
+    parser.add_argument('-save', action='store_true', default=False, help='Saves TGS requested to disk. Format is '
+                                                                          '<username>.ccache. Auto selects -request')
     parser.add_argument('-outputfile', action='store',
                         help='Output filename to write ciphers in JtR/hashcat format')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
@@ -479,8 +481,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-    userDomain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.target).groups('')
+    userDomain, username, password = parse_credentials(options.target)
 
     if userDomain == '':
         logging.critical('userDomain should be specified!')

@@ -42,6 +42,8 @@ echo test_spnego.py
 $RUN test_spnego.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
 echo test_ntlm.py
 $RUN test_ntlm.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+echo test_smbserver.py
+$RUN test_smbserver.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
 
 if [ -z "$NO_REMOTE" ]; then
     echo Testing SMB RPC/LDAP

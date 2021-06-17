@@ -22,6 +22,7 @@ import codecs
 
 from datetime import datetime
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket import version
 from impacket.nt_errors import STATUS_MORE_ENTRIES
 from impacket.dcerpc.v5 import transport, samr
@@ -237,16 +238,8 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
+    domain, username, password, remoteName = parse_target(options.target)
 
-    domain, username, password, remoteName = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-        options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in remoteName:
-        password = password + '@' + remoteName.rpartition('@')[0]
-        remoteName = remoteName.rpartition('@')[2]
-        
     if domain is None:
         domain = ''
 

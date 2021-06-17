@@ -7,6 +7,7 @@ from impacket.ImpactPacket import TCP, ImpactPacketException
 import unittest
 from threading import Thread
 
+
 class TestTCP(unittest.TestCase):
 
     def setUp(self):
@@ -33,9 +34,8 @@ class TestTCP(unittest.TestCase):
         thread_hangs.setDaemon(True)
         thread_hangs.start()
 
-        thread_hangs.join(1.0) # 1 seconds timeout
-        self.assertEqual(thread_hangs.isAlive(), False)
-        #if thread_hang.isAlive():
+        thread_hangs.join(1.0)  # 1 seconds timeout
+        self.assertEqual(thread_hangs.is_alive(), False)
 
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestTCP)

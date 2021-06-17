@@ -57,6 +57,7 @@ from queue import Queue
 from time import sleep
 
 from impacket.examples import logger
+from impacket.examples.utils import parse_credentials
 from impacket import version
 from impacket.smbconnection import SessionError
 from impacket.dcerpc.v5 import transport, wkst, srvs, samr
@@ -68,6 +69,7 @@ machinesAliveQueue = Queue()
 machinesDownQueue = Queue()
 
 myIP = None
+
 
 def checkMachines(machines, stopEvent, singlePass=False):
     origLen = len(machines)
@@ -482,10 +484,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-
-    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.identity).groups(
-        '')
+    domain, username, password = parse_credentials(options.identity)
 
     try:
         if domain is None:

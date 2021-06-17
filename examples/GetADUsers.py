@@ -30,6 +30,7 @@ from datetime import datetime
 from impacket import version
 from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE
 from impacket.examples import logger
+from impacket.examples.utils import parse_credentials
 from impacket.ldap import ldap, ldapasn1
 from impacket.smbconnection import SMBConnection
 
@@ -219,8 +220,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.target).groups('')
+    domain, username, password = parse_credentials(options.target)
 
     if domain == '':
         logging.critical('Domain should be specified!')

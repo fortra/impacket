@@ -498,7 +498,9 @@ class CCache:
         credential['time']['authtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['authtime']))
         credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['starttime']))
         credential['time']['endtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['endtime']))
-        credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['renew-till']))
+        # After KB4586793 for CVE-2020-17049 this timestamp may be omitted
+        if encTGSRepPart['renew-till'].hasValue():
+            credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['renew-till']))
 
         flags = self.reverseFlags(encTGSRepPart['flags'])
         credential['tktflags'] = flags
