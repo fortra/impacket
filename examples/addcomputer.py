@@ -17,12 +17,16 @@
 # Reference for:
 #     SMB, SAMR, LDAP
 #
+#  ToDo:
+# [ ]: Complete the process of joining a client computer to a domain via the SAMR protocol
+
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
 from impacket import version
 from impacket.examples import logger
+from impacket.examples.utils import parse_credentials
 from impacket.dcerpc.v5 import samr, epm, transport
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
@@ -527,6 +531,14 @@ class ADDCOMPUTER:
                 if self.__noAdd:
                     logging.info("Successfully set password of %s to %s." % (self.__computerName, self.__computerPassword))
                 else:
+                    checkForUser = samr.hSamrLookupNamesInDomain(dce, domainHandle, [self.__computerName])
+                    userRID = checkForUser['RelativeIds']['Element'][0]
+                    openUser = samr.hSamrOpenUser(dce, domainHandle, samr.MAXIMUM_ALLOWED, userRID)
+                    userHandle = openUser['UserHandle']
+                    req = samr.SAMPR_USER_INFO_BUFFER()
+                    req['tag'] = samr.USER_INFORMATION_CLASS.UserControlInformation
+                    req['Control']['UserAccountControl'] = samr.USER_WORKSTATION_TRUST_ACCOUNT
+                    samr.hSamrSetInformationUser2(dce, userHandle, req)
                     logging.info("Successfully added machine account %s with password %s." % (self.__computerName, self.__computerPassword))
 
         except Exception as e:
@@ -617,9 +629,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.account).groups(
-        '')
+    domain, username, password = parse_credentials(options.account)
 
     try:
         if domain is None or domain == '':

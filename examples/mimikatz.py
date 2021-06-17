@@ -26,6 +26,7 @@ from impacket.dcerpc.v5 import epm, mimilib
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE
 from impacket.dcerpc.v5.transport import DCERPCTransportFactory
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 
 try:
     from Cryptodome.Cipher import ARC4
@@ -158,14 +159,7 @@ def main():
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-        options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    domain, username, password, address = parse_target(options.target)
 
     if options.target_ip is None:
         options.target_ip = address

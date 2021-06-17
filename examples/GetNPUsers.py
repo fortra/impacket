@@ -38,6 +38,7 @@ from pyasn1.type.univ import noValue
 from impacket import version
 from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_DONT_REQUIRE_PREAUTH
 from impacket.examples import logger
+from impacket.examples.utils import parse_credentials
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import AS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, AS_REP, seq_set, seq_set_iter
 from impacket.krb5.kerberosv5 import sendReceive, KerberosError
@@ -345,8 +346,8 @@ if __name__ == '__main__':
                                   "'Do not require Kerberos preauthentication' set and export their TGTs for cracking")
 
     parser.add_argument('target', action='store', help='domain/username[:password]')
-    parser.add_argument('-request', action='store_true', default='False', help='Requests TGT for users and output them '
-                                                                               'in JtR/hashcat format (default False)')
+    parser.add_argument('-request', action='store_true', default=False, help='Requests TGT for users and output them '
+                                                                             'in JtR/hashcat format (default False)')
     parser.add_argument('-outputfile', action='store',
                         help='Output filename to write ciphers in JtR/hashcat format')
 
@@ -402,8 +403,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.target).groups('')
+    domain, username, password = parse_credentials(options.target)
 
     if domain == '':
         logging.critical('Domain should be specified!')

@@ -196,7 +196,7 @@ class EncryptedData(object):
         if (kvno is None) or (kvno.hasValue() is False):
             self.kvno = False
         else:
-            self.kvno = True
+            self.kvno = kvno
         self.ciphertext = str(data.getComponentByName('cipher'))
         return self
 

@@ -50,7 +50,7 @@ ip.set_hop_limit(64)
 # Open a raw socket. Special permissions are usually required.
 s = socket.socket(socket.AF_INET6, socket.SOCK_RAW, socket.IPPROTO_ICMPV6)
 
-payload = "A"*156
+payload = b"A"*156
 
 print("PING %s %d data bytes" % (dst, len(payload)))
 seq_id = 0
@@ -69,7 +69,7 @@ while 1:
     s.sendto(icmp.get_packet(), (dst, 0))
 
     # Wait for incoming replies.
-    if s in select.select([s],[],[],1)[0]:
+    if s in select.select([s], [], [], 1)[0]:
         reply = s.recvfrom(2000)[0]
 
         # Use ImpactDecoder to reconstruct the packet hierarchy.
@@ -77,6 +77,6 @@ while 1:
 
         # If the packet matches, report it to the user.
         if ICMP6.ICMP6.ECHO_REPLY == rip.get_type():
-            print("%d bytes from %s: icmp_seq=%d " % (rip.child().get_size()-4,dst,rip.get_echo_sequence_number()))
+            print("%d bytes from %s: icmp_seq=%d " % (rip.child().get_size()-4, dst, rip.get_echo_sequence_number()))
 
         time.sleep(1)

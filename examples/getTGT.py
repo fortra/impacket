@@ -24,6 +24,7 @@ from binascii import unhexlify
 
 from impacket import version
 from impacket.examples import logger
+from impacket.examples.utils import parse_credentials
 from impacket.krb5.kerberosv5 import getKerberosTGT
 from impacket.krb5 import constants
 from impacket.krb5.types import Principal
@@ -97,10 +98,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-
-    import re
-    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.identity).groups(
-        '')
+    domain, username, password = parse_credentials(options.identity)
 
     try:
         if domain is None:

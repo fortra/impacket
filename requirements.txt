@@ -1,5 +1,6 @@
 future
 six
+chardet
 pyasn1>=0.2.3
 pycryptodomex
 pyOpenSSL>=0.16.2

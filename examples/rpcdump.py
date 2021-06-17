@@ -22,6 +22,7 @@ import argparse
 
 from impacket.http import AUTH_NTLM
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket import uuid, version
 from impacket.dcerpc.v5 import transport, epm
 from impacket.dcerpc.v5.rpch import RPC_PROXY_INVALID_RPC_PORT_ERR, \
@@ -192,13 +193,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-    domain, username, password, remoteName = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in remoteName:
-        password = password + '@' + remoteName.rpartition('@')[0]
-        remoteName = remoteName.rpartition('@')[2]
+    domain, username, password, remoteName = parse_target(options.target)
 
     if domain is None:
         domain = ''

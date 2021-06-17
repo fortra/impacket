@@ -12,7 +12,7 @@ PACKAGE_NAME = "impacket"
 
 VER_MAJOR = 0
 VER_MINOR = 9
-VER_MAINT = 22
+VER_MAINT = 24
 VER_PREREL = "dev1"
 try:
     if call(["git", "branch"], stderr=STDOUT, stdout=open(os.devnull, 'w')) == 0:
@@ -45,8 +45,8 @@ setup(name = PACKAGE_NAME,
       url = "https://www.secureauth.com/labs/open-source-tools/impacket",
       author = "SecureAuth Corporation",
       author_email = "oss@secureauth.com",
-      maintainer = "Alberto Solino",
-      maintainer_email = "bethus@gmail.com",
+      maintainer = "SecureAuth's Innovation Labs ",
+      maintainer_email = "oss@secureauth.com",
       license = "Apache modified",
       long_description = read('README.md'),
       long_description_content_type="text/markdown",
@@ -58,11 +58,13 @@ setup(name = PACKAGE_NAME,
                 'impacket.examples.ntlmrelayx.attacks'],
       scripts = glob.glob(os.path.join('examples', '*.py')),
       data_files = data_files,
-      install_requires=['pyasn1>=0.2.3', 'pycryptodomex', 'pyOpenSSL>=0.13.1', 'six', 'ldap3>=2.5,!=2.5.2,!=2.5.0,!=2.6', 'ldapdomaindump>=0.9.0', 'flask>=1.0'],
+      install_requires=['pyasn1>=0.2.3', 'pycryptodomex', 'pyOpenSSL>=0.16.2', 'six', 'ldap3>=2.5,!=2.5.2,!=2.5.0,!=2.6',
+                        'ldapdomaindump>=0.9.0', 'flask>=1.0', 'future', 'chardet'],
       extras_require={
                       'pyreadline:sys_platform=="win32"': [],
                     },
       classifiers = [
+          "Programming Language :: Python :: 3.9",
           "Programming Language :: Python :: 3.8",
           "Programming Language :: Python :: 3.7",
           "Programming Language :: Python :: 3.6",

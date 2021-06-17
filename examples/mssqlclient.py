@@ -22,6 +22,7 @@ import os
 import logging
 
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket import version, tds
 
 if __name__ == '__main__':
@@ -119,8 +120,8 @@ if __name__ == '__main__':
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-port', action='store', default='1433', help='target MSSQL port (default 1433)')
     parser.add_argument('-db', action='store', help='MSSQL database instance (default None)')
-    parser.add_argument('-windows-auth', action='store_true', default = 'False', help='whether or not to use Windows '
-                                                                                      'Authentication (default False)')
+    parser.add_argument('-windows-auth', action='store_true', default=False, help='whether or not to use Windows '
+                                                                                  'Authentication (default False)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the SQL shell')
 
@@ -149,15 +150,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-        options.target).groups('')
-    
-    #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    domain, username, password, address = parse_target(options.target)
 
     if domain is None:
         domain = ''
