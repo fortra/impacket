@@ -22,6 +22,8 @@ class UtilsTests(unittest.TestCase):
             "UserName:Password@HostName": ("", "UserName", "Password", "HostName"),
             "UserName:Pa$$word1234@HostName": ("", "UserName", "Pa$$word1234", "HostName"),
             "UserName:Password!#$@HostName": ("", "UserName", "Password!#$", "HostName"),
+            "UserName:Passw@rd!#$@HostName": ("", "UserName", "Passw@rd!#$", "HostName"),
+            "UserName:P@ssw@rd@!#$@HostName": ("", "UserName", "P@ssw@rd@!#$", "HostName"),
             "DOMAIN/UserName@HostName": ("DOMAIN", "UserName", "", "HostName"),
             "DOMAIN/:Password@HostName": ("DOMAIN", "", "Password", "HostName"),
             "DOMAIN/UserName:Password@HostName": ("DOMAIN", "UserName", "Password", "HostName"),
