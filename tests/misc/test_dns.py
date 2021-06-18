@@ -1,11 +1,19 @@
+#!/usr/bin/env python
+# SECUREAUTH LABS. Copyright 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
 import unittest
 
 from impacket.dns import DNS
 
+
 class DNSTests(unittest.TestCase):
     def test_str(self):
-        def chk(b,t):
-            self.assertEqual(str(DNS(b)),t)
+        def chk(b, t):
+            self.assertEqual(str(DNS(b)), t)
 
         chk(b"\x6a\x8c\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x03\x77\x77\x77"
             b"\x05\x74\x61\x72\x74\x61\x03\x63\x6f\x6d\x00\x00\x01\x00\x01",
@@ -133,5 +141,6 @@ class DNSTests(unittest.TestCase):
             "  * Domain: ns3.google.com - Type: A [0x0001] - Class: IN [0x0001] - TTL: 5 seconds - {'IPAddress': '216.239.36.10'}\n"
             "  * Domain: ns4.google.com - Type: A [0x0001] - Class: IN [0x0001] - TTL: 8 seconds - {'IPAddress': '216.239.38.10'}\n")
 
-if __name__=='__main__':
+
+if __name__ == '__main__':
     unittest.main(verbosity=1)
