@@ -94,7 +94,6 @@ class HTTPAttack(ProtocolAttack):
 
         self.client.request("GET", "/certsrv/certnew.cer?ReqID=" + certificate_id)
         response = self.client.getresponse()
-        print(response.status, response.reason)
 
         print("[*] GOT CERTIFICATE!")
         certificate = response.read().decode()
