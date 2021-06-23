@@ -19,11 +19,9 @@
 
 from __future__ import division
 from __future__ import print_function
+import pytest
 import unittest
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+from tests import RemoteTestCase
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import lsat
@@ -31,7 +29,8 @@ from impacket.dcerpc.v5 import lsad
 from impacket.dcerpc.v5.dtypes import NULL, MAXIMUM_ALLOWED, RPC_UNICODE_STRING
 
 
-class LSATTests(unittest.TestCase):
+class LSATTests(RemoteTestCase):
+
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
         if len(self.hashes) > 0:
@@ -328,32 +327,21 @@ class LSATTests(unittest.TestCase):
                 resp.dump()
 
 
-class SMBTransport(LSATTests):
+@pytest.mark.remote
+class SMBTransport(LSATTests, unittest.TestCase):
+
     def setUp(self):
-        LSATTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        super(SMBTransport, self).setUp()
+        self.set_smb_transport_config()
         self.stringBinding = r'ncacn_np:%s[\PIPE\lsarpc]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
-class SMBTransport64(LSATTests):
+
+@pytest.mark.remote
+class SMBTransport64(SMBTransport):
+
     def setUp(self):
-        LSATTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.stringBinding = r'ncacn_np:%s[\PIPE\lsarpc]' % self.machine
+        super(SMBTransport64, self).setUp()
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 
 
@@ -366,4 +354,4 @@ if __name__ == '__main__':
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

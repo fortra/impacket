@@ -10,12 +10,9 @@
 from __future__ import division
 from __future__ import print_function
 
+import pytest
 import unittest
-
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+from tests import RemoteTestCase
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import bkrp
@@ -29,7 +26,8 @@ except ImportError:
     print("In order to run these test cases you need the cryptography package")
 
 
-class BKRPTests(unittest.TestCase):
+class BKRPTests(RemoteTestCase):
+
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
         if len(self.hashes) > 0:
@@ -149,7 +147,6 @@ class BKRPTests(unittest.TestCase):
 
         assert(DataIn == b''.join(resp['ppDataOut']))
 
-
     def test_BackuprKey_BACKUPKEY_RETRIEVE_BACKUP_KEY_GUID(self):
         dce, rpctransport = self.connect()
         request = bkrp.BackuprKey()
@@ -193,33 +190,23 @@ class BKRPTests(unittest.TestCase):
         print(cert.signature)
 
 
-class SMBTransport(BKRPTests):
+@pytest.mark.remote
+class SMBTransport(BKRPTests, unittest.TestCase):
+
     def setUp(self):
-        BKRPTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        super(SMBTransport, self).setUp()
+        self.set_smb_transport_config()
         self.stringBinding = r'ncacn_np:%s[\PIPE\protected_storage]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
-class SMBTransport64(BKRPTests):
+
+@pytest.mark.remote
+class SMBTransport64(SMBTransport):
+
     def setUp(self):
-        BKRPTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.stringBinding = r'ncacn_np:%s[\PIPE\protected_storage]' % self.machine
+        super(SMBTransport64, self).setUp()
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -230,4 +217,4 @@ if __name__ == '__main__':
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

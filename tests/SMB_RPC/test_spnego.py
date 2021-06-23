@@ -1,8 +1,9 @@
 import unittest
-
 from impacket import smb
 
+
 class Test(unittest.TestCase):
+
     def setUp(self):
         self.negTokenInit = b'\x60\x28\x06\x06\x2b\x06\x01\x05\x05\x02\xa0\x1e\x30\x1c\xa0\x1a\x30\x18\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x1e\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
 
@@ -46,6 +47,7 @@ class Test(unittest.TestCase):
         token['NegState'] = b'\x03'  # request-mic
         token['SupportedMech'] = smb.TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
         self.assertTrue(self.negTokenResp4, token.getData())
+
 
 if __name__ == "__main__":
     unittest.main()

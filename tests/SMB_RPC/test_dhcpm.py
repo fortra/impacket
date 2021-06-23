@@ -14,9 +14,9 @@ from __future__ import print_function
 
 import socket
 import struct
+import pytest
 import unittest
-
-from six.moves import configparser
+from tests import RemoteTestCase
 
 from impacket.dcerpc.v5 import epm, dhcpm
 from impacket.dcerpc.v5 import transport
@@ -24,7 +24,8 @@ from impacket.dcerpc.v5.dtypes import NULL
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
 
-class DHCPMTests(unittest.TestCase):
+class DHCPMTests(RemoteTestCase):
+
     def connect(self, version):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
         if len(self.hashes) > 0:
@@ -141,61 +142,41 @@ class DHCPMTests(unittest.TestCase):
         else:
             resp.dump()
 
-class SMBTransport(DHCPMTests):
+
+@pytest.mark.remote
+class SMBTransport(DHCPMTests, unittest.TestCase):
+
     def setUp(self):
-        DHCPMTests.setUp(self)
-        configFile = configparser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        super(SMBTransport, self).setUp()
+        self.set_smb_transport_config()
         self.stringBinding = r'ncacn_np:%s[\PIPE\dhcpserver]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
-class SMBTransport64(DHCPMTests):
+
+@pytest.mark.remote
+class SMBTransport64(SMBTransport):
+
     def setUp(self):
-        DHCPMTests.setUp(self)
-        configFile = configparser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.stringBinding = r'ncacn_np:%s[\PIPE\dhcpserver]' % self.machine
+        super(SMBTransport64, self).setUp()
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 
-class TCPTransport(DHCPMTests):
+
+@pytest.mark.remote
+class TCPTransport(DHCPMTests, unittest.TestCase):
+
     def setUp(self):
-        DHCPMTests.setUp(self)
-        configFile = configparser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        self.stringBinding = epm.hept_map(self.machine, dhcpm.MSRPC_UUID_DHCPSRV2, protocol = 'ncacn_ip_tcp')
+        super(TCPTransport, self).setUp()
+        self.set_tcp_transport_config()
+        self.stringBinding = epm.hept_map(self.machine, dhcpm.MSRPC_UUID_DHCPSRV2, protocol='ncacn_ip_tcp')
         #self.stringBinding = epm.hept_map(self.machine, dhcpm.MSRPC_UUID_DHCPSRV, protocol = 'ncacn_ip_tcp')
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
-class TCPTransport64(DHCPMTests):
+
+@pytest.mark.remote
+class TCPTransport64(TCPTransport):
+
     def setUp(self):
-        DHCPMTests.setUp(self)
-        configFile = configparser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine = configFile.get('TCPTransport', 'machine')
-        self.hashes = configFile.get('TCPTransport', 'hashes')
-        self.stringBinding = epm.hept_map(self.machine, dhcpm.MSRPC_UUID_DHCPSRV2, protocol = 'ncacn_ip_tcp')
+        super(TCPTransport64, self).setUp()
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 
 
@@ -208,4 +189,4 @@ if __name__ == '__main__':
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
         #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

@@ -20,9 +20,9 @@
 from __future__ import division
 from __future__ import print_function
 
+import pytest
 import unittest
-
-from six.moves import configparser
+from tests import RemoteTestCase
 
 from impacket.dcerpc.v5 import rprn
 from impacket.dcerpc.v5 import transport
@@ -30,7 +30,8 @@ from impacket.dcerpc.v5.dtypes import NULL
 from impacket.structure import hexdump
 
 
-class RPRNTests(unittest.TestCase):
+class RPRNTests(RemoteTestCase):
+
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
         if len(self.hashes) > 0:
@@ -198,34 +199,25 @@ class RPRNTests(unittest.TestCase):
             if str(e).find('ERROR_INVALID_HANDLE') < 0:
                 raise
 
-class SMBTransport(RPRNTests):
+
+@pytest.mark.remote
+class SMBTransport(RPRNTests, unittest.TestCase):
+
     def setUp(self):
-        RPRNTests.setUp(self)
-        configFile = configparser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        super(SMBTransport, self).setUp()
+        self.set_smb_transport_config()
         self.stringBinding = r'ncacn_np:%s[\PIPE\spoolss]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
         self.rrpStarted = False
 
-class SMBTransport64(RPRNTests):
+
+@pytest.mark.remote
+class SMBTransport64(SMBTransport):
+
     def setUp(self):
-        RPRNTests.setUp(self)
-        configFile = configparser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.stringBinding = r'ncacn_np:%s[\PIPE\spoolss]' % self.machine
+        super(SMBTransport64, self).setUp()
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -236,4 +228,4 @@ if __name__ == '__main__':
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

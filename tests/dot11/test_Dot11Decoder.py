@@ -1,11 +1,8 @@
 #!/usr/bin/env python
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
-from impacket.ImpactDecoder import Dot11Decoder #,Dot11Types
-from six import PY2
 import unittest
+from six import PY2
+from impacket.ImpactDecoder import Dot11Decoder #,Dot11Types
+
 
 class TestDot11Decoder(unittest.TestCase):
 
@@ -68,6 +65,8 @@ class TestDot11Decoder(unittest.TestCase):
             dataclass=self.in3.__class__
 
         self.assertTrue(str(dataclass).find('ImpactPacket.Data') > 0)
-      
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11Decoder)
-unittest.TextTestRunner(verbosity=1).run(suite)
+
+
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11Decoder)
+    unittest.main(defaultTest='suite')

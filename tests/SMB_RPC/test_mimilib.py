@@ -9,18 +9,17 @@
 #
 ################################################################################
 
+import pytest
 import unittest
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+from tests import RemoteTestCase
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import mimilib, epm
 from impacket.winregistry import hexdump
 
 
-class RRPTests(unittest.TestCase):
+class RRPTests(RemoteTestCase):
+
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
         rpctransport.set_connect_timeout(30000)
@@ -96,18 +95,14 @@ class RRPTests(unittest.TestCase):
         resp = dce.request(request)
         resp.dump()
 
-class TCPTransport(RRPTests):
+
+@pytest.mark.remote
+class TCPTransport(RRPTests, unittest.TestCase):
+
     def setUp(self):
-        RRPTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        self.stringBinding = epm.hept_map(self.machine, mimilib.MSRPC_UUID_MIMIKATZ, protocol = 'ncacn_ip_tcp')
+        super(TCPTransport, self).setUp()
+        self.set_tcp_transport_config()
+        self.stringBinding = epm.hept_map(self.machine, mimilib.MSRPC_UUID_MIMIKATZ, protocol='ncacn_ip_tcp')
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
 
@@ -119,5 +114,4 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

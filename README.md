@@ -52,26 +52,86 @@ write there.
 Testing
 -------
 
-If you want to run the library test cases you need to do mainly three things:
+The library leverages the [pytest](https://docs.pytest.org/) framework for organizing
+and marking test cases, [tox](https://tox.readthedocs.io/) to automate the process of
+running them across supported Python versions, and [coverage](https://coverage.readthedocs.io/)
+to obtain coverage statistics.
+
+### Test environment setup
+
+Some test cases are "local", meaning that don't require a target environment and can
+be run off-line, while the bulk of the test cases are "remote" and requires some
+prior setup.
+
+If you want to run the full set of library test cases, you need to prepare your
+environment by completing the following steps:
 
 1. Install and configure a Windows 2012 R2 Domain Controller.
-   * Be sure the RemoteRegistry service is enabled and running.
-2. Configure the [dcetest.cfg](https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_23/tests/SMB_RPC/dcetests.cfg) file with the necessary information
-3. Install tox (`python3 -m pip install tox`)
+   * Be sure to enable and run the `RemoteRegistry` service. You can do so by
+     running the following command from an elevated prompt:
+     
+         sc start remoteregistry
 
-Once that's done, you can run `tox` and wait for the results. If all goes well, all test cases should pass.
-You will also have a coverage HTML report located at `impacket/tests/htlmcov/index.html`
+2. Configure the [dcetest.cfg](tests/dcetests.cfg) file with the necessary information.
+   Make sure you set a user with proper administrative privileges on the target Active
+   Directory domain.
+
+3. Install testing requirements. You can use the following command to do so:
+   
+         python3 -m pip install tox -r requirements-test.txt
+
+### Running tests
+
+Once that's done, you would be able to run the test suite with `pytest`. For example,
+you can run all "local" test cases using the following command:
+
+      $ pytest -m "not remote"
+
+Or run the "remote" test cases with the following command:
+
+      $ pytest -m "remote" 
+
+If all goes well, all test cases should pass.
+
+### Automating runs
+
+If you want to run the test cases in a new fresh environment, or run those across
+different Python versions, you can use `tox`. You can specify the group of test cases
+you want to run, which would be passed to `pytest`. As an example, the following
+command will run all "local" test cases across all the Python versions defined in
+the `tox` configuration:
+
+      $ tox -- -m "not remote"
+
+### Coverage
+
+If you want to measure  coverage in your test cases run, you can use it via the
+`pytest-cov` plugin, for example by running the following command:
+
+      $ pytest --cov --cov-config=tox.ini
+
+`tox` will collect and report coverage statistics as well, and combine it across
+different Python version environment runs. You will have a coverage HTML report
+located at the default `Coverage`'s location `htlmcov/index.html`.
+
+
+### Configuration
+
+Configuration of all `pytest`, `coverage` and `tox` is contained in the
+[tox.ini](tox.ini) file. Refer to each tool documentation for further details
+about the different settings.
+
 
 Docker Support
 --------------
 
 Build Impacket's image:
 
-      docker build -t "impacket:latest" .
+      $ docker build -t "impacket:latest" .
 
 Using Impacket's image:
 
-      docker run -it --rm "impacket:latest"
+      $ docker run -it --rm "impacket:latest"
 
 Licensing
 =========

@@ -206,4 +206,4 @@ if __name__ == "__main__":
     suite = unittest.TestSuite()
     suite.addTests(loader.loadTestsFromTestCase(SMBServerUnitTests))
     suite.addTests(loader.loadTestsFromTestCase(SimpleSMBServerFuncTests))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

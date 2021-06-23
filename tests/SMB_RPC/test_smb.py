@@ -1,15 +1,13 @@
-import unittest
 import os
+import errno
 import socket
 import select
-import errno
-
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
-
 from binascii import unhexlify
+
+import pytest
+import unittest
+from tests import RemoteTestCase
+
 from impacket.smbconnection import SMBConnection, smb
 from impacket.smb3structs import SMB2_DIALECT_002,SMB2_DIALECT_21, SMB2_DIALECT_30
 from impacket import nt_errors, nmb
@@ -24,7 +22,9 @@ from impacket import nt_errors, nmb
 # ToDo:
 # [ ] Add the rest of SMBConnection public methods
 
-class SMBTests(unittest.TestCase):
+
+class SMBTests(RemoteTestCase):
+
     def create_connection(self):
         if self.dialects == smb.SMB_DIALECT:
             # Only for SMB1 let's do manualNego
@@ -260,7 +260,7 @@ class SMBTests(unittest.TestCase):
         smb = self.create_connection()
         smb.login(self.username, self.password, self.domain)
         smb.getSessionKey()
-        smb.logoff
+        smb.logoff()
         
     def __is_socket_opened(self, s):
         # We assume that if socket is selectable, it's open; and if it were not, it's closed.
@@ -275,128 +275,62 @@ class SMBTests(unittest.TestCase):
             is_socket_opened = False
         return is_socket_opened
 
-class SMB1Tests(SMBTests):
+
+@pytest.mark.remote
+class SMB1Tests(SMBTests, unittest.TestCase):
+
     def setUp(self):
-        SMBTests.setUp(self)
-        # Put specific configuration for target machine with SMB1
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.aesKey   = configFile.get('SMBTransport', 'aesKey128')
-        self.share    = 'C$'
-        self.file     = '/TEST'
-        self.directory= '/BETO'
-        self.upload   = '../../impacket/nt_errors.py'
-        self.flags2   = smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_LONG_NAMES
+        super(SMB1Tests, self).setUp()
+        self.set_smb_transport_config()
+        self.aesKey = self.config_file.get('SMBTransport', 'aesKey128')
+        self.share = 'C$'
+        self.file = '/TEST'
+        self.directory = '/BETO'
+        self.upload = 'impacket/nt_errors.py'
+        self.flags2 = smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_LONG_NAMES
         self.dialects = smb.SMB_DIALECT
         self.sessPort = nmb.SMB_SESSION_PORT
 
-class SMB1TestsNetBIOS(SMBTests):
+
+@pytest.mark.remote
+class SMB1TestsNetBIOS(SMB1Tests):
+
     def setUp(self):
-        SMBTests.setUp(self)
-        # Put specific configuration for target machine with SMB1
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.aesKey   = configFile.get('SMBTransport', 'aesKey128')
-        self.share    = 'C$'
-        self.file     = '/TEST'
-        self.directory= '/BETO'
-        self.upload   = '../../impacket/nt_errors.py'
-        self.flags2   = smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_LONG_NAMES
-        self.dialects = smb.SMB_DIALECT
+        super(SMB1TestsNetBIOS, self).setUp()
         self.sessPort = nmb.NETBIOS_SESSION_PORT
 
-class SMB1TestsUnicode(SMBTests):
-    def setUp(self):
-        SMBTests.setUp(self)
-        # Put specific configuration for target machine with SMB1
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.aesKey   = configFile.get('SMBTransport', 'aesKey128')
-        self.share    = 'C$'
-        self.file     = '/TEST'
-        self.directory= '/BETO'
-        self.upload   = '../../impacket/nt_errors.py'
-        self.flags2   = smb.SMB.FLAGS2_UNICODE | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_LONG_NAMES
-        self.dialects = smb.SMB_DIALECT
-        self.sessPort = nmb.SMB_SESSION_PORT
 
-class SMB002Tests(SMBTests):
+@pytest.mark.remote
+class SMB1TestsUnicode(SMB1Tests):
+
     def setUp(self):
-        # Put specific configuration for target machine with SMB_002
-        SMBTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.aesKey   = configFile.get('SMBTransport', 'aesKey128')
-        self.share    = 'C$'
-        self.file     = '/TEST'
-        self.directory= '/BETO'
-        self.upload   = '../../impacket/nt_errors.py'
+        super(SMB1TestsUnicode, self).setUp()
+        self.flags2 = smb.SMB.FLAGS2_UNICODE | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_LONG_NAMES
+
+
+@pytest.mark.remote
+class SMB002Tests(SMB1Tests):
+
+    def setUp(self):
+        super(SMB002Tests, self).setUp()
         self.dialects = SMB2_DIALECT_002
-        self.sessPort = nmb.SMB_SESSION_PORT
 
-class SMB21Tests(SMBTests):
+
+@pytest.mark.remote
+class SMB21Tests(SMB1Tests):
+
     def setUp(self):
-        # Put specific configuration for target machine with SMB 2.1
-        SMBTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.aesKey   = configFile.get('SMBTransport', 'aesKey128')
-        self.share    = 'C$'
-        self.file     = '/TEST'
-        self.directory= '/BETO'
-        self.upload   = '../../impacket/nt_errors.py'
+        super(SMB21Tests, self).setUp()
         self.dialects = SMB2_DIALECT_21
-        self.sessPort = nmb.SMB_SESSION_PORT
 
-class SMB3Tests(SMBTests):
+
+@pytest.mark.remote
+class SMB3Tests(SMB1Tests):
+
     def setUp(self):
-        # Put specific configuration for target machine with SMB3
-        SMBTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.aesKey   = configFile.get('SMBTransport', 'aesKey128')
-        self.share    = 'C$'
-        self.file     = '/TEST'
-        self.directory= '/BETO'
-        self.upload   = '../../impacket/nt_errors.py'
+        super(SMB3Tests, self).setUp()
         self.dialects = SMB2_DIALECT_30
-        self.sessPort = nmb.SMB_SESSION_PORT
+
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(SMB1Tests)
@@ -405,4 +339,4 @@ if __name__ == "__main__":
     suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB002Tests))
     suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB21Tests))
     suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB3Tests))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

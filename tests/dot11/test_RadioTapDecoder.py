@@ -1,12 +1,9 @@
 #!/usr/bin/env python
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
-from impacket.ImpactDecoder import RadioTapDecoder
-import impacket.dot11, impacket.ImpactPacket
 import unittest
 from six import PY2
+from impacket.ImpactDecoder import RadioTapDecoder
+import impacket.dot11, impacket.ImpactPacket
+
 
 class TestRadioTapDecoder(unittest.TestCase):
 
@@ -106,5 +103,7 @@ class TestRadioTapDecoder(unittest.TestCase):
         p=self.radiotap_decoder.get_protocol(impacket.dot11.Dot11WPA)
         self.assertEqual(p, None)
       
-suite = unittest.TestLoader().loadTestsFromTestCase(TestRadioTapDecoder)
-unittest.TextTestRunner(verbosity=1).run(suite)
+
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestRadioTapDecoder)
+    unittest.main(defaultTest='suite')

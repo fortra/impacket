@@ -12,16 +12,9 @@
 #
 # Author:
 # Aureliano Calvo
-
-
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../../..")
-
-
 import unittest
-from impacket import wps
 import array
+from impacket import wps
 
 
 class TestTLVContainer(unittest.TestCase):
@@ -53,5 +46,6 @@ class TestTLVContainer(unittest.TestCase):
         self.assertEqual(b"Sarlanga", tlvc.first(1))
 
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestTLVContainer)
-unittest.TextTestRunner(verbosity=1).run(suite)
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestTLVContainer)
+    unittest.main(defaultTest='suite')

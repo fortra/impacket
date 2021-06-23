@@ -10,14 +10,16 @@
 ################################################################################
 
 import unittest
+import pytest
+from tests import RemoteTestCase
 
-from six.moves import configparser
-
-from impacket.dcerpc.v5 import transport, epm, fasp
+from impacket.dcerpc.v5 import transport, epm
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
 
-class FASPTests(unittest.TestCase):
+@pytest.mark.skip(reason="fasp module unavailable")
+class FASPTests(RemoteTestCase):
+
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
         if len(self.hashes) > 0:
@@ -27,11 +29,11 @@ class FASPTests(unittest.TestCase):
             nthash = ''
         if hasattr(rpctransport, 'set_credentials'):
             # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
+            rpctransport.set_credentials(self.username, self.password, self.domain, lmhash, nthash)
         dce = rpctransport.get_dce_rpc()
         dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
         dce.connect()
-        dce.bind(fasp.MSRPC_UUID_FASP, transfer_syntax = self.ts)
+        dce.bind(fasp.MSRPC_UUID_FASP, transfer_syntax=self.ts)
 
         return dce, rpctransport
 
@@ -50,7 +52,6 @@ class FASPTests(unittest.TestCase):
         resp = fasp.hFWOpenPolicyStore(dce)
         resp.dump()
 
-
     def test_FWClosePolicyStore(self):
         dce, rpctransport = self.connect()
         resp = fasp.hFWOpenPolicyStore(dce)
@@ -65,33 +66,24 @@ class FASPTests(unittest.TestCase):
         resp = fasp.hFWClosePolicyStore(dce,resp['phPolicyStore'])
         resp.dump()
 
-class TCPTransport(FASPTests):
+
+@pytest.mark.remote
+class TCPTransport(FASPTests, unittest.TestCase):
+
     def setUp(self):
-        FASPTests.setUp(self)
-        configFile = configparser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        self.stringBinding = epm.hept_map(self.machine, fasp.MSRPC_UUID_FASP, protocol = 'ncacn_ip_tcp')
+        super(TCPTransport, self).setUp()
+        self.set_tcp_transport_config()
+        self.stringBinding = epm.hept_map(self.machine, fasp.MSRPC_UUID_FASP, protocol='ncacn_ip_tcp')
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
-class TCPTransport64(FASPTests):
+
+@pytest.mark.remote
+class TCPTransport64(TCPTransport):
+
     def setUp(self):
-        FASPTests.setUp(self)
-        configFile = configparser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        self.stringBinding = epm.hept_map(self.machine, fasp.MSRPC_UUID_FASP, protocol='ncacn_ip_tcp')
+        super(TCPTransport64, self).setUp()
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -102,4 +94,4 @@ if __name__ == '__main__':
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

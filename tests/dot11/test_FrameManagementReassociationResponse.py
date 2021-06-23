@@ -1,12 +1,9 @@
 #!/usr/bin/env python
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
-from impacket.dot11 import Dot11Types
-from impacket.ImpactDecoder import RadioTapDecoder
 import unittest
 from six import PY2
+from impacket.dot11 import Dot11Types
+from impacket.ImpactDecoder import RadioTapDecoder
+
 
 class TestDot11ManagementReassociationResponseFrames(unittest.TestCase):
 
@@ -161,5 +158,7 @@ class TestDot11ManagementReassociationResponseFrames(unittest.TestCase):
             ])
         self.assertEqual(self.management_reassociation_response.get_header_size(), 33+11)
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementReassociationResponseFrames)
-unittest.TextTestRunner(verbosity=1).run(suite)
+
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementReassociationResponseFrames)
+    unittest.main(defaultTest='suite')

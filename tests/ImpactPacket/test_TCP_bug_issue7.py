@@ -1,11 +1,7 @@
 #!/usr/bin/env python
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
-from impacket.ImpactPacket import TCP, ImpactPacketException
 import unittest
 from threading import Thread
+from impacket.ImpactPacket import TCP, ImpactPacketException
 
 
 class TestTCP(unittest.TestCase):
@@ -38,5 +34,6 @@ class TestTCP(unittest.TestCase):
         self.assertEqual(thread_hangs.is_alive(), False)
 
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestTCP)
-unittest.TextTestRunner(verbosity=1).run(suite)
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestTCP)
+    unittest.main(defaultTest='suite')

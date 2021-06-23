@@ -52,12 +52,10 @@
 # Shouldn't dump errors against a win7
 #
 ################################################################################
-
+import pytest
 import unittest
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+from tests import RemoteTestCase
+
 from struct import pack, unpack
 from binascii import unhexlify
 
@@ -67,7 +65,8 @@ from impacket.dcerpc.v5.dtypes import NULL
 from impacket import ntlm
 
 
-class NRPCTests(unittest.TestCase):
+class NRPCTests(RemoteTestCase):
+
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
         if len(self.machineUserHashes) > 0:
@@ -1043,36 +1042,25 @@ class NRPCTests(unittest.TestCase):
                 raise
 
 
-class TCPTransport(NRPCTests):
+@pytest.mark.remote
+class TCPTransport(NRPCTests, unittest.TestCase):
+
     def setUp(self):
-        NRPCTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine = configFile.get('TCPTransport', 'machine')
-        self.hashes = configFile.get('TCPTransport', 'hashes')
-        self.machineUser = configFile.get('TCPTransport', 'machineuser')
-        self.machineUserHashes = configFile.get('TCPTransport', 'machineuserhashes')
-        # print epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
+        super(TCPTransport, self).setUp()
+        self.set_tcp_transport_config()
+        self.machineUser = self.config_file.get('TCPTransport', 'machineuser')
+        self.machineUserHashes = self.config_file.get('TCPTransport', 'machineuserhashes')
         self.stringBinding = epm.hept_map(self.machine, nrpc.MSRPC_UUID_NRPC, protocol='ncacn_ip_tcp')
 
 
-class SMBTransport(NRPCTests):
+@pytest.mark.remote
+class SMBTransport(NRPCTests, unittest.TestCase):
+
     def setUp(self):
-        NRPCTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine = configFile.get('SMBTransport', 'machine')
-        self.hashes = configFile.get('SMBTransport', 'hashes')
-        self.machineUser = configFile.get('SMBTransport', 'machineuser')
-        self.machineUserHashes = configFile.get('SMBTransport', 'machineuserhashes')
+        super(SMBTransport, self).setUp()
+        self.set_smb_transport_config()
+        self.machineUser = self.config_file.get('SMBTransport', 'machineuser')
+        self.machineUserHashes = self.config_file.get('SMBTransport', 'machineuserhashes')
         self.stringBinding = r'ncacn_np:%s[\PIPE\netlogon]' % self.machine
 
 
@@ -1086,4 +1074,4 @@ if __name__ == '__main__':
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

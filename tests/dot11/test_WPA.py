@@ -1,10 +1,6 @@
 #!/usr/bin/env python
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
-from impacket.dot11 import Dot11,Dot11Types,Dot11DataFrame,Dot11WPA,Dot11WPAData
 import unittest
+from impacket.dot11 import Dot11,Dot11Types,Dot11DataFrame,Dot11WPA,Dot11WPAData
 
 
 class TestDot11WPAData(unittest.TestCase):
@@ -109,5 +105,7 @@ class TestDot11WPAData(unittest.TestCase):
         
         self.assertEqual(self.wpa_data.get_icv(), 0x8edb7b9e)
         
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11WPAData)
-unittest.TextTestRunner(verbosity=1).run(suite)
+
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11WPAData)
+    unittest.main(defaultTest='suite')

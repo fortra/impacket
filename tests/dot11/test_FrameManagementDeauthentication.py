@@ -1,12 +1,9 @@
 #!/usr/bin/env python
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
-from impacket.dot11 import Dot11Types
-from impacket.ImpactDecoder import RadioTapDecoder
 import unittest
 from six import PY2
+from impacket.dot11 import Dot11Types
+from impacket.ImpactDecoder import RadioTapDecoder
+
 
 class TestDot11ManagementBeaconFrames(unittest.TestCase):
 
@@ -126,5 +123,7 @@ class TestDot11ManagementBeaconFrames(unittest.TestCase):
         self.management_deauthentication.set_reason_code(0x8765)
         self.assertEqual(self.management_deauthentication.get_reason_code(), 0x8765)
         
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementBeaconFrames)
-unittest.TextTestRunner(verbosity=1).run(suite)
+
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementBeaconFrames)
+    unittest.main(defaultTest='suite')

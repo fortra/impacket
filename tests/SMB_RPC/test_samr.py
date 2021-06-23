@@ -123,23 +123,23 @@
 # Shouldn't dump errors against a win7
 ################################################################################
 
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+import pytest
 import unittest
+from tests import RemoteTestCase
+
 import string
 import random
+from six import b
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import samr, epm
 from impacket.dcerpc.v5 import dtypes
 from impacket import nt_errors, ntlm
 from impacket.dcerpc.v5.ndr import NULL
-from six import b
 
 
-class SAMRTests(unittest.TestCase):
+class SAMRTests(RemoteTestCase):
+
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
         #rpctransport.set_dport(self.dport)
@@ -1038,7 +1038,6 @@ class SAMRTests(unittest.TestCase):
             if str(e).find('STATUS_INVALID_INFO_CLASS') < 0:
                 raise
 
-
         ################################################################################ 
 
         resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainLogoffInformation)
@@ -1168,7 +1167,6 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(req)
         resp.dump()
 
-
         ################################################################################ 
         request['GroupInformationClass'] = samr.GROUP_INFORMATION_CLASS.GroupAttributeInformation
         #request.dump()
@@ -1194,7 +1192,6 @@ class SAMRTests(unittest.TestCase):
         req['Buffer']['Attribute']['Attributes'] = oldData
         resp = dce.request(req)
         resp.dump()
-
 
         ################################################################################ 
         request['GroupInformationClass'] = samr.GROUP_INFORMATION_CLASS.GroupAdminCommentInformation
@@ -1350,8 +1347,7 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(req)
         resp.dump()
 
-
-        ################################################################################ 
+        ################################################################################
         request['AliasInformationClass'] = samr.ALIAS_INFORMATION_CLASS.AliasAdminCommentInformation
         #request.dump()
         resp = dce.request(request)
@@ -1388,7 +1384,6 @@ class SAMRTests(unittest.TestCase):
             | samr.USER_LIST_GROUPS | samr.USER_READ_GROUP_INFORMATION | samr.USER_WRITE_GROUP_INFORMATION | samr.USER_ALL_ACCESS  \
             | samr.USER_READ | samr.USER_WRITE  | samr.USER_EXECUTE 
 
-        
         request['UserId'] = samr.DOMAIN_USER_RID_ADMIN
         resp = dce.request(request)
         resp.dump()
@@ -1704,8 +1699,7 @@ class SAMRTests(unittest.TestCase):
         resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserParametersInformation)
         resp.dump()
 
-
-        ################################################################################ 
+        ################################################################################
         resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserAllInformation)
         resp.dump()
 
@@ -2231,7 +2225,6 @@ class SAMRTests(unittest.TestCase):
         request['AliasHandle'] = aliasHandle
         dce.request(request)
 
-
     def test_SamrRemoveMemberFromForeignDomain(self):
         dce, rpctransport, domainHandle  = self.connect()
 
@@ -2346,7 +2339,6 @@ class SAMRTests(unittest.TestCase):
         si2 = samr.PSAMPR_SID_INFORMATION()
         si2['SidPointer'] = sid2
 
-
         request = samr.SamrGetAliasMembership()
         request['DomainHandle'] = domainHandle
         request['SidArray']['Count'] = 2
@@ -2453,7 +2445,6 @@ class SAMRTests(unittest.TestCase):
 
         resp = samr.hSamrSetMemberAttributesOfGroup(dce, resp['GroupHandle'],samr.DOMAIN_USER_RID_ADMIN, samr.SE_GROUP_ENABLED_BY_DEFAULT)
         resp.dump()
-
 
     def test_SamrGetUserDomainPasswordInformation(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -2617,7 +2608,6 @@ class SAMRTests(unittest.TestCase):
 
         resp = samr.hSamrCloseHandle(dce, userHandle)
         resp.dump()
-
 
     def test_SamrChangePasswordUser(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -2838,62 +2828,40 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         resp.dump()
 
-class SMBTransport(SAMRTests):
+
+@pytest.mark.remote
+class SMBTransport(SAMRTests, unittest.TestCase):
+
     def setUp(self):
-        SAMRTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.stringBinding = epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_np')
+        super(SMBTransport, self).setUp()
+        self.set_smb_transport_config()
+        self.stringBinding = epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol='ncacn_np')
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
-class TCPTransport(SAMRTests):
-    def setUp(self):
-        SAMRTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        #print epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
-        self.stringBinding = epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
-class SMBTransport64(SAMRTests):
+@pytest.mark.remote
+class SMBTransport64(SMBTransport):
+
     def setUp(self):
-        SAMRTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.stringBinding = epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_np')
+        super(SMBTransport64, self).setUp()
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 
-class TCPTransport64(SAMRTests):
+
+@pytest.mark.remote
+class TCPTransport(SAMRTests, unittest.TestCase):
+
     def setUp(self):
-        SAMRTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        #print epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
-        self.stringBinding = epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
+        super(TCPTransport, self).setUp()
+        self.set_tcp_transport_config()
+        self.stringBinding = epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol='ncacn_ip_tcp')
+        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+
+
+@pytest.mark.remote
+class TCPTransport64(TCPTransport):
+
+    def setUp(self):
+        super(TCPTransport64, self).setUp()
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 
 
@@ -2908,4 +2876,4 @@ if __name__ == '__main__':
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')
