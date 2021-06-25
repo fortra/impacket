@@ -40,11 +40,9 @@
 #
 ################################################################################
 
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+import pytest
 import unittest
+from tests import RemoteTestCase
 from struct import unpack
 
 from impacket.dcerpc.v5 import transport
@@ -55,7 +53,8 @@ from impacket.uuid import string_to_bin
 from impacket import ntlm
 
 
-class SCMRTests(unittest.TestCase):
+class SCMRTests(RemoteTestCase):
+
     def changeServiceAndQuery(self, dce, cbBufSize, hService, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName):
 
         try:
@@ -655,32 +654,24 @@ class SCMRTests(unittest.TestCase):
                 raise
         return 
 
-class SMBTransport(SCMRTests):
+
+@pytest.mark.remote
+class SMBTransport(SCMRTests, unittest.TestCase):
+
     def setUp(self):
-        SCMRTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        super(SMBTransport, self).setUp()
+        self.set_smb_transport_config()
         self.stringBinding = r'ncacn_np:%s[\pipe\svcctl]' % self.machine
 
-class TCPTransport(SCMRTests):
+
+@pytest.mark.remote
+class TCPTransport(SCMRTests, unittest.TestCase):
+
     def setUp(self):
-        SCMRTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        #print epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
-        self.stringBinding = epm.hept_map(self.machine, scmr.MSRPC_UUID_SCMR, protocol = 'ncacn_ip_tcp')
+        super(TCPTransport, self).setUp()
+        self.set_tcp_transport_config()
+        self.stringBinding = epm.hept_map(self.machine, scmr.MSRPC_UUID_SCMR, protocol='ncacn_ip_tcp')
+
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -690,6 +681,5 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
-        #suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

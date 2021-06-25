@@ -1,9 +1,5 @@
 #!/usr/bin/env python
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
 import unittest
-sys.path.insert(0, "../..")
-
 from impacket.dot11 import RadioTap
 from impacket.ImpactPacket import Data
 
@@ -576,6 +572,7 @@ class TestRadioTap(unittest.TestCase):
         self.assertEqual(self.rt3.get_rate(), 2)
         self.assertEqual(self.rt3.get_dBm_ant_signal(), 0xa6)
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestRadioTap)
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

@@ -10,17 +10,17 @@
 ################################################################################
 from __future__ import division
 from __future__ import print_function
+import pytest
 import unittest
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+from tests import RemoteTestCase
 
 from impacket.ldap import ldap, ldapasn1
 import impacket.ldap.ldaptypes
 from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR
 
-class LDAPTests(unittest.TestCase):
+
+class LDAPTests(RemoteTestCase):
+
     def dummySearch(self, ldapConnection):
         # Let's do a search just to be sure it's working
         searchFilter = '(servicePrincipalName=*)'
@@ -53,7 +53,6 @@ class LDAPTests(unittest.TestCase):
                     sd.fromString(secDesc)
                     sd.dump()
                     self.assertTrue(secDesc, sd.getData())
-
 
     def connect(self):
         ldapConnection = ldap.LDAPConnection(self.url, self.baseDN)
@@ -109,35 +108,26 @@ class LDAPTests(unittest.TestCase):
 
         self.dummySearch(ldapConnection)
 
-class TCPTransport(LDAPTests):
-    def setUp(self):
-        LDAPTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        self.aesKey = configFile.get('SMBTransport', 'aesKey128')
-        self.url      = 'ldap://%s' % self.serverName
-        self.baseDN   = 'dc=%s, dc=%s' % (self.domain.split('.')[0],self.domain.split('.')[1] )
 
-class TCPTransportSSL(LDAPTests):
+@pytest.mark.remote
+class TCPTransport(LDAPTests, unittest.TestCase):
+
     def setUp(self):
-        LDAPTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine = configFile.get('TCPTransport', 'machine')
-        self.hashes = configFile.get('TCPTransport', 'hashes')
-        self.aesKey = configFile.get('SMBTransport', 'aesKey128')
-        self.url      = 'ldaps://%s' % self.serverName
-        self.baseDN   = 'dc=%s, dc=%s' % (self.domain.split('.')[0],self.domain.split('.')[1] )
+        super(TCPTransport, self).setUp()
+        self.set_tcp_transport_config()
+        self.aesKey = self.config_file.get('SMBTransport', 'aesKey128')
+        self.url = 'ldap://%s' % self.serverName
+        self.baseDN = 'dc=%s, dc=%s' % (self.domain.split('.')[0], self.domain.split('.')[1])
+
+
+@pytest.mark.remote
+@pytest.mark.skipif(reason="LDAPS tests require configuration")
+class TCPTransportSSL(TCPTransport):
+
+    def setUp(self):
+        super(TCPTransportSSL, self).setUp()
+        self.url = 'ldaps://%s' % self.serverName
+
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -147,4 +137,5 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
-    unittest.TextTestRunner(verbosity=1).run(suite)
+        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransportSSL))
+    unittest.main(defaultTest='suite')

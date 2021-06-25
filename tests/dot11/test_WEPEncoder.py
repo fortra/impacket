@@ -1,13 +1,10 @@
 #!/usr/bin/env python
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
+import unittest
+from binascii import unhexlify
 import impacket.dot11
 import impacket.ImpactPacket
 from impacket.Dot11KeyManager import KeyManager
-from binascii import unhexlify
-import unittest
+
 
 class TestDot11WEPData(unittest.TestCase):
 
@@ -119,5 +116,7 @@ class TestDot11WEPData(unittest.TestCase):
         self.wep.encrypt_frame(unhexlify('999cbb701ca2ef030e302dcc35'))
         #print "\nDot11 encrypted [%s]"%hexlify(self.dot11.get_packet())
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11WEPData)
-unittest.TextTestRunner(verbosity=1).run(suite)
+
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11WEPData)
+    unittest.main(defaultTest='suite')

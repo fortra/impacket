@@ -19,14 +19,12 @@
 # Shouldn't dump errors against a win7
 #
 ################################################################################
-
 from __future__ import division
 from __future__ import print_function
+
+import pytest
 import unittest
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+from tests import RemoteTestCase
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import dcomrt
@@ -35,7 +33,8 @@ from impacket.uuid import string_to_bin, uuidtup_to_bin
 from impacket import ntlm
 
 
-class DCOMTests(unittest.TestCase):
+class DCOMTests(RemoteTestCase):
+
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
         if len(self.hashes) > 0:
@@ -95,7 +94,6 @@ class DCOMTests(unittest.TestCase):
         scm = dcomrt.IRemoteSCMActivator(dce)
         iInterface = scm.RemoteGetClassObject(comev.CLSID_EventSystem, IID_IClassFactory)
         iInterface.RemRelease()
-
 
     def test_RemQueryInterface(self):
         dcom = dcomrt.DCOMConnection(self.machine, self.username, self.password, self.domain)
@@ -237,7 +235,6 @@ class DCOMTests(unittest.TestCase):
             #es.get_InterfaceID()
             es.RemRelease()
 
-
         objCollection = iEventSystem.Query('EventSystem.EventClassCollection', 'ALL')
         objCollection.get_Count()
 
@@ -271,7 +268,6 @@ class DCOMTests(unittest.TestCase):
         dcom.disconnect()
         #eventSubscription.get_SubscriptionID()
 
-
     # def tes_ie(self):
     #     dce, rpctransport = self.connect()
     #     scm = dcomrt.IRemoteSCMActivator(dce)
@@ -300,32 +296,22 @@ class DCOMTests(unittest.TestCase):
     #
     #     sys.exit(1)
 
-class TCPTransport(DCOMTests):
+
+@pytest.mark.remote
+class TCPTransport(DCOMTests, unittest.TestCase):
+
     def setUp(self):
-        DCOMTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
+        super(TCPTransport, self).setUp()
+        self.set_tcp_transport_config()
         self.stringBinding = r'ncacn_ip_tcp:%s' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
-class TCPTransport64(DCOMTests):
+
+@pytest.mark.remote
+class TCPTransport64(TCPTransport):
+
     def setUp(self):
-        DCOMTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        self.stringBinding = r'ncacn_ip_tcp:%s' % self.machine
+        super(TCPTransport64, self).setUp()
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 
 
@@ -338,4 +324,4 @@ if __name__ == '__main__':
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

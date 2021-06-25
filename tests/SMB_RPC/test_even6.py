@@ -8,11 +8,9 @@
 
 from __future__ import division
 from __future__ import print_function
+import pytest
 import unittest
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+from tests import RemoteTestCase
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import epm, even6
@@ -20,7 +18,8 @@ from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from impacket.structure import hexdump
 
 
-class EVEN6Tests(unittest.TestCase):
+class EVEN6Tests(RemoteTestCase):
+
     def connect(self, version):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
         if len(self.hashes) > 0:
@@ -101,61 +100,42 @@ class EVEN6Tests(unittest.TestCase):
             buff = ''.join([x.encode('hex') for x in event]).decode('hex')
             print(hexdump(buff))
 
-class SMBTransport(EVEN6Tests):
+
+@pytest.mark.remote
+class SMBTransport(EVEN6Tests, unittest.TestCase):
+
     def setUp(self):
-        EVEN6Tests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine = configFile.get('SMBTransport', 'machine')
-        self.hashes = configFile.get('SMBTransport', 'hashes')
+        super(SMBTransport, self).setUp()
+        self.set_smb_transport_config()
         self.stringBinding = r'ncacn_np:%s[\PIPE\eventlog]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
-class SMBTransport64(EVEN6Tests):
+
+@pytest.mark.remote
+class SMBTransport64(SMBTransport):
+
     def setUp(self):
-        EVEN6Tests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine = configFile.get('SMBTransport', 'machine')
-        self.hashes = configFile.get('SMBTransport', 'hashes')
-        self.stringBinding = r'ncacn_np:%s[\PIPE\eventlog]' % self.machine
+        super(SMBTransport64, self).setUp()
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 
-class TCPTransport(EVEN6Tests):
+
+@pytest.mark.remote
+class TCPTransport(EVEN6Tests, unittest.TestCase):
+
     def setUp(self):
-        EVEN6Tests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine = configFile.get('TCPTransport', 'machine')
-        self.hashes = configFile.get('TCPTransport', 'hashes')
+        super(TCPTransport, self).setUp()
+        self.set_tcp_transport_config()
         self.stringBinding = epm.hept_map(self.machine, even6.MSRPC_UUID_EVEN6, protocol='ncacn_ip_tcp')
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
-class TCPTransport64(EVEN6Tests):
+
+@pytest.mark.remote
+class TCPTransport64(TCPTransport):
+
     def setUp(self):
-        EVEN6Tests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine = configFile.get('TCPTransport', 'machine')
-        self.hashes = configFile.get('TCPTransport', 'hashes')
-        self.stringBinding = epm.hept_map(self.machine, even6.MSRPC_UUID_EVEN6, protocol='ncacn_ip_tcp')
+        super(TCPTransport64, self).setUp()
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -166,4 +146,4 @@ if __name__ == '__main__':
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

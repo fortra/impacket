@@ -12,13 +12,9 @@
 #
 # Author:
 # Aureliano Calvo
-
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../../..")
-
 import unittest
 import impacket.helper as h
+
 
 class TestHelpers(unittest.TestCase):
     
@@ -53,5 +49,6 @@ class TestHelpers(unittest.TestCase):
         self.assertEqual(p.get_packet(), MockPacket(p.get_packet()).get_packet()) # it is the same packet after reprocessing.
         
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestHelpers)
-unittest.TextTestRunner(verbosity=1).run(suite)
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestHelpers)
+    unittest.main(defaultTest='suite')

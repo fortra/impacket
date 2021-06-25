@@ -17,11 +17,9 @@
 
 from __future__ import division
 from __future__ import print_function
+import pytest
 import unittest
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+from tests import RemoteTestCase
 
 from impacket.dcerpc.v5 import transport, epm
 from impacket.dcerpc.v5 import drsuapi
@@ -29,7 +27,8 @@ from impacket.dcerpc.v5.dtypes import NULL, LPWSTR
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
 
-class DRSRTests(unittest.TestCase):
+class DRSRTests(RemoteTestCase):
+
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding )
         if len(self.hashes) > 0:
@@ -354,7 +353,6 @@ class DRSRTests(unittest.TestCase):
             resp.dump()
             print('\n')
 
-
     def test_DRSGetNCChanges2(self):
         # Not yet working
         dce, rpctransport, hDrs, DsaObjDest = self.connect()
@@ -455,61 +453,39 @@ class DRSRTests(unittest.TestCase):
 #            resp = dce.request(request)
 
 
-class SMBTransport(DRSRTests):
+@pytest.mark.remote
+class SMBTransport(DRSRTests, unittest.TestCase):
+
     def setUp(self):
-        DRSRTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        super(SMBTransport, self).setUp()
+        self.set_smb_transport_config()
         self.stringBinding = r'ncacn_np:%s[\PIPE\lsass]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
-class SMBTransport64(DRSRTests):
-    def setUp(self):
-        DRSRTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
 
-        self.stringBinding = r'ncacn_np:%s[\PIPE\lsass]' % self.machine
+@pytest.mark.remote
+class SMBTransport64(SMBTransport):
+
+    def setUp(self):
+        super(SMBTransport64, self).setUp()
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 
-class TCPTransport(DRSRTests):
+
+@pytest.mark.remote
+class TCPTransport(DRSRTests, unittest.TestCase):
+
     def setUp(self):
-        DRSRTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        self.stringBinding = epm.hept_map(self.machine, drsuapi.MSRPC_UUID_DRSUAPI, protocol = 'ncacn_ip_tcp')
+        super(TCPTransport, self).setUp()
+        self.set_tcp_transport_config()
+        self.stringBinding = epm.hept_map(self.machine, drsuapi.MSRPC_UUID_DRSUAPI, protocol='ncacn_ip_tcp')
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
-class TCPTransport64(DRSRTests):
+
+@pytest.mark.remote
+class TCPTransport64(TCPTransport):
+
     def setUp(self):
-        DRSRTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        self.stringBinding = epm.hept_map(self.machine, drsuapi.MSRPC_UUID_DRSUAPI, protocol = 'ncacn_ip_tcp')
+        super(TCPTransport64, self).setUp()
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 
 
@@ -521,7 +497,7 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
     else:
         #suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
-        suite  = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
+        suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
         #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
         #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

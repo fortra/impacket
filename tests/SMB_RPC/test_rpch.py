@@ -2,17 +2,21 @@ from __future__ import division
 from __future__ import print_function
 from struct import unpack
 
+import pytest
 import unittest
-
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+from tests import RemoteTestCase
 
 from impacket.dcerpc.v5 import transport, epm, rpch
 from impacket.dcerpc.v5.ndr import NULL
 
-class RPCHTest(unittest.TestCase):
+
+@pytest.mark.remote
+class RPCHTest(RemoteTestCase, unittest.TestCase):
+
+    def setUp(self):
+        super(RPCHTest, self).setUp()
+        self.set_tcp_transport_config()
+
     def test_1(self):
         # Direct connection to ncacn_http service, RPC over HTTP v1
         # No authentication
@@ -276,17 +280,6 @@ class RPCHTest(unittest.TestCase):
 
         self.assertTrue(server_cmds[-2].getData() == channelLifetime.getData())
 
-class RPCHTransport(RPCHTest):
-    def setUp(self):
-        RPCHTest.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -295,5 +288,6 @@ if __name__ == '__main__':
         testcase = sys.argv[1]
         suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
     else:
-        suite = unittest.TestLoader().loadTestsFromTestCase(RPCHTransport)
+        suite = unittest.TestLoader().loadTestsFromTestCase(RPCHTest)
     unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

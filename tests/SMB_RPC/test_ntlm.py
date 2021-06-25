@@ -6,9 +6,9 @@ from six import b
 from impacket import ntlm
 from impacket.structure import hexdump
 
-# Common values
 
 class NTLMTests(unittest.TestCase):
+
     def setUp(self):
         # Turn test case mode on
         ntlm.TEST_CASE = True
@@ -339,4 +339,4 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(NTLMTests)
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

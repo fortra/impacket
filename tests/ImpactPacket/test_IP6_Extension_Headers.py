@@ -1,25 +1,11 @@
 #!/usr/bin/env python
 from __future__ import division
 from __future__ import print_function
-import sys
-from six import PY2
-sys.path.insert(0,"../..")
-
-#Impact test version
-try:
-    from impacket import IP6_Address, IP6, ImpactDecoder, IP6_Extension_Headers
-except:
-    pass
-
-#Standalone test version
-try:
-    import sys
-    sys.path.insert(0,"../..")
-    import IP6_Address, IP6, ImpactDecoder, IP6_Extension_Headers
-except:
-    pass
-
 import unittest
+from six import PY2
+
+from impacket import IP6, ImpactDecoder, IP6_Extension_Headers
+
 
 class TestIP6(unittest.TestCase):
     def string_to_list(self, bytes):
@@ -616,5 +602,7 @@ class TestIP6(unittest.TestCase):
         self.assertEqual(padn_option_type, 1, "Simple Hop By Hop Parsing - Incorrect option type")
         self.assertEqual(padn_option_length, 12, "Simple Hop By Hop Parsing - Incorrect option size")
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestIP6)
-unittest.TextTestRunner(verbosity=1).run(suite)
+
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestIP6)
+    unittest.main(defaultTest='suite')

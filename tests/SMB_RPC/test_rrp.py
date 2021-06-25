@@ -42,18 +42,17 @@
 
 from __future__ import division
 from __future__ import print_function
+import pytest
 import unittest
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+from tests import RemoteTestCase
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import epm, rrp, scmr
 from impacket.dcerpc.v5.dtypes import NULL, MAXIMUM_ALLOWED, OWNER_SECURITY_INFORMATION
 
 
-class RRPTests(unittest.TestCase):
+class RRPTests(RemoteTestCase):
+
     def connect_scmr(self):
         rpctransport = transport.DCERPCTransportFactory(r'ncacn_np:%s[\pipe\svcctl]' % self.machine)
         if len(self.hashes) > 0:
@@ -732,48 +731,32 @@ class RRPTests(unittest.TestCase):
         smb.deleteFile('ADMIN$', 'System32\\SEC')
 
 
-class SMBTransport(RRPTests):
+@pytest.mark.remote
+class SMBTransport(RRPTests, unittest.TestCase):
+
     def setUp(self):
-        RRPTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        super(SMBTransport, self).setUp()
+        self.set_smb_transport_config()
         self.stringBinding = r'ncacn_np:%s[\PIPE\winreg]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
         self.rrpStarted = False
 
-class SMBTransport64(RRPTests):
-    def setUp(self):
-        RRPTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.stringBinding = r'ncacn_np:%s[\PIPE\winreg]' % self.machine
-        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
-        self.rrpStarted = False
 
-class TCPTransport(RRPTests):
+@pytest.mark.remote
+class SMBTransport64(SMBTransport):
+
     def setUp(self):
-        RRPTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        self.stringBinding = epm.hept_map(self.machine, rrp.MSRPC_UUID_RRP, protocol = 'ncacn_ip_tcp')
+        super(SMBTransport64, self).setUp()
+        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+
+
+@pytest.mark.remote
+class TCPTransport(RRPTests, unittest.TestCase):
+
+    def setUp(self):
+        super(TCPTransport, self).setUp()
+        self.set_tcp_transport_config()
+        self.stringBinding = epm.hept_map(self.machine, rrp.MSRPC_UUID_RRP, protocol='ncacn_ip_tcp')
         self.rrpStarted = False
 
 
@@ -787,4 +770,4 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
         #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

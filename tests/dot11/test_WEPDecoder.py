@@ -1,15 +1,12 @@
 #!/usr/bin/env python
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
+import unittest
+from six import PY2
+from binascii import unhexlify
 from impacket.dot11 import Dot11,Dot11Types,Dot11DataFrame,Dot11WEP,Dot11WEPData
 from impacket.ImpactPacket import IP,ICMP
 from impacket.Dot11KeyManager import KeyManager
 from impacket.ImpactDecoder import Dot11Decoder
-from binascii import unhexlify
-import unittest
-from six import PY2
+
 
 class TestDot11WEPData(unittest.TestCase):
 
@@ -138,5 +135,7 @@ class TestDot11WEPData(unittest.TestCase):
         self.assertEqual(icmp.get_icmp_type(),icmp.ICMP_ECHO)
         self.assertEqual(icmp.get_icmp_id(),0x0400)
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11WEPData)
-unittest.TextTestRunner(verbosity=1).run(suite)
+
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11WEPData)
+    unittest.main(defaultTest='suite')

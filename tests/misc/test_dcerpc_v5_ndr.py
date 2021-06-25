@@ -23,7 +23,8 @@ def hexl(b):
     return ' '.join([hexstr[i:i + 8] for i in range(0, len(hexstr), 8)])
 
 
-class NDRTest(unittest.TestCase):
+class NDRTest(object):
+
     def create(self, data=None, isNDR64=False):
         if data is not None:
             return self.theClass(data, isNDR64=isNDR64)
@@ -58,7 +59,7 @@ class NDRTest(unittest.TestCase):
             print(self.__class__.__name__, isNDR64, hexl(a_str))
 
 
-class TestUniFixedArray(NDRTest):
+class TestUniFixedArray(NDRTest, unittest.TestCase):
     class theClass(NDRSTRUCT):
         structure = (
             ('Array', NDRUniFixedArray),
@@ -71,7 +72,7 @@ class TestUniFixedArray(NDRTest):
     hexData64 = hexData
 
 
-class TestStructWithPad(NDRTest):
+class TestStructWithPad(NDRTest, unittest.TestCase):
     class theClass(NDRSTRUCT):
         structure = (
             ('long', NDRLONG),
@@ -110,7 +111,7 @@ class TestStructWithPad(NDRTest):
 #        a['Array'] = array
 #        a['Array2'] = array
 
-class TestUniVaryingArray(NDRTest):
+class TestUniVaryingArray(NDRTest, unittest.TestCase):
     class theClass(NDRSTRUCT):
         structure = (
             ('Array', NDRUniVaryingArray),
@@ -123,7 +124,7 @@ class TestUniVaryingArray(NDRTest):
     hexData64 = '00000000 00000000 08000000 00000000 31323334 35363738'
 
 
-class TestUniConformantVaryingArray(NDRTest):
+class TestUniConformantVaryingArray(NDRTest, unittest.TestCase):
     class theClass(NDRSTRUCT):
         structure = (
             ('Array', NDRUniConformantVaryingArray),
@@ -136,7 +137,7 @@ class TestUniConformantVaryingArray(NDRTest):
     hexData64 = '08000000 00000000 00000000 00000000 08000000 00000000 31323334 35363738'
 
 
-class TestVaryingString(NDRTest):
+class TestVaryingString(NDRTest, unittest.TestCase):
     class theClass(NDRSTRUCT):
         structure = (
             ('Array', NDRVaryingString),
@@ -149,7 +150,7 @@ class TestVaryingString(NDRTest):
     hexData64 = '00000000 00000000 09000000 00000000 31323334 35363738 00'
 
 
-class TestConformantVaryingString(NDRTest):
+class TestConformantVaryingString(NDRTest, unittest.TestCase):
     class theClass(NDRSTRUCT):
         structure = (
             ('Array', NDRConformantVaryingString),
@@ -162,7 +163,7 @@ class TestConformantVaryingString(NDRTest):
     hexData64 = '08000000 00000000 00000000 00000000 08000000 00000000 31323334 35363738'
 
 
-class TestPointerNULL(NDRTest):
+class TestPointerNULL(NDRTest, unittest.TestCase):
     class theClass(NDRSTRUCT):
         structure = (
             ('Array', NDRPOINTERNULL),
@@ -176,6 +177,4 @@ class TestPointerNULL(NDRTest):
 
 
 if __name__ == '__main__':
-    # Hide base class so that unittest.main() will not try to load it
-    del NDRTest
     unittest.main(verbosity=1)

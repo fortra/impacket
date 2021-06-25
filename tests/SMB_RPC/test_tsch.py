@@ -61,12 +61,9 @@
 from __future__ import division
 from __future__ import print_function
 
+import pytest
 import unittest
-
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+from tests import RemoteTestCase
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import tsch, atsvc, sasec
@@ -76,7 +73,8 @@ from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
 from impacket.system_errors import ERROR_NOT_SUPPORTED
 
 
-class TSCHTests(unittest.TestCase):
+class TSCHTests(RemoteTestCase):
+
     def connect(self, stringBinding, bindUUID):
         rpctransport = transport.DCERPCTransportFactory(stringBinding )
         if len(self.hashes) > 0:
@@ -1032,35 +1030,23 @@ class TSCHTests(unittest.TestCase):
             print(e)
             pass
 
-class SMBTransport(TSCHTests):
+
+@pytest.mark.remote
+class SMBTransport(TSCHTests, unittest.TestCase):
+
     def setUp(self):
-        TSCHTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        super(SMBTransport, self).setUp()
+        self.set_smb_transport_config()
         self.stringBindingAtSvc = r'ncacn_np:%s[\PIPE\atsvc]' % self.machine
         self.stringBindingAtSvc = r'ncacn_np:%s[\PIPE\atsvc]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
-class SMBTransport64(TSCHTests):
-    def setUp(self):
-        TSCHTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
 
-        self.stringBindingAtSvc = r'ncacn_np:%s[\PIPE\atsvc]' % self.machine
-        self.stringBindingAtSvc = r'ncacn_np:%s[\PIPE\atsvc]' % self.machine
+@pytest.mark.remote
+class SMBTransport64(SMBTransport):
+
+    def setUp(self):
+        super(SMBTransport64, self).setUp()
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 
 
@@ -1073,4 +1059,4 @@ if __name__ == '__main__':
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
         #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

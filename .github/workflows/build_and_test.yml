@@ -6,7 +6,6 @@ name: Build and test Impacket
 on: [push, pull_request]
 
 env:
-  NO_REMOTE: true
   DOCKER_TAG: impacket:latests
 
 jobs:
@@ -46,7 +45,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip wheel
-          pip install flake8 tox -r requirements.txt
+          pip install flake8 tox -r requirements.txt -r requirements-test.txt
 
       - name: Check syntax errors
         run: |
@@ -58,7 +57,7 @@ jobs:
 
       - name: Run unit tests
         run: |
-          tox
+          tox -- -m 'not remote'
 
       - name: Build wheel artifact
         run: |

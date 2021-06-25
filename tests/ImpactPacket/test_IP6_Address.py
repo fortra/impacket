@@ -1,21 +1,6 @@
 #!/usr/bin/env python
-
-# Impact test version
-try:
-    from impacket import IP6_Address
-except:
-    pass
-
-# Standalone test version
-try:
-    import sys
-
-    sys.path.insert(0, "../..")
-    import IP6_Address
-except:
-    pass
-
 import unittest
+from impacket import IP6_Address
 
 
 class TestIP6_Address(unittest.TestCase):
@@ -149,5 +134,6 @@ class TestIP6_Address(unittest.TestCase):
         self.assertRaises(Exception, IP6_Address.IP6_Address, empty_scoped_address)
 
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestIP6_Address)
-unittest.TextTestRunner(verbosity=1).run(suite)
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestIP6_Address)
+    unittest.main(defaultTest='suite')

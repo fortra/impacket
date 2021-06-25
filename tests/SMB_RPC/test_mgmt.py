@@ -9,17 +9,16 @@
 
 from __future__ import division
 from __future__ import print_function
+import pytest
 import unittest
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+from tests import RemoteTestCase
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import mgmt
 
 
-class MGMTTests(unittest.TestCase):
+class MGMTTests(RemoteTestCase):
+
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
         if len(self.hashes) > 0:
@@ -109,67 +108,46 @@ class MGMTTests(unittest.TestCase):
         resp = dce.request(request, checkError=False)
         resp.dump()
 
-    def test_his_server_listening(self):
+    def test_hinq_princ_name(self):
         dce, transport = self.connect()
 
         resp = mgmt.hinq_princ_name(dce)
         resp.dump()
 
 
-class SMBTransport(MGMTTests):
+@pytest.mark.remote
+class SMBTransport(MGMTTests, unittest.TestCase):
+
     def setUp(self):
-        MGMTTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        super(SMBTransport, self).setUp()
+        self.set_smb_transport_config()
         self.stringBinding = r'ncacn_np:%s[\pipe\epmapper]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
-class TCPTransport(MGMTTests):
-    def setUp(self):
-        MGMTTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        self.stringBinding = r'ncacn_ip_tcp:%s[135]' % self.machine
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
-class SMBTransport64(MGMTTests):
+@pytest.mark.remote
+class SMBTransport64(SMBTransport):
+
     def setUp(self):
-        MGMTTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.stringBinding = r'ncacn_np:%s[\pipe\epmapper]' % self.machine
+        super(SMBTransport64, self).setUp()
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 
-class TCPTransport64(MGMTTests):
+
+@pytest.mark.remote
+class TCPTransport(MGMTTests, unittest.TestCase):
+
     def setUp(self):
-        MGMTTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
+        super(TCPTransport, self).setUp()
+        self.set_tcp_transport_config()
         self.stringBinding = r'ncacn_ip_tcp:%s[135]' % self.machine
+        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+
+
+@pytest.mark.remote
+class TCPTransport64(TCPTransport):
+
+    def setUp(self):
+        super(TCPTransport64, self).setUp()
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 
 
@@ -180,9 +158,8 @@ if __name__ == '__main__':
         testcase = sys.argv[1]
         suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
     else:
-        #suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport64)
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

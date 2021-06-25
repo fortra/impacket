@@ -1,20 +1,7 @@
 #!/usr/bin/env python
-
-#Impact test version
-try:
-    from impacket import IP6_Address, IP6, ImpactDecoder
-except:
-    pass
-
-#Standalone test version
-try:
-    import sys
-    sys.path.insert(0,"../..")
-    import IP6_Address, IP6, ImpactDecoder
-except:
-    pass
-
 import unittest
+from impacket import IP6, ImpactDecoder
+
 
 class TestIP6(unittest.TestCase):
         
@@ -75,5 +62,6 @@ class TestIP6(unittest.TestCase):
         self.assertEqual(crafted_buffer, self.binary_packet, "IP6 creation - Buffer mismatch")
 
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestIP6)
-unittest.TextTestRunner(verbosity=1).run(suite)
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestIP6)
+    unittest.main(defaultTest='suite')

@@ -1,10 +1,7 @@
 #!/usr/bin/env python
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
-from impacket.dot11 import Dot11, Dot11Types
 import unittest
+from impacket.dot11 import Dot11, Dot11Types
+
 
 class TestDot11Common(unittest.TestCase):
 
@@ -101,5 +98,6 @@ class TestDot11Common(unittest.TestCase):
         self.assertEqual(frame, b'\xa4\xaa\x00\x00\x00\x08\x54\xac\x2f\x85\xb7\x7f\xc3\x9e')
     
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11Common)
-unittest.TextTestRunner(verbosity=1).run(suite)
+if __name__ == '__main__':
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11Common)
+    unittest.main(defaultTest='suite')

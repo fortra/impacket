@@ -1,10 +1,9 @@
 from __future__ import division
 from __future__ import print_function
+
+import pytest
 import unittest
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+from tests import RemoteTestCase
 
 from impacket.dcerpc.v5.ndr import NDRCALL
 from impacket.dcerpc.v5 import transport, epm, samr
@@ -18,8 +17,8 @@ from impacket.dcerpc.v5.dtypes import RPC_UNICODE_STRING
 # endpoints (we should do specific tests for endpoints)
 # here we're using EPM just because we need one, and it's the 
 # easiest one
+class DCERPCTests(RemoteTestCase):
 
-class DCERPCTests(unittest.TestCase):
     def connectDCE(self, username, password, domain, lm='', nt='', aesKey='', TGT=None, TGS=None, tfragment=0,
                    dceFragment=0,
                    auth_type=RPC_C_AUTHN_WINNT, auth_level=RPC_C_AUTHN_LEVEL_NONE, dceAuth=True, doKerberos=False,
@@ -400,37 +399,28 @@ class DCERPCTests(unittest.TestCase):
             if not (str(e).find('STATUS_ACCESS_DENIED') >=0 and self.stringBinding.find('ncacn_np') >=0):
                 raise
 
-class TCPTransport(DCERPCTests):
+
+@pytest.mark.remote
+class TCPTransport(DCERPCTests, unittest.TestCase):
+
     def setUp(self):
-        DCERPCTests.setUp(self)
-        # Put specific configuration for target machine with SMB1
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        self.aesKey256= configFile.get('TCPTransport', 'aesKey256')
-        self.aesKey128= configFile.get('TCPTransport', 'aesKey128')
+        super(TCPTransport, self).setUp()
+        self.set_tcp_transport_config()
+        self.aesKey256 = self.config_file.get('TCPTransport', 'aesKey256')
+        self.aesKey128 = self.config_file.get('TCPTransport', 'aesKey128')
         self.stringBinding = r'ncacn_ip_tcp:%s' % self.machine
 
-class SMBTransport(DCERPCTests):
+
+@pytest.mark.remote
+class SMBTransport(DCERPCTests, unittest.TestCase):
     def setUp(self):
         # Put specific configuration for target machine with SMB_002
-        DCERPCTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.aesKey256= configFile.get('SMBTransport', 'aesKey256')
-        self.aesKey128= configFile.get('SMBTransport', 'aesKey128')
+        super(SMBTransport, self).setUp()
+        self.set_smb_transport_config()
+        self.aesKey256 = self.config_file.get('SMBTransport', 'aesKey256')
+        self.aesKey128 = self.config_file.get('SMBTransport', 'aesKey128')
         self.stringBinding = r'ncacn_np:%s[\pipe\epmapper]' % self.machine
+
 
 if __name__ == "__main__":
     import sys
@@ -440,4 +430,4 @@ if __name__ == "__main__":
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')
