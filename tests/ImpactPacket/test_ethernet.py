@@ -103,5 +103,4 @@ class TestEthernet(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestEthernet)
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)

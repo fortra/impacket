@@ -50,5 +50,4 @@ class TestHelpers(unittest.TestCase):
         
 
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestHelpers)
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)

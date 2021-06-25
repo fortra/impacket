@@ -283,11 +283,4 @@ class RPCHTest(RemoteTestCase, unittest.TestCase):
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    import sys
-    if len(sys.argv) > 1:
-        testcase = sys.argv[1]
-        suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
-    else:
-        suite = unittest.TestLoader().loadTestsFromTestCase(RPCHTest)
-    unittest.TextTestRunner(verbosity=1).run(suite)
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)

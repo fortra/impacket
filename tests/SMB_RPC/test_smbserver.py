@@ -202,8 +202,4 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    loader = unittest.TestLoader()
-    suite = unittest.TestSuite()
-    suite.addTests(loader.loadTestsFromTestCase(SMBServerUnitTests))
-    suite.addTests(loader.loadTestsFromTestCase(SimpleSMBServerFuncTests))
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)

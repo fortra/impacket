@@ -762,12 +762,4 @@ class TCPTransport(RRPTests, unittest.TestCase):
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    import sys
-    if len(sys.argv) > 1:
-        testcase = sys.argv[1]
-        suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
-    else:
-        suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
-        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)
