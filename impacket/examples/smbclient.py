@@ -462,18 +462,19 @@ class MiniImpacketShell(cmd.Cmd):
             LOG.error("No files found matching the provided mask")
             return 
         for file_tuple in self.completion:
-            filename = file_tuple[0]
-            filename = filename.replace('/','\\')
-            fh = open(ntpath.basename(filename),'wb')
-            pathname = ntpath.join(self.pwd,filename)
-            try:
-                LOG.info("Downloading %s" % (filename))
-                self.smb.getFile(self.share, pathname, fh.write)
-            except:
+            if file_tuple[1] == 0:
+                filename = file_tuple[0]
+                filename = filename.replace('/', '\\')
+                fh = open(ntpath.basename(filename), 'wb')
+                pathname = ntpath.join(self.pwd, filename)
+                try:
+                    LOG.info("Downloading %s" % (filename))
+                    self.smb.getFile(self.share, pathname, fh.write)
+                except:
+                    fh.close()
+                    os.remove(filename)
+                    raise
                 fh.close()
-                os.remove(filename)
-                raise
-            fh.close()
 
     def do_get(self, filename):
         if self.tid is None:
