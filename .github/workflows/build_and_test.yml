@@ -9,8 +9,34 @@ env:
   DOCKER_TAG: impacket:latests
 
 jobs:
+  lint:
+    name: Check syntaxs errors and warnings
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Impacket
+        uses: actions/checkout@v2
+
+      - name: Setup Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install flake8
+
+      - name: Check syntax errors
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Check PEP8 warnings
+        run: |
+          flake8 . --count --ignore=E1,E2,E3,E501,W291,W293 --exit-zero --max-complexity=65 --max-line-length=127 --statistics
+
   test:
     name: Run unit tests and build wheel
+    needs: lint
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -45,15 +71,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip wheel
-          pip install flake8 tox -r requirements.txt -r requirements-test.txt
-
-      - name: Check syntax errors
-        run: |
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-
-      - name: Check PEP8 warnings
-        run: |
-          flake8 . --count --ignore=E1,E2,E3,E501,W291,W293 --exit-zero --max-complexity=65 --max-line-length=127 --statistics
+          pip install tox -r requirements.txt -r requirements-test.txt
 
       - name: Run unit tests
         run: |
@@ -65,6 +83,7 @@ jobs:
 
   docker:
     name: Build docker image
+    needs: lint
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
