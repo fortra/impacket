@@ -71,7 +71,7 @@ class KeyBlockV3(Structure):
         return "Key: (0x%x)%s" % (self['keytype'], hexlify(self['keyvalue']))
 
 
-class KeyBlock(Structure):
+class KeyBlockV4(Structure):
     structure = (
         ('keytype','!H=0'),
         ('etype','!H=0'),
@@ -195,7 +195,7 @@ class Credential:
         structure = (
             ('client',':', Principal),
             ('server',':', Principal),
-            ('key',':', KeyBlock),
+            ('key',':', KeyBlockV4),
             ('time',':', Times),
             ('is_skey','B=0'),
             ('tktflags','!L=0'),
@@ -470,7 +470,7 @@ class CCache:
         credential['server'] = tmpServer
         credential['is_skey'] = 0
 
-        credential['key'] = KeyBlock()
+        credential['key'] = KeyBlockV4()
         credential['key']['keytype'] = int(encASRepPart['key']['keytype'])
         credential['key']['keyvalue'] = encASRepPart['key']['keyvalue'].asOctets()
         credential['key']['keylen'] = len(credential['key']['keyvalue'])
@@ -530,7 +530,7 @@ class CCache:
         credential['server'] = tmpServer
         credential['is_skey'] = 0
 
-        credential['key'] = KeyBlock()
+        credential['key'] = KeyBlockV4()
         credential['key']['keytype'] = int(encTGSRepPart['key']['keytype'])
         credential['key']['keyvalue'] = encTGSRepPart['key']['keyvalue'].asOctets()
         credential['key']['keylen'] = len(credential['key']['keyvalue'])
@@ -612,7 +612,7 @@ class CCache:
         credential['server'] = tmpServer
         credential['is_skey'] = 0
 
-        credential['key'] = KeyBlock()
+        credential['key'] = KeyBlockV4()
         credential['key']['keytype'] = int(krbCredInfo['key']['keytype'])
         credential['key']['keyvalue'] = str(krbCredInfo['key']['keyvalue'])
         credential['key']['keylen'] = len(credential['key']['keyvalue'])
