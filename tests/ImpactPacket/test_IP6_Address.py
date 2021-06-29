@@ -150,4 +150,4 @@ class TestIP6_Address(unittest.TestCase):
 
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestIP6_Address)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

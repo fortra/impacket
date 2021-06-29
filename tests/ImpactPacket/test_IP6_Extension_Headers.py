@@ -617,4 +617,4 @@ class TestIP6(unittest.TestCase):
         self.assertEqual(padn_option_length, 12, "Simple Hop By Hop Parsing - Incorrect option size")
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestIP6)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

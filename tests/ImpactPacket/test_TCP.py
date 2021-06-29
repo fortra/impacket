@@ -142,4 +142,4 @@ class TestTCP(unittest.TestCase):
         self.assertEqual(self.tcp.get_th_flags(), 0xAA )
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestTCP)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

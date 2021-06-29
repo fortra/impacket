@@ -76,4 +76,4 @@ class TestIP6(unittest.TestCase):
 
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestIP6)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

@@ -95,4 +95,4 @@ class TestDot11WPA2Data(unittest.TestCase):
         self.assertEqual(self.wpa2_data.get_MIC(), mic)
         
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11WPA2Data)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

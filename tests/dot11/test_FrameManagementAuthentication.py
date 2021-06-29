@@ -150,4 +150,4 @@ class TestDot11ManagementAuthenticationFrames(unittest.TestCase):
         self.assertEqual(self.management_authentication.get_header_size(), 28)
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementAuthenticationFrames)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

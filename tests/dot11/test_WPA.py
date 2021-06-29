@@ -110,4 +110,4 @@ class TestDot11WPAData(unittest.TestCase):
         self.assertEqual(self.wpa_data.get_icv(), 0x8edb7b9e)
         
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11WPAData)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

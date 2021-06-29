@@ -127,4 +127,4 @@ class TestDot11ManagementBeaconFrames(unittest.TestCase):
         self.assertEqual(self.management_deauthentication.get_reason_code(), 0x8765)
         
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementBeaconFrames)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

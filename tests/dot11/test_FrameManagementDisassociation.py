@@ -127,4 +127,4 @@ class TestDot11ManagementDisassociationFrames(unittest.TestCase):
         self.assertEqual(self.management_disassociation.get_reason_code(), 0x8765)
         
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementDisassociationFrames)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

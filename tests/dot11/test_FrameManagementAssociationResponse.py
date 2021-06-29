@@ -162,4 +162,4 @@ class TestDot11ManagementAssociationResponseFrames(unittest.TestCase):
         self.assertEqual(self.management_association_response.get_header_size(), 33+11)
         
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementAssociationResponseFrames)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

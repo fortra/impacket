@@ -524,4 +524,4 @@ if __name__ == '__main__':
         suite  = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
         #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
         #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

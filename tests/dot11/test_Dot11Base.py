@@ -102,4 +102,4 @@ class TestDot11Common(unittest.TestCase):
     
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11Common)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

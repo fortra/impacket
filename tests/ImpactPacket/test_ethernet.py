@@ -106,4 +106,4 @@ class TestEthernet(unittest.TestCase):
 
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestEthernet)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

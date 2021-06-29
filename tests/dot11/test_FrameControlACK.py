@@ -50,4 +50,4 @@ class TestDot11FrameControlACK(unittest.TestCase):
         self.assertEqual(self.ack.get_ra().tolist(), [0x12,0x08,0x54,0xac,0x2f,0x34])
        
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11FrameControlACK)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

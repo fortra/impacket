@@ -181,4 +181,4 @@ class TestDot11ManagementBeaconFrames(unittest.TestCase):
         self.assertEqual(self.management_beacon.get_header_size(), 127)
         
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementBeaconFrames)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

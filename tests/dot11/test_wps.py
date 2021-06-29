@@ -54,4 +54,4 @@ class TestTLVContainer(unittest.TestCase):
 
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestTLVContainer)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')
