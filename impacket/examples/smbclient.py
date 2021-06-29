@@ -1,4 +1,4 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright 2021 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -114,6 +114,7 @@ class MiniImpacketShell(cmd.Cmd):
  rmdir {dirname} - removes the directory under the current path
  put {filename} - uploads the filename into the current path
  get {filename} - downloads the filename from the current path
+ mget {mask} - downloads all files from the current directory matching the provided mask
  cat {filename} - reads the filename from the current path
  mount {target,path} - creates a mount point from {path} to {target} (admin required)
  umount {path} - removes the mount point at {path} without deleting the directory (admin required)
@@ -448,6 +449,32 @@ class MiniImpacketShell(cmd.Cmd):
                 ]
             else:
                 return items
+
+    def do_mget(self, mask):
+        if mask == '':
+            LOG.error("A mask must be provided")
+            return
+        if self.tid is None:
+            LOG.error("No share selected")
+            return
+        self.do_ls(mask,display=False)
+        if len(self.completion) == 0:
+            LOG.error("No files found matching the provided mask")
+            return 
+        for file_tuple in self.completion:
+            if file_tuple[1] == 0:
+                filename = file_tuple[0]
+                filename = filename.replace('/', '\\')
+                fh = open(ntpath.basename(filename), 'wb')
+                pathname = ntpath.join(self.pwd, filename)
+                try:
+                    LOG.info("Downloading %s" % (filename))
+                    self.smb.getFile(self.share, pathname, fh.write)
+                except:
+                    fh.close()
+                    os.remove(filename)
+                    raise
+                fh.close()
 
     def do_get(self, filename):
         if self.tid is None:
