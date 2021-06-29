@@ -85,6 +85,7 @@ GENERIC_WRITE                 = 0x40000000
 GENERIC_EXECUTE               = 0x20000000
 GENERIC_ALL                   = 0x10000000
 
+
 # 2.2.3.6.1 Printer Change Flags for Use with a Printer Handle
 PRINTER_CHANGE_SET_PRINTER        = 0x00000002
 PRINTER_CHANGE_DELETE_PRINTER     = 0x00000004
@@ -139,6 +140,17 @@ PRINTER_NOTIFY_CATEGORY_2D  = 0x00000000
 PRINTER_NOTIFY_CATEGORY_ALL = 0x00010000
 PRINTER_NOTIFY_CATEGORY_3D  = 0x00020000
 
+
+# 3.1.4.4.8 RpcAddPrinterDriverEx Values
+APD_STRICT_UPGRADE              = 0x00000001
+APD_STRICT_DOWNGRADE            = 0x00000002
+APD_COPY_ALL_FILES              = 0x00000004
+APD_COPY_NEW_FILES              = 0x00000008
+APD_COPY_FROM_DIRECTORY         = 0x00000010
+APD_DONT_COPY_FILES_TO_CLUSTER  = 0x00001000
+APD_COPY_TO_ALL_SPOOLERS        = 0x00002000
+APD_INSTALL_WARNED_DRIVER       = 0x00008000
+APD_RETURN_BLOCKING_STATUS_CODE = 0x00010000
 
 ################################################################################
 # STRUCTURES
@@ -215,6 +227,48 @@ class PSPLCLIENT_INFO_3(NDRPOINTER):
     referent = (
         ('Data', SPLCLIENT_INFO_3),
     )
+
+# 2.2.1.5.1 DRIVER_INFO_1
+class DRIVER_INFO_1(NDRSTRUCT):
+    structure = (
+        ('pName', STRING_HANDLE ),
+    )
+class PDRIVER_INFO_1(NDRPOINTER):
+    referent = (
+        ('Data', DRIVER_INFO_1),
+    )
+
+# 2.2.1.5.2 DRIVER_INFO_2
+class DRIVER_INFO_2(NDRSTRUCT):
+    structure = (
+        ('cVersion',DWORD),
+        ('pName', LPWSTR),
+        ('pEnvironment', LPWSTR),
+        ('pDriverPath', LPWSTR),
+        ('pDataFile', LPWSTR),
+        ('pConfigFile', LPWSTR),
+    )
+class PDRIVER_INFO_2(NDRPOINTER):
+    referent = (
+        ('Data', DRIVER_INFO_2),
+    )
+
+# 2.2.1.2.3 DRIVER_CONTAINER
+class DRIVER_INFO_UNION(NDRUNION):
+    commonHdr = (
+        ('tag', ULONG),
+    )
+    union = {
+        1 : ('pNotUsed', PDRIVER_INFO_1),
+        2 : ('Level2', PDRIVER_INFO_2),
+    }
+
+class DRIVER_CONTAINER(NDRSTRUCT):
+    structure =  (
+        ('Level',DWORD),
+        ('DriverInfo',DRIVER_INFO_UNION),
+    )
+
 # 2.2.1.2.14 SPLCLIENT_CONTAINER
 class CLIENT_INFO_UNION(NDRUNION):
     commonHdr = (
@@ -231,7 +285,6 @@ class SPLCLIENT_CONTAINER(NDRSTRUCT):
         ('Level',DWORD),
         ('ClientInfo',CLIENT_INFO_UNION),
     )
-
 
 # 2.2.1.13.2 RPC_V2_NOTIFY_OPTIONS_TYPE
 class USHORT_ARRAY(NDRUniConformantArray):
@@ -356,6 +409,20 @@ class RpcOpenPrinterExResponse(NDRCALL):
        ('ErrorCode', ULONG),
     )
 
+# 3.1.4.4.8 RpcAddPrinterDriverEx (Opnum 89)
+class RpcAddPrinterDriverEx(NDRCALL):
+    opnum = 89
+    structure = (
+       ('pName', STRING_HANDLE),
+       ('pDriverContainer', DRIVER_CONTAINER),
+       ('dwFileCopyFlags', DWORD),
+    )
+
+class RpcAddPrinterDriverExResponse(NDRCALL):
+    structure = (
+       ('ErrorCode', ULONG),
+    )
+
 ################################################################################
 # OPNUMs and their corresponding structures
 ################################################################################
@@ -365,6 +432,7 @@ OPNUMS = {
     29 : (RpcClosePrinter, RpcClosePrinterResponse),
     65 : (RpcRemoteFindFirstPrinterChangeNotificationEx, RpcRemoteFindFirstPrinterChangeNotificationExResponse),
     69 : (RpcOpenPrinterEx, RpcOpenPrinterExResponse),
+    89 : (RpcAddPrinterDriverEx, RpcAddPrinterDriverExResponse),
 }
 
 ################################################################################
@@ -522,4 +590,25 @@ def hRpcEnumPrinters(dce, flags, name = NULL, level = 1):
 
     request['cbBuf'] = bytesNeeded
     request['pPrinterEnum'] = b'a' * bytesNeeded
+    return dce.request(request)
+
+
+def hRpcAddPrinterDriverEx(dce, pName, pDriverContainer, dwFileCopyFlags):
+    """
+    RpcAddPrinterDriverEx installs a printer driver on the print server
+    Full Documentation: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rprn/b96cc497-59e5-4510-ab04-5484993b259b
+
+    :param DCERPC_v5 dce: a connected DCE instance.
+    :param pName
+    :param pDriverContainer
+    :param dwFileCopyFlags
+
+    :return: raises DCERPCSessionError on error.
+    """
+    request = RpcAddPrinterDriverEx()
+    request['pName'] = checkNullString(pName)
+    request['pDriverContainer'] = pDriverContainer
+    request['dwFileCopyFlags'] = dwFileCopyFlags
+
+    #return request
     return dce.request(request)
