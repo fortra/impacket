@@ -85,7 +85,6 @@ GENERIC_WRITE                 = 0x40000000
 GENERIC_EXECUTE               = 0x20000000
 GENERIC_ALL                   = 0x10000000
 
-
 # 2.2.3.6.1 Printer Change Flags for Use with a Printer Handle
 PRINTER_CHANGE_SET_PRINTER        = 0x00000002
 PRINTER_CHANGE_DELETE_PRINTER     = 0x00000004
@@ -265,8 +264,8 @@ class DRIVER_INFO_UNION(NDRUNION):
 
 class DRIVER_CONTAINER(NDRSTRUCT):
     structure =  (
-        ('Level',DWORD),
-        ('DriverInfo',DRIVER_INFO_UNION),
+        ('Level', DWORD),
+        ('DriverInfo', DRIVER_INFO_UNION),
     )
 
 # 2.2.1.2.14 SPLCLIENT_CONTAINER
@@ -409,6 +408,25 @@ class RpcOpenPrinterExResponse(NDRCALL):
        ('ErrorCode', ULONG),
     )
 
+# 3.1.4.4.2 RpcEnumPrinterDrivers (Opnum 10)
+class RpcEnumPrinterDrivers(NDRCALL):
+    opnum = 10
+    structure = (
+       ('pName', STRING_HANDLE),
+       ('pEnvironment', LPWSTR),
+       ('Level', DWORD),
+       ('pDrivers', PBYTE_ARRAY),
+       ('cbBuf', DWORD),
+    )
+
+class RpcEnumPrinterDriversResponse(NDRCALL):
+    structure = (
+       ('pDrivers', PBYTE_ARRAY),
+       ('pcbNeeded', DWORD),
+       ('pcReturned', DWORD),
+       ('ErrorCode', ULONG),
+    )
+
 # 3.1.4.4.8 RpcAddPrinterDriverEx (Opnum 89)
 class RpcAddPrinterDriverEx(NDRCALL):
     opnum = 89
@@ -429,6 +447,7 @@ class RpcAddPrinterDriverExResponse(NDRCALL):
 OPNUMS = {
     0  : (RpcEnumPrinters, RpcEnumPrintersResponse),
     1  : (RpcOpenPrinter, RpcOpenPrinterResponse),
+    10 : (RpcEnumPrinterDrivers, RpcEnumPrinterDriversResponse),
     29 : (RpcClosePrinter, RpcClosePrinterResponse),
     65 : (RpcRemoteFindFirstPrinterChangeNotificationEx, RpcRemoteFindFirstPrinterChangeNotificationExResponse),
     69 : (RpcOpenPrinterEx, RpcOpenPrinterExResponse),
@@ -609,6 +628,48 @@ def hRpcAddPrinterDriverEx(dce, pName, pDriverContainer, dwFileCopyFlags):
     request['pName'] = checkNullString(pName)
     request['pDriverContainer'] = pDriverContainer
     request['dwFileCopyFlags'] = dwFileCopyFlags
+
+    #return request
+    return dce.request(request)
+
+
+def hRpcEnumPrinterDrivers(dce, pName, pEnvironment, Level):
+    """
+    RpcEnumPrinterDrivers enumerates the printer drivers installed on a specified print server.
+    Full Documentation: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rprn/857d00ac-3682-4a0d-86ca-3d3c372e5e4a
+
+    :param DCERPC_v5 dce: a connected DCE instance.
+    :param pName
+    :param pEnvironment
+    :param Level
+    :param pDrivers
+    :param cbBuf
+    :param pcbNeeded
+    :param pcReturned
+
+    :return: raises DCERPCSessionError on error.
+    """
+    # get value for cbBuf
+    request = RpcEnumPrinterDrivers()
+    request['pName']        = checkNullString(pName)
+    request['pEnvironment'] = pEnvironment
+    request['Level']        = Level
+    request['pDrivers']     = NULL
+    request['cbBuf']        = 0
+    try:
+        dce.request(request)
+    except DCERPCSessionError as e:
+        if str(e).find('ERROR_INSUFFICIENT_BUFFER') < 0:
+            raise
+        bytesNeeded = e.get_packet()['pcbNeeded']
+
+    # now do RpcEnumPrinterDrivers again
+    request = RpcEnumPrinterDrivers()
+    request['pName']        = checkNullString(pName)
+    request['pEnvironment'] = pEnvironment
+    request['Level']        = Level
+    request['pDrivers']     = b'a' * bytesNeeded
+    request['cbBuf']        = bytesNeeded
 
     #return request
     return dce.request(request)
