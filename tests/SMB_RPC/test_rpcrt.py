@@ -423,11 +423,4 @@ class SMBTransport(DCERPCTests, unittest.TestCase):
 
 
 if __name__ == "__main__":
-    import sys
-    if len(sys.argv) > 1:
-        testcase = sys.argv[1]
-        suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
-    else:
-        suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
-        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport))
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)

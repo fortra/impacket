@@ -20,14 +20,31 @@ from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR
 
 
 class LDAPTests(RemoteTestCase):
+    def connect(self, login=True):
+        self.ldapConnection = ldap.LDAPConnection(self.url, self.baseDN)
+        if login:
+            self.ldapConnection.login(self.username, self.password)
+        return self.ldapConnection
+
+    def tearDown(self):
+        if hasattr(self, "ldapConnection") and self.ldapConnection:
+            self.ldapConnection.close()
 
     def dummySearch(self, ldapConnection):
         # Let's do a search just to be sure it's working
-        searchFilter = '(servicePrincipalName=*)'
+        searchFilter = "(servicePrincipalName=*)"
 
-        resp = ldapConnection.search(searchFilter=searchFilter,
-                                     attributes=['servicePrincipalName', 'sAMAccountName', 'userPrincipalName',
-                                                 'MemberOf', 'pwdLastSet', 'whenCreated'])
+        resp = ldapConnection.search(
+            searchFilter=searchFilter,
+            attributes=[
+                "servicePrincipalName",
+                "sAMAccountName",
+                "userPrincipalName",
+                "MemberOf",
+                "pwdLastSet",
+                "whenCreated",
+            ],
+        )
         for item in resp:
             print(item.prettyPrint())
 
@@ -37,69 +54,77 @@ class LDAPTests(RemoteTestCase):
         # in tests, since sometimes Windows has redundant null bytes after an ACE.Stripping those away makes the
         # ACLs not match at a binary level.
         impacket.ldap.ldaptypes.RECALC_ACL_SIZE = False
-        ldapConnection=self.connect()
-        searchFilter = '(objectCategory=computer)'
+        ldapConnection = self.connect()
+        searchFilter = "(objectCategory=computer)"
 
-        resp = ldapConnection.search(searchFilter=searchFilter,
-                                     attributes=['nTSecurityDescriptor'])
+        resp = ldapConnection.search(
+            searchFilter=searchFilter, attributes=["nTSecurityDescriptor"]
+        )
         for item in resp:
             if isinstance(item, ldapasn1.SearchResultEntry) is not True:
                 continue
-            for attribute in item['attributes']:
-                if attribute['type'] == 'nTSecurityDescriptor':
-                    secDesc = str(attribute['vals'][0])
+            for attribute in item["attributes"]:
+                if attribute["type"] == "nTSecurityDescriptor":
+                    secDesc = str(attribute["vals"][0])
                     # Converting it so we can use it
                     sd = SR_SECURITY_DESCRIPTOR()
                     sd.fromString(secDesc)
                     sd.dump()
                     self.assertTrue(secDesc, sd.getData())
 
-    def connect(self):
-        ldapConnection = ldap.LDAPConnection(self.url, self.baseDN)
-        ldapConnection.login(self.username, self.password)
-        return ldapConnection
-
     def test_sicily(self):
-        ldapConnection = ldap.LDAPConnection(self.url, self.baseDN)
-        ldapConnection.login(authenticationChoice='sicilyPackageDiscovery')
+        ldapConnection = self.connect(False)
+        ldapConnection.login(authenticationChoice="sicilyPackageDiscovery")
 
     def test_sicilyNtlm(self):
-        ldapConnection = ldap.LDAPConnection(self.url, self.baseDN)
-        ldapConnection.login(user=self.username, password=self.password, domain=self.domain)
+        ldapConnection = self.connect(False)
+        ldapConnection.login(
+            user=self.username, password=self.password, domain=self.domain
+        )
 
         self.dummySearch(ldapConnection)
 
     def test_kerberosLogin(self):
-        ldapConnection = ldap.LDAPConnection(self.url, self.baseDN)
+        ldapConnection = self.connect(False)
         ldapConnection.kerberosLogin(self.username, self.password, self.domain)
 
         self.dummySearch(ldapConnection)
 
     def test_kerberosLoginHashes(self):
         if len(self.hashes) > 0:
-            lmhash, nthash = self.hashes.split(':')
+            lmhash, nthash = self.hashes.split(":")
         else:
-            lmhash = ''
-            nthash = ''
-        ldapConnection = ldap.LDAPConnection(self.url, self.baseDN)
-        ldapConnection.kerberosLogin(self.username, '', self.domain, lmhash, nthash, '', None, None)
+            lmhash = ""
+            nthash = ""
+        ldapConnection = self.connect(False)
+        ldapConnection.kerberosLogin(
+            self.username, "", self.domain, lmhash, nthash, "", None, None
+        )
 
         self.dummySearch(ldapConnection)
 
     def test_kerberosLoginKeys(self):
-        ldapConnection = ldap.LDAPConnection(self.url, self.baseDN)
-        ldapConnection.kerberosLogin(self.username, '', self.domain, '', '', self.aesKey, None, None)
+        ldapConnection = self.connect(False)
+        ldapConnection.kerberosLogin(
+            self.username, "", self.domain, "", "", self.aesKey, None, None
+        )
 
         self.dummySearch(ldapConnection)
 
     def test_sicilyNtlmHashes(self):
         if len(self.hashes) > 0:
-            lmhash, nthash = self.hashes.split(':')
+            lmhash, nthash = self.hashes.split(":")
         else:
-            lmhash = ''
-            nthash = ''
-        ldapConnection = ldap.LDAPConnection(self.url, self.baseDN)
-        ldapConnection.login(user=self.username, password=self.password, domain=self.domain, lmhash=lmhash, nthash=nthash )
+            lmhash = ""
+            nthash = ""
+        ldapConnection = self.connect(False)
+        ldapConnection.login(
+            user=self.username,
+            password=self.password,
+            domain=self.domain,
+            lmhash=lmhash,
+            nthash=nthash,
+        )
 
         self.dummySearch(ldapConnection)
 
@@ -111,31 +136,24 @@ class LDAPTests(RemoteTestCase):
 
 @pytest.mark.remote
 class TCPTransport(LDAPTests, unittest.TestCase):
-
     def setUp(self):
         super(TCPTransport, self).setUp()
         self.set_tcp_transport_config()
-        self.aesKey = self.config_file.get('SMBTransport', 'aesKey128')
-        self.url = 'ldap://%s' % self.serverName
-        self.baseDN = 'dc=%s, dc=%s' % (self.domain.split('.')[0], self.domain.split('.')[1])
+        self.aesKey = self.config_file.get("SMBTransport", "aesKey128")
+        self.url = "ldap://%s" % self.serverName
+        self.baseDN = "dc=%s, dc=%s" % (
+            self.domain.split(".")[0],
+            self.domain.split(".")[1],
+        )
 
 
 @pytest.mark.remote
-@pytest.mark.skipif(reason="LDAPS tests require configuration")
 class TCPTransportSSL(TCPTransport):
-
     def setUp(self):
         super(TCPTransportSSL, self).setUp()
-        self.url = 'ldaps://%s' % self.serverName
+        self.url = "ldaps://%s" % self.serverName
 
 
 # Process command-line arguments.
-if __name__ == '__main__':
-    import sys
-    if len(sys.argv) > 1:
-        testcase = sys.argv[1]
-        suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
-    else:
-        suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransportSSL))
-    unittest.main(defaultTest='suite')
+if __name__ == "__main__":
+    unittest.main(verbosity=1)

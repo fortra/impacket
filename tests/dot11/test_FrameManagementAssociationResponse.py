@@ -160,5 +160,4 @@ class TestDot11ManagementAssociationResponseFrames(unittest.TestCase):
         
 
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementAssociationResponseFrames)
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)

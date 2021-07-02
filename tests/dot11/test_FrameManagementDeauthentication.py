@@ -125,5 +125,4 @@ class TestDot11ManagementBeaconFrames(unittest.TestCase):
         
 
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementBeaconFrames)
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)

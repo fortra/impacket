@@ -491,13 +491,4 @@ class TCPTransport64(TCPTransport):
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    import sys
-    if len(sys.argv) > 1:
-        testcase = sys.argv[1]
-        suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
-    else:
-        #suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
-        suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)

@@ -127,5 +127,4 @@ class TestDot11HierarchicalUpdate(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11HierarchicalUpdate)
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)

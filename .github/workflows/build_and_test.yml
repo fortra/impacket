@@ -12,6 +12,9 @@ jobs:
   lint:
     name: Check syntaxs errors and warnings
     runs-on: ubuntu-latest
+    if:
+      github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
+      github.repository
 
     steps:
       - name: Checkout Impacket
@@ -38,6 +41,10 @@ jobs:
     name: Run unit tests and build wheel
     needs: lint
     runs-on: ubuntu-latest
+    if:
+      github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
+      github.repository
+
     strategy:
       fail-fast: false
       matrix:
@@ -85,6 +92,10 @@ jobs:
     name: Build docker image
     needs: lint
     runs-on: ubuntu-latest
+    if:
+      github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
+      github.repository
+
     continue-on-error: true
     steps:
       - name: Checkout Impacket

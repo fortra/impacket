@@ -48,5 +48,4 @@ class TestDot11FrameControlACK(unittest.TestCase):
        
 
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11FrameControlACK)
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)

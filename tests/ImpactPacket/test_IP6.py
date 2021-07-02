@@ -63,5 +63,4 @@ class TestIP6(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestIP6)
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)

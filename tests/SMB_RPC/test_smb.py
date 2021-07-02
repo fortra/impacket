@@ -333,10 +333,4 @@ class SMB3Tests(SMB1Tests):
 
 
 if __name__ == "__main__":
-    suite = unittest.TestLoader().loadTestsFromTestCase(SMB1Tests)
-    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB1TestsNetBIOS))
-    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB1TestsUnicode))
-    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB002Tests))
-    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB21Tests))
-    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB3Tests))
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)

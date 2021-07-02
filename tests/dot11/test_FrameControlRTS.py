@@ -58,5 +58,4 @@ class TestDot11FrameControlRTS(unittest.TestCase):
       
 
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11FrameControlRTS)
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)

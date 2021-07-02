@@ -68,5 +68,4 @@ class TestDot11Decoder(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11Decoder)
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)
