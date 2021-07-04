@@ -111,6 +111,29 @@ class MiniShell(cmd.Cmd):
                 self.printTable(items, header=headers)
             else:
                 logging.info('No Relays Available!')
+                
+    def do_socksAdmin(self, line):
+        headers = ["Protocol", "Target", "Username", "AdminStatus", "Port"]
+        url = "http://localhost:9090/ntlmrelayx/api/v1.0/relays"
+        try:
+            proxy_handler = ProxyHandler({})
+            opener = build_opener(proxy_handler)
+            response = Request(url)
+            r = opener.open(response)
+            result = r.read()
+            items = json.loads(result)
+        except Exception as e:
+            logging.error("ERROR: %s" % str(e))
+        else:
+            if len(items) > 0:
+                adminItems = []
+                for item in items:
+                    if item[3] == "TRUE":
+                        adminItems.append(item)
+                self.printTable(adminItems, header=headers)
+            else:
+                logging.info('No Relays Available!')
+
 
     def do_startservers(self, line):
         if not self.serversRunning:
