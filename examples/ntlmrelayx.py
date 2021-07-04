@@ -132,7 +132,7 @@ class MiniShell(cmd.Cmd):
                         adminItems.append(item)
                 self.printTable(adminItems, header=headers)
             else:
-                logging.info('No Relays Available!')
+                logging.info('No Admin Relays Available!')
 
 
     def do_startservers(self, line):
