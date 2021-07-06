@@ -424,7 +424,6 @@ if __name__ == '__main__':
         socks_thread.daemon = True
         socks_thread.start()
         threads.add(socks_thread)
-        print(socksServer.activeRelays)
 
     c = start_servers(options, threads) #This is the start of the do_commands. Is it possible we can access the activeRelays in the class SOCKS these threads are built from?
 
