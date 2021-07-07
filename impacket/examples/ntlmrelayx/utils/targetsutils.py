@@ -1,35 +1,35 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Target utilities
+# Description:
+#   Target utilities
+#
+#   Classes for handling specified targets and keeping state of which targets have been processed
+#   Format of targets are based in URI syntax
+#       scheme://netloc/path
+#   where:
+#       scheme: the protocol to target (e.g. 'smb', 'mssql', 'all')
+#       netloc: int the form of domain\username@host:port (domain\username and port are optional, and don't forget
+#               to escape the '\')
+#       path: only used by specific attacks (e.g. HTTP attack).
+#
+#   Some examples:
+#       smb://1.1.1.1: It will target host 1.1.1.1 (protocol SMB) with any user connecting
+#       mssql://contoso.com\joe@10.1.1.1: It will target host 10.1.1.1 (protocol MSSQL) only when contoso.com\joe is
+#       connecting.
 #
 # Author:
-#  Alberto Solino (@agsolino)
-#  Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
+#   Alberto Solino (@agsolino)
+#   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #
-# Description:
-#     Classes for handling specified targets and keeping state of which targets have been processed
-#     Format of targets are based in URI syntax
-#         scheme://netloc/path
-#     where:
-#         scheme: the protocol to target (e.g. 'smb', 'mssql', 'all')
-#         netloc: int the form of domain\username@host:port (domain\username and port are optional, and don't forget
-#                 to escape the '\')
-#         path: only used by specific attacks (e.g. HTTP attack).
+# ToDo:
+#   [ ]: Expand the ALL:// to all the supported protocols
 #
-#     Some examples:
-#
-#         smb://1.1.1.1: It will target host 1.1.1.1 (protocol SMB) with any user connecting
-#         mssql://contoso.com\joe@10.1.1.1: It will target host 10.1.1.1 (protocol MSSQL) only when contoso.com\joe is
-#         connecting.
-#
-#  ToDo:
-# [ ]: Expand the ALL:// to all the supported protocols
-
-
 import os
 import random
 import time

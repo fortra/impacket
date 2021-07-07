@@ -1,19 +1,22 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
+#
+# Description:
+#   [MS-RDPBCGR] and [MS-CREDSSP] partial implementation
+#   just to reach CredSSP auth. This example test whether
+#   an account is valid on the target host.
 #
 # Author:
 #  Alberto Solino (@agsolino)
 #
-# Description: [MS-RDPBCGR] and [MS-CREDSSP] partial implementation 
-#              just to reach CredSSP auth. This example test whether
-#              an account is valid on the target host.
-#
 # ToDo:
-#    [x] Manage to grab the server's SSL key so we can finalize the whole
+#   [x] Manage to grab the server's SSL key so we can finalize the whole
 #        authentication process (check [MS-CSSP] section 3.1.5)
 #
 

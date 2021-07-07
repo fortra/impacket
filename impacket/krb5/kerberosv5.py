@@ -1,17 +1,19 @@
-# SECUREAUTH LABS. Copyright 2019 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
-#
-# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   Helper functions for kerberos
 #   Just starting, TONS of things to do
 #   In fact, make it easier
 #
-
+# Author:
+#   Alberto Solino (@agsolino)
+#
 import datetime
 import random
 import socket

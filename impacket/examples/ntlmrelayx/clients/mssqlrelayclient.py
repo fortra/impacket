@@ -1,20 +1,21 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# MSSQL (TDS) Protocol Client
+# Description:
+#   MSSQL (TDS) Protocol Client
+#   MSSQL client for relaying NTLMSSP authentication to MSSQL servers
 #
 # Author:
 #   Alberto Solino (@agsolino)
 #   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #
-# Description:
-# MSSQL client for relaying NTLMSSP authentication to MSSQL servers
-#
 # ToDo:
-# [ ] Handle SQL Authentication
+#   [ ] Handle SQL Authentication
 #
 import random
 import string

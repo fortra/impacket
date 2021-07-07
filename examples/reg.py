@@ -1,22 +1,27 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Description: Remote registry manipulation tool.
-#              The idea is to provide similar functionality as the REG.EXE Windows utility.
+# Description:
+#   Remote registry manipulation tool.
+#   The idea is to provide similar functionality as the REG.EXE Windows utility.
 #
-# e.g:
-#    ./reg.py Administrator:password@targetMachine query -keyName HKLM\\Software\\Microsoft\\WBEM -s
+#   e.g:
+#       ./reg.py Administrator:password@targetMachine query -keyName HKLM\\Software\\Microsoft\\WBEM -s
 #
 # Author:
-#  Manuel Porto (@manuporto)
-#  Alberto Solino (@agsolino)
+#   Manuel Porto (@manuporto)
+#   Alberto Solino (@agsolino)
 #
-# Reference for: [MS-RRP]
+# Reference for:
+#   [MS-RRP]
 #
+
 from __future__ import division
 from __future__ import print_function
 import argparse

@@ -1,10 +1,10 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
-#
-# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   [MS-DCOM] Interface implementation
@@ -14,17 +14,20 @@
 #   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
 #
 #   Some calls have helper functions, which makes it even easier to use.
-#   They are located at the end of this file. 
+#   They are located at the end of this file.
 #   Helper functions start with "h"<name of the call>.
-#   There are test cases for them too. 
+#   There are test cases for them too.
+#
+# Author:
+#   Alberto Solino (@agsolino)
 #
 # ToDo:
-# [X] Use the same DCE connection for all the calls. Right now is connecting to the remote machine
-#     for each call, making it slower.
+#   [X] Use the same DCE connection for all the calls. Right now is connecting to the remote machine
+#       for each call, making it slower.
+#   [X] Implement a ping mechanism, otherwise the garbage collector at the server shuts down the objects if
+#       not used, returning RPC_E_DISCONNECTED
 #
-# [X] Implement a ping mechanism, otherwise the garbage collector at the server shuts down the objects if 
-#    not used, returning RPC_E_DISCONNECTED
-#
+
 from __future__ import division
 from __future__ import print_function
 import socket

@@ -1,16 +1,18 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Structures and types used in LDAP
-# Contains the Structures for the NT Security Descriptor (non-RPC format) and
-# all ACL related structures
+# Description:
+#   Structures and types used in LDAP
+#   Contains the Structures for the NT Security Descriptor (non-RPC format) and
+#   all ACL related structures
 #
 # Author:
-#  Dirk-jan Mollema (@_dirkjan) / Fox-IT (https://www.fox-it.com)
-#
+#   Dirk-jan Mollema (@_dirkjan) / Fox-IT (https://www.fox-it.com)
 #
 from struct import unpack, pack
 from impacket.structure import Structure

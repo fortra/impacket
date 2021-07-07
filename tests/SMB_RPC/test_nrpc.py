@@ -1,58 +1,61 @@
-###############################################################################
-#  Tested so far: 
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# DsrGetDcNameEx2
-# DsrGetDcNameEx
-# DsrGetDcName
-# NetrGetDCName
-# NetrGetAnyDCName
-# DsrGetSiteName
-# DsrGetDcSiteCoverageW
-# DsrAddressToSiteNamesW
-# DsrAddressToSiteNamesExW
-# DsrDeregisterDnsHostRecords
-# NetrServerReqChallenge
-# NetrServerAuthenticate3
-# NetrServerAuthenticate2
-# NetrServerAuthenticate
-# NetrServerTrustPasswordsGet
-# NetrLogonGetCapabilities
-# NetrDatabaseDeltas
-# NetrDatabaseSync2
-# NetrDatabaseSync
-# DsrEnumerateDomainTrusts
-# NetrEnumerateTrustedDomainsEx
-# NetrEnumerateTrustedDomains
-# NetrGetForestTrustInformation
-# DsrGetForestTrustInformation
-# NetrServerGetTrustInfo
-# NetrLogonGetTrustRid
-# NetrLogonComputeServerDigest
-# NetrLogonComputeClientDigest
-# NetrLogonSendToSam
-# NetrLogonSetServiceBits
-# NetrLogonGetTimeServiceParentDomain
-# NetrLogonControl2Ex
-# NetrLogonControl2
-# NetrLogonControl
-# NetrLogonUasLogon
-# NetrLogonGetDomainInfo
-# NetrServerPasswordSet2
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
 #
-#  Not yet:
-# 
-# DSRUpdateReadOnlyServerDnsRecords
-# NetrServerPasswordGet
-# NetrLogonSamLogonEx
-# NetrLogonSamLogonWithFlags
-# NetrLogonSamLogon
-# NetrLogonSamLogoff
-# NetrDatabaseRedo
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Tested so far:
+#   DsrGetDcNameEx2
+#   DsrGetDcNameEx
+#   DsrGetDcName
+#   NetrGetDCName
+#   NetrGetAnyDCName
+#   DsrGetSiteName
+#   DsrGetDcSiteCoverageW
+#   DsrAddressToSiteNamesW
+#   DsrAddressToSiteNamesExW
+#   DsrDeregisterDnsHostRecords
+#   NetrServerReqChallenge
+#   NetrServerAuthenticate3
+#   NetrServerAuthenticate2
+#   NetrServerAuthenticate
+#   NetrServerTrustPasswordsGet
+#   NetrLogonGetCapabilities
+#   NetrDatabaseDeltas
+#   NetrDatabaseSync2
+#   NetrDatabaseSync
+#   DsrEnumerateDomainTrusts
+#   NetrEnumerateTrustedDomainsEx
+#   NetrEnumerateTrustedDomains
+#   NetrGetForestTrustInformation
+#   DsrGetForestTrustInformation
+#   NetrServerGetTrustInfo
+#   NetrLogonGetTrustRid
+#   NetrLogonComputeServerDigest
+#   NetrLogonComputeClientDigest
+#   NetrLogonSendToSam
+#   NetrLogonSetServiceBits
+#   NetrLogonGetTimeServiceParentDomain
+#   NetrLogonControl2Ex
+#   NetrLogonControl2
+#   NetrLogonControl
+#   NetrLogonUasLogon
+#   NetrLogonGetDomainInfo
+#   NetrServerPasswordSet2
+#
+# Not yet:
+#   DSRUpdateReadOnlyServerDnsRecords
+#   NetrServerPasswordGet
+#   NetrLogonSamLogonEx
+#   NetrLogonSamLogonWithFlags
+#   NetrLogonSamLogon
+#   NetrLogonSamLogoff
+#   NetrDatabaseRedo
 # 
 # Shouldn't dump errors against a win7
 #
-################################################################################
-
 import unittest
 try:
     import ConfigParser

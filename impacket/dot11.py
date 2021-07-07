@@ -1,14 +1,17 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
 # Description:
-#  IEEE 802.11 Network packet codecs.
+#   IEEE 802.11 Network packet codecs.
 #
 # Author:
-#  Gustavo Moreira
+#   Gustavo Moreira
+#
 
 import struct
 from binascii import crc32

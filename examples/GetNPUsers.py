@@ -1,28 +1,29 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author:
-#  Alberto Solino (@agsolino)
-#
 # Description:
-#    This script will attempt to list and get TGTs for those users that have the property
-#    'Do not require Kerberos preauthentication' set (UF_DONT_REQUIRE_PREAUTH).
-#    For those users with such configuration, a John The Ripper output will be generated so
-#    you can send it for cracking.
+#   This script will attempt to list and get TGTs for those users that have the property
+#   'Do not require Kerberos preauthentication' set (UF_DONT_REQUIRE_PREAUTH).
+#   For those users with such configuration, a John The Ripper output will be generated so
+#   you can send it for cracking.
 #
-#    Original credit for this technique goes to @harmj0y:
-#    https://www.harmj0y.net/blog/activedirectory/roasting-as-reps/
-#    Related work by Geoff Janjua:
-#    https://www.exumbraops.com/layerone2016/party
+#   Original credit for this technique goes to @harmj0y:
+#   https://www.harmj0y.net/blog/activedirectory/roasting-as-reps/
+#   Related work by Geoff Janjua:
+#   https://www.exumbraops.com/layerone2016/party
 #
-#    For usage instructions run the script with no parameters
+#   For usage instructions run the script with no parameters.
 #
-# ToDo:
+# Author:
+#   Alberto Solino (@agsolino)
 #
+
 from __future__ import division
 from __future__ import print_function
 import argparse
