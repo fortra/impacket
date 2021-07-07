@@ -1,10 +1,13 @@
-# Copyright (c) 2003-2016 CORE Security Technologies
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2016 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino (@agsolino)
+# Author:
+#   Alberto Solino (@agsolino)
 #
 
 # Set default logging handler to avoid "No handler found" warnings.

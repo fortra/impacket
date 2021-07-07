@@ -1,24 +1,26 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2020 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author:
-#  Arseniy Sharoglazov <mohemiv@gmail.com> / Positive Technologies (https://www.ptsecurity.com/)
-#
 # Description:
-#  A tool for connecting to MS Exchange via RPC over HTTP v2
+#   A tool for connecting to MS Exchange via RPC over HTTP v2
 #
-# Notes about -rpc-hostname:
-#  Our RPC over HTTP v2 implementation tries to extract the
-#  target's NetBIOS name via NTLMSSP and use it as RPC Server name.
-#  If it fails, you have to manually get the target RPC Server name
-#  from the Autodiscover service and set it in the -rpc-hostname parameter.
+#   Notes about -rpc-hostname:
+#     Our RPC over HTTP v2 implementation tries to extract the
+#     target's NetBIOS name via NTLMSSP and use it as RPC Server name.
+#     If it fails, you have to manually get the target RPC Server name
+#     from the Autodiscover service and set it in the -rpc-hostname parameter.
+#
+# Author:
+#   Arseniy Sharoglazov <mohemiv@gmail.com> / Positive Technologies (https://www.ptsecurity.com/)
 #
 # References:
-#  https://swarm.ptsecurity.com/attacking-ms-exchange-web-interfaces/
+#   - https://swarm.ptsecurity.com/attacking-ms-exchange-web-interfaces/
 #
 
 from __future__ import print_function

@@ -1,8 +1,15 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
+#
+# Author:
+#   Altered source done by Alberto Solino (@agsolino)
+#
+# Copyright and license note from Pysmb:
 #
 # Copyright (C) 2001 Michael Teo <michaelteo@bigfoot.com>
 # smb.py - SMB/CIFS library
@@ -25,19 +32,18 @@
 #
 # 3. This notice cannot be removed or altered from any source distribution.
 #
-# Altered source done by Alberto Solino (@agsolino)
-
 # Todo:
-# [ ] Try [SMB]transport fragmentation using Transact requests
-# [ ] Try other methods of doing write (write_raw, transact2, write, write_and_unlock, write_and_close, write_mpx)
-# [-] Try replacements for SMB_COM_NT_CREATE_ANDX  (CREATE, T_TRANSACT_CREATE, OPEN_ANDX works
-# [x] Fix forceWriteAndx, which needs to send a RecvRequest, because recv() will not send it
-# [x] Fix Recv() when using RecvAndx and the answer comes splet in several packets
-# [ ] Try [SMB]transport fragmentation with overlapping segments
-# [ ] Try [SMB]transport fragmentation with out of order segments
-# [x] Do chained AndX requests
-# [ ] Transform the rest of the calls to structure
-# [X] Implement TRANS/TRANS2 reassembly for list_path
+#   [ ] Try [SMB]transport fragmentation using Transact requests
+#   [ ] Try other methods of doing write (write_raw, transact2, write, write_and_unlock, write_and_close, write_mpx)
+#   [-] Try replacements for SMB_COM_NT_CREATE_ANDX  (CREATE, T_TRANSACT_CREATE, OPEN_ANDX works
+#   [x] Fix forceWriteAndx, which needs to send a RecvRequest, because recv() will not send it
+#   [x] Fix Recv() when using RecvAndx and the answer comes splet in several packets
+#   [ ] Try [SMB]transport fragmentation with overlapping segments
+#   [ ] Try [SMB]transport fragmentation with out of order segments
+#   [x] Do chained AndX requests
+#   [ ] Transform the rest of the calls to structure
+#   [X] Implement TRANS/TRANS2 reassembly for list_path
+#
 from __future__ import division
 from __future__ import print_function
 import os

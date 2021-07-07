@@ -1,32 +1,36 @@
-###############################################################################
-#  Tested so far: 
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# NetrWkstaGetInfo
-# NetrWkstaUserEnum
-# NetrWkstaTransportEnum
-# NetrWkstaTransportAdd
-# NetrUseAdd
-# NetrUseGetInfo
-# NetrUseDel
-# NetrUseEnum
-# NetrWorkstationStatisticsGet
-# NetrGetJoinInformation
-# NetrJoinDomain2
-# NetrUnjoinDomain2
-# NetrRenameMachineInDomain2
-# NetrValidateName2
-# NetrGetJoinableOUs2
-# NetrAddAlternateComputerName
-# NetrRemoveAlternateComputerName
-# NetrSetPrimaryComputerName
-# NetrEnumerateComputerNames
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
 #
-#  Not yet:
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Tested so far:
+#   NetrWkstaGetInfo
+#   NetrWkstaUserEnum
+#   NetrWkstaTransportEnum
+#   NetrWkstaTransportAdd
+#   NetrUseAdd
+#   NetrUseGetInfo
+#   NetrUseDel
+#   NetrUseEnum
+#   NetrWorkstationStatisticsGet
+#   NetrGetJoinInformation
+#   NetrJoinDomain2
+#   NetrUnjoinDomain2
+#   NetrRenameMachineInDomain2
+#   NetrValidateName2
+#   NetrGetJoinableOUs2
+#   NetrAddAlternateComputerName
+#   NetrRemoveAlternateComputerName
+#   NetrSetPrimaryComputerName
+#   NetrEnumerateComputerNames
+#
+# Not yet:
 #
 # Shouldn't dump errors against a win7
-#  
-################################################################################
-
+#
 from __future__ import division
 from __future__ import print_function
 import unittest

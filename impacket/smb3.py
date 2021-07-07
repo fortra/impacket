@@ -1,10 +1,10 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
-#
-# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   [MS-SMB2] Protocol Implementation (SMB2 and SMB3)
@@ -14,16 +14,20 @@
 #   same to self._Session in the context of this library ) but
 #   it certainly helps following the document way easier.
 #
-# ToDo:
-# [X] Implement SMB2_CHANGE_NOTIFY
-# [X] Implement SMB2_QUERY_INFO
-# [X] Implement SMB2_SET_INFO
-# [ ] Implement SMB2_OPLOCK_BREAK
-# [X] Implement SMB3 signing
-# [X] Implement SMB3 encryption
-# [ ] Add more backward compatible commands from the smb.py code
-# [ ] Fix up all the 'ToDo' comments inside the code
+# Author:
+#   Alberto Solino (@agsolino)
 #
+# ToDo:
+#   [X] Implement SMB2_CHANGE_NOTIFY
+#   [X] Implement SMB2_QUERY_INFO
+#   [X] Implement SMB2_SET_INFO
+#   [ ] Implement SMB2_OPLOCK_BREAK
+#   [X] Implement SMB3 signing
+#   [X] Implement SMB3 encryption
+#   [ ] Add more backward compatible commands from the smb.py code
+#   [ ] Fix up all the 'ToDo' comments inside the code
+#
+
 from __future__ import division
 from __future__ import print_function
 

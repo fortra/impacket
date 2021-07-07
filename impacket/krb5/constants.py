@@ -1,17 +1,18 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino (@agsolino)
-#
 # Description:
 #   Constants for krb5.asn1 package. I took them out from the RFC plus
-#   some data from [MS-KILE] as well. 
+#   some data from [MS-KILE] as well.
 #
+# Author:
+#   Alberto Solino (@agsolino)
 #
-
 from impacket.dcerpc.v5.enum import Enum
 
 def encodeFlags(flags):

@@ -1,4 +1,6 @@
-# SECUREAUTH LABS. Copyright 2020 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -8,14 +10,15 @@
 #   [MS-NSPI]: Name Service Provider Interface (NSPI) Protocol
 #   [MS-OXNSPI]: Exchange Server Name Service Provider Interface (NSPI) Protocol
 #
-# Authors:
-#  Arseniy Sharoglazov <mohemiv@gmail.com> / Positive Technologies (https://www.ptsecurity.com/)
+#   Tested for MS-OXNSPI, some operation may not work for MS-NSPI
 #
-# Tested for MS-OXNSPI, some operation may not work for MS-NSPI
+# Author:
+#   Arseniy Sharoglazov <mohemiv@gmail.com> / Positive Technologies (https://www.ptsecurity.com/)
 #
 # ToDo:
-# [ ] Test commented NDRCALLs and write helpers for them
-# [ ] Test restriction structures
+#   [ ] Test commented NDRCALLs and write helpers for them
+#   [ ] Test restriction structures
+#
 
 from __future__ import division
 from __future__ import print_function

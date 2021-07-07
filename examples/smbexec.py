@@ -1,32 +1,37 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# A similar approach to psexec w/o using RemComSvc. The technique is described here
-# https://www.optiv.com/blog/owning-computers-without-shell-access
-# Our implementation goes one step further, instantiating a local smbserver to receive the
-# output of the commands. This is useful in the situation where the target machine does NOT
-# have a writeable share available.
-# Keep in mind that, although this technique might help avoiding AVs, there are a lot of
-# event logs generated and you can't expect executing tasks that will last long since Windows
-# will kill the process since it's not responding as a Windows service.
-# Certainly not a stealthy way.
+# Description:
+#   A similar approach to psexec w/o using RemComSvc. The technique is described here
+#   https://www.optiv.com/blog/owning-computers-without-shell-access
+#   Our implementation goes one step further, instantiating a local smbserver to receive the
+#   output of the commands. This is useful in the situation where the target machine does NOT
+#   have a writeable share available.
+#   Keep in mind that, although this technique might help avoiding AVs, there are a lot of
+#   event logs generated and you can't expect executing tasks that will last long since Windows
+#   will kill the process since it's not responding as a Windows service.
+#   Certainly not a stealthy way.
 #
-# This script works in two ways:
-# 1) share mode: you specify a share, and everything is done through that share.
-# 2) server mode: if for any reason there's no share available, this script will launch a local
-#    SMB server, so the output of the commands executed are sent back by the target machine
-#    into a locally shared folder. Keep in mind you would need root access to bind to port 445
-#    in the local machine.
+#   This script works in two ways:
+#       1) share mode: you specify a share, and everything is done through that share.
+#       2) server mode: if for any reason there's no share available, this script will launch a local
+#          SMB server, so the output of the commands executed are sent back by the target machine
+#          into a locally shared folder. Keep in mind you would need root access to bind to port 445
+#          in the local machine.
 #
 # Author:
-#  beto (@agsolino)
+#   beto (@agsolino)
 #
 # Reference for:
-#  DCE/RPC and SMB.
+#   DCE/RPC and SMB.
+#
+
 from __future__ import division
 from __future__ import print_function
 import sys

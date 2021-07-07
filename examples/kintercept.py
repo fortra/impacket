@@ -1,4 +1,15 @@
 #!/usr/bin/env python
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+# Copyright (c) 2017 @MrAnde7son
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Copyright and licensing note from kintercept.py:
+#
 # MIT Licensed
 # Copyright (c) 2019 Isaac Boukris <iboukris@gmail.com>
 #
@@ -13,7 +24,7 @@
 # packet will be changed to the name specified in the handler's argument.
 #
 # Example: kintercept.py --request-handler s4u2else:administrator dc-ip-addr
-
+#
 import struct, socket, argparse, asyncore
 from binascii import crc32
 from pyasn1.codec.der import decoder, encoder

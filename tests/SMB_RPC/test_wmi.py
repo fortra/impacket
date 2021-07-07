@@ -1,42 +1,46 @@
-###############################################################################
-#  Tested so far: 
-# IWbemLevel1Login::EstablishPosition
-# IWbemLevel1Login::RequestChallenge 
-# IWbemLevel1Login::WBEMLogin 
-# IWbemLevel1Login::NTLMLogin 
-# IWbemServices::OpenNamespace  
-# IWbemServices::ExecQuery
-# IWbemServices::GetObject
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# Since DCOM is more high level, I'll always use the helper classes
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
 #
-#  Not yet:
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
 #
-# IWbemServices::CancelAsyncCall
-# IWbemServices::QueryObjectSink
-# IWbemServices::GetObjectAsync
-# IWbemServices::PutClass
-# IWbemServices::PutClassAsync
-# IWbemServices::DeleteClass
-# IWbemServices::DeleteClassAsync
-# IWbemServices::CreateClassEnum
-# IWbemServices::CreateClassEnumAsync
-# IWbemServices::PutInstance
-# IWbemServices::PutInstanceAsync
-# IWbemServices::DeleteInstance
-# IWbemServices::DeleteInstanceAsync
-# IWbemServices::CreateInstanceEnum
-# IWbemServices::CreateInstanceEnumAsync
-# IWbemServices::ExecQueryAsync
-# IWbemServices::ExecNotificationQuery
-# IWbemServices::ExecNotificationQueryAsync
-# IWbemServices::ExecMethod
-# IWbemServices::ExecMethodAsync
+# Tested so far:
+#   IWbemLevel1Login::EstablishPosition
+#   IWbemLevel1Login::RequestChallenge
+#   IWbemLevel1Login::WBEMLogin
+#   IWbemLevel1Login::NTLMLogin
+#   IWbemServices::OpenNamespace
+#   IWbemServices::ExecQuery
+#   IWbemServices::GetObject
+#
+#   Since DCOM is more high level, I'll always use the helper classes
+#
+# Not yet:
+#   IWbemServices::CancelAsyncCall
+#   IWbemServices::QueryObjectSink
+#   IWbemServices::GetObjectAsync
+#   IWbemServices::PutClass
+#   IWbemServices::PutClassAsync
+#   IWbemServices::DeleteClass
+#   IWbemServices::DeleteClassAsync
+#   IWbemServices::CreateClassEnum
+#   IWbemServices::CreateClassEnumAsync
+#   IWbemServices::PutInstance
+#   IWbemServices::PutInstanceAsync
+#   IWbemServices::DeleteInstance
+#   IWbemServices::DeleteInstanceAsync
+#   IWbemServices::CreateInstanceEnum
+#   IWbemServices::CreateInstanceEnumAsync
+#   IWbemServices::ExecQueryAsync
+#   IWbemServices::ExecNotificationQuery
+#   IWbemServices::ExecNotificationQueryAsync
+#   IWbemServices::ExecMethod
+#   IWbemServices::ExecMethodAsync
 # 
 # Shouldn't dump errors against a win7
 #
-################################################################################
-
 from __future__ import division
 from __future__ import print_function
 

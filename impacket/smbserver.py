@@ -1,24 +1,26 @@
-# SECUREAUTH LABS. Copyright 2021 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino (@agsolino)
+# Author:
+#   Alberto Solino (@agsolino)
 #
 # TODO:
-# [-] Functions should return NT error codes
-# [-] Handling errors in all situations, right now it's just raising exceptions. 
-# [*] Standard authentication support
-# [ ] Organize the connectionData stuff
-# [*] Add capability to send a bad user ID if the user is not authenticated,
-#     right now you can ask for any command without actually being authenticated
-# [ ] PATH TRAVERSALS EVERYWHERE.. BE WARNED!
-# [ ] Check error situation (now many places assume the right data is coming)
-# [ ] Implement IPC to the main process so the connectionData is on a single place
-# [ ] Hence.. implement locking
+#   [-] Functions should return NT error codes
+#   [-] Handling errors in all situations, right now it's just raising exceptions.
+#   [*] Standard authentication support
+#   [ ] Organize the connectionData stuff
+#   [*] Add capability to send a bad user ID if the user is not authenticated,
+#       right now you can ask for any command without actually being authenticated
+#   [ ] PATH TRAVERSALS EVERYWHERE.. BE WARNED!
+#   [ ] Check error situation (now many places assume the right data is coming)
+#   [ ] Implement IPC to the main process so the connectionData is on a single place
+#   [ ] Hence.. implement locking
 # estamos en la B
-
 
 import calendar
 import socket

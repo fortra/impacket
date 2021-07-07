@@ -1,23 +1,29 @@
 #!/usr/bin/env python
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# Author:
-#  Zer1t0 (https://github.com/Zer1t0)
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
 #
 # Description:
-#    This script will convert kirbi files (commonly used by mimikatz) into ccache files used by impacket,
-#    and vice versa.
+#   This script will convert kirbi files (commonly used by mimikatz) into ccache files used by impacket,
+#   and vice versa.
+#
+#   Examples:
+#       ./ticket_converter.py admin.ccache admin.kirbi
+#       ./ticket_converter.py admin.kirbi admin.ccache
+#
+# Author:
+#   Zer1t0 (https://github.com/Zer1t0)
 #
 # References:
-#    https://tools.ietf.org/html/rfc4120
-#    http://web.mit.edu/KERBEROS/krb5-devel/doc/formats/ccache_file_format.html
-#    https://github.com/gentilkiwi/kekeo
-#    https://github.com/rvazarkar/KrbCredExport
+#   - https://tools.ietf.org/html/rfc4120
+#   - http://web.mit.edu/KERBEROS/krb5-devel/doc/formats/ccache_file_format.html
+#   - https://github.com/gentilkiwi/kekeo
+#   - https://github.com/rvazarkar/KrbCredExport
 #
-# Examples:
-#         ./ticket_converter.py admin.ccache admin.kirbi
-#         ./ticket_converter.py admin.kirbi admin.ccache
-#
-
 
 import argparse
 import struct

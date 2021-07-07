@@ -1,45 +1,49 @@
-###############################################################################
-#  Tested so far: 
-#  hRCloseServiceHandleCall
-#  RControlService
-#  RDeleteService
-#  RLockServiceDatabase
-#  RQueryServiceObjectSecurity
-#  RQueryServiceStatus
-#  RUnlockServiceDatabase
-#  RNotifyBootConfigStatus
-#  RChangeServiceConfigW
-#  RCreateServiceW
-#  REnumDependentServicesW
-#  REnumServicesStatusW
-#  ROpenSCManager
-#  ROpenServiceW
-#  RQueryServiceConfigW
-#  RQueryServiceLockStatusW
-#  RStartServiceW
-#  CRGetServiceDisplayNameW
-#  RGetServiceKeyNameW
-#  REnumServiceGroupW
-#  RChangeServiceConfig2W
-#  RQueryServiceConfig2W
-#  RQueryServiceStatusEx
-#  REnumServicesStatusExW
-#  RNotifyServiceStatusChange
-#  RGetNotifyResults
-#  RCloseNotifyHandle
-#  RControlServiceExW
-#  RQueryServiceConfigEx
+# Impacket - Collection of Python classes for working with network protocols.
 #
-#  Not yet:
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
 #
-#  RSetServiceObjectSecurity
-#  RSetServiceStatus
-#  RCreateServiceWOW64W
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Tested so far:
+#   hRCloseServiceHandleCall
+#   RControlService
+#   RDeleteService
+#   RLockServiceDatabase
+#   RQueryServiceObjectSecurity
+#   RQueryServiceStatus
+#   RUnlockServiceDatabase
+#   RNotifyBootConfigStatus
+#   RChangeServiceConfigW
+#   RCreateServiceW
+#   REnumDependentServicesW
+#   REnumServicesStatusW
+#   ROpenSCManager
+#   ROpenServiceW
+#   RQueryServiceConfigW
+#   RQueryServiceLockStatusW
+#   RStartServiceW
+#   CRGetServiceDisplayNameW
+#   RGetServiceKeyNameW
+#   REnumServiceGroupW
+#   RChangeServiceConfig2W
+#   RQueryServiceConfig2W
+#   RQueryServiceStatusEx
+#   REnumServicesStatusExW
+#   RNotifyServiceStatusChange
+#   RGetNotifyResults
+#   RCloseNotifyHandle
+#   RControlServiceExW
+#   RQueryServiceConfigEx
+#
+# Not yet:
+#   RSetServiceObjectSecurity
+#   RSetServiceStatus
+#   RCreateServiceWOW64W
 #  
 # Shouldn't dump errors against a win7
 #
-################################################################################
-
 try:
     import ConfigParser
 except ImportError:

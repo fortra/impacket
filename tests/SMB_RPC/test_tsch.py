@@ -1,63 +1,67 @@
-###############################################################################
-#  Tested so far: 
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# NetrJobEnum
-# NetrJobAdd
-# NetrJobDel
-# NetrJobGetInfo
-# hNetrJobEnum
-# hNetrJobAdd
-# hNetrJobDel
-# hNetrJobGetInfo
-# SASetAccountInformation
-# hSASetAccountInformation
-# SASetNSAccountInformation
-# hSASetNSAccountInformation
-# SAGetNSAccountInformation
-# hSAGetNSAccountInformation
-# SAGetAccountInformation
-# hSAGetAccountInformation
-# SchRpcHighestVersion
-# hSchRpcHighestVersion
-# SchRpcRetrieveTask
-# hSchRpcRetrieveTask
-# SchRpcCreateFolder
-# hSchRpcCreateFolder
-# SchRpcDelete
-# hSchRpcDelete
-# SchRpcEnumFolders
-# hSchRpcEnumFolders
-# SchRpcEnumTasks
-# hSchRpcEnumTasks
-# SchRpcEnumInstances
-# hSchRpcEnumInstances
-# SchRpcRun
-# hSchRpcRun
-# SchRpcGetInstanceInfo
-# hSchRpcGetInstanceInfo
-# SchRpcStopInstance
-# hSchRpcStopInstance
-# SchRpcStop
-# hSchRpcStop
-# SchRpcRename
-# hSchRpcRename
-# SchRpcScheduledRuntimes
-# hSchRpcScheduledRuntimes
-# SchRpcGetLastRunInfo
-# hSchRpcGetLastRunInfo
-# SchRpcGetTaskInfo
-# hSchRpcGetTaskInfo
-# SchRpcGetNumberOfMissedRuns
-# hSchRpcGetNumberOfMissedRuns
-# SchRpcEnableTask
-# hSchRpcEnableTask
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
 #
-#  Not yet:
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Tested so far:
+#   NetrJobEnum
+#   NetrJobAdd
+#   NetrJobDel
+#   NetrJobGetInfo
+#   hNetrJobEnum
+#   hNetrJobAdd
+#   hNetrJobDel
+#   hNetrJobGetInfo
+#   SASetAccountInformation
+#   hSASetAccountInformation
+#   SASetNSAccountInformation
+#   hSASetNSAccountInformation
+#   SAGetNSAccountInformation
+#   hSAGetNSAccountInformation
+#   SAGetAccountInformation
+#   hSAGetAccountInformation
+#   SchRpcHighestVersion
+#   hSchRpcHighestVersion
+#   SchRpcRetrieveTask
+#   hSchRpcRetrieveTask
+#   SchRpcCreateFolder
+#   hSchRpcCreateFolder
+#   SchRpcDelete
+#   hSchRpcDelete
+#   SchRpcEnumFolders
+#   hSchRpcEnumFolders
+#   SchRpcEnumTasks
+#   hSchRpcEnumTasks
+#   SchRpcEnumInstances
+#   hSchRpcEnumInstances
+#   SchRpcRun
+#   hSchRpcRun
+#   SchRpcGetInstanceInfo
+#   hSchRpcGetInstanceInfo
+#   SchRpcStopInstance
+#   hSchRpcStopInstance
+#   SchRpcStop
+#   hSchRpcStop
+#   SchRpcRename
+#   hSchRpcRename
+#   SchRpcScheduledRuntimes
+#   hSchRpcScheduledRuntimes
+#   SchRpcGetLastRunInfo
+#   hSchRpcGetLastRunInfo
+#   SchRpcGetTaskInfo
+#   hSchRpcGetTaskInfo
+#   SchRpcGetNumberOfMissedRuns
+#   hSchRpcGetNumberOfMissedRuns
+#   SchRpcEnableTask
+#   hSchRpcEnableTask
+#
+# Not yet:
 #
 # Shouldn't dump errors against a win7
 #
-################################################################################
-
 from __future__ import division
 from __future__ import print_function
 

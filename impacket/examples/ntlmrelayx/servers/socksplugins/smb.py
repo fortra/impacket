@@ -1,18 +1,18 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# A Socks Proxy for the SMB Protocol
+# Description:
+#   A Socks Proxy for the SMB Protocol
+#
+#   A simple SOCKS server that proxy connection to relayed connections
 #
 # Author:
-#  Alberto Solino (@agsolino)
-#
-# Description:
-#  A simple SOCKS server that proxy connection to relayed connections
-#
-# ToDo:
+#   Alberto Solino (@agsolino)
 #
 import calendar
 import time
