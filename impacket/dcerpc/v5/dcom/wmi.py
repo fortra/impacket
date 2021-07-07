@@ -23,6 +23,7 @@ from struct import unpack, calcsize, pack
 from functools import partial
 import collections
 import logging
+import six
 
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER, NDRUniConformantVaryingArray, NDRUNION, \
     NDRENUM
@@ -280,6 +281,15 @@ CIM_TYPE_TO_NAME = {
     CIM_TYPE_ENUM.CIM_TYPE_CHAR16.value   : 'char16',
     CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value   : 'object',
 }
+
+CIM_NUMBER_TYPES = (
+    CIM_TYPE_ENUM.CIM_TYPE_CHAR16.value, CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value,
+    CIM_TYPE_ENUM.CIM_TYPE_SINT8.value, CIM_TYPE_ENUM.CIM_TYPE_UINT8.value,
+    CIM_TYPE_ENUM.CIM_TYPE_SINT16.value, CIM_TYPE_ENUM.CIM_TYPE_UINT16.value,
+    CIM_TYPE_ENUM.CIM_TYPE_SINT32.value, CIM_TYPE_ENUM.CIM_TYPE_UINT32.value,
+    CIM_TYPE_ENUM.CIM_TYPE_SINT64.value, CIM_TYPE_ENUM.CIM_TYPE_UINT64.value,
+    CIM_TYPE_ENUM.CIM_TYPE_REAL32.value, CIM_TYPE_ENUM.CIM_TYPE_REAL64.value,
+)
 
 # 2.2.61 QualifierName
 QUALIFIER_NAME = HEAP_STRING_REF
@@ -791,9 +801,24 @@ class INSTANCE_TYPE(Structure):
         else:
             self.data = None
 
+    def __processNdTable(self, properties):
+        octetCount = (len(properties) - 1) // 4 + 1  # see [MS-WMIO]: 2.2.26 NdTable
+        packedNdTable = self['NdTable_ValueTable'][:octetCount]
+        unpackedNdTable = [(byte >> shift) & 0b11 for byte in six.iterbytes(packedNdTable) for shift in (0, 2, 4, 6)]
+        for key in properties:
+            ndEntry = unpackedNdTable[properties[key]['order']]
+            properties[key]['null_default'] = bool(ndEntry & 0b01)
+            properties[key]['inherited_default'] = bool(ndEntry & 0b10)
+
+        return octetCount
+
+    @staticmethod
+    def __isNonNullNumber(prop):
+        return prop['type'] & ~Inherited in CIM_NUMBER_TYPES and not prop['null_default']
+
     def getValues(self, properties):
         heap = self["InstanceHeap"]["HeapItem"]
-        valueTableOff = (len(properties) - 1) // 4 + 1
+        valueTableOff = self.__processNdTable(properties)
         valueTable = self['NdTable_ValueTable'][valueTableOff:]
         sorted_props = sorted(list(properties.keys()), key=lambda k: properties[k]['order'])
         for key in sorted_props:
@@ -810,7 +835,7 @@ class INSTANCE_TYPE(Structure):
                 itemValue = 0xffffffff
 
             # if itemValue == 0, default value remains
-            if itemValue != 0:
+            if itemValue != 0 or self.__isNonNullNumber(properties[key]):
                 value = ENCODED_VALUE.getValue( properties[key]['type'], itemValue, heap)
                 properties[key]['value'] = value
             # is the value set valid or should we clear it? ( if not inherited )
@@ -2361,6 +2386,11 @@ class IWbemClassObject(IRemUnknown):
             return ()
         return self.encodingUnit['ObjectBlock'].ctCurrent['methods']
 
+    @staticmethod
+    def __ndEntry(index, null_default, inherited_default):
+        # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-wmio/ed436785-40fc-425e-ad3d-f9200eb1a122
+        return (bool(null_default) << 1 | bool(inherited_default)) << (2 * index)
+
     def marshalMe(self):
         # So, in theory, we have the OBJCUSTOM built, but 
         # we need to update the values
@@ -2377,6 +2407,7 @@ class IWbemClassObject(IRemUnknown):
         for i, propName in enumerate(properties):
             propRecord = properties[propName]
             itemValue = getattr(self, propName)
+            propIsInherited = propRecord['inherited']
             print("PropName %r, Value: %r" % (propName,itemValue))
 
             pType = propRecord['type'] & (~(CIM_ARRAY_FLAG|Inherited)) 
@@ -2388,7 +2419,7 @@ class IWbemClassObject(IRemUnknown):
 
             if propRecord['type'] & CIM_ARRAY_FLAG:
                 if itemValue is None:
-                    ndTable |= 2 << (2*i)
+                    ndTable |= self.__ndEntry(i, True, propIsInherited)
                     valueTable += pack(packStr, 0)
                 else:
                     valueTable += pack('<L', curHeapPtr)
@@ -2402,33 +2433,34 @@ class IWbemClassObject(IRemUnknown):
             elif pType in (CIM_TYPE_ENUM.CIM_TYPE_UINT8.value, CIM_TYPE_ENUM.CIM_TYPE_UINT16.value,
                            CIM_TYPE_ENUM.CIM_TYPE_UINT32.value, CIM_TYPE_ENUM.CIM_TYPE_UINT64.value):
                 if itemValue is None:
-                    ndTable |= 2 << (2 * i)
+                    ndTable |= self.__ndEntry(i, True, propIsInherited)
                     valueTable += pack(packStr, 0)
                 else:
                     valueTable += pack(packStr, int(itemValue))
             elif pType in (CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value,):
                 if itemValue is None:
-                    ndTable |= 2 << (2 * i)
+                    ndTable |= self.__ndEntry(i, True, propIsInherited)
                     valueTable += pack(packStr, False)
                 else:
                     valueTable += pack(packStr, bool(itemValue))
             elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
                                CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                 if itemValue is None:
-                    ndTable |= 2 << (2 * i)
+                    ndTable |= self.__ndEntry(i, True, propIsInherited)
                     valueTable += pack(packStr, -1)
                 else:
                     valueTable += pack(packStr, itemValue)
             elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
-                # For now we just pack None
+                # For now we just pack None and set the inherited_default
+                # flag, just in case a parent class defines this for us
                 valueTable += b'\x00'*4
-                # The default property value is NULL, and it is
-                # inherited from a parent class.
                 if itemValue is None:
-                    ndTable |= 3 << (2*i)
+                    ndTable |= self.__ndEntry(i, True, True)
             else:
                 if itemValue == '':
-                    ndTable |= 2 << (2*i)
+                    # https://github.com/SecureAuthCorp/impacket/pull/1069#issuecomment-835179409
+                    # Force inherited_default to avoid 'obscure' issue in wmipersist.py
+                    ndTable |= self.__ndEntry(i, True, True)
                     valueTable += pack('<L', 0)
                 else:
                     strIn = ENCODED_STRING()
@@ -2514,11 +2546,10 @@ class IWbemClassObject(IRemUnknown):
                                    CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                     valueTable += pack(packStr, 0)
                 elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
-                    # For now we just pack None
+                    # For now we just pack None and set the inherited_default
+                    # flag, just in case a parent class defines this for us
                     valueTable += b'\x00'*4
-                    # The default property value is NULL, and it is 
-                    # inherited from a parent class.
-                    ndTable |= 3 << (2*i)
+                    ndTable |= self.__ndEntry(i, True, True)
                 else:
                     strIn = ENCODED_STRING()
                     strIn['Character'] = ''
@@ -2708,11 +2739,10 @@ class IWbemClassObject(IRemUnknown):
                         valueTable += pack(packStr, inArg)
                     elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
                         if inArg is None:
-                            # For now we just pack None
+                            # For now we just pack None and set the inherited_default
+                            # flag, just in case a parent class defines this for us
                             valueTable += b'\x00' * 4
-                            # The default property value is NULL, and it is
-                            # inherited from a parent class.
-                            ndTable |= 3 << (2 * i)
+                            ndTable |= self.__ndEntry(i, True, True)
                         else:
                             valueTable += pack('<L', curHeapPtr)
                             marshaledObject = inArg.marshalMe()

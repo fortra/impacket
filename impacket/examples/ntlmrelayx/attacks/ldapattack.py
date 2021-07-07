@@ -44,8 +44,8 @@ try:
     from ldap3.protocol.microsoft import security_descriptor_control
 except ImportError:
     # We use a print statement because the logger is not initialized yet here
-    print('Failed to import required functions from ldap3. ntlmrelayx required ldap3 >= 2.5.0. \
-Please update with pip install ldap3 --upgrade')
+    print("Failed to import required functions from ldap3. ntlmrelayx requires ldap3 >= 2.5.0. \
+Please update with 'python -m pip install ldap3 --upgrade'")
 PROTOCOL_ATTACK_CLASS = "LDAPAttack"
 
 # Define global variables to prevent dumping the domain twice
