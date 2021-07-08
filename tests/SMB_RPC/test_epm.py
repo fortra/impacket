@@ -57,13 +57,9 @@ class EPMTests(RemoteTestCase):
         for entry in resp['entries']:
             tower = entry['tower']['tower_octet_string']
             epm.EPMTower(b''.join(tower))
-            #print tower['Floors'][0]
-            #print tower['Floors'][1]
 
     def test_hlookup(self):
-        resp = epm.hept_lookup(self.machine)
-        #for entry in resp:
-        #    print epm.PrintStringBinding(entry['tower']['Floors'], self.machine)
+        epm.hept_lookup(self.machine)
         MSRPC_UUID_SAMR   = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AC', '1.0'))
         epm.hept_lookup(self.machine, inquiry_type = epm.RPC_C_EP_MATCH_BY_IF, ifId = MSRPC_UUID_SAMR)
         MSRPC_UUID_ATSVC = uuidtup_to_bin(('1FF70682-0A51-30E8-076D-740BE8CEE98B', '1.0'))

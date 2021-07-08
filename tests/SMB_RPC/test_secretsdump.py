@@ -205,7 +205,7 @@ class DumpSecrets:
                             os.unlink(resumeFile)
             try:
                 self.cleanup()
-            except:
+            except Exception:
                 pass
 
     def cleanup(self):

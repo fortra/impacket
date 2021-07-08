@@ -19,11 +19,11 @@ class TestTCP(unittest.TestCase):
                 try:
                     frame = '\x12\x34\x00\x50\x00\x00\x00\x01\x00\x00\x00\x00' \
                         '\x60\x00\x00\x00\x8d\x5c\x00\x00\x02\x00\x00\x00'
-                    tcp = TCP(frame)
+                    TCP(frame)
                 except ImpactPacketException as e:
                     if str(e) != "'TCP Option length is too low'":
                         raise e
-                except:
+                except Exception:
                     pass
 
         thread_hangs = it_hangs()

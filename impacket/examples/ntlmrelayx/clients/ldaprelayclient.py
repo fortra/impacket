@@ -24,7 +24,7 @@ from ldap3.operation import bind
 try:
     from ldap3.core.results import RESULT_SUCCESS, RESULT_STRONGER_AUTH_REQUIRED
 except ImportError:
-    LOG.fatal("ntlmrelayx requires ldap3 > 2.0. To update, use: pip install ldap3 --upgrade")
+    LOG.fatal("ntlmrelayx requires ldap3 > 2.0. To update, use: 'python -m pip install ldap3 --upgrade'")
     sys.exit(1)
 
 from impacket.examples.ntlmrelayx.clients import ProtocolClient

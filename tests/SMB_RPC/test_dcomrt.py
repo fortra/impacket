@@ -189,7 +189,7 @@ class DCOMTests(RemoteTestCase):
         
         #iInterface = scm.RemoteCreateInstance(comev.CLSID_EventSystem, comev.IID_IEventSystem)
         #iInterface = scm.RemoteCreateInstance(comev.CLSID_EventSystem,oaut.IID_IDispatch)
-        iDispatch = oaut.IDispatch(iInterface)
+        iDispatch = oaut.IDispatch(iInterface)  # noqa
         #scm = dcomrt.IRemoteSCMActivator(dce)
         #resp = iDispatch.GetIDsOfNames(('Navigate\x00', 'ExecWB\x00'))
         #resp.dump()

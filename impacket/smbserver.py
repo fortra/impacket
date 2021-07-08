@@ -1,4 +1,4 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright 2021 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -2847,10 +2847,13 @@ class SMB2Commands:
                 authenticateMessage['domain_name'].decode('utf-16le'),
                 authenticateMessage['user_name'].decode('utf-16le'),
                 authenticateMessage['host_name'].decode('utf-16le')))
+
+            isGuest = False
+            isAnonymus = False
+
             # TODO: Check the credentials! Now granting permissions
             # Do we have credentials to check?
             if len(smbServer.getCredentials()) > 0:
-                isGuest = False
                 identity = authenticateMessage['user_name'].decode('utf-16le').lower()
                 # Do we have this user's credentials?
                 if identity in smbServer.getCredentials():
@@ -2870,7 +2873,10 @@ class SMB2Commands:
                     errorCode = STATUS_LOGON_FAILURE
             else:
                 # No credentials provided, let's grant access
-                isGuest = True
+                if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_ANONYMOUS:
+                    isAnonymus = True
+                else:
+                    isGuest = True
                 errorCode = STATUS_SUCCESS
 
             if errorCode == STATUS_SUCCESS:
@@ -2898,6 +2904,8 @@ class SMB2Commands:
 
                 if isGuest:
                     respSMBCommand['SessionFlags'] = 1
+                elif isAnonymus:
+                    respSMBCommand['SessionFlags'] = 2
 
             else:
                 respToken = SPNEGO_NegTokenResp()
