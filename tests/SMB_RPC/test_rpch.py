@@ -34,14 +34,14 @@ class RPCHTest(RemoteTestCase, unittest.TestCase):
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 10
 
-        resp = dce.request(request)
+        dce.request(request)
         dce.disconnect()
 
         # Reconnecting
         dce.connect()
         dce.bind(epm.MSRPC_UUID_PORTMAP)
 
-        resp = dce.request(request)
+        dce.request(request)
         dce.disconnect()
 
     def test_2(self):

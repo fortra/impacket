@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 import unittest
 from six import PY2
+import impacket.dot11
+import impacket.ImpactPacket
 from impacket.ImpactDecoder import RadioTapDecoder
-import impacket.dot11, impacket.ImpactPacket
 
 
 class TestRadioTapDecoder(unittest.TestCase):

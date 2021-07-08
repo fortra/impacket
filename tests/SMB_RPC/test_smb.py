@@ -20,7 +20,7 @@ from impacket import nt_errors, nmb
 # Usually running all the tests against a Windows 7 except SMB3
 # would do the trick.
 # ToDo:
-# [ ] Add the rest of SMBConnection public methods
+#   [ ] Add the rest of SMBConnection public methods
 
 
 class SMBTests(RemoteTestCase):
@@ -85,9 +85,9 @@ class SMBTests(RemoteTestCase):
         smb = self.create_connection()
         smb.login(self.username, self.password, self.domain)
         smb_connection_socket = smb.getSMBServer().get_socket()
-        self.assertTrue(self.__is_socket_opened(smb_connection_socket) == True)
+        self.assertTrue(self.__is_socket_opened(smb_connection_socket))
         smb.close()
-        self.assertTrue(self.__is_socket_opened(smb_connection_socket) == False)
+        self.assertFalse(self.__is_socket_opened(smb_connection_socket))
         del(smb)
 
     def test_manualNego(self):

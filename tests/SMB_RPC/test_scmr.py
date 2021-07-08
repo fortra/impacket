@@ -84,8 +84,8 @@ class SCMRTests(RemoteTestCase):
             #if lpdwTagId != scmr.SERVICE_NO_CHANGE:
             #    if resp['lpServiceConfig']['dwTagId']['Data'] != lpdwTagId:
             #        print "ERROR %s" % 'lpdwTagId'
-        except:
-            resp = scmr.hRDeleteService(dce, hService)
+        except Exception:
+            scmr.hRDeleteService(dce, hService)
             raise
 
     def changeServiceAndQuery2(self, dce, info, changeDone):

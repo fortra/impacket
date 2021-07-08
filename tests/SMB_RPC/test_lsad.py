@@ -524,10 +524,10 @@ class LSADTests(RemoteTestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except:
+        except Exception:
             request = lsad.LsarDeleteObject()
             request['ObjectHandle'] = accountHandle
-            resp = dce.request(request)
+            dce.request(request)
             return
 
         request = lsad.LsarRemovePrivilegesFromAccount()
@@ -562,7 +562,7 @@ class LSADTests(RemoteTestCase):
         try:
             resp = lsad.hLsarAddPrivilegesToAccount(dce,accountHandle, attributes)
             resp.dump()
-        except:
+        except Exception:
             resp = lsad.hLsarDeleteObject(dce, accountHandle)
             return
 
@@ -652,7 +652,7 @@ class LSADTests(RemoteTestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except: 
+        except Exception:
             pass
 
         request = lsad.LsarDeleteObject()
@@ -672,7 +672,7 @@ class LSADTests(RemoteTestCase):
         try:
             resp = lsad.hLsarSetSecret(dce, resp0['SecretHandle'], 'A'*16, 'A'*16)
             resp.dump()
-        except: 
+        except Exception:
             pass
 
         resp = lsad.hLsarDeleteObject(dce,resp0['SecretHandle'])

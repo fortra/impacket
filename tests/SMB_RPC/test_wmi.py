@@ -109,7 +109,7 @@ class WMITests(RemoteTestCase):
         try:
             resp = iWbemServices.OpenNamespace('__Namespace')
             print(resp)
-        except Exception as e:
+        except Exception:
             dcom.disconnect()
             raise
         dcom.disconnect()
@@ -166,7 +166,7 @@ class WMITests(RemoteTestCase):
         oooo = iEnumWbemClassObject.Next(0xffffffff,1)[0]
         #import time
         #time.sleep(5)
-        owner = oooo.Terminate(1)
+        oooo.Terminate(1)
 
         #iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from Win32_Group where name = "testGroup0"')
         #oooo = iEnumWbemClassObject.Next(0xffffffff,1)[0]

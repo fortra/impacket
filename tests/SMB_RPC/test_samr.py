@@ -885,92 +885,6 @@ class SAMRTests(RemoteTestCase):
         resp = dce.request(request)
         resp.dump()
 
-    def test_SamrQueryInformationDomain2(self):
-        dce, rpctransport, domainHandle  = self.connect()
-        request = samr.SamrQueryInformationDomain2()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainPasswordInformation
-        #request.dump()
-        resp = dce.request(request)
-        resp.dump()
-
-        request = samr.SamrQueryInformationDomain2()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainGeneralInformation
-        #request.dump()
-        resp = dce.request(request)
-        resp.dump()
-
-        request = samr.SamrQueryInformationDomain2()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainLogoffInformation
-        #request.dump()
-        resp = dce.request(request)
-        resp.dump()
-
-        request = samr.SamrQueryInformationDomain2()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainOemInformation
-        #request.dump()
-        resp = dce.request(request)
-        resp.dump()
-
-        request = samr.SamrQueryInformationDomain2()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainNameInformation
-        #request.dump()
-        resp = dce.request(request)
-        resp.dump()
-
-        request = samr.SamrQueryInformationDomain2()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainServerRoleInformation
-        #request.dump()
-        resp = dce.request(request)
-        resp.dump()
-
-        request = samr.SamrQueryInformationDomain2()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainReplicationInformation
-        #request.dump()
-        resp = dce.request(request)
-        resp.dump()
-
-        request = samr.SamrQueryInformationDomain2()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainModifiedInformation
-        #request.dump()
-        resp = dce.request(request)
-        resp.dump()
-
-        request = samr.SamrQueryInformationDomain2()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainStateInformation
-        #request.dump()
-        resp = dce.request(request)
-        resp.dump()
-
-        request = samr.SamrQueryInformationDomain2()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainGeneralInformation2
-        #request.dump()
-        resp = dce.request(request)
-        resp.dump()
-
-        request = samr.SamrQueryInformationDomain2()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainLockoutInformation
-        #request.dump()
-        resp = dce.request(request)
-        resp.dump()
-
-        request = samr.SamrQueryInformationDomain2()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainModifiedInformation2
-        #request.dump()
-        resp = dce.request(request)
-        resp.dump()
-
     def test_hSamrQueryInformationDomain2(self):
         dce, rpctransport, domainHandle  = self.connect()
         resp = samr.hSamrQueryInformationDomain2(dce, domainHandle,samr.DOMAIN_INFORMATION_CLASS.DomainPasswordInformation)
@@ -2402,7 +2316,7 @@ class SAMRTests(RemoteTestCase):
         try:
             resp = samr.hSamrGetAliasMembership(dce, domainHandle, sidsArray)
             resp.dump()
-        except Exception as e:
+        except Exception:
             request = samr.SamrDeleteAlias()
             request['AliasHandle'] = aliasHandle
             dce.request(request)
@@ -2742,7 +2656,7 @@ class SAMRTests(RemoteTestCase):
 
         oldPwd = 'ADMIN'
         oldPwdHashNT = ntlm.NTOWFv1(oldPwd)
-        newPwd = chars = "".join( [random.choice(string.ascii_letters) for i in range(15)] )
+        newPwd = "".join([random.choice(string.ascii_letters) for i in range(15)])
         newPwdHashNT = ntlm.NTOWFv1(newPwd)
 
         try:
