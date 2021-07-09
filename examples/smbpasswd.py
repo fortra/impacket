@@ -8,18 +8,18 @@
 #
 # Description:
 #  This script is an alternative to smbpasswd tool and intended to be used
-#  for changing passwords remotely over SMB (MSRPC-SAMR) for domain accounts.
-#  It can perform the password change when the current password is expired or
-#  when NTLM hashes are provided as a new password value instead of a plaintext
-#  value. As for the latter approach the new password is flagged as expired
-#  after the change due to how SamrChangePasswordUser function works.
+#  for changing passwords remotely over SMB (MSRPC-SAMR). It can perform the
+#  password change when the current password is expired, and supports NTLM
+#  hashes as a new password value instead of a plaintext value. As for the
+#  latter approach the new password is flagged as expired after the change
+#  due to how SamrChangePasswordUser function works.
 #
 # Authors:
 #  @snovvcrash
 #  @bransh
 #
 # Examples:
-#  smbpasswd.py contoso.local/j.doe@192.168.1.11
+#  smbpasswd.py j.doe@192.168.1.11
 #  smbpasswd.py contoso.local/j.doe@DC1 -hashes :fc525c9683e8fe067095ba2ddc971889
 #  smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -newpass 'N3wPassw0rd!'
 #  smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -newhashes :126502da14a98b58f2c319b81b3a49cb
@@ -114,8 +114,8 @@ def init_logger(args):
 
 
 def parse_args():
-	parser = ArgumentParser(description='Change password for a domain account over SMB.')
-	parser.add_argument('target', action='store', help='<domain/username[:password]>@<hostname_or_IP_address>')
+	parser = ArgumentParser(description='Change password over SMB.')
+	parser.add_argument('target', action='store', help='<[domain/]username[:password]>@<hostname_or_IP_address>')
 	parser.add_argument('-ts', action='store_true', help='adds timestamp to every logging output')
 	parser.add_argument('-debug', action='store_true', help='turn DEBUG output ON')
 	group = parser.add_mutually_exclusive_group()
@@ -135,6 +135,11 @@ if __name__ == '__main__':
 
 	try:
 		domain, target = args.target.split('/', 1)
+	except ValueError:
+		domain = 'Builtin'
+		target = args.target
+
+	try:
 		credentials, hostname = target.rsplit('@', 1)
 	except ValueError:
 		logging.critical('Wrong target string format. For more information run with --help option.')
