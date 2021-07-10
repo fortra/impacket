@@ -185,5 +185,6 @@ if (key):
          
 else:
     # Just print the data
-    blob.dump()
+    #blob.dump()
+    print(bcolors.FAIL +" X "+ bcolors.ENDC + "Error Decrypting, password/sid/blob may be wrong" )
 
