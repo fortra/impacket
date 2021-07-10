@@ -1,8 +1,13 @@
 #!/usr/bin/python3
 # 
-# Extract encripted DPAPI RSA and export into a PEM file
-# 
-# 20200531  -   Initial Release
+# Extract encripted DPAPI private RSA certificate and export into a PEM file, as with the mimikatz dpapi:capi
+# Requisites:
+# - The SID of the user (usualy is something like : S-1-5-21-3677721360-166281839-1125720576-1001
+# - The encrypted file located in: Appdata\Roaming\RSA\<SID>\<file_name>
+# - The masterkey used to encrypt the file, if you pass only the private RSA file this program will tell you the name of the needed one,
+#   masterkeys are in: Appdata\Roaming\Protect\<SID>\<masterkey_file_name>
+# - The password of the user
+#  Initial version date 11/08/2021
 
 from binascii import unhexlify, hexlify
 from hashlib import pbkdf2_hmac
@@ -150,8 +155,8 @@ if (key):
     entropy_pvk = blob['ExportFlag'].decrypt(key, b'Hj1diQ6kpUx7VC4m\0')
     print(bcolors.OKGREEN +" * "+ bcolors.ENDC + "RSAFlag Decrypted")
     # the resulting decoded text have to be used as entropy for the decryption of the key, but if I use it, it will not decrypt
-    # More testing is needed (should be: 
-    # decrypted = blob['Blob'].decrypt(key, entropy_pvk 
+    # More testing is needed should be: 
+    # decrypted = blob['Blob'].decrypt(key, entropy_pvk) 
 
     decrypted = blob['Blob'].decrypt(key)
     
@@ -185,6 +190,7 @@ if (key):
          
 else:
     # Just print the data
-    #blob.dump()
+    if DEBUG:
+        blob.dump()
     print(bcolors.FAIL +" X "+ bcolors.ENDC + "Error Decrypting, password/sid/blob may be wrong" )
 
