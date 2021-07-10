@@ -78,7 +78,7 @@ def master(master_key,sid,password):
 # arguments
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--file","-f", help="blob file name")
+parser.add_argument("--file","-f", help="blob file name",default=None, type=str)
 parser.add_argument("--masterkey", "-m", help="set masterkey file")
 parser.add_argument("--sid", "-s", help="set SID(optional)")
 parser.add_argument("--password", "-p", help="user password")
@@ -87,28 +87,28 @@ parser.set_defaults(nopass=False)
 args = parser.parse_args()
 
 just_mk = False
-if (os.path.isfile(args.file)):
-    print(bcolors.OKGREEN +" * "+ bcolors.ENDC + "File: " + args.file )
+if ((args.file != None) and (os.path.isfile(args.file)) ):
+    print(bcolors.OKGREEN +" * "+ bcolors.ENDC + "Encrypted File: " + args.file )
 else:
-    print(bcolors.FAIL +" X "+ bcolors.ENDC + "No File" )
+    print(bcolors.FAIL +" X "+ bcolors.ENDC + "No File, use -f" )
 if (args.masterkey):
     if(os.path.isfile(args.masterkey)):
         print(bcolors.OKGREEN +" * "+ bcolors.ENDC + "Masterkey File: " + args.masterkey )
     else:
         print(bcolors.FAIL +" X "+ bcolors.ENDC + "Masterkey is not a file " )
 else:
-    print(bcolors.FAIL +" X "+ bcolors.ENDC + "No Masterkey file " )
+    print(bcolors.FAIL +" X "+ bcolors.ENDC + "No Masterkey file, use -m " )
 if (args.password):
     print(bcolors.OKGREEN +" * "+ bcolors.ENDC + "Password in" )
 elif (args.nopass):
     args.password= ''
     print(bcolors.OKGREEN +" * "+ bcolors.ENDC + "Will try with no password" )
 else:
-    print(bcolors.FAIL +" X "+ bcolors.ENDC + "You need to supply password of use the --nopass " )
+    print(bcolors.FAIL +" X "+ bcolors.ENDC + "You need to supply password (-p) of use the --nopass " )
 if (args.sid):
     print(bcolors.OKGREEN +" * "+ bcolors.ENDC + "User SID : " + args.sid )
 else:
-    print(bcolors.FAIL +" X "+ bcolors.ENDC + "Need user SID (S-1...) " )
+    print(bcolors.FAIL +" X "+ bcolors.ENDC + "Need user SID (S-1...) as --sid " )
 if args.file and not args.sid and not (args.password or args.nopass) and not args.masterkey:
     just_mk = True
 elif not args.file or not args.sid or not (args.password or args.nopass) or not args.masterkey:
