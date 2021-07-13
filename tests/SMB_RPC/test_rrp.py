@@ -55,14 +55,9 @@ class RRPTests(RemoteTestCase):
 
     def connect_scmr(self):
         rpctransport = transport.DCERPCTransportFactory(r'ncacn_np:%s[\pipe\svcctl]' % self.machine)
-        if len(self.hashes) > 0:
-            lmhash, nthash = self.hashes.split(':')
-        else:
-            lmhash = ''
-            nthash = ''
         if hasattr(rpctransport, 'set_credentials'):
             # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username, self.password, self.domain, lmhash, nthash)
+            rpctransport.set_credentials(self.username, self.password, self.domain, self.lmhash, self.nthash)
         dce = rpctransport.get_dce_rpc()
         # dce.set_max_fragment_size(32)
         dce.connect()
@@ -100,14 +95,9 @@ class RRPTests(RemoteTestCase):
             self.rrpStarted = True
 
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        if len(self.hashes) > 0:
-            lmhash, nthash = self.hashes.split(':')
-        else:
-            lmhash = ''
-            nthash = ''
         if hasattr(rpctransport, 'set_credentials'):
             # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
+            rpctransport.set_credentials(self.username, self.password, self.domain, self.lmhash, self.nthash)
         dce = rpctransport.get_dce_rpc()
         #dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
         dce.connect()

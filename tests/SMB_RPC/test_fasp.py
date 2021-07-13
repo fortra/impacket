@@ -27,14 +27,9 @@ class FASPTests(RemoteTestCase):
 
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        if len(self.hashes) > 0:
-            lmhash, nthash = self.hashes.split(':')
-        else:
-            lmhash = ''
-            nthash = ''
         if hasattr(rpctransport, 'set_credentials'):
             # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username, self.password, self.domain, lmhash, nthash)
+            rpctransport.set_credentials(self.username, self.password, self.domain, self.lmhash, self.nthash)
         dce = rpctransport.get_dce_rpc()
         dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
         dce.connect()

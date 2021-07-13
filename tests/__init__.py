@@ -13,23 +13,70 @@ from six.moves.configparser import ConfigParser
 
 
 class RemoteTestCase(object):
+    """Remote Test Case Base Class
+
+    Holds configuration parameters for all remote base classes. Configuration is by
+    default loaded from `tests/dctests.cfg`, but a different path can be specified with
+    the REMOTE_CONFIG environment variable.
+
+    Configuration parameters can be found in the `tests/dcetests.cfg.template` file.
+    """
+
     def set_config_file(self):
+        """Reads the configuration file
+        """
         config_file_path = getenv("REMOTE_CONFIG", join("tests", "dcetests.cfg"))
-        self.config_file = ConfigParser()
-        self.config_file.read(config_file_path)
+        self._config_file = ConfigParser()
+        self._config_file.read(config_file_path)
 
-    def set_transport_config(self, transport):
-        self.username = self.config_file.get(transport, "username")
-        self.domain = self.config_file.get(transport, "domain")
-        self.serverName = self.config_file.get(transport, "servername")
-        self.password = self.config_file.get(transport, "password")
-        self.machine = self.config_file.get(transport, "machine")
-        self.hashes = self.config_file.get(transport, "hashes")
+    def set_transport_config(self, transport, machine_account=False, aes_keys=False):
+        """Set configuration for the specified transport.
+        """
+        self.username = self._config_file.get(transport, "username")
+        self.domain = self._config_file.get(transport, "domain")
+        self.serverName = self._config_file.get(transport, "servername")
+        self.password = self._config_file.get(transport, "password")
+        self.machine = self._config_file.get(transport, "machine")
+        self.hashes = self._config_file.get(transport, "hashes")
+        if len(self.hashes):
+            self.lmhash, self.nthash = self.hashes.split(':')
+        else:
+            self.lmhash = ''
+            self.nthash = ''
 
-    def set_smb_transport_config(self):
+        if machine_account:
+            self.machine_user = self._config_file.get(transport, "machineuser")
+            self.machine_user_hashes = self._config_file.get(transport, "machineuserhashes")
+            if len(self.machine_user_hashes):
+                self.machine_user_lmhash, self.machine_user_nthash = self.machine_user_hashes.split(':')
+            else:
+                self.machine_user_lmhash = ''
+                self.machine_user_nthash = ''
+
+        if aes_keys:
+            self.aes_key_128 = self._config_file.get(transport, 'aesKey128')
+            self.aes_key_256 = self._config_file.get(transport, 'aesKey256')
+
+    def set_smb_transport_config(self, machine_account=False, aes_keys=False):
+        """Read SMB Transport parameters from the configuration file.
+
+        :param machine_account: whether to read the machine account config or not
+        :type machine_account: bool
+
+        :param aes_keys: whether to read the AES keys config or not
+        :type aes_keys: bool
+        """
         self.set_config_file()
-        self.set_transport_config("SMBTransport")
+        self.set_transport_config("SMBTransport", machine_account, aes_keys)
 
-    def set_tcp_transport_config(self):
+    def set_tcp_transport_config(self, machine_account=False, aes_keys=False):
+        """Read TCP Transport parameters from the configuration file.
+
+        :param machine_account: whether to read the machine account config or not
+        :type machine_account: bool
+
+        :param aes_keys: whether to read the AES keys config or not
+        :type aes_keys: bool
+        """
         self.set_config_file()
-        self.set_transport_config("TCPTransport")
+        self.set_transport_config("TCPTransport", machine_account, aes_keys)

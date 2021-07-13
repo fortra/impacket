@@ -69,14 +69,9 @@ class NRPCTests(RemoteTestCase):
 
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        if len(self.machineUserHashes) > 0:
-            lmhash, nthash = self.machineUserHashes.split(':')
-        else:
-            lmhash = ''
-            nthash = ''
         if hasattr(rpctransport, 'set_credentials'):
             # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.machineUser, '', self.domain, lmhash, nthash)
+            rpctransport.set_credentials(self.machine_user, '', self.domain, self.machine_user_lmhash, self.machine_user_nthash)
         dce = rpctransport.get_dce_rpc()
         # dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
         dce.connect()
@@ -85,17 +80,13 @@ class NRPCTests(RemoteTestCase):
         resp.dump()
         serverChallenge = resp['ServerChallenge']
 
-        if self.machineUserHashes == '':
-            ntHash = None
-        else:
-            ntHash = unhexlify(self.machineUserHashes.split(':')[1])
-
-        self.sessionKey = nrpc.ComputeSessionKeyStrongKey('', b'12345678', serverChallenge, ntHash)
+        nthash = unhexlify(self.machine_user_nthash) if self.machine_user_nthash else None
+        self.sessionKey = nrpc.ComputeSessionKeyStrongKey('', b'12345678', serverChallenge, nthash)
 
         ppp = nrpc.ComputeNetlogonCredential(b'12345678', self.sessionKey)
 
         try:
-            resp = nrpc.hNetrServerAuthenticate3(dce, NULL, self.machineUser + '\x00',
+            resp = nrpc.hNetrServerAuthenticate3(dce, NULL, self.machine_user + '\x00',
                                                  nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
                                                  self.serverName + '\x00', ppp, 0x600FFFFF)
             resp.dump()
@@ -314,18 +305,14 @@ class NRPCTests(RemoteTestCase):
         resp.dump()
         serverChallenge = resp['ServerChallenge']
 
-        if self.machineUserHashes == '':
-            ntHash = None
-        else:
-            ntHash = unhexlify(self.machineUserHashes.split(':')[1])
-
-        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, ntHash)
+        nthash = unhexlify(self.machine_user_nthash) if self.machine_user_nthash else None
+        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, nthash)
 
         ppp = nrpc.ComputeNetlogonCredential(b'12345678', sessionKey)
 
         request = nrpc.NetrServerAuthenticate3()
         request['PrimaryName'] = NULL
-        request['AccountName'] = self.machineUser + '\x00'
+        request['AccountName'] = self.machine_user + '\x00'
         request['SecureChannelType'] = nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel
         request['ComputerName'] = self.serverName + '\x00'
         request['ClientCredential'] = ppp
@@ -340,16 +327,12 @@ class NRPCTests(RemoteTestCase):
         resp.dump()
         serverChallenge = resp['ServerChallenge']
 
-        if self.machineUserHashes == '':
-            ntHash = None
-        else:
-            ntHash = unhexlify(self.machineUserHashes.split(':')[1])
-
-        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, ntHash)
+        nthash = unhexlify(self.machine_user_nthash) if self.machine_user_nthash else None
+        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, nthash)
 
         ppp = nrpc.ComputeNetlogonCredential(b'12345678', sessionKey)
 
-        resp = nrpc.hNetrServerAuthenticate3(dce, NULL, self.machineUser + '\x00',
+        resp = nrpc.hNetrServerAuthenticate3(dce, NULL, self.machine_user + '\x00',
                                              nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel
                                              , self.serverName + '\x00', ppp, 0x600FFFFF)
         resp.dump()
@@ -365,16 +348,12 @@ class NRPCTests(RemoteTestCase):
         resp.dump()
         serverChallenge = resp['ServerChallenge']
 
-        if self.machineUserHashes == '':
-            ntHash = None
-        else:
-            ntHash = unhexlify(self.machineUserHashes.split(':')[1])
-
-        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, ntHash)
+        nthash = unhexlify(self.machine_user_nthash) if self.machine_user_nthash else None
+        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, nthash)
 
         ppp = nrpc.ComputeNetlogonCredential(b'12345678', sessionKey)
 
-        resp = nrpc.hNetrServerAuthenticate2(dce, NULL, self.machineUser + '\x00',
+        resp = nrpc.hNetrServerAuthenticate2(dce, NULL, self.machine_user + '\x00',
                                              nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel
                                              , self.serverName + '\x00', ppp, 0x600FFFFF)
         resp.dump()
@@ -385,18 +364,14 @@ class NRPCTests(RemoteTestCase):
         resp.dump()
         serverChallenge = resp['ServerChallenge']
 
-        if self.machineUserHashes == '':
-            ntHash = None
-        else:
-            ntHash = unhexlify(self.machineUserHashes.split(':')[1])
-
-        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, ntHash)
+        nthash = unhexlify(self.machine_user_nthash) if self.machine_user_nthash else None
+        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, nthash)
 
         ppp = nrpc.ComputeNetlogonCredential(b'12345678', sessionKey)
 
         request = nrpc.NetrServerAuthenticate2()
         request['PrimaryName'] = NULL
-        request['AccountName'] = self.machineUser + '\x00'
+        request['AccountName'] = self.machine_user + '\x00'
         request['SecureChannelType'] = nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel
         request['ComputerName'] = self.serverName + '\x00'
         request['ClientCredential'] = ppp
@@ -416,18 +391,14 @@ class NRPCTests(RemoteTestCase):
         resp.dump()
         serverChallenge = resp['ServerChallenge']
 
-        if self.machineUserHashes == '':
-            ntHash = None
-        else:
-            ntHash = unhexlify(self.machineUserHashes.split(':')[1])
-
-        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, ntHash)
+        nthash = unhexlify(self.machine_user_nthash) if self.machine_user_nthash else None
+        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, nthash)
 
         ppp = nrpc.ComputeNetlogonCredential(b'12345678', sessionKey)
 
         request = nrpc.NetrServerAuthenticate()
         request['PrimaryName'] = NULL
-        request['AccountName'] = self.machineUser + '\x00'
+        request['AccountName'] = self.machine_user + '\x00'
         request['SecureChannelType'] = nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel
         request['ComputerName'] = self.serverName + '\x00'
         request['ClientCredential'] = ppp
@@ -445,18 +416,14 @@ class NRPCTests(RemoteTestCase):
         resp.dump()
         serverChallenge = resp['ServerChallenge']
 
-        if self.machineUserHashes == '':
-            ntHash = None
-        else:
-            ntHash = unhexlify(self.machineUserHashes.split(':')[1])
-
-        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, ntHash)
+        nthash = unhexlify(self.machine_user_nthash) if self.machine_user_nthash else None
+        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, nthash)
 
         ppp = nrpc.ComputeNetlogonCredential(b'12345678', sessionKey)
 
         resp.dump()
         try:
-            resp = nrpc.hNetrServerAuthenticate(dce, NULL, self.machineUser + '\x00',
+            resp = nrpc.hNetrServerAuthenticate(dce, NULL, self.machine_user + '\x00',
                                                 nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
                                                 self.serverName + '\x00', ppp)
             resp.dump()
@@ -468,7 +435,7 @@ class NRPCTests(RemoteTestCase):
         dce, rpctransport = self.connect()
         request = nrpc.NetrServerPasswordGet()
         request['PrimaryName'] = NULL
-        request['AccountName'] = self.machineUser + '\x00'
+        request['AccountName'] = self.machine_user + '\x00'
         request['AccountType'] = nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel
         request['ComputerName'] = self.serverName + '\x00'
         request['Authenticator'] = self.update_authenticator()
@@ -483,7 +450,7 @@ class NRPCTests(RemoteTestCase):
     def test_hNetrServerPasswordGet(self):
         dce, rpctransport = self.connect()
         try:
-            resp = nrpc.hNetrServerPasswordGet(dce, NULL, self.machineUser + '\x00',
+            resp = nrpc.hNetrServerPasswordGet(dce, NULL, self.machine_user + '\x00',
                                                nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
                                                self.serverName + '\x00', self.update_authenticator())
             resp.dump()
@@ -495,7 +462,7 @@ class NRPCTests(RemoteTestCase):
         dce, rpctransport = self.connect()
         request = nrpc.NetrServerTrustPasswordsGet()
         request['TrustedDcName'] = NULL
-        request['AccountName'] = self.machineUser + '\x00'
+        request['AccountName'] = self.machine_user + '\x00'
         request['SecureChannelType'] = nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel
         request['ComputerName'] = self.serverName + '\x00'
         request['Authenticator'] = self.update_authenticator()
@@ -505,7 +472,7 @@ class NRPCTests(RemoteTestCase):
 
     def aaa_hNetrServerTrustPasswordsGet(self):
         dce, rpctransport = self.connect()
-        resp = nrpc.hNetrServerTrustPasswordsGet(dce, NULL, self.machineUser,
+        resp = nrpc.hNetrServerTrustPasswordsGet(dce, NULL, self.machine_user,
                                                  nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
                                                  self.serverName, self.update_authenticator())
         resp.dump()
@@ -515,7 +482,7 @@ class NRPCTests(RemoteTestCase):
         dce, rpctransport = self.connect()
         request = nrpc.NetrServerPasswordSet2()
         request['PrimaryName'] = NULL
-        request['AccountName'] = self.machineUser + '\x00'
+        request['AccountName'] = self.machine_user + '\x00'
         request['SecureChannelType'] = nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel
         request['ComputerName'] = self.serverName + '\x00'
         request['Authenticator'] = self.update_authenticator()
@@ -544,7 +511,7 @@ class NRPCTests(RemoteTestCase):
         cnp['Length'] = 0x8
 
         try:
-            resp = nrpc.hNetrServerPasswordSet2(dce, NULL, self.machineUser,
+            resp = nrpc.hNetrServerPasswordSet2(dce, NULL, self.machine_user,
                                                  nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
                                                  self.serverName, self.update_authenticator(), cnp.getData())
             resp.dump()
@@ -610,11 +577,9 @@ class NRPCTests(RemoteTestCase):
         request['LogonInformation']['LogonInteractive']['Identity']['UserName'] = self.username
         request['LogonInformation']['LogonInteractive']['Identity']['Workstation'] = ''
 
-
-        if len(self.hashes) > 0:
-            lmhash, nthash = self.hashes.split(':')
-            lmhash = unhexlify(lmhash)
-            nthash = unhexlify(nthash)
+        if len(self.hashes):
+            lmhash = unhexlify(self.lmhash)
+            nthash = unhexlify(self.nthash)
         else:
             lmhash = ntlm.LMOWFv1(self.password)
             nthash = ntlm.NTOWFv1(self.password)
@@ -652,10 +617,9 @@ class NRPCTests(RemoteTestCase):
             'ParameterControl'] = 2 + 2 ** 14 + 2 ** 7 + 2 ** 9 + 2 ** 5 + 2 ** 11
         request['LogonInformation']['LogonInteractive']['Identity']['UserName'] = self.username
         request['LogonInformation']['LogonInteractive']['Identity']['Workstation'] = ''
-        if len(self.hashes) > 0:
-            lmhash, nthash = self.hashes.split(':')
-            lmhash = unhexlify(lmhash)
-            nthash = unhexlify(nthash)
+        if len(self.hashes):
+            lmhash = unhexlify(self.lmhash)
+            nthash = unhexlify(self.nthash)
         else:
             lmhash = ntlm.LMOWFv1(self.password)
             nthash = ntlm.NTOWFv1(self.password)
@@ -696,10 +660,9 @@ class NRPCTests(RemoteTestCase):
         request['LogonInformation']['LogonInteractive']['Identity']['ParameterControl'] = 2
         request['LogonInformation']['LogonInteractive']['Identity']['UserName'] = self.username
         request['LogonInformation']['LogonInteractive']['Identity']['Workstation'] = ''
-        if len(self.hashes) > 0:
-            lmhash, nthash = self.hashes.split(':')
-            lmhash = unhexlify(lmhash)
-            nthash = unhexlify(nthash)
+        if len(self.hashes):
+            lmhash = unhexlify(self.lmhash)
+            nthash = unhexlify(self.nthash)
         else:
             lmhash = ntlm.LMOWFv1(self.password)
             nthash = ntlm.NTOWFv1(self.password)
@@ -867,7 +830,7 @@ class NRPCTests(RemoteTestCase):
         dce, rpctransport = self.connect()
         request = nrpc.NetrServerGetTrustInfo()
         request['TrustedDcName'] = NULL
-        request['AccountName'] = self.machineUser + '\x00'
+        request['AccountName'] = self.machine_user + '\x00'
         request['SecureChannelType'] = nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel
         request['ComputerName'] = self.serverName + '\x00'
         request['Authenticator'] = self.update_authenticator()
@@ -881,7 +844,7 @@ class NRPCTests(RemoteTestCase):
     def test_hNetrServerGetTrustInfo(self):
         dce, rpctransport = self.connect()
         try:
-            resp = nrpc.hNetrServerGetTrustInfo(dce, NULL, self.machineUser,
+            resp = nrpc.hNetrServerGetTrustInfo(dce, NULL, self.machine_user,
                                                 nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
                                                 self.serverName, self.update_authenticator())
             resp.dump()
@@ -1047,9 +1010,7 @@ class TCPTransport(NRPCTests, unittest.TestCase):
 
     def setUp(self):
         super(TCPTransport, self).setUp()
-        self.set_tcp_transport_config()
-        self.machineUser = self.config_file.get('TCPTransport', 'machineuser')
-        self.machineUserHashes = self.config_file.get('TCPTransport', 'machineuserhashes')
+        self.set_tcp_transport_config(machine_account=True)
         self.stringBinding = epm.hept_map(self.machine, nrpc.MSRPC_UUID_NRPC, protocol='ncacn_ip_tcp')
 
 
@@ -1058,9 +1019,7 @@ class SMBTransport(NRPCTests, unittest.TestCase):
 
     def setUp(self):
         super(SMBTransport, self).setUp()
-        self.set_smb_transport_config()
-        self.machineUser = self.config_file.get('SMBTransport', 'machineuser')
-        self.machineUserHashes = self.config_file.get('SMBTransport', 'machineuserhashes')
+        self.set_smb_transport_config(machine_account=True)
         self.stringBinding = r'ncacn_np:%s[\PIPE\netlogon]' % self.machine
 
 

@@ -26,7 +26,7 @@ class DumpSecrets:
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
-        self.__aesKey = options.aesKey
+        self.__aes_key_128 = options.aes_key_128
         self.__smbConnection = None
         self.__remoteOps = None
         self.__SAMHashes = None
@@ -59,7 +59,7 @@ class DumpSecrets:
         self.__smbConnection = SMBConnection(self.__remoteName, self.__remoteHost)
         if self.__doKerberos:
             self.__smbConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash,
-                                               self.__nthash, self.__aesKey, self.__kdcHost)
+                                               self.__nthash, self.__aes_key_128, self.__kdcHost)
         else:
             self.__smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
 
@@ -224,7 +224,7 @@ class DumpSecrets:
                 raise
 
 class Options(object):
-    aesKey=None
+    aes_key_128 = None
     bootkey=None
     dc_ip=None
     debug=False
@@ -297,8 +297,7 @@ class Tests(SecretsDumpTests, unittest.TestCase):
 
     def setUp(self):
         super(Tests, self).setUp()
-        self.set_smb_transport_config()
-        self.aesKey = self.config_file.get('SMBTransport', 'aesKey128')
+        self.set_smb_transport_config(aes_keys=True)
 
 
 if __name__ == "__main__":
