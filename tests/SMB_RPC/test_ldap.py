@@ -91,14 +91,9 @@ class LDAPTests(RemoteTestCase):
         self.dummySearch(ldapConnection)
 
     def test_kerberosLoginHashes(self):
-        if len(self.hashes) > 0:
-            lmhash, nthash = self.hashes.split(":")
-        else:
-            lmhash = ""
-            nthash = ""
         ldapConnection = self.connect(False)
         ldapConnection.kerberosLogin(
-            self.username, "", self.domain, lmhash, nthash, "", None, None
+            self.username, "", self.domain, self.lmhash, self.nthash, "", None, None
         )
 
         self.dummySearch(ldapConnection)
@@ -106,24 +101,19 @@ class LDAPTests(RemoteTestCase):
     def test_kerberosLoginKeys(self):
         ldapConnection = self.connect(False)
         ldapConnection.kerberosLogin(
-            self.username, "", self.domain, "", "", self.aesKey, None, None
+            self.username, "", self.domain, "", "", self.aes_key_128, None, None
         )
 
         self.dummySearch(ldapConnection)
 
     def test_sicilyNtlmHashes(self):
-        if len(self.hashes) > 0:
-            lmhash, nthash = self.hashes.split(":")
-        else:
-            lmhash = ""
-            nthash = ""
         ldapConnection = self.connect(False)
         ldapConnection.login(
             user=self.username,
             password=self.password,
             domain=self.domain,
-            lmhash=lmhash,
-            nthash=nthash,
+            lmhash=self.lmhash,
+            nthash=self.nthash,
         )
 
         self.dummySearch(ldapConnection)
@@ -138,8 +128,7 @@ class LDAPTests(RemoteTestCase):
 class TCPTransport(LDAPTests, unittest.TestCase):
     def setUp(self):
         super(TCPTransport, self).setUp()
-        self.set_tcp_transport_config()
-        self.aesKey = self.config_file.get("SMBTransport", "aesKey128")
+        self.set_tcp_transport_config(aes_keys=True)
         self.url = "ldap://%s" % self.serverName
         self.baseDN = "dc=%s, dc=%s" % (
             self.domain.split(".")[0],

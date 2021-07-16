@@ -201,11 +201,6 @@ class TCPTransport(WMITests, unittest.TestCase):
     def setUp(self):
         super(TCPTransport, self).setUp()
         self.set_tcp_transport_config()
-        if len(self.hashes) > 0:
-            self.lmhash, self.nthash = self.hashes.split(':')
-        else:
-            self.lmhash = ''
-            self.nthash = ''
         self.stringBinding = r'ncacn_ip_tcp:%s' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 

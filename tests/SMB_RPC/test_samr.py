@@ -143,14 +143,9 @@ class SAMRTests(RemoteTestCase):
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
         #rpctransport.set_dport(self.dport)
-        if len(self.hashes) > 0:
-            lmhash, nthash = self.hashes.split(':')
-        else:
-            lmhash = ''
-            nthash = ''
         if hasattr(rpctransport, 'set_credentials'):
             # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
+            rpctransport.set_credentials(self.username, self.password, self.domain, self.lmhash, self.nthash)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
         #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)

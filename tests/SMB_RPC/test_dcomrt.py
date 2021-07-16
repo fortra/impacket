@@ -37,14 +37,9 @@ class DCOMTests(RemoteTestCase):
 
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        if len(self.hashes) > 0:
-            lmhash, nthash = self.hashes.split(':')
-        else:
-            lmhash = ''
-            nthash = ''
         if hasattr(rpctransport, 'set_credentials'):
             # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
+            rpctransport.set_credentials(self.username,self.password, self.domain, self.lmhash, self.nthash)
         dce = rpctransport.get_dce_rpc()
         dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
         dce.connect()
@@ -176,13 +171,7 @@ class DCOMTests(RemoteTestCase):
         iTypeInfo.GetTypeAttr()
 
     def tes_comev(self):
-        if len(self.hashes) > 0:
-            lmhash, nthash = self.hashes.split(':')
-        else:
-            lmhash = ''
-            nthash = ''
-
-        dcom = dcomrt.DCOMConnection(self.machine, self.username, self.password, self.domain, lmhash, nthash)
+        dcom = dcomrt.DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
         iInterface = dcom.CoCreateInstanceEx(comev.CLSID_EventSystem, comev.IID_IEventSystem)
 
         #scm = dcomrt.IRemoteSCMActivator(dce)

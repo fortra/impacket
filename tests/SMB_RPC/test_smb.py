@@ -50,18 +50,17 @@ class SMBTests(RemoteTestCase):
         smb.logoff()
 
     def test_reconnectKerberosHashes(self):
-        lmhash, nthash = self.hashes.split(':')
         smb = self.create_connection()
-        smb.kerberosLogin(self.username, '', self.domain, lmhash, nthash, '')
+        smb.kerberosLogin(self.username, '', self.domain, self.lmhash, self.nthash, '')
         credentials = smb.getCredentials()
-        self.assertTrue( credentials == (self.username, '', self.domain, unhexlify(lmhash), unhexlify(nthash), '', None, None) )
+        self.assertTrue( credentials == (self.username, '', self.domain, unhexlify(self.lmhash), unhexlify(self.nthash), '', None, None) )
         UNC = '\\\\%s\\%s' % (self.machine, self.share)
         smb.connectTree(UNC)
         smb.logoff()
         smb.reconnect()
         credentials = smb.getCredentials()
         self.assertTrue(
-            credentials == (self.username, '', self.domain, unhexlify(lmhash), unhexlify(nthash), '', None, None))
+            credentials == (self.username, '', self.domain, unhexlify(self.lmhash), unhexlify(self.nthash), '', None, None))
         UNC = '\\\\%s\\%s' % (self.machine, self.share)
         smb.connectTree(UNC)
         smb.logoff()
@@ -100,19 +99,17 @@ class SMBTests(RemoteTestCase):
         del(smb)
 
     def test_loginHashes(self):
-        lmhash, nthash = self.hashes.split(':')
         smb = self.create_connection()
-        smb.login(self.username, '', self.domain, lmhash, nthash)
+        smb.login(self.username, '', self.domain, self.lmhash, self.nthash)
         credentials = smb.getCredentials()
-        self.assertTrue( credentials == (self.username, '', self.domain, unhexlify(lmhash), unhexlify(nthash), '', None, None) )
+        self.assertTrue( credentials == (self.username, '', self.domain, unhexlify(self.lmhash), unhexlify(self.nthash), '', None, None) )
         smb.logoff()
 
     def test_loginKerberosHashes(self):
-        lmhash, nthash = self.hashes.split(':')
         smb = self.create_connection()
-        smb.kerberosLogin(self.username, '', self.domain, lmhash, nthash, '')
+        smb.kerberosLogin(self.username, '', self.domain, self.lmhash, self.nthash, '')
         credentials = smb.getCredentials()
-        self.assertTrue( credentials == (self.username, '', self.domain, unhexlify(lmhash), unhexlify(nthash), '', None, None) )
+        self.assertTrue( credentials == (self.username, '', self.domain, unhexlify(self.lmhash), unhexlify(self.nthash), '', None, None) )
         UNC = '\\\\%s\\%s' % (self.machine, self.share)
         smb.connectTree(UNC)
         smb.logoff()
@@ -128,9 +125,9 @@ class SMBTests(RemoteTestCase):
 
     def test_loginKerberosAES(self):
         smb = self.create_connection()
-        smb.kerberosLogin(self.username, '', self.domain, '', '', self.aesKey)
+        smb.kerberosLogin(self.username, '', self.domain, '', '', self.aes_key_128)
         credentials = smb.getCredentials()
-        self.assertTrue( credentials == (self.username, '', self.domain, '','',self.aesKey, None, None) )
+        self.assertTrue(credentials == (self.username, '', self.domain, '', '', self.aes_key_128, None, None))
         UNC = '\\\\%s\\%s' % (self.machine, self.share)
         smb.connectTree(UNC)
         smb.logoff()
@@ -281,8 +278,7 @@ class SMB1Tests(SMBTests, unittest.TestCase):
 
     def setUp(self):
         super(SMB1Tests, self).setUp()
-        self.set_smb_transport_config()
-        self.aesKey = self.config_file.get('SMBTransport', 'aesKey128')
+        self.set_smb_transport_config(aes_keys=True)
         self.share = 'C$'
         self.file = '/TEST'
         self.directory = '/BETO'
