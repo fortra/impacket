@@ -1,15 +1,17 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2020 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author:
-#  Alberto Solino (@agsolino)
-#
 # Description:
-#       Example for using the DPAPI/Vault structures to unlock Windows Secrets.
+#   Example for using the DPAPI/Vault structures to unlock Windows Secrets.
+#
+# Author:
+#   Alberto Solino (@agsolino)
 #
 # Examples:
 #
@@ -20,14 +22,16 @@
 #   In the case of vaults, you might need to also provide the user's sid (and the user password will be asked).
 #   For system secrets, instead of a password you will need to specify the system and security hives.
 #
-# References: All of the work done by these guys. I just adapted their work to my needs.
-#       https://www.passcape.com/index.php?section=docsys&cmd=details&id=28
-#       https://github.com/jordanbtucker/dpapick
-#       https://github.com/gentilkiwi/mimikatz/wiki/howto-~-credential-manager-saved-credentials (and everything else Ben did )
-#       http://blog.digital-forensics.it/2016/01/windows-revaulting.html
-#       https://www.passcape.com/windows_password_recovery_vault_explorer
-#       https://www.passcape.com/windows_password_recovery_dpapi_master_key
+# References:
+#   All of the work done by these guys. I just adapted their work to my needs.
+#   - https://www.passcape.com/index.php?section=docsys&cmd=details&id=28
+#   - https://github.com/jordanbtucker/dpapick
+#   - https://github.com/gentilkiwi/mimikatz/wiki/howto-~-credential-manager-saved-credentials (and everything else Ben did )
+#   - http://blog.digital-forensics.it/2016/01/windows-revaulting.html
+#   - https://www.passcape.com/windows_password_recovery_vault_explorer
+#   - https://www.passcape.com/windows_password_recovery_dpapi_master_key
 #
+
 from __future__ import division
 from __future__ import print_function
 

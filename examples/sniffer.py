@@ -1,24 +1,28 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Simple packet sniffer.
+# Description:
+#   Simple packet sniffer.
 #
-# This packet sniffer uses a raw socket to listen for packets
-# in transit corresponding to the specified protocols.
+#   This packet sniffer uses a raw socket to listen for packets
+#   in transit corresponding to the specified protocols.
 #
-# Note that the user might need special permissions to be able to use
-# raw sockets.
+#   Note that the user might need special permissions to be able to use
+#   raw sockets.
 #
 # Authors:
-#  Gerardo Richarte <gera@coresecurity.com>
-#  Javier Kohen <jkohen@coresecurity.com>
+#   Gerardo Richarte (@gerasdf)
+#   Javier Kohen
 #
 # Reference for:
-#  ImpactDecoder.
+#   ImpactDecoder
+#
 
 from select import select
 import socket

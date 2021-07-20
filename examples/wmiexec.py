@@ -1,23 +1,27 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# A similar approach to smbexec but executing commands through WMI.
-# Main advantage here is it runs under the user (has to be Admin)
-# account, not SYSTEM, plus, it doesn't generate noisy messages
-# in the event log that smbexec.py does when creating a service.
-# Drawback is it needs DCOM, hence, I have to be able to access
-# DCOM ports at the target machine.
+# Description:
+#   A similar approach to smbexec but executing commands through WMI.
+#   Main advantage here is it runs under the user (has to be Admin)
+#   account, not SYSTEM, plus, it doesn't generate noisy messages
+#   in the event log that smbexec.py does when creating a service.
+#   Drawback is it needs DCOM, hence, I have to be able to access
+#   DCOM ports at the target machine.
 #
 # Author:
-#  beto (@agsolino)
+#   beto (@agsolino)
 #
 # Reference for:
-#  DCOM
+#   DCOM
 #
+
 from __future__ import division
 from __future__ import print_function
 import sys

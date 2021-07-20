@@ -1,6 +1,8 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
@@ -11,10 +13,10 @@
 #   so you understand what the call does, and then read the test case located
 #   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
 #
-# ToDo: 
-# [ ] Take out all the security provider stuff out of here (e.g. RPC_C_AUTHN_WINNT)
-#     and put it elsewhere. This will make the coder cleaner and easier to add 
-#     more SSP (e.g. NETLOGON)
+# ToDo:
+#   [ ] Take out all the security provider stuff out of here (e.g. RPC_C_AUTHN_WINNT)
+#       and put it elsewhere. This will make the coder cleaner and easier to add
+#       more SSP (e.g. NETLOGON)
 # 
 
 import logging

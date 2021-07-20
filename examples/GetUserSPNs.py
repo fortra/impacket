@@ -1,32 +1,35 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author:
-#  Alberto Solino (@agsolino)
-#
 # Description:
-#     This module will try to find Service Principal Names that are associated with normal user account.
-#     Since normal account's password tend to be shorter than machine accounts, and knowing that a TGS request
-#     will encrypt the ticket with the account the SPN is running under, this could be used for an offline
-#     bruteforcing attack of the SPNs account NTLM hash if we can gather valid TGS for those SPNs.
-#     This is part of the kerberoast attack researched by Tim Medin (@timmedin) and detailed at
-#     https://files.sans.org/summit/hackfest2014/PDFs/Kicking%20the%20Guard%20Dog%20of%20Hades%20-%20Attacking%20Microsoft%20Kerberos%20%20-%20Tim%20Medin(1).pdf
+#   This module will try to find Service Principal Names that are associated with normal user account.
+#   Since normal account's password tend to be shorter than machine accounts, and knowing that a TGS request
+#   will encrypt the ticket with the account the SPN is running under, this could be used for an offline
+#   bruteforcing attack of the SPNs account NTLM hash if we can gather valid TGS for those SPNs.
+#   This is part of the kerberoast attack researched by Tim Medin (@timmedin) and detailed at
+#   https://files.sans.org/summit/hackfest2014/PDFs/Kicking%20the%20Guard%20Dog%20of%20Hades%20-%20Attacking%20Microsoft%20Kerberos%20%20-%20Tim%20Medin(1).pdf
 #
-#     Original idea of implementing this in Python belongs to @skelsec and his
-#     https://github.com/skelsec/PyKerberoast project
+#   Original idea of implementing this in Python belongs to @skelsec and his
+#   https://github.com/skelsec/PyKerberoast project
 #
-#     This module provides a Python implementation for this attack, adding also the ability to PtH/Ticket/Key.
-#     Also, disabled accounts won't be shown.
+#   This module provides a Python implementation for this attack, adding also the ability to PtH/Ticket/Key.
+#   Also, disabled accounts won't be shown.
+#
+# Author:
+#   Alberto Solino (@agsolino)
 #
 # ToDo:
-#  [X] Add the capability for requesting TGS and output them in JtR/hashcat format
-#  [X] Improve the search filter, we have to specify we don't want machine accounts in the answer
-#      (play with userAccountControl)
+#   [X] Add the capability for requesting TGS and output them in JtR/hashcat format
+#   [X] Improve the search filter, we have to specify we don't want machine accounts in the answer
+#       (play with userAccountControl)
 #
+
 from __future__ import division
 from __future__ import print_function
 import argparse

@@ -1,24 +1,27 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2020 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Scan for listening MSRPC interfaces
+# Description:
+#   Scan for listening MSRPC interfaces
 #
-# This binds to the MGMT interface and gets a list of interface UUIDs.
-# If the MGMT interface is not available, it takes a list of interface UUIDs
-# seen in the wild and tries to bind to each interface.
+#   This binds to the MGMT interface and gets a list of interface UUIDs.
+#   If the MGMT interface is not available, it takes a list of interface UUIDs
+#   seen in the wild and tries to bind to each interface.
 #
-# If -brute-opnums is specified, the script tries to call each of the first N
-# operation numbers for each UUID in turn and reports the outcome of each call.
+#   If -brute-opnums is specified, the script tries to call each of the first N
+#   operation numbers for each UUID in turn and reports the outcome of each call.
 #
-# This can generate a burst of connections to the given endpoint!
+#   This can generate a burst of connections to the given endpoint!
 #
 # Authors:
-#  Catalin Patulea <cat@vv.carleton.ca>
-#  Arseniy Sharoglazov <mohemiv@gmail.com> / Positive Technologies (https://www.ptsecurity.com/)
+#   Catalin Patulea <cat@vv.carleton.ca>
+#   Arseniy Sharoglazov <mohemiv@gmail.com> / Positive Technologies (https://www.ptsecurity.com/)
 #
 # TODO:
 #  [ ] The rpcmap.py connections are never closed. We need to close them.

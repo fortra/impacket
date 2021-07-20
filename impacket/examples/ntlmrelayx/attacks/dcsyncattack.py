@@ -1,19 +1,18 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# HTTP Attack Class
+# Description:
+#   HTTP Attack Class
+#   HTTP protocol relay attack
 #
 # Authors:
 #  Alberto Solino (@agsolino)
 #  Dirk-jan Mollema (@_dirkjan) / Fox-IT (https://www.fox-it.com)
-#
-# Description:
-#  HTTP protocol relay attack
-#
-# ToDo:
 #
 from impacket.examples.ntlmrelayx.attacks import ProtocolAttack
 from impacket.examples.secretsdump import RemoteOperations, SAMHashes, NTDSHashes
