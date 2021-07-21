@@ -147,7 +147,7 @@ class WKSTTests(RemoteTestCase):
         resp2.dump()
 
         resp = dce.request(request)
-        self.assertTrue(500 == resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] )
+        self.assertEqual(500, resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'])
 
         req['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] = oldVal
         resp2 = dce.request(req)
@@ -166,7 +166,7 @@ class WKSTTests(RemoteTestCase):
 
         resp = wkst.hNetrWkstaGetInfo(dce, 502)
         resp.dump()
-        self.assertTrue(500 == resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] )
+        self.assertEqual(500, resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'])
 
         resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] = oldVal
         resp2 = wkst.hNetrWkstaSetInfo(dce, 502,resp['WkstaInfo']['WkstaInfo502'])

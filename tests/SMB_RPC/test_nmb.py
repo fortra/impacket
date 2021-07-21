@@ -31,8 +31,8 @@ class NMBTests(RemoteTestCase, unittest.TestCase):
         decoded = nmb.decode_name(encoded)
         hexdump(bytearray(decoded[1], 'utf-8'))
 
-        #self.assertTrue(nmb.TYPE_SERVER==decoded[0])
-        self.assertTrue(name[:15]==decoded[1].strip())
+        #self.assertEqual(nmb.TYPE_SERVER, decoded[0])
+        self.assertEqual(name[:15], decoded[1].strip())
 
         # ToDo: Fix the scope functionality
         #namescope = 'MYNAME'
@@ -41,14 +41,14 @@ class NMBTests(RemoteTestCase, unittest.TestCase):
         #decoded = nmb.decode_name(encoded)
         #hexdump(decoded)
 
-        #self.assertTrue(nmb.TYPE_SERVER==decoded[0])
-        #self.assertTrue(namescope[:15]==decoded[1].strip())
+        #self.assertEqual(nmb.TYPE_SERVER, decoded[0])
+        #self.assertEqual(namescope[:15], decoded[1].strip())
 
     def test_getnetbiosname(self):
         n = nmb.NetBIOS()
         res = n.getnetbiosname(self.machine)
         print(repr(res))
-        self.assertTrue(self.serverName, res)
+        self.assertEqual(self.serverName, res)
 
     def test_getnodestatus(self):
         n = nmb.NetBIOS()

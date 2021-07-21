@@ -28,33 +28,33 @@ class Test(unittest.TestCase):
     def test_negTokenInit(self):
         token = smb.SPNEGO_NegTokenInit()
         token.fromString(self.negTokenInit)
-        self.assertTrue(self.negTokenInit, token.getData())
+        self.assertEqual(self.negTokenInit, token.getData())
 
     def test_negTokenInit2(self):
         token = smb.SPNEGO_NegTokenInit()
         token.fromString(self.negTokenInit2)
-        self.assertTrue(self.negTokenInit2, token.getData())
+        self.assertEqual(self.negTokenInit2, token.getData())
 
     def test_negTokenResp1(self):
         token = smb.SPNEGO_NegTokenResp()
         token.fromString(self.negTokenResp1)
-        self.assertTrue(self.negTokenResp1, token.getData())
+        self.assertEqual(self.negTokenResp1, token.getData())
 
     def test_negTokenResp2(self):
         token = smb.SPNEGO_NegTokenResp()
         token.fromString(self.negTokenResp2)
-        self.assertTrue(self.negTokenResp2, token.getData())
+        self.assertEqual(self.negTokenResp2, token.getData())
 
     def test_negTokenResp3(self):
         token = smb.SPNEGO_NegTokenResp()
         token.fromString(self.negTokenResp3)
-        self.assertTrue(self.negTokenResp3, token.getData())
+        self.assertEqual(self.negTokenResp3, token.getData())
 
     def test_negTokenResp4(self):
         token = smb.SPNEGO_NegTokenResp()
         token['NegState'] = b'\x03'  # request-mic
         token['SupportedMech'] = smb.TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
-        self.assertTrue(self.negTokenResp4, token.getData())
+        self.assertEqual(self.negTokenResp4, token.getData())
 
 
 if __name__ == "__main__":

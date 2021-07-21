@@ -75,7 +75,7 @@ class LDAPTests(RemoteTestCase):
                     sd = SR_SECURITY_DESCRIPTOR()
                     sd.fromString(secDesc)
                     sd.dump()
-                    self.assertTrue(secDesc, sd.getData())
+                    self.assertEqual(secDesc, sd.getData())
 
     def test_sicily(self):
         ldapConnection = self.connect(False)

@@ -67,10 +67,10 @@ class RPCHTest(RemoteTestCase, unittest.TestCase):
         pduData = packet['pduData']
         numberOfCommands = packet['NumberOfCommands']
 
-        self.assertTrue(numberOfCommands == 4)
-        self.assertTrue(packet['Flags'] == rpch.RTS_FLAG_NONE)
-        self.assertTrue(packet['frag_len'] == 76)
-        self.assertTrue(len(pduData) == 56)
+        self.assertEqual(numberOfCommands, 4)
+        self.assertEqual(packet['Flags'], rpch.RTS_FLAG_NONE)
+        self.assertEqual(packet['frag_len'], 76)
+        self.assertEqual(len(pduData), 56)
 
         server_cmds = []
         while numberOfCommands > 0:
@@ -84,16 +84,16 @@ class RPCHTest(RemoteTestCase, unittest.TestCase):
         for cmd in server_cmds:
             cmd.dump()
 
-        self.assertTrue(server_cmds[0].getData() == rpch.Version().getData())
+        self.assertEqual(server_cmds[0].getData(), rpch.Version().getData())
         receiveWindowSize = rpch.ReceiveWindowSize()
         receiveWindowSize['ReceiveWindowSize'] = 262144
 
-        self.assertTrue(server_cmds[3].getData() == receiveWindowSize.getData())
+        self.assertEqual(server_cmds[3].getData(), receiveWindowSize.getData())
 
         cookie = rpch.Cookie()
         cookie['Cookie'] = b'\xb0\xf6\xaf=wb\x98\x07\x9b!Tn\xec\xf4"S'
 
-        self.assertTrue(server_cmds[1].getData() == cookie.getData())
+        self.assertEqual(server_cmds[1].getData(), cookie.getData())
 
     def test_3(self):
         # CONN/A3
@@ -121,7 +121,7 @@ class RPCHTest(RemoteTestCase, unittest.TestCase):
         connectionTimeout = rpch.ConnectionTimeout()
         connectionTimeout['ConnectionTimeout'] = 120000
 
-        self.assertTrue(server_cmds[0].getData() == connectionTimeout.getData())
+        self.assertEqual(server_cmds[0].getData(), connectionTimeout.getData())
 
     def test_4(self):
         # PING
@@ -146,7 +146,7 @@ class RPCHTest(RemoteTestCase, unittest.TestCase):
         for cmd in server_cmds:
             cmd.dump()
 
-        self.assertTrue(packet['Flags'] == rpch.RTS_FLAG_PING)
+        self.assertEqual(packet['Flags'], rpch.RTS_FLAG_PING)
 
     def test_5(self):
         # CONN/C2
@@ -176,13 +176,13 @@ class RPCHTest(RemoteTestCase, unittest.TestCase):
         connectionTimeout = rpch.ConnectionTimeout()
         connectionTimeout['ConnectionTimeout'] = 120000
 
-        self.assertTrue(server_cmds[2].getData() == connectionTimeout.getData())
+        self.assertEqual(server_cmds[2].getData(), connectionTimeout.getData())
 
         receiveWindowSize = rpch.ReceiveWindowSize()
         receiveWindowSize['ReceiveWindowSize'] = 65536
 
-        self.assertTrue(server_cmds[1].getData() == receiveWindowSize.getData())
-        self.assertTrue(server_cmds[0].getData() == rpch.Version().getData())
+        self.assertEqual(server_cmds[1].getData(), receiveWindowSize.getData())
+        self.assertEqual(server_cmds[0].getData(), rpch.Version().getData())
 
     def test_6(self):
         # FlowControlAckWithDestination
@@ -209,7 +209,7 @@ class RPCHTest(RemoteTestCase, unittest.TestCase):
         for cmd in server_cmds:
             cmd.dump()
 
-        self.assertTrue(packet['Flags'] == rpch.RTS_FLAG_OTHER_CMD)
+        self.assertEqual(packet['Flags'], rpch.RTS_FLAG_OTHER_CMD)
 
         ack = rpch.Ack()
         ack['BytesReceived'] = 32914
@@ -217,7 +217,7 @@ class RPCHTest(RemoteTestCase, unittest.TestCase):
         ack['ChannelCookie'] = rpch.RTSCookie()
         ack['ChannelCookie']['Cookie'] = b'\xe3yn|\xbch\xa9M\xab\x8d\x82@\xa0\x05r2'
 
-        self.assertTrue(server_cmds[1]['Ack'].getData() == ack.getData())
+        self.assertEqual(server_cmds[1]['Ack'].getData(), ack.getData())
 
     def test_7(self):
         # CONN/B2, IPv4
@@ -238,7 +238,7 @@ class RPCHTest(RemoteTestCase, unittest.TestCase):
         pduData = packet['pduData']
         numberOfCommands = packet['NumberOfCommands']
 
-        self.assertTrue(packet['Flags'] == rpch.RTS_FLAG_IN_CHANNEL)
+        self.assertEqual(packet['Flags'], rpch.RTS_FLAG_IN_CHANNEL)
 
         server_cmds = []
         while numberOfCommands > 0:
@@ -269,7 +269,7 @@ class RPCHTest(RemoteTestCase, unittest.TestCase):
         pduData = packet['pduData']
         numberOfCommands = packet['NumberOfCommands']
 
-        self.assertTrue(packet['Flags'] == rpch.RTS_FLAG_OUT_CHANNEL)
+        self.assertEqual(packet['Flags'], rpch.RTS_FLAG_OUT_CHANNEL)
 
         server_cmds = []
         while numberOfCommands > 0:
@@ -286,7 +286,7 @@ class RPCHTest(RemoteTestCase, unittest.TestCase):
         channelLifetime = rpch.ChannelLifetime()
         channelLifetime['ChannelLifetime'] = 1073741824
 
-        self.assertTrue(server_cmds[-2].getData() == channelLifetime.getData())
+        self.assertEqual(server_cmds[-2].getData(), channelLifetime.getData())
 
 
 # Process command-line arguments.

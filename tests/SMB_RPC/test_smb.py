@@ -10,7 +10,6 @@ import os
 import errno
 import socket
 import select
-from binascii import unhexlify
 
 import pytest
 import unittest
@@ -61,14 +60,13 @@ class SMBTests(RemoteTestCase):
         smb = self.create_connection()
         smb.kerberosLogin(self.username, '', self.domain, self.lmhash, self.nthash, '')
         credentials = smb.getCredentials()
-        self.assertTrue( credentials == (self.username, '', self.domain, unhexlify(self.lmhash), unhexlify(self.nthash), '', None, None) )
+        self.assertEqual(credentials, (self.username, '', self.domain, self.blmhash, self.bnthash, '', None, None))
         UNC = '\\\\%s\\%s' % (self.machine, self.share)
         smb.connectTree(UNC)
         smb.logoff()
         smb.reconnect()
         credentials = smb.getCredentials()
-        self.assertTrue(
-            credentials == (self.username, '', self.domain, unhexlify(self.lmhash), unhexlify(self.nthash), '', None, None))
+        self.assertEqual(credentials, (self.username, '', self.domain, self.blmhash, self.bnthash, '', None, None))
         UNC = '\\\\%s\\%s' % (self.machine, self.share)
         smb.connectTree(UNC)
         smb.logoff()
@@ -84,7 +82,7 @@ class SMBTests(RemoteTestCase):
         smb = self.create_connection()
         smb.login(self.username, self.password, self.domain)
         credentials = smb.getCredentials()
-        self.assertTrue( credentials == (self.username, self.password, self.domain, '','','', None, None))
+        self.assertEqual(credentials, (self.username, self.password, self.domain, '', '', '', None, None))
         smb.logoff()
         del(smb)
         
@@ -102,7 +100,7 @@ class SMBTests(RemoteTestCase):
         smb.negotiateSession(self.dialects)
         smb.login(self.username, self.password, self.domain)
         credentials = smb.getCredentials()
-        self.assertTrue( credentials == (self.username, self.password, self.domain, '','','', None, None))
+        self.assertEqual(credentials, (self.username, self.password, self.domain, '', '', '', None, None))
         smb.logoff()
         del(smb)
 
@@ -110,14 +108,14 @@ class SMBTests(RemoteTestCase):
         smb = self.create_connection()
         smb.login(self.username, '', self.domain, self.lmhash, self.nthash)
         credentials = smb.getCredentials()
-        self.assertTrue( credentials == (self.username, '', self.domain, unhexlify(self.lmhash), unhexlify(self.nthash), '', None, None) )
+        self.assertEqual(credentials, (self.username, '', self.domain, self.blmhash, self.bnthash, '', None, None))
         smb.logoff()
 
     def test_loginKerberosHashes(self):
         smb = self.create_connection()
         smb.kerberosLogin(self.username, '', self.domain, self.lmhash, self.nthash, '')
         credentials = smb.getCredentials()
-        self.assertTrue( credentials == (self.username, '', self.domain, unhexlify(self.lmhash), unhexlify(self.nthash), '', None, None) )
+        self.assertEqual(credentials, (self.username, '', self.domain, self.blmhash, self.bnthash, '', None, None))
         UNC = '\\\\%s\\%s' % (self.machine, self.share)
         smb.connectTree(UNC)
         smb.logoff()
@@ -126,7 +124,7 @@ class SMBTests(RemoteTestCase):
         smb = self.create_connection()
         smb.kerberosLogin(self.username, self.password, self.domain, '', '', '')
         credentials = smb.getCredentials()
-        self.assertTrue( credentials == (self.username, self.password, self.domain, '','','', None, None) )
+        self.assertEqual(credentials, (self.username, self.password, self.domain, '', '', '', None, None))
         UNC = '\\\\%s\\%s' % (self.machine, self.share)
         smb.connectTree(UNC)
         smb.logoff()
@@ -135,7 +133,7 @@ class SMBTests(RemoteTestCase):
         smb = self.create_connection()
         smb.kerberosLogin(self.username, '', self.domain, '', '', self.aes_key_128)
         credentials = smb.getCredentials()
-        self.assertTrue(credentials == (self.username, '', self.domain, '', '', self.aes_key_128, None, None))
+        self.assertEqual(credentials, (self.username, '', self.domain, '', '', self.aes_key_128, None, None))
         UNC = '\\\\%s\\%s' % (self.machine, self.share)
         smb.connectTree(UNC)
         smb.logoff()
@@ -169,9 +167,9 @@ class SMBTests(RemoteTestCase):
         while remaining>0:
             data += smb.readFile(tid,fid, offset, remaining)
             remaining = 65535 - len(data)
-        self.assertTrue(len(data) == 65535)
-        self.assertTrue(data == b"A"*65535)
-        smb.closeFile(tid,fid)
+        self.assertEqual(len(data), 65535)
+        self.assertEqual(data, b"A" * 65535)
+        smb.closeFile(tid, fid)
         fid = smb.openFile(tid, self.file)
         smb.closeFile(tid, fid)
         smb.deleteFile(self.share, self.file)
@@ -211,35 +209,35 @@ class SMBTests(RemoteTestCase):
         smb = self.create_connection()
         smb.login(self.username, self.password, self.domain)
         serverName = smb.getServerName()
-        self.assertTrue( serverName.upper() == self.serverName.upper() )
+        self.assertEqual(serverName.upper(), self.serverName.upper())
         smb.logoff()
 
     def test_getServerDNSDomainName(self):
         smb = self.create_connection()
         smb.login(self.username, self.password, self.domain)
         serverDomain = smb.getServerDNSDomainName()
-        self.assertTrue( serverDomain.upper() == self.domain.upper())
+        self.assertEqual(serverDomain.upper(), self.domain.upper())
         smb.logoff()
 
     def test_getServerDomain(self):
         smb = self.create_connection()
         smb.login(self.username, self.password, self.domain)
         serverDomain = smb.getServerDomain()
-        self.assertTrue( serverDomain.upper() == self.domain.upper().split('.')[0])
+        self.assertEqual(serverDomain.upper(), self.domain.upper().split('.')[0])
         smb.logoff()
 
     def test_getRemoteHost(self):
         smb = self.create_connection()
         smb.login(self.username, self.password, self.domain)
         remoteHost = smb.getRemoteHost()
-        self.assertTrue( remoteHost == self.machine)
+        self.assertEqual(remoteHost, self.machine)
         smb.logoff()
 
     def test_getDialect(self):
         smb = self.create_connection()
         smb.login(self.username, self.password, self.domain)
         dialect = smb.getDialect()
-        self.assertTrue( dialect == self.dialects)
+        self.assertEqual(dialect, self.dialects)
         smb.logoff()
 
     def test_uploadDownload(self):

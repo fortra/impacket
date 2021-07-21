@@ -180,7 +180,7 @@ class RRPTests(RemoteTestCase):
 
         resp = rrp.hBaseRegDeleteKey(dce, regHandle, 'BETO\x00')
         resp.dump()
-        self.assertTrue( 'HOLA COMO TE VA\x00' == data )
+        self.assertEqual('HOLA COMO TE VA\x00', data)
 
     def test_BaseRegCreateKey_BaseRegSetValue_BaseRegDeleteKey(self):
         dce, rpctransport, phKey = self.connect()
@@ -232,7 +232,7 @@ class RRPTests(RemoteTestCase):
         resp = dce.request(request)
         resp.dump()
         print(b''.join(resData).decode('utf-16le'))
-        self.assertTrue( 'HOLA COMO TE VA\x00' == b''.join(resData).decode('utf-16le'))
+        self.assertEqual('HOLA COMO TE VA\x00', b''.join(resData).decode('utf-16le'))
 
     def test_BaseRegEnumKey(self):
         dce, rpctransport, phKey = self.connect()

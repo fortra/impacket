@@ -932,7 +932,7 @@ class SAMRTests(RemoteTestCase):
  
         resp2 = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainPasswordInformation)
         resp2.dump()
-        self.assertTrue( 11 == resp2['Buffer']['Password']['MaxPasswordAge']['LowPart'] )
+        self.assertEqual(11, resp2['Buffer']['Password']['MaxPasswordAge']['LowPart'])
 
         resp2['Buffer']['Password']['MaxPasswordAge']['LowPart'] = 0
         resp = samr.hSamrSetInformationDomain(dce, domainHandle, resp2['Buffer'])
@@ -963,7 +963,7 @@ class SAMRTests(RemoteTestCase):
         resp2 = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainLogoffInformation)
         resp2.dump()
 
-        self.assertTrue( 11 == resp2['Buffer']['Logoff']['ForceLogoff']['LowPart'] )
+        self.assertEqual(11, resp2['Buffer']['Logoff']['ForceLogoff']['LowPart'])
 
         resp2['Buffer']['Logoff']['ForceLogoff']['LowPart'] = oldData
         resp = samr.hSamrSetInformationDomain(dce, domainHandle, resp2['Buffer'])
@@ -982,7 +982,7 @@ class SAMRTests(RemoteTestCase):
         resp2 = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainOemInformation)
         resp2.dump()
 
-        self.assertTrue( 'BETUS'  == resp2['Buffer']['Oem']['OemInformation'])
+        self.assertEqual('BETUS', resp2['Buffer']['Oem']['OemInformation'])
 
         resp2['Buffer']['Oem']['OemInformation'] = oldData
         resp = samr.hSamrSetInformationDomain(dce, domainHandle, resp2['Buffer'])
@@ -1011,7 +1011,7 @@ class SAMRTests(RemoteTestCase):
         resp2 = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainReplicationInformation)
         resp2.dump()
 
-        self.assertTrue( 'BETUS'  == resp2['Buffer']['Replication']['ReplicaSourceNodeName'])
+        self.assertEqual('BETUS', resp2['Buffer']['Replication']['ReplicaSourceNodeName'])
 
         resp2['Buffer']['Replication']['ReplicaSourceNodeName'] = oldData
         resp = samr.hSamrSetInformationDomain(dce, domainHandle, resp2['Buffer'])
@@ -1072,7 +1072,7 @@ class SAMRTests(RemoteTestCase):
         resp = dce.request(request)
         resp.dump()
 
-        self.assertTrue( 'BETUS'  == resp['Buffer']['Name']['Name'])
+        self.assertEqual('BETUS', resp['Buffer']['Name']['Name'])
 
         req['Buffer']['Name']['Name'] = oldData
         resp = dce.request(req)
@@ -1098,7 +1098,7 @@ class SAMRTests(RemoteTestCase):
         resp = dce.request(request)
         resp.dump()
 
-        #self.assertTrue( 2  == resp['Buffer']['Attribute']['Attributes'])
+        #self.assertEqual(2, resp['Buffer']['Attribute']['Attributes'])
 
         req['Buffer']['Attribute']['Attributes'] = oldData
         resp = dce.request(req)
@@ -1125,7 +1125,7 @@ class SAMRTests(RemoteTestCase):
         resp = dce.request(request)
         resp.dump()
 
-        self.assertTrue( 'BETUS'  == resp['Buffer']['AdminComment']['AdminComment'])
+        self.assertEqual('BETUS', resp['Buffer']['AdminComment']['AdminComment'])
 
         req['Buffer']['AdminComment']['AdminComment'] = oldData
         resp = dce.request(req)
@@ -1162,7 +1162,7 @@ class SAMRTests(RemoteTestCase):
 
         resp = samr.hSamrQueryInformationGroup(dce, resp0['GroupHandle'],samr.GROUP_INFORMATION_CLASS.GroupNameInformation)
         resp.dump()
-        self.assertTrue( 'BETUS'  == resp['Buffer']['Name']['Name'])
+        self.assertEqual('BETUS', resp['Buffer']['Name']['Name'])
 
         req['Name']['Name'] = oldData
         resp = samr.hSamrSetInformationGroup(dce, resp0['GroupHandle'], req)
@@ -1193,7 +1193,7 @@ class SAMRTests(RemoteTestCase):
         resp = samr.hSamrQueryInformationAlias(dce, resp0['AliasHandle'], samr.ALIAS_INFORMATION_CLASS.AliasNameInformation)
         resp.dump()
 
-        self.assertTrue( 'BETUS'  == resp['Buffer']['Name']['Name'])
+        self.assertEqual('BETUS', resp['Buffer']['Name']['Name'])
 
         req['Name']['Name'] = oldData
         resp = samr.hSamrSetInformationAlias(dce, resp0['AliasHandle'], req)
@@ -1252,7 +1252,7 @@ class SAMRTests(RemoteTestCase):
         resp = dce.request(request)
         resp.dump()
 
-        self.assertTrue( 'BETUS'  == resp['Buffer']['Name']['Name'])
+        self.assertEqual('BETUS', resp['Buffer']['Name']['Name'])
 
         req['Buffer']['Name']['Name'] = oldData
         resp = dce.request(req)
@@ -1278,7 +1278,7 @@ class SAMRTests(RemoteTestCase):
         resp = dce.request(request)
         resp.dump()
 
-        self.assertTrue( 'BETUS'  == resp['Buffer']['AdminComment']['AdminComment'])
+        self.assertEqual('BETUS', resp['Buffer']['AdminComment']['AdminComment'])
 
         req['Buffer']['AdminComment']['AdminComment'] = oldData
         resp = dce.request(req)
@@ -1324,7 +1324,7 @@ class SAMRTests(RemoteTestCase):
         resp = dce.request(request)
         resp.dump()
 
-        self.assertTrue( 'BETO' == resp['Buffer']['Preferences']['UserComment'])
+        self.assertEqual('BETO', resp['Buffer']['Preferences']['UserComment'])
 
         req['Buffer']['Preferences']['UserComment'] = oldData
         resp = dce.request(req)
@@ -1364,7 +1364,7 @@ class SAMRTests(RemoteTestCase):
         resp = dce.request(request)
         resp.dump()
 
-        self.assertTrue( 'BETO' == resp['Buffer']['Name']['FullName'])
+        self.assertEqual('BETO', resp['Buffer']['Name']['FullName'])
 
         req['Buffer']['Name']['FullName'] = oldData
         resp = dce.request(req)
@@ -1389,7 +1389,7 @@ class SAMRTests(RemoteTestCase):
         resp = dce.request(request)
         resp.dump()
 
-        self.assertTrue( 'BETUS' == resp['Buffer']['AccountName']['UserName'])
+        self.assertEqual('BETUS', resp['Buffer']['AccountName']['UserName'])
 
         req['Buffer']['AccountName']['UserName'] = oldData
         resp = dce.request(req)
@@ -1527,7 +1527,7 @@ class SAMRTests(RemoteTestCase):
         resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserPreferencesInformation)
         resp.dump()
 
-        self.assertTrue( 'BETO' == resp['Buffer']['Preferences']['UserComment'])
+        self.assertEqual('BETO', resp['Buffer']['Preferences']['UserComment'])
 
         resp['Buffer']['Preferences']['UserComment'] = oldData
         resp = samr.hSamrSetInformationUser2(dce, userHandle, resp['Buffer'])
@@ -1555,7 +1555,7 @@ class SAMRTests(RemoteTestCase):
         resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserNameInformation)
         resp.dump()
 
-        self.assertTrue( 'BETO' == resp['Buffer']['Name']['FullName'])
+        self.assertEqual('BETO', resp['Buffer']['Name']['FullName'])
 
         resp['Buffer']['Name']['FullName'] = oldData
         resp = samr.hSamrSetInformationUser2(dce, userHandle, resp['Buffer'])
@@ -1574,7 +1574,7 @@ class SAMRTests(RemoteTestCase):
         resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserAccountNameInformation)
         resp.dump()
 
-        self.assertTrue( 'BETUS' == resp['Buffer']['AccountName']['UserName'])
+        self.assertEqual('BETUS', resp['Buffer']['AccountName']['UserName'])
 
         resp['Buffer']['AccountName']['UserName'] = oldData
         resp = samr.hSamrSetInformationUser2(dce, userHandle, resp['Buffer'])
@@ -1650,7 +1650,7 @@ class SAMRTests(RemoteTestCase):
         resp = dce.request(request)
         resp.dump()
 
-        self.assertTrue( 'BETO' == resp['Buffer']['Preferences']['UserComment'])
+        self.assertEqual('BETO', resp['Buffer']['Preferences']['UserComment'])
 
         req['Buffer']['Preferences']['UserComment'] = oldData
         resp = dce.request(req)

@@ -61,7 +61,6 @@ import unittest
 from tests import RemoteTestCase
 
 from struct import pack, unpack
-from binascii import unhexlify
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import epm, nrpc
@@ -84,8 +83,8 @@ class NRPCTests(RemoteTestCase):
         resp.dump()
         serverChallenge = resp['ServerChallenge']
 
-        nthash = unhexlify(self.machine_user_nthash) if self.machine_user_nthash else None
-        self.sessionKey = nrpc.ComputeSessionKeyStrongKey('', b'12345678', serverChallenge, nthash)
+        bnthash = self.machine_user_bnthash or None
+        self.sessionKey = nrpc.ComputeSessionKeyStrongKey('', b'12345678', serverChallenge, bnthash)
 
         ppp = nrpc.ComputeNetlogonCredential(b'12345678', self.sessionKey)
 
@@ -309,8 +308,8 @@ class NRPCTests(RemoteTestCase):
         resp.dump()
         serverChallenge = resp['ServerChallenge']
 
-        nthash = unhexlify(self.machine_user_nthash) if self.machine_user_nthash else None
-        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, nthash)
+        bnthash = self.machine_user_bnthash or None
+        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, bnthash)
 
         ppp = nrpc.ComputeNetlogonCredential(b'12345678', sessionKey)
 
@@ -331,8 +330,8 @@ class NRPCTests(RemoteTestCase):
         resp.dump()
         serverChallenge = resp['ServerChallenge']
 
-        nthash = unhexlify(self.machine_user_nthash) if self.machine_user_nthash else None
-        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, nthash)
+        bnthash = self.machine_user_bnthash or None
+        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, bnthash)
 
         ppp = nrpc.ComputeNetlogonCredential(b'12345678', sessionKey)
 
@@ -352,8 +351,8 @@ class NRPCTests(RemoteTestCase):
         resp.dump()
         serverChallenge = resp['ServerChallenge']
 
-        nthash = unhexlify(self.machine_user_nthash) if self.machine_user_nthash else None
-        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, nthash)
+        bnthash = self.machine_user_bnthash or None
+        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, bnthash)
 
         ppp = nrpc.ComputeNetlogonCredential(b'12345678', sessionKey)
 
@@ -368,8 +367,8 @@ class NRPCTests(RemoteTestCase):
         resp.dump()
         serverChallenge = resp['ServerChallenge']
 
-        nthash = unhexlify(self.machine_user_nthash) if self.machine_user_nthash else None
-        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, nthash)
+        bnthash = self.machine_user_bnthash or None
+        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, bnthash)
 
         ppp = nrpc.ComputeNetlogonCredential(b'12345678', sessionKey)
 
@@ -395,8 +394,8 @@ class NRPCTests(RemoteTestCase):
         resp.dump()
         serverChallenge = resp['ServerChallenge']
 
-        nthash = unhexlify(self.machine_user_nthash) if self.machine_user_nthash else None
-        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, nthash)
+        bnthash = self.machine_user_bnthash or None
+        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, bnthash)
 
         ppp = nrpc.ComputeNetlogonCredential(b'12345678', sessionKey)
 
@@ -420,8 +419,8 @@ class NRPCTests(RemoteTestCase):
         resp.dump()
         serverChallenge = resp['ServerChallenge']
 
-        nthash = unhexlify(self.machine_user_nthash) if self.machine_user_nthash else None
-        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, nthash)
+        bnthash = self.machine_user_bnthash or None
+        sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, b'12345678', serverChallenge, bnthash)
 
         ppp = nrpc.ComputeNetlogonCredential(b'12345678', sessionKey)
 
@@ -582,11 +581,11 @@ class NRPCTests(RemoteTestCase):
         request['LogonInformation']['LogonInteractive']['Identity']['Workstation'] = ''
 
         if len(self.hashes):
-            lmhash = unhexlify(self.lmhash)
-            nthash = unhexlify(self.nthash)
+            blmhash = self.blmhash
+            bnthash = self.bnthash
         else:
-            lmhash = ntlm.LMOWFv1(self.password)
-            nthash = ntlm.NTOWFv1(self.password)
+            blmhash = ntlm.LMOWFv1(self.password)
+            bnthash = ntlm.NTOWFv1(self.password)
         try:
             from Cryptodome.Cipher import ARC4
         except Exception:
@@ -594,12 +593,12 @@ class NRPCTests(RemoteTestCase):
             print("See https://pypi.org/project/pycryptodomex/")
 
         rc4 = ARC4.new(self.sessionKey)
-        lmhash = rc4.encrypt(lmhash)
+        blmhash = rc4.encrypt(blmhash)
         rc4 = ARC4.new(self.sessionKey)
-        nthash = rc4.encrypt(nthash)
+        bnthash = rc4.encrypt(bnthash)
 
-        request['LogonInformation']['LogonInteractive']['LmOwfPassword'] = lmhash
-        request['LogonInformation']['LogonInteractive']['NtOwfPassword'] = nthash
+        request['LogonInformation']['LogonInteractive']['LmOwfPassword'] = blmhash
+        request['LogonInformation']['LogonInteractive']['NtOwfPassword'] = bnthash
         request['ValidationLevel'] = nrpc.NETLOGON_VALIDATION_INFO_CLASS.NetlogonValidationSamInfo4
         request['ExtraFlags'] = 1
         try:
@@ -622,11 +621,11 @@ class NRPCTests(RemoteTestCase):
         request['LogonInformation']['LogonInteractive']['Identity']['UserName'] = self.username
         request['LogonInformation']['LogonInteractive']['Identity']['Workstation'] = ''
         if len(self.hashes):
-            lmhash = unhexlify(self.lmhash)
-            nthash = unhexlify(self.nthash)
+            blmhash = self.blmhash
+            bnthash = self.bnthash
         else:
-            lmhash = ntlm.LMOWFv1(self.password)
-            nthash = ntlm.NTOWFv1(self.password)
+            blmhash = ntlm.LMOWFv1(self.password)
+            bnthash = ntlm.NTOWFv1(self.password)
 
         try:
             from Cryptodome.Cipher import ARC4
@@ -635,12 +634,12 @@ class NRPCTests(RemoteTestCase):
             print("See https://pypi.org/project/pycryptodomex/")
 
         rc4 = ARC4.new(self.sessionKey)
-        lmhash = rc4.encrypt(lmhash)
+        blmhash = rc4.encrypt(blmhash)
         rc4 = ARC4.new(self.sessionKey)
-        nthash = rc4.encrypt(nthash)
+        bnthash = rc4.encrypt(bnthash)
 
-        request['LogonInformation']['LogonInteractive']['LmOwfPassword'] = lmhash
-        request['LogonInformation']['LogonInteractive']['NtOwfPassword'] = nthash
+        request['LogonInformation']['LogonInteractive']['LmOwfPassword'] = blmhash
+        request['LogonInformation']['LogonInteractive']['NtOwfPassword'] = bnthash
         request['ValidationLevel'] = nrpc.NETLOGON_VALIDATION_INFO_CLASS.NetlogonValidationSamInfo4
         request['Authenticator'] = self.update_authenticator()
         request['ReturnAuthenticator']['Credential'] = b'\x00' * 8
@@ -665,11 +664,11 @@ class NRPCTests(RemoteTestCase):
         request['LogonInformation']['LogonInteractive']['Identity']['UserName'] = self.username
         request['LogonInformation']['LogonInteractive']['Identity']['Workstation'] = ''
         if len(self.hashes):
-            lmhash = unhexlify(self.lmhash)
-            nthash = unhexlify(self.nthash)
+            blmhash = self.blmhash
+            bnthash = self.bnthash
         else:
-            lmhash = ntlm.LMOWFv1(self.password)
-            nthash = ntlm.NTOWFv1(self.password)
+            blmhash = ntlm.LMOWFv1(self.password)
+            bnthash = ntlm.NTOWFv1(self.password)
 
         try:
             from Cryptodome.Cipher import ARC4
@@ -678,12 +677,12 @@ class NRPCTests(RemoteTestCase):
             print("See http://www.pycrypto.org/")
 
         rc4 = ARC4.new(self.sessionKey)
-        lmhash = rc4.encrypt(lmhash)
+        blmhash = rc4.encrypt(blmhash)
         rc4 = ARC4.new(self.sessionKey)
-        nthash = rc4.encrypt(nthash)
+        bnthash = rc4.encrypt(bnthash)
 
-        request['LogonInformation']['LogonInteractive']['LmOwfPassword'] = lmhash
-        request['LogonInformation']['LogonInteractive']['NtOwfPassword'] = nthash
+        request['LogonInformation']['LogonInteractive']['LmOwfPassword'] = blmhash
+        request['LogonInformation']['LogonInteractive']['NtOwfPassword'] = bnthash
         request['ValidationLevel'] = nrpc.NETLOGON_VALIDATION_INFO_CLASS.NetlogonValidationSamInfo2
         request['Authenticator'] = self.update_authenticator()
         request['ReturnAuthenticator']['Credential'] = b'\x00' * 8
