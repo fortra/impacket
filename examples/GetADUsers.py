@@ -1,24 +1,27 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author:
-#  Alberto Solino (@agsolino)
-#
 # Description:
-#     This script will gather data about the domain's users and their corresponding email addresses. It will also
-#     include some extra information about last logon and last password set attributes.
-#     You can enable or disable the the attributes shown in the final table by changing the values in line 184 and
-#     headers in line 190.
-#     If no entries are returned that means users don't have email addresses specified. If so, you can use the
-#     -all-users parameter.
+#   This script will gather data about the domain's users and their corresponding email addresses. It will also
+#   include some extra information about last logon and last password set attributes.
+#   You can enable or disable the the attributes shown in the final table by changing the values in line 184 and
+#   headers in line 190.
+#   If no entries are returned that means users don't have email addresses specified. If so, you can use the
+#   -all-users parameter.
+#
+# Author:
+#   Alberto Solino (@agsolino)
 #
 # Reference for:
-#     LDAP
+#   LDAP
 #
+
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals

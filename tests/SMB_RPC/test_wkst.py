@@ -1,32 +1,36 @@
-###############################################################################
-#  Tested so far: 
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# NetrWkstaGetInfo
-# NetrWkstaUserEnum
-# NetrWkstaTransportEnum
-# NetrWkstaTransportAdd
-# NetrUseAdd
-# NetrUseGetInfo
-# NetrUseDel
-# NetrUseEnum
-# NetrWorkstationStatisticsGet
-# NetrGetJoinInformation
-# NetrJoinDomain2
-# NetrUnjoinDomain2
-# NetrRenameMachineInDomain2
-# NetrValidateName2
-# NetrGetJoinableOUs2
-# NetrAddAlternateComputerName
-# NetrRemoveAlternateComputerName
-# NetrSetPrimaryComputerName
-# NetrEnumerateComputerNames
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
 #
-#  Not yet:
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Tested so far:
+#   NetrWkstaGetInfo
+#   NetrWkstaUserEnum
+#   NetrWkstaTransportEnum
+#   NetrWkstaTransportAdd
+#   NetrUseAdd
+#   NetrUseGetInfo
+#   NetrUseDel
+#   NetrUseEnum
+#   NetrWorkstationStatisticsGet
+#   NetrGetJoinInformation
+#   NetrJoinDomain2
+#   NetrUnjoinDomain2
+#   NetrRenameMachineInDomain2
+#   NetrValidateName2
+#   NetrGetJoinableOUs2
+#   NetrAddAlternateComputerName
+#   NetrRemoveAlternateComputerName
+#   NetrSetPrimaryComputerName
+#   NetrEnumerateComputerNames
+#
+# Not yet:
 #
 # Shouldn't dump errors against a win7
-#  
-################################################################################
-
+#
 from __future__ import division
 from __future__ import print_function
 
@@ -143,7 +147,7 @@ class WKSTTests(RemoteTestCase):
         resp2.dump()
 
         resp = dce.request(request)
-        self.assertTrue(500 == resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] )
+        self.assertEqual(500, resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'])
 
         req['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] = oldVal
         resp2 = dce.request(req)
@@ -162,7 +166,7 @@ class WKSTTests(RemoteTestCase):
 
         resp = wkst.hNetrWkstaGetInfo(dce, 502)
         resp.dump()
-        self.assertTrue(500 == resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] )
+        self.assertEqual(500, resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'])
 
         resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] = oldVal
         resp2 = wkst.hNetrWkstaSetInfo(dce, 502,resp['WkstaInfo']['WkstaInfo502'])

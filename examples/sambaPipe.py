@@ -1,13 +1,11 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
-#
-#
-# Author:
-#  beto (@agsolino)
 #
 # Description:
 #   This script will exploit CVE-2017-7494, uploading and executing the shared library specified by the user through
@@ -27,6 +25,8 @@
 #
 #   Same as before, but anonymous authentication will be used.
 #
+# Author:
+#   beto (@agsolino)
 #
 
 import argparse

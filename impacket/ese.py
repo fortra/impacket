@@ -1,25 +1,29 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
 # Description:
-#             Microsoft Extensive Storage Engine parser, just focused on trying 
-#             to parse NTDS.dit files (not meant as a full parser, although it might work)
+#   Microsoft Extensive Storage Engine parser, just focused on trying
+#   to parse NTDS.dit files (not meant as a full parser, although it might work)
 #
 # Author:
-#  Alberto Solino (@agsolino)
+#   Alberto Solino (@agsolino)
 #
 # Reference for:
-#  Structure.
+#   Structure
 # 
-# Excellent reference done by Joachim Metz
-# http://forensic-proof.com/wp-content/uploads/2011/07/Extensible-Storage-Engine-ESE-Database-File-EDB-format.pdf
+#   Excellent reference done by Joachim Metz
+#   - http://forensic-proof.com/wp-content/uploads/2011/07/Extensible-Storage-Engine-ESE-Database-File-EDB-format.pdf
 #
 # ToDo: 
-# [ ] Parse multi-values properly
-# [ ] Support long values properly
+#   [ ] Parse multi-values properly
+#   [ ] Support long values properly
+#
+
 from __future__ import division
 from __future__ import print_function
 from impacket import LOG

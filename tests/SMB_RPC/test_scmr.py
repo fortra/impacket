@@ -1,45 +1,49 @@
-###############################################################################
-#  Tested so far: 
-#  hRCloseServiceHandleCall
-#  RControlService
-#  RDeleteService
-#  RLockServiceDatabase
-#  RQueryServiceObjectSecurity
-#  RQueryServiceStatus
-#  RUnlockServiceDatabase
-#  RNotifyBootConfigStatus
-#  RChangeServiceConfigW
-#  RCreateServiceW
-#  REnumDependentServicesW
-#  REnumServicesStatusW
-#  ROpenSCManager
-#  ROpenServiceW
-#  RQueryServiceConfigW
-#  RQueryServiceLockStatusW
-#  RStartServiceW
-#  CRGetServiceDisplayNameW
-#  RGetServiceKeyNameW
-#  REnumServiceGroupW
-#  RChangeServiceConfig2W
-#  RQueryServiceConfig2W
-#  RQueryServiceStatusEx
-#  REnumServicesStatusExW
-#  RNotifyServiceStatusChange
-#  RGetNotifyResults
-#  RCloseNotifyHandle
-#  RControlServiceExW
-#  RQueryServiceConfigEx
+# Impacket - Collection of Python classes for working with network protocols.
 #
-#  Not yet:
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
 #
-#  RSetServiceObjectSecurity
-#  RSetServiceStatus
-#  RCreateServiceWOW64W
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Tested so far:
+#   hRCloseServiceHandleCall
+#   RControlService
+#   RDeleteService
+#   RLockServiceDatabase
+#   RQueryServiceObjectSecurity
+#   RQueryServiceStatus
+#   RUnlockServiceDatabase
+#   RNotifyBootConfigStatus
+#   RChangeServiceConfigW
+#   RCreateServiceW
+#   REnumDependentServicesW
+#   REnumServicesStatusW
+#   ROpenSCManager
+#   ROpenServiceW
+#   RQueryServiceConfigW
+#   RQueryServiceLockStatusW
+#   RStartServiceW
+#   CRGetServiceDisplayNameW
+#   RGetServiceKeyNameW
+#   REnumServiceGroupW
+#   RChangeServiceConfig2W
+#   RQueryServiceConfig2W
+#   RQueryServiceStatusEx
+#   REnumServicesStatusExW
+#   RNotifyServiceStatusChange
+#   RGetNotifyResults
+#   RCloseNotifyHandle
+#   RControlServiceExW
+#   RQueryServiceConfigEx
+#
+# Not yet:
+#   RSetServiceObjectSecurity
+#   RSetServiceStatus
+#   RCreateServiceWOW64W
 #  
 # Shouldn't dump errors against a win7
 #
-################################################################################
-
 import pytest
 import unittest
 from tests import RemoteTestCase
@@ -64,23 +68,23 @@ class SCMRTests(RemoteTestCase):
             resp.dump()
             # Now let's compare all the results
             if dwServiceType != scmr.SERVICE_NO_CHANGE:
-                self.assertTrue( resp['lpServiceConfig']['dwServiceType'] == dwServiceType )
+                self.assertEqual(resp['lpServiceConfig']['dwServiceType'], dwServiceType)
             if dwStartType != scmr.SERVICE_NO_CHANGE:
-                self.assertTrue( resp['lpServiceConfig']['dwStartType'] == dwStartType )
+                self.assertEqual(resp['lpServiceConfig']['dwStartType'], dwStartType)
             if dwErrorControl != scmr.SERVICE_NO_CHANGE:
-                self.assertTrue( resp['lpServiceConfig']['dwErrorControl'] == dwErrorControl )
+                self.assertEqual(resp['lpServiceConfig']['dwErrorControl'], dwErrorControl)
             if lpBinaryPathName != NULL:
-                self.assertTrue( resp['lpServiceConfig']['lpBinaryPathName'] == lpBinaryPathName )
+                self.assertEqual(resp['lpServiceConfig']['lpBinaryPathName'], lpBinaryPathName)
             if lpBinaryPathName != NULL:
-                self.assertTrue( resp['lpServiceConfig']['lpBinaryPathName'] == lpBinaryPathName )
+                self.assertEqual(resp['lpServiceConfig']['lpBinaryPathName'], lpBinaryPathName)
             if lpLoadOrderGroup != NULL:
-                self.assertTrue( resp['lpServiceConfig']['lpLoadOrderGroup'] == lpLoadOrderGroup )
+                self.assertEqual(resp['lpServiceConfig']['lpLoadOrderGroup'], lpLoadOrderGroup)
             #if lpDependencies != '':
-            #    self.assertTrue( resp['lpServiceConfig']['lpDependencies'] == lpDependencies[:-4]+'/\x00\x00\x00')
+            #    self.assertEqual( resp['lpServiceConfig']['lpDependencies'], lpDependencies[:-4]+'/\x00\x00\x00')
             if lpServiceStartName != NULL:
-                self.assertTrue( resp['lpServiceConfig']['lpServiceStartName'] == lpServiceStartName )
+                self.assertEqual(resp['lpServiceConfig']['lpServiceStartName'], lpServiceStartName)
             if lpDisplayName != NULL:
-                self.assertTrue( resp['lpServiceConfig']['lpDisplayName'] == lpDisplayName )
+                self.assertEqual(resp['lpServiceConfig']['lpDisplayName'], lpDisplayName)
             #if lpdwTagId != scmr.SERVICE_NO_CHANGE:
             #    if resp['lpServiceConfig']['dwTagId']['Data'] != lpdwTagId:
             #        print "ERROR %s" % 'lpdwTagId'
@@ -108,22 +112,22 @@ class SCMRTests(RemoteTestCase):
         resp = dce.request(request)
         arrayData = b''.join(resp['lpBuffer'])
         if dwInfoLevel == 1:
-           self.assertTrue(arrayData[4:].decode('utf-16le') == changeDone)
+           self.assertEqual(arrayData[4:].decode('utf-16le'), changeDone)
         elif dwInfoLevel == 2:
            offset = unpack('<L', arrayData[4:][:4])[0]
-           self.assertTrue(arrayData[offset:][:len(changeDone)*2].decode('utf-16le') == changeDone)
+           self.assertEqual(arrayData[offset:][:len(changeDone)*2].decode('utf-16le'), changeDone)
         elif dwInfoLevel == 3:
-           self.assertTrue( unpack('<L', arrayData)[0] == changeDone)
+           self.assertEqual(unpack('<L', arrayData)[0], changeDone)
         elif dwInfoLevel == 4:
-           self.assertTrue( unpack('<L', arrayData)[0] == changeDone)
+           self.assertEqual(unpack('<L', arrayData)[0], changeDone)
         elif dwInfoLevel == 5:
-           self.assertTrue( unpack('<L', arrayData)[0] == changeDone)
+           self.assertEqual(unpack('<L', arrayData)[0], changeDone)
         elif dwInfoLevel == 6:
            from builtins import bytes
            changeDone = bytes(changeDone).decode('utf-16le')
-           self.assertTrue(arrayData[4:].decode('utf-16le') == changeDone)
+           self.assertEqual(arrayData[4:].decode('utf-16le'), changeDone)
         elif dwInfoLevel == 7:
-           self.assertTrue( unpack('<L', arrayData)[0] == changeDone)
+           self.assertEqual(unpack('<L', arrayData)[0], changeDone)
  
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
@@ -252,7 +256,7 @@ class SCMRTests(RemoteTestCase):
         scmr.hRCloseServiceHandle(dce, newHandle)
         scmr.hRCloseServiceHandle(dce, scHandle)
         if error:
-            self.assertTrue( 1 == 0 )
+            self.fail()
     
     def test_REnumServicesStatusExW(self):
         dce, rpctransport, scHandle  = self.connect()

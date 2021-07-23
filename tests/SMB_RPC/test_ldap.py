@@ -1,13 +1,18 @@
-###############################################################################
-#  Tested so far:
+# Impacket - Collection of Python classes for working with network protocols.
 #
-#  FWOpenPolicyStore
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
 #
-#  Not yet:
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Tested so far:
+#   FWOpenPolicyStore
+#
+# Not yet:
 #
 # Shouldn't dump errors against a win7
 #
-################################################################################
 from __future__ import division
 from __future__ import print_function
 import pytest
@@ -70,7 +75,7 @@ class LDAPTests(RemoteTestCase):
                     sd = SR_SECURITY_DESCRIPTOR()
                     sd.fromString(secDesc)
                     sd.dump()
-                    self.assertTrue(secDesc, sd.getData())
+                    self.assertEqual(secDesc, sd.getData())
 
     def test_sicily(self):
         ldapConnection = self.connect(False)

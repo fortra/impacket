@@ -1,38 +1,40 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author:
-#  Alberto Solino (@agsolino)
-#
 # Description:
-#    Given a password, hash, aesKey or TGT in ccache, it will request a Service Ticket and save it as ccache
-#    If the account has constrained delegation (with protocol transition) privileges you will be able to use
-#    the -impersonate switch to request the ticket on behalf other user (it will use S4U2Self/S4U2Proxy to
-#    request the ticket.)
+#   Given a password, hash, aesKey or TGT in ccache, it will request a Service Ticket and save it as ccache
+#   If the account has constrained delegation (with protocol transition) privileges you will be able to use
+#   the -impersonate switch to request the ticket on behalf other user (it will use S4U2Self/S4U2Proxy to
+#   request the ticket.)
 #
-#    Similar feature has been implemented already by Benjamin Delphi (@gentilkiwi) in Kekeo (s4u)
+#   Similar feature has been implemented already by Benjamin Delphi (@gentilkiwi) in Kekeo (s4u)
 #
-# Examples:
-#
-#         ./getST.py -hashes lm:nt -spn cifs/contoso-dc contoso.com/user
-# or
-# If you have tickets cached (run klist to verify) the script will use them
+#   Examples:
+#       ./getST.py -hashes lm:nt -spn cifs/contoso-dc contoso.com/user
+#   or
+#   If you have tickets cached (run klist to verify) the script will use them
 #         ./getST.py -k -spn cifs/contoso-dc contoso.com/user
-# Be sure tho, that the cached TGT has the forwardable flag set (klist -f). getTGT.py will ask forwardable tickets
-# by default.
+#   Be sure tho, that the cached TGT has the forwardable flag set (klist -f). getTGT.py will ask forwardable tickets
+#   by default.
 #
-# Also, if the account is configured with constrained delegation (with protocol transition) you can request
-# service tickets for other users, assuming the target SPN is allowed for delegation:
+#   Also, if the account is configured with constrained delegation (with protocol transition) you can request
+#   service tickets for other users, assuming the target SPN is allowed for delegation:
 #         ./getST.py -k -impersonate Administrator -spn cifs/contoso-dc contoso.com/user
 #
-# The output of this script will be a service ticket for the Administrator user.
+#   The output of this script will be a service ticket for the Administrator user.
 #
-# Once you have the ccache file, set it in the KRB5CCNAME variable and use it for fun and profit.
+#   Once you have the ccache file, set it in the KRB5CCNAME variable and use it for fun and profit.
 #
+# Author:
+#   Alberto Solino (@agsolino)
+#
+
 from __future__ import division
 from __future__ import print_function
 import argparse

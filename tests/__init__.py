@@ -9,6 +9,7 @@
 #
 from os import getenv
 from os.path import join
+from binascii import unhexlify
 from six.moves.configparser import ConfigParser
 
 
@@ -40,18 +41,22 @@ class RemoteTestCase(object):
         self.hashes = self._config_file.get(transport, "hashes")
         if len(self.hashes):
             self.lmhash, self.nthash = self.hashes.split(':')
+            self.blmhash = unhexlify(self.lmhash)
+            self.bnthash = unhexlify(self.nthash)
         else:
-            self.lmhash = ''
-            self.nthash = ''
+            self.lmhash = self.blmhash = ''
+            self.nthash = self.bnthash = ''
 
         if machine_account:
             self.machine_user = self._config_file.get(transport, "machineuser")
             self.machine_user_hashes = self._config_file.get(transport, "machineuserhashes")
             if len(self.machine_user_hashes):
                 self.machine_user_lmhash, self.machine_user_nthash = self.machine_user_hashes.split(':')
+                self.machine_user_blmhash = unhexlify(self.machine_user_lmhash)
+                self.machine_user_bnthash = unhexlify(self.machine_user_nthash)
             else:
-                self.machine_user_lmhash = ''
-                self.machine_user_nthash = ''
+                self.machine_user_lmhash = self.machine_user_blmhash = ''
+                self.machine_user_nthash = self.machine_user_bnthash = ''
 
         if aes_keys:
             self.aes_key_128 = self._config_file.get(transport, 'aesKey128')

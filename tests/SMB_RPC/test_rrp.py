@@ -1,45 +1,48 @@
-###############################################################################
-#  Tested so far: 
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# OpenClassesRoot
-# OpenCurrentUser
-# OpenLocalMachine
-# OpenPerformanceData
-# OpenUsers
-# BaseRegCloseKey
-# BaseRegCreateKey
-# BaseRegDeleteKey
-# BaseRegFlushKey
-# BaseRegGetKeySecurity
-# BaseRegOpenKey
-# BaseRegQueryInfoKey
-# BaseRegQueryValue
-# BaseRegReplaceKey
-# BaseRegRestoreKey
-# BaseRegSaveKey
-# BaseRegSetValue
-# BaseRegEnumValue
-# BaseRegEnumKey
-# BaseRegGetVersion
-# OpenCurrentConfig
-# BaseRegQueryMultipleValues
-# BaseRegSaveKeyEx
-# OpenPerformanceText
-# OpenPerformanceNlsText
-# BaseRegQueryMultipleValues2
-# BaseRegDeleteKeyEx
-# BaseRegLoadKey
-# BaseRegUnLoadKey
-# BaseRegDeleteValue
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Tested so far:
+#   OpenClassesRoot
+#   OpenCurrentUser
+#   OpenLocalMachine
+#   OpenPerformanceData
+#   OpenUsers
+#   BaseRegCloseKey
+#   BaseRegCreateKey
+#   BaseRegDeleteKey
+#   BaseRegFlushKey
+#   BaseRegGetKeySecurity
+#   BaseRegOpenKey
+#   BaseRegQueryInfoKey
+#   BaseRegQueryValue
+#   BaseRegReplaceKey
+#   BaseRegRestoreKey
+#   BaseRegSaveKey
+#   BaseRegSetValue
+#   BaseRegEnumValue
+#   BaseRegEnumKey
+#   BaseRegGetVersion
+#   OpenCurrentConfig
+#   BaseRegQueryMultipleValues
+#   BaseRegSaveKeyEx
+#   OpenPerformanceText
+#   OpenPerformanceNlsText
+#   BaseRegQueryMultipleValues2
+#   BaseRegDeleteKeyEx
+#   BaseRegLoadKey
+#   BaseRegUnLoadKey
+#   BaseRegDeleteValue
 # 
-#  Not yet:
-#
-# BaseRegSetKeySecurity
+# Not yet:
+#   BaseRegSetKeySecurity
 #
 # Shouldn't dump errors against a win7
 #
-################################################################################
-
 from __future__ import division
 from __future__ import print_function
 import pytest
@@ -177,7 +180,7 @@ class RRPTests(RemoteTestCase):
 
         resp = rrp.hBaseRegDeleteKey(dce, regHandle, 'BETO\x00')
         resp.dump()
-        self.assertTrue( 'HOLA COMO TE VA\x00' == data )
+        self.assertEqual('HOLA COMO TE VA\x00', data)
 
     def test_BaseRegCreateKey_BaseRegSetValue_BaseRegDeleteKey(self):
         dce, rpctransport, phKey = self.connect()
@@ -229,7 +232,7 @@ class RRPTests(RemoteTestCase):
         resp = dce.request(request)
         resp.dump()
         print(b''.join(resData).decode('utf-16le'))
-        self.assertTrue( 'HOLA COMO TE VA\x00' == b''.join(resData).decode('utf-16le'))
+        self.assertEqual('HOLA COMO TE VA\x00', b''.join(resData).decode('utf-16le'))
 
     def test_BaseRegEnumKey(self):
         dce, rpctransport, phKey = self.connect()

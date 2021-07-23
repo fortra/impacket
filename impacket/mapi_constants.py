@@ -1,17 +1,19 @@
-# SECUREAUTH LABS. Copyright 2020 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
 # Authors:
-#  Arseniy Sharoglazov <mohemiv@gmail.com> / Positive Technologies (https://www.ptsecurity.com/)
+#   Arseniy Sharoglazov <mohemiv@gmail.com> / Positive Technologies (https://www.ptsecurity.com/)
 #
-# Error codes taken from:
-#  [MS-OXCDATA]
-#  http://www.eventid.net/display-eventid-2115-source-MSExchangeDSAccess-eventno-4469-phase-1.htm
-#
-# MAPI properties taken from:
-#  https://gist.github.com/mohemiv/76c265ac92ca026a10b7756899b5f8d5 (MIT)
+# References:
+#   Error codes taken from:
+#   - [MS-OXCDATA] http://www.eventid.net/display-eventid-2115-source-MSExchangeDSAccess-eventno-4469-phase-1.htm
+#   MAPI properties taken from:
+#   - https://gist.github.com/mohemiv/76c265ac92ca026a10b7756899b5f8d5 (MIT)
 #
 
 ERROR_MESSAGES = {

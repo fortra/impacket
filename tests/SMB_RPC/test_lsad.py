@@ -1,47 +1,53 @@
-###############################################################################
-#  Tested so far: 
-#  LsarOpenPolicy2
-#  LsarOpenPolicy
-#  LsarQueryInformationPolicy2
-#  LsarQueryInformationPolicy
-#  LsarQueryDomainInformationPolicy
-#  LsarEnumerateAccounts
-#  LsarEnumerateAccountsWithUserRight
-#  LsarEnumerateTrustedDomainsEx
-#  LsarEnumerateTrustedDomains
-#  LsarOpenAccount
-#  LsarClose
-#  LsarCreateAccount
-#  LsarDeleteObject
-#  LsarEnumeratePrivilegesAccount
-#  LsarGetSystemAccessAccount
-#  LsarSetSystemAccessAccount
-#  LsarAddPrivilegesToAccount
-#  LsarRemovePrivilegesFromAccount
-#  LsarEnumerateAccountRights
-#  LsarAddAccountRights
-#  LsarRemoveAccountRights
-#  LsarCreateSecret
-#  LsarOpenSecret
-#  LsarSetSecret
-#  LsarQuerySecret
-#  LsarRetrievePrivateData
-#  LsarStorePrivateData
-#  LsarEnumeratePrivileges
-#  LsarLookupPrivilegeValue
-#  LsarLookupPrivilegeName
-#  LsarLookupPrivilegeDisplayName
-#  LsarQuerySecurityObject
-#  LsarSetSecurityObject
-#  LsarQueryForestTrustInformation
-#  LsarSetInformationPolicy
-#  LsarSetInformationPolicy2
+# Impacket - Collection of Python classes for working with network protocols.
 #
-#  Not yet:
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Tested so far:
+#   LsarOpenPolicy2
+#   LsarOpenPolicy
+#   LsarQueryInformationPolicy2
+#   LsarQueryInformationPolicy
+#   LsarQueryDomainInformationPolicy
+#   LsarEnumerateAccounts
+#   LsarEnumerateAccountsWithUserRight
+#   LsarEnumerateTrustedDomainsEx
+#   LsarEnumerateTrustedDomains
+#   LsarOpenAccount
+#   LsarClose
+#   LsarCreateAccount
+#   LsarDeleteObject
+#   LsarEnumeratePrivilegesAccount
+#   LsarGetSystemAccessAccount
+#   LsarSetSystemAccessAccount
+#   LsarAddPrivilegesToAccount
+#   LsarRemovePrivilegesFromAccount
+#   LsarEnumerateAccountRights
+#   LsarAddAccountRights
+#   LsarRemoveAccountRights
+#   LsarCreateSecret
+#   LsarOpenSecret
+#   LsarSetSecret
+#   LsarQuerySecret
+#   LsarRetrievePrivateData
+#   LsarStorePrivateData
+#   LsarEnumeratePrivileges
+#   LsarLookupPrivilegeValue
+#   LsarLookupPrivilegeName
+#   LsarLookupPrivilegeDisplayName
+#   LsarQuerySecurityObject
+#   LsarSetSecurityObject
+#   LsarQueryForestTrustInformation
+#   LsarSetInformationPolicy
+#   LsarSetInformationPolicy2
+#
+# Not yet:
 #
 # Shouldn't dump errors against a win7
 #
-################################################################################
 from __future__ import division
 from __future__ import print_function
 import pytest
@@ -745,7 +751,7 @@ class LSADTests(RemoteTestCase):
         resp = dce.request(request)
         resp.dump()
 
-        self.assertTrue( resp['EnumerationBuffer']['Entries'] == len(resp['EnumerationBuffer']['Privileges'] ) )
+        self.assertEqual(resp['EnumerationBuffer']['Entries'], len(resp['EnumerationBuffer']['Privileges']))
 
     def test_hLsarEnumeratePrivileges(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -753,7 +759,7 @@ class LSADTests(RemoteTestCase):
         resp = lsad.hLsarEnumeratePrivileges(dce, policyHandle)
         resp.dump()
 
-        self.assertTrue( resp['EnumerationBuffer']['Entries'] == len(resp['EnumerationBuffer']['Privileges'] ) )
+        self.assertEqual(resp['EnumerationBuffer']['Entries'], len(resp['EnumerationBuffer']['Privileges']))
 
     def test_LsarLookupPrivilegeValue_LsarLookupPrivilegeName(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -770,7 +776,7 @@ class LSADTests(RemoteTestCase):
         resp = dce.request(request)
         resp.dump()
 
-        self.assertTrue( resp['Name'] == 'SeTimeZonePrivilege')
+        self.assertEqual(resp['Name'], 'SeTimeZonePrivilege')
 
     def test_hLsarLookupPrivilegeValue_hLsarLookupPrivilegeName(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -781,7 +787,7 @@ class LSADTests(RemoteTestCase):
         resp = lsad.hLsarLookupPrivilegeName(dce, policyHandle, resp['Value'])
         resp.dump()
 
-        self.assertTrue( resp['Name'] == 'SeTimeZonePrivilege')
+        self.assertEqual(resp['Name'], 'SeTimeZonePrivilege')
 
     def test_LsarLookupPrivilegeDisplayName(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -803,7 +809,7 @@ class LSADTests(RemoteTestCase):
         resp = dce.request(request)
         resp.dump()
 
-        self.assertTrue( resp['SecurityDescriptor']['Length'] == len(resp['SecurityDescriptor']['SecurityDescriptor']) )
+        self.assertEqual(resp['SecurityDescriptor']['Length'], len(resp['SecurityDescriptor']['SecurityDescriptor']))
 
         request = lsad.LsarSetSecurityObject()
         request['PolicyHandle'] = policyHandle
@@ -876,7 +882,7 @@ class LSADTests(RemoteTestCase):
         #resp = dce.request(request)
         #resp.dump()
 
-        #self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] )
+        #self.assertEqual('BETUS', resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'])
 
         #req['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] = oldValue
         #resp2 = dce.request(req)
@@ -900,7 +906,7 @@ class LSADTests(RemoteTestCase):
         #resp = dce.request(request)
         #resp.dump()
 
-        #self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] )
+        #self.assertEqual('BETUS', resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'])
 
         #req['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] = oldValue
         #resp2 = dce.request(req)
@@ -967,7 +973,7 @@ class LSADTests(RemoteTestCase):
 
         #resp = dce.request(request)
         #resp.dump()
-        #self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] )
+        #self.assertEqual('BETUS', resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'])
 
         #req['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] = oldValue
         #resp2 = dce.request(req)
@@ -991,7 +997,7 @@ class LSADTests(RemoteTestCase):
         #resp = dce.request(request)
         #resp.dump()
 
-        #self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] )
+        #self.assertEqual('BETUS', resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'])
 
         #req['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] = oldValue
         #resp2 = dce.request(req)

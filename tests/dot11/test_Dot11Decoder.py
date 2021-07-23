@@ -1,4 +1,12 @@
 #!/usr/bin/env python
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
 import unittest
 from six import PY2
 from impacket.ImpactDecoder import Dot11Decoder #,Dot11Types
@@ -49,7 +57,7 @@ class TestDot11Decoder(unittest.TestCase):
 
         # Test if wep data "get_packet" is correct
         wepdata=b'\x6e\xdf\x93\x36\x39\x5a\x39\x66\x6b\x96\xd1\x7a\xe1\xae\xb6\x11\x22\xfd\xf0\xd4\x0d\x6a\xb8\xb1\xe6\x2e\x1f\x25\x7d\x64\x1a\x07\xd5\x86\xd2\x19\x34\xb5\xf7\x8a\x62\x33\x59\x6e\x89\x01\x73\x50\x12\xbb\xde\x17'
-        self.assertEqual(self.in3.get_packet(),wepdata)
+        self.assertEqual(self.in3.get_packet(), wepdata)
 
     def test_05_LLC(self):
         'Test LLC decoder'
@@ -64,7 +72,7 @@ class TestDot11Decoder(unittest.TestCase):
         else:
             dataclass=self.in3.__class__
 
-        self.assertTrue(str(dataclass).find('ImpactPacket.Data') > 0)
+        self.assertGreater(str(dataclass).find('ImpactPacket.Data'), 0)
 
 
 if __name__ == '__main__':
