@@ -40,7 +40,6 @@ from six import indexbytes, b
 from binascii import a2b_hex
 from contextlib import contextmanager
 from pyasn1.type.univ import noValue
-from Cryptodome.Cipher import AES
 
 from impacket import nmb, ntlm, uuid, crypto
 from impacket.smb3structs import *
@@ -48,7 +47,7 @@ from impacket.nt_errors import STATUS_SUCCESS, STATUS_MORE_PROCESSING_REQUIRED, 
     STATUS_NO_MORE_FILES, STATUS_PENDING, STATUS_NOT_IMPLEMENTED, ERROR_MESSAGES
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_OID, asn1encode, ASN1_AID
 from impacket.krb5.gssapi import KRB5_AP_REQ
-
+from impacket import crypto_wrapper
 
 # For signing
 import hashlib, hmac, copy
@@ -282,15 +281,13 @@ class SMB3:
             print("%-40s : %s" % i)
 
     def __UpdateConnectionPreAuthHash(self, data):
-        from Cryptodome.Hash import SHA512
-        calculatedHash =  SHA512.new()
+        calculatedHash = hashlib.sha512()
         calculatedHash.update(self._Connection['PreauthIntegrityHashValue'])
         calculatedHash.update(data)
         self._Connection['PreauthIntegrityHashValue'] = calculatedHash.digest()
 
     def __UpdatePreAuthHash(self, data):
-        from Cryptodome.Hash import SHA512
-        calculatedHash =  SHA512.new()
+        calculatedHash = hashlib.sha512()
         calculatedHash.update(self._Session['PreauthIntegrityHashValue'])
         calculatedHash.update(data)
         self._Session['PreauthIntegrityHashValue'] = calculatedHash.digest()
@@ -358,7 +355,7 @@ class SMB3:
         packet['Signature'] = '\x00'*16
         if self._Connection['Dialect'] == SMB2_DIALECT_21 or self._Connection['Dialect'] == SMB2_DIALECT_002:
             if len(self._Session['SessionKey']) > 0:
-                signature = hmac.new(self._Session['SessionKey'], packet.getData(), hashlib.sha256).digest()
+                signature = hmac.digest(self._Session['SessionKey'], packet.getData(), 'sha256')
                 packet['Signature'] = signature[:16]
         else:
             if len(self._Session['SessionKey']) > 0:
@@ -414,10 +411,11 @@ class SMB3:
             transformHeader['OriginalMessageSize'] = len(plainText)
             transformHeader['EncryptionAlgorithm'] = SMB2_ENCRYPTION_AES128_CCM
             transformHeader['SessionID'] = self._Session['SessionID']
-            cipher = AES.new(self._Session['EncryptionKey'], AES.MODE_CCM,  b(transformHeader['Nonce']))
-            cipher.update(transformHeader.getData()[20:])
-            cipherText = cipher.encrypt(plainText)
-            transformHeader['Signature'] = cipher.digest()
+            cipherText, cipherTag = crypto_wrapper.aes_ccm_encrypt_and_digest(self._Session['EncryptionKey'],
+                                                                              b(transformHeader['Nonce']),
+                                                                              plainText,
+                                                                              transformHeader.getData()[20:])
+            transformHeader['Signature'] = cipherTag
             packet = transformHeader.getData() + cipherText
 
             self._NetBIOSSession.send_packet(packet)
@@ -440,10 +438,11 @@ class SMB3:
         if data.get_trailer().startswith(b'\xfdSMB'):
             # Packet is encrypted
             transformHeader = SMB2_TRANSFORM_HEADER(data.get_trailer())
-            cipher = AES.new(self._Session['DecryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'][:11])
-            cipher.update(transformHeader.getData()[20:])
-            plainText = cipher.decrypt(data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):])
-            #cipher.verify(transformHeader['Signature'])
+            plainText = crypto_wrapper.aes_ccm_decrypt_and_verify(self._Session['DecryptionKey'],
+                                                                  transformHeader['Nonce'][:11],
+                                                                  data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):],
+                                                                  transformHeader['Signature'],
+                                                                  transformHeader.getData()[20:])
             packet = SMB2Packet(plainText)
         else:
             # In all SMB dialects for a response this field is interpreted as the Status field.
@@ -461,10 +460,11 @@ class SMB3:
                 else:
                     # Packet is encrypted
                     transformHeader = SMB2_TRANSFORM_HEADER(data.get_trailer())
-                    cipher = AES.new(self._Session['DecryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'][:11])
-                    cipher.update(transformHeader.getData()[20:])
-                    plainText = cipher.decrypt(data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):])
-                    #cipher.verify(transformHeader['Signature'])
+                    plainText = crypto_wrapper.aes_ccm_decrypt_and_verify(self._Session['DecryptionKey'],
+                                                                          transformHeader['Nonce'][:11],
+                                                                          data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):],
+                                                                          transformHeader['Signature'],
+                                                                          transformHeader.getData()[20:])
                     packet = SMB2Packet(plainText)
                 status = packet['Status']
 

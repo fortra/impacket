@@ -30,7 +30,7 @@ from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRUNION, NDRPOINTER
 from impacket.dcerpc.v5.dtypes import NULL, RPC_UNICODE_STRING, ULONG, USHORT, UCHAR, LARGE_INTEGER, RPC_SID, LONG, STR, \
     LPBYTE, SECURITY_INFORMATION, PRPC_SID, PRPC_UNICODE_STRING, LPWSTR
 from impacket.dcerpc.v5.rpcrt import DCERPCException
-from impacket import nt_errors, LOG
+from impacket import nt_errors
 from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5.enum import Enum
 from impacket.structure import Structure
@@ -38,7 +38,7 @@ from impacket.structure import Structure
 import struct
 import os
 from hashlib import md5
-from Cryptodome.Cipher import ARC4
+from impacket import crypto_wrapper
 
 MSRPC_UUID_SAMR   = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AC', '1.0'))
 
@@ -2766,11 +2766,6 @@ def hSamrUnicodeChangePasswordUser2(dce, serverName='\x00', userName='', oldPass
     request['ServerName'] = serverName
     request['UserName'] = userName
 
-    try:
-        from Cryptodome.Cipher import ARC4
-    except Exception:
-        LOG.critical("Warning: You don't have any crypto installed. You need pycryptodomex")
-        LOG.critical("See https://pypi.org/project/pycryptodomex/")
     from impacket import crypto, ntlm
 
     if oldPwdHashLM == '' and oldPwdHashNT == '':
@@ -2799,7 +2794,7 @@ def hSamrUnicodeChangePasswordUser2(dce, serverName='\x00', userName='', oldPass
     samUser['Length'] = len(newPassword)*2
     pwdBuff = samUser.getData()
 
-    rc4 = ARC4.new(oldPwdHashNT)
+    rc4 = crypto_wrapper.create_rc4_cipher(oldPwdHashNT)
     encBuf = rc4.encrypt(pwdBuff)
     request['NewPasswordEncryptedWithOldNt']['Buffer'] = encBuf
     request['OldNtOwfPasswordEncryptedWithNewNt'] = crypto.SamEncryptNTLMHash(oldPwdHashNT, newPwdHashNT)
@@ -2924,7 +2919,7 @@ def hSamrSetPasswordInternal4New(dce, userHandle, password):
     keymd.update(session_key)
     key = keymd.digest()
 
-    cipher = ARC4.new(key)
+    cipher = crypto_wrapper.create_rc4_cipher(key)
     buffercrypt = cipher.encrypt(pwdbuff) + salt
 
 

@@ -36,7 +36,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-from binascii import unhexlify
 from functools import reduce
 from os import urandom
 # XXX current status:
@@ -53,11 +52,11 @@ from os import urandom
 #   - Cipher state only needed for kcmd suite
 #   - Nonstandard enctypes and cksumtypes like des-hmac-sha1
 from struct import pack, unpack
+from math import gcd
+import hashlib
+import hmac
 
-from Cryptodome.Cipher import AES, DES3, ARC4, DES
-from Cryptodome.Hash import HMAC, MD4, MD5, SHA
-from Cryptodome.Protocol.KDF import PBKDF2
-from Cryptodome.Util.number import GCD as gcd
+from impacket import crypto_wrapper
 from six import b, PY3, indexbytes
 
 
@@ -191,7 +190,8 @@ class _SimplifiedEnctype(_EnctypeProfile):
     #   * blocksize: Underlying cipher block size in bytes
     #   * padsize: Underlying cipher padding multiple (1 or blocksize)
     #   * macsize: Size of integrity MAC in bytes
-    #   * hashmod: PyCrypto hash module for underlying hash function
+    #   * hashfunc: hashlib constructor HASH object
+    #   * digestname: digest name (string) uses in hmac digest
     #   * basic_encrypt, basic_decrypt: Underlying CBC/CTS cipher
 
     @classmethod
@@ -216,8 +216,8 @@ class _SimplifiedEnctype(_EnctypeProfile):
         if confounder is None:
             confounder = get_random_bytes(cls.blocksize)
         basic_plaintext = confounder + _zeropad(plaintext, cls.padsize)
-        hmac = HMAC.new(ki.contents, basic_plaintext, cls.hashmod).digest()
-        return cls.basic_encrypt(ke, basic_plaintext) + hmac[:cls.macsize]
+        digest = hmac.digest(ki.contents, basic_plaintext, cls.digestname)
+        return cls.basic_encrypt(ke, basic_plaintext) + digest[:cls.macsize]
 
     @classmethod
     def decrypt(cls, key, keyusage, ciphertext):
@@ -229,8 +229,8 @@ class _SimplifiedEnctype(_EnctypeProfile):
         if len(basic_ctext) % cls.padsize != 0:
             raise ValueError('ciphertext does not meet padding requirement')
         basic_plaintext = cls.basic_decrypt(ke, bytes(basic_ctext))
-        hmac = bytearray(HMAC.new(ki.contents, basic_plaintext, cls.hashmod).digest())
-        expmac = hmac[:cls.macsize]
+        digest = bytearray(hmac.digest(ki.contents, basic_plaintext, cls.digestname))
+        expmac = digest[:cls.macsize]
         if not _mac_equal(mac, expmac):
             raise InvalidChecksum('ciphertext integrity failure')
         # Discard the confounder.
@@ -240,7 +240,7 @@ class _SimplifiedEnctype(_EnctypeProfile):
     def prf(cls, key, string):
         # Hash the input.  RFC 3961 says to truncate to the padding
         # size, but implementations truncate to the block size.
-        hashval = cls.hashmod.new(string).digest()
+        hashval = cls.hashfunc(string).digest()
         truncated = hashval[:-(len(hashval) % cls.blocksize)]
         # Encrypt the hash with a derived key.
         kp = cls.derive(key, b'prf')
@@ -253,14 +253,15 @@ class _DESCBC(_SimplifiedEnctype):
     blocksize = 8
     padsize = 8
     macsize = 16
-    hashmod = MD5
+    hashfunc = hashlib.md5
+    digestname = 'md5'
 
     @classmethod
     def encrypt(cls, key, keyusage, plaintext, confounder):
         if confounder is None:
             confounder = get_random_bytes(cls.blocksize)
         basic_plaintext = confounder + b'\x00'*cls.macsize + _zeropad(plaintext, cls.padsize)
-        checksum = cls.hashmod.new(basic_plaintext).digest()
+        checksum = cls.hashfunc(basic_plaintext).digest()
         basic_plaintext = basic_plaintext[:len(confounder)] + checksum + basic_plaintext[len(confounder)+len(checksum):]
         return cls.basic_encrypt(key, basic_plaintext)
         
@@ -275,7 +276,7 @@ class _DESCBC(_SimplifiedEnctype):
         mac = complex_plaintext[cls.padsize:cls.padsize+cls.macsize]
         message = complex_plaintext[cls.padsize+cls.macsize:]
         
-        expmac = cls.hashmod.new(cofounder+b'\x00'*cls.macsize+message).digest()
+        expmac = cls.hashfunc(cofounder+b'\x00'*cls.macsize+message).digest()
         if not _mac_equal(mac, expmac):
             raise InvalidChecksum('ciphertext integrity failure')
         return bytes(message)
@@ -342,7 +343,7 @@ class _DESCBC(_SimplifiedEnctype):
         if _is_weak_des_key(tempkey):
             tempkey[7] = chr(ord(tempkey[7]) ^ 0xF0)
 
-        cipher = DES.new(b(tempkey), DES.MODE_CBC, b(tempkey))
+        cipher = crypto_wrapper.create_des_cipher(b(tempkey), crypto_wrapper.DES_MODE_CBC, b(tempkey))
         chekcsumkey = cipher.encrypt(s)[-8:]
         chekcsumkey = fixparity(chekcsumkey)
         if _is_weak_des_key(chekcsumkey):
@@ -353,13 +354,13 @@ class _DESCBC(_SimplifiedEnctype):
     @classmethod
     def basic_encrypt(cls, key, plaintext):
         assert len(plaintext) % 8 == 0
-        des = DES.new(key.contents, DES.MODE_CBC, b'\0' * 8)
+        des = crypto_wrapper.create_des_cipher(key.contents, crypto_wrapper.DES_MODE_CBC, b'\0' * 8)
         return des.encrypt(bytes(plaintext))
 
     @classmethod
     def basic_decrypt(cls, key, ciphertext):
         assert len(ciphertext) % 8 == 0
-        des = DES.new(key.contents, DES.MODE_CBC, b'\0' * 8)
+        des = crypto_wrapper.create_des_cipher(key.contents, crypto_wrapper.DES_MODE_CBC, b'\0' * 8)
         return des.decrypt(bytes(ciphertext))
     
     @classmethod
@@ -378,7 +379,8 @@ class _DES3CBC(_SimplifiedEnctype):
     blocksize = 8
     padsize = 8
     macsize = 20
-    hashmod = SHA
+    hashfunc = hashlib.sha1
+    digestname = 'sha1'
 
     @classmethod
     def random_to_key(cls, seed):
@@ -414,13 +416,13 @@ class _DES3CBC(_SimplifiedEnctype):
     @classmethod
     def basic_encrypt(cls, key, plaintext):
         assert len(plaintext) % 8 == 0
-        des3 = DES3.new(key.contents, AES.MODE_CBC, b'\0' * 8)
+        des3 = crypto_wrapper.create_3des_cipher(key.contents, crypto_wrapper.AES_MODE_CBC, b'\0' * 8)
         return des3.encrypt(bytes(plaintext))
 
     @classmethod
     def basic_decrypt(cls, key, ciphertext):
         assert len(ciphertext) % 8 == 0
-        des3 = DES3.new(key.contents, AES.MODE_CBC, b'\0' * 8)
+        des3 = crypto_wrapper.create_3des_cipher(key.contents, crypto_wrapper.AES_MODE_CBC, b'\0' * 8)
         return des3.decrypt(bytes(ciphertext))
 
 
@@ -429,21 +431,21 @@ class _AESEnctype(_SimplifiedEnctype):
     blocksize = 16
     padsize = 1
     macsize = 12
-    hashmod = SHA
+    hashfunc = hashlib.sha1
+    digestname = 'sha1'
 
     @classmethod
     def string_to_key(cls, string, salt, params):
         (iterations,) = unpack('>L', params or b'\x00\x00\x10\x00')
-        prf = lambda p, s: HMAC.new(p, s, SHA).digest()
-        seed = PBKDF2(string, salt, cls.seedsize, iterations, prf)
+        seed = hashlib.pbkdf2_hmac('sha1', string.encode('latin-1'), salt, iterations, cls.seedsize)
         tkey = cls.random_to_key(seed)
         return cls.derive(tkey, b'kerberos')
 
     @classmethod
     def basic_encrypt(cls, key, plaintext):
         assert len(plaintext) >= 16
-        aes = AES.new(key.contents, AES.MODE_CBC, b'\0' * 16)
-        ctext = aes.encrypt(_zeropad(bytes(plaintext), 16))
+        cipher = crypto_wrapper.create_aes_cipher(key.contents, crypto_wrapper.AES_MODE_CBC, b'\0' * 16)
+        ctext = cipher.encrypt(_zeropad(bytes(plaintext), 16))
         if len(plaintext) > 16:
             # Swap the last two ciphertext blocks and truncate the
             # final block to match the plaintext length.
@@ -454,9 +456,9 @@ class _AESEnctype(_SimplifiedEnctype):
     @classmethod
     def basic_decrypt(cls, key, ciphertext):
         assert len(ciphertext) >= 16
-        aes = AES.new(key.contents, AES.MODE_ECB)
+        cipher = crypto_wrapper.create_aes_cipher(key.contents, crypto_wrapper.AES_MODE_ECB)
         if len(ciphertext) == 16:
-            return aes.decrypt(ciphertext)
+            return cipher.decrypt(ciphertext)
         # Split the ciphertext into blocks.  The last block may be partial.
         cblocks = [bytearray(ciphertext[p:p+16]) for p in range(0, len(ciphertext), 16)]
         lastlen = len(cblocks[-1])
@@ -464,19 +466,20 @@ class _AESEnctype(_SimplifiedEnctype):
         prev_cblock = bytearray(16)
         plaintext = b''
         for bb in cblocks[:-2]:
-            plaintext += _xorbytes(bytearray(aes.decrypt(bytes(bb))), prev_cblock)
+            plaintext += _xorbytes(bytearray(cipher.decrypt(bytes(bb))), prev_cblock)
             prev_cblock = bb
         # Decrypt the second-to-last cipher block.  The left side of
         # the decrypted block will be the final block of plaintext
         # xor'd with the final partial cipher block; the right side
         # will be the omitted bytes of ciphertext from the final
         # block.
-        bb = bytearray(aes.decrypt(bytes(cblocks[-2])))
+        bb = bytearray(cipher.decrypt(bytes(cblocks[-2])))
         lastplaintext =_xorbytes(bb[:lastlen], cblocks[-1])
         omitted = bb[lastlen:]
         # Decrypt the final cipher block plus the omitted bytes to get
         # the second-to-last plaintext block.
-        plaintext += _xorbytes(bytearray(aes.decrypt(bytes(cblocks[-1]) + bytes(omitted))), prev_cblock)
+        decrypted = cipher.decrypt(bytes(cblocks[-1]) + bytes(omitted))
+        plaintext += _xorbytes(bytearray(decrypted), prev_cblock)
         return plaintext + lastplaintext
 
 
@@ -508,31 +511,33 @@ class _RC4(_EnctypeProfile):
     @classmethod
     def string_to_key(cls, string, salt, params):
         utf16string = string.encode('UTF-16LE')
-        return Key(cls.enctype, MD4.new(utf16string).digest())
+        return Key(cls.enctype, hashlib.new('md4', utf16string).digest())
 
     @classmethod
     def encrypt(cls, key, keyusage, plaintext, confounder):
         if confounder is None:
             confounder = get_random_bytes(8)
-        ki = HMAC.new(key.contents, cls.usage_str(keyusage), MD5).digest()
-        cksum = HMAC.new(ki, confounder + plaintext, MD5).digest()
-        ke = HMAC.new(ki, cksum, MD5).digest()
-        return cksum + ARC4.new(ke).encrypt(bytes(confounder + plaintext))
+        ki = hmac.digest(key.contents, cls.usage_str(keyusage), 'md5')
+        cksum = hmac.digest(ki, confounder + plaintext, 'md5')
+        ke = hmac.digest(ki, cksum, 'md5')
+        cipher = crypto_wrapper.create_rc4_cipher(ke)
+        return cksum + cipher.encrypt(bytes(confounder + plaintext))
 
     @classmethod
     def decrypt(cls, key, keyusage, ciphertext):
         if len(ciphertext) < 24:
             raise ValueError('ciphertext too short')
         cksum, basic_ctext = bytearray(ciphertext[:16]), bytearray(ciphertext[16:])
-        ki = HMAC.new(key.contents, cls.usage_str(keyusage), MD5).digest()
-        ke = HMAC.new(ki, cksum, MD5).digest()
-        basic_plaintext = bytearray(ARC4.new(ke).decrypt(bytes(basic_ctext)))
-        exp_cksum = bytearray(HMAC.new(ki, basic_plaintext, MD5).digest())
+        ki = hmac.digest(key.contents, cls.usage_str(keyusage), 'md5')
+        ke = hmac.digest(ki, cksum, 'md5')
+        cipher = crypto_wrapper.create_rc4_cipher(ke)
+        basic_plaintext = bytearray(cipher.decrypt(bytes(basic_ctext)))
+        exp_cksum = bytearray(hmac.digest(ki, basic_plaintext, 'md5'))
         ok = _mac_equal(cksum, exp_cksum)
         if not ok and keyusage == 9:
             # Try again with usage 8, due to RFC 4757 errata.
-            ki = HMAC.new(key.contents, pack('<I', 8), MD5).digest()
-            exp_cksum = HMAC.new(ki, basic_plaintext, MD5).digest()
+            ki = hmac.digest(key.contents, pack('<I', 8), 'md5')
+            exp_cksum = hmac.digest(ki, basic_plaintext, 'md5')
             ok = _mac_equal(cksum, exp_cksum)
         if not ok:
             raise InvalidChecksum('ciphertext integrity failure')
@@ -541,7 +546,7 @@ class _RC4(_EnctypeProfile):
 
     @classmethod
     def prf(cls, key, string):
-        return HMAC.new(key.contents, bytes(string), SHA).digest()
+        return hmac.digest(key.contents, bytes(string), 'sha1')
 
 
 class _ChecksumProfile(object):
@@ -566,8 +571,8 @@ class _SimplifiedChecksum(_ChecksumProfile):
     @classmethod
     def checksum(cls, key, keyusage, text):
         kc = cls.enc.derive(key, pack('>IB', keyusage, 0x99))
-        hmac = HMAC.new(kc.contents, text, cls.enc.hashmod).digest()
-        return hmac[:cls.macsize]
+        digest = hmac.digest(kc.contents, text, cls.enc.digestname)
+        return digest[:cls.macsize]
 
     @classmethod
     def verify(cls, key, keyusage, text, cksum):
@@ -594,9 +599,9 @@ class _SHA1DES3(_SimplifiedChecksum):
 class _HMACMD5(_ChecksumProfile):
     @classmethod
     def checksum(cls, key, keyusage, text):
-        ksign = HMAC.new(key.contents, b'signaturekey\0', MD5).digest()
-        md5hash = MD5.new(_RC4.usage_str(keyusage) + text).digest()
-        return HMAC.new(ksign, md5hash, MD5).digest()
+        ksign = hmac.digest(key.contents, b'signaturekey\0', 'md5')
+        md5hash = hashlib.md5(_RC4.usage_str(keyusage) + text).digest()
+        return hmac.digest(ksign, md5hash, 'md5')
 
     @classmethod
     def verify(cls, key, keyusage, text, cksum):

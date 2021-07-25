@@ -22,12 +22,11 @@ import datetime
 import binascii
 import codecs
 import re
+import hashlib
 import ldap3
 import ldapdomaindump
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
 from ldap3.utils.conv import escape_filter_chars
-import os
-from Cryptodome.Hash import MD4
 
 from impacket import LOG
 from impacket.examples.ldap_shell import LdapShell
@@ -36,7 +35,7 @@ from impacket.examples.ntlmrelayx.utils.tcpshell import TcpShell
 from impacket.ldap import ldaptypes
 from impacket.ldap.ldaptypes import ACCESS_ALLOWED_OBJECT_ACE, ACCESS_MASK, ACCESS_ALLOWED_ACE, ACE, OBJECTTYPE_GUID_MAP
 from impacket.uuid import string_to_bin, bin_to_string
-from impacket.structure import Structure, hexdump
+from impacket.structure import Structure
 
 # This is new from ldap3 v2.5
 try:
@@ -682,7 +681,7 @@ class LDAPAttack(ProtocolAttack):
                         data = entry['attributes']['msDS-ManagedPassword']
                         blob = MSDS_MANAGEDPASSWORD_BLOB()
                         blob.fromString(data)
-                        hash = MD4.new ()
+                        hash = hashlib.new('md4')
                         hash.update (blob['CurrentPassword'][:-2])
                         passwd = binascii.hexlify(hash.digest()).decode("utf-8")
                         userpass = sam + ':::' + passwd

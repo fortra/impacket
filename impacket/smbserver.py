@@ -4204,7 +4204,7 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
     def signSMBv2(self, packet, signingSessionKey):
         packet['Signature'] = b'\x00' * 16
         packet['Flags'] |= smb2.SMB2_FLAGS_SIGNED
-        signature = hmac.new(signingSessionKey, packet.getData(), hashlib.sha256).digest()
+        signature = hmac.digest(signingSessionKey, packet.getData(), 'sha256')
         packet['Signature'] = signature[:16]
         # print "%s" % packet['Signature'].encode('hex')
 

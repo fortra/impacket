@@ -15,7 +15,7 @@
 from struct import unpack, pack
 from binascii import hexlify, unhexlify
 import traceback
-from Cryptodome.Cipher import ARC4
+from impacket import crypto_wrapper
 from impacket import LOG, ntlm
 from impacket.smbconnection import SMBConnection
 from impacket.examples.ntlmrelayx.clients import ProtocolClient
@@ -412,9 +412,9 @@ class DCSYNCRelayClient(ProtocolClient):
             self.session._DCERPC_v5__clientSealingKey = ntlm.SEALKEY(flags, signingKey)
             self.session._DCERPC_v5__serverSealingKey = ntlm.SEALKEY(flags, signingKey,b"Server")
             # Preparing the keys handle states
-            cipher3 = ARC4.new(self.session._DCERPC_v5__clientSealingKey)
+            cipher3 = crypto_wrapper.create_rc4_cipher(self.session._DCERPC_v5__clientSealingKey)
             self.session._DCERPC_v5__clientSealingHandle = cipher3.encrypt
-            cipher4 = ARC4.new(self.session._DCERPC_v5__serverSealingKey)
+            cipher4 = crypto_wrapper.create_rc4_cipher(self.session._DCERPC_v5__serverSealingKey)
             self.session._DCERPC_v5__serverSealingHandle = cipher4.encrypt
         else:
             # Same key for everything
@@ -422,7 +422,7 @@ class DCSYNCRelayClient(ProtocolClient):
             self.session._DCERPC_v5__serverSigningKey = signingKey
             self.session._DCERPC_v5__clientSealingKey = signingKey
             self.session._DCERPC_v5__serverSealingKey = signingKey
-            cipher = ARC4.new(self.session._DCERPC_v5__clientSigningKey)
+            cipher = crypto_wrapper.create_rc4_cipher(self.session._DCERPC_v5__clientSigningKey)
             self.session._DCERPC_v5__clientSealingHandle = cipher.encrypt
             self.session._DCERPC_v5__serverSealingHandle = cipher.encrypt
         self.session._DCERPC_v5__sequence = 0

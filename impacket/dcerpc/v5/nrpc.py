@@ -34,14 +34,10 @@ from impacket.dcerpc.v5.samr import OLD_LARGE_INTEGER
 from impacket.dcerpc.v5.lsad import PLSA_FOREST_TRUST_INFORMATION
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.structure import Structure
-from impacket import ntlm, crypto, LOG
+from impacket import ntlm, crypto
 import hmac
 import hashlib
-try:
-    from Cryptodome.Cipher import DES, AES, ARC4
-except ImportError:
-    LOG.critical("Warning: You don't have any crypto installed. You need pycryptodomex")
-    LOG.critical("See https://pypi.org/project/pycryptodomex/")
+from impacket import crypto_wrapper
 
 MSRPC_UUID_NRPC = uuidtup_to_bin(('12345678-1234-ABCD-EF00-01234567CFFB', '1.0'))
 
@@ -1635,16 +1631,16 @@ def ComputeNetlogonCredential(inputData, Sk):
     k3 = crypto.transformKey(k1)
     k2 = Sk[7:14]
     k4 = crypto.transformKey(k2)
-    Crypt1 = DES.new(k3, DES.MODE_ECB)
-    Crypt2 = DES.new(k4, DES.MODE_ECB)
+    Crypt1 = crypto_wrapper.create_des_cipher(k3, crypto_wrapper.DES_MODE_ECB)
+    Crypt2 = crypto_wrapper.create_des_cipher(k4, crypto_wrapper.DES_MODE_ECB)
     cipherText = Crypt1.encrypt(inputData)
     return Crypt2.encrypt(cipherText)
 
 # Section 3.1.4.4.1
 def ComputeNetlogonCredentialAES(inputData, Sk):
     IV=b'\x00'*16
-    Crypt1 = AES.new(Sk, AES.MODE_CFB, IV)
-    return Crypt1.encrypt(inputData)
+    cipher = crypto_wrapper.create_aes_cipher(Sk, crypto_wrapper.AES_MODE_CFB, IV)
+    return cipher.encrypt(inputData)
 
 # Section 3.1.4.3.1
 def ComputeSessionKeyAES(sharedSecret, clientChallenge, serverChallenge, sharedSecretHash = None):
@@ -1670,14 +1666,12 @@ def ComputeSessionKeyStrongKey(sharedSecret, clientChallenge, serverChallenge, s
     else:
         M4SS = sharedSecretHash
 
-    md5 = hashlib.new('md5')
+    md5 = hashlib.md5()
     md5.update(b'\x00'*4)
     md5.update(clientChallenge)
     md5.update(serverChallenge)
     finalMD5 = md5.digest()
-    hm = hmac.new(M4SS, digestmod=hashlib.md5)
-    hm.update(finalMD5)
-    return hm.digest()
+    return hmac.digest(M4SS, finalMD5, 'md5')
 
 def deriveSequenceNumber(sequenceNum):
     sequenceLow = sequenceNum & 0xffffffff
@@ -1699,27 +1693,22 @@ def ComputeNetlogonSignatureAES(authSignature, message, confounder, sessionKey):
 
 def ComputeNetlogonSignatureMD5(authSignature, message, confounder, sessionKey):
     # [MS-NRPC] Section 3.3.4.2.1, point 7
-    md5 = hashlib.new('md5')
+    md5 = hashlib.md5()
     md5.update(b'\x00'*4)
     md5.update(authSignature.getData()[:8])
     # If no confidentiality requested, it should be ''
     md5.update(confounder)
     md5.update(bytes(message))
     finalMD5 = md5.digest()
-    hm = hmac.new(sessionKey, digestmod=hashlib.md5)
-    hm.update(finalMD5)
-    return hm.digest()[:8]
+    return hmac.digest(sessionKey, finalMD5, 'md5')[:8]
 
 def encryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey):
     # [MS-NRPC] Section 3.3.4.2.1, point 9
 
-    hm = hmac.new(sessionKey, digestmod=hashlib.md5)
-    hm.update(b'\x00'*4)
-    hm2 = hmac.new(hm.digest(), digestmod=hashlib.md5)
-    hm2.update(checkSum)
-    encryptionKey = hm2.digest()
+    hm = hmac.digest(sessionKey, b'\x00'*4, 'md5')
+    encryptionKey = hmac.digest(hm, checkSum, 'md5')
 
-    cipher = ARC4.new(encryptionKey)
+    cipher = crypto_wrapper.create_rc4_cipher(encryptionKey)
     return cipher.encrypt(sequenceNum)
 
 def decryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey):
@@ -1730,14 +1719,14 @@ def decryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey):
 def encryptSequenceNumberAES(sequenceNum, checkSum, sessionKey):
     # [MS-NRPC] Section 3.3.4.2.1, point 9
     IV = checkSum[:8] + checkSum[:8]
-    Cipher = AES.new(sessionKey, AES.MODE_CFB, IV)
-    return Cipher.encrypt(sequenceNum)
+    cipher = crypto_wrapper.create_aes_cipher(sessionKey, crypto_wrapper.AES_MODE_CFB, IV)
+    return cipher.encrypt(sequenceNum)
 
 def decryptSequenceNumberAES(sequenceNum, checkSum, sessionKey):
     # [MS-NRPC] Section 3.3.4.2.1, point 9
     IV = checkSum[:8] + checkSum[:8]
-    Cipher = AES.new(sessionKey, AES.MODE_CFB, IV)
-    return Cipher.decrypt(sequenceNum)
+    cipher = crypto_wrapper.create_aes_cipher(sessionKey, crypto_wrapper.AES_MODE_CFB, IV)
+    return cipher.decrypt(sequenceNum)
 
 def SIGN(data, confounder, sequenceNum, key, aes = False):
     if aes is False:
@@ -1772,15 +1761,12 @@ def SEAL(data, confounder, sequenceNum, key, aes = False):
     XorKey = bytes(XorKey)
 
     if aes is False:
-        hm = hmac.new(XorKey, digestmod=hashlib.md5)
-        hm.update(b'\x00'*4)
-        hm2 = hmac.new(hm.digest(), digestmod=hashlib.md5)
-        hm2.update(sequenceNum)
-        encryptionKey = hm2.digest()
+        hm = hmac.digest(XorKey, b'\x00'*4, 'md5')
+        encryptionKey = hmac.digest(hm, sequenceNum, 'md5')
 
-        cipher = ARC4.new(encryptionKey)
+        cipher = crypto_wrapper.create_rc4_cipher(encryptionKey)
         cfounder = cipher.encrypt(confounder)
-        cipher = ARC4.new(encryptionKey)
+        cipher = crypto_wrapper.create_rc4_cipher(encryptionKey)
         encrypted = cipher.encrypt(data)
 
         signature['Confounder'] = cfounder
@@ -1788,7 +1774,7 @@ def SEAL(data, confounder, sequenceNum, key, aes = False):
         return encrypted, signature
     else:
         IV = sequenceNum + sequenceNum
-        cipher = AES.new(XorKey, AES.MODE_CFB, IV)
+        cipher = crypto_wrapper.create_aes_cipher(XorKey, crypto_wrapper.AES_MODE_CFB, IV)
         cfounder = cipher.encrypt(confounder)
         encrypted = cipher.encrypt(data)
 
@@ -1806,22 +1792,19 @@ def UNSEAL(data, auth_data, key, aes = False):
 
     if aes is False:
         sequenceNum = decryptSequenceNumberRC4(auth_data['SequenceNumber'], auth_data['Checksum'],  key)
-        hm = hmac.new(XorKey, digestmod=hashlib.md5)
-        hm.update(b'\x00'*4)
-        hm2 = hmac.new(hm.digest(), digestmod=hashlib.md5)
-        hm2.update(sequenceNum)
-        encryptionKey = hm2.digest()
+        hm = hmac.digest(XorKey, b'\x00'*4, 'md5')
+        encryptionKey = hmac.digest(hm, sequenceNum, 'md5')
 
-        cipher = ARC4.new(encryptionKey)
+        cipher = crypto_wrapper.create_rc4_cipher(encryptionKey)
         cfounder = cipher.encrypt(auth_data['Confounder'])
-        cipher = ARC4.new(encryptionKey)
+        cipher = crypto_wrapper.create_rc4_cipher(encryptionKey)
         plain = cipher.encrypt(data)
 
         return plain, cfounder
     else:
         sequenceNum = decryptSequenceNumberAES(auth_data['SequenceNumber'], auth_data['Checksum'],  key)
         IV = sequenceNum + sequenceNum
-        cipher = AES.new(XorKey, AES.MODE_CFB, IV)
+        cipher = crypto_wrapper.create_aes_cipher(XorKey, crypto_wrapper.AES_MODE_CFB, IV)
         cfounder = cipher.decrypt(auth_data['Confounder'])
         plain = cipher.decrypt(data)
         return plain, cfounder
