@@ -511,7 +511,7 @@ if __name__ == '__main__':
     logger.init()
     print(version.BANNER)
 
-    parser = argparse.ArgumentParser(add_help=True, description="Nose")
+    parser = argparse.ArgumentParser(add_help=True, description="Example for using the DPAPI/Vault structures to unlock Windows Secrets.")
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     subparsers = parser.add_subparsers(help='actions', dest='action')
 
