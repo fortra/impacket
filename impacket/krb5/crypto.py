@@ -52,7 +52,11 @@ from os import urandom
 #   - Cipher state only needed for kcmd suite
 #   - Nonstandard enctypes and cksumtypes like des-hmac-sha1
 from struct import pack, unpack
-from math import gcd
+import sys
+if sys.version_info[0] == 2:
+    from fractions import gcd
+else:
+    from math import gcd
 import hashlib
 import hmac
 
@@ -437,7 +441,10 @@ class _AESEnctype(_SimplifiedEnctype):
     @classmethod
     def string_to_key(cls, string, salt, params):
         (iterations,) = unpack('>L', params or b'\x00\x00\x10\x00')
-        seed = hashlib.pbkdf2_hmac('sha1', string.encode('latin-1'), salt, iterations, cls.seedsize)
+        data = string
+        if isinstance(string, str):
+            data = string.encode('latin-1')
+        seed = hashlib.pbkdf2_hmac('sha1', data, salt, iterations, cls.seedsize)
         tkey = cls.random_to_key(seed)
         return cls.derive(tkey, b'kerberos')
 
