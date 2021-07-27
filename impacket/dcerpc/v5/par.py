@@ -7,7 +7,8 @@
 # for more information.
 #
 # Description:
-#   [MS-RPRN] Interface implementation
+#   [MS-PAR] Interface implementation
+#   https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-par
 #
 #   Best way to learn how to use these calls is to grab the protocol standard
 #   so you understand what the call does, and then read the test case located
@@ -19,15 +20,16 @@
 #   There are test cases for them too.
 #
 # Author:
-#   Alberto Solino (@agsolino)
+#   Adam (@cube0x0)
 #
 from impacket import system_errors
 from impacket.dcerpc.v5.dtypes import ULONGLONG, UINT, USHORT, LPWSTR, DWORD, ULONG, NULL
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRUNION, NDRPOINTER, NDRUniConformantArray
 from impacket.dcerpc.v5.rpcrt import DCERPCException
-from impacket.uuid import uuidtup_to_bin
+from impacket.uuid import uuidtup_to_bin, string_to_bin
 
-MSRPC_UUID_RPRN = uuidtup_to_bin(('12345678-1234-ABCD-EF00-0123456789AB', '1.0'))
+MSRPC_UUID_PAR = uuidtup_to_bin(('76F03F96-CDFD-44FC-A22C-64950A001209', '1.0'))
+MSRPC_UUID_WINSPOOL = string_to_bin('9940CA8E-512F-4C58-88A9-61098D6896BD')
 
 class DCERPCSessionError(DCERPCException):
     def __init__(self, error_string=None, error_code=None, packet=None):
@@ -297,7 +299,7 @@ class PUSHORT_ARRAY(NDRPOINTER):
         ('Data', USHORT_ARRAY),
     )
 
-class RPC_V2_NOTIFY_OPTIONS_TYPE(NDRSTRUCT):
+class RpcAsync_V2_NOTIFY_OPTIONS_TYPE(NDRSTRUCT):
     structure =  (
         ('Type',USHORT),
         ('Reserved0',USHORT),
@@ -309,11 +311,11 @@ class RPC_V2_NOTIFY_OPTIONS_TYPE(NDRSTRUCT):
 
 class PRPC_V2_NOTIFY_OPTIONS_TYPE_ARRAY(NDRPOINTER):
     referent = (
-        ('Data', RPC_V2_NOTIFY_OPTIONS_TYPE),
+        ('Data', RpcAsync_V2_NOTIFY_OPTIONS_TYPE),
     )
 
 # 2.2.1.13.1 RPC_V2_NOTIFY_OPTIONS
-class RPC_V2_NOTIFY_OPTIONS(NDRSTRUCT):
+class RpcAsync_V2_NOTIFY_OPTIONS(NDRSTRUCT):
     structure =  (
         ('Version',DWORD),
         ('Reserved',DWORD),
@@ -323,16 +325,16 @@ class RPC_V2_NOTIFY_OPTIONS(NDRSTRUCT):
 
 class PRPC_V2_NOTIFY_OPTIONS(NDRPOINTER):
     referent = (
-        ('Data', RPC_V2_NOTIFY_OPTIONS),
+        ('Data', RpcAsync_V2_NOTIFY_OPTIONS),
     )
 
 
 ################################################################################
 # RPC CALLS
 ################################################################################
-# 3.1.4.2.1 RpcEnumPrinters (Opnum 0)
-class RpcEnumPrinters(NDRCALL):
-    opnum = 0
+# 3.1.4.1.21 RpcAsyncEnumPrinters (Opnum 38)
+class RpcAsyncEnumPrinters(NDRCALL):
+    opnum = 38
     structure = (
        ('Flags', DWORD),
        ('Name', STRING_HANDLE),
@@ -341,62 +343,17 @@ class RpcEnumPrinters(NDRCALL):
        ('cbBuf', DWORD),
     )
 
-class RpcEnumPrintersResponse(NDRCALL):
+class RpcAsyncEnumPrintersResponse(NDRCALL):
     structure = (
        ('pPrinterEnum', PBYTE_ARRAY),
        ('pcbNeeded', DWORD),
        ('pcReturned', DWORD),
        ('ErrorCode', ULONG),
     )
-# 3.1.4.2.2 RpcOpenPrinter (Opnum 1)
-class RpcOpenPrinter(NDRCALL):
-    opnum = 1
-    structure = (
-       ('pPrinterName', STRING_HANDLE),
-       ('pDatatype', LPWSTR),
-       ('pDevModeContainer', DEVMODE_CONTAINER),
-       ('AccessRequired', DWORD),
-    )
 
-class RpcOpenPrinterResponse(NDRCALL):
-    structure = (
-       ('pHandle', PRINTER_HANDLE),
-       ('ErrorCode', ULONG),
-    )
-
-# 3.1.4.2.9 RpcClosePrinter (Opnum 29)
-class RpcClosePrinter(NDRCALL):
-    opnum = 29
-    structure = (
-       ('phPrinter', PRINTER_HANDLE),
-    )
-
-class RpcClosePrinterResponse(NDRCALL):
-    structure = (
-       ('phPrinter', PRINTER_HANDLE),
-       ('ErrorCode', ULONG),
-    )
-
-# 3.1.4.10.4 RpcRemoteFindFirstPrinterChangeNotificationEx (Opnum 65)
-class RpcRemoteFindFirstPrinterChangeNotificationEx(NDRCALL):
-    opnum = 65
-    structure = (
-       ('hPrinter', PRINTER_HANDLE),
-       ('fdwFlags', DWORD),
-       ('fdwOptions', DWORD),
-       ('pszLocalMachine', LPWSTR),
-       ('dwPrinterLocal', DWORD),
-       ('pOptions', PRPC_V2_NOTIFY_OPTIONS),
-    )
-
-class RpcRemoteFindFirstPrinterChangeNotificationExResponse(NDRCALL):
-    structure = (
-       ('ErrorCode', ULONG),
-    )
-
-# 3.1.4.2.14 RpcOpenPrinterEx (Opnum 69)
-class RpcOpenPrinterEx(NDRCALL):
-    opnum = 69
+# 3.1.4.1.1 RpcAsyncOpenPrinter (Opnum 0)
+class RpcAsyncOpenPrinter(NDRCALL):
+    opnum = 0
     structure = (
        ('pPrinterName', STRING_HANDLE),
        ('pDatatype', LPWSTR),
@@ -405,15 +362,28 @@ class RpcOpenPrinterEx(NDRCALL):
        ('pClientInfo', SPLCLIENT_CONTAINER),
     )
 
-class RpcOpenPrinterExResponse(NDRCALL):
+class RpcAsyncOpenPrinterResponse(NDRCALL):
     structure = (
        ('pHandle', PRINTER_HANDLE),
        ('ErrorCode', ULONG),
     )
 
-# 3.1.4.4.2 RpcEnumPrinterDrivers (Opnum 10)
-class RpcEnumPrinterDrivers(NDRCALL):
-    opnum = 10
+# 3.1.4.1.10 RpcAsyncClosePrinter (Opnum 20)
+class RpcAsyncClosePrinter(NDRCALL):
+    opnum = 20
+    structure = (
+       ('phPrinter', PRINTER_HANDLE),
+    )
+
+class RpcAsyncClosePrinterResponse(NDRCALL):
+    structure = (
+       ('phPrinter', PRINTER_HANDLE),
+       ('ErrorCode', ULONG),
+    )
+
+# 3.1.4.2.3 RpcAsyncEnumPrinterDrivers (Opnum 40)
+class RpcAsyncEnumPrinterDrivers(NDRCALL):
+    opnum = 40
     structure = (
        ('pName', STRING_HANDLE),
        ('pEnvironment', LPWSTR),
@@ -422,7 +392,7 @@ class RpcEnumPrinterDrivers(NDRCALL):
        ('cbBuf', DWORD),
     )
 
-class RpcEnumPrinterDriversResponse(NDRCALL):
+class RpcAsyncEnumPrinterDriversResponse(NDRCALL):
     structure = (
        ('pDrivers', PBYTE_ARRAY),
        ('pcbNeeded', DWORD),
@@ -430,16 +400,16 @@ class RpcEnumPrinterDriversResponse(NDRCALL):
        ('ErrorCode', ULONG),
     )
 
-# 3.1.4.4.8 RpcAddPrinterDriverEx (Opnum 89)
-class RpcAddPrinterDriverEx(NDRCALL):
-    opnum = 89
+# 3.1.4.2.2 RpcAsyncAddPrinterDriver (Opnum 39)
+class RpcAsyncAddPrinterDriver(NDRCALL):
+    opnum = 39
     structure = (
        ('pName', STRING_HANDLE),
        ('pDriverContainer', DRIVER_CONTAINER),
        ('dwFileCopyFlags', DWORD),
     )
 
-class RpcAddPrinterDriverExResponse(NDRCALL):
+class RpcAsyncAddPrinterDriverResponse(NDRCALL):
     structure = (
        ('ErrorCode', ULONG),
     )
@@ -448,13 +418,12 @@ class RpcAddPrinterDriverExResponse(NDRCALL):
 # OPNUMs and their corresponding structures
 ################################################################################
 OPNUMS = {
-    0  : (RpcEnumPrinters, RpcEnumPrintersResponse),
-    1  : (RpcOpenPrinter, RpcOpenPrinterResponse),
-    10 : (RpcEnumPrinterDrivers, RpcEnumPrinterDriversResponse),
-    29 : (RpcClosePrinter, RpcClosePrinterResponse),
-    65 : (RpcRemoteFindFirstPrinterChangeNotificationEx, RpcRemoteFindFirstPrinterChangeNotificationExResponse),
-    69 : (RpcOpenPrinterEx, RpcOpenPrinterExResponse),
-    89 : (RpcAddPrinterDriverEx, RpcAddPrinterDriverExResponse),
+    0  : (RpcAsyncOpenPrinter, RpcAsyncOpenPrinterResponse),
+    #1  : (RpcAsyncAddPrinter, RpcAsyncAddPrinterResponse),
+    20 : (RpcAsyncClosePrinter, RpcAsyncClosePrinterResponse),
+    38 : (RpcAsyncEnumPrinters, RpcAsyncEnumPrintersResponse),
+    39 : (RpcAsyncAddPrinterDriver, RpcAsyncAddPrinterDriver),
+    40 : (RpcAsyncEnumPrinterDrivers, RpcAsyncEnumPrinterDriversResponse),
 }
 
 ################################################################################
@@ -469,36 +438,7 @@ def checkNullString(string):
     else:
         return string
 
-def hRpcOpenPrinter(dce, printerName, pDatatype = NULL, pDevModeContainer = NULL, accessRequired = SERVER_READ):
-    """
-    RpcOpenPrinter retrieves a handle for a printer, port, port monitor, print job, or print server.
-    Full Documentation: https://msdn.microsoft.com/en-us/library/cc244808.aspx
-
-    :param DCERPC_v5 dce: a connected DCE instance.
-    :param string printerName: A string for a printer connection, printer object, server object, job object, port
-    object, or port monitor object. This MUST be a Domain Name System (DNS), NetBIOS, Internet Protocol version 4
-    (IPv4), Internet Protocol version 6 (IPv6), or Universal Naming Convention (UNC) name that remote procedure
-    call (RPC) binds to, and it MUST uniquely identify a print server on the network.
-    :param string pDatatype: A string that specifies the data type to be associated with the printer handle.
-    :param DEVMODE_CONTAINER pDevModeContainer: A DEVMODE_CONTAINER structure. This parameter MUST adhere to the specification in
-    DEVMODE_CONTAINER Parameters (section 3.1.4.1.8.1).
-    :param int accessRequired: The access level that the client requires for interacting with the object to which a
-    handle is being opened.
-
-    :return: a RpcOpenPrinterResponse instance, raises DCERPCSessionError on error.
-    """
-    request = RpcOpenPrinter()
-    request['pPrinterName'] = checkNullString(printerName)
-    request['pDatatype'] = pDatatype
-    if pDevModeContainer is NULL:
-        request['pDevModeContainer']['pDevMode'] = NULL
-    else:
-        request['pDevModeContainer'] = pDevModeContainer
-
-    request['AccessRequired'] = accessRequired
-    return dce.request(request)
-
-def hRpcClosePrinter(dce, phPrinter):
+def hRpcAsyncClosePrinter(dce, phPrinter):
     """
     RpcClosePrinter closes a handle to a printer object, server object, job object, or port object.
     Full Documentation: https://msdn.microsoft.com/en-us/library/cc244768.aspx
@@ -508,12 +448,12 @@ def hRpcClosePrinter(dce, phPrinter):
 
     :return: a RpcClosePrinterResponse instance, raises DCERPCSessionError on error.
     """
-    request = RpcClosePrinter()
+    request = RpcAsyncClosePrinter()
     request['phPrinter'] = phPrinter
-    return dce.request(request)
+    return dce.request(request, MSRPC_UUID_WINSPOOL)
 
 
-def hRpcOpenPrinterEx(dce, printerName, pDatatype=NULL, pDevModeContainer=NULL, accessRequired=SERVER_READ,
+def hRpcAsyncOpenPrinter(dce, printerName, pDatatype=NULL, pDevModeContainer=NULL, accessRequired=SERVER_READ,
                       pClientInfo=NULL):
     """
     RpcOpenPrinterEx retrieves a handle for a printer, port, port monitor, print job, or print server
@@ -523,7 +463,7 @@ def hRpcOpenPrinterEx(dce, printerName, pDatatype=NULL, pDevModeContainer=NULL, 
     :param string printerName: A string for a printer connection, printer object, server object, job object, port
     object, or port monitor object. This MUST be a Domain Name System (DNS), NetBIOS, Internet Protocol version 4
     (IPv4), Internet Protocol version 6 (IPv6), or Universal Naming Convention (UNC) name that remote procedure
-    call (RPC) binds to, and it MUST uniquely identify a print server on the network.
+    call (RpcAsync) binds to, and it MUST uniquely identify a print server on the network.
     :param string pDatatype: A string that specifies the data type to be associated with the printer handle.
     :param DEVMODE_CONTAINER pDevModeContainer: A DEVMODE_CONTAINER structure. This parameter MUST adhere to the specification in
     DEVMODE_CONTAINER Parameters (section 3.1.4.1.8.1).
@@ -533,7 +473,7 @@ def hRpcOpenPrinterEx(dce, printerName, pDatatype=NULL, pDevModeContainer=NULL, 
 
     :return: a RpcOpenPrinterExResponse instance, raises DCERPCSessionError on error.
     """
-    request = RpcOpenPrinterEx()
+    request = RpcAsyncOpenPrinter()
     request['pPrinterName'] = checkNullString(printerName)
     request['pDatatype'] = pDatatype
     if pDevModeContainer is NULL:
@@ -546,40 +486,10 @@ def hRpcOpenPrinterEx(dce, printerName, pDatatype=NULL, pDevModeContainer=NULL, 
         raise Exception('pClientInfo cannot be NULL')
 
     request['pClientInfo'] = pClientInfo
-    return dce.request(request)
+    return dce.request(request, MSRPC_UUID_WINSPOOL)
 
 
-def hRpcRemoteFindFirstPrinterChangeNotificationEx(dce, hPrinter, fdwFlags, fdwOptions=0, pszLocalMachine=NULL,
-                                                   dwPrinterLocal=0, pOptions=NULL):
-    """
-    creates a remote change notification object that monitors changes to printer objects and sends change notifications
-    to a print client using either RpcRouterReplyPrinter (section 3.2.4.1.2) or RpcRouterReplyPrinterEx (section 3.2.4.1.4)
-    Full Documentation: https://msdn.microsoft.com/en-us/library/cc244813.aspx
-
-    :param DCERPC_v5 dce: a connected DCE instance.
-    :param PRINTER_HANDLE hPrinter: A handle to a printer or server object.
-    :param int fdwFlags: Flags that specify the conditions that are required for a change notification object to enter a signaled state.
-    :param int fdwOptions: The category of printers for which change notifications are returned.
-    :param string pszLocalMachine: A string that represents the name of the client computer.
-    :param int dwPrinterLocal: An implementation-specific unique value that MUST be sufficient for the client to determine
-    whether a call to RpcReplyOpenPrinter by the server is associated with the hPrinter parameter in this call.
-    :param RPC_V2_NOTIFY_OPTIONS pOptions:  An RPC_V2_NOTIFY_OPTIONS structure that specifies printer or job members that the client listens to for notifications.
-
-    :return: a RpcRemoteFindFirstPrinterChangeNotificationExResponse instance, raises DCERPCSessionError on error.
-    """
-    request = RpcRemoteFindFirstPrinterChangeNotificationEx()
-
-    request['hPrinter'] = hPrinter
-    request['fdwFlags'] = fdwFlags
-    request['fdwOptions'] = fdwOptions
-    request['dwPrinterLocal'] = dwPrinterLocal
-    if pszLocalMachine is NULL:
-        raise Exception('pszLocalMachine cannot be NULL')
-    request['pszLocalMachine'] = checkNullString(pszLocalMachine)
-    request['pOptions'] = pOptions
-    return dce.request(request)
-
-def hRpcEnumPrinters(dce, flags, name = NULL, level = 1):
+def hRpcAsyncEnumPrinters(dce, flags, name = NULL, level = 1):
     """
     RpcEnumPrinters enumerates available printers, print servers, domains, or print providers.
     Full Documentation: https://msdn.microsoft.com/en-us/library/cc244794.aspx
@@ -592,30 +502,30 @@ def hRpcEnumPrinters(dce, flags, name = NULL, level = 1):
 
     :return: a RpcEnumPrintersResponse instance, raises DCERPCSessionError on error.
     """
-    request = RpcEnumPrinters()
+    request = RpcAsyncEnumPrinters()
     request['Flags'] = flags
     request['Name'] = name
     request['pPrinterEnum'] = NULL
     request['Level'] = level
     bytesNeeded = 0
     try:
-        dce.request(request)
+        dce.request(request, MSRPC_UUID_WINSPOOL)
     except DCERPCSessionError as e:
         if str(e).find('ERROR_INSUFFICIENT_BUFFER') < 0:
             raise
         bytesNeeded = e.get_packet()['pcbNeeded']
 
-    request = RpcEnumPrinters()
+    request = RpcAsyncEnumPrinters()
     request['Flags'] = flags
     request['Name'] = name
     request['Level'] = level
 
     request['cbBuf'] = bytesNeeded
     request['pPrinterEnum'] = b'a' * bytesNeeded
-    return dce.request(request)
+    return dce.request(request, MSRPC_UUID_WINSPOOL)
 
 
-def hRpcAddPrinterDriverEx(dce, pName, pDriverContainer, dwFileCopyFlags):
+def hRpcAsyncAddPrinterDriver(dce, pName, pDriverContainer, dwFileCopyFlags):
     """
     RpcAddPrinterDriverEx installs a printer driver on the print server
     Full Documentation: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rprn/b96cc497-59e5-4510-ab04-5484993b259b
@@ -627,16 +537,16 @@ def hRpcAddPrinterDriverEx(dce, pName, pDriverContainer, dwFileCopyFlags):
 
     :return: raises DCERPCSessionError on error.
     """
-    request = RpcAddPrinterDriverEx()
+    request = RpcAsyncAddPrinterDriver()
     request['pName'] = checkNullString(pName)
     request['pDriverContainer'] = pDriverContainer
     request['dwFileCopyFlags'] = dwFileCopyFlags
 
     #return request
-    return dce.request(request)
+    return dce.request(request, MSRPC_UUID_WINSPOOL)
 
 
-def hRpcEnumPrinterDrivers(dce, pName, pEnvironment, Level):
+def hRpcAsyncEnumPrinterDrivers(dce, pName, pEnvironment, Level):
     """
     RpcEnumPrinterDrivers enumerates the printer drivers installed on a specified print server.
     Full Documentation: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rprn/857d00ac-3682-4a0d-86ca-3d3c372e5e4a
@@ -653,21 +563,21 @@ def hRpcEnumPrinterDrivers(dce, pName, pEnvironment, Level):
     :return: raises DCERPCSessionError on error.
     """
     # get value for cbBuf
-    request = RpcEnumPrinterDrivers()
+    request = RpcAsyncEnumPrinterDrivers()
     request['pName']        = checkNullString(pName)
     request['pEnvironment'] = pEnvironment
     request['Level']        = Level
     request['pDrivers']     = NULL
     request['cbBuf']        = 0
     try:
-        dce.request(request)
+        dce.request(request, MSRPC_UUID_WINSPOOL)
     except DCERPCSessionError as e:
         if str(e).find('ERROR_INSUFFICIENT_BUFFER') < 0:
             raise
         bytesNeeded = e.get_packet()['pcbNeeded']
 
     # now do RpcEnumPrinterDrivers again
-    request = RpcEnumPrinterDrivers()
+    request = RpcAsyncEnumPrinterDrivers()
     request['pName']        = checkNullString(pName)
     request['pEnvironment'] = pEnvironment
     request['Level']        = Level
@@ -675,4 +585,4 @@ def hRpcEnumPrinterDrivers(dce, pName, pEnvironment, Level):
     request['cbBuf']        = bytesNeeded
 
     #return request
-    return dce.request(request)
+    return dce.request(request, MSRPC_UUID_WINSPOOL)

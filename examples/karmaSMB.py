@@ -1,22 +1,20 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Karma SMB
-#
-# Author:
-#  Alberto Solino (@agsolino) 
-#  Original idea by @mubix
-#
 # Description:
+#   Karma SMB
+#
 #   The idea of this script is to answer any file read request
-#   with a set of predefined contents based on the extension 
+#   with a set of predefined contents based on the extension
 #   asked, regardless of the sharename and/or path.
-#   When executing this script w/o a config file the pathname 
-#   file contents will be sent for every request. 
+#   When executing this script w/o a config file the pathname
+#   file contents will be sent for every request.
 #   If a config file is specified, format should be this way:
 #      <extension> = <pathname>
 #   for example:
@@ -27,10 +25,10 @@
 #   The SMB2 support works with a caveat. If two different
 #   filenames at the same share are requested, the first
 #   one will work and the second one will not work if the request
-#   is performed right away. This seems related to the 
+#   is performed right away. This seems related to the
 #   QUERY_DIRECTORY request, where we return the files available.
 #   In the first try, we return the file that was asked to open.
-#   In the second try, the client will NOT ask for another 
+#   In the second try, the client will NOT ask for another
 #   QUERY_DIRECTORY but will use the cached one. This time the new file
 #   is not there, so the client assumes it doesn't exist.
 #   After a few seconds, looks like the client cache is cleared and
@@ -39,13 +37,17 @@
 #
 #   SMB1 seems to be working fine on that scenario.
 #
-#   ToDo:
-#   [ ] A lot of testing needed under different OSes. 
+# Author:
+#   Alberto Solino (@agsolino)
+#   Original idea by @mubix
+#
+# ToDo:
+#   [ ] A lot of testing needed under different OSes.
 #       I'm still not sure how reliable this approach is.
 #   [ ] Add support for other SMB read commands. Right now just
 #       covering SMB_COM_NT_CREATE_ANDX
-#   [ ] Disable write request, now if the client tries to copy 
-#       a file back to us, it will overwrite the files we're 
+#   [ ] Disable write request, now if the client tries to copy
+#       a file back to us, it will overwrite the files we're
 #       hosting. *CAREFUL!!!*
 #
 

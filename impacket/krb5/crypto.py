@@ -1,3 +1,13 @@
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Copyright and license note from crypto.py:
+#
 # Copyright (C) 2013 by the Massachusetts Institute of Technology.
 # All rights reserved.
 #
@@ -25,7 +35,7 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
-
+#
 from binascii import unhexlify
 from functools import reduce
 from os import urandom

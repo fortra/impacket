@@ -44,6 +44,8 @@ echo test_ntlm.py
 $RUN test_ntlm.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
 echo test_smbserver.py
 $RUN test_smbserver.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+echo test_wmi.py OfflineTests
+$RUN test_wmi.py OfflineTests 2>&1 1>/dev/null | tee -a $OUTPUTFILE
 
 if [ -z "$NO_REMOTE" ]; then
     echo Testing SMB RPC/LDAP

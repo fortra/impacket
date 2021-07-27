@@ -1,38 +1,40 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# SMB Relay Module
+# Description:
+#   SMB Relay Module
+#   This module performs the SMB Relay attacks originally discovered
+#   by cDc. It receives a list of targets and for every connection received it
+#   will choose the next target and try to relay the credentials. Also, if
+#   specified, it will first to try authenticate against the client connecting
+#   to us.
+#
+#   It is implemented by invoking a SMB and HTTP Server, hooking to a few
+#   functions and then using the smbclient portion. It is supposed to be
+#   working on any LM Compatibility level. The only way to stop this attack
+#   is to enforce on the server SPN checks and or signing.
+#
+#   If the target system is enforcing signing and a machine account was provided,
+#   the module will try to gather the SMB session key through
+#   NETLOGON (CVE-2015-0005).
+#
+#   If the authentication against the targets succeed, the client authentication
+#   success as well and a valid connection is set against the local smbserver.
+#   It's up to the user to set up the local smbserver functionality. One option
+#   is to set up shares with whatever files you want to the victim thinks it's
+#   connected to a valid SMB server. All that is done through the smb.conf file or
+#   programmatically.
 #
 # Author:
-#  Alberto Solino (@agsolino)
+#   Alberto Solino (@agsolino)
 #
-# Description:
-#             This module performs the SMB Relay attacks originally discovered
-# by cDc. It receives a list of targets and for every connection received it 
-# will choose the next target and try to relay the credentials. Also, if
-# specified, it will first to try authenticate against the client connecting 
-# to us.
-# 
-# It is implemented by invoking a SMB and HTTP Server, hooking to a few 
-# functions and then using the smbclient portion. It is supposed to be 
-# working on any LM Compatibility level. The only way to stop this attack 
-# is to enforce on the server SPN checks and or signing.
-# 
-# If the target system is enforcing signing and a machine account was provided, 
-# the module will try to gather the SMB session key through 
-# NETLOGON (CVE-2015-0005)
-#
-# If the authentication against the targets succeed, the client authentication 
-# success as well and a valid connection is set against the local smbserver. 
-# It's up to the user to set up the local smbserver functionality. One option 
-# is to set up shares with whatever files you want to the victim thinks it's 
-# connected to a valid SMB server. All that is done through the smb.conf file or 
-# programmatically.
-#
+
 from __future__ import division
 from __future__ import print_function
 try:

@@ -1,3 +1,21 @@
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Description:
+#   Changed some of the classes names to match the RFC 4120
+#   Added [MS-KILE] data
+#   Adapted to Enum
+#
+# Author:
+#   Altered source by Alberto Solino (@agsolino)
+#
+# Copyright and license note from asn1.py:
+#
 # Copyright (c) 2013, Marc Horowitz
 # All rights reserved.
 #
@@ -24,14 +42,6 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# Altered source by Alberto Solino (@agsolino)
-#
-# Changed some of the classes names to match the RFC 4120
-# Added [MS-KILE] data
-# Adapted to Enum
-#
-
-
 from pyasn1.type import tag, namedtype, univ, constraint, char, useful
 
 from . import constants

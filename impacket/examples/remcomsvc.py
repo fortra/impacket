@@ -1,20 +1,23 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2019 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# REMCOMSVC library. It provides a way to retrieve the RemComSvc binary file to be
-# uploaded to the target machine. This is used by psexec and smbrelayx
+# Description:
+#   REMCOMSVC library. It provides a way to retrieve the RemComSvc binary file to be
+#   uploaded to the target machine. This is used by psexec and smbrelayx.
 #
-# If you want to compile this file yourself, get the source code from 
-# https://github.com/kavika13/RemCom, compile RemComSvc project, and 
-# dump the binary (hexlify) in this file, on the REMCOMSVC variable
+#   If you want to compile this file yourself, get the source code from
+#   https://github.com/kavika13/RemCom, compile RemComSvc project, and
+#   dump the binary (hexlify) in this file, on the REMCOMSVC variable
 #
 # Author:
-#  Alberto Solino (@agsolino)
+#   Alberto Solino (@agsolino)
 #
-# Copyright note in remcomsvc.cpp:
+# Copyright and licensing note in remcomsvc.cpp:
 #
 # Copyright (c) 2006 Talha Tariq [ talha.tariq@gmail.com ] 
 # All rights are reserved.

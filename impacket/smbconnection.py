@@ -1,17 +1,19 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
+# Description:
+#   Wrapper class for SMB1/2/3 so it's transparent for the client.
+#   You can still play with the low level methods (version dependent)
+#   by calling getSMBServer()
+#
 # Author: Alberto Solino (@agsolino)
 #
-# Description:
-#
-# Wrapper class for SMB1/2/3 so it's transparent for the client.
-# You can still play with the low level methods (version dependent)
-# by calling getSMBServer()
-#
+
 import ntpath
 import socket
 
