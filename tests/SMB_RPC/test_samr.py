@@ -2745,7 +2745,7 @@ class SMBTransport(SAMRTests, unittest.TestCase):
 
     def setUp(self):
         super(SMBTransport, self).setUp()
-        self.set_smb_transport_config()
+        self.set_transport_config()
         self.stringBinding = epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol='ncacn_np')
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
@@ -2763,7 +2763,7 @@ class TCPTransport(SAMRTests, unittest.TestCase):
 
     def setUp(self):
         super(TCPTransport, self).setUp()
-        self.set_tcp_transport_config()
+        self.set_transport_config()
         self.stringBinding = epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol='ncacn_ip_tcp')
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 

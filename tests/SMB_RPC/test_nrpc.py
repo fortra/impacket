@@ -1013,7 +1013,7 @@ class TCPTransport(NRPCTests, unittest.TestCase):
 
     def setUp(self):
         super(TCPTransport, self).setUp()
-        self.set_tcp_transport_config(machine_account=True)
+        self.set_transport_config(machine_account=True)
         self.stringBinding = epm.hept_map(self.machine, nrpc.MSRPC_UUID_NRPC, protocol='ncacn_ip_tcp')
 
 
@@ -1022,7 +1022,7 @@ class SMBTransport(NRPCTests, unittest.TestCase):
 
     def setUp(self):
         super(SMBTransport, self).setUp()
-        self.set_smb_transport_config(machine_account=True)
+        self.set_transport_config(machine_account=True)
         self.stringBinding = r'ncacn_np:%s[\PIPE\netlogon]' % self.machine
 
 

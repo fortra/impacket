@@ -145,7 +145,7 @@ class SMBTransport(DHCPMTests, unittest.TestCase):
 
     def setUp(self):
         super(SMBTransport, self).setUp()
-        self.set_smb_transport_config()
+        self.set_transport_config()
         self.stringBinding = r'ncacn_np:%s[\PIPE\dhcpserver]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
@@ -163,7 +163,7 @@ class TCPTransport(DHCPMTests, unittest.TestCase):
 
     def setUp(self):
         super(TCPTransport, self).setUp()
-        self.set_tcp_transport_config()
+        self.set_transport_config()
         self.stringBinding = epm.hept_map(self.machine, dhcpm.MSRPC_UUID_DHCPSRV2, protocol='ncacn_ip_tcp')
         #self.stringBinding = epm.hept_map(self.machine, dhcpm.MSRPC_UUID_DHCPSRV, protocol = 'ncacn_ip_tcp')
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')

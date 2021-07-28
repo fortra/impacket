@@ -225,7 +225,7 @@ class SMBTransport(RRPTests, unittest.TestCase):
 
     def setUp(self):
         super(SMBTransport, self).setUp()
-        self.set_smb_transport_config()
+        self.set_transport_config()
         self.stringBinding = r'ncacn_np:%s[\PIPE\eventlog]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 

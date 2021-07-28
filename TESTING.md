@@ -17,13 +17,13 @@ prior setup.
 If you want to run the full set of library test cases, you need to prepare your
 environment by completing the following steps:
 
+1. Install testing requirements. You can use the following command to do so:
+
+         python3 -m pip install tox -r requirements-test.txt
+
 1. [Install and configure a target Active Directory Domain Controller](#active-directory-setup-and-configuration).
 
 1. [Configure remote test cases](#configure-remote-test-cases).
-
-1. Install testing requirements. You can use the following command to do so:
-   
-         python3 -m pip install tox -r requirements-test.txt
 
 
 Running tests
@@ -221,14 +221,19 @@ Configure Remote Test Cases
 
 Create a copy of the [dcetest.cfg.template](tests/dcetests.cfg.template) file and
 configure it with the necessary information associated to the Active Directory you
-configured. By default, the remote test cases will look for the file in 
-`test/dcetests.cg`, but you can specify another filename using the `REMOTE_CONFIG` environment
-variable.
+configured. Path to the configuration file to use when running tests can be then
+specified in the following ways:
+
+  * Using the pytest `--remote-config` command-line option.
+  * Using the pytest `remote-config` option in `tox.ini`.  
+  * Using the `REMOTE_CONFIG` environment variable.
+  * Default to loading from `tests/dcetests.cg`.
 
 For example, you can keep configuration of different environments in
 separate files, and specify which one you want the test to run against:
 
-        $ REMOTE_CONFIG=/test/dcetests-win2019.cfg pytest
+        $ pytest --remote-config=tests/dcetests-win2016.cfg
+        $ pytest --remote-config=tests/dcetests-win2019.cfg
 
 Make sure you set a user with proper administrative privileges on the
 target Active Directory domain and that the user hashes and keys match with those
@@ -239,4 +244,4 @@ Make sure also to have full network visibility into the target hosts and be able
 resolve DNS queries for the Active Directory Domain configured. If you don't want to
 change your test machine's DNS settings to point to the AD DNS server, you can
 configure your system to statically resolve (e.g. via `/etc/hosts` file) the host
-and domain FQDN to the server's IP address. 
+and domain FQDN to the server's IP address.

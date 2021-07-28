@@ -23,7 +23,7 @@ class RPCHTest(RemoteTestCase, unittest.TestCase):
 
     def setUp(self):
         super(RPCHTest, self).setUp()
-        self.set_tcp_transport_config()
+        self.set_transport_config()
 
     def test_1(self):
         # Direct connection to ncacn_http service, RPC over HTTP v1

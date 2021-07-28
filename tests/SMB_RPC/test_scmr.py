@@ -659,7 +659,7 @@ class SMBTransport(SCMRTests, unittest.TestCase):
 
     def setUp(self):
         super(SMBTransport, self).setUp()
-        self.set_smb_transport_config()
+        self.set_transport_config()
         self.stringBinding = r'ncacn_np:%s[\pipe\svcctl]' % self.machine
 
 
@@ -668,7 +668,7 @@ class TCPTransport(SCMRTests, unittest.TestCase):
 
     def setUp(self):
         super(TCPTransport, self).setUp()
-        self.set_tcp_transport_config()
+        self.set_transport_config()
         self.stringBinding = epm.hept_map(self.machine, scmr.MSRPC_UUID_SCMR, protocol='ncacn_ip_tcp')
 
 
