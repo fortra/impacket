@@ -399,7 +399,7 @@ class TCPTransport(DCERPCTests, unittest.TestCase):
 
     def setUp(self):
         super(TCPTransport, self).setUp()
-        self.set_tcp_transport_config(aes_keys=True)
+        self.set_transport_config(aes_keys=True)
         self.stringBinding = r'ncacn_ip_tcp:%s' % self.machine
 
 
@@ -408,7 +408,7 @@ class SMBTransport(DCERPCTests, unittest.TestCase):
     def setUp(self):
         # Put specific configuration for target machine with SMB_002
         super(SMBTransport, self).setUp()
-        self.set_smb_transport_config(aes_keys=True)
+        self.set_transport_config(aes_keys=True)
         self.stringBinding = r'ncacn_np:%s[\pipe\epmapper]' % self.machine
 
 

@@ -305,7 +305,7 @@ class Tests(SecretsDumpTests, unittest.TestCase):
 
     def setUp(self):
         super(Tests, self).setUp()
-        self.set_smb_transport_config(aes_keys=True)
+        self.set_transport_config(aes_keys=True)
 
 
 if __name__ == "__main__":

@@ -19,7 +19,7 @@ class NMBTests(RemoteTestCase, unittest.TestCase):
 
     def setUp(self):
         super(NMBTests, self).setUp()
-        self.set_smb_transport_config()
+        self.set_transport_config()
 
     def create_connection(self):
         pass

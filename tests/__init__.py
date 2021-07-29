@@ -13,75 +13,101 @@ from binascii import unhexlify
 from six.moves.configparser import ConfigParser
 
 
+# Module-scope variable to hold remote configuration in case it was set by pytest
+remote_config_file_path = None
+
+
+remote_config_section = "TCPTransport"
+
+
+remote_config_params = [
+    ("servername", "Server NetBIOS Name"),
+    ("machine", "Target hostname or IP address"),
+    ("username", "User's username"),
+    ("password", "User's password"),
+    ("hashes", "User's NTLM hashes, you can grab them with secretsdump.py or will be calculated from the password"),
+    ("aesKey256", "User's Kerberos AES 256 Key, you can grab it with secretsdump.py"),
+    ("aesKey128", "User's Kerberos AES 128 Key, you can grab it with secretsdump.py"),
+    ("domain", "Domain FQDN"),
+    ("machineuser", "Domain-joined machine NetBIOS Name"),
+    ("machineuserhashes", "Domain-joined machine NTLM hashes, you can grab them with secretsdump.py"),
+]
+remote_config_params_names = [name for name, _ in remote_config_params]
+
+
+def set_remote_config_file_path(config_file):
+    """Sets the configuration file path for further considering it"""
+    global remote_config_file_path
+    remote_config_file_path = config_file or None
+
+
+def get_remote_config_file_path():
+    """Obtains the configuration file path according to the different options available
+    to specify it.
+    """
+    if remote_config_file_path:
+        return remote_config_file_path
+    remote_config_file = getenv("REMOTE_CONFIG")
+    if not remote_config_file:
+        remote_config_file = join("tests", "dcetests.cfg")
+    return remote_config_file
+
+
+def get_remote_config():
+    """Retrieves the remote tests configuration.
+    """
+    remote_config_file = ConfigParser()
+    remote_config_file.read(get_remote_config_file_path())
+    return remote_config_file
+
+
+def set_transport_config(obj, machine_account=False, aes_keys=False):
+    """Set configuration parameters in the unit test.
+    """
+    remote_config = get_remote_config()
+    obj.username = remote_config.get(remote_config_section, "username")
+    obj.domain = remote_config.get(remote_config_section, "domain")
+    obj.serverName = remote_config.get(remote_config_section, "servername")
+    obj.password = remote_config.get(remote_config_section, "password")
+    obj.machine = remote_config.get(remote_config_section, "machine")
+    obj.hashes = remote_config.get(remote_config_section, "hashes")
+    if len(obj.hashes):
+        obj.lmhash, obj.nthash = obj.hashes.split(':')
+        obj.blmhash = unhexlify(obj.lmhash)
+        obj.bnthash = unhexlify(obj.nthash)
+    else:
+        obj.lmhash = obj.blmhash = ''
+        obj.nthash = obj.bnthash = ''
+
+    if machine_account:
+        obj.machine_user = remote_config.get(remote_config_section, "machineuser")
+        obj.machine_user_hashes = remote_config.get(remote_config_section, "machineuserhashes")
+        if len(obj.machine_user_hashes):
+            obj.machine_user_lmhash, obj.machine_user_nthash = obj.machine_user_hashes.split(':')
+            obj.machine_user_blmhash = unhexlify(obj.machine_user_lmhash)
+            obj.machine_user_bnthash = unhexlify(obj.machine_user_nthash)
+        else:
+            obj.machine_user_lmhash = obj.machine_user_blmhash = ''
+            obj.machine_user_nthash = obj.machine_user_bnthash = ''
+
+    if aes_keys:
+        obj.aes_key_128 = remote_config.get(remote_config_section, 'aesKey128')
+        obj.aes_key_256 = remote_config.get(remote_config_section, 'aesKey256')
+
+
 class RemoteTestCase(object):
     """Remote Test Case Base Class
 
     Holds configuration parameters for all remote base classes. Configuration is by
     default loaded from `tests/dctests.cfg`, but a different path can be specified with
-    the REMOTE_CONFIG environment variable.
+    the REMOTE_CONFIG environment variable. When tests are loaded by pytest, a remote
+    configuration file can also be specified using the `--remote-config` command line
+    option or the `remote-config` ini option.
 
     Configuration parameters can be found in the `tests/dcetests.cfg.template` file.
     """
 
-    def set_config_file(self):
-        """Reads the configuration file
+    def set_transport_config(self, machine_account=False, aes_keys=False):
+        """Set configuration parameters in the unit test.
         """
-        config_file_path = getenv("REMOTE_CONFIG", join("tests", "dcetests.cfg"))
-        self._config_file = ConfigParser()
-        self._config_file.read(config_file_path)
-
-    def set_transport_config(self, transport, machine_account=False, aes_keys=False):
-        """Set configuration for the specified transport.
-        """
-        self.username = self._config_file.get(transport, "username")
-        self.domain = self._config_file.get(transport, "domain")
-        self.serverName = self._config_file.get(transport, "servername")
-        self.password = self._config_file.get(transport, "password")
-        self.machine = self._config_file.get(transport, "machine")
-        self.hashes = self._config_file.get(transport, "hashes")
-        if len(self.hashes):
-            self.lmhash, self.nthash = self.hashes.split(':')
-            self.blmhash = unhexlify(self.lmhash)
-            self.bnthash = unhexlify(self.nthash)
-        else:
-            self.lmhash = self.blmhash = ''
-            self.nthash = self.bnthash = ''
-
-        if machine_account:
-            self.machine_user = self._config_file.get(transport, "machineuser")
-            self.machine_user_hashes = self._config_file.get(transport, "machineuserhashes")
-            if len(self.machine_user_hashes):
-                self.machine_user_lmhash, self.machine_user_nthash = self.machine_user_hashes.split(':')
-                self.machine_user_blmhash = unhexlify(self.machine_user_lmhash)
-                self.machine_user_bnthash = unhexlify(self.machine_user_nthash)
-            else:
-                self.machine_user_lmhash = self.machine_user_blmhash = ''
-                self.machine_user_nthash = self.machine_user_bnthash = ''
-
-        if aes_keys:
-            self.aes_key_128 = self._config_file.get(transport, 'aesKey128')
-            self.aes_key_256 = self._config_file.get(transport, 'aesKey256')
-
-    def set_smb_transport_config(self, machine_account=False, aes_keys=False):
-        """Read SMB Transport parameters from the configuration file.
-
-        :param machine_account: whether to read the machine account config or not
-        :type machine_account: bool
-
-        :param aes_keys: whether to read the AES keys config or not
-        :type aes_keys: bool
-        """
-        self.set_config_file()
-        self.set_transport_config("SMBTransport", machine_account, aes_keys)
-
-    def set_tcp_transport_config(self, machine_account=False, aes_keys=False):
-        """Read TCP Transport parameters from the configuration file.
-
-        :param machine_account: whether to read the machine account config or not
-        :type machine_account: bool
-
-        :param aes_keys: whether to read the AES keys config or not
-        :type aes_keys: bool
-        """
-        self.set_config_file()
-        self.set_transport_config("TCPTransport", machine_account, aes_keys)
+        set_transport_config(self, machine_account=machine_account, aes_keys=aes_keys)

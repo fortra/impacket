@@ -133,7 +133,7 @@ class LDAPTests(RemoteTestCase):
 class TCPTransport(LDAPTests, unittest.TestCase):
     def setUp(self):
         super(TCPTransport, self).setUp()
-        self.set_tcp_transport_config(aes_keys=True)
+        self.set_transport_config(aes_keys=True)
         self.url = "ldap://%s" % self.serverName
         self.baseDN = "dc=%s, dc=%s" % (
             self.domain.split(".")[0],

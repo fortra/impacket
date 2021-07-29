@@ -284,7 +284,7 @@ class SMB1Tests(SMBTests, unittest.TestCase):
 
     def setUp(self):
         super(SMB1Tests, self).setUp()
-        self.set_smb_transport_config(aes_keys=True)
+        self.set_transport_config(aes_keys=True)
         self.share = 'C$'
         self.file = '/TEST'
         self.directory = '/BETO'
