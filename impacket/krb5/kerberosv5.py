@@ -20,9 +20,11 @@ import os
 
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.error import PyAsn1Error
-from pyasn1.type.univ import noValue
+from pyasn1.type.univ import noValue, Sequence
+from pyasn1.type.useful import GeneralizedTime
 from six import b
 from binascii import unhexlify, hexlify
+
 
 from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, AS_REP, TGS_REP, \
     EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_set, seq_set_iter, KERB_ERROR_DATA, METHOD_DATA, \
@@ -75,6 +77,16 @@ def sendReceive(data, host, kdcHost):
         return r
 
     if krbError.getErrorCode() != constants.ErrorCodes.KDC_ERR_PREAUTH_REQUIRED.value:
+        if krbError.getErrorCode() == constants.ErrorCodes.KRB_AP_ERR_SKEW.value:
+            try:
+                for i in decoder.decode(r):
+                    if type(i) == Sequence:
+                        for k in vars(i)["_componentValues"]:
+                            if type(k) == GeneralizedTime:
+                                server_time = datetime.datetime.strptime(k.asOctets().decode("utf-8"), "%Y%m%d%H%M%SZ")
+                                LOG.debug("Server time (UTC): %s" % server_time)
+            except Exception as e:
+                LOG.debug("Couldn't get server time for some reason: %s" % e)
         raise krbError
 
     return r
