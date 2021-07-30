@@ -187,7 +187,7 @@ if __name__ == '__main__':
 	try:
 		smbpasswd.connect()
 	except Exception as e:
-		if 'STATUS_PASSWORD_MUST_CHANGE' in str(e):
+		if any(msg in str(e) for msg in ['STATUS_PASSWORD_MUST_CHANGE', 'STATUS_PASSWORD_EXPIRED']):
 			if newPassword:
 				logging.warning('Password is expired, trying to bind with a null session.')
 				smbpasswd.connect(anonymous=True)
