@@ -325,7 +325,7 @@ def openFile(path, fileName, accessMode, fileAttributes, openMode):
     return fid, mode, pathName, errorCode
 
 
-def queryFsInformation(path, filename, level=0, pktFlags=smb.SMB.FLAGS2_UNICODE):
+def queryFsInformation(path, filename, level=None, pktFlags=smb.SMB.FLAGS2_UNICODE):
     if pktFlags & smb.SMB.FLAGS2_UNICODE:
         encoding = 'utf-16le'
     else:
@@ -335,7 +335,18 @@ def queryFsInformation(path, filename, level=0, pktFlags=smb.SMB.FLAGS2_UNICODE)
     pathName = os.path.join(path, fileName)
     fileSize = os.path.getsize(pathName)
     (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(pathName)
-    if level == smb.SMB_QUERY_FS_ATTRIBUTE_INFO or level == smb2.SMB2_FILESYSTEM_ATTRIBUTE_INFO:
+
+    if level is None:
+        lastWriteTime = mtime
+        attribs = 0
+        if os.path.isdir(pathName):
+            attribs |= smb.SMB_FILE_ATTRIBUTE_DIRECTORY
+        if os.path.isfile(pathName):
+            attribs |= smb.SMB_FILE_ATTRIBUTE_NORMAL
+        fileAttributes = attribs
+        return fileSize, lastWriteTime, fileAttributes
+
+    elif level == smb.SMB_QUERY_FS_ATTRIBUTE_INFO or level == smb2.SMB2_FILESYSTEM_ATTRIBUTE_INFO:
         data = smb.SMBQueryFsAttributeInfo()
         data['FileSystemAttributes'] = smb.FILE_CASE_SENSITIVE_SEARCH | smb.FILE_CASE_PRESERVED_NAMES
         data['MaxFilenNameLengthInBytes'] = 255
@@ -354,6 +365,10 @@ def queryFsInformation(path, filename, level=0, pktFlags=smb.SMB.FLAGS2_UNICODE)
     elif level == smb.SMB_QUERY_FS_SIZE_INFO:
         data = smb.SMBQueryFsSizeInfo()
         return data.getData()
+    elif level == smb.SMB_QUERY_FS_DEVICE_INFO or level == smb2.SMB2_FILESYSTEM_DEVICE_INFO:
+        data = smb.SMBQueryFsDeviceInfo()
+        data['DeviceType'] = smb.FILE_DEVICE_DISK
+        return data.getData()
     elif level == smb.FILE_FS_FULL_SIZE_INFORMATION:
         data = smb.SMBFileFsFullSizeInformation()
         return data.getData()
@@ -361,14 +376,7 @@ def queryFsInformation(path, filename, level=0, pktFlags=smb.SMB.FLAGS2_UNICODE)
         data = smb.FileFsSizeInformation()
         return data.getData()
     else:
-        lastWriteTime = mtime
-        attribs = 0
-        if os.path.isdir(pathName):
-            attribs |= smb.SMB_FILE_ATTRIBUTE_DIRECTORY
-        if os.path.isfile(pathName):
-            attribs |= smb.SMB_FILE_ATTRIBUTE_NORMAL
-        fileAttributes = attribs
-        return fileSize, lastWriteTime, fileAttributes
+        return None
 
 
 def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_UNICODE, isSMB2=False):
@@ -523,7 +531,7 @@ def queryPathInformation(path, filename, level):
                     infoRecord['ExtFileAttributes'] = smb.ATTR_DIRECTORY
                 else:
                     infoRecord['ExtFileAttributes'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
-            elif level == smb.SMB_QUERY_FILE_STANDARD_INFO:
+            elif level == smb.SMB_QUERY_FILE_STANDARD_INFO or level == smb2.SMB2_FILE_STANDARD_INFO:
                 infoRecord = smb.SMBQueryFileStandardInfo()
                 infoRecord['AllocationSize'] = size
                 infoRecord['EndOfFile'] = size
