@@ -25,7 +25,6 @@ from pyasn1.type.useful import GeneralizedTime
 from six import b
 from binascii import unhexlify, hexlify
 
-
 from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, AS_REP, TGS_REP, \
     EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_set, seq_set_iter, KERB_ERROR_DATA, METHOD_DATA, \
     ETYPE_INFO2, ETYPE_INFO, AP_REP, EncAPRepPart
