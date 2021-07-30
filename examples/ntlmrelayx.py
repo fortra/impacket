@@ -162,6 +162,8 @@ def start_servers(options, threads):
         c.setInterfaceIp(options.interface_ip)
         c.setExploitOptions(options.remove_mic, options.remove_target)
         c.setWebDAVOptions(options.serve_image)
+        c.setIsShadowCredentialsAttack(options.shadow_credentials)
+        c.setShadowCredentialsOptions(options.shadow_target, options.pfx_password, options.export_type, options.cert_outfile_path)
 
         if server is HTTPRelayServer:
             c.setListeningPort(options.http_port)
@@ -317,6 +319,14 @@ if __name__ == '__main__':
                         'dump all emails')
     imapoptions.add_argument('-im','--imap-max', action='store',type=int, required=False,default=0, help='Max number of emails to dump '
         '(0 = unlimited, default: no limit)')
+
+    #Shadow Credentials attack options
+    shadowcredentials = parser.add_argument_group("Shadow Credentials attack options")
+    shadowcredentials.add_argument('--shadow-credentials', action='store_true', required=False, help='Enable Shadow Credentials relay attack (msDS-KeyCredentialLink manipulation for PKINIT pre-authentication)')
+    shadowcredentials.add_argument('--shadow-target', action='store', required=False, help='target account (user or computer$) to populate msDS-KeyCredentialLink from')
+    shadowcredentials.add_argument('--pfx-password', action='store', required=False, help='password for the PFX stored self-signed certificate (will be random if not set, not needed when exporting to PEM)')
+    shadowcredentials.add_argument('--export-type', action='store', required=False, choices=["PEM"," PFX"], type = lambda choice : choice.upper(), default="PFX", help='choose to export cert+private key in PEM or PFX (i.e. #PKCS12) (default: PFX))')
+    shadowcredentials.add_argument('--cert-outfile-path', action='store', required=False, help='filename to store the generated self-signed PEM or PFX certificate and key')
 
     try:
        options = parser.parse_args()
