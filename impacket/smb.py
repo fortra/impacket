@@ -3949,7 +3949,7 @@ class SMB(object):
             # Save the SID for resume operations
             sid = findParameterBlock['SID']
 
-            while True:
+            while findParameterBlock['SearchCount'] > 0:
                 record = SMBFindFileBothDirectoryInfo(data = findData)
 
                 shortname = record['ShortName'].decode('utf-16le') if self.__flags2 & SMB.FLAGS2_UNICODE else \
