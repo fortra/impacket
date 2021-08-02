@@ -76,16 +76,16 @@ def sendReceive(data, host, kdcHost):
         return r
 
     if krbError.getErrorCode() != constants.ErrorCodes.KDC_ERR_PREAUTH_REQUIRED.value:
-        if krbError.getErrorCode() == constants.ErrorCodes.KRB_AP_ERR_SKEW.value:
-            try:
-                for i in decoder.decode(r):
-                    if type(i) == Sequence:
-                        for k in vars(i)["_componentValues"]:
-                            if type(k) == GeneralizedTime:
-                                server_time = datetime.datetime.strptime(k.asOctets().decode("utf-8"), "%Y%m%d%H%M%SZ")
-                                LOG.debug("Server time (UTC): %s" % server_time)
-            except Exception as e:
-                LOG.debug("Couldn't get server time for some reason: %s" % e)
+        try:
+            for i in decoder.decode(r):
+                if type(i) == Sequence:
+                    for k in vars(i)["_componentValues"]:
+                        if type(k) == GeneralizedTime:
+                            server_time = datetime.datetime.strptime(k.asOctets().decode("utf-8"), "%Y%m%d%H%M%SZ")
+                            LOG.debug("Server time (UTC): %s" % server_time)
+        except:
+            # Couldn't get server time for some reason
+            pass
         raise krbError
 
     return r
