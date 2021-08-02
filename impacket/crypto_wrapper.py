@@ -1,6 +1,9 @@
+from impacket import LOG
+
 try:
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
     from cryptography.hazmat.primitives.ciphers.aead import AESCCM
+    LOG.info('Using cryptography library')
 
     AES_MODE_CBC = modes.CBC
     AES_MODE_ECB = modes.ECB
@@ -43,6 +46,7 @@ try:
 
 except ImportError:
     from Cryptodome.Cipher import AES, DES3, ARC4, DES
+    LOG.info('Using Cryptodome library')
 
     AES_MODE_CBC = AES.MODE_CBC
     AES_MODE_ECB = AES.MODE_ECB
