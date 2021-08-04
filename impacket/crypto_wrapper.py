@@ -14,14 +14,18 @@ try:
     class CipherWrapper(object):
         def __init__(self, cipher):
             self._cipher = cipher
+            self._encryptor = None
+            self._decryptor = None
 
         def encrypt(self, data):
-            encryptor = self._cipher.encryptor()
-            return encryptor.update(data) + encryptor.finalize()
+            if not self._encryptor:
+                self._encryptor = self._cipher.encryptor()
+            return self._encryptor.update(data)
 
         def decrypt(self, data):
-            decryptor = self._cipher.decryptor()
-            return decryptor.update(data) + decryptor.finalize()
+            if not self._decryptor:
+                self._decryptor = self._cipher.decryptor()
+            return self._decryptor.update(data)
 
     def create_aes_cipher(key, mode, *args):
         return CipherWrapper(Cipher(algorithms.AES(key), mode(*args)))

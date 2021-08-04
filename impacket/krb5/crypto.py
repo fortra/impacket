@@ -317,7 +317,7 @@ class _DESCBC(_SimplifiedEnctype):
         
         odd = True
         tempstring = [0,0,0,0,0,0,0,0]
-        s = _zeropad(string + salt, cls.padsize)
+        s = _zeropad(b(string) + salt, cls.padsize)
 
         for block in [s[i:i+8] for i in range(0, len(s), 8)]:
             temp56 = list()
