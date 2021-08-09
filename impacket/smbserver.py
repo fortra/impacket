@@ -3986,7 +3986,7 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         }
 
         self.__smbCommands = {
-            # smb.SMB.SMB_COM_FLUSH:              self.__smbCommandsHandler.smbComFlush,
+            smb.SMB.SMB_COM_FLUSH: self.__smbCommandsHandler.smbComFlush,
             smb.SMB.SMB_COM_CREATE_DIRECTORY: self.__smbCommandsHandler.smbComCreateDirectory,
             smb.SMB.SMB_COM_DELETE_DIRECTORY: self.__smbCommandsHandler.smbComDeleteDirectory,
             smb.SMB.SMB_COM_RENAME: self.__smbCommandsHandler.smbComRename,
