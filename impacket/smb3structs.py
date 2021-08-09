@@ -88,12 +88,12 @@ SMB2_GLOBAL_CAP_DIRECTORY_LEASING  = 0x20
 SMB2_GLOBAL_CAP_ENCRYPTION         = 0x40
 
 # Dialects
-SMB2_DIALECT_002      = 0x0202 
-SMB2_DIALECT_21       = 0x0210 
-SMB2_DIALECT_30       = 0x0300 
+SMB2_DIALECT_002      = 0x0202
+SMB2_DIALECT_21       = 0x0210
+SMB2_DIALECT_30       = 0x0300
 SMB2_DIALECT_302      = 0x0302  #SMB 3.0.2
 SMB2_DIALECT_311      = 0x0311  #SMB 3.1.1
-SMB2_DIALECT_WILDCARD = 0x02FF 
+SMB2_DIALECT_WILDCARD = 0x02FF
 
 # SMB2_SESSION_SETUP
 # Flags
@@ -167,7 +167,7 @@ FILE_SHARE_WRITE        = 0x00000002
 FILE_SHARE_DELETE       = 0x00000004
 
 # Create Disposition
-FILE_SUPERSEDE          = 0x00000000 
+FILE_SUPERSEDE          = 0x00000000
 FILE_OPEN               = 0x00000001
 FILE_CREATE             = 0x00000002
 FILE_OPEN_IF            = 0x00000003
@@ -190,7 +190,7 @@ FILE_OPEN_BY_FILE_ID           = 0x00002000
 FILE_OPEN_FOR_BACKUP_INTENT    = 0x00004000
 FILE_NO_COMPRESSION            = 0x00008000
 FILE_RESERVE_OPFILTER          = 0x00100000
-FILE_OPEN_REPARSE_POINT        = 0x00200000 
+FILE_OPEN_REPARSE_POINT        = 0x00200000
 FILE_OPEN_NO_RECALL            = 0x00400000
 FILE_OPEN_FOR_FREE_SPACE_QUERY = 0x00800000
 
@@ -223,19 +223,19 @@ FILE_TRAVERSE          = 0x00000020
 FILE_DELETE_CHILD      = 0x00000040
 
 # Create Contexts
-SMB2_CREATE_EA_BUFFER                     = 0x45787441 
+SMB2_CREATE_EA_BUFFER                     = 0x45787441
 SMB2_CREATE_SD_BUFFER                     = 0x53656344
-SMB2_CREATE_DURABLE_HANDLE_REQUEST        = 0x44486e51 
-SMB2_CREATE_DURABLE_HANDLE_RECONNECT      = 0x44486e43 
-SMB2_CREATE_ALLOCATION_SIZE               = 0x416c5369 
-SMB2_CREATE_QUERY_MAXIMAL_ACCESS_REQUEST  = 0x4d784163 
-SMB2_CREATE_TIMEWARP_TOKEN                = 0x54577270 
-SMB2_CREATE_QUERY_ON_DISK_ID              = 0x51466964 
-SMB2_CREATE_REQUEST                       = 0x52714c73 
-SMB2_CREATE_REQUEST_LEASE_V2              = 0x52714c73 
-SMB2_CREATE_DURABLE_HANDLE_REQUEST_V2     = 0x44483251 
-SMB2_CREATE_DURABLE_HANDLE_RECONNECT_V2   = 0x44483243 
-SMB2_CREATE_APP_INSTANCE_ID               = 0x45BCA66AEFA7F74A9008FA462E144D74 
+SMB2_CREATE_DURABLE_HANDLE_REQUEST        = 0x44486e51
+SMB2_CREATE_DURABLE_HANDLE_RECONNECT      = 0x44486e43
+SMB2_CREATE_ALLOCATION_SIZE               = 0x416c5369
+SMB2_CREATE_QUERY_MAXIMAL_ACCESS_REQUEST  = 0x4d784163
+SMB2_CREATE_TIMEWARP_TOKEN                = 0x54577270
+SMB2_CREATE_QUERY_ON_DISK_ID              = 0x51466964
+SMB2_CREATE_REQUEST                       = 0x52714c73
+SMB2_CREATE_REQUEST_LEASE_V2              = 0x52714c73
+SMB2_CREATE_DURABLE_HANDLE_REQUEST_V2     = 0x44483251
+SMB2_CREATE_DURABLE_HANDLE_RECONNECT_V2   = 0x44483243
+SMB2_CREATE_APP_INSTANCE_ID               = 0x45BCA66AEFA7F74A9008FA462E144D74
 
 # Flags
 SMB2_CREATE_FLAG_REPARSEPOINT  = 0x1
@@ -258,7 +258,7 @@ SMB2_LEASE_FLAG_PARENT_LEASE_KEY_SET = 0x4
 
 # SMB2_CREATE_DURABLE_HANDLE_REQUEST_V2 Flags
 SMB2_DHANDLE_FLAG_PERSISTENT = 0x02
- 
+
 # SMB2_CLOSE
 # Flags
 SMB2_CLOSE_FLAG_POSTQUERY_ATTRIB  = 0x0001
@@ -322,7 +322,7 @@ RSS_CAPABLE  = 0x01
 RDMA_CAPABLE = 0x02
 
 # SMB2_QUERY_DIRECTORIES
-# Information Class 
+# Information Class
 FILE_DIRECTORY_INFORMATION         = 0x01
 FILE_FULL_DIRECTORY_INFORMATION    = 0x02
 FILEID_FULL_DIRECTORY_INFORMATION  = 0x26
@@ -359,7 +359,7 @@ FILE_NOTIFY_CHANGE_STREAM_WRITE  = 0x00000800
 FILE_ACTION_ADDED            = 0x00000001
 FILE_ACTION_REMOVED          = 0x00000002
 FILE_ACTION_MODIFIED         = 0x00000003
-FILE_ACTION_RENAMED_OLD_NAME = 0x00000004 
+FILE_ACTION_RENAMED_OLD_NAME = 0x00000004
 FILE_ACTION_RENAMED_NEW_NAME = 0x00000005
 
 # SMB2_QUERY_INFO
@@ -652,7 +652,7 @@ class SMB2NetNameNegotiateContextID(Structure):
         ('NetName',':=""'),
     )
 
-# SMB2_SESSION_SETUP 
+# SMB2_SESSION_SETUP
 class SMB2SessionSetup(Structure):
     SIZE = 24
     structure = (
@@ -677,10 +677,10 @@ class SMB2SessionSetup(Structure):
 
     def getData(self):
         #self['AlignPad'] = '\x00' * ((8 - ((24 + SMB2_PACKET_SIZE) & 7)) & 7)
-        #self['SecurityBufferOffset'] = 24 + SMB2_PACKET_SIZE +len(self['AlignPad']) 
+        #self['SecurityBufferOffset'] = 24 + SMB2_PACKET_SIZE +len(self['AlignPad'])
         #self['SecurityBufferLength'] += len(self['AlignPad'])
         return Structure.getData(self)
-        
+
 
 class SMB2SessionSetup_Response(Structure):
     structure = (
@@ -699,7 +699,7 @@ class SMB2Logoff(Structure):
     structure = (
         ('StructureSize','<H=4'),
         ('Reserved','<H=0'),
-    ) 
+    )
 
 
 class SMB2Logoff_Response(Structure):
@@ -925,7 +925,7 @@ class SMB2_CREATE_QUERY_ON_DISK_ID(Structure):
     )
 
 # Todo: Add Classes for
-#SMB2_CREATE_SD_BUFFER                    
+#SMB2_CREATE_SD_BUFFER
 
 # SMB2_CLOSE
 class SMB2Close(Structure):
@@ -1192,7 +1192,7 @@ class NETWORK_RESILIENCY_REQUEST(Structure):
     structure = (
         ('Timeout','<L=0'),
         ('Reserved','<L=0'),
-    ) 
+    )
 
 class VALIDATE_NEGOTIATE_INFO(Structure):
     structure = (
@@ -1422,6 +1422,76 @@ class SMB2QueryInfo_Response(Structure):
        ('Buffer',':'),
    )
 
+class FILE_BASIC_INFORMATION (Structure):
+    structure = (
+        ('CreationTime','<q'),
+        ('LastAccessTime','<q'),
+        ('LastWriteTime','<q'),
+        ('ChangeTime','<q'),
+        ('FileAttributes','<L'),
+        ('Reserved','<L=0'),
+    )
+
+class FILE_STANDARD_INFORMATION (Structure):
+    structure = (
+        ('AllocationSize','<q'),
+        ('EndOfFile','<q'),
+        ('NumberOfLinks','<L'),
+        ('DeletePending','<B=0'),
+        ('Directory','<B'),
+        ('Reserved','<H=0'),
+    )
+
+class FILE_INTERNAL_INFORMATION (Structure):
+    structure = (
+        ('IndexNumber','<q=0'),
+    )
+
+class FILE_EA_INFORMATION (Structure):
+    structure = (
+        ('EaSize','<L'),
+    )
+
+class FILE_ACCESS_INFORMATION (Structure):
+    structure = (
+        ('AccessFlags','<L'),
+    )
+
+class FILE_POSITION_INFORMATION (Structure):
+    structure = (
+        ('CurrentByteOffset','<Q'),
+    )
+
+class FILE_MODE_INFORMATION (Structure):
+    structure = (
+        ('Mode','<L=0'),
+    )
+
+class FILE_ALIGNMENT_INFORMATION (Structure):
+    structure = (
+        ('AlignmentRequirement','<L'),
+    )
+
+class FILE_NAME_INFORMATION (Structure):
+    structure = (
+        ('FileNameLength','<L=0'),
+        ('_FileName','_-FileName', 'self["FileNameLength"]'),
+        ('FileName',':'),
+    )
+
+class FILE_ALL_INFORMATION(Structure):
+    structure = (
+        ('BasicInformation',':',FILE_BASIC_INFORMATION),
+        ('StandardInformation',':',FILE_STANDARD_INFORMATION),
+        ('InternalInformation',':',FILE_INTERNAL_INFORMATION),
+        ('EaInformation',':',FILE_EA_INFORMATION),
+        ('AccessInformation',':',FILE_ACCESS_INFORMATION),
+        ('PositionInformation',':',FILE_POSITION_INFORMATION),
+        ('ModeInformation',':',FILE_MODE_INFORMATION),
+        ('AlignmentInformation',':',FILE_ALIGNMENT_INFORMATION),
+        ('NameInformation',':',FILE_NAME_INFORMATION),
+    )
+
 # SMB2_SET_INFO
 class SMB2SetInfo(Structure):
     SIZE = 32
@@ -1494,13 +1564,7 @@ class SMB2_COMPRESSION_PATTERN_PAYLOAD_V1(Structure):
         ('Repetitions','<L=0'),
     )
 
-# SMB2_FILE_INTERNAL_INFO
-class FileInternalInformation(Structure):
-    structure = (
-        ('IndexNumber','<q=0'),
-    )
-
-# SMB2_SEC_INFO_00       
+# SMB2_SEC_INFO_00
 class FileSecInformation(Structure):
     structure = (
         ('Revision','<h=1'),

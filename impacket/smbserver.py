@@ -539,7 +539,7 @@ def queryPathInformation(path, filename, level):
                     infoRecord['Directory'] = 1
                 else:
                     infoRecord['Directory'] = 0
-            elif level == smb.SMB_QUERY_FILE_ALL_INFO or level == smb2.SMB2_FILE_ALL_INFO:
+            elif level == smb.SMB_QUERY_FILE_ALL_INFO:
                 infoRecord = smb.SMBQueryFileAllInfo()
                 infoRecord['CreationTime'] = getFileTime(ctime)
                 infoRecord['LastAccessTime'] = getFileTime(atime)
@@ -556,6 +556,40 @@ def queryPathInformation(path, filename, level):
                 else:
                     infoRecord['Directory'] = 0
                 infoRecord['FileName'] = filename.encode('utf-16le')
+            elif level == smb2.SMB2_FILE_ALL_INFO:
+                infoRecord = smb2.FILE_ALL_INFORMATION()
+                infoRecord['BasicInformation'] = smb2.FILE_BASIC_INFORMATION()
+                infoRecord['StandardInformation'] = smb2.FILE_STANDARD_INFORMATION()
+                infoRecord['InternalInformation'] = smb2.FILE_INTERNAL_INFORMATION()
+                infoRecord['EaInformation'] = smb2.FILE_EA_INFORMATION()
+                infoRecord['AccessInformation'] = smb2.FILE_ACCESS_INFORMATION()
+                infoRecord['PositionInformation'] = smb2.FILE_POSITION_INFORMATION()
+                infoRecord['ModeInformation'] = smb2.FILE_MODE_INFORMATION()
+                infoRecord['AlignmentInformation'] = smb2.FILE_ALIGNMENT_INFORMATION()
+                infoRecord['NameInformation'] = smb2.FILE_NAME_INFORMATION()
+                infoRecord['BasicInformation']['CreationTime'] = getFileTime(ctime)
+                infoRecord['BasicInformation']['LastAccessTime'] = getFileTime(atime)
+                infoRecord['BasicInformation']['LastWriteTime'] = getFileTime(mtime)
+                infoRecord['BasicInformation']['ChangeTime'] = getFileTime(mtime)
+                if os.path.isdir(pathName):
+                    infoRecord['BasicInformation']['FileAttributes'] = smb.SMB_FILE_ATTRIBUTE_NORMAL
+                    infoRecord['StandardInformation']['Directory'] = 1
+                    infoRecord['EaInformation']['EaSize'] = smb.ATTR_DIRECTORY
+                else:
+                    infoRecord['BasicInformation']['FileAttributes'] = smb.SMB_FILE_ATTRIBUTE_NORMAL | smb.SMB_FILE_ATTRIBUTE_ARCHIVE
+                    infoRecord['StandardInformation']['Directory'] = 0
+                    infoRecord['EaInformation']['EaSize'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
+                infoRecord['StandardInformation']['AllocationSize'] = size
+                infoRecord['StandardInformation']['EndOfFile'] = size
+                infoRecord['StandardInformation']['NumberOfLinks'] = nlink
+                infoRecord['StandardInformation']['DeletePending'] = 0
+                infoRecord['InternalInformation']['IndexNumber'] = ino
+                infoRecord['AccessInformation']['AccessFlags'] = 0 #
+                infoRecord['PositionInformation']['CurrentByteOffset'] = 0 #
+                infoRecord['ModeInformation']['mode'] = mode
+                infoRecord['AlignmentInformation']['AlignmentRequirement'] = 0 #
+                infoRecord['NameInformation']['FileName'] = fileName
+                infoRecord['NameInformation']['FileNameLength'] = len(fileName)
             elif level == smb2.SMB2_FILE_NETWORK_OPEN_INFO:
                 infoRecord = smb.SMBFileNetworkOpenInfo()
                 infoRecord['CreationTime'] = getFileTime(ctime)
@@ -3315,7 +3349,7 @@ class SMB2Commands:
                 if queryInfo['InfoType'] == smb2.SMB2_0_INFO_FILE:
                     if queryInfo['FileInfoClass'] == smb2.SMB2_FILE_INTERNAL_INFO:
                         # No need to call queryFileInformation, we have the data here
-                        infoRecord = smb2.FileInternalInformation()
+                        infoRecord = smb2.FILE_INTERNAL_INFORMATION()
                         infoRecord['IndexNumber'] = fileID
                     else:
                         infoRecord, errorCode = queryFileInformation(os.path.dirname(fileName),
