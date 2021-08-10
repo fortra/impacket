@@ -790,7 +790,7 @@ class ESENT_DB:
 
         return None
 
-    def getNextRow(self, cursor):
+    def getNextRow(self, cursor, filter_tables = None):
         cursor['CurrentTag'] += 1
 
         tag = self.__getNextTag(cursor)
@@ -805,11 +805,11 @@ class ESENT_DB:
             else:
                 cursor['CurrentPageData'] = self.getPage(page.record['NextPageNumber'])
                 cursor['CurrentTag'] = 0
-                return self.getNextRow(cursor)
+                return self.getNextRow(cursor, filter_tables = filter_tables)
         else:
-            return self.__tagToRecord(cursor, tag['EntryData'])
+            return self.__tagToRecord(cursor, tag['EntryData'], filter_tables = filter_tables)
 
-    def __tagToRecord(self, cursor, tag):
+    def __tagToRecord(self, cursor, tag, filter_tables = None):
         # So my brain doesn't forget, the data record is composed of:
         # Header
         # Fixed Size Data (ID < 127)
@@ -849,6 +849,9 @@ class ESENT_DB:
         columns = cursor['TableData']['Columns'] 
         
         for column in list(columns.keys()):
+            if filter_tables is not None:
+                if column not in filter_tables:
+                    continue
             columnRecord = columns[column]['Record']
             #columnRecord.dump()
             if columnRecord['Identifier'] <= dataDefinitionHeader['LastFixedSize']:
