@@ -454,7 +454,8 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
 
         item['FileName'] = os.path.basename(i).encode(encoding)
 
-        if level == smb.SMB_FIND_FILE_BOTH_DIRECTORY_INFO or level == smb.SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO or level == smb2.SMB2_FILE_ID_BOTH_DIRECTORY_INFO or level == smb2.SMB2_FILE_BOTH_DIRECTORY_INFO:
+        if level in [smb.SMB_FIND_FILE_BOTH_DIRECTORY_INFO, smb.SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO,
+                     smb2.SMB2_FILE_ID_BOTH_DIRECTORY_INFO]:
             item['EaSize'] = 0
             item['EndOfFile'] = size
             item['AllocationSize'] = size
@@ -466,7 +467,7 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
             item['FileName'] = os.path.basename(i).encode(encoding)
             padLen = (8 - (len(item) % 8)) % 8
             item['NextEntryOffset'] = len(item) + padLen
-        elif level == smb.SMB_FIND_FILE_DIRECTORY_INFO:
+        elif level in [smb.SMB_FIND_FILE_DIRECTORY_INFO, smb2.SMB2_FILE_DIRECTORY_INFO]:
             item['EndOfFile'] = size
             item['AllocationSize'] = size
             item['CreationTime'] = getFileTime(ctime)
@@ -476,7 +477,8 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
             item['FileName'] = os.path.basename(i).encode(encoding)
             padLen = (8 - (len(item) % 8)) % 8
             item['NextEntryOffset'] = len(item) + padLen
-        elif level == smb.SMB_FIND_FILE_FULL_DIRECTORY_INFO or level == smb.SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO or level == smb2.SMB2_FULL_DIRECTORY_INFO:
+        elif level in [smb.SMB_FIND_FILE_FULL_DIRECTORY_INFO, smb.SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO,
+                       smb2.SMB2_FULL_DIRECTORY_INFO, smb2.SMB2_FILE_ID_FULL_DIRECTORY_INFO]:
             item['EaSize'] = 0
             item['EndOfFile'] = size
             item['AllocationSize'] = size

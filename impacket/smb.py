@@ -938,12 +938,14 @@ class SMBFindFileIdFullDirectoryInfo(AsciiOrUnicodeStructure):
     AsciiStructure = (
         ('FileNameLength','<L-FileName','len(FileName)'),
         ('EaSize','<L=0'),
+        ('Reserved', '<L=0'),
         ('FileID','<q=0'),
-        ('FileName',':'),
+        ('FileName','z'),
     )
     UnicodeStructure = (
         ('FileNameLength','<L-FileName','len(FileName)*2'),
         ('EaSize','<L=0'),
+        ('Reserved','<L=0'),
         ('FileID','<q=0'),
         ('FileName',':'),
     )
