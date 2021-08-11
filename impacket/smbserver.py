@@ -856,9 +856,10 @@ class TRANS2Commands:
 
         if recvPacket['Tid'] in connData['ConnectedShares']:
             if queryFileInfoParameters['FID'] in connData['OpenedFiles']:
-                fileName = connData['OpenedFiles'][queryFileInfoParameters['FID']]['FileName']
+                pathName = connData['OpenedFiles'][queryFileInfoParameters['FID']]['FileName']
 
-                infoRecord, errorCode = queryFileInformation('', fileName, queryFileInfoParameters['InformationLevel'])
+                infoRecord, errorCode = queryFileInformation(os.path.dirname(pathName), os.path.basename(pathName),
+                                                             queryFileInfoParameters['InformationLevel'])
 
                 if infoRecord is not None:
                     respParameters = smb.SMBQueryFileInformationResponse_Parameters()
@@ -2251,7 +2252,7 @@ class SMBCommands:
                     respParameters['IsDirectory'] = 0
                     respParameters['FileAttributes'] = ntCreateAndXParameters['FileAttributes']
                 # Let's get this file's information
-                respInfo, errorCode = queryPathInformation('', pathName, level=smb.SMB_QUERY_FILE_ALL_INFO)
+                respInfo, errorCode = queryPathInformation(path, fileName, level=smb.SMB_QUERY_FILE_ALL_INFO)
                 if errorCode == STATUS_SUCCESS:
                     respParameters['CreateTime'] = respInfo['CreationTime']
                     respParameters['LastAccessTime'] = respInfo['LastAccessTime']
@@ -3223,7 +3224,7 @@ class SMB2Commands:
                 else:
                     respSMBCommand['FileAttributes'] = ntCreateRequest['FileAttributes']
                 # Let's get this file's information
-                respInfo, errorCode = queryPathInformation('', pathName, level=smb.SMB_QUERY_FILE_ALL_INFO)
+                respInfo, errorCode = queryPathInformation(path, fileName, level=smb.SMB_QUERY_FILE_ALL_INFO)
                 if errorCode == STATUS_SUCCESS:
                     respSMBCommand['CreationTime'] = respInfo['CreationTime']
                     respSMBCommand['LastAccessTime'] = respInfo['LastAccessTime']
