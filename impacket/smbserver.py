@@ -572,7 +572,7 @@ def queryPathInformation(path, filename, level):
                 infoRecord['BasicInformation']['LastWriteTime'] = getFileTime(mtime)
                 infoRecord['BasicInformation']['ChangeTime'] = getFileTime(mtime)
                 if os.path.isdir(pathName):
-                    infoRecord['BasicInformation']['FileAttributes'] = smb.SMB_FILE_ATTRIBUTE_NORMAL
+                    infoRecord['BasicInformation']['FileAttributes'] = smb.SMB_FILE_ATTRIBUTE_DIRECTORY
                     infoRecord['StandardInformation']['Directory'] = 1
                     infoRecord['EaInformation']['EaSize'] = smb.ATTR_DIRECTORY
                 else:
