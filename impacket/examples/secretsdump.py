@@ -1865,6 +1865,25 @@ class NTDSHashes:
         self.__outputFileName = outputFileName
         self.__justUser = justUser
         self.__perSecretCallback = perSecretCallback
+		
+		# these are all the columns that we need to get the secrets. 
+		# If in the future someone finds other columns containing interesting things please extend ths table.
+        self.__filter_tables_usersecret = { 
+            self.NAME_TO_INTERNAL['objectSid'] : 1,
+            self.NAME_TO_INTERNAL['dBCSPwd'] : 1,
+            self.NAME_TO_INTERNAL['name'] : 1,
+            self.NAME_TO_INTERNAL['sAMAccountType'] : 1,
+            self.NAME_TO_INTERNAL['unicodePwd'] : 1,
+            self.NAME_TO_INTERNAL['sAMAccountName'] : 1,
+            self.NAME_TO_INTERNAL['userPrincipalName'] : 1,
+            self.NAME_TO_INTERNAL['ntPwdHistory'] : 1,
+            self.NAME_TO_INTERNAL['lmPwdHistory'] : 1,
+            self.NAME_TO_INTERNAL['pwdLastSet'] : 1,
+            self.NAME_TO_INTERNAL['userAccountControl'] : 1,
+            self.NAME_TO_INTERNAL['supplementalCredentials'] : 1,
+            self.NAME_TO_INTERNAL['pekList'] : 1,
+        
+        }
 
     def getResumeSessionFile(self):
         return self.__resumeSession.getFileName()
@@ -1874,7 +1893,7 @@ class NTDSHashes:
         peklist = None
         while True:
             try:
-                record = self.__ESEDB.getNextRow(self.__cursor)
+                record = self.__ESEDB.getNextRow(self.__cursor, filter_tables=self.__filter_tables_usersecret)
             except:
                 LOG.error('Error while calling getNextRow(), trying the next one')
                 continue
@@ -2394,7 +2413,7 @@ class NTDSHashes:
                     # Now let's keep moving through the NTDS file and decrypting what we find
                     while True:
                         try:
-                            record = self.__ESEDB.getNextRow(self.__cursor)
+                            record = self.__ESEDB.getNextRow(self.__cursor, filter_tables=self.__filter_tables_usersecret)
                         except:
                             LOG.error('Error while calling getNextRow(), trying the next one')
                             continue
