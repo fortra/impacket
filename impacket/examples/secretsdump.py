@@ -558,16 +558,20 @@ class RemoteOperations:
 
         return self.__drsr.request(request)
 
-    def getDomainUsers(self, enumerationContext=0):
+    def getDomainUsers(self, enumerationContext=0, justUserAccounts=False):
         if self.__samr is None:
             self.connectSamr(self.getMachineNameAndDomain()[1])
 
         try:
-            resp = samr.hSamrEnumerateUsersInDomain(self.__samr, self.__domainHandle,
-                                                    userAccountControl=samr.USER_NORMAL_ACCOUNT | \
-                                                                       samr.USER_WORKSTATION_TRUST_ACCOUNT | \
-                                                                       samr.USER_SERVER_TRUST_ACCOUNT |\
-                                                                       samr.USER_INTERDOMAIN_TRUST_ACCOUNT,
+            userAccountControlFilter = samr.USER_NORMAL_ACCOUNT
+
+            if justUserAccounts == False:
+                userAccountControlFilter |= samr.USER_WORKSTATION_TRUST_ACCOUNT | \
+                                            samr.USER_SERVER_TRUST_ACCOUNT | \
+                                            samr.USER_INTERDOMAIN_TRUST_ACCOUNT
+
+            resp = samr.hSamrEnumerateUsersInDomain(self.__samr, self.__domainHandle, \
+                                                    userAccountControl=userAccountControlFilter, \
                                                     enumerationContext=enumerationContext)
         except DCERPCException as e:
             if str(e).find('STATUS_MORE_ENTRIES') < 0:
@@ -2509,7 +2513,7 @@ class NTDSHashes:
                         LOG.error(str(e))
                 else:
                     while status == STATUS_MORE_ENTRIES:
-                        resp = self.__remoteOps.getDomainUsers(enumerationContext)
+                        resp = self.__remoteOps.getDomainUsers(enumerationContext, self.__justUserAccounts)
 
                         for user in resp['Buffer']['Buffer']:
                             userName = user['Name']
