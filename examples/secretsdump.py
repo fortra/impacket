@@ -97,6 +97,7 @@ class DumpSecrets:
         self.__justDC = options.just_dc
         self.__justDCNTLM = options.just_dc_ntlm
         self.__justUser = options.just_dc_user
+        self.__justUserAccounts = options.just_user_accounts
         self.__pwdLastSet = options.pwd_last_set
         self.__printUserStatus= options.user_status
         self.__resumeFileName = options.resumefile
@@ -212,7 +213,7 @@ class DumpSecrets:
                                            useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM,
                                            pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
                                            outputFileName=self.__outputFileName, justUser=self.__justUser,
-                                           printUserStatus= self.__printUserStatus)
+                                           justUserAccounts=self.__justUserAccounts, printUserStatus= self.__printUserStatus)
             try:
                 self.__NTDSHashes.dump()
             except Exception as e:
@@ -310,6 +311,8 @@ if __name__ == '__main__':
                         help='Extract only NTDS.DIT data (NTLM hashes and Kerberos keys)')
     group.add_argument('-just-dc-ntlm', action='store_true', default=False,
                        help='Extract only NTDS.DIT data (NTLM hashes only)')
+    group.add_argument('-just-user-accounts', action='store_true', default=False,
+                        help='Extract only user account types (SAM_USER_OBJECT and SAM_TRUST_ACCOUNT)')
     group.add_argument('-pwd-last-set', action='store_true', default=False,
                        help='Shows pwdLastSet attribute for each NTDS.DIT account. Doesn\'t apply to -outputfile data')
     group.add_argument('-user-status', action='store_true', default=False,
@@ -357,12 +360,10 @@ if __name__ == '__main__':
         elif options.resumefile is not None:
             logging.error('resuming a previous NTDS.DIT dump session not compatible with -just-dc-user switch')
             sys.exit(1)
-        elif remoteName.upper() == 'LOCAL' and username == '':
-            logging.error('-just-dc-user not compatible in LOCAL mode')
-            sys.exit(1)
         else:
             # Having this switch on implies not asking for anything else.
             options.just_dc = True
+            options.just_user_accounts = True
 
     if options.use_vss is True and options.resumefile is not None:
         logging.error('resuming a previous NTDS.DIT dump session is not supported in VSS mode')

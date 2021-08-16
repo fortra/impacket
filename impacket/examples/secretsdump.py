@@ -1788,7 +1788,7 @@ class NTDSHashes:
     SAM_MACHINE_ACCOUNT     = 0x30000001
     SAM_TRUST_ACCOUNT       = 0x30000002
 
-    ACCOUNT_TYPES = ( SAM_NORMAL_USER_ACCOUNT, SAM_MACHINE_ACCOUNT, SAM_TRUST_ACCOUNT)
+    ACCOUNT_TYPES = ( SAM_NORMAL_USER_ACCOUNT, SAM_TRUST_ACCOUNT)
 
     class PEKLIST_ENC(Structure):
         structure = (
@@ -1841,7 +1841,7 @@ class NTDSHashes:
 
     def __init__(self, ntdsFile, bootKey, isRemote=False, history=False, noLMHash=True, remoteOps=None,
                  useVSSMethod=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None,
-                 justUser=None, printUserStatus=False,
+                 justUser=None, justUserAccounts=False, printUserStatus=False,
                  perSecretCallback = lambda secretType, secret : _print_helper(secret),
                  resumeSessionMgr=ResumeSessionMgrInFile):
         self.__bootKey = bootKey
@@ -1864,11 +1864,16 @@ class NTDSHashes:
         self.__resumeSession = resumeSessionMgr(resumeSession)
         self.__outputFileName = outputFileName
         self.__justUser = justUser
+        self.__justUserAccounts = justUserAccounts
         self.__perSecretCallback = perSecretCallback
-		
-		# these are all the columns that we need to get the secrets. 
-		# If in the future someone finds other columns containing interesting things please extend ths table.
-        self.__filter_tables_usersecret = { 
+
+        # if not needed, filter out computer object
+        if justUserAccounts is False and justUser is None:
+            self.ACCOUNT_TYPES += (self.SAM_MACHINE_ACCOUNT,)
+
+        # these are all the columns that we need to get the secrets.
+        # If in the future someone finds other columns containing interesting things please extend ths table.
+        self.__filter_tables_usersecret = {
             self.NAME_TO_INTERNAL['objectSid'] : 1,
             self.NAME_TO_INTERNAL['dBCSPwd'] : 1,
             self.NAME_TO_INTERNAL['name'] : 1,
@@ -1882,7 +1887,6 @@ class NTDSHashes:
             self.NAME_TO_INTERNAL['userAccountControl'] : 1,
             self.NAME_TO_INTERNAL['supplementalCredentials'] : 1,
             self.NAME_TO_INTERNAL['pekList'] : 1,
-        
         }
 
     def getResumeSessionFile(self):
@@ -1904,6 +1908,10 @@ class NTDSHashes:
                 peklist =  unhexlify(record[self.NAME_TO_INTERNAL['pekList']])
                 break
             elif record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES:
+                if self.__justUser is not None:
+                    if record[self.NAME_TO_INTERNAL['sAMAccountName']].lower() != self.__justUser.lower():
+                        continue
+
                 # Okey.. we found some users, but we're not yet ready to process them.
                 # Let's just store them in a temp list
                 self.__tmpUsers.append(record)
@@ -2422,9 +2430,15 @@ class NTDSHashes:
                             break
                         try:
                             if record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES:
+                                if self.__justUser is not None:
+                                    if record[self.NAME_TO_INTERNAL['sAMAccountName']].lower() != self.__justUser.lower():
+                                        continue
                                 self.__decryptHash(record, outputFile=hashesOutputFile)
                                 if self.__justNTLM is False:
                                     self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
+                                if self.__justUser is not None:
+                                    if record[self.NAME_TO_INTERNAL['sAMAccountName']].lower() == self.__justUser.lower():
+                                        break
                         except Exception as e:
                             LOG.debug('Exception', exc_info=True)
                             try:
