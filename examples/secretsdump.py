@@ -305,14 +305,15 @@ if __name__ == '__main__':
                         'method to use at target (only when using -use-vss). Default: smbexec')
     group = parser.add_argument_group('display options')
     group.add_argument('-just-dc-user', action='store', metavar='USERNAME',
-                       help='Extract only NTDS.DIT data for the user specified. Only available for DRSUAPI approach. '
-                            'Implies also -just-dc switch')
+                       help='Extract only NTDS.DIT data for the user specified. '
+                            'Implies also -just-dc and -just-user-accounts switchs')
     group.add_argument('-just-dc', action='store_true', default=False,
                         help='Extract only NTDS.DIT data (NTLM hashes and Kerberos keys)')
     group.add_argument('-just-dc-ntlm', action='store_true', default=False,
                        help='Extract only NTDS.DIT data (NTLM hashes only)')
     group.add_argument('-just-user-accounts', action='store_true', default=False,
-                        help='Extract only user account types (SAM_USER_OBJECT and SAM_TRUST_ACCOUNT)')
+                        help='Extract only user account types (LOCAL mode: SAM_USER_OBJECT and SAM_TRUST_ACCOUNT. '
+                        'REMOTE mode: USER_NORMAL_ACCOUNT)')
     group.add_argument('-pwd-last-set', action='store_true', default=False,
                        help='Shows pwdLastSet attribute for each NTDS.DIT account. Doesn\'t apply to -outputfile data')
     group.add_argument('-user-status', action='store_true', default=False,
