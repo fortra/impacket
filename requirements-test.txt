@@ -1,2 +1,2 @@
-pytest==4.6
+pytest
 pytest-cov
