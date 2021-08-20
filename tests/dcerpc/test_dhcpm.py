@@ -8,7 +8,10 @@
 #
 # Tested so far:
 #   DhcpGetClientInfoV4
+#   hDhcpGetClientInfoV4
 #   DhcpV4GetClientInfo
+#   hDhcpEnumSubnetClientsV5
+#   hDhcpGetOptionValueV5
 # Not yet:
 #
 from __future__ import division
@@ -18,34 +21,57 @@ import socket
 import struct
 import pytest
 import unittest
-from tests import RemoteTestCase
+from six import assertRaisesRegex
 
-from impacket.dcerpc.v5 import epm, dhcpm
-from impacket.dcerpc.v5 import transport
+from tests.dcerpc import DCERPCTests
+
+from impacket.dcerpc.v5 import dhcpm
 from impacket.dcerpc.v5.dtypes import NULL
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, DCERPCException
 
 
-class DHCPMTests(RemoteTestCase):
+class DHCPMTests(DCERPCTests):
+    string_binding = r"ncacn_np:{0.machine}[\PIPE\dhcpserver]"
+    string_binding_formatting = DCERPCTests.STRING_BINDING_FORMATTING
+    authn = True
+    authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
-    def connect(self, version):
-        rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username, self.password, self.domain, self.lmhash, self.nthash)
-        dce = rpctransport.get_dce_rpc()
-        dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
-        #dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
-        dce.connect()
-        if version == 1:
-            dce.bind(dhcpm.MSRPC_UUID_DHCPSRV, transfer_syntax = self.ts)
-        else:
-            dce.bind(dhcpm.MSRPC_UUID_DHCPSRV2, transfer_syntax = self.ts)
 
-        return dce, rpctransport
+class DHCPMv1Tests(DHCPMTests):
+
+    iface_uuid = dhcpm.MSRPC_UUID_DHCPSRV
+
+    def test_DhcpGetClientInfoV4(self):
+        dce, rpctransport = self.connect()
+        request = dhcpm.DhcpGetClientInfoV4()
+        request['ServerIpAddress'] = NULL
+
+        request['SearchInfo']['SearchType'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
+        request['SearchInfo']['SearchInfo']['tag'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
+        ip = struct.unpack("!I", socket.inet_aton(self.machine))[0]
+        request['SearchInfo']['SearchInfo']['ClientIpAddress'] = ip
+
+        request.dump()
+        with assertRaisesRegex(self, DCERPCException, "ERROR_DHCP_JET_ERROR"):
+            dce.request(request)
+
+    def test_hDhcpGetClientInfoV4(self):
+        dce, rpctransport = self.connect()
+
+        ip = struct.unpack("!I", socket.inet_aton(self.machine))[0]
+        with assertRaisesRegex(self, DCERPCException, "ERROR_DHCP_JET_ERROR"):
+            dhcpm.hDhcpGetClientInfoV4(dce, dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress, ip)
+
+        with assertRaisesRegex(self, DCERPCException, "0x4e2d"):
+            dhcpm.hDhcpGetClientInfoV4(dce, dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientName, 'PEPA\x00')
+
+
+class DHCPMv2Tests(DHCPMTests):
+
+    iface_uuid = dhcpm.MSRPC_UUID_DHCPSRV2
 
     def test_DhcpV4GetClientInfo(self):
-        dce, rpctransport = self.connect(2)
+        dce, rpctransport = self.connect()
         request = dhcpm.DhcpV4GetClientInfo()
         request['ServerIpAddress'] = NULL
 
@@ -58,125 +84,79 @@ class DHCPMTests(RemoteTestCase):
         #request['SearchInfo']['SearchInfo']['tag'] = 2
         #ip = netaddr.IPAddress('172.16.123.10')
         #request['SearchInfo']['SearchInfo']['ClientName'] = 'PEPONA\0'
-
         request.dump()
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            # For now we'e failing. This is not supported in W2k8r2
-            if str(e).find('nca_s_op_rng_error') >= 0:
-                pass
 
-    def test_DhcpGetClientInfoV4(self):
-        dce, rpctransport = self.connect(1)
-        request = dhcpm.DhcpGetClientInfoV4()
-        request['ServerIpAddress'] = NULL
-
-        request['SearchInfo']['SearchType'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
-        request['SearchInfo']['SearchInfo']['tag'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
-        ip = struct.unpack("!I", socket.inet_aton(self.machine))[0]
-        request['SearchInfo']['SearchInfo']['ClientIpAddress'] = ip
-
-        request.dump()
-        try:
-            resp = dce.request(request)
-        except Exception as e:
-            if str(e).find('ERROR_DHCP_JET_ERROR') >=0:
-                pass
-        else:
-            resp.dump()
-
-    def test_hDhcpGetClientInfoV4(self):
-        dce, rpctransport = self.connect(1)
-
-        ip = struct.unpack("!I", socket.inet_aton(self.machine))[0]
-        try:
-            resp = dhcpm.hDhcpGetClientInfoV4(dce, dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress, ip)
-        except Exception as e:
-            if str(e).find('ERROR_DHCP_JET_ERROR') >=0:
-                pass
-        else:
-            resp.dump()
-
-        try:
-            resp = dhcpm.hDhcpGetClientInfoV4(dce, dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientName, 'PEPA\x00')
-            resp.dump()
-        except Exception as e:
-            if str(e).find('0x4e2d') >= 0:
-                pass
+        # For now we'e failing. This is not supported in W2k8r2
+        with assertRaisesRegex(self, DCERPCException, "nca_s_op_rng_error"):
+            dce.request(request)
 
     def test_hDhcpEnumSubnetClientsV5(self):
+        dce, rpctransport = self.connect()
 
-        dce, rpctransport = self.connect(2)
-
-        try:
-            resp = dhcpm.hDhcpEnumSubnetClientsV5(dce)
-        except Exception as e:
-            if str(e).find('ERROR_NO_MORE_ITEMS') >=0:
-                pass
-            else:
-                raise
-        else:
-            resp.dump()
+        with assertRaisesRegex(self, DCERPCException, "ERROR_NO_MORE_ITEMS"):
+            dhcpm.hDhcpEnumSubnetClientsV5(dce)
 
     def test_hDhcpGetOptionValueV5(self):
-        dce, rpctransport = self.connect(2)
+        dce, rpctransport = self.connect()
         netId = self.machine.split('.')[:-1]
         netId.append('0')
-        print('.'.join(netId))
         subnet_id = struct.unpack("!I", socket.inet_aton('.'.join(netId)))[0]
-        try:
-            resp = dhcpm.hDhcpGetOptionValueV5(dce,3,
-                                           dhcpm.DHCP_FLAGS_OPTION_DEFAULT, NULL, NULL,
-                                           dhcpm.DHCP_OPTION_SCOPE_TYPE.DhcpSubnetOptions,
-                                           subnet_id)
-        except Exception as e:
-            if str(e).find('ERROR_DHCP_SUBNET_NOT_PRESENT') >=0:
-                pass
-            else:
-                raise
-        else:
-            resp.dump()
+
+        with assertRaisesRegex(self, DCERPCException, "ERROR_DHCP_SUBNET_NOT_PRESENT"):
+            dhcpm.hDhcpGetOptionValueV5(dce, 3,
+                                        dhcpm.DHCP_FLAGS_OPTION_DEFAULT, NULL, NULL,
+                                        dhcpm.DHCP_OPTION_SCOPE_TYPE.DhcpSubnetOptions,
+                                        subnet_id)
 
 
 @pytest.mark.remote
-class SMBTransport(DHCPMTests, unittest.TestCase):
-
-    def setUp(self):
-        super(SMBTransport, self).setUp()
-        self.set_transport_config()
-        self.stringBinding = r'ncacn_np:%s[\PIPE\dhcpserver]' % self.machine
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+class DHCPMv1TestsSMBTransport(DHCPMv1Tests, unittest.TestCase):
+    transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
 
 @pytest.mark.remote
-class SMBTransport64(SMBTransport):
-
-    def setUp(self):
-        super(SMBTransport64, self).setUp()
-        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+class DHCPMv2TestsSMBTransport(DHCPMv2Tests, unittest.TestCase):
+    transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
 
 @pytest.mark.remote
-class TCPTransport(DHCPMTests, unittest.TestCase):
-
-    def setUp(self):
-        super(TCPTransport, self).setUp()
-        self.set_transport_config()
-        self.stringBinding = epm.hept_map(self.machine, dhcpm.MSRPC_UUID_DHCPSRV2, protocol='ncacn_ip_tcp')
-        #self.stringBinding = epm.hept_map(self.machine, dhcpm.MSRPC_UUID_DHCPSRV, protocol = 'ncacn_ip_tcp')
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+class DHCPMv1TestsSMBTransport64(DHCPMv1Tests, unittest.TestCase):
+    transfer_syntax = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 
 
 @pytest.mark.remote
-class TCPTransport64(TCPTransport):
+class DHCPMv2TestsSMBTransport64(DHCPMv2Tests, unittest.TestCase):
+    transfer_syntax = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 
-    def setUp(self):
-        super(TCPTransport64, self).setUp()
-        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+
+@pytest.mark.remote
+class DHCPMv1TestsTCPTransport(DHCPMv1Tests, unittest.TestCase):
+    protocol = "ncacn_ip_tcp"
+    string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
+    transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+
+
+@pytest.mark.remote
+class DHCPMv2TestsTCPTransport(DHCPMv2Tests, unittest.TestCase):
+    protocol = "ncacn_ip_tcp"
+    string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
+    transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+
+
+@pytest.mark.remote
+class DHCPMv1TestsTCPTransport64(DHCPMv1Tests, unittest.TestCase):
+    protocol = "ncacn_ip_tcp"
+    string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
+    transfer_syntax = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+
+
+@pytest.mark.remote
+class DHCPMv2TestsTCPTransport64(DHCPMv2Tests, unittest.TestCase):
+    protocol = "ncacn_ip_tcp"
+    string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
+    transfer_syntax = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 
 
 # Process command-line arguments.
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=1)

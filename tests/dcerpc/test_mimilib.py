@@ -14,101 +14,134 @@
 #
 import pytest
 import unittest
-from tests import RemoteTestCase
+from tests.dcerpc import DCERPCTests
 
-from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import mimilib, epm
-from impacket.winregistry import hexdump
+from Cryptodome.Cipher import ARC4
+
+from impacket.dcerpc.v5 import mimilib
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
 
-class RRPTests(RemoteTestCase):
+@pytest.mark.remote
+class MimiKatzTests(DCERPCTests, unittest.TestCase):
+    timeout = 30000
+    iface_uuid = mimilib.MSRPC_UUID_MIMIKATZ
+    transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+    protocol = "ncacn_ip_tcp"
+    mimikatz_command = "token::whoami"
 
-    def connect(self):
-        rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        rpctransport.set_connect_timeout(30000)
-        #if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-        #    rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
-        dce = rpctransport.get_dce_rpc()
-        #dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
-        dce.connect()
-        dce.bind(mimilib.MSRPC_UUID_MIMIKATZ, transfer_syntax = self.ts)
+    def get_dh_public_key(self):
         dh = mimilib.MimiDiffeH()
         blob = mimilib.PUBLICKEYBLOB()
         blob['y'] = dh.genPublicKey()[::-1]
-        request = mimilib.MimiBind()
-        request['clientPublicKey']['sessionType'] = mimilib.CALG_RC4
-        request['clientPublicKey']['cbPublicKey'] = 144
-        request['clientPublicKey']['pbPublicKey'] = blob.getData()
-        resp = dce.request(request)
+        public_key = mimilib.MIMI_PUBLICKEY()
+        public_key['sessionType'] = mimilib.CALG_RC4
+        public_key['cbPublicKey'] = 144
+        public_key['pbPublicKey'] = blob.getData()
+        return dh, public_key
+
+    def get_handle_key(self, dce):
+        # Build handshake request
+        dh, public_key = self.get_dh_public_key()
+        resp = mimilib.hMimiBind(dce, public_key)
+        # Get shared secret and obtain handle
         blob = mimilib.PUBLICKEYBLOB(b''.join(resp['serverPublicKey']['pbPublicKey']))
         key = dh.getSharedSecret(blob['y'][::-1])
         pHandle = resp['phMimi']
-
-        return dce, rpctransport, pHandle, key[-16:]
+        return pHandle, key[-16:]
 
     def test_MimiBind(self):
-        dce, rpctransport, pHandle, key = self.connect()
-        dh = mimilib.MimiDiffeH()
-        print('Our Public')
-        print('='*80)
-        hexdump(dh.genPublicKey())
+        dce, rpc_transport = self.connect()
+        dh, public_key = self.get_dh_public_key()
 
-        blob = mimilib.PUBLICKEYBLOB()
-        blob['y'] = dh.genPublicKey()[::-1]
         request = mimilib.MimiBind()
-        request['clientPublicKey']['sessionType'] = mimilib.CALG_RC4
-        request['clientPublicKey']['cbPublicKey'] = 144
-        request['clientPublicKey']['pbPublicKey'] = blob.getData()
-
+        request['clientPublicKey'] = public_key
+        # Send request and get response
         resp = dce.request(request)
+        self.assertEqual(resp["ErrorCode"], 0)
+        self.assertEqual(resp["serverPublicKey"]["sessionType"], mimilib.CALG_RC4)
+
+        # Get shared secret and obtain handle
         blob = mimilib.PUBLICKEYBLOB(b''.join(resp['serverPublicKey']['pbPublicKey']))
-        print('='*80)
-        print('Server Public')
-        hexdump(blob['y'])
-        print('='*80)
-        print('Shared')
-        hexdump(dh.getSharedSecret(blob['y'][::-1]))
-        resp.dump()
+        key = dh.getSharedSecret(blob['y'][::-1])
+        pHandle = resp['phMimi']
+        self.assertIsInstance(pHandle, bytes)
+        self.assertIsInstance(key, bytes)
+
+        dce.disconnect()
+        rpc_transport.disconnect()
+
+    def test_hMimiBind(self):
+        dce, rpc_transport = self.connect()
+        dh, public_key = self.get_dh_public_key()
+
+        resp = mimilib.hMimiBind(dce, public_key)
+        self.assertEqual(resp["ErrorCode"], 0)
+        self.assertEqual(resp["serverPublicKey"]["sessionType"], mimilib.CALG_RC4)
+
+        dce.disconnect()
+        rpc_transport.disconnect()
 
     def test_MimiCommand(self):
-        dce, rpctransport, pHandle, key = self.connect()
-        from Cryptodome.Cipher import ARC4
+        dce, rpc_transport = self.connect()
+        pHandle, key = self.get_handle_key(dce)
+
         cipher = ARC4.new(key[::-1])
-        command = cipher.encrypt('token::whoami\x00'.encode('utf-16le'))
-        #command = cipher.encrypt('sekurlsa::logonPasswords\x00'.encode('utf-16le'))
-        #command = cipher.encrypt('process::imports\x00'.encode('utf-16le'))
+        command = cipher.encrypt("{}\x00".format(self.mimikatz_command).encode('utf-16le'))
         request = mimilib.MimiCommand()
         request['phMimi'] = pHandle
         request['szEncCommand'] = len(command)
         request['encCommand'] = list(command)
+
         resp = dce.request(request)
+        self.assertEqual(resp["ErrorCode"], 0)
+        self.assertEqual(len(resp["encResult"]), resp["szEncResult"])
+
         cipherText = b''.join(resp['encResult'])
         cipher = ARC4.new(key[::-1])
         plain = cipher.decrypt(cipherText)
-        print('='*80)
-        print(plain)
-        #resp.dump()
+
+        dce.disconnect()
+        rpc_transport.disconnect()
+
+    def test_hMimiCommand(self):
+        dce, rpc_transport = self.connect()
+        pHandle, key = self.get_handle_key(dce)
+
+        cipher = ARC4.new(key[::-1])
+        command = cipher.encrypt("{}\x00".format(self.mimikatz_command).encode('utf-16le'))
+        resp = mimilib.hMimiCommand(dce, pHandle, command)
+        self.assertEqual(resp["ErrorCode"], 0)
+        self.assertEqual(len(resp["encResult"]), resp["szEncResult"])
+
+        dce.disconnect()
+        rpc_transport.disconnect()
 
     def test_MimiUnBind(self):
-        dce, rpctransport, pHandle, key = self.connect()
+        dce, rpc_transport = self.connect()
+        pHandle, key = self.get_handle_key(dce)
+
         request = mimilib.MimiUnbind()
         request['phMimi'] = pHandle
-        hexdump(request.getData())
+
         resp = dce.request(request)
-        resp.dump()
+        self.assertEqual(resp["ErrorCode"], 0)
+
+        dce.disconnect()
+        rpc_transport.disconnect()
 
 
-@pytest.mark.remote
-class TCPTransport(RRPTests, unittest.TestCase):
-
-    def setUp(self):
-        super(TCPTransport, self).setUp()
-        self.set_transport_config()
-        self.stringBinding = epm.hept_map(self.machine, mimilib.MSRPC_UUID_MIMIKATZ, protocol='ncacn_ip_tcp')
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+class MimiKatzTestsAuthn(MimiKatzTests):
+    authn = True
 
 
-# Process command-line arguments.
-if __name__ == '__main__':
+class MimiKatzTestsIntegrity(MimiKatzTestsAuthn):
+    authn_level = RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
+
+
+class MimiKatzTestsPrivacy(MimiKatzTestsAuthn):
+    authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+
+
+if __name__ == "__main__":
     unittest.main(verbosity=1)
