@@ -213,7 +213,10 @@ You can use self-signed certificates by:
 ### Mimilib configuration
 
 [Mimilib](https://github.com/gentilkiwi/mimikatz/tree/master/mimilib) test
-cases require the service to be installed on the target Domain Controller. 
+cases require the service to be installed on the target Domain Controller. You can
+do that by running Mimikatz with an elevated user and executing:
+
+        mimikatz # rpc::server
 
 
 Configure Remote Test Cases
