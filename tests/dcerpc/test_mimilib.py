@@ -7,10 +7,9 @@
 # for more information.
 #
 # Tested so far:
-#
-# Not yet:
-#
-# Shouldn't dump errors against a win7
+#   (h)MimiBind
+#   (h)MimiCommand
+#   (h)MimiUnBind
 #
 import pytest
 import unittest

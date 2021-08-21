@@ -7,25 +7,15 @@
 # for more information.
 #
 # Tested so far:
-#   ElfrOpenBELW
-#   hElfrOpenBELW
-#   ElfrOpenELW
-#   hElfrOpenELW
-#   ElfrRegisterEventSourceW
-#   hElfrRegisterEventSourceW
-#   ElfrReadELW
-#   hElfrReadELW
-#   ElfrClearELFW
-#   hElfrClearELFW
-#   ElfrBackupELFW
-#   hElfrBackupELFW
+#   (h)ElfrOpenBELW
+#   (h)ElfrOpenELW
+#   (h)ElfrRegisterEventSourceW
+#   (h)ElfrReadELW
+#   (h)ElfrClearELFW
+#   (h)ElfrBackupELFW
 #   ElfrReportEventW
 #   hElfrNumberOfRecords
 #   hElfrOldestRecordNumber
-# 
-# Not yet:
-#
-# Shouldn't dump errors against a win7
 #
 from __future__ import division
 from __future__ import print_function

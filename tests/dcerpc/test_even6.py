@@ -7,10 +7,8 @@
 # for more information.
 #
 # Tested so far:
-#   EvtRpcRegisterLogQuery
-#   hEvtRpcRegisterLogQuery
-#   EvtRpcQueryNext
-#   hEvtRpcQueryNext
+#   (h)EvtRpcRegisterLogQuery
+#   (h)EvtRpcQueryNext
 #
 from __future__ import division
 from __future__ import print_function

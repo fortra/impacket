@@ -7,42 +7,34 @@
 # for more information.
 #
 # Tested so far:
-#   LsarGetUserName
-#   LsarLookupNames
-#   LsarLookupSids
-#   LsarLookupSids2
-#   LsarLookupNames3
-#   LsarLookupNames2
-#
-# Not yet:
-#   LsarLookupNames4
-#   LsarLookupSids3
-# 
-# Shouldn't dump errors against a win7
+#   (h)LsarGetUserName
+#   (h)LsarLookupNames
+#   (h)LsarLookupNames2
+#   (h)LsarLookupNames3
+#   (h)LsarLookupNames4
+#   (h)LsarLookupSids
+#   (h)LsarLookupSids2
+#   (h)LsarLookupSids3
 #
 from __future__ import division
 from __future__ import print_function
 import pytest
 import unittest
-from tests import RemoteTestCase
+from six import assertRaisesRegex
+from tests.dcerpc import DCERPCTests
 
-from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import lsat
-from impacket.dcerpc.v5 import lsad
+from impacket.dcerpc.v5 import lsat, lsad
+from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.dcerpc.v5.dtypes import NULL, MAXIMUM_ALLOWED, RPC_UNICODE_STRING
 
 
-class LSATTests(RemoteTestCase):
+class LSATTests(DCERPCTests):
+    iface_uuid = lsat.MSRPC_UUID_LSAT
+    string_binding = r"ncacn_np:{0.machine}[\PIPE\lsarpc]"
+    string_binding_formatting = DCERPCTests.STRING_BINDING_FORMATTING
+    authn = True
 
-    def connect(self):
-        rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username, self.password, self.domain, self.lmhash, self.nthash)
-        dce = rpctransport.get_dce_rpc()
-        #dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
-        dce.connect()
-        dce.bind(lsat.MSRPC_UUID_LSAT, transfer_syntax = self.ts)
+    def open_policy(self, dce):
         request = lsad.LsarOpenPolicy2()
         request['SystemName'] = NULL
         request['ObjectAttributes']['RootDirectory'] = NULL
@@ -51,12 +43,10 @@ class LSATTests(RemoteTestCase):
         request['ObjectAttributes']['SecurityQualityOfService'] = NULL
         request['DesiredAccess'] = MAXIMUM_ALLOWED | lsat.POLICY_LOOKUP_NAMES
         resp = dce.request(request)
-
-        return dce, rpctransport, resp['PolicyHandle']
+        return resp['PolicyHandle']
 
     def test_LsarGetUserName(self):
-        dce, rpctransport, policyHandle = self.connect()
-
+        dce, rpctransport = self.connect()
         request = lsat.LsarGetUserName()
         request['SystemName'] = NULL
         request['UserName'] = NULL
@@ -65,14 +55,12 @@ class LSATTests(RemoteTestCase):
         resp.dump()
 
     def test_hLsarGetUserName(self):
-        dce, rpctransport, policyHandle = self.connect()
-
+        dce, rpctransport = self.connect()
         resp = lsat.hLsarGetUserName(dce)
         resp.dump()
 
     def test_LsarLookupNames4(self):
-        # not working, I need netlogon here
-        dce, rpctransport, policyHandle = self.connect()
+        dce, rpctransport = self.connect()
 
         request = lsat.LsarLookupNames4()
         request['Count'] = 2
@@ -86,36 +74,30 @@ class LSATTests(RemoteTestCase):
         request['LookupLevel'] = lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta
         request['LookupOptions'] = 0x00000000
         request['ClientRevision'] = 0x00000001
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider 
-            # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least 
-            # RPC_C_AUTHN_LEVEL_PKT_INTEGRITY authentication level (as specified in 
-            # [MS-RPCE] section 2.2.1.1.8) are used in this RPC message. 
-            # Otherwise, the RPC server MUST return STATUS_ACCESS_DENIED.
-            if str(e).find('rpc_s_access_denied') < 0:
-                raise
+
+        # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider
+        # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least
+        # RPC_C_AUTHN_LEVEL_PKT_INTEGRITY authentication level (as specified in
+        # [MS-RPCE] section 2.2.1.1.8) are used in this RPC message.
+        # Otherwise, the RPC server MUST return STATUS_ACCESS_DENIED.
+        with assertRaisesRegex(self, DCERPCException, 'rpc_s_access_denied'):
+            dce.request(request)
 
     def test_hLsarLookupNames4(self):
         # not working, I need netlogon here
-        dce, rpctransport, policyHandle = self.connect()
+        dce, rpctransport = self.connect()
 
-        try:
-            resp = lsat.hLsarLookupNames4(dce, ('Administrator', 'Guest'))
-            resp.dump()
-        except Exception as e:
-            # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider 
-            # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least 
-            # RPC_C_AUTHN_LEVEL_PKT_INTEGRITY authentication level (as specified in 
-            # [MS-RPCE] section 2.2.1.1.8) are used in this RPC message. 
-            # Otherwise, the RPC server MUST return STATUS_ACCESS_DENIED.
-            if str(e).find('rpc_s_access_denied') < 0:
-                raise
+        # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider
+        # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least
+        # RPC_C_AUTHN_LEVEL_PKT_INTEGRITY authentication level (as specified in
+        # [MS-RPCE] section 2.2.1.1.8) are used in this RPC message.
+        # Otherwise, the RPC server MUST return STATUS_ACCESS_DENIED.
+        with assertRaisesRegex(self, DCERPCException, 'rpc_s_access_denied'):
+            lsat.hLsarLookupNames4(dce, ('Administrator', 'Guest'))
 
     def test_LsarLookupNames3(self):
-        dce, rpctransport, policyHandle = self.connect()
+        dce, rpctransport = self.connect()
+        policyHandle = self.open_policy(dce)
 
         request = lsat.LsarLookupNames3()
         request['PolicyHandle'] = policyHandle
@@ -134,13 +116,15 @@ class LSATTests(RemoteTestCase):
         resp.dump()
 
     def test_hLsarLookupNames3(self):
-        dce, rpctransport, policyHandle = self.connect()
+        dce, rpctransport = self.connect()
+        policyHandle = self.open_policy(dce)
 
         resp = lsat.hLsarLookupNames3(dce, policyHandle, ('Administrator', 'Guest'))
         resp.dump()
 
     def test_LsarLookupNames2(self):
-        dce, rpctransport, policyHandle = self.connect()
+        dce, rpctransport = self.connect()
+        policyHandle = self.open_policy(dce)
 
         request = lsat.LsarLookupNames2()
         request['PolicyHandle'] = policyHandle
@@ -159,19 +143,22 @@ class LSATTests(RemoteTestCase):
         resp.dump()
 
     def test_hLsarLookupNames2(self):
-        dce, rpctransport, policyHandle = self.connect()
+        dce, rpctransport = self.connect()
+        policyHandle = self.open_policy(dce)
 
         resp = lsat.hLsarLookupNames2(dce, policyHandle, ('Administrator', 'Guest'))
         resp.dump()
 
     def test_hLsarLookupNames(self):
-        dce, rpctransport, policyHandle = self.connect()
+        dce, rpctransport = self.connect()
+        policyHandle = self.open_policy(dce)
 
         resp = lsat.hLsarLookupNames(dce, policyHandle, ('Administrator', 'Guest'))
         resp.dump()
 
     def test_LsarLookupNames(self):
-        dce, rpctransport, policyHandle = self.connect()
+        dce, rpctransport = self.connect()
+        policyHandle = self.open_policy(dce)
 
         request = lsat.LsarLookupNames()
         request['PolicyHandle'] = policyHandle
@@ -188,8 +175,8 @@ class LSATTests(RemoteTestCase):
         resp.dump()
 
     def test_LsarLookupSids3(self):
-        # not working, I need netlogon here
-        dce, rpctransport, policyHandle = self.connect()
+        dce, rpctransport = self.connect()
+        policyHandle = self.open_policy(dce)
 
         request = lsat.LsarLookupNames()
         request['PolicyHandle'] = policyHandle
@@ -215,20 +202,18 @@ class LSATTests(RemoteTestCase):
         request['LookupLevel'] = lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta
         request['LookupOptions'] = 0x00000000
         request['ClientRevision'] = 0x00000001
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider 
-            # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least 
-            # RPC_C_AUTHN_LEVEL_PKT_INTEGRITY authentication level (as specified in 
-            # [MS-RPCE] section 2.2.1.1.8) are used in this RPC message. 
-            # Otherwise, the RPC server MUST return STATUS_ACCESS_DENIED.
-            if str(e).find('rpc_s_access_denied') < 0:
-                raise
+
+        # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider
+        # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least
+        # RPC_C_AUTHN_LEVEL_PKT_INTEGRITY authentication level (as specified in
+        # [MS-RPCE] section 2.2.1.1.8) are used in this RPC message.
+        # Otherwise, the RPC server MUST return STATUS_ACCESS_DENIED.
+        with assertRaisesRegex(self, DCERPCException, 'rpc_s_access_denied'):
+            dce.request(request)
 
     def test_LsarLookupSids2(self):
-        dce, rpctransport, policyHandle = self.connect()
+        dce, rpctransport = self.connect()
+        policyHandle = self.open_policy(dce)
 
         request = lsat.LsarLookupNames()
         request['PolicyHandle'] = policyHandle
@@ -259,7 +244,8 @@ class LSATTests(RemoteTestCase):
         resp.dump()
 
     def test_hLsarLookupSids2(self):
-        dce, rpctransport, policyHandle = self.connect()
+        dce, rpctransport = self.connect()
+        policyHandle = self.open_policy(dce)
 
         resp = lsat.hLsarLookupNames(dce, policyHandle, ('Administrator',))
         resp.dump()
@@ -271,7 +257,8 @@ class LSATTests(RemoteTestCase):
         resp.dump()
 
     def test_LsarLookupSids(self):
-        dce, rpctransport, policyHandle = self.connect()
+        dce, rpctransport = self.connect()
+        policyHandle = self.open_policy(dce)
 
         request = lsat.LsarLookupNames()
         request['PolicyHandle'] = policyHandle
@@ -294,18 +281,13 @@ class LSATTests(RemoteTestCase):
             request['SidEnumBuffer']['Entries'] += 1
         request['TranslatedNames']['Names'] = NULL
         request['LookupLevel'] = lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_SOME_NOT_MAPPED') < 0:
-                raise
-            else:
-                resp = e.get_packet()
-                resp.dump()
+
+        with assertRaisesRegex(self, DCERPCException, 'STATUS_SOME_NOT_MAPPED'):
+            dce.request(request)
 
     def test_hLsarLookupSids(self):
-        dce, rpctransport, policyHandle = self.connect()
+        dce, rpctransport = self.connect()
+        policyHandle = self.open_policy(dce)
 
         resp = lsat.hLsarLookupNames(dce, policyHandle, ('Administrator',))
         resp.dump()
@@ -314,35 +296,21 @@ class LSATTests(RemoteTestCase):
         sids = list()
         for i in range(1000):
             sids.append(domainSid + '-%d' % (500+i))
-        try:
-            resp = lsat.hLsarLookupSids(dce, policyHandle, sids )
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_SOME_NOT_MAPPED') < 0:
-                raise
-            else:
-                resp = e.get_packet()
-                resp.dump()
+
+        with assertRaisesRegex(self, DCERPCException, 'STATUS_SOME_NOT_MAPPED'):
+            lsat.hLsarLookupSids(dce, policyHandle, sids)
 
 
 @pytest.mark.remote
-class SMBTransport(LSATTests, unittest.TestCase):
-
-    def setUp(self):
-        super(SMBTransport, self).setUp()
-        self.set_transport_config()
-        self.stringBinding = r'ncacn_np:%s[\PIPE\lsarpc]' % self.machine
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+class LSATTestsSMBTransport(LSATTests, unittest.TestCase):
+    transfer_syntax = ("8a885d04-1ceb-11c9-9fe8-08002b104860", "2.0")
 
 
 @pytest.mark.remote
-class SMBTransport64(SMBTransport):
-
-    def setUp(self):
-        super(SMBTransport64, self).setUp()
-        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+class LSATTestsSMBTransport64(LSATTests, unittest.TestCase):
+    transfer_syntax = ("71710533-BEBA-4937-8319-B5DBEF9CCC36", "1.0")
 
 
 # Process command-line arguments.
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=1)

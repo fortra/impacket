@@ -31,6 +31,7 @@ class DCERPCTests(RemoteTestCase):
     string_binding = None
     string_binding_formatting = STRING_BINDING_MAPPER
     transfer_syntax = None
+    machine_account = False
 
     def connect(self):
         """Obtains a RPC Transport and a DCE interface according to the bindings and
@@ -64,14 +65,16 @@ class DCERPCTests(RemoteTestCase):
         dce.connect()
 
         # Bind if specified
-        if self.iface_uuid:
+        if self.iface_uuid and self.transfer_syntax:
             dce.bind(self.iface_uuid, transfer_syntax=self.transfer_syntax)
+        elif self.iface_uuid:
+            dce.bind(self.iface_uuid)
 
         return dce, rpc_transport
 
     def setUp(self):
         super(DCERPCTests, self).setUp()
-        self.set_transport_config()
+        self.set_transport_config(machine_account=self.machine_account)
 
         if self.string_binding_formatting == self.STRING_BINDING_FORMATTING:
             self.string_binding = self.string_binding.format(self)

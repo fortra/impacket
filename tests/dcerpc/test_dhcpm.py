@@ -7,12 +7,10 @@
 # for more information.
 #
 # Tested so far:
-#   DhcpGetClientInfoV4
-#   hDhcpGetClientInfoV4
+#   (h)DhcpGetClientInfoV4
 #   DhcpV4GetClientInfo
 #   hDhcpEnumSubnetClientsV5
 #   hDhcpGetOptionValueV5
-# Not yet:
 #
 from __future__ import division
 from __future__ import print_function

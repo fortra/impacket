@@ -7,10 +7,7 @@
 # for more information.
 #
 # Tested so far:
-#   BackuprKey
-#   hBackuprKey
-# 
-# Shouldn't dump errors against a win7
+#   (h)BackuprKey
 #
 from __future__ import division
 from __future__ import print_function

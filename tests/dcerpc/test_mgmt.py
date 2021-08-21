@@ -7,33 +7,29 @@
 # for more information.
 #
 # Tested so far:
-#
-# Not yet:
-#
-# Shouldn't dump errors against a win7
+#   (h)inq_if_ids
+#   (h)inq_if_ids
+#   (h)inq_stats
+#   (h)is_server_listening
+#   (h)stop_server_listening
+#   (h)inq_princ_name
 #
 from __future__ import division
 from __future__ import print_function
 import pytest
 import unittest
-from tests import RemoteTestCase
+from six import assertRaisesRegex
+from tests.dcerpc import DCERPCTests
 
-from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import mgmt
+from impacket.dcerpc.v5.rpcrt import DCERPCException
 
 
-class MGMTTests(RemoteTestCase):
-
-    def connect(self):
-        rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username, self.password, self.domain, self.lmhash, self.nthash)
-        dce = rpctransport.get_dce_rpc()
-        dce.connect()
-        dce.bind(mgmt.MSRPC_UUID_MGMT, transfer_syntax = self.ts)
-
-        return dce, rpctransport
+class MGMTTests(DCERPCTests):
+    iface_uuid = mgmt.MSRPC_UUID_MGMT
+    string_binding = r"ncacn_np:{0.machine}[\pipe\epmapper]"
+    string_binding_formatting = DCERPCTests.STRING_BINDING_FORMATTING
+    authn = True
 
     def test_inq_if_ids(self):
         dce, transport = self.connect()
@@ -82,22 +78,14 @@ class MGMTTests(RemoteTestCase):
         dce, transport = self.connect()
 
         request = mgmt.stop_server_listening()
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('rpc_s_access_denied') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "rpc_s_access_denied"):
+            dce.request(request)
 
     def test_hstop_server_listening(self):
         dce, transport = self.connect()
 
-        try:
-            resp = mgmt.hstop_server_listening(dce)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('rpc_s_access_denied') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "rpc_s_access_denied"):
+            mgmt.hstop_server_listening(dce)
 
     def test_inq_princ_name(self):
         dce, transport = self.connect()
@@ -116,41 +104,27 @@ class MGMTTests(RemoteTestCase):
 
 
 @pytest.mark.remote
-class SMBTransport(MGMTTests, unittest.TestCase):
-
-    def setUp(self):
-        super(SMBTransport, self).setUp()
-        self.set_transport_config()
-        self.stringBinding = r'ncacn_np:%s[\pipe\epmapper]' % self.machine
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+class MGMTTestsSMBTransport(MGMTTests, unittest.TestCase):
+    transfer_syntax = ("8a885d04-1ceb-11c9-9fe8-08002b104860", "2.0")
 
 
 @pytest.mark.remote
-class SMBTransport64(SMBTransport):
-
-    def setUp(self):
-        super(SMBTransport64, self).setUp()
-        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+class MGMTTestsSMBTransport64(MGMTTests, unittest.TestCase):
+    transfer_syntax = ("71710533-BEBA-4937-8319-B5DBEF9CCC36", "1.0")
 
 
 @pytest.mark.remote
-class TCPTransport(MGMTTests, unittest.TestCase):
-
-    def setUp(self):
-        super(TCPTransport, self).setUp()
-        self.set_transport_config()
-        self.stringBinding = r'ncacn_ip_tcp:%s[135]' % self.machine
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+class MGMTTestsTCPTransport(MGMTTests, unittest.TestCase):
+    transfer_syntax = ("8a885d04-1ceb-11c9-9fe8-08002b104860", "2.0")
+    string_binding = r"ncacn_ip_tcp:{0.machine}[135]"
 
 
 @pytest.mark.remote
-class TCPTransport64(TCPTransport):
-
-    def setUp(self):
-        super(TCPTransport64, self).setUp()
-        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+class MGMTTestsTCPTransport64(MGMTTests, unittest.TestCase):
+    transfer_syntax = ("71710533-BEBA-4937-8319-B5DBEF9CCC36", "1.0")
+    string_binding = r"ncacn_ip_tcp:{0.machine}[135]"
 
 
 # Process command-line arguments.
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=1)
