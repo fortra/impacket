@@ -425,7 +425,7 @@ if __name__ == '__main__':
         socks_thread.start()
         threads.add(socks_thread)
 
-    c = start_servers(options, threads) #This is the start of the do_commands. Is it possible we can access the activeRelays in the class SOCKS these threads are built from?
+    c = start_servers(options, threads)
 
     print("")
     logging.info("Servers started, waiting for connections")
