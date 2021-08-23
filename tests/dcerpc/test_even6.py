@@ -25,7 +25,6 @@ from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 class EVEN6Tests(DCERPCTests):
     iface_uuid = even6.MSRPC_UUID_EVEN6
     string_binding = r"ncacn_np:{0.machine}[\PIPE\eventlog]"
-    string_binding_formatting = DCERPCTests.STRING_BINDING_FORMATTING
     authn = True
     authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 

@@ -36,7 +36,6 @@ from impacket.dcerpc.v5.dcom import scmp, vds, oaut, comev
 class DCOMTests(DCERPCTests):
 
     string_binding = r"ncacn_ip_tcp:{0.machine}"
-    string_binding_formatting = DCERPCTests.STRING_BINDING_FORMATTING
     authn = True
     authn_level = ntlm.NTLM_AUTH_PKT_INTEGRITY
 

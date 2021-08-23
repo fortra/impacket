@@ -34,7 +34,6 @@ class RRPTests(DCERPCTests):
 
     iface_uuid = even.MSRPC_UUID_EVEN
     string_binding = r"ncacn_np:{0.machine}[\PIPE\eventlog]"
-    string_binding_formatting = DCERPCTests.STRING_BINDING_FORMATTING
     authn = True
 
     def test_ElfrOpenBELW(self):

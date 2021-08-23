@@ -881,15 +881,15 @@ class NRPCTests(DCERPCTests):
 
 
 @pytest.mark.remote
-class NRPCTestsTCPTransport(NRPCTests, unittest.TestCase):
-    protocol = "ncacn_ip_tcp"
-    string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
-
-
-@pytest.mark.remote
 class NRPCTestsSMBTransport(NRPCTests, unittest.TestCase):
     string_binding = r"ncacn_np:{0.machine}[\PIPE\netlogon]"
     string_binding_formatting = DCERPCTests.STRING_BINDING_FORMATTING
+
+
+@pytest.mark.remote
+class NRPCTestsTCPTransport(NRPCTests, unittest.TestCase):
+    protocol = "ncacn_ip_tcp"
+    string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
 
 
 # Process command-line arguments.

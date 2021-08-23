@@ -7,47 +7,29 @@
 # for more information.
 #
 # Tested so far:
-#   RpcOpenPrinterEx
-#   hRpcOpenPrinterEx
-#   RpcOpenPrinter
-#   hRpcOpenPrinter
-#   RpcRemoteFindFirstPrinterChangeNotificationEx
-#   hRpcRemoteFindFirstPrinterChangeNotificationEx
-#   hRpcClosePrinter
-#   RpcClosePrinter
-#   RpcEnumPrinters
-#
-# Not yet:
-#
-# Shouldn't dump errors against a win7
+#   (h)RpcOpenPrinterEx
+#   (h)RpcOpenPrinter
+#   (h)RpcRemoteFindFirstPrinterChangeNotificationEx
+#   (h)RpcClosePrinter
+#   (h)RpcEnumPrinters
 #
 from __future__ import division
 from __future__ import print_function
 
 import pytest
 import unittest
-from tests import RemoteTestCase
+from six import assertRaisesRegex
+from tests.dcerpc import DCERPCTests
 
 from impacket.dcerpc.v5 import rprn
-from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.structure import hexdump
 
 
-class RPRNTests(RemoteTestCase):
-
-    def connect(self):
-        rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username,self.password, self.domain, self.lmhash, self.nthash)
-        dce = rpctransport.get_dce_rpc()
-        #dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
-        dce.connect()
-        dce.bind(rprn.MSRPC_UUID_RPRN, transfer_syntax = self.ts)
-        #resp = rrp.hOpenLocalMachine(dce, MAXIMUM_ALLOWED | rrp.KEY_WOW64_32KEY | rrp.KEY_ENUMERATE_SUB_KEYS)
-
-        return dce, rpctransport#, resp['phKey']
+class RPRNTests(DCERPCTests):
+    iface_uuid = rprn.MSRPC_UUID_RPRN
+    string_binding = r'ncacn_np:{0.machine}[\PIPE\spoolss]'
+    authn = True
 
     def test_RpcEnumPrinters(self):
         dce, rpctransport = self.connect()
@@ -57,14 +39,10 @@ class RPRNTests(RemoteTestCase):
         request['pPrinterEnum'] = NULL
         request['Level'] = 1
         request.dump()
-        bytesNeeded = 0
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except rprn.DCERPCSessionError as e:
-            if str(e).find('ERROR_INSUFFICIENT_BUFFER') < 0:
-                raise
-            bytesNeeded = e.get_packet()['pcbNeeded']
+
+        with assertRaisesRegex(self, rprn.DCERPCSessionError, "ERROR_INSUFFICIENT_BUFFER") as cm:
+            dce.request(request)
+        bytesNeeded = cm.exception.get_packet()['pcbNeeded']
 
         request = rprn.RpcEnumPrinters()
         request['Flags'] = rprn.PRINTER_ENUM_LOCAL
@@ -87,7 +65,7 @@ class RPRNTests(RemoteTestCase):
     def test_RpcOpenPrinter(self):
         dce, rpctransport = self.connect()
         request = rprn.RpcOpenPrinter()
-        request['pPrinterName'] = '\\\\%s\x00' % self.machine
+        request['pPrinterName'] = "\\\\%s\x00" % self.machine
         request['pDatatype'] = NULL
         request['pDevModeContainer']['pDevMode'] = NULL
         request['AccessRequired'] = rprn.SERVER_READ
@@ -99,7 +77,7 @@ class RPRNTests(RemoteTestCase):
         dce, rpctransport = self.connect()
 
         request = rprn.RpcOpenPrinter()
-        request['pPrinterName'] = '\\\\%s\x00' % self.machine
+        request['pPrinterName'] = "\\\\%s\x00" % self.machine
         request['pDatatype'] = NULL
         request['pDevModeContainer']['pDevMode'] = NULL
         request['AccessRequired'] = rprn.SERVER_READ
@@ -120,7 +98,7 @@ class RPRNTests(RemoteTestCase):
 
     def test_hRpcClosePrinter(self):
         dce, rpctransport = self.connect()
-        resp = rprn.hRpcOpenPrinter(dce, '\\\\%s\x00' % self.machine)
+        resp = rprn.hRpcOpenPrinter(dce, "\\\\%s\x00" % self.machine)
         resp.dump()
         resp = rprn.hRpcClosePrinter(dce, resp['pHandle'])
         resp.dump()
@@ -128,15 +106,15 @@ class RPRNTests(RemoteTestCase):
     def test_RpcOpenPrinterEx(self):
         dce, rpctransport = self.connect()
         request = rprn.RpcOpenPrinterEx()
-        request['pPrinterName'] = '\\\\%s\x00' % self.machine
+        request['pPrinterName'] = "\\\\%s\x00" % self.machine
         request['pDatatype'] = NULL
         request['AccessRequired'] = rprn.SERVER_READ
         request['pDevModeContainer']['pDevMode'] = NULL
         request['pClientInfo']['Level'] = 1
         request['pClientInfo']['ClientInfo']['tag'] = 1
         request['pClientInfo']['ClientInfo']['pClientInfo1']['dwSize'] = 28
-        request['pClientInfo']['ClientInfo']['pClientInfo1']['pMachineName'] = '%s\x00' % self.machine
-        request['pClientInfo']['ClientInfo']['pClientInfo1']['pUserName'] = '%s\\%s\x00' % (self.domain, self.username)
+        request['pClientInfo']['ClientInfo']['pClientInfo1']['pMachineName'] = "%s\x00" % self.machine
+        request['pClientInfo']['ClientInfo']['pClientInfo1']['pUserName'] = "%s\\%s\x00" % (self.domain, self.username)
         request['pClientInfo']['ClientInfo']['pClientInfo1']['dwBuildNum'] = 0x0
         request['pClientInfo']['ClientInfo']['pClientInfo1']['dwMajorVersion'] = 0x00000000
         request['pClientInfo']['ClientInfo']['pClientInfo1']['dwMinorVersion'] = 0x00000000
@@ -151,21 +129,21 @@ class RPRNTests(RemoteTestCase):
         clientInfo['Level'] = 1
         clientInfo['ClientInfo']['tag'] = 1
         clientInfo['ClientInfo']['pClientInfo1']['dwSize'] = 28
-        clientInfo['ClientInfo']['pClientInfo1']['pMachineName'] = '%s\x00' % self.machine
-        clientInfo['ClientInfo']['pClientInfo1']['pUserName'] = '%s\\%s\x00' % (self.domain, self.username)
+        clientInfo['ClientInfo']['pClientInfo1']['pMachineName'] = "%s\x00" % self.machine
+        clientInfo['ClientInfo']['pClientInfo1']['pUserName'] = "%s\\%s\x00" % (self.domain, self.username)
         clientInfo['ClientInfo']['pClientInfo1']['dwBuildNum'] = 0x0
         clientInfo['ClientInfo']['pClientInfo1']['dwMajorVersion'] = 0x00000000
         clientInfo['ClientInfo']['pClientInfo1']['dwMinorVersion'] = 0x00000000
         clientInfo['ClientInfo']['pClientInfo1']['wProcessorArchitecture'] = 0x0009
 
-        resp = rprn.hRpcOpenPrinterEx(dce, '\\\\%s\x00' % self.machine, pClientInfo=clientInfo)
+        resp = rprn.hRpcOpenPrinterEx(dce, "\\\\%s\x00" % self.machine, pClientInfo=clientInfo)
         resp.dump()
 
     def test_RpcRemoteFindFirstPrinterChangeNotificationEx(self):
         dce, rpctransport = self.connect()
 
         request = rprn.RpcOpenPrinter()
-        request['pPrinterName'] = '\\\\%s\x00' % self.machine
+        request['pPrinterName'] = "\\\\%s\x00" % self.machine
         request['pDatatype'] = NULL
         request['pDevModeContainer']['pDevMode'] = NULL
         request['AccessRequired'] = rprn.SERVER_READ | rprn.SERVER_ALL_ACCESS | rprn.SERVER_ACCESS_ADMINISTER
@@ -174,50 +152,35 @@ class RPRNTests(RemoteTestCase):
         resp.dump()
 
         request = rprn.RpcRemoteFindFirstPrinterChangeNotificationEx()
-        request['hPrinter'] =  resp['pHandle']
-        request['fdwFlags'] =  rprn.PRINTER_CHANGE_ADD_JOB
-        request['pszLocalMachine'] =  '\\\\%s\x00' % self.machine
-        request['pOptions'] =  NULL
+        request['hPrinter'] = resp['pHandle']
+        request['fdwFlags'] = rprn.PRINTER_CHANGE_ADD_JOB
+        request['pszLocalMachine'] = "\\\\%s\x00" % self.machine
+        request['pOptions'] = NULL
         request.dump()
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('ERROR_INVALID_HANDLE') < 0:
-                raise
+        with assertRaisesRegex(self, rprn.DCERPCSessionError, "ERROR_INVALID_HANDLE"):
+            dce.request(request)
 
     def test_hRpcRemoteFindFirstPrinterChangeNotificationEx(self):
         dce, rpctransport = self.connect()
 
-        resp = rprn.hRpcOpenPrinter(dce, '\\\\%s\x00' % self.machine)
+        resp = rprn.hRpcOpenPrinter(dce, "\\\\%s\x00" % self.machine)
 
-        try:
-            resp = rprn.hRpcRemoteFindFirstPrinterChangeNotificationEx(dce, resp['pHandle'], rprn.PRINTER_CHANGE_ADD_JOB, pszLocalMachine = '\\\\%s\x00' % self.machine )
-            resp.dump()
-        except Exception as e:
-            if str(e).find('ERROR_INVALID_HANDLE') < 0:
-                raise
+        with assertRaisesRegex(self, rprn.DCERPCSessionError, "ERROR_INVALID_HANDLE"):
+            rprn.hRpcRemoteFindFirstPrinterChangeNotificationEx(dce, resp['pHandle'],
+                                                                rprn.PRINTER_CHANGE_ADD_JOB,
+                                                                pszLocalMachine="\\\\%s\x00" % self.machine)
 
 
 @pytest.mark.remote
-class SMBTransport(RPRNTests, unittest.TestCase):
-
-    def setUp(self):
-        super(SMBTransport, self).setUp()
-        self.set_transport_config()
-        self.stringBinding = r'ncacn_np:%s[\PIPE\spoolss]' % self.machine
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
-        self.rrpStarted = False
+class RPRNTestsSMBTransport(RPRNTests, unittest.TestCase):
+    transfer_syntax = ("8a885d04-1ceb-11c9-9fe8-08002b104860", "2.0")
 
 
 @pytest.mark.remote
-class SMBTransport64(SMBTransport):
-
-    def setUp(self):
-        super(SMBTransport64, self).setUp()
-        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+class RPRNTestsSMBTransport64(RPRNTests, unittest.TestCase):
+    transfer_syntax = ("71710533-BEBA-4937-8319-B5DBEF9CCC36", "1.0")
 
 
 # Process command-line arguments.
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=1)

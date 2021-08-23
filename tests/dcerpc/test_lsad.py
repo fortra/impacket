@@ -61,7 +61,6 @@ from impacket.structure import hexdump
 class LSADTests(DCERPCTests):
     iface_uuid = lsad.MSRPC_UUID_LSAD
     string_binding = r"ncacn_np:{0.machine}[\PIPE\lsarpc]"
-    string_binding_formatting = DCERPCTests.STRING_BINDING_FORMATTING
     authn = True
 
     def open_policy(self, dce):

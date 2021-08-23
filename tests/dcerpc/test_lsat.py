@@ -31,7 +31,6 @@ from impacket.dcerpc.v5.dtypes import NULL, MAXIMUM_ALLOWED, RPC_UNICODE_STRING
 class LSATTests(DCERPCTests):
     iface_uuid = lsat.MSRPC_UUID_LSAT
     string_binding = r"ncacn_np:{0.machine}[\PIPE\lsarpc]"
-    string_binding_formatting = DCERPCTests.STRING_BINDING_FORMATTING
     authn = True
 
     def open_policy(self, dce):

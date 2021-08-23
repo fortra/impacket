@@ -25,8 +25,9 @@ from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTH
 class MimiKatzTests(DCERPCTests, unittest.TestCase):
     timeout = 30000
     iface_uuid = mimilib.MSRPC_UUID_MIMIKATZ
-    transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
     protocol = "ncacn_ip_tcp"
+    string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
+    transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
     mimikatz_command = "token::whoami"
 
     def get_dh_public_key(self):

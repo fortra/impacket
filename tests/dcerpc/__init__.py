@@ -29,7 +29,7 @@ class DCERPCTests(RemoteTestCase):
     iface_uuid = None
     protocol = None
     string_binding = None
-    string_binding_formatting = STRING_BINDING_MAPPER
+    string_binding_formatting = STRING_BINDING_FORMATTING
     transfer_syntax = None
     machine_account = False
 

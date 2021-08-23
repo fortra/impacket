@@ -30,7 +30,6 @@ from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, DCERPCExcept
 
 class DHCPMTests(DCERPCTests):
     string_binding = r"ncacn_np:{0.machine}[\PIPE\dhcpserver]"
-    string_binding_formatting = DCERPCTests.STRING_BINDING_FORMATTING
     authn = True
     authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 

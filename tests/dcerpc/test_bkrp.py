@@ -31,7 +31,6 @@ class BKRPTests(DCERPCTests):
 
     iface_uuid = bkrp.MSRPC_UUID_BKRP
     string_binding = r"ncacn_np:{0.machine}[\PIPE\protected_storage]"
-    string_binding_formatting = DCERPCTests.STRING_BINDING_FORMATTING
     authn = True
     authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 

@@ -25,7 +25,6 @@ from impacket.uuid import string_to_bin, uuidtup_to_bin
 class EPMTests(DCERPCTests):
     iface_uuid = epm.MSRPC_UUID_PORTMAP
     string_binding = r"ncacn_np:{0.machine}[\pipe\epmapper]"
-    string_binding_formatting = DCERPCTests.STRING_BINDING_FORMATTING
     authn = True
 
     def test_lookup(self):

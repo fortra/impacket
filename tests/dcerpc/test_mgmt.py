@@ -28,7 +28,6 @@ from impacket.dcerpc.v5.rpcrt import DCERPCException
 class MGMTTests(DCERPCTests):
     iface_uuid = mgmt.MSRPC_UUID_MGMT
     string_binding = r"ncacn_np:{0.machine}[\pipe\epmapper]"
-    string_binding_formatting = DCERPCTests.STRING_BINDING_FORMATTING
     authn = True
 
     def test_inq_if_ids(self):
