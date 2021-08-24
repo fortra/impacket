@@ -1,17 +1,20 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2019 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Service Install Helper library used by psexec and smbrelayx
-# You provide an already established connection and an exefile
-# (or class that mimics a file class) and this will install and
-# execute the service, and then uninstall (install(), uninstall().
-# It tries to take care as much as possible to leave everything clean.
+# Description:
+#   Service Install Helper library used by psexec and smbrelayx
+#   You provide an already established connection and an exefile
+#   (or class that mimics a file class) and this will install and
+#   execute the service, and then uninstall (install(), uninstall().
+#   It tries to take care as much as possible to leave everything clean.
 #
 # Author:
-#  Alberto Solino (@agsolino)
+#   Alberto Solino (@agsolino)
 #
 
 import random

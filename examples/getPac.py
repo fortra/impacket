@@ -1,22 +1,25 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author:
-#  Alberto Solino (@agsolino)
-#
 # Description:
-#     This script will get the PAC of the specified target user just having a normal authenticated user credentials.
-#     It does so by using a mix of [MS-SFU]'s S4USelf + User to User Kerberos Authentication.
-#     Original idea (or accidental discovery :) ) of adding U2U capabilities inside a S4USelf by Benjamin Delpy (@gentilkiwi)
+#   This script will get the PAC of the specified target user just having a normal authenticated user credentials.
+#   It does so by using a mix of [MS-SFU]'s S4USelf + User to User Kerberos Authentication.
+#   Original idea (or accidental discovery :) ) of adding U2U capabilities inside a S4USelf by Benjamin Delpy (@gentilkiwi)
+#
+# Author:
+#   Alberto Solino (@agsolino)
 #
 # References:
+#   - U2U: https://tools.ietf.org/html/draft-ietf-cat-user2user-02
+#   - [MS-SFU]: https://msdn.microsoft.com/en-us/library/cc246071.aspx
 #
-#     U2U: https://tools.ietf.org/html/draft-ietf-cat-user2user-02
-#     [MS-SFU]: https://msdn.microsoft.com/en-us/library/cc246071.aspx
+
 from __future__ import division
 from __future__ import print_function
 import argparse

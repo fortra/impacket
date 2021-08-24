@@ -1,47 +1,53 @@
-###############################################################################
-#  Tested so far: 
-#  LsarOpenPolicy2
-#  LsarOpenPolicy
-#  LsarQueryInformationPolicy2
-#  LsarQueryInformationPolicy
-#  LsarQueryDomainInformationPolicy
-#  LsarEnumerateAccounts
-#  LsarEnumerateAccountsWithUserRight
-#  LsarEnumerateTrustedDomainsEx
-#  LsarEnumerateTrustedDomains
-#  LsarOpenAccount
-#  LsarClose
-#  LsarCreateAccount
-#  LsarDeleteObject
-#  LsarEnumeratePrivilegesAccount
-#  LsarGetSystemAccessAccount
-#  LsarSetSystemAccessAccount
-#  LsarAddPrivilegesToAccount
-#  LsarRemovePrivilegesFromAccount
-#  LsarEnumerateAccountRights
-#  LsarAddAccountRights
-#  LsarRemoveAccountRights
-#  LsarCreateSecret
-#  LsarOpenSecret
-#  LsarSetSecret
-#  LsarQuerySecret
-#  LsarRetrievePrivateData
-#  LsarStorePrivateData
-#  LsarEnumeratePrivileges
-#  LsarLookupPrivilegeValue
-#  LsarLookupPrivilegeName
-#  LsarLookupPrivilegeDisplayName
-#  LsarQuerySecurityObject
-#  LsarSetSecurityObject
-#  LsarQueryForestTrustInformation
-#  LsarSetInformationPolicy
-#  LsarSetInformationPolicy2
+# Impacket - Collection of Python classes for working with network protocols.
 #
-#  Not yet:
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Tested so far:
+#   LsarOpenPolicy2
+#   LsarOpenPolicy
+#   LsarQueryInformationPolicy2
+#   LsarQueryInformationPolicy
+#   LsarQueryDomainInformationPolicy
+#   LsarEnumerateAccounts
+#   LsarEnumerateAccountsWithUserRight
+#   LsarEnumerateTrustedDomainsEx
+#   LsarEnumerateTrustedDomains
+#   LsarOpenAccount
+#   LsarClose
+#   LsarCreateAccount
+#   LsarDeleteObject
+#   LsarEnumeratePrivilegesAccount
+#   LsarGetSystemAccessAccount
+#   LsarSetSystemAccessAccount
+#   LsarAddPrivilegesToAccount
+#   LsarRemovePrivilegesFromAccount
+#   LsarEnumerateAccountRights
+#   LsarAddAccountRights
+#   LsarRemoveAccountRights
+#   LsarCreateSecret
+#   LsarOpenSecret
+#   LsarSetSecret
+#   LsarQuerySecret
+#   LsarRetrievePrivateData
+#   LsarStorePrivateData
+#   LsarEnumeratePrivileges
+#   LsarLookupPrivilegeValue
+#   LsarLookupPrivilegeName
+#   LsarLookupPrivilegeDisplayName
+#   LsarQuerySecurityObject
+#   LsarSetSecurityObject
+#   LsarQueryForestTrustInformation
+#   LsarSetInformationPolicy
+#   LsarSetInformationPolicy2
+#
+# Not yet:
 #
 # Shouldn't dump errors against a win7
 #
-################################################################################
 from __future__ import division
 from __future__ import print_function
 import unittest
@@ -1060,4 +1066,4 @@ if __name__ == '__main__':
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

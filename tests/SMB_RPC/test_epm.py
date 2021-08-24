@@ -1,11 +1,17 @@
-###############################################################################
-#  Tested so far: 
+# Impacket - Collection of Python classes for working with network protocols.
 #
-#  Not yet:
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Tested so far:
+#
+# Not yet:
 #
 # Shouldn't dump errors against a win7
-#  
-################################################################################
+#
 from __future__ import division
 from __future__ import print_function
 import unittest
@@ -180,4 +186,4 @@ if __name__ == '__main__':
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

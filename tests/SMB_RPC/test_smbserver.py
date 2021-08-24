@@ -1,16 +1,18 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2021 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Basic unit tests for the SMB Server.
+# Description:
+#   Basic unit tests for the SMB Server.
 #
 # Author:
-#  Martin Gallo (@martingalloar)
+#   Martin Gallo (@martingalloar)
 #
-
 import unittest
 from time import sleep
 from os.path import exists, join
@@ -206,4 +208,4 @@ if __name__ == "__main__":
     suite = unittest.TestSuite()
     suite.addTests(loader.loadTestsFromTestCase(SMBServerUnitTests))
     suite.addTests(loader.loadTestsFromTestCase(SimpleSMBServerFuncTests))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

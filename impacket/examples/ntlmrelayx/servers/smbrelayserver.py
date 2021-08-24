@@ -1,18 +1,21 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# SMB Relay Server
+# Description:
+#   SMB Relay Server
+#
+#   This is the SMB server which relays the connections
+#   to other protocols
 #
 # Authors:
-#  Alberto Solino (@agsolino)
-#  Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
+#   Alberto Solino (@agsolino)
+#   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #
-# Description:
-#             This is the SMB server which relays the connections
-#   to other protocols
 from __future__ import division
 from __future__ import print_function
 from threading import Thread

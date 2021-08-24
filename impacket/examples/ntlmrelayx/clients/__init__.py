@@ -1,18 +1,17 @@
-# Copyright (c) 2013-2017 CORE Security Technologies
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Protocol Client Base Class definition
+# Description:
+#   Protocol Client Base Class definition
+#   Defines a base class for all clients + loads all available modules
 #
 # Author:
-#  Alberto Solino (@agsolino)
-#
-# Description:
-#  Defines a base class for all clients + loads all available modules
-#
-# ToDo:
+#   Alberto Solino (@agsolino)
 #
 import os, sys, pkg_resources
 from impacket import LOG

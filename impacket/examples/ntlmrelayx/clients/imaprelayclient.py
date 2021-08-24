@@ -1,17 +1,18 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# IMAP Protocol Client
+# Description:
+#   IMAP Protocol Client
+#   IMAP client for relaying NTLMSSP authentication to mailservers, for example Exchange
 #
 # Author:
 #   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #   Alberto Solino (@agsolino)
-#
-# Description:
-# IMAP client for relaying NTLMSSP authentication to mailservers, for example Exchange
 #
 import imaplib
 import base64

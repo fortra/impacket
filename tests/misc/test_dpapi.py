@@ -1,17 +1,21 @@
-###############################################################################
-#  Tested so far: 
+#!/usr/bin/env python
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# MasterKey
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
 #
-#  Not yet:
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
 #
+# Tested so far:
+#   MasterKey
+# Not yet:
 #
-################################################################################
-
 import unittest
 from binascii import unhexlify
 
-from impacket.dpapi import DPAPI_SYSTEM, MasterKeyFile, MasterKey, CredentialFile, DPAPI_BLOB, CREDENTIAL_BLOB, VAULT_VPOL, VAULT_VPOL_KEYS, VAULT_VCRD, VAULT_KNOWN_SCHEMAS
+from impacket.dpapi import DPAPI_SYSTEM, MasterKeyFile, MasterKey, CredentialFile, DPAPI_BLOB,\
+    CREDENTIAL_BLOB, VAULT_VPOL, VAULT_VPOL_KEYS, VAULT_VCRD, VAULT_KNOWN_SCHEMAS
 from Cryptodome.Cipher import AES
 from Cryptodome.Hash import HMAC, MD4, SHA1
 
@@ -200,7 +204,8 @@ class DPAPITests(unittest.TestCase):
             else:
                 raise Exception('No valid Schema')
 
+
 # Process command-line arguments.
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(DPAPITests)
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

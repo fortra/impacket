@@ -1,11 +1,14 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2021 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Utility and helper functions for the example scripts
+# Description:
+#   Utility and helper functions for the example scripts
 #
 import unittest
 from impacket.examples.utils import parse_target, parse_credentials
@@ -22,6 +25,8 @@ class UtilsTests(unittest.TestCase):
             "UserName:Password@HostName": ("", "UserName", "Password", "HostName"),
             "UserName:Pa$$word1234@HostName": ("", "UserName", "Pa$$word1234", "HostName"),
             "UserName:Password!#$@HostName": ("", "UserName", "Password!#$", "HostName"),
+            "UserName:Passw@rd!#$@HostName": ("", "UserName", "Passw@rd!#$", "HostName"),
+            "UserName:P@ssw@rd@!#$@HostName": ("", "UserName", "P@ssw@rd@!#$", "HostName"),
             "DOMAIN/UserName@HostName": ("DOMAIN", "UserName", "", "HostName"),
             "DOMAIN/:Password@HostName": ("DOMAIN", "", "Password", "HostName"),
             "DOMAIN/UserName:Password@HostName": ("DOMAIN", "UserName", "Password", "HostName"),

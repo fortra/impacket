@@ -1,4 +1,12 @@
 #!/usr/bin/env python
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
 # sorry, this is very ugly, but I'm in python 2.5
 import sys
 import unittest
@@ -578,4 +586,4 @@ class TestRadioTap(unittest.TestCase):
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(TestRadioTap)
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

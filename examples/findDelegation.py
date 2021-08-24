@@ -1,20 +1,24 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2020 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author:
-#  Dave Cossa (@G0ldenGunSec)
-#  Based on GetUserSPNs.py by Alberto Solino (@agsolino)
-#
 # Description:
-#     This module will try to find all delegation relationships in a given domain.
-#     Delegation relationships can provide info on specific users and systems to target, as access to these systems will grant access elsewhere also.  
-#     Unconstrained, constrained, and resource-based constrained delegation types are queried for and displayed.
+#   This module will try to find all delegation relationships in a given domain.
+#   Delegation relationships can provide info on specific users and systems to target,
+#   as access to these systems will grant access elsewhere also.
+#   Unconstrained, constrained, and resource-based constrained delegation types are queried
+#   for and displayed.
 #
+# Author:
+#   Dave Cossa (@G0ldenGunSec)
+#   Based on GetUserSPNs.py by Alberto Solino (@agsolino)
 #
+
 from __future__ import division
 from __future__ import print_function
 

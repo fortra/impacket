@@ -1,48 +1,52 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# This script creates/removes a WMI Event Consumer/Filter and link 
-# between both to execute Visual Basic based on the WQL filter 
-# or timer specified.
+# Description:
+#   This script creates/removes a WMI Event Consumer/Filter and link
+#   between both to execute Visual Basic based on the WQL filter
+#   or timer specified.
+#
+#   Example:
+#
+#   write a file toexec.vbs the following:
+#	    Dim objFS, objFile
+#	    Set objFS = CreateObject("Scripting.FileSystemObject")
+#	    Set objFile = objFS.OpenTextFile("C:\ASEC.log", 8, true)
+#	    objFile.WriteLine "Hey There!"
+#	    objFile.Close
+#
+#   then execute this script this way, VBS will be triggered once
+#   somebody opens calc.exe:
+#
+#       wmipersist.py domain.net/adminuser:mypwd@targetHost install -name ASEC
+#           -vbs toexec.vbs
+#           -filter 'SELECT * FROM __InstanceCreationEvent WITHIN 5 WHERE TargetInstance
+#                    ISA "Win32_Process" AND TargetInstance.Name = "calc.exe"'
+#
+#   or, if you just want to execute the VBS every XXX milliseconds:
+#
+#       wmipersist.py domain.net/adminuser:mypwd@targetHost install -name ASEC
+#           -vbs toexec.vbs -timer XXX
+#
+#   to remove the event:
+#	    wmipersist.py domain.net/adminuser:mypwd@targetHost remove -name ASEC
+#
+#   if you don't specify the password, it will be asked by the script.
+#   domain is optional.
 #
 # Author:
-#  beto (@agsolino)
-#
-# Example: 
-#
-# write a file toexec.vbs the following:
-#	Dim objFS, objFile
-#	Set objFS = CreateObject("Scripting.FileSystemObject")
-#	Set objFile = objFS.OpenTextFile("C:\ASEC.log", 8, true)
-#	objFile.WriteLine "Hey There!"
-#	objFile.Close
-#
-#
-# then execute this script this way, VBS will be triggered once
-# somebody opens calc.exe:
-#
-#  wmipersist.py domain.net/adminuser:mypwd@targetHost install -name ASEC 
-#   -vbs toexec.vbs 
-#   -filter 'SELECT * FROM __InstanceCreationEvent WITHIN 5 WHERE TargetInstance 
-#            ISA "Win32_Process" AND TargetInstance.Name = "calc.exe"'
-#
-# or, if you just want to execute the VBS every XXX milliseconds:
-#
-#  wmipersist.py domain.net/adminuser:mypwd@targetHost install -name ASEC 
-#   -vbs toexec.vbs -timer XXX 
-#
-# to remove the event:
-#	wmipersist.py domain.net/adminuser:mypwd@targetHost remove -name ASEC
-#
-# if you don't specify the password, it will be asked by the script.
-# domain is optional.
+#   beto (@agsolino)
 #
 # Reference for:
 #  DCOM/WMI
+#
+
 from __future__ import division
 from __future__ import print_function
 import sys
@@ -70,8 +74,14 @@ class WMIPERSISTENCE:
 
     @staticmethod
     def checkError(banner, resp):
-        if resp.GetCallStatus(0) != 0:
-            logging.error('%s - ERROR (0x%x)' % (banner, resp.GetCallStatus(0)))
+        call_status = resp.GetCallStatus(0) & 0xffffffff  # interpret as unsigned
+        if call_status != 0:
+            from impacket.dcerpc.v5.dcom.wmi import WBEMSTATUS
+            try:
+                error_name = WBEMSTATUS.enumItems(call_status).name
+            except ValueError:
+                error_name = 'Unknown'
+            logging.error('%s - ERROR: %s (0x%08x)' % (banner, error_name, call_status))
         else:
             logging.info('%s - OK' % banner)
 
@@ -145,9 +155,6 @@ class WMIPERSISTENCE:
             filterBinding.Filter = '__EventFilter.Name="EF_%s"' % self.__options.name
             filterBinding.Consumer = 'ActiveScriptEventConsumer.Name="%s"' % self.__options.name
             filterBinding.CreatorSID = [1, 2, 0, 0, 0, 0, 0, 5, 32, 0, 0, 0, 32, 2, 0, 0]
-            # Even when the default value of DeliveryQoS is 0, we're explicitly assigning it to
-            # avoid the default tag
-            filterBinding.DeliveryQoS = 0  # WMIMSG_FLAG_QOS_SYNCHRONOUS
 
             self.checkError('Adding FilterToConsumerBinding',
                 iWbemServices.PutInstance(filterBinding.marshalMe()))
