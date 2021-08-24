@@ -108,50 +108,50 @@ class DHCPMv2Tests(DHCPMTests):
 
 @pytest.mark.remote
 class DHCPMv1TestsSMBTransport(DHCPMv1Tests, unittest.TestCase):
-    transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 @pytest.mark.remote
 class DHCPMv2TestsSMBTransport(DHCPMv2Tests, unittest.TestCase):
-    transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 @pytest.mark.remote
 class DHCPMv1TestsSMBTransport64(DHCPMv1Tests, unittest.TestCase):
-    transfer_syntax = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
 
 @pytest.mark.remote
 class DHCPMv2TestsSMBTransport64(DHCPMv2Tests, unittest.TestCase):
-    transfer_syntax = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
 
 @pytest.mark.remote
 class DHCPMv1TestsTCPTransport(DHCPMv1Tests, unittest.TestCase):
     protocol = "ncacn_ip_tcp"
     string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
-    transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 @pytest.mark.remote
 class DHCPMv2TestsTCPTransport(DHCPMv2Tests, unittest.TestCase):
     protocol = "ncacn_ip_tcp"
     string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
-    transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 @pytest.mark.remote
 class DHCPMv1TestsTCPTransport64(DHCPMv1Tests, unittest.TestCase):
     protocol = "ncacn_ip_tcp"
     string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
-    transfer_syntax = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
 
 @pytest.mark.remote
 class DHCPMv2TestsTCPTransport64(DHCPMv2Tests, unittest.TestCase):
     protocol = "ncacn_ip_tcp"
     string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
-    transfer_syntax = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
 
 # Process command-line arguments.

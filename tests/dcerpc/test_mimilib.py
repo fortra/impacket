@@ -27,7 +27,7 @@ class MimiKatzTests(DCERPCTests, unittest.TestCase):
     iface_uuid = mimilib.MSRPC_UUID_MIMIKATZ
     protocol = "ncacn_ip_tcp"
     string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
-    transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
     mimikatz_command = "token::whoami"
 
     def get_dh_public_key(self):

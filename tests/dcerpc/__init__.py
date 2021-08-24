@@ -23,6 +23,9 @@ class DCERPCTests(RemoteTestCase):
     STRING_BINDING_FORMATTING = 1
     STRING_BINDING_MAPPER = 2
 
+    TRANSFER_SYNTAX_NDR = ("8a885d04-1ceb-11c9-9fe8-08002b104860", "2.0")
+    TRANSFER_SYNTAX_NDR64 = ("71710533-BEBA-4937-8319-B5DBEF9CCC36", "1.0")
+
     timeout = None
     authn = False
     authn_level = None

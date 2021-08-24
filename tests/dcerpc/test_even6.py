@@ -75,26 +75,26 @@ class EVEN6Tests(DCERPCTests):
 
 @pytest.mark.remote
 class EVEN6TestsSMBTransport(EVEN6Tests, unittest.TestCase):
-    transfer_syntax = ("8a885d04-1ceb-11c9-9fe8-08002b104860", "2.0")
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 @pytest.mark.remote
 class EVEN6TestsSMBTransport64(EVEN6Tests, unittest.TestCase):
-    transfer_syntax = ("71710533-BEBA-4937-8319-B5DBEF9CCC36", "1.0")
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
 
 @pytest.mark.remote
 class EVEN6TestsTCPTransport(EVEN6Tests, unittest.TestCase):
     protocol = "ncacn_ip_tcp"
     string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
-    transfer_syntax = ("8a885d04-1ceb-11c9-9fe8-08002b104860", "2.0")
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 @pytest.mark.remote
 class EVEN6TestsTCPTransport64(EVEN6Tests, unittest.TestCase):
     protocol = "ncacn_ip_tcp"
     string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
-    transfer_syntax = ("71710533-BEBA-4937-8319-B5DBEF9CCC36", "1.0")
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
 
 # Process command-line arguments.

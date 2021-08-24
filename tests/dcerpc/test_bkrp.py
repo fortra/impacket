@@ -162,14 +162,12 @@ class BKRPTests(DCERPCTests):
 
 @pytest.mark.remote
 class BKRPTestsSMBTransport(BKRPTests, unittest.TestCase):
-
-    transfer_syntax = ("8a885d04-1ceb-11c9-9fe8-08002b104860", "2.0")
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 @pytest.mark.remote
 class BKRPTestsSMBTransport64(BKRPTestsSMBTransport):
-
-    transfer_syntax = ("71710533-BEBA-4937-8319-B5DBEF9CCC36", "1.0")
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
 
 # Process command-line arguments.

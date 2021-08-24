@@ -104,24 +104,24 @@ class MGMTTests(DCERPCTests):
 
 @pytest.mark.remote
 class MGMTTestsSMBTransport(MGMTTests, unittest.TestCase):
-    transfer_syntax = ("8a885d04-1ceb-11c9-9fe8-08002b104860", "2.0")
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 @pytest.mark.remote
 class MGMTTestsSMBTransport64(MGMTTests, unittest.TestCase):
-    transfer_syntax = ("71710533-BEBA-4937-8319-B5DBEF9CCC36", "1.0")
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
 
 @pytest.mark.remote
 class MGMTTestsTCPTransport(MGMTTests, unittest.TestCase):
-    transfer_syntax = ("8a885d04-1ceb-11c9-9fe8-08002b104860", "2.0")
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
     string_binding = r"ncacn_ip_tcp:{0.machine}[135]"
 
 
 @pytest.mark.remote
 class MGMTTestsTCPTransport64(MGMTTests, unittest.TestCase):
-    transfer_syntax = ("71710533-BEBA-4937-8319-B5DBEF9CCC36", "1.0")
     string_binding = r"ncacn_ip_tcp:{0.machine}[135]"
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
 
 # Process command-line arguments.

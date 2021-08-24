@@ -2369,28 +2369,28 @@ class SAMRTests(DCERPCTests):
 @pytest.mark.remote
 class SAMRTestsSMBTransport(SAMRTests, unittest.TestCase):
     protocol = "ncacn_np"
-    transfer_syntax = ("8a885d04-1ceb-11c9-9fe8-08002b104860", "2.0")
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
     string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
 
 
 @pytest.mark.remote
 class SAMRTestsSMBTransport64(SAMRTests, unittest.TestCase):
     protocol = "ncacn_np"
-    transfer_syntax = ("71710533-BEBA-4937-8319-B5DBEF9CCC36", "1.0")
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
     string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
 
 
 @pytest.mark.remote
 class SAMRTestsTCPTransport(SAMRTests, unittest.TestCase):
     protocol = "ncacn_ip_tcp"
-    transfer_syntax = ("8a885d04-1ceb-11c9-9fe8-08002b104860", "2.0")
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
     string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
 
 
 @pytest.mark.remote
 class SAMRTestsTCPTransport64(SAMRTests, unittest.TestCase):
     protocol = "ncacn_ip_tcp"
-    transfer_syntax = ("71710533-BEBA-4937-8319-B5DBEF9CCC36", "1.0")
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
     string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
 
 
