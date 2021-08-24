@@ -25,12 +25,11 @@ from impacket.dcerpc.v5.dtypes import RPC_UNICODE_STRING
 # endpoints (we should do specific tests for endpoints)
 # here we're using EPM just because we need one, and it's the 
 # easiest one
-class DCERPCTests(RemoteTestCase):
+class RPCRTTests(RemoteTestCase):
 
     def connectDCE(self, username, password, domain, lm='', nt='', aes_key='', TGT=None, TGS=None, tfragment=0,
-                   dceFragment=0,
-                   auth_type=RPC_C_AUTHN_WINNT, auth_level=RPC_C_AUTHN_LEVEL_NONE, dceAuth=True, doKerberos=False,
-                   bind=epm.MSRPC_UUID_PORTMAP):
+                   dceFragment=0, auth_type=RPC_C_AUTHN_WINNT, auth_level=RPC_C_AUTHN_LEVEL_NONE, dceAuth=True,
+                   doKerberos=False, bind=epm.MSRPC_UUID_PORTMAP):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
 
         if hasattr(rpctransport, 'set_credentials'):
@@ -133,7 +132,7 @@ class DCERPCTests(RemoteTestCase):
         resp = dce.request(request)
         request = samr.SamrEnumerateDomainsInSamServer()
         request['ServerHandle'] = resp['ServerHandle']
-        request['EnumerationContext'] =  0
+        request['EnumerationContext'] = 0
         request['PreferedMaximumLength'] = 500
         dce.request(request)
         try:
@@ -380,7 +379,7 @@ class DCERPCTests(RemoteTestCase):
     def test_AnonWINNTPacketPrivacy(self):
         # With SMB Transport this will fail with STATUS_ACCESS_DENIED
         try:
-            dce = self.connectDCE('', '', '', auth_level=RPC_C_AUTHN_LEVEL_PKT_PRIVACY,dceAuth=False, doKerberos=False)
+            dce = self.connectDCE('', '', '', auth_level=RPC_C_AUTHN_LEVEL_PKT_PRIVACY, dceAuth=False, doKerberos=False)
             request = epm.ept_lookup()
             request['inquiry_type'] = epm.RPC_C_EP_ALL_ELTS
             request['object'] = NULL
@@ -390,24 +389,24 @@ class DCERPCTests(RemoteTestCase):
             dce.request(request)
             dce.disconnect()
         except Exception as e:
-            if not (str(e).find('STATUS_ACCESS_DENIED') >=0 and self.stringBinding.find('ncacn_np') >=0):
+            if not (str(e).find('STATUS_ACCESS_DENIED') >= 0 and self.stringBinding.find('ncacn_np') >= 0):
                 raise
 
 
 @pytest.mark.remote
-class TCPTransport(DCERPCTests, unittest.TestCase):
+class RPCRTTestsTCPTransport(RPCRTTests, unittest.TestCase):
 
     def setUp(self):
-        super(TCPTransport, self).setUp()
+        super(RPCRTTestsTCPTransport, self).setUp()
         self.set_transport_config(aes_keys=True)
         self.stringBinding = r'ncacn_ip_tcp:%s' % self.machine
 
 
 @pytest.mark.remote
-class SMBTransport(DCERPCTests, unittest.TestCase):
+class RPCRTTestsSMBTransport(RPCRTTests, unittest.TestCase):
     def setUp(self):
         # Put specific configuration for target machine with SMB_002
-        super(SMBTransport, self).setUp()
+        super(RPCRTTestsSMBTransport, self).setUp()
         self.set_transport_config(aes_keys=True)
         self.stringBinding = r'ncacn_np:%s[\pipe\epmapper]' % self.machine
 

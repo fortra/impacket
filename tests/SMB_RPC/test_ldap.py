@@ -6,13 +6,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Tested so far:
-#   FWOpenPolicyStore
-#
-# Not yet:
-#
-# Shouldn't dump errors against a win7
-#
 from __future__ import division
 from __future__ import print_function
 import pytest
@@ -130,9 +123,9 @@ class LDAPTests(RemoteTestCase):
 
 
 @pytest.mark.remote
-class TCPTransport(LDAPTests, unittest.TestCase):
+class LDAPTestsTCPTransport(LDAPTests, unittest.TestCase):
     def setUp(self):
-        super(TCPTransport, self).setUp()
+        super(LDAPTestsTCPTransport, self).setUp()
         self.set_transport_config(aes_keys=True)
         self.url = "ldap://%s" % self.serverName
         self.baseDN = "dc=%s, dc=%s" % (
@@ -142,9 +135,9 @@ class TCPTransport(LDAPTests, unittest.TestCase):
 
 
 @pytest.mark.remote
-class TCPTransportSSL(TCPTransport):
+class LDAPTestsSSLTransport(LDAPTestsTCPTransport):
     def setUp(self):
-        super(TCPTransportSSL, self).setUp()
+        super(LDAPTestsSSLTransport, self).setUp()
         self.url = "ldaps://%s" % self.serverName
 
 
