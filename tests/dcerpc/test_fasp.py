@@ -25,7 +25,7 @@ fasp = None
 
 @pytest.mark.skip(reason="fasp module unavailable")
 class FASPTests(DCERPCTests):
-    iface_uuid = fasp.MSRPC_UUID_FASP
+    #iface_uuid = fasp.MSRPC_UUID_FASP
     authn = True
     authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 

@@ -13,10 +13,9 @@
 #   OpenPerformanceData
 #   OpenUsers
 #   BaseRegCloseKey
-#   hBaseRegDeleteKey
 #   (h)BaseRegCreateKey
 #   (h)BaseRegSetValue
-#   BaseRegDeleteKey
+#   (h)BaseRegDeleteKey
 #   (h)BaseRegEnumKey
 #   (h)BaseRegEnumValue
 #   BaseRegFlushKey

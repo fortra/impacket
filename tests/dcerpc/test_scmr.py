@@ -7,7 +7,6 @@
 # for more information.
 #
 # Tested so far:
-#   hRCloseServiceHandleCall
 #   RControlService
 #   RDeleteService
 #   RLockServiceDatabase
@@ -38,6 +37,7 @@
 #   RQueryServiceConfigEx
 #
 # Not yet:
+#   hRCloseServiceHandleCall
 #   RSetServiceObjectSecurity
 #   RSetServiceStatus
 #   RCreateServiceWOW64W

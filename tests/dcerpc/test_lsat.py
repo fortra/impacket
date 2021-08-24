@@ -14,7 +14,7 @@
 #   (h)LsarLookupNames4
 #   (h)LsarLookupSids
 #   (h)LsarLookupSids2
-#   (h)LsarLookupSids3
+#   LsarLookupSids3
 #
 from __future__ import division
 from __future__ import print_function

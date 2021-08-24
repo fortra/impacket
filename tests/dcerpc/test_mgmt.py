@@ -8,7 +8,6 @@
 #
 # Tested so far:
 #   (h)inq_if_ids
-#   (h)inq_if_ids
 #   (h)inq_stats
 #   (h)is_server_listening
 #   (h)stop_server_listening

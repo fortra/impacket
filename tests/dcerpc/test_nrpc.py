@@ -7,31 +7,38 @@
 # for more information.
 #
 # Tested so far:
-#   DsrGetDcNameEx2
-#   DsrGetDcNameEx
-#   DsrGetDcName
-#   NetrGetDCName
-#   NetrGetAnyDCName
-#   DsrGetSiteName
-#   DsrGetDcSiteCoverageW
-#   DsrAddressToSiteNamesW
+#   (h)DsrGetDcNameEx2
+#   (h)DsrGetDcNameEx
+#   (h)DsrGetDcName
+#   (h)NetrGetDCName
+#   (h)NetrGetAnyDCName
+#   (h)DsrGetSiteName
+#   (h)DsrGetDcSiteCoverageW
+#   (h)DsrAddressToSiteNamesW
 #   DsrAddressToSiteNamesExW
 #   DsrDeregisterDnsHostRecords
-#   NetrServerReqChallenge
-#   NetrServerAuthenticate3
-#   NetrServerAuthenticate2
-#   NetrServerAuthenticate
-#   NetrServerTrustPasswordsGet
-#   NetrLogonGetCapabilities
+#   (h)NetrServerReqChallenge
+#   (h)NetrServerAuthenticate3
+#   (h)NetrServerAuthenticate2
+#   (h)NetrServerAuthenticate
+#   (h)NetrServerPasswordGet
+#   (h)NetrServerTrustPasswordsGet
+#   (h)NetrServerPasswordSet2
+#   (h)NetrLogonGetDomainInfo
+#   (h)NetrLogonGetCapabilities
+#   NetrLogonSamLogonEx
+#   NetrLogonSamLogonWithFlags
+#   NetrLogonSamLogon
 #   NetrDatabaseDeltas
 #   NetrDatabaseSync2
 #   NetrDatabaseSync
+#   NetrDatabaseRedo
 #   DsrEnumerateDomainTrusts
 #   NetrEnumerateTrustedDomainsEx
 #   NetrEnumerateTrustedDomains
 #   NetrGetForestTrustInformation
 #   DsrGetForestTrustInformation
-#   NetrServerGetTrustInfo
+#   (h)NetrServerGetTrustInfo
 #   NetrLogonGetTrustRid
 #   NetrLogonComputeServerDigest
 #   NetrLogonComputeClientDigest
@@ -42,17 +49,11 @@
 #   NetrLogonControl2
 #   NetrLogonControl
 #   NetrLogonUasLogon
-#   NetrLogonGetDomainInfo
-#   NetrServerPasswordSet2
+#   NetrLogonUasLogoff
 #
 # Not yet:
 #   DSRUpdateReadOnlyServerDnsRecords
-#   NetrServerPasswordGet
-#   NetrLogonSamLogonEx
-#   NetrLogonSamLogonWithFlags
-#   NetrLogonSamLogon
 #   NetrLogonSamLogoff
-#   NetrDatabaseRedo
 #
 import pytest
 import unittest
@@ -436,7 +437,8 @@ class NRPCTests(DCERPCTests):
         resp = dce.request(request)
         resp.dump()
 
-    def aaa_hNetrServerTrustPasswordsGet(self):
+    @pytest.mark.xfail
+    def test_hNetrServerTrustPasswordsGet(self):
         dce, rpctransport = self.connect()
         self.authenticate(dce)
         resp = nrpc.hNetrServerTrustPasswordsGet(dce, NULL, self.machine_user,
@@ -820,7 +822,8 @@ class NRPCTests(DCERPCTests):
         with assertRaisesRegex(self, DCERPCException, "rpc_s_access_denied"):
             dce.request(request)
 
-    def te_NetrLogonGetTimeServiceParentDomain(self):
+    @pytest.mark.xfail
+    def test_NetrLogonGetTimeServiceParentDomain(self):
         dce, rpctransport = self.connect()
         request = nrpc.NetrLogonGetTimeServiceParentDomain()
         request['ServerName'] = self.domain + '\x00'

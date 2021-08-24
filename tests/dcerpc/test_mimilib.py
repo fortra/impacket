@@ -9,7 +9,7 @@
 # Tested so far:
 #   (h)MimiBind
 #   (h)MimiCommand
-#   (h)MimiUnBind
+#   MimiUnBind
 #
 import pytest
 import unittest

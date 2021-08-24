@@ -7,11 +7,11 @@
 # for more information.
 #
 # Tested so far:
-#   (h)RpcOpenPrinterEx
-#   (h)RpcOpenPrinter
-#   (h)RpcRemoteFindFirstPrinterChangeNotificationEx
-#   (h)RpcClosePrinter
 #   (h)RpcEnumPrinters
+#   (h)RpcOpenPrinter
+#   (h)RpcClosePrinter
+#   (h)RpcOpenPrinterEx
+#   (h)RpcRemoteFindFirstPrinterChangeNotificationEx
 #
 from __future__ import division
 from __future__ import print_function

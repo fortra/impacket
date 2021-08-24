@@ -7,25 +7,26 @@
 # for more information.
 #
 # Tested so far:
-#   NetrWkstaGetInfo
-#   NetrWkstaUserEnum
-#   NetrWkstaTransportEnum
+#   (h)NetrWkstaGetInfo
+#   (h)NetrWkstaUserEnum
+#   (h)NetrWkstaTransportEnum
+#   (h)NetrWkstaSetInfo
 #   NetrWkstaTransportAdd
-#   NetrUseAdd
-#   NetrUseGetInfo
-#   NetrUseDel
-#   NetrUseEnum
-#   NetrWorkstationStatisticsGet
-#   NetrGetJoinInformation
-#   NetrJoinDomain2
-#   NetrUnjoinDomain2
-#   NetrRenameMachineInDomain2
-#   NetrValidateName2
-#   NetrGetJoinableOUs2
-#   NetrAddAlternateComputerName
-#   NetrRemoveAlternateComputerName
-#   NetrSetPrimaryComputerName
-#   NetrEnumerateComputerNames
+#   (h)NetrUseAdd
+#   (h)NetrUseGetInfo
+#   (h)NetrUseDel
+#   (h)NetrUseEnum
+#   (h)NetrWorkstationStatisticsGet
+#   (h)NetrGetJoinInformation
+#   (h)NetrJoinDomain2
+#   (h)NetrUnjoinDomain2
+#   (h)NetrRenameMachineInDomain2
+#   (h)NetrValidateName2
+#   (h)NetrGetJoinableOUs2
+#   (h)NetrAddAlternateComputerName
+#   (h)NetrRemoveAlternateComputerName
+#   (h)NetrSetPrimaryComputerName
+#   (h)NetrEnumerateComputerNames
 #
 # Not yet:
 #
