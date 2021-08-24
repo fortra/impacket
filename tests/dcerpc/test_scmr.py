@@ -41,29 +41,35 @@
 #   RSetServiceObjectSecurity
 #   RSetServiceStatus
 #   RCreateServiceWOW64W
-#  
-# Shouldn't dump errors against a win7
 #
+import time
 import pytest
 import unittest
-from tests import RemoteTestCase
 from struct import unpack
+from tests.dcerpc import DCERPCTests
 
-from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import scmr, epm
+from impacket.dcerpc.v5 import scmr
 from impacket.dcerpc.v5.ndr import NULL
 from impacket.crypto import encryptSecret
 from impacket.uuid import string_to_bin
 from impacket import ntlm
 
 
-class SCMRTests(RemoteTestCase):
+class SCMRTests(DCERPCTests):
+    iface_uuid = scmr.MSRPC_UUID_SCMR
+    authn = True
+    
+    def get_service_handle(self, dce):
+        lpMachineName = 'DUMMY\x00'
+        lpDatabaseName = 'ServicesActive\x00'
+        desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS | scmr.SC_MANAGER_ENUMERATE_SERVICE
+        resp = scmr.hROpenSCManagerW(dce, lpMachineName, lpDatabaseName, desiredAccess)
+        scHandle = resp['lpScHandle']
+        return scHandle
 
     def changeServiceAndQuery(self, dce, cbBufSize, hService, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName):
-
         try:
-            resp = scmr.hRChangeServiceConfigW( dce, hService, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName)
-
+            resp = scmr.hRChangeServiceConfigW(dce, hService, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName)
             resp = scmr.hRQueryServiceConfigW(dce, hService)
             resp.dump()
             # Now let's compare all the results
@@ -102,7 +108,7 @@ class SCMRTests(RemoteTestCase):
         request['cbBufSize'] = cbBuffSize
         try:
             resp = dce.request(request)
-        except Exception as e:
+        except scmr.DCERPCSessionError as e:
             if str(e).find('ERROR_INSUFFICIENT_BUFFER') <= 0:
                 raise
             else: 
@@ -123,35 +129,14 @@ class SCMRTests(RemoteTestCase):
         elif dwInfoLevel == 5:
            self.assertEqual(unpack('<L', arrayData)[0], changeDone)
         elif dwInfoLevel == 6:
-           from builtins import bytes
            changeDone = bytes(changeDone).decode('utf-16le')
            self.assertEqual(arrayData[4:].decode('utf-16le'), changeDone)
         elif dwInfoLevel == 7:
            self.assertEqual(unpack('<L', arrayData)[0], changeDone)
- 
-    def connect(self):
-        rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username, self.password, self.domain, self.lmhash, self.nthash)
-        dce = rpctransport.get_dce_rpc()
-        #dce.set_max_fragment_size(32)
-        dce.connect()
-        if self.__class__.__name__ == 'TCPTransport':
-            dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
-        dce.bind(scmr.MSRPC_UUID_SCMR)
-        #rpc = scmr.DCERPCSvcCtl(dce)
-        lpMachineName = 'DUMMY\x00'
-        lpDatabaseName = 'ServicesActive\x00'
-        desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS | scmr.SC_MANAGER_ENUMERATE_SERVICE
-        
-        resp = scmr.hROpenSCManagerW(dce,lpMachineName, lpDatabaseName, desiredAccess)
-        scHandle = resp['lpScHandle']
-
-        return dce, rpctransport, scHandle
 
     def test_RChangeServiceConfig2W(self):
-        dce, rpctransport, scHandle  = self.connect()
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
         lpServiceName = 'TESTSVC\x00'
         lpDisplayName = 'DisplayName\x00'
         dwDesiredAccess = scmr.SERVICE_ALL_ACCESS
@@ -259,8 +244,8 @@ class SCMRTests(RemoteTestCase):
             self.fail()
     
     def test_REnumServicesStatusExW(self):
-        dce, rpctransport, scHandle  = self.connect()
-
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
         request = scmr.REnumServicesStatusExW()
         request['hSCManager'] = scHandle
         request['InfoLevel'] = scmr.SC_STATUS_PROCESS_INFO
@@ -269,13 +254,11 @@ class SCMRTests(RemoteTestCase):
         request['lpResumeIndex'] = NULL
         request['pszGroupName'] = NULL
         request['cbBufSize'] = 0
-        #request.dump()
-        #print "\n"
 
         # Request again with the right bufSize
         try:
             resp = dce.request(request)
-        except Exception as e:
+        except scmr.DCERPCSessionError as e:
             if str(e).find('ERROR_MORE_DATA') <= 0:
                 raise
             else: 
@@ -286,7 +269,8 @@ class SCMRTests(RemoteTestCase):
         resp.dump()
 
     def test_RQueryServiceStatusEx(self):
-        dce, rpctransport, scHandle  = self.connect()
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
         lpServiceName = 'PlugPlay\x00'
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
@@ -304,11 +288,11 @@ class SCMRTests(RemoteTestCase):
         array = b''.join(resp['lpBuffer'])
         scmr.SERVICE_STATUS_PROCESS(array)
 
-    # ToDo
-    def te_REnumServiceGroupW(self):
-        dce, rpctransport, scHandle  = self.connect()
-
-
+    @pytest.mark.skip(reason="ToDo")
+    def test_REnumServiceGroupW(self):
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
+        
         dwServiceType = scmr.SERVICE_WIN32_OWN_PROCESS
         dwServiceState = scmr.SERVICE_STATE_ALL
         cbBufSize = 10
@@ -318,14 +302,15 @@ class SCMRTests(RemoteTestCase):
         try:
             resp = scmr.hREnumServiceGroupW(dce, scHandle, dwServiceType, dwServiceState, cbBufSize, lpResumeIndex, pszGroupName )
             resp.dump()
-        except Exception as e:
+        except scmr.DCERPCSessionError as e:
            if str(e).find('ERROR_SERVICE_DOES_NOT_EXISTS') <= 0:
                raise
 
         scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_RQueryServiceConfigEx(self):
-        dce, rpctransport, scHandle  = self.connect()
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
         lpServiceName = 'RemoteRegistry\x00'
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
@@ -336,14 +321,14 @@ class SCMRTests(RemoteTestCase):
         request = scmr.RQueryServiceConfigEx()
         request['hService'] = serviceHandle
         request['dwInfoLevel'] = 0x00000008
-        #request.dump()
 
         resp = dce.request(request)
         resp.dump()
 
-    # ToDo
-    def te_RControlServiceExW(self):
-        dce, rpctransport, scHandle  = self.connect()
+    @pytest.mark.skip(reason="ToDo")
+    def test_RControlServiceExW(self):
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
         lpServiceName = 'PlugPlay\x00'
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
@@ -361,12 +346,12 @@ class SCMRTests(RemoteTestCase):
         request['pControlInParams'] = NULL
 
         resp = dce.request(request)
-
         resp.dump()
 
-    # ToDo
-    def te_RNotifyServiceStatusChange(self):
-        dce, rpctransport, scHandle  = self.connect()
+    @pytest.mark.skip(reason="ToDo")
+    def test_RNotifyServiceStatusChange(self):
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
         lpServiceName = 'PlugPlay\x00'
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
@@ -396,7 +381,8 @@ class SCMRTests(RemoteTestCase):
         resp.dump()
 
     def test_RGetServiceDisplayNameW(self):
-        dce, rpctransport, scHandle  = self.connect()
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
 
         lpServiceName = 'PlugPlay\x00'
         lpcchBuffer = len(lpServiceName)+100
@@ -406,7 +392,8 @@ class SCMRTests(RemoteTestCase):
         scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_RGetServiceKeyNameW(self):
-        dce, rpctransport, scHandle  = self.connect()
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
 
         lpDisplayName = 'Plug and Play\x00'
         lpcchBuffer = len(lpDisplayName)+100
@@ -416,7 +403,8 @@ class SCMRTests(RemoteTestCase):
         scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_RStartServiceW(self):
-        dce, rpctransport, scHandle  = self.connect()
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
 
         lpServiceName = 'PlugPlay\x00'
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
@@ -427,13 +415,14 @@ class SCMRTests(RemoteTestCase):
   
         try:
             scmr.hRStartServiceW(dce, serviceHandle, 3, ['arg1\x00', 'arg2\x00', 'arg3\x00'] )
-        except Exception as e:
+        except scmr.DCERPCSessionError as e:
            if str(e).find('ERROR_SERVICE_ALREADY_RUNNING') <= 0:
                raise
         scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_RQueryServiceLockStatusW(self):
-        dce, rpctransport, scHandle  = self.connect()
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
 
         pcbBytesNeeded = 1000
         scmr.hRQueryServiceLockStatusW(dce, scHandle, pcbBytesNeeded)
@@ -441,7 +430,8 @@ class SCMRTests(RemoteTestCase):
         scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_enumservices(self):
-        dce, rpctransport, scHandle  = self.connect()
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
 
         #####################
         # EnumServicesStatusW
@@ -452,7 +442,8 @@ class SCMRTests(RemoteTestCase):
         scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_create_change_delete(self):
-        dce, rpctransport, scHandle  = self.connect()
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
 
         #####################
         # Create / Change /  Query / Delete a service
@@ -478,7 +469,7 @@ class SCMRTests(RemoteTestCase):
         cbBufSize = 0
         try:
             resp = scmr.hRQueryServiceConfigW(dce, newHandle)
-        except Exception as e:
+        except scmr.DCERPCSessionError as e:
             if str(e).find('ERROR_INSUFFICIENT_BUFFER') <= 0:
                 raise
             else: 
@@ -536,7 +527,7 @@ class SCMRTests(RemoteTestCase):
 
         if self.__class__.__name__ == 'SMBTransport':
             lpPassword = 'mypwd\x00'.encode('utf-16le')
-            s = rpctransport.get_smb_connection()
+            s = rpc_transport.get_smb_connection()
             key = s.getSessionKey()
             lpPassword = encryptSecret(key, lpPassword)
             dwPwSize = len(lpPassword)
@@ -552,7 +543,8 @@ class SCMRTests(RemoteTestCase):
         scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_query(self):
-        dce, rpctransport, scHandle  = self.connect()
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
 
         ############################
         # Query Service Status / Enum Dependent
@@ -584,7 +576,8 @@ class SCMRTests(RemoteTestCase):
         scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_lock_unlock(self):
-        dce, rpctransport, scHandle  = self.connect()
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
         
         resp = scmr.hRLockServiceDatabase(dce, scHandle)
         lockHandle = resp['lpLock']
@@ -593,19 +586,20 @@ class SCMRTests(RemoteTestCase):
         scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_query_set_object_security(self):
-        dce, rpctransport, scHandle  = self.connect()
-        
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
         try:
             resp = scmr.hRQueryServiceObjectSecurity(dce, scHandle, scmr.DACL_SECURITY_INFORMATION, 0)
             resp.dump()
-        except Exception as e:
+        except scmr.DCERPCException as e:
            if str(e).find('rpc_s_access_denied') <= 0:
                raise
- 
         scmr.hRCloseServiceHandle(dce, scHandle)
 
-    def atest_notify_config(self):
-        dce, rpctransport, scHandle  = self.connect()
+    @pytest.mark.skip(reason="Long running test")
+    def test_notify_config(self):
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
         lpMachineName = 'DUMMY\x00'
         
         try:
@@ -618,7 +612,8 @@ class SCMRTests(RemoteTestCase):
         scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_RControlServiceCall(self):
-        dce, rpctransport, scHandle  = self.connect()
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
         lpServiceName = 'CryptSvc\x00'
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
@@ -632,13 +627,12 @@ class SCMRTests(RemoteTestCase):
             req['hService'] = serviceHandle
             req['dwControl'] = scmr.SERVICE_CONTROL_STOP
             dce.request(req)
-        except Exception as e:
+        except scmr.DCERPCSessionError as e:
             if str(e).find('ERROR_DEPENDENT_SERVICES_RUNNING') < 0 and str(e).find('ERROR_SERVICE_NOT_ACTIVE') < 0:
                 raise
             pass
 
         scmr.hRCloseServiceHandle(dce, serviceHandle)
-        import time
         time.sleep(1)
         resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )
         resp.dump()
@@ -648,30 +642,24 @@ class SCMRTests(RemoteTestCase):
         try:
             resp = scmr.hRStartServiceW(dce, serviceHandle, 0, NULL )
             resp.dump()
-        except Exception as e:
+        except scmr.DCERPCSessionError as e:
             if str(e).find('ERROR_SERVICE_ALREADY_RUNNING') < 0:
                 raise
         return 
 
 
 @pytest.mark.remote
-class SMBTransport(SCMRTests, unittest.TestCase):
-
-    def setUp(self):
-        super(SMBTransport, self).setUp()
-        self.set_transport_config()
-        self.stringBinding = r'ncacn_np:%s[\pipe\svcctl]' % self.machine
+class SCMRTestsSMBTransport(SCMRTests, unittest.TestCase):
+    string_binding = r"ncacn_np:{0.machine}[\pipe\svcctl]"
 
 
 @pytest.mark.remote
-class TCPTransport(SCMRTests, unittest.TestCase):
-
-    def setUp(self):
-        super(TCPTransport, self).setUp()
-        self.set_transport_config()
-        self.stringBinding = epm.hept_map(self.machine, scmr.MSRPC_UUID_SCMR, protocol='ncacn_ip_tcp')
+class SCMRTestsTCPTransport(SCMRTests, unittest.TestCase):
+    protocol = "ncacn_ip_tcp"
+    authn_level = ntlm.NTLM_AUTH_PKT_PRIVACY
+    string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
 
 
 # Process command-line arguments.
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=1)

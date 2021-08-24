@@ -33,17 +33,18 @@ class DCERPCTests(RemoteTestCase):
     transfer_syntax = None
     machine_account = False
 
-    def connect(self):
+    def connect(self, string_binding=None, iface_uuid=None):
         """Obtains a RPC Transport and a DCE interface according to the bindings and
         transfer syntax specified.
 
         :return: tuple of DCE/RPC and RPC Transport objects
         :rtype: (DCERPC_v5, DCERPCTransport)
         """
-        if not self.string_binding:
+        string_binding = string_binding or self.string_binding
+        if not string_binding:
             raise NotImplemented("String binding must be defined")
 
-        rpc_transport = transport.DCERPCTransportFactory(self.string_binding)
+        rpc_transport = transport.DCERPCTransportFactory(string_binding)
 
         # Set timeout if defined
         if self.timeout:
@@ -65,10 +66,11 @@ class DCERPCTests(RemoteTestCase):
         dce.connect()
 
         # Bind if specified
-        if self.iface_uuid and self.transfer_syntax:
-            dce.bind(self.iface_uuid, transfer_syntax=self.transfer_syntax)
-        elif self.iface_uuid:
-            dce.bind(self.iface_uuid)
+        iface_uuid = iface_uuid or self.iface_uuid
+        if iface_uuid and self.transfer_syntax:
+            dce.bind(iface_uuid, transfer_syntax=self.transfer_syntax)
+        elif iface_uuid:
+            dce.bind(iface_uuid)
 
         return dce, rpc_transport
 

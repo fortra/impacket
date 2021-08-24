@@ -63,28 +63,19 @@ from __future__ import print_function
 
 import pytest
 import unittest
-from tests import RemoteTestCase
+from tests.dcerpc import DCERPCTests
 
-from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import srvs
 from impacket.dcerpc.v5.dtypes import NULL, OWNER_SECURITY_INFORMATION
 
 
-class SRVSTests(RemoteTestCase):
-
-    def connect(self):
-        rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username, self.password, self.domain, self.lmhash, self.nthash)
-        dce = rpctransport.get_dce_rpc()
-        dce.connect()
-        dce.bind(srvs.MSRPC_UUID_SRVS, transfer_syntax = self.ts)
-
-        return dce, rpctransport
+class SRVSTests(DCERPCTests):
+    iface_uuid = srvs.MSRPC_UUID_SRVS
+    string_binding = r"ncacn_np:{0.machine}[\PIPE\srvsvc]"
+    authn = True
 
     def test_NetrConnectionEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrConnectionEnum()
         request['ServerName'] = '\\\\%s\x00' % self.machine
         request['Qualifier'] = 'IPC$\x00'
@@ -100,7 +91,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrConnectionEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetrConnectionEnum(dce, 'IPC$\x00', 1)
         resp.dump()
 
@@ -108,7 +99,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_NetrFileEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrFileEnum()
         request['ServerName'] = '\\\\%s\x00' % self.machine
         request['BasePath'] = NULL
@@ -124,7 +115,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrFileEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetrFileEnum(dce, NULL, NULL, 2)
         resp.dump()
 
@@ -132,7 +123,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_NetrFileGetInfo(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrFileEnum()
         request['ServerName'] = '\\\\%s\x00' % self.machine
         request['BasePath'] = NULL
@@ -155,7 +146,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrFileGetInfo(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetrFileEnum(dce, NULL, NULL, 2)
         resp.dump()
 
@@ -166,7 +157,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_NetrFileClose(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrFileEnum()
         request['ServerName'] = '\\\\%s\x00' % self.machine
         request['BasePath'] = NULL
@@ -183,27 +174,26 @@ class SRVSTests(RemoteTestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception as e:
+        except srvs.DCERPCSessionError as e:
             # I might be closing myself ;)
             if str(e).find('STATUS_PIPE_BROKEN') < 0 and str(e).find('STATUS_FILE_CLOSED') < 0 and str(e).find('STATUS_INVALID_HANDLE') < 0 and str(e).find('0x90a') < 0:
-
                 raise
 
     def test_hNetrFileClose(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetrFileEnum(dce, NULL, NULL, 2)
         resp.dump()
 
         try:
             resp = srvs.hNetrFileClose(dce, resp['InfoStruct']['FileInfo']['Level2']['Buffer'][0]['fi2_id'])
             resp.dump()
-        except Exception as e:
+        except srvs.DCERPCSessionError as e:
             # I might be closing myself ;)
             if str(e).find('STATUS_PIPE_BROKEN') < 0 and str(e).find('STATUS_FILE_CLOSED') < 0 and str(e).find('STATUS_INVALID_HANDLE') < 0 and str(e).find('0x90a') < 0:
                 raise
 
     def test_NetrSessionEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrSessionEnum()
         request['ServerName'] = NULL
         request['ClientName'] = NULL
@@ -241,7 +231,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrSessionEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetrSessionEnum(dce, NULL, NULL, 0)
         resp.dump()
 
@@ -258,7 +248,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_NetrSessionDel(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrSessionEnum()
         request['ServerName'] = NULL
         request['ClientName'] = NULL
@@ -278,24 +268,24 @@ class SRVSTests(RemoteTestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception as e:
+        except srvs.DCERPCSessionError as e:
             if e.get_error_code() != 0x908:
                 raise
 
     def test_hNetrSessionDel(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetrSessionEnum(dce, NULL, NULL, 502)
         resp.dump()
 
         try:
             resp = srvs.hNetrSessionDel(dce, resp['InfoStruct']['SessionInfo']['Level502']['Buffer'][0]['sesi502_cname'], resp['InfoStruct']['SessionInfo']['Level502']['Buffer'][0]['sesi502_username'] )
             resp.dump()
-        except Exception as e:
+        except srvs.DCERPCSessionError as e:
             if e.get_error_code() != 0x908:
                 raise
 
     def test_NetrShareAdd_NetrShareDel(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrShareAdd()
         request['ServerName'] = NULL
         request['Level'] = 2
@@ -316,7 +306,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrShareAdd_hNetrShareDel(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         shareInfo = srvs.SHARE_INFO_2()
         shareInfo['shi2_netname'] = 'BETUSHARE\x00'
         shareInfo['shi2_type'] = srvs.STYPE_TEMPORARY
@@ -327,11 +317,11 @@ class SRVSTests(RemoteTestCase):
         resp = srvs.hNetrShareAdd(dce, 2, shareInfo)
         resp.dump()
 
-        resp = srvs.hNetrShareDel(dce,'BETUSHARE\x00')
+        resp = srvs.hNetrShareDel(dce, 'BETUSHARE\x00')
         resp.dump()
 
     def test_NetrShareEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrShareEnum()
         request['ServerName'] = NULL
         request['PreferedMaximumLength'] = 0xffffffff
@@ -373,7 +363,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrShareEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetrShareEnum(dce, 0)
         resp.dump()
 
@@ -393,7 +383,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def tes_NetrShareEnumSticky(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrShareEnumSticky()
         request['ServerName'] = NULL
         request['PreferedMaximumLength'] = 0xffffffff
@@ -411,7 +401,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def tes_hNetrShareEnumSticky(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetrShareEnumSticky(dce, 502)
         resp.dump()
 
@@ -419,7 +409,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_NetrShareGetInfo(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrShareGetInfo()
         request['ServerName'] = NULL
         request['NetName'] = 'IPC$\x00'
@@ -452,7 +442,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrShareGetInfo(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetrShareGetInfo(dce, 'IPC$\x00', 0)
         resp.dump()
 
@@ -475,7 +465,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_NetrShareSetInfo(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrShareGetInfo()
         request['ServerName'] = NULL
         request['NetName'] = 'IPC$\x00'
@@ -502,7 +492,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrShareSetInfo(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetrShareGetInfo(dce, 'IPC$\x00', 1)
         resp.dump()
         oldValue = resp['InfoStruct']['ShareInfo1']['shi1_remark']
@@ -520,7 +510,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def tes_hNetrShareDelSticky(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
 
         shareInfo = srvs.SHARE_INFO_2()
         shareInfo['shi2_netname'] = 'BETUSHARE\x00'
@@ -539,7 +529,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def tes_NetrShareDelSticky(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrShareAdd()
         request['ServerName'] = NULL
         request['Level'] = 2
@@ -566,7 +556,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_NetrShareDelStart_NetrShareDelCommit(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrShareAdd()
         request['ServerName'] = NULL
         request['Level'] = 2
@@ -592,7 +582,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrShareDelStart_hNetrShareDelCommit(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
 
         shareInfo = srvs.SHARE_INFO_2()
         shareInfo['shi2_netname'] = 'BETUSHARE\x00'
@@ -611,7 +601,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_NetrShareCheck(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrShareCheck()
         request['ServerName'] = NULL
         request['Device'] = 'C:\\\x00'
@@ -619,12 +609,12 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrShareCheck(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetrShareCheck(dce, 'C:\\\x00')
         resp.dump()
 
     def test_NetrServerGetInfo(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrServerGetInfo()
         request['ServerName'] = NULL
         request['Level'] = 100
@@ -652,7 +642,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrServerGetInfo(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetrServerGetInfo(dce, 100)
         resp.dump()
 
@@ -672,7 +662,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_NetrServerDiskEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrServerDiskEnum()
         request['ServerName'] = NULL
         request['ResumeHandle'] = NULL
@@ -683,12 +673,12 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrServerDiskEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetrServerDiskEnum(dce, 0)
         resp.dump()
 
     def test_NetrServerStatisticsGet(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrServerStatisticsGet()
         request['ServerName'] = NULL
         request['Service'] = NULL
@@ -698,24 +688,24 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrServerStatisticsGet(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetrServerStatisticsGet(dce, NULL, 0, 0)
         resp.dump()
 
     def test_NetrRemoteTOD(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrRemoteTOD()
         request['ServerName'] = NULL
         resp = dce.request(request)
         resp.dump()
 
     def test_hNetrRemoteTOD(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetrRemoteTOD(dce)
         resp.dump()
 
     def test_NetrServerTransportEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrServerTransportEnum()
         request['ServerName'] = NULL
         request['PreferedMaximumLength'] = 0xffffffff
@@ -739,7 +729,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrServerTransportEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetrServerTransportEnum(dce, 0)
         resp.dump()
 
@@ -750,7 +740,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_NetrpGetFileSecurity_NetrpSetFileSecurity(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrpGetFileSecurity()
         request['ServerName'] = NULL
         request['ShareName'] = 'C$\x00'
@@ -769,15 +759,14 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrpGetFileSecurity_hNetrpSetFileSecurity(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetrpGetFileSecurity(dce, 'C$\x00',  '\\Windows\x00', OWNER_SECURITY_INFORMATION)
-        #hexdump(resp)
 
-        resp = srvs.hNetrpSetFileSecurity(dce,'C$\x00',  '\\Windows\x00', OWNER_SECURITY_INFORMATION, resp )
+        resp = srvs.hNetrpSetFileSecurity(dce,'C$\x00',  '\\Windows\x00', OWNER_SECURITY_INFORMATION, resp)
         resp.dump()
 
     def test_NetprPathType(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetprPathType()
         request['ServerName'] = NULL
         request['PathName'] = '\\pagefile.sys\x00'
@@ -786,12 +775,12 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetprPathType(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetprPathType(dce, '\\pagefile.sys\x00', 1)
         resp.dump()
 
     def test_NetprPathCanonicalize(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetprPathCanonicalize()
         request['ServerName'] = NULL
         request['PathName'] = '\\pagefile.sys\x00'
@@ -803,12 +792,12 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetprPathCanonicalize(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetprPathCanonicalize(dce, '\\pagefile.sys\x00', 'c:\x00', 50, 0, 0)
         resp.dump()
 
     def test_NetprPathCompare(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetprPathCompare()
         request['ServerName'] = NULL
         request['PathName1'] = 'c:\\pagefile.sys\x00'
@@ -819,12 +808,12 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetprPathCompare(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetprPathCompare(dce, 'c:\\pagefile.sys\x00', 'c:\\pagefile.sys\x00')
         resp.dump()
 
     def test_NetprNameValidate(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetprNameValidate()
         request['ServerName'] = NULL
         request['Name'] = 'Administrator\x00'
@@ -834,12 +823,12 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetprNameValidate(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetprNameValidate(dce, 'Administrator\x00', srvs.NAMETYPE_USER)
         resp.dump()
 
     def test_NetprNameCanonicalize(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetprNameCanonicalize()
         request['ServerName'] = NULL
         request['Name'] = 'Administrator\x00'
@@ -850,12 +839,12 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetprNameCanonicalize(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = srvs.hNetprNameCanonicalize(dce, 'Administrator\x00', 50, srvs.NAMETYPE_USER, 0x80000000)
         resp.dump()
 
     def test_NetprNameCompare(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetprNameCompare()
         request['ServerName'] = NULL
         request['Name1'] = 'Administrator\x00'
@@ -866,45 +855,45 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetprNameCompare(self):
-        dce, rpctransport = self.connect()
-        resp = srvs.hNetprNameCompare(dce,'Administrator\x00', 'Administrator\x00',srvs.NAMETYPE_USER, 0x80000000)
+        dce, rpc_transport = self.connect()
+        resp = srvs.hNetprNameCompare(dce, 'Administrator\x00', 'Administrator\x00', srvs.NAMETYPE_USER, 0x80000000)
         resp.dump()
 
     def test_NetrDfsGetVersion(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrDfsGetVersion()
         request['ServerName'] = NULL
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception as e:
+        except srvs.DCERPCSessionError as e:
             if e.get_error_code() != 0x2:
                 raise
 
     def test_hNetrDfsGetVersion(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         try:
             resp = srvs.hNetrDfsGetVersion(dce)
             resp.dump()
-        except Exception as e:
+        except srvs.DCERPCSessionError as e:
             if e.get_error_code() != 0x2:
                 raise
 
     def test_NetrDfsModifyPrefix(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrDfsModifyPrefix()
         request['ServerName'] = NULL
         request['Prefix'] = 'c:\\\x00'
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception as e:
+        except srvs.DCERPCSessionError as e:
             if e.get_error_code() != 0x32:
                 raise
 
     def test_NetrDfsFixLocalVolume(self):
         # This one I cannot make it work. It's only supported on w2k and xp
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrDfsFixLocalVolume()
         request['ServerName'] = NULL
         request['VolumeName'] = r'\??\C:\DfsShare'
@@ -917,24 +906,24 @@ class SRVSTests(RemoteTestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception as e:
+        except srvs.DCERPCException as e:
             if str(e) != 'rpc_x_bad_stub_data':
                 raise
 
     def test_NetrDfsManagerReportSiteInfo(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrDfsManagerReportSiteInfo()
         request['ServerName'] = NULL
         request['ppSiteInfo'] = NULL
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception as e:
+        except srvs.DCERPCSessionError as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
                 raise
 
     def test_NetrServerAliasAdd_NetrServerAliasDel(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrServerAliasAdd()
         request['ServerName'] = NULL
         request['Level'] = 0
@@ -956,7 +945,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrServerAliasAdd_hNetrServerAliasDel(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         aliasInfo = srvs.SERVER_ALIAS_INFO_0()
         aliasInfo['srvai0_alias'] = 'BETOALIAS\x00'
         aliasInfo['srvai0_target'] = '%s\x00' % self.machine
@@ -968,7 +957,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_NetrServerAliasEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrServerAliasEnum()
         request['ServerName'] = NULL
         request['InfoStruct']['Level'] = 0
@@ -979,22 +968,22 @@ class SRVSTests(RemoteTestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception as e:
+        except srvs.DCERPCSessionError as e:
             if str(e) != 'ERROR_NOT_SUPPORTED':
                 raise
 
     def test_hNetrServerAliasEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         try:
             resp = srvs.hNetrServerAliasEnum(dce, 0)
             resp.dump()
-        except Exception as e:
+        except srvs.DCERPCSessionError as e:
             print(e)
             if str(e) != 'ERROR_NOT_SUPPORTED':
                 raise
 
     def test_NetrShareDelEx(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrShareAdd()
         request['ServerName'] = NULL
         request['Level'] = 2
@@ -1027,13 +1016,13 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def ttt_NetrServerTransportAdd_NetrServerTransportDel(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrServerTransportAdd()
         request['ServerName'] = NULL
         request['Level'] = 0
         request['Buffer']['svti0_numberofvcs'] = 0
         request['Buffer']['svti0_transportname'] = '\\Device\\NetbiosSmb\x00'
-        request['Buffer']['svti0_transportaddress'] = list('%s'% self.machine)
+        request['Buffer']['svti0_transportaddress'] = list('%s' % self.machine)
         request['Buffer']['svti0_transportaddresslength'] = len(request['Buffer']['svti0_transportaddress'])
         request['Buffer']['svti0_networkaddress'] = '%s\x00' % self.machine
         resp = dce.request(request)
@@ -1047,14 +1036,14 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def ttt_NetrServerTransportAddEx_NetrServerTransportDelEx(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrServerTransportAddEx()
         request['ServerName'] = NULL
         request['Level'] = 0
         request['Buffer']['tag'] = 0
         request['Buffer']['Transport0']['svti0_numberofvcs'] = 0
         request['Buffer']['Transport0']['svti0_transportname'] = '\\Device\\NetbiosSmb\x00'
-        request['Buffer']['Transport0']['svti0_transportaddress'] = list('%s'% self.machine)
+        request['Buffer']['Transport0']['svti0_transportaddress'] = list('%s' % self.machine)
         request['Buffer']['Transport0']['svti0_transportaddresslength'] = len(request['Buffer']['Transport0']['svti0_transportaddress'])
         request['Buffer']['Transport0']['svti0_networkaddress'] = '%s\x00' % self.machine
         resp = dce.request(request)
@@ -1069,7 +1058,7 @@ class SRVSTests(RemoteTestCase):
         resp.dump()
 
     def test_NetrDfsCreateLocalPartition(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrDfsCreateLocalPartition()
         request['ServerName'] = NULL
         request['ShareName'] = 'C$\x00'
@@ -1081,24 +1070,24 @@ class SRVSTests(RemoteTestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception as e:
+        except srvs.DCERPCSessionError as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
                 raise
 
     def test_NetrDfsDeleteLocalPartition(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrDfsDeleteLocalPartition()
         request['ServerName'] = NULL
         request['Prefix'] = 'c:\\\x00'
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception as e:
+        except srvs.DCERPCSessionError as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
                 raise
 
     def test_NetrDfsSetLocalVolumeState(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrDfsSetLocalVolumeState()
         request['ServerName'] = NULL
         request['Prefix'] = 'c:\\\x00'
@@ -1106,13 +1095,13 @@ class SRVSTests(RemoteTestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception as e:
+        except srvs.DCERPCSessionError as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
                 raise
 
     def test_NetrDfsCreateExitPoint(self):
         # Cannot make it work, supported only on w2k and xp
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrDfsCreateExitPoint()
         request['ServerName'] = NULL
         request['Prefix'] = 'c:\\\x00'
@@ -1121,13 +1110,13 @@ class SRVSTests(RemoteTestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception as e:
+        except srvs.DCERPCException as e:
             if str(e).find('rpc_x_bad_stub_data') < 0:
                 raise
 
     def test_NetrDfsDeleteExitPoint(self):
         # Cannot make it work, supported only on w2k and xp
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = srvs.NetrDfsDeleteExitPoint()
         request['ServerName'] = NULL
         request['Prefix'] = 'c:\\\x00'
@@ -1135,29 +1124,21 @@ class SRVSTests(RemoteTestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception as e:
+        except srvs.DCERPCSessionError as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
                 raise
 
 
 @pytest.mark.remote
-class SMBTransport(SRVSTests, unittest.TestCase):
-
-    def setUp(self):
-        super(SMBTransport, self).setUp()
-        self.set_transport_config()
-        self.stringBinding = r'ncacn_np:%s[\PIPE\srvsvc]' % self.machine
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+class SRVSTestsSMBTransport(SRVSTests, unittest.TestCase):
+    transfer_syntax = ("8a885d04-1ceb-11c9-9fe8-08002b104860", "2.0")
 
 
 @pytest.mark.remote
-class SMBTransport64(SMBTransport):
-
-    def setUp(self):
-        super(SMBTransport64, self).setUp()
-        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+class SRVSTestsSMBTransport64(SRVSTests, unittest.TestCase):
+    transfer_syntax = ("71710533-BEBA-4937-8319-B5DBEF9CCC36", "1.0")
 
 
 # Process command-line arguments.
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=1)
