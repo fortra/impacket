@@ -11,6 +11,17 @@
 #   DhcpV4GetClientInfo
 #   hDhcpEnumSubnetClientsV5
 #   hDhcpGetOptionValueV5
+# Not yet:
+#   DhcpGetSubnetInfo
+#   DhcpEnumSubnets
+#   DhcpGetOptionValue
+#   DhcpEnumOptionValues
+#   DhcpGetOptionValueV5
+#   DhcpEnumOptionValuesV5
+#   DhcpGetAllOptionValues
+#   DhcpEnumSubnetClientsV4
+#   DhcpEnumSubnetElementsV5
+#   DhcpEnumSubnetClientsVQ
 #
 from __future__ import division
 from __future__ import print_function
@@ -29,17 +40,14 @@ from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, DCERPCExcept
 
 
 class DHCPMTests(DCERPCTests):
+    iface_uuid_v1 = dhcpm.MSRPC_UUID_DHCPSRV
+    iface_uuid_v2 = dhcpm.MSRPC_UUID_DHCPSRV2
     string_binding = r"ncacn_np:{0.machine}[\PIPE\dhcpserver]"
     authn = True
     authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
-
-class DHCPMv1Tests(DHCPMTests):
-
-    iface_uuid = dhcpm.MSRPC_UUID_DHCPSRV
-
     def test_DhcpGetClientInfoV4(self):
-        dce, rpctransport = self.connect()
+        dce, rpctransport = self.connect(iface_uuid=self.iface_uuid_v1)
         request = dhcpm.DhcpGetClientInfoV4()
         request['ServerIpAddress'] = NULL
 
@@ -53,7 +61,7 @@ class DHCPMv1Tests(DHCPMTests):
             dce.request(request)
 
     def test_hDhcpGetClientInfoV4(self):
-        dce, rpctransport = self.connect()
+        dce, rpctransport = self.connect(iface_uuid=self.iface_uuid_v1)
 
         ip = struct.unpack("!I", socket.inet_aton(self.machine))[0]
         with assertRaisesRegex(self, DCERPCException, "ERROR_DHCP_JET_ERROR"):
@@ -62,16 +70,10 @@ class DHCPMv1Tests(DHCPMTests):
         with assertRaisesRegex(self, DCERPCException, "0x4e2d"):
             dhcpm.hDhcpGetClientInfoV4(dce, dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientName, 'PEPA\x00')
 
-
-class DHCPMv2Tests(DHCPMTests):
-
-    iface_uuid = dhcpm.MSRPC_UUID_DHCPSRV2
-
     def test_DhcpV4GetClientInfo(self):
-        dce, rpctransport = self.connect()
+        dce, rpctransport = self.connect(iface_uuid=self.iface_uuid_v2)
         request = dhcpm.DhcpV4GetClientInfo()
         request['ServerIpAddress'] = NULL
-
         request['SearchInfo']['SearchType'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
         request['SearchInfo']['SearchInfo']['tag'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
         ip = struct.unpack("!I", socket.inet_aton(self.machine))[0]
@@ -88,13 +90,13 @@ class DHCPMv2Tests(DHCPMTests):
             dce.request(request)
 
     def test_hDhcpEnumSubnetClientsV5(self):
-        dce, rpctransport = self.connect()
+        dce, rpctransport = self.connect(iface_uuid=self.iface_uuid_v2)
 
         with assertRaisesRegex(self, DCERPCException, "ERROR_NO_MORE_ITEMS"):
             dhcpm.hDhcpEnumSubnetClientsV5(dce)
 
     def test_hDhcpGetOptionValueV5(self):
-        dce, rpctransport = self.connect()
+        dce, rpctransport = self.connect(iface_uuid=self.iface_uuid_v2)
         netId = self.machine.split('.')[:-1]
         netId.append('0')
         subnet_id = struct.unpack("!I", socket.inet_aton('.'.join(netId)))[0]
@@ -107,51 +109,33 @@ class DHCPMv2Tests(DHCPMTests):
 
 
 @pytest.mark.remote
-class DHCPMv1TestsSMBTransport(DHCPMv1Tests, unittest.TestCase):
+class DHCPMTestsSMBTransport(DHCPMTests, unittest.TestCase):
     transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 @pytest.mark.remote
-class DHCPMv2TestsSMBTransport(DHCPMv2Tests, unittest.TestCase):
-    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
-
-
-@pytest.mark.remote
-class DHCPMv1TestsSMBTransport64(DHCPMv1Tests, unittest.TestCase):
+class DHCPMTestsSMBTransport64(DHCPMTests, unittest.TestCase):
     transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
 
 @pytest.mark.remote
-class DHCPMv2TestsSMBTransport64(DHCPMv2Tests, unittest.TestCase):
-    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
-
-
-@pytest.mark.remote
-class DHCPMv1TestsTCPTransport(DHCPMv1Tests, unittest.TestCase):
+class DHCPMTestsTCPTransport(DHCPMTests, unittest.TestCase):
     protocol = "ncacn_ip_tcp"
+    iface_uuid = dhcpm.MSRPC_UUID_DHCPSRV2
     string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
     transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 @pytest.mark.remote
-class DHCPMv2TestsTCPTransport(DHCPMv2Tests, unittest.TestCase):
+class DHCPMTestsTCPTransport64(DHCPMTests, unittest.TestCase):
     protocol = "ncacn_ip_tcp"
-    string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
-    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
-
-
-@pytest.mark.remote
-class DHCPMv1TestsTCPTransport64(DHCPMv1Tests, unittest.TestCase):
-    protocol = "ncacn_ip_tcp"
+    iface_uuid = dhcpm.MSRPC_UUID_DHCPSRV2
     string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
     transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
-
-
-@pytest.mark.remote
-class DHCPMv2TestsTCPTransport64(DHCPMv2Tests, unittest.TestCase):
-    protocol = "ncacn_ip_tcp"
-    string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
-    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
+    
+    @pytest.mark.xfail(reason="NDRUNION without fields as in DhcpSubnetOptions is not supported with NDR64")
+    def test_hDhcpGetOptionValueV5(self):
+        super(DHCPMTestsTCPTransport64, self).test_hDhcpGetOptionValueV5()
 
 
 # Process command-line arguments.

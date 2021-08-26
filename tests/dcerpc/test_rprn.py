@@ -12,6 +12,9 @@
 #   (h)RpcClosePrinter
 #   (h)RpcOpenPrinterEx
 #   (h)RpcRemoteFindFirstPrinterChangeNotificationEx
+# Not yet
+#   RpcEnumPrinterDrivers
+#   RpcAddPrinterDriverEx
 #
 from __future__ import division
 from __future__ import print_function

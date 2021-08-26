@@ -26,6 +26,15 @@ environment by completing the following steps:
 1. [Configure remote test cases](#configure-remote-test-cases).
 
 
+> **Important note**
+> 
+> Bear in mind that some remote tests are not idempotent, that means that they perform
+> changes on the target environment and the results of the tests depends on that. As an
+> example, some tests require the creation/modification/deletion of user accounts. If those
+> tests fail at some point during the process, user accounts might lay down there and
+> subsequent tests might fail when trying to create the user account. We recommend taking
+> snapshots of the target environment that can be then rolled back after a testing session.
+
 Running tests
 -------------
 

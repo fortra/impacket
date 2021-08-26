@@ -90,9 +90,15 @@ class SAMRTests(DCERPCTests):
     authn = True
     authn_level = ntlm.NTLM_AUTH_PKT_INTEGRITY
 
+    server_name_string = "BETO\x00"
+    full_name_string = "BETO"
+    test_string = "BETUS"
+    test_account = "testAccount"
+    test_group = "testGroup"
+
     def get_domain_handle(self, dce):
         request = samr.SamrConnect()
-        request['ServerName'] = 'BETO\x00'
+        request['ServerName'] = self.server_name_string
         request['DesiredAccess'] = samr.DELETE | samr.READ_CONTROL | samr.WRITE_DAC | samr.WRITE_OWNER | samr.ACCESS_SYSTEM_SECURITY | samr.GENERIC_READ | samr.GENERIC_WRITE | samr.GENERIC_EXECUTE | samr.SAM_SERVER_CONNECT | samr.SAM_SERVER_SHUTDOWN | samr.SAM_SERVER_INITIALIZE | samr.SAM_SERVER_CREATE_DOMAIN | samr.SAM_SERVER_ENUMERATE_DOMAINS | samr.SAM_SERVER_LOOKUP_DOMAIN | samr.SAM_SERVER_READ | samr.SAM_SERVER_WRITE | samr.SAM_SERVER_EXECUTE
         resp = dce.request(request)
         request = samr.SamrEnumerateDomainsInSamServer()
@@ -128,7 +134,7 @@ class SAMRTests(DCERPCTests):
     def test_SamrConnect5(self):
         dce, rpc_transport = self.connect()
         request = samr.SamrConnect5()
-        request['ServerName'] = 'BETO\x00'
+        request['ServerName'] = self.server_name_string
         request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED
         request['InVersion'] = 1
         request['InRevisionInfo']['tag'] = 1
@@ -144,7 +150,7 @@ class SAMRTests(DCERPCTests):
         dce, rpc_transport = self.connect()
         request = samr.SamrConnect4()
         request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED
-        request['ServerName'] = 'BETO\x00'
+        request['ServerName'] = self.server_name_string
         request['ClientRevision'] = 2
         resp = dce.request(request)
         resp.dump()
@@ -158,7 +164,7 @@ class SAMRTests(DCERPCTests):
         dce, rpc_transport = self.connect()
         request = samr.SamrConnect2()
         request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED
-        request['ServerName'] = 'BETO\x00'
+        request['ServerName'] = self.server_name_string
         resp = dce.request(request)
         resp.dump()
 
@@ -183,7 +189,7 @@ class SAMRTests(DCERPCTests):
         dce, rpc_transport = self.connect()
         request = samr.SamrConnect()
         request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED
-        request['ServerName'] = 'BETO\x00'
+        request['ServerName'] = self.server_name_string
         resp = dce.request(request)
         request = samr.SamrOpenDomain()
         SID = 'S-1-5-352321536-2562177771-1589929855-2033349547'
@@ -209,7 +215,7 @@ class SAMRTests(DCERPCTests):
         domainHandle = self.get_domain_handle(dce)
         request = samr.SamrConnect()
         request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED
-        request['ServerName'] = 'BETO\x00'
+        request['ServerName'] = self.server_name_string
         dce.request(request)
         request = samr.SamrOpenGroup()
         request['DomainHandle'] = domainHandle
@@ -269,12 +275,12 @@ class SAMRTests(DCERPCTests):
     def test_SamrEnumerateDomainsInSamServer(self):
         dce, rpc_transport = self.connect()
         request = samr.SamrConnect()
-        request['ServerName'] = 'BETO\x00'
+        request['ServerName'] = self.server_name_string
         request['DesiredAccess'] = samr.SAM_SERVER_ENUMERATE_DOMAINS | samr.SAM_SERVER_LOOKUP_DOMAIN
         resp = dce.request(request)
         request = samr.SamrEnumerateDomainsInSamServer()
         request['ServerHandle'] = resp['ServerHandle']
-        request['EnumerationContext'] =  0
+        request['EnumerationContext'] = 0
         request['PreferedMaximumLength'] = 500
         resp2 = dce.request(request)
         resp2.dump()
@@ -292,7 +298,7 @@ class SAMRTests(DCERPCTests):
 
     def test_hSamrEnumerateDomainsInSamServer(self):
         dce, rpc_transport = self.connect()
-        resp = samr.hSamrConnect(dce, desiredAccess = samr.SAM_SERVER_ENUMERATE_DOMAINS | samr.SAM_SERVER_LOOKUP_DOMAIN)
+        resp = samr.hSamrConnect(dce, desiredAccess=samr.SAM_SERVER_ENUMERATE_DOMAINS | samr.SAM_SERVER_LOOKUP_DOMAIN)
         resp2 = samr.hSamrEnumerateDomainsInSamServer(dce, resp['ServerHandle'])
         resp2.dump()
         resp3 = samr.hSamrLookupDomainInSamServer(dce, resp['ServerHandle'], resp2['Buffer']['Buffer'][0]['Name'])
@@ -567,7 +573,6 @@ class SAMRTests(DCERPCTests):
             else:
                 raise
 
-
         for display_info_class in [samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayMachine,
                                    samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayGroup,
                                    samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayOemGroup]:
@@ -577,28 +582,23 @@ class SAMRTests(DCERPCTests):
     def test_SamrGetDisplayEnumerationIndex2(self):
         dce, rpc_transport = self.connect()
         domainHandle = self.get_domain_handle(dce)
-        request = samr.SamrGetDisplayEnumerationIndex2()
-        request['DomainHandle'] = domainHandle
-        request['DisplayInformationClass'] = samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser
-        request['Prefix'] = 'Gu'
-        resp = dce.request(request)
-        resp.dump()
 
-        request = samr.SamrGetDisplayEnumerationIndex2()
-        request['DomainHandle'] = domainHandle
-        request['DisplayInformationClass'] = samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayGroup
-        request['Prefix'] = 'Non'
-        resp = dce.request(request)
-        resp.dump()
+        for display_info_class, prefix in [(samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser, 'Gu'),
+                                           (samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayGroup, 'Non')]:
+            request = samr.SamrGetDisplayEnumerationIndex2()
+            request['DomainHandle'] = domainHandle
+            request['DisplayInformationClass'] = display_info_class
+            request['Prefix'] = prefix
+            resp = dce.request(request)
+            resp.dump()
 
     def test_hSamrGetDisplayEnumerationIndex2(self):
         dce, rpc_transport = self.connect()
         domainHandle = self.get_domain_handle(dce)
-        resp = samr.hSamrGetDisplayEnumerationIndex2(dce, domainHandle, samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser, 'Gu')
-        resp.dump()
-
-        resp = samr.hSamrGetDisplayEnumerationIndex2(dce, domainHandle, samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayGroup, 'Non')
-        resp.dump()
+        for display_info_class, prefix in [(samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser, 'Gu'),
+                                           (samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayGroup, 'Non')]:
+            resp = samr.hSamrGetDisplayEnumerationIndex2(dce, domainHandle, display_info_class, prefix)
+            resp.dump()
 
     def test_SamrGetDisplayEnumerationIndex(self):
         dce, rpc_transport = self.connect()
@@ -621,7 +621,7 @@ class SAMRTests(DCERPCTests):
         domainHandle = self.get_domain_handle(dce)
         request = samr.SamrCreateGroupInDomain()
         request['DomainHandle'] = domainHandle
-        request['Name'] = 'testGroup'
+        request['Name'] = self.test_group
         request['DesiredAccess'] = samr.GROUP_ALL_ACCESS | samr.DELETE
         with assertRaisesRegex(self, samr.DCERPCSessionError, "STATUS_ACCESS_DENIED"):
             dce.request(request)
@@ -635,7 +635,7 @@ class SAMRTests(DCERPCTests):
         dce, rpc_transport = self.connect()
         domainHandle = self.get_domain_handle(dce)
         with assertRaisesRegex(self, samr.DCERPCSessionError, "STATUS_ACCESS_DENIED"):
-            samr.hSamrCreateGroupInDomain(dce, domainHandle, 'testGroup', samr.GROUP_ALL_ACCESS | samr.DELETE)
+            samr.hSamrCreateGroupInDomain(dce, domainHandle, self.test_group, samr.GROUP_ALL_ACCESS | samr.DELETE)
 
         with assertRaisesRegex(self, samr.DCERPCSessionError, "STATUS_OBJECT_TYPE_MISMATCH"):
             samr.hSamrDeleteGroup(dce, domainHandle)
@@ -645,7 +645,7 @@ class SAMRTests(DCERPCTests):
         domainHandle = self.get_domain_handle(dce)
         request = samr.SamrCreateAliasInDomain()
         request['DomainHandle'] = domainHandle
-        request['AccountName'] = 'testGroup'
+        request['AccountName'] = self.test_group
         request['DesiredAccess'] = samr.GROUP_ALL_ACCESS | samr.DELETE
         resp = dce.request(request)
         resp.dump()
@@ -657,7 +657,7 @@ class SAMRTests(DCERPCTests):
     def test_hSamrCreateAliasInDomain_hSamrDeleteAlias(self):
         dce, rpc_transport = self.connect()
         domainHandle = self.get_domain_handle(dce)
-        resp = samr.hSamrCreateAliasInDomain(dce, domainHandle, 'testGroup',  samr.GROUP_ALL_ACCESS | samr.DELETE)
+        resp = samr.hSamrCreateAliasInDomain(dce, domainHandle, self.test_group,  samr.GROUP_ALL_ACCESS | samr.DELETE)
         resp.dump()
         resp = samr.hSamrDeleteAlias(dce, resp['AliasHandle'])
         resp.dump()
@@ -667,7 +667,7 @@ class SAMRTests(DCERPCTests):
         domainHandle = self.get_domain_handle(dce)
         request = samr.SamrCreateUser2InDomain()
         request['DomainHandle'] = domainHandle
-        request['Name'] = 'testAccount'
+        request['Name'] = self.test_account
         request['AccountType'] = samr.USER_NORMAL_ACCOUNT
         request['DesiredAccess'] = samr.USER_READ_GENERAL | samr.DELETE
         resp = dce.request(request)
@@ -680,7 +680,7 @@ class SAMRTests(DCERPCTests):
     def test_hSamrCreateUser2InDomain_hSamrDeleteUser(self):
         dce, rpc_transport = self.connect()
         domainHandle = self.get_domain_handle(dce)
-        resp = samr.hSamrCreateUser2InDomain(dce, domainHandle, 'testAccount', samr.USER_NORMAL_ACCOUNT,samr.USER_READ_GENERAL | samr.DELETE )
+        resp = samr.hSamrCreateUser2InDomain(dce, domainHandle, self.test_account, samr.USER_NORMAL_ACCOUNT,samr.USER_READ_GENERAL | samr.DELETE )
         resp.dump()
         resp = samr.hSamrDeleteUser(dce, resp['UserHandle'])
         resp.dump()
@@ -751,7 +751,7 @@ class SAMRTests(DCERPCTests):
         resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainGeneralInformation)
         resp.dump()
 
-        resp['Buffer']['General']['ReplicaSourceNodeName'] = 'BETUS'
+        resp['Buffer']['General']['ReplicaSourceNodeName'] = self.test_string
         with assertRaisesRegex(self, samr.DCERPCSessionError, "STATUS_INVALID_INFO_CLASS"):
             samr.hSamrSetInformationDomain(dce, domainHandle, resp['Buffer'])
 
@@ -780,59 +780,46 @@ class SAMRTests(DCERPCTests):
 
         oldData = resp['Buffer']['Oem']['OemInformation']
 
-        resp['Buffer']['Oem']['OemInformation'] = 'BETUS'
+        resp['Buffer']['Oem']['OemInformation'] = self.test_string
         resp = samr.hSamrSetInformationDomain(dce, domainHandle, resp['Buffer'])
         resp.dump()
 
         resp2 = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainOemInformation)
         resp2.dump()
 
-        self.assertEqual('BETUS', resp2['Buffer']['Oem']['OemInformation'])
+        self.assertEqual(self.test_string, resp2['Buffer']['Oem']['OemInformation'])
 
         resp2['Buffer']['Oem']['OemInformation'] = oldData
         resp = samr.hSamrSetInformationDomain(dce, domainHandle, resp2['Buffer'])
         resp.dump()
 
-        ################################################################################ 
-        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainNameInformation)
-        resp.dump()
+        for domain_info_class in [samr.DOMAIN_INFORMATION_CLASS.DomainNameInformation,
+                                  samr.DOMAIN_INFORMATION_CLASS.DomainServerRoleInformation,
+                                  samr.DOMAIN_INFORMATION_CLASS.DomainModifiedInformation,
+                                  samr.DOMAIN_INFORMATION_CLASS.DomainStateInformation,
+                                  samr.DOMAIN_INFORMATION_CLASS.DomainGeneralInformation2,
+                                  samr.DOMAIN_INFORMATION_CLASS.DomainLockoutInformation,
+                                  samr.DOMAIN_INFORMATION_CLASS.DomainModifiedInformation2,
+                                  ]:
+            resp = samr.hSamrQueryInformationDomain(dce, domainHandle, domain_info_class)
+            resp.dump()
 
-        ################################################################################ 
-        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainServerRoleInformation)
-        resp.dump()
-
-        ################################################################################ 
         resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainReplicationInformation)
         resp.dump()
 
         oldData = resp['Buffer']['Replication']['ReplicaSourceNodeName']
 
-        resp['Buffer']['Replication']['ReplicaSourceNodeName'] = 'BETUS'
+        resp['Buffer']['Replication']['ReplicaSourceNodeName'] = self.test_string
         resp = samr.hSamrSetInformationDomain(dce, domainHandle, resp['Buffer'])
         resp.dump()
 
         resp2 = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainReplicationInformation)
         resp2.dump()
 
-        self.assertEqual('BETUS', resp2['Buffer']['Replication']['ReplicaSourceNodeName'])
+        self.assertEqual(self.test_string, resp2['Buffer']['Replication']['ReplicaSourceNodeName'])
 
         resp2['Buffer']['Replication']['ReplicaSourceNodeName'] = oldData
         resp = samr.hSamrSetInformationDomain(dce, domainHandle, resp2['Buffer'])
-        resp.dump()
-
-        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainModifiedInformation)
-        resp.dump()
-
-        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainStateInformation)
-        resp.dump()
-
-        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainGeneralInformation2)
-        resp.dump()
-
-        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainLockoutInformation)
-        resp.dump()
-
-        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainModifiedInformation2)
         resp.dump()
 
     def test_SamrQueryInformationGroup_SamrSetInformationGroup(self):
@@ -864,7 +851,7 @@ class SAMRTests(DCERPCTests):
         req['GroupHandle'] = resp0['GroupHandle']
         req['GroupInformationClass'] = samr.GROUP_INFORMATION_CLASS.GroupNameInformation
         req['Buffer']['tag'] = samr.GROUP_INFORMATION_CLASS.GroupNameInformation
-        req['Buffer']['Name']['Name'] = 'BETUS'
+        req['Buffer']['Name']['Name'] = self.test_string
         resp = dce.request(req)
         resp.dump()
 
@@ -872,7 +859,7 @@ class SAMRTests(DCERPCTests):
         resp = dce.request(request)
         resp.dump()
 
-        self.assertEqual('BETUS', resp['Buffer']['Name']['Name'])
+        self.assertEqual(self.test_string, resp['Buffer']['Name']['Name'])
 
         req['Buffer']['Name']['Name'] = oldData
         resp = dce.request(req)
@@ -912,7 +899,7 @@ class SAMRTests(DCERPCTests):
         req['GroupHandle'] = resp0['GroupHandle']
         req['GroupInformationClass'] = samr.GROUP_INFORMATION_CLASS.GroupAdminCommentInformation
         req['Buffer']['tag'] = samr.GROUP_INFORMATION_CLASS.GroupAdminCommentInformation
-        req['Buffer']['AdminComment']['AdminComment'] = 'BETUS'
+        req['Buffer']['AdminComment']['AdminComment'] = self.test_string
         resp = dce.request(req)
         resp.dump()
 
@@ -920,7 +907,7 @@ class SAMRTests(DCERPCTests):
         resp = dce.request(request)
         resp.dump()
 
-        self.assertEqual('BETUS', resp['Buffer']['AdminComment']['AdminComment'])
+        self.assertEqual(self.test_string, resp['Buffer']['AdminComment']['AdminComment'])
 
         req['Buffer']['AdminComment']['AdminComment'] = oldData
         resp = dce.request(req)
@@ -952,13 +939,13 @@ class SAMRTests(DCERPCTests):
 
         req = samr.SAMPR_GROUP_INFO_BUFFER()
         req['tag'] = samr.GROUP_INFORMATION_CLASS.GroupNameInformation
-        req['Name']['Name'] = 'BETUS'
+        req['Name']['Name'] = self.test_string
         resp = samr.hSamrSetInformationGroup(dce, resp0['GroupHandle'], req)
         resp.dump()
 
         resp = samr.hSamrQueryInformationGroup(dce, resp0['GroupHandle'],samr.GROUP_INFORMATION_CLASS.GroupNameInformation)
         resp.dump()
-        self.assertEqual('BETUS', resp['Buffer']['Name']['Name'])
+        self.assertEqual(self.test_string, resp['Buffer']['Name']['Name'])
 
         req['Name']['Name'] = oldData
         resp = samr.hSamrSetInformationGroup(dce, resp0['GroupHandle'], req)
@@ -984,14 +971,14 @@ class SAMRTests(DCERPCTests):
 
         req = samr.SAMPR_ALIAS_INFO_BUFFER()
         req['tag'] = samr.ALIAS_INFORMATION_CLASS.AliasNameInformation
-        req['Name']['Name'] = 'BETUS'
+        req['Name']['Name'] = self.test_string
         resp = samr.hSamrSetInformationAlias(dce, resp0['AliasHandle'], req)
         resp.dump()
 
         resp = samr.hSamrQueryInformationAlias(dce, resp0['AliasHandle'], samr.ALIAS_INFORMATION_CLASS.AliasNameInformation)
         resp.dump()
 
-        self.assertEqual('BETUS', resp['Buffer']['Name']['Name'])
+        self.assertEqual(self.test_string, resp['Buffer']['Name']['Name'])
 
         req['Name']['Name'] = oldData
         resp = samr.hSamrSetInformationAlias(dce, resp0['AliasHandle'], req)
@@ -1040,7 +1027,7 @@ class SAMRTests(DCERPCTests):
         req['AliasHandle'] = resp0['AliasHandle']
         req['AliasInformationClass'] = samr.ALIAS_INFORMATION_CLASS.AliasNameInformation
         req['Buffer']['tag'] = samr.ALIAS_INFORMATION_CLASS.AliasNameInformation
-        req['Buffer']['Name']['Name'] = 'BETUS'
+        req['Buffer']['Name']['Name'] = self.test_string
         resp = dce.request(req)
         resp.dump()
 
@@ -1048,7 +1035,7 @@ class SAMRTests(DCERPCTests):
         resp = dce.request(request)
         resp.dump()
 
-        self.assertEqual('BETUS', resp['Buffer']['Name']['Name'])
+        self.assertEqual(self.test_string, resp['Buffer']['Name']['Name'])
 
         req['Buffer']['Name']['Name'] = oldData
         resp = dce.request(req)
@@ -1064,7 +1051,7 @@ class SAMRTests(DCERPCTests):
         req['AliasHandle'] = resp0['AliasHandle']
         req['AliasInformationClass'] = samr.ALIAS_INFORMATION_CLASS.AliasAdminCommentInformation
         req['Buffer']['tag'] = samr.ALIAS_INFORMATION_CLASS.AliasAdminCommentInformation
-        req['Buffer']['AdminComment']['AdminComment'] = 'BETUS'
+        req['Buffer']['AdminComment']['AdminComment'] = self.test_string
         resp = dce.request(req)
         resp.dump()
 
@@ -1072,7 +1059,7 @@ class SAMRTests(DCERPCTests):
         resp = dce.request(request)
         resp.dump()
 
-        self.assertEqual('BETUS', resp['Buffer']['AdminComment']['AdminComment'])
+        self.assertEqual(self.test_string, resp['Buffer']['AdminComment']['AdminComment'])
 
         req['Buffer']['AdminComment']['AdminComment'] = oldData
         resp = dce.request(req)
@@ -1108,21 +1095,21 @@ class SAMRTests(DCERPCTests):
         resp.dump()
         oldData = resp['Buffer']['Preferences']['UserComment']
 
-        req = samr.SamrSetInformationUser2()
-        req['UserHandle'] = userHandle
-        req['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserPreferencesInformation
-        req['Buffer'] = resp['Buffer'] 
-        req['Buffer']['Preferences']['UserComment'] = 'BETO'
-        resp = dce.request(req)
+        set_request = samr.SamrSetInformationUser2()
+        set_request['UserHandle'] = userHandle
+        set_request['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserPreferencesInformation
+        set_request['Buffer'] = resp['Buffer']
+        set_request['Buffer']['Preferences']['UserComment'] = self.test_string
+        resp = dce.request(set_request)
         resp.dump()
 
         resp = dce.request(request)
         resp.dump()
 
-        self.assertEqual('BETO', resp['Buffer']['Preferences']['UserComment'])
+        self.assertEqual(self.test_string, resp['Buffer']['Preferences']['UserComment'])
 
-        req['Buffer']['Preferences']['UserComment'] = oldData
-        resp = dce.request(req)
+        set_request['Buffer']['Preferences']['UserComment'] = oldData
+        resp = dce.request(set_request)
         resp.dump()
 
         # Get different user info classes
@@ -1140,21 +1127,21 @@ class SAMRTests(DCERPCTests):
         resp.dump()
         oldData = resp['Buffer']['Name']['FullName']
 
-        req = samr.SamrSetInformationUser2()
-        req['UserHandle'] = userHandle
-        req['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserNameInformation
-        req['Buffer'] = resp['Buffer'] 
-        req['Buffer']['Name']['FullName'] = 'BETO'
-        resp = dce.request(req)
+        set_request = samr.SamrSetInformationUser2()
+        set_request['UserHandle'] = userHandle
+        set_request['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserNameInformation
+        set_request['Buffer'] = resp['Buffer']
+        set_request['Buffer']['Name']['FullName'] = self.full_name_string
+        resp = dce.request(set_request)
         resp.dump()
 
         resp = dce.request(request)
         resp.dump()
 
-        self.assertEqual('BETO', resp['Buffer']['Name']['FullName'])
+        self.assertEqual(self.full_name_string, resp['Buffer']['Name']['FullName'])
 
-        req['Buffer']['Name']['FullName'] = oldData
-        resp = dce.request(req)
+        set_request['Buffer']['Name']['FullName'] = oldData
+        resp = dce.request(set_request)
         resp.dump()
 
         # Set a new username and revert it back
@@ -1168,14 +1155,14 @@ class SAMRTests(DCERPCTests):
         req['UserHandle'] = userHandle
         req['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserAccountNameInformation
         req['Buffer'] = resp['Buffer'] 
-        req['Buffer']['AccountName']['UserName'] = 'BETUS'
+        req['Buffer']['AccountName']['UserName'] = self.test_string
         resp = dce.request(req)
         resp.dump()
 
         resp = dce.request(request)
         resp.dump()
 
-        self.assertEqual('BETUS', resp['Buffer']['AccountName']['UserName'])
+        self.assertEqual(self.test_string, resp['Buffer']['AccountName']['UserName'])
 
         req['Buffer']['AccountName']['UserName'] = oldData
         resp = dce.request(req)
@@ -1231,14 +1218,14 @@ class SAMRTests(DCERPCTests):
         resp.dump()
         oldData = resp['Buffer']['Preferences']['UserComment']
 
-        resp['Buffer']['Preferences']['UserComment'] = 'BETO'
+        resp['Buffer']['Preferences']['UserComment'] = self.test_string
         resp = samr.hSamrSetInformationUser2(dce, userHandle, resp['Buffer'])
         resp.dump()
 
         resp = samr.hSamrQueryInformationUser2(dce, userHandle, samr.USER_INFORMATION_CLASS.UserPreferencesInformation)
         resp.dump()
 
-        self.assertEqual('BETO', resp['Buffer']['Preferences']['UserComment'])
+        self.assertEqual(self.test_string, resp['Buffer']['Preferences']['UserComment'])
 
         resp['Buffer']['Preferences']['UserComment'] = oldData
         resp = samr.hSamrSetInformationUser2(dce, userHandle, resp['Buffer'])
@@ -1256,14 +1243,14 @@ class SAMRTests(DCERPCTests):
         resp.dump()
         oldData = resp['Buffer']['Name']['FullName']
 
-        resp['Buffer']['Name']['FullName'] = 'BETO'
+        resp['Buffer']['Name']['FullName'] = self.full_name_string
         resp = samr.hSamrSetInformationUser2(dce, userHandle, resp['Buffer'])
         resp.dump()
 
         resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserNameInformation)
         resp.dump()
 
-        self.assertEqual('BETO', resp['Buffer']['Name']['FullName'])
+        self.assertEqual(self.full_name_string, resp['Buffer']['Name']['FullName'])
 
         resp['Buffer']['Name']['FullName'] = oldData
         resp = samr.hSamrSetInformationUser2(dce, userHandle, resp['Buffer'])
@@ -1275,14 +1262,14 @@ class SAMRTests(DCERPCTests):
 
         oldData = resp['Buffer']['AccountName']['UserName']
 
-        resp['Buffer']['AccountName']['UserName'] = 'BETUS'
+        resp['Buffer']['AccountName']['UserName'] = self.test_string
         resp = samr.hSamrSetInformationUser2(dce, userHandle, resp['Buffer'])
         resp.dump()
 
         resp = samr.hSamrQueryInformationUser2(dce, userHandle, samr.USER_INFORMATION_CLASS.UserAccountNameInformation)
         resp.dump()
 
-        self.assertEqual('BETUS', resp['Buffer']['AccountName']['UserName'])
+        self.assertEqual(self.test_string, resp['Buffer']['AccountName']['UserName'])
 
         resp['Buffer']['AccountName']['UserName'] = oldData
         resp = samr.hSamrSetInformationUser2(dce, userHandle, resp['Buffer'])
@@ -1343,14 +1330,14 @@ class SAMRTests(DCERPCTests):
         req['UserHandle'] = userHandle
         req['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserPreferencesInformation
         req['Buffer'] = resp['Buffer'] 
-        req['Buffer']['Preferences']['UserComment'] = 'BETO'
+        req['Buffer']['Preferences']['UserComment'] = self.test_string
         resp = dce.request(req)
         resp.dump()
 
         resp = dce.request(request)
         resp.dump()
 
-        self.assertEqual('BETO', resp['Buffer']['Preferences']['UserComment'])
+        self.assertEqual(self.test_string, resp['Buffer']['Preferences']['UserComment'])
 
         req['Buffer']['Preferences']['UserComment'] = oldData
         resp = dce.request(req)
@@ -1394,7 +1381,7 @@ class SAMRTests(DCERPCTests):
         domainHandle = self.get_domain_handle(dce)
         request = samr.SamrConnect()
         request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED
-        request['ServerName'] = 'BETO\x00'
+        request['ServerName'] = self.server_name_string
         resp = dce.request(request)
         request = samr.SamrOpenGroup()
         request['DomainHandle'] = domainHandle
@@ -1431,7 +1418,7 @@ class SAMRTests(DCERPCTests):
         domainHandle = self.get_domain_handle(dce)
         request = samr.SamrConnect()
         request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED
-        request['ServerName'] = 'BETO\x00'
+        request['ServerName'] = self.server_name_string
         resp = dce.request(request)
         request = samr.SamrOpenGroup()
         request['DomainHandle'] = domainHandle
@@ -1557,7 +1544,7 @@ class SAMRTests(DCERPCTests):
         domainHandle = self.get_domain_handle(dce)
         request = samr.SamrCreateAliasInDomain()
         request['DomainHandle'] = domainHandle
-        request['AccountName'] = 'testGroup'
+        request['AccountName'] = self.test_group
         request['DesiredAccess'] = samr.GROUP_ALL_ACCESS | samr.DELETE
 
         resp = dce.request(request)
@@ -1598,7 +1585,7 @@ class SAMRTests(DCERPCTests):
     def test_hSamrAddMemberToAlias_hSamrRemoveMemberFromAlias(self):
         dce, rpc_transport = self.connect()
         domainHandle = self.get_domain_handle(dce)
-        resp = samr.hSamrCreateAliasInDomain(dce, domainHandle, 'testGroup',  samr.GROUP_ALL_ACCESS | samr.DELETE)
+        resp = samr.hSamrCreateAliasInDomain(dce, domainHandle, self.test_group,  samr.GROUP_ALL_ACCESS | samr.DELETE)
         resp.dump()
         aliasHandle = resp['AliasHandle']
         relativeId = resp['RelativeId']
@@ -1632,7 +1619,7 @@ class SAMRTests(DCERPCTests):
         domainHandle = self.get_domain_handle(dce)
         request = samr.SamrCreateAliasInDomain()
         request['DomainHandle'] = domainHandle
-        request['AccountName'] = 'testGroup'
+        request['AccountName'] = self.test_group
         request['DesiredAccess'] = samr.GROUP_ALL_ACCESS | samr.DELETE
 
         resp = dce.request(request)
@@ -1698,7 +1685,7 @@ class SAMRTests(DCERPCTests):
         #resp = samr.hSamrEnumerateAliasesInDomain(dce, domainHandle)
         #resp = samr.hSamrOpenAlias(dce, domainHandle, samr.DELETE, 1257)
         #resp = samr.hSamrDeleteAlias(dce, resp['AliasHandle'])
-        resp = samr.hSamrCreateAliasInDomain(dce, domainHandle, 'testGroup', samr.GROUP_ALL_ACCESS | samr.DELETE)
+        resp = samr.hSamrCreateAliasInDomain(dce, domainHandle, self.test_group, samr.GROUP_ALL_ACCESS | samr.DELETE)
         aliasHandle = resp['AliasHandle']
         relativeId = resp['RelativeId']
         resp.dump()
@@ -1754,7 +1741,7 @@ class SAMRTests(DCERPCTests):
 
         request = samr.SamrCreateAliasInDomain()
         request['DomainHandle'] = domainHandle
-        request['AccountName'] = 'testGroup'
+        request['AccountName'] = self.test_group
         request['DesiredAccess'] = samr.GROUP_ALL_ACCESS | samr.DELETE
 
         resp = dce.request(request)
@@ -1792,7 +1779,7 @@ class SAMRTests(DCERPCTests):
         domainHandle = self.get_domain_handle(dce)
         request = samr.SamrCreateAliasInDomain()
         request['DomainHandle'] = domainHandle
-        request['AccountName'] = 'testGroup'
+        request['AccountName'] = self.test_group
         request['DesiredAccess'] = samr.GROUP_ALL_ACCESS | samr.DELETE
 
         resp = dce.request(request)
@@ -1829,7 +1816,7 @@ class SAMRTests(DCERPCTests):
         domainHandle = self.get_domain_handle(dce)
         request = samr.SamrCreateAliasInDomain()
         request['DomainHandle'] = domainHandle
-        request['AccountName'] = 'testGroup'
+        request['AccountName'] = self.test_group
         request['DesiredAccess'] = samr.GROUP_ALL_ACCESS | samr.DELETE
 
         resp = dce.request(request)
@@ -1886,7 +1873,7 @@ class SAMRTests(DCERPCTests):
 
         request = samr.SamrCreateAliasInDomain()
         request['DomainHandle'] = domainHandle
-        request['AccountName'] = 'testGroup'
+        request['AccountName'] = self.test_group
         request['DesiredAccess'] = samr.GROUP_ALL_ACCESS | samr.DELETE
 
         resp = dce.request(request)
@@ -1944,7 +1931,7 @@ class SAMRTests(DCERPCTests):
         domainHandle = self.get_domain_handle(dce)
         request = samr.SamrConnect()
         request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED
-        request['ServerName'] = 'BETO\x00'
+        request['ServerName'] = self.server_name_string
         dce.request(request)
         request = samr.SamrOpenGroup()
         request['DomainHandle'] = domainHandle
@@ -1964,7 +1951,7 @@ class SAMRTests(DCERPCTests):
         domainHandle = self.get_domain_handle(dce)
         request = samr.SamrConnect()
         request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED
-        request['ServerName'] = 'BETO\x00'
+        request['ServerName'] = self.server_name_string
         dce.request(request)
         request = samr.SamrOpenGroup()
         request['DomainHandle'] = domainHandle
@@ -2152,7 +2139,7 @@ class SAMRTests(DCERPCTests):
 
         request = samr.SamrCreateUser2InDomain()
         request['DomainHandle'] = domainHandle
-        request['Name'] = 'testAccount'
+        request['Name'] = self.test_account
         request['AccountType'] = samr.USER_NORMAL_ACCOUNT
         request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED | samr.USER_READ_GENERAL | samr.DELETE
 
@@ -2192,7 +2179,7 @@ class SAMRTests(DCERPCTests):
 
         request = samr.SamrCreateUser2InDomain()
         request['DomainHandle'] = domainHandle
-        request['Name'] = 'testAccount'
+        request['Name'] = self.test_account
         request['AccountType'] = samr.USER_NORMAL_ACCOUNT
         request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED | samr.USER_READ_GENERAL | samr.DELETE
 
@@ -2250,7 +2237,7 @@ class SAMRTests(DCERPCTests):
 
         request = samr.SamrCreateUser2InDomain()
         request['DomainHandle'] = domainHandle
-        request['Name'] = 'testAccount'
+        request['Name'] = self.test_account
         request['AccountType'] = samr.USER_NORMAL_ACCOUNT
         request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED | samr.USER_READ_GENERAL | samr.DELETE
 
@@ -2291,7 +2278,7 @@ class SAMRTests(DCERPCTests):
 
         request = samr.SamrUnicodeChangePasswordUser2()
         request['ServerName'] = ''
-        request['UserName'] = 'testAccount'
+        request['UserName'] = self.test_account
         samUser = samr.SAMPR_USER_PASSWORD()
         samUser['Buffer'] = b'A'*(512-len(newPwd)*2) + newPwd.encode('utf-16le')
         samUser['Length'] = len(newPwd)*2
@@ -2324,7 +2311,7 @@ class SAMRTests(DCERPCTests):
 
         request = samr.SamrCreateUser2InDomain()
         request['DomainHandle'] = domainHandle
-        request['Name'] = 'testAccount'
+        request['Name'] = self.test_account
         request['AccountType'] = samr.USER_NORMAL_ACCOUNT
         request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED | samr.USER_READ_GENERAL | samr.DELETE
 
@@ -2353,7 +2340,7 @@ class SAMRTests(DCERPCTests):
         resp.dump()
 
         try:
-            resp = samr.hSamrUnicodeChangePasswordUser2(dce, '', 'testAccount', 'ADMIN', 'betus')
+            resp = samr.hSamrUnicodeChangePasswordUser2(dce, '', self.test_account, 'ADMIN', 'betus')
             resp.dump()
         except Exception as e:
             if str(e).find('STATUS_PASSWORD_RESTRICTION') < 0:

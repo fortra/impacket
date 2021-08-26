@@ -749,12 +749,6 @@ class RRPTestsSMBTransport64(RRPTests, unittest.TestCase):
     transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
 
-@pytest.mark.remote
-class RRPTestsTCPTransport(RRPTests, unittest.TestCase):
-    protocol = "ncacn_ip_tcp"
-    string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
-
-
 # Process command-line arguments.
 if __name__ == "__main__":
     unittest.main(verbosity=1)

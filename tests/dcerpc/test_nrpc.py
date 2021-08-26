@@ -82,10 +82,14 @@ class NRPCTests(DCERPCTests):
 
         ppp = nrpc.ComputeNetlogonCredential(b'12345678', self.sessionKey)
 
-        with assertRaisesRegex(self, DCERPCException, "STATUS_DOWNGRADE_DETECTED"):
-            nrpc.hNetrServerAuthenticate3(dce, NULL, self.machine_user + '\x00',
-                                          nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
-                                          self.serverName + '\x00', ppp, 0x600FFFFF)
+        try:
+            resp = nrpc.hNetrServerAuthenticate3(dce, NULL, self.machine_user + '\x00',
+                                                 nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
+                                                 self.serverName + '\x00', ppp, 0x600FFFFF)
+            resp.dump()
+        except nrpc.DCERPCSessionError as e:
+            if str(e).find("STATUS_DOWNGRADE_DETECTED") < 0:
+                raise
 
         self.clientStoredCredential = pack('<Q', unpack('<Q', ppp)[0] + 10)
 
@@ -822,7 +826,7 @@ class NRPCTests(DCERPCTests):
         with assertRaisesRegex(self, DCERPCException, "rpc_s_access_denied"):
             dce.request(request)
 
-    @pytest.mark.xfail
+    #@pytest.mark.xfail
     def test_NetrLogonGetTimeServiceParentDomain(self):
         dce, rpctransport = self.connect()
         request = nrpc.NetrLogonGetTimeServiceParentDomain()

@@ -9,6 +9,11 @@
 # Tested so far:
 #   (h)EvtRpcRegisterLogQuery
 #   (h)EvtRpcQueryNext
+# Not yet
+#   EvtRpcQuerySeek
+#   EvtRpcClose
+#   EvtRpcOpenLogHandle
+#   EvtRpcGetChannelList
 #
 from __future__ import division
 from __future__ import print_function
@@ -24,6 +29,8 @@ from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
 class EVEN6Tests(DCERPCTests):
     iface_uuid = even6.MSRPC_UUID_EVEN6
+    protocol = "ncacn_ip_tcp"
+    string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
     string_binding = r"ncacn_np:{0.machine}[\PIPE\eventlog]"
     authn = True
     authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
@@ -59,8 +66,9 @@ class EVEN6Tests(DCERPCTests):
     def test_hEvtRpcRegisterLogQuery_hEvtRpcQueryNext(self):
         dce, rpctransport = self.connect()
 
-        resp = even6.hEvtRpcRegisterLogQuery(dce, 'Security\x00', '*\x00',
-                                             even6.EvtQueryChannelName | even6.EvtReadNewestToOldest)
+        resp = even6.hEvtRpcRegisterLogQuery(dce, 'Security\x00',
+                                             even6.EvtQueryChannelName | even6.EvtReadNewestToOldest,
+                                             '*\x00')
         resp.dump()
         log_handle = resp['Handle']
 
@@ -74,26 +82,12 @@ class EVEN6Tests(DCERPCTests):
 
 
 @pytest.mark.remote
-class EVEN6TestsSMBTransport(EVEN6Tests, unittest.TestCase):
-    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
-
-
-@pytest.mark.remote
-class EVEN6TestsSMBTransport64(EVEN6Tests, unittest.TestCase):
-    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
-
-
-@pytest.mark.remote
 class EVEN6TestsTCPTransport(EVEN6Tests, unittest.TestCase):
-    protocol = "ncacn_ip_tcp"
-    string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
     transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 @pytest.mark.remote
 class EVEN6TestsTCPTransport64(EVEN6Tests, unittest.TestCase):
-    protocol = "ncacn_ip_tcp"
-    string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
     transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
 

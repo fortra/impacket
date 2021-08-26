@@ -8,13 +8,13 @@
 #
 # Tested so far:
 #   DRSBind
-#   DRSDomainControllerInfo
-#   hDRSDomainControllerInfo
-#   DRSCrackNames
-#   hDRSCrackNames
+#   (h)DRSDomainControllerInfo
+#   (h)DRSCrackNames
 #   DRSGetNT4ChangeLog
 #   DRSVerifyName
+#   DRSGetNCChanges
 # Not yet:
+#   DRSUnBind
 #
 from __future__ import division
 from __future__ import print_function

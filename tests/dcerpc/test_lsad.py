@@ -44,6 +44,21 @@
 #   (h)LsarQueryForestTrustInformation
 #   (h)LsarSetInformationPolicy
 #   (h)LsarSetInformationPolicy2
+# Not yet
+#   LsarCreateTrustedDomain
+#   LsarOpenTrustedDomain
+#   LsarQueryInfoTrustedDomain
+#   LsarSetInformationTrustedDomain
+#   LsarQueryTrustedDomainInfo
+#   LsarSetTrustedDomainInfo
+#   LsarDeleteTrustedDomain
+#   LsarQueryTrustedDomainInfoByName
+#   LsarSetTrustedDomainInfoByName
+#   LsarCreateTrustedDomainEx
+#   LsarSetDomainInformationPolicy
+#   LsarOpenTrustedDomainByName
+#   LsarCreateTrustedDomainEx2
+#   LsarSetForestTrustInformation
 #
 from __future__ import division
 from __future__ import print_function
