@@ -68,11 +68,7 @@ class HTTPRelayClient(ProtocolClient):
                 self.authenticationMethod = "Negotiate"
         except (KeyError, TypeError):
             LOG.error('No authentication requested by the server for url %s' % self.targetHost)
-            if self.serverConfig.isADCSAttack:
-                LOG.info('IIS cert server may allow anonymous authentication, sending NTLM auth anyways')
-                self.authenticationMethod = "NTLM"
-            else:
-                return False
+            return False
 
         #Negotiate auth
         negotiate = base64.b64encode(negotiateMessage).decode("ascii")
