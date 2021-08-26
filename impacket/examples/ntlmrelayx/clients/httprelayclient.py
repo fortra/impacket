@@ -64,7 +64,7 @@ class HTTPRelayClient(ProtocolClient):
                 return False
             if 'NTLM' in res.getheader('WWW-Authenticate'):
                 self.authenticationMethod = "NTLM"
-            if 'Negotiate' in res.getheader('WWW-Authenticate'):
+            elif 'Negotiate' in res.getheader('WWW-Authenticate'):
                 self.authenticationMethod = "Negotiate"
         except (KeyError, TypeError):
             LOG.error('No authentication requested by the server for url %s' % self.targetHost)
