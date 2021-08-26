@@ -34,6 +34,9 @@
 #   (h)SchRpcEnableTask
 #
 # Not yet:
+#   SchRpcRegisterTask
+#   SchRpcSetSecurity
+#   SchRpcGetSecurity
 #
 from __future__ import division
 from __future__ import print_function
@@ -302,7 +305,8 @@ class TSCHTests(DCERPCTests):
         resp = tsch.hSchRpcHighestVersion(dce)
         resp.dump()
 
-    def tes_SchRpcRegisterTask(self):
+    @pytest.mark.skip(reason="Disabled test")
+    def test_SchRpcRegisterTask(self):
         dce, rpc_transport = self.connect()
         xml = """
 <!-- Task -->

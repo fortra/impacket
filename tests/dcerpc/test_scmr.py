@@ -7,6 +7,7 @@
 # for more information.
 #
 # Tested so far:
+#   ROpenSCManagerW
 #   RControlService
 #   RDeleteService
 #   RLockServiceDatabase

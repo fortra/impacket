@@ -36,7 +36,7 @@
 #   BaseRegDeleteKeyEx
 #   (h)BaseRegLoadKey
 #   (h)BaseRegUnLoadKey
-#
+#   hBaseRegDeleteValue
 # Not yet:
 #   BaseRegSetKeySecurity
 #

@@ -68,6 +68,9 @@
 #   (h)SamrChangePasswordUser
 #   SamrOemChangePasswordUser2
 #   (h)SamrUnicodeChangePasswordUser2
+#   (h)SamrLookupDomainInSamServer
+# Not yet
+#   SamrCreateUserInDomain
 #
 import pytest
 import unittest

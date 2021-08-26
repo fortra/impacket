@@ -52,8 +52,12 @@
 #   NetrLogonUasLogoff
 #
 # Not yet:
-#   DSRUpdateReadOnlyServerDnsRecords
 #   NetrLogonSamLogoff
+#   NetrServerPasswordSet
+#   NetrAccountDeltas
+#   NetrAccountSync
+#   DSRUpdateReadOnlyServerDnsRecords
+#   NetrChainSetClientAttributes
 #
 import pytest
 import unittest
