@@ -558,20 +558,25 @@ class RemoteOperations:
 
         return self.__drsr.request(request)
 
-    def getDomainUsers(self, enumerationContext=0, justUserAccounts=False):
+    def getDomainUsers(self, enumerationContext=0, justUsers=False, justComputers=False):
         if self.__samr is None:
             self.connectSamr(self.getMachineNameAndDomain()[1])
 
         try:
-            userAccountControlFilter = samr.USER_NORMAL_ACCOUNT
+            userAccountControl = samr.USER_NORMAL_ACCOUNT | \
+                                 samr.USER_WORKSTATION_TRUST_ACCOUNT | \
+                                 samr.USER_SERVER_TRUST_ACCOUNT |\
+                                 samr.USER_INTERDOMAIN_TRUST_ACCOUNT
 
-            if justUserAccounts == False:
-                userAccountControlFilter |= samr.USER_WORKSTATION_TRUST_ACCOUNT | \
-                                            samr.USER_SERVER_TRUST_ACCOUNT | \
-                                            samr.USER_INTERDOMAIN_TRUST_ACCOUNT
+            if justUsers is True:
+                userAccountControl = samr.USER_NORMAL_ACCOUNT
+            elif justComputers is True:
+                userAccountControl = samr.USER_WORKSTATION_TRUST_ACCOUNT | \
+                                     samr.USER_SERVER_TRUST_ACCOUNT |\
+                                     samr.USER_INTERDOMAIN_TRUST_ACCOUNT
 
-            resp = samr.hSamrEnumerateUsersInDomain(self.__samr, self.__domainHandle, \
-                                                    userAccountControl=userAccountControlFilter, \
+            resp = samr.hSamrEnumerateUsersInDomain(self.__samr, self.__domainHandle,
+                                                    userAccountControl=userAccountControl,
                                                     enumerationContext=enumerationContext)
         except DCERPCException as e:
             if str(e).find('STATUS_MORE_ENTRIES') < 0:
@@ -1150,14 +1155,25 @@ class OfflineRegistry:
             self.__registryHive.close()
 
 class SAMHashes(OfflineRegistry):
-    def __init__(self, samFile, bootKey, isRemote = False, perSecretCallback = lambda secret: _print_helper(secret)):
+    def __init__(self, samFile, bootKey, isRemote = False, hashcat = False, outputFile = None,
+                 quiet = False, perSecretCallback = lambda secret: _print_helper(secret)):
         OfflineRegistry.__init__(self, samFile, isRemote)
         self.__samFile = samFile
         self.__hashedBootKey = b''
         self.__bootKey = bootKey
+        self.__outputFileName = outputFile
+        self.__hashcat = hashcat
+        self.__quiet = quiet
         self.__cryptoCommon = CryptoCommon()
         self.__itemsFound = {}
         self.__perSecretCallback = perSecretCallback
+
+        if self.__outputFileName is None:
+            self.__quiet = False
+            self.__hashcat = False
+
+        if self.__quiet is True:
+            self.__perSecretCallback = lambda secret: None
 
     def MD5(self, data):
         md5 = hashlib.new('md5')
@@ -1220,7 +1236,16 @@ class SAMHashes(OfflineRegistry):
             # No SAM file provided
             return
 
-        LOG.info('Dumping local SAM hashes (uid:rid:lmhash:nthash)')
+        tmpMsg = 'Dumping local SAM hashes '
+        if self.__quiet is True:
+            if self.__hashcat is True:
+                tmpMsg += 'to %s.sam.lm and %s.sam.nt' % (self.__outputFileName, self.__outputFileName)
+            else:
+                tmpMsg += 'to %s.sam' % self.__outputFileName
+        else:
+            tmpMsg += '(uid:rid:lmhash:nthash)'
+
+        LOG.info(tmpMsg)
         self.getHBootKey()
 
         usersKey = 'SAM\\Domains\\Account\\Users'
@@ -1280,14 +1305,34 @@ class SAMHashes(OfflineRegistry):
             self.__itemsFound[rid] = answer
             self.__perSecretCallback(answer)
 
-    def export(self, baseFileName, openFileFunc = None):
+    def export(self, openFileFunc = None):
+        emptyLM = "aad3b435b51404eeaad3b435b51404ee"
+
         if len(self.__itemsFound) > 0:
             items = sorted(self.__itemsFound)
-            fileName = baseFileName+'.sam'
-            fd = openFile(fileName, openFileFunc=openFileFunc)
+            fileName = self.__outputFileName+'.sam'
+
+            if self.__hashcat is True:
+                fd_LM = openFile(fileName+'.lm', openFileFunc=openFileFunc)
+                fd_NT = openFile(fileName+'.nt', openFileFunc=openFileFunc)
+            else:
+                fd = openFile(fileName, openFileFunc=openFileFunc)
+
             for item in items:
-                fd.write(self.__itemsFound[item]+'\n')
-            fd.close()
+                if self.__hashcat is True:
+                    tmp = self.__itemsFound[item].split(':')
+                    if tmp[2] != emptyLM:
+                        fd_LM.write(tmp[0]+':'+tmp[2]+'\n')
+
+                    fd_NT.write(tmp[0]+':'+tmp[3]+'\n')
+                else:
+                    fd.write(self.__itemsFound[item]+'\n')
+
+            if self.__hashcat is True:
+                fd_LM.close()
+                fd_NT.close()
+            else:
+                fd.close()
             return fileName
 
 class LSASecrets(OfflineRegistry):
@@ -1298,7 +1343,7 @@ class LSASecrets(OfflineRegistry):
         LSA_RAW = 2
         LSA_KERBEROS = 3
 
-    def __init__(self, securityFile, bootKey, remoteOps=None, isRemote=False, history=False,
+    def __init__(self, securityFile, bootKey, remoteOps=None, isRemote=False, history=False, outputFile=None, quiet=False,
                  perSecretCallback=lambda secretType, secret: _print_helper(secret)):
         OfflineRegistry.__init__(self, securityFile, isRemote)
         self.__hashedBootKey = b''
@@ -1306,6 +1351,8 @@ class LSASecrets(OfflineRegistry):
         self.__LSAKey = b''
         self.__NKLMKey = b''
         self.__vistaStyle = True
+        self.__outputFileName = outputFile
+        self.__quiet = quiet
         self.__cryptoCommon = CryptoCommon()
         self.__securityFile = securityFile
         self.__remoteOps = remoteOps
@@ -1313,6 +1360,12 @@ class LSASecrets(OfflineRegistry):
         self.__secretItems = []
         self.__perSecretCallback = perSecretCallback
         self.__history = history
+
+        if self.__outputFileName is None:
+            self.__quiet = False
+
+        if self.__quiet is True:
+            self.__perSecretCallback = lambda secretType, secret: None
 
     def MD5(self, data):
         md5 = hashlib.new('md5')
@@ -1414,8 +1467,13 @@ class LSASecrets(OfflineRegistry):
             # No SECURITY file provided
             return
 
-        LOG.info('Dumping cached domain logon information (domain/username:hash)')
+        tmpMsg = 'Dumping cached domain logon information '
+        if self.__quiet is True:
+            tmpMsg += 'to %s.cached' % self.__outputFileName
+        else:
+            tmpMsg += '(domain/username:hash)'
 
+        LOG.info(tmpMsg)
         # Let's first see if there are cached entries
         values = self.enumValues('\\Cache')
         if values is None:
@@ -1572,7 +1630,7 @@ class LSASecrets(OfflineRegistry):
             self.__secretItems.append(printableSecret)
             # If we're using the default callback (ourselves), we print the hex representation. If not, the
             # user will need to decide what to do.
-            if self.__module__ == self.__perSecretCallback.__module__:
+            if self.__module__ == self.__perSecretCallback.__module__ and self.__quiet is False:
                 hexdump(secretItem)
             self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA_RAW, printableSecret)
 
@@ -1613,7 +1671,10 @@ class LSASecrets(OfflineRegistry):
             # No SECURITY file provided
             return
 
-        LOG.info('Dumping LSA Secrets')
+        tmpMsg = 'Dumping LSA Secrets'
+        if self.__quiet is True:
+            tmpMsg += ' to %s.secrets' % self.__outputFileName
+        LOG.info(tmpMsg)
 
         # Let's first see if there are cached entries
         keys = self.enumKey('\\Policy\\Secrets')
@@ -1654,18 +1715,18 @@ class LSASecrets(OfflineRegistry):
                         key += '_history'
                     self.__printSecret(key, secret)
 
-    def exportSecrets(self, baseFileName, openFileFunc = None):
+    def exportSecrets(self, openFileFunc = None):
         if len(self.__secretItems) > 0:
-            fileName = baseFileName+'.secrets'
+            fileName = self.__outputFileName+'.secrets'
             fd = openFile(fileName, openFileFunc=openFileFunc)
             for item in self.__secretItems:
                 fd.write(item+'\n')
             fd.close()
             return fileName
 
-    def exportCached(self, baseFileName, openFileFunc = None):
+    def exportCached(self, openFileFunc = None):
         if len(self.__cachedItems) > 0:
-            fileName = baseFileName+'.cached'
+            fileName = self.__outputFileName+'.cached'
             fd = openFile(fileName, openFileFunc=openFileFunc)
             for item in self.__cachedItems:
                 fd.write(item+'\n')
@@ -1792,7 +1853,7 @@ class NTDSHashes:
     SAM_MACHINE_ACCOUNT     = 0x30000001
     SAM_TRUST_ACCOUNT       = 0x30000002
 
-    ACCOUNT_TYPES = ( SAM_NORMAL_USER_ACCOUNT, SAM_TRUST_ACCOUNT)
+    ACCOUNT_TYPES = ( SAM_NORMAL_USER_ACCOUNT, SAM_MACHINE_ACCOUNT, SAM_TRUST_ACCOUNT)
 
     class PEKLIST_ENC(Structure):
         structure = (
@@ -1845,8 +1906,8 @@ class NTDSHashes:
 
     def __init__(self, ntdsFile, bootKey, isRemote=False, history=False, noLMHash=True, remoteOps=None,
                  useVSSMethod=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None,
-                 justUser=None, justUserAccounts=False, printUserStatus=False,
-                 perSecretCallback = lambda secretType, secret : _print_helper(secret),
+                 justUser=None, justDCUsers=False, justDCComputers=False, hashcat=False, quiet=False,
+                 printUserStatus=False, perSecretCallback = lambda secretType, secret : _print_helper(secret),
                  resumeSessionMgr=ResumeSessionMgrInFile):
         self.__bootKey = bootKey
         self.__NTDS = ntdsFile
@@ -1868,12 +1929,18 @@ class NTDSHashes:
         self.__resumeSession = resumeSessionMgr(resumeSession)
         self.__outputFileName = outputFileName
         self.__justUser = justUser
-        self.__justUserAccounts = justUserAccounts
+        self.__justDCUsers = justDCUsers
+        self.__justDCComputers = justDCComputers
+        self.__hashcat = hashcat
+        self.__quiet = quiet
         self.__perSecretCallback = perSecretCallback
 
-        # if not needed, filter out computer object
-        if justUserAccounts is False and justUser is None:
-            self.ACCOUNT_TYPES += (self.SAM_MACHINE_ACCOUNT,)
+        if self.__outputFileName is None:
+            self.__hashcat = False
+            self.__quiet = False
+
+        if self.__quiet is True:
+            self.__perSecretCallback = lambda secretType, secret: None
 
         # these are all the columns that we need to get the secrets.
         # If in the future someone finds other columns containing interesting things please extend ths table.
@@ -1892,6 +1959,12 @@ class NTDSHashes:
             self.NAME_TO_INTERNAL['supplementalCredentials'] : 1,
             self.NAME_TO_INTERNAL['pekList'] : 1,
         }
+
+        # more filtering, if needed
+        if self.__justDCUsers is True:
+            self.ACCOUNT_TYPES = ( self.SAM_NORMAL_USER_ACCOUNT, self.SAM_TRUST_ACCOUNT)
+        elif self.__justDCComputers is True:
+            self.ACCOUNT_TYPES = ( self.SAM_MACHINE_ACCOUNT,)
 
     def getResumeSessionFile(self):
         return self.__resumeSession.getFileName()
@@ -1915,7 +1988,6 @@ class NTDSHashes:
                 if self.__justUser is not None:
                     if record[self.NAME_TO_INTERNAL['sAMAccountName']].lower() != self.__justUser.lower():
                         continue
-
                 # Okey.. we found some users, but we're not yet ready to process them.
                 # Let's just store them in a temp list
                 self.__tmpUsers.append(record)
@@ -2114,7 +2186,9 @@ class NTDSHashes:
 
         LOG.debug('Leaving NTDSHashes.__decryptSupplementalInfo')
 
-    def __decryptHash(self, record, prefixTable=None, outputFile=None):
+    def __decryptHash(self, record, prefixTable=None, outputFile=None, outputFileLM=None, outputFileNT=None):
+        emptyLM = "aad3b435b51404eeaad3b435b51404ee"
+
         LOG.debug('Entering NTDSHashes.__decryptHash')
         if self.__useVSSMethod is True:
             LOG.debug('Decrypting hash for user: %s' % record[self.NAME_TO_INTERNAL['name']])
@@ -2182,7 +2256,16 @@ class NTDSHashes:
             self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
 
             if outputFile is not None:
-                self.__writeOutput(outputFile, answer + '\n')
+                if self.__hashcat is True:
+                    if outputFileLM is not None and hexlify(LMHash).decode('utf-8') != emptyLM:
+                        answerLM = "%s:%s" % (userName, hexlify(LMHash).decode('utf-8'))
+                        self.__writeOutput(outputFileLM, answerLM + '\n')
+
+                    if outputFileNT is not None:
+                        answerNT = "%s:%s" % (userName, hexlify(NTHash).decode('utf-8'))
+                        self.__writeOutput(outputFileNT, answerNT + '\n')
+                else:
+                    self.__writeOutput(outputFile, answer + '\n')
 
             if self.__history:
                 LMHistory = []
@@ -2221,9 +2304,20 @@ class NTDSHashes:
 
                     answer = "%s_history%d:%s:%s:%s:::" % (userName, i, rid, lmhash.decode('utf-8'),
                                                            hexlify(NTHash).decode('utf-8'))
-                    if outputFile is not None:
-                        self.__writeOutput(outputFile, answer + '\n')
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
+
+                    if outputFile is not None:
+                        if self.__hashcat is True:
+                            if outputFileLM is not None and lmhash.decode('utf-8') != emptyLM:
+                                answerLM = "%s_history%d:%s" % (userName, i, lmhash.decode('utf-8'))
+                                self.__writeOutput(outputFileLM, answerLM + '\n')
+
+                            if outputFileNT is not None:
+                                answerNT = "%s_history%d:%s" % (userName, i, hexlify(NTHash).decode('utf-8'))
+                                self.__writeOutput(outputFileNT, answerNT + '\n')
+                        else:
+                            self.__writeOutput(outputFile, answer + '\n')
+
         else:
             replyVersion = 'V%d' %record['pdwOutVersion']
             LOG.debug('Decrypting hash for user: %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
@@ -2330,7 +2424,16 @@ class NTDSHashes:
             self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
 
             if outputFile is not None:
-                self.__writeOutput(outputFile, answer + '\n')
+                if self.__hashcat is True:
+                    if outputFileLM is not None and hexlify(LMHash).decode('utf-8') != emptyLM:
+                        answerLM = "%s:%s" % (userName, hexlify(LMHash).decode('utf-8'))
+                        self.__writeOutput(outputFileLM, answerLM + '\n')
+
+                    if outputFileNT is not None:
+                        answerNT = "%s:%s" % (userName, hexlify(NTHash).decode('utf-8'))
+                        self.__writeOutput(outputFileNT, answerNT + '\n')
+                else:
+                    self.__writeOutput(outputFile, answer + '\n')
 
             if self.__history:
                 for i, (LMHashHistory, NTHashHistory) in enumerate(
@@ -2343,16 +2446,34 @@ class NTDSHashes:
                     answer = "%s_history%d:%s:%s:%s:::" % (userName, i, rid, lmhash.decode('utf-8'),
                                                            hexlify(NTHashHistory).decode('utf-8'))
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
-                    if outputFile is not None:
-                        self.__writeOutput(outputFile, answer + '\n')
 
-        if outputFile is not None:
-            outputFile.flush()
+                    if outputFile is not None:
+                        if self.__hashcat is True:
+                            if outputFileLM is not None and lmhash.decode('utf-8') != emptyLM:
+                                answerLM = "%s_history%d:%s" % (userName, i, lmhash.decode('utf-8'))
+                                self.__writeOutput(outputFileLM, answerLM + '\n')
+
+                            if outputFileNT is not None:
+                                answerNT = "%s_history%d:%s" % (userName, i, hexlify(NTHashHistory).decode('utf-8'))
+                                self.__writeOutput(outputFileNT, answerNT + '\n')
+                        else:
+                            self.__writeOutput(outputFile, answer + '\n')
+
+        if self.__hashcat is True:
+            if outputFileLM is not None:
+                outputFileLM.flush()
+            if outputFileNT is not None:
+                outputFileNT.flush()
+        else:
+            if outputFile is not None:
+                outputFile.flush()
 
         LOG.debug('Leaving NTDSHashes.__decryptHash')
 
     def dump(self):
         hashesOutputFile = None
+        hashesOutputFileLM = None
+        hashesOutputFileNT = None
         keysOutputFile = None
         clearTextOutputFile = None
 
@@ -2391,12 +2512,33 @@ class NTDSHashes:
                     mode = 'a+'
                 else:
                     mode = 'w+'
-                hashesOutputFile = openFile(self.__outputFileName+'.ntds',mode)
+
+                if self.__hashcat is True:
+                    append_buf = ".ntds"
+                    if self.__justDCUsers is True:
+                        append_buf += ".users"
+                    elif self.__justDCComputers is True:
+                        append_buf += ".computers"
+
+                    hashesOutputFileLM = openFile(self.__outputFileName+append_buf+'.lm',mode)
+                    hashesOutputFileNT = openFile(self.__outputFileName+append_buf+'.nt',mode)
+                else:
+                    hashesOutputFile = openFile(self.__outputFileName+'.ntds',mode)
+
                 if self.__justNTLM is False:
                     keysOutputFile = openFile(self.__outputFileName+'.ntds.kerberos',mode)
                     clearTextOutputFile = openFile(self.__outputFileName+'.ntds.cleartext',mode)
 
-            LOG.info('Dumping Domain Credentials (domain\\uid:rid:lmhash:nthash)')
+            tmpMsg = 'Dumping Domain Credentials '
+            if self.__quiet is True:
+                if self.__hashcat is True:
+                    tmpMsg += 'to %s.ntds.lm and %s.ntds.nt' % (self.__outputFileName, self.__outputFileName)
+                else:
+                    tmpMsg += 'to %s.ntds' % self.__outputFileName
+            else:
+                tmpMsg += '(domain\\uid:rid:lmhash:nthash)'
+
+            LOG.info(tmpMsg)
             if self.__useVSSMethod:
                 # We start getting rows from the table aiming at reaching
                 # the pekList. If we find users records we stored them
@@ -2407,7 +2549,7 @@ class NTDSHashes:
                     # First of all, if we have users already cached, let's decrypt their hashes
                     for record in self.__tmpUsers:
                         try:
-                            self.__decryptHash(record, outputFile=hashesOutputFile)
+                            self.__decryptHash(record, outputFile=hashesOutputFile, outputFileLM=hashesOutputFileLM, outputFileNT=hashesOutputFileNT)
                             if self.__justNTLM is False:
                                 self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
                         except Exception as e:
@@ -2437,7 +2579,7 @@ class NTDSHashes:
                                 if self.__justUser is not None:
                                     if record[self.NAME_TO_INTERNAL['sAMAccountName']].lower() != self.__justUser.lower():
                                         continue
-                                self.__decryptHash(record, outputFile=hashesOutputFile)
+                                self.__decryptHash(record, outputFile=hashesOutputFile, outputFileLM=hashesOutputFileLM, outputFileNT=hashesOutputFileNT)
                                 if self.__justNTLM is False:
                                     self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
                                 if self.__justUser is not None:
@@ -2501,8 +2643,8 @@ class NTDSHashes:
                         crackedName['pmsgOut']['V1']['pResult']['cItems'], self.__justUser))
                     try:
                         self.__decryptHash(userRecord,
-                                           userRecord['pmsgOut'][replyVersion]['PrefixTableSrc']['pPrefixEntry'],
-                                           hashesOutputFile)
+                                           prefixTable=userRecord['pmsgOut'][replyVersion]['PrefixTableSrc']['pPrefixEntry'],
+                                           outputFile=hashesOutputFile, outputFileLM=hashesOutputFileLM, outputFileNT=hashesOutputFileNT)
                         if self.__justNTLM is False:
                             self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut'][replyVersion]['PrefixTableSrc'][
                                 'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
@@ -2513,7 +2655,7 @@ class NTDSHashes:
                         LOG.error(str(e))
                 else:
                     while status == STATUS_MORE_ENTRIES:
-                        resp = self.__remoteOps.getDomainUsers(enumerationContext, self.__justUserAccounts)
+                        resp = self.__remoteOps.getDomainUsers(enumerationContext, self.__justDCUsers, self.__justDCComputers)
 
                         for user in resp['Buffer']['Buffer']:
                             userName = user['Name']
@@ -2553,8 +2695,8 @@ class NTDSHashes:
                                 crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
                             try:
                                 self.__decryptHash(userRecord,
-                                                   userRecord['pmsgOut'][replyVersion]['PrefixTableSrc']['pPrefixEntry'],
-                                                   hashesOutputFile)
+                                                   prefixTable=userRecord['pmsgOut'][replyVersion]['PrefixTableSrc']['pPrefixEntry'],
+                                                   outputFile=hashesOutputFile, outputFileLM=hashesOutputFileLM, outputFileNT=hashesOutputFileNT)
                                 if self.__justNTLM is False:
                                     self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut'][replyVersion]['PrefixTableSrc'][
                                         'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
@@ -2578,27 +2720,37 @@ class NTDSHashes:
             LOG.debug("Finished processing and printing user's hashes, now printing supplemental information")
             # Now we'll print the Kerberos keys. So we don't mix things up in the output.
             if len(self.__kerberosKeys) > 0:
+                tmpMsg = 'Dumping Kerberos keys '
                 if self.__useVSSMethod is True:
-                    LOG.info('Kerberos keys from %s ' % self.__NTDS)
-                else:
-                    LOG.info('Kerberos keys grabbed')
+                    tmpMsg += 'from %s ' % self.__NTDS
+                if self.__quiet is True:
+                    tmpMsg += 'to %s.ntds.kerberos' % self.__outputFileName
+                LOG.info(tmpMsg)
 
                 for itemKey in list(self.__kerberosKeys.keys()):
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS_KERBEROS, itemKey)
 
             # And finally the cleartext pwds
             if len(self.__clearTextPwds) > 0:
+                tmpMsg = 'Dumping ClearText password '
                 if self.__useVSSMethod is True:
-                    LOG.info('ClearText password from %s ' % self.__NTDS)
-                else:
-                    LOG.info('ClearText passwords grabbed')
+                    tmpMsg += 'from %s ' % self.__NTDS
+                if self.__quiet is True:
+                    tmpMsg += 'to %s.ntds.kerberos' % self.__outputFileName
+                LOG.info(tmpMsg)
 
                 for itemKey in list(self.__clearTextPwds.keys()):
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS_CLEARTEXT, itemKey)
         finally:
             # Resources cleanup
-            if hashesOutputFile is not None:
-                hashesOutputFile.close()
+            if self.__hashcat is True:
+                if hashesOutputFileLM is not None:
+                    hashesOutputFileLM.close()
+                if hashesOutputFileNT is not None:
+                    hashesOutputFileNT.close()
+            else:
+                if hashesOutputFile is not None:
+                    hashesOutputFile.close()
 
             if keysOutputFile is not None:
                 keysOutputFile.close()
