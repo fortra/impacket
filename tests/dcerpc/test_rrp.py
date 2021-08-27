@@ -56,6 +56,10 @@ class RRPTests(DCERPCTests):
     string_binding = r"ncacn_np:{0.machine}[\PIPE\winreg]"
     authn = True
 
+    test_key = "BETO\x00"
+    test_value_name = "BETO2\x00"
+    test_value_data = "HOLA COMO TE VA\x00"
+
     def setUp(self):
         super(RRPTests, self).setUp()
         self.rrp_started = False
@@ -162,25 +166,24 @@ class RRPTests(DCERPCTests):
         resp.dump()
         regHandle = resp['phKey']
 
-        resp = rrp.hBaseRegCreateKey(dce, regHandle, 'BETO\x00')
+        resp = rrp.hBaseRegCreateKey(dce, regHandle, self.test_key)
         resp.dump()
         phKey = resp['phkResult']
 
         try: 
-            resp = rrp.hBaseRegSetValue(dce, phKey, 'BETO2\x00',  rrp.REG_SZ, 'HOLA COMO TE VA\x00')
+            resp = rrp.hBaseRegSetValue(dce, phKey, self.test_value_name,  rrp.REG_SZ, self.test_value_data)
             resp.dump()
         except Exception as e:
             print(e)
 
-        type, data = rrp.hBaseRegQueryValue(dce, phKey, 'BETO2\x00')
-        #print data
+        type, data = rrp.hBaseRegQueryValue(dce, phKey, self.test_value_name)
 
-        resp = rrp.hBaseRegDeleteValue(dce, phKey, 'BETO2\x00')
+        resp = rrp.hBaseRegDeleteValue(dce, phKey, self.test_value_name)
         resp.dump()
 
-        resp = rrp.hBaseRegDeleteKey(dce, regHandle, 'BETO\x00')
+        resp = rrp.hBaseRegDeleteKey(dce, regHandle, self.test_key)
         resp.dump()
-        self.assertEqual('HOLA COMO TE VA\x00', data)
+        self.assertEqual(self.test_value_data, data)
 
     def test_BaseRegCreateKey_BaseRegSetValue_BaseRegDeleteKey(self):
         dce, rpctransport = self.connect()
@@ -193,7 +196,7 @@ class RRPTests(DCERPCTests):
 
         request = rrp.BaseRegCreateKey()
         request['hKey'] = regHandle
-        request['lpSubKey'] = 'BETO\x00'
+        request['lpSubKey'] = self.test_key
         request['lpClass'] = NULL
         request['dwOptions'] = 0x00000001
         request['samDesired'] = MAXIMUM_ALLOWED
@@ -205,10 +208,10 @@ class RRPTests(DCERPCTests):
 
         request = rrp.BaseRegSetValue()
         request['hKey'] = phKey
-        request['lpValueName'] = 'BETO\x00'
+        request['lpValueName'] = self.test_value_name
         request['dwType'] = rrp.REG_SZ
-        request['lpData'] = 'HOLA COMO TE VA\x00'.encode('utf-16le')
-        request['cbData'] = len('HOLA COMO TE VA\x00')*2
+        request['lpData'] = self.test_value_data.encode('utf-16le')
+        request['cbData'] = len(self.test_value_data)*2
         
         try: 
             resp = dce.request(request)
@@ -218,7 +221,7 @@ class RRPTests(DCERPCTests):
 
         request = rrp.BaseRegQueryValue()
         request['hKey'] = phKey
-        request['lpValueName'] = 'BETO\x00'
+        request['lpValueName'] = self.test_value_name
         request['lpData'] = b' '*100
         request['lpcbData'] = 100
         request['lpcbLen'] = 100
@@ -228,11 +231,11 @@ class RRPTests(DCERPCTests):
 
         request = rrp.BaseRegDeleteKey()
         request['hKey'] = regHandle
-        request['lpSubKey'] = 'BETO\x00'
+        request['lpSubKey'] = self.test_key
         resp = dce.request(request)
         resp.dump()
         print(b''.join(resData).decode('utf-16le'))
-        self.assertEqual('HOLA COMO TE VA\x00', b''.join(resData).decode('utf-16le'))
+        self.assertEqual(self.test_value_data, b''.join(resData).decode('utf-16le'))
 
     def test_BaseRegEnumKey(self):
         dce, rpctransport = self.connect()
@@ -267,7 +270,7 @@ class RRPTests(DCERPCTests):
         request['samDesired'] = MAXIMUM_ALLOWED | rrp.KEY_ENUMERATE_SUB_KEYS
         resp = dce.request(request)
 
-        resp = rrp.hBaseRegEnumKey(dce, resp['phkResult'], 1 )
+        resp = rrp.hBaseRegEnumKey(dce, resp['phkResult'], 1)
         resp.dump()
 
     def test_BaseRegEnumValue(self):
@@ -302,7 +305,7 @@ class RRPTests(DCERPCTests):
         request['samDesired'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
 
-        resp = rrp.hBaseRegEnumValue(dce, resp['phkResult'], 7, 10)
+        resp = rrp.hBaseRegEnumValue(dce, resp['phkResult'], 6, 100)
         resp.dump()
 
     def test_BaseRegFlushKey(self):
@@ -331,7 +334,7 @@ class RRPTests(DCERPCTests):
     def test_hBaseRegQueryInfoKey(self):
         dce, rpctransport = self.connect()
         phKey = self.open_local_machine(dce)
-        resp = rrp.hBaseRegOpenKey(dce, phKey, 'SYSTEM\\CurrentControlSet\\Control\\Lsa\\JD\x00' )
+        resp = rrp.hBaseRegOpenKey(dce, phKey, 'SYSTEM\\CurrentControlSet\\Control\\Lsa\\JD\x00')
 
         resp = rrp.hBaseRegQueryInfoKey(dce, resp['phkResult'])
         resp.dump()
@@ -361,10 +364,10 @@ class RRPTests(DCERPCTests):
         dce, rpctransport = self.connect()
         phKey = self.open_local_machine(dce)
 
-        resp = rrp.hBaseRegOpenKey(dce, phKey, 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\x00' )
+        resp = rrp.hBaseRegOpenKey(dce, phKey, 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\x00')
         resp.dump()
 
-        resp = rrp.hBaseRegQueryValue(dce, resp['phkResult'], 'ProductName\x00')
+        rrp.hBaseRegQueryValue(dce, resp['phkResult'], 'ProductName\x00')
         
     def test_BaseRegReplaceKey(self):
         dce, rpctransport = self.connect()
@@ -663,7 +666,7 @@ class RRPTests(DCERPCTests):
 
         request = rrp.BaseRegCreateKey()
         request['hKey'] = regHandle
-        request['lpSubKey'] = 'BETO\x00'
+        request['lpSubKey'] = self.test_key
         request['lpClass'] = NULL
         request['dwOptions'] = 0x00000001
         request['samDesired'] = MAXIMUM_ALLOWED
@@ -674,7 +677,7 @@ class RRPTests(DCERPCTests):
 
         request = rrp.BaseRegDeleteKeyEx()
         request['hKey'] = regHandle
-        request['lpSubKey'] = 'BETO\x00'
+        request['lpSubKey'] = self.test_key
         request['AccessMask'] = rrp.KEY_WOW64_32KEY
         request['Reserved'] = 0
         resp = dce.request(request)
