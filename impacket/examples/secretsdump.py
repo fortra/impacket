@@ -2255,17 +2255,16 @@ class NTDSHashes:
 
             self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
 
-            if outputFile is not None:
-                if self.__hashcat is True:
-                    if outputFileLM is not None and hexlify(LMHash).decode('utf-8') != emptyLM:
-                        answerLM = "%s:%s" % (userName, hexlify(LMHash).decode('utf-8'))
-                        self.__writeOutput(outputFileLM, answerLM + '\n')
+            if self.__hashcat is True:
+                if outputFileLM is not None and hexlify(LMHash).decode('utf-8') != emptyLM:
+                    answerLM = "%s:%s" % (userName, hexlify(LMHash).decode('utf-8'))
+                    self.__writeOutput(outputFileLM, answerLM + '\n')
 
-                    if outputFileNT is not None:
-                        answerNT = "%s:%s" % (userName, hexlify(NTHash).decode('utf-8'))
-                        self.__writeOutput(outputFileNT, answerNT + '\n')
-                else:
-                    self.__writeOutput(outputFile, answer + '\n')
+                if outputFileNT is not None:
+                    answerNT = "%s:%s" % (userName, hexlify(NTHash).decode('utf-8'))
+                    self.__writeOutput(outputFileNT, answerNT + '\n')
+            elif outputFile is not None:
+                self.__writeOutput(outputFile, answer + '\n')
 
             if self.__history:
                 LMHistory = []
@@ -2306,17 +2305,16 @@ class NTDSHashes:
                                                            hexlify(NTHash).decode('utf-8'))
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
 
-                    if outputFile is not None:
-                        if self.__hashcat is True:
-                            if outputFileLM is not None and lmhash.decode('utf-8') != emptyLM:
-                                answerLM = "%s_history%d:%s" % (userName, i, lmhash.decode('utf-8'))
-                                self.__writeOutput(outputFileLM, answerLM + '\n')
+                    if self.__hashcat is True:
+                        if outputFileLM is not None and lmhash.decode('utf-8') != emptyLM:
+                            answerLM = "%s_history%d:%s" % (userName, i, lmhash.decode('utf-8'))
+                            self.__writeOutput(outputFileLM, answerLM + '\n')
 
-                            if outputFileNT is not None:
-                                answerNT = "%s_history%d:%s" % (userName, i, hexlify(NTHash).decode('utf-8'))
-                                self.__writeOutput(outputFileNT, answerNT + '\n')
-                        else:
-                            self.__writeOutput(outputFile, answer + '\n')
+                        if outputFileNT is not None:
+                            answerNT = "%s_history%d:%s" % (userName, i, hexlify(NTHash).decode('utf-8'))
+                            self.__writeOutput(outputFileNT, answerNT + '\n')
+                    elif outputFile is not None:
+                        self.__writeOutput(outputFile, answer + '\n')
 
         else:
             replyVersion = 'V%d' %record['pdwOutVersion']
@@ -2423,17 +2421,16 @@ class NTDSHashes:
                 answer = "%s (status=%s)" % (answer, userAccountStatus)
             self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
 
-            if outputFile is not None:
-                if self.__hashcat is True:
-                    if outputFileLM is not None and hexlify(LMHash).decode('utf-8') != emptyLM:
-                        answerLM = "%s:%s" % (userName, hexlify(LMHash).decode('utf-8'))
-                        self.__writeOutput(outputFileLM, answerLM + '\n')
+            if self.__hashcat is True:
+                if outputFileLM is not None and hexlify(LMHash).decode('utf-8') != emptyLM:
+                    answerLM = "%s:%s" % (userName, hexlify(LMHash).decode('utf-8'))
+                    self.__writeOutput(outputFileLM, answerLM + '\n')
 
-                    if outputFileNT is not None:
-                        answerNT = "%s:%s" % (userName, hexlify(NTHash).decode('utf-8'))
-                        self.__writeOutput(outputFileNT, answerNT + '\n')
-                else:
-                    self.__writeOutput(outputFile, answer + '\n')
+                if outputFileNT is not None:
+                    answerNT = "%s:%s" % (userName, hexlify(NTHash).decode('utf-8'))
+                    self.__writeOutput(outputFileNT, answerNT + '\n')
+            elif outputFile is not None:
+                self.__writeOutput(outputFile, answer + '\n')
 
             if self.__history:
                 for i, (LMHashHistory, NTHashHistory) in enumerate(
@@ -2447,26 +2444,24 @@ class NTDSHashes:
                                                            hexlify(NTHashHistory).decode('utf-8'))
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
 
-                    if outputFile is not None:
-                        if self.__hashcat is True:
-                            if outputFileLM is not None and lmhash.decode('utf-8') != emptyLM:
-                                answerLM = "%s_history%d:%s" % (userName, i, lmhash.decode('utf-8'))
-                                self.__writeOutput(outputFileLM, answerLM + '\n')
+                    if self.__hashcat is True:
+                        if outputFileLM is not None and lmhash.decode('utf-8') != emptyLM:
+                            answerLM = "%s_history%d:%s" % (userName, i, lmhash.decode('utf-8'))
+                            self.__writeOutput(outputFileLM, answerLM + '\n')
 
-                            if outputFileNT is not None:
-                                answerNT = "%s_history%d:%s" % (userName, i, hexlify(NTHashHistory).decode('utf-8'))
-                                self.__writeOutput(outputFileNT, answerNT + '\n')
-                        else:
-                            self.__writeOutput(outputFile, answer + '\n')
+                        if outputFileNT is not None:
+                            answerNT = "%s_history%d:%s" % (userName, i, hexlify(NTHashHistory).decode('utf-8'))
+                            self.__writeOutput(outputFileNT, answerNT + '\n')
+                    elif outputFile is not None:
+                        self.__writeOutput(outputFile, answer + '\n')
 
         if self.__hashcat is True:
             if outputFileLM is not None:
                 outputFileLM.flush()
             if outputFileNT is not None:
                 outputFileNT.flush()
-        else:
-            if outputFile is not None:
-                outputFile.flush()
+        elif outputFile is not None:
+            outputFile.flush()
 
         LOG.debug('Leaving NTDSHashes.__decryptHash')
 
@@ -2748,9 +2743,8 @@ class NTDSHashes:
                     hashesOutputFileLM.close()
                 if hashesOutputFileNT is not None:
                     hashesOutputFileNT.close()
-            else:
-                if hashesOutputFile is not None:
-                    hashesOutputFile.close()
+            elif hashesOutputFile is not None:
+                hashesOutputFile.close()
 
             if keysOutputFile is not None:
                 keysOutputFile.close()
