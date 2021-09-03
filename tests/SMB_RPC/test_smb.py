@@ -32,13 +32,15 @@ from impacket import nt_errors, nmb
 
 class SMBTests(RemoteTestCase):
 
+    dialects = None
+
     def create_connection(self):
         if self.dialects == smb.SMB_DIALECT:
             # Only for SMB1 let's do manualNego
-            s = SMBConnection(self.serverName, self.machine, preferredDialect = self.dialects, sess_port = self.sessPort, manualNegotiate=True)
+            s = SMBConnection(self.serverName, self.machine, preferredDialect=self.dialects, sess_port=self.sessPort, manualNegotiate=True)
             s.negotiateSession(self.dialects, flags2=self.flags2)
         else:
-            s = SMBConnection(self.serverName, self.machine, preferredDialect = self.dialects, sess_port = self.sessPort)
+            s = SMBConnection(self.serverName, self.machine, preferredDialect=self.dialects, sess_port=self.sessPort)
         return s
 
     def test_aliasconnection(self):

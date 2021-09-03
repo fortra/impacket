@@ -7,57 +7,48 @@
 # for more information.
 #
 # Tested so far:
-#   NetrWkstaGetInfo
-#   NetrWkstaUserEnum
-#   NetrWkstaTransportEnum
+#   (h)NetrWkstaGetInfo
+#   (h)NetrWkstaUserEnum
+#   (h)NetrWkstaTransportEnum
+#   (h)NetrWkstaSetInfo
 #   NetrWkstaTransportAdd
-#   NetrUseAdd
-#   NetrUseGetInfo
-#   NetrUseDel
-#   NetrUseEnum
-#   NetrWorkstationStatisticsGet
-#   NetrGetJoinInformation
-#   NetrJoinDomain2
-#   NetrUnjoinDomain2
-#   NetrRenameMachineInDomain2
-#   NetrValidateName2
-#   NetrGetJoinableOUs2
-#   NetrAddAlternateComputerName
-#   NetrRemoveAlternateComputerName
-#   NetrSetPrimaryComputerName
-#   NetrEnumerateComputerNames
+#   (h)NetrUseAdd
+#   (h)NetrUseGetInfo
+#   (h)NetrUseDel
+#   (h)NetrUseEnum
+#   (h)NetrWorkstationStatisticsGet
+#   (h)NetrGetJoinInformation
+#   (h)NetrJoinDomain2
+#   (h)NetrUnjoinDomain2
+#   (h)NetrRenameMachineInDomain2
+#   (h)NetrValidateName2
+#   (h)NetrGetJoinableOUs2
+#   (h)NetrAddAlternateComputerName
+#   (h)NetrRemoveAlternateComputerName
+#   (h)NetrSetPrimaryComputerName
+#   (h)NetrEnumerateComputerNames
 #
 # Not yet:
-#
-# Shouldn't dump errors against a win7
+#   NetrWkstaTransportDel
 #
 from __future__ import division
 from __future__ import print_function
 
 import pytest
 import unittest
-from tests import RemoteTestCase
+from tests.dcerpc import DCERPCTests
 
-from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import wkst
 from impacket.dcerpc.v5.ndr import NULL
 
 
-class WKSTTests(RemoteTestCase):
-
-    def connect(self):
-        rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username,self.password, self.domain, self.lmhash, self.nthash)
-        dce = rpctransport.get_dce_rpc()
-        dce.connect()
-        dce.bind(wkst.MSRPC_UUID_WKST, transfer_syntax = self.ts)
-
-        return dce, rpctransport
+class WKSTTests(DCERPCTests):
+    iface_uuid = wkst.MSRPC_UUID_WKST
+    string_binding = r"ncacn_np:{0.machine}[\PIPE\wkssvc]"
+    authn = True
 
     def test_NetrWkstaGetInfo(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = wkst.NetrWkstaGetInfo()
         request['ServerName'] = '\x00'*10
         request['Level'] = 100
@@ -77,7 +68,7 @@ class WKSTTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrWkstaGetInfo(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = wkst.hNetrWkstaGetInfo(dce, 100)
         resp.dump()
 
@@ -91,7 +82,7 @@ class WKSTTests(RemoteTestCase):
         resp.dump()
 
     def test_NetrWkstaUserEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = wkst.NetrWkstaUserEnum()
         request['ServerName'] = '\x00'*10
         request['UserInfo']['Level'] = 0
@@ -106,7 +97,7 @@ class WKSTTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrWkstaUserEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = wkst.hNetrWkstaUserEnum(dce, 0)
         resp.dump()
 
@@ -114,7 +105,7 @@ class WKSTTests(RemoteTestCase):
         resp.dump()
 
     def test_NetrWkstaTransportEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = wkst.NetrWkstaTransportEnum()
         request['ServerName'] = '\x00'*10
         request['TransportInfo']['Level'] = 0
@@ -125,12 +116,12 @@ class WKSTTests(RemoteTestCase):
         resp.dump()
 
     def test_hNetrWkstaTransportEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = wkst.hNetrWkstaTransportEnum(dce, 0)
         resp.dump()
 
     def test_NetrWkstaSetInfo(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = wkst.NetrWkstaGetInfo()
         request['ServerName'] = '\x00'*10
         request['Level'] = 502
@@ -154,14 +145,13 @@ class WKSTTests(RemoteTestCase):
         resp2.dump()
 
     def test_hNetrWkstaSetInfo(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = wkst.hNetrWkstaGetInfo(dce, 502)
         resp.dump()
         oldVal = resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit']
 
-
         resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] = 500
-        resp2 = wkst.hNetrWkstaSetInfo(dce, 502,resp['WkstaInfo']['WkstaInfo502'])
+        resp2 = wkst.hNetrWkstaSetInfo(dce, 502, resp['WkstaInfo']['WkstaInfo502'])
         resp2.dump()
 
         resp = wkst.hNetrWkstaGetInfo(dce, 502)
@@ -169,12 +159,11 @@ class WKSTTests(RemoteTestCase):
         self.assertEqual(500, resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'])
 
         resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] = oldVal
-        resp2 = wkst.hNetrWkstaSetInfo(dce, 502,resp['WkstaInfo']['WkstaInfo502'])
+        resp2 = wkst.hNetrWkstaSetInfo(dce, 502, resp['WkstaInfo']['WkstaInfo502'])
         resp2.dump()
 
     def test_NetrWkstaTransportAdd(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         req = wkst.NetrWkstaTransportAdd()
         req['ServerName'] = '\x00'*10
         req['Level'] = 0
@@ -188,10 +177,9 @@ class WKSTTests(RemoteTestCase):
                 raise
 
     def test_hNetrUseAdd_hNetrUseDel_hNetrUseGetInfo_hNetrUseEnum(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
 
         info1 = wkst.LPUSE_INFO_1()
-
         info1['ui1_local'] = 'Z:\x00'
         info1['ui1_remote'] = '\\\\127.0.0.1\\c$\x00'
         info1['ui1_password'] = NULL
@@ -204,7 +192,7 @@ class WKSTTests(RemoteTestCase):
                 pass
 
         # We're not testing this call with NDR64, it fails and I can't see the contents
-        if self.ts == ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0'):
+        if self.transfer_syntax == ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0'):
             return
 
         try:
@@ -232,8 +220,7 @@ class WKSTTests(RemoteTestCase):
                 pass
 
     def test_NetrUseAdd_NetrUseDel_NetrUseGetInfo_NetrUseEnum(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         req = wkst.NetrUseAdd()
         req['ServerName'] = '\x00'*10
         req['Level'] = 1
@@ -250,7 +237,7 @@ class WKSTTests(RemoteTestCase):
                 pass
 
         # We're not testing this call with NDR64, it fails and I can't see the contents
-        if self.ts == ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0'):
+        if self.transfer_syntax == ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0'):
             return
 
         req = wkst.NetrUseEnum()
@@ -280,7 +267,6 @@ class WKSTTests(RemoteTestCase):
                 # This could happen in newer OSes
                 pass
 
-
         req = wkst.NetrUseDel()
         req['ServerName'] = '\x00'*10
         req['UseName'] = 'Z:\x00'
@@ -294,8 +280,7 @@ class WKSTTests(RemoteTestCase):
                 pass
 
     def test_NetrWorkstationStatisticsGet(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         req = wkst.NetrWorkstationStatisticsGet()
         req['ServerName'] = '\x00'*10
         req['ServiceName'] = '\x00'
@@ -309,8 +294,7 @@ class WKSTTests(RemoteTestCase):
                 raise
 
     def test_hNetrWorkstationStatisticsGet(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         try:
             resp2 = wkst.hNetrWorkstationStatisticsGet(dce, '\x00', 0, 0)
             resp2.dump()
@@ -319,12 +303,10 @@ class WKSTTests(RemoteTestCase):
                 raise
 
     def test_NetrGetJoinInformation(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         req = wkst.NetrGetJoinInformation()
         req['ServerName'] = '\x00'*10
         req['NameBuffer'] = '\x00'
-
         try:
             resp2 = dce.request(req)
             resp2.dump()
@@ -333,8 +315,7 @@ class WKSTTests(RemoteTestCase):
                 raise
 
     def test_hNetrGetJoinInformation(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         try:
             resp = wkst.hNetrGetJoinInformation(dce, '\x00')
             resp.dump()
@@ -343,8 +324,7 @@ class WKSTTests(RemoteTestCase):
                 raise
 
     def test_NetrJoinDomain2(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         req = wkst.NetrJoinDomain2()
         req['ServerName'] = '\x00'*10
         req['DomainNameParam'] = '172.16.123.1\\FREEFLY\x00'
@@ -352,7 +332,6 @@ class WKSTTests(RemoteTestCase):
         req['AccountName'] = NULL
         req['Password']['Buffer'] = '\x00'*512
         req['Options'] = wkst.NETSETUP_DOMAIN_JOIN_IF_JOINED
-        #req.dump()
         try:
             resp2 = dce.request(req)
             resp2.dump()
@@ -361,23 +340,21 @@ class WKSTTests(RemoteTestCase):
                 raise
 
     def test_hNetrJoinDomain2(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         try:
-            resp = wkst.hNetrJoinDomain2(dce,'172.16.123.1\\FREEFLY\x00','OU=BETUS,DC=FREEFLY\x00',NULL,'\x00'*512, wkst.NETSETUP_DOMAIN_JOIN_IF_JOINED)
+            resp = wkst.hNetrJoinDomain2(dce, '172.16.123.1\\FREEFLY\x00', 'OU=BETUS,DC=FREEFLY\x00',
+                                         NULL, '\x00'*512, wkst.NETSETUP_DOMAIN_JOIN_IF_JOINED)
             resp.dump()
         except Exception as e:
             if str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
 
     def test_NetrUnjoinDomain2(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         req = wkst.NetrUnjoinDomain2()
         req['ServerName'] = '\x00'*10
         req['AccountName'] = NULL
         req['Password']['Buffer'] = '\x00'*512
-        #req['Password'] = NULL
         req['Options'] = wkst.NETSETUP_ACCT_DELETE
         try:
             resp2 = dce.request(req)
@@ -387,8 +364,7 @@ class WKSTTests(RemoteTestCase):
                 raise
 
     def test_hNetrUnjoinDomain2(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         try:
             resp = wkst.hNetrUnjoinDomain2(dce, NULL, b'\x00'*512, wkst.NETSETUP_ACCT_DELETE)
             resp.dump()
@@ -397,14 +373,12 @@ class WKSTTests(RemoteTestCase):
                 raise
 
     def test_NetrRenameMachineInDomain2(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         req = wkst.NetrRenameMachineInDomain2()
         req['ServerName'] = '\x00'*10
         req['MachineName'] = 'BETUS\x00'
         req['AccountName'] = NULL
         req['Password']['Buffer'] = '\x00'*512
-        #req['Password'] = NULL
         req['Options'] = wkst.NETSETUP_ACCT_CREATE
         try:
             resp2 = dce.request(req)
@@ -414,8 +388,7 @@ class WKSTTests(RemoteTestCase):
                 raise
 
     def test_hNetrRenameMachineInDomain2(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         try:
             resp = wkst.hNetrRenameMachineInDomain2(dce, 'BETUS\x00', NULL, b'\x00'*512, wkst.NETSETUP_ACCT_CREATE)
             resp.dump()
@@ -424,7 +397,7 @@ class WKSTTests(RemoteTestCase):
                 raise
 
     def test_NetrValidateName2(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
 
         req = wkst.NetrValidateName2()
         req['ServerName'] = '\x00'*10
@@ -440,7 +413,7 @@ class WKSTTests(RemoteTestCase):
                 raise
 
     def test_hNetrValidateName2(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
 
         try:
             resp2 = wkst.hNetrValidateName2(dce, 'BETO\x00', NULL, NULL, wkst.NETSETUP_NAME_TYPE.NetSetupDomain)
@@ -450,7 +423,7 @@ class WKSTTests(RemoteTestCase):
                 raise
 
     def test_NetrGetJoinableOUs2(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
 
         req = wkst.NetrGetJoinableOUs2()
         req['ServerName'] = '\x00'*10
@@ -458,7 +431,6 @@ class WKSTTests(RemoteTestCase):
         req['AccountName'] = NULL
         req['Password'] = NULL
         req['OUCount'] = 0
-        #req.dump()
         try:
             resp2 = dce.request(req)
             resp2.dump()
@@ -467,24 +439,21 @@ class WKSTTests(RemoteTestCase):
                 raise
 
     def test_hNetrGetJoinableOUs2(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         try:
-            resp = wkst.hNetrGetJoinableOUs2(dce,'FREEFLY\x00', NULL, NULL,0 )
+            resp = wkst.hNetrGetJoinableOUs2(dce, 'FREEFLY\x00', NULL, NULL, 0)
             resp.dump()
         except Exception as e:
             if str(e).find('0x8001011c') < 0:
                 raise
 
     def test_NetrAddAlternateComputerName(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         req = wkst.NetrAddAlternateComputerName()
         req['ServerName'] = '\x00'*10
         req['AlternateName'] = 'FREEFLY\x00'
         req['DomainAccount'] = NULL
         req['EncryptedPassword'] = NULL
-        #req.dump()
         try:
             resp2 = dce.request(req)
             resp2.dump()
@@ -493,24 +462,21 @@ class WKSTTests(RemoteTestCase):
                 raise
 
     def test_hNetrAddAlternateComputerName(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         try:
-            resp2= wkst.hNetrAddAlternateComputerName(dce, 'FREEFLY\x00', NULL, NULL)
+            resp2 = wkst.hNetrAddAlternateComputerName(dce, 'FREEFLY\x00', NULL, NULL)
             resp2.dump()
         except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0 and str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
 
     def test_NetrRemoveAlternateComputerName(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         req = wkst.NetrRemoveAlternateComputerName()
         req['ServerName'] = '\x00'*10
         req['AlternateName'] = 'FREEFLY\x00'
         req['DomainAccount'] = NULL
         req['EncryptedPassword'] = NULL
-        #req.dump()
         try:
             resp2 = dce.request(req)
             resp2.dump()
@@ -519,24 +485,21 @@ class WKSTTests(RemoteTestCase):
                 raise
 
     def test_hNetrRemoveAlternateComputerName(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         try:
-            resp2 = wkst.hNetrRemoveAlternateComputerName(dce,'FREEFLY\x00', NULL, NULL )
+            resp2 = wkst.hNetrRemoveAlternateComputerName(dce, 'FREEFLY\x00', NULL, NULL)
             resp2.dump()
         except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0 and str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
 
     def test_NetrSetPrimaryComputerName(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         req = wkst.NetrSetPrimaryComputerName()
         req['ServerName'] = '\x00'*10
         req['PrimaryName'] = 'FREEFLY\x00'
         req['DomainAccount'] = NULL
         req['EncryptedPassword'] = NULL
-        #req.dump()
         try:
             resp2 = dce.request(req)
             resp2.dump()
@@ -546,10 +509,9 @@ class WKSTTests(RemoteTestCase):
                     raise
 
     def test_hNetrSetPrimaryComputerName(self):
-        dce, rpctransport = self.connect()
-
+        dce, rpc_transport = self.connect()
         try:
-            resp2 = wkst.hNetrSetPrimaryComputerName(dce,'FREEFLY\x00', NULL, NULL )
+            resp2 = wkst.hNetrSetPrimaryComputerName(dce, 'FREEFLY\x00', NULL, NULL)
             resp2.dump()
         except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
@@ -557,12 +519,11 @@ class WKSTTests(RemoteTestCase):
                     raise
 
     def test_NetrEnumerateComputerNames(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
 
         req = wkst.NetrEnumerateComputerNames()
         req['ServerName'] = '\x00'*10
         req['NameType'] = wkst.NET_COMPUTER_NAME_TYPE.NetAllComputerNames
-        #req.dump()
         try:
             resp2 = dce.request(req)
             resp2.dump()
@@ -571,34 +532,26 @@ class WKSTTests(RemoteTestCase):
                 raise
 
     def test_hNetrEnumerateComputerNames(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
 
         try:
-            resp2 = wkst.hNetrEnumerateComputerNames(dce,wkst.NET_COMPUTER_NAME_TYPE.NetAllComputerNames)
+            resp2 = wkst.hNetrEnumerateComputerNames(dce, wkst.NET_COMPUTER_NAME_TYPE.NetAllComputerNames)
             resp2.dump()
-        except Exception as e:
+        except wkst.DCERPCSessionError as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
                 raise
 
 
 @pytest.mark.remote
-class SMBTransport(WKSTTests, unittest.TestCase):
-
-    def setUp(self):
-        super(SMBTransport, self).setUp()
-        self.set_transport_config()
-        self.stringBinding = r'ncacn_np:%s[\PIPE\wkssvc]' % self.machine
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+class WKSTTestsSMBTransport(WKSTTests, unittest.TestCase):
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 @pytest.mark.remote
-class SMBTransport64(SMBTransport):
-
-    def setUp(self):
-        super(SMBTransport64, self).setUp()
-        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+class WKSTTestsSMBTransport64(WKSTTests, unittest.TestCase):
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
 
 # Process command-line arguments.
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=1)
