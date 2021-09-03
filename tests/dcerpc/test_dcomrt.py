@@ -158,24 +158,24 @@ class DCOMTests(DCERPCTests):
         #iInterface = scm.RemoteCreateInstance(string_to_bin('0002DF01-0000-0000-C000-000000000046'), ie.IID_WebBrowser)
         iInterface = scm.RemoteCreateInstance(string_to_bin('72C24DD5-D70A-438B-8A42-98424B88AFB8'), dcomrt.IID_IRemUnknown)
 
-        iDispatch = ie.IWebBrowser(iInterface)
-        resp = iDispatch.GetIDsOfNames(('Navigate',))
-        print(resp)
+        #iDispatch = ie.IWebBrowser(iInterface)
+        #resp = iDispatch.GetIDsOfNames(('Navigate',))
+        #print(resp)
 
-        iTypeInfo = iDispatch.GetTypeInfo()
-        resp = iTypeInfo.GetTypeAttr()
+        #iTypeInfo = iDispatch.GetTypeInfo()
+        #resp = iTypeInfo.GetTypeAttr()
         #resp.dump()
-        for i in range(0,resp['ppTypeAttr']['cFuncs']):
-            resp = iTypeInfo.GetFuncDesc(i)
+        #for i in range(0,resp['ppTypeAttr']['cFuncs']):
+            #resp = iTypeInfo.GetFuncDesc(i)
             #resp.dump()
             #resp2 = iTypeInfo.GetNames(resp['ppFuncDesc']['memid'])
             #print resp2['rgBstrNames'][0]['asData']
-            resp = iTypeInfo.GetDocumentation(resp['ppFuncDesc']['memid'])
-            print(resp['pBstrName']['asData'])
+            #resp = iTypeInfo.GetDocumentation(resp['ppFuncDesc']['memid'])
+            #print(resp['pBstrName']['asData'])
         #iEventSystem.get_EventObjectChangeEventClassID()
-        print("ACA")
-        iTypeInfo.RemRelease()
-        iDispatch.RemRelease()
+        #print("ACA")
+        #iTypeInfo.RemRelease()
+        #iDispatch.RemRelease()
 
 
 @pytest.mark.remote
