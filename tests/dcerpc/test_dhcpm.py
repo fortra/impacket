@@ -109,11 +109,13 @@ class DHCPMTests(DCERPCTests):
 
 
 @pytest.mark.remote
+@pytest.mark.skip(reason="Disabled in Windows Server 2008 onwards")
 class DHCPMTestsSMBTransport(DHCPMTests, unittest.TestCase):
     transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 @pytest.mark.remote
+@pytest.mark.skip(reason="Disabled in Windows Server 2008 onwards")
 class DHCPMTestsSMBTransport64(DHCPMTests, unittest.TestCase):
     transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
@@ -133,7 +135,7 @@ class DHCPMTestsTCPTransport64(DHCPMTests, unittest.TestCase):
     string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
     transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
     
-    @pytest.mark.xfail(reason="NDRUNION without fields as in DhcpSubnetOptions is not supported with NDR64")
+    @pytest.mark.xfail(reason="NDRUNION without fields as in DhcpSubnetOptions is not implemented with NDR64")
     def test_hDhcpGetOptionValueV5(self):
         super(DHCPMTestsTCPTransport64, self).test_hDhcpGetOptionValueV5()
 
