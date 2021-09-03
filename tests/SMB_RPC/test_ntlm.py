@@ -70,8 +70,8 @@ class NTLMTests(unittest.TestCase):
         #flags2 = flags | ntlm.NTLMSSP_LM_KEY
         #hexdump(struct.pack('<L',flags2))
         ntResponse, lmResponse, sessionBaseKey = ntlm.computeResponseNTLMv1(int(flags2), self.serverChallenge,
-                                                self.clientChallenge, self.serverName, self.domain, self.user,
-                                                self.password, '', '')
+                                                 self.clientChallenge, self.serverName, self.domain, self.user,
+                                                 self.password, '', '')
         hexdump(lmResponse)
         print("\n")
         print("4.2.2.2.3 Encrypted Session Key ")
@@ -143,7 +143,7 @@ class NTLMTests(unittest.TestCase):
         hexdump(ntlm.NTOWFv1(self.password))
         print("\n")
         print("4.2.3.1.2 Session Base Key")
-        ntResponse, lmResponse, sessionBaseKey  = ntlm.computeResponseNTLMv1(int(flags), self.serverChallenge, self.clientChallenge,
+        ntResponse, lmResponse, sessionBaseKey = ntlm.computeResponseNTLMv1(int(flags), self.serverChallenge, self.clientChallenge,
                                                                             self.serverName, self.domain, self.user, self.password, '', '')
         hexdump(sessionBaseKey)
         self.assertEqual(sessionBaseKey, bytearray(b'\xd8rb\xb0\xcd\xe4\xb1\xcbt\x99\xbe\xcc\xcd\xf1\x07\x84'))

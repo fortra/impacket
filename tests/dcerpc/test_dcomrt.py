@@ -18,9 +18,6 @@
 #   RemoteActivation
 #   RemRelease
 #   RemoteGetClassObject
-# Not yet:
-#
-# Shouldn't dump errors against a win7
 #
 from __future__ import division
 from __future__ import print_function
@@ -28,26 +25,19 @@ from __future__ import print_function
 import pytest
 import unittest
 from tests import RemoteTestCase
+from tests.dcerpc import DCERPCTests
 
-from impacket.dcerpc.v5 import transport
+from impacket import ntlm
+from impacket.uuid import string_to_bin, uuidtup_to_bin
 from impacket.dcerpc.v5 import dcomrt
 from impacket.dcerpc.v5.dcom import scmp, vds, oaut, comev
-from impacket.uuid import string_to_bin, uuidtup_to_bin
-from impacket import ntlm
 
 
-class DCOMTests(RemoteTestCase):
+class DCOMTests(DCERPCTests):
 
-    def connect(self):
-        rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username,self.password, self.domain, self.lmhash, self.nthash)
-        dce = rpctransport.get_dce_rpc()
-        dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
-        dce.connect()
-
-        return dce, rpctransport
+    string_binding = r"ncacn_ip_tcp:{0.machine}"
+    authn = True
+    authn_level = ntlm.NTLM_AUTH_PKT_INTEGRITY
 
     def test_ServerAlive(self):
         dce, rpctransport = self.connect()
@@ -74,8 +64,6 @@ class DCOMTests(RemoteTestCase):
 
     def test_ResolveOxid2(self):
         dce, rpctransport = self.connect()
-        #scm = dcomrt.IRemoteSCMActivator(dce)
-        #iInterface = scm.RemoteCreateInstance(comev.CLSID_EventSystem, comev.IID_IEventSystem)
         scm = dcomrt.IActivation(dce)
         iInterface = scm.RemoteActivation(comev.CLSID_EventSystem, comev.IID_IEventSystem)
         objExporter = dcomrt.IObjectExporter(dce)
@@ -88,10 +76,113 @@ class DCOMTests(RemoteTestCase):
 
     def test_RemoteGetClassObject(self):
         dce, rpctransport = self.connect()
-        IID_IClassFactory = uuidtup_to_bin(('00000001-0000-0000-C000-000000000046','0.0'))
+        IID_IClassFactory = uuidtup_to_bin(('00000001-0000-0000-C000-000000000046', '0.0'))
         scm = dcomrt.IRemoteSCMActivator(dce)
         iInterface = scm.RemoteGetClassObject(comev.CLSID_EventSystem, IID_IClassFactory)
         iInterface.RemRelease()
+
+    def test_RemoteCreateInstance(self):
+        dce, rpctransport = self.connect()
+
+        scm = dcomrt.IRemoteSCMActivator(dce)
+        scm.RemoteCreateInstance(comev.CLSID_EventSystem, comev.IID_IEventSystem)
+
+    @pytest.mark.skip
+    def test_scmp(self):
+        dce, rpctransport = self.connect()
+
+        scm = dcomrt.IRemoteSCMActivator(dce)
+        iInterface = scm.RemoteCreateInstance(scmp.CLSID_ShadowCopyProvider, scmp.IID_IVssSnapshotMgmt)
+        iVssSnapshotMgmt = scmp.IVssSnapshotMgmt(iInterface)
+        # iVssSnapshotMgmt.RemRelease()
+
+        iVssEnumMgmtObject = iVssSnapshotMgmt.QueryVolumesSupportedForSnapshots(scmp.IID_ShadowCopyProvider, 31)
+        iVssEnumMgmtObject.Next(10)
+        # iVssEnumObject = iVssSnapshotMgmt.QuerySnapshotsByVolume('C:\x00')
+
+        # iProviderMgmtInterface = iVssSnapshotMgmt.GetProviderMgmtInterface()
+        # enumObject =iProviderMgmtInterface.QueryDiffAreasOnVolume('C:\x00')
+        # iVssSnapshotMgmt.RemQueryInterface(1, (scmp.IID_IVssEnumMgmtObject,))
+        # iVssSnapshotMgmt.RemAddRef()
+        # iVssSnapshotMgmt = dcom.hRemoteCreateInstance(dce, scmp.CLSID_ShadowCopyProvider, dcom.IID_IRemUnknown)
+
+        # iVssEnumMgmtObject.RemQueryInterface(1, (scmp.IID_IVssEnumMgmtObject,))
+
+    @pytest.mark.skip
+    def test_vds(self):
+        dce, rpctransport = self.connect()
+
+        # objExporter = dcom.IObjectExporter(dce)
+        # objExporter.ComplexPing()
+        # objExporter.ComplexPing()
+
+        scm = dcomrt.IRemoteSCMActivator(dce)
+        iInterface = scm.RemoteCreateInstance(vds.CLSID_VirtualDiskService, vds.IID_IVdsServiceInitialization)
+        serviceInitialization = vds.IVdsServiceInitialization(iInterface)
+        serviceInitialization.Initialize()
+
+        iInterface = serviceInitialization.RemQueryInterface(1, (vds.IID_IVdsService,))
+        vdsService = vds.IVdsService(iInterface)
+
+        resp = vdsService.IsServiceReady()
+        while resp['ErrorCode'] == 1:
+            print("Waiting.. ")
+            resp = vdsService.IsServiceReady()
+
+        vdsService.WaitForServiceReady()
+        vdsService.GetProperties()
+        enumObject = vdsService.QueryProviders(1)
+        interfaces = enumObject.Next(1)
+        iii = interfaces[0].RemQueryInterface(1, (vds.IID_IVdsProvider,))
+        provider = vds.IVdsProvider(iii)
+        resp = provider.GetProperties()
+        resp.dump()
+
+    @pytest.mark.skip
+    def test_oaut(self):
+        dce, rpctransport = self.connect()
+        IID_IDispatch = string_to_bin('00020400-0000-0000-C000-000000000046')
+        scm = dcomrt.IRemoteSCMActivator(dce)
+        iInterface = scm.RemoteCreateInstance(string_to_bin('4E14FBA2-2E22-11D1-9964-00C04FBBB345'), IID_IDispatch)
+        iDispatch = oaut.IDispatch(iInterface)
+        kk = iDispatch.GetTypeInfoCount()
+        kk.dump()
+        iTypeInfo = iDispatch.GetTypeInfo()
+        iTypeInfo.GetTypeAttr()
+
+    @pytest.mark.skip
+    def test_ie(self):
+        dce, rpctransport = self.connect()
+        scm = dcomrt.IRemoteSCMActivator(dce)
+
+        #iInterface = scm.RemoteCreateInstance(string_to_bin('0002DF01-0000-0000-C000-000000000046'), ie.IID_WebBrowser)
+        iInterface = scm.RemoteCreateInstance(string_to_bin('72C24DD5-D70A-438B-8A42-98424B88AFB8'), dcomrt.IID_IRemUnknown)
+
+        #iDispatch = ie.IWebBrowser(iInterface)
+        #resp = iDispatch.GetIDsOfNames(('Navigate',))
+        #print(resp)
+
+        #iTypeInfo = iDispatch.GetTypeInfo()
+        #resp = iTypeInfo.GetTypeAttr()
+        #resp.dump()
+        #for i in range(0,resp['ppTypeAttr']['cFuncs']):
+            #resp = iTypeInfo.GetFuncDesc(i)
+            #resp.dump()
+            #resp2 = iTypeInfo.GetNames(resp['ppFuncDesc']['memid'])
+            #print resp2['rgBstrNames'][0]['asData']
+            #resp = iTypeInfo.GetDocumentation(resp['ppFuncDesc']['memid'])
+            #print(resp['pBstrName']['asData'])
+        #iEventSystem.get_EventObjectChangeEventClassID()
+        #print("ACA")
+        #iTypeInfo.RemRelease()
+        #iDispatch.RemRelease()
+
+
+@pytest.mark.remote
+class DCOMConnectionTests(RemoteTestCase, unittest.TestCase):
+
+    def setUp(self):
+        self.set_transport_config()
 
     def test_RemQueryInterface(self):
         dcom = dcomrt.DCOMConnection(self.machine, self.username, self.password, self.domain)
@@ -107,73 +198,8 @@ class DCOMTests(RemoteTestCase):
         iEventSystem.RemRelease()
         dcom.disconnect()
 
-    def test_RemoteCreateInstance(self):
-        dce, rpctransport = self.connect()
-
-        scm = dcomrt.IRemoteSCMActivator(dce)
-        scm.RemoteCreateInstance(comev.CLSID_EventSystem, comev.IID_IEventSystem)
-
-    def tes_scmp(self):
-        dce, rpctransport = self.connect()
-
-        scm = dcomrt.IRemoteSCMActivator(dce)
-        iInterface = scm.RemoteCreateInstance(scmp.CLSID_ShadowCopyProvider, scmp.IID_IVssSnapshotMgmt)
-        iVssSnapshotMgmt = scmp.IVssSnapshotMgmt(iInterface)
-        #iVssSnapshotMgmt.RemRelease()
-        
-        iVssEnumMgmtObject = iVssSnapshotMgmt.QueryVolumesSupportedForSnapshots(scmp.IID_ShadowCopyProvider, 31) 
-        iVssEnumMgmtObject.Next(10)
-        #iVssEnumObject = iVssSnapshotMgmt.QuerySnapshotsByVolume('C:\x00')
-
-        #iProviderMgmtInterface = iVssSnapshotMgmt.GetProviderMgmtInterface()
-        #enumObject =iProviderMgmtInterface.QueryDiffAreasOnVolume('C:\x00')
-        #iVssSnapshotMgmt.RemQueryInterface(1, (scmp.IID_IVssEnumMgmtObject,))
-        #iVssSnapshotMgmt.RemAddRef()
-        #iVssSnapshotMgmt = dcom.hRemoteCreateInstance(dce, scmp.CLSID_ShadowCopyProvider, dcom.IID_IRemUnknown)
-    
-        #iVssEnumMgmtObject.RemQueryInterface(1, (scmp.IID_IVssEnumMgmtObject,))
-
-    def tes_vds(self):
-        dce, rpctransport = self.connect()
-
-        #objExporter = dcom.IObjectExporter(dce)
-        #objExporter.ComplexPing()
-        #objExporter.ComplexPing()
-
-        scm = dcomrt.IRemoteSCMActivator(dce)
-        iInterface = scm.RemoteCreateInstance(vds.CLSID_VirtualDiskService, vds.IID_IVdsServiceInitialization)
-        serviceInitialization = vds.IVdsServiceInitialization(iInterface)
-        serviceInitialization.Initialize()
-        
-        iInterface = serviceInitialization.RemQueryInterface(1, (vds.IID_IVdsService,))
-        vdsService = vds.IVdsService(iInterface)
-   
-        resp = vdsService.IsServiceReady()
-        while resp['ErrorCode'] == 1:
-            print("Waiting.. ")
-            resp = vdsService.IsServiceReady()
-
-        vdsService.WaitForServiceReady()
-        vdsService.GetProperties()
-        enumObject = vdsService.QueryProviders(1)
-        interfaces = enumObject.Next(1)
-        iii = interfaces[0].RemQueryInterface(1, (vds.IID_IVdsProvider,))
-        provider = vds.IVdsProvider(iii)
-        resp = provider.GetProperties()
-        resp.dump()
-
-    def tes_oaut(self):
-        dce, rpctransport = self.connect()
-        IID_IDispatch = string_to_bin('00020400-0000-0000-C000-000000000046')
-        scm = dcomrt.IRemoteSCMActivator(dce)
-        iInterface = scm.RemoteCreateInstance(string_to_bin('4E14FBA2-2E22-11D1-9964-00C04FBBB345'), IID_IDispatch)
-        iDispatch = oaut.IDispatch(iInterface)
-        kk = iDispatch.GetTypeInfoCount()
-        kk.dump()
-        iTypeInfo = iDispatch.GetTypeInfo()
-        iTypeInfo.GetTypeAttr()
-
-    def tes_comev(self):
+    @pytest.mark.skip
+    def test_comev(self):
         dcom = dcomrt.DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
         iInterface = dcom.CoCreateInstanceEx(comev.CLSID_EventSystem, comev.IID_IEventSystem)
 
@@ -260,53 +286,17 @@ class DCOMTests(RemoteTestCase):
         dcom.disconnect()
         #eventSubscription.get_SubscriptionID()
 
-    # def tes_ie(self):
-    #     dce, rpctransport = self.connect()
-    #     scm = dcomrt.IRemoteSCMActivator(dce)
-    #
-    #     #iInterface = scm.RemoteCreateInstance(string_to_bin('0002DF01-0000-0000-C000-000000000046'),ie.IID_WebBrowser)
-    #     iInterface = scm.RemoteCreateInstance(string_to_bin('72C24DD5-D70A-438B-8A42-98424B88AFB8'),dcomrt.IID_IRemUnknown)
-    #
-    #     iDispatch = ie.IWebBrowser(iInterface)
-    #     resp = iDispatch.GetIDsOfNames(('Navigate',))
-    #     print resp
-    #     #sys.exit(1)
-    #     iTypeInfo = iDispatch.GetTypeInfo()
-    #     resp = iTypeInfo.GetTypeAttr()
-    #     #resp.dump()
-    #     for i in range(0,resp['ppTypeAttr']['cFuncs']):
-    #         resp = iTypeInfo.GetFuncDesc(i)
-    #         #resp.dump()
-    #         #resp2 = iTypeInfo.GetNames(resp['ppFuncDesc']['memid'])
-    #         #print resp2['rgBstrNames'][0]['asData']
-    #         resp = iTypeInfo.GetDocumentation(resp['ppFuncDesc']['memid'])
-    #         print resp['pBstrName']['asData']
-    #     #iEventSystem.get_EventObjectChangeEventClassID()
-    #     print "ACA"
-    #     iTypeInfo.RemRelease()
-    #     iDispatch.RemRelease()
-    #
-    #     sys.exit(1)
+
+@pytest.mark.remote
+class DCOMTestsTCPTransport(DCOMTests, unittest.TestCase):
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 @pytest.mark.remote
-class TCPTransport(DCOMTests, unittest.TestCase):
-
-    def setUp(self):
-        super(TCPTransport, self).setUp()
-        self.set_transport_config()
-        self.stringBinding = r'ncacn_ip_tcp:%s' % self.machine
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
-
-
-@pytest.mark.remote
-class TCPTransport64(TCPTransport):
-
-    def setUp(self):
-        super(TCPTransport64, self).setUp()
-        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+class DCOMTestsTCPTransport(DCOMTests, unittest.TestCase):
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
 
 # Process command-line arguments.
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=1)

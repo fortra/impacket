@@ -17,7 +17,6 @@ from tests import RemoteTestCase
 from impacket.dcerpc.v5 import transport, epm, rpch
 from impacket.dcerpc.v5.ndr import NULL
 
-
 @pytest.mark.remote
 class RPCHTest(RemoteTestCase, unittest.TestCase):
 
@@ -51,6 +50,9 @@ class RPCHTest(RemoteTestCase, unittest.TestCase):
 
         dce.request(request)
         dce.disconnect()
+
+
+class RPCHLocalTest(unittest.TestCase):
 
     def test_2(self):
         # CONN/A1
@@ -290,5 +292,5 @@ class RPCHTest(RemoteTestCase, unittest.TestCase):
 
 
 # Process command-line arguments.
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=1)

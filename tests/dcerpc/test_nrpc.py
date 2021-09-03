@@ -7,31 +7,38 @@
 # for more information.
 #
 # Tested so far:
-#   DsrGetDcNameEx2
-#   DsrGetDcNameEx
-#   DsrGetDcName
-#   NetrGetDCName
-#   NetrGetAnyDCName
-#   DsrGetSiteName
-#   DsrGetDcSiteCoverageW
-#   DsrAddressToSiteNamesW
+#   (h)DsrGetDcNameEx2
+#   (h)DsrGetDcNameEx
+#   (h)DsrGetDcName
+#   (h)NetrGetDCName
+#   (h)NetrGetAnyDCName
+#   (h)DsrGetSiteName
+#   (h)DsrGetDcSiteCoverageW
+#   (h)DsrAddressToSiteNamesW
 #   DsrAddressToSiteNamesExW
 #   DsrDeregisterDnsHostRecords
-#   NetrServerReqChallenge
-#   NetrServerAuthenticate3
-#   NetrServerAuthenticate2
-#   NetrServerAuthenticate
-#   NetrServerTrustPasswordsGet
-#   NetrLogonGetCapabilities
+#   (h)NetrServerReqChallenge
+#   (h)NetrServerAuthenticate3
+#   (h)NetrServerAuthenticate2
+#   (h)NetrServerAuthenticate
+#   (h)NetrServerPasswordGet
+#   (h)NetrServerTrustPasswordsGet
+#   (h)NetrServerPasswordSet2
+#   (h)NetrLogonGetDomainInfo
+#   (h)NetrLogonGetCapabilities
+#   NetrLogonSamLogonEx
+#   NetrLogonSamLogonWithFlags
+#   NetrLogonSamLogon
 #   NetrDatabaseDeltas
 #   NetrDatabaseSync2
 #   NetrDatabaseSync
+#   NetrDatabaseRedo
 #   DsrEnumerateDomainTrusts
 #   NetrEnumerateTrustedDomainsEx
 #   NetrEnumerateTrustedDomains
 #   NetrGetForestTrustInformation
 #   DsrGetForestTrustInformation
-#   NetrServerGetTrustInfo
+#   (h)NetrServerGetTrustInfo
 #   NetrLogonGetTrustRid
 #   NetrLogonComputeServerDigest
 #   NetrLogonComputeClientDigest
@@ -42,43 +49,34 @@
 #   NetrLogonControl2
 #   NetrLogonControl
 #   NetrLogonUasLogon
-#   NetrLogonGetDomainInfo
-#   NetrServerPasswordSet2
+#   NetrLogonUasLogoff
 #
 # Not yet:
-#   DSRUpdateReadOnlyServerDnsRecords
-#   NetrServerPasswordGet
-#   NetrLogonSamLogonEx
-#   NetrLogonSamLogonWithFlags
-#   NetrLogonSamLogon
 #   NetrLogonSamLogoff
-#   NetrDatabaseRedo
-# 
-# Shouldn't dump errors against a win7
+#   NetrServerPasswordSet
+#   NetrAccountDeltas
+#   NetrAccountSync
+#   DSRUpdateReadOnlyServerDnsRecords
+#   NetrChainSetClientAttributes
 #
 import pytest
 import unittest
-from tests import RemoteTestCase
-
 from struct import pack, unpack
+from tests.dcerpc import DCERPCTests
+from six import assertRaisesRegex
 
-from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import epm, nrpc
+from impacket.dcerpc.v5 import nrpc
+from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket import ntlm
 
 
-class NRPCTests(RemoteTestCase):
+class NRPCTests(DCERPCTests):
+    iface_uuid = nrpc.MSRPC_UUID_NRPC
+    authn = True
+    machine_account = True
 
-    def connect(self):
-        rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.machine_user, '', self.domain, self.machine_user_lmhash, self.machine_user_nthash)
-        dce = rpctransport.get_dce_rpc()
-        # dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
-        dce.connect()
-        dce.bind(nrpc.MSRPC_UUID_NRPC)
+    def authenticate(self, dce):
         resp = nrpc.hNetrServerReqChallenge(dce, NULL, self.serverName + '\x00', b'12345678')
         resp.dump()
         serverChallenge = resp['ServerChallenge']
@@ -93,8 +91,8 @@ class NRPCTests(RemoteTestCase):
                                                  nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
                                                  self.serverName + '\x00', ppp, 0x600FFFFF)
             resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_DOWNGRADE_DETECTED') < 0:
+        except nrpc.DCERPCSessionError as e:
+            if str(e).find("STATUS_DOWNGRADE_DETECTED") < 0:
                 raise
 
         self.clientStoredCredential = pack('<Q', unpack('<Q', ppp)[0] + 10)
@@ -104,8 +102,6 @@ class NRPCTests(RemoteTestCase):
         # dce2 = dce.alter_ctx(nrpc.MSRPC_UUID_NRPC)
         # dce2.set_session_key(self.sessionKey)
 
-        return dce, rpctransport
-
     def update_authenticator(self):
         authenticator = nrpc.NETLOGON_AUTHENTICATOR()
         authenticator['Credential'] = nrpc.ComputeNetlogonCredential(self.clientStoredCredential, self.sessionKey)
@@ -114,6 +110,7 @@ class NRPCTests(RemoteTestCase):
 
     def test_DsrGetDcNameEx2(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         request = nrpc.DsrGetDcNameEx2()
         request['ComputerName'] = NULL
         request['AccountName'] = 'Administrator\x00'
@@ -185,21 +182,13 @@ class NRPCTests(RemoteTestCase):
         request['ServerName'] = NULL
         request['DomainName'] = self.domain + '\x00'
 
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('ERROR_NO_SUCH_DOMAIN') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "ERROR_NO_SUCH_DOMAIN"):
+            dce.request(request)
 
     def test_hNetrGetAnyDCName(self):
         dce, rpctransport = self.connect()
-        try:
-            resp = nrpc.hNetrGetAnyDCName(dce, '\x00' * 20, self.domain + '\x00')
-            resp.dump()
-        except Exception as e:
-            if str(e).find('ERROR_NO_SUCH_DOMAIN') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "ERROR_NO_SUCH_DOMAIN"):
+            nrpc.hNetrGetAnyDCName(dce, '\x00' * 20, self.domain + '\x00')
 
     def test_DsrGetSiteName(self):
         dce, rpctransport = self.connect()
@@ -290,12 +279,8 @@ class NRPCTests(RemoteTestCase):
         request['DsaGuid'] = NULL
         request['DnsHostName'] = 'BETUS\x00'
 
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('rpc_s_access_denied') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "rpc_s_access_denied"):
+            dce.request(request)
 
     def test_NetrServerReqChallenge_NetrServerAuthenticate3(self):
         dce, rpctransport = self.connect()
@@ -336,8 +321,8 @@ class NRPCTests(RemoteTestCase):
         ppp = nrpc.ComputeNetlogonCredential(b'12345678', sessionKey)
 
         resp = nrpc.hNetrServerAuthenticate3(dce, NULL, self.machine_user + '\x00',
-                                             nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel
-                                             , self.serverName + '\x00', ppp, 0x600FFFFF)
+                                             nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
+                                             self.serverName + '\x00', ppp, 0x600FFFFF)
         resp.dump()
 
     def test_NetrServerReqChallenge_hNetrServerAuthenticate2(self):
@@ -357,8 +342,8 @@ class NRPCTests(RemoteTestCase):
         ppp = nrpc.ComputeNetlogonCredential(b'12345678', sessionKey)
 
         resp = nrpc.hNetrServerAuthenticate2(dce, NULL, self.machine_user + '\x00',
-                                             nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel
-                                             , self.serverName + '\x00', ppp, 0x600FFFFF)
+                                             nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
+                                             self.serverName + '\x00', ppp, 0x600FFFFF)
         resp.dump()
 
     def test_hNetrServerReqChallenge_NetrServerAuthenticate2(self):
@@ -406,12 +391,8 @@ class NRPCTests(RemoteTestCase):
         request['ComputerName'] = self.serverName + '\x00'
         request['ClientCredential'] = ppp
 
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_DOWNGRADE_DETECTED') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "STATUS_DOWNGRADE_DETECTED"):
+            dce.request(request)
 
     def test_hNetrServerReqChallenge_hNetrServerAuthenticate(self):
         dce, rpctransport = self.connect()
@@ -425,17 +406,14 @@ class NRPCTests(RemoteTestCase):
         ppp = nrpc.ComputeNetlogonCredential(b'12345678', sessionKey)
 
         resp.dump()
-        try:
-            resp = nrpc.hNetrServerAuthenticate(dce, NULL, self.machine_user + '\x00',
-                                                nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
-                                                self.serverName + '\x00', ppp)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_DOWNGRADE_DETECTED') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "STATUS_DOWNGRADE_DETECTED"):
+            nrpc.hNetrServerAuthenticate(dce, NULL, self.machine_user + '\x00',
+                                         nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
+                                         self.serverName + '\x00', ppp)
 
     def test_NetrServerPasswordGet(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         request = nrpc.NetrServerPasswordGet()
         request['PrimaryName'] = NULL
         request['AccountName'] = self.machine_user + '\x00'
@@ -443,26 +421,20 @@ class NRPCTests(RemoteTestCase):
         request['ComputerName'] = self.serverName + '\x00'
         request['Authenticator'] = self.update_authenticator()
 
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_ACCESS_DENIED') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "STATUS_ACCESS_DENIED"):
+            dce.request(request)
 
     def test_hNetrServerPasswordGet(self):
         dce, rpctransport = self.connect()
-        try:
-            resp = nrpc.hNetrServerPasswordGet(dce, NULL, self.machine_user + '\x00',
-                                               nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
-                                               self.serverName + '\x00', self.update_authenticator())
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_ACCESS_DENIED') < 0:
-                raise
+        self.authenticate(dce)
+        with assertRaisesRegex(self, DCERPCException, "STATUS_ACCESS_DENIED"):
+            nrpc.hNetrServerPasswordGet(dce, NULL, self.machine_user + '\x00',
+                                        nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
+                                        self.serverName + '\x00', self.update_authenticator())
 
     def test_NetrServerTrustPasswordsGet(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         request = nrpc.NetrServerTrustPasswordsGet()
         request['TrustedDcName'] = NULL
         request['AccountName'] = self.machine_user + '\x00'
@@ -473,8 +445,10 @@ class NRPCTests(RemoteTestCase):
         resp = dce.request(request)
         resp.dump()
 
-    def aaa_hNetrServerTrustPasswordsGet(self):
+    @pytest.mark.xfail
+    def test_hNetrServerTrustPasswordsGet(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         resp = nrpc.hNetrServerTrustPasswordsGet(dce, NULL, self.machine_user,
                                                  nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
                                                  self.serverName, self.update_authenticator())
@@ -483,6 +457,7 @@ class NRPCTests(RemoteTestCase):
     def test_NetrServerPasswordSet2(self):
         # It doesn't do much, should throw STATUS_ACCESS_DENIED
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         request = nrpc.NetrServerPasswordSet2()
         request['PrimaryName'] = NULL
         request['AccountName'] = self.machine_user + '\x00'
@@ -497,33 +472,27 @@ class NRPCTests(RemoteTestCase):
         #request['ClearNewPassword'] = nrpc.NL_TRUST_PASSWORD()
         #request['ClearNewPassword']['Buffer'] = b'\x00' *512
         #request['ClearNewPassword']['Length'] = 0x8
+        request.dump()
 
-        try:
-            request.dump()
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_ACCESS_DENIED') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "STATUS_ACCESS_DENIED"):
+            dce.request(request)
             
     def test_hNetrServerPasswordSet2(self):
         # It doesn't do much, should throw STATUS_ACCESS_DENIED
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         cnp = nrpc.NL_TRUST_PASSWORD()
         cnp['Buffer'] = b'\x00'*512
         cnp['Length'] = 0x8
 
-        try:
-            resp = nrpc.hNetrServerPasswordSet2(dce, NULL, self.machine_user,
-                                                 nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
-                                                 self.serverName, self.update_authenticator(), cnp.getData())
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_ACCESS_DENIED') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "STATUS_ACCESS_DENIED"):
+            nrpc.hNetrServerPasswordSet2(dce, NULL, self.machine_user,
+                                         nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
+                                         self.serverName, self.update_authenticator(), cnp.getData())
 
     def test_NetrLogonGetDomainInfo(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         request = nrpc.NetrLogonGetDomainInfo()
         request['ServerName'] = '\x00' * 20
         request['ComputerName'] = self.serverName + '\x00'
@@ -544,11 +513,13 @@ class NRPCTests(RemoteTestCase):
 
     def test_hNetrLogonGetDomainInfo(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         resp = nrpc.hNetrLogonGetDomainInfo(dce, '\x00' * 20, self.serverName, self.update_authenticator(), 0, 1)
         resp.dump()
 
     def test_NetrLogonGetCapabilities(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         request = nrpc.NetrLogonGetCapabilities()
         request['ServerName'] = '\x00' * 20
         request['ComputerName'] = self.serverName + '\x00'
@@ -561,16 +532,17 @@ class NRPCTests(RemoteTestCase):
 
     def test_hNetrLogonGetCapabilities(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         resp = nrpc.hNetrLogonGetCapabilities(dce, '\x00' * 20, self.serverName + '\x00', self.update_authenticator(),
                                               0)
         resp.dump()
 
     def test_NetrLogonSamLogonEx(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         request = nrpc.NetrLogonSamLogonEx()
         request['LogonServer'] = '\x00'
         request['ComputerName'] = self.serverName + '\x00'
-
 
         request['LogonLevel'] = nrpc.NETLOGON_LOGON_INFO_CLASS.NetlogonInteractiveInformation
         request['LogonInformation']['tag'] = nrpc.NETLOGON_LOGON_INFO_CLASS.NetlogonInteractiveInformation
@@ -601,23 +573,19 @@ class NRPCTests(RemoteTestCase):
         request['LogonInformation']['LogonInteractive']['NtOwfPassword'] = bnthash
         request['ValidationLevel'] = nrpc.NETLOGON_VALIDATION_INFO_CLASS.NetlogonValidationSamInfo4
         request['ExtraFlags'] = 1
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_INTERNAL_ERROR') < 0:
-                raise   
+        with assertRaisesRegex(self, DCERPCException, "STATUS_INTERNAL_ERROR"):
+            dce.request(request)
 
     def test_NetrLogonSamLogonWithFlags(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         request = nrpc.NetrLogonSamLogonWithFlags()
         request['LogonServer'] = '\x00'
         request['ComputerName'] = self.serverName + '\x00'
         request['LogonLevel'] = nrpc.NETLOGON_LOGON_INFO_CLASS.NetlogonInteractiveInformation
         request['LogonInformation']['tag'] = nrpc.NETLOGON_LOGON_INFO_CLASS.NetlogonInteractiveInformation
         request['LogonInformation']['LogonInteractive']['Identity']['LogonDomainName'] = self.domain
-        request['LogonInformation']['LogonInteractive']['Identity'][
-            'ParameterControl'] = 2 + 2 ** 14 + 2 ** 7 + 2 ** 9 + 2 ** 5 + 2 ** 11
+        request['LogonInformation']['LogonInteractive']['Identity']['ParameterControl'] = 2 + 2 ** 14 + 2 ** 7 + 2 ** 9 + 2 ** 5 + 2 ** 11
         request['LogonInformation']['LogonInteractive']['Identity']['UserName'] = self.username
         request['LogonInformation']['LogonInteractive']['Identity']['Workstation'] = ''
         if len(self.hashes):
@@ -645,15 +613,12 @@ class NRPCTests(RemoteTestCase):
         request['ReturnAuthenticator']['Credential'] = b'\x00' * 8
         request['ReturnAuthenticator']['Timestamp'] = 0
         request['ExtraFlags'] = 0
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_NO_SUCH_USER') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "STATUS_NO_SUCH_USER"):
+            dce.request(request)
 
     def test_NetrLogonSamLogon(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         request = nrpc.NetrLogonSamLogon()
         request['LogonServer'] = '\x00'
         request['ComputerName'] = self.serverName + '\x00'
@@ -687,15 +652,12 @@ class NRPCTests(RemoteTestCase):
         request['Authenticator'] = self.update_authenticator()
         request['ReturnAuthenticator']['Credential'] = b'\x00' * 8
         request['ReturnAuthenticator']['Timestamp'] = 0
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_NO_SUCH_USER') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "STATUS_NO_SUCH_USER"):
+            dce.request(request)
 
     def test_NetrDatabaseDeltas(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         request = nrpc.NetrDatabaseDeltas()
         request['PrimaryName'] = '\x00' * 20
         request['ComputerName'] = self.serverName + '\x00'
@@ -705,15 +667,12 @@ class NRPCTests(RemoteTestCase):
         request['DatabaseID'] = 0
         # request['DomainModifiedCount'] = 1
         request['PreferredMaximumLength'] = 0xffffffff
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_NOT_SUPPORTED') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "STATUS_NOT_SUPPORTED"):
+            dce.request(request)
 
     def test_NetrDatabaseSync2(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         request = nrpc.NetrDatabaseSync2()
         request['PrimaryName'] = '\x00' * 20
         request['ComputerName'] = self.serverName + '\x00'
@@ -724,15 +683,12 @@ class NRPCTests(RemoteTestCase):
         request['RestartState'] = nrpc.SYNC_STATE.NormalState
         request['SyncContext'] = 0
         request['PreferredMaximumLength'] = 0xffffffff
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_NOT_SUPPORTED') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "STATUS_NOT_SUPPORTED"):
+            dce.request(request)
 
     def test_NetrDatabaseSync(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         request = nrpc.NetrDatabaseSync()
         request['PrimaryName'] = '\x00' * 20
         request['ComputerName'] = self.serverName + '\x00'
@@ -742,15 +698,12 @@ class NRPCTests(RemoteTestCase):
         request['DatabaseID'] = 0
         request['SyncContext'] = 0
         request['PreferredMaximumLength'] = 0xffffffff
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_NOT_SUPPORTED') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "STATUS_NOT_SUPPORTED"):
+            dce.request(request)
 
-    def te_NetrDatabaseRedo(self):
+    def test_NetrDatabaseRedo(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         request = nrpc.NetrDatabaseRedo()
         request['PrimaryName'] = '\x00' * 20
         request['ComputerName'] = self.serverName + '\x00'
@@ -759,49 +712,35 @@ class NRPCTests(RemoteTestCase):
         request['ReturnAuthenticator']['Timestamp'] = 0
         request['ChangeLogEntry'] = 0
         request['ChangeLogEntrySize'] = 0
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_NOT_SUPPORTED') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "STATUS_NOT_SUPPORTED"):
+            dce.request(request)
 
     def test_DsrEnumerateDomainTrusts(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         request = nrpc.DsrEnumerateDomainTrusts()
         request['ServerName'] = NULL
         request['Flags'] = 1
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_NOT_SUPPORTED') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "STATUS_NOT_SUPPORTED"):
+            dce.request(request)
 
     def test_NetrEnumerateTrustedDomainsEx(self):
         dce, rpctransport = self.connect()
         request = nrpc.NetrEnumerateTrustedDomainsEx()
         request['ServerName'] = NULL
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_NOT_SUPPORTED') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "STATUS_NOT_SUPPORTED"):
+            dce.request(request)
 
     def test_NetrEnumerateTrustedDomains(self):
         dce, rpctransport = self.connect()
         request = nrpc.NetrEnumerateTrustedDomains()
         request['ServerName'] = NULL
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_NOT_SUPPORTED') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "STATUS_NOT_SUPPORTED"):
+            dce.request(request)
 
     def test_NetrGetForestTrustInformation(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         request = nrpc.NetrGetForestTrustInformation()
         request['ServerName'] = NULL
         request['ComputerName'] = self.serverName + '\x00'
@@ -809,63 +748,46 @@ class NRPCTests(RemoteTestCase):
         request['ReturnAuthenticator']['Credential'] = b'\x00' * 8
         request['ReturnAuthenticator']['Timestamp'] = 0
         request['Flags'] = 0
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_NOT_IMPLEMENTED') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "STATUS_NOT_IMPLEMENTED"):
+            dce.request(request)
 
     def test_DsrGetForestTrustInformation(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         request = nrpc.DsrGetForestTrustInformation()
         request['ServerName'] = NULL
         request['TrustedDomainName'] = self.domain + '\x00'
         request['Flags'] = 0
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('ERROR_NO_SUCH_DOMAIN') < 0 and str(e).find('rpc_s_access_denied') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "ERROR_NO_SUCH_DOMAIN|rpc_s_access_denied"):
+            dce.request(request)
 
     def test_NetrServerGetTrustInfo(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         request = nrpc.NetrServerGetTrustInfo()
         request['TrustedDcName'] = NULL
         request['AccountName'] = self.machine_user + '\x00'
         request['SecureChannelType'] = nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel
         request['ComputerName'] = self.serverName + '\x00'
         request['Authenticator'] = self.update_authenticator()
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('ERROR_NO_SUCH_DOMAIN') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "ERROR_NO_SUCH_DOMAIN"):
+            dce.request(request)
 
     def test_hNetrServerGetTrustInfo(self):
         dce, rpctransport = self.connect()
-        try:
-            resp = nrpc.hNetrServerGetTrustInfo(dce, NULL, self.machine_user,
-                                                nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
-                                                self.serverName, self.update_authenticator())
-            resp.dump()
-        except Exception as e:
-            if str(e).find('ERROR_NO_SUCH_DOMAIN') < 0:
-                raise
+        self.authenticate(dce)
+        with assertRaisesRegex(self, DCERPCException, "ERROR_NO_SUCH_DOMAIN"):
+            nrpc.hNetrServerGetTrustInfo(dce, NULL, self.machine_user,
+                                         nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
+                                         self.serverName, self.update_authenticator())
 
     def test_NetrLogonGetTrustRid(self):
         dce, rpctransport = self.connect()
         request = nrpc.NetrLogonGetTrustRid()
         request['ServerName'] = NULL
         request['DomainName'] = self.domain + '\x00'
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('rpc_s_access_denied') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "rpc_s_access_denied"):
+            dce.request(request)
 
     def test_NetrLogonComputeServerDigest(self):
         dce, rpctransport = self.connect()
@@ -874,12 +796,8 @@ class NRPCTests(RemoteTestCase):
         request['Rid'] = 1001
         request['Message'] = b'HOLABETOCOMOANDAS\x00'
         request['MessageSize'] = len(b'HOLABETOCOMOANDAS\x00')
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('rpc_s_access_denied') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "rpc_s_access_denied"):
+            dce.request(request)
 
     def test_NetrLogonComputeClientDigest(self):
         dce, rpctransport = self.connect()
@@ -887,28 +805,21 @@ class NRPCTests(RemoteTestCase):
         request['ServerName'] = NULL
         request['DomainName'] = self.domain + '\x00'
         request['Message'] = b'HOLABETOCOMOANDAS\x00'
-        request['MessageSize'] = len(b'HOLABETOCOMOANDAS\x00')
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('rpc_s_access_denied') < 0:
-                raise
+        request['MessageSize'] = len(request['Message'])
+        with assertRaisesRegex(self, DCERPCException, "rpc_s_access_denied"):
+            dce.request(request)
 
     def test_NetrLogonSendToSam(self):
         dce, rpctransport = self.connect()
+        self.authenticate(dce)
         request = nrpc.NetrLogonSendToSam()
         request['PrimaryName'] = NULL
         request['ComputerName'] = self.serverName + '\x00'
         request['Authenticator'] = self.update_authenticator()
         request['OpaqueBuffer'] = b'HOLABETOCOMOANDAS\x00'
         request['OpaqueBufferSize'] = len(b'HOLABETOCOMOANDAS\x00')
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_ACCESS_DENIED') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "STATUS_ACCESS_DENIED"):
+            dce.request(request)
 
     def test_NetrLogonSetServiceBits(self):
         dce, rpctransport = self.connect()
@@ -916,23 +827,16 @@ class NRPCTests(RemoteTestCase):
         request['ServerName'] = NULL
         request['ServiceBitsOfInterest'] = 1 << 7
         request['ServiceBits'] = 1 << 7
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('rpc_s_access_denied') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "rpc_s_access_denied"):
+            dce.request(request)
 
-    def te_NetrLogonGetTimeServiceParentDomain(self):
+    #@pytest.mark.xfail
+    def test_NetrLogonGetTimeServiceParentDomain(self):
         dce, rpctransport = self.connect()
         request = nrpc.NetrLogonGetTimeServiceParentDomain()
         request['ServerName'] = self.domain + '\x00'
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('rpc_s_access_denied') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "rpc_s_access_denied"):
+            dce.request(request)
 
     def test_NetrLogonControl2Ex(self):
         dce, rpctransport = self.connect()
@@ -942,13 +846,8 @@ class NRPCTests(RemoteTestCase):
         request['QueryLevel'] = 4
         request['Data']['tag'] = 8
         request['Data']['UserName'] = 'normaluser7\x00'
-
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('rpc_s_access_denied') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "rpc_s_access_denied"):
+            dce.request(request)
 
     def test_NetrLogonControl2(self):
         dce, rpctransport = self.connect()
@@ -959,12 +858,8 @@ class NRPCTests(RemoteTestCase):
         request['Data']['tag'] = 8
         request['Data']['UserName'] = 'normaluser7\x00'
 
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('rpc_s_access_denied') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "rpc_s_access_denied"):
+            dce.request(request)
 
     def test_NetrLogonControl(self):
         dce, rpctransport = self.connect()
@@ -974,12 +869,8 @@ class NRPCTests(RemoteTestCase):
         request['QueryLevel'] = 4
         request['Data']['tag'] = 65534
         request['Data']['DebugFlag'] = 1
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('ERROR_INVALID_LEVEL') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "ERROR_INVALID_LEVEL"):
+            dce.request(request)
 
     def test_NetrLogonUasLogon(self):
         dce, rpctransport = self.connect()
@@ -987,12 +878,8 @@ class NRPCTests(RemoteTestCase):
         request['ServerName'] = NULL
         request['UserName'] = 'normaluser7\x00'
         request['Workstation'] = self.serverName + '\x00'
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('rpc_s_access_denied') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "rpc_s_access_denied"):
+            dce.request(request)
 
     def test_NetrLogonUasLogoff(self):
         dce, rpctransport = self.connect()
@@ -1000,30 +887,20 @@ class NRPCTests(RemoteTestCase):
         request['ServerName'] = NULL
         request['UserName'] = 'normaluser7\x00'
         request['Workstation'] = self.serverName + '\x00'
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('rpc_s_access_denied') < 0:
-                raise
+        with assertRaisesRegex(self, DCERPCException, "rpc_s_access_denied"):
+            dce.request(request)
 
 
 @pytest.mark.remote
-class TCPTransport(NRPCTests, unittest.TestCase):
-
-    def setUp(self):
-        super(TCPTransport, self).setUp()
-        self.set_transport_config(machine_account=True)
-        self.stringBinding = epm.hept_map(self.machine, nrpc.MSRPC_UUID_NRPC, protocol='ncacn_ip_tcp')
+class NRPCTestsSMBTransport(NRPCTests, unittest.TestCase):
+    string_binding = r"ncacn_np:{0.machine}[\PIPE\netlogon]"
+    string_binding_formatting = DCERPCTests.STRING_BINDING_FORMATTING
 
 
 @pytest.mark.remote
-class SMBTransport(NRPCTests, unittest.TestCase):
-
-    def setUp(self):
-        super(SMBTransport, self).setUp()
-        self.set_transport_config(machine_account=True)
-        self.stringBinding = r'ncacn_np:%s[\PIPE\netlogon]' % self.machine
+class NRPCTestsTCPTransport(NRPCTests, unittest.TestCase):
+    protocol = "ncacn_ip_tcp"
+    string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
 
 
 # Process command-line arguments.
