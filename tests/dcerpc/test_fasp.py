@@ -11,13 +11,10 @@
 #
 # Not yet:
 #
-# Shouldn't dump errors against a win7
-#
 import unittest
 import pytest
-from tests import RemoteTestCase
+from tests.dcerpc import DCERPCTests
 
-from impacket.dcerpc.v5 import transport, epm
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
 
@@ -27,22 +24,13 @@ fasp = None
 
 
 @pytest.mark.skip(reason="fasp module unavailable")
-class FASPTests(RemoteTestCase):
-
-    def connect(self):
-        rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username, self.password, self.domain, self.lmhash, self.nthash)
-        dce = rpctransport.get_dce_rpc()
-        dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
-        dce.connect()
-        dce.bind(fasp.MSRPC_UUID_FASP, transfer_syntax=self.ts)
-
-        return dce, rpctransport
+class FASPTests(DCERPCTests):
+    #iface_uuid = fasp.MSRPC_UUID_FASP
+    authn = True
+    authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
     def test_FWOpenPolicyStore(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         request = fasp.FWOpenPolicyStore()
         request['BinaryVersion'] = 0x0200
         request['StoreType'] = fasp.FW_STORE_TYPE.FW_STORE_TYPE_LOCAL
@@ -52,12 +40,12 @@ class FASPTests(RemoteTestCase):
         resp.dump()
 
     def test_hFWOpenPolicyStore(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = fasp.hFWOpenPolicyStore(dce)
         resp.dump()
 
     def test_FWClosePolicyStore(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = fasp.hFWOpenPolicyStore(dce)
         request = fasp.FWClosePolicyStore()
         request['phPolicyStore'] = resp['phPolicyStore']
@@ -65,30 +53,24 @@ class FASPTests(RemoteTestCase):
         resp.dump()
 
     def test_hFWClosePolicyStore(self):
-        dce, rpctransport = self.connect()
+        dce, rpc_transport = self.connect()
         resp = fasp.hFWOpenPolicyStore(dce)
         resp = fasp.hFWClosePolicyStore(dce,resp['phPolicyStore'])
         resp.dump()
 
 
 @pytest.mark.remote
-class TCPTransport(FASPTests, unittest.TestCase):
-
-    def setUp(self):
-        super(TCPTransport, self).setUp()
-        self.set_transport_config()
-        self.stringBinding = epm.hept_map(self.machine, fasp.MSRPC_UUID_FASP, protocol='ncacn_ip_tcp')
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+class FASPTestsTCPTransport(FASPTests, unittest.TestCase):
+    protocol = "ncacn_ip_tcp"
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 @pytest.mark.remote
-class TCPTransport64(TCPTransport):
-
-    def setUp(self):
-        super(TCPTransport64, self).setUp()
-        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+class FASPTestsTCPTransport64(FASPTests, unittest.TestCase):
+    protocol = "ncacn_ip_tcp"
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
 
 # Process command-line arguments.
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=1)

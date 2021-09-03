@@ -7,18 +7,15 @@
 # for more information.
 #
 # Tested so far:
-#   BackuprKey
-# 
-# Shouldn't dump errors against a win7
+#   (h)BackuprKey
 #
 from __future__ import division
 from __future__ import print_function
 
 import pytest
 import unittest
-from tests import RemoteTestCase
+from tests.dcerpc import DCERPCTests
 
-from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import bkrp
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from impacket.dcerpc.v5.dtypes import NULL
@@ -30,29 +27,23 @@ except ImportError:
     print("In order to run these test cases you need the cryptography package")
 
 
-class BKRPTests(RemoteTestCase):
+class BKRPTests(DCERPCTests):
 
-    def connect(self):
-        rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username,self.password, self.domain, self.lmhash, self.nthash)
-        dce = rpctransport.get_dce_rpc()
-        dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
-        dce.connect()
-        dce.bind(bkrp.MSRPC_UUID_BKRP, transfer_syntax = self.ts)
+    iface_uuid = bkrp.MSRPC_UUID_BKRP
+    string_binding = r"ncacn_np:{0.machine}[\PIPE\protected_storage]"
+    authn = True
+    authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
-        return dce, rpctransport
+    data_in = b"Huh? wait wait, let me, let me explain something to you. Uh, I am not Mr. Lebowski; " \
+              b"you're Mr. Lebowski. I'm the Dude. So that's what you call me. You know, uh, That, or uh, " \
+              b"his Dudeness, or uh Duder, or uh El Duderino, if, you know, you're not into the whole brevity thing--uh."
 
     def test_BackuprKey_BACKUPKEY_BACKUP_GUID_BACKUPKEY_RESTORE_GUID(self):
         dce, rpctransport = self.connect()
-        DataIn = b"Huh? wait wait, let me, let me explain something to you. Uh, I am not Mr. Lebowski; " \
-                 b"you're Mr. Lebowski. I'm the Dude. So that's what you call me. You know, uh, That, or uh, " \
-                 b"his Dudeness, or uh Duder, or uh El Duderino, if, you know, you're not into the whole brevity thing--uh."
         request = bkrp.BackuprKey()
         request['pguidActionAgent'] = bkrp.BACKUPKEY_BACKUP_GUID
-        request['pDataIn'] = DataIn
-        request['cbDataIn'] = len(DataIn)
+        request['pDataIn'] = self.data_in
+        request['cbDataIn'] = len(self.data_in)
         request['dwParam'] = 0
 
         resp = dce.request(request)
@@ -70,19 +61,14 @@ class BKRPTests(RemoteTestCase):
         request['dwParam'] = 0
 
         resp = dce.request(request)
-
         resp.dump()
 
-        assert(DataIn == b''.join(resp['ppDataOut']))
+        self.assertEqual(self.data_in, b''.join(resp['ppDataOut']))
 
     def test_hBackuprKey_BACKUPKEY_BACKUP_GUID_BACKUPKEY_RESTORE_GUID(self):
         dce, rpctransport = self.connect()
 
-        DataIn = b"Huh? wait wait, let me, let me explain something to you. Uh, I am not Mr. Lebowski; " \
-                 b"you're Mr. Lebowski. I'm the Dude. So that's what you call me. You know, uh, That, or uh, " \
-                 b"his Dudeness, or uh Duder, or uh El Duderino, if, you know, you're not into the whole brevity thing--uh."
-        resp = bkrp.hBackuprKey(dce, bkrp.BACKUPKEY_BACKUP_GUID, DataIn)
-
+        resp = bkrp.hBackuprKey(dce, bkrp.BACKUPKEY_BACKUP_GUID, self.data_in)
         resp.dump()
 
         wrapped = bkrp.WRAPPED_SECRET()
@@ -90,24 +76,19 @@ class BKRPTests(RemoteTestCase):
         wrapped.dump()
 
         resp = bkrp.hBackuprKey(dce, bkrp.BACKUPKEY_RESTORE_GUID, b''.join(resp['ppDataOut']))
-
         resp.dump()
 
-        assert (DataIn == b''.join(resp['ppDataOut']))
+        self.assertEqual(self.data_in, b''.join(resp['ppDataOut']))
 
     def test_BackuprKey_BACKUPKEY_BACKUP_GUID_BACKUPKEY_RESTORE_GUID_WIN2K(self):
         dce, rpctransport = self.connect()
-        DataIn = b"Huh? wait wait, let me, let me explain something to you. Uh, I am not Mr. Lebowski; " \
-                 b"you're Mr. Lebowski. I'm the Dude. So that's what you call me. You know, uh, That, or uh, " \
-                 b"his Dudeness, or uh Duder, or uh El Duderino, if, you know, you're not into the whole brevity thing--uh."
         request = bkrp.BackuprKey()
         request['pguidActionAgent'] = bkrp.BACKUPKEY_BACKUP_GUID
-        request['pDataIn'] = DataIn
-        request['cbDataIn'] = len(DataIn)
+        request['pDataIn'] = self.data_in
+        request['cbDataIn'] = len(self.data_in)
         request['dwParam'] = 0
 
         resp = dce.request(request)
-
         resp.dump()
 
         wrapped = bkrp.WRAPPED_SECRET()
@@ -121,30 +102,24 @@ class BKRPTests(RemoteTestCase):
         request['dwParam'] = 0
 
         resp = dce.request(request)
-
         resp.dump()
 
-        assert(DataIn == b''.join(resp['ppDataOut']))
+        self.assertEqual(self.data_in, b''.join(resp['ppDataOut']))
 
     def test_hBackuprKey_BACKUPKEY_BACKUP_GUID_BACKUPKEY_RESTORE_GUID_WIN2K(self):
         dce, rpctransport = self.connect()
 
-        DataIn = b"Huh? wait wait, let me, let me explain something to you. Uh, I am not Mr. Lebowski; " \
-                 b"you're Mr. Lebowski. I'm the Dude. So that's what you call me. You know, uh, That, or uh, " \
-                 b"his Dudeness, or uh Duder, or uh El Duderino, if, you know, you're not into the whole brevity thing--uh."
-        resp = bkrp.hBackuprKey(dce, bkrp.BACKUPKEY_BACKUP_GUID, DataIn )
-
+        resp = bkrp.hBackuprKey(dce, bkrp.BACKUPKEY_BACKUP_GUID, self.data_in)
         resp.dump()
 
         wrapped = bkrp.WRAPPED_SECRET()
         wrapped.fromString(b''.join(resp['ppDataOut']))
         wrapped.dump()
 
-        resp = bkrp.hBackuprKey(dce, bkrp.BACKUPKEY_RESTORE_GUID_WIN2K, b''.join(resp['ppDataOut']) )
-
+        resp = bkrp.hBackuprKey(dce, bkrp.BACKUPKEY_RESTORE_GUID_WIN2K, b''.join(resp['ppDataOut']))
         resp.dump()
 
-        assert(DataIn == b''.join(resp['ppDataOut']))
+        self.assertEqual(self.data_in, b''.join(resp['ppDataOut']))
 
     def test_BackuprKey_BACKUPKEY_RETRIEVE_BACKUP_KEY_GUID(self):
         dce, rpctransport = self.connect()
@@ -155,14 +130,12 @@ class BKRPTests(RemoteTestCase):
         request['dwParam'] = 0
 
         resp = dce.request(request)
-
         resp.dump()
 
         #print "LEN: %d" % len(''.join(resp['ppDataOut']))
         #hexdump(''.join(resp['ppDataOut']))
 
         cert = x509.load_der_x509_certificate(b''.join(resp['ppDataOut']), default_backend())
-
         print(cert.subject)
         print(cert.issuer)
         print(cert.signature)
@@ -176,37 +149,27 @@ class BKRPTests(RemoteTestCase):
         request['dwParam'] = 0
 
         resp = bkrp.hBackuprKey(dce, bkrp.BACKUPKEY_RETRIEVE_BACKUP_KEY_GUID, NULL)
-
         resp.dump()
 
         #print "LEN: %d" % len(''.join(resp['ppDataOut']))
         #hexdump(''.join(resp['ppDataOut']))
 
         cert = x509.load_der_x509_certificate(b''.join(resp['ppDataOut']), default_backend())
-
         print(cert.subject)
         print(cert.issuer)
         print(cert.signature)
 
 
 @pytest.mark.remote
-class SMBTransport(BKRPTests, unittest.TestCase):
-
-    def setUp(self):
-        super(SMBTransport, self).setUp()
-        self.set_transport_config()
-        self.stringBinding = r'ncacn_np:%s[\PIPE\protected_storage]' % self.machine
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+class BKRPTestsSMBTransport(BKRPTests, unittest.TestCase):
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 @pytest.mark.remote
-class SMBTransport64(SMBTransport):
-
-    def setUp(self):
-        super(SMBTransport64, self).setUp()
-        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+class BKRPTestsSMBTransport64(BKRPTestsSMBTransport):
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
 
 # Process command-line arguments.
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=1)

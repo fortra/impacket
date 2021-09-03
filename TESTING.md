@@ -26,6 +26,15 @@ environment by completing the following steps:
 1. [Configure remote test cases](#configure-remote-test-cases).
 
 
+> **Important note**
+> 
+> Bear in mind that some remote tests are not idempotent, that means that they perform
+> changes on the target environment and the results of the tests depends on that. As an
+> example, some tests require the creation/modification/deletion of user accounts. If those
+> tests fail at some point during the process, user accounts might lay down there and
+> subsequent tests might fail when trying to create the user account. We recommend taking
+> snapshots of the target environment that can be then rolled back after a testing session.
+
 Running tests
 -------------
 
@@ -213,7 +222,10 @@ You can use self-signed certificates by:
 ### Mimilib configuration
 
 [Mimilib](https://github.com/gentilkiwi/mimikatz/tree/master/mimilib) test
-cases require the service to be installed on the target Domain Controller. 
+cases require the service to be installed on the target Domain Controller. You can
+do that by running Mimikatz with an elevated user and executing:
+
+        mimikatz # rpc::server
 
 
 Configure Remote Test Cases

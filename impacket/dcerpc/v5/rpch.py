@@ -611,7 +611,8 @@ class RPCProxyClient(HTTPClientSecurityProvider):
             except (IndexError, KeyError, AttributeError):
                 raise RPCProxyClientException('RPC Proxy CONN/A1 request failed')
 
-        if b'Transfer-Encoding: chunked' in resp:
+        resp_ascii = resp.decode("ASCII", errors='replace')
+        if "transfer-encoding: chunked" in resp_ascii.lower():
             self.__serverChunked = True
 
         # If the body is here, let's send it to rpc_out_recv1()

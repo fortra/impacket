@@ -13,48 +13,56 @@
 #   OpenPerformanceData
 #   OpenUsers
 #   BaseRegCloseKey
-#   BaseRegCreateKey
-#   BaseRegDeleteKey
+#   (h)BaseRegCreateKey
+#   (h)BaseRegSetValue
+#   (h)BaseRegDeleteKey
+#   (h)BaseRegEnumKey
+#   (h)BaseRegEnumValue
 #   BaseRegFlushKey
 #   BaseRegGetKeySecurity
 #   BaseRegOpenKey
-#   BaseRegQueryInfoKey
-#   BaseRegQueryValue
-#   BaseRegReplaceKey
-#   BaseRegRestoreKey
-#   BaseRegSaveKey
-#   BaseRegSetValue
-#   BaseRegEnumValue
-#   BaseRegEnumKey
-#   BaseRegGetVersion
-#   OpenCurrentConfig
-#   BaseRegQueryMultipleValues
-#   BaseRegSaveKeyEx
-#   OpenPerformanceText
-#   OpenPerformanceNlsText
+#   hBaseRegQueryInfoKey
+#   (h)BaseRegQueryValue
+#   (h)BaseRegReplaceKey
+#   (h)BaseRegRestoreKey
+#   (h)BaseRegSaveKey
+#   (h)BaseRegGetVersion
+#   (h)OpenCurrentConfig
+#   (h)BaseRegQueryMultipleValues
+#   (h)BaseRegSaveKeyEx
+#   (h)OpenPerformanceText
+#   (h)OpenPerformanceNlsText
 #   BaseRegQueryMultipleValues2
 #   BaseRegDeleteKeyEx
-#   BaseRegLoadKey
-#   BaseRegUnLoadKey
-#   BaseRegDeleteValue
-# 
+#   (h)BaseRegLoadKey
+#   (h)BaseRegUnLoadKey
+#   hBaseRegDeleteValue
 # Not yet:
 #   BaseRegSetKeySecurity
-#
-# Shouldn't dump errors against a win7
 #
 from __future__ import division
 from __future__ import print_function
 import pytest
 import unittest
-from tests import RemoteTestCase
+from tests.dcerpc import DCERPCTests
 
 from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import epm, rrp, scmr
+from impacket.dcerpc.v5 import rrp, scmr
 from impacket.dcerpc.v5.dtypes import NULL, MAXIMUM_ALLOWED, OWNER_SECURITY_INFORMATION
 
 
-class RRPTests(RemoteTestCase):
+class RRPTests(DCERPCTests):
+    iface_uuid = rrp.MSRPC_UUID_RRP
+    string_binding = r"ncacn_np:{0.machine}[\PIPE\winreg]"
+    authn = True
+
+    test_key = "BETO\x00"
+    test_value_name = "BETO2\x00"
+    test_value_data = "HOLA COMO TE VA\x00"
+
+    def setUp(self):
+        super(RRPTests, self).setUp()
+        self.rrp_started = False
 
     def connect_scmr(self):
         rpctransport = transport.DCERPCTransportFactory(r'ncacn_np:%s[\pipe\svcctl]' % self.machine)
@@ -65,52 +73,47 @@ class RRPTests(RemoteTestCase):
         # dce.set_max_fragment_size(32)
         dce.connect()
         dce.bind(scmr.MSRPC_UUID_SCMR)
+        return dce, rpctransport
+
+    def open_scmanager(self, dce):
         lpMachineName = 'DUMMY\x00'
         lpDatabaseName = 'ServicesActive\x00'
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | \
                         scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | \
                         scmr.SERVICE_ENUMERATE_DEPENDENTS | scmr.SC_MANAGER_ENUMERATE_SERVICE
-
         resp = scmr.hROpenSCManagerW(dce, lpMachineName, lpDatabaseName, desiredAccess)
-        scHandle = resp['lpScHandle']
+        sc_handle = resp['lpScHandle']
+        return sc_handle
 
-        return dce, rpctransport, scHandle
+    def start_rrp_service(self, dce, sc_handle):
+        desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | \
+                        scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
+
+        resp = scmr.hROpenServiceW(dce, sc_handle, 'RemoteRegistry\x00', desiredAccess)
+        serviceHandle = resp['lpServiceHandle']
+        try:
+            scmr.hRStartServiceW(dce, serviceHandle)
+        except Exception as e:
+            if str(e).find('ERROR_SERVICE_ALREADY_RUNNING') >= 0:
+                pass
+            else:
+                raise
+        scmr.hRCloseServiceHandle(dce, sc_handle)
+        self.rrp_started = True
 
     def connect(self):
-        if self.rrpStarted is not True:
-            dce, rpctransport, scHandle = self.connect_scmr()
+        if not self.rrp_started:
+            dce, rpctransport = self.connect_scmr()
+            sc_handle = self.open_scmanager(dce)
+            self.start_rrp_service(dce, sc_handle)
+        return super(RRPTests, self).connect()
 
-            desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | \
-                            scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
-
-            resp = scmr.hROpenServiceW(dce, scHandle, 'RemoteRegistry\x00', desiredAccess)
-            resp.dump()
-            serviceHandle = resp['lpServiceHandle']
-
-            try:
-                resp = scmr.hRStartServiceW(dce, serviceHandle )
-            except Exception as e:
-                if str(e).find('ERROR_SERVICE_ALREADY_RUNNING') >=0:
-                    pass
-                else:
-                    raise
-            resp = scmr.hRCloseServiceHandle(dce, scHandle)
-            self.rrpStarted = True
-
-        rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username, self.password, self.domain, self.lmhash, self.nthash)
-        dce = rpctransport.get_dce_rpc()
-        #dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
-        dce.connect()
-        dce.bind(rrp.MSRPC_UUID_RRP, transfer_syntax = self.ts)
+    def open_local_machine(self, dce):
         resp = rrp.hOpenLocalMachine(dce, MAXIMUM_ALLOWED | rrp.KEY_WOW64_32KEY | rrp.KEY_ENUMERATE_SUB_KEYS)
-
-        return dce, rpctransport, resp['phKey']
+        return resp['phKey']
 
     def test_OpenClassesRoot(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
         request = rrp.OpenClassesRoot()
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED
@@ -118,7 +121,7 @@ class RRPTests(RemoteTestCase):
         resp.dump()
 
     def test_OpenCurrentUser(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
         request = rrp.OpenCurrentUser()
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED
@@ -126,7 +129,7 @@ class RRPTests(RemoteTestCase):
         resp.dump()
 
     def test_OpenLocalMachine(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
         request = rrp.OpenLocalMachine()
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED
@@ -134,7 +137,7 @@ class RRPTests(RemoteTestCase):
         resp.dump()
 
     def test_OpenPerformanceData(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
         request = rrp.OpenPerformanceData()
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED
@@ -142,7 +145,7 @@ class RRPTests(RemoteTestCase):
         resp.dump()
 
     def test_OpenUsers(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
         request = rrp.OpenUsers()
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED
@@ -150,40 +153,40 @@ class RRPTests(RemoteTestCase):
         resp.dump()
 
     def test_BaseRegCloseKey(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
         request = rrp.BaseRegCloseKey()
         request['hKey'] = phKey
         resp = dce.request(request)
         resp.dump()
 
     def test_hBaseRegCreateKey_hBaseRegSetValue_hBaseRegDeleteKey(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
         resp = rrp.hOpenClassesRoot(dce)
         resp.dump()
         regHandle = resp['phKey']
 
-        resp = rrp.hBaseRegCreateKey(dce, regHandle, 'BETO\x00')
+        resp = rrp.hBaseRegCreateKey(dce, regHandle, self.test_key)
         resp.dump()
         phKey = resp['phkResult']
 
         try: 
-            resp = rrp.hBaseRegSetValue(dce, phKey, 'BETO2\x00',  rrp.REG_SZ, 'HOLA COMO TE VA\x00')
+            resp = rrp.hBaseRegSetValue(dce, phKey, self.test_value_name,  rrp.REG_SZ, self.test_value_data)
             resp.dump()
         except Exception as e:
             print(e)
 
-        type, data = rrp.hBaseRegQueryValue(dce, phKey, 'BETO2\x00')
-        #print data
+        type, data = rrp.hBaseRegQueryValue(dce, phKey, self.test_value_name)
 
-        resp = rrp.hBaseRegDeleteValue(dce, phKey, 'BETO2\x00')
+        resp = rrp.hBaseRegDeleteValue(dce, phKey, self.test_value_name)
         resp.dump()
 
-        resp = rrp.hBaseRegDeleteKey(dce, regHandle, 'BETO\x00')
+        resp = rrp.hBaseRegDeleteKey(dce, regHandle, self.test_key)
         resp.dump()
-        self.assertEqual('HOLA COMO TE VA\x00', data)
+        self.assertEqual(self.test_value_data, data)
 
     def test_BaseRegCreateKey_BaseRegSetValue_BaseRegDeleteKey(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
         request = rrp.OpenClassesRoot()
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED 
@@ -193,7 +196,7 @@ class RRPTests(RemoteTestCase):
 
         request = rrp.BaseRegCreateKey()
         request['hKey'] = regHandle
-        request['lpSubKey'] = 'BETO\x00'
+        request['lpSubKey'] = self.test_key
         request['lpClass'] = NULL
         request['dwOptions'] = 0x00000001
         request['samDesired'] = MAXIMUM_ALLOWED
@@ -205,10 +208,10 @@ class RRPTests(RemoteTestCase):
 
         request = rrp.BaseRegSetValue()
         request['hKey'] = phKey
-        request['lpValueName'] = 'BETO\x00'
+        request['lpValueName'] = self.test_value_name
         request['dwType'] = rrp.REG_SZ
-        request['lpData'] = 'HOLA COMO TE VA\x00'.encode('utf-16le')
-        request['cbData'] = len('HOLA COMO TE VA\x00')*2
+        request['lpData'] = self.test_value_data.encode('utf-16le')
+        request['cbData'] = len(self.test_value_data)*2
         
         try: 
             resp = dce.request(request)
@@ -218,7 +221,7 @@ class RRPTests(RemoteTestCase):
 
         request = rrp.BaseRegQueryValue()
         request['hKey'] = phKey
-        request['lpValueName'] = 'BETO\x00'
+        request['lpValueName'] = self.test_value_name
         request['lpData'] = b' '*100
         request['lpcbData'] = 100
         request['lpcbLen'] = 100
@@ -228,14 +231,15 @@ class RRPTests(RemoteTestCase):
 
         request = rrp.BaseRegDeleteKey()
         request['hKey'] = regHandle
-        request['lpSubKey'] = 'BETO\x00'
+        request['lpSubKey'] = self.test_key
         resp = dce.request(request)
         resp.dump()
         print(b''.join(resData).decode('utf-16le'))
-        self.assertEqual('HOLA COMO TE VA\x00', b''.join(resData).decode('utf-16le'))
+        self.assertEqual(self.test_value_data, b''.join(resData).decode('utf-16le'))
 
     def test_BaseRegEnumKey(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
 
         request = rrp.BaseRegOpenKey()
         request['hKey'] = phKey
@@ -256,7 +260,8 @@ class RRPTests(RemoteTestCase):
         resp.dump()
 
     def test_hBaseRegEnumKey(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
 
         request = rrp.BaseRegOpenKey()
         request['hKey'] = phKey
@@ -265,11 +270,12 @@ class RRPTests(RemoteTestCase):
         request['samDesired'] = MAXIMUM_ALLOWED | rrp.KEY_ENUMERATE_SUB_KEYS
         resp = dce.request(request)
 
-        resp = rrp.hBaseRegEnumKey(dce, resp['phkResult'], 1 )
+        resp = rrp.hBaseRegEnumKey(dce, resp['phkResult'], 1)
         resp.dump()
 
     def test_BaseRegEnumValue(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
 
         request = rrp.BaseRegOpenKey()
         request['hKey'] = phKey
@@ -289,7 +295,8 @@ class RRPTests(RemoteTestCase):
         resp.dump()
 
     def test_hBaseRegEnumValue(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
 
         request = rrp.BaseRegOpenKey()
         request['hKey'] = phKey
@@ -298,25 +305,24 @@ class RRPTests(RemoteTestCase):
         request['samDesired'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
 
-        resp = rrp.hBaseRegEnumValue(dce, resp['phkResult'], 7, 10)
+        resp = rrp.hBaseRegEnumValue(dce, resp['phkResult'], 6, 100)
         resp.dump()
 
-
     def test_BaseRegFlushKey(self):
-        dce, rpctransport, phKey = self.connect()
-
-        resp =  rrp.hBaseRegFlushKey(dce,phKey)
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
+        resp = rrp.hBaseRegFlushKey(dce, phKey)
         resp.dump()
 
     def test_BaseRegGetKeySecurity(self):
-        dce, rpctransport, phKey = self.connect()
-
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
         resp = rrp.hBaseRegGetKeySecurity(dce, phKey, OWNER_SECURITY_INFORMATION)
         resp.dump()
 
     def test_BaseRegOpenKey(self):
-        dce, rpctransport, phKey = self.connect()
-
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
         request = rrp.BaseRegOpenKey()
         request['hKey'] = phKey
         request['lpSubKey'] = 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\x00'
@@ -326,15 +332,16 @@ class RRPTests(RemoteTestCase):
         resp.dump()
 
     def test_hBaseRegQueryInfoKey(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
+        resp = rrp.hBaseRegOpenKey(dce, phKey, 'SYSTEM\\CurrentControlSet\\Control\\Lsa\\JD\x00')
 
-        resp = rrp.hBaseRegOpenKey(dce, phKey, 'SYSTEM\\CurrentControlSet\\Control\\Lsa\\JD\x00' )
-
-        resp = rrp.hBaseRegQueryInfoKey(dce,resp['phkResult'])
+        resp = rrp.hBaseRegQueryInfoKey(dce, resp['phkResult'])
         resp.dump()
 
     def test_BaseRegQueryValue(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
 
         request = rrp.BaseRegOpenKey()
         request['hKey'] = phKey
@@ -354,15 +361,17 @@ class RRPTests(RemoteTestCase):
         resp.dump()
 
     def test_hBaseRegQueryValue(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
 
-        resp = rrp.hBaseRegOpenKey(dce, phKey, 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\x00' )
+        resp = rrp.hBaseRegOpenKey(dce, phKey, 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\x00')
         resp.dump()
 
-        resp = rrp.hBaseRegQueryValue(dce, resp['phkResult'], 'ProductName\x00')
+        rrp.hBaseRegQueryValue(dce, resp['phkResult'], 'ProductName\x00')
         
     def test_BaseRegReplaceKey(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
 
         request = rrp.BaseRegReplaceKey()
         request['hKey'] = phKey
@@ -377,7 +386,8 @@ class RRPTests(RemoteTestCase):
                 raise
 
     def test_hBaseRegReplaceKey(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
 
         try:
             resp = rrp.hBaseRegReplaceKey(dce, phKey, 'SOFTWARE\x00', 'SOFTWARE\x00', 'SOFTWARE\x00')
@@ -387,7 +397,8 @@ class RRPTests(RemoteTestCase):
                 raise
 
     def test_BaseRegRestoreKey(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
 
         request = rrp.BaseRegRestoreKey()
         request['hKey'] = phKey
@@ -401,7 +412,8 @@ class RRPTests(RemoteTestCase):
                 raise
 
     def test_hBaseRegRestoreKey(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
 
         try:
             resp = rrp.hBaseRegRestoreKey(dce, phKey, 'SOFTWARE\x00')
@@ -411,7 +423,7 @@ class RRPTests(RemoteTestCase):
                 raise
 
     def test_BaseRegSaveKey(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
 
         request = rrp.OpenCurrentUser()
         request['ServerName'] = NULL
@@ -430,19 +442,20 @@ class RRPTests(RemoteTestCase):
         smb.deleteFile('ADMIN$', 'System32\\BETUSFILE2')
 
     def test_hBaseRegSaveKey(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
 
         resp = rrp.hOpenCurrentUser(dce)
         resp.dump()
 
-        resp = rrp.hBaseRegSaveKey(dce,resp['phKey'],'BETUSFILE2\x00')
+        resp = rrp.hBaseRegSaveKey(dce, resp['phKey'], 'BETUSFILE2\x00')
         resp.dump()
         # I gotta remove the file now :s
         smb = rpctransport.get_smb_connection()
         smb.deleteFile('ADMIN$', 'System32\\BETUSFILE2')
 
     def test_BaseRegGetVersion(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
 
         request = rrp.BaseRegGetVersion()
         request['hKey'] = phKey
@@ -450,13 +463,14 @@ class RRPTests(RemoteTestCase):
         resp.dump()
 
     def test_hBaseRegGetVersion(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
 
         resp = rrp.hBaseRegGetVersion(dce, phKey)
         resp.dump()
 
     def test_OpenCurrentConfig(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
 
         request = rrp.OpenCurrentConfig()
         request['ServerName'] = NULL
@@ -465,13 +479,14 @@ class RRPTests(RemoteTestCase):
         resp.dump()
 
     def test_hOpenCurrentConfig(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
 
         resp = rrp.hOpenCurrentConfig(dce)
         resp.dump()
 
     def test_BaseRegQueryMultipleValues(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
 
         request = rrp.BaseRegOpenKey()
         request['hKey'] = phKey
@@ -512,11 +527,11 @@ class RRPTests(RemoteTestCase):
         resp.dump()
 
     def test_hBaseRegQueryMultipleValues(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
 
         resp = rrp.hBaseRegOpenKey(dce, phKey, 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\x00')
         resp.dump()
-
 
         valueIn = list()
         item1 = {}
@@ -537,7 +552,7 @@ class RRPTests(RemoteTestCase):
         rrp.hBaseRegQueryMultipleValues(dce, resp['phkResult'], valueIn)
 
     def test_BaseRegSaveKeyEx(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
 
         request = rrp.OpenCurrentUser()
         request['ServerName'] = NULL
@@ -557,7 +572,7 @@ class RRPTests(RemoteTestCase):
         smb.deleteFile('ADMIN$', 'System32\\BETUSFILE2')
 
     def test_hBaseRegSaveKeyEx(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
 
         resp = rrp.hOpenCurrentUser(dce)
         resp.dump()
@@ -569,7 +584,7 @@ class RRPTests(RemoteTestCase):
         smb.deleteFile('ADMIN$', 'System32\\BETUSFILE2')
 
     def test_OpenPerformanceText(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
 
         request = rrp.OpenPerformanceText()
         request['ServerName'] = NULL
@@ -578,13 +593,13 @@ class RRPTests(RemoteTestCase):
         resp.dump()
 
     def test_hOpenPerformanceText(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
 
         resp = rrp.hOpenPerformanceText(dce)
         resp.dump()
 
     def test_OpenPerformanceNlsText(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
 
         request = rrp.OpenPerformanceNlsText()
         request['ServerName'] = NULL
@@ -593,13 +608,14 @@ class RRPTests(RemoteTestCase):
         resp.dump()
 
     def test_hOpenPerformanceNlsText(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
 
         resp = rrp.hOpenPerformanceNlsText(dce)
         resp.dump()
 
     def test_BaseRegQueryMultipleValues2(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
 
         request = rrp.BaseRegOpenKey()
         request['hKey'] = phKey
@@ -640,7 +656,7 @@ class RRPTests(RemoteTestCase):
         resp.dump()
 
     def test_BaseRegDeleteKeyEx(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
         request = rrp.OpenClassesRoot()
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED 
@@ -650,7 +666,7 @@ class RRPTests(RemoteTestCase):
 
         request = rrp.BaseRegCreateKey()
         request['hKey'] = regHandle
-        request['lpSubKey'] = 'BETO\x00'
+        request['lpSubKey'] = self.test_key
         request['lpClass'] = NULL
         request['dwOptions'] = 0x00000001
         request['samDesired'] = MAXIMUM_ALLOWED
@@ -661,14 +677,15 @@ class RRPTests(RemoteTestCase):
 
         request = rrp.BaseRegDeleteKeyEx()
         request['hKey'] = regHandle
-        request['lpSubKey'] = 'BETO\x00'
+        request['lpSubKey'] = self.test_key
         request['AccessMask'] = rrp.KEY_WOW64_32KEY
         request['Reserved'] = 0
         resp = dce.request(request)
         resp.dump()
 
     def test_BaseRegLoadKey_BaseRegUnLoadKey(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
 
         request = rrp.BaseRegOpenKey()
         request['hKey'] = phKey
@@ -702,9 +719,10 @@ class RRPTests(RemoteTestCase):
         smb.deleteFile('ADMIN$', 'System32\\SEC')
 
     def test_hBaseRegLoadKey_hBaseRegUnLoadKey(self):
-        dce, rpctransport, phKey = self.connect()
+        dce, rpctransport = self.connect()
+        phKey = self.open_local_machine(dce)
 
-        resp = rrp.hBaseRegOpenKey(dce,phKey, 'SECURITY\x00')
+        resp = rrp.hBaseRegOpenKey(dce, phKey, 'SECURITY\x00')
         resp.dump()
 
         request = rrp.BaseRegSaveKey()
@@ -714,7 +732,7 @@ class RRPTests(RemoteTestCase):
         resp = dce.request(request)
         resp.dump()
 
-        resp = rrp.hBaseRegLoadKey(dce, phKey,'BETUS\x00', 'SEC\x00' )
+        resp = rrp.hBaseRegLoadKey(dce, phKey, 'BETUS\x00', 'SEC\x00')
         resp.dump()
 
         resp = rrp.hBaseRegUnLoadKey(dce, phKey, 'BETUS\x00')
@@ -725,34 +743,15 @@ class RRPTests(RemoteTestCase):
 
 
 @pytest.mark.remote
-class SMBTransport(RRPTests, unittest.TestCase):
-
-    def setUp(self):
-        super(SMBTransport, self).setUp()
-        self.set_transport_config()
-        self.stringBinding = r'ncacn_np:%s[\PIPE\winreg]' % self.machine
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
-        self.rrpStarted = False
+class RRPTestsSMBTransport(RRPTests, unittest.TestCase):
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 @pytest.mark.remote
-class SMBTransport64(SMBTransport):
-
-    def setUp(self):
-        super(SMBTransport64, self).setUp()
-        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
-
-
-@pytest.mark.remote
-class TCPTransport(RRPTests, unittest.TestCase):
-
-    def setUp(self):
-        super(TCPTransport, self).setUp()
-        self.set_transport_config()
-        self.stringBinding = epm.hept_map(self.machine, rrp.MSRPC_UUID_RRP, protocol='ncacn_ip_tcp')
-        self.rrpStarted = False
+class RRPTestsSMBTransport64(RRPTests, unittest.TestCase):
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
 
 # Process command-line arguments.
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=1)

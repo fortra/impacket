@@ -7,41 +7,36 @@
 # for more information.
 #
 # Tested so far:
-#   ElfrOpenBELW
-#   hElfrOpenBELW
-#   ElfrOpenELW
-#   hElfrOpenELW
-#   ElfrRegisterEventSourceW
-#   hElfrRegisterEventSourceW
-# 
+#   (h)ElfrOpenBELW
+#   (h)ElfrOpenELW
+#   (h)ElfrRegisterEventSourceW
+#   (h)ElfrReadELW
+#   (h)ElfrClearELFW
+#   (h)ElfrBackupELFW
+#   ElfrReportEventW
+#   hElfrNumberOfRecords
+#   hElfrOldestRecordNumber
 # Not yet:
-#
-# Shouldn't dump errors against a win7
+#   ElfrCloseEL
 #
 from __future__ import division
 from __future__ import print_function
 import pytest
 import unittest
-from tests import RemoteTestCase
+from six import assertRaisesRegex
+
+from tests.dcerpc import DCERPCTests
 
 from impacket.dcerpc.v5 import even
-from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5.dtypes import NULL
+from impacket.dcerpc.v5.rpcrt import DCERPCException
 
 
-class RRPTests(RemoteTestCase):
+class RRPTests(DCERPCTests):
 
-    def connect(self):
-        rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username, self.password, self.domain, self.lmhash, self.nthash)
-        dce = rpctransport.get_dce_rpc()
-        #dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
-        dce.connect()
-        dce.bind(even.MSRPC_UUID_EVEN, transfer_syntax = self.ts)
-
-        return dce, rpctransport
+    iface_uuid = even.MSRPC_UUID_EVEN
+    string_binding = r"ncacn_np:{0.machine}[\PIPE\eventlog]"
+    authn = True
 
     def test_ElfrOpenBELW(self):
         dce, rpctransport = self.connect()
@@ -50,23 +45,15 @@ class RRPTests(RemoteTestCase):
         request['BackupFileName'] = '\\??\\BETO'
         request['MajorVersion'] = 1
         request['MinorVersion'] = 1
-        try:
-            resp = dce.request(request)
-        except Exception as e:
-            if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
-                raise
-            resp = e.get_packet()
-        resp.dump()
+
+        with assertRaisesRegex(self, DCERPCException, "STATUS_OBJECT_NAME_NOT_FOUND"):
+            dce.request(request)
 
     def test_hElfrOpenBELW(self):
         dce, rpctransport = self.connect()
-        try:
-            resp = even.hElfrOpenBELW(dce, '\\??\\BETO')
-        except Exception as e:
-            if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
-                raise
-            resp = e.get_packet()
-        resp.dump()
+
+        with assertRaisesRegex(self, DCERPCException, "STATUS_OBJECT_NAME_NOT_FOUND"):
+            even.hElfrOpenBELW(dce, '\\??\\BETO')
 
     def test_ElfrOpenELW(self):
         dce, rpctransport = self.connect()
@@ -92,21 +79,15 @@ class RRPTests(RemoteTestCase):
         request['RegModuleName'] = ''
         request['MajorVersion'] = 1
         request['MinorVersion'] = 1
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_ACCESS_DENIED') < 0:
-                raise
+
+        with assertRaisesRegex(self, DCERPCException, "STATUS_ACCESS_DENIED"):
+            dce.request(request)
 
     def test_hElfrRegisterEventSourceW(self):
         dce, rpctransport = self.connect()
-        try:
-            resp = even.hElfrRegisterEventSourceW(dce, 'Security', '')
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_ACCESS_DENIED') < 0:
-                raise
+
+        with assertRaisesRegex(self, DCERPCException, "STATUS_ACCESS_DENIED"):
+            even.hElfrRegisterEventSourceW(dce, 'Security', '')
 
     def test_ElfrReadELW(self):
         dce, rpctransport = self.connect()
@@ -124,7 +105,9 @@ class RRPTests(RemoteTestCase):
         dce, rpctransport = self.connect()
         resp = even.hElfrOpenELW(dce, 'Security', '')
         resp.dump()
-        resp = even.hElfrReadELW(dce, resp['LogHandle'],even.EVENTLOG_SEQUENTIAL_READ | even.EVENTLOG_FORWARDS_READ,0, even.MAX_BATCH_BUFF )
+        resp = even.hElfrReadELW(dce, resp['LogHandle'],
+                                 even.EVENTLOG_SEQUENTIAL_READ | even.EVENTLOG_FORWARDS_READ,
+                                 0, even.MAX_BATCH_BUFF)
         resp.dump()
 
     def test_ElfrClearELFW(self):
@@ -134,23 +117,17 @@ class RRPTests(RemoteTestCase):
         request = even.ElfrClearELFW()
         request['LogHandle'] = resp['LogHandle']
         request['BackupFileName'] = '\\??\\c:\\beto2'
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_OBJECT_NAME_INVALID') < 0:
-                raise
+
+        with assertRaisesRegex(self, DCERPCException, "STATUS_OBJECT_NAME_INVALID"):
+            dce.request(request)
 
     def test_hElfrClearELFW(self):
         dce, rpctransport = self.connect()
         resp = even.hElfrOpenELW(dce, 'Security', '')
         resp.dump()
-        try:
-            resp = even.hElfrClearELFW(dce, resp['LogHandle'], '\\??\\c:\\beto2')
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_OBJECT_NAME_INVALID') < 0:
-                raise
+
+        with assertRaisesRegex(self, DCERPCException, "STATUS_OBJECT_NAME_INVALID"):
+            even.hElfrClearELFW(dce, resp['LogHandle'], '\\??\\c:\\beto2')
 
     def test_ElfrBackupELFW(self):
         dce, rpctransport = self.connect()
@@ -159,23 +136,17 @@ class RRPTests(RemoteTestCase):
         request = even.ElfrBackupELFW()
         request['LogHandle'] = resp['LogHandle']
         request['BackupFileName'] = '\\??\\c:\\beto2'
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_OBJECT_NAME_INVALID') < 0:
-                raise
+
+        with assertRaisesRegex(self, DCERPCException, "STATUS_OBJECT_NAME_INVALID"):
+            dce.request(request)
 
     def test_hElfrBackupELFW(self):
         dce, rpctransport = self.connect()
         resp = even.hElfrOpenELW(dce, 'Security', '')
         resp.dump()
-        try:
-            resp = even.hElfrBackupELFW(dce, resp['LogHandle'], '\\??\\c:\\beto2')
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_OBJECT_NAME_INVALID') < 0:
-                raise
+
+        with assertRaisesRegex(self, DCERPCException, "STATUS_OBJECT_NAME_INVALID"):
+            even.hElfrBackupELFW(dce, resp['LogHandle'], '\\??\\c:\\beto2')
 
     def test_ElfrReportEventW(self):
         dce, rpctransport = self.connect()
@@ -198,12 +169,9 @@ class RRPTests(RemoteTestCase):
         request['Flags'] = 0
         request['RecordNumber'] = NULL
         request['TimeWritten'] = NULL
-        try:
-            resp = dce.request(request)
-            resp.dump()
-        except Exception as e:
-            if str(e).find('STATUS_ACCESS_DENIED') < 0:
-                raise
+
+        with assertRaisesRegex(self, DCERPCException, "STATUS_ACCESS_DENIED"):
+            dce.request(request)
 
     def test_hElfrNumberOfRecords(self):
         dce, rpctransport = self.connect()
@@ -221,23 +189,15 @@ class RRPTests(RemoteTestCase):
 
 
 @pytest.mark.remote
-class SMBTransport(RRPTests, unittest.TestCase):
-
-    def setUp(self):
-        super(SMBTransport, self).setUp()
-        self.set_transport_config()
-        self.stringBinding = r'ncacn_np:%s[\PIPE\eventlog]' % self.machine
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+class RRPTestsSMBTransport(RRPTests, unittest.TestCase):
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 @pytest.mark.remote
-class SMBTransport64(SMBTransport):
-
-    def setUp(self):
-        super(SMBTransport64, self).setUp()
-        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+class RRPTestsSMBTransport64(RRPTests, unittest.TestCase):
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
 
 # Process command-line arguments.
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main(verbosity=1)
