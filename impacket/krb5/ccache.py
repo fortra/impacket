@@ -537,7 +537,7 @@ class CCache:
             raise e
 
     def saveFile(self, fileName):
-        f = open(fileName,'wb+')
+        f = open(fileName, 'wb+')
         f.write(self.getData())
         f.close()
 

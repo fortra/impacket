@@ -59,8 +59,7 @@ from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, 
 from impacket.krb5.ccache import CCache
 from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, _AES256CTS, Enctype
 from impacket.krb5.constants import TicketFlags, encodeFlags
-from impacket.krb5.kerberosv5 import getKerberosTGS
-from impacket.krb5.kerberosv5 import getKerberosTGT, sendReceive
+from impacket.krb5.kerberosv5 import getKerberosTGS, getKerberosTGT, sendReceive
 from impacket.krb5.types import Principal, KerberosTime, Ticket
 from impacket.ntlm import compute_nthash
 from impacket.winregistry import hexdump

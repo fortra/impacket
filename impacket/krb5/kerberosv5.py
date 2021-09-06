@@ -518,6 +518,7 @@ def getKerberosType3(cipher, sessionKey, auth_data):
 
     return cipher, sessionKey2, resp.getData()
 
+
 def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT = None, TGS = None, targetName='',
                      kdcHost = None, useCache = True):
 
@@ -570,10 +571,9 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
         else:
             tgt = TGT['KDC_REP']
             cipher = TGT['cipher']
-            sessionKey = TGT['sessionKey'] 
+            sessionKey = TGT['sessionKey']
 
         # Now that we have the TGT, we should ask for a TGS for cifs
-
         if TGS is None:
             serverName = Principal(targetName, type=constants.PrincipalNameType.NT_SRV_INST.value)
             try:
