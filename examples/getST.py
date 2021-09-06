@@ -618,25 +618,15 @@ class GETST:
         return r, cipher, sessionKey, newSessionKey
 
     def run(self):
+        tgt = None
 
         # Do we have a TGT cached?
-        tgt = None
-        try:
-            ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-            logging.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
-            principal = 'krbtgt/%s@%s' % (self.__domain.upper(), self.__domain.upper())
-            creds = ccache.getCredential(principal)
-            if creds is not None:
-                # ToDo: Check this TGT belogns to the right principal
-                TGT = creds.toTGT()
-                tgt, cipher, sessionKey = TGT['KDC_REP'], TGT['cipher'], TGT['sessionKey']
-                oldSessionKey = sessionKey
-                logging.info('Using TGT from cache')
-            else:
-                logging.debug("No valid credentials found in cache. ")
-        except:
-            # No cache present
-            pass
+        domain, _, TGT, _ = CCache.parseFile(self.__domain)
+
+        # ToDo: Check this TGT belogns to the right principal
+        if TGT is not None:
+            tgt, cipher, sessionKey = TGT['KDC_REP'], TGT['cipher'], TGT['sessionKey']
+            oldSessionKey = sessionKey
 
         if tgt is None:
             # Still no TGT

@@ -19,6 +19,7 @@
 from __future__ import division
 from __future__ import print_function
 from datetime import datetime
+import os
 from struct import pack, unpack, calcsize
 from six import b
 
@@ -520,15 +521,67 @@ class CCache:
 
     @classmethod
     def loadFile(cls, fileName):
-        f = open(fileName,'rb')
-        data = f.read()
-        f.close()
-        return cls(data)
+        if fileName is None:
+            LOG.debug('KRB5CCNAME environment variable is not defined. Skipping...')
+            return
+
+        try:
+            f = open(fileName, 'rb')
+            data = f.read()
+            f.close()
+            return cls(data)
+        except FileNotFoundError as e:
+            # No cache present
+            raise e
+        except Exception as e:
+            raise e
 
     def saveFile(self, fileName):
         f = open(fileName,'wb+')
         f.write(self.getData())
         f.close()
+
+    @classmethod
+    def parseFile(cls, domain, username='', target=''):
+        ccache = cls.loadFile(os.getenv('KRB5CCNAME'))
+        if ccache is None:
+            return domain, username, None, None
+
+        LOG.debug('Using Kerberos Cache: %s' % os.getenv('KRB5CCNAME'))
+
+        # retrieve domain information from CCache file if needed
+        if domain == '':
+            domain = ccache.principal.realm['data'].decode('utf-8')
+            LOG.debug('Domain retrieved from CCache: %s' % domain)
+
+        creds = None
+        if target != '':
+            principal = '%s@%s' % (target.upper(), domain.upper())
+            creds = ccache.getCredential(principal)
+
+        TGT = None
+        TGS = None
+        if creds is None:
+            principal = 'krbtgt/%s@%s' % (domain.upper(), domain.upper())
+            creds = ccache.getCredential(principal)
+            if creds is not None:
+                LOG.debug('Using TGT from cache')
+                TGT = creds.toTGT()
+            else:
+                LOG.debug('No valid credentials found in cache')
+        else:
+            LOG.debug('Using TGS from cache')
+            TGS = creds.toTGS(principal)
+
+        # retrieve user information from CCache file if needed
+        if username == '' and creds is not None:
+            username = creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')
+            LOG.debug('Username retrieved from CCache: %s' % username)
+        elif username == '' and len(ccache.principal.components) > 0:
+            username = ccache.principal.components[0]['data'].decode('utf-8')
+            LOG.debug('Username retrieved from CCache: %s' % username)
+
+        return domain, username, TGT, TGS
 
     def prettyPrint(self):
         print(("Primary Principal: %s" % self.principal.prettyPrint()))
@@ -658,6 +711,5 @@ class CCache:
 
 
 if __name__ == '__main__':
-    import os
     ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
     ccache.prettyPrint()

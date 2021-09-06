@@ -298,7 +298,6 @@ class SMBConnection:
         :return: None
         :raise SessionError: if error
         """
-        import os
         from impacket.krb5.ccache import CCache
         from impacket.krb5.kerberosv5 import KerberosError
         from impacket.krb5 import constants
@@ -309,41 +308,8 @@ class SMBConnection:
         if TGT is not None or TGS is not None:
             useCache = False
 
-        if useCache is True:
-            try:
-                ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-            except:
-                # No cache present
-                pass
-            else:
-                LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
-                # retrieve domain information from CCache file if needed
-                if domain == '':
-                    domain = ccache.principal.realm['data'].decode('utf-8')
-                    LOG.debug('Domain retrieved from CCache: %s' % domain)
-
-                principal = 'cifs/%s@%s' % (self.getRemoteName().upper(), domain.upper())
-                creds = ccache.getCredential(principal)
-                if creds is None:
-                    # Let's try for the TGT and go from there
-                    principal = 'krbtgt/%s@%s' % (domain.upper(),domain.upper())
-                    creds =  ccache.getCredential(principal)
-                    if creds is not None:
-                        TGT = creds.toTGT()
-                        LOG.debug('Using TGT from cache')
-                    else:
-                        LOG.debug("No valid credentials found in cache. ")
-                else:
-                    TGS = creds.toTGS(principal)
-                    LOG.debug('Using TGS from cache')
-
-                # retrieve user information from CCache file if needed
-                if user == '' and creds is not None:
-                    user = creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')
-                    LOG.debug('Username retrieved from CCache: %s' % user)
-                elif user == '' and len(ccache.principal.components) > 0:
-                    user = ccache.principal.components[0]['data'].decode('utf-8')
-                    LOG.debug('Username retrieved from CCache: %s' % user)
+        if useCache:
+            domain, user, TGT, TGS = CCache.parseFile(domain, user, 'cifs/%s' % self.getRemoteName())
 
         while True:
             try:
