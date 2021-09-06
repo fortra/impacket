@@ -195,17 +195,7 @@ class DumpSecrets:
             logging.error(e)
             if self.__NTDSHashes is not None:
                 if isinstance(e, KeyboardInterrupt):
-                    while True:
-                        answer =  input("Delete resume session file? [y/N] ")
-                        if answer.upper() == '':
-                            answer = 'N'
-                            break
-                        elif answer.upper() == 'Y':
-                            answer = 'Y'
-                            break
-                        elif answer.upper() == 'N':
-                            answer = 'N'
-                            break
+                    answer = input('Delete resume session file? [y/N] ').upper()
                     if answer == 'Y':
                         resumeFile = self.__NTDSHashes.getResumeSessionFile()
                         if resumeFile is not None:
