@@ -300,8 +300,8 @@ class LDAPAttack(ProtocolAttack):
         # Dictionary for restore data
         restoredata = {}
 
-        # Query for the sid of our user
-        self.client.search(userDn, '(objectCategory=user)', attributes=['sAMAccountName', 'objectSid'])
+        # Query for the sid of our incoming account (can be a user or a computer in case of a newly creation computer account (i.e. MachineAccountQuot abuse)
+        self.client.search(userDn, '(objectCategory=*)', attributes=['sAMAccountName', 'objectSid'])
         entry = self.client.entries[0]
         username = entry['sAMAccountName'].value
         usersid = entry['objectSid'].value
