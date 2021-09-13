@@ -1,25 +1,29 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
 # Description:
-#             Microsoft Extensive Storage Engine parser, just focused on trying 
-#             to parse NTDS.dit files (not meant as a full parser, although it might work)
+#   Microsoft Extensive Storage Engine parser, just focused on trying
+#   to parse NTDS.dit files (not meant as a full parser, although it might work)
 #
 # Author:
-#  Alberto Solino (@agsolino)
+#   Alberto Solino (@agsolino)
 #
 # Reference for:
-#  Structure.
+#   Structure
 # 
-# Excellent reference done by Joachim Metz
-# http://forensic-proof.com/wp-content/uploads/2011/07/Extensible-Storage-Engine-ESE-Database-File-EDB-format.pdf
+#   Excellent reference done by Joachim Metz
+#   - http://forensic-proof.com/wp-content/uploads/2011/07/Extensible-Storage-Engine-ESE-Database-File-EDB-format.pdf
 #
 # ToDo: 
-# [ ] Parse multi-values properly
-# [ ] Support long values properly
+#   [ ] Parse multi-values properly
+#   [ ] Support long values properly
+#
+
 from __future__ import division
 from __future__ import print_function
 from impacket import LOG
@@ -790,7 +794,7 @@ class ESENT_DB:
 
         return None
 
-    def getNextRow(self, cursor):
+    def getNextRow(self, cursor, filter_tables = None):
         cursor['CurrentTag'] += 1
 
         tag = self.__getNextTag(cursor)
@@ -805,11 +809,11 @@ class ESENT_DB:
             else:
                 cursor['CurrentPageData'] = self.getPage(page.record['NextPageNumber'])
                 cursor['CurrentTag'] = 0
-                return self.getNextRow(cursor)
+                return self.getNextRow(cursor, filter_tables = filter_tables)
         else:
-            return self.__tagToRecord(cursor, tag['EntryData'])
+            return self.__tagToRecord(cursor, tag['EntryData'], filter_tables = filter_tables)
 
-    def __tagToRecord(self, cursor, tag):
+    def __tagToRecord(self, cursor, tag, filter_tables = None):
         # So my brain doesn't forget, the data record is composed of:
         # Header
         # Fixed Size Data (ID < 127)
@@ -849,6 +853,9 @@ class ESENT_DB:
         columns = cursor['TableData']['Columns'] 
         
         for column in list(columns.keys()):
+            if filter_tables is not None:
+                if column not in filter_tables:
+                    continue
             columnRecord = columns[column]['Record']
             #columnRecord.dump()
             if columnRecord['Identifier'] <= dataDefinitionHeader['LastFixedSize']:

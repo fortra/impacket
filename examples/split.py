@@ -1,22 +1,27 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Pcap dump splitter.
+# Description:
+#   Pcap dump splitter
 #
-# This tools splits pcap capture files into smaller ones, one for each
-# different TCP/IP connection found in the original.
+#   This tools splits pcap capture files into smaller ones, one for each
+#   different TCP/IP connection found in the original.
 #
 # Authors:
-#  Alejandro D. Weil <aweil@coresecurity.com>
-#  Javier Kohen <jkohen@coresecurity.com>
+#   Alejandro D. Weil
+#   Javier Kohen
 #
 # Reference for:
-#  pcapy: open_offline, pcapdumper.
-#  ImpactDecoder.
+#   pcapy: open_offline, pcapdumper
+#   ImpactDecoder
+#
+
 from __future__ import division
 from __future__ import print_function
 import sys

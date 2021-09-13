@@ -1,11 +1,20 @@
 #!/usr/bin/env python3
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# Description: Python script for extracting and decrypting Group Policy Preferences passwords,
-# using Impacket's lib, and using streams for carving files instead of mounting shares
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Description:
+#   Python script for extracting and decrypting Group Policy Preferences passwords,
+#   using Impacket's lib, and using streams for carving files instead of mounting shares
 #
 # Authors:
-#  Remi Gascou (@podalirius_)
-#  Charlie Bromberg (@_nwodtuhs)
+#   Remi Gascou (@podalirius_)
+#   Charlie Bromberg (@_nwodtuhs)
+#
 
 import argparse
 import base64

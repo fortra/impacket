@@ -1,60 +1,63 @@
-###############################################################################
-#  Tested so far: 
+# Impacket - Collection of Python classes for working with network protocols.
 #
-#  NetrConnectionEnum
-#  NetrFileEnum
-#  NetrFileGetInfo
-#  NetrFileClose
-#  NetrSessionEnum
-#  NetrSessionDel
-#  NetrShareAdd
-#  NetrShareDel
-#  NetrShareEnum
-#  NetrShareEnumSticky
-#  NetrShareGetInfo
-#  NetrShareDelSticky
-#  NetrShareDelStart
-#  NetrShareDelCommit
-#  NetrShareCheck
-#  NetrServerGetInfo
-#  NetrServerDiskEnum
-#  NetrServerStatisticsGet
-#  NetrRemoteTOD
-#  NetrServerTransportEnum
-#  NetrpGetFileSecurity
-#  NetprPathType
-#  NetprPathCanonicalize
-#  NetprPathCompare
-#  NetprNameValidate
-#  NetprNameCanonicalize
-#  NetprNameCompare
-#  NetrDfsGetVersion
-#  NetrDfsModifyPrefix
-#  NetrDfsFixLocalVolume
-#  NetrDfsManagerReportSiteInfo
-#  NetrServerAliasAdd
-#  NetrServerAliasEnum
-#  NetrServerAliasDel
-#  NetrShareDelEx
-#  NetrServerTransportAdd
-#  NetrServerTransportDel
-#  NetrServerTransportAddEx
-#  NetrServerTransportDelEx
-#  NetrDfsCreateLocalPartition
-#  NetrDfsDeleteLocalPartition
-#  NetrDfsSetLocalVolumeState
-#  NetrDfsCreateExitPoint
-#  NetrDfsDeleteExitPoint
-#  NetrShareSetInfo 
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
 #
-#  Not yet:
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
 #
-#  NetrServerSetInfo
+# Tested so far:
+#   NetrConnectionEnum
+#   NetrFileEnum
+#   NetrFileGetInfo
+#   NetrFileClose
+#   NetrSessionEnum
+#   NetrSessionDel
+#   NetrShareAdd
+#   NetrShareDel
+#   NetrShareEnum
+#   NetrShareEnumSticky
+#   NetrShareGetInfo
+#   NetrShareDelSticky
+#   NetrShareDelStart
+#   NetrShareDelCommit
+#   NetrShareCheck
+#   NetrServerGetInfo
+#   NetrServerDiskEnum
+#   NetrServerStatisticsGet
+#   NetrRemoteTOD
+#   NetrServerTransportEnum
+#   NetrpGetFileSecurity
+#   NetprPathType
+#   NetprPathCanonicalize
+#   NetprPathCompare
+#   NetprNameValidate
+#   NetprNameCanonicalize
+#   NetprNameCompare
+#   NetrDfsGetVersion
+#   NetrDfsModifyPrefix
+#   NetrDfsFixLocalVolume
+#   NetrDfsManagerReportSiteInfo
+#   NetrServerAliasAdd
+#   NetrServerAliasEnum
+#   NetrServerAliasDel
+#   NetrShareDelEx
+#   NetrServerTransportAdd
+#   NetrServerTransportDel
+#   NetrServerTransportAddEx
+#   NetrServerTransportDelEx
+#   NetrDfsCreateLocalPartition
+#   NetrDfsDeleteLocalPartition
+#   NetrDfsSetLocalVolumeState
+#   NetrDfsCreateExitPoint
+#   NetrDfsDeleteExitPoint
+#   NetrShareSetInfo
 #
-#  Shouldn't dump errors against a win7
+# Not yet:
+#   NetrServerSetInfo
 #
-################################################################################
-
+# Shouldn't dump errors against a win7
+#
 from __future__ import division
 from __future__ import print_function
 import unittest
@@ -1180,4 +1183,4 @@ if __name__ == '__main__':
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

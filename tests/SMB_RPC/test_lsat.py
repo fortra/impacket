@@ -1,22 +1,25 @@
-###############################################################################
-#  Tested so far: 
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# LsarGetUserName
-# LsarLookupNames
-# LsarLookupSids
-# LsarLookupSids2
-# LsarLookupNames3
-# LsarLookupNames2
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
 #
-#  Not yet:
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
 #
-# LsarLookupNames4
-# LsarLookupSids3
+# Tested so far:
+#   LsarGetUserName
+#   LsarLookupNames
+#   LsarLookupSids
+#   LsarLookupSids2
+#   LsarLookupNames3
+#   LsarLookupNames2
+#
+# Not yet:
+#   LsarLookupNames4
+#   LsarLookupSids3
 # 
 # Shouldn't dump errors against a win7
 #
-################################################################################
-
 from __future__ import division
 from __future__ import print_function
 import unittest
@@ -366,4 +369,4 @@ if __name__ == '__main__':
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

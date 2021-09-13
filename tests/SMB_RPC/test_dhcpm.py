@@ -1,14 +1,16 @@
-###############################################################################
-#  Tested so far: 
+# Impacket - Collection of Python classes for working with network protocols.
 #
-#  DhcpGetClientInfoV4
-#  DhcpV4GetClientInfo
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
 #
-#  Not yet:
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
 #
+# Tested so far:
+#   DhcpGetClientInfoV4
+#   DhcpV4GetClientInfo
+# Not yet:
 #
-################################################################################
-
 from __future__ import division
 from __future__ import print_function
 
@@ -208,4 +210,4 @@ if __name__ == '__main__':
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
         #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

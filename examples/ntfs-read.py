@@ -1,27 +1,30 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Description: Mini shell for browsing an NTFS volume
+# Description:
+#   Mini shell for browsing an NTFS volume
 #
 # Author:
-#  Alberto Solino (@agsolino)
-#
+#   Alberto Solino (@agsolino)
 #
 # Reference for:
-#  Structure. Quick and dirty implementation.. just for fun.. ;)
+#   Structure. Quick and dirty implementation.. just for fun.. ;)
 #
-# NOTE: Lots of info (mainly the structs) taken from the NTFS-3G project..
+#   NOTE: Lots of info (mainly the structs) taken from the NTFS-3G project..
 #
-# TODO
-# [] Parse the attributes list attribute. It is unknown what would happen now if
-# we face a highly fragmented file that will have many attributes that won't fit
-# in the MFT Record
-# [] Support compressed, encrypted and sparse files
+# ToDo:
+#   [] Parse the attributes list attribute. It is unknown what would happen now if
+#      we face a highly fragmented file that will have many attributes that won't fit
+#      in the MFT Record.
+#   [] Support compressed, encrypted and sparse files
 #
+
 from __future__ import division
 from __future__ import print_function
 import os

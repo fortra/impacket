@@ -1,27 +1,31 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Simple ICMP ping.
+# Description:
+#   Simple ICMP ping.
 #
-# This implementation of ping uses the ICMP echo and echo-reply packets
-# to check the status of a host. If the remote host is up, it should reply
-# to the echo probe with an echo-reply packet.
-# Note that this isn't a definite test, as in the case the remote host is up
-# but refuses to reply the probes.
-# Also note that the user must have special access to be able to open a raw
-# socket, which this program requires.
+#   This implementation of ping uses the ICMP echo and echo-reply packets
+#   to check the status of a host. If the remote host is up, it should reply
+#   to the echo probe with an echo-reply packet.
+#   Note that this isn't a definite test, as in the case the remote host is up
+#   but refuses to reply the probes.
+#   Also note that the user must have special access to be able to open a raw
+#   socket, which this program requires.
 #
 # Authors:
-#  Gerardo Richarte <gera@coresecurity.com>
-#  Javier Kohen <jkohen@coresecurity.com>
+#   Gerardo Richarte (@gerasdf)
+#   Javier Kohen
 #
 # Reference for:
-#  ImpactPacket: IP, ICMP, DATA.
-#  ImpactDecoder.
+#   ImpactPacket: IP, ICMP, DATA
+#   ImpactDecoder
+#
 
 import select
 import socket

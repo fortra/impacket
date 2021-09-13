@@ -1,9 +1,12 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
+
 from __future__ import division
 from __future__ import print_function
 import base64
@@ -138,8 +141,9 @@ NTLMSSP_NEGOTIATE_OEM_WORKSTATION_SUPPLIED = 0x00002000
 # If set, the domain name is provided (section 2.2.1.1).<25> An alternate name for this field is
 # NTLMSSP_NEGOTIATE_OEM_DOMAIN_SUPPLIED
 NTLMSSP_NEGOTIATE_OEM_DOMAIN_SUPPLIED      = 0x00001000
-NTLMSSP_RESERVED_7                         = 0x00000800
 
+# If set, the connection SHOULD be anonymous
+NTLMSSP_NEGOTIATE_ANONYMOUS                = 0x00000800
 
 # If set, LM authentication is not allowed and only NT authentication is used.
 NTLMSSP_NEGOTIATE_NT_ONLY                  = 0x00000400

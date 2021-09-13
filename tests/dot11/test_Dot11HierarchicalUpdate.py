@@ -1,4 +1,12 @@
 #!/usr/bin/env python
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
 # sorry, this is very ugly, but I'm in python 2.5
 import sys
 sys.path.insert(0,"../..")
@@ -127,4 +135,4 @@ class TestDot11HierarchicalUpdate(unittest.TestCase):
         self.assertEqual(self.packet3.body.get_buffer_as_string(), b"Header2Header1**NewBody**Tail1Tail2")
         
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11HierarchicalUpdate)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')

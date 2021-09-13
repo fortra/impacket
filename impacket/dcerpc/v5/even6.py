@@ -1,11 +1,11 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
 # Copyright (c) 2017 @MrAnde7son
 #
-# This software is provided under under a slightly modified version
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
-#
-# Author: Itamar (@MrAnde7son)
 #
 # Description:
 #   Initial [MS-EVEN6] Interface implementation
@@ -18,6 +18,9 @@
 #   They are located at the end of this file.
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too.
+#
+# Author:
+#   Itamar (@MrAnde7son)
 #
 from impacket import system_errors
 from impacket.dcerpc.v5.dtypes import WSTR, DWORD, LPWSTR, ULONG, LARGE_INTEGER, WORD, BYTE

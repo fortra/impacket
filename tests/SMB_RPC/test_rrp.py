@@ -1,45 +1,48 @@
-###############################################################################
-#  Tested so far: 
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# OpenClassesRoot
-# OpenCurrentUser
-# OpenLocalMachine
-# OpenPerformanceData
-# OpenUsers
-# BaseRegCloseKey
-# BaseRegCreateKey
-# BaseRegDeleteKey
-# BaseRegFlushKey
-# BaseRegGetKeySecurity
-# BaseRegOpenKey
-# BaseRegQueryInfoKey
-# BaseRegQueryValue
-# BaseRegReplaceKey
-# BaseRegRestoreKey
-# BaseRegSaveKey
-# BaseRegSetValue
-# BaseRegEnumValue
-# BaseRegEnumKey
-# BaseRegGetVersion
-# OpenCurrentConfig
-# BaseRegQueryMultipleValues
-# BaseRegSaveKeyEx
-# OpenPerformanceText
-# OpenPerformanceNlsText
-# BaseRegQueryMultipleValues2
-# BaseRegDeleteKeyEx
-# BaseRegLoadKey
-# BaseRegUnLoadKey
-# BaseRegDeleteValue
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Tested so far:
+#   OpenClassesRoot
+#   OpenCurrentUser
+#   OpenLocalMachine
+#   OpenPerformanceData
+#   OpenUsers
+#   BaseRegCloseKey
+#   BaseRegCreateKey
+#   BaseRegDeleteKey
+#   BaseRegFlushKey
+#   BaseRegGetKeySecurity
+#   BaseRegOpenKey
+#   BaseRegQueryInfoKey
+#   BaseRegQueryValue
+#   BaseRegReplaceKey
+#   BaseRegRestoreKey
+#   BaseRegSaveKey
+#   BaseRegSetValue
+#   BaseRegEnumValue
+#   BaseRegEnumKey
+#   BaseRegGetVersion
+#   OpenCurrentConfig
+#   BaseRegQueryMultipleValues
+#   BaseRegSaveKeyEx
+#   OpenPerformanceText
+#   OpenPerformanceNlsText
+#   BaseRegQueryMultipleValues2
+#   BaseRegDeleteKeyEx
+#   BaseRegLoadKey
+#   BaseRegUnLoadKey
+#   BaseRegDeleteValue
 # 
-#  Not yet:
-#
-# BaseRegSetKeySecurity
+# Not yet:
+#   BaseRegSetKeySecurity
 #
 # Shouldn't dump errors against a win7
 #
-################################################################################
-
 from __future__ import division
 from __future__ import print_function
 import unittest
@@ -787,4 +790,4 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
         #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(defaultTest='suite')

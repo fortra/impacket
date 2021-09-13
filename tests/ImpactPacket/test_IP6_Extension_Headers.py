@@ -1,4 +1,12 @@
 #!/usr/bin/env python
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
 from __future__ import division
 from __future__ import print_function
 import sys
@@ -617,4 +625,4 @@ class TestIP6(unittest.TestCase):
         self.assertEqual(padn_option_length, 12, "Simple Hop By Hop Parsing - Incorrect option size")
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestIP6)
-unittest.TextTestRunner(verbosity=1).run(suite)
+unittest.main(defaultTest='suite')
