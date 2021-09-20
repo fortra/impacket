@@ -500,7 +500,7 @@ if __name__ == '__main__':
     if len(sys.argv)==1:
         parser.print_help()
         print("\nExamples: ")
-        print("\t./getTGT.py -hashes lm:nt contoso.com/user\n")
+        print("\tgetST.py -hashes lm:nt -spn cifs/contoso-dc contoso.com/user\n")
         print("\tit will use the lm:nt hashes for authentication. If you don't specify them, a password will be asked")
         sys.exit(1)
 

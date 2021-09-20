@@ -22,7 +22,8 @@ import os
 
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.error import PyAsn1Error
-from pyasn1.type.univ import noValue
+from pyasn1.type.univ import noValue, Sequence
+from pyasn1.type.useful import GeneralizedTime
 from six import b
 from binascii import unhexlify, hexlify
 
@@ -77,6 +78,16 @@ def sendReceive(data, host, kdcHost):
         return r
 
     if krbError.getErrorCode() != constants.ErrorCodes.KDC_ERR_PREAUTH_REQUIRED.value:
+        try:
+            for i in decoder.decode(r):
+                if type(i) == Sequence:
+                    for k in vars(i)["_componentValues"]:
+                        if type(k) == GeneralizedTime:
+                            server_time = datetime.datetime.strptime(k.asOctets().decode("utf-8"), "%Y%m%d%H%M%SZ")
+                            LOG.debug("Server time (UTC): %s" % server_time)
+        except:
+            # Couldn't get server time for some reason
+            pass
         raise krbError
 
     return r
