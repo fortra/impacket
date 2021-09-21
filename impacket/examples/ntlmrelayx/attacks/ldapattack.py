@@ -239,6 +239,9 @@ class LDAPAttack(ProtocolAttack):
 
 
     def shadowCredentialsAttack(self, domainDumper):
+        if self.config.ShadowCredentialsTarget in delegatePerformed:
+            LOG.info('Shadow credentials attack already performed for %s, skipping' % self.config.ShadowCredentialsTarget)
+            return
         LOG.info("Searching for the target account")
 
         # Get the domain we are in
@@ -301,6 +304,7 @@ class LDAPAttack(ProtocolAttack):
                     LOG.info("A TGT can now be obtained with https://github.com/dirkjanm/PKINITtools")
                     LOG.info("Run the following command to obtain a TGT")
                     LOG.info("python3 PKINITtools/gettgtpkinit.py -cert-pfx %s.pfx -pfx-pass %s %s/%s %s.ccache" % (path, password, domain, self.config.ShadowCredentialsTarget, path))
+                    delegatePerformed.append(self.config.ShadowCredentialsTarget)
             else:
                 if self.client.result['result'] == 50:
                     LOG.error('Could not modify object, the server reports insufficient rights: %s' % self.client.result['message'])
