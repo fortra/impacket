@@ -48,12 +48,13 @@ CODEC = sys.stdout.encoding
 
 
 class WMIEXEC:
-    def __init__(self, command='', username='', password='', domain='', hashes=None, aesKey=None, share=None,
-                 noOutput=False, doKerberos=False, kdcHost=None, shell_type=None):
+    def __init__(self, command='', username='', password='', domain='', currentDir='C:\\', hashes=None, aesKey=None,
+                 share=None, noOutput=False, doKerberos=False, kdcHost=None, shell_type=None):
         self.__command = command
         self.__username = username
         self.__password = password
         self.__domain = domain
+        self.__currentDir = currentDir
         self.__lmhash = ''
         self.__nthash = ''
         self.__aesKey = aesKey
@@ -97,12 +98,12 @@ class WMIEXEC:
 
             win32Process, _ = iWbemServices.GetObject('Win32_Process')
 
-            self.shell = RemoteShell(self.__share, win32Process, smbConnection, self.__shell_type, silentCommand)
+            self.shell = RemoteShell(self.__share, win32Process, smbConnection, self.__shell_type, self.__currentDir, silentCommand)
             if self.__command != ' ':
                 self.shell.onecmd(self.__command)
             else:
                 self.shell.cmdloop()
-        except  (Exception, KeyboardInterrupt) as e:
+        except (Exception, KeyboardInterrupt) as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
@@ -119,7 +120,7 @@ class WMIEXEC:
 
 
 class RemoteShell(cmd.Cmd):
-    def __init__(self, share, win32Process, smbConnection, shell_type, silentCommand=False):
+    def __init__(self, share, win32Process, smbConnection, shell_type, currentDir, silentCommand=False):
         cmd.Cmd.__init__(self)
         self.__share = share
         self.__output = '\\' + OUTPUT_FILENAME
@@ -130,14 +131,14 @@ class RemoteShell(cmd.Cmd):
         self.__win32Process = win32Process
         self.__transferClient = smbConnection
         self.__silentCommand = silentCommand
-        self.__pwd = str('C:\\')
+        self.__pwd = str(currentDir)
         self.__noOutput = False
         self.intro = '[!] Launching semi-interactive shell - Careful what you execute\n[!] Press help for extra shell commands'
 
         # We don't wanna deal with timeouts from now on.
         if self.__transferClient is not None:
             self.__transferClient.setTimeout(100000)
-            self.do_cd('\\')
+            self.do_cd(self.__pwd)
         else:
             self.__noOutput = True
 
@@ -368,6 +369,7 @@ if __name__ == '__main__':
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-silentcommand', action='store_true', default=False,
                         help='does not execute cmd.exe to run given command (no output)')
+    parser.add_argument('-setcwd', action='store', default='C:\\', help='set current working directory (default "C:\\")')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
                                                        '"%s"). If errors are detected, run chcp.com at the target, '
@@ -457,7 +459,7 @@ if __name__ == '__main__':
         if options.aesKey is not None:
             options.k = True
 
-        executer = WMIEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey,
+        executer = WMIEXEC(' '.join(options.command), username, password, domain, options.setcwd, options.hashes, options.aesKey,
                            options.share, options.nooutput, options.k, options.dc_ip, options.shell_type)
         executer.run(address, options.silentcommand)
     except KeyboardInterrupt as e:
