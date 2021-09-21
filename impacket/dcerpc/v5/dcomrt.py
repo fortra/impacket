@@ -32,7 +32,7 @@ from __future__ import division
 from __future__ import print_function
 import socket
 from struct import pack
-from threading import Timer, currentThread
+from threading import Timer, current_thread
 
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRTLSTRUCT, UNKNOWNDATA
 from impacket.dcerpc.v5.dtypes import LPWSTR, ULONGLONG, HRESULT, GUID, USHORT, WSTR, DWORD, LPLONG, LONG, PGUID, ULONG, \
@@ -1090,7 +1090,7 @@ class DCOMConnection:
                 DCOMConnection.PINGTIMER.join()
                 DCOMConnection.PINGTIMER = None
         if self.__target in INTERFACE.CONNECTIONS:
-            del(INTERFACE.CONNECTIONS[self.__target][currentThread().getName()])
+            del(INTERFACE.CONNECTIONS[self.__target][current_thread().name])
         self.__portmap.disconnect()
         #print INTERFACE.CONNECTIONS
 
@@ -1146,7 +1146,7 @@ class INTERFACE:
             # We gotta check if we have a container inside our connection list, if not, create
             if (self.__target in INTERFACE.CONNECTIONS) is not True:
                 INTERFACE.CONNECTIONS[self.__target] = {}
-                INTERFACE.CONNECTIONS[self.__target][currentThread().getName()] = {}
+                INTERFACE.CONNECTIONS[self.__target][current_thread().name] = {}
 
             if objRef is not None:
                 self.process_interface(objRef)
@@ -1206,7 +1206,7 @@ class INTERFACE:
         return self.__ipidRemUnknown
 
     def get_dce_rpc(self):
-        return INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid]['dce']
+        return INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['dce']
 
     def get_cinstance(self):
         return self.__cinstance
@@ -1234,17 +1234,17 @@ class INTERFACE:
 
     def connect(self, iid = None):
         if (self.__target in INTERFACE.CONNECTIONS) is True:
-            if currentThread().getName() in INTERFACE.CONNECTIONS[self.__target] and \
-                            (self.__oxid in INTERFACE.CONNECTIONS[self.__target][currentThread().getName()]) is True:
-                dce = INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid]['dce']
-                currentBinding = INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid]['currentBinding']
+            if current_thread().name in INTERFACE.CONNECTIONS[self.__target] and \
+                            (self.__oxid in INTERFACE.CONNECTIONS[self.__target][current_thread().name]) is True:
+                dce = INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['dce']
+                currentBinding = INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['currentBinding']
                 if currentBinding == iid:
                     # We don't need to alter_ctx
                     pass
                 else:
                     newDce = dce.alter_ctx(iid)
-                    INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid]['dce'] = newDce
-                    INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid]['currentBinding'] = iid
+                    INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['dce'] = newDce
+                    INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['currentBinding'] = iid
             else:
                 stringBindings = self.get_cinstance().get_string_bindings()
                 # No OXID present, we should create a new connection and store it
@@ -1313,10 +1313,10 @@ class INTERFACE:
                     #traceback.print_stack()
                     raise Exception("OXID NONE, something wrong!!!")
 
-                INTERFACE.CONNECTIONS[self.__target][currentThread().getName()] = {}
-                INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid] = {}
-                INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid]['dce'] = dce
-                INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid]['currentBinding'] = iid
+                INTERFACE.CONNECTIONS[self.__target][current_thread().name] = {}
+                INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid] = {}
+                INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['dce'] = dce
+                INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['currentBinding'] = iid
         else:
             # No connection created
             raise Exception('No connection created')
@@ -1339,7 +1339,7 @@ class INTERFACE:
         return resp
 
     def disconnect(self):
-        return INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid]['dce'].disconnect()
+        return INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['dce'].disconnect()
 
 
 # 3.1.1.5.6.1 IRemUnknown Methods

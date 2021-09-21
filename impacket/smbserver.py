@@ -3876,7 +3876,7 @@ class SMBSERVERHandler(socketserver.BaseRequestHandler):
         # In case of AF_INET6 the client_address contains 4 items, ignore the last 2
         self.__ip, self.__port = client_address[:2]
         self.__request = request
-        self.__connId = threading.currentThread().getName()
+        self.__connId = threading.current_thread().name
         self.__timeOut = 60 * 5
         self.__select_poll = select_poll
         # self.__connId = os.getpid()

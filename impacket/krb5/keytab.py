@@ -146,7 +146,7 @@ class KeytabEntry:
       keytab_entry {
           int32_t size;     # wtf, signed size. what could possibly ...
           uint16_t num_components;    /* sub 1 if version 0x501 */  |\
-          counted_octet_string realm;                               | \  Keytab
+          counted_octet_string realm;                               | \\  Keytab
           counted_octet_string components[num_components];          | /  Princial
           uint32_t name_type;   /* not present if version 0x501 */  |/
           uint32_t timestamp;

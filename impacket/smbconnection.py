@@ -34,7 +34,7 @@ class SMBConnection:
     """
     SMBConnection class
 
-    :param string remoteName: name of the remote host, can be its NETBIOS name, IP or *\*SMBSERVER*.  If the later,
+    :param string remoteName: name of the remote host, can be its NETBIOS name, IP or *\\*SMBSERVER*.  If the later,
            and port is 139, the library will try to get the target's server name.
     :param string remoteHost: target server's remote address (IPv4, IPv6) or FQDN
     :param string/optional myName: client's NETBIOS name
