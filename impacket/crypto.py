@@ -22,15 +22,10 @@
 
 from __future__ import division
 from __future__ import print_function
-from impacket import LOG
-try:
-    from Cryptodome.Cipher import DES, AES
-except Exception:
-    LOG.error("Warning: You don't have any crypto installed. You need pycryptodomex")
-    LOG.error("See https://pypi.org/project/pycryptodomex/")
+from impacket import crypto_wrapper
 from struct import pack, unpack
 from impacket.structure import Structure
-import hmac, hashlib
+import hmac
 from six import b
 
 def Generate_Subkey(K):
@@ -59,7 +54,7 @@ def Generate_Subkey(K):
 #   +                                                                   +
 #   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-    AES_128 = AES.new(K, AES.MODE_ECB)
+    AES_128 = crypto_wrapper.create_aes_cipher(K, crypto_wrapper.AES_MODE_ECB)
 
     L = AES_128.encrypt(bytes(bytearray(16)))
 
@@ -145,7 +140,8 @@ def AES_CMAC(K, M, length):
     const_Bsize = 16
     const_Zero  = bytearray(16)
 
-    AES_128= AES.new(K, AES.MODE_ECB)
+    AES_128 = crypto_wrapper.create_aes_cipher(K, crypto_wrapper.AES_MODE_ECB)
+
     M      = bytearray(M[:length])
     K1, K2 = Generate_Subkey(K)
     n      = len(M)//const_Bsize
@@ -171,6 +167,7 @@ def AES_CMAC(K, M, length):
         M_i = M[(i)*const_Bsize:][:16]
         Y   = XOR_128(X, M_i)
         X   = bytearray(AES_128.encrypt(bytes(Y)))
+
     Y = XOR_128(M_last, X)
     T = AES_128.encrypt(bytes(Y))
 
@@ -239,7 +236,7 @@ def KDF_CounterMode(KI, Label, Context, L):
 
     for i in range(1,n+1):
        input = pack('>L', i) + Label + b'\x00' + Context + pack('>L',L)
-       K = hmac.new(KI, input, hashlib.sha256).digest()
+       K = hmac.digest(KI, input, 'sha256')
        result = result + K
 
     return result[:(L//8)]
@@ -279,7 +276,7 @@ def decryptSecret(key, value):
         cipherText = value[:8]
         tmpStrKey = key0[:7]
         tmpKey = transformKey(tmpStrKey)
-        Crypt1 = DES.new(tmpKey, DES.MODE_ECB)
+        Crypt1 = crypto_wrapper.create_des_cipher(tmpKey, crypto_wrapper.DES_MODE_ECB)
         plainText += Crypt1.decrypt(cipherText)
         key0 = key0[7:]
         value = value[8:]
@@ -303,7 +300,7 @@ def encryptSecret(key, value):
         print(type(tmpStrKey))
         print(tmpStrKey)
         tmpKey = transformKey(tmpStrKey)
-        Crypt1 = DES.new(tmpKey, DES.MODE_ECB)
+        Crypt1 = crypto_wrapper.create_des_cipher(tmpKey, crypto_wrapper.DES_MODE_ECB)
         cipherText += Crypt1.encrypt(plainText)
         key0 = key0[7:]
         value0 = value0[8:]
@@ -323,8 +320,8 @@ def SamDecryptNTLMHash(encryptedHash, key):
     Key2 = key[7:14]
     Key2 = transformKey(Key2)
 
-    Crypt1 = DES.new(Key1, DES.MODE_ECB)
-    Crypt2 = DES.new(Key2, DES.MODE_ECB)
+    Crypt1 = crypto_wrapper.create_des_cipher(Key1, crypto_wrapper.DES_MODE_ECB)
+    Crypt2 = crypto_wrapper.create_des_cipher(Key2, crypto_wrapper.DES_MODE_ECB)
 
     plain1 = Crypt1.decrypt(Block1)
     plain2 = Crypt2.decrypt(Block2)
@@ -341,8 +338,8 @@ def SamEncryptNTLMHash(encryptedHash, key):
     Key2 = key[7:14]
     Key2 = transformKey(Key2)
 
-    Crypt1 = DES.new(Key1, DES.MODE_ECB)
-    Crypt2 = DES.new(Key2, DES.MODE_ECB)
+    Crypt1 = crypto_wrapper.create_des_cipher(Key1, crypto_wrapper.DES_MODE_ECB)
+    Crypt2 = crypto_wrapper.create_des_cipher(Key2, crypto_wrapper.DES_MODE_ECB)
 
     plain1 = Crypt1.encrypt(Block1)
     plain2 = Crypt2.encrypt(Block2)

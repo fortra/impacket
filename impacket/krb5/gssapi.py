@@ -18,11 +18,11 @@
 import struct
 import random
 import string
+import hashlib
+import hmac
 from six import b
 
-from Cryptodome.Hash import HMAC, MD5
-from Cryptodome.Cipher import ARC4
-
+from impacket import crypto_wrapper
 from impacket.structure import Structure
 from impacket.krb5 import constants, crypto
 
@@ -112,14 +112,14 @@ class GSSAPI_RC4:
         else:
             token['SND_SEQ'] = struct.pack('>L', sequenceNumber) + b'\xff'*4
 
-        Ksign = HMAC.new(sessionKey.contents, b'signaturekey\0', MD5).digest()
-        Sgn_Cksum = MD5.new( struct.pack('<L',15) + token.getData()[:8] + data).digest()
-        Sgn_Cksum = HMAC.new(Ksign, Sgn_Cksum, MD5).digest()
+        Ksign = hmac.digest(sessionKey.contents, b'signaturekey\0', 'md5')
+        Sgn_Cksum = hashlib.md5(struct.pack('<L', 15) + token.getData()[:8] + data).digest()
+        Sgn_Cksum = hmac.digest(Ksign, Sgn_Cksum, 'md5')
         token['SGN_CKSUM'] = Sgn_Cksum[:8]
 
-        Kseq = HMAC.new(sessionKey.contents, struct.pack('<L',0), MD5).digest()
-        Kseq = HMAC.new(Kseq, token['SGN_CKSUM'], MD5).digest()
-        token['SND_SEQ'] = ARC4.new(Kseq).encrypt(token['SND_SEQ'])
+        Kseq = hmac.digest(sessionKey.contents, struct.pack('<L',0), 'md5')
+        Kseq = hmac.digest(Kseq, token['SGN_CKSUM'], 'md5')
+        token['SND_SEQ'] = crypto_wrapper.create_rc4_cipher(Kseq).encrypt(token['SND_SEQ'])
         finalData = GSS_GETMIC_HEADER + token.getData()
         return finalData
    
@@ -147,42 +147,42 @@ class GSSAPI_RC4:
         # Random confounder :)
         token['Confounder'] = b(''.join([rand.choice(string.ascii_letters) for _ in range(8)]))
 
-        Ksign = HMAC.new(sessionKey.contents, b'signaturekey\0', MD5).digest()
-        Sgn_Cksum = MD5.new(struct.pack('<L',13) + token.getData()[:8] + token['Confounder'] + data).digest()
+        Ksign = hmac.digest(sessionKey.contents, b'signaturekey\0', 'md5')
+        Sgn_Cksum = hashlib.md5(struct.pack('<L',13) + token.getData()[:8] + token['Confounder'] + data).digest()
 
         Klocal = bytearray()
         from builtins import bytes
         for n in bytes(sessionKey.contents):
             Klocal.append( n ^ 0xF0)
 
-        Kcrypt = HMAC.new(Klocal,struct.pack('<L',0), MD5).digest()
-        Kcrypt = HMAC.new(Kcrypt,struct.pack('>L', sequenceNumber), MD5).digest()
+        Kcrypt = hmac.digest(Klocal, struct.pack('<L', 0), 'md5')
+        Kcrypt = hmac.digest(Kcrypt, struct.pack('>L', sequenceNumber), 'md5')
         
-        Sgn_Cksum = HMAC.new(Ksign, Sgn_Cksum, MD5).digest()
+        Sgn_Cksum = hmac.digest(Ksign, Sgn_Cksum, 'md5')
 
         token['SGN_CKSUM'] = Sgn_Cksum[:8]
 
-        Kseq = HMAC.new(sessionKey.contents, struct.pack('<L',0), MD5).digest()
-        Kseq = HMAC.new(Kseq, token['SGN_CKSUM'], MD5).digest()
+        Kseq = hmac.digest(sessionKey.contents, struct.pack('<L', 0), 'md5')
+        Kseq = hmac.digest(Kseq, token['SGN_CKSUM'], 'md5')
 
-        token['SND_SEQ'] = ARC4.new(Kseq).encrypt(token['SND_SEQ'])
+        token['SND_SEQ'] = crypto_wrapper.create_rc4_cipher(Kseq).encrypt(token['SND_SEQ'])
 
         if authData is not None:
             from impacket.dcerpc.v5.rpcrt import SEC_TRAILER
             wrap = self.WRAP(authData[len(SEC_TRAILER()) + len(GSS_WRAP_HEADER):])
             snd_seq = wrap['SND_SEQ']
 
-            Kseq = HMAC.new(sessionKey.contents, struct.pack('<L',0), MD5).digest()
-            Kseq = HMAC.new(Kseq, wrap['SGN_CKSUM'], MD5).digest()
+            Kseq = hmac.digest(sessionKey.contents, struct.pack('<L',0), 'md5')
+            Kseq = hmac.digest(Kseq, wrap['SGN_CKSUM'], 'md5')
 
-            snd_seq = ARC4.new(Kseq).encrypt(wrap['SND_SEQ'])
+            snd_seq = crypto_wrapper.create_rc4_cipher(Kseq).encrypt(wrap['SND_SEQ'])
  
-            Kcrypt = HMAC.new(Klocal,struct.pack('<L',0), MD5).digest()
-            Kcrypt = HMAC.new(Kcrypt,snd_seq[:4], MD5).digest()
-            rc4 = ARC4.new(Kcrypt)
+            Kcrypt = hmac.digest(Klocal, struct.pack('<L', 0), 'md5')
+            Kcrypt = hmac.digest(Kcrypt, snd_seq[:4], 'md5')
+            rc4 = crypto_wrapper.create_rc4_cipher(Kcrypt)
             cipherText = rc4.decrypt(token['Confounder'] + data)[8:]
         elif encrypt is True:
-            rc4 = ARC4.new(Kcrypt)
+            rc4 = crypto_wrapper.create_rc4_cipher(Kcrypt)
             token['Confounder'] = rc4.encrypt(token['Confounder'])
             cipherText = rc4.encrypt(data)
         else:

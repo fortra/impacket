@@ -49,6 +49,7 @@ from __future__ import division
 from __future__ import print_function
 import codecs
 import hashlib
+import hmac
 import logging
 import ntpath
 import os
@@ -83,12 +84,7 @@ from impacket.uuid import string_to_bin
 from impacket.crypto import transformKey
 from impacket.krb5 import constants
 from impacket.krb5.crypto import string_to_key
-try:
-    from Cryptodome.Cipher import DES, ARC4, AES
-    from Cryptodome.Hash import HMAC, MD4, MD5
-except ImportError:
-    LOG.critical("Warning: You don't have any crypto installed. You need pycryptodomex")
-    LOG.critical("See https://pypi.org/project/pycryptodomex/")
+from impacket import crypto_wrapper
 
 
 # Structures
@@ -1084,11 +1080,11 @@ class CryptoCommon:
     def decryptAES(key, value, iv=b'\x00'*16):
         plainText = b''
         if iv != b'\x00'*16:
-            aes256 = AES.new(key,AES.MODE_CBC, iv)
+            aes256 = crypto_wrapper.create_aes_cipher(key, crypto_wrapper.AES_MODE_CBC, iv)
 
         for index in range(0, len(value), 16):
             if iv == b'\x00'*16:
-                aes256 = AES.new(key,AES.MODE_CBC, iv)
+                aes256 = crypto_wrapper.create_aes_cipher(key, crypto_wrapper.AES_MODE_CBC, iv)
             cipherBuffer = value[index:index+16]
             # Pad buffer to 16 bytes
             if len(cipherBuffer) < 16:
@@ -1156,7 +1152,7 @@ class SAMHashes(OfflineRegistry):
         self.__perSecretCallback = perSecretCallback
 
     def MD5(self, data):
-        md5 = hashlib.new('md5')
+        md5 = hashlib.md5()
         md5.update(data)
         return md5.digest()
 
@@ -1173,7 +1169,7 @@ class SAMHashes(OfflineRegistry):
             samKeyData = SAM_KEY_DATA(domainData['Key0'])
 
             rc4Key = self.MD5(samKeyData['Salt'] + QWERTY + self.__bootKey + DIGITS)
-            rc4 = ARC4.new(rc4Key)
+            rc4 = crypto_wrapper.create_rc4_cipher(rc4Key)
             self.__hashedBootKey = rc4.encrypt(samKeyData['Key']+samKeyData['CheckSum'])
 
             # Verify key with checksum
@@ -1194,12 +1190,12 @@ class SAMHashes(OfflineRegistry):
         # plus hashedBootKey stuff
         Key1,Key2 = self.__cryptoCommon.deriveKey(rid)
 
-        Crypt1 = DES.new(Key1, DES.MODE_ECB)
-        Crypt2 = DES.new(Key2, DES.MODE_ECB)
+        Crypt1 = crypto_wrapper.create_des_cipher(Key1, crypto_wrapper.DES_MODE_ECB)
+        Crypt2 = crypto_wrapper.create_des_cipher(Key2, crypto_wrapper.DES_MODE_ECB)
 
         if newStyle is False:
             rc4Key = self.MD5( self.__hashedBootKey[:0x10] + pack("<L",rid) + constant )
-            rc4 = ARC4.new(rc4Key)
+            rc4 = crypto_wrapper.create_rc4_cipher(rc4Key)
             key = rc4.encrypt(cryptedHash['Hash'])
         else:
             key = self.__cryptoCommon.decryptAES(self.__hashedBootKey[:0x10], cryptedHash['Hash'], cryptedHash['Salt'])[:16]
@@ -1311,7 +1307,7 @@ class LSASecrets(OfflineRegistry):
         self.__history = history
 
     def MD5(self, data):
-        md5 = hashlib.new('md5')
+        md5 = hashlib.md5()
         md5.update(data)
         return md5.digest()
 
@@ -1334,7 +1330,7 @@ class LSASecrets(OfflineRegistry):
             cipherText = value[:8]
             tmpStrKey = key0[:7]
             tmpKey = transformKey(tmpStrKey)
-            Crypt1 = DES.new(tmpKey, DES.MODE_ECB)
+            Crypt1 = crypto_wrapper.create_des_cipher(tmpKey, crypto_wrapper.DES_MODE_ECB)
             plainText += Crypt1.decrypt(cipherText)
             key0 = key0[7:]
             value = value[8:]
@@ -1346,10 +1342,9 @@ class LSASecrets(OfflineRegistry):
         return secret['Secret']
 
     def __decryptHash(self, key, value, iv):
-        hmac_md5 = HMAC.new(key,iv,MD5)
-        rc4key = hmac_md5.digest()
+        rc4key = hmac.digest(key, iv, 'md5')
 
-        rc4 = ARC4.new(rc4key)
+        rc4 = crypto_wrapper.create_rc4_cipher(rc4key)
         data = rc4.encrypt(value)
         return data
 
@@ -1363,12 +1358,12 @@ class LSASecrets(OfflineRegistry):
             self.__LSAKey = record['Secret'][52:][:32]
 
         else:
-            md5 = hashlib.new('md5')
+            md5 = hashlib.md5()
             md5.update(self.__bootKey)
             for i in range(1000):
                 md5.update(value[60:76])
             tmpKey = md5.digest()
-            rc4 = ARC4.new(tmpKey)
+            rc4 = crypto_wrapper.create_rc4_cipher(tmpKey)
             plainText = rc4.decrypt(value[12:60])
             self.__LSAKey = plainText[0x10:0x20]
 
@@ -1539,7 +1534,7 @@ class LSASecrets(OfflineRegistry):
                                                                hexlify(dpapi['UserKey']).decode('latin-1'))
         elif upperName.startswith('$MACHINE.ACC'):
             # compute MD4 of the secret.. yes.. that is the nthash? :-o
-            md4 = MD4.new()
+            md4 = hashlib.new('md4')
             md4.update(secretItem)
             if hasattr(self.__remoteOps, 'getMachineNameAndDomain'):
                 machine, domain = self.__remoteOps.getMachineNameAndDomain()
@@ -1912,12 +1907,12 @@ class NTDSHashes:
             encryptedPekList = self.PEKLIST_ENC(peklist)
             if encryptedPekList['Header'][:4] == b'\x02\x00\x00\x00':
                 # Up to Windows 2012 R2 looks like header starts this way
-                md5 = hashlib.new('md5')
+                md5 = hashlib.md5()
                 md5.update(self.__bootKey)
                 for i in range(1000):
                     md5.update(encryptedPekList['KeyMaterial'])
                 tmpKey = md5.digest()
-                rc4 = ARC4.new(tmpKey)
+                rc4 = crypto_wrapper.create_rc4_cipher(tmpKey)
                 decryptedPekList = self.PEKLIST_PLAIN(rc4.encrypt(encryptedPekList['EncryptedPek']))
                 PEKLen = len(self.PEK_KEY())
                 for i in range(len( decryptedPekList['DecryptedPek'] ) // PEKLen ):
@@ -1953,13 +1948,13 @@ class NTDSHashes:
                     pos += 20
 
     def __removeRC4Layer(self, cryptedHash):
-        md5 = hashlib.new('md5')
+        md5 = hashlib.md5()
         # PEK index can be found on header of each ciphered blob (pos 8-10)
         pekIndex = hexlify(cryptedHash['Header'])
         md5.update(self.__PEK[int(pekIndex[8:10])])
         md5.update(cryptedHash['KeyMaterial'])
         tmpKey = md5.digest()
-        rc4 = ARC4.new(tmpKey)
+        rc4 = crypto_wrapper.create_rc4_cipher(tmpKey)
         plainText = rc4.encrypt(cryptedHash['EncryptedHash'])
 
         return plainText
@@ -1967,8 +1962,8 @@ class NTDSHashes:
     def __removeDESLayer(self, cryptedHash, rid):
         Key1,Key2 = self.__cryptoCommon.deriveKey(int(rid))
 
-        Crypt1 = DES.new(Key1, DES.MODE_ECB)
-        Crypt2 = DES.new(Key2, DES.MODE_ECB)
+        Crypt1 = crypto_wrapper.create_des_cipher(Key1, crypto_wrapper.DES_MODE_ECB)
+        Crypt2 = crypto_wrapper.create_des_cipher(Key2, crypto_wrapper.DES_MODE_ECB)
 
         decryptedHash = Crypt1.decrypt(cryptedHash[:8]) + Crypt2.decrypt(cryptedHash[8:])
 

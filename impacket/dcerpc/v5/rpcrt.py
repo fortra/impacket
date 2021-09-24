@@ -23,7 +23,7 @@ import logging
 import socket
 import sys
 from binascii import unhexlify
-from Cryptodome.Cipher import ARC4
+from impacket import crypto_wrapper
 
 from impacket import ntlm, LOG
 from impacket.structure import Structure,pack,unpack
@@ -1098,9 +1098,9 @@ class DCERPC_v5(DCERPC):
                         self.__clientSealingKey = ntlm.SEALKEY(self.__flags, self.__sessionKey)
                         self.__serverSealingKey = ntlm.SEALKEY(self.__flags, self.__sessionKey,b"Server")
                         # Preparing the keys handle states
-                        cipher3 = ARC4.new(self.__clientSealingKey)
+                        cipher3 = crypto_wrapper.create_rc4_cipher(self.__clientSealingKey)
                         self.__clientSealingHandle = cipher3.encrypt
-                        cipher4 = ARC4.new(self.__serverSealingKey)
+                        cipher4 = crypto_wrapper.create_rc4_cipher(self.__serverSealingKey)
                         self.__serverSealingHandle = cipher4.encrypt
                     else:
                         # Same key for everything
@@ -1108,7 +1108,7 @@ class DCERPC_v5(DCERPC):
                         self.__serverSigningKey = self.__sessionKey
                         self.__clientSealingKey = self.__sessionKey
                         self.__serverSealingKey = self.__sessionKey
-                        cipher = ARC4.new(self.__clientSigningKey)
+                        cipher = crypto_wrapper.create_rc4_cipher(self.__clientSigningKey)
                         self.__clientSealingHandle = cipher.encrypt
                         self.__serverSealingHandle = cipher.encrypt
                 elif self.__auth_type == RPC_C_AUTHN_NETLOGON:

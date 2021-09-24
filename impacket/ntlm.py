@@ -14,17 +14,18 @@ import struct
 import calendar
 import time
 import hashlib
+import hmac
 import random
 import string
 import binascii
 from six import b
 
 from impacket.structure import Structure
-from impacket import LOG
+from impacket import crypto_wrapper
 
 
-# This is important. NTLMv2 is not negotiated by the client or server. 
-# It is used if set locally on both sides. Change this item if you don't want to use 
+# This is important. NTLMv2 is not negotiated by the client or server.
+# It is used if set locally on both sides. Change this item if you don't want to use
 # NTLMv2 by default and fall back to NTLMv1 (with EXTENDED_SESSION_SECURITY or not)
 # Check the following links:
 # https://davenport.sourceforge.io/ntlm.html
@@ -44,13 +45,7 @@ def computeResponse(flags, serverChallenge, clientChallenge, serverName, domain,
     else:
         return computeResponseNTLMv1(flags, serverChallenge, clientChallenge, serverName, domain, user, password,
                                      lmhash, nthash, use_ntlmv2=use_ntlmv2)
-try:
-    from Cryptodome.Cipher import ARC4
-    from Cryptodome.Cipher import DES
-    from Cryptodome.Hash import MD4
-except Exception:
-    LOG.critical("Warning: You don't have any crypto installed. You need pycryptodomex")
-    LOG.critical("See https://pypi.org/project/pycryptodomex/")
+
 
 NTLM_AUTH_NONE          = 1
 NTLM_AUTH_CONNECT       = 2
@@ -551,7 +546,7 @@ def __expand_DES_key(key):
     return bytes(s)
 
 def __DES_block(key, msg):
-    cipher = DES.new(__expand_DES_key(key),DES.MODE_ECB)
+    cipher = crypto_wrapper.create_des_cipher(__expand_DES_key(key), crypto_wrapper.DES_MODE_ECB)
     return cipher.encrypt(msg)
 
 def ntlmssp_DES_encrypt(key, challenge):
@@ -709,7 +704,7 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
 # NTLMv1 Algorithm
 
 def generateSessionKeyV1(password, lmhash, nthash):
-    hash = MD4.new()
+    hash = hashlib.new('md4')
     hash.update(NTOWFv1(password, lmhash, nthash))
     return hash.digest()
 
@@ -727,9 +722,8 @@ def computeResponseNTLMv1(flags, serverChallenge, clientChallenge, serverName, d
            ntResponse = ''
            lmResponse = get_ntlmv1_response(lmhash, serverChallenge)
         elif flags & NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
-           md5 = hashlib.new('md5')
            chall = (serverChallenge + clientChallenge)
-           md5.update(chall)
+           md5 = hashlib.md5(chall)
            ntResponse = ntlmssp_DES_encrypt(nthash, md5.digest()[:8])
            lmResponse = clientChallenge + b'\x00'*16
         else:
@@ -764,7 +758,7 @@ def compute_nthash(password):
         import sys
         password = password.decode(sys.getfilesystemencoding()).encode('utf_16le')
 
-    hash = MD4.new()
+    hash = hashlib.new('md4')
     hash.update(password)
     return hash.digest()
 
@@ -814,11 +808,11 @@ def SIGN(flags, signingKey, message, seqNum, handle):
 def SIGNKEY(flags, randomSessionKey, mode = 'Client'):
    if flags & NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
        if mode == 'Client':
-           md5 = hashlib.new('md5')
+           md5 = hashlib.md5()
            md5.update(randomSessionKey + b"session key to client-to-server signing key magic constant\x00")
            signKey = md5.digest()
        else:
-           md5 = hashlib.new('md5')
+           md5 = hashlib.md5()
            md5.update(randomSessionKey + b"session key to server-to-client signing key magic constant\x00")
            signKey = md5.digest()
    else:
@@ -835,11 +829,11 @@ def SEALKEY(flags, randomSessionKey, mode = 'Client'):
            sealKey = randomSessionKey[:5]
 
        if mode == 'Client':
-               md5 = hashlib.new('md5')
+               md5 = hashlib.md5()
                md5.update(sealKey + b'session key to client-to-server sealing key magic constant\x00')
                sealKey = md5.digest()
        else:
-               md5 = hashlib.new('md5')
+               md5 = hashlib.md5()
                md5.update(sealKey + b'session key to server-to-client sealing key magic constant\x00')
                sealKey = md5.digest()
 
@@ -852,7 +846,7 @@ def SEALKEY(flags, randomSessionKey, mode = 'Client'):
 
 
 def generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey):
-   cipher = ARC4.new(keyExchangeKey)
+   cipher = crypto_wrapper.create_rc4_cipher(keyExchangeKey)
    cipher_encrypt = cipher.encrypt
 
    sessionKey = cipher_encrypt(exportedSessionKey)
@@ -881,10 +875,7 @@ def KXKEY(flags, sessionBaseKey, lmChallengeResponse, serverChallenge, password,
    return keyExchangeKey
       
 def hmac_md5(key, data):
-    import hmac
-    h = hmac.new(key, digestmod=hashlib.md5)
-    h.update(data)
-    return h.digest()
+    return hmac.digest(key, data, 'md5')
 
 def NTOWFv2( user, password, domain, hash = ''):
     if hash != '':

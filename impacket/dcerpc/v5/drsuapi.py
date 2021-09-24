@@ -42,12 +42,7 @@ from impacket.krb5 import crypto
 from pyasn1.type import univ
 from pyasn1.codec.ber import decoder
 from impacket.crypto import transformKey
-
-try:
-    from Cryptodome.Cipher import ARC4, DES
-except Exception:
-    LOG.critical("Warning: You don't have any crypto installed. You need pycryptodomex")
-    LOG.critical("See https://pypi.org/project/pycryptodomex/")
+from impacket import crypto_wrapper
 
 MSRPC_UUID_DRSUAPI = uuidtup_to_bin(('E3514235-4B06-11D1-AB04-00C04FC2DCD2','4.0'))
 
@@ -1388,8 +1383,8 @@ def deriveKey(baseKey):
 def removeDESLayer(cryptedHash, rid):
         Key1,Key2 = deriveKey(rid)
 
-        Crypt1 = DES.new(Key1, DES.MODE_ECB)
-        Crypt2 = DES.new(Key2, DES.MODE_ECB)
+        Crypt1 = crypto_wrapper.create_des_cipher(Key1, crypto_wrapper.DES_MODE_ECB)
+        Crypt2 = crypto_wrapper.create_des_cipher(Key2, crypto_wrapper.DES_MODE_ECB)
 
         decryptedHash = Crypt1.decrypt(cryptedHash[:8]) + Crypt2.decrypt(cryptedHash[8:])
 
@@ -1404,12 +1399,12 @@ def DecryptAttributeValue(dce, attribute):
 
     encryptedPayload = ENCRYPTED_PAYLOAD(attribute)
 
-    md5 = hashlib.new('md5')
+    md5 = hashlib.md5()
     md5.update(sessionKey)
     md5.update(encryptedPayload['Salt'])
     finalMD5 = md5.digest()
 
-    cipher = ARC4.new(finalMD5)
+    cipher = crypto_wrapper.create_rc4_cipher(finalMD5)
     plainText = cipher.decrypt(attribute[16:])
 
     #chkSum = (binascii.crc32(plainText[4:])) & 0xffffffff
