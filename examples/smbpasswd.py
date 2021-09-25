@@ -37,11 +37,6 @@
 #  latter approach the new password is flagged as expired after the change
 #  due to how SamrChangePasswordUser function works.
 #
-# Authors:
-#  @snovvcrash
-#  @bransh
-#
-# Examples:
 #  smbpasswd.py j.doe@192.168.1.11
 #  smbpasswd.py contoso.local/j.doe@DC1 -hashes :fc525c9683e8fe067095ba2ddc971889
 #  smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -newpass 'N3wPassw0rd!'
