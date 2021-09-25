@@ -7,7 +7,30 @@
 # for more information.
 #
 # Description:
-#  This script is an alternative to smbpasswd tool and intended to be used
+#  	This script is an alternative to smbpasswd tool and intended to be used
+#  	for changing passwords remotely over SMB (MSRPC-SAMR). It can perform the
+#  	password change when the current password is expired, and supports NTLM
+#  	hashes as a new password value instead of a plaintext value. As for the
+#  	latter approach the new password is flagged as expired after the change
+#  	due to how SamrChangePasswordUser function works.
+#
+# 	Examples:
+#  		smbpasswd.py j.doe@192.168.1.11
+#  		smbpasswd.py contoso.local/j.doe@DC1 -hashes :fc525c9683e8fe067095ba2ddc971889
+#  		smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -newpass 'N3wPassw0rd!'
+#  		smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -newhashes :126502da14a98b58f2c319b81b3a49cb
+#
+# Author:
+# 	@snovvcrash
+#  	@bransh
+#
+# References:
+#  	https://snovvcrash.github.io/2020/10/31/pretending-to-be-smbpasswd-with-impacket.html
+#  	https://github.com/samba-team/samba/blob/master/source3/utils/smbpasswd.c
+#  	https://github.com/SecureAuthCorp/impacket/pull/381
+#  	https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/acb3204a-da8b-478e-9139-1ea589edb880
+#  	https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/9699d8ca-e1a4-433c-a8c3-d7bebeb01476
+#
 #  for changing passwords remotely over SMB (MSRPC-SAMR). It can perform the
 #  password change when the current password is expired, and supports NTLM
 #  hashes as a new password value instead of a plaintext value. As for the
