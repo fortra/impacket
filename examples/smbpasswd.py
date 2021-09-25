@@ -39,6 +39,7 @@ from argparse import ArgumentParser
 
 from impacket import version
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket.dcerpc.v5 import transport, samr
 
 
@@ -105,9 +106,9 @@ class SMBPasswd:
 				resp.dump()
 
 
-def init_logger(args):
-	logger.init(args.ts)
-	if args.debug is True:
+def init_logger(options):
+	logger.init(options.ts)
+	if options.debug is True:
 		logging.getLogger().setLevel(logging.DEBUG)
 		logging.debug(version.getInstallationPath())
 	else:
@@ -116,7 +117,8 @@ def init_logger(args):
 
 def parse_args():
 	parser = ArgumentParser(description='Change password over SMB.')
-	parser.add_argument('target', action='store', help='<[domain/]username[:password]>@<hostname_or_IP_address>')
+
+	parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
 	parser.add_argument('-ts', action='store_true', help='adds timestamp to every logging output')
 	parser.add_argument('-debug', action='store_true', help='turn DEBUG output ON')
 	group = parser.add_mutually_exclusive_group()
@@ -125,30 +127,24 @@ def parse_args():
                                                                            '(the user will be asked to change their password at next logon)')
 	group = parser.add_argument_group('authentication')
 	group.add_argument('-hashes', action='store', default=None, metavar='LMHASH:NTHASH', help='NTLM hashes, format is LMHASH:NTHASH')
+
 	return parser.parse_args()
 
 
 if __name__ == '__main__':
 	print(version.BANNER)
 
-	args = parse_args()
-	init_logger(args)
+	options = parse_args()
+	init_logger(options)
 
-	try:
-		domain, target = args.target.split('/', 1)
-	except ValueError:
+	domain, username, oldPassword, address = parse_target(options.target)
+
+	if domain is None:
 		domain = 'Builtin'
-		target = args.target
 
-	try:
-		credentials, hostname = target.rsplit('@', 1)
-	except ValueError:
-		logging.critical('Wrong target string format. For more information run with --help option.')
-		sys.exit(1)
-
-	if args.hashes is not None:
+	if options.hashes is not None:
 		try:
-			oldPwdHashLM, oldPwdHashNT = args.hashes.split(':')
+			oldPwdHashLM, oldPwdHashNT = options.hashes.split(':')
 		except ValueError:
 			logging.critical('Wrong hashes string format. For more information run with --help option.')
 			sys.exit(1)
@@ -156,18 +152,12 @@ if __name__ == '__main__':
 		oldPwdHashLM = ''
 		oldPwdHashNT = ''
 
-	try:
-		username, oldPassword = credentials.split(':', 1)
-	except ValueError:
-		username = credentials
-		if oldPwdHashNT == '':
-			oldPassword = getpass('Current SMB password: ')
-		else:
-			oldPassword = ''
+	if oldPassword == '' and oldPwdHashNT == '':
+		oldPassword = getpass('Current SMB password: ')
 
-	if args.newhashes is not None:
+	if options.newhashes is not None:
 		try:
-			newPwdHashLM, newPwdHashNT = args.newhashes.split(':')
+			newPwdHashLM, newPwdHashNT = options.newhashes.split(':')
 		except ValueError:
 			logging.critical('Wrong new hashes string format. For more information run with --help option.')
 			sys.exit(1)
@@ -175,15 +165,15 @@ if __name__ == '__main__':
 	else:
 		newPwdHashLM = ''
 		newPwdHashNT = ''
-		if args.newpass is None:
+		if options.newpass is None:
 			newPassword = getpass('New SMB password: ')
 			if newPassword != getpass('Retype new SMB password: '):
 				logging.critical('Passwords do not match, try again.')
 				sys.exit(1)
 		else:
-			newPassword = args.newpass
+			newPassword = options.newpass
 
-	smbpasswd = SMBPasswd(domain, username, oldPassword, newPassword, oldPwdHashLM, oldPwdHashNT, newPwdHashLM, newPwdHashNT, hostname)
+	smbpasswd = SMBPasswd(domain, username, oldPassword, newPassword, oldPwdHashLM, oldPwdHashNT, newPwdHashLM, newPwdHashNT, address)
 
 	try:
 		smbpasswd.connect()
