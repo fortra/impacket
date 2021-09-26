@@ -43,9 +43,10 @@ import ntpath
 import os
 import sys
 import time
-from base64 import b64encode
 
-from six import PY2, PY3
+from base64 import b64encode
+from six import PY2
+
 from impacket import version
 from impacket.dcerpc.v5.dcom.oaut import IID_IDispatch, string_to_bin, IDispatch, DISPPARAMS, DISPATCH_PROPERTYGET, \
     VARIANT, VARENUM, DISPATCH_METHOD
@@ -239,6 +240,14 @@ class RemoteShell(cmd.Cmd):
  ! {cmd}                    - executes a local shell cmd
 """)
 
+    def precmd(self, line):
+        """
+        This function is not necessary in case of Python 3
+        """
+        if PY2:
+            line = line.decode(sys.stdin.encoding)
+        return line
+
     def do_lcd(self, s):
         if s == '':
             print(os.getcwd())
@@ -310,15 +319,14 @@ class RemoteShell(cmd.Cmd):
             print(self.__outputBuffer)
             self.__outputBuffer = ''
         else:
-            if PY2:
-                self._pwd = ntpath.normpath(ntpath.join(self._pwd, s.decode(sys.stdin.encoding)))
-            else:
-                self._pwd = ntpath.normpath(ntpath.join(self._pwd, s))
-            self.execute_remote('cd ')
-            self._pwd = self.__outputBuffer.strip('\r\n')
-            self.prompt = (self._pwd + '>')
+            self._pwd = ntpath.normpath(ntpath.join(self._pwd, s))
+
+            self.prompt = self._pwd + '>'
             if self.__shell_type == 'powershell':
-                    self.prompt = 'PS ' + self.prompt + ' '
+                self.prompt = 'PS ' + self.prompt + ' '
+            if PY2:
+                self.prompt = self.prompt.encode(sys.stdout.encoding)
+
             self.__outputBuffer = ''
 
     def default(self, line):
@@ -333,11 +341,15 @@ class RemoteShell(cmd.Cmd):
             else:
                 # Drive valid, now we should get the current path
                 self._pwd = line
-                self.execute_remote('cd ')
+                self.execute_remote('cd')
                 self._pwd = self.__outputBuffer.strip('\r\n')
-                self.prompt = (self._pwd + '>')
+
+                self.prompt = self._pwd + '>'
                 if self.__shell_type == 'powershell':
                     self.prompt = 'PS ' + self.prompt + ' '
+                if PY2:
+                    self.prompt = self.prompt.encode(sys.stdout.encoding)
+
                 self.__outputBuffer = ''
         else:
             if line != '':
@@ -402,10 +414,7 @@ class RemoteShell(cmd.Cmd):
         arg1['clSize'] = 5
         arg1['vt'] = VARENUM.VT_BSTR
         arg1['_varUnion']['tag'] = VARENUM.VT_BSTR
-        if PY3:
-            arg1['_varUnion']['bstrVal']['asData'] = command
-        else:
-            arg1['_varUnion']['bstrVal']['asData'] = command.decode(sys.stdin.encoding)
+        arg1['_varUnion']['bstrVal']['asData'] = command
 
         arg2 = VARIANT(None, False)
         arg2['clSize'] = 5
@@ -475,10 +484,7 @@ class RemoteShellMMC20(RemoteShell):
         arg2['clSize'] = 5
         arg2['vt'] = VARENUM.VT_BSTR
         arg2['_varUnion']['tag'] = VARENUM.VT_BSTR
-        if PY3:
-            arg2['_varUnion']['bstrVal']['asData'] = command
-        else:
-            arg2['_varUnion']['bstrVal']['asData'] = command.decode(sys.stdin.encoding)
+        arg2['_varUnion']['bstrVal']['asData'] = command
 
         arg3 = VARIANT(None, False)
         arg3['clSize'] = 5
@@ -603,7 +609,11 @@ if __name__ == '__main__':
         if CODEC is None:
             CODEC = 'utf-8'
 
-    if ' '.join(options.command) == ' ' and options.nooutput is True:
+    command = ' '.join(options.command)
+    if PY2:
+        command = command.decode(sys.stdin.encoding)
+
+    if command == ' ' and options.nooutput is True:
         logging.error("-nooutput switch and interactive shell not supported")
         sys.exit(1)
     if options.silentcommand and options.command == ' ':
@@ -646,7 +656,7 @@ if __name__ == '__main__':
         if options.aesKey is not None:
             options.k = True
 
-        executer = DCOMEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey,
+        executer = DCOMEXEC(command, username, password, domain, options.hashes, options.aesKey,
                             options.share, options.nooutput, options.k, options.dc_ip, options.object, options.shell_type)
         executer.run(address, options.silentcommand)
     except (Exception, KeyboardInterrupt) as e:
