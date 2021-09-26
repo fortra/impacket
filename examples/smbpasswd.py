@@ -19,6 +19,7 @@
 #  		smbpasswd.py contoso.local/j.doe@DC1 -hashes :fc525c9683e8fe067095ba2ddc971889
 #  		smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -newpass 'N3wPassw0rd!'
 #  		smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -newhashes :126502da14a98b58f2c319b81b3a49cb
+#  		smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -newhashes :126502da14a98b58f2c319b81b3a49cb -altuser administrator -altpass 'Adm1nPassw0rd!'
 #
 # Author:
 # 	@snovvcrash
@@ -26,6 +27,7 @@
 #
 # References:
 #  	https://snovvcrash.github.io/2020/10/31/pretending-to-be-smbpasswd-with-impacket.html
+#  	https://www.n00py.io/2021/09/resetting-expired-passwords-remotely/
 #  	https://github.com/samba-team/samba/blob/master/source3/utils/smbpasswd.c
 #  	https://github.com/SecureAuthCorp/impacket/pull/381
 #  	https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/acb3204a-da8b-478e-9139-1ea589edb880
@@ -45,7 +47,8 @@ from impacket.dcerpc.v5 import transport, samr
 
 class SMBPasswd:
 
-	def __init__(self, domain, username, oldPassword, newPassword, oldPwdHashLM, oldPwdHashNT, newPwdHashLM, newPwdHashNT, hostname):
+	def __init__(self, address, domain='', username='', oldPassword='', newPassword='', oldPwdHashLM='', oldPwdHashNT='', newPwdHashLM='', newPwdHashNT=''):
+		self.address = address
 		self.domain = domain
 		self.username = username
 		self.oldPassword = oldPassword
@@ -54,13 +57,15 @@ class SMBPasswd:
 		self.oldPwdHashNT = oldPwdHashNT
 		self.newPwdHashLM = newPwdHashLM
 		self.newPwdHashNT = newPwdHashNT
-		self.hostname = hostname
 		self.dce = None
 
-	def connect(self, anonymous=False):
-		rpctransport = transport.SMBTransport(self.hostname, filename=r'\samr')
+	def connect(self, username='', password='', nthash='', anonymous=False):
+		rpctransport = transport.SMBTransport(self.address, filename=r'\samr')
 		if anonymous:
 			rpctransport.set_credentials(username='', password='', domain='', lmhash='', nthash='', aesKey='')
+		elif username != '':
+			lmhash = ''
+			rpctransport.set_credentials(username, password, self.domain, lmhash, nthash, aesKey='')
 		else:
 			rpctransport.set_credentials(self.username, self.oldPassword, self.domain, self.oldPwdHashLM, self.oldPwdHashNT, aesKey='')
 
@@ -84,7 +89,7 @@ class SMBPasswd:
 				resp.dump()
 
 	def hSamrChangePasswordUser(self):
-		serverHandle = samr.hSamrConnect(self.dce, self.hostname + '\x00')['ServerHandle']
+		serverHandle = samr.hSamrConnect(self.dce, self.address + '\x00')['ServerHandle']
 		domainSID = samr.hSamrLookupDomainInSamServer(self.dce, serverHandle, self.domain)['DomainId']
 		domainHandle = samr.hSamrOpenDomain(self.dce, serverHandle, domainId=domainSID)['DomainHandle']   
 		userRID = samr.hSamrLookupNamesInDomain(self.dce, domainHandle, (self.username,))['RelativeIds']['Element'][0]
@@ -121,12 +126,19 @@ def parse_args():
 	parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
 	parser.add_argument('-ts', action='store_true', help='adds timestamp to every logging output')
 	parser.add_argument('-debug', action='store_true', help='turn DEBUG output ON')
+
 	group = parser.add_mutually_exclusive_group()
 	group.add_argument('-newpass', action='store', default=None, help='new SMB password')
 	group.add_argument('-newhashes', action='store', default=None, metavar='LMHASH:NTHASH', help='new NTLM hashes, format is LMHASH:NTHASH '
                                                                            '(the user will be asked to change their password at next logon)')
+
 	group = parser.add_argument_group('authentication')
 	group.add_argument('-hashes', action='store', default=None, metavar='LMHASH:NTHASH', help='NTLM hashes, format is LMHASH:NTHASH')
+
+	group = parser.add_argument_group('RPC authentication')
+	group.add_argument('-altuser', action='store', default=None, help='alternative username')
+	group.add_argument('-altpass', action='store', default=None, help='alternative password')
+	group.add_argument('-althash', action='store', default=None, help='alternative NT hash')
 
 	return parser.parse_args()
 
@@ -173,10 +185,31 @@ if __name__ == '__main__':
 		else:
 			newPassword = options.newpass
 
-	smbpasswd = SMBPasswd(domain, username, oldPassword, newPassword, oldPwdHashLM, oldPwdHashNT, newPwdHashLM, newPwdHashNT, address)
+	smbpasswd = SMBPasswd(address, domain, username, oldPassword, newPassword, oldPwdHashLM, oldPwdHashNT, newPwdHashLM, newPwdHashNT)
+
+	if options.altuser is not None:
+		altUsername = options.altuser
+		if options.altpass is not None and options.althash is None:
+			altPassword = options.altpass
+			altNTHash = ''
+		elif options.altpass is None and options.althash is not None:
+			altPassword = ''
+			altNTHash = options.althash
+		elif options.altpass is None and options.althash is None:
+			logging.critical('Please, provide either alternative password or NT hash for RPC authentication.')
+			sys.exit(1)
+		else:  # if options.altpass is not None and options.althash is not None
+			logging.critical('Argument -altpass not allowed with argument -altNTHash.')
+			sys.exit(1)
+	else:
+		altUsername = ''
 
 	try:
-		smbpasswd.connect()
+		if altUsername == '':
+			smbpasswd.connect()
+		else:
+			logging.debug(f'Using {altUsername} credetials to connect to RPC.')
+			smbpasswd.connect(altUsername, altPassword, altNTHash)
 	except Exception as e:
 		if any(msg in str(e) for msg in ['STATUS_PASSWORD_MUST_CHANGE', 'STATUS_PASSWORD_EXPIRED']):
 			if newPassword:
