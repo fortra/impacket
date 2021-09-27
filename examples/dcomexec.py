@@ -63,6 +63,7 @@ from impacket.krb5.keytab import Keytab
 OUTPUT_FILENAME = '__' + str(time.time())[:5]
 CODEC = sys.stdout.encoding
 
+
 class DCOMEXEC:
     def __init__(self, command='', username='', password='', domain='', hashes=None, aesKey=None, share=None,
                  noOutput=False, doKerberos=False, kdcHost=None, dcomObject=None, shell_type=None):
@@ -83,7 +84,8 @@ class DCOMEXEC:
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
-    def getInterface(self, interface, resp):
+    @staticmethod
+    def getInterface(interface, resp):
         # Now let's parse the answer and build an Interface instance
         objRefType = OBJREF(b''.join(resp))['flags']
         objRef = None
@@ -100,8 +102,7 @@ class DCOMEXEC:
 
         return IRemUnknown2(
             INTERFACE(interface.get_cinstance(), None, interface.get_ipidRemUnknown(), objRef['std']['ipid'],
-                      oxid=objRef['std']['oxid'], oid=objRef['std']['oxid'],
-                      target=interface.get_target()))
+                      oxid=objRef['std']['oxid'], oid=objRef['std']['oxid'], target=interface.get_target()))
 
     def run(self, addr, silentCommand=False):
         if self.__noOutput is False and silentCommand is False:
@@ -187,22 +188,27 @@ class DCOMEXEC:
                     self.shell.do_exit('')
             else:
                 self.shell.cmdloop()
-        except  (Exception, KeyboardInterrupt) as e:
+        except (Exception, KeyboardInterrupt) as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
+
             if self.shell is not None:
                 self.shell.do_exit('')
+
             logging.error(str(e))
+
             if smbConnection is not None:
                 smbConnection.logoff()
             dcom.disconnect()
+
             sys.stdout.flush()
             sys.exit(1)
 
         if smbConnection is not None:
             smbConnection.logoff()
         dcom.disconnect()
+
 
 class RemoteShell(cmd.Cmd):
     def __init__(self, share, quit, executeShellCommand, smbConnection, shell_type, silentCommand=False):
@@ -228,7 +234,8 @@ class RemoteShell(cmd.Cmd):
         else:
             self._noOutput = True
 
-    def do_shell(self, s):
+    @staticmethod
+    def do_shell(s):
         os.system(s)
 
     def do_help(self, line):
@@ -248,7 +255,8 @@ class RemoteShell(cmd.Cmd):
             line = line.decode(sys.stdin.encoding)
         return line
 
-    def do_lcd(self, s):
+    @staticmethod
+    def do_lcd(s):
         if s == '':
             print(os.getcwd())
         else:
@@ -259,18 +267,16 @@ class RemoteShell(cmd.Cmd):
 
     def do_lget(self, src_path):
         try:
-            import ntpath
             newPath = ntpath.normpath(ntpath.join(self._pwd, src_path))
             drive, tail = ntpath.splitdrive(newPath)
             filename = ntpath.basename(tail)
-            fh = open(filename,'wb')
-            logging.info("Downloading %s\\%s" % (drive, tail))
+            fh = open(filename, 'wb')
+            logging.info("Downloading %s%s" % (drive, tail))
             self.__transferClient.getFile(drive[:-1]+'$', tail, fh.write)
             fh.close()
         except Exception as e:
             logging.error(str(e))
             os.remove(filename)
-            pass
 
     def do_lput(self, s):
         try:
@@ -284,8 +290,7 @@ class RemoteShell(cmd.Cmd):
 
             src_file = os.path.basename(src_path)
             fh = open(src_path, 'rb')
-            dst_path = dst_path.replace('/','\\')
-            import ntpath
+            dst_path = dst_path.replace('/', '\\')
             pathname = ntpath.join(ntpath.join(self._pwd, dst_path), src_file)
             drive, tail = ntpath.splitdrive(pathname)
             logging.info("Uploading %s to %s" % (src_file, pathname))
@@ -293,7 +298,6 @@ class RemoteShell(cmd.Cmd):
             fh.close()
         except Exception as e:
             logging.critical(str(e))
-            pass
 
     def do_exit(self, s):
         dispParams = DISPPARAMS(None, False)
@@ -302,8 +306,7 @@ class RemoteShell(cmd.Cmd):
         dispParams['cArgs'] = 0
         dispParams['cNamedArgs'] = 0
 
-        self.__quit[0].Invoke(self.__quit[1], 0x409, DISPATCH_METHOD, dispParams,
-                                             0, [], [])
+        self.__quit[0].Invoke(self.__quit[1], 0x409, DISPATCH_METHOD, dispParams, 0, [], [])
         return True
 
     def do_EOF(self, s):
@@ -374,15 +377,15 @@ class RemoteShell(cmd.Cmd):
                 self.__transferClient.getFile(self._share, self._output, output_callback)
                 break
             except Exception as e:
-                if str(e).find('STATUS_SHARING_VIOLATION') >=0:
+                if str(e).find('STATUS_SHARING_VIOLATION') >= 0:
                     # Output not finished, let's wait
                     time.sleep(1)
-                    pass
                 elif str(e).find('Broken') >= 0:
                     # The SMB Connection might have timed out, let's try reconnecting
                     logging.debug('Connection broken, trying to recreate it')
                     self.__transferClient.reconnect()
                     return self.get_output()
+
         self.__transferClient.deleteFile(self._share, self._output)
 
     def execute_remote(self, data, shell_type='cmd'):
@@ -441,14 +444,14 @@ class RemoteShell(cmd.Cmd):
 
         #print(dispParams.dump())
 
-        self._executeShellCommand[0].Invoke(self._executeShellCommand[1], 0x409, DISPATCH_METHOD, dispParams,
-                                            0, [], [])
+        self._executeShellCommand[0].Invoke(self._executeShellCommand[1], 0x409, DISPATCH_METHOD, dispParams, 0, [], [])
         self.get_output()
 
     def send_data(self, data):
         self.execute_remote(data, self.__shell_type)
         print(self.__outputBuffer)
         self.__outputBuffer = ''
+
 
 class RemoteShellMMC20(RemoteShell):
     def execute_remote(self, data, shell_type='cmd'):
@@ -462,7 +465,7 @@ class RemoteShellMMC20(RemoteShell):
             command = '/Q /c ' + data
 
         if self._noOutput is False:
-            command += ' 1> ' + '\\\\127.0.0.1\\%s' % self._share + self._output  + ' 2>&1'
+            command += ' 1> ' + '\\\\127.0.0.1\\%s' % self._share + self._output + ' 2>&1'
 
         dispParams = DISPPARAMS(None, False)
         dispParams['rgdispidNamedArgs'] = NULL
@@ -496,105 +499,102 @@ class RemoteShellMMC20(RemoteShell):
         dispParams['rgvarg'].append(arg1)
         dispParams['rgvarg'].append(arg0)
 
-        self._executeShellCommand[0].Invoke(self._executeShellCommand[1], 0x409, DISPATCH_METHOD, dispParams,
-                                            0, [], [])
+        self._executeShellCommand[0].Invoke(self._executeShellCommand[1], 0x409, DISPATCH_METHOD, dispParams, 0, [], [])
         self.get_output()
 
+
 class AuthFileSyntaxError(Exception):
-
-    '''raised by load_smbclient_auth_file if it encounters a syntax error
-    while loading the smbclient-style authentication file.'''
-
+    """
+    Raised by load_smbclient_auth_file if it encounters a syntax error
+    while loading the smbclient-style authentication file.
+    """
     def __init__(self, path, lineno, reason):
-        self.path=path
-        self.lineno=lineno
-        self.reason=reason
+        self.path = path
+        self.lineno = lineno
+        self.reason = reason
 
     def __str__(self):
-        return 'Syntax error in auth file %s line %d: %s' % (
-            self.path, self.lineno, self.reason )
+        return 'Syntax error in auth file %s line %d: %s' % (self.path, self.lineno, self.reason)
+
 
 def load_smbclient_auth_file(path):
-
-    '''Load credentials from an smbclient-style authentication file (used by
-    smbclient, mount.cifs and others).  returns (domain, username, password)
-    or raises AuthFileSyntaxError or any I/O exceptions.'''
-
-    lineno=0
-    domain=None
-    username=None
-    password=None
+    """
+    Load credentials from an smbclient-style authentication file (used by smbclient, mount.cifs and others).
+    Returns (domain, username, password) or raises AuthFileSyntaxError or any I/O exceptions.
+    """
+    lineno = 0
+    domain = None
+    username = None
+    password = None
     for line in open(path):
-        lineno+=1
-
+        lineno += 1
         line = line.strip()
 
-        if line.startswith('#') or line=='':
+        if line.startswith('#') or line == '':
             continue
 
-        parts = line.split('=',1)
+        parts = line.split('=', 1)
         if len(parts) != 2:
             raise AuthFileSyntaxError(path, lineno, 'No "=" present in line')
 
-        (k,v) = (parts[0].strip(), parts[1].strip())
+        (k, v) = (parts[0].strip(), parts[1].strip())
 
-        if k=='username':
-            username=v
-        elif k=='password':
-            password=v
-        elif k=='domain':
-            domain=v
+        if k == 'username':
+            username = v
+        elif k == 'password':
+            password = v
+        elif k == 'domain':
+            domain = v
         else:
             raise AuthFileSyntaxError(path, lineno, 'Unknown option %s' % repr(k))
 
     return (domain, username, password)
 
+
 # Process command-line arguments.
 if __name__ == '__main__':
     print(version.BANNER)
 
-    parser = argparse.ArgumentParser(add_help = True, description = "Executes a semi-interactive shell using the "
-                                                                    "ShellBrowserWindow DCOM object.")
-
+    parser = argparse.ArgumentParser(add_help=True, description='Executes a semi-interactive shell '
+                                                                'using the ShellBrowserWindow DCOM object.')
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
-    parser.add_argument('-share', action='store', default = 'ADMIN$', help='share where the output will be grabbed from '
-                                                                           '(default ADMIN$)')
-    parser.add_argument('-nooutput', action='store_true', default = False, help='whether or not to print the output '
-                                                                                '(no SMB connection created)')
+    parser.add_argument('-share', action='store', default='ADMIN$', help='share where the output will be grabbed from '
+                                                                         '(default ADMIN$)')
+    parser.add_argument('-nooutput', action='store_true', default=False, help='whether or not to print the output '
+                                                                              '(no SMB connection created)')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
                                                        '"%s"). If errors are detected, run chcp.com at the target, '
                                                        'map the result with '
-                          'https://docs.python.org/3/library/codecs.html#standard-encodings and then execute wmiexec.py '
-                          'again with -codec and the corresponding codec ' % CODEC)
+                                                       'https://docs.python.org/3/library/codecs.html#standard-encodings and then execute wmiexec.py '
+                                                       'again with -codec and the corresponding codec' % CODEC)
     parser.add_argument('-object', choices=['ShellWindows', 'ShellBrowserWindow', 'MMC20'], nargs='?', default='ShellWindows',
                         help='DCOM object to be used to execute the shell command (default=ShellWindows)')
-    parser.add_argument('-com-version', action='store', metavar = "MAJOR_VERSION:MINOR_VERSION", help='DCOM version, '
+    parser.add_argument('-com-version', action='store', metavar='MAJOR_VERSION:MINOR_VERSION', help='DCOM version, '
                         'format is MAJOR_VERSION:MINOR_VERSION e.g. 5.7')
-    parser.add_argument('-shell-type', action='store', default = 'cmd', choices = ['cmd', 'powershell'], help='choose '
+    parser.add_argument('-shell-type', action='store', default='cmd', choices=['cmd', 'powershell'], help='choose '
                         'a command processor for the semi-interactive shell')
-    parser.add_argument('command', nargs='*', default = ' ', help='command to execute at the target. If empty it will '
-                                                                  'launch a semi-interactive shell')
-    parser.add_argument('-silentcommand', action='store_true', default = False,
+    parser.add_argument('command', nargs='*', default=' ', help='command to execute at the target. If empty it will '
+                                                                'launch a semi-interactive shell')
+    parser.add_argument('-silentcommand', action='store_true', default=False,
                         help='does not execute cmd.exe to run given command (no output, cannot run dir/cd/etc.)')
 
     group = parser.add_argument_group('authentication')
-
-    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
-    group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
-    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
+    group.add_argument('-hashes', action='store', metavar='LMHASH:NTHASH', help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-no-pass', action='store_true', help='don\'t ask for password (useful for -k)')
+    group.add_argument('-k', action='store_true', help='Use Kerberos authentication. Grabs credentials from ccache file '
                        '(KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the '
                        'ones specified in the command line')
-    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
-                                                                            '(128 or 256 bits)')
-    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
+    group.add_argument('-aesKey', action='store', metavar='hex key', help='AES key to use for Kerberos Authentication '
+                                                                          '(128 or 256 bits)')
+    group.add_argument('-dc-ip', action='store', metavar='ip address',  help='IP Address of the domain controller. If '
                        'ommited it use the domain part (FQDN) specified in the target parameter')
-    group.add_argument('-A', action="store", metavar = "authfile", help="smbclient/mount.cifs-style authentication file. "
-                                                                        "See smbclient man page's -A option.")
-    group.add_argument('-keytab', action="store", help='Read keys for SPN from keytab file')
+    group.add_argument('-A', action='store', metavar='authfile', help='smbclient/mount.cifs-style authentication file. '
+                                                                      'See smbclient man page\'s -A option.')
+    group.add_argument('-keytab', action='store', help='Read keys for SPN from keytab file')
 
-    if len(sys.argv)==1:
+    if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
 
@@ -663,5 +663,8 @@ if __name__ == '__main__':
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
+
         logging.error(str(e))
+        sys.exit(1)
+
     sys.exit(0)
