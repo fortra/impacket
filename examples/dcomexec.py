@@ -240,11 +240,11 @@ class RemoteShell(cmd.Cmd):
 
     def do_help(self, line):
         print("""
- lcd {path}                 - changes the current local directory to {path}
- exit                       - terminates the server process (and this session)
- lput {src_file, dst_path}   - uploads a local file to the dst_path (dst_path = default current directory)
+ lcd {path}                  - changes the current local directory to {path}
  lget {file}                 - downloads pathname to the current local dir
- ! {cmd}                    - executes a local shell cmd
+ lput {src_file, dst_path}   - uploads a local file to the dst_path (dst_path = current directory by default)
+ ! {cmd}                     - executes a local shell cmd
+ exit                        - terminates the server process (and this session)
 """)
 
     def precmd(self, line):
