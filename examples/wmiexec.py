@@ -157,6 +157,14 @@ class RemoteShell(cmd.Cmd):
  ! {cmd}                    - executes a local shell cmd
 """)
 
+    def precmd(self, line):
+        """
+        This function is not necessary in case of Python 3
+        """
+        if PY2:
+            line = line.decode(sys.stdin.encoding)
+        return line
+
     def do_lcd(self, s):
         if s == '':
             print(os.getcwd())
@@ -223,15 +231,14 @@ class RemoteShell(cmd.Cmd):
             print(self.__outputBuffer)
             self.__outputBuffer = ''
         else:
-            if PY2:
-                self.__pwd = ntpath.normpath(ntpath.join(self.__pwd, s.decode(sys.stdin.encoding)))
-            else:
-                self.__pwd = ntpath.normpath(ntpath.join(self.__pwd, s))
-            self.execute_remote('cd ')
-            self.__pwd = self.__outputBuffer.strip('\r\n')
-            self.prompt = (self.__pwd + '>')
+            self.__pwd = ntpath.normpath(ntpath.join(self.__pwd, s))
+
+            self.prompt = self.__pwd + '>'
             if self.__shell_type == 'powershell':
                 self.prompt = 'PS ' + self.prompt + ' '
+            if PY2:
+                self.prompt = self.prompt.encode(sys.stdout.encoding)
+
             self.__outputBuffer = ''
 
     def default(self, line):
@@ -248,7 +255,13 @@ class RemoteShell(cmd.Cmd):
                 self.__pwd = line
                 self.execute_remote('cd ')
                 self.__pwd = self.__outputBuffer.strip('\r\n')
-                self.prompt = (self.__pwd + '>')
+
+                self.prompt = self.__pwd + '>'
+                if self.__shell_type == 'powershell':
+                    self.prompt = 'PS ' + self.prompt + ' '
+                if PY2:
+                    self.prompt = self.prompt.encode(sys.stdout.encoding)
+
                 self.__outputBuffer = ''
         else:
             if line != '':
@@ -290,13 +303,10 @@ class RemoteShell(cmd.Cmd):
             data = self.__pwsh + b64encode(data.encode('utf-16le')).decode()
 
         command = self.__shell + data
-
         if self.__noOutput is False:
             command += ' 1> ' + '\\\\127.0.0.1\\%s' % self.__share + self.__output + ' 2>&1'
-        if PY2:
-            self.__win32Process.Create(command.decode(sys.stdin.encoding), self.__pwd, None)
-        else:
-            self.__win32Process.Create(command, self.__pwd, None)
+
+        self.__win32Process.Create(command, self.__pwd, None)
         self.get_output()
 
     def send_data(self, data):
@@ -412,7 +422,11 @@ if __name__ == '__main__':
         if CODEC is None:
             CODEC = 'utf-8'
 
-    if ' '.join(options.command) == ' ' and options.nooutput is True:
+    command = ' '.join(options.command)
+    if PY2:
+        command = command.decode(sys.stdin.encoding)
+
+    if command == ' ' and options.nooutput is True:
         logging.error("-nooutput switch and interactive shell not supported")
         sys.exit(1)
     if options.silentcommand and options.command == ' ':
@@ -457,7 +471,7 @@ if __name__ == '__main__':
         if options.aesKey is not None:
             options.k = True
 
-        executer = WMIEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey,
+        executer = WMIEXEC(command, username, password, domain, options.hashes, options.aesKey,
                            options.share, options.nooutput, options.k, options.dc_ip, options.shell_type)
         executer.run(address, options.silentcommand)
     except KeyboardInterrupt as e:
