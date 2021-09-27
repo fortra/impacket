@@ -157,6 +157,7 @@ class ENCODED_STRING(Structure):
                 self.fromString(data)
         else:
             self.structure = self.tascii
+            self.isUnicode = False
             self.data = None
 
     def __getitem__(self, key):
@@ -2754,7 +2755,13 @@ class IWbemClassObject(IRemUnknown):
                             curHeapPtr = len(instanceHeap)
                     else:
                         strIn = ENCODED_STRING()
-                        if type(inArg) is str:
+
+                        if six.PY2:
+                            string_type = unicode
+                        else:
+                            string_type = str
+
+                        if type(inArg) is string_type:
                             # The Encoded-String-Flag is set to 0x01 if the sequence of characters that follows
                             # consists of UTF-16 characters (as specified in [UNICODE]) followed by a UTF-16 null
                             # terminator.
