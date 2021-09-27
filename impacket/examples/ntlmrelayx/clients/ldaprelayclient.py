@@ -1,20 +1,21 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# LDAP Protocol Client
+# Description:
+#   LDAP Protocol Client
+#   LDAP client for relaying NTLMSSP authentication to LDAP servers
+#   The way of using the ldap3 library is quite hacky, but its the best
+#   way to make the lib do things it wasn't designed to without touching
+#   its code
 #
 # Author:
 #   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #   Alberto Solino (@agsolino)
-#
-# Description:
-# LDAP client for relaying NTLMSSP authentication to LDAP servers
-# The way of using the ldap3 library is quite hacky, but its the best
-# way to make the lib do things it wasn't designed to without touching
-# its code
 #
 import sys
 from struct import unpack

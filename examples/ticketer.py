@@ -1,45 +1,48 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author:
-#  Alberto Solino (@agsolino)
-#
 # Description:
-#    This script will create TGT/TGS tickets from scratch or based on a template (legally requested from the KDC)
-#    allowing you to customize some of the parameters set inside the PAC_LOGON_INFO structure, in particular the
-#    groups, extrasids, etc.
-#    Tickets duration is fixed to 10 years from now (although you can manually change it)
+#   This script will create TGT/TGS tickets from scratch or based on a template (legally requested from the KDC)
+#   allowing you to customize some of the parameters set inside the PAC_LOGON_INFO structure, in particular the
+#   groups, extrasids, etc.
+#   Tickets duration is fixed to 10 years from now (although you can manually change it)
+#
+#   Examples:
+#       ./ticketer.py -nthash <krbtgt/service nthash> -domain-sid <your domain SID> -domain <your domain FQDN> baduser
+#
+#       will create and save a golden ticket for user 'baduser' that will be all encrypted/signed used RC4.
+#       If you specify -aesKey instead of -ntHash everything will be encrypted using AES128 or AES256
+#       (depending on the key specified). No traffic is generated against the KDC. Ticket will be saved as
+#       baduser.ccache.
+#
+#       ./ticketer.py -nthash <krbtgt/service nthash> -aesKey <krbtgt/service AES> -domain-sid <your domain SID> -domain <your domain FQDN>
+#                     -request -user <a valid domain user> -password <valid domain user's password> baduser
+#
+#       will first authenticate against the KDC (using -user/-password) and get a TGT that will be used
+#       as template for customization. Whatever encryption algorithms used on that ticket will be honored,
+#       hence you might need to specify both -nthash and -aesKey data. Ticket will be generated for 'baduser' and saved
+#       as baduser.ccache.
+#
+# Author:
+#   Alberto Solino (@agsolino)
 #
 # References:
-#    Original presentation at BlackHat USA 2014 by @gentilkiwi and @passingthehash:
-#    (https://www.slideshare.net/gentilkiwi/abusing-microsoft-kerberos-sorry-you-guys-dont-get-it)
-#    Original implementation by Benjamin Delpy (@gentilkiwi) in mimikatz
-#    (https://github.com/gentilkiwi/mimikatz)
-#
-# Examples:
-#         ./ticketer.py -nthash <krbtgt/service nthash> -domain-sid <your domain SID> -domain <your domain FQDN> baduser
-#
-#         will create and save a golden ticket for user 'baduser' that will be all encrypted/signed used RC4.
-#         If you specify -aesKey instead of -ntHash everything will be encrypted using AES128 or AES256
-#         (depending on the key specified). No traffic is generated against the KDC. Ticket will be saved as
-#         baduser.ccache.
-#
-#         ./ticketer.py -nthash <krbtgt/service nthash> -aesKey <krbtgt/service AES> -domain-sid <your domain SID> -domain <your domain FQDN>
-#                       -request -user <a valid domain user> -password <valid domain user's password> baduser
-#
-#         will first authenticate against the KDC (using -user/-password) and get a TGT that will be used
-#         as template for customization. Whatever encryption algorithms used on that ticket will be honored,
-#         hence you might need to specify both -nthash and -aesKey data. Ticket will be generated for 'baduser' and saved
-#         as baduser.ccache.
+#   - Original presentation at BlackHat USA 2014 by @gentilkiwi and @passingthehash:
+#     (https://www.slideshare.net/gentilkiwi/abusing-microsoft-kerberos-sorry-you-guys-dont-get-it)
+#   - Original implementation by Benjamin Delpy (@gentilkiwi) in mimikatz
+#     (https://github.com/gentilkiwi/mimikatz)
 #
 # ToDo:
-# [X] Silver tickets still not implemented - DONE by @machosec and fixes by @br4nsh
-# [ ] When -request is specified, we could ask for a user2user ticket and also populate the received PAC
+#   [X] Silver tickets still not implemented - DONE by @machosec and fixes by @br4nsh
+#   [ ] When -request is specified, we could ask for a user2user ticket and also populate the received PAC
 #
+
 from __future__ import division
 from __future__ import print_function
 import argparse

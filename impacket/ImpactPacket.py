@@ -1,17 +1,21 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
 # Description:
-#  Network packet codecs basic building blocks.
-#  Low-level packet codecs for various Internet protocols.
+#   Network packet codecs basic building blocks.
+#   Low-level packet codecs for various Internet protocols.
 #
 # Author:
-#  Javier Burroni (javier)
-#  Bruce Leidl (brl)
-#  Javier Kohen (jkohen)
+#   Javier Burroni (javier)
+#   Bruce Leidl (brl)
+#   Javier Kohen (jkohen)
+#
+
 from __future__ import division
 from __future__ import print_function
 import array

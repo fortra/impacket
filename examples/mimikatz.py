@@ -1,18 +1,22 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Description: Mini shell to control a remote mimikatz RPC server developed by @gentilkiwi
+# Description:
+#   Mini shell to control a remote mimikatz RPC server developed by @gentilkiwi
 #
 # Author:
-#  Alberto Solino (@agsolino)
+#   Alberto Solino (@agsolino)
 #
 # Reference for:
-#  SMB DCE/RPC 
+#   SMB DCE/RPC
 #
+
 from __future__ import division
 from __future__ import print_function
 import argparse
@@ -40,6 +44,19 @@ try:
 except ImportError:
   import readline
 
+
+mimikatz_intro = r"""
+  .#####.   mimikatz RPC interface
+ .## ^ ##.  "A La Vie, A L' Amour "
+ ## / \ ##  /* * *
+ ## \ / ##   Benjamin DELPY `gentilkiwi` ( benjamin@gentilkiwi.com )
+ '## v ##'   http://blog.gentilkiwi.com/mimikatz             (oe.eo)
+  '#####'    Impacket client by Alberto Solino (@agsolino)    * * */
+
+
+Type help for list of commands"""
+
+
 class MimikatzShell(cmd.Cmd):
     def __init__(self, dce):
         cmd.Cmd.__init__(self)
@@ -47,14 +64,7 @@ class MimikatzShell(cmd.Cmd):
 
         self.prompt = 'mimikatz # '
         self.tid = None
-        self.intro = '' \
-                    '  .#####.   mimikatz RPC interface\n'\
-                    ' .## ^ ##.  "A La Vie, A L\' Amour "\n'\
-                    ' ## / \ ##  /* * *\n'\
-                    ' ## \ / ##   Benjamin DELPY `gentilkiwi` ( benjamin@gentilkiwi.com )\n'\
-                    ' \'## v ##\'   http://blog.gentilkiwi.com/mimikatz             (oe.eo)\n'\
-                    '  \'#####\'    Impacket client by Alberto Solino (@agsolino)    * * */\n\n'\
-                    'Type help for list of commands'
+        self.intro = mimikatz_intro
         self.pwd = ''
         self.share = None
         self.loggedIn = True

@@ -1,23 +1,26 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino (@agsolino)
-#
 # Description:
-#   [MS-COMEV]: Component Object Model Plus (COM+) Event System Protocol. 
-#               This was used as a way to test the DCOM runtime. Further 
+#   [MS-COMEV]: Component Object Model Plus (COM+) Event System Protocol.
+#               This was used as a way to test the DCOM runtime. Further
 #               testing is needed to verify it is working as expected
 #
 #   Best way to learn how to use these calls is to grab the protocol standard
 #   so you understand what the call does, and then read the test case located
 #   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
 #
-#   Since DCOM is like an OO RPC, instead of helper functions you will see the 
-#   classes described in the standards developed. 
-#   There are test cases for them too. 
+#   Since DCOM is like an OO RPC, instead of helper functions you will see the
+#   classes described in the standards developed.
+#   There are test cases for them too.
+#
+# Author:
+#   Alberto Solino (@agsolino)
 #
 from __future__ import division
 from __future__ import print_function

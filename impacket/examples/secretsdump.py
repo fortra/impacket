@@ -1,46 +1,49 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Description: Performs various techniques to dump hashes from the
-#              remote machine without executing any agent there.
-#              For SAM and LSA Secrets (including cached creds)
-#              we try to read as much as we can from the registry
-#              and then we save the hives in the target system
-#              (%SYSTEMROOT%\\Temp dir) and read the rest of the
-#              data from there.
-#              For NTDS.dit we either:
-#                a. Get the domain users list and get its hashes
-#                   and Kerberos keys using [MS-DRDS] DRSGetNCChanges()
-#                   call, replicating just the attributes we need.
-#                b. Extract NTDS.dit via vssadmin executed  with the
-#                   smbexec approach.
-#                   It's copied on the temp dir and parsed remotely.
+# Description:
+#   Performs various techniques to dump hashes from the
+#   remote machine without executing any agent there.
+#   For SAM and LSA Secrets (including cached creds)
+#   we try to read as much as we can from the registry
+#   and then we save the hives in the target system
+#   (%SYSTEMROOT%\\Temp dir) and read the rest of the
+#   data from there.
+#   For NTDS.dit we either:
+#       a. Get the domain users list and get its hashes
+#          and Kerberos keys using [MS-DRDS] DRSGetNCChanges()
+#          call, replicating just the attributes we need.
+#       b. Extract NTDS.dit via vssadmin executed  with the
+#          smbexec approach.
+#          It's copied on the temp dir and parsed remotely.
 #
-#              The script initiates the services required for its working
-#              if they are not available (e.g. Remote Registry, even if it is
-#              disabled). After the work is done, things are restored to the
-#              original state.
+#   The script initiates the services required for its working
+#   if they are not available (e.g. Remote Registry, even if it is
+#   disabled). After the work is done, things are restored to the
+#   original state.
 #
 # Author:
 #  Alberto Solino (@agsolino)
 #
-# References: Most of the work done by these guys. I just put all
-#             the pieces together, plus some extra magic.
-#
-# https://github.com/gentilkiwi/kekeo/tree/master/dcsync
-# https://moyix.blogspot.com.ar/2008/02/syskey-and-sam.html
-# https://moyix.blogspot.com.ar/2008/02/decrypting-lsa-secrets.html
-# https://moyix.blogspot.com.ar/2008/02/cached-domain-credentials.html
-# https://web.archive.org/web/20130901115208/www.quarkslab.com/en-blog+read+13
-# https://code.google.com/p/creddump/
-# https://lab.mediaservice.net/code/cachedump.rb
-# https://insecurety.net/?p=768
-# http://www.beginningtoseethelight.org/ntsecurity/index.htm
-# https://www.exploit-db.com/docs/english/18244-active-domain-offline-hash-dump-&-forensic-analysis.pdf
-# https://www.passcape.com/index.php?section=blog&cmd=details&id=15
+# References:
+#   Most of the work done by these guys. I just put all
+#   the pieces together, plus some extra magic.
+#   - https://github.com/gentilkiwi/kekeo/tree/master/dcsync
+#   - https://moyix.blogspot.com.ar/2008/02/syskey-and-sam.html
+#   - https://moyix.blogspot.com.ar/2008/02/decrypting-lsa-secrets.html
+#   - https://moyix.blogspot.com.ar/2008/02/cached-domain-credentials.html
+#   - https://web.archive.org/web/20130901115208/www.quarkslab.com/en-blog+read+13
+#   - https://code.google.com/p/creddump/
+#   - https://lab.mediaservice.net/code/cachedump.rb
+#   - https://insecurety.net/?p=768
+#   - http://www.beginningtoseethelight.org/ntsecurity/index.htm
+#   - https://www.exploit-db.com/docs/english/18244-active-domain-offline-hash-dump-&-forensic-analysis.pdf
+#   - https://www.passcape.com/index.php?section=blog&cmd=details&id=15
 #
 from __future__ import division
 from __future__ import print_function
@@ -100,7 +103,7 @@ class SAM_KEY_DATA(Structure):
         ('Reserved','<Q=0'),
     )
 
-# Structure taken from mimikatz (@gentilkiwi) in the context of https://github.com/CoreSecurity/impacket/issues/326
+# Structure taken from mimikatz (@gentilkiwi) in the context of https://github.com/SecureAuthCorp/impacket/issues/326
 # Merci! Makes it way easier than parsing manually.
 class SAM_HASH(Structure):
     structure = (
@@ -1862,6 +1865,25 @@ class NTDSHashes:
         self.__outputFileName = outputFileName
         self.__justUser = justUser
         self.__perSecretCallback = perSecretCallback
+		
+		# these are all the columns that we need to get the secrets. 
+		# If in the future someone finds other columns containing interesting things please extend ths table.
+        self.__filter_tables_usersecret = { 
+            self.NAME_TO_INTERNAL['objectSid'] : 1,
+            self.NAME_TO_INTERNAL['dBCSPwd'] : 1,
+            self.NAME_TO_INTERNAL['name'] : 1,
+            self.NAME_TO_INTERNAL['sAMAccountType'] : 1,
+            self.NAME_TO_INTERNAL['unicodePwd'] : 1,
+            self.NAME_TO_INTERNAL['sAMAccountName'] : 1,
+            self.NAME_TO_INTERNAL['userPrincipalName'] : 1,
+            self.NAME_TO_INTERNAL['ntPwdHistory'] : 1,
+            self.NAME_TO_INTERNAL['lmPwdHistory'] : 1,
+            self.NAME_TO_INTERNAL['pwdLastSet'] : 1,
+            self.NAME_TO_INTERNAL['userAccountControl'] : 1,
+            self.NAME_TO_INTERNAL['supplementalCredentials'] : 1,
+            self.NAME_TO_INTERNAL['pekList'] : 1,
+        
+        }
 
     def getResumeSessionFile(self):
         return self.__resumeSession.getFileName()
@@ -1871,7 +1893,7 @@ class NTDSHashes:
         peklist = None
         while True:
             try:
-                record = self.__ESEDB.getNextRow(self.__cursor)
+                record = self.__ESEDB.getNextRow(self.__cursor, filter_tables=self.__filter_tables_usersecret)
             except:
                 LOG.error('Error while calling getNextRow(), trying the next one')
                 continue
@@ -2391,7 +2413,7 @@ class NTDSHashes:
                     # Now let's keep moving through the NTDS file and decrypting what we find
                     while True:
                         try:
-                            record = self.__ESEDB.getNextRow(self.__cursor)
+                            record = self.__ESEDB.getNextRow(self.__cursor, filter_tables=self.__filter_tables_usersecret)
                         except:
                             LOG.error('Error while calling getNextRow(), trying the next one')
                             continue

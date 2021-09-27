@@ -1,4 +1,12 @@
 #!/usr/bin/env python
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
 # sorry, this is very ugly, but I'm in python 2.5
 import sys
 sys.path.insert(0,"../..")
@@ -31,7 +39,7 @@ class TestTCP(unittest.TestCase):
                     pass
 
         thread_hangs = it_hangs()
-        thread_hangs.setDaemon(True)
+        thread_hangs.daemon = True
         thread_hangs.start()
 
         thread_hangs.join(1.0)  # 1 seconds timeout

@@ -1,13 +1,11 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
-#
-#
-# Author:
-#  beto (@agsolino)
 #
 # Description:
 #   This script will connect against a target (or list of targets) machine/s and gather the OS architecture type
@@ -18,9 +16,13 @@
 #
 #   Have in mind this trick will *not* work if the target system is running Samba. Don't know what happens with macOS.
 #
-# Reference for:
-#  RPCRT, NDR
+# Author:
+#   beto (@agsolino)
 #
+# Reference for:
+#   RPCRT, NDR
+#
+
 from __future__ import division
 from __future__ import print_function
 import argparse

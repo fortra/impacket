@@ -1,22 +1,25 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# SOCKS proxy server/client
-#
-# Author:
-#  Alberto Solino (@agsolino)
-#
 # Description:
+#   SOCKS proxy server/client
+#
 #  A simple SOCKS server that proxy connection to relayed connections
 #
+# Author:
+#   Alberto Solino (@agsolino)
+#
 # ToDo:
-# [ ] Handle better the SOCKS specification (RFC1928), e.g. BIND
-# [ ] Port handlers should be dynamically subscribed, and coded in another place. This will help coding
-#     proxies for different protocols (e.g. MSSQL)
+#   [ ] Handle better the SOCKS specification (RFC1928), e.g. BIND
+#   [ ] Port handlers should be dynamically subscribed, and coded in another place. This will help coding
+#       proxies for different protocols (e.g. MSSQL)
+#
 from __future__ import division
 from __future__ import print_function
 import socketserver

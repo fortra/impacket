@@ -1,10 +1,10 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
-#
-# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   Kerberos Credential Cache format implementation
@@ -12,6 +12,9 @@
 #   https://repo.or.cz/w/krb5dissect.git/blob_plain/HEAD:/ccache.txt
 #   Pretty lame and quick implementation, not a fun thing to do
 #   Contribution is welcome to make it the right way
+#
+# Author:
+#   Alberto Solino (@agsolino)
 #
 from __future__ import division
 from __future__ import print_function

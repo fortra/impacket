@@ -1,17 +1,20 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Description: [MS-TDS] & [MC-SQLR] example.
+# Description:
+#   [MS-TDS] & [MC-SQLR] example.
 #
 # Author:
-#  Alberto Solino (beto@coresecurity.com/@agsolino)
+#   Alberto Solino (@agsolino)
 #
 # Reference for:
-#  Structure
+#   Structure
 #
 
 from __future__ import division
