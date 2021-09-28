@@ -221,7 +221,7 @@ if __name__ == '__main__':
 		if altUsername == '':
 			smbpasswd.connect()
 		else:
-			logging.debug('Using {} credetials to connect to RPC.'.format(altUsername))
+			logging.debug('Using {}\\{} credetials to connect to RPC.'.format(altDomain, altUsername))
 			smbpasswd.connect(altDomain, altUsername, altPassword, altNTHash)
 	except Exception as e:
 		if any(msg in str(e) for msg in ['STATUS_PASSWORD_MUST_CHANGE', 'STATUS_PASSWORD_EXPIRED']):
