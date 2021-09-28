@@ -1214,12 +1214,12 @@ class INTERFACE:
     def set_cinstance(self, cinstance):
         self.__cinstance = cinstance
 
-    def is_fdqn(self):
+    def is_fqdn(self):
         # I will assume the following
         # If I can't socket.inet_aton() then it's not an IPv4 address
         # Same for ipv6, but since socket.inet_pton is not available in Windows, I'll look for ':'. There can't be
         # an FQDN with ':'
-        # Is it isn't both, then it is a FDQN
+        # Is it isn't both, then it is a FQDN
         try:
             socket.inet_aton(self.__target)
         except:
@@ -1227,10 +1227,9 @@ class INTERFACE:
             try:
                 self.__target.index(':')
             except:
-                # Not an IPv6, it's a FDQN
+                # Not an IPv6, it's a FQDN
                 return True
         return False
-
 
     def connect(self, iid = None):
         if (self.__target in INTERFACE.CONNECTIONS) is True:
@@ -1249,8 +1248,8 @@ class INTERFACE:
                 stringBindings = self.get_cinstance().get_string_bindings()
                 # No OXID present, we should create a new connection and store it
                 stringBinding = None
-                isTargetFDQN = self.is_fdqn()
-                LOG.debug('Target system is %s and isFDQN is %s' % (self.get_target(), isTargetFDQN))
+                isTargetFQDN = self.is_fqdn()
+                LOG.debug('Target system is %s and isFQDN is %s' % (self.get_target(), isTargetFQDN))
                 for strBinding in stringBindings:
                     # Here, depending on the get_target() value several things can happen
                     # 1) it's an IPv4 address
@@ -1272,7 +1271,7 @@ class INTERFACE:
                             stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
                             break
                         # If get_target() is a FQDN, does it match the hostname?
-                        elif isTargetFDQN and binding.upper().find(self.get_target().upper().partition('.')[0]) >= 0:
+                        elif isTargetFQDN and binding.upper().find(self.get_target().upper().partition('.')[0]) >= 0:
                             # Here we replace the aNetworkAddr with self.get_target()
                             # This is to help resolving the target system name.
                             # self.get_target() has been resolved already otherwise we wouldn't be here whereas
