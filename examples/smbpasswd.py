@@ -19,7 +19,8 @@
 #  		smbpasswd.py contoso.local/j.doe@DC1 -hashes :fc525c9683e8fe067095ba2ddc971889
 #  		smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -newpass 'N3wPassw0rd!'
 #  		smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -newhashes :126502da14a98b58f2c319b81b3a49cb
-#  		smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -newhashes :126502da14a98b58f2c319b81b3a49cb -altuser administrator -altpass 'Adm1nPassw0rd!'
+#  		smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -newpass 'N3wPassw0rd!' -altuser administrator -altpass 'Adm1nPassw0rd!'
+#  		smbpasswd.py SRV01/administrator:'Passw0rd!'@10.10.13.37 -newhashes :126502da14a98b58f2c319b81b3a49cb -altuser CONTOSO/SrvAdm -althash 6fe945ead39a7a6a2091001d98a913ab
 #
 # Author:
 # 	@snovvcrash
@@ -59,13 +60,13 @@ class SMBPasswd:
 		self.newPwdHashNT = newPwdHashNT
 		self.dce = None
 
-	def connect(self, username='', password='', nthash='', anonymous=False):
+	def connect(self, domain='', username='', password='', nthash='', anonymous=False):
 		rpctransport = transport.SMBTransport(self.address, filename=r'\samr')
 		if anonymous:
 			rpctransport.set_credentials(username='', password='', domain='', lmhash='', nthash='', aesKey='')
 		elif username != '':
 			lmhash = ''
-			rpctransport.set_credentials(username, password, self.domain, lmhash, nthash, aesKey='')
+			rpctransport.set_credentials(username, password, domain, lmhash, nthash, aesKey='')
 		else:
 			rpctransport.set_credentials(self.username, self.oldPassword, self.domain, self.oldPwdHashLM, self.oldPwdHashNT, aesKey='')
 
@@ -89,11 +90,18 @@ class SMBPasswd:
 				resp.dump()
 
 	def hSamrChangePasswordUser(self):
-		serverHandle = samr.hSamrConnect(self.dce, self.address + '\x00')['ServerHandle']
-		domainSID = samr.hSamrLookupDomainInSamServer(self.dce, serverHandle, self.domain)['DomainId']
-		domainHandle = samr.hSamrOpenDomain(self.dce, serverHandle, domainId=domainSID)['DomainHandle']   
-		userRID = samr.hSamrLookupNamesInDomain(self.dce, domainHandle, (self.username,))['RelativeIds']['Element'][0]
-		userHandle = samr.hSamrOpenUser(self.dce, domainHandle, userId=userRID)['UserHandle']
+		try:
+			serverHandle = samr.hSamrConnect(self.dce, self.address + '\x00')['ServerHandle']
+			domainSID = samr.hSamrLookupDomainInSamServer(self.dce, serverHandle, self.domain)['DomainId']
+			domainHandle = samr.hSamrOpenDomain(self.dce, serverHandle, domainId=domainSID)['DomainHandle']
+			userRID = samr.hSamrLookupNamesInDomain(self.dce, domainHandle, (self.username,))['RelativeIds']['Element'][0]
+			userHandle = samr.hSamrOpenUser(self.dce, domainHandle, userId=userRID)['UserHandle']
+		except Exception as e:
+			if 'STATUS_NO_SUCH_DOMAIN' in str(e):
+				logging.critical('Wrong realm. Try to set the domain name explicitly for the target user in format DOMAIN/username.')
+				return
+			else:
+				raise e
 
 		try:
 			resp = samr.hSamrChangePasswordUser(self.dce, userHandle, self.oldPassword, newPassword='', oldPwdHashNT=self.oldPwdHashNT,
@@ -188,7 +196,12 @@ if __name__ == '__main__':
 	smbpasswd = SMBPasswd(address, domain, username, oldPassword, newPassword, oldPwdHashLM, oldPwdHashNT, newPwdHashLM, newPwdHashNT)
 
 	if options.altuser is not None:
-		altUsername = options.altuser
+		try:
+			altDomain, altUsername = options.altuser.split('/')
+		except ValueError:
+			altDomain = domain
+			altUsername = options.altuser
+
 		if options.altpass is not None and options.althash is None:
 			altPassword = options.altpass
 			altNTHash = ''
@@ -209,7 +222,7 @@ if __name__ == '__main__':
 			smbpasswd.connect()
 		else:
 			logging.debug('Using {} credetials to connect to RPC.'.format(altUsername))
-			smbpasswd.connect(altUsername, altPassword, altNTHash)
+			smbpasswd.connect(altDomain, altUsername, altPassword, altNTHash)
 	except Exception as e:
 		if any(msg in str(e) for msg in ['STATUS_PASSWORD_MUST_CHANGE', 'STATUS_PASSWORD_EXPIRED']):
 			if newPassword:
