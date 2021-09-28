@@ -241,7 +241,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     cipher = _enctype_table[enctype]
 
     # Pass the hash/aes key :P
-    if nthash != b'' and (isinstance(nthash, bytes) and nthash != b''):
+    if isinstance(nthash, bytes) and nthash != b'':
         key = Key(cipher.enctype, nthash)
     elif aesKey != b'':
         key = Key(cipher.enctype, aesKey)
