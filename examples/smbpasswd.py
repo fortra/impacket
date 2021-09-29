@@ -98,7 +98,7 @@ class SMBPasswd:
 			userHandle = samr.hSamrOpenUser(self.dce, domainHandle, userId=userRID)['UserHandle']
 		except Exception as e:
 			if 'STATUS_NO_SUCH_DOMAIN' in str(e):
-				logging.critical('Wrong realm. Try to set the domain name explicitly for the target user in format DOMAIN/username.')
+				logging.critical('Wrong realm. Try to set the domain name for the target user account explicitly in format DOMAIN/username.')
 				return
 			else:
 				raise e
