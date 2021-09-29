@@ -257,7 +257,7 @@ class RBCD(object):
         # Get target computer DN
         result = self.get_user_info(self.delegate_to)
         if not result:
-            logging.error('Computer to modify does not exist! (wrong domain?)')
+            logging.error('Account to modify does not exist! (forgot "$" for a computer account? wrong domain?)')
             return
         self.DN_delegate_to = result[0]
 
@@ -272,14 +272,14 @@ class RBCD(object):
         # Get escalate user sid
         result = self.get_user_info(self.delegate_from)
         if not result:
-            logging.error('User to escalate does not exist!')
+            logging.error('Account to escalate does not exist! (forgot "$" for a computer account? wrong domain?)')
             return
         self.SID_delegate_from = str(result[1])
 
         # Get target computer DN
         result = self.get_user_info(self.delegate_to)
         if not result:
-            logging.error('Computer to modify does not exist! (wrong domain?)')
+            logging.error('Account to modify does not exist! (forgot "$" for a computer account? wrong domain?)')
             return
         self.DN_delegate_to = result[0]
 
@@ -317,14 +317,14 @@ class RBCD(object):
         # Get escalate user sid
         result = self.get_user_info(self.delegate_from)
         if not result:
-            logging.error('User to escalate does not exist!')
+            logging.error('Account to escalate does not exist! (forgot "$" for a computer account? wrong domain?)')
             return
         self.SID_delegate_from = str(result[1])
 
         # Get target computer DN
         result = self.get_user_info(self.delegate_to)
         if not result:
-            logging.error('Computer to modify does not exist! (wrong domain?)')
+            logging.error('Account to modify does not exist! (forgot "$" for a computer account? wrong domain?)')
             return
         self.DN_delegate_to = result[0]
 
@@ -355,7 +355,7 @@ class RBCD(object):
         # Get target computer DN
         result = self.get_user_info(self.delegate_to)
         if not result:
-            logging.error('Computer to modify does not exist! (wrong domain?)')
+            logging.error('Account to modify does not exist! (forgot "$" for a computer account? wrong domain?)')
             return
         self.DN_delegate_to = result[0]
 
@@ -559,11 +559,6 @@ def main():
     if len(nthash) > 0 and lmhash == "":
         lmhash = "aad3b435b51404eeaad3b435b51404ee"
 
-    if args.delegate_from and args.delegate_from[-1] != "$":
-        args.delegate_from += "$"
-    if args.delegate_to[-1] != "$":
-        args.delegate_to += "$"
-
     try:
         ldap_server, ldap_session = init_ldap_session(args, domain, username, password, lmhash, nthash)
         rbcd = RBCD(ldap_server, ldap_session, args.delegate_to)
@@ -574,6 +569,7 @@ def main():
         elif args.action == 'remove':
             rbcd.remove(args.delegate_from)
         elif args.action == 'flush':
+            rbcd.flush()
             rbcd.flush()
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
