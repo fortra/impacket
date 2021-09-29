@@ -14,16 +14,22 @@
 #  	hashes as a new password value instead of a plaintext value. As for the
 #  	latter approach the new password is flagged as expired after the change
 #  	due to how SamrChangePasswordUser function works.
+#  	With the -reset flag, the script reset the password of a different user
+#  	on which target has the "Reset password" privilege. This action ignore
+#  	the password policy.
 #
 # 	Examples:
 #  		smbpasswd.py j.doe@192.168.1.11
 #  		smbpasswd.py contoso.local/j.doe@DC1 -hashes :fc525c9683e8fe067095ba2ddc971889
 #  		smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -newpass 'N3wPassw0rd!'
 #  		smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -newhashes :126502da14a98b58f2c319b81b3a49cb
+#  		smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -reset a.victim -newpass 'N3wPassw0rd!'
+#  		smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -reset a.victim -newhashes :126502da14a98b58f2c319b81b3a49cb
 #
 # Author:
 # 	@snovvcrash
 #  	@bransh
+#  	@alefburzmali
 #
 # References:
 #  	https://snovvcrash.github.io/2020/10/31/pretending-to-be-smbpasswd-with-impacket.html
@@ -31,6 +37,8 @@
 #  	https://github.com/SecureAuthCorp/impacket/pull/381
 #  	https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/acb3204a-da8b-478e-9139-1ea589edb880
 #  	https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/9699d8ca-e1a4-433c-a8c3-d7bebeb01476
+#  	https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/99ee9f39-43e8-4bba-ac3a-82e0c0e0699e
+#  	https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/50d17755-c6b8-40bd-8cac-bd6cfa31adf2
 #
 
 import sys
@@ -106,6 +114,33 @@ class SMBPasswd:
 				logging.error('Non-zero return code, something weird happened.')
 				resp.dump()
 
+	def hSamrSetInformationUser2Internal1Information(self, resetAccount):
+		serverHandle = samr.hSamrConnect(self.dce, self.hostname + '\x00')['ServerHandle']
+		domainSID = samr.hSamrLookupDomainInSamServer(self.dce, serverHandle, self.domain)['DomainId']
+		domainHandle = samr.hSamrOpenDomain(self.dce, serverHandle, domainId=domainSID)['DomainHandle']
+
+		try:
+			userRID = samr.hSamrLookupNamesInDomain(self.dce, domainHandle, (resetAccount,))['RelativeIds']['Element'][0]
+		except:
+			logging.error('Error finding the account to reset.')
+			return
+
+		userHandle = samr.hSamrOpenUser(self.dce, domainHandle, userId=userRID)['UserHandle']
+
+		try:
+			resp = samr.hSamrSetInformationUser2Internal1Information(self.dce, userHandle, self.newPassword, self.newPwdHashLM, self.newPwdHashNT)
+		except Exception as e:
+			if 'STATUS_ACCESS_DENIED' in str(e):
+				logging.critical('{} does not have the permission to reset the password of {}'.format(self.username, resetAccount))
+			else:
+				raise e
+		else:
+			if resp['ErrorCode'] == 0:
+				logging.info('NTLM hashes were set successfully.')
+			else:
+				logging.error('Non-zero return code, something weird happened.')
+				resp.dump()
+
 
 def init_logger(options):
 	logger.init(options.ts)
@@ -122,6 +157,7 @@ def parse_args():
 	parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
 	parser.add_argument('-ts', action='store_true', help='adds timestamp to every logging output')
 	parser.add_argument('-debug', action='store_true', help='turn DEBUG output ON')
+	parser.add_argument('-reset', action='store', help='samAccountName of a different account to reset using Set Password instead of Change Password')
 	group = parser.add_mutually_exclusive_group()
 	group.add_argument('-newpass', action='store', default=None, help='new SMB password')
 	group.add_argument('-newhashes', action='store', default=None, metavar='LMHASH:NTHASH', help='new NTLM hashes, format is LMHASH:NTHASH '
@@ -192,7 +228,10 @@ if __name__ == '__main__':
 		else:
 			raise e
 
-	if newPassword:
+	if options.reset:
+		# For reset, call SetInformationUser2 with Internal1Information
+		smbpasswd.hSamrSetInformationUser2Internal1Information(options.reset)
+	elif newPassword:
 		# If using a plaintext value for the new password
 		smbpasswd.hSamrUnicodeChangePasswordUser2()
 	else:

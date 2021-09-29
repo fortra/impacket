@@ -2953,3 +2953,32 @@ def hSamrSetPasswordInternal4New(dce, userHandle, password):
 
     request['Buffer']['Internal4New']['UserPassword']['Buffer'] = buffercrypt
     return dce.request(request)
+
+def hSamrSetInformationUser2Internal1Information(dce, userHandle, newPassword='', newPwdHashLM='', newPwdHashNT=''):
+    request = SamrSetInformationUser2()
+    request['UserHandle'] = userHandle
+    request['UserInformationClass'] = USER_INFORMATION_CLASS.UserInternal1Information
+    request['Buffer']['tag'] =  USER_INFORMATION_CLASS.UserInternal1Information
+
+    # https://docs.microsoft.com/zh-cn/openspecs/windows_protocols/ms-samr/50d17755-c6b8-40bd-8cac-bd6cfa31adf2
+    request['Buffer']['Internal1']['EncryptedNtOwfPassword'] = NULL
+    request['Buffer']['Internal1']['EncryptedLmOwfPassword'] = NULL
+    request['Buffer']['Internal1']['NtPasswordPresent'] = 1
+    request['Buffer']['Internal1']['LmPasswordPresent'] = 0
+    request['Buffer']['Internal1']['PasswordExpired'] = 1
+
+    from impacket import crypto, ntlm
+
+    if newPwdHashNT == '':
+        newPwdHashNT = ntlm.NTOWFv1(newPassword)
+    else:
+        # Let's convert the hashes to binary form, if not yet
+        try:
+            newPwdHashNT = unhexlify(newPwdHashNT)
+        except:
+            pass
+
+    session_key = dce.get_rpc_transport().get_smb_connection().getSessionKey()
+    request['Buffer']['Internal1']['EncryptedNtOwfPassword'] = crypto.SamEncryptNTLMHash(newPwdHashNT, session_key)
+
+    return dce.request(request)
