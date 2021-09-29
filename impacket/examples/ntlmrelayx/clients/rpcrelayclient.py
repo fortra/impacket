@@ -19,7 +19,7 @@ from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
 from impacket.ntlm import NTLMAuthChallenge
 from impacket.spnego import SPNEGO_NegTokenResp
 
-from impacket.dcerpc.v5 import transport, rpcrt, epm, tsch
+from impacket.dcerpc.v5 import transport, rpcrt, epm, tsch, par
 from impacket.dcerpc.v5.ndr import NDRCALL
 from impacket.dcerpc.v5.rpcrt import DCERPC_v5, MSRPCBind, CtxItem, MSRPCHeader, SEC_TRAILER, MSRPCBindAck, \
     MSRPCRespHeader, MSRPCBindNak, DCERPCException, RPC_C_AUTHN_WINNT, RPC_C_AUTHN_LEVEL_CONNECT, \
@@ -127,8 +127,9 @@ class RPCRelayClient(ProtocolClient):
         # TODO: support relaying RPC to different endpoints (e.g. DCOM, SpoolSS)
         # TODO: create a single LOG interface for ntlmrelayx to provide a user info which message/error to which thread belongs
         self.endpoint = serverConfig.rpc_mode
-
-        if self.endpoint == "TSCH":
+        if self.endpoint == "PAR":
+            self.endpoint_uuid = par.MSRPC_UUID_PAR
+        elif self.endpoint == "TSCH":
             self.endpoint_uuid = tsch.MSRPC_UUID_TSCHS
         else:
             raise NotImplementedError("Not implemented!")
@@ -170,7 +171,7 @@ class RPCRelayClient(ProtocolClient):
 
         return challenge
 
-    def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
+    def sendAuth(self, authenticateMessageBlob, serverChallenge=None, send_dummy_req=0):
         if unpack('B', authenticateMessageBlob[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
             respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
             auth_data = respToken2['ResponseToken']
@@ -179,6 +180,8 @@ class RPCRelayClient(ProtocolClient):
 
         self.session.sendBindType3(auth_data)
 
+        if send_dummy_req == 0:
+            return None, STATUS_SUCCESS
         try:
             req = DummyOp()
             self.session.request(req)

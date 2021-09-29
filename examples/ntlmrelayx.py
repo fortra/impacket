@@ -146,6 +146,9 @@ def start_servers(options, threads):
         c.setTargets(targetSystem)
         c.setExeFile(options.e)
         c.setCommand(options.c)
+        c.setInputFile(options.input_file)
+        c.printer_server=options.p
+        c.filename=options.f
         c.setEnumLocalAdmins(options.enum_local_admins)
         c.setEncoding(codec)
         c.setMode(mode)
@@ -274,17 +277,23 @@ if __name__ == '__main__':
 
     #RPC arguments
     rpcoptions = parser.add_argument_group("RPC client options")
-    rpcoptions.add_argument('-rpc-mode', choices=["TSCH"], default="TSCH", help='Protocol to attack, only TSCH supported')
+    rpcoptions.add_argument('-rpc-mode', choices=["TSCH","PAR"], help='Protocol to attack')
     rpcoptions.add_argument('-rpc-use-smb', action='store_true', required=False, help='Relay DCE/RPC to SMB pipes')
     rpcoptions.add_argument('-auth-smb', action='store', required=False, default='', metavar='[domain/]username[:password]',
         help='Use this credential to authenticate to SMB (low-privilege account)')
     rpcoptions.add_argument('-hashes-smb', action='store', required=False, metavar="LMHASH:NTHASH")
     rpcoptions.add_argument('-rpc-smb-port', type=int, choices=[139, 445], default=445, help='Destination port to connect to SMB')
 
+    paroptions=  parser.add_argument_group("PAR attack options")
+    paroptions.add_argument('-p', metavar="PRINTERSERVER", action="store", help='Printer Server Name. Usually \\\\dnsname ')
+    paroptions.add_argument('-f', metavar="FILE", action="store", help='File path to write on target system')
+    paroptions.add_argument('-I', '--input_file', action='store', type=str, required=False, metavar='input_file',
+                            help='content to write  on target system (for SMB and RPC). ')
+
     #MSSQL arguments
     mssqloptions = parser.add_argument_group("MSSQL client options")
     mssqloptions.add_argument('-q','--query', action='append', required=False, metavar = 'QUERY', help='MSSQL query to execute'
-                        '(can specify multiple)')
+                                                                                                       '(can specify multiple)')
 
     #HTTPS options
     httpoptions = parser.add_argument_group("HTTP options")

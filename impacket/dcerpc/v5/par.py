@@ -1,8 +1,6 @@
-# Impacket - Collection of Python classes for working with network protocols.
+# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
-#
-# This software is provided under a slightly modified version
+# This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
@@ -15,21 +13,23 @@
 #   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
 #
 #   Some calls have helper functions, which makes it even easier to use.
-#   They are located at the end of this file.
+#   They are located at the end of this file. 
 #   Helper functions start with "h"<name of the call>.
-#   There are test cases for them too.
+#   There are test cases for them too. 
 #
 # Author:
 #   Adam (@cube0x0)
 #
 from impacket import system_errors
-from impacket.dcerpc.v5.dtypes import ULONGLONG, UINT, USHORT, LPWSTR, DWORD, ULONG, NULL
+from impacket.dcerpc.v5.dtypes import UINT, USHORT, LPWSTR, DWORD, ULONG, NULL, PBYTE,  WSTR, ULONGLONG
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRUNION, NDRPOINTER, NDRUniConformantArray
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.uuid import uuidtup_to_bin, string_to_bin
 
 MSRPC_UUID_PAR = uuidtup_to_bin(('76F03F96-CDFD-44FC-A22C-64950A001209', '1.0'))
 MSRPC_UUID_WINSPOOL = string_to_bin('9940CA8E-512F-4C58-88A9-61098D6896BD')
+
+OBJECT_UUID = string_to_bin('9940CA8E-512F-4C58-88A9-61098D6896BD') #must be called with each request
 
 class DCERPCSessionError(DCERPCException):
     def __init__(self, error_string=None, error_code=None, packet=None):
@@ -159,6 +159,77 @@ APD_RETURN_BLOCKING_STATUS_CODE = 0x00010000
 ################################################################################
 # STRUCTURES
 ################################################################################
+
+class PRINTER_INFO_2(NDRSTRUCT):
+    structure = (
+        ('serverName', STRING_HANDLE),
+        ('pPrinterName', STRING_HANDLE),
+        ('pShareName', STRING_HANDLE),
+        ('pPortName', STRING_HANDLE),
+        ('pDriverName', STRING_HANDLE),
+        ('pComment', STRING_HANDLE),
+        ('pLocation', STRING_HANDLE),
+        ('pDevMode',NDRPOINTER),
+        ('pSepFile', STRING_HANDLE),
+        ('pPrintProcessor', STRING_HANDLE),
+        ('pDatatype', STRING_HANDLE),
+        ('pParameters', STRING_HANDLE),
+        ('pSecurityDescriptor', NDRPOINTER),
+        ('Attributes' ,DWORD),
+        ('Priority' ,DWORD),
+        ('DefaultPriority' ,DWORD),
+        ('StartTime' ,DWORD),
+        ('UntilTime' ,DWORD),
+        ('Status' ,DWORD),
+        ('cJobs' ,DWORD),
+        ('AveragePPM' ,DWORD)
+    )
+
+class PPRINTER_INFO_2(NDRPOINTER):
+    referent = (
+        ('Data', PRINTER_INFO_2),
+    )
+
+class DOC_INFO_1(NDRSTRUCT):
+    structure = (
+        ('Name', STRING_HANDLE),
+        ('pOutputFile', STRING_HANDLE),
+        ('pDatatype', STRING_HANDLE),
+    )
+class PDOC_INFO_1(NDRPOINTER):
+    referent = (
+        ('Data', DOC_INFO_1),
+    )
+
+class PRINTER_INFO_UNION(NDRUNION):
+    commonHdr = (
+        ('tag', ULONG),
+    )
+    union = {
+        2 : ('pDocInfo1', PPRINTER_INFO_2)
+    }
+
+class PRINTER_INFO_CONTAINER(NDRSTRUCT):
+    structure =  (
+        ('Level',DWORD),
+        ('DocInfo',PRINTER_INFO_UNION),
+    )
+
+
+class DOC_INFO_UNION(NDRUNION):
+    commonHdr = (
+        ('tag', ULONG),
+    )
+    union = {
+        1 : ('pDocInfo1', PDOC_INFO_1)
+    }
+
+class DOC_INFO_CONTAINER(NDRSTRUCT):
+    structure =  (
+        ('Level',DWORD),
+        ('DocInfo',DOC_INFO_UNION),
+    )
+
 # 2.2.1.1.4 PRINTER_HANDLE
 class PRINTER_HANDLE(NDRSTRUCT):
     structure =  (
@@ -185,6 +256,11 @@ class DEVMODE_CONTAINER(NDRSTRUCT):
         ('pDevMode',PBYTE_ARRAY),
     )
 
+class SECURITY_CONTAINER(NDRSTRUCT):
+    structure =  (
+        ('cbBuf',DWORD),
+        ('pSecurity',PBYTE_ARRAY),
+    )
 # 2.2.1.11.1 SPLCLIENT_INFO_1
 class SPLCLIENT_INFO_1(NDRSTRUCT):
     structure =  (
@@ -290,6 +366,12 @@ class SPLCLIENT_CONTAINER(NDRSTRUCT):
         ('ClientInfo',CLIENT_INFO_UNION),
     )
 
+class PSPLCLIENT_CONTAINER(NDRPOINTER):
+
+    referent = (
+        ('Data', SPLCLIENT_CONTAINER),
+    )
+
 # 2.2.1.13.2 RPC_V2_NOTIFY_OPTIONS_TYPE
 class USHORT_ARRAY(NDRUniConformantArray):
     item = '<H'
@@ -327,6 +409,7 @@ class PRPC_V2_NOTIFY_OPTIONS(NDRPOINTER):
     referent = (
         ('Data', RpcAsync_V2_NOTIFY_OPTIONS),
     )
+
 
 
 ################################################################################
@@ -367,6 +450,56 @@ class RpcAsyncOpenPrinterResponse(NDRCALL):
        ('pHandle', PRINTER_HANDLE),
        ('ErrorCode', ULONG),
     )
+
+class RpcAsyncAddPrinter(NDRCALL):
+    opnum = 1
+    structure = (
+       ('pPrinterName', STRING_HANDLE),
+       ('pPrinterContainer', PRINTER_INFO_CONTAINER),
+       ('pDevModeContainer', DEVMODE_CONTAINER),
+       ('pSecurityContainer', SECURITY_CONTAINER),
+       ('pClientInfo', SPLCLIENT_CONTAINER),
+    )
+
+class RpcAsyncAddPrinterResponse(NDRCALL):
+    structure = (
+       ('pHandle', PRINTER_HANDLE),
+       ('ErrorCode', ULONG),
+    )
+
+class RpcAsyncWritePrinter(NDRCALL):
+    opnum = 12
+    structure =  (
+       ('Handle',  PRINTER_HANDLE),
+       ('pBuf', BYTE_ARRAY),
+       ('cbBuf', DWORD),
+    )
+
+class RpcAsyncWritePrinterResponse(NDRCALL):
+    structure =  (
+       ('pcWritten', DWORD),
+       ('ErrorCode', ULONG),
+    )
+
+class RpcAsyncXcvData(NDRCALL):
+    opnum = 33
+    structure = (
+       ('Handle',  PRINTER_HANDLE),
+       ('DataName', WSTR),
+       ('pInputData', BYTE_ARRAY),
+       ('cbInputData', DWORD),
+       ('cbtBuf', DWORD),
+       ('Status', DWORD),
+    )
+
+class RpcAsyncXcvDataResponse(NDRCALL):
+    structure = (
+       ('cboutBuf', PBYTE),
+       ('BytesNeeded', DWORD),
+       ('Status', DWORD),
+    )
+
+
 
 # 3.1.4.1.10 RpcAsyncClosePrinter (Opnum 20)
 class RpcAsyncClosePrinter(NDRCALL):
@@ -414,16 +547,57 @@ class RpcAsyncAddPrinterDriverResponse(NDRCALL):
        ('ErrorCode', ULONG),
     )
 
+class RpcAsyncStartDocPrinter(NDRCALL):
+    opnum=10
+    structure = (
+       ('hPrinter', PRINTER_HANDLE),
+       ('DocInfo', DOC_INFO_CONTAINER),
+    )
+
+
+class RpcAsyncStartDocPrinterResponse(NDRCALL):
+    structure =(('pJobId',DWORD),)
+
+class RpcAsyncInstallPrinterDriverFromPackage(NDRCALL):
+    opnum = 62
+    structure = (
+       ('pServerName', LPWSTR),
+       ('pszInfPath', LPWSTR),
+       ('pszDriverName', WSTR),
+       ('pszEnv', WSTR),
+       ('Flags', DWORD),
+    )
+class RpcAsyncInstallPrinterDriverFromPackageResponse(NDRCALL):
+    structure = (('ErrorCode', ULONG),)
+
+class RpcOpenPrinterEx(NDRCALL):
+    opnum = 0
+    structure = (
+       ('pPrinterName', STRING_HANDLE),
+       ('pDatatype', LPWSTR),
+       ('pDevModeContainer', DEVMODE_CONTAINER),
+       ('AccessRequired', DWORD),
+       ('pClientInfo', SPLCLIENT_CONTAINER),
+    )
+
+class RpcOpenPrinterExResponse(NDRCALL):
+    structure = (
+       ('pHandle', PRINTER_HANDLE),
+       ('ErrorCode', ULONG),
+    )
+
 ################################################################################
 # OPNUMs and their corresponding structures
 ################################################################################
 OPNUMS = {
-    0  : (RpcAsyncOpenPrinter, RpcAsyncOpenPrinterResponse),
-    #1  : (RpcAsyncAddPrinter, RpcAsyncAddPrinterResponse),
-    20 : (RpcAsyncClosePrinter, RpcAsyncClosePrinterResponse),
-    38 : (RpcAsyncEnumPrinters, RpcAsyncEnumPrintersResponse),
-    39 : (RpcAsyncAddPrinterDriver, RpcAsyncAddPrinterDriver),
-    40 : (RpcAsyncEnumPrinterDrivers, RpcAsyncEnumPrinterDriversResponse),
+    0: (RpcAsyncOpenPrinter, RpcAsyncOpenPrinterResponse),
+    1: (RpcAsyncAddPrinter, RpcAsyncAddPrinterResponse),
+    20: (RpcAsyncClosePrinter, RpcAsyncClosePrinterResponse),
+    33: (RpcAsyncXcvData, RpcAsyncXcvDataResponse),
+    38: (RpcAsyncEnumPrinters, RpcAsyncEnumPrintersResponse),
+    39: (RpcAsyncAddPrinterDriver, RpcAsyncAddPrinterDriver),
+    40: (RpcAsyncEnumPrinterDrivers, RpcAsyncEnumPrinterDriversResponse),
+    69: (RpcOpenPrinterEx, RpcOpenPrinterExResponse),
 }
 
 ################################################################################

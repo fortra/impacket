@@ -125,6 +125,9 @@ class NTLMRelayxConfig:
     def setCommand(self, command):
         self.command = command
 
+    def setInputFile(self, inputFile):
+        self.inputFile = inputFile
+
     def setEnumLocalAdmins(self, enumLocalAdmins):
         self.enumLocalAdmins = enumLocalAdmins
 

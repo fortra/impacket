@@ -544,6 +544,8 @@ rpc_status_codes = {
     0x16c9a171 : "rpc_s_no_context_available",
 }
 
+app_error_codes = { 0x8007007b : 'INVALID_NAME'}
+
 class DCERPCException(Exception):
     """
     This is the exception every client should catch regardless of the underlying
@@ -582,6 +584,19 @@ class DCERPCException(Exception):
             return 'DCERPC Runtime Error: code: 0x%x - %s ' % (self.error_code, error_msg_short)
         else:
             return 'DCERPC Runtime Error: unknown error code: 0x%x' % self.error_code
+
+class APPException(DCERPCException):
+    def __str__( self ):
+        key = self.error_code
+        if self.error_string is not None:
+            return self.error_string
+        if key in app_error_codes:
+            error_msg_short = app_error_codes[key]
+            return 'App Dependent  Error: code: 0x%x - %s ' % (self.error_code, error_msg_short)
+        else:
+            return 'App Dependent Error: unknown error code: 0x%x' % self.error_code
+
+
 
 # Context Item
 class CtxItem(Structure):
@@ -848,6 +863,20 @@ class DCERPC:
         else:
             return self.send(DCERPC_RawCall(function, body, uuid))
 
+    def request_raw(self, opnum, request, uuid=None, checkError=True):
+        self.call(opnum, request, uuid)
+        answer = self.recv()
+
+        if answer[-4:] != b'\x00\x00\x00\x00' and checkError is True:
+            error_code = unpack('<L', answer[-4:])[0]
+            if error_code in rpc_status_codes:
+                # This is an error we can handle
+                exception = DCERPCException(error_code = error_code)
+            else:
+                exception= APPException(error_code= error_code)
+            raise exception
+        return answer
+
     def request(self, request, uuid=None, checkError=True):
         if self.transfer_syntax == self.NDR64Syntax:
             request.changeTransferSyntax(self.NDR64Syntax)
@@ -963,7 +992,7 @@ class DCERPC_v5(DCERPC):
                 self.__nthash = nthash
                 pass
 
-    def bind(self, iface_uuid, alter = 0, bogus_binds = 0, transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')):
+    def bind(self, iface_uuid, alter = 0, bogus_binds = 0, transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0'), include_auth_data=1):
         bind = MSRPCBind()
         #item['TransferSyntax']['Version'] = 1
         ctx = self._ctx
@@ -1026,7 +1055,9 @@ class DCERPC_v5(DCERPC):
                sec_trailer['auth_pad_len']=pad
 
             packet['sec_trailer'] = sec_trailer
-            packet['auth_data'] = auth
+
+            if (include_auth_data==1):
+                packet['auth_data'] = auth
 
         self._transport.send(packet.get_packet())
 
@@ -1073,6 +1104,9 @@ class DCERPC_v5(DCERPC):
 
         # The received transmit size becomes the client's receive size, and the received receive size becomes the client's transmit size.
         self.__max_xmit_size = bindResp['max_rfrag']
+
+        if (include_auth_data==0):
+            return bindResp
 
         if self.__auth_level != RPC_C_AUTHN_LEVEL_NONE:
             if self.__auth_type == RPC_C_AUTHN_WINNT:
@@ -1418,8 +1452,11 @@ class DCERPC_v5(DCERPC):
             retAnswer += answer
         return retAnswer
 
-    def alter_ctx(self, newUID, bogus_binds = 0):
+    def alter_ctx(self, newUID, bogus_binds = 0, transfer_syntax= None, **kwargs):
         answer = self.__class__(self._transport)
+
+        if transfer_syntax==None:
+            transfer_syntax= bin_to_uuidtup(self.transfer_syntax)
 
         answer.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
                                self.__aesKey, self.__TGT, self.__TGS)
@@ -1428,7 +1465,8 @@ class DCERPC_v5(DCERPC):
 
         answer.set_ctx_id(self._ctx+1)
         answer.__callid = self.__callid
-        answer.bind(newUID, alter = 1, bogus_binds = bogus_binds, transfer_syntax = bin_to_uuidtup(self.transfer_syntax))
+        answer.bind(newUID, alter = 1, bogus_binds=bogus_binds, transfer_syntax =transfer_syntax, **kwargs)
+
         return answer
 
 class DCERPC_RawCall(MSRPCRequestHeader):
