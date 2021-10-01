@@ -1557,7 +1557,29 @@ class LSASecrets(OfflineRegistry):
             extrasecret = "%s:plain_password_hex:%s" % (printname, hexlify(secretItem).decode('utf-8'))
             self.__secretItems.append(extrasecret)
             self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, extrasecret)
-
+	
+	elif re.match('^L\$_SQSA_(S-[0-9]-[0-9]-([0-9])+-([0-9])+-([0-9])+-([0-9])+-([0-9])+)$', upperName) is not None:
+            # Decode stored security questions
+            sid = re.search('^L\$_SQSA_(S-[0-9]-[0-9]-([0-9])+-([0-9])+-([0-9])+-([0-9])+-([0-9])+)$', upperName).group(1)
+            try:
+                strDecoded = secretItem.decode('utf-16le').replace('\xa0',' ')
+                strDecoded = json.loads(strDecoded)
+            except:
+                pass
+            else:
+                output = []
+                if strDecoded['version'] == 2:
+                    output.append(" - Version : %d" % strDecoded['version'])
+                    for qk in strDecoded['questions']:
+                        output.append(" | Question: %s" % qk['question'])
+                        output.append(" | └──> Answer: %s" % qk['answer'])
+                    output = '\n'.join(output)
+                    secret = 'Security Questions for user %s: \n%s' % (sid, output)
+                else:
+                    LOG.warning("Unknown SQSA version (%s), please open an issue with the following data so we can add a parser for it." % str(strDecoded['version']))
+                    LOG.warning("Don't forget to remove sensitive content before sending the data in a Github issue.")
+                    secret = json.dumps(strDecoded, indent=4)
+		
         if secret != '':
             printableSecret = secret
             self.__secretItems.append(secret)
