@@ -48,10 +48,12 @@
 from __future__ import division
 from __future__ import print_function
 import codecs
+import json
 import hashlib
 import logging
 import ntpath
 import os
+import re
 import random
 import string
 import time
@@ -1557,8 +1559,7 @@ class LSASecrets(OfflineRegistry):
             extrasecret = "%s:plain_password_hex:%s" % (printname, hexlify(secretItem).decode('utf-8'))
             self.__secretItems.append(extrasecret)
             self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, extrasecret)
-	
-	elif re.match('^L\$_SQSA_(S-[0-9]-[0-9]-([0-9])+-([0-9])+-([0-9])+-([0-9])+-([0-9])+)$', upperName) is not None:
+        elif re.match('^L\$_SQSA_(S-[0-9]-[0-9]-([0-9])+-([0-9])+-([0-9])+-([0-9])+-([0-9])+)$', upperName) is not None:
             # Decode stored security questions
             sid = re.search('^L\$_SQSA_(S-[0-9]-[0-9]-([0-9])+-([0-9])+-([0-9])+-([0-9])+-([0-9])+)$', upperName).group(1)
             try:
@@ -1579,7 +1580,7 @@ class LSASecrets(OfflineRegistry):
                     LOG.warning("Unknown SQSA version (%s), please open an issue with the following data so we can add a parser for it." % str(strDecoded['version']))
                     LOG.warning("Don't forget to remove sensitive content before sending the data in a Github issue.")
                     secret = json.dumps(strDecoded, indent=4)
-		
+
         if secret != '':
             printableSecret = secret
             self.__secretItems.append(secret)
@@ -1887,10 +1888,10 @@ class NTDSHashes:
         self.__outputFileName = outputFileName
         self.__justUser = justUser
         self.__perSecretCallback = perSecretCallback
-		
-		# these are all the columns that we need to get the secrets. 
+
+		# these are all the columns that we need to get the secrets.
 		# If in the future someone finds other columns containing interesting things please extend ths table.
-        self.__filter_tables_usersecret = { 
+        self.__filter_tables_usersecret = {
             self.NAME_TO_INTERNAL['objectSid'] : 1,
             self.NAME_TO_INTERNAL['dBCSPwd'] : 1,
             self.NAME_TO_INTERNAL['name'] : 1,
@@ -1904,7 +1905,7 @@ class NTDSHashes:
             self.NAME_TO_INTERNAL['userAccountControl'] : 1,
             self.NAME_TO_INTERNAL['supplementalCredentials'] : 1,
             self.NAME_TO_INTERNAL['pekList'] : 1,
-        
+
         }
 
     def getResumeSessionFile(self):
