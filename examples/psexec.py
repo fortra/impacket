@@ -267,64 +267,120 @@ class RemoteStdOutPipe(Pipes):
         self.connectPipe()
 
         global LastDataSent
-        __stdoutOutputBuffer, __stdoutData = b'', b''
 
-        while True:
-            try:
-                stdout_ans = self.server.readFile(self.tid, self.fid, 0, 1024)
-            except:
-                pass
-            else:
+        if PY3:
+            __stdoutOutputBuffer, __stdoutData = b"", b""
+
+            while True:
                 try:
-                    if stdout_ans != LastDataSent:
-                        if len(stdout_ans) != 0:
-                            # Append new data to the buffer while there is data to read
-                            __stdoutOutputBuffer += stdout_ans
-
-                    promptRegex = rb'([a-zA-Z]:[\\\/])((([a-zA-Z0-9 -\.]+)[\\\/])+(([a-zA-Z0-9 -\.]+))?)?>$'
-                    endsWithPrompt = bool(re.match(promptRegex, __stdoutOutputBuffer) is not None)
-                    if endsWithPrompt == True:
-                        # All data, we shouldn't have encoding errors
-                        # Adding a space after the prompt because it's beautiful
-                        __stdoutData = __stdoutOutputBuffer + b" "
-                        # Remainder data for next iteration
-                        __stdoutOutputBuffer = b""
-
-                        # print("[+] endsWithPrompt")
-                        # print(" | __stdoutData:",__stdoutData)
-                        # print(" | __stdoutOutputBuffer:",__stdoutOutputBuffer)
-                    elif b'\n' in __stdoutOutputBuffer:
-                        # We have read a line, print buffer if it is not empty
-                        lines = __stdoutOutputBuffer.split(b"\n")
-                        # All lines, we shouldn't have encoding errors
-                        __stdoutData = b"\n".join(lines[:-1]) + b"\n"
-                        # Remainder data for next iteration
-                        __stdoutOutputBuffer = lines[-1]
-                        # print("[+] newline in __stdoutOutputBuffer")
-                        # print(" | __stdoutData:",__stdoutData)
-                        # print(" | __stdoutOutputBuffer:",__stdoutOutputBuffer)
-
-                    if len(__stdoutData) != 0:
-                        # There is data to print
-                        try:
-                            sys.stdout.write(__stdoutData.decode(CODEC))
-                            sys.stdout.flush()
-                            __stdoutData = b""
-                        except UnicodeDecodeError:
-                            logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
-                                          'https://docs.python.org/3/library/codecs.html#standard-encodings\nand then execute smbexec.py '
-                                          'again with -codec and the corresponding codec')
-                            print(__stdoutData.decode(CODEC, errors='replace'))
-                            __stdoutData = b""
-                    else:
-                        # Don't echo the command that was sent, and clear it up
-                        LastDataSent = ""
-                    # Just in case this got out of sync, i'm cleaning it up if there are more than 10 chars,
-                    # it will give false positives tho.. we should find a better way to handle this.
-                    # if LastDataSent > 10:
-                    #     LastDataSent = ''
+                    stdout_ans = self.server.readFile(self.tid, self.fid, 0, 1024)
                 except:
                     pass
+                else:
+                    try:
+                        if stdout_ans != LastDataSent:
+                            if len(stdout_ans) != 0:
+                                # Append new data to the buffer while there is data to read
+                                __stdoutOutputBuffer += stdout_ans
+
+                        promptRegex = b'([a-zA-Z]:[\\\/])((([a-zA-Z0-9 -\.]+)[\\\/])+(([a-zA-Z0-9 -\.]+))?)?>$'
+
+                        endsWithPrompt = bool(re.match(promptRegex, __stdoutOutputBuffer) is not None)
+                        if endsWithPrompt == True:
+                            # All data, we shouldn't have encoding errors
+                            # Adding a space after the prompt because it's beautiful
+                            __stdoutData = __stdoutOutputBuffer + b" "
+                            # Remainder data for next iteration
+                            __stdoutOutputBuffer = b""
+
+                            # print("[+] endsWithPrompt")
+                            # print(" | __stdoutData:",__stdoutData)
+                            # print(" | __stdoutOutputBuffer:",__stdoutOutputBuffer)
+                        elif b'\n' in __stdoutOutputBuffer:
+                            # We have read a line, print buffer if it is not empty
+                            lines = __stdoutOutputBuffer.split(b"\n")
+                            # All lines, we shouldn't have encoding errors
+                            __stdoutData = b"\n".join(lines[:-1]) + b"\n"
+                            # Remainder data for next iteration
+                            __stdoutOutputBuffer = lines[-1]
+                            # print("[+] newline in __stdoutOutputBuffer")
+                            # print(" | __stdoutData:",__stdoutData)
+                            # print(" | __stdoutOutputBuffer:",__stdoutOutputBuffer)
+
+                        if len(__stdoutData) != 0:
+                            # There is data to print
+                            try:
+                                sys.stdout.write(__stdoutData.decode(CODEC))
+                                sys.stdout.flush()
+                                __stdoutData = b""
+                            except UnicodeDecodeError:
+                                logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
+                                              'https://docs.python.org/3/library/codecs.html#standard-encodings\nand then execute smbexec.py '
+                                              'again with -codec and the corresponding codec')
+                                print(__stdoutData.decode(CODEC, errors='replace'))
+                                __stdoutData = b""
+                        else:
+                            # Don't echo the command that was sent, and clear it up
+                            LastDataSent = b""
+                        # Just in case this got out of sync, i'm cleaning it up if there are more than 10 chars,
+                        # it will give false positives tho.. we should find a better way to handle this.
+                        # if LastDataSent > 10:
+                        #     LastDataSent = ''
+                    except:
+                        pass
+        else:
+            __stdoutOutputBuffer, __stdoutData = "", ""
+
+            while True:
+                try:
+                    stdout_ans = self.server.readFile(self.tid, self.fid, 0, 1024)
+                except:
+                    pass
+                else:
+                    try:
+                        if stdout_ans != LastDataSent:
+                            if len(stdout_ans) != 0:
+                                # Append new data to the buffer while there is data to read
+                                __stdoutOutputBuffer += stdout_ans
+
+                        promptRegex = r'([a-zA-Z]:[\\\/])((([a-zA-Z0-9 -\.]+)[\\\/])+(([a-zA-Z0-9 -\.]+))?)?>$'
+
+                        endsWithPrompt = bool(re.match(promptRegex, __stdoutOutputBuffer) is not None)
+                        if endsWithPrompt == True:
+                            # All data, we shouldn't have encoding errors
+                            # Adding a space after the prompt because it's beautiful
+                            __stdoutData = __stdoutOutputBuffer + " "
+                            # Remainder data for next iteration
+                            __stdoutOutputBuffer = ""
+
+                            # print("[+] endsWithPrompt")
+                            # print(" | __stdoutData:",__stdoutData)
+                            # print(" | __stdoutOutputBuffer:",__stdoutOutputBuffer)
+                        elif '\n' in __stdoutOutputBuffer:
+                            # We have read a line, print buffer if it is not empty
+                            lines = __stdoutOutputBuffer.split("\n")
+                            # All lines, we shouldn't have encoding errors
+                            __stdoutData = "\n".join(lines[:-1]) + "\n"
+                            # Remainder data for next iteration
+                            __stdoutOutputBuffer = lines[-1]
+                            # print("[+] newline in __stdoutOutputBuffer")
+                            # print(" | __stdoutData:",__stdoutData)
+                            # print(" | __stdoutOutputBuffer:",__stdoutOutputBuffer)
+
+                        if len(__stdoutData) != 0:
+                            # There is data to print
+                            sys.stdout.write(__stdoutData.decode(CODEC))
+                            sys.stdout.flush()
+                            __stdoutData = ""
+                        else:
+                            # Don't echo the command that was sent, and clear it up
+                            LastDataSent = ""
+                        # Just in case this got out of sync, i'm cleaning it up if there are more than 10 chars,
+                        # it will give false positives tho.. we should find a better way to handle this.
+                        # if LastDataSent > 10:
+                        #     LastDataSent = ''
+                    except:
+                        pass
 
 
 class RemoteStdErrPipe(Pipes):
@@ -346,48 +402,85 @@ class RemoteStdErrPipe(Pipes):
         #         except:
         #             pass
 
-        __stderrOutputBuffer, __stderrData = b'', b''
+        if PY3:
+            __stderrOutputBuffer, __stderrData = b'', b''
 
-        while True:
-            try:
-                stderr_ans = self.server.readFile(self.tid, self.fid, 0, 1024)
-            except:
-                pass
-            else:
+            while True:
                 try:
-                    if len(stderr_ans) != 0:
-                        # Append new data to the buffer while there is data to read
-                        __stderrOutputBuffer += stderr_ans
-
-                    if b'\n' in __stderrOutputBuffer:
-                        # We have read a line, print buffer if it is not empty
-                        lines = __stderrOutputBuffer.split(b"\n")
-                        # All lines, we shouldn't have encoding errors
-                        __stderrData = b"\n".join(lines[:-1]) + b"\n"
-                        # Remainder data for next iteration
-                        __stderrOutputBuffer = lines[-1]
-
-                    if len(__stderrData) != 0:
-                        # There is data to print
-                        try:
-                            sys.stdout.write(__stderrData.decode(CODEC))
-                            sys.stdout.flush()
-                            __stderrData = b""
-                        except UnicodeDecodeError:
-                            logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
-                                          'https://docs.python.org/3/library/codecs.html#standard-encodings\nand then execute smbexec.py '
-                                          'again with -codec and the corresponding codec')
-                            print(__stderrData.decode(CODEC, errors='replace'))
-                            __stderrData = b""
-                    else:
-                        # Don't echo the command that was sent, and clear it up
-                        LastDataSent = ""
-                    # Just in case this got out of sync, i'm cleaning it up if there are more than 10 chars,
-                    # it will give false positives tho.. we should find a better way to handle this.
-                    # if LastDataSent > 10:
-                    #     LastDataSent = ''
+                    stderr_ans = self.server.readFile(self.tid, self.fid, 0, 1024)
                 except:
                     pass
+                else:
+                    try:
+                        if len(stderr_ans) != 0:
+                            # Append new data to the buffer while there is data to read
+                            __stderrOutputBuffer += stderr_ans
+
+                        if b'\n' in __stderrOutputBuffer:
+                            # We have read a line, print buffer if it is not empty
+                            lines = __stderrOutputBuffer.split(b"\n")
+                            # All lines, we shouldn't have encoding errors
+                            __stderrData = b"\n".join(lines[:-1]) + b"\n"
+                            # Remainder data for next iteration
+                            __stderrOutputBuffer = lines[-1]
+
+                        if len(__stderrData) != 0:
+                            # There is data to print
+                            try:
+                                sys.stdout.write(__stderrData.decode(CODEC))
+                                sys.stdout.flush()
+                                __stderrData = b""
+                            except UnicodeDecodeError:
+                                logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
+                                              'https://docs.python.org/3/library/codecs.html#standard-encodings\nand then execute smbexec.py '
+                                              'again with -codec and the corresponding codec')
+                                print(__stderrData.decode(CODEC, errors='replace'))
+                                __stderrData = b""
+                        else:
+                            # Don't echo the command that was sent, and clear it up
+                            LastDataSent = b""
+                        # Just in case this got out of sync, i'm cleaning it up if there are more than 10 chars,
+                        # it will give false positives tho.. we should find a better way to handle this.
+                        # if LastDataSent > 10:
+                        #     LastDataSent = ''
+                    except:
+                        pass
+        else:
+            __stderrOutputBuffer, __stderrData = '', ''
+
+            while True:
+                try:
+                    stderr_ans = self.server.readFile(self.tid, self.fid, 0, 1024)
+                except:
+                    pass
+                else:
+                    try:
+                        if len(stderr_ans) != 0:
+                            # Append new data to the buffer while there is data to read
+                            __stderrOutputBuffer += stderr_ans
+
+                        if '\n' in __stderrOutputBuffer:
+                            # We have read a line, print buffer if it is not empty
+                            lines = __stderrOutputBuffer.split("\n")
+                            # All lines, we shouldn't have encoding errors
+                            __stderrData = "\n".join(lines[:-1]) + "\n"
+                            # Remainder data for next iteration
+                            __stderrOutputBuffer = lines[-1]
+
+                        if len(__stderrData) != 0:
+                            # There is data to print
+                            sys.stdout.write(__stderrData.decode(CODEC))
+                            sys.stdout.flush()
+                            __stderrData = ""
+                        else:
+                            # Don't echo the command that was sent, and clear it up
+                            LastDataSent = ""
+                        # Just in case this got out of sync, i'm cleaning it up if there are more than 10 chars,
+                        # it will give false positives tho.. we should find a better way to handle this.
+                        # if LastDataSent > 10:
+                        #     LastDataSent = ''
+                    except:
+                        pass
 
 class RemoteShell(cmd.Cmd):
     def __init__(self, server, port, credentials, tid, fid, share, transport):
