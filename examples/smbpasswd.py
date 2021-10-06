@@ -221,3 +221,4 @@ if __name__ == '__main__':
 	else:
 		# If using NTLM hashes for the new password
 		smbpasswd.hSamrChangePasswordUser()
+
