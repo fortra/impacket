@@ -46,7 +46,9 @@ from impacket.dcerpc.v5 import transport, samr
 
 class SMBPasswd:
 
-	def __init__(self, domain, username, oldPassword, newPassword, oldPwdHashLM, oldPwdHashNT, newPwdHashLM, newPwdHashNT, hostname):
+	def __init__(self, domain='', username='', oldPassword='', newPassword='',
+				oldPwdHashLM='', oldPwdHashNT='', newPwdHashLM='', newPwdHashNT='',
+				hostname='', doKerberos=False, kdcHost=None):
 		self.domain = domain
 		self.username = username
 		self.oldPassword = oldPassword
@@ -57,6 +59,8 @@ class SMBPasswd:
 		self.newPwdHashNT = newPwdHashNT
 		self.hostname = hostname
 		self.dce = None
+		self.__doKerberos = doKerberos
+		self.__kdcHost = kdcHost
 
 	def connect(self, anonymous=False):
 		rpctransport = transport.SMBTransport(self.hostname, filename=r'\samr')
@@ -64,6 +68,7 @@ class SMBPasswd:
 			rpctransport.set_credentials(username='', password='', domain='', lmhash='', nthash='', aesKey='')
 		else:
 			rpctransport.set_credentials(self.username, self.oldPassword, self.domain, self.oldPwdHashLM, self.oldPwdHashNT, aesKey='')
+			rpctransport.set_kerberos(self.__doKerberos, self.__kdcHost)
 
 		self.dce = rpctransport.get_dce_rpc()
 		self.dce.connect()
@@ -87,13 +92,12 @@ class SMBPasswd:
 	def hSamrChangePasswordUser(self):
 		serverHandle = samr.hSamrConnect(self.dce, self.hostname + '\x00')['ServerHandle']
 		domainSID = samr.hSamrLookupDomainInSamServer(self.dce, serverHandle, self.domain)['DomainId']
-		domainHandle = samr.hSamrOpenDomain(self.dce, serverHandle, domainId=domainSID)['DomainHandle']   
+		domainHandle = samr.hSamrOpenDomain(self.dce, serverHandle, domainId=domainSID)['DomainHandle']
 		userRID = samr.hSamrLookupNamesInDomain(self.dce, domainHandle, (self.username,))['RelativeIds']['Element'][0]
 		userHandle = samr.hSamrOpenUser(self.dce, domainHandle, userId=userRID)['UserHandle']
 
 		try:
-			resp = samr.hSamrChangePasswordUser(self.dce, userHandle, self.oldPassword, newPassword='', oldPwdHashNT=self.oldPwdHashNT,
-                                                newPwdHashLM=self.newPwdHashLM, newPwdHashNT=self.newPwdHashNT)
+			resp = samr.hSamrChangePasswordUser(self.dce, userHandle, self.oldPassword, newPassword='', oldPwdHashNT=self.oldPwdHashNT, newPwdHashLM=self.newPwdHashLM, newPwdHashNT=self.newPwdHashNT)
 		except Exception as e:
 			if 'STATUS_PASSWORD_RESTRICTION' in str(e):
 				logging.critical('Some password update rule has been violated. For example, the password history policy may prohibit the use of recent passwords.')
@@ -122,12 +126,22 @@ def parse_args():
 	parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
 	parser.add_argument('-ts', action='store_true', help='adds timestamp to every logging output')
 	parser.add_argument('-debug', action='store_true', help='turn DEBUG output ON')
+
 	group = parser.add_mutually_exclusive_group()
 	group.add_argument('-newpass', action='store', default=None, help='new SMB password')
-	group.add_argument('-newhashes', action='store', default=None, metavar='LMHASH:NTHASH', help='new NTLM hashes, format is LMHASH:NTHASH '
-                                                                           '(the user will be asked to change their password at next logon)')
+	group.add_argument('-newhashes', action='store', default=None, metavar='LMHASH:NTHASH', help='new NTLM hashes, format is LMHASH:NTHASH (the user will be asked to change their password at next logon)')
+	group = parser.add_mutually_exclusive_group()
+	group.add_argument('-oldpass', action='store', default=None, help='old SMB password')
+	group.add_argument('-oldhashes', action='store', default=None, metavar='LMHASH:NTHASH', help='old NTLM hashes, format is LMHASH:NTHASH (the user will be asked to change their password at next logon)')
+
 	group = parser.add_argument_group('authentication')
 	group.add_argument('-hashes', action='store', default=None, metavar='LMHASH:NTHASH', help='NTLM hashes, format is LMHASH:NTHASH')
+	group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
+	group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
+	group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+
+	group = parser.add_argument_group('connection')
+	group.add_argument('-dc-ip', action='store', metavar="ip address", help='IP Address of the domain controller. If omitted it will use the domain part (FQDN) specified in the target parameter')
 
 	return parser.parse_args()
 
@@ -140,8 +154,17 @@ if __name__ == '__main__':
 
 	domain, username, oldPassword, address = parse_target(options.target)
 
+	if oldPassword == '' and options.oldpass is not None:
+		oldPassword = options.oldpass
+
+	if options.dc_ip is None:
+		options.dc_ip = address
+
 	if domain is None:
 		domain = 'Builtin'
+
+	if options.aesKey is not None:
+		options.k = True
 
 	if options.hashes is not None:
 		try:
@@ -174,7 +197,7 @@ if __name__ == '__main__':
 		else:
 			newPassword = options.newpass
 
-	smbpasswd = SMBPasswd(domain, username, oldPassword, newPassword, oldPwdHashLM, oldPwdHashNT, newPwdHashLM, newPwdHashNT, address)
+	smbpasswd = SMBPasswd(domain, username, oldPassword, newPassword, oldPwdHashLM, oldPwdHashNT, newPwdHashLM, newPwdHashNT, address, doKerberos=options.k, kdcHost=options.dc_ip)
 
 	try:
 		smbpasswd.connect()
