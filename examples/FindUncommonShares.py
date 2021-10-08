@@ -30,6 +30,7 @@ import nslookup
 import json
 import time
 import os
+import binascii
 
 
 COMMON_SHARES = [
@@ -207,8 +208,8 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
         if len(nthash) % 2:
             nthash = '0' + nthash
         try:  # just in case they were converted already
-            lmhash = unhexlify(lmhash)
-            nthash = unhexlify(nthash)
+            lmhash = binascii.unhexlify(lmhash)
+            nthash = binascii.unhexlify(nthash)
         except TypeError:
             pass
 
