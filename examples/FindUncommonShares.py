@@ -28,6 +28,8 @@ import ldap3
 import nslookup
 import json
 import time
+import os
+
 
 COMMON_SHARES = [
     "C$", "D$",
