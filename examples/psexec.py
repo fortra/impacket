@@ -56,9 +56,9 @@ class RemComResponse(Structure):
         ('ReturnCode','<L=0'),
     )
 
-RemComSTDOUT         = "RemCom_stdout"
-RemComSTDIN          = "RemCom_stdin"
-RemComSTDERR         = "RemCom_stderr"
+RemComSTDOUT = "RemCom_stdout"
+RemComSTDIN = "RemCom_stdin"
+RemComSTDERR = "RemCom_stderr"
 
 lock = Lock()
 
@@ -220,6 +220,7 @@ class PSEXEC:
             sys.stdout.flush()
             sys.exit(1)
 
+
 class Pipes(Thread):
     def __init__(self, transport, pipe, permissions, share=None):
         Thread.__init__(self)
@@ -283,7 +284,7 @@ class RemoteStdOutPipe(Pipes):
                                 # Append new data to the buffer while there is data to read
                                 __stdoutOutputBuffer += stdout_ans
 
-                        promptRegex = b'([a-zA-Z]:[\\\/])((([a-zA-Z0-9 -\.]+)[\\\/])+(([a-zA-Z0-9 -\.]+))?)?>$'
+                        promptRegex = b'([a-zA-Z]:[\\\/])((([a-zA-Z0-9 -\.]*)[\\\/]?)+(([a-zA-Z0-9 -\.]+))?)?>$'
 
                         endsWithPrompt = bool(re.match(promptRegex, __stdoutOutputBuffer) is not None)
                         if endsWithPrompt == True:
@@ -343,19 +344,16 @@ class RemoteStdOutPipe(Pipes):
                                 # Append new data to the buffer while there is data to read
                                 __stdoutOutputBuffer += stdout_ans
 
-                        promptRegex = r'([a-zA-Z]:[\\\/])((([a-zA-Z0-9 -\.]+)[\\\/])+(([a-zA-Z0-9 -\.]+))?)?>$'
+                        promptRegex = r'([a-zA-Z]:[\\\/])((([a-zA-Z0-9 -\.]*)[\\\/]?)+(([a-zA-Z0-9 -\.]+))?)?>$'
 
                         endsWithPrompt = bool(re.match(promptRegex, __stdoutOutputBuffer) is not None)
-                        if endsWithPrompt == True:
+                        if endsWithPrompt:
                             # All data, we shouldn't have encoding errors
                             # Adding a space after the prompt because it's beautiful
                             __stdoutData = __stdoutOutputBuffer + " "
                             # Remainder data for next iteration
                             __stdoutOutputBuffer = ""
 
-                            # print("[+] endsWithPrompt")
-                            # print(" | __stdoutData:",__stdoutData)
-                            # print(" | __stdoutOutputBuffer:",__stdoutOutputBuffer)
                         elif '\n' in __stdoutOutputBuffer:
                             # We have read a line, print buffer if it is not empty
                             lines = __stdoutOutputBuffer.split("\n")
@@ -363,9 +361,6 @@ class RemoteStdOutPipe(Pipes):
                             __stdoutData = "\n".join(lines[:-1]) + "\n"
                             # Remainder data for next iteration
                             __stdoutOutputBuffer = lines[-1]
-                            # print("[+] newline in __stdoutOutputBuffer")
-                            # print(" | __stdoutData:",__stdoutData)
-                            # print(" | __stdoutOutputBuffer:",__stdoutOutputBuffer)
 
                         if len(__stdoutData) != 0:
                             # There is data to print
@@ -379,7 +374,7 @@ class RemoteStdOutPipe(Pipes):
                         # it will give false positives tho.. we should find a better way to handle this.
                         # if LastDataSent > 10:
                         #     LastDataSent = ''
-                    except:
+                    except Exception as e:
                         pass
 
 
@@ -389,18 +384,6 @@ class RemoteStdErrPipe(Pipes):
 
     def run(self):
         self.connectPipe()
-
-        # while True:
-        #     try:
-        #         ans = self.server.readFile(self.tid,self.fid, 0, 1024)
-        #     except:
-        #         pass
-        #     else:
-        #         try:
-        #             sys.stderr.write(str(ans))
-        #             sys.stderr.flush()
-        #         except:
-        #             pass
 
         if PY3:
             __stderrOutputBuffer, __stderrData = b'', b''
@@ -443,7 +426,7 @@ class RemoteStdErrPipe(Pipes):
                         # it will give false positives tho.. we should find a better way to handle this.
                         # if LastDataSent > 10:
                         #     LastDataSent = ''
-                    except:
+                    except Exception as e:
                         pass
         else:
             __stderrOutputBuffer, __stderrData = '', ''
@@ -481,6 +464,7 @@ class RemoteStdErrPipe(Pipes):
                         #     LastDataSent = ''
                     except:
                         pass
+
 
 class RemoteShell(cmd.Cmd):
     def __init__(self, server, port, credentials, tid, fid, share, transport):
