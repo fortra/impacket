@@ -14,24 +14,24 @@
 #   Remi GASCOU (@podalirius_)
 #
 
-import argparse
-import sys
-import ssl
-import traceback
-import logging
-import threading
-from enum import Enum
 from concurrent.futures import ThreadPoolExecutor
-from impacket import version
+from enum import Enum
 from impacket.examples import logger, utils
-from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
+from impacket import version
 from impacket.smbconnection import SMBConnection, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB_DIALECT, SessionError
-import ldap3
-import nslookup
-import json
-import time
-import os
+from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
+import argparse
 import binascii
+import json
+import ldap3
+import logging
+import nslookup
+import os
+import ssl
+import sys
+import threading
+import time
+import traceback
 
 
 COMMON_SHARES = [
