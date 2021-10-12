@@ -2738,15 +2738,38 @@ def hSamrGetAliasMembership(dce, domainHandle, sidArray):
     request['SidArray']['Count'] = len(sidArray['Sids'])
     return dce.request(request)
 
-def hSamrChangePasswordUser(dce, userHandle, oldPassword, newPassword):
+def hSamrChangePasswordUser(dce, userHandle, oldPassword, newPassword, oldPwdHashNT='', newPwdHashLM='', newPwdHashNT=''):
     request = SamrChangePasswordUser()
     request['UserHandle'] = userHandle
 
     from impacket import crypto, ntlm
 
-    oldPwdHashNT = ntlm.NTOWFv1(oldPassword)
-    newPwdHashNT = ntlm.NTOWFv1(newPassword)
-    newPwdHashLM = ntlm.LMOWFv1(newPassword)
+    if oldPwdHashNT == '':
+        oldPwdHashNT = ntlm.NTOWFv1(oldPassword)
+    else:
+        # Let's convert the hashes to binary form, if not yet
+        try:
+            oldPwdHashNT = unhexlify(oldPwdHashNT)
+        except:
+            pass
+
+    if newPwdHashLM == '':
+        newPwdHashLM = ntlm.LMOWFv1(newPassword)
+    else:
+        # Let's convert the hashes to binary form, if not yet
+        try:
+            newPwdHashLM = unhexlify(newPwdHashLM)
+        except:
+            pass
+
+    if newPwdHashNT == '':
+        newPwdHashNT = ntlm.NTOWFv1(newPassword)
+    else:
+        # Let's convert the hashes to binary form, if not yet
+        try:
+            newPwdHashNT = unhexlify(newPwdHashNT)
+        except:
+            pass
 
     request['LmPresent'] = 0
     request['OldLmEncryptedWithNewLm'] = NULL
