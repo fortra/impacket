@@ -195,23 +195,7 @@ class RegHandler:
                 self.__remoteOps.finish()
 
     def query(self, dce, keyName):
-        # Let's strip the root key
-        try:
-            rootKey = keyName.split('\\')[0]
-            subKey = '\\'.join(keyName.split('\\')[1:])
-        except Exception:
-            raise Exception('Error parsing keyName %s' % keyName)
-
-        if rootKey.upper() == 'HKLM':
-            ans = rrp.hOpenLocalMachine(dce)
-        elif rootKey.upper() == 'HKU':
-            ans = rrp.hOpenCurrentUser(dce)
-        elif rootKey.upper() == 'HKCR':
-            ans = rrp.hOpenClassesRoot(dce)
-        else:
-            raise Exception('Invalid root key %s ' % rootKey)
-
-        hRootKey = ans['phKey']
+        hRootKey, subKey = self.__strip_root_key(dce, keyName)
 
         ans2 = rrp.hBaseRegOpenKey(dce, hRootKey, subKey,
                                    samDesired=rrp.MAXIMUM_ALLOWED | rrp.KEY_ENUMERATE_SUB_KEYS | rrp.KEY_QUERY_VALUE)
@@ -241,23 +225,7 @@ class RegHandler:
                     # ans3 = rrp.hBaseRegEnumKey(rpc, ans2['phkResult'], 0)
 
     def add(self, dce, keyName):
-        # Let's strip the root key
-        try:
-            rootKey = keyName.split('\\')[0]
-            subKey = '\\'.join(keyName.split('\\')[1:])
-        except Exception:
-            raise Exception('Error parsing keyName %s' % keyName)
-
-        if rootKey.upper() == 'HKLM':
-            ans = rrp.hOpenLocalMachine(dce)
-        elif rootKey.upper() == 'HKU':
-            ans = rrp.hOpenCurrentUser(dce)
-        elif rootKey.upper() == 'HKCR':
-            ans = rrp.hOpenClassesRoot(dce)
-        else:
-            raise Exception('Invalid root key %s ' % rootKey)
-
-        hRootKey = ans['phKey']
+        hRootKey, subKey = self.__strip_root_key(dce, keyName)
 
         # READ_CONTROL | rrp.KEY_SET_VALUE | rrp.KEY_CREATE_SUB_KEY should be equal to KEY_WRITE (0x20006)
         if self.__options.v is None: # Try to create subkey
@@ -315,23 +283,7 @@ class RegHandler:
                 ))
 
     def delete(self, dce, keyName):
-        # Let's strip the root key
-        try:
-            rootKey = keyName.split('\\')[0]
-            subKey = '\\'.join(keyName.split('\\')[1:])
-        except Exception:
-            raise Exception('Error parsing keyName %s' % keyName)
-
-        if rootKey.upper() == 'HKLM':
-            ans = rrp.hOpenLocalMachine(dce)
-        elif rootKey.upper() == 'HKU':
-            ans = rrp.hOpenCurrentUser(dce)
-        elif rootKey.upper() == 'HKCR':
-            ans = rrp.hOpenClassesRoot(dce)
-        else:
-            raise Exception('Invalid root key %s ' % rootKey)
-
-        hRootKey = ans['phKey']
+        hRootKey, subKey = self.__strip_root_key(dce, keyName)
 
         # READ_CONTROL | rrp.KEY_SET_VALUE | rrp.KEY_CREATE_SUB_KEY should be equal to KEY_WRITE (0x20006)
         if self.__options.v is None and not self.__options.va and not self.__options.ve: # Try to delete subkey
@@ -434,6 +386,24 @@ class RegHandler:
                     print('Unhandled error %s in deletion of value %s\\%s' % (
                         str(e), keyName, subKey
                     ))
+
+    def __strip_root_key(self, dce, keyName):
+        # Let's strip the root key
+        try:
+            rootKey = keyName.split('\\')[0]
+            subKey = '\\'.join(keyName.split('\\')[1:])
+        except Exception:
+            raise Exception('Error parsing keyName %s' % keyName)
+        if rootKey.upper() == 'HKLM':
+            ans = rrp.hOpenLocalMachine(dce)
+        elif rootKey.upper() == 'HKU':
+            ans = rrp.hOpenCurrentUser(dce)
+        elif rootKey.upper() == 'HKCR':
+            ans = rrp.hOpenClassesRoot(dce)
+        else:
+            raise Exception('Invalid root key %s ' % rootKey)
+        hRootKey = ans['phKey']
+        return hRootKey, subKey
 
     def __print_key_values(self, rpc, keyHandler):
         i = 0
