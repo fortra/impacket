@@ -97,12 +97,21 @@ class DumpSecrets:
         self.__justDC = options.just_dc
         self.__justDCNTLM = options.just_dc_ntlm
         self.__justUser = options.just_dc_user
+        self.__justDCUsers = options.just_dc_users
+        self.__justDCComputers = options.just_dc_computers
+        self.__hashcat = options.hashcat
+        self.__quiet = options.quiet
         self.__pwdLastSet = options.pwd_last_set
         self.__printUserStatus= options.user_status
         self.__resumeFileName = options.resumefile
         self.__canProcessSAMLSA = True
         self.__kdcHost = options.dc_ip
         self.__options = options
+
+        # force quiet and hashcat to False if outputFileName is not defined
+        if self.__outputFileName is None:
+            self.__quiet = False
+            self.__hashcat = False
 
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
@@ -150,7 +159,7 @@ class DumpSecrets:
                     self.__remoteOps.setExecMethod(self.__options.exec_method)
                     if self.__justDC is False and self.__justDCNTLM is False or self.__useVSSMethod is True:
                         self.__remoteOps.enableRegistry()
-                        bootKey             = self.__remoteOps.getBootKey()
+                        bootKey = self.__remoteOps.getBootKey()
                         # Let's check whether target system stores LM Hashes
                         self.__noLMHash = self.__remoteOps.checkNoLMHashPolicy()
                 except Exception as e:
@@ -167,14 +176,15 @@ class DumpSecrets:
             if self.__justDC is False and self.__justDCNTLM is False and self.__canProcessSAMLSA:
                 try:
                     if self.__isRemote is True:
-                        SAMFileName         = self.__remoteOps.saveSAM()
+                        SAMFileName = self.__remoteOps.saveSAM()
                     else:
-                        SAMFileName         = self.__samHive
+                        SAMFileName = self.__samHive
 
-                    self.__SAMHashes    = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote)
+                    self.__SAMHashes = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote, hashcat = self.__hashcat,
+                                                 outputFile = self.__outputFileName, quiet = self.__quiet)
                     self.__SAMHashes.dump()
                     if self.__outputFileName is not None:
-                        self.__SAMHashes.export(self.__outputFileName)
+                        self.__SAMHashes.export()
                 except Exception as e:
                     logging.error('SAM hashes extraction failed: %s' % str(e))
 
@@ -184,14 +194,14 @@ class DumpSecrets:
                     else:
                         SECURITYFileName = self.__securityHive
 
-                    self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps,
-                                                   isRemote=self.__isRemote, history=self.__history)
+                    self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps, isRemote=self.__isRemote,
+                                                   history=self.__history, outputFile = self.__outputFileName, quiet = self.__quiet)
                     self.__LSASecrets.dumpCachedHashes()
                     if self.__outputFileName is not None:
-                        self.__LSASecrets.exportCached(self.__outputFileName)
+                        self.__LSASecrets.exportCached()
                     self.__LSASecrets.dumpSecrets()
                     if self.__outputFileName is not None:
-                        self.__LSASecrets.exportSecrets(self.__outputFileName)
+                        self.__LSASecrets.exportSecrets()
                 except Exception as e:
                     if logging.getLogger().level == logging.DEBUG:
                         import traceback
@@ -212,6 +222,8 @@ class DumpSecrets:
                                            useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM,
                                            pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
                                            outputFileName=self.__outputFileName, justUser=self.__justUser,
+                                           justDCUsers=self.__justDCUsers, justDCComputers=self.__justDCComputers,
+                                           hashcat=self.__hashcat, quiet=self.__quiet,
                                            printUserStatus= self.__printUserStatus)
             try:
                 self.__NTDSHashes.dump()
@@ -298,11 +310,19 @@ if __name__ == '__main__':
                          'state')
     parser.add_argument('-outputfile', action='store',
                         help='base output filename. Extensions will be added for sam, secrets, cached and ntds')
+    parser.add_argument('-hashcat', action='store_true', default=False,
+                        help='Use hashcat output format (allowed only with -outputfile switch)')
+    parser.add_argument('-quiet', action='store_true', default=False,
+                        help='Suppress output (allowed only with -outputfile switch)')
     parser.add_argument('-use-vss', action='store_true', default=False,
-                        help='Use the VSS method insead of default DRSUAPI')
+                        help='Use the VSS method instead of default DRSUAPI')
     parser.add_argument('-exec-method', choices=['smbexec', 'wmiexec', 'mmcexec'], nargs='?', default='smbexec', help='Remote exec '
                         'method to use at target (only when using -use-vss). Default: smbexec')
     group = parser.add_argument_group('display options')
+    group.add_argument('-just-dc-users', action='store_true', default=False,
+                        help='Extract only DC User accounts')
+    group.add_argument('-just-dc-computers', action='store_true', default=False,
+                        help='Extract only DC Computer accounts')
     group.add_argument('-just-dc-user', action='store', metavar='USERNAME',
                        help='Extract only NTDS.DIT data for the user specified. Only available for DRSUAPI approach. '
                             'Implies also -just-dc switch')
@@ -350,15 +370,24 @@ if __name__ == '__main__':
 
     domain, username, password, remoteName = parse_target(options.target)
 
+    if options.just_dc_users is True and options.just_dc_computers is True:
+        logging.error('-just-dc-users and -just-dc-computers they cannot be used together')
+        sys.exit(1)
+
+    if options.quiet is True and options.outputfile is None:
+        logging.error('cannot use -quiet without -outputfile switch')
+        sys.exit(1)
+
+    if options.hashcat is True and options.outputfile is None:
+        logging.error('cannot use -hashcat without -outputfile switch')
+        sys.exit(1)
+
     if options.just_dc_user is not None:
         if options.use_vss is True:
             logging.error('-just-dc-user switch is not supported in VSS mode')
             sys.exit(1)
         elif options.resumefile is not None:
             logging.error('resuming a previous NTDS.DIT dump session not compatible with -just-dc-user switch')
-            sys.exit(1)
-        elif remoteName.upper() == 'LOCAL' and username == '':
-            logging.error('-just-dc-user not compatible in LOCAL mode')
             sys.exit(1)
         else:
             # Having this switch on implies not asking for anything else.
