@@ -176,7 +176,7 @@ class HTTPRelayServer(Thread):
                         #If it was an anonymous login, send 401
                         self.do_AUTHHEAD(b'NTLM', proxy=proxy)
                 else:
-                    LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (self.target.scheme,
+                    LOG.info("Authenticating against %s://%s as %s SUCCEED" % (self.target.scheme,
                         self.target.netloc, self.authUser))
 
                     self.server.config.target.logTarget(self.target, True, self.authUser)
