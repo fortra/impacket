@@ -164,6 +164,8 @@ def start_servers(options, threads):
         c.setInterfaceIp(options.interface_ip)
         c.setExploitOptions(options.remove_mic, options.remove_target)
         c.setWebDAVOptions(options.serve_image)
+        c.setIsADCSAttack(options.adcs)
+        c.setADCSOptions(options.template)
 
         if server is HTTPRelayServer:
             c.setListeningPort(options.http_port)
@@ -319,6 +321,11 @@ if __name__ == '__main__':
                         'dump all emails')
     imapoptions.add_argument('-im','--imap-max', action='store',type=int, required=False,default=0, help='Max number of emails to dump '
         '(0 = unlimited, default: no limit)')
+
+    # AD CS options
+    adcsoptions = parser.add_argument_group("AD CS attack options")
+    adcsoptions.add_argument('--adcs', action='store_true', required=False, help='Enable AD CS relay attack')
+    adcsoptions.add_argument('--template', action='store', metavar="TEMPLATE", required=False, default="Machine", help='AD CS template. If you are attacking Domain Controller or other windows server machine, default value should be suitable.')
 
     try:
        options = parser.parse_args()
