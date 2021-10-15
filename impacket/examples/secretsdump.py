@@ -1569,7 +1569,7 @@ class LSASecrets(OfflineRegistry):
                 pass
             else:
                 output = []
-                if strDecoded['version'] == 2:
+                if strDecoded['version'] == 1:
                     output.append(" - Version : %d" % strDecoded['version'])
                     for qk in strDecoded['questions']:
                         output.append(" | Question: %s" % qk['question'])
