@@ -98,7 +98,7 @@ class GETST:
             logging.info("\tUsing additional ticket %s instead of S4U2Self" % additional_ticket_path)
             ccache = CCache.loadFile(additional_ticket_path)
             principal = ccache.credentials[0].header['server'].prettyPrint()
-            creds = ccache.getCredential(principal)
+            creds = ccache.getCredential(principal.decode())
             TGS = creds.toTGS(principal)
 
             tgs = decoder.decode(TGS['KDC_REP'], asn1Spec=TGS_REP())[0]
