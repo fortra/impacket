@@ -48,7 +48,7 @@ except NotImplementedError:
     rand = random
     pass
 
-def sendReceive(data, host, kdcHost):
+def sendReceive(data, host, kdcHost, port=88):
     if kdcHost is None:
         targetHost = host
     else:
@@ -56,13 +56,13 @@ def sendReceive(data, host, kdcHost):
 
     messageLen = struct.pack('!i', len(data))
 
-    LOG.debug('Trying to connect to KDC at %s' % targetHost)
+    LOG.debug('Trying to connect to KDC at %s:%s' % (targetHost, port))
     try:
-        af, socktype, proto, canonname, sa = socket.getaddrinfo(targetHost, 88, 0, socket.SOCK_STREAM)[0]
+        af, socktype, proto, canonname, sa = socket.getaddrinfo(targetHost, port, 0, socket.SOCK_STREAM)[0]
         s = socket.socket(af, socktype, proto)
         s.connect(sa)
     except socket.error as e:
-        raise socket.error("Connection error (%s:%s)" % (targetHost, 88), e)
+        raise socket.error("Connection error (%s:%s)" % (targetHost, port), e)
 
     s.sendall(messageLen + data)
 
