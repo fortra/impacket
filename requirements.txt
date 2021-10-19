@@ -1,4 +1,5 @@
 future
+cryptography==3.3.2
 six
 chardet
 pyasn1>=0.2.3
