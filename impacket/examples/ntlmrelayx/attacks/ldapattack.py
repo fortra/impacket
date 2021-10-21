@@ -242,6 +242,10 @@ class LDAPAttack(ProtocolAttack):
         if self.config.ShadowCredentialsTarget in delegatePerformed:
             LOG.info('Shadow credentials attack already performed for %s, skipping' % self.config.ShadowCredentialsTarget)
             return
+        # If the target is not specify, we try to modify the user himself
+        if not self.config.ShadowCredentialsTarget:
+            self.config.ShadowCredentialsTarget = self.username
+
         LOG.info("Searching for the target account")
 
         # Get the domain we are in
