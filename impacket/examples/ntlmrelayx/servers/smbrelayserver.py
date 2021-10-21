@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -291,26 +291,20 @@ class SMBRelayServer(Thread):
             client = connData['SMBClient']
             authenticateMessage = ntlm.NTLMAuthChallengeResponse()
             authenticateMessage.fromString(token)
-            if authenticateMessage['user_name'] != '':
-                # For some attacks it is important to know the authenticated username, so we store it
+            self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
+                                        authenticateMessage['user_name'].decode('utf-16le'))).upper()
 
-                self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
-                                            authenticateMessage['user_name'].decode('utf-16le'))).upper()
+            if rawNTLM is True:
+                respToken2 = SPNEGO_NegTokenResp()
+                respToken2['ResponseToken'] = securityBlob
+                securityBlob = respToken2.getData()
 
-                if rawNTLM is True:
-                    respToken2 = SPNEGO_NegTokenResp()
-                    respToken2['ResponseToken'] = securityBlob
-                    securityBlob = respToken2.getData()
-
-                if self.config.remove_mic:
-                    clientResponse, errorCode = self.do_ntlm_auth(client, token,
-                                                                  connData['CHALLENGE_MESSAGE']['challenge'])
-                else:
-                    clientResponse, errorCode = self.do_ntlm_auth(client, securityBlob,
-                                                                  connData['CHALLENGE_MESSAGE']['challenge'])
+            if self.config.remove_mic:
+                clientResponse, errorCode = self.do_ntlm_auth(client, token,
+                                                              connData['CHALLENGE_MESSAGE']['challenge'])
             else:
-                # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials
-                errorCode = STATUS_ACCESS_DENIED
+                clientResponse, errorCode = self.do_ntlm_auth(client, securityBlob,
+                                                              connData['CHALLENGE_MESSAGE']['challenge'])
 
             if errorCode != STATUS_SUCCESS:
                 #Log this target as processed for this client
@@ -379,10 +373,7 @@ class SMBRelayServer(Thread):
         try:
             if self.config.mode.upper () == 'REFLECTION':
                 self.targetprocessor = TargetsProcessor (singleTarget='SMB://%s:445/' % connData['ClientIP'])
-            if self.authUser == '/':
-                LOG.info('SMBD-%s: Connection from %s authenticated as guest (anonymous). Skipping target selection.' %
-                         (connId, connData['ClientIP']))
-                return self.origsmb2TreeConnect (connId, smbServer, recvPacket)
+
             self.target = self.targetprocessor.getTarget(identity = self.authUser)
             if self.target is None:
                 # No more targets to process, just let the victim to fail later
@@ -544,17 +535,11 @@ class SMBRelayServer(Thread):
                 client = connData['SMBClient']
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
+                self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
+                                            authenticateMessage['user_name'].decode('utf-16le'))).upper()
 
-                if authenticateMessage['user_name'] != '':
-                    #For some attacks it is important to know the authenticated username, so we store it
-                    self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
-                                                authenticateMessage['user_name'].decode('utf-16le'))).upper()
-
-                    clientResponse, errorCode = self.do_ntlm_auth(client,sessionSetupData['SecurityBlob'],
-                                                                  connData['CHALLENGE_MESSAGE']['challenge'])
-                else:
-                    # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials
-                    errorCode = STATUS_ACCESS_DENIED
+                clientResponse, errorCode = self.do_ntlm_auth(client,sessionSetupData['SecurityBlob'],
+                                                              connData['CHALLENGE_MESSAGE']['challenge'])
 
                 if errorCode != STATUS_SUCCESS:
                     # Let's return what the target returned, hope the client connects back again
@@ -703,10 +688,7 @@ class SMBRelayServer(Thread):
         try:
             if self.config.mode.upper () == 'REFLECTION':
                 self.targetprocessor = TargetsProcessor (singleTarget='SMB://%s:445/' % connData['ClientIP'])
-            if self.authUser == '/':
-                LOG.info('SMBD-%s: Connection from %s authenticated as guest (anonymous). Skipping target selection.' %
-                         (connId, connData['ClientIP']))
-                return self.origsmbComTreeConnectAndX (connId, smbServer, recvPacket)
+
             self.target = self.targetprocessor.getTarget(identity = self.authUser)
             if self.target is None:
                 # No more targets to process, just let the victim to fail later
