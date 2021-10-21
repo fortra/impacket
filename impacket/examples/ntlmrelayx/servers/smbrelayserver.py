@@ -72,6 +72,8 @@ class SMBRelayServer(Thread):
         else:
             smbConfig.set("global", "SMB2Support", "False")
 
+        smbConfig.set("global", "anonymous_logon", "False")
+
         if self.config.outputFile is not None:
             smbConfig.set('global','jtr_dump_path',self.config.outputFile)
 
