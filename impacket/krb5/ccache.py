@@ -530,9 +530,6 @@ class CCache:
             data = f.read()
             f.close()
             return cls(data)
-        except FileNotFoundError as e:
-            # No cache present
-            raise e
         except Exception as e:
             raise e
 
