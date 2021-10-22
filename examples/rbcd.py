@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# Description: Python script for handling the msDS-AllowedToActOnBehalfOfOtherIdentity property of a target computer
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Description:
+#   Python script for handling the msDS-AllowedToActOnBehalfOfOtherIdentity property of a target computer
 #
 # Authors:
-#  Remi Gascou (@podalirius_)
-#  Charlie Bromberg (@_nwodtuhs)
+#   Remi Gascou (@podalirius_)
+#   Charlie Bromberg (@_nwodtuhs)
 #
 #  ToDo:
 # [ ]: allow users to set a ((-delegate-from-sid or -delegate-from-dn) and -delegate-to-dn) in order to skip ldapdomaindump and explicitely set the SID/DN
