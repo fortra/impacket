@@ -660,10 +660,10 @@ class GETST:
                 logging.info('Impersonating %s' % self.__options.impersonate)
                 # Editing below to pass hashes for decryption
                 if self.__additional_ticket is not None:
-                    tgs, copher, oldSessionKey, sessionKey = self.doS4U2ProxyWithAdditionalTicket(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey,
+                    tgs, cipher, oldSessionKey, sessionKey = self.doS4U2ProxyWithAdditionalTicket(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey,
                                                                                                   self.__kdcHost, self.__additional_ticket)
                 else:
-                    tgs, copher, oldSessionKey, sessionKey = self.doS4U(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey, self.__kdcHost)
+                    tgs, cipher, oldSessionKey, sessionKey = self.doS4U(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey, self.__kdcHost)
             except Exception as e:
                 logging.debug("Exception", exc_info=True)
                 logging.error(str(e))
@@ -713,7 +713,7 @@ if __name__ == '__main__':
     if len(sys.argv) == 1:
         parser.print_help()
         print("\nExamples: ")
-        print("\t./getTGT.py -hashes lm:nt contoso.com/user\n")
+        print("\t./getST.py -spn cifs/contoso-dc -hashes lm:nt contoso.com/user\n")
         print("\tit will use the lm:nt hashes for authentication. If you don't specify them, a password will be asked")
         sys.exit(1)
 
