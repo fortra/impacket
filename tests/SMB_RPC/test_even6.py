@@ -83,6 +83,42 @@ class EVEN6Tests(unittest.TestCase):
             buff = b''.join(event)
             print(hexdump(buff))
 
+    def test_EvtRpcRegisterLogQuery_EvtRpcQuerySeek(self):
+        dce, rpctransport = self.connect(2)
+
+        request = even6.EvtRpcRegisterLogQuery()
+        request['Path'] = 'Security\x00'
+        request['Query'] = '*\x00'
+        request['Flags'] = even6.EvtQueryChannelName | even6.EvtReadNewestToOldest
+
+        request.dump()
+        try:
+            resp = dce.request(request)
+            resp.dump()
+        except Exception as e:
+            return
+
+        log_handle = resp['Handle']
+
+        request = even6.EvtRpcQuerySeek()
+        request['LogQuery'] = log_handle
+        request['Pos'] = 0
+        request['BookmarkXML'] = f"""
+                    <?xml version="1.0" encoding="UTF-8"?>
+                     <BookmarkList>
+                        <Bookmark Channel="Security\x00" RecordId="{1}" IsCurrent="true"/>
+                     </BookmarkList>
+                \x00"""
+        request['TimeOut'] = 60
+        request['Flags'] = 0x00000001
+
+        request.dump()
+        try:
+            resp = dce.request(request)
+            resp.dump()
+        except Exception as e:
+            return
+
     def test_hEvtRpcRegisterLogQuery_hEvtRpcQueryNext(self):
         dce, rpctransport = self.connect(2)
 
