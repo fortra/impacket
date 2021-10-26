@@ -402,7 +402,10 @@ class GETST:
 
         reqBody['kdc-options'] = constants.encodeFlags(opts)
 
-        serverName = Principal(self.__user, type=constants.PrincipalNameType.NT_UNKNOWN.value)
+        if self.__no_s4u2proxy and self.__options.spn is not None:
+            serverName = Principal(self.__options.spn, type=constants.PrincipalNameType.NT_UNKNOWN.value)
+        else:
+            serverName = Principal(self.__user, type=constants.PrincipalNameType.NT_UNKNOWN.value)
 
         seq_set(reqBody, 'sname', serverName.components_to_asn1)
         reqBody['realm'] = str(decodedTGT['crealm'])
@@ -694,7 +697,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=True, description="Given a password, hash or aesKey, it will request a "
                                                                 "Service Ticket and save it as ccache")
     parser.add_argument('identity', action='store', help='[domain/]username[:password]')
-    parser.add_argument('-spn', action="store", required=True, help='SPN (service/server) of the target service the '
+    parser.add_argument('-spn', action="store", help='SPN (service/server) of the target service the '
                                                                     'service ticket will' ' be generated for')
     parser.add_argument('-impersonate', action="store", help='target username that will be impersonated (thru S4U2Self)'
                                                              ' for quering the ST. Keep in mind this will only work if '
@@ -703,7 +706,7 @@ if __name__ == '__main__':
     parser.add_argument('-additional-ticket', action='store', metavar='ticket.ccache', help='include a forwardable service ticket in a S4U2Proxy request for RBCD + KCD Kerberos only')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
-    parser.add_argument('-no-s4u2proxy', action='store_true', help='Only do S4U2self, no S4U2proxy')
+    parser.add_argument('-self', dest='no_s4u2proxy', action='store_true', help='Only do S4U2self, no S4U2proxy')
     parser.add_argument('-force-forwardable', action='store_true', help='Force the service ticket obtained through '
                                                                         'S4U2Self to be forwardable. For best results, the -hashes and -aesKey values for the '
                                                                         'specified -identity should be provided. This allows impresonation of protected users '
@@ -729,6 +732,9 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
+
+    if not options.no_s4u2proxy and options.spn is None:
+        parser.error("argument -spn is required, except when -self is set")
 
     # Init the example's logger theme
     logger.init(options.ts)
