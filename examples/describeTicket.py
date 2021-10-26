@@ -14,12 +14,14 @@
 #   Remi Gascou (@podalirius_)
 #   Charlie Bromberg (@_nwodtuhs)
 
+import json
 import logging
 import sys
 import traceback
 import argparse
+import binascii
 from Cryptodome.Hash import MD4
-from datetime import datetime
+import datetime
 import base64
 from binascii import unhexlify, hexlify
 from pyasn1.codec.der import decoder
@@ -30,7 +32,8 @@ from impacket.krb5 import constants
 from impacket.krb5.asn1 import TGS_REP, EncTicketPart, AD_IF_RELEVANT
 from impacket.krb5.ccache import CCache
 from impacket.krb5.crypto import Key, _enctype_table, InvalidChecksum, string_to_key
-from impacket.krb5.pac import PACTYPE, PAC_INFO_BUFFER, KERB_VALIDATION_INFO, PAC_SERVER_CHECKSUM, PAC_SIGNATURE_DATA
+from impacket.krb5.pac import PACTYPE, PAC_INFO_BUFFER, KERB_VALIDATION_INFO, PAC_SERVER_CHECKSUM, PAC_SIGNATURE_DATA, PAC_LOGON_INFO, PAC_CLIENT_INFO_TYPE, PAC_CLIENT_INFO, PAC_PRIVSVR_CHECKSUM, PAC_UPN_DNS_INFO, UPN_DNS_INFO
+
 
 def parse_ccache(args):
     ccache = CCache.loadFile(args.ticket)
@@ -46,9 +49,9 @@ def parse_ccache(args):
         spn = creds['server'].prettyPrint().split(b'@')[0].decode('utf-8')
         logging.info("%-25s: %s" % ("ServiceName", spn))
         logging.info("%-25s: %s" % ("ServiceRealm", creds['server'].prettyPrint().split(b'@')[1].decode('utf-8')))
-        logging.info("%-25s: %s" % ("StartTime", datetime.fromtimestamp(creds['time']['starttime']).strftime("%d/%m/%Y %H:%H:%S %p")))
-        logging.info("%-25s: %s" % ("EndTime", datetime.fromtimestamp(creds['time']['endtime']).strftime("%d/%m/%Y %H:%H:%S %p")))
-        logging.info("%-25s: %s" % ("RenewTill", datetime.fromtimestamp(creds['time']['renew_till']).strftime("%d/%m/%Y %H:%H:%S %p")))
+        logging.info("%-25s: %s" % ("StartTime", datetime.datetime.fromtimestamp(creds['time']['starttime']).strftime("%d/%m/%Y %H:%H:%S %p")))
+        logging.info("%-25s: %s" % ("EndTime", datetime.datetime.fromtimestamp(creds['time']['endtime']).strftime("%d/%m/%Y %H:%H:%S %p")))
+        logging.info("%-25s: %s" % ("RenewTill", datetime.datetime.fromtimestamp(creds['time']['renew_till']).strftime("%d/%m/%Y %H:%H:%S %p")))
 
         flags = []
         for k in constants.TicketFlags:
@@ -115,56 +118,158 @@ def parse_ccache(args):
     adIfRelevant = decoder.decode(encTicketPart['authorization-data'][0]['ad-data'], asn1Spec=AD_IF_RELEVANT())[0]
     # So here we have the PAC
     pacType = PACTYPE(adIfRelevant[0]['ad-data'].asOctets())
-    parse_pac(pacType)
+    parsed_pac = parse_pac(pacType)
+    logging.info("  %-23s:" % ("LogonInfo"))
+    logging.info("    %-21s: %s" % ("LogonTime", parsed_pac[0]["LogonTime"]))
+    logging.info("    %-21s: %s" % ("LogoffTime", parsed_pac[0]["LogoffTime"]))
+    logging.info("    %-21s: %s" % ("KickOffTime", parsed_pac[0]["KickOffTime"]))
+    logging.info("    %-21s: %s" % ("PasswordLastSet", parsed_pac[0]["PasswordLastSet"]))
+    logging.info("    %-21s: %s" % ("PasswordCanChange", parsed_pac[0]["PasswordCanChange"]))
+    logging.info("    %-21s: %s" % ("PasswordMustChange", parsed_pac[0]["PasswordMustChange"]))
+    logging.info("    %-21s: %s" % ("EffectiveName", parsed_pac[0]["EffectiveName"]))
+    logging.info("    %-21s: %s" % ("FullName", parsed_pac[0]["FullName"]))
+    logging.info("    %-21s: %s" % ("LogonScript", parsed_pac[0]["LogonScript"]))
+    logging.info("    %-21s: %s" % ("ProfilePath", parsed_pac[0]["ProfilePath"]))
+    logging.info("    %-21s: %s" % ("HomeDirectory", parsed_pac[0]["HomeDirectory"]))
+    logging.info("    %-21s: %s" % ("HomeDirectoryDrive", parsed_pac[0]["HomeDirectoryDrive"]))
+    logging.info("    %-21s: %s" % ("LogonCount", parsed_pac[0]["LogonCount"]))
+    logging.info("    %-21s: %s" % ("BadPasswordCount", parsed_pac[0]["BadPasswordCount"]))
+    logging.info("    %-21s: %s" % ("UserId", parsed_pac[0]["UserId"]))
+    logging.info("    %-21s: %s" % ("PrimaryGroupId", parsed_pac[0]["PrimaryGroupId"]))
+    logging.info("    %-21s: %s" % ("GroupCount", parsed_pac[0]["GroupCount"]))
+    logging.info("    %-21s: %s" % ("Groups", ', '.join([str(gid['RelativeId']) for gid in parsed_pac[0]["GroupIds"]])))
+    logging.info("    %-21s: %s" % ("UserFlags", parsed_pac[0]["UserFlags"]))
+    logging.info("    %-21s: %s" % ("UserSessionKey", parsed_pac[0]["UserSessionKey"]))
+    logging.info("    %-21s: %s" % ("LogonServer", parsed_pac[0]["LogonServer"]))
+    logging.info("    %-21s: %s" % ("LogonDomainName", parsed_pac[0]["LogonDomainName"]))
+    logging.info("    %-21s: %s" % ("LogonDomainId", parsed_pac[0]["LogonDomainId"]))
+    # Todo parse UserAccountControl
+    logging.info("    %-21s: %s" % ("UserAccountControl", parsed_pac[0]["UserAccountControl"]))
+    logging.info("    %-21s: %s" % ("ExtraSIDs", ', '.join([sid for sid in parsed_pac[0]["ExtraSids"]])))
+    logging.info("    %-21s: %s" % ("ResourceGroupCount", parsed_pac[0]["ResourceGroupCount"]))
 
 
 def parse_pac(pacType):
+    def format_sid(data):
+        return "S-%d-%d-%d-%s" % (data['Revision'], data['IdentifierAuthority'], data['SubAuthorityCount'], '-'.join([str(e) for e in data['SubAuthority']]))
+    def PACinfiniteData(obj):
+        while 'fields' in dir(obj):
+            if 'Data' in obj.fields.keys():
+                obj = obj.fields['Data']
+            else:
+                return obj.fields
+        return obj
+    def PACparseFILETIME(data):
+        # FILETIME structure (minwinbase.h)
+        # Contains a 64-bit value representing the number of 100-nanosecond intervals since January 1, 1601 (UTC).
+        # https://docs.microsoft.com/en-us/windows/win32/api/minwinbase/ns-minwinbase-filetime
+        v_ticks = PACinfiniteData(data['dwLowDateTime']) + 2^32 * PACinfiniteData(data['dwHighDateTime'])
+        v_FILETIME = datetime.datetime(1601, 1, 1, 0, 0, 0) + datetime.timedelta(seconds=v_ticks/ 1e7)
+        return v_FILETIME
+    def PACparseGroupIds(data):
+        groups = []
+        for group in PACinfiniteData(data):
+            groupMembership = {}
+            groupMembership['RelativeId'] = PACinfiniteData(group.fields['RelativeId'])
+            groupMembership['Attributes'] = PACinfiniteData(group.fields['Attributes'])
+            groups.append(groupMembership)
+        return groups
+    def PACparseSID(sid):
+        str_sid = format_sid({
+            'Revision': PACinfiniteData(sid['Revision']),
+            'SubAuthorityCount': PACinfiniteData(sid['SubAuthorityCount']),
+            'IdentifierAuthority': int(binascii.hexlify(PACinfiniteData(sid['IdentifierAuthority'])), 16),
+            'SubAuthority': PACinfiniteData(sid['SubAuthority'])
+        })
+        return str_sid
+    def PACparseExtraSids(data):
+        _ExtraSids = []
+        for sid in PACinfiniteData(PACinfiniteData(data.fields)['Data']):
+            _d = { 'Attributes': PACinfiniteData(sid.fields['Attributes']), 'Sid': PACparseSID(sid.fields['Sid']) }
+            _ExtraSids.append(_d['Sid'])
+        return _ExtraSids
+    def PACparseResourceGroupDomainSid(data):
+        data = {
+            'Revision': PACinfiniteData(data['Revision']),
+            'SubAuthorityCount': PACinfiniteData(data['SubAuthorityCount']),
+            'IdentifierAuthority': int(binascii.hexlify(data['IdentifierAuthority']), 16),
+            'SubAuthority': PACinfiniteData(data['SubAuthority'])
+        }
+        return data
+    #
+    parsed_tuPAC = []
+    #
     buff = pacType['Buffers']
-
+    infoBuffer = PAC_INFO_BUFFER(buff)
     for bufferN in range(pacType['cBuffers']):
-        infoBuffer = PAC_INFO_BUFFER(buff)
-        data = pacType['Buffers'][infoBuffer['Offset'] - 8:][:infoBuffer['cbBufferSize']]
-        if logging.getLogger().level == logging.DEBUG:
-            print("TYPE 0x%x" % infoBuffer['ulType'])
-        if infoBuffer['ulType'] == 1:
+        data = pacType['Buffers'][infoBuffer['Offset']-8:][:infoBuffer['cbBufferSize']]
+        if infoBuffer['ulType'] == PAC_LOGON_INFO:
             type1 = TypeSerialization1(data)
-            # I'm skipping here 4 bytes with its the ReferentID for the pointer
-            newdata = data[len(type1) + 4:]
+            newdata = data[len(type1)+4:]
             kerbdata = KERB_VALIDATION_INFO()
             kerbdata.fromString(newdata)
             kerbdata.fromStringReferents(newdata[len(kerbdata.getData()):])
-            # kerbdata.dump()
-            print()
-            print('Domain SID:', kerbdata['LogonDomainId'].formatCanonical())
-            print()
-        # elif infoBuffer['ulType'] == PAC_CLIENT_INFO_TYPE:
-        #     clientInfo = PAC_CLIENT_INFO(data)
-        #     if logging.getLogger().level == logging.DEBUG:
-        #         clientInfo.dump()
-        #         print()
+            parsed_data = {}
+
+            parsed_data['EffectiveName']      = PACinfiniteData(kerbdata.fields['EffectiveName']).decode('utf-16-le')
+            parsed_data['FullName']           = PACinfiniteData(kerbdata.fields['FullName']).decode('utf-16-le')
+            parsed_data['LogonScript']        = PACinfiniteData(kerbdata.fields['LogonScript']).decode('utf-16-le')
+            parsed_data['ProfilePath']        = PACinfiniteData(kerbdata.fields['ProfilePath']).decode('utf-16-le')
+            parsed_data['HomeDirectory']      = PACinfiniteData(kerbdata.fields['HomeDirectory']).decode('utf-16-le')
+            parsed_data['HomeDirectoryDrive'] = PACinfiniteData(kerbdata.fields['HomeDirectoryDrive']).decode('utf-16-le')
+            parsed_data['LogonCount']         = PACinfiniteData(kerbdata.fields['LogonCount'])
+            parsed_data['BadPasswordCount']   = PACinfiniteData(kerbdata.fields['BadPasswordCount'])
+            parsed_data['UserId']             = PACinfiniteData(kerbdata.fields['UserId'])
+            parsed_data['PrimaryGroupId']     = PACinfiniteData(kerbdata.fields['PrimaryGroupId'])
+            parsed_data['UserFlags']          = PACinfiniteData(kerbdata.fields['UserFlags'])
+            parsed_data['UserSessionKey']     = hexlify(PACinfiniteData(kerbdata.fields['UserSessionKey'])).decode('utf-8')
+            parsed_data['LogonServer']        = PACinfiniteData(kerbdata.fields['LogonServer']).decode('utf-16-le')
+            parsed_data['LogonDomainName']    = PACinfiniteData(kerbdata.fields['LogonDomainName']).decode('utf-16-le')
+            parsed_data['LogonDomainId']        = PACparseSID(PACinfiniteData(kerbdata.fields['LogonDomainId']))
+            parsed_data['LMKey']                = hexlify(PACinfiniteData(kerbdata.fields['LMKey'])).decode('utf-8')
+            parsed_data['UserAccountControl']   = PACinfiniteData(kerbdata.fields['UserAccountControl'])
+            parsed_data['SubAuthStatus']        = PACinfiniteData(kerbdata.fields['SubAuthStatus'])
+            parsed_data['LastSuccessfulILogon'] = PACparseFILETIME(kerbdata.fields['LastSuccessfulILogon'])
+            parsed_data['LastFailedILogon']     = PACparseFILETIME(kerbdata.fields['LastFailedILogon'])
+            parsed_data['FailedILogonCount']    = PACinfiniteData(kerbdata.fields['FailedILogonCount'])
+            parsed_data['Reserved3']            = PACinfiniteData(kerbdata.fields['Reserved3'])
+            parsed_data['LogonTime']            = PACparseFILETIME(kerbdata.fields['LogonTime'])
+            parsed_data['LogoffTime']           = PACparseFILETIME(kerbdata.fields['LogoffTime'])
+            parsed_data['KickOffTime']          = PACparseFILETIME(kerbdata.fields['KickOffTime'])
+            parsed_data['PasswordLastSet']      = PACparseFILETIME(kerbdata.fields['PasswordLastSet'])
+            parsed_data['PasswordCanChange']    = PACparseFILETIME(kerbdata.fields['PasswordCanChange'])
+            parsed_data['PasswordMustChange']   = PACparseFILETIME(kerbdata.fields['PasswordMustChange'])
+            parsed_data['GroupCount'] = PACinfiniteData(kerbdata.fields['GroupCount'])
+            parsed_data['GroupIds'] = PACparseGroupIds(kerbdata.fields['GroupIds'])
+            parsed_data['SidCount']             = PACinfiniteData(kerbdata.fields['SidCount'])
+            parsed_data['ExtraSids']            = PACparseExtraSids(kerbdata.fields['ExtraSids'])
+            parsed_data['ResourceGroupDomainSid'] = PACparseResourceGroupDomainSid(kerbdata.fields['ResourceGroupDomainSid'])
+            parsed_data['ResourceGroupCount']   = PACinfiniteData(kerbdata.fields['ResourceGroupCount'])
+            parsed_data['ResourceGroupIds']     = PACparseGroupIds(kerbdata.fields['ResourceGroupIds'])
+
+            parsed_tuPAC.append(parsed_data)
+        elif infoBuffer['ulType'] == PAC_CLIENT_INFO_TYPE:
+            type1 = TypeSerialization1(data)
+            # TODO: Not implemented
+            print(dir(type1))
+            pass
         elif infoBuffer['ulType'] == PAC_SERVER_CHECKSUM:
+            clientInfo = PAC_CLIENT_INFO(data)
+            # TODO: Not implemented
+            print(dir(clientInfo))
+            pass
+        elif infoBuffer['ulType'] == PAC_PRIVSVR_CHECKSUM:
             signatureData = PAC_SIGNATURE_DATA(data)
-            if logging.getLogger().level == logging.DEBUG:
-                signatureData.dump()
-                print()
-        # elif infoBuffer['ulType'] == PAC_PRIVSVR_CHECKSUM:
-        #     signatureData = PAC_SIGNATURE_DATA(data)
-        #     if logging.getLogger().level == logging.DEBUG:
-        #         signatureData.dump()
-        #         print()
-        # elif infoBuffer['ulType'] == PAC_UPN_DNS_INFO:
-        #     upn = UPN_DNS_INFO(data)
-        #     if logging.getLogger().level == logging.DEBUG:
-        #         upn.dump()
-        #         print(data[upn['DnsDomainNameOffset']:])
-        #         print()
-        # else:
-        #     hexdump(data)
+            # TODO: Not implemented
+            print(dir(signatureData))
+            pass
+        elif infoBuffer['ulType'] == PAC_UPN_DNS_INFO:
+            upn = UPN_DNS_INFO(data)
+            # TODO: Not implemented
+            print(dir(upn))
+            pass
+    return parsed_tuPAC
 
-        if logging.getLogger().level == logging.DEBUG:
-            print("#" * 80)
-
-        buff = buff[len(infoBuffer):]
 
 def generate_kerberos_keys(args):
     # copypasta from krbrelayx.py
@@ -304,4 +409,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
