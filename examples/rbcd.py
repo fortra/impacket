@@ -578,7 +578,6 @@ def main():
             rbcd.remove(args.delegate_from)
         elif args.action == 'flush':
             rbcd.flush()
-            rbcd.flush()
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             traceback.print_exc()
