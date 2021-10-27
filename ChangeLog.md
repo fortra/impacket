@@ -8,6 +8,51 @@ https://github.com/SecureAuthCorp/impacket/commits/master
 ## Unreleased changes
 
 
+## Impacket v0.9.24 (October 2021):
+
+1. Library improvements 
+	* Fixed WMI objects parsing (@franferrax)
+	* Added the RpcAddPrinterDriverEx method and related structures to [MS-RPRN]: Print System Remote Protocol (@cube0x0)
+	* Initial implementation of [MS-PAR]: Print System Asynchronous Remote Protocol (@cube0x0)
+	* Complying MS-RPCH with HTTP/1.1 (@mohemiv) 
+	* Added return of server time in case of Kerberos error (@ShutdownRepo and @Hackndo)
+
+2. Examples improvements
+	* [getST.py](examples/getST.py):
+	   * Added support for a custom additional ticket for S4U2Proxy (@ShutdownRepo)
+	* [ntlmrelayx.py](examples/ntlmrelayx.py):
+	   * Added Negotiate authentication support to the HTTP server (@LZD-TMoreggia) 
+	   * Added anonymous session handling in the HTTP server (@0xdeaddood)
+	   * Fixed error in ldapattack.py when trying to escalate with machine account (@Rcarnus) 
+	   * Added the implementation of AD CS attack (@ExAndroidDev)
+	   * Disabled the anonymous logon in the SMB server (@ly4k)
+	* [psexec.py](examples/psexec.py):
+	   * Fixed decoding problems on multi bytes characters (@p0dalirius)
+	* [reg.py](examples/reg.py):
+	   * Implemented ADD and DELETE functionalities (@Gifts) 
+	* [secretsdump.py](examples/secretsdump.py):
+	   * Speeding up NTDS parsing (@skelsec)
+	* [smbclient.py](examples/smbclient.py):
+	   * Added 'mget' command which allows the download of multiple files (@deadjakk)
+	   * Handling empty search count in FindFileBothDirectoryInfo (@martingalloar)
+	* [smbpasswd.py](examples/smbpasswd.py):
+	   * Added the ability to change a user's password providing NTLM hashes (@snovvcrash)
+	* [smbserver.py](examples/smbserver.py): 
+	   * Added NULL SMBv2 client connection handling (@0xdeaddood)
+	   * Hardened path checks and Added TID checks (@martingalloar)
+	   * Added SMB2 support to QUERY_INFO Request and Enabled SMB_COM_FLUSH method (@0xdeaddood)
+	   * Added missing constant and structure for the QUERY_FS Information Level SMB_QUERY_FS_DEVICE_INFO (@martingalloar)  
+	* [wmipersist.py](examples/wmipersist.py):
+	   * Fixed VBA script execution and improved error checking (@franferrax)
+
+3. New examples
+	* [rbcd.py](examples/rbcd.py): Example script for handling the msDS-AllowedToActOnBehalfOfOtherIdentity property of a target computer (@ShutdownRepo and @p0dalirius) (based on the previous work of @tothi and @NinjaStyle82)
+
+As always, thanks a lot to all these contributors that make this library better every day (since last version):
+
+@deadjakk @franferrax @cube0x0 @w0rmh013 @skelsec @mohemiv @LZD-TMoreggia @exploide @ShutdownRepo @Hackndo @snovvcrash @rmaksimov @Gifts @Rcarnus @ExAndroidDev @ly4k @p0dalirius
+
+
 ## Impacket v0.9.23 (June 2021):
 
 1. Library improvements 
