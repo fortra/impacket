@@ -24,6 +24,8 @@ from Cryptodome.Hash import MD4
 import datetime
 import base64
 from binascii import unhexlify, hexlify
+
+from impacket.krb5.constants import ChecksumTypes
 from pyasn1.codec.der import decoder
 from impacket import LOG, version
 from impacket.examples import logger
@@ -32,7 +34,8 @@ from impacket.krb5 import constants
 from impacket.krb5.asn1 import TGS_REP, EncTicketPart, AD_IF_RELEVANT
 from impacket.krb5.ccache import CCache
 from impacket.krb5.crypto import Key, _enctype_table, InvalidChecksum, string_to_key
-from impacket.krb5.pac import PACTYPE, PAC_INFO_BUFFER, KERB_VALIDATION_INFO, PAC_SERVER_CHECKSUM, PAC_SIGNATURE_DATA, PAC_LOGON_INFO, PAC_CLIENT_INFO_TYPE, PAC_CLIENT_INFO, PAC_PRIVSVR_CHECKSUM, PAC_UPN_DNS_INFO, UPN_DNS_INFO
+from impacket.krb5.pac import PACTYPE, PAC_INFO_BUFFER, KERB_VALIDATION_INFO, PAC_SERVER_CHECKSUM, PAC_SIGNATURE_DATA, PAC_LOGON_INFO, PAC_CLIENT_INFO_TYPE, PAC_CLIENT_INFO, \
+    PAC_PRIVSVR_CHECKSUM, PAC_UPN_DNS_INFO, UPN_DNS_INFO, PAC_CREDENTIALS_INFO, PAC_DELEGATION_INFO, S4U_DELEGATION_INFO
 
 
 def parse_ccache(args):
@@ -118,35 +121,54 @@ def parse_ccache(args):
     adIfRelevant = decoder.decode(encTicketPart['authorization-data'][0]['ad-data'], asn1Spec=AD_IF_RELEVANT())[0]
     # So here we have the PAC
     pacType = PACTYPE(adIfRelevant[0]['ad-data'].asOctets())
+    # TODO : cycle through dict instead of line by line? Filter on type, if it list, for parsed_pac['LogonInfo']["GroupIds"] & parsed_pac['LogonInfo']["ExtraSids"]
     parsed_pac = parse_pac(pacType)
     logging.info("  %-23s:" % ("LogonInfo"))
-    logging.info("    %-21s: %s" % ("LogonTime", parsed_pac[0]["LogonTime"]))
-    logging.info("    %-21s: %s" % ("LogoffTime", parsed_pac[0]["LogoffTime"]))
-    logging.info("    %-21s: %s" % ("KickOffTime", parsed_pac[0]["KickOffTime"]))
-    logging.info("    %-21s: %s" % ("PasswordLastSet", parsed_pac[0]["PasswordLastSet"]))
-    logging.info("    %-21s: %s" % ("PasswordCanChange", parsed_pac[0]["PasswordCanChange"]))
-    logging.info("    %-21s: %s" % ("PasswordMustChange", parsed_pac[0]["PasswordMustChange"]))
-    logging.info("    %-21s: %s" % ("EffectiveName", parsed_pac[0]["EffectiveName"]))
-    logging.info("    %-21s: %s" % ("FullName", parsed_pac[0]["FullName"]))
-    logging.info("    %-21s: %s" % ("LogonScript", parsed_pac[0]["LogonScript"]))
-    logging.info("    %-21s: %s" % ("ProfilePath", parsed_pac[0]["ProfilePath"]))
-    logging.info("    %-21s: %s" % ("HomeDirectory", parsed_pac[0]["HomeDirectory"]))
-    logging.info("    %-21s: %s" % ("HomeDirectoryDrive", parsed_pac[0]["HomeDirectoryDrive"]))
-    logging.info("    %-21s: %s" % ("LogonCount", parsed_pac[0]["LogonCount"]))
-    logging.info("    %-21s: %s" % ("BadPasswordCount", parsed_pac[0]["BadPasswordCount"]))
-    logging.info("    %-21s: %s" % ("UserId", parsed_pac[0]["UserId"]))
-    logging.info("    %-21s: %s" % ("PrimaryGroupId", parsed_pac[0]["PrimaryGroupId"]))
-    logging.info("    %-21s: %s" % ("GroupCount", parsed_pac[0]["GroupCount"]))
-    logging.info("    %-21s: %s" % ("Groups", ', '.join([str(gid['RelativeId']) for gid in parsed_pac[0]["GroupIds"]])))
-    logging.info("    %-21s: %s" % ("UserFlags", parsed_pac[0]["UserFlags"]))
-    logging.info("    %-21s: %s" % ("UserSessionKey", parsed_pac[0]["UserSessionKey"]))
-    logging.info("    %-21s: %s" % ("LogonServer", parsed_pac[0]["LogonServer"]))
-    logging.info("    %-21s: %s" % ("LogonDomainName", parsed_pac[0]["LogonDomainName"]))
-    logging.info("    %-21s: %s" % ("LogonDomainId", parsed_pac[0]["LogonDomainId"]))
+    logging.info("    %-21s: %s" % ("LogonTime", parsed_pac['LogonInfo']["LogonTime"]))
+    logging.info("    %-21s: %s" % ("LogoffTime", parsed_pac['LogonInfo']["LogoffTime"]))
+    logging.info("    %-21s: %s" % ("KickOffTime", parsed_pac['LogonInfo']["KickOffTime"]))
+    logging.info("    %-21s: %s" % ("PasswordLastSet", parsed_pac['LogonInfo']["PasswordLastSet"]))
+    logging.info("    %-21s: %s" % ("PasswordCanChange", parsed_pac['LogonInfo']["PasswordCanChange"]))
+    logging.info("    %-21s: %s" % ("PasswordMustChange", parsed_pac['LogonInfo']["PasswordMustChange"]))
+    logging.info("    %-21s: %s" % ("EffectiveName", parsed_pac['LogonInfo']["EffectiveName"]))
+    logging.info("    %-21s: %s" % ("FullName", parsed_pac['LogonInfo']["FullName"]))
+    logging.info("    %-21s: %s" % ("LogonScript", parsed_pac['LogonInfo']["LogonScript"]))
+    logging.info("    %-21s: %s" % ("ProfilePath", parsed_pac['LogonInfo']["ProfilePath"]))
+    logging.info("    %-21s: %s" % ("HomeDirectory", parsed_pac['LogonInfo']["HomeDirectory"]))
+    logging.info("    %-21s: %s" % ("HomeDirectoryDrive", parsed_pac['LogonInfo']["HomeDirectoryDrive"]))
+    logging.info("    %-21s: %s" % ("LogonCount", parsed_pac['LogonInfo']["LogonCount"]))
+    logging.info("    %-21s: %s" % ("BadPasswordCount", parsed_pac['LogonInfo']["BadPasswordCount"]))
+    logging.info("    %-21s: %s" % ("UserId", parsed_pac['LogonInfo']["UserId"]))
+    logging.info("    %-21s: %s" % ("PrimaryGroupId", parsed_pac['LogonInfo']["PrimaryGroupId"]))
+    logging.info("    %-21s: %s" % ("GroupCount", parsed_pac['LogonInfo']["GroupCount"]))
+    logging.info("    %-21s: %s" % ("Groups", ', '.join([str(gid['RelativeId']) for gid in parsed_pac['LogonInfo']["GroupIds"]])))
+    logging.info("    %-21s: %s" % ("UserFlags", parsed_pac['LogonInfo']["UserFlags"]))
+    logging.info("    %-21s: %s" % ("UserSessionKey", parsed_pac['LogonInfo']["UserSessionKey"]))
+    logging.info("    %-21s: %s" % ("LogonServer", parsed_pac['LogonInfo']["LogonServer"]))
+    logging.info("    %-21s: %s" % ("LogonDomainName", parsed_pac['LogonInfo']["LogonDomainName"]))
+    logging.info("    %-21s: %s" % ("LogonDomainId", parsed_pac['LogonInfo']["LogonDomainId"]))
     # Todo parse UserAccountControl
-    logging.info("    %-21s: %s" % ("UserAccountControl", parsed_pac[0]["UserAccountControl"]))
-    logging.info("    %-21s: %s" % ("ExtraSIDs", ', '.join([sid for sid in parsed_pac[0]["ExtraSids"]])))
-    logging.info("    %-21s: %s" % ("ResourceGroupCount", parsed_pac[0]["ResourceGroupCount"]))
+    logging.info("    %-21s: %s" % ("UserAccountControl", parsed_pac['LogonInfo']["UserAccountControl"]))
+    logging.info("    %-21s: %s" % ("ExtraSIDs", ', '.join([sid for sid in parsed_pac['LogonInfo']["ExtraSids"]])))
+    logging.info("    %-21s: %s" % ("ResourceGroupCount", parsed_pac['LogonInfo']["ResourceGroupCount"]))
+    logging.info("  %-23s:" % ("ClientName"))
+    logging.info("    %-21s: %s" % ("Client Id", parsed_pac['ClientName']["Client Id"]))
+    logging.info("    %-21s: %s" % ("Client Name", parsed_pac['ClientName']["Client Name"]))
+    logging.info("  %-23s:" % ("DelegationInfo"))
+    logging.info("    %-21s: %s" % ("S4U2proxyTarget", parsed_pac['DelegationInfo']["S4U2proxyTarget"]))
+    logging.info("    %-21s: %s" % ("TransitedListSize", parsed_pac['DelegationInfo']["TransitedListSize"]))
+    logging.info("    %-21s: %s" % ("S4UTransitedServices", parsed_pac['DelegationInfo']["S4UTransitedServices"]))
+    logging.info("  %-23s:" % ("UpnDns"))
+    logging.info("    %-21s: %s" % ("DNS Domain Name", parsed_pac['UpnDns']["DNS Domain Name"]))
+    logging.info("    %-21s: %s" % ("UPN", parsed_pac['UpnDns']["UPN"]))
+    logging.info("    %-21s: %s" % ("Flags", parsed_pac['UpnDns']["Flags"]))
+    logging.info("  %-23s:" % ("ServerChecksum"))
+    logging.info("    %-21s: %s" % ("Signature Type", parsed_pac['ServerChecksum']["Signature Type"]))
+    logging.info("    %-21s: %s" % ("Signature", parsed_pac['ServerChecksum']["Signature"]))
+    logging.info("  %-23s:" % ("KDCChecksum"))
+    logging.info("    %-21s: %s" % ("Signature Type", parsed_pac['KDCChecksum']["Signature Type"]))
+    logging.info("    %-21s: %s" % ("Signature", parsed_pac['KDCChecksum']["Signature"]))
+
 
 
 def parse_pac(pacType):
@@ -200,8 +222,9 @@ def parse_pac(pacType):
     parsed_tuPAC = []
     #
     buff = pacType['Buffers']
-    infoBuffer = PAC_INFO_BUFFER(buff)
     for bufferN in range(pacType['cBuffers']):
+        # TODO : parse all structures
+        infoBuffer = PAC_INFO_BUFFER(buff)
         data = pacType['Buffers'][infoBuffer['Offset']-8:][:infoBuffer['cbBufferSize']]
         if infoBuffer['ulType'] == PAC_LOGON_INFO:
             type1 = TypeSerialization1(data)
@@ -211,20 +234,20 @@ def parse_pac(pacType):
             kerbdata.fromStringReferents(newdata[len(kerbdata.getData()):])
             parsed_data = {}
 
-            parsed_data['EffectiveName']      = PACinfiniteData(kerbdata.fields['EffectiveName']).decode('utf-16-le')
-            parsed_data['FullName']           = PACinfiniteData(kerbdata.fields['FullName']).decode('utf-16-le')
-            parsed_data['LogonScript']        = PACinfiniteData(kerbdata.fields['LogonScript']).decode('utf-16-le')
-            parsed_data['ProfilePath']        = PACinfiniteData(kerbdata.fields['ProfilePath']).decode('utf-16-le')
-            parsed_data['HomeDirectory']      = PACinfiniteData(kerbdata.fields['HomeDirectory']).decode('utf-16-le')
-            parsed_data['HomeDirectoryDrive'] = PACinfiniteData(kerbdata.fields['HomeDirectoryDrive']).decode('utf-16-le')
-            parsed_data['LogonCount']         = PACinfiniteData(kerbdata.fields['LogonCount'])
-            parsed_data['BadPasswordCount']   = PACinfiniteData(kerbdata.fields['BadPasswordCount'])
-            parsed_data['UserId']             = PACinfiniteData(kerbdata.fields['UserId'])
-            parsed_data['PrimaryGroupId']     = PACinfiniteData(kerbdata.fields['PrimaryGroupId'])
-            parsed_data['UserFlags']          = PACinfiniteData(kerbdata.fields['UserFlags'])
-            parsed_data['UserSessionKey']     = hexlify(PACinfiniteData(kerbdata.fields['UserSessionKey'])).decode('utf-8')
-            parsed_data['LogonServer']        = PACinfiniteData(kerbdata.fields['LogonServer']).decode('utf-16-le')
-            parsed_data['LogonDomainName']    = PACinfiniteData(kerbdata.fields['LogonDomainName']).decode('utf-16-le')
+            parsed_data['EffectiveName']        = PACinfiniteData(kerbdata.fields['EffectiveName']).decode('utf-16-le')
+            parsed_data['FullName']             = PACinfiniteData(kerbdata.fields['FullName']).decode('utf-16-le')
+            parsed_data['LogonScript']          = PACinfiniteData(kerbdata.fields['LogonScript']).decode('utf-16-le')
+            parsed_data['ProfilePath']          = PACinfiniteData(kerbdata.fields['ProfilePath']).decode('utf-16-le')
+            parsed_data['HomeDirectory']        = PACinfiniteData(kerbdata.fields['HomeDirectory']).decode('utf-16-le')
+            parsed_data['HomeDirectoryDrive']   = PACinfiniteData(kerbdata.fields['HomeDirectoryDrive']).decode('utf-16-le')
+            parsed_data['LogonCount']           = PACinfiniteData(kerbdata.fields['LogonCount'])
+            parsed_data['BadPasswordCount']     = PACinfiniteData(kerbdata.fields['BadPasswordCount'])
+            parsed_data['UserId']               = PACinfiniteData(kerbdata.fields['UserId'])
+            parsed_data['PrimaryGroupId']       = PACinfiniteData(kerbdata.fields['PrimaryGroupId'])
+            parsed_data['UserFlags']            = PACinfiniteData(kerbdata.fields['UserFlags'])
+            parsed_data['UserSessionKey']       = hexlify(PACinfiniteData(kerbdata.fields['UserSessionKey'])).decode('utf-8')
+            parsed_data['LogonServer']          = PACinfiniteData(kerbdata.fields['LogonServer']).decode('utf-16-le')
+            parsed_data['LogonDomainName']      = PACinfiniteData(kerbdata.fields['LogonDomainName']).decode('utf-16-le')
             parsed_data['LogonDomainId']        = PACparseSID(PACinfiniteData(kerbdata.fields['LogonDomainId']))
             parsed_data['LMKey']                = hexlify(PACinfiniteData(kerbdata.fields['LMKey'])).decode('utf-8')
             parsed_data['UserAccountControl']   = PACinfiniteData(kerbdata.fields['UserAccountControl'])
@@ -239,35 +262,61 @@ def parse_pac(pacType):
             parsed_data['PasswordLastSet']      = PACparseFILETIME(kerbdata.fields['PasswordLastSet'])
             parsed_data['PasswordCanChange']    = PACparseFILETIME(kerbdata.fields['PasswordCanChange'])
             parsed_data['PasswordMustChange']   = PACparseFILETIME(kerbdata.fields['PasswordMustChange'])
-            parsed_data['GroupCount'] = PACinfiniteData(kerbdata.fields['GroupCount'])
-            parsed_data['GroupIds'] = PACparseGroupIds(kerbdata.fields['GroupIds'])
+            parsed_data['GroupCount']           = PACinfiniteData(kerbdata.fields['GroupCount'])
+            parsed_data['GroupIds']             = PACparseGroupIds(kerbdata.fields['GroupIds'])
             parsed_data['SidCount']             = PACinfiniteData(kerbdata.fields['SidCount'])
             parsed_data['ExtraSids']            = PACparseExtraSids(kerbdata.fields['ExtraSids'])
             parsed_data['ResourceGroupDomainSid'] = PACparseResourceGroupDomainSid(kerbdata.fields['ResourceGroupDomainSid'])
             parsed_data['ResourceGroupCount']   = PACinfiniteData(kerbdata.fields['ResourceGroupCount'])
             parsed_data['ResourceGroupIds']     = PACparseGroupIds(kerbdata.fields['ResourceGroupIds'])
+            parsed_tuPAC.append({"LoginInfo": parsed_data})
 
-            parsed_tuPAC.append(parsed_data)
         elif infoBuffer['ulType'] == PAC_CLIENT_INFO_TYPE:
-            type1 = TypeSerialization1(data)
-            # TODO: Not implemented
-            print(dir(type1))
-            pass
-        elif infoBuffer['ulType'] == PAC_SERVER_CHECKSUM:
             clientInfo = PAC_CLIENT_INFO(data)
-            # TODO: Not implemented
-            print(dir(clientInfo))
-            pass
-        elif infoBuffer['ulType'] == PAC_PRIVSVR_CHECKSUM:
-            signatureData = PAC_SIGNATURE_DATA(data)
-            # TODO: Not implemented
-            print(dir(signatureData))
-            pass
+            parsed_data = {}
+            # TODO : check client id it's probably wrong
+            parsed_data['Client Id'] = datetime.datetime.fromtimestamp(clientInfo.fields['ClientId']/1e8).strftime("%d/%m/%Y %H:%H:%S %p")
+            parsed_data['Client Name'] = clientInfo.fields['Name'].decode('utf-16-le')
+            parsed_tuPAC.append({"ClientName": parsed_data})
+
         elif infoBuffer['ulType'] == PAC_UPN_DNS_INFO:
             upn = UPN_DNS_INFO(data)
-            # TODO: Not implemented
-            print(dir(upn))
-            pass
+            # upn.dump()
+            parsed_data = {}
+            # todo, we don't have the same data as Rubeus
+            parsed_data['DNS Domain Name'] = 0
+            parsed_data['UPN'] = 0
+            parsed_data['Flags'] = 0
+            parsed_tuPAC.append({"UpnDns": parsed_data})
+
+        elif infoBuffer['ulType'] == PAC_SERVER_CHECKSUM:
+            signatureData = PAC_SIGNATURE_DATA(data)
+            parsed_data = {}
+            parsed_data['Signature Type'] = ChecksumTypes(signatureData.fields['SignatureType']).name
+            parsed_data['Signature'] = hexlify(signatureData.fields['Signature']).decode('utf-8')
+            parsed_tuPAC.append({"ServerChecksum": parsed_data})
+
+        elif infoBuffer['ulType'] == PAC_PRIVSVR_CHECKSUM:
+            signatureData = PAC_SIGNATURE_DATA(data)
+            parsed_data = {}
+            parsed_data['Signature Type'] = ChecksumTypes(signatureData.fields['SignatureType']).name
+            # signatureData.dump()
+            parsed_data['Signature'] = hexlify(signatureData.fields['Signature']).decode('utf-8')
+            parsed_tuPAC.append({"KDCChecksum": parsed_data})
+
+        elif infoBuffer['ulType'] == PAC_CREDENTIALS_INFO:
+            # todo
+            logging.debug("TODO: implement PAC_CREDENTIALS_INFO parsing")
+
+        elif infoBuffer['ulType'] == PAC_DELEGATION_INFO:
+            delegationInfo = S4U_DELEGATION_INFO(data)
+            parsed_data = {}
+            parsed_data['S4U2proxyTarget'] = PACinfiniteData(delegationInfo.fields['S4U2proxyTarget']).decode('utf-16-le')
+            parsed_data['TransitedListSize'] = delegationInfo.fields['TransitedListSize'].fields['Data']
+            parsed_data['S4UTransitedServices'] = PACinfiniteData(delegationInfo.fields['S4UTransitedServices']).decode('utf-16-le')
+            parsed_tuPAC.append({"DelegationInfo": parsed_data})
+
+        buff = buff[len(infoBuffer):]
     return parsed_tuPAC
 
 
