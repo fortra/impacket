@@ -1155,6 +1155,7 @@ class SAMHashes(OfflineRegistry):
         self.__bootKey = bootKey
         self.__cryptoCommon = CryptoCommon()
         self.__itemsFound = {}
+        self.__itemsFoundJson = {"samHashes":[]}
         self.__perSecretCallback = perSecretCallback
 
     def MD5(self, data):
@@ -1274,9 +1275,30 @@ class SAMHashes(OfflineRegistry):
             if ntHash == b'':
                 ntHash = ntlm.NTOWFv1('','')
 
+
             answer =  "%s:%d:%s:%s:::" % (userName, rid, hexlify(lmHash).decode('utf-8'), hexlify(ntHash).decode('utf-8'))
             self.__itemsFound[rid] = answer
+            self.__itemsFoundJson["samHashes"].append({
+                    "rid":rid,
+                    "username":userName, 
+                    "lmhash":hexlify(lmHash).decode('utf-8'),
+                    "nthash":hexlify(ntHash).decode('utf-8')
+            })
             self.__perSecretCallback(answer)
+
+
+    def exportJson(self, baseFileName, remoteName, openFileFunc = None):
+        try:
+            if len(self.__itemsFoundJson["samHashes"]) > 0:
+                for item in self.__itemsFoundJson["samHashes"]:
+                    item['retrievedFrom']=remoteName
+                fileName = baseFileName+'.sam.json'
+                fd = openFile(fileName, openFileFunc=openFileFunc)
+                fd.write(json.dumps(self.__itemsFoundJson))
+                fd.close()
+                return fileName
+        except Exception as e:
+            print("error with exportjson : {}".format(e))
 
     def export(self, baseFileName, openFileFunc = None):
         if len(self.__itemsFound) > 0:

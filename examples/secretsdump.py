@@ -103,6 +103,7 @@ class DumpSecrets:
         self.__canProcessSAMLSA = True
         self.__kdcHost = options.dc_ip
         self.__options = options
+        self.__jsonOutput = options.json_output
 
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
@@ -173,6 +174,8 @@ class DumpSecrets:
 
                     self.__SAMHashes    = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote)
                     self.__SAMHashes.dump()
+                    if self.__jsonOutput:
+                        self.__SAMHashes.exportJson(self.__outputFileName,self.__remoteName)
                     if self.__outputFileName is not None:
                         self.__SAMHashes.export(self.__outputFileName)
                 except Exception as e:
@@ -315,6 +318,8 @@ if __name__ == '__main__':
     group.add_argument('-user-status', action='store_true', default=False,
                         help='Display whether or not the user is disabled')
     group.add_argument('-history', action='store_true', help='Dump password history, and LSA secrets OldVal')
+    group.add_argument('-json-output', action='store_true', help='Dump the secretsdump information in json format. '
+                        'Note: this output only includes ntlm, dcc2, and plaintext lsa secrets output')
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
