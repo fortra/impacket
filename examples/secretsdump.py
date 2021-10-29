@@ -174,9 +174,10 @@ class DumpSecrets:
 
                     self.__SAMHashes    = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote)
                     self.__SAMHashes.dump()
-                    if self.__jsonOutput:
-                        self.__SAMHashes.exportJson(self.__outputFileName,self.__remoteName)
                     if self.__outputFileName is not None:
+                        if self.__jsonOutput:
+                            self.__SAMHashes.exportJson(self.__outputFileName,self.__remoteName)
+                        # you may wish to place an else here and in the two other similar locations
                         self.__SAMHashes.export(self.__outputFileName)
                 except Exception as e:
                     logging.error('SAM hashes extraction failed: %s' % str(e))
@@ -191,9 +192,13 @@ class DumpSecrets:
                                                    isRemote=self.__isRemote, history=self.__history)
                     self.__LSASecrets.dumpCachedHashes()
                     if self.__outputFileName is not None:
+                        if self.__jsonOutput:
+                            self.__LSASecrets.exportCachedJson(self.__outputFileName,self.__remoteName)
                         self.__LSASecrets.exportCached(self.__outputFileName)
                     self.__LSASecrets.dumpSecrets()
                     if self.__outputFileName is not None:
+                        if self.__jsonOutput:
+                            self.__LSASecrets.exportSecretsJson(self.__outputFileName,self.__remoteName)
                         self.__LSASecrets.exportSecrets(self.__outputFileName)
                 except Exception as e:
                     if logging.getLogger().level == logging.DEBUG:
