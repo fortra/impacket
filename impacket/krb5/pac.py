@@ -173,11 +173,10 @@ class NTLM_SUPPLEMENTAL_CREDENTIAL(NDRSTRUCT):
     )
 
 # 2.7 PAC_CLIENT_INFO
-class PAC_CLIENT_INFO(Structure):
+class PAC_CLIENT_INFO(NDRSTRUCT):
     structure = (
-        ('ClientId', '<Q=0'),
+        ('ClientId', FILETIME),
         ('NameLength', '<H=0'),
-        ('_Name', '_-Name', 'self["NameLength"]'),
         ('Name', ':'),
     )
 
