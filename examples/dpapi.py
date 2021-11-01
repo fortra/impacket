@@ -490,7 +490,7 @@ class DPAPI:
                     entropy = fp2.read()
                     fp2.close()
                 elif self.options.entropy is not None:
-                    entropy = b(self.options.entropy) + b'\x00'
+                    entropy = b(self.options.entropy)
                 else:
                     entropy = None
 
