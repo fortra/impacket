@@ -399,29 +399,32 @@ def generate_kerberos_keys(args):
     ]
 
     # Calculate Kerberos keys from specified password/salt
-    if args.password or args.hexpass:
+    if args.password or args.hex_pass:
         if not args.salt and args.user and args.domain: # https://www.thehacker.recipes/ad/movement/kerberos
             if args.user.endswith('$'):
                 args.salt = "%shost%s.%s" % (args.domain.upper(), args.user.rstrip('$').lower(), args.domain.lower())
             else:
                 args.salt = "%s%s" % (args.domain.upper(), args.user)
         for cipher in allciphers:
-            if cipher == 23 and args.hexpass:
+            if cipher == 23 and args.hex_pass:
                 # RC4 calculation is done manually for raw passwords
                 md4 = MD4.new()
-                md4.update(unhexlify(args.krbhexpass))
-                ekeys[cipher] = Key(cipher, md4.digest().decode('utf-8'))
-            else:
+                md4.update(unhexlify(args.hex_pass))
+                ekeys[cipher] = Key(cipher, md4.digest())
+                logging.debug('Calculated type %s (%d) Kerberos key: %s' % (constants.EncryptionTypes(cipher).name, cipher, hexlify(ekeys[cipher].contents).decode('utf-8')))
+            elif args.salt:
                 # Do conversion magic for raw passwords
-                if args.hexpass:
-                    rawsecret = unhexlify(args.krbhexpass).decode('utf-16-le', 'replace').encode('utf-8', 'replace')
+                if args.hex_pass:
+                    rawsecret = unhexlify(args.hex_pass).decode('utf-16-le', 'replace').encode('utf-8', 'replace')
                 else:
                     # If not raw, it was specified from the command line, assume it's not UTF-16
                     rawsecret = args.password
                 ekeys[cipher] = string_to_key(cipher, rawsecret, args.salt)
-            logging.debug('Calculated type %s (%d) Kerberos key: %s' % (constants.EncryptionTypes(cipher).name, cipher, hexlify(ekeys[cipher].contents).decode('utf-8')))
+                logging.debug('Calculated type %s (%d) Kerberos key: %s' % (constants.EncryptionTypes(cipher).name, cipher, hexlify(ekeys[cipher].contents).decode('utf-8')))
+            else:
+                logging.debug('Cannot calculate type %s (%d) Kerberos key: salt is None: Missing -s/--salt or (-u/--user and -d/--domain)' % (constants.EncryptionTypes(cipher).name, cipher))
     else:
-        logging.debug('No password (-p/--password or -hp/--hexpass supplied, skipping Kerberos keys calculation')
+        logging.debug('No password (-p/--password or -hp/--hex_pass supplied, skipping Kerberos keys calculation')
     return ekeys
 
 
@@ -481,7 +484,7 @@ def parse_args():
                         '(example: if the ticket is for user:"john" for service:"cifs/service.domain.local", you need to supply credentials or keys ' \
                         'of the service account who owns SPN "cifs/service.domain.local")'
     ticket_decryption.add_argument('-p', '--password', action="store", metavar="PASSWORD", help='Cleartext password of the service account')
-    ticket_decryption.add_argument('-hp', '--hexpass', dest='hexpass', action="store", metavar="HEX PASSWORD", help='placeholder')
+    ticket_decryption.add_argument('-hp', '--hex-password', dest='hex_pass', action="store", metavar="HEXPASSWORD", help='Hex password of the service account')
     ticket_decryption.add_argument('-u', '--user', action="store", metavar="USER", help='Name of the service account')
     ticket_decryption.add_argument('-d', '--domain', action="store", metavar="DOMAIN", help='FQDN Domain')
     ticket_decryption.add_argument('-s', '--salt', action="store", metavar="SALT", help='Salt for keys calculation (DOMAIN.LOCALSomeuser for users, DOMAIN.LOCALhostsomemachine.domain.local for machines)')
@@ -505,10 +508,11 @@ def parse_args():
     if not args.salt:
         if args.user and not args.domain:
             parser.error('without -s/--salt, and with -u/--user, argument -d/--domain is required to calculate the salt')
-            parser.print_help()
         elif not args.user and args.domain:
             parser.error('without -s/--salt, and with -d/--domain, argument -u/--user is required to calculate the salt')
-            parser.print_help()
+
+    if args.domain and not '.' in args.domain:
+        parser.error('Domain supplied in -d/--domain should be FQDN')
 
     return args
 
