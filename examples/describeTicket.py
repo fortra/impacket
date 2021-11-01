@@ -19,24 +19,23 @@ import sys
 import traceback
 import argparse
 import binascii
-from enum import Enum
-
-from Cryptodome.Hash import MD4
 import datetime
 import base64
-from binascii import unhexlify, hexlify
 
-from impacket.krb5.constants import ChecksumTypes
+from Cryptodome.Hash import MD4
+from enum import Enum
+from binascii import unhexlify, hexlify
 from pyasn1.codec.der import decoder
+
 from impacket import version
-from impacket.examples import logger
 from impacket.dcerpc.v5.rpcrt import TypeSerialization1
+from impacket.examples import logger
 from impacket.krb5 import constants, pac
-from impacket.krb5.asn1 import TGS_REP, AS_REP, EncTicketPart, AD_IF_RELEVANT
+from impacket.krb5.asn1 import TGS_REP, EncTicketPart, AD_IF_RELEVANT
 from impacket.krb5.ccache import CCache
+from impacket.krb5.constants import ChecksumTypes
 from impacket.krb5.crypto import Key, _enctype_table, InvalidChecksum, string_to_key
-# from impacket.krb5.pac import PACTYPE, PAC_INFO_BUFFER, KERB_VALIDATION_INFO, PAC_SERVER_CHECKSUM, PAC_SIGNATURE_DATA, PAC_LOGON_INFO, PAC_CLIENT_INFO_TYPE, PAC_CLIENT_INFO, \
-#     PAC_PRIVSVR_CHECKSUM, PAC_UPN_DNS_INFO, UPN_DNS_INFO, PAC_CREDENTIALS_INFO, PAC_DELEGATION_INFO, S4U_DELEGATION_INFO
+
 
 class User_Flags(Enum):
     LOGON_EXTRA_SIDS = 0x0020
@@ -174,8 +173,11 @@ def parse_ccache(args):
 
 
 def parse_pac(pacType, args):
+
     def format_sid(data):
         return "S-%d-%d-%d-%s" % (data['Revision'], data['IdentifierAuthority'], data['SubAuthorityCount'], '-'.join([str(e) for e in data['SubAuthority']]))
+
+
     def PACparseFILETIME(data):
         # FILETIME structure (minwinbase.h)
         # Contains a 64-bit value representing the number of 100-nanosecond intervals since January 1, 1601 (UTC).
@@ -190,6 +192,8 @@ def parse_pac(pacType, args):
             if datetime.timedelta(microseconds=temp_time / 10).total_seconds() != 0:
                 v_FILETIME = (datetime.datetime(1601, 1, 1, 0, 0, 0) + datetime.timedelta(microseconds=temp_time / 10)).strftime("%d/%m/%Y %H:%M:%S %p")
         return v_FILETIME
+
+
     def PACparseGroupIds(data):
         groups = []
         for group in data:
@@ -198,6 +202,8 @@ def parse_pac(pacType, args):
             groupMembership['Attributes'] = group['Attributes']
             groups.append(groupMembership)
         return groups
+
+
     def PACparseSID(sid):
         if type(sid) == dict:
             str_sid = format_sid({
@@ -209,14 +215,19 @@ def parse_pac(pacType, args):
             return str_sid
         else:
             return ''
+
+
     def PACparseExtraSids(sid_and_attributes_array):
         _ExtraSids = []
         for sid in sid_and_attributes_array['Data']:
             _d = { 'Attributes': sid['Attributes'], 'Sid': PACparseSID(sid['Sid']) }
             _ExtraSids.append(_d['Sid'])
         return _ExtraSids
+
+
     parsed_tuPAC = []
     buff = pacType['Buffers']
+
     for bufferN in range(pacType['cBuffers']):
         infoBuffer = pac.PAC_INFO_BUFFER(buff)
         data = pacType['Buffers'][infoBuffer['Offset']-8:][:infoBuffer['cbBufferSize']]
@@ -227,16 +238,15 @@ def parse_pac(pacType, args):
             kerbdata.fromString(newdata)
             kerbdata.fromStringReferents(newdata[len(kerbdata.getData()):])
             parsed_data = {}
-
             parsed_data['Logon Time'] = PACparseFILETIME(kerbdata['LogonTime'])
             parsed_data['Logoff Time'] = PACparseFILETIME(kerbdata['LogoffTime'])
             parsed_data['Kickoff Time'] = PACparseFILETIME(kerbdata['KickOffTime'])
             parsed_data['Password Last Set'] = PACparseFILETIME(kerbdata['PasswordLastSet'])
             parsed_data['Password Can Change'] = PACparseFILETIME(kerbdata['PasswordCanChange'])
             parsed_data['Password Must Change'] = PACparseFILETIME(kerbdata['PasswordMustChange'])
-            # parsed_data['LastSuccessfulILogon'] = PACparseFILETIME(kerbdata.fields['LastSuccessfulILogon'])
-            # parsed_data['LastFailedILogon'] = PACparseFILETIME(kerbdata.fields['LastFailedILogon'])
-            # parsed_data['FailedILogonCount'] = kerbdata['FailedILogonCount']
+            parsed_data['LastSuccessfulILogon'] = PACparseFILETIME(kerbdata.fields['LastSuccessfulILogon'])
+            parsed_data['LastFailedILogon'] = PACparseFILETIME(kerbdata.fields['LastFailedILogon'])
+            parsed_data['FailedILogonCount'] = kerbdata['FailedILogonCount']
             parsed_data['Account Name'] = kerbdata['EffectiveName']
             parsed_data['Full Name'] = kerbdata['FullName']
             parsed_data['Logon Script'] = kerbdata['LogonScript']
@@ -254,25 +264,25 @@ def parse_pac(pacType, args):
             for flag in User_Flags:
                 if UserFlags & flag.value:
                     User_Flags_Flags.append(flag.name)
-            parsed_data['User Flags']            = "(%s) %s" % (UserFlags, ", ".join(User_Flags_Flags))
-            parsed_data['User Session Key']       = hexlify(kerbdata['UserSessionKey']).decode('utf-8')
-            parsed_data['Logon Server']          = kerbdata['LogonServer']
-            parsed_data['Logon Domain Name']      = kerbdata['LogonDomainName']
-            parsed_data['Logon Domain SID']        = PACparseSID(kerbdata['LogonDomainId'])
+            parsed_data['User Flags'] = "(%s) %s" % (UserFlags, ", ".join(User_Flags_Flags))
+            parsed_data['User Session Key'] = hexlify(kerbdata['UserSessionKey']).decode('utf-8')
+            parsed_data['Logon Server'] = kerbdata['LogonServer']
+            parsed_data['Logon Domain Name'] = kerbdata['LogonDomainName']
+            parsed_data['Logon Domain SID'] = PACparseSID(kerbdata['LogonDomainId'])
             UAC = kerbdata['UserAccountControl']
             UAC_Flags = []
             for flag in UserAccountControl_Flags:
                 if UAC & flag.value:
                     UAC_Flags.append(flag.name)
-            parsed_data['User Account Control']   = "(%s) %s" % (UAC, ", ".join(UAC_Flags))
-            parsed_data['Extra SID Count']        = kerbdata['SidCount']
-            parsed_data['Extra SIDs']            = ', '.join([sid for sid in PACparseExtraSids(kerbdata.fields['ExtraSids'])])
+            parsed_data['User Account Control'] = "(%s) %s" % (UAC, ", ".join(UAC_Flags))
+            parsed_data['Extra SID Count'] = kerbdata['SidCount']
+            parsed_data['Extra SIDs'] = ', '.join([sid for sid in PACparseExtraSids(kerbdata.fields['ExtraSids'])])
             parsed_data['Resource Group Domain SID'] = PACparseSID(kerbdata.fields['ResourceGroupDomainSid'])
-            parsed_data['Resource Group Count']   = kerbdata['ResourceGroupCount']
-            parsed_data['Resource Group Ids']     = ', '.join([str(gid['RelativeId']) for gid in PACparseGroupIds(kerbdata['ResourceGroupIds'])])
-            # parsed_data['LMKey']                = hexlify(kerbdata['LMKey']).decode('utf-8')
-            # parsed_data['SubAuthStatus']        = kerbdata['SubAuthStatus']
-            # parsed_data['Reserved3']            = kerbdata['Reserved3']
+            parsed_data['Resource Group Count'] = kerbdata['ResourceGroupCount']
+            parsed_data['Resource Group Ids'] = ', '.join([str(gid['RelativeId']) for gid in PACparseGroupIds(kerbdata['ResourceGroupIds'])])
+            parsed_data['LMKey'] = hexlify(kerbdata['LMKey']).decode('utf-8')
+            parsed_data['SubAuthStatus'] = kerbdata['SubAuthStatus']
+            parsed_data['Reserved3'] = kerbdata['Reserved3']
             parsed_tuPAC.append({"LoginInfo": parsed_data})
 
         elif infoBuffer['ulType'] == pac.PAC_CLIENT_INFO_TYPE:
@@ -361,7 +371,7 @@ def parse_pac(pacType, args):
             parsed_tuPAC.append({"DelegationInfo": parsed_data})
 
         else:
-            logger.debug("Unsupported PAC structure: %s" % infoBuffer['ulType'])
+            logger.debug("Unsupported PAC structure: %s. Please raise an issue or PR" % infoBuffer['ulType'])
 
         buff = buff[len(infoBuffer):]
     return parsed_tuPAC
