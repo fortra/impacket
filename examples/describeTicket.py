@@ -8,7 +8,7 @@
 # for more information.
 #
 # Description:
-#   Python script that describes the values of the ticket (TGT or Service Ticket).
+#   Ticket describer. Parses ticket, decrypts the enc-part, and parses the PAC.
 #
 # Authors:
 #   Remi Gascou (@podalirius_)
@@ -28,15 +28,15 @@ from binascii import unhexlify, hexlify
 
 from impacket.krb5.constants import ChecksumTypes
 from pyasn1.codec.der import decoder
-from impacket import LOG, version
+from impacket import version
 from impacket.examples import logger
 from impacket.dcerpc.v5.rpcrt import TypeSerialization1
-from impacket.krb5 import constants
+from impacket.krb5 import constants, pac
 from impacket.krb5.asn1 import TGS_REP, AS_REP, EncTicketPart, AD_IF_RELEVANT
 from impacket.krb5.ccache import CCache
 from impacket.krb5.crypto import Key, _enctype_table, InvalidChecksum, string_to_key
-from impacket.krb5.pac import PACTYPE, PAC_INFO_BUFFER, KERB_VALIDATION_INFO, PAC_SERVER_CHECKSUM, PAC_SIGNATURE_DATA, PAC_LOGON_INFO, PAC_CLIENT_INFO_TYPE, PAC_CLIENT_INFO, \
-    PAC_PRIVSVR_CHECKSUM, PAC_UPN_DNS_INFO, UPN_DNS_INFO, PAC_CREDENTIALS_INFO, PAC_DELEGATION_INFO, S4U_DELEGATION_INFO
+# from impacket.krb5.pac import PACTYPE, PAC_INFO_BUFFER, KERB_VALIDATION_INFO, PAC_SERVER_CHECKSUM, PAC_SIGNATURE_DATA, PAC_LOGON_INFO, PAC_CLIENT_INFO_TYPE, PAC_CLIENT_INFO, \
+#     PAC_PRIVSVR_CHECKSUM, PAC_UPN_DNS_INFO, UPN_DNS_INFO, PAC_CREDENTIALS_INFO, PAC_DELEGATION_INFO, S4U_DELEGATION_INFO
 
 class User_Flags(Enum):
     LOGON_EXTRA_SIDS = 0x0020
@@ -70,15 +70,17 @@ class UserAccountControl_Flags(Enum):
 
 
 def parse_ccache(args):
-    # todo : decodedTicket['ticket']['enc-part'] is handled. Handle decodedTicket['enc-part']?
     ccache = CCache.loadFile(args.ticket)
 
-    principal = ccache.credentials[0].header['server'].prettyPrint()
-    creds = ccache.getCredential(principal.decode())
-    TGS = creds.toTGS(principal)
-    decodedTicket = decoder.decode(TGS['KDC_REP'], asn1Spec=TGS_REP())[0]
+    cred_number = 0
+    logging.info('Number of credentials in cache: %d' % len(ccache.credentials))
+    logging.info('Parsing credential: %d' % cred_number)
 
     for creds in ccache.credentials:
+        TGS = creds.toTGS()
+        # sessionKey = hexlify(TGS['sessionKey'].contents).decode('utf-8')
+        decodedTicket = decoder.decode(TGS['KDC_REP'], asn1Spec=TGS_REP())[0]
+
         logging.info("%-30s: %s" % ("User Name", creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')))
         logging.info("%-30s: %s" % ("User Realm", creds['client'].prettyPrint().split(b'@')[1].decode('utf-8')))
         spn = creds['server'].prettyPrint().split(b'@')[0].decode('utf-8')
@@ -118,66 +120,62 @@ def parse_ccache(args):
             if kerberoast_hash:
                 logging.info("%-30s: %s" % ("Kerberoast hash", kerberoast_hash))
 
-    logging.debug("Handling Kerberos keys")
-    ekeys = generate_kerberos_keys(args)
+        logging.debug("Handling Kerberos keys")
+        ekeys = generate_kerberos_keys(args)
 
-    # copypasta from krbrelayx.py
-    # Select the correct encryption key
-    etype = decodedTicket['ticket']['enc-part']['etype']
-    try:
-        logging.debug('Ticket is encrypted with %s (etype %d)' % (constants.EncryptionTypes(etype).name, etype))
-        key = ekeys[etype]
-        logging.debug('Using corresponding key: %s' % hexlify(key.contents).decode('utf-8'))
-    # This raises a KeyError (pun intended) if our key is not found
-    except KeyError:
-        if len(ekeys) > 0:
-            LOG.error('Could not find the correct encryption key! Ticket is encrypted with %s (etype %d), but only keytype(s) %s were calculated/supplied',
-                      constants.EncryptionTypes(etype).name,
-                      etype,
-                      ', '.join([str(enctype) for enctype in ekeys.keys()]))
-        else:
-            LOG.error('Could not find the correct encryption key! Ticket is encrypted with %s (etype %d), but no keys/creds were supplied',
-                      constants.EncryptionTypes(etype).name,
-                      etype)
-        return None
+        # copypasta from krbrelayx.py
+        # Select the correct encryption key
+        etype = decodedTicket['ticket']['enc-part']['etype']
+        try:
+            logging.debug('Ticket is encrypted with %s (etype %d)' % (constants.EncryptionTypes(etype).name, etype))
+            key = ekeys[etype]
+            logging.debug('Using corresponding key: %s' % hexlify(key.contents).decode('utf-8'))
+        # This raises a KeyError (pun intended) if our key is not found
+        except KeyError:
+            if len(ekeys) > 0:
+                logging.error('Could not find the correct encryption key! Ticket is encrypted with %s (etype %d), but only keytype(s) %s were calculated/supplied',
+                          constants.EncryptionTypes(etype).name,
+                          etype,
+                          ', '.join([str(enctype) for enctype in ekeys.keys()]))
+            else:
+                logging.error('Could not find the correct encryption key! Ticket is encrypted with %s (etype %d), but no keys/creds were supplied',
+                          constants.EncryptionTypes(etype).name,
+                          etype)
+            return None
 
-    # Recover plaintext info from ticket
-    try:
-        cipherText = decodedTicket['ticket']['enc-part']['cipher']
-        newCipher = _enctype_table[int(etype)]
-        plainText = newCipher.decrypt(key, 2, cipherText)
-    except InvalidChecksum:
-        logging.error('Ciphertext integrity failed. Most likely the account password or AES key is incorrect')
-        if args.salt:
-            logging.info('Make sure the salt/username/domain are set and with the proper values. In case of a computer account, append a "$" to the name.')
-            logging.debug('Remember: the encrypted-part of the ticket is secured with one of the target service\'s Kerberos keys. The target service is the one who owns the \'Service Name\' SPN printed above')
-        return
+        # todo : decodedTicket['ticket']['enc-part'] is handled. Handle decodedTicket['enc-part']?
+        # Recover plaintext info from ticket
+        try:
+            cipherText = decodedTicket['ticket']['enc-part']['cipher']
+            newCipher = _enctype_table[int(etype)]
+            plainText = newCipher.decrypt(key, 2, cipherText)
+        except InvalidChecksum:
+            logging.error('Ciphertext integrity failed. Most likely the account password or AES key is incorrect')
+            if args.salt:
+                logging.info('Make sure the salt/username/domain are set and with the proper values. In case of a computer account, append a "$" to the name.')
+                logging.debug('Remember: the encrypted-part of the ticket is secured with one of the target service\'s Kerberos keys. The target service is the one who owns the \'Service Name\' SPN printed above')
+            return
 
-    logging.debug('Ticket successfully decrypted')
-    encTicketPart = decoder.decode(plainText, asn1Spec=EncTicketPart())[0]
-    sessionKey = Key(encTicketPart['key']['keytype'], bytes(encTicketPart['key']['keyvalue']))
-    adIfRelevant = decoder.decode(encTicketPart['authorization-data'][0]['ad-data'], asn1Spec=AD_IF_RELEVANT())[0]
-    # So here we have the PAC
-    pacType = PACTYPE(adIfRelevant[0]['ad-data'].asOctets())
-    parsed_pac = parse_pac(pacType)
-    logging.info("%-30s:" % "Decrypted PAC")
-    for element_type in parsed_pac:
-        element_type_name = list(element_type.keys())[0]
-        logging.info("  %-28s:" % element_type_name)
-        for attribute in element_type[element_type_name]:
-            logging.info("    %-26s: %s" % (attribute, element_type[element_type_name][attribute]))
+        logging.debug('Ticket successfully decrypted')
+        encTicketPart = decoder.decode(plainText, asn1Spec=EncTicketPart())[0]
+        sessionKey = Key(encTicketPart['key']['keytype'], bytes(encTicketPart['key']['keyvalue']))
+        adIfRelevant = decoder.decode(encTicketPart['authorization-data'][0]['ad-data'], asn1Spec=AD_IF_RELEVANT())[0]
+        # So here we have the PAC
+        pacType = pac.PACTYPE(adIfRelevant[0]['ad-data'].asOctets())
+        parsed_pac = parse_pac(pacType, args)
+        logging.info("%-30s:" % "Decrypted PAC")
+        for element_type in parsed_pac:
+            element_type_name = list(element_type.keys())[0]
+            logging.info("  %-28s" % element_type_name)
+            for attribute in element_type[element_type_name]:
+                logging.info("    %-26s: %s" % (attribute, element_type[element_type_name][attribute]))
+
+        cred_number += 1
 
 
-def parse_pac(pacType):
+def parse_pac(pacType, args):
     def format_sid(data):
         return "S-%d-%d-%d-%s" % (data['Revision'], data['IdentifierAuthority'], data['SubAuthorityCount'], '-'.join([str(e) for e in data['SubAuthority']]))
-    def PACinfiniteData(obj):
-        while 'fields' in dir(obj):
-            if 'Data' in obj.fields.keys():
-                obj = obj.fields['Data']
-            else:
-                return obj.fields
-        return obj
     def PACparseFILETIME(data):
         # FILETIME structure (minwinbase.h)
         # Contains a 64-bit value representing the number of 100-nanosecond intervals since January 1, 1601 (UTC).
@@ -194,91 +192,91 @@ def parse_pac(pacType):
         return v_FILETIME
     def PACparseGroupIds(data):
         groups = []
-        for group in PACinfiniteData(data):
+        for group in data:
             groupMembership = {}
-            groupMembership['RelativeId'] = PACinfiniteData(group.fields['RelativeId'])
-            groupMembership['Attributes'] = PACinfiniteData(group.fields['Attributes'])
+            groupMembership['RelativeId'] = group['RelativeId']
+            groupMembership['Attributes'] = group['Attributes']
             groups.append(groupMembership)
         return groups
     def PACparseSID(sid):
         if type(sid) == dict:
             str_sid = format_sid({
-                'Revision': PACinfiniteData(sid['Revision']),
-                'SubAuthorityCount': PACinfiniteData(sid['SubAuthorityCount']),
-                'IdentifierAuthority': int(binascii.hexlify(PACinfiniteData(sid['IdentifierAuthority'])), 16),
-                'SubAuthority': PACinfiniteData(sid['SubAuthority'])
+                'Revision': sid['Revision'],
+                'SubAuthorityCount': sid['SubAuthorityCount'],
+                'IdentifierAuthority': int(binascii.hexlify(sid['IdentifierAuthority']), 16),
+                'SubAuthority': sid['SubAuthority']
             })
             return str_sid
         else:
             return ''
-    def PACparseExtraSids(data):
+    def PACparseExtraSids(sid_and_attributes_array):
         _ExtraSids = []
-        for sid in PACinfiniteData(PACinfiniteData(data.fields)['Data']):
-            _d = { 'Attributes': PACinfiniteData(sid.fields['Attributes']), 'Sid': PACparseSID(sid.fields['Sid']) }
+        for sid in sid_and_attributes_array['Data']:
+            _d = { 'Attributes': sid['Attributes'], 'Sid': PACparseSID(sid['Sid']) }
             _ExtraSids.append(_d['Sid'])
         return _ExtraSids
     parsed_tuPAC = []
     buff = pacType['Buffers']
     for bufferN in range(pacType['cBuffers']):
-        infoBuffer = PAC_INFO_BUFFER(buff)
+        infoBuffer = pac.PAC_INFO_BUFFER(buff)
         data = pacType['Buffers'][infoBuffer['Offset']-8:][:infoBuffer['cbBufferSize']]
-        if infoBuffer['ulType'] == PAC_LOGON_INFO:
+        if infoBuffer['ulType'] == pac.PAC_LOGON_INFO:
             type1 = TypeSerialization1(data)
             newdata = data[len(type1)+4:]
-            kerbdata = KERB_VALIDATION_INFO()
+            kerbdata = pac.KERB_VALIDATION_INFO()
             kerbdata.fromString(newdata)
             kerbdata.fromStringReferents(newdata[len(kerbdata.getData()):])
             parsed_data = {}
 
-            parsed_data['Logon Time'] = PACparseFILETIME(kerbdata.fields['LogonTime'])
-            parsed_data['Logoff Time'] = PACparseFILETIME(kerbdata.fields['LogoffTime'])
-            parsed_data['Kickoff Time'] = PACparseFILETIME(kerbdata.fields['KickOffTime'])
-            parsed_data['Password Last Set'] = PACparseFILETIME(kerbdata.fields['PasswordLastSet'])
-            parsed_data['Password Can Change'] = PACparseFILETIME(kerbdata.fields['PasswordCanChange'])
-            parsed_data['Password Must Change'] = PACparseFILETIME(kerbdata.fields['PasswordMustChange'])
+            parsed_data['Logon Time'] = PACparseFILETIME(kerbdata['LogonTime'])
+            parsed_data['Logoff Time'] = PACparseFILETIME(kerbdata['LogoffTime'])
+            parsed_data['Kickoff Time'] = PACparseFILETIME(kerbdata['KickOffTime'])
+            parsed_data['Password Last Set'] = PACparseFILETIME(kerbdata['PasswordLastSet'])
+            parsed_data['Password Can Change'] = PACparseFILETIME(kerbdata['PasswordCanChange'])
+            parsed_data['Password Must Change'] = PACparseFILETIME(kerbdata['PasswordMustChange'])
             # parsed_data['LastSuccessfulILogon'] = PACparseFILETIME(kerbdata.fields['LastSuccessfulILogon'])
             # parsed_data['LastFailedILogon'] = PACparseFILETIME(kerbdata.fields['LastFailedILogon'])
-            # parsed_data['FailedILogonCount'] = PACinfiniteData(kerbdata.fields['FailedILogonCount'])
-            parsed_data['Account Name'] = PACinfiniteData(kerbdata.fields['EffectiveName']).decode('utf-16-le')
-            parsed_data['Full Name'] = PACinfiniteData(kerbdata.fields['FullName']).decode('utf-16-le')
-            parsed_data['Logon Script'] = PACinfiniteData(kerbdata.fields['LogonScript']).decode('utf-16-le')
-            parsed_data['Profile Path'] = PACinfiniteData(kerbdata.fields['ProfilePath']).decode('utf-16-le')
-            parsed_data['Home Dir'] = PACinfiniteData(kerbdata.fields['HomeDirectory']).decode('utf-16-le')
-            parsed_data['Dir Drive'] = PACinfiniteData(kerbdata.fields['HomeDirectoryDrive']).decode('utf-16-le')
-            parsed_data['Logon Count'] = PACinfiniteData(kerbdata.fields['LogonCount'])
-            parsed_data['Bad Password Count'] = PACinfiniteData(kerbdata.fields['BadPasswordCount'])
-            parsed_data['User RID'] = PACinfiniteData(kerbdata.fields['UserId'])
-            parsed_data['Group RID'] = PACinfiniteData(kerbdata.fields['PrimaryGroupId'])
-            parsed_data['Group Count'] = PACinfiniteData(kerbdata.fields['GroupCount'])
-            parsed_data['Groups'] = ', '.join([str(gid['RelativeId']) for gid in PACparseGroupIds(kerbdata.fields['GroupIds'])])
-            UserFlags = PACinfiniteData(kerbdata.fields['UserFlags'])
+            # parsed_data['FailedILogonCount'] = kerbdata['FailedILogonCount']
+            parsed_data['Account Name'] = kerbdata['EffectiveName']
+            parsed_data['Full Name'] = kerbdata['FullName']
+            parsed_data['Logon Script'] = kerbdata['LogonScript']
+            parsed_data['Profile Path'] = kerbdata['ProfilePath']
+            parsed_data['Home Dir'] = kerbdata['HomeDirectory']
+            parsed_data['Dir Drive'] = kerbdata['HomeDirectoryDrive']
+            parsed_data['Logon Count'] = kerbdata['LogonCount']
+            parsed_data['Bad Password Count'] = kerbdata['BadPasswordCount']
+            parsed_data['User RID'] = kerbdata['UserId']
+            parsed_data['Group RID'] = kerbdata['PrimaryGroupId']
+            parsed_data['Group Count'] = kerbdata['GroupCount']
+            parsed_data['Groups'] = ', '.join([str(gid['RelativeId']) for gid in PACparseGroupIds(kerbdata['GroupIds'])])
+            UserFlags = kerbdata['UserFlags']
             User_Flags_Flags = []
             for flag in User_Flags:
                 if UserFlags & flag.value:
                     User_Flags_Flags.append(flag.name)
             parsed_data['User Flags']            = "(%s) %s" % (UserFlags, ", ".join(User_Flags_Flags))
-            parsed_data['User Session Key']       = hexlify(PACinfiniteData(kerbdata.fields['UserSessionKey'])).decode('utf-8')
-            parsed_data['Logon Server']          = PACinfiniteData(kerbdata.fields['LogonServer']).decode('utf-16-le')
-            parsed_data['Logon Domain Name']      = PACinfiniteData(kerbdata.fields['LogonDomainName']).decode('utf-16-le')
-            parsed_data['Logon Domain SID']        = PACparseSID(PACinfiniteData(kerbdata.fields['LogonDomainId']))
-            UAC = PACinfiniteData(kerbdata.fields['UserAccountControl'])
+            parsed_data['User Session Key']       = hexlify(kerbdata['UserSessionKey']).decode('utf-8')
+            parsed_data['Logon Server']          = kerbdata['LogonServer']
+            parsed_data['Logon Domain Name']      = kerbdata['LogonDomainName']
+            parsed_data['Logon Domain SID']        = PACparseSID(kerbdata['LogonDomainId'])
+            UAC = kerbdata['UserAccountControl']
             UAC_Flags = []
             for flag in UserAccountControl_Flags:
                 if UAC & flag.value:
                     UAC_Flags.append(flag.name)
             parsed_data['User Account Control']   = "(%s) %s" % (UAC, ", ".join(UAC_Flags))
-            parsed_data['Extra SID Count']        = PACinfiniteData(kerbdata.fields['SidCount'])
+            parsed_data['Extra SID Count']        = kerbdata['SidCount']
             parsed_data['Extra SIDs']            = ', '.join([sid for sid in PACparseExtraSids(kerbdata.fields['ExtraSids'])])
             parsed_data['Resource Group Domain SID'] = PACparseSID(kerbdata.fields['ResourceGroupDomainSid'])
-            parsed_data['Resource Group Count']   = PACinfiniteData(kerbdata.fields['ResourceGroupCount'])
-            parsed_data['Resource Group Ids']     = ', '.join([str(gid['RelativeId']) for gid in PACparseGroupIds(kerbdata.fields['ResourceGroupIds'])])
-            # parsed_data['LMKey']                = hexlify(PACinfiniteData(kerbdata.fields['LMKey'])).decode('utf-8')
-            # parsed_data['SubAuthStatus']        = PACinfiniteData(kerbdata.fields['SubAuthStatus'])
-            # parsed_data['Reserved3']            = PACinfiniteData(kerbdata.fields['Reserved3'])
+            parsed_data['Resource Group Count']   = kerbdata['ResourceGroupCount']
+            parsed_data['Resource Group Ids']     = ', '.join([str(gid['RelativeId']) for gid in PACparseGroupIds(kerbdata['ResourceGroupIds'])])
+            # parsed_data['LMKey']                = hexlify(kerbdata['LMKey']).decode('utf-8')
+            # parsed_data['SubAuthStatus']        = kerbdata['SubAuthStatus']
+            # parsed_data['Reserved3']            = kerbdata['Reserved3']
             parsed_tuPAC.append({"LoginInfo": parsed_data})
 
-        elif infoBuffer['ulType'] == PAC_CLIENT_INFO_TYPE:
-            clientInfo = PAC_CLIENT_INFO()
+        elif infoBuffer['ulType'] == pac.PAC_CLIENT_INFO_TYPE:
+            clientInfo = pac.PAC_CLIENT_INFO()
             clientInfo.fromString(data)
             parsed_data = {}
             parsed_data['Client Id'] = PACparseFILETIME(clientInfo.fields['ClientId'])
@@ -287,8 +285,8 @@ def parse_pac(pacType):
             parsed_data['Client Name'] = clientInfo.fields['Name'].decode('utf-16-le')
             parsed_tuPAC.append({"ClientName": parsed_data})
 
-        elif infoBuffer['ulType'] == PAC_UPN_DNS_INFO:
-            upn = UPN_DNS_INFO(data)
+        elif infoBuffer['ulType'] == pac.PAC_UPN_DNS_INFO:
+            upn = pac.UPN_DNS_INFO(data)
             UpnLength = upn.fields['UpnLength']
             UpnOffset = upn.fields['UpnOffset']
             UpnName = data[UpnOffset:UpnOffset+UpnLength].decode('utf-16-le')
@@ -301,31 +299,69 @@ def parse_pac(pacType):
             parsed_data['DNS Domain Name'] = DnsName
             parsed_tuPAC.append({"UpnDns": parsed_data})
 
-        elif infoBuffer['ulType'] == PAC_SERVER_CHECKSUM:
-            signatureData = PAC_SIGNATURE_DATA(data)
+        elif infoBuffer['ulType'] == pac.PAC_SERVER_CHECKSUM:
+            signatureData = pac.PAC_SIGNATURE_DATA(data)
             parsed_data = {}
             parsed_data['Signature Type'] = ChecksumTypes(signatureData.fields['SignatureType']).name
             parsed_data['Signature'] = hexlify(signatureData.fields['Signature']).decode('utf-8')
             parsed_tuPAC.append({"ServerChecksum": parsed_data})
 
-        elif infoBuffer['ulType'] == PAC_PRIVSVR_CHECKSUM:
-            signatureData = PAC_SIGNATURE_DATA(data)
+        elif infoBuffer['ulType'] == pac.PAC_PRIVSVR_CHECKSUM:
+            signatureData = pac.PAC_SIGNATURE_DATA(data)
             parsed_data = {}
             parsed_data['Signature Type'] = ChecksumTypes(signatureData.fields['SignatureType']).name
             # signatureData.dump()
             parsed_data['Signature'] = hexlify(signatureData.fields['Signature']).decode('utf-8')
             parsed_tuPAC.append({"KDCChecksum": parsed_data})
 
-        elif infoBuffer['ulType'] == PAC_CREDENTIALS_INFO:
-            logging.debug("TODO: implement PAC_CREDENTIALS_INFO parsing")
+        elif infoBuffer['ulType'] == pac.PAC_CREDENTIALS_INFO:
+            # Parsing 2.6.1 PAC_CREDENTIAL_INFO
+            credential_info = pac.PAC_CREDENTIAL_INFO(data)
+            parsed_credential_info = {}
+            parsed_credential_info['Version'] = "(0x%x) %d" % (credential_info.fields['Version'], credential_info.fields['Version'])
+            credinfo_enctype = credential_info.fields['EncryptionType']
+            parsed_credential_info['Encryption Type'] = "(0x%x) %s" % (credinfo_enctype, constants.EncryptionTypes(credential_info.fields['EncryptionType']).name)
+            if not args.asrep_key:
+                parsed_credential_info['Encryption Type'] = "<Cannot decrypt, --asrep-key missing>"
+                logging.error('No ASREP key supplied, cannot decrypt PAC Credentials')
+                parsed_tuPAC.append({"Credential Info": parsed_credential_info})
+            else:
+                parsed_tuPAC.append({"Credential Info": parsed_credential_info})
+                newCipher = _enctype_table[credinfo_enctype]
+                key = Key(credinfo_enctype, unhexlify(args.asrep_key))
+                plain_credential_data = newCipher.decrypt(key, 16, credential_info.fields['SerializedData'])
+                type1 = TypeSerialization1(plain_credential_data)
+                newdata = plain_credential_data[len(type1) + 4:]
+                # Parsing 2.6.2 PAC_CREDENTIAL_DATA
+                credential_data = pac.PAC_CREDENTIAL_DATA(newdata)
+                parsed_credential_data = {}
+                parsed_credential_data['  Credential Count'] = credential_data['CredentialCount']
+                parsed_tuPAC.append({"  Credential Data": parsed_credential_data})
+                # Parsing (one or many) 2.6.3 SECPKG_SUPPLEMENTAL_CRED
+                for credential in credential_data['Credentials']:
+                    parsed_secpkg_supplemental_cred = {}
+                    parsed_secpkg_supplemental_cred['      Package Name'] = credential['PackageName']
+                    parsed_secpkg_supplemental_cred['      Credential Size'] = credential['CredentialSize']
+                    parsed_tuPAC.append({"      SecPkg Credentials": parsed_secpkg_supplemental_cred})
+                    # Parsing 2.6.4 NTLM_SUPPLEMENTAL_CREDENTIAL
+                    ntlm_supplemental_cred = pac.NTLM_SUPPLEMENTAL_CREDENTIAL(b''.join(credential['Credentials']))
+                    parsed_ntlm_supplemental_cred = {}
+                    parsed_ntlm_supplemental_cred['        Version'] = ntlm_supplemental_cred['Version']
+                    parsed_ntlm_supplemental_cred['        Flags'] = ntlm_supplemental_cred['Flags']
+                    parsed_ntlm_supplemental_cred['        LmPasword'] = hexlify(ntlm_supplemental_cred['LmPassword']).decode('utf-8')
+                    parsed_ntlm_supplemental_cred['        NtPasword'] = hexlify(ntlm_supplemental_cred['NtPassword']).decode('utf-8')
+                    parsed_tuPAC.append({"        NTLM Credentials": parsed_ntlm_supplemental_cred})
 
-        elif infoBuffer['ulType'] == PAC_DELEGATION_INFO:
-            delegationInfo = S4U_DELEGATION_INFO(data)
+        elif infoBuffer['ulType'] == pac.PAC_DELEGATION_INFO:
+            delegationInfo = pac.S4U_DELEGATION_INFO(data)
             parsed_data = {}
-            parsed_data['S4U2proxyTarget'] = PACinfiniteData(delegationInfo.fields['S4U2proxyTarget']).decode('utf-16-le')
+            parsed_data['S4U2proxyTarget'] = delegationInfo['S4U2proxyTarget']
             parsed_data['TransitedListSize'] = delegationInfo.fields['TransitedListSize'].fields['Data']
-            parsed_data['S4UTransitedServices'] = PACinfiniteData(delegationInfo.fields['S4UTransitedServices']).decode('utf-16-le')
+            parsed_data['S4UTransitedServices'] = delegationInfo['S4UTransitedServices'].decode('utf-8')
             parsed_tuPAC.append({"DelegationInfo": parsed_data})
+
+        else:
+            logger.debug("Unsupported PAC structure: %s" % infoBuffer['ulType'])
 
         buff = buff[len(infoBuffer):]
     return parsed_tuPAC
@@ -429,18 +465,26 @@ def parse_args():
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
 
-    group = parser.add_argument_group()
-    group.title = 'Ticket decryption credentials (optional)'
-    group.description = 'Tickets carry a set of information encrypted by one of the target service account\'s Kerberos keys.' \
+    ticket_decryption = parser.add_argument_group()
+    ticket_decryption.title = 'Ticket decryption credentials (optional)'
+    ticket_decryption.description = 'Tickets carry a set of information encrypted by one of the target service account\'s Kerberos keys.' \
                         '(example: if the ticket is for user:"john" for service:"cifs/service.domain.local", you need to supply credentials or keys ' \
                         'of the service account who owns SPN "cifs/service.domain.local")'
-    group.add_argument('-p', '--password', action="store", metavar="PASSWORD", help='Cleartext password of the service account')
-    group.add_argument('-hp', '--hexpass', dest='hexpass', action="store", metavar="HEX PASSWORD", help='placeholder')
-    group.add_argument('-u', '--user', action="store", metavar="USER", help='Name of the service account')
-    group.add_argument('-d', '--domain', action="store", metavar="DOMAIN", help='FQDN Domain')
-    group.add_argument('-s', '--salt', action="store", metavar="SALT", help='Salt for keys calculation (DOMAIN.LOCALSomeuser for users, DOMAIN.LOCALhostsomemachine.domain.local for machines)')
-    group.add_argument('--rc4', action="store", metavar="RC4", help='RC4 KEY (i.e. NT hash)')
-    group.add_argument('--aes', action="store", metavar="HEX KEY", help='AES128 or AES256 key')
+    ticket_decryption.add_argument('-p', '--password', action="store", metavar="PASSWORD", help='Cleartext password of the service account')
+    ticket_decryption.add_argument('-hp', '--hexpass', dest='hexpass', action="store", metavar="HEX PASSWORD", help='placeholder')
+    ticket_decryption.add_argument('-u', '--user', action="store", metavar="USER", help='Name of the service account')
+    ticket_decryption.add_argument('-d', '--domain', action="store", metavar="DOMAIN", help='FQDN Domain')
+    ticket_decryption.add_argument('-s', '--salt', action="store", metavar="SALT", help='Salt for keys calculation (DOMAIN.LOCALSomeuser for users, DOMAIN.LOCALhostsomemachine.domain.local for machines)')
+    ticket_decryption.add_argument('--rc4', action="store", metavar="RC4", help='RC4 KEY (i.e. NT hash)')
+    ticket_decryption.add_argument('--aes', action="store", metavar="HEXKEY", help='AES128 or AES256 key')
+
+    credential_info = parser.add_argument_group()
+    credential_info.title = 'PAC Credentials decryption material'
+    credential_info.description = '[MS-PAC] section 2.6 (PAC Credentials) describes an element that is used to send credentials for alternate security protocols to the client during initial logon.' \
+                                  'This PAC credentials is typically used when PKINIT is conducted for pre-authentication. This structure contains LM and NT hashes.' \
+                                  'The information is encrypted using the AS reply key. Attack primitive known as UnPAC-the-Hash. (https://www.thehacker.recipes/ad/movement/kerberos/unpac-the-hash)'
+    credential_info.add_argument('--asrep-key', action="store", metavar="HEXKEY", help='AS reply key for PAC Credentials decryption')
+
 
     if len(sys.argv) == 1:
         parser.print_help()
