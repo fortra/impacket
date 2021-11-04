@@ -8,8 +8,8 @@
 # for more information.
 #
 # Description:
-#  	This script allows the password for a user to be reset remotely over 
-#  	SMB (MSRPC-SAMR) by another account with appropriate privileges.  
+#   This script allows the password for a user to be reset remotely over 
+#   SMB (MSRPC-SAMR) by another account with appropriate privileges.  
 #   It supports reseting of the password value to an NTLM hash as well as 
 #   a plaintext password. If the password is changed via specifying the 
 #   NTLM hash, kerberos keys for the target user will no longer be stored
