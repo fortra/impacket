@@ -1093,7 +1093,7 @@ class SMB2Lock(Structure):
         ('LockSequence','<L=0'),
         ('FileID',':',SMB2_FILEID),
         ('_Locks','_-Locks','self["LockCount"]*24'),
-        ('Locks',':'),
+        ('Locks','*:'),
     )
 
 class SMB2Lock_Response(Structure):
