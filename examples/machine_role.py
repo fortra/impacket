@@ -176,3 +176,4 @@ if __name__ == '__main__':
 
     machine_role = MachineRole(username, password, domain, options.hashes, options.aesKey, options.k, options.dc_ip, int(options.port))
     machine_role.print_info(remoteName, options.target_ip)
+    
