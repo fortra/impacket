@@ -75,6 +75,8 @@ class MachineRole:
         for key, value in output.items():
             print('%s: %s' % (key, value))
 
+        dce.disconnect()
+
     def __authenticate(self, remoteName, remoteHost):
         dce = self.__get_transport(remoteName, remoteHost)
 
