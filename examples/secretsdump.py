@@ -314,8 +314,8 @@ if __name__ == '__main__':
                         help='base output filename. Extensions will be added for sam, secrets, cached and ntds')
     parser.add_argument('-use-vss', action='store_true', default=False,
                         help='Use the VSS method instead of default DRSUAPI')
-    parser.add_argument('-rodcNo', action='store', type=int, help='Number of the RODC krbtgt account (only avaiable to Kerb-Key-List approach)')
-    parser.add_argument('-rodcKey', action='store', help='AES key of the Read Only Domain Controller (only avaiable to Kerb-Key-List approach)')
+    parser.add_argument('-rodcNo', action='store', type=int, help='Number of the RODC krbtgt account (only avaiable for Kerb-Key-List approach)')
+    parser.add_argument('-rodcKey', action='store', help='AES key of the Read Only Domain Controller (only avaiable for Kerb-Key-List approach)')
     parser.add_argument('-use-keylist', action='store_true', default=False,
                         help='Use the Kerb-Key-List method instead of default DRSUAPI')
     parser.add_argument('-exec-method', choices=['smbexec', 'wmiexec', 'mmcexec'], nargs='?', default='smbexec', help='Remote exec '
@@ -386,6 +386,10 @@ if __name__ == '__main__':
 
     if options.use_vss is True and options.resumefile is not None:
         logging.error('resuming a previous NTDS.DIT dump session is not supported in VSS mode')
+        sys.exit(1)
+
+    if options.use_keylist is True and (options.rodcNo is None or options.rodcKey is None):
+        logging.error('Both the RODC ID number and the RODC key are required for the Kerb-Key-List approach')
         sys.exit(1)
 
     if remoteName.upper() == 'LOCAL' and username == '' and options.resumefile is not None:
