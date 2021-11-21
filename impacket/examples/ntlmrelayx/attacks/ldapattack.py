@@ -640,7 +640,7 @@ class LDAPAttack(ProtocolAttack):
             unknwown_sids = enrollment_principals.difference(known_sids)
             sid_map.update(translate_sids(unknwown_sids))
 
-            LOG.info("Prinicipals who can enroll on enrollment service `%s`: %s" % (entry["attributes"]["displayName"],
+            LOG.info("Principals who can enroll on enrollment service `%s`: %s" % (entry["attributes"]["displayName"],
                      ", ".join(("`" + sid_map[principal] + "`" for principal in enrollment_principals))))
 
         if not len(offered_templates):
@@ -662,7 +662,7 @@ class LDAPAttack(ProtocolAttack):
             unknwown_sids = enrollment_principals.difference(known_sids)
             sid_map.update(translate_sids(unknwown_sids))
 
-            LOG.info("Prinicipals who can enroll using template `%s`: %s" % (entry["attributes"]["name"],
+            LOG.info("Principals who can enroll using template `%s`: %s" % (entry["attributes"]["name"],
                      ", ".join(("`" + sid_map[principal] + "`" for principal in enrollment_principals))))
 
         LOG.info("Done dumping ADCS info")
