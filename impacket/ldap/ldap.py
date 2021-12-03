@@ -109,7 +109,7 @@ class LDAPConnection:
             af, socktype, proto, _, sa = socket.getaddrinfo(targetHost, self._dstPort, 0, socket.SOCK_STREAM)[0]
             self._socket = socket.socket(af, socktype, proto)
         except socket.error as e:
-            raise socket.error('Connection error (%s:%d)' % (targetHost, 88), e)
+            raise socket.error('Connection error (%s:%d)' % (targetHost, self._dstPort), e)
 
         if self._SSL is False:
             self._socket.connect(sa)

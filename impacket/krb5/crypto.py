@@ -343,12 +343,12 @@ class _DESCBC(_SimplifiedEnctype):
             tempkey[7] = chr(ord(tempkey[7]) ^ 0xF0)
 
         cipher = DES.new(b(tempkey), DES.MODE_CBC, b(tempkey))
-        chekcsumkey = cipher.encrypt(s)[-8:]
-        chekcsumkey = fixparity(chekcsumkey)
-        if _is_weak_des_key(chekcsumkey):
-            chekcsumkey[7] = chr(ord(chekcsumkey[7]) ^ 0xF0)
+        checksumkey = cipher.encrypt(s)[-8:]
+        checksumkey = fixparity(checksumkey)
+        if _is_weak_des_key(checksumkey):
+            checksumkey[7] = chr(ord(checksumkey[7]) ^ 0xF0)
         
-        return Key(cls.enctype, chekcsumkey)
+        return Key(cls.enctype, checksumkey)
 
     @classmethod
     def basic_encrypt(cls, key, plaintext):

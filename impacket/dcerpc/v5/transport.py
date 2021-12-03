@@ -30,11 +30,12 @@ from impacket.dcerpc.v5.rpcrt import DCERPCException, DCERPC_v5, DCERPC_v4
 from impacket.dcerpc.v5.rpch import RPCProxyClient, RPCProxyClientException, RPC_OVER_HTTP_v1, RPC_OVER_HTTP_v2
 from impacket.smbconnection import SMBConnection
 
+
 class DCERPCStringBinding:
-    parser = re.compile(r'(?:([a-fA-F0-9-]{8}(?:-[a-fA-F0-9-]{4}){3}-[a-fA-F0-9-]{12})@)?' # UUID (opt.)
-                        +'([_a-zA-Z0-9]*):' # Protocol Sequence
-                        +'([^\[]*)' # Network Address (opt.)
-                        +'(?:\[([^\]]*)\])?') # Endpoint and options (opt.)
+    parser = re.compile(r"(?:([a-fA-F0-9-]{8}(?:-[a-fA-F0-9-]{4}){3}-[a-fA-F0-9-]{12})@)?" +  # UUID (opt.)
+                        r"([_a-zA-Z0-9]*):" +  # Protocol Sequence
+                        r"([^\[]*)" +  # Network Address (opt.)
+                        r"(?:\[([^]]*)])?")  # Endpoint and options (opt.)
 
     def __init__(self, stringbinding):
         match = DCERPCStringBinding.parser.match(stringbinding)
@@ -90,6 +91,7 @@ class DCERPCStringBinding:
     def __str__(self):
         return DCERPCStringBindingCompose(self.__uuid, self.__ps, self.__na, self.__endpoint, self.__options)
 
+
 def DCERPCStringBindingCompose(uuid=None, protocol_sequence='', network_address='', endpoint='', options={}):
     s = ''
     if uuid:
@@ -104,6 +106,7 @@ def DCERPCStringBindingCompose(uuid=None, protocol_sequence='', network_address=
         s += ']'
 
     return s
+
 
 def DCERPCTransportFactory(stringbinding):
     sb = DCERPCStringBinding(stringbinding)
