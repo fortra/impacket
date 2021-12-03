@@ -63,7 +63,7 @@ jobs:
           - tox-env: py39
             python-version: 3.9
           - tox-env: py310
-            python-version: 3.10
+            python-version: "3.10"
             experimental: true
     env:
       TOXENV: ${{ matrix.tox-env }}
