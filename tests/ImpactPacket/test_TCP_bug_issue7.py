@@ -35,7 +35,7 @@ class TestTCP(unittest.TestCase):
                     pass
 
         thread_hangs = it_hangs()
-        thread_hangs.setDaemon(True)
+        thread_hangs.daemon = True
         thread_hangs.start()
 
         thread_hangs.join(1.0)  # 1 seconds timeout
