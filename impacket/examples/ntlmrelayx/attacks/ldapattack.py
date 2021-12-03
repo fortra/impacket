@@ -300,8 +300,12 @@ class LDAPAttack(ProtocolAttack):
         restoredata = {}
 
         # Query for the sid of our user
-        self.client.search(userDn, '(objectCategory=user)', attributes=['sAMAccountName', 'objectSid'])
-        entry = self.client.entries[0]
+        try:
+            self.client.search(userDn, '(objectClass=user)', attributes=['sAMAccountName', 'objectSid'])
+            entry = self.client.entries[0]
+        except IndexError:
+            LOG.error('Could not retrieve infos for user: %s' % userDn)
+            return
         username = entry['sAMAccountName'].value
         usersid = entry['objectSid'].value
         LOG.debug('Found sid for user %s: %s' % (username, usersid))
