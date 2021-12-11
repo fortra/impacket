@@ -314,6 +314,8 @@ class SMBConnection:
                 ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
             except:
                 # No cache present
+                if not (os.getenv('KRB5CCNAME')!=None and os.path.isfile(os.getenv('KRB5CCNAME'))):
+                    LOG.error("The ccache file does not exist. Please set the ccache file path to KRB5CCNAME's os environment value.")
                 pass
             else:
                 LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
