@@ -659,5 +659,8 @@ class CCache:
 
 if __name__ == '__main__':
     import os
-    ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-    ccache.prettyPrint()
+    if os.path.isfile(os.getenv('KRB5CCNAME')):
+        ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
+        ccache.prettyPrint()
+    else:
+        print("ccache file does not exist. please set the ccache file path to KRB5CCNAME's os environment value.")
