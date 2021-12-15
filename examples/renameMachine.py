@@ -357,10 +357,10 @@ def main():
         else:
             error_code = int(ldap_session.result['message'].split(':')[0].strip(), 16)
             if error_code == 0x523 and cve_attempt:
+                logging.debug('The server returned an error: %s', ldap_session.result['message'])
                 # https://support.microsoft.com/en-us/topic/kb5008102-active-directory-security-accounts-manager-hardening-changes-cve-2021-42278-5975b463-4c95-45e1-831a-d120004e258e
                 logging.error('Server probably patched against CVE-2021-42278')
-                logging.debug('The server returned an error: %s', ldap_session.result['message'])
-            if ldap_session.result['result'] == 50:
+            elif ldap_session.result['result'] == 50:
                 logging.error('Could not modify object, the server reports insufficient rights: %s', ldap_session.result['message'])
             elif ldap_session.result['result'] == 19:
                 logging.error('Could not modify object, the server reports a constrained violation: %s', ldap_session.result['message'])
