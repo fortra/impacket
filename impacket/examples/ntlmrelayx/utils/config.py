@@ -177,6 +177,7 @@ class NTLMRelayxConfig:
         self.aclattack = aclattack
         self.validateprivs = validateprivs
         self.escalateuser = escalateuser
+        self.adduser = adduser
         self.addcomputer = addcomputer
         self.delegateaccess = delegateaccess
         self.dumplaps = dumplaps
