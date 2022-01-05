@@ -166,6 +166,7 @@ def start_servers(options, threads):
         c.setWebDAVOptions(options.serve_image)
         c.setIsADCSAttack(options.adcs)
         c.setADCSOptions(options.template)
+        c.setAltName(options.altname)
 
         if server is HTTPRelayServer:
             c.setListeningPort(options.http_port)
@@ -326,6 +327,7 @@ if __name__ == '__main__':
     adcsoptions = parser.add_argument_group("AD CS attack options")
     adcsoptions.add_argument('--adcs', action='store_true', required=False, help='Enable AD CS relay attack')
     adcsoptions.add_argument('--template', action='store', metavar="TEMPLATE", required=False, default="Machine", help='AD CS template. If you are attacking Domain Controller or other windows server machine, default value should be suitable.')
+    adcsoptions.add_argument('--altname', action='store', metavar="ALTNAME", required=False, help='Subject Alternative Name to use when performing ESC1 or ESC6 attacks.')
 
     try:
        options = parser.parse_args()

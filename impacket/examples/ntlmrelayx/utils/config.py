@@ -97,6 +97,7 @@ class NTLMRelayxConfig:
         # AD CS attack options
         self.isADCSAttack = False
         self.template = None
+        self.altName = None
 
     def setSMBChallenge(self, value):
         self.SMBServerChallenge = value
@@ -218,3 +219,6 @@ class NTLMRelayxConfig:
 
     def setIsADCSAttack(self, isADCSAttack):
         self.isADCSAttack = isADCSAttack
+
+    def setAltName(self, altName):
+        self.altName = altName
