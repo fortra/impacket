@@ -50,44 +50,55 @@ class DHCPMTests(DCERPCTests):
         dce, rpctransport = self.connect(iface_uuid=self.iface_uuid_v1)
         request = dhcpm.DhcpGetClientInfoV4()
         request['ServerIpAddress'] = NULL
-
-        request['SearchInfo']['SearchType'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
-        request['SearchInfo']['SearchInfo']['tag'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
-        ip = struct.unpack("!I", socket.inet_aton(self.machine))[0]
-        request['SearchInfo']['SearchInfo']['ClientIpAddress'] = ip
-
+        request['SearchInfo']['SearchType'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientName
+        request['SearchInfo']['SearchInfo']['tag'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientName
+        request['SearchInfo']['SearchInfo']['ClientName'] = self.serverName + "\0"
         request.dump()
+
         with assertRaisesRegex(self, DCERPCException, "ERROR_DHCP_JET_ERROR"):
             dce.request(request)
+
+        #request['SearchInfo']['SearchType'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
+        #request['SearchInfo']['SearchInfo']['tag'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
+        #ip = struct.unpack("!I", socket.inet_aton(self.machine))[0]
+        #request['SearchInfo']['SearchInfo']['ClientIpAddress'] = ip
+        #request.dump()
+
+        #with assertRaisesRegex(self, DCERPCException, "ERROR_DHCP_JET_ERROR"):
+        #    dce.request(request)
 
     def test_hDhcpGetClientInfoV4(self):
         dce, rpctransport = self.connect(iface_uuid=self.iface_uuid_v1)
 
-        ip = struct.unpack("!I", socket.inet_aton(self.machine))[0]
         with assertRaisesRegex(self, DCERPCException, "ERROR_DHCP_JET_ERROR"):
-            dhcpm.hDhcpGetClientInfoV4(dce, dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress, ip)
+            dhcpm.hDhcpGetClientInfoV4(dce, dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientName, self.serverName + "\0")
 
-        with assertRaisesRegex(self, DCERPCException, "0x4e2d"):
-            dhcpm.hDhcpGetClientInfoV4(dce, dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientName, 'PEPA\x00')
+        #ip = struct.unpack("!I", socket.inet_aton(self.machine))[0]
+        #with assertRaisesRegex(self, DCERPCException, "ERROR_DHCP_JET_ERROR"):
+        #    dhcpm.hDhcpGetClientInfoV4(dce, dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress, ip)
 
     def test_DhcpV4GetClientInfo(self):
         dce, rpctransport = self.connect(iface_uuid=self.iface_uuid_v2)
         request = dhcpm.DhcpV4GetClientInfo()
         request['ServerIpAddress'] = NULL
-        request['SearchInfo']['SearchType'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
-        request['SearchInfo']['SearchInfo']['tag'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
-        ip = struct.unpack("!I", socket.inet_aton(self.machine))[0]
-        request['SearchInfo']['SearchInfo']['ClientIpAddress'] = ip
-
-        #request['SearchInfo']['SearchType'] = 2
-        #request['SearchInfo']['SearchInfo']['tag'] = 2
-        #ip = netaddr.IPAddress('172.16.123.10')
-        #request['SearchInfo']['SearchInfo']['ClientName'] = 'PEPONA\0'
+        request['SearchInfo']['SearchType'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientName
+        request['SearchInfo']['SearchInfo']['tag'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientName
+        request['SearchInfo']['SearchInfo']['ClientName'] = self.serverName + "\0"
         request.dump()
 
-        # For now we'e failing. This is not supported in W2k8r2
-        with assertRaisesRegex(self, DCERPCException, "nca_s_op_rng_error"):
+        # The DHCP client is probably not created but if we received an invalid DHCP client error
+        # means the search info had no corresponding IPv4 lease records.
+        with assertRaisesRegex(self, DCERPCException, "ERROR_DHCP_INVALID_DHCP_CLIENT"):
             dce.request(request)
+
+        #request['SearchInfo']['SearchType'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
+        #request['SearchInfo']['SearchInfo']['tag'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
+        #ip = struct.unpack("!I", socket.inet_aton(self.machine))[0]
+        #request['SearchInfo']['SearchInfo']['ClientIpAddress'] = ip
+        #request.dump()
+
+        #with assertRaisesRegex(self, DCERPCException, "ERROR_DHCP_INVALID_DHCP_CLIENT"):
+        #    dce.request(request)
 
     def test_hDhcpEnumSubnetClientsV5(self):
         dce, rpctransport = self.connect(iface_uuid=self.iface_uuid_v2)

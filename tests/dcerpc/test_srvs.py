@@ -173,7 +173,7 @@ class SRVSTests(DCERPCTests):
         try:
             resp = dce.request(request)
             resp.dump()
-        except srvs.DCERPCSessionError as e:
+        except Exception as e:
             # I might be closing myself ;)
             if str(e).find('STATUS_PIPE_BROKEN') < 0 and str(e).find('STATUS_FILE_CLOSED') < 0 and str(e).find('STATUS_INVALID_HANDLE') < 0 and str(e).find('0x90a') < 0:
                 raise
@@ -186,7 +186,7 @@ class SRVSTests(DCERPCTests):
         try:
             resp = srvs.hNetrFileClose(dce, resp['InfoStruct']['FileInfo']['Level2']['Buffer'][0]['fi2_id'])
             resp.dump()
-        except srvs.DCERPCSessionError as e:
+        except Exception as e:
             # I might be closing myself ;)
             if str(e).find('STATUS_PIPE_BROKEN') < 0 and str(e).find('STATUS_FILE_CLOSED') < 0 and str(e).find('STATUS_INVALID_HANDLE') < 0 and str(e).find('0x90a') < 0:
                 raise
