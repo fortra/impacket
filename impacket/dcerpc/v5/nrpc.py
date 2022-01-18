@@ -2559,7 +2559,7 @@ class NetrLogonControl2Ex(NDRCALL):
 
 class NetrLogonControl2ExResponse(NDRCALL):
     structure = (
-       ('Buffer',NETLOGON_CONTROL_DATA_INFORMATION),
+       ('Buffer', NETLOGON_CONTROL_QUERY_INFORMATION),
        ('ErrorCode',NET_API_STATUS),
     )
 
@@ -2575,7 +2575,7 @@ class NetrLogonControl2(NDRCALL):
 
 class NetrLogonControl2Response(NDRCALL):
     structure = (
-       ('Buffer',NETLOGON_CONTROL_DATA_INFORMATION),
+       ('Buffer', NETLOGON_CONTROL_QUERY_INFORMATION),
        ('ErrorCode',NET_API_STATUS),
     )
 
