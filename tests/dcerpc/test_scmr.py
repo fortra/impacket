@@ -135,26 +135,38 @@ class SCMRTests(DCERPCTests):
         elif dwInfoLevel == 7:
            self.assertEqual(unpack('<L', arrayData)[0], changeDone)
 
-    def test_RChangeServiceConfig2W(self):
-        dce, rpc_transport = self.connect()
-        scHandle = self.get_service_handle(dce)
-        lpServiceName = 'TESTSVC\x00'
-        lpDisplayName = 'DisplayName\x00'
+    def open_or_create_service(self, dce, scHandle, service_name, display_name, binary_path_name):
+
+        try:
+            desiredAccess = scmr.SERVICE_ALL_ACCESS
+            resp = scmr.hROpenServiceW(dce, scHandle, service_name, desiredAccess)
+            resp.dump()
+            return resp['lpServiceHandle']
+        except scmr.DCERPCSessionError as e:
+            if e.get_error_code() != 0x424:
+                raise
+
         dwDesiredAccess = scmr.SERVICE_ALL_ACCESS
         dwServiceType = scmr.SERVICE_WIN32_OWN_PROCESS
         dwStartType = scmr.SERVICE_DEMAND_START
         dwErrorControl = scmr.SERVICE_ERROR_NORMAL
-        lpBinaryPathName = 'binaryPath\x00'
         lpLoadOrderGroup = NULL
-        lpdwTagId = NULL 
+        lpdwTagId = NULL
         lpDependencies = NULL
         dwDependSize = 0
         lpServiceStartName = NULL
         lpPassword = NULL
         dwPwSize = 0
-        resp = scmr.hRCreateServiceW(dce, scHandle, lpServiceName, lpDisplayName, dwDesiredAccess, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize)
-        resp.dump()
-        newHandle = resp['lpServiceHandle'] 
+        resp = scmr.hRCreateServiceW(dce, scHandle, service_name, display_name, dwDesiredAccess,
+                                     dwServiceType, dwStartType, dwErrorControl, binary_path_name,
+                                     lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize,
+                                     lpServiceStartName, lpPassword, dwPwSize)
+        return resp['lpServiceHandle']
+
+    def test_RChangeServiceConfig2W(self):
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
+        newHandle = self.open_or_create_service(dce, scHandle, 'TESTSVC\x00', 'DisplayName\x00', 'binaryPath\x00')
         error = False
         try:
             request = scmr.RChangeServiceConfig2W()
@@ -448,23 +460,7 @@ class SCMRTests(DCERPCTests):
 
         #####################
         # Create / Change /  Query / Delete a service
-        lpServiceName = 'TESTSVC\x00'
-        lpDisplayName = 'DisplayName\x00'
-        dwDesiredAccess = scmr.SERVICE_ALL_ACCESS
-        dwServiceType = scmr.SERVICE_WIN32_OWN_PROCESS
-        dwStartType = scmr.SERVICE_DEMAND_START
-        dwErrorControl = scmr.SERVICE_ERROR_NORMAL
-        lpBinaryPathName = 'binaryPath\x00'
-        lpLoadOrderGroup = NULL
-        lpdwTagId = NULL
-        lpDependencies = NULL
-        dwDependSize = 0
-        lpServiceStartName = NULL
-        lpPassword = NULL
-        dwPwSize = 0
-        resp = scmr.hRCreateServiceW(dce, scHandle, lpServiceName, lpDisplayName, dwDesiredAccess, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize)
-        resp.dump()
-        newHandle = resp['lpServiceHandle'] 
+        newHandle = self.open_or_create_service(dce, scHandle, 'TESTSVC\x00', 'DisplayName\x00', 'binaryPath\x00')
 
         # Aca hay que chequear cada uno de los items
         cbBufSize = 0
