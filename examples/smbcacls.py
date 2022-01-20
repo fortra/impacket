@@ -1,3 +1,18 @@
+#!/usr/bin/env python
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Description:
+#   Utility for view and set windows file acls. It allows you to add or
+#   delete permissions to user or group. much like the Windows icacls
+#   binary or like the samba smbcacls.
+#
+
 import argparse
 import getpass
 import sys
