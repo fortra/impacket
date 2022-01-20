@@ -218,3 +218,19 @@ class NTLMRelayxConfig:
 
     def setIsADCSAttack(self, isADCSAttack):
         self.isADCSAttack = isADCSAttack
+
+def parse_listening_ports(value):
+    ports = set()
+    for entry in value.split(","):
+        items = entry.split("-")
+        if len(items) > 2:
+            raise ValueError
+        if len(items) == 1:
+            ports.add(int(items[0])) # Can raise ValueError if casted value not an Int, will be caught by calling method
+            continue
+        item1, item2 = map(int, items) # Can raise ValueError if casted values not an Int, will be caught by calling method
+        if item2 < item1:
+            raise ValueError("Upper bound in port range smaller than lower bound")
+        ports.update(range(item1, item2 + 1))
+
+    return ports
