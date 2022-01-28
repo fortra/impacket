@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -1718,10 +1718,10 @@ def ComputeNetlogonAuthenticator(clientStoredCredential, sessionKey):
     authenticator = NETLOGON_AUTHENTICATOR()
     authenticator['Timestamp'] = timestamp
 
-    credential = unpack('<I', clientStoredCredential[:4])[0] +timestamp
+    credential = unpack('<I', clientStoredCredential[:4])[0] + timestamp
     if credential > 0xffffffff:
         credential &= 0xffffffff
-    credential = pack('<I',credential)
+    credential = pack('<I', credential)
 
     authenticator['Credential'] = ComputeNetlogonCredential(credential + clientStoredCredential[4:], sessionKey)
     return authenticator
