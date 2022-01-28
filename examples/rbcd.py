@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
@@ -406,8 +406,12 @@ class RBCD(object):
                 logging.info('Accounts allowed to act on behalf of other identity:')
                 for ace in sd['Dacl'].aces:
                     SID = ace['Ace']['Sid'].formatCanonical()
-                    SamAccountName = self.get_sid_info(ace['Ace']['Sid'].formatCanonical())[1]
-                    logging.info('    %-10s   (%s)' % (SamAccountName, SID))
+                    logging.info("Trying with SID: {0}".format(SID))
+                    try: 
+                        SamAccountName = self.get_sid_info(ace['Ace']['Sid'].formatCanonical())[1]
+                        logging.info('    %-10s   (%s)' % (SamAccountName, SID))
+                    except TypeError: 
+                        pass
             else:
                 logging.info('Attribute msDS-AllowedToActOnBehalfOfOtherIdentity is empty')
         except IndexError:
