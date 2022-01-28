@@ -150,7 +150,7 @@ class NetrJobEnum(NDRCALL):
         ('ServerName',ATSVC_HANDLE),
         ('pEnumContainer', AT_ENUM_CONTAINER),
         ('PreferedMaximumLength', DWORD),
-        ('pResumeHandle', DWORD),
+        ('pResumeHandle', LPDWORD),
     )
 
 class NetrJobEnumResponse(NDRCALL):
