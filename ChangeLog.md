@@ -6,7 +6,14 @@ Complete list of changes can be found at:
 https://github.com/SecureAuthCorp/impacket/commits/master
 
 ## Unreleased changes
+1. Library improvements 
+    * Added a function to compute the Netlogon Authenticator at client-side in [MS-NRPC]
 
+2. Examples improvements
+    * N/A
+    
+3. New examples
+    * N/A
 
 ## Impacket v0.9.24 (October 2021):
 
