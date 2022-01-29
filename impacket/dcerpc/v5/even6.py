@@ -234,6 +234,7 @@ class EvtRpcQuerySeek(NDRCALL):
         ('LogQuery', CONTEXT_HANDLE_LOG_QUERY),
         ('Pos', LARGE_INTEGER),
         ('BookmarkXML', LPWSTR),
+        ('TimeOut', DWORD),
         ('Flags', DWORD),
     )
 
