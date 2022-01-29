@@ -187,7 +187,6 @@ class DumpSecrets:
                                  "in the form of NetBIOS domain name/user (e.g. contoso/Administratror).")
                 elif self.__useVSSMethod is False:
                     logging.info('Something wen\'t wrong with the DRSUAPI approach. Try again with -use-vss parameter')
-            self.cleanup()
         except (Exception, KeyboardInterrupt) as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
@@ -210,25 +209,22 @@ class DumpSecrets:
                         resumeFile = self.__NTDSHashes.getResumeSessionFile()
                         if resumeFile is not None:
                             os.unlink(resumeFile)
+        finally:
             try:
-                self.cleanup()
-            except:
-                pass
+                logging.info('Cleaning up... ')
+                if self.__remoteOps:
+                    self.__remoteOps.finish()
+                if self.__SAMHashes:
+                    self.__SAMHashes.finish()
+                if self.__LSASecrets:
+                    self.__LSASecrets.finish()
+                if self.__NTDSHashes:
+                    self.__NTDSHashes.finish()
+            except Exception as e:
+                if str(e).find('ERROR_DEPENDENT_SERVICES_RUNNING') < 0:
+                    raise
 
-    def cleanup(self):
-        try:
-            logging.info('Cleaning up... ')
-            if self.__remoteOps:
-                self.__remoteOps.finish()
-            if self.__SAMHashes:
-                self.__SAMHashes.finish()
-            if self.__LSASecrets:
-                self.__LSASecrets.finish()
-            if self.__NTDSHashes:
-                self.__NTDSHashes.finish()
-        except Exception as e:
-            if str(e).find('ERROR_DEPENDENT_SERVICES_RUNNING') < 0:
-                raise
+
 
 class Options(object):
     aesKey=None
