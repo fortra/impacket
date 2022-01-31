@@ -8,47 +8,32 @@
 #
 # Tested so far:
 #   DRSBind
-#   DRSDomainControllerInfo
-#   hDRSDomainControllerInfo
-#   DRSCrackNames
-#   hDRSCrackNames
+#   (h)DRSDomainControllerInfo
+#   (h)DRSCrackNames
 #   DRSGetNT4ChangeLog
 #   DRSVerifyName
+#   DRSGetNCChanges
 # Not yet:
-#
-# Shouldn't dump errors against a win7
+#   DRSUnBind
 #
 from __future__ import division
 from __future__ import print_function
+import pytest
 import unittest
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+from tests.dcerpc import DCERPCTests
 
-from impacket.dcerpc.v5 import transport, epm
 from impacket.dcerpc.v5 import drsuapi
 from impacket.dcerpc.v5.dtypes import NULL, LPWSTR
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
 
-class DRSRTests(unittest.TestCase):
-    def connect(self):
-        rpctransport = transport.DCERPCTransportFactory(self.stringBinding )
-        if len(self.hashes) > 0:
-            lmhash, nthash = self.hashes.split(':')
-        else:
-            lmhash = ''
-            nthash = ''
-        if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
-        dce = rpctransport.get_dce_rpc()
-        dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
-        dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
-        dce.connect()
-        dce.bind(drsuapi.MSRPC_UUID_DRSUAPI, transfer_syntax = self.ts)
+class DRSRTests(DCERPCTests):
+    iface_uuid = drsuapi.MSRPC_UUID_DRSUAPI
+    authn = True
+    authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+    string_binding = r"ncacn_np:{0.machine}[\PIPE\lsass]"
 
+    def bind(self, dce):
         request = drsuapi.DRSBind()
         request['puuidClientDsa'] = drsuapi.NTDSAPI_CLIENT_GUID
         drs = drsuapi.DRS_EXTENSIONS_INT()
@@ -81,29 +66,10 @@ class DRSRTests(unittest.TestCase):
             resp = dce.request(request)
 
         resp2 = drsuapi.hDRSDomainControllerInfo(dce,  resp['phDrs'], self.domain, 2)
-
-        return dce, rpctransport, resp['phDrs'], resp2['pmsgOut']['V2']['rItems'][0]['NtdsDsaObjectGuid']
-
-    def connect2(self):
-        rpctransport = transport.DCERPCTransportFactory(self.stringBinding )
-        if len(self.hashes) > 0:
-            lmhash, nthash = self.hashes.split(':')
-        else:
-            lmhash = ''
-            nthash = ''
-        if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
-        dce = rpctransport.get_dce_rpc()
-        dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
-        #dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
-        dce.connect()
-        dce.bind(drsuapi.MSRPC_UUID_DRSUAPI, transfer_syntax = self.ts)
-
-        return dce, rpctransport
+        return resp['phDrs'], resp2['pmsgOut']['V2']['rItems'][0]['NtdsDsaObjectGuid']
 
     def test_DRSBind(self):
-        dce, rpctransport, _,_ = self.connect()
+        dce, rpc_transport = self.connect()
 
         request = drsuapi.DRSBind()
         request['puuidClientDsa'] = drsuapi.NTDSAPI_CLIENT_GUID
@@ -125,7 +91,8 @@ class DRSRTests(unittest.TestCase):
         extension.dump()
 
     def test_DRSDomainControllerInfo(self):
-        dce, rpctransport, hDrs, DsaObjDest = self.connect()
+        dce, rpc_transport = self.connect()
+        hDrs, DsaObjDest = self.bind(dce)
 
         request = drsuapi.DRSDomainControllerInfo()
         request['hDrs'] = hDrs
@@ -151,7 +118,8 @@ class DRSRTests(unittest.TestCase):
         resp.dump()
 
     def test_hDRSDomainControllerInfo(self):
-        dce, rpctransport, hDrs, DsaObjDest = self.connect()
+        dce, rpc_transport = self.connect()
+        hDrs, DsaObjDest = self.bind(dce)
 
         resp = drsuapi.hDRSDomainControllerInfo(dce, hDrs, self.domain, 1)
         resp.dump()
@@ -166,7 +134,8 @@ class DRSRTests(unittest.TestCase):
         resp.dump()
 
     def test_DRSCrackNames(self):
-        dce, rpctransport, hDrs, DsaObjDest = self.connect()
+        dce, rpc_transport = self.connect()
+        hDrs, DsaObjDest = self.bind(dce)
 
         request = drsuapi.DRSCrackNames()
         request['hDrs'] = hDrs
@@ -190,7 +159,8 @@ class DRSRTests(unittest.TestCase):
         resp.dump()
 
     def test_hDRSCrackNames(self):
-        dce, rpctransport, hDrs, DsaObjDest = self.connect()
+        dce, rpc_transport = self.connect()
+        hDrs, DsaObjDest = self.bind(dce)
 
         name = 'Administrator'
         formatOffered = drsuapi.DS_NT4_ACCOUNT_NAME_SANS_DOMAIN
@@ -213,7 +183,8 @@ class DRSRTests(unittest.TestCase):
         resp.dump()
 
     def test_DRSGetNT4ChangeLog(self):
-        dce, rpctransport, hDrs, DsaObjDest = self.connect()
+        dce, rpc_transport = self.connect()
+        hDrs, DsaObjDest = self.bind(dce)
 
         request = drsuapi.DRSGetNT4ChangeLog()
         request['hDrs'] = hDrs
@@ -233,9 +204,10 @@ class DRSRTests(unittest.TestCase):
                 raise
 
     def test_DRSVerifyNames(self):
-        dce, rpctransport, hDrs, DsaObjDest = self.connect()
-        request = drsuapi.DRSVerifyNames()
+        dce, rpc_transport = self.connect()
+        hDrs, DsaObjDest = self.bind(dce)
 
+        request = drsuapi.DRSVerifyNames()
         request['hDrs'] = hDrs
         request['dwInVersion'] = 1
 
@@ -248,7 +220,7 @@ class DRSRTests(unittest.TestCase):
         dsName['SidLen'] = 0
         dsName['Guid'] = drsuapi.NULLGUID
         dsName['Sid'] = ''
-        name = 'DC=%s,DC=%s' % (self.domain.split('.')[0],self.domain.split('.')[1])
+        name = 'DC=%s,DC=%s' % (self.domain.split('.')[0], self.domain.split('.')[1])
 
         dsName['NameLen'] = len(name)
         dsName['StringName'] = (name + '\x00')
@@ -259,9 +231,10 @@ class DRSRTests(unittest.TestCase):
         resp = dce.request(request)
         resp.dump()
 
+    @pytest.mark.xfail
     def test_DRSGetNCChanges(self):
-        # Not yet working
-        dce, rpctransport, hDrs, DsaObjDest = self.connect()
+        dce, rpc_transport = self.connect()
+        hDrs, DsaObjDest = self.bind(dce)
 
         request = drsuapi.DRSGetNCChanges()
         request['hDrs'] = hDrs
@@ -276,7 +249,7 @@ class DRSRTests(unittest.TestCase):
         dsName['SidLen'] = 0
         dsName['Guid'] = drsuapi.NULLGUID
         dsName['Sid'] = ''
-        name = 'DC=%s,DC=%s' % (self.domain.split('.')[0],self.domain.split('.')[1])
+        name = 'DC=%s,DC=%s' % (self.domain.split('.')[0], self.domain.split('.')[1])
         dsName['NameLen'] = len(name)
         dsName['StringName'] = (name + '\x00')
 
@@ -357,10 +330,10 @@ class DRSRTests(unittest.TestCase):
             resp.dump()
             print('\n')
 
-
+    @pytest.mark.xfail
     def test_DRSGetNCChanges2(self):
-        # Not yet working
-        dce, rpctransport, hDrs, DsaObjDest = self.connect()
+        dce, rpc_transport = self.connect()
+        hDrs, DsaObjDest = self.bind(dce)
 
         request = drsuapi.DRSGetNCChanges()
         request['hDrs'] = hDrs
@@ -376,7 +349,7 @@ class DRSRTests(unittest.TestCase):
         dsName['Guid'] = drsuapi.NULLGUID
         dsName['Sid'] = ''
 
-        name = 'CN=Schema,CN=Configuration,DC=%s,DC=%s' % (self.domain.split('.')[0],self.domain.split('.')[1])
+        name = 'CN=Schema,CN=Configuration,DC=%s,DC=%s' % (self.domain.split('.')[0], self.domain.split('.')[1])
         dsName['NameLen'] = len(name)
         dsName['StringName'] = (name + '\x00')
 
@@ -408,7 +381,7 @@ class DRSRTests(unittest.TestCase):
         dsName['Guid'] = drsuapi.NULLGUID
         dsName['Sid'] = ''
 
-        name = 'DC=%s,DC=%s' % (self.domain.split('.')[0],self.domain.split('.')[1])
+        name = 'DC=%s,DC=%s' % (self.domain.split('.')[0], self.domain.split('.')[1])
         dsName['NameLen'] = len(name)
         dsName['StringName'] = (name + '\x00')
 
@@ -458,73 +431,30 @@ class DRSRTests(unittest.TestCase):
 #            resp = dce.request(request)
 
 
-class SMBTransport(DRSRTests):
-    def setUp(self):
-        DRSRTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.stringBinding = r'ncacn_np:%s[\PIPE\lsass]' % self.machine
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+@pytest.mark.remote
+class DRSRTestsSMBTransport(DRSRTests, unittest.TestCase):
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
-class SMBTransport64(DRSRTests):
-    def setUp(self):
-        DRSRTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
 
-        self.stringBinding = r'ncacn_np:%s[\PIPE\lsass]' % self.machine
-        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+@pytest.mark.remote
+class DRSRTestsSMBTransport64(DRSRTests, unittest.TestCase):
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
 
-class TCPTransport(DRSRTests):
-    def setUp(self):
-        DRSRTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        self.stringBinding = epm.hept_map(self.machine, drsuapi.MSRPC_UUID_DRSUAPI, protocol = 'ncacn_ip_tcp')
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
-class TCPTransport64(DRSRTests):
-    def setUp(self):
-        DRSRTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        self.stringBinding = epm.hept_map(self.machine, drsuapi.MSRPC_UUID_DRSUAPI, protocol = 'ncacn_ip_tcp')
-        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+@pytest.mark.remote
+class DRSRTestsTCPTransport(DRSRTests, unittest.TestCase):
+    protocol = "ncacn_ip_tcp"
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
+    string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
+
+
+@pytest.mark.remote
+class DRSRTestsTCPTransport64(DRSRTests, unittest.TestCase):
+    protocol = "ncacn_ip_tcp"
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
+    string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
 
 
 # Process command-line arguments.
-if __name__ == '__main__':
-    import sys
-    if len(sys.argv) > 1:
-        testcase = sys.argv[1]
-        suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
-    else:
-        #suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
-        suite  = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
-    unittest.main(defaultTest='suite')
+if __name__ == "__main__":
+    unittest.main(verbosity=1)
