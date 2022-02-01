@@ -1,18 +1,23 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# HTTP Relay Server
+# Description:
+#   RAW Relay Server
+#
+#   Written for lsarelax, but the RAW server can be used by any third-party NTLM relay
+#   server that would like to integrate with ntlmrelayx supported clients/attacks
 #
 # Authors:
-#  Alberto Solino (@agsolino)
-#  Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
-#  Ceri Coburn (@_EthicalChaos_)
+#   Alberto Solino (@agsolino)
+#   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
+#   Ceri Coburn (@_EthicalChaos_)
 #
-# Description:
-#             Written for lsarelax, but the RAW server can be used by any third-party NTLM relay server that would like to integrate with ntlmrelayx supported clients/attacks  
+
 import socketserver
 import socket
 import base64
