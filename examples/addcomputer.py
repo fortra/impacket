@@ -1,24 +1,27 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2019 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author:
-#  JaGoTu (@jagotu)
-#
 # Description:
-#     This script will add a computer account to the domain and set its password.
-#     Allows to use SAMR over SMB (this way is used by modern Windows computer when
-#     adding machines through the GUI) and LDAPS.
-#     Plain LDAP is not supported, as it doesn't allow setting the password.
+#   This script will add a computer account to the domain and set its password.
+#   Allows to use SAMR over SMB (this way is used by modern Windows computer when
+#   adding machines through the GUI) and LDAPS.
+#   Plain LDAP is not supported, as it doesn't allow setting the password.
+#
+# Author:
+#   JaGoTu (@jagotu)
 #
 # Reference for:
-#     SMB, SAMR, LDAP
+#   SMB, SAMR, LDAP
 #
-#  ToDo:
-# [ ]: Complete the process of joining a client computer to a domain via the SAMR protocol
+# ToDo:
+#   [ ]: Complete the process of joining a client computer to a domain via the SAMR protocol
+#
 
 from __future__ import division
 from __future__ import print_function
@@ -410,8 +413,9 @@ class ADDCOMPUTER:
         request = ldap3.operation.bind.bind_operation(connection.version, ldap3.SASL, user, None, 'GSS-SPNEGO', blob.getData())
 
         # Done with the Kerberos saga, now let's get into LDAP
-        if connection.closed:  # try to open connection if closed
-                connection.open(read_server_info=False)
+        # try to open connection if closed
+        if connection.closed:
+            connection.open(read_server_info=False)
 
         connection.sasl_in_progress = True
         response = connection.post_send_single_response(connection.send('bindRequest', request, None))

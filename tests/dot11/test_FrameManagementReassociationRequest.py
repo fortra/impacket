@@ -1,12 +1,17 @@
 #!/usr/bin/env python
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+import unittest
+from six import PY2
 from impacket.dot11 import Dot11Types
 from impacket.ImpactDecoder import RadioTapDecoder
-from six import PY2
-import unittest
+
 
 class TestDot11ManagementReassociationRequestFrames(unittest.TestCase):
 
@@ -182,5 +187,6 @@ class TestDot11ManagementReassociationRequestFrames(unittest.TestCase):
             ])
         self.assertEqual(self.management_reassociation_request.get_header_size(), 74+11)
         
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementReassociationRequestFrames)
-unittest.TextTestRunner(verbosity=1).run(suite)
+
+if __name__ == '__main__':
+    unittest.main(verbosity=1)

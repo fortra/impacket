@@ -1,8 +1,15 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
+#
+# Author:
+#   Altered source done by Alberto Solino (@agsolino)
+#
+# Copyright and license note from Pysmb:
 #
 # Copyright (C) 2001 Michael Teo <michaelteo@bigfoot.com>
 # smb.py - SMB/CIFS library
@@ -25,19 +32,18 @@
 #
 # 3. This notice cannot be removed or altered from any source distribution.
 #
-# Altered source done by Alberto Solino (@agsolino)
-
 # Todo:
-# [ ] Try [SMB]transport fragmentation using Transact requests
-# [ ] Try other methods of doing write (write_raw, transact2, write, write_and_unlock, write_and_close, write_mpx)
-# [-] Try replacements for SMB_COM_NT_CREATE_ANDX  (CREATE, T_TRANSACT_CREATE, OPEN_ANDX works
-# [x] Fix forceWriteAndx, which needs to send a RecvRequest, because recv() will not send it
-# [x] Fix Recv() when using RecvAndx and the answer comes splet in several packets
-# [ ] Try [SMB]transport fragmentation with overlapping segments
-# [ ] Try [SMB]transport fragmentation with out of order segments
-# [x] Do chained AndX requests
-# [ ] Transform the rest of the calls to structure
-# [X] Implement TRANS/TRANS2 reassembly for list_path
+#   [ ] Try [SMB]transport fragmentation using Transact requests
+#   [ ] Try other methods of doing write (write_raw, transact2, write, write_and_unlock, write_and_close, write_mpx)
+#   [-] Try replacements for SMB_COM_NT_CREATE_ANDX  (CREATE, T_TRANSACT_CREATE, OPEN_ANDX works
+#   [x] Fix forceWriteAndx, which needs to send a RecvRequest, because recv() will not send it
+#   [x] Fix Recv() when using RecvAndx and the answer comes splet in several packets
+#   [ ] Try [SMB]transport fragmentation with overlapping segments
+#   [ ] Try [SMB]transport fragmentation with out of order segments
+#   [x] Do chained AndX requests
+#   [ ] Transform the rest of the calls to structure
+#   [X] Implement TRANS/TRANS2 reassembly for list_path
+#
 from __future__ import division
 from __future__ import print_function
 import os
@@ -177,6 +183,60 @@ SMB_SET_FILE_DISPOSITION_INFO    = 0x0102
 SMB_SET_FILE_BASIC_INFO          = 0x0101
 SMB_SET_FILE_END_OF_FILE_INFO    = 0x0104
 
+# Device Type [MS-CIFS] 2.2.8.2.5
+FILE_DEVICE_BEEP = 0x0001
+FILE_DEVICE_CD_ROM = 0x0002
+FILE_DEVICE_CD_ROM_FILE_SYSTEM = 0x0003
+FILE_DEVICE_CONTROLLER = 0x0004
+FILE_DEVICE_DATALINK = 0x0005
+FILE_DEVICE_DFS = 0x0006
+FILE_DEVICE_DISK = 0x0007
+FILE_DEVICE_DISK_FILE_SYSTEM = 0x0008
+FILE_DEVICE_FILE_SYSTEM = 0x0009
+FILE_DEVICE_INPORT_PORT = 0x000a
+FILE_DEVICE_KEYBOARD = 0x000b
+FILE_DEVICE_MAILSLOT = 0x000c
+FILE_DEVICE_MIDI_IN = 0x000d
+FILE_DEVICE_MIDI_OUT = 0x000e
+FILE_DEVICE_MOUSE = 0x000f
+FILE_DEVICE_MULTI_UNC_PROVIDER = 0x0010
+FILE_DEVICE_NAMED_PIPE = 0x0011
+FILE_DEVICE_NETWORK = 0x0012
+FILE_DEVICE_NETWORK_BROWSER = 0x0013
+FILE_DEVICE_NETWORK_FILE_SYSTEM = 0x0014
+FILE_DEVICE_NULL = 0x0015
+FILE_DEVICE_PARALLEL_PORT = 0x0016
+FILE_DEVICE_PHYSICAL_NETCARD = 0x0017
+FILE_DEVICE_PRINTER = 0x0018
+FILE_DEVICE_SCANNER = 0x0019
+FILE_DEVICE_SERIAL_MOUSE_PORT = 0x001a
+FILE_DEVICE_SERIAL_PORT = 0x001b
+FILE_DEVICE_SCREEN = 0x001c
+FILE_DEVICE_SOUND = 0x001d
+FILE_DEVICE_STREAMS = 0x001e
+FILE_DEVICE_TAPE = 0x001f
+FILE_DEVICE_TAPE_FILE_SYSTEM = 0x0020
+FILE_DEVICE_TRANSPORT = 0x0021
+FILE_DEVICE_UNKNOWN = 0x0022
+FILE_DEVICE_VIDEO = 0x0023
+FILE_DEVICE_VIRTUAL_DISK = 0x0024
+FILE_DEVICE_WAVE_IN = 0x0025
+FILE_DEVICE_WAVE_OUT = 0x0026
+FILE_DEVICE_8042_PORT = 0x0027
+FILE_DEVICE_NETWORK_REDIRECTOR = 0x0028
+FILE_DEVICE_BATTERY = 0x0029
+FILE_DEVICE_BUS_EXTENDER = 0x002a
+FILE_DEVICE_MODEM = 0x002b
+FILE_DEVICE_VDM = 0x002c
+
+# Device Characteristics [MS-CIFS] 2.2.8.2.5
+FILE_REMOVABLE_MEDIA    = 0x0001
+FILE_READ_ONLY_DEVICE   = 0x0002
+FILE_FLOPPY_DISKETTE    = 0x0004
+FILE_WRITE_ONCE_MEDIA   = 0x0008
+FILE_REMOTE_DEVICE      = 0x0010
+FILE_DEVICE_IS_MOUNTED  = 0x0020
+FILE_VIRTUAL_VOLUME     = 0x0040
 
 # File System Attributes
 FILE_CASE_SENSITIVE_SEARCH       = 0x00000001
@@ -823,6 +883,15 @@ class SMBQueryFsVolumeInfo(Structure):
         ('Reserved','<H=0x10'),
         ('VolumeLabel',':')
     )
+
+# SMB_QUERY_FS_DEVICE_INFO
+class SMBQueryFsDeviceInfo(Structure):
+    structure = (
+        ('DeviceType', '<L=0'),
+        ('DeviceCharacteristics', '<L=0')
+    )
+
+
 # SMB_FIND_FILE_BOTH_DIRECTORY_INFO level
 class SMBFindFileBothDirectoryInfo(AsciiOrUnicodeStructure):
     commonHdr = (
@@ -869,12 +938,14 @@ class SMBFindFileIdFullDirectoryInfo(AsciiOrUnicodeStructure):
     AsciiStructure = (
         ('FileNameLength','<L-FileName','len(FileName)'),
         ('EaSize','<L=0'),
+        ('Reserved', '<L=0'),
         ('FileID','<q=0'),
-        ('FileName',':'),
+        ('FileName','z'),
     )
     UnicodeStructure = (
         ('FileNameLength','<L-FileName','len(FileName)*2'),
         ('EaSize','<L=0'),
+        ('Reserved','<L=0'),
         ('FileID','<q=0'),
         ('FileName',':'),
     )
@@ -3880,7 +3951,7 @@ class SMB(object):
             # Save the SID for resume operations
             sid = findParameterBlock['SID']
 
-            while True:
+            while findParameterBlock['SearchCount'] > 0:
                 record = SMBFindFileBothDirectoryInfo(data = findData)
 
                 shortname = record['ShortName'].decode('utf-16le') if self.__flags2 & SMB.FLAGS2_UNICODE else \

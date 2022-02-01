@@ -1,35 +1,37 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Generic NTLM Relay Module
+# Description:
+#   Generic NTLM Relay Module
+#
+#   This module performs the SMB Relay attacks originally discovered
+#   by cDc extended to many target protocols (SMB, MSSQL, LDAP, etc).
+#   It receives a list of targets and for every connection received it
+#   will choose the next target and try to relay the credentials. Also, if
+#   specified, it will first to try authenticate against the client connecting
+#   to us.
+#
+#   It is implemented by invoking a SMB and HTTP Server, hooking to a few
+#   functions and then using the specific protocol clients (e.g. SMB, LDAP).
+#   It is supposed to be working on any LM Compatibility level. The only way
+#   to stop this attack is to enforce on the server SPN checks and or signing.
+#
+#   If the authentication against the targets succeeds, the client authentication
+#   succeeds as well and a valid connection is set against the local smbserver.
+#   It's up to the user to set up the local smbserver functionality. One option
+#   is to set up shares with whatever files you want to so the victim thinks it's
+#   connected to a valid SMB server. All that is done through the smb.conf file or
+#   programmatically.
 #
 # Authors:
-#  Alberto Solino (@agsolino)
-#  Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
-#
-# Description:
-#             This module performs the SMB Relay attacks originally discovered
-# by cDc extended to many target protocols (SMB, MSSQL, LDAP, etc).
-# It receives a list of targets and for every connection received it
-# will choose the next target and try to relay the credentials. Also, if
-# specified, it will first to try authenticate against the client connecting
-# to us.
-#
-# It is implemented by invoking a SMB and HTTP Server, hooking to a few
-# functions and then using the specific protocol clients (e.g. SMB, LDAP).
-# It is supposed to be working on any LM Compatibility level. The only way
-# to stop this attack is to enforce on the server SPN checks and or signing.
-#
-# If the authentication against the targets succeeds, the client authentication
-# succeeds as well and a valid connection is set against the local smbserver.
-# It's up to the user to set up the local smbserver functionality. One option
-# is to set up shares with whatever files you want to so the victim thinks it's
-# connected to a valid SMB server. All that is done through the smb.conf file or
-# programmatically.
+#   Alberto Solino (@agsolino)
+#   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #
 
 import argparse
@@ -164,6 +166,8 @@ def start_servers(options, threads):
         c.setWebDAVOptions(options.serve_image)
         c.setIsShadowCredentialsAttack(options.shadow_credentials)
         c.setShadowCredentialsOptions(options.shadow_target, options.pfx_password, options.export_type, options.cert_outfile_path)
+        c.setIsADCSAttack(options.adcs)
+        c.setADCSOptions(options.template)
 
         if server is HTTPRelayServer:
             c.setListeningPort(options.http_port)
@@ -327,6 +331,11 @@ if __name__ == '__main__':
     shadowcredentials.add_argument('--pfx-password', action='store', required=False, help='password for the PFX stored self-signed certificate (will be random if not set, not needed when exporting to PEM)')
     shadowcredentials.add_argument('--export-type', action='store', required=False, choices=["PEM"," PFX"], type = lambda choice : choice.upper(), default="PFX", help='choose to export cert+private key in PEM or PFX (i.e. #PKCS12) (default: PFX))')
     shadowcredentials.add_argument('--cert-outfile-path', action='store', required=False, help='filename to store the generated self-signed PEM or PFX certificate and key')
+
+    # AD CS options
+    adcsoptions = parser.add_argument_group("AD CS attack options")
+    adcsoptions.add_argument('--adcs', action='store_true', required=False, help='Enable AD CS relay attack')
+    adcsoptions.add_argument('--template', action='store', metavar="TEMPLATE", required=False, default="Machine", help='AD CS template. If you are attacking Domain Controller or other windows server machine, default value should be suitable.')
 
     try:
        options = parser.parse_args()

@@ -1,11 +1,10 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
-#
-# Authors: Alberto Solino (@agsolino)
-#          Kacper Nowak (@kacpern)
 #
 # Description:
 #   RFC 4511 Minimalistic implementation. We don't need much functionality yet
@@ -14,10 +13,13 @@
 #   as we change them.
 #   Adding [MS-ADTS] specific functionality
 #
-# ToDo:
-# [x] Implement Paging Search, especially important for big requests
+# Authors:
+#   Alberto Solino (@agsolino)
+#   Kacper Nowak (@kacpern)
 #
-
+# ToDo:
+#   [x] Implement Paging Search, especially important for big requests
+#
 import os
 import re
 import socket
@@ -107,7 +109,7 @@ class LDAPConnection:
             af, socktype, proto, _, sa = socket.getaddrinfo(targetHost, self._dstPort, 0, socket.SOCK_STREAM)[0]
             self._socket = socket.socket(af, socktype, proto)
         except socket.error as e:
-            raise socket.error('Connection error (%s:%d)' % (targetHost, 88), e)
+            raise socket.error('Connection error (%s:%d)' % (targetHost, self._dstPort), e)
 
         if self._SSL is False:
             self._socket.connect(sa)

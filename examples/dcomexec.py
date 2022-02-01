@@ -1,35 +1,39 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# A similar approach to psexec but executing commands through DCOM.
-# You can select different objects to be used to execute the commands.
-# Currently supported objects are:
-#    1. MMC20.Application (49B2791A-B1AE-4C90-9B8E-E860BA07F889) - Tested Windows 7, Windows 10, Server 2012R2
-#    2. ShellWindows (9BA05972-F6A8-11CF-A442-00A0C90A8F39) - Tested Windows 7, Windows 10, Server 2012R2
-#    3. ShellBrowserWindow (C08AFD90-F2A1-11D1-8455-00A0C91F3880) - Tested Windows 10, Server 2012R2
+# Description:
+#   A similar approach to psexec but executing commands through DCOM.
+#   You can select different objects to be used to execute the commands.
+#   Currently supported objects are:
+#     1. MMC20.Application (49B2791A-B1AE-4C90-9B8E-E860BA07F889) - Tested Windows 7, Windows 10, Server 2012R2
+#     2. ShellWindows (9BA05972-F6A8-11CF-A442-00A0C90A8F39) - Tested Windows 7, Windows 10, Server 2012R2
+#     3. ShellBrowserWindow (C08AFD90-F2A1-11D1-8455-00A0C91F3880) - Tested Windows 10, Server 2012R2
 #
-# Drawback is it needs DCOM, hence, I have to be able to access
-# DCOM ports at the target machine.
+#   Drawback is it needs DCOM, hence, I have to be able to access
+#   DCOM ports at the target machine.
 #
-# Original discovery by Matt Nelson (@enigma0x3):
-# https://enigma0x3.net/2017/01/05/lateral-movement-using-the-mmc20-application-com-object/
-# https://enigma0x3.net/2017/01/23/lateral-movement-via-dcom-round-2/
+#   Original discovery by Matt Nelson (@enigma0x3):
+#   https://enigma0x3.net/2017/01/05/lateral-movement-using-the-mmc20-application-com-object/
+#   https://enigma0x3.net/2017/01/23/lateral-movement-via-dcom-round-2/
 #
 # Author:
-#  beto (@agsolino)
-#  Marcello (@byt3bl33d3r)
+#   beto (@agsolino)
+#   Marcello (@byt3bl33d3r)
 #
 # Reference for:
 #  DCOM
 #
 # ToDo:
-# [ ] Kerberos auth not working, invalid_checksum is thrown. Most probably sequence numbers out of sync due to
-#     getInterface() method
+#   [ ] Kerberos auth not working, invalid_checksum is thrown. Most probably sequence numbers out of sync due to
+#       getInterface() method
 #
+
 from __future__ import division
 from __future__ import print_function
 import argparse

@@ -1,12 +1,11 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
-#
-# Author:
-#  beto (@agsolino)
 #
 # Description:
 #   The idea of this script is to get a list of the sessions
@@ -14,21 +13,21 @@
 #   Coincidentally @mubix did something similar a few years
 #   ago so credit goes to him (and the script's name ;)).
 #   Check it out at https://github.com/mubix/netview
-#   The main difference with our approach is we keep 
+#   The main difference with our approach is we keep
 #   looping over the hosts found and keep track of who logged
 #   in/out from remote servers. Plus, we keep the connections
 #   with the target systems and just send a few DCE-RPC packets.
 #
 #   One VERY IMPORTANT thing is:
-#   
-#   YOU HAVE TO BE ABLE TO RESOLV THE DOMAIN MACHINES NETBIOS 
-#   NAMES. That's usually solved by setting your DNS to the 
+#
+#   YOU HAVE TO BE ABLE TO RESOLV THE DOMAIN MACHINES NETBIOS
+#   NAMES. That's usually solved by setting your DNS to the
 #   domain DNS (and the right search domain).
-#   
+#
 #   Some examples of usage are:
 #
 #   netview.py -target 192.168.1.10 beto
-#   
+#
 #   This will show the sessions on 192.168.1.10 and will authenticate as 'beto'
 #   (password will be prompted)
 #
@@ -40,12 +39,15 @@
 #   at all times.
 #
 #   netview.py -users /tmp/users -dc-ip freefly-dc.freefly.net -k FREEFLY.NET/beto
-#  
+#
 #   This will download all machines from FREEFLY.NET, authenticating using
 #   Kerberos (that's why -dc-ip parameter is needed), and filter
 #   the output based on the list of users specified in /tmp/users file.
 #
+# Author:
+#   beto (@agsolino)
 #
+
 from __future__ import division
 from __future__ import print_function
 import sys

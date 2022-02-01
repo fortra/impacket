@@ -1,13 +1,15 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2021 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-#  Tested so far:
-#    MasterKey
-#  Not yet:
+# Tested so far:
+#   MasterKey
+# Not yet:
 #
 import unittest
 from binascii import unhexlify
@@ -205,5 +207,4 @@ class DPAPITests(unittest.TestCase):
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(DPAPITests)
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(verbosity=1)

@@ -1,12 +1,17 @@
 #!/usr/bin/env python
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
-from impacket.dot11 import Dot11Types
-from impacket.ImpactDecoder import RadioTapDecoder
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
 import unittest
 from six import PY2
+from impacket.dot11 import Dot11Types
+from impacket.ImpactDecoder import RadioTapDecoder
+
 
 class TestDot11ManagementDisassociationFrames(unittest.TestCase):
 
@@ -126,5 +131,6 @@ class TestDot11ManagementDisassociationFrames(unittest.TestCase):
         self.management_disassociation.set_reason_code(0x8765)
         self.assertEqual(self.management_disassociation.get_reason_code(), 0x8765)
         
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementDisassociationFrames)
-unittest.TextTestRunner(verbosity=1).run(suite)
+
+if __name__ == '__main__':
+    unittest.main(verbosity=1)

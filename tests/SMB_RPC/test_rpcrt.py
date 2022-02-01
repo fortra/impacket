@@ -1,10 +1,17 @@
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
 from __future__ import division
 from __future__ import print_function
+
+import pytest
 import unittest
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+from tests import RemoteTestCase
 
 from impacket.dcerpc.v5.ndr import NDRCALL
 from impacket.dcerpc.v5 import transport, epm, samr
@@ -18,17 +25,16 @@ from impacket.dcerpc.v5.dtypes import RPC_UNICODE_STRING
 # endpoints (we should do specific tests for endpoints)
 # here we're using EPM just because we need one, and it's the 
 # easiest one
+class RPCRTTests(RemoteTestCase):
 
-class DCERPCTests(unittest.TestCase):
-    def connectDCE(self, username, password, domain, lm='', nt='', aesKey='', TGT=None, TGS=None, tfragment=0,
-                   dceFragment=0,
-                   auth_type=RPC_C_AUTHN_WINNT, auth_level=RPC_C_AUTHN_LEVEL_NONE, dceAuth=True, doKerberos=False,
-                   bind=epm.MSRPC_UUID_PORTMAP):
+    def connectDCE(self, username, password, domain, lm='', nt='', aes_key='', TGT=None, TGS=None, tfragment=0,
+                   dceFragment=0, auth_type=RPC_C_AUTHN_WINNT, auth_level=RPC_C_AUTHN_LEVEL_NONE, dceAuth=True,
+                   doKerberos=False, bind=epm.MSRPC_UUID_PORTMAP):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
 
         if hasattr(rpctransport, 'set_credentials'):
             # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(username, password, domain, lm, nt, aesKey, TGT, TGS)
+            rpctransport.set_credentials(username, password, domain, lm, nt, aes_key, TGT, TGS)
             rpctransport.set_kerberos(doKerberos, kdcHost=self.machine)
 
         rpctransport.set_max_fragment_size(tfragment)
@@ -50,8 +56,7 @@ class DCERPCTests(unittest.TestCase):
         dce.disconnect()
 
     def test_connectionHashes(self):
-        lmhash, nthash = self.hashes.split(':')
-        dce = self.connectDCE(self.username, '', self.domain, lmhash, nthash, dceAuth=False)
+        dce = self.connectDCE(self.username, '', self.domain, self.lmhash, self.nthash, dceAuth=False)
         dce.disconnect()
 
     def test_dceAuth(self):
@@ -65,30 +70,27 @@ class DCERPCTests(unittest.TestCase):
         dce.disconnect()
 
     def test_dceAuthHasHashes(self):
-        lmhash, nthash = self.hashes.split(':')
-        dce = self.connectDCE(self.username, '', self.domain, lmhash, nthash, dceAuth=True)
+        dce = self.connectDCE(self.username, '', self.domain, self.lmhash, self.nthash, dceAuth=True)
         epm.hept_lookup(self.machine)
         dce.disconnect()
 
     def test_dceAuthHasHashesKerberos(self):
-        lmhash, nthash = self.hashes.split(':')
-        dce = self.connectDCE(self.username, '', self.domain, lmhash, nthash, dceAuth=True, doKerberos=True)
+        dce = self.connectDCE(self.username, '', self.domain, self.lmhash, self.nthash, dceAuth=True, doKerberos=True)
         epm.hept_lookup(self.machine)
         dce.disconnect()
 
     def test_dceAuthHasAes128Kerberos(self):
-        dce = self.connectDCE(self.username, '', self.domain, '', '', self.aesKey128, dceAuth=True, doKerberos=True)
+        dce = self.connectDCE(self.username, '', self.domain, '', '', self.aes_key_128, dceAuth=True, doKerberos=True)
         epm.hept_lookup(self.machine)
         dce.disconnect()
 
     def test_dceAuthHasAes256Kerberos(self):
-        dce = self.connectDCE(self.username, '', self.domain, '', '', self.aesKey256, dceAuth=True, doKerberos=True)
+        dce = self.connectDCE(self.username, '', self.domain, '', '', self.aes_key_256, dceAuth=True, doKerberos=True)
         epm.hept_lookup(self.machine)
         dce.disconnect()
 
     def test_dceTransportFragmentation(self):
-        lmhash, nthash = self.hashes.split(':')
-        dce = self.connectDCE(self.username, '', self.domain, lmhash, nthash, tfragment=1, dceAuth=True, doKerberos=False)
+        dce = self.connectDCE(self.username, '', self.domain, self.lmhash, self.nthash, tfragment=1, dceAuth=True, doKerberos=False)
         request = epm.ept_lookup()
         request['inquiry_type'] = epm.RPC_C_EP_ALL_ELTS
         request['object'] = NULL
@@ -99,8 +101,7 @@ class DCERPCTests(unittest.TestCase):
         dce.disconnect()
 
     def test_dceFragmentation(self):
-        lmhash, nthash = self.hashes.split(':')
-        dce = self.connectDCE(self.username, '', self.domain, lmhash, nthash, dceFragment=1, dceAuth=True, doKerberos=False)
+        dce = self.connectDCE(self.username, '', self.domain, self.lmhash, self.nthash, dceFragment=1, dceAuth=True, doKerberos=False)
         request = epm.ept_lookup()
         request['inquiry_type'] = epm.RPC_C_EP_ALL_ELTS
         request['object'] = NULL
@@ -116,11 +117,10 @@ class DCERPCTests(unittest.TestCase):
             structure = (
                 ('Name', RPC_UNICODE_STRING),
             )
-        lmhash, nthash = self.hashes.split(':')
         oldBinding = self.stringBinding
         self.stringBinding = epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
         print(self.stringBinding)
-        dce = self.connectDCE(self.username, '', self.domain, lmhash, nthash, dceFragment=0,
+        dce = self.connectDCE(self.username, '', self.domain, self.lmhash, self.nthash, dceFragment=0,
                               auth_level=RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, auth_type=RPC_C_AUTHN_GSS_NEGOTIATE,
                               dceAuth=True,
                               doKerberos=True, bind=samr.MSRPC_UUID_SAMR)
@@ -132,7 +132,7 @@ class DCERPCTests(unittest.TestCase):
         resp = dce.request(request)
         request = samr.SamrEnumerateDomainsInSamServer()
         request['ServerHandle'] = resp['ServerHandle']
-        request['EnumerationContext'] =  0
+        request['EnumerationContext'] = 0
         request['PreferedMaximumLength'] = 500
         dce.request(request)
         try:
@@ -146,8 +146,7 @@ class DCERPCTests(unittest.TestCase):
         dce.disconnect()
 
     def test_dceFragmentationWINNTPacketIntegrity(self):
-        lmhash, nthash = self.hashes.split(':')
-        dce = self.connectDCE(self.username, '', self.domain, lmhash, nthash, dceFragment=1,
+        dce = self.connectDCE(self.username, '', self.domain, self.lmhash, self.nthash, dceFragment=1,
                               auth_level=RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, dceAuth=True, doKerberos=False)
         request = epm.ept_lookup()
         request['inquiry_type'] = epm.RPC_C_EP_ALL_ELTS
@@ -159,8 +158,7 @@ class DCERPCTests(unittest.TestCase):
         dce.disconnect()
 
     def test_dceFragmentationWINNTPacketPrivacy(self):
-        lmhash, nthash = self.hashes.split(':')
-        dce = self.connectDCE(self.username, '', self.domain, lmhash, nthash, dceFragment=1,
+        dce = self.connectDCE(self.username, '', self.domain, self.lmhash, self.nthash, dceFragment=1,
                               auth_level=RPC_C_AUTHN_LEVEL_PKT_PRIVACY, dceAuth=True, doKerberos=False)
         request = epm.ept_lookup()
         request['inquiry_type'] = epm.RPC_C_EP_ALL_ELTS
@@ -172,8 +170,7 @@ class DCERPCTests(unittest.TestCase):
         dce.disconnect()
 
     def test_dceFragmentationKerberosPacketIntegrity(self):
-        lmhash, nthash = self.hashes.split(':')
-        dce = self.connectDCE(self.username, '', self.domain, lmhash, nthash, dceFragment=1,
+        dce = self.connectDCE(self.username, '', self.domain, self.lmhash, self.nthash, dceFragment=1,
                               auth_type=RPC_C_AUTHN_GSS_NEGOTIATE,
                               auth_level=RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, dceAuth=True, doKerberos=True)
         request = epm.ept_lookup()
@@ -186,8 +183,7 @@ class DCERPCTests(unittest.TestCase):
         dce.disconnect()
 
     def test_dceFragmentationKerberosPacketPrivacy(self):
-        lmhash, nthash = self.hashes.split(':')
-        dce = self.connectDCE(self.username, '', self.domain, lmhash, nthash, dceFragment=1,
+        dce = self.connectDCE(self.username, '', self.domain, self.lmhash, self.nthash, dceFragment=1,
                               auth_type=RPC_C_AUTHN_GSS_NEGOTIATE,
                               auth_level=RPC_C_AUTHN_LEVEL_PKT_PRIVACY, dceAuth=True, doKerberos=True)
         request = epm.ept_lookup()
@@ -226,8 +222,7 @@ class DCERPCTests(unittest.TestCase):
         dce.disconnect()
 
     def test_HashesWINNTPacketIntegrity(self):
-        lmhash, nthash = self.hashes.split(':')
-        dce = self.connectDCE(self.username, '', self.domain, lmhash, nthash,
+        dce = self.connectDCE(self.username, '', self.domain, self.lmhash, self.nthash,
                               auth_level=RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, dceAuth=True, doKerberos=False)
         request = epm.ept_lookup()
         request['inquiry_type'] = epm.RPC_C_EP_ALL_ELTS
@@ -239,8 +234,7 @@ class DCERPCTests(unittest.TestCase):
         dce.disconnect()
 
     def test_HashesKerberosPacketIntegrity(self):
-        lmhash, nthash = self.hashes.split(':')
-        dce = self.connectDCE(self.username, '', self.domain, lmhash, nthash, auth_type=RPC_C_AUTHN_GSS_NEGOTIATE,
+        dce = self.connectDCE(self.username, '', self.domain, self.lmhash, self.nthash, auth_type=RPC_C_AUTHN_GSS_NEGOTIATE,
                               auth_level=RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, dceAuth=True, doKerberos=True)
         request = epm.ept_lookup()
         request['inquiry_type'] = epm.RPC_C_EP_ALL_ELTS
@@ -254,7 +248,7 @@ class DCERPCTests(unittest.TestCase):
         dce.disconnect()
 
     def test_Aes128KerberosPacketIntegrity(self):
-        dce = self.connectDCE(self.username, '', self.domain, '', '', self.aesKey128,
+        dce = self.connectDCE(self.username, '', self.domain, '', '', self.aes_key_128,
                               auth_type=RPC_C_AUTHN_GSS_NEGOTIATE, auth_level=RPC_C_AUTHN_LEVEL_PKT_INTEGRITY,
                               dceAuth=True, doKerberos=True)
         request = epm.ept_lookup()
@@ -269,7 +263,7 @@ class DCERPCTests(unittest.TestCase):
         dce.disconnect()
 
     def test_Aes256KerberosPacketIntegrity(self):
-        dce = self.connectDCE(self.username, '', self.domain, '', '', self.aesKey256,
+        dce = self.connectDCE(self.username, '', self.domain, '', '', self.aes_key_256,
                               auth_type=RPC_C_AUTHN_GSS_NEGOTIATE, auth_level=RPC_C_AUTHN_LEVEL_PKT_INTEGRITY,
                               dceAuth=True, doKerberos=True)
         request = epm.ept_lookup()
@@ -327,8 +321,7 @@ class DCERPCTests(unittest.TestCase):
         dce.disconnect()
 
     def test_HashesWINNTPacketPrivacy(self):
-        lmhash, nthash = self.hashes.split(':')
-        dce = self.connectDCE(self.username, '', self.domain, lmhash, nthash, auth_level=RPC_C_AUTHN_LEVEL_PKT_PRIVACY,
+        dce = self.connectDCE(self.username, '', self.domain, self.lmhash, self.nthash, auth_level=RPC_C_AUTHN_LEVEL_PKT_PRIVACY,
                               dceAuth=True, doKerberos=False)
         request = epm.ept_lookup()
         request['inquiry_type'] = epm.RPC_C_EP_ALL_ELTS
@@ -340,8 +333,7 @@ class DCERPCTests(unittest.TestCase):
         dce.disconnect()
 
     def test_HashesKerberosPacketPrivacy(self):
-        lmhash, nthash = self.hashes.split(':')
-        dce = self.connectDCE(self.username, '', self.domain, lmhash, nthash, auth_type=RPC_C_AUTHN_GSS_NEGOTIATE,
+        dce = self.connectDCE(self.username, '', self.domain, self.lmhash, self.nthash, auth_type=RPC_C_AUTHN_GSS_NEGOTIATE,
                               auth_level=RPC_C_AUTHN_LEVEL_PKT_PRIVACY, dceAuth=True, doKerberos=True)
         request = epm.ept_lookup()
         request['inquiry_type'] = epm.RPC_C_EP_ALL_ELTS
@@ -355,7 +347,7 @@ class DCERPCTests(unittest.TestCase):
         dce.disconnect()
 
     def test_Aes128KerberosPacketPrivacy(self):
-        dce = self.connectDCE(self.username, '', self.domain, '', '', self.aesKey128,
+        dce = self.connectDCE(self.username, '', self.domain, '', '', self.aes_key_128,
                               auth_type=RPC_C_AUTHN_GSS_NEGOTIATE, auth_level=RPC_C_AUTHN_LEVEL_PKT_PRIVACY,
                               dceAuth=True, doKerberos=True)
         request = epm.ept_lookup()
@@ -370,7 +362,7 @@ class DCERPCTests(unittest.TestCase):
         dce.disconnect()
 
     def test_Aes256KerberosPacketPrivacy(self):
-        dce = self.connectDCE(self.username, '', self.domain, '', '', self.aesKey256,
+        dce = self.connectDCE(self.username, '', self.domain, '', '', self.aes_key_256,
                               auth_type=RPC_C_AUTHN_GSS_NEGOTIATE, auth_level=RPC_C_AUTHN_LEVEL_PKT_PRIVACY,
                               dceAuth=True, doKerberos=True)
         request = epm.ept_lookup()
@@ -387,7 +379,7 @@ class DCERPCTests(unittest.TestCase):
     def test_AnonWINNTPacketPrivacy(self):
         # With SMB Transport this will fail with STATUS_ACCESS_DENIED
         try:
-            dce = self.connectDCE('', '', '', auth_level=RPC_C_AUTHN_LEVEL_PKT_PRIVACY,dceAuth=False, doKerberos=False)
+            dce = self.connectDCE('', '', '', auth_level=RPC_C_AUTHN_LEVEL_PKT_PRIVACY, dceAuth=False, doKerberos=False)
             request = epm.ept_lookup()
             request['inquiry_type'] = epm.RPC_C_EP_ALL_ELTS
             request['object'] = NULL
@@ -397,47 +389,27 @@ class DCERPCTests(unittest.TestCase):
             dce.request(request)
             dce.disconnect()
         except Exception as e:
-            if not (str(e).find('STATUS_ACCESS_DENIED') >=0 and self.stringBinding.find('ncacn_np') >=0):
+            if not (str(e).find('STATUS_ACCESS_DENIED') >= 0 and self.stringBinding.find('ncacn_np') >= 0):
                 raise
 
-class TCPTransport(DCERPCTests):
+
+@pytest.mark.remote
+class RPCRTTestsTCPTransport(RPCRTTests, unittest.TestCase):
+
     def setUp(self):
-        DCERPCTests.setUp(self)
-        # Put specific configuration for target machine with SMB1
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        self.aesKey256= configFile.get('TCPTransport', 'aesKey256')
-        self.aesKey128= configFile.get('TCPTransport', 'aesKey128')
+        super(RPCRTTestsTCPTransport, self).setUp()
+        self.set_transport_config(aes_keys=True)
         self.stringBinding = r'ncacn_ip_tcp:%s' % self.machine
 
-class SMBTransport(DCERPCTests):
+
+@pytest.mark.remote
+class RPCRTTestsSMBTransport(RPCRTTests, unittest.TestCase):
     def setUp(self):
         # Put specific configuration for target machine with SMB_002
-        DCERPCTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.aesKey256= configFile.get('SMBTransport', 'aesKey256')
-        self.aesKey128= configFile.get('SMBTransport', 'aesKey128')
+        super(RPCRTTestsSMBTransport, self).setUp()
+        self.set_transport_config(aes_keys=True)
         self.stringBinding = r'ncacn_np:%s[\pipe\epmapper]' % self.machine
 
+
 if __name__ == "__main__":
-    import sys
-    if len(sys.argv) > 1:
-        testcase = sys.argv[1]
-        suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
-    else:
-        suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
-        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport))
-    unittest.TextTestRunner(verbosity=1).run(suite)
+    unittest.main(verbosity=1)

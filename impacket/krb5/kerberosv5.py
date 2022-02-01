@@ -1,17 +1,19 @@
-# SECUREAUTH LABS. Copyright 2019 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
-#
-# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   Helper functions for kerberos
 #   Just starting, TONS of things to do
 #   In fact, make it easier
 #
-
+# Author:
+#   Alberto Solino (@agsolino)
+#
 import datetime
 import random
 import socket
@@ -20,7 +22,8 @@ import os
 
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.error import PyAsn1Error
-from pyasn1.type.univ import noValue
+from pyasn1.type.univ import noValue, Sequence
+from pyasn1.type.useful import GeneralizedTime
 from six import b
 from binascii import unhexlify, hexlify
 
@@ -75,6 +78,16 @@ def sendReceive(data, host, kdcHost):
         return r
 
     if krbError.getErrorCode() != constants.ErrorCodes.KDC_ERR_PREAUTH_REQUIRED.value:
+        try:
+            for i in decoder.decode(r):
+                if type(i) == Sequence:
+                    for k in vars(i)["_componentValues"]:
+                        if type(k) == GeneralizedTime:
+                            server_time = datetime.datetime.strptime(k.asOctets().decode("utf-8"), "%Y%m%d%H%M%SZ")
+                            LOG.debug("Server time (UTC): %s" % server_time)
+        except:
+            # Couldn't get server time for some reason
+            pass
         raise krbError
 
     return r
@@ -228,7 +241,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     cipher = _enctype_table[enctype]
 
     # Pass the hash/aes key :P
-    if nthash != b'' and (isinstance(nthash, bytes) and nthash != b''):
+    if isinstance(nthash, bytes) and nthash != b'':
         key = Key(cipher.enctype, nthash)
     elif aesKey != b'':
         key = Key(cipher.enctype, aesKey)

@@ -1,14 +1,17 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino (beto@coresecurity.com)
-#
 # Description:
 #   HRESULT Errors from [MS-ERREF]. Ideally all the files
-#   should grab the error codes from here (big ToDo) 
+#   should grab the error codes from here (big ToDo)
+#
+# Author:
+#   Alberto Solino (@agsolino)
 #
 
 ERROR_MESSAGES = {
@@ -194,7 +197,7 @@ ERROR_MESSAGES = {
         0x80004014: ("CO_E_BAD_SERVER_NAME", "A Remote activation was necessary, but the server name provided was invalid."),
         0x80004015: ("CO_E_WRONG_SERVER_IDENTITY", "The class is configured to run as a security ID different from the caller."),
         0x80004016: ("CO_E_OLE1DDE_DISABLED", "Use of OLE1 services requiring Dynamic Data Exchange (DDE) Windows is disabled."),
-        0x80004017: ("CO_E_RUNAS_SYNTAX", "A RunAs specification must be <domain name>\<user name> or simply <user name>."),
+        0x80004017: ("CO_E_RUNAS_SYNTAX", "A RunAs specification must be <domain name>\\<user name> or simply <user name>."),
         0x80004018: ("CO_E_CREATEPROCESS_FAILURE", "The server process could not be started. The path name may be incorrect."),
         0x80004019: ("CO_E_RUNAS_CREATEPROCESS_FAILURE", "The server process could not be started as the configured identity. The path name may be incorrect or unavailable."),
         0x8000401A: ("CO_E_RUNAS_LOGON_FAILURE", "The server process could not be started because the configured identity is incorrect. Check the user name and password."),
@@ -282,7 +285,7 @@ ERROR_MESSAGES = {
         0x80010129: ("CO_E_FAILEDTOSETDACL", "Unable to set a discretionary access control list (ACL) into a security descriptor."),
         0x8001012A: ("CO_E_ACCESSCHECKFAILED", "The system function AccessCheck returned false."),
         0x8001012B: ("CO_E_NETACCESSAPIFAILED", "Either NetAccessDel or NetAccessAdd returned an error code."),
-        0x8001012C: ("CO_E_WRONGTRUSTEENAMESYNTAX", "One of the trustee strings provided by the user did not conform to the <Domain>\<Name> syntax and it was not the *\" string\"."),
+        0x8001012C: ("CO_E_WRONGTRUSTEENAMESYNTAX", "One of the trustee strings provided by the user did not conform to the <Domain>\\<Name> syntax and it was not the *\" string\"."),
         0x8001012D: ("CO_E_INVALIDSID", "One of the security identifiers provided by the user was invalid."),
         0x8001012E: ("CO_E_CONVERSIONFAILED", "Unable to convert a wide character trustee string to a multiple-byte trustee string."),
         0x8001012F: ("CO_E_NOMATCHINGSIDFOUND", "Unable to find a security identifier that corresponds to a trustee string provided by the user."),
