@@ -98,6 +98,12 @@ class NTLMRelayxConfig:
         self.isADCSAttack = False
         self.template = None
 
+        # Shadow Credentials attack options
+        self.IsShadowCredentialsAttack = False
+        self.ShadowCredentialsPFXPassword = None
+        self.ShadowCredentialsExportType = None
+        self.ShadowCredentialsOutfilePath = None
+
     def setSMBChallenge(self, value):
         self.SMBServerChallenge = value
 
@@ -218,3 +224,12 @@ class NTLMRelayxConfig:
 
     def setIsADCSAttack(self, isADCSAttack):
         self.isADCSAttack = isADCSAttack
+
+    def setIsShadowCredentialsAttack(self, IsShadowCredentialsAttack):
+        self.IsShadowCredentialsAttack = IsShadowCredentialsAttack
+
+    def setShadowCredentialsOptions(self, ShadowCredentialsTarget, ShadowCredentialsPFXPassword, ShadowCredentialsExportType, ShadowCredentialsOutfilePath):
+        self.ShadowCredentialsTarget = ShadowCredentialsTarget
+        self.ShadowCredentialsPFXPassword = ShadowCredentialsPFXPassword
+        self.ShadowCredentialsExportType = ShadowCredentialsExportType
+        self.ShadowCredentialsOutfilePath = ShadowCredentialsOutfilePath
