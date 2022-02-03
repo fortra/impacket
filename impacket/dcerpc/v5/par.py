@@ -400,7 +400,7 @@ class RpcAsyncEnumPrinterDriversResponse(NDRCALL):
        ('ErrorCode', ULONG),
     )
 
-# 3.1.4.2.4 RpcAsyncAddPrinterDriver (Opnum 41)
+# 3.1.4.2.4 RpcAsyncGetPrinterDriverDirectory (Opnum 41)
 class RpcAsyncGetPrinterDriverDirectory(NDRCALL):
    opnum = 41
    structure = (
@@ -408,8 +408,7 @@ class RpcAsyncGetPrinterDriverDirectory(NDRCALL):
        ('pEnvironment', LPWSTR),
        ('Level', DWORD),
        ('pDriverDirectory', PBYTE_ARRAY),
-       ('cbBuf', DWORD),
-       ('pcbNeeded', DWORD)
+       ('cbBuf', DWORD)
    )
    
 class RpcAsyncGetPrinterDriverDirectoryResponse(NDRCALL):
