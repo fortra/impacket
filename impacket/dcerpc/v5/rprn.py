@@ -438,8 +438,7 @@ class RpcGetPrinterDriverDirectory(NDRCALL):
        ('pEnvironment', LPWSTR),
        ('Level', DWORD),
        ('pDriverDirectory', PBYTE_ARRAY),
-       ('cbBuf', DWORD),
-       ('pcbNeeded', DWORD)
+       ('cbBuf', DWORD)
    )
    
 class RpcGetPrinterDriverDirectoryResponse(NDRCALL):
