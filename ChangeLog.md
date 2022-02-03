@@ -9,6 +9,7 @@ https://github.com/SecureAuthCorp/impacket/commits/master
 1. Library improvements 
     * Added a function to compute the Netlogon Authenticator at client-side in `[MS-NRPC]` (@0xdeaddood)
     * Added `[MS-DSSP]` protocol implementation (@simondotsh)
+    * Added GetDriverDirectory functions to `[MS-PAR]` and `[MS-RPRN]` (@raithedavion)
 
 2. Examples improvements
 	* [ntlmrelayx.py](examples/ntlmrelayx.py):
