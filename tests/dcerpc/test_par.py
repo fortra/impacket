@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -9,6 +9,7 @@
 # Tested so far:
 #   (h)RpcAsyncEnumPrinters
 #   (h)RpcAsyncEnumPrinterDrivers
+#   (h)RpcAsyncGetPrinterDriverDirectory
 #
 # Not yet:
 #   (h)RpcAsyncOpenPrinter
@@ -61,6 +62,22 @@ class PARTests(DCERPCTests):
     def test_hRpcAsyncEnumPrinterDrivers(self):
         dce, rpc_transport = self.connect()
         resp = par.hRpcAsyncEnumPrinterDrivers(dce, NULL, NULL, 1)
+        resp.dump()
+
+    def test_RpcAsyncGetPrinterDriverDirectory(self):
+        dce, rpc_transport = self.connect()
+        request = par.RpcAsyncGetPrinterDriverDirectory()
+        request['pName'] = NULL
+        request['pEnvironment'] = NULL
+        request['Level'] = 1
+        request['pDriverDirectory'] = NULL
+        request['cbBuf'] = 0
+        with assertRaisesRegex(self, par.DCERPCException, "ERROR_INSUFFICIENT_BUFFER"):
+            dce.request(request, par.MSRPC_UUID_WINSPOOL)
+
+    def test_hRpcAsyncGetPrinterDriverDirectory(self):
+        dce, rpc_transport = self.connect()
+        resp = par.hRpcAsyncGetPrinterDriverDirectory(dce, NULL, NULL, 1)
         resp.dump()
 
 

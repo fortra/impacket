@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -76,6 +76,28 @@ class RPRNTests(DCERPCTests):
         resp = dce.request(request)
         resp.dump()
 
+    def test_hRpcOpenPrinter(self):
+        dce, rpctransport = self.connect()
+        resp = rprn.hRpcOpenPrinter(dce, '\\\\%s\x00' % self.machine)
+        resp.dump()
+
+    def test_RpcGetPrinterDriverDirectory(self):
+        dce, rpctransport = self.connect()
+        request = rprn.RpcGetPrinterDriverDirectory()
+        request['pName'] = NULL
+        request['pEnvironment'] = NULL
+        request['Level'] = 1
+        request['pDriverDirectory'] = NULL
+        request['cbBuf'] = 0
+        request.dump()
+        with assertRaisesRegex(self, rprn.DCERPCSessionError, "ERROR_INSUFFICIENT_BUFFER"):
+            dce.request(request)
+
+    def test_hRpcGetPrinterDriverDirectory(self):
+        dce, rpctransport = self.connect()
+        resp = rprn.hRpcGetPrinterDriverDirectory(dce, NULL, NULL, 1)
+        resp.dump()
+
     def test_RpcClosePrinter(self):
         dce, rpctransport = self.connect()
 
@@ -92,11 +114,6 @@ class RPRNTests(DCERPCTests):
         request['phPrinter'] = resp['pHandle']
         request.dump()
         resp = dce.request(request)
-        resp.dump()
-
-    def test_hRpcOpenPrinter(self):
-        dce, rpctransport = self.connect()
-        resp = rprn.hRpcOpenPrinter(dce, '\\\\%s\x00' % self.machine)
         resp.dump()
 
     def test_hRpcClosePrinter(self):
