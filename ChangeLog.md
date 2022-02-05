@@ -7,21 +7,24 @@ https://github.com/SecureAuthCorp/impacket/commits/master
 
 ## Unreleased changes
 1. Library improvements 
-    * Added a function to compute the Netlogon Authenticator at client-side in [MS-NRPC]
+    * Added a function to compute the Netlogon Authenticator at client-side in `[MS-NRPC]` (@0xdeaddood)
+    * Added `[MS-DSSP]` protocol implementation (@simondotsh)
+    * Added GetDriverDirectory functions to `[MS-PAR]` and `[MS-RPRN]` (@raithedavion)
 
 2. Examples improvements
-    * N/A
+	* [ntlmrelayx.py](examples/ntlmrelayx.py):
+	   * Implemented RAWRelayServer (@CCob)
     
 3. New examples
-    * N/A
+	* [machine_role.py](examples/machine_role.py): This script retrieves a host's role along with its primary domain details (@simondotsh)
 
 ## Impacket v0.9.24 (October 2021):
 
 1. Library improvements 
 	* Fixed WMI objects parsing (@franferrax)
-	* Added the RpcAddPrinterDriverEx method and related structures to [MS-RPRN]: Print System Remote Protocol (@cube0x0)
-	* Initial implementation of [MS-PAR]: Print System Asynchronous Remote Protocol (@cube0x0)
-	* Complying MS-RPCH with HTTP/1.1 (@mohemiv) 
+	* Added the RpcAddPrinterDriverEx method and related structures to `[MS-RPRN]`: Print System Remote Protocol (@cube0x0)
+	* Initial implementation of `[MS-PAR]`: Print System Asynchronous Remote Protocol (@cube0x0)
+	* Complying `[MS-RPCH]` with HTTP/1.1 (@mohemiv) 
 	* Added return of server time in case of Kerberos error (@ShutdownRepo and @Hackndo)
 
 2. Examples improvements
