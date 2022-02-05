@@ -1573,7 +1573,7 @@ class LSASecrets(OfflineRegistry):
                     output.append(" - Version : %d" % strDecoded['version'])
                     for qk in strDecoded['questions']:
                         output.append(" | Question: %s" % qk['question'])
-                        output.append(" | └──> Answer: %s" % qk['answer'])
+                        output.append(" | |--> Answer: %s" % qk['answer'])
                     output = '\n'.join(output)
                     secret = 'Security Questions for user %s: \n%s' % (sid, output)
                 else:

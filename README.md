@@ -52,26 +52,24 @@ write there.
 Testing
 -------
 
-If you want to run the library test cases you need to do mainly three things:
+The library leverages the [pytest](https://docs.pytest.org/) framework for organizing
+and marking test cases, [tox](https://tox.readthedocs.io/) to automate the process of
+running them across supported Python versions, and [coverage](https://coverage.readthedocs.io/)
+to obtain coverage statistics.
 
-1. Install and configure a Windows 2012 R2 Domain Controller.
-   * Be sure the RemoteRegistry service is enabled and running.
-2. Configure the [dcetest.cfg](https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_24/tests/SMB_RPC/dcetests.cfg) file with the necessary information
-3. Install tox (`python3 -m pip install tox`)
+A [comprehensive testing guide](TESTING.md) is available.
 
-Once that's done, you can run `tox` and wait for the results. If all goes well, all test cases should pass.
-You will also have a coverage HTML report located at `impacket/tests/htlmcov/index.html`
 
 Docker Support
 --------------
 
 Build Impacket's image:
 
-      docker build -t "impacket:latest" .
+      $ docker build -t "impacket:latest" .
 
 Using Impacket's image:
 
-      docker run -it --rm "impacket:latest"
+      $ docker run -it --rm "impacket:latest"
 
 Licensing
 =========

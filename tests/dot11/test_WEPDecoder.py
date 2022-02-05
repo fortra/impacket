@@ -7,17 +7,14 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
+import unittest
+from six import PY2
+from binascii import unhexlify
 from impacket.dot11 import Dot11,Dot11Types,Dot11DataFrame,Dot11WEP,Dot11WEPData
 from impacket.ImpactPacket import IP,ICMP
 from impacket.Dot11KeyManager import KeyManager
 from impacket.ImpactDecoder import Dot11Decoder
-from binascii import unhexlify
-import unittest
-from six import PY2
+
 
 class TestDot11WEPData(unittest.TestCase):
 
@@ -132,7 +129,7 @@ class TestDot11WEPData(unittest.TestCase):
         dot11_decoder.FCS_at_end(False)
         dot11_decoder.set_key_manager(self.km)
         dot11_decoder.decode(self.dot11frame)
-        wep = dot11_decoder.get_protocol(Dot11WEP)
+        dot11_decoder.get_protocol(Dot11WEP)
         wepdata = dot11_decoder.get_protocol(Dot11WEPData)
         decrypted = b'\xaa\xaa\x03\x00\x00\x00\x08\x00\x45\x00\x00\x3c\xa6\x07\x00\x00\x80\x01\xee\x5a\xc0\xa8\x01\x66\x40\xe9\xa3\x67\x08\x00\xc5\x56\x04\x00\x84\x05\x61\x62\x63\x64\x65\x66\x67\x68\x69\x6a\x6b\x6c\x6d\x6e\x6f\x70\x71\x72\x73\x74\x75\x76\x77\x61\x62\x63\x64\x65\x66\x67\x68\x69\xa1\xf9\x39\x85'
         self.assertEqual(wepdata.get_packet(), decrypted)
@@ -146,5 +143,6 @@ class TestDot11WEPData(unittest.TestCase):
         self.assertEqual(icmp.get_icmp_type(),icmp.ICMP_ECHO)
         self.assertEqual(icmp.get_icmp_id(),0x0400)
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11WEPData)
-unittest.main(defaultTest='suite')
+
+if __name__ == '__main__':
+    unittest.main(verbosity=1)

@@ -7,6 +7,7 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
+import six
 import unittest
 from binascii import hexlify
 from impacket.IP6_Address import IP6_Address
@@ -43,20 +44,12 @@ class IP6AddressTests(unittest.TestCase):
             self.assertEqual(hexl(byt), thex)
             self.assertEqual(ip.as_string(), texp)
 
-    if not hasattr(unittest.TestCase, 'assertRaisesRegex'):
-        if hasattr(unittest.TestCase, 'assertRaisesRegexp'):  # PY2.7, PY3.1
-            assertRaisesRegex = unittest.TestCase.assertRaisesRegexp
-        else:  # PY2.6
-            def assertRaisesRegex(self, ex, rx, *args):
-                # Just ignore the regex
-                return self.assertRaises(ex, rx, *args)
-
     def test_malformed(self):
-        with self.assertRaisesRegex(Exception, r'address size'):
+        with six.assertRaisesRegex(self, Exception, r'address size'):
             IP6_Address("ABCD:EFAB:1234:1234:1234:1234:1234:12345")
-        with self.assertRaisesRegex(Exception, r'triple colon'):
+        with six.assertRaisesRegex(self, Exception, r'triple colon'):
             IP6_Address(":::")
-        with self.assertRaisesRegex(Exception, r'triple colon'):
+        with six.assertRaisesRegex(self, Exception, r'triple colon'):
             IP6_Address("::::")
         # Could also test other invalid inputs
         # IP6_Address("AB:CD:EF")

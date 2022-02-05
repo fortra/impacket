@@ -7,14 +7,11 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
-from impacket.dot11 import Dot11Types
-from impacket.ImpactDecoder import RadioTapDecoder
 import unittest
 from six import PY2
+from impacket.dot11 import Dot11Types
+from impacket.ImpactDecoder import RadioTapDecoder
+
 
 class TestDot11ManagementDisassociationFrames(unittest.TestCase):
 
@@ -134,5 +131,6 @@ class TestDot11ManagementDisassociationFrames(unittest.TestCase):
         self.management_disassociation.set_reason_code(0x8765)
         self.assertEqual(self.management_disassociation.get_reason_code(), 0x8765)
         
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementDisassociationFrames)
-unittest.main(defaultTest='suite')
+
+if __name__ == '__main__':
+    unittest.main(verbosity=1)
