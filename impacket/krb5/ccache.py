@@ -141,7 +141,7 @@ class Principal:
             else:
                 component = component['data']
             principal += component + b'/'
-        
+
         principal = principal[:-1]
         if isinstance(self.realm['data'], bytes):
             realm = self.realm['data']
@@ -535,7 +535,7 @@ class CCache:
         print("Credentials: ")
         for i, credential in enumerate(self.credentials):
             print(("[%d]" % i))
-            credential.prettyPrint('\t') 
+            credential.prettyPrint('\t')
 
     @classmethod
     def loadKirbiFile(cls, fileName):
@@ -576,11 +576,12 @@ class CCache:
 
         credential['key'] = KeyBlock()
         credential['key']['keytype'] = int(krbCredInfo['key']['keytype'])
-        credential['key']['keyvalue'] = str(krbCredInfo['key']['keyvalue'])
+        credential['key']['keyvalue'] = krbCredInfo['key']['keyvalue'].asOctets()
         credential['key']['keylen'] = len(credential['key']['keyvalue'])
 
         credential['time'] = Times()
 
+        credential['time']['authtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['starttime']))
         credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['starttime']))
         credential['time']['endtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['endtime']))
         credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['renew-till']))
@@ -595,7 +596,7 @@ class CCache:
         )
         credential.ticket['length'] = len(credential.ticket['data'])
         credential.secondTicket = CountedOctetString()
-        credential.secondTicket['data'] = ''
+        credential.secondTicket['data'] = b''
         credential.secondTicket['length'] = 0
 
         self.credentials.append(credential)
