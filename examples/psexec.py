@@ -284,7 +284,7 @@ class RemoteStdOutPipe(Pipes):
                                 # Append new data to the buffer while there is data to read
                                 __stdoutOutputBuffer += stdout_ans
 
-                        promptRegex = b'([a-zA-Z]:[\\\/])((([a-zA-Z0-9 -\.]*)[\\\/]?)+(([a-zA-Z0-9 -\.]+))?)?>$'
+                        promptRegex = r'([a-zA-Z]:[\\\/])((([a-zA-Z0-9 -\.]*)[\\\/]?)+(([a-zA-Z0-9 -\.]+))?)?>$'
 
                         endsWithPrompt = bool(re.match(promptRegex, __stdoutOutputBuffer) is not None)
                         if endsWithPrompt == True:
