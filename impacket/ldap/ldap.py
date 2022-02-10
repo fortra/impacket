@@ -66,7 +66,7 @@ RE_EX_ATTRIBUTE_2 = re.compile(r'^(){0}%s?%s$' % (DN, MATCHING_RULE), re.I)
 
 
 class LDAPConnection:
-    def __init__(self, url, baseDN='', dstIp=None):
+    def __init__(self, url, baseDN='', dstIp=None, socketTimeout=5):
         """
         LDAPConnection class
 
@@ -82,6 +82,7 @@ class LDAPConnection:
         self._socket = None
         self._baseDN = baseDN
         self._dstIp = dstIp
+        self._socketTimeout = socketTimeout
 
         if url.startswith('ldap://'):
             self._dstPort = 389
@@ -112,12 +113,14 @@ class LDAPConnection:
             raise socket.error('Connection error (%s:%d)' % (targetHost, self._dstPort), e)
 
         if self._SSL is False:
+            self._socket.settimeout(self._socketTimeout)
             self._socket.connect(sa)
         else:
             # Switching to TLS now
             ctx = SSL.Context(SSL.TLSv1_METHOD)
             # ctx.set_cipher_list('RC4')
             self._socket = SSL.Connection(ctx, self._socket)
+            self._socket.settimeout(self._socketTimeout)
             self._socket.connect(sa)
             self._socket.do_handshake()
 
