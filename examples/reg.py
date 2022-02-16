@@ -185,6 +185,8 @@ class RegHandler:
                 self.add(dce, self.__options.keyName)
             elif self.__action == 'DELETE':
                 self.delete(dce, self.__options.keyName)
+            elif self.__action == 'SAVE':
+                self.save(dce, self.__options.keyName)
             else:
                 logging.error('Method %s not implemented yet!' % self.__action)
         except (Exception, KeyboardInterrupt) as e:
@@ -194,6 +196,23 @@ class RegHandler:
         finally:
             if self.__remoteOps:
                 self.__remoteOps.finish()
+
+    def save(self, dce, keyName):
+        hRootKey, subKey = self.__strip_root_key(dce, keyName)
+        try:
+            ans3 = rrp.hBaseRegCreateKey(dce, hRootKey, subKey)
+        except Exception as e:
+            raise Exception("Can't open %s keyName: %s" % (subKey, e))
+        keyHandle = ans3['phkResult']
+        outputFileName = "%s\%s" % (self.__options.outputPath, subKey)
+        try:
+            logging.info("Trying to dump %s, be patient it can take a while for large hives (e.g. HKLM\SYSTEM)" % keyName)
+            rrp.hBaseRegSaveKey(dce, keyHandle, outputFileName)
+            logging.info("Dumped %s to %s" % (keyName, outputFileName))
+        except Exception as e:
+            logging.error("Couldn't save %s: %s" % (keyName, e))
+        rrp.hBaseRegCloseKey(dce, hRootKey)
+        rrp.hBaseRegCloseKey(dce, keyHandle)
 
     def query(self, dce, keyName):
         hRootKey, subKey = self.__strip_root_key(dce, keyName)
@@ -542,9 +561,14 @@ if __name__ == '__main__':
     # copy_parser = subparsers.add_parser('copy', help='Copies a registry entry to a specified location in the remote '
     #                                                   'computer')
 
-    # A save command
-    # save_parser = subparsers.add_parser('save', help='Saves a copy of specified subkeys, entries, and values of the '
-    #                                                 'registry in a specified file.')
+    #A save command
+    save_parser = subparsers.add_parser('save', help='Saves a copy of specified subkeys, entries, and values of the '
+                                                    'registry in a specified file.')
+    save_parser.add_argument('-keyName', action='store', required=True,
+                               help='Specifies the full path of the subkey. The '
+                                    'keyName must include a valid root key. Valid root keys for the local computer are: HKLM,'
+                                    ' HKU, HKCR.')
+    save_parser.add_argument('-o', dest='outputPath', action='store', metavar='\\\\192.168.0.2\share', required=True, help='Output UNC path the target system must export the registry saves to')
 
     # A load command
     # load_parser = subparsers.add_parser('load', help='Writes saved subkeys and entries back to a different subkey in '
