@@ -199,20 +199,14 @@ class RegHandler:
 
     def save(self, dce, keyName):
         hRootKey, subKey = self.__strip_root_key(dce, keyName)
-        try:
-            ans3 = rrp.hBaseRegCreateKey(dce, hRootKey, subKey)
-        except Exception as e:
-            raise Exception("Can't open %s keyName: %s" % (subKey, e))
-        keyHandle = ans3['phkResult']
         outputFileName = "%s\%s" % (self.__options.outputPath, subKey)
+        logging.info("Trying to dump %s, be patient it can take a while for large hives (e.g. HKLM\SYSTEM)" % keyName)
         try:
-            logging.info("Trying to dump %s, be patient it can take a while for large hives (e.g. HKLM\SYSTEM)" % keyName)
-            rrp.hBaseRegSaveKey(dce, keyHandle, outputFileName)
+            ans2 = rrp.hBaseRegOpenKey(dce, hRootKey, subKey, rrp.REG_OPTION_BACKUP_RESTORE | rrp.REG_OPTION_OPEN_LINK, rrp.KEY_READ)
+            rrp.hBaseRegSaveKey(dce, ans2['phkResult'], outputFileName)
             logging.info("Dumped %s to %s" % (keyName, outputFileName))
         except Exception as e:
             logging.error("Couldn't save %s: %s" % (keyName, e))
-        rrp.hBaseRegCloseKey(dce, hRootKey)
-        rrp.hBaseRegCloseKey(dce, keyHandle)
 
     def query(self, dce, keyName):
         hRootKey, subKey = self.__strip_root_key(dce, keyName)
