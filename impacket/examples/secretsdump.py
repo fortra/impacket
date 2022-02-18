@@ -1570,12 +1570,13 @@ class LSASecrets(OfflineRegistry):
             else:
                 output = []
                 if strDecoded['version'] == 1:
-                    output.append(" - Version : %d" % strDecoded['version'])
-                    for qk in strDecoded['questions']:
-                        output.append(" | Question: %s" % qk['question'])
-                        output.append(" | |--> Answer: %s" % qk['answer'])
-                    output = '\n'.join(output)
-                    secret = 'Security Questions for user %s: \n%s' % (sid, output)
+                    if len(strDecoded['questions']) != 0:
+                        output.append(" - Version : %d" % strDecoded['version'])
+                        for qk in strDecoded['questions']:
+                            output.append(" | Question: %s" % qk['question'])
+                            output.append(" | |--> Answer: %s" % qk['answer'])
+                        output = '\n'.join(output)
+                        secret = 'Security Questions for user %s: \n%s' % (sid, output)
                 else:
                     LOG.warning("Unknown SQSA version (%s), please open an issue with the following data so we can add a parser for it." % str(strDecoded['version']))
                     LOG.warning("Don't forget to remove sensitive content before sending the data in a Github issue.")
