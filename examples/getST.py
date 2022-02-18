@@ -1,4 +1,4 @@
-#!C:\Users\x\AppData\Local\Programs\Python\Python39\python.exe
+#!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
@@ -633,7 +633,7 @@ class GETST:
         # Do we have a TGT cached?
         tgt = None
         try:
-            ccache = CCache.loadFile(r'C:\Users\x\1\mimikatz_trunk\x64\WIN-ER6H1V81DV9.ccache')
+            ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
             logging.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
             principal = 'krbtgt/%s@%s' % (self.__domain.upper(), self.__domain.upper())
             creds = ccache.getCredential(principal)
