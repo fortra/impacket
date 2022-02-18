@@ -731,7 +731,7 @@ if __name__ == '__main__':
         logging.debug(version.getInstallationPath())
     else:
         logging.getLogger().setLevel(logging.INFO)
-    if len(options.alt_service.split('/')) != 2:
+    if options.alt_service != None and len(options.alt_service.split('/')) != 2:
         logging.critical('alt-service should be specified as service/host format')
         sys.exit(1)
     domain, username, password = parse_credentials(options.identity)
