@@ -485,7 +485,6 @@ class LDAPAttack(ProtocolAttack):
                 if sid in membersids:
                     # Generic all
                     if ace['Ace']['Mask'].hasPriv(self.GENERIC_ALL):
-                        ace.dump()
                         LOG.debug('Permission found: Full Control on %s; Reason: GENERIC_ALL via %s' % (dn, sidmapping[sid]))
                         hasFullControl = True
                     if can_create_users(ace) or hasFullControl:
