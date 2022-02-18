@@ -82,21 +82,12 @@ class GETST:
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
 
-    def saveTicket(self, ticket, sessionKey,clientName=None, alt_service=None):
-        clientName=clientName.components[0]
-        if clientName!=None:
-            logging.info('Saving ticket in %s_s4u2self.ccache' % clientName)
-            ccache = CCache()
+    def saveTicket(self, ticket, sessionKey, alt_service=None):
+        logging.info('Saving ticket in %s' % (self.__saveFileName + '.ccache'))
+        ccache = CCache()
 
-            ccache.fromTGS(ticket, sessionKey, sessionKey, alt_service)
-            ccache.saveFile('%s_s4u2self.ccache'% clientName)
-        else:
-
-            logging.info('Saving ticket in %s' % (self.__saveFileName + '.ccache'))
-            ccache = CCache()
-
-            ccache.fromTGS(ticket, sessionKey, sessionKey)
-            ccache.saveFile(self.__saveFileName + '.ccache')
+        ccache.fromTGS(ticket, sessionKey, sessionKey, alt_service)
+        ccache.saveFile(self.__saveFileName + '.ccache')
 
     def doS4U2ProxyWithAdditionalTicket(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost, additional_ticket_path):
         if not os.path.isfile(additional_ticket_path):
@@ -431,8 +422,7 @@ class GETST:
 
         r = sendReceive(message, self.__domain, kdcHost)
         if s4u2self:
-            self.saveTicket(r,sessionKey, clientName, alt_service)
-        return
+            return r, cipher, oldSessionKey, sessionKey
         tgs = decoder.decode(r, asn1Spec=TGS_REP())[0]
 
         if logging.getLogger().level == logging.DEBUG:
