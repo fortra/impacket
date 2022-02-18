@@ -1508,6 +1508,7 @@ class LSASecrets(OfflineRegistry):
                     # We don't support getting this info for local targets at the moment
                     secret = self.UNKNOWN_USER + ':'
                 secret += strDecoded
+
         elif upperName.startswith('DEFAULTPASSWORD'):
             # defaults password for winlogon
             # Let's first try to decode the secret
@@ -1527,6 +1528,7 @@ class LSASecrets(OfflineRegistry):
                     # We don't support getting this info for local targets at the moment
                     secret = self.UNKNOWN_USER + ':'
                 secret += strDecoded
+
         elif upperName.startswith('ASPNET_WP_PASSWORD'):
             try:
                 strDecoded = secretItem.decode('utf-16le')
@@ -1534,6 +1536,7 @@ class LSASecrets(OfflineRegistry):
                 pass
             else:
                 secret = 'ASPNET: %s' % strDecoded
+
         elif upperName.startswith('DPAPI_SYSTEM'):
             # Decode the DPAPI Secrets
             dpapi = DPAPI_SYSTEM(secretItem)
@@ -1559,13 +1562,14 @@ class LSASecrets(OfflineRegistry):
             extrasecret = "%s:plain_password_hex:%s" % (printname, hexlify(secretItem).decode('utf-8'))
             self.__secretItems.append(extrasecret)
             self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, extrasecret)
+
         elif re.match('^L\$_SQSA_(S-[0-9]-[0-9]-([0-9])+-([0-9])+-([0-9])+-([0-9])+-([0-9])+)$', upperName) is not None:
             # Decode stored security questions
             sid = re.search('^L\$_SQSA_(S-[0-9]-[0-9]-([0-9])+-([0-9])+-([0-9])+-([0-9])+-([0-9])+)$', upperName).group(1)
             try:
-                strDecoded = secretItem.decode('utf-16le').replace('\xa0',' ')
+                strDecoded = secretItem.decode('utf-16le')
                 strDecoded = json.loads(strDecoded)
-            except:
+            except Exception as e:
                 pass
             else:
                 output = []
@@ -1576,7 +1580,9 @@ class LSASecrets(OfflineRegistry):
                             output.append(" | Question: %s" % qk['question'])
                             output.append(" | |--> Answer: %s" % qk['answer'])
                         output = '\n'.join(output)
-                        secret = 'Security Questions for user %s: \n%s' % (sid, output)
+                        secret = 'Security questions for user %s: \n%s' % (sid, output)
+                    else:
+                        secret = 'Empty security questions for user %s.' % sid
                 else:
                     LOG.warning("Unknown SQSA version (%s), please open an issue with the following data so we can add a parser for it." % str(strDecoded['version']))
                     LOG.warning("Don't forget to remove sensitive content before sending the data in a Github issue.")
