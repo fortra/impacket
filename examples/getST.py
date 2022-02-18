@@ -676,7 +676,7 @@ class GETST:
                 return
             self.__saveFileName = self.__options.impersonate
 
-        self.saveTicket(tgs, oldSessionKey)
+        self.saveTicket(tgs, oldSessionKey, options.alt_service)
 
 
 if __name__ == '__main__':
