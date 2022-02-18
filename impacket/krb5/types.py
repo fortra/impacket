@@ -48,14 +48,12 @@ from . import constants
 class KerberosException(Exception):
     pass
 
-
 def _asn1_decode(data, asn1Spec):
-    if isinstance(data, str) or isinstance(data, bytes):
+    if isinstance(data, str) or isinstance(data,bytes):
         data, substrate = decoder.decode(data, asn1Spec=asn1Spec)
         if substrate != b'':
             raise KerberosException("asn1 encoding invalid")
     return data
-
 
 # A principal can be represented as:
 
@@ -67,7 +65,6 @@ class Principal(object):
   component is the realm
 
 If the value contains no realm, then default_realm will be used."""
-
     def __init__(self, value=None, default_realm=None, type=None):
         self.type = constants.PrincipalNameType.NT_UNKNOWN
         self.components = []
@@ -76,7 +73,7 @@ If the value contains no realm, then default_realm will be used."""
         if value is None:
             return
 
-        try:  # Python 2
+        try:               # Python 2
             if isinstance(value, unicode):
                 value = value.encode('utf-8')
         except NameError:  # Python 3
@@ -118,12 +115,12 @@ If the value contains no realm, then default_realm will be used."""
             self.type = type
 
     def __eq__(self, other):
-        if isinstance(other, str):
-            other = Principal(other)
+        if isinstance (other, str):
+            other = Principal (other)
 
         return (self.type == constants.PrincipalNameType.NT_UNKNOWN.value or
                 other.type == constants.PrincipalNameType.NT_UNKNOWN.value or
-                self.type == other.type) and all(map(lambda a, b: a == b, self.components, other.components)) and \
+                self.type == other.type) and all (map (lambda a, b: a == b, self.components, other.components)) and \
                self.realm == other.realm
 
     def __str__(self):
@@ -159,7 +156,6 @@ If the value contains no realm, then default_realm will be used."""
             strings.setComponentByPosition(i, c)
 
         return name
-
 
 class Address(object):
     DIRECTIONAL_AP_REQ_SENDER = struct.pack('!I', 0)
@@ -199,7 +195,6 @@ class Address(object):
         # ipv4-mapped ipv6 addresses must be encoded as ipv4.
         pass
 
-
 class EncryptedData(object):
     def __init__(self):
         self.etype = None
@@ -223,7 +218,6 @@ class EncryptedData(object):
             component.setComponentByName('kvno', self.kvno)
         component.setComponentByName('cipher', self.ciphertext)
         return component
-
 
 class Ticket(object):
     def __init__(self):
@@ -251,8 +245,7 @@ class Ticket(object):
         return component
 
     def __str__(self):
-        return "<Ticket for %s vno %s>" % (str(self.service_principal), str(self.encrypted_part.kvno))
-
+        return "<Ticket for %s vno %s>" % (str(self.service_principal), str(self.encrypted_part.kvno)) 
 
 class KerberosTime(object):
     INDEFINITE = datetime.datetime(1970, 1, 1, 0, 0, 0)
@@ -276,7 +269,6 @@ class KerberosTime(object):
         if data[14] != 'Z':
             raise KerberosException("timezone in KerberosTime is not Z")
         return datetime.datetime(year, month, day, hour, minute, second)
-
 
 if __name__ == '__main__':
     # TODO marc: turn this into a real test
