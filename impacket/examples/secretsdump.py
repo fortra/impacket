@@ -1580,6 +1580,15 @@ class LSASecrets(OfflineRegistry):
                     LOG.warning("Unknown SQSA version (%s), please open an issue with the following data so we can add a parser for it." % str(strDecoded['version']))
                     LOG.warning("Don't forget to remove sensitive content before sending the data in a Github issue.")
                     secret = json.dumps(strDecoded, indent=4)
+        elif re.match('^SCM:{([0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12})}', upperName) is not None:
+            # Decode stored service password
+            sid = re.search('^SCM:{([0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12})}', upperName).group(1)
+            try:
+                password = secretItem.decode('utf-16le').rstrip('\x00')
+            except:
+                pass
+            else:
+                secret = 'Password of service %s: %s' % (sid, password)
 
         if secret != '':
             printableSecret = secret
