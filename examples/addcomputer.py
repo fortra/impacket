@@ -413,8 +413,9 @@ class ADDCOMPUTER:
         request = ldap3.operation.bind.bind_operation(connection.version, ldap3.SASL, user, None, 'GSS-SPNEGO', blob.getData())
 
         # Done with the Kerberos saga, now let's get into LDAP
-        if connection.closed:  # try to open connection if closed
-                connection.open(read_server_info=False)
+        # try to open connection if closed
+        if connection.closed:
+            connection.open(read_server_info=False)
 
         connection.sasl_in_progress = True
         response = connection.post_send_single_response(connection.send('bindRequest', request, None))

@@ -7,12 +7,9 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
-from impacket.dot11 import Dot11, Dot11Types, Dot11ControlFrameRTS
 import unittest
+from impacket.dot11 import Dot11, Dot11Types, Dot11ControlFrameRTS
+
 
 class TestDot11FrameControlRTS(unittest.TestCase):
 
@@ -67,5 +64,6 @@ class TestDot11FrameControlRTS(unittest.TestCase):
         self.rts.set_ta(ta)
         self.assertEqual(self.rts.get_ta().tolist(), [0x12,0x23,0x4d,0x09,0x86,0x34])
       
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11FrameControlRTS)
-unittest.main(defaultTest='suite')
+
+if __name__ == '__main__':
+    unittest.main(verbosity=1)
