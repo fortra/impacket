@@ -455,7 +455,7 @@ class CCache:
         credential.secondTicket['length'] = 0
         self.credentials.append(credential)
 
-    def fromTGS(self, tgs, oldSessionKey, sessionKey, alt_service=None):
+    def fromTGS(self, tgs, oldSessionKey, sessionKey):
         self.headers = []
         header = Header()
         header['tag'] = 1
@@ -484,7 +484,7 @@ class CCache:
 
         credential = Credential()
         server = types.Principal()
-        server.from_asn1(encTGSRepPart, 'srealm', 'sname', alt_service)
+        server.from_asn1(encTGSRepPart, 'srealm', 'sname')
         tmpServer = Principal()
         tmpServer.fromPrincipal(server)
 
@@ -511,10 +511,6 @@ class CCache:
         credential['num_address'] = 0
 
         credential.ticket = CountedOctetString()
-        if alt_service != None:
-            decodedTGS['ticket']['sname']['name-type'] = 0
-            decodedTGS['ticket']['sname']['name-string'][0] = alt_service.split('/')[0]
-            decodedTGS['ticket']['sname']['name-string'][1] = alt_service.split('/')[1]
         credential.ticket['data'] = encoder.encode(decodedTGS['ticket'].clone(tagSet=Ticket.tagSet, cloneValueFlag=True))
         credential.ticket['length'] = len(credential.ticket['data'])
         credential.secondTicket = CountedOctetString()
