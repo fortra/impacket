@@ -93,9 +93,18 @@ class GETST:
                 logging.debug("More than one credentials in cache, modifying all of them")
             for creds in ccache.credentials:
                 sname = creds['server'].prettyPrint()
-                service_class = sname.split(b'@')[0].split(b'/')[0].decode('utf-8')
-                hostname = sname.split(b'@')[0].split(b'/')[1].decode('utf-8')
-                service_realm = sname.split(b'@')[1].decode('utf-8')
+                if b'/' not in sname:
+                    logging.debug("Original service is not formatted as usual (i.e. CLASS/HOSTNAME@REALM), automatically filling the substitution service will fail")
+                    logging.debug("Original service is: %s" % sname.decode('utf-8'))
+                    if '/' not in self.__options.altservice:
+                        raise ValueError("Substitution service must include service class AND name (i.e. CLASS/HOSTNAME@REALM, or CLASS/HOSTNAME)")
+                    service_class = ""
+                    hostname = sname.split(b'@')[0].decode('utf-8')
+                    service_realm = sname.split(b'@')[1].decode('utf-8')
+                else:
+                    service_class = sname.split(b'@')[0].split(b'/')[0].decode('utf-8')
+                    hostname = sname.split(b'@')[0].split(b'/')[1].decode('utf-8')
+                    service_realm = sname.split(b'@')[1].decode('utf-8')
                 if '@' in self.__options.altservice:
                     new_service_realm = self.__options.altservice.split('@')[1].upper()
                     if not '.' in new_service_realm:
