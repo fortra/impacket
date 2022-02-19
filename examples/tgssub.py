@@ -31,15 +31,23 @@ from impacket.krb5.ccache import CCache
 
 def substitute_sname(args):
     ccache = CCache.loadFile(args.inticket)
-    cred_number = 0
-    logging.info('Number of credentials in cache: %d' % len(ccache.credentials))
+    cred_number = len(ccache.credentials)
+    logging.info('Number of credentials in cache: %d' % cred_number)
     if cred_number > 1:
         logging.debug("More than one credentials in cache, modifying all of them")
     for creds in ccache.credentials:
         sname = creds['server'].prettyPrint()
-        service_class = sname.split(b'@')[0].split(b'/')[0].decode('utf-8')
-        hostname = sname.split(b'@')[0].split(b'/')[1].decode('utf-8')
-        service_realm = sname.split(b'@')[1].decode('utf-8')
+        if b'/' not in sname:
+            logging.debug("Original service is not formatted as usual (i.e. CLASS/HOSTNAME@REALM), automatically filling the substitution service will fail")
+            if '/' not in args.altservice:
+                raise ValueError("Substitution service must include service class AND name (i.e. CLASS/HOSTNAME@REALM, or CLASS/HOSTNAME)")
+            service_class = ""
+            hostname = sname.split(b'@')[0].decode('utf-8')
+            service_realm = sname.split(b'@')[1].decode('utf-8')
+        else:
+            service_class = sname.split(b'@')[0].split(b'/')[0].decode('utf-8')
+            hostname = sname.split(b'@')[0].split(b'/')[1].decode('utf-8')
+            service_realm = sname.split(b'@')[1].decode('utf-8')
         if '@' in args.altservice:
             new_service_realm = args.altservice.split('@')[1].upper()
             if not '.' in new_service_realm:
@@ -76,6 +84,7 @@ def parse_args():
     parser.add_argument('-in', dest='inticket', action="store", metavar="TICKET.CCACHE", help='input ticket to modify', required=True)
     parser.add_argument('-out', dest='outticket', action="store", metavar="TICKET.CCACHE", help='output ticket', required=True)
     parser.add_argument('-altservice', action="store", metavar="SERVICE", help='New sname/SPN', required=True)
+    parser.add_argument('-force', action='store_true', help='Force the service substitution without taking the original into consideration')
 
     if len(sys.argv) == 1:
         parser.print_help()
