@@ -779,6 +779,10 @@ if __name__ == '__main__':
     if options.no_s4u2proxy and options.impersonate is None:
         parser.error("argument -impersonate is required when doing S4U2self")
 
+    if options.no_s4u2proxy and options.altservice is not None:
+        if '/' not in options.altservice:
+            parser.error("When doing S4U2self only, substitution service must include service class AND name (i.e. CLASS/HOSTNAME@REALM, or CLASS/HOSTNAME)")
+
     if options.additional_ticket is not None and options.impersonate is None:
         parser.error("argument -impersonate is required when doing S4U2proxy")
 
