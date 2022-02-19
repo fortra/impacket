@@ -137,14 +137,12 @@ If the value contains no realm, then default_realm will be used."""
         return "Principal((" + repr(self.components) + ", " + \
                repr(self.realm) + "), t=" + str(self.type) + ")"
 
-    def from_asn1(self, data, realm_component, name_component, alt_service=None):
+    def from_asn1(self, data, realm_component, name_component):
         name = data.getComponentByName(name_component)
         self.type = constants.PrincipalNameType(
             name.getComponentByName('name-type')).value
         self.components = [
             str(c) for c in name.getComponentByName('name-string')]
-        if name_component == "sname" and alt_service!=None:
-            self.components = alt_service.split('/')
         self.realm = str(data.getComponentByName(realm_component))
         return self
 
