@@ -444,10 +444,7 @@ class GETST:
 
         reqBody['kdc-options'] = constants.encodeFlags(opts)
 
-        if self.__no_s4u2proxy and self.__options.spn is not None:
-            serverName = Principal(self.__options.spn, type=constants.PrincipalNameType.NT_UNKNOWN.value)
-        else:
-            serverName = Principal(self.__user, type=constants.PrincipalNameType.NT_UNKNOWN.value)
+        serverName = Principal(self.__user, type=constants.PrincipalNameType.NT_UNKNOWN.value)
 
         seq_set(reqBody, 'sname', serverName.components_to_asn1)
         reqBody['realm'] = str(decodedTGT['crealm'])
@@ -706,10 +703,7 @@ class GETST:
         if self.__options.impersonate is None:
             # Normal TGS interaction
             logging.info('Getting ST for user')
-            if self.__no_s4u2proxy and self.__options.spn is not None:
-                serverName = Principal(self.__options.spn, type=constants.PrincipalNameType.NT_SRV_INST.value)
-            else:
-                serverName = Principal(self.__user, type=constants.PrincipalNameType.NT_SRV_INST.value)
+            serverName = Principal(self.__options.spn, type=constants.PrincipalNameType.NT_SRV_INST.value)
             tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, self.__kdcHost, tgt, cipher, sessionKey)
             self.__saveFileName = self.__user
         else:
@@ -768,7 +762,7 @@ if __name__ == '__main__':
     group.add_argument('-aesKey', action="store", metavar="hex key", help='AES key to use for Kerberos Authentication '
                                                                           '(128 or 256 bits)')
     group.add_argument('-dc-ip', action='store', metavar="ip address", help='IP Address of the domain controller. If '
-                                                                            'ommited it use the domain part (FQDN) specified in the target parameter')
+                                                                            'omitted it use the domain part (FQDN) specified in the target parameter')
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -781,6 +775,12 @@ if __name__ == '__main__':
 
     if not options.no_s4u2proxy and options.spn is None:
         parser.error("argument -spn is required, except when -self is set")
+
+    if options.no_s4u2proxy and options.impersonate is None:
+        parser.error("argument -impersonate is required when doing S4U2self")
+
+    if options.additional_ticket is not None and options.impersonate is None:
+        parser.error("argument -impersonate is required when doing S4U2proxy")
 
     # Init the example's logger theme
     logger.init(options.ts)
