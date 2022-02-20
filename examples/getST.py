@@ -78,15 +78,17 @@ class GETST:
         self.__kdcHost = options.dc_ip
         self.__force_forwardable = options.force_forwardable
         self.__additional_ticket = options.additional_ticket
+        self.__alt_service = options.alt_service
+        self.__s4u2_self = options.s4u2self
         self.__saveFileName = None
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
 
-    def saveTicket(self, ticket, sessionKey, alt_service=None):
+    def saveTicket(self, ticket, sessionKey):
         logging.info('Saving ticket in %s' % (self.__saveFileName + '.ccache'))
         ccache = CCache()
 
-        ccache.fromTGS(ticket, sessionKey, sessionKey, alt_service)
+        ccache.fromTGS(ticket, sessionKey, sessionKey, self.__alt_service)
         ccache.saveFile(self.__saveFileName + '.ccache')
 
     def doS4U2ProxyWithAdditionalTicket(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost, additional_ticket_path):
@@ -296,7 +298,7 @@ class GETST:
 
             return r, cipher, sessionKey, newSessionKey
 
-    def doS4U(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost, s4u2self=False, alt_service=None):
+    def doS4U(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost, s4u2self=False):
         decodedTGT = decoder.decode(tgt, asn1Spec=AS_REP())[0]
         # Extract the ticket from the TGT
         ticket = Ticket()
@@ -421,8 +423,8 @@ class GETST:
         message = encoder.encode(tgsReq)
 
         r = sendReceive(message, self.__domain, kdcHost)
-        if s4u2self:
-            return r, cipher, oldSessionKey, sessionKey
+        if self.__s4u2_self:
+            return r, cipher, sessionKey, sessionKey
         tgs = decoder.decode(r, asn1Spec=TGS_REP())[0]
 
         if logging.getLogger().level == logging.DEBUG:
@@ -664,7 +666,7 @@ class GETST:
                     tgs, cipher, oldSessionKey, sessionKey = self.doS4U2ProxyWithAdditionalTicket(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey,
                                                                                                   self.__kdcHost, self.__additional_ticket)
                 else:
-                    tgs, cipher, oldSessionKey, sessionKey = self.doS4U(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey, self.__kdcHost, options.s4u2self, options.alt_service)
+                    tgs, cipher, oldSessionKey, sessionKey = self.doS4U(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey, self.__kdcHost)
             except Exception as e:
                 logging.debug("Exception", exc_info=True)
                 logging.error(str(e))
@@ -676,7 +678,7 @@ class GETST:
                 return
             self.__saveFileName = self.__options.impersonate
 
-        self.saveTicket(tgs, oldSessionKey, options.alt_service)
+        self.saveTicket(tgs, oldSessionKey)
 
 
 if __name__ == '__main__':
@@ -685,7 +687,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=True, description="Given a password, hash or aesKey, it will request a "
                                                                 "Service Ticket and save it as ccache")
     parser.add_argument('identity', action='store', help='[domain/]username[:password]')
-    parser.add_argument('-spn', action="store", required=True, help='SPN (service/server) of the target service the '
+    parser.add_argument('-spn', action="store", help='SPN (service/server) of the target service the '
                                                                     'service ticket will' ' be generated for')
     parser.add_argument('-impersonate', action="store", help='target username that will be impersonated (thru S4U2Self)'
                                                              ' for quering the ST. Keep in mind this will only work if '
@@ -733,6 +735,9 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.INFO)
     if options.alt_service != None and len(options.alt_service.split('/')) != 2:
         logging.critical('alt-service should be specified as service/host format')
+        sys.exit(1)
+    if options.s4u2self == None and options.spn == None:
+        logging.critical('you must specify spn when s4u2self option is not used')
         sys.exit(1)
     domain, username, password = parse_credentials(options.identity)
 
