@@ -87,7 +87,12 @@ class GETST:
     def saveTicket(self, ticket, sessionKey):
         logging.info('Saving ticket in %s' % (self.__saveFileName + '.ccache'))
         ccache = CCache()
-
+        if self.__saveFileName != None:
+            decodedTGS = decoder.decode(ticket, asn1Spec = TGS_REP())[0]
+            decodedTGS['ticket']['sname']['name-type'] = 0
+            decodedTGS['ticket']['sname']['name-string'][0] = self.__saveFileName.split('/')[0]
+            decodedTGS['ticket']['sname']['name-string'][1] = self.__saveFileName.split('/')[1]
+            ticket = encoder.encode(decodedTGS)
         ccache.fromTGS(ticket, sessionKey, sessionKey, self.__alt_service)
         ccache.saveFile(self.__saveFileName + '.ccache')
 
@@ -688,7 +693,7 @@ if __name__ == '__main__':
                                                                 "Service Ticket and save it as ccache")
     parser.add_argument('identity', action='store', help='[domain/]username[:password]')
     parser.add_argument('-spn', action="store", help='SPN (service/server) of the target service the '
-                                                                    'service ticket will' ' be generated for')
+                                                     'service ticket will' ' be generated for')
     parser.add_argument('-impersonate', action="store", help='target username that will be impersonated (thru S4U2Self)'
                                                              ' for quering the ST. Keep in mind this will only work if '
                                                              'the identity provided in this scripts is allowed for '
