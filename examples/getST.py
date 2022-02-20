@@ -452,6 +452,8 @@ class GETST:
 
         reqBody['kdc-options'] = constants.encodeFlags(opts)
 
+        if self.__options.spn is not None:
+            logging.info("When doing S4U2self only, argument -spn is ignored")
         serverName = Principal(self.__user, type=constants.PrincipalNameType.NT_UNKNOWN.value)
 
         seq_set(reqBody, 'sname', serverName.components_to_asn1)
