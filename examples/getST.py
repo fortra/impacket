@@ -87,13 +87,55 @@ class GETST:
     def saveTicket(self, ticket, sessionKey):
         logging.info('Saving ticket in %s' % (self.__saveFileName + '.ccache'))
         ccache = CCache()
-        if self.__saveFileName != None:
+        if self.__alt_service != None:
             decodedTGS = decoder.decode(ticket, asn1Spec = TGS_REP())[0]
             decodedTGS['ticket']['sname']['name-type'] = 0
-            decodedTGS['ticket']['sname']['name-string'][0] = self.__saveFileName.split('/')[0]
-            decodedTGS['ticket']['sname']['name-string'][1] = self.__saveFileName.split('/')[1]
+            decodedTGS['ticket']['sname']['name-string'][0] = self.__alt_service.split('/')[0]
+            decodedTGS['ticket']['sname']['name-string'][1] = self.__alt_service.split('/')[1]
             ticket = encoder.encode(decodedTGS)
-        ccache.fromTGS(ticket, sessionKey, sessionKey, self.__alt_service)
+        ccache.fromTGS(ticket, sessionKey, sessionKey)
+        cred_number = len(ccache.credentials)
+        logging.debug('Number of credentials in cache: %d' % cred_number)
+        if cred_number > 1:
+            logging.debug("More than one credentials in cache, modifying all of them")
+        for creds in ccache.credentials:
+            sname = creds['server'].prettyPrint()
+            if b'/' not in sname:
+                logging.debug("Original service is not formatted as usual (i.e. CLASS/HOSTNAME@REALM), automatically filling the substitution service will fail")
+                logging.debug("Original service is: %s" % sname.decode('utf-8'))
+                if '/' not in self.__alt_service:
+                    raise ValueError("Substitution service must include service class AND name (i.e. CLASS/HOSTNAME@REALM, or CLASS/HOSTNAME)")
+                service_class = ""
+                hostname = sname.split(b'@')[0].decode('utf-8')
+                service_realm = sname.split(b'@')[1].decode('utf-8')
+            else:
+                service_class = sname.split(b'@')[0].split(b'/')[0].decode('utf-8')
+                hostname = sname.split(b'@')[0].split(b'/')[1].decode('utf-8')
+                service_realm = sname.split(b'@')[1].decode('utf-8')
+            if '@' in self.__alt_service:
+                new_service_realm = self.__alt_service.split('@')[1].upper()
+                if not '.' in new_service_realm:
+                    logging.debug("New service realm is not FQDN, you may encounter errors")
+                if '/' in self.__alt_service:
+                    new_hostname = self.__alt_service.split('@')[0].split('/')[1]
+                    new_service_class = self.__alt_service.split('@')[0].split('/')[0]
+                else:
+                    logging.debug("No service hostname in new SPN, using the current one (%s)" % hostname)
+                    new_hostname = hostname
+                    new_service_class = self.__alt_service.split('@')[0]
+            else:
+                logging.debug("No service realm in new SPN, using the current one (%s)" % service_realm)
+                new_service_realm = service_realm
+                if '/' in self.__alt_service:
+                    new_hostname = self.__alt_service.split('/')[1]
+                    new_service_class = self.__alt_service.split('/')[0]
+                else:
+                    logging.debug("No service hostname in new SPN, using the current one (%s)" % hostname)
+                    new_hostname = hostname
+                    new_service_class = self.__alt_service
+            new_sname = "%s/%s@%s" % (new_service_class, new_hostname, new_service_realm)
+            logging.info('Changing sname from %s to %s' % (sname.decode("utf-8"), new_sname))
+            creds['server'].fromPrincipal(Principal(new_sname, type=constants.PrincipalNameType.NT_PRINCIPAL.value))
         ccache.saveFile(self.__saveFileName + '.ccache')
 
     def doS4U2ProxyWithAdditionalTicket(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost, additional_ticket_path):
