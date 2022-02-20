@@ -25,53 +25,74 @@ import argparse
 
 from impacket import version
 from impacket.examples import logger
-from impacket.krb5 import constants
+from impacket.krb5 import constants, types
+from impacket.krb5.asn1 import TGS_REP, Ticket
 from impacket.krb5.types import Principal
-from impacket.krb5.ccache import CCache
+from impacket.krb5.ccache import CCache, CountedOctetString
+from pyasn1.codec.der import decoder, encoder
 
 def substitute_sname(args):
     ccache = CCache.loadFile(args.inticket)
     cred_number = len(ccache.credentials)
     logging.info('Number of credentials in cache: %d' % cred_number)
     if cred_number > 1:
-        logging.debug("More than one credentials in cache, modifying all of them")
-    for creds in ccache.credentials:
-        sname = creds['server'].prettyPrint()
-        if b'/' not in sname:
-            logging.debug("Original service is not formatted as usual (i.e. CLASS/HOSTNAME@REALM), automatically filling the substitution service will fail")
-            if '/' not in args.altservice:
-                raise ValueError("Substitution service must include service class AND name (i.e. CLASS/HOSTNAME@REALM, or CLASS/HOSTNAME)")
-            service_class = ""
-            hostname = sname.split(b'@')[0].decode('utf-8')
-            service_realm = sname.split(b'@')[1].decode('utf-8')
+        raise ValueError("More than one credentials in cache, this is not handled at the moment")
+    credential = ccache.credentials[0]
+    tgs = credential.toTGS()
+    decodedST = decoder.decode(tgs['KDC_REP'], asn1Spec=TGS_REP())[0]
+    tgs = ccache.credentials[0].toTGS()
+    sname = decodedST['ticket']['sname']['name-string']
+    if len(decodedST['ticket']['sname']['name-string']) == 1:
+        logging.debug("Original sname is not formatted as usual (i.e. CLASS/HOSTNAME), automatically filling the substitution service will fail")
+        logging.debug("Original sname is: %s" % sname[0])
+        if '/' not in args.altservice:
+            raise ValueError("Substitution service must include service class AND name (i.e. CLASS/HOSTNAME@REALM, or CLASS/HOSTNAME)")
+        service_class, service_hostname = ('', sname[0])
+        service_realm = decodedST['ticket']['realm']
+    elif len(decodedST['ticket']['sname']['name-string']) == 2:
+        service_class, service_hostname = decodedST['ticket']['sname']['name-string']
+        service_realm = decodedST['ticket']['realm']
+    else:
+        logging.debug("Original sname is: %s" % '/'.join(sname))
+        raise ValueError("Original sname is not formatted as usual (i.e. CLASS/HOSTNAME), something's wrong here...")
+    if '@' in args.altservice:
+        new_service_realm = args.altservice.split('@')[1].upper()
+        if not '.' in new_service_realm:
+            logging.debug("New service realm is not FQDN, you may encounter errors")
+        if '/' in args.altservice:
+            new_service_hostname = args.altservice.split('@')[0].split('/')[1]
+            new_service_class = args.altservice.split('@')[0].split('/')[0]
         else:
-            service_class = sname.split(b'@')[0].split(b'/')[0].decode('utf-8')
-            hostname = sname.split(b'@')[0].split(b'/')[1].decode('utf-8')
-            service_realm = sname.split(b'@')[1].decode('utf-8')
-        if '@' in args.altservice:
-            new_service_realm = args.altservice.split('@')[1].upper()
-            if not '.' in new_service_realm:
-                logging.debug("New service realm is not FQDN, you may encounter errors")
-            if '/' in args.altservice:
-                new_hostname = args.altservice.split('@')[0].split('/')[1]
-                new_service_class = args.altservice.split('@')[0].split('/')[0]
-            else:
-                logging.debug("No service hostname in new SPN, using the current one (%s)" % hostname)
-                new_hostname = hostname
-                new_service_class = args.altservice.split('@')[0]
+            logging.debug("No service hostname in new SPN, using the current one (%s)" % service_hostname)
+            new_service_hostname = service_hostname
+            new_service_class = args.altservice.split('@')[0]
+    else:
+        logging.debug("No service realm in new SPN, using the current one (%s)" % service_realm)
+        new_service_realm = service_realm
+        if '/' in args.altservice:
+            new_service_hostname = args.altservice.split('/')[1]
+            new_service_class = args.altservice.split('/')[0]
         else:
-            logging.debug("No service realm in new SPN, using the current one (%s)" % service_realm)
-            new_service_realm = service_realm
-            if '/' in args.altservice:
-                new_hostname = args.altservice.split('/')[1]
-                new_service_class = args.altservice.split('/')[0]
-            else:
-                logging.debug("No service hostname in new SPN, using the current one (%s)" % hostname)
-                new_hostname = hostname
-                new_service_class = args.altservice
-        new_sname = "%s/%s@%s" % (new_service_class, new_hostname, new_service_realm)
-        logging.info('Changing sname from %s to %s' % (sname.decode("utf-8"), new_sname))
-        creds['server'].fromPrincipal(Principal(new_sname, type=constants.PrincipalNameType.NT_PRINCIPAL.value))
+            logging.debug("No service hostname in new SPN, using the current one (%s)" % service_hostname)
+            new_service_hostname = service_hostname
+            new_service_class = args.altservice
+    current_service = "%s/%s@%s" % (service_class, service_hostname, service_realm)
+    new_service = "%s/%s@%s" % (new_service_class, new_service_hostname, new_service_realm)
+    logging.info('Changing service from %s to %s' % (current_service, new_service))
+    # the values are changed in the ticket
+    decodedST['ticket']['sname']['name-string'][0] = new_service_class
+    decodedST['ticket']['sname']['name-string'][1] = new_service_hostname
+    decodedST['ticket']['realm'] = new_service_realm
+
+    ticket = encoder.encode(decodedST)
+    credential.ticket = CountedOctetString()
+    credential.ticket['data'] = encoder.encode(decodedST['ticket'].clone(tagSet=Ticket.tagSet, cloneValueFlag=True))
+    credential.ticket['length'] = len(credential.ticket['data'])
+    ccache.credentials[0] = credential
+
+    # the values need to be changed in the ccache credentials
+    # we already checked everything above, we can simply do the second replacement here
+    ccache.credentials[0]['server'].fromPrincipal(Principal(new_service, type=constants.PrincipalNameType.NT_PRINCIPAL.value))
     logging.info('Saving ticket in %s' % args.outticket)
     ccache.saveFile(args.outticket)
 
