@@ -626,8 +626,9 @@ class CCache:
 
         krbCredInfo['sname'] = noValue
         krbCredInfo['sname']['name-type'] = credential['server'].header['name_type']
-        seq_set_iter(krbCredInfo['sname'], 'name-string',
-                     (credential['server'].components[0].fields['data'], credential['server'].realm.fields['data']))
+        tmp_service_class = credential['server'].components[0].fields['data']
+        tmp_service_hostname = credential['server'].components[1].fields['data']
+        seq_set_iter(krbCredInfo['sname'], 'name-string', (tmp_service_class, tmp_service_hostname))
 
         encKrbCredPart = EncKrbCredPart()
         seq_set_iter(encKrbCredPart, 'ticket-info', (krbCredInfo,))
