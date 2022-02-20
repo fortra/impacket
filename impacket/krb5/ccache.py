@@ -141,7 +141,7 @@ class Principal:
             else:
                 component = component['data']
             principal += component + b'/'
-        
+
         principal = principal[:-1]
         if isinstance(self.realm['data'], bytes):
             realm = self.realm['data']
@@ -360,7 +360,7 @@ class CCache:
 
     def getCredential(self, server, anySPN=True):
         for c in self.credentials:
-            if c['server'].prettyPrint().upper() == b(server.upper()) or c['server'].prettyPrint().upper().split(b'@')[0] == b(server.upper())\
+            if c['server'].prettyPrint().upper() == b(server.upper()) or c['server'].prettyPrint().upper().split(b'@')[0] == b(server.upper()) \
                     or c['server'].prettyPrint().upper().split(b'@')[0] == b(server.upper().split('@')[0]):
                 LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper().decode('utf-8'))
                 return c
@@ -374,7 +374,7 @@ class CCache:
                     # Let's take the port out for comparison
                     cachedSPN = (c['server'].prettyPrint().upper().split(b'/')[1].split(b'@')[0].split(b':')[0] + b'@' + c['server'].prettyPrint().upper().split(b'/')[1].split(b'@')[1])
                     searchSPN = '%s@%s' % (server.upper().split('/')[1].split('@')[0].split(':')[0],
-                                               server.upper().split('/')[1].split('@')[1])
+                                           server.upper().split('/')[1].split('@')[1])
                     if cachedSPN == b(searchSPN):
                         LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper().decode('utf-8'))
                         return c
@@ -539,7 +539,7 @@ class CCache:
         print("Credentials: ")
         for i, credential in enumerate(self.credentials):
             print(("[%d]" % i))
-            credential.prettyPrint('\t') 
+            credential.prettyPrint('\t')
 
     @classmethod
     def loadKirbiFile(cls, fileName):
