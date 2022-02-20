@@ -53,10 +53,10 @@ from pyasn1.type.univ import noValue
 from impacket import version
 from impacket.examples import logger
 from impacket.examples.utils import parse_credentials
-from impacket.krb5 import constants
+from impacket.krb5 import constants, types, crypto, ccache
 from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, seq_set, seq_set_iter, PA_FOR_USER_ENC, \
     Ticket as TicketAsn1, EncTGSRepPart, PA_PAC_OPTIONS, EncTicketPart
-from impacket.krb5.ccache import CCache
+from impacket.krb5.ccache import CCache, Credential
 from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, _AES256CTS, Enctype
 from impacket.krb5.constants import TicketFlags, encodeFlags
 from impacket.krb5.kerberosv5 import getKerberosTGS
@@ -85,50 +85,58 @@ class GETST:
 
     def saveTicket(self, ticket, sessionKey):
         ccache = CCache()
-        ccache.fromTGS(ticket, sessionKey, sessionKey)
         if self.__options.altservice is not None:
-            cred_number = len(ccache.credentials)
-            logging.debug('Number of credentials in cache: %d' % cred_number)
-            if cred_number > 1:
-                logging.debug("More than one credentials in cache, modifying all of them")
+            decodedST = decoder.decode(ticket, asn1Spec=TGS_REP())[0]
+            sname = decodedST['ticket']['sname']['name-string']
+            if len(decodedST['ticket']['sname']['name-string']) == 1:
+                logging.debug("Original sname is not formatted as usual (i.e. CLASS/HOSTNAME), automatically filling the substitution service will fail")
+                logging.debug("Original sname is: %s" % sname[0])
+                if '/' not in self.__options.altservice:
+                    raise ValueError("Substitution service must include service class AND name (i.e. CLASS/HOSTNAME@REALM, or CLASS/HOSTNAME)")
+                service_class, service_hostname = ('', sname[0])
+                service_realm = decodedST['ticket']['realm']
+            elif len(decodedST['ticket']['sname']['name-string']) == 2:
+                service_class, service_hostname = decodedST['ticket']['sname']['name-string']
+                service_realm = decodedST['ticket']['realm']
+            else:
+                logging.debug("Original sname is: %s" % '/'.join(sname))
+                raise ValueError("Original sname is not formatted as usual (i.e. CLASS/HOSTNAME), something's wrong here...")
+            if '@' in self.__options.altservice:
+                new_service_realm = self.__options.altservice.split('@')[1].upper()
+                if not '.' in new_service_realm:
+                    logging.debug("New service realm is not FQDN, you may encounter errors")
+                if '/' in self.__options.altservice:
+                    new_service_hostname = self.__options.altservice.split('@')[0].split('/')[1]
+                    new_service_class = self.__options.altservice.split('@')[0].split('/')[0]
+                else:
+                    logging.debug("No service hostname in new SPN, using the current one (%s)" % service_hostname)
+                    new_service_hostname = service_hostname
+                    new_service_class = self.__options.altservice.split('@')[0]
+            else:
+                logging.debug("No service realm in new SPN, using the current one (%s)" % service_realm)
+                new_service_realm = service_realm
+                if '/' in self.__options.altservice:
+                    new_service_hostname = self.__options.altservice.split('/')[1]
+                    new_service_class = self.__options.altservice.split('/')[0]
+                else:
+                    logging.debug("No service hostname in new SPN, using the current one (%s)" % service_hostname)
+                    new_service_hostname = service_hostname
+                    new_service_class = self.__options.altservice
+            current_service = "%s/%s@%s" % (service_class, service_hostname, service_realm)
+            new_service = "%s/%s@%s" % (new_service_class, new_service_hostname, new_service_realm)
+            logging.info('Changing service from %s to %s' % (current_service, new_service))
+            # the values are changed in the ticket
+            decodedST['ticket']['sname']['name-string'][0] = new_service_class
+            decodedST['ticket']['sname']['name-string'][1] = new_service_hostname
+            decodedST['ticket']['realm'] = new_service_realm
+            ticket = encoder.encode(decodedST)
+            ccache.fromTGS(ticket, sessionKey, sessionKey)
+            # the values need to be changed in the ccache credentials
+            # we already checked everything above, we can simply do the second replacement here
             for creds in ccache.credentials:
-                sname = creds['server'].prettyPrint()
-                if b'/' not in sname:
-                    logging.debug("Original service is not formatted as usual (i.e. CLASS/HOSTNAME@REALM), automatically filling the substitution service will fail")
-                    logging.debug("Original service is: %s" % sname.decode('utf-8'))
-                    if '/' not in self.__options.altservice:
-                        raise ValueError("Substitution service must include service class AND name (i.e. CLASS/HOSTNAME@REALM, or CLASS/HOSTNAME)")
-                    service_class = ""
-                    hostname = sname.split(b'@')[0].decode('utf-8')
-                    service_realm = sname.split(b'@')[1].decode('utf-8')
-                else:
-                    service_class = sname.split(b'@')[0].split(b'/')[0].decode('utf-8')
-                    hostname = sname.split(b'@')[0].split(b'/')[1].decode('utf-8')
-                    service_realm = sname.split(b'@')[1].decode('utf-8')
-                if '@' in self.__options.altservice:
-                    new_service_realm = self.__options.altservice.split('@')[1].upper()
-                    if not '.' in new_service_realm:
-                        logging.debug("New service realm is not FQDN, you may encounter errors")
-                    if '/' in self.__options.altservice:
-                        new_hostname = self.__options.altservice.split('@')[0].split('/')[1]
-                        new_service_class = self.__options.altservice.split('@')[0].split('/')[0]
-                    else:
-                        logging.debug("No service hostname in new SPN, using the current one (%s)" % hostname)
-                        new_hostname = hostname
-                        new_service_class = self.__options.altservice.split('@')[0]
-                else:
-                    logging.debug("No service realm in new SPN, using the current one (%s)" % service_realm)
-                    new_service_realm = service_realm
-                    if '/' in self.__options.altservice:
-                        new_hostname = self.__options.altservice.split('/')[1]
-                        new_service_class = self.__options.altservice.split('/')[0]
-                    else:
-                        logging.debug("No service hostname in new SPN, using the current one (%s)" % hostname)
-                        new_hostname = hostname
-                        new_service_class = self.__options.altservice
-                new_sname = "%s/%s@%s" % (new_service_class, new_hostname, new_service_realm)
-                logging.info('Changing sname from %s to %s' % (sname.decode("utf-8"), new_sname))
-                creds['server'].fromPrincipal(Principal(new_sname, type=constants.PrincipalNameType.NT_PRINCIPAL.value))
+                creds['server'].fromPrincipal(Principal(new_service, type=constants.PrincipalNameType.NT_PRINCIPAL.value))
+        else:
+            ccache.fromTGS(ticket, sessionKey, sessionKey)
         logging.info('Saving ticket in %s' % (self.__saveFileName + '.ccache'))
         ccache.saveFile(self.__saveFileName + '.ccache')
 
