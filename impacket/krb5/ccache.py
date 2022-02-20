@@ -484,7 +484,7 @@ class CCache:
 
         credential = Credential()
         server = types.Principal()
-        server.from_asn1(encTGSRepPart, 'srealm', 'sname', alt_service)
+        server.from_asn1(encTGSRepPart, 'srealm', 'sname')
         tmpServer = Principal()
         tmpServer.fromPrincipal(server)
 
