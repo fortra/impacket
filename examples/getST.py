@@ -298,7 +298,7 @@ class GETST:
 
             return r, cipher, sessionKey, newSessionKey
 
-    def doS4U(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost, s4u2self=False):
+    def doS4U(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost):
         decodedTGT = decoder.decode(tgt, asn1Spec=AS_REP())[0]
         # Extract the ticket from the TGT
         ticket = Ticket()
