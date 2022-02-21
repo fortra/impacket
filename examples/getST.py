@@ -122,8 +122,12 @@ class GETST:
                     logging.debug("No service hostname in new SPN, using the current one (%s)" % service_hostname)
                     new_service_hostname = service_hostname
                     new_service_class = self.__options.altservice
-            current_service = "%s/%s@%s" % (service_class, service_hostname, service_realm)
+            if '/' in sname:
+                current_service = "%s/%s@%s" % (service_class, service_hostname, service_realm)
+            else:
+                current_service = "%s@%s" % (service_hostname, service_realm)
             new_service = "%s/%s@%s" % (new_service_class, new_service_hostname, new_service_realm)
+            self.__saveFileName += '@' + new_service_class + '_' + new_service_hostname + '@' + new_service_realm._value
             logging.info('Changing service from %s to %s' % (current_service, new_service))
             # the values are changed in the ticket
             decodedST['ticket']['sname']['name-string'][0] = new_service_class
@@ -137,6 +141,15 @@ class GETST:
                 creds['server'].fromPrincipal(Principal(new_service, type=constants.PrincipalNameType.NT_PRINCIPAL.value))
         else:
             ccache.fromTGS(ticket, sessionKey, sessionKey)
+            creds = ccache.credentials[0]
+            service_realm = creds['server'].realm['data']
+            service_class = ''
+            if len(creds['server'].components) == 2:
+                service_class = creds['server'].components[0]['data'] + '_';
+                service_host = creds['server'].components[1]['data'];
+            else:
+                service_host = creds['server'].components[0]['data'];
+            self.__saveFileName += '@' + service_class + service_host + '@' + service_realm
         logging.info('Saving ticket in %s' % (self.__saveFileName + '.ccache'))
         ccache.saveFile(self.__saveFileName + '.ccache')
 
@@ -328,24 +341,7 @@ class GETST:
 
             logging.info('\tRequesting S4U2Proxy')
             r = sendReceive(message, self.__domain, kdcHost)
-
-            tgs = decoder.decode(r, asn1Spec=TGS_REP())[0]
-
-            cipherText = tgs['enc-part']['cipher']
-
-            # Key Usage 8
-            # TGS-REP encrypted part (includes application session
-            # key), encrypted with the TGS session key (Section 5.4.2)
-            plainText = cipher.decrypt(sessionKey, 8, cipherText)
-
-            encTGSRepPart = decoder.decode(plainText, asn1Spec=EncTGSRepPart())[0]
-
-            newSessionKey = Key(encTGSRepPart['key']['keytype'], encTGSRepPart['key']['keyvalue'])
-
-            # Creating new cipher based on received keytype
-            cipher = _enctype_table[encTGSRepPart['key']['keytype']]
-
-            return r, cipher, sessionKey, newSessionKey
+            return r, None, sessionKey, None
 
     def doS4U(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost):
         decodedTGT = decoder.decode(tgt, asn1Spec=AS_REP())[0]
@@ -478,13 +474,7 @@ class GETST:
         tgs = decoder.decode(r, asn1Spec=TGS_REP())[0]
 
         if self.__no_s4u2proxy:
-            cipherText = tgs['enc-part']['cipher']
-            plainText = cipher.decrypt(sessionKey, 8, cipherText)
-            encTGSRepPart = decoder.decode(plainText, asn1Spec=EncTGSRepPart())[0]
-            newSessionKey = Key(encTGSRepPart['key']['keytype'], encTGSRepPart['key']['keyvalue'])
-            # Creating new cipher based on received keytype
-            cipher = _enctype_table[encTGSRepPart['key']['keytype']]
-            return r, cipher, sessionKey, newSessionKey
+            return r, None, sessionKey, None
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('TGS_REP')
@@ -660,24 +650,7 @@ class GETST:
 
         logging.info('\tRequesting S4U2Proxy')
         r = sendReceive(message, self.__domain, kdcHost)
-
-        tgs = decoder.decode(r, asn1Spec=TGS_REP())[0]
-
-        cipherText = tgs['enc-part']['cipher']
-
-        # Key Usage 8
-        # TGS-REP encrypted part (includes application session
-        # key), encrypted with the TGS session key (Section 5.4.2)
-        plainText = cipher.decrypt(sessionKey, 8, cipherText)
-
-        encTGSRepPart = decoder.decode(plainText, asn1Spec=EncTGSRepPart())[0]
-
-        newSessionKey = Key(encTGSRepPart['key']['keytype'], encTGSRepPart['key']['keyvalue'])
-
-        # Creating new cipher based on received keytype
-        cipher = _enctype_table[encTGSRepPart['key']['keytype']]
-
-        return r, cipher, sessionKey, newSessionKey
+        return r, None, sessionKey, None
 
     def run(self):
 
@@ -747,7 +720,7 @@ if __name__ == '__main__':
                                                                 "Service Ticket and save it as ccache")
     parser.add_argument('identity', action='store', help='[domain/]username[:password]')
     parser.add_argument('-spn', action="store", help='SPN (service/server) of the target service the '
-                                                                    'service ticket will' ' be generated for')
+                                                     'service ticket will' ' be generated for')
     parser.add_argument('-altservice', action="store", help='New sname/SPN to set in the ticket')
     parser.add_argument('-impersonate', action="store", help='target username that will be impersonated (thru S4U2Self)'
                                                              ' for quering the ST. Keep in mind this will only work if '
