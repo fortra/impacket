@@ -87,8 +87,14 @@ def parse_ccache(args):
         logging.info("%-30s: %s" % ("Service Name", spn))
         logging.info("%-30s: %s" % ("Service Realm", creds['server'].prettyPrint().split(b'@')[1].decode('utf-8')))
         logging.info("%-30s: %s" % ("Start Time", datetime.datetime.fromtimestamp(creds['time']['starttime']).strftime("%d/%m/%Y %H:%M:%S %p")))
-        logging.info("%-30s: %s" % ("End Time", datetime.datetime.fromtimestamp(creds['time']['endtime']).strftime("%d/%m/%Y %H:%M:%S %p")))
-        logging.info("%-30s: %s" % ("RenewTill", datetime.datetime.fromtimestamp(creds['time']['renew_till']).strftime("%d/%m/%Y %H:%M:%S %p")))
+        if datetime.datetime.fromtimestamp(creds['time']['endtime']) < datetime.datetime.now():
+            logging.info("%-30s: %s (expired)" % ("End Time", datetime.datetime.fromtimestamp(creds['time']['endtime']).strftime("%d/%m/%Y %H:%M:%S %p")))
+        else:
+            logging.info("%-30s: %s" % ("End Time", datetime.datetime.fromtimestamp(creds['time']['endtime']).strftime("%d/%m/%Y %H:%M:%S %p")))
+        if datetime.datetime.fromtimestamp(creds['time']['renew_till']) < datetime.datetime.now():
+            logging.info("%-30s: %s (expired)" % ("RenewTill", datetime.datetime.fromtimestamp(creds['time']['renew_till']).strftime("%d/%m/%Y %H:%M:%S %p")))
+        else:
+            logging.info("%-30s: %s" % ("RenewTill", datetime.datetime.fromtimestamp(creds['time']['renew_till']).strftime("%d/%m/%Y %H:%M:%S %p")))
 
         flags = []
         for k in constants.TicketFlags:
