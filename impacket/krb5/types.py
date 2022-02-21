@@ -137,15 +137,13 @@ If the value contains no realm, then default_realm will be used."""
         return "Principal((" + repr(self.components) + ", " + \
                repr(self.realm) + "), t=" + str(self.type) + ")"
 
-    def from_asn1(self, data, realm_component, name_component, alt_service=None):
+    def from_asn1(self, data, realm_component, name_component):
         name = data.getComponentByName(name_component)
         self.type = constants.PrincipalNameType(
             name.getComponentByName('name-type')).value
         self.components = [
             str(c) for c in name.getComponentByName('name-string')]
         self.realm = str(data.getComponentByName(realm_component))
-        if name_component == "sname" and alt_service!=None:
-            self.components = alt_service.split('/')
         return self
 
     def components_to_asn1(self, name):
@@ -245,7 +243,7 @@ class Ticket(object):
         return component
 
     def __str__(self):
-        return "<Ticket for %s vno %s>" % (str(self.service_principal), str(self.encrypted_part.kvno))
+        return "<Ticket for %s vno %s>" % (str(self.service_principal), str(self.encrypted_part.kvno)) 
 
 class KerberosTime(object):
     INDEFINITE = datetime.datetime(1970, 1, 1, 0, 0, 0)
