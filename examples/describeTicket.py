@@ -28,6 +28,7 @@ from binascii import unhexlify, hexlify
 from pyasn1.codec.der import decoder
 
 from impacket import version
+from impacket.dcerpc.v5.dtypes import FILETIME
 from impacket.dcerpc.v5.rpcrt import TypeSerialization1
 from impacket.examples import logger
 from impacket.krb5 import constants, pac
@@ -73,9 +74,9 @@ def parse_ccache(args):
 
     cred_number = 0
     logging.info('Number of credentials in cache: %d' % len(ccache.credentials))
-    logging.info('Parsing credential: %d' % cred_number)
 
     for creds in ccache.credentials:
+        logging.info('Parsing credential[%d]:' % cred_number)
         TGS = creds.toTGS()
         # sessionKey = hexlify(TGS['sessionKey'].contents).decode('utf-8')
         decodedTicket = decoder.decode(TGS['KDC_REP'], asn1Spec=TGS_REP())[0]
@@ -119,12 +120,18 @@ def parse_ccache(args):
             if kerberoast_hash:
                 logging.info("%-30s: %s" % ("Kerberoast hash", kerberoast_hash))
 
+        logging.info("%-30s:" % "Decoding unencrypted data in credential[%d]['ticket']" % cred_number)
+        spn = "/".join(list([str(sname_component) for sname_component in decodedTicket['ticket']['sname']['name-string']]))
+        etype = decodedTicket['ticket']['enc-part']['etype']
+        logging.info("  %-28s: %s" % ("Service Name", spn))
+        logging.info("  %-28s: %s" % ("Service Realm", decodedTicket['ticket']['realm']))
+        logging.info("  %-28s: %s (etype %d)" % ("Encryption type", constants.EncryptionTypes(etype).name, etype))
+        logging.info("  %-28s: %d" % ("Key version number (kvno)", decodedTicket['ticket']['enc-part']['kvno']))
         logging.debug("Handling Kerberos keys")
         ekeys = generate_kerberos_keys(args)
 
         # copypasta from krbrelayx.py
         # Select the correct encryption key
-        etype = decodedTicket['ticket']['enc-part']['etype']
         try:
             logging.debug('Ticket is encrypted with %s (etype %d)' % (constants.EncryptionTypes(etype).name, etype))
             key = ekeys[etype]
@@ -133,13 +140,13 @@ def parse_ccache(args):
         except KeyError:
             if len(ekeys) > 0:
                 logging.error('Could not find the correct encryption key! Ticket is encrypted with %s (etype %d), but only keytype(s) %s were calculated/supplied',
-                          constants.EncryptionTypes(etype).name,
-                          etype,
-                          ', '.join([str(enctype) for enctype in ekeys.keys()]))
+                              constants.EncryptionTypes(etype).name,
+                              etype,
+                              ', '.join([str(enctype) for enctype in ekeys.keys()]))
             else:
                 logging.error('Could not find the correct encryption key! Ticket is encrypted with %s (etype %d), but no keys/creds were supplied',
-                          constants.EncryptionTypes(etype).name,
-                          etype)
+                              constants.EncryptionTypes(etype).name,
+                              etype)
             return None
 
         # todo : decodedTicket['ticket']['enc-part'] is handled. Handle decodedTicket['enc-part']?
@@ -162,7 +169,7 @@ def parse_ccache(args):
         # So here we have the PAC
         pacType = pac.PACTYPE(adIfRelevant[0]['ad-data'].asOctets())
         parsed_pac = parse_pac(pacType, args)
-        logging.info("%-30s:" % "Decrypted PAC")
+        logging.info("%-30s:" % "Decoding credential[%d]['ticket']['enc-part']" % cred_number)
         for element_type in parsed_pac:
             element_type_name = list(element_type.keys())[0]
             logging.info("  %-28s" % element_type_name)
@@ -289,9 +296,15 @@ def parse_pac(pacType, args):
             clientInfo = pac.PAC_CLIENT_INFO()
             clientInfo.fromString(data)
             parsed_data = {}
-            parsed_data['Client Id'] = PACparseFILETIME(clientInfo.fields['ClientId'])
-            # In case PR fixing pac.py's PAC_CLIENT_INFO structure doesn't get through
-            # parsed_data['Client Id'] = PACparseFILETIME(FILETIME(data[:32]))
+            try:
+                parsed_data['Client Id'] = PACparseFILETIME(clientInfo.fields['ClientId'])
+            except Exception as e:
+                logging.debug(e)
+                logging.debug("Trying to parse the value with another method")
+                try:
+                    parsed_data['Client Id'] = PACparseFILETIME(FILETIME(data[:32]))
+                except Exception as e:
+                    logging.error(e)
             parsed_data['Client Name'] = clientInfo.fields['Name'].decode('utf-16-le')
             parsed_tuPAC.append({"ClientName": parsed_data})
 
