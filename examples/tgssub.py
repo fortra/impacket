@@ -76,7 +76,10 @@ def substitute_sname(args):
             logging.debug("No service hostname in new SPN, using the current one (%s)" % service_hostname)
             new_service_hostname = service_hostname
             new_service_class = args.altservice
-    current_service = "%s/%s@%s" % (service_class, service_hostname, service_realm)
+    if len(service_class) == 0:
+        current_service = "%s@%s" % (service_hostname, service_realm)
+    else:
+        current_service = "%s/%s@%s" % (service_class, service_hostname, service_realm)
     new_service = "%s/%s@%s" % (new_service_class, new_service_hostname, new_service_realm)
     logging.info('Changing service from %s to %s' % (current_service, new_service))
     # the values are changed in the ticket
