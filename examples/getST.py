@@ -342,9 +342,23 @@ class GETST:
             logging.info('\tRequesting S4U2Proxy')
             r = sendReceive(message, self.__domain, kdcHost)
 
+            tgs = decoder.decode(r, asn1Spec=TGS_REP())[0]
 
+            cipherText = tgs['enc-part']['cipher']
 
-            return r, None, sessionKey, None
+            # Key Usage 8
+            # TGS-REP encrypted part (includes application session
+            # key), encrypted with the TGS session key (Section 5.4.2)
+            plainText = cipher.decrypt(sessionKey, 8, cipherText)
+
+            encTGSRepPart = decoder.decode(plainText, asn1Spec=EncTGSRepPart())[0]
+
+            newSessionKey = Key(encTGSRepPart['key']['keytype'], encTGSRepPart['key']['keyvalue'])
+
+            # Creating new cipher based on received keytype
+            cipher = _enctype_table[encTGSRepPart['key']['keytype']]
+
+            return r, cipher, sessionKey, newSessionKey
 
     def doS4U(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost):
         decodedTGT = decoder.decode(tgt, asn1Spec=AS_REP())[0]
@@ -653,7 +667,6 @@ class GETST:
 
         logging.info('\tRequesting S4U2Proxy')
         r = sendReceive(message, self.__domain, kdcHost)
-
         return r, None, sessionKey, None
 
     def run(self):
