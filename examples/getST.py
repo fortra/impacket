@@ -122,12 +122,12 @@ class GETST:
                     logging.debug("No service hostname in new SPN, using the current one (%s)" % service_hostname)
                     new_service_hostname = service_hostname
                     new_service_class = self.__options.altservice
-            if '/' in sname:
-                current_service = "%s/%s@%s" % (service_class, service_hostname, service_realm)
-            else:
+            if len(service_class) == 0:
                 current_service = "%s@%s" % (service_hostname, service_realm)
+            else:
+                current_service = "%s/%s@%s" % (service_class, service_hostname, service_realm)
             new_service = "%s/%s@%s" % (new_service_class, new_service_hostname, new_service_realm)
-            self.__saveFileName += '@' + new_service_class + '_' + new_service_hostname + '@' + new_service_realm._value
+            self.__saveFileName += "@" + new_service.replace("/", "_")
             logging.info('Changing service from %s to %s' % (current_service, new_service))
             # the values are changed in the ticket
             decodedST['ticket']['sname']['name-string'][0] = new_service_class
@@ -145,11 +145,15 @@ class GETST:
             service_realm = creds['server'].realm['data']
             service_class = ''
             if len(creds['server'].components) == 2:
-                service_class = creds['server'].components[0]['data'] + '_';
-                service_host = creds['server'].components[1]['data'];
+                service_class = creds['server'].components[0]['data'] + '_'
+                service_hostname = creds['server'].components[1]['data']
             else:
-                service_host = creds['server'].components[0]['data'];
-            self.__saveFileName += '@' + service_class + service_host + '@' + service_realm
+                service_hostname = creds['server'].components[0]['data']
+            if len(service_class) == 0:
+                service = "%s@%s" % (service_hostname, service_realm)
+            else:
+                service = "%s/%s@%s" % (service_class, service_hostname, service_realm)
+            self.__saveFileName += "@" + service.replace("/", "_")
         logging.info('Saving ticket in %s' % (self.__saveFileName + '.ccache'))
         ccache.saveFile(self.__saveFileName + '.ccache')
 
