@@ -78,8 +78,6 @@ class GETST:
         self.__kdcHost = options.dc_ip
         self.__force_forwardable = options.force_forwardable
         self.__additional_ticket = options.additional_ticket
-        self.__alt_service = options.alt_service
-        self.__s4u2_self = options.s4u2self
         self.__saveFileName = None
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
@@ -87,55 +85,8 @@ class GETST:
     def saveTicket(self, ticket, sessionKey):
         logging.info('Saving ticket in %s' % (self.__saveFileName + '.ccache'))
         ccache = CCache()
-        if self.__alt_service != None:
-            decodedTGS = decoder.decode(ticket, asn1Spec = TGS_REP())[0]
-            decodedTGS['ticket']['sname']['name-type'] = 0
-            decodedTGS['ticket']['sname']['name-string'][0] = self.__alt_service.split('/')[0]
-            decodedTGS['ticket']['sname']['name-string'][1] = self.__alt_service.split('/')[1]
-            ticket = encoder.encode(decodedTGS)
+
         ccache.fromTGS(ticket, sessionKey, sessionKey)
-        cred_number = len(ccache.credentials)
-        logging.debug('Number of credentials in cache: %d' % cred_number)
-        if cred_number > 1:
-            logging.debug("More than one credentials in cache, modifying all of them")
-        for creds in ccache.credentials:
-            sname = creds['server'].prettyPrint()
-            if b'/' not in sname:
-                logging.debug("Original service is not formatted as usual (i.e. CLASS/HOSTNAME@REALM), automatically filling the substitution service will fail")
-                logging.debug("Original service is: %s" % sname.decode('utf-8'))
-                if '/' not in self.__alt_service:
-                    raise ValueError("Substitution service must include service class AND name (i.e. CLASS/HOSTNAME@REALM, or CLASS/HOSTNAME)")
-                service_class = ""
-                hostname = sname.split(b'@')[0].decode('utf-8')
-                service_realm = sname.split(b'@')[1].decode('utf-8')
-            else:
-                service_class = sname.split(b'@')[0].split(b'/')[0].decode('utf-8')
-                hostname = sname.split(b'@')[0].split(b'/')[1].decode('utf-8')
-                service_realm = sname.split(b'@')[1].decode('utf-8')
-            if '@' in self.__alt_service:
-                new_service_realm = self.__alt_service.split('@')[1].upper()
-                if not '.' in new_service_realm:
-                    logging.debug("New service realm is not FQDN, you may encounter errors")
-                if '/' in self.__alt_service:
-                    new_hostname = self.__alt_service.split('@')[0].split('/')[1]
-                    new_service_class = self.__alt_service.split('@')[0].split('/')[0]
-                else:
-                    logging.debug("No service hostname in new SPN, using the current one (%s)" % hostname)
-                    new_hostname = hostname
-                    new_service_class = self.__alt_service.split('@')[0]
-            else:
-                logging.debug("No service realm in new SPN, using the current one (%s)" % service_realm)
-                new_service_realm = service_realm
-                if '/' in self.__alt_service:
-                    new_hostname = self.__alt_service.split('/')[1]
-                    new_service_class = self.__alt_service.split('/')[0]
-                else:
-                    logging.debug("No service hostname in new SPN, using the current one (%s)" % hostname)
-                    new_hostname = hostname
-                    new_service_class = self.__alt_service
-            new_sname = "%s/%s@%s" % (new_service_class, new_hostname, new_service_realm)
-            logging.info('Changing sname from %s to %s' % (sname.decode("utf-8"), new_sname))
-            creds['server'].fromPrincipal(Principal(new_sname, type=constants.PrincipalNameType.NT_PRINCIPAL.value))
         ccache.saveFile(self.__saveFileName + '.ccache')
 
     def doS4U2ProxyWithAdditionalTicket(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost, additional_ticket_path):
@@ -470,8 +421,7 @@ class GETST:
         message = encoder.encode(tgsReq)
 
         r = sendReceive(message, self.__domain, kdcHost)
-        if self.__s4u2_self:
-            return r, cipher, sessionKey, sessionKey
+
         tgs = decoder.decode(r, asn1Spec=TGS_REP())[0]
 
         if logging.getLogger().level == logging.DEBUG:
@@ -734,14 +684,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=True, description="Given a password, hash or aesKey, it will request a "
                                                                 "Service Ticket and save it as ccache")
     parser.add_argument('identity', action='store', help='[domain/]username[:password]')
-    parser.add_argument('-spn', action="store", help='SPN (service/server) of the target service the '
-                                                     'service ticket will' ' be generated for')
+    parser.add_argument('-spn', action="store", required=True, help='SPN (service/server) of the target service the '
+                                                                    'service ticket will' ' be generated for')
     parser.add_argument('-impersonate', action="store", help='target username that will be impersonated (thru S4U2Self)'
                                                              ' for quering the ST. Keep in mind this will only work if '
                                                              'the identity provided in this scripts is allowed for '
                                                              'delegation to the SPN specified')
-    parser.add_argument('-alt-service', action="store", help='change the service ticket\'s sname')
-    parser.add_argument('-s4u2self', action="store_true", help='only do s4u2self request')
     parser.add_argument('-additional-ticket', action='store', metavar='ticket.ccache', help='include a forwardable service ticket in a S4U2Proxy request for RBCD + KCD Kerberos only')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
@@ -780,12 +728,7 @@ if __name__ == '__main__':
         logging.debug(version.getInstallationPath())
     else:
         logging.getLogger().setLevel(logging.INFO)
-    if options.alt_service != None and len(options.alt_service.split('/')) != 2:
-        logging.critical('alt-service should be specified as service/host format')
-        sys.exit(1)
-    if options.s4u2self == None and options.spn == None:
-        logging.critical('you must specify spn when s4u2self option is not used')
-        sys.exit(1)
+
     domain, username, password = parse_credentials(options.identity)
 
     try:
