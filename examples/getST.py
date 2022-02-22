@@ -145,7 +145,7 @@ class GETST:
             service_realm = creds['server'].realm['data']
             service_class = ''
             if len(creds['server'].components) == 2:
-                service_class = creds['server'].components[0]['data'] + '_'
+                service_class = creds['server'].components[0]['data']
                 service_hostname = creds['server'].components[1]['data']
             else:
                 service_hostname = creds['server'].components[0]['data']
