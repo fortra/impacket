@@ -103,11 +103,11 @@ class GetGPPasswords(object):
                             results.append({
                                 'tagName': xmltype,
                                 'attributes': [
-                                    ('runAs', read_or_empty(property, 'runAs')),
                                     ('name', read_or_empty(task, 'name')),
-                                    ('changed', read_or_empty(property.parentNode, 'changed')),
+                                    ('runAs', read_or_empty(property, 'runAs')),
                                     ('cpassword', read_or_empty(property, 'cpassword')),
                                     ('password', self.decrypt_password(read_or_empty(property, 'cpassword'))),
+                                    ('changed', read_or_empty(property.parentNode, 'changed')),
                                 ],
                                 'file': filename
                             })
