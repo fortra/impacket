@@ -2961,6 +2961,7 @@ def hSamrSetNTInternal1(dce, userHandle, password, hashNT=''):
     if hashNT == '':
         hashNT = ntlm.NTOWFv1(password)
     else:
+        # Let's convert the hashes to binary form, if not yet
         try:
             hashNT = unhexlify(hashNT)
         except:

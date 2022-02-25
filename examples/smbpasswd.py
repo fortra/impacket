@@ -20,11 +20,13 @@
 #  		smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -newpass 'N3wPassw0rd!'
 #  		smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -newhashes :126502da14a98b58f2c319b81b3a49cb
 #  		smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -newpass 'N3wPassw0rd!' -altuser administrator -altpass 'Adm1nPassw0rd!'
+#  		smbpasswd.py contoso.local/j.doe:'Passw0rd!'@DC1 -newhashes :126502da14a98b58f2c319b81b3a49cb -altuser CONTOSO/administrator -altpass 'Adm1nPassw0rd!' -admin
 #  		smbpasswd.py SRV01/administrator:'Passw0rd!'@10.10.13.37 -newhashes :126502da14a98b58f2c319b81b3a49cb -altuser CONTOSO/SrvAdm -althash 6fe945ead39a7a6a2091001d98a913ab
 #
 # Author:
-# 	@snovvcrash
+#  	@snovvcrash
 #  	@bransh
+#  	@alefburzmali
 #
 # References:
 #  	https://snovvcrash.github.io/2020/10/31/pretending-to-be-smbpasswd-with-impacket.html
@@ -33,6 +35,7 @@
 #  	https://github.com/SecureAuthCorp/impacket/pull/381
 #  	https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/acb3204a-da8b-478e-9139-1ea589edb880
 #  	https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/9699d8ca-e1a4-433c-a8c3-d7bebeb01476
+#  	https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/538222f7-1b89-4811-949a-0eac62e38dce
 #
 
 import sys
