@@ -118,6 +118,30 @@ class SMBPasswd:
 				logging.error('Non-zero return code, something weird happened.')
 				resp.dump()
 
+	def hSamrSetInformationUser(self):
+		try:
+			serverHandle = samr.hSamrConnect(self.dce, self.address + '\x00')['ServerHandle']
+			domainSID = samr.hSamrLookupDomainInSamServer(self.dce, serverHandle, self.domain)['DomainId']
+			domainHandle = samr.hSamrOpenDomain(self.dce, serverHandle, domainId=domainSID)['DomainHandle']
+			userRID = samr.hSamrLookupNamesInDomain(self.dce, domainHandle, (self.username,))['RelativeIds']['Element'][0]
+			userHandle = samr.hSamrOpenUser(self.dce, domainHandle, userId=userRID)['UserHandle']
+		except Exception as e:
+			if 'STATUS_NO_SUCH_DOMAIN' in str(e):
+				logging.critical('Wrong realm. Try to set the domain name for the target user account explicitly in format DOMAIN/username.')
+				return
+			else:
+				raise e
+		try:
+			resp = samr.hSamrSetNTInternal1(self.dce, userHandle, self.newPassword, self.newPwdHashNT)
+		except Exception as e:
+			raise e
+		else:
+			if resp['ErrorCode'] == 0:
+				logging.info('Credentials were injected into SAM successfully.')
+			else:
+				logging.error('Non-zero return code, something weird happened.')
+				resp.dump()
+
 
 def init_logger(options):
 	logger.init(options.ts)
@@ -148,6 +172,10 @@ def parse_args():
 	group.add_argument('-altpass', action='store', default=None, help='alternative password')
 	group.add_argument('-althash', action='store', default=None, help='alternative NT hash')
 
+	group = parser.add_argument_group('set credentials method')
+	group.add_argument('-admin', action='store_true', help='injects credentials into SAM (requires admin\'s priveleges on a machine, '
+		               'but can bypass password history policy)')
+
 	return parser.parse_args()
 
 
@@ -172,7 +200,7 @@ if __name__ == '__main__':
 		oldPwdHashLM = ''
 		oldPwdHashNT = ''
 
-	if oldPassword == '' and oldPwdHashNT == '':
+	if oldPassword == '' and oldPwdHashNT == '' and not options.admin:
 		oldPassword = getpass('Current SMB password: ')
 
 	if options.newhashes is not None:
@@ -221,7 +249,7 @@ if __name__ == '__main__':
 		if altUsername == '':
 			smbpasswd.connect()
 		else:
-			logging.debug('Using {}\\{} credetials to connect to RPC.'.format(altDomain, altUsername))
+			logging.debug('Using {}\\{} credentials to connect to RPC.'.format(altDomain, altUsername))
 			smbpasswd.connect(altDomain, altUsername, altPassword, altNTHash)
 	except Exception as e:
 		if any(msg in str(e) for msg in ['STATUS_PASSWORD_MUST_CHANGE', 'STATUS_PASSWORD_EXPIRED']):
@@ -237,9 +265,13 @@ if __name__ == '__main__':
 		else:
 			raise e
 
-	if newPassword:
-		# If using a plaintext value for the new password
-		smbpasswd.hSamrUnicodeChangePasswordUser2()
+	if options.admin:
+		# Inject credentials into SAM (requires admin's privileges)
+		smbpasswd.hSamrSetInformationUser()
 	else:
-		# If using NTLM hashes for the new password
-		smbpasswd.hSamrChangePasswordUser()
+		if newPassword:
+			# If using a plaintext value for the new password
+			smbpasswd.hSamrUnicodeChangePasswordUser2()
+		else:
+			# If using NTLM hashes for the new password
+			smbpasswd.hSamrChangePasswordUser()
