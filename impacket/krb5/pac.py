@@ -177,6 +177,7 @@ class PAC_CLIENT_INFO(Structure):
     structure = (
         ('ClientId', '<Q=0'),
         ('NameLength', '<H=0'),
+        ('_Name', '_-Name', 'self["NameLength"]'),
         ('Name', ':'),
     )
 
