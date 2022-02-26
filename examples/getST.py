@@ -452,7 +452,7 @@ class GETST:
 
         reqBody['kdc-options'] = constants.encodeFlags(opts)
 
-        if self.__no_s4u2proxy is not None and self.__options.spn is not None:
+        if self.__no_s4u2proxy and self.__options.spn is not None:
             logging.info("When doing S4U2self only, argument -spn is ignored")
         serverName = Principal(self.__user, type=constants.PrincipalNameType.NT_UNKNOWN.value)
 
