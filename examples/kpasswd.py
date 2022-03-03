@@ -90,7 +90,7 @@ def parse_args():
                                         '(KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use'
                                         ' the ones specified in the command line')
 
-    parser.add_argument('target', action='store', help='[[domain/]username[:password]]')
+    parser.add_argument('target', action='store', help='[[domain/]username[:password]@<dcName or address>]')
     parser.add_argument('-reset', action='store', help='[[domain/]username]')
     parser.add_argument('-ts', action='store_true', help='adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='turn DEBUG output ON')
