@@ -41,7 +41,7 @@
 #   - https://code.google.com/p/creddump/
 #   - https://lab.mediaservice.net/code/cachedump.rb
 #   - https://insecurety.net/?p=768
-#   - http://www.beginningtoseethelight.org/ntsecurity/index.htm
+#   - https://web.archive.org/web/20190717124313/http://www.beginningtoseethelight.org/ntsecurity/index.htm
 #   - https://www.exploit-db.com/docs/english/18244-active-domain-offline-hash-dump-&-forensic-analysis.pdf
 #   - https://www.passcape.com/index.php?section=blog&cmd=details&id=15
 #
@@ -161,7 +161,7 @@ class DOMAIN_ACCOUNT_F(Structure):
 #        ('Unknown4','<L=0'),
     )
 
-# Great help from here http://www.beginningtoseethelight.org/ntsecurity/index.htm
+# Great help from here https://web.archive.org/web/20190717124313/http://www.beginningtoseethelight.org/ntsecurity/index.htm
 class USER_ACCOUNT_V(Structure):
     structure = (
         ('Unknown','12s=b""'),
@@ -1573,7 +1573,7 @@ class LSASecrets(OfflineRegistry):
                     output.append(" - Version : %d" % strDecoded['version'])
                     for qk in strDecoded['questions']:
                         output.append(" | Question: %s" % qk['question'])
-                        output.append(" | └──> Answer: %s" % qk['answer'])
+                        output.append(" | |--> Answer: %s" % qk['answer'])
                     output = '\n'.join(output)
                     secret = 'Security Questions for user %s: \n%s' % (sid, output)
                 else:

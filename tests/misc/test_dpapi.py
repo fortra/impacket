@@ -207,5 +207,4 @@ class DPAPITests(unittest.TestCase):
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    suite = unittest.TestLoader().loadTestsFromTestCase(DPAPITests)
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)

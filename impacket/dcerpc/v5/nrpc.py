@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -21,12 +21,13 @@
 # Author:
 #   Alberto Solino (@agsolino)
 #
-from struct import pack
+import time
+from struct import pack, unpack
 from six import b
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRENUM, NDRUNION, NDRPOINTER, NDRUniConformantArray, \
     NDRUniFixedArray, NDRUniConformantVaryingArray
 from impacket.dcerpc.v5.dtypes import WSTR, LPWSTR, DWORD, ULONG, USHORT, PGUID, NTSTATUS, NULL, LONG, UCHAR, PRPC_SID, \
-    GUID, RPC_UNICODE_STRING, SECURITY_INFORMATION, LPULONG
+    GUID, RPC_UNICODE_STRING, SECURITY_INFORMATION, LPULONG, ULONGLONG
 from impacket import system_errors, nt_errors
 from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5.enum import Enum
@@ -1709,6 +1710,21 @@ def ComputeNetlogonSignatureMD5(authSignature, message, confounder, sessionKey):
     hm = hmac.new(sessionKey, digestmod=hashlib.md5)
     hm.update(finalMD5)
     return hm.digest()[:8]
+
+def ComputeNetlogonAuthenticator(clientStoredCredential, sessionKey):
+    # [MS-NRPC] Section 3.1.4.5
+    timestamp = int(time.time())
+
+    authenticator = NETLOGON_AUTHENTICATOR()
+    authenticator['Timestamp'] = timestamp
+
+    credential = unpack('<I', clientStoredCredential[:4])[0] + timestamp
+    if credential > 0xffffffff:
+        credential &= 0xffffffff
+    credential = pack('<I', credential)
+
+    authenticator['Credential'] = ComputeNetlogonCredential(credential + clientStoredCredential[4:], sessionKey)
+    return authenticator
 
 def encryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey):
     # [MS-NRPC] Section 3.3.4.2.1, point 9
