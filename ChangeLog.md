@@ -6,7 +6,18 @@ Complete list of changes can be found at:
 https://github.com/SecureAuthCorp/impacket/commits/master
 
 ## Unreleased changes
+
 1. Library improvements 
+    * Dropped support for Python 2.7. We'll keep it running under GitHub Actions/`Tox` as experimental just for visibility.
+    * Refactored the testing infrastructure:
+      * Added `pytest` as the testing framework to organize and mark test
+        cases. `Tox` remain as the automation framework, and `Coverage.py`
+        for measuring code coverage.
+      * Custom bash scripts were replaced with test cases auto-discovery.
+      * Local and remote test cases were marked for easy run and configuration. 
+      * DCE/RPC endpoint test cases were refactored and moved to a new layout. 
+      * An initial testing guide with the main steps to prepare a testing environment and run them. 
+      * Fixed a good amount of DCE/RPC endpoint test cases that were failing, and added tests for `[MS-PAR]`.
     * Added a function to compute the Netlogon Authenticator at client-side in `[MS-NRPC]` (@0xdeaddood)
     * Added `[MS-DSSP]` protocol implementation (@simondotsh)
     * Added GetDriverDirectory functions to `[MS-PAR]` and `[MS-RPRN]` (@raithedavion)
