@@ -359,6 +359,10 @@ class CCache:
         if data is not None:
             ccache_version = data[1]
 
+            # Versions 1 and 2 are not implemented yet
+            if ccache_version == 1 or ccache_version == 2:
+                raise NotImplementedError('Not Implemented!')
+
             # Only Version 4 contains a header
             if ccache_version == 4:
                 miniHeader = self.MiniHeader(data)
