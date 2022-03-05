@@ -40,7 +40,6 @@ import sys
 import string
 import random
 import ssl
-import os
 from binascii import unhexlify
 
 
@@ -307,43 +306,9 @@ class ADDCOMPUTER:
         if TGT is not None or TGS is not None:
             useCache = False
 
+        targetName = 'ldap/%s' % self.__target
         if useCache:
-            try:
-                ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-            except Exception as e:
-                # No cache present
-                print(e)
-                pass
-            else:
-                # retrieve domain information from CCache file if needed
-                if domain == '':
-                    domain = ccache.principal.realm['data'].decode('utf-8')
-                    logging.debug('Domain retrieved from CCache: %s' % domain)
-
-                logging.debug('Using Kerberos Cache: %s' % os.getenv('KRB5CCNAME'))
-                principal = 'ldap/%s@%s' % (self.__target.upper(), domain.upper())
-
-                creds = ccache.getCredential(principal)
-                if creds is None:
-                    # Let's try for the TGT and go from there
-                    principal = 'krbtgt/%s@%s' % (domain.upper(), domain.upper())
-                    creds = ccache.getCredential(principal)
-                    if creds is not None:
-                        TGT = creds.toTGT()
-                        logging.debug('Using TGT from cache')
-                    else:
-                        logging.debug('No valid credentials found in cache')
-                else:
-                    TGS = creds.toTGS(principal)
-                    logging.debug('Using TGS from cache')
-
-                # retrieve user information from CCache file if needed
-                if user == '' and creds is not None:
-                    user = creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')
-                    logging.debug('Username retrieved from CCache: %s' % user)
-                elif user == '' and len(ccache.principal.components) > 0:
-                    user = ccache.principal.components[0]['data'].decode('utf-8')
-                    logging.debug('Username retrieved from CCache: %s' % user)
+            domain, user, TGT, TGS = CCache.parseFile(domain, user, targetName)
 
         # First of all, we need to get a TGT for the user
         userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
@@ -357,7 +322,7 @@ class ADDCOMPUTER:
             sessionKey = TGT['sessionKey']
 
         if TGS is None:
-            serverName = Principal('ldap/%s' % self.__target, type=constants.PrincipalNameType.NT_SRV_INST.value)
+            serverName = Principal(targetName, type=constants.PrincipalNameType.NT_SRV_INST.value)
             tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher,
                                                                     sessionKey)
         else:
