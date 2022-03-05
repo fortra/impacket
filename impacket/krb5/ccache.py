@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -567,16 +567,16 @@ class CCache:
     @classmethod
     def loadFile(cls, fileName):
         if fileName is None:
-            LOG.debug('KRB5CCNAME environment variable is not defined. Skipping...')
-            return
+            LOG.debug('CCache file is not defined. Check KRB5CCNAME environment variable. Skipping...')
+            return None
 
         try:
             f = open(fileName, 'rb')
             data = f.read()
             f.close()
             return cls(data)
-        except Exception as e:
-            raise e
+        except FileNotFoundError:
+            raise
 
     def saveFile(self, fileName):
         f = open(fileName, 'wb+')
@@ -585,6 +585,14 @@ class CCache:
 
     @classmethod
     def parseFile(cls, domain, username='', target=''):
+        """
+        parses the CCache file looking for username, domain, Ticket Granting Ticket (TGT) and Service Ticket (TGS)
+
+        :param domain: user domain
+        :param username: user name
+        :param target: service principal name
+        :return: domain, username, TGS and TGT
+        """
         ccache = cls.loadFile(os.getenv('KRB5CCNAME'))
         if ccache is None:
             return domain, username, None, None
