@@ -59,7 +59,22 @@ class CountedOctetString(Structure):
     def prettyPrint(self, indent=''):
         return "%s%s" % (indent, hexlify(self['data']))
 
-class KeyBlock(Structure):
+
+class KeyBlockV3(Structure):
+    structure = (
+        ('keytype','!H=0'),
+        ('etype','!H=0'),
+        ('etype2', '!H=0'),  # Version 3 repeats the etype
+        ('keylen','!H=0'),
+        ('_keyvalue','_-keyvalue','self["keylen"]'),
+        ('keyvalue',':'),
+    )
+
+    def prettyPrint(self):
+        return "Key: (0x%x)%s" % (self['keytype'], hexlify(self['keyvalue']))
+
+
+class KeyBlockV4(Structure):
     structure = (
         ('keytype','!H=0'),
         ('etype','!H=0'),
@@ -168,18 +183,29 @@ class Principal:
         return types.Principal(self.prettyPrint(), type=self.header['name_type'])
 
 class Credential:
-    class CredentialHeader(Structure):
+    class CredentialHeaderV3(Structure):
         structure = (
             ('client',':', Principal),
             ('server',':', Principal),
-            ('key',':', KeyBlock),
+            ('key',':', KeyBlockV3),
             ('time',':', Times),
             ('is_skey','B=0'),
             ('tktflags','!L=0'),
             ('num_address','!L=0'),
         )
 
-    def __init__(self, data=None):
+    class CredentialHeaderV4(Structure):
+        structure = (
+            ('client',':', Principal),
+            ('server',':', Principal),
+            ('key',':', KeyBlockV4),
+            ('time',':', Times),
+            ('is_skey','B=0'),
+            ('tktflags','!L=0'),
+            ('num_address','!L=0'),
+        )
+
+    def __init__(self, data=None, ccache_version=None):
         self.addresses = ()
         self.authData = ()
         self.header = None
@@ -187,7 +213,11 @@ class Credential:
         self.secondTicket = None
 
         if data is not None:
-            self.header = self.CredentialHeader(data)
+            if ccache_version == 3:
+                self.header = self.CredentialHeaderV3(data)
+            else:
+                self.header = self.CredentialHeaderV4(data)
+
             data = data[len(self.header):]
             self.addresses = []
             for address in range(self.header['num_address']):
@@ -205,7 +235,7 @@ class Credential:
             self.secondTicket = CountedOctetString(data)
             data = data[len( self.secondTicket):]
         else:
-            self.header = self.CredentialHeader()
+            self.header = self.CredentialHeaderV4()
 
     def __getitem__(self, key):
         return self.header[key]
@@ -311,7 +341,10 @@ class Credential:
         tgs['sessionKey'] = crypto.Key(cipher.enctype, self['key']['keyvalue'])
         return tgs
 
+
 class CCache:
+    # https://web.mit.edu/kerberos/krb5-devel/doc/formats/ccache_file_format.html
+
     class MiniHeader(Structure):
         structure = (
             ('file_format_version','!H=0x0504'),
@@ -324,17 +357,25 @@ class CCache:
         self.credentials = []
         self.miniHeader = None
         if data is not None:
-            miniHeader = self.MiniHeader(data)
-            data = data[len(miniHeader.getData()):]
+            ccache_version = data[1]
 
-            headerLen = miniHeader['headerlen']
+            # Only Version 4 contains a header
+            if ccache_version == 4:
+                miniHeader = self.MiniHeader(data)
+                data = data[len(miniHeader.getData()):]
 
-            self.headers = []
-            while headerLen > 0:
-                header = Header(data)
-                self.headers.append(header)
-                headerLen -= len(header)
-                data = data[len(header):]
+                headerLen = miniHeader['headerlen']
+
+                self.headers = []
+                while headerLen > 0:
+                    header = Header(data)
+                    self.headers.append(header)
+                    headerLen -= len(header)
+                    data = data[len(header):]
+
+            else:
+                # Skip over the version bytes
+                data = data[2:]
 
             # Now the primary_principal
             self.principal = Principal(data)
@@ -344,7 +385,7 @@ class CCache:
             # Now let's parse the credentials
             self.credentials = []
             while len(data) > 0:
-                cred = Credential(data)
+                cred = Credential(data, ccache_version)
                 if cred['server'].prettyPrint().find(b'krb5_ccache_conf_data') < 0:
                     self.credentials.append(cred)
                 data = data[len(cred.getData()):]
@@ -432,7 +473,7 @@ class CCache:
         credential['server'] = tmpServer
         credential['is_skey'] = 0
 
-        credential['key'] = KeyBlock()
+        credential['key'] = KeyBlockV4()
         credential['key']['keytype'] = int(encASRepPart['key']['keytype'])
         credential['key']['keyvalue'] = encASRepPart['key']['keyvalue'].asOctets()
         credential['key']['keylen'] = len(credential['key']['keyvalue'])
@@ -492,7 +533,7 @@ class CCache:
         credential['server'] = tmpServer
         credential['is_skey'] = 0
 
-        credential['key'] = KeyBlock()
+        credential['key'] = KeyBlockV4()
         credential['key']['keytype'] = int(encTGSRepPart['key']['keytype'])
         credential['key']['keyvalue'] = encTGSRepPart['key']['keyvalue'].asOctets()
         credential['key']['keylen'] = len(credential['key']['keyvalue'])
@@ -574,7 +615,7 @@ class CCache:
         credential['server'] = tmpServer
         credential['is_skey'] = 0
 
-        credential['key'] = KeyBlock()
+        credential['key'] = KeyBlockV4()
         credential['key']['keytype'] = int(krbCredInfo['key']['keytype'])
         credential['key']['keyvalue'] = str(krbCredInfo['key']['keyvalue'])
         credential['key']['keylen'] = len(credential['key']['keyvalue'])
