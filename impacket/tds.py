@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -708,7 +708,7 @@ class MSSQL:
         import datetime
 
         if useCache:
-            domain, username, _, TGS = CCache.parseFile(domain, username, 'MSSQLSvc/%s:%d' % (self.server, self.port))
+            domain, username, TGT, TGS = CCache.parseFile(domain, username, 'MSSQLSvc/%s:%d' % (self.server, self.port))
 
             if TGS is None:
                 # search for the port's instance name instead (instance name based SPN)
