@@ -107,6 +107,7 @@ def parse_ccache(args):
 
         if spn.split('/')[0] != 'krbtgt':
             logging.debug("Attempting to create Kerberoast hash")
+            kerberoast_hash = None
             # code adapted from Rubeus's DisplayTicket() (https://github.com/GhostPack/Rubeus/blob/3620814cd2c5f05e87cddd50211197bd932fec51/Rubeus/lib/LSA.cs)
             # if this isn't a TGT, try to display a Kerberoastable hash
             if keyType != "rc4_hmac"  and keyType != "aes256_cts_hmac_sha1_96":
