@@ -133,7 +133,9 @@ def parse_ccache(args):
         logging.info("  %-28s: %s" % ("Service Name", spn))
         logging.info("  %-28s: %s" % ("Service Realm", decodedTicket['ticket']['realm']))
         logging.info("  %-28s: %s (etype %d)" % ("Encryption type", constants.EncryptionTypes(etype).name, etype))
-        logging.info("  %-28s: %d" % ("Key version number (kvno)", decodedTicket['ticket']['enc-part']['kvno']))
+        if not decodedTicket['ticket']['enc-part']['kvno'].isNoValue():
+            logging.debug("No kvno in ticket, skipping")
+            logging.info("  %-28s: %d" % ("Key version number (kvno)", decodedTicket['ticket']['enc-part']['kvno']))
         logging.debug("Handling Kerberos keys")
         ekeys = generate_kerberos_keys(args)
 
