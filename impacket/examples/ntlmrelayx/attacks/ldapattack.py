@@ -52,6 +52,7 @@ PROTOCOL_ATTACK_CLASS = "LDAPAttack"
 # Define global variables to prevent dumping the domain twice
 # and to prevent privilege escalating more than once
 dumpedDomain = False
+dumpedAdcs = False
 alreadyEscalated = False
 alreadyAddedComputer = False
 delegatePerformed = []
@@ -664,13 +665,12 @@ class LDAPAttack(ProtocolAttack):
             LOG.info("Principals who can enroll using template `%s`: %s" % (entry["attributes"]["name"],
                      ", ".join(("`" + sid_map[principal] + "`" for principal in enrollment_principals))))
 
-        LOG.info("Done dumping ADCS info")
-
 
     def run(self):
         #self.client.search('dc=vulnerable,dc=contoso,dc=com', '(objectclass=person)')
         #print self.client.entries
         global dumpedDomain
+        global dumpedAdcs
         # Set up a default config
         domainDumpConfig = ldapdomaindump.domainDumpConfig()
 
@@ -834,8 +834,10 @@ class LDAPAttack(ProtocolAttack):
                     LOG.info("Successfully dumped %d gMSA passwords through relayed account %s" % (count, self.username))
                     fd.close()
 
-        if self.config.dumpadcs:
+        if not dumpedAdcs and self.config.dumpadcs:
+            dumpedAdcs = True
             self.dumpADCS()
+            LOG.info("Done dumping ADCS info")
 
         # Perform the Delegate attack if it is enabled and we relayed a computer account
         if self.config.delegateaccess and self.username[-1] == '$':
