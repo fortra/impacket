@@ -393,7 +393,7 @@ def parse_pac(pacType, args):
             parsed_tuPAC.append({"DelegationInfo": parsed_data})
 
         else:
-            logger.debug("Unsupported PAC structure: %s. Please raise an issue or PR" % infoBuffer['ulType'])
+            logging.debug("Unsupported PAC structure: %s. Please raise an issue or PR" % infoBuffer['ulType'])
 
         buff = buff[len(infoBuffer):]
     return parsed_tuPAC
