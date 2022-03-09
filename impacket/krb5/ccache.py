@@ -527,8 +527,9 @@ class CCache:
     @classmethod
     def loadFile(cls, fileName):
         if fileName is None:
-            LOG.debug('KRB5CCNAME environment variable is not defined. Skipping...')
-            return
+            LOG.critical('CCache file is not found. Skipping...')
+            LOG.debug('The specified path is not correct or the KRB5CCNAME environment variable is not defined')
+            return None
 
         try:
             f = open(fileName, 'rb')
