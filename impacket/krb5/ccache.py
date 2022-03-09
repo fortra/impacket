@@ -34,6 +34,11 @@ from impacket.krb5.asn1 import AS_REP, seq_set, TGS_REP, EncTGSRepPart, EncASRep
 from impacket.krb5.types import KerberosTime
 from impacket import LOG
 
+try:
+    FileNotFoundError
+except NameError:
+    FileNotFoundError = IOError
+
 DELTA_TIME = 1
 
 class Header(Structure):
@@ -530,7 +535,7 @@ class CCache:
             data = f.read()
             f.close()
             return cls(data)
-        except Exception as e:
+        except FileNotFoundError as e:
             raise e
 
     def saveFile(self, fileName):
