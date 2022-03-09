@@ -315,9 +315,10 @@ class RemoteStdOutPipe(Pipes):
                                 sys.stdout.flush()
                                 __stdoutData = b""
                             except UnicodeDecodeError:
-                                logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
-                                              'https://docs.python.org/3/library/codecs.html#standard-encodings\nand then execute smbexec.py '
-                                              'again with -codec and the corresponding codec')
+                                logging.error('Decoding error detected, consider running chcp.com at the target,\n'
+                                              'map the result with https://docs.python.org/3/library/codecs.html#standard-encodings\n'
+                                              'and then execute psexec.py again with -codec and the corresponding codec\n'
+                                              'or use the interactive command (codec {CODEC}) to change it on fly')
                                 print(__stdoutData.decode(CODEC, errors='replace'))
                                 __stdoutData = b""
                         else:
@@ -493,6 +494,7 @@ class RemoteShell(cmd.Cmd):
 
     def do_help(self, line):
         print("""
+ codec {codec}              - changes the current encoding to {codec}
  lcd {path}                 - changes the current local directory to {path}
  exit                       - terminates the server process (and this session)
  lput {src_file, dst_path}   - uploads a local file to the dst_path RELATIVE to the connected share (%s)
@@ -503,6 +505,15 @@ class RemoteShell(cmd.Cmd):
 
     def do_shell(self, s):
         os.system(s)
+        self.send_data('\r\n')
+
+    def do_codec(self, codec):
+        global CODEC
+        if codec:
+            logging.info('CODEC has been changed from %s to %s' % (CODEC, codec))
+            CODEC = codec
+        else:
+            logging.info('The current value of CODEC is %s' % CODEC)
         self.send_data('\r\n')
 
     def do_lget(self, src_path):

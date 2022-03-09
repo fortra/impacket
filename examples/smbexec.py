@@ -207,6 +207,13 @@ class RemoteShell(cmd.Cmd):
         self.transferClient = rpc.get_smb_connection()
         self.do_cd('')
 
+    def do_help(self, line):
+        print("""
+ codec [{codec}]    - changes the current encoding to {codec} (if specified), otherwise returns the current codec
+ ! {cmd}            - executes a local shell cmd
+ exit               - terminates the server process (and this session)
+""")
+
     def finish(self):
         # Just in case the service is still created
         try:
@@ -222,6 +229,15 @@ class RemoteShell(cmd.Cmd):
            scmr.hRCloseServiceHandle(self.__scmr, service)
         except scmr.DCERPCException:
            pass
+
+    @staticmethod
+    def do_codec(codec):
+        global CODEC
+        if codec:
+            logging.info('CODEC has been changed from %s to %s' % (CODEC, codec))
+            CODEC = codec
+        else:
+            logging.info('The current value of CODEC is %s' % CODEC)
 
     def do_shell(self, s):
         os.system(s)
@@ -299,9 +315,10 @@ class RemoteShell(cmd.Cmd):
         try:
             print(self.__outputBuffer.decode(CODEC))
         except UnicodeDecodeError:
-            logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
-                          'https://docs.python.org/3/library/codecs.html#standard-encodings\nand then execute smbexec.py '
-                          'again with -codec and the corresponding codec')
+            logging.error('Decoding error detected, consider running chcp.com at the target,\n'
+                          'map the result with https://docs.python.org/3/library/codecs.html#standard-encodings\n'
+                          'and then execute smbexec.py again with -codec and the corresponding codec\n'
+                          'or use the interactive command (codec {CODEC}) to change it on fly')
             print(self.__outputBuffer.decode(CODEC, errors='replace'))
         self.__outputBuffer = b''
 
