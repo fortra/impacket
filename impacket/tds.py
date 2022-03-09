@@ -708,7 +708,7 @@ class MSSQL:
         import datetime
 
         if useCache:
-            domain, username, _, TGS = CCache.parseFile(domain, username, 'MSSQLSvc/%s:%d' % (self.server, self.port))
+            domain, username, TGT, TGS = CCache.parseFile(domain, username, 'MSSQLSvc/%s:%d' % (self.server, self.port))
 
             if TGS is None:
                 # search for the port's instance name instead (instance name based SPN)
