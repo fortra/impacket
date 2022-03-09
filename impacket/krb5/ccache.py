@@ -545,14 +545,23 @@ class CCache:
         f.close()
 
     @classmethod
-    def parseFile(cls, domain, username='', target=''):
+    def parseFile(cls, domain='', username='', target=''):
+        """
+        parses the CCache file specified in the KRB5CCNAME environment variable
+
+        :param domain: an optional domain name of a user
+        :param username: an optional username of a user
+        :param target: an optional SPN of a target system
+
+        :return: domain, username, TGT, TGS
+        """
+
         ccache = cls.loadFile(os.getenv('KRB5CCNAME'))
         if ccache is None:
             return domain, username, None, None
 
         LOG.debug('Using Kerberos Cache: %s' % os.getenv('KRB5CCNAME'))
 
-        # retrieve domain information from CCache file if needed
         if domain == '':
             domain = ccache.principal.realm['data'].decode('utf-8')
             LOG.debug('Domain retrieved from CCache: %s' % domain)
@@ -576,7 +585,6 @@ class CCache:
             LOG.debug('Using TGS from cache')
             TGS = creds.toTGS(principal)
 
-        # retrieve user information from CCache file if needed
         if username == '' and creds is not None:
             username = creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')
             LOG.debug('Username retrieved from CCache: %s' % username)
