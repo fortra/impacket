@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -20,7 +20,7 @@ from __future__ import division
 from __future__ import print_function
 from datetime import datetime
 from struct import pack, unpack, calcsize
-from six import b
+from six import b, PY2
 
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type.univ import noValue
@@ -356,8 +356,16 @@ class CCache:
         self.principal = None
         self.credentials = []
         self.miniHeader = None
+
         if data is not None:
-            ccache_version = data[1]
+            if PY2:
+                ccache_version = unpack('>B', data[1])[0]
+            else:
+                ccache_version = data[1]
+
+            # Versions 1 and 2 are not implemented yet
+            if ccache_version == 1 or ccache_version == 2:
+                raise NotImplementedError('Not Implemented!')
 
             # Only Version 4 contains a header
             if ccache_version == 4:
@@ -372,7 +380,6 @@ class CCache:
                     self.headers.append(header)
                     headerLen -= len(header)
                     data = data[len(header):]
-
             else:
                 # Skip over the version bytes
                 data = data[2:]
