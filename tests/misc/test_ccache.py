@@ -11,11 +11,14 @@
 #   Kerberos CCACHE unit tests
 #
 import os
-import sys
 import pytest
 import unittest
-from unittest import mock
-
+from six import PY2
+if PY2:
+    mock = None
+    FileNotFoundError = IOError
+else:
+    from unittest import mock
 from impacket.krb5.ccache import CCache, Credential
 
 
@@ -68,45 +71,48 @@ class CCACHETests(unittest.TestCase):
             ccache = CCache.loadKirbiFile(kirbi_file)
             self.assert_ccache(ccache)
 
-    @pytest.mark.skipif(sys.version_info < (3, 3), reason="requires python 3.3 or higher")
-    @mock.patch.dict(os.environ, {}, clear=True)
+    @pytest.mark.skipif(PY2, reason="requires python 3.3 or higher")
     def test_ccache_parseFile_no_cache(self):
-        domain, username, TGT, TGS = CCache.parseFile(self.domain, self.username)
-        self.assertEqual(domain, self.domain)
-        self.assertEqual(username, self.username)
-        self.assertIsNone(TGT)
-        self.assertIsNone(TGS)
+        if not PY2:
+            with mock.patch.dict(os.environ, {}, clear=True):
+                domain, username, TGT, TGS = CCache.parseFile(self.domain, self.username)
+                self.assertEqual(domain, self.domain)
+                self.assertEqual(username, self.username)
+                self.assertIsNone(TGT)
+                self.assertIsNone(TGS)
 
-    @pytest.mark.skipif(sys.version_info < (3, 3), reason="requires python 3.3 or higher")
-    @mock.patch.dict(os.environ, {"KRB5CCNAME": "ccache-unexistent-file"})
+    @pytest.mark.skipif(PY2, reason="requires python 3.3 or higher")
     def test_ccache_parseFile_unexistent(self):
-        with self.assertRaises(FileNotFoundError):
-            CCache.parseFile(self.domain, self.username)
+        if not PY2:
+            with mock.patch.dict(os.environ, {"KRB5CCNAME": "ccache-unexistent-file"}):
+                with self.assertRaises(FileNotFoundError):
+                    CCache.parseFile(self.domain, self.username)
 
-    @pytest.mark.skipif(sys.version_info < (3, 3), reason="requires python 3.3 or higher")
-    @mock.patch.dict(os.environ, {"KRB5CCNAME": cache_v4_file})
+    @pytest.mark.skipif(PY2, reason="requires python 3.3 or higher")
     def test_ccache_parseFile(self):
-        domain, username, TGT, TGS = CCache.parseFile("")
-        self.assertEqual(domain, self.domain)
-        self.assertEqual(username, self.username)
-        self.assertIsNone(TGS)
-        self.assertIsNotNone(TGT)
+        if not PY2:
+            with mock.patch.dict(os.environ, {"KRB5CCNAME": self.cache_v4_file}):
+                domain, username, TGT, TGS = CCache.parseFile("")
+                self.assertEqual(domain, self.domain)
+                self.assertEqual(username, self.username)
+                self.assertIsNone(TGS)
+                self.assertIsNotNone(TGT)
 
-        domain, username, TGT, TGS = CCache.parseFile("unexistent_domain")
-        self.assertIsNone(TGS)
-        self.assertIsNone(TGT)
+                domain, username, TGT, TGS = CCache.parseFile("unexistent_domain")
+                self.assertIsNone(TGS)
+                self.assertIsNone(TGT)
 
-        domain, username, TGT, TGS = CCache.parseFile(self.domain)
-        self.assertEqual(domain, self.domain)
-        self.assertEqual(username, self.username)
-        self.assertIsNone(TGS)
-        self.assertIsNotNone(TGT)
+                domain, username, TGT, TGS = CCache.parseFile(self.domain)
+                self.assertEqual(domain, self.domain)
+                self.assertEqual(username, self.username)
+                self.assertIsNone(TGS)
+                self.assertIsNotNone(TGT)
 
-        domain, username, TGT, TGS = CCache.parseFile(self.domain, self.username)
-        self.assertEqual(domain, self.domain)
-        self.assertEqual(username, self.username)
-        self.assertIsNone(TGS)
-        self.assertIsNotNone(TGT)
+                domain, username, TGT, TGS = CCache.parseFile(self.domain, self.username)
+                self.assertEqual(domain, self.domain)
+                self.assertEqual(username, self.username)
+                self.assertIsNone(TGS)
+                self.assertIsNotNone(TGT)
 
 
 if __name__ == "__main__":
