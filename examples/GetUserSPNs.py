@@ -34,7 +34,6 @@ from __future__ import division
 from __future__ import print_function
 import argparse
 import logging
-import os
 import sys
 from datetime import datetime
 from binascii import hexlify, unhexlify
@@ -130,26 +129,9 @@ class GetUserSPNs:
         return t
 
     def getTGT(self):
-        try:
-            ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-        except:
-            # No cache present
-            pass
-        else:
-            # retrieve user and domain information from CCache file if needed
-            if self.__domain == '':
-                domain = ccache.principal.realm['data']
-            else:
-                domain = self.__domain
-            logging.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
-            principal = 'krbtgt/%s@%s' % (domain.upper(), domain.upper())
-            creds = ccache.getCredential(principal)
-            if creds is not None:
-                TGT = creds.toTGT()
-                logging.debug('Using TGT from cache')
-                return TGT
-            else:
-                logging.debug("No valid credentials found in cache. ")
+        domain, _, TGT, _ = CCache.parseFile(self.__domain)
+        if TGT is not None:
+            return TGT
 
         # No TGT in cache, request it
         userName = Principal(self.__username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
