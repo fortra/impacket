@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -59,8 +59,7 @@ from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, 
 from impacket.krb5.ccache import CCache
 from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, _AES256CTS, Enctype
 from impacket.krb5.constants import TicketFlags, encodeFlags
-from impacket.krb5.kerberosv5 import getKerberosTGS
-from impacket.krb5.kerberosv5 import getKerberosTGT, sendReceive
+from impacket.krb5.kerberosv5 import getKerberosTGS, getKerberosTGT, sendReceive
 from impacket.krb5.types import Principal, KerberosTime, Ticket
 from impacket.ntlm import compute_nthash
 from impacket.winregistry import hexdump
@@ -618,25 +617,15 @@ class GETST:
         return r, cipher, sessionKey, newSessionKey
 
     def run(self):
+        tgt = None
 
         # Do we have a TGT cached?
-        tgt = None
-        try:
-            ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-            logging.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
-            principal = 'krbtgt/%s@%s' % (self.__domain.upper(), self.__domain.upper())
-            creds = ccache.getCredential(principal)
-            if creds is not None:
-                # ToDo: Check this TGT belogns to the right principal
-                TGT = creds.toTGT()
-                tgt, cipher, sessionKey = TGT['KDC_REP'], TGT['cipher'], TGT['sessionKey']
-                oldSessionKey = sessionKey
-                logging.info('Using TGT from cache')
-            else:
-                logging.debug("No valid credentials found in cache. ")
-        except:
-            # No cache present
-            pass
+        domain, _, TGT, _ = CCache.parseFile(self.__domain)
+
+        # ToDo: Check this TGT belogns to the right principal
+        if TGT is not None:
+            tgt, cipher, sessionKey = TGT['KDC_REP'], TGT['cipher'], TGT['sessionKey']
+            oldSessionKey = sessionKey
 
         if tgt is None:
             # Still no TGT

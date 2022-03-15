@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -400,6 +400,24 @@ class RpcAsyncEnumPrinterDriversResponse(NDRCALL):
        ('ErrorCode', ULONG),
     )
 
+# 3.1.4.2.4 RpcAsyncGetPrinterDriverDirectory (Opnum 41)
+class RpcAsyncGetPrinterDriverDirectory(NDRCALL):
+   opnum = 41
+   structure = (
+       ('pName', STRING_HANDLE),
+       ('pEnvironment', LPWSTR),
+       ('Level', DWORD),
+       ('pDriverDirectory', PBYTE_ARRAY),
+       ('cbBuf', DWORD)
+   )
+   
+class RpcAsyncGetPrinterDriverDirectoryResponse(NDRCALL):
+    structure = (
+       ('pDriverDirectory', PBYTE_ARRAY),
+       ('pcbNeeded', DWORD),
+       ('ErrorCode', ULONG)
+    )
+
 # 3.1.4.2.2 RpcAsyncAddPrinterDriver (Opnum 39)
 class RpcAsyncAddPrinterDriver(NDRCALL):
     opnum = 39
@@ -424,6 +442,7 @@ OPNUMS = {
     38 : (RpcAsyncEnumPrinters, RpcAsyncEnumPrintersResponse),
     39 : (RpcAsyncAddPrinterDriver, RpcAsyncAddPrinterDriver),
     40 : (RpcAsyncEnumPrinterDrivers, RpcAsyncEnumPrinterDriversResponse),
+    41 : (RpcAsyncGetPrinterDriverDirectory, RpcAsyncGetPrinterDriverDirectoryResponse)
 }
 
 ################################################################################
@@ -585,4 +604,43 @@ def hRpcAsyncEnumPrinterDrivers(dce, pName, pEnvironment, Level):
     request['cbBuf']        = bytesNeeded
 
     #return request
+    return dce.request(request, MSRPC_UUID_WINSPOOL)
+
+def hRpcAsyncGetPrinterDriverDirectory(dce, pName, pEnvironment, Level):
+    """
+    RpcAsyncGetPrinterDriverDirectory retrieves the path of the printer driver directory.
+    Full Documentation: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-par/92206fb2-dd31-47f4-8d12-4cd239b71d78
+
+    :param DCERPC_v5 dce: a connected DCE instance.
+    :param pName
+    :param pEnvironment
+    :param Level
+    :param pDriverDirectory
+    :param cbBuf
+    :param pcbNeeded
+
+    :return: raises DCERPCSessionError on error.
+    """
+    # get value for cbBuf
+    request = RpcAsyncGetPrinterDriverDirectory()
+    request['pName']            = checkNullString(pName)
+    request['pEnvironment']     = pEnvironment
+    request['Level']            = Level
+    request['pDriverDirectory'] = NULL
+    request['cbBuf']            = 0
+    try:
+        dce.request(request, MSRPC_UUID_WINSPOOL)
+    except DCERPCSessionError as e:
+        if str(e).find('ERROR_INSUFFICIENT_BUFFER') < 0:
+            raise
+        bytesNeeded = e.get_packet()['pcbNeeded']
+    
+    # now do RpcGetPrinterDriverDirectory again
+    request = RpcAsyncGetPrinterDriverDirectory()
+    request['pName']            = checkNullString(pName)
+    request['pEnvironment']     = pEnvironment
+    request['Level']            = Level
+    request['pDriverDirectory'] = b'a' * bytesNeeded
+    request['cbBuf']            = bytesNeeded
+    
     return dce.request(request, MSRPC_UUID_WINSPOOL)

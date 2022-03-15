@@ -688,10 +688,4 @@ class SimpleSMBServer2FuncTests(SimpleSMBServerFuncTests):
 
 
 if __name__ == "__main__":
-    loader = unittest.TestLoader()
-    suite = unittest.TestSuite()
-    suite.addTests(loader.loadTestsFromTestCase(SMBServerUnitTests))
-    suite.addTests(loader.loadTestsFromTestCase(SimpleSMBServerFuncTests))
-    suite.addTests(loader.loadTestsFromTestCase(SimpleSMBServer2FuncTests))
-    suite.addTests(loader.loadTestsFromTestCase(SimpleSMBServer2FuncTestsClientFallBack))
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)

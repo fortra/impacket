@@ -7,14 +7,35 @@ https://github.com/SecureAuthCorp/impacket/commits/master
 
 ## Unreleased changes
 
+1. Library improvements 
+    * Dropped support for Python 2.7. We'll keep it running under GitHub Actions/`Tox` as experimental just for visibility.
+    * Refactored the testing infrastructure:
+      * Added `pytest` as the testing framework to organize and mark test
+        cases. `Tox` remain as the automation framework, and `Coverage.py`
+        for measuring code coverage.
+      * Custom bash scripts were replaced with test cases auto-discovery.
+      * Local and remote test cases were marked for easy run and configuration. 
+      * DCE/RPC endpoint test cases were refactored and moved to a new layout. 
+      * An initial testing guide with the main steps to prepare a testing environment and run them. 
+      * Fixed a good amount of DCE/RPC endpoint test cases that were failing, and added tests for `[MS-PAR]`.
+    * Added a function to compute the Netlogon Authenticator at client-side in `[MS-NRPC]` (@0xdeaddood)
+    * Added `[MS-DSSP]` protocol implementation (@simondotsh)
+    * Added GetDriverDirectory functions to `[MS-PAR]` and `[MS-RPRN]` (@raithedavion)
+
+2. Examples improvements
+	* [ntlmrelayx.py](examples/ntlmrelayx.py):
+	   * Implemented RAWRelayServer (@CCob)
+    
+3. New examples
+	* [machine_role.py](examples/machine_role.py): This script retrieves a host's role along with its primary domain details (@simondotsh)
 
 ## Impacket v0.9.24 (October 2021):
 
 1. Library improvements 
 	* Fixed WMI objects parsing (@franferrax)
-	* Added the RpcAddPrinterDriverEx method and related structures to [MS-RPRN]: Print System Remote Protocol (@cube0x0)
-	* Initial implementation of [MS-PAR]: Print System Asynchronous Remote Protocol (@cube0x0)
-	* Complying MS-RPCH with HTTP/1.1 (@mohemiv) 
+	* Added the RpcAddPrinterDriverEx method and related structures to `[MS-RPRN]`: Print System Remote Protocol (@cube0x0)
+	* Initial implementation of `[MS-PAR]`: Print System Asynchronous Remote Protocol (@cube0x0)
+	* Complying `[MS-RPCH]` with HTTP/1.1 (@mohemiv) 
 	* Added return of server time in case of Kerberos error (@ShutdownRepo and @Hackndo)
 
 2. Examples improvements

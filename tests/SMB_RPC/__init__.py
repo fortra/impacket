@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
@@ -6,4 +7,3 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-pass

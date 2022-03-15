@@ -7,22 +7,21 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
-from impacket.dot11 import ProtocolPacket
 import unittest
-    
-class TestPacket(ProtocolPacket):
-    def __init__(self, aBuffer = None):
+from impacket.dot11 import ProtocolPacket
+
+
+class PacketTest(ProtocolPacket):
+
+    def __init__(self, aBuffer=None):
         header_size = 7
         tail_size = 5
         
-        ProtocolPacket.__init__(self, header_size,tail_size)
-        if(aBuffer):
+        ProtocolPacket.__init__(self, header_size, tail_size)
+        if aBuffer:
             self.load_packet(aBuffer)
-            
+
+
 class TestDot11HierarchicalUpdate(unittest.TestCase):
 
     def setUp(self):
@@ -41,10 +40,10 @@ class TestDot11HierarchicalUpdate(unittest.TestCase):
             self.rawpacket2+ \
             b"Tail3"
 
-        self.packet1=TestPacket(self.rawpacket1)
-        self.packet2=TestPacket(self.rawpacket2)
+        self.packet1 = PacketTest(self.rawpacket1)
+        self.packet2 = PacketTest(self.rawpacket2)
         self.packet2.contains(self.packet1)
-        self.packet3=TestPacket(self.rawpacket3)
+        self.packet3 = PacketTest(self.rawpacket3)
         self.packet3.contains(self.packet2)
         
     def test_01_StartupPacketsStringTest(self):
@@ -133,6 +132,7 @@ class TestDot11HierarchicalUpdate(unittest.TestCase):
         self.assertEqual(self.packet1.body.get_buffer_as_string(), b"Body1")
         self.assertEqual(self.packet2.body.get_buffer_as_string(), b"Header1**NewBody**Tail1")
         self.assertEqual(self.packet3.body.get_buffer_as_string(), b"Header2Header1**NewBody**Tail1Tail2")
-        
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11HierarchicalUpdate)
-unittest.main(defaultTest='suite')
+
+
+if __name__ == '__main__':
+    unittest.main(verbosity=1)
