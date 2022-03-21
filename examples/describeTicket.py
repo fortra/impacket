@@ -28,7 +28,7 @@ from binascii import unhexlify, hexlify
 from pyasn1.codec.der import decoder
 
 from impacket import version
-from impacket.dcerpc.v5.dtypes import FILETIME
+from impacket.dcerpc.v5.dtypes import FILETIME, PRPC_SID
 from impacket.dcerpc.v5.rpcrt import TypeSerialization1
 from impacket.examples import logger
 from impacket.krb5 import constants, pac
@@ -37,12 +37,45 @@ from impacket.krb5.ccache import CCache
 from impacket.krb5.constants import ChecksumTypes
 from impacket.krb5.crypto import Key, _enctype_table, InvalidChecksum, string_to_key
 
+PSID = PRPC_SID
 
 class User_Flags(Enum):
     LOGON_EXTRA_SIDS = 0x0020
     LOGON_RESOURCE_GROUPS = 0x0200
 
-class UserAccountControl_Flags(Enum):
+# 2.2.1.10 SE_GROUP Attributes
+class SE_GROUP_Attributes(Enum):
+    SE_GROUP_MANDATORY = 0x00000001
+    SE_GROUP_ENABLED_BY_DEFAULT = 0x00000002
+    SE_GROUP_ENABLED = 0x00000004
+
+# 2.2.1.12 USER_ACCOUNT Codes
+class USER_ACCOUNT_Codes(Enum):
+    USER_ACCOUNT_DISABLED = 0x00000001
+    USER_HOME_DIRECTORY_REQUIRED = 0x00000002
+    USER_PASSWORD_NOT_REQUIRED = 0x00000004
+    USER_TEMP_DUPLICATE_ACCOUNT = 0x00000008
+    USER_NORMAL_ACCOUNT = 0x00000010
+    USER_MNS_LOGON_ACCOUNT = 0x00000020
+    USER_INTERDOMAIN_TRUST_ACCOUNT = 0x00000040
+    USER_WORKSTATION_TRUST_ACCOUNT = 0x00000080
+    USER_SERVER_TRUST_ACCOUNT = 0x00000100
+    USER_DONT_EXPIRE_PASSWORD = 0x00000200
+    USER_ACCOUNT_AUTO_LOCKED = 0x00000400
+    USER_ENCRYPTED_TEXT_PASSWORD_ALLOWED = 0x00000800
+    USER_SMARTCARD_REQUIRED = 0x00001000
+    USER_TRUSTED_FOR_DELEGATION = 0x00002000
+    USER_NOT_DELEGATED = 0x00004000
+    USER_USE_DES_KEY_ONLY = 0x00008000
+    USER_DONT_REQUIRE_PREAUTH = 0x00010000
+    USER_PASSWORD_EXPIRED = 0x00020000
+    USER_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = 0x00040000
+    USER_NO_AUTH_DATA_REQUIRED = 0x00080000
+    USER_PARTIAL_SECRETS_ACCOUNT = 0x00100000
+    USER_USE_AES_KEYS = 0x00200000
+
+# 2.2.1.13 UF_FLAG Codes
+class UF_FLAG_Codes(Enum):
     UF_SCRIPT = 0x00000001
     UF_ACCOUNTDISABLE = 0x00000002
     UF_HOMEDIR_REQUIRED = 0x00000008
@@ -189,11 +222,6 @@ def parse_ccache(args):
 
 
 def parse_pac(pacType, args):
-
-    def format_sid(data):
-        return "S-%d-%d-%d-%s" % (data['Revision'], data['IdentifierAuthority'], data['SubAuthorityCount'], '-'.join([str(e) for e in data['SubAuthority']]))
-
-
     def PACparseFILETIME(data):
         # FILETIME structure (minwinbase.h)
         # Contains a 64-bit value representing the number of 100-nanosecond intervals since January 1, 1601 (UTC).
@@ -220,27 +248,6 @@ def parse_pac(pacType, args):
         return groups
 
 
-    def PACparseSID(sid):
-        if type(sid) == dict:
-            str_sid = format_sid({
-                'Revision': sid['Revision'],
-                'SubAuthorityCount': sid['SubAuthorityCount'],
-                'IdentifierAuthority': int(binascii.hexlify(sid['IdentifierAuthority']), 16),
-                'SubAuthority': sid['SubAuthority']
-            })
-            return str_sid
-        else:
-            return ''
-
-
-    def PACparseExtraSids(sid_and_attributes_array):
-        _ExtraSids = []
-        for sid in sid_and_attributes_array['Data']:
-            _d = { 'Attributes': sid['Attributes'], 'Sid': PACparseSID(sid['Sid']) }
-            _ExtraSids.append(_d['Sid'])
-        return _ExtraSids
-
-
     parsed_tuPAC = []
     buff = pacType['Buffers']
 
@@ -260,8 +267,8 @@ def parse_pac(pacType, args):
             parsed_data['Password Last Set'] = PACparseFILETIME(kerbdata['PasswordLastSet'])
             parsed_data['Password Can Change'] = PACparseFILETIME(kerbdata['PasswordCanChange'])
             parsed_data['Password Must Change'] = PACparseFILETIME(kerbdata['PasswordMustChange'])
-            parsed_data['LastSuccessfulILogon'] = PACparseFILETIME(kerbdata.fields['LastSuccessfulILogon'])
-            parsed_data['LastFailedILogon'] = PACparseFILETIME(kerbdata.fields['LastFailedILogon'])
+            parsed_data['LastSuccessfulILogon'] = PACparseFILETIME(kerbdata['LastSuccessfulILogon'])
+            parsed_data['LastFailedILogon'] = PACparseFILETIME(kerbdata['LastFailedILogon'])
             parsed_data['FailedILogonCount'] = kerbdata['FailedILogonCount']
             parsed_data['Account Name'] = kerbdata['EffectiveName']
             parsed_data['Full Name'] = kerbdata['FullName']
@@ -275,6 +282,8 @@ def parse_pac(pacType, args):
             parsed_data['Group RID'] = kerbdata['PrimaryGroupId']
             parsed_data['Group Count'] = kerbdata['GroupCount']
             parsed_data['Groups'] = ', '.join([str(gid['RelativeId']) for gid in PACparseGroupIds(kerbdata['GroupIds'])])
+
+            # UserFlags parsing
             UserFlags = kerbdata['UserFlags']
             User_Flags_Flags = []
             for flag in User_Flags:
@@ -284,16 +293,40 @@ def parse_pac(pacType, args):
             parsed_data['User Session Key'] = hexlify(kerbdata['UserSessionKey']).decode('utf-8')
             parsed_data['Logon Server'] = kerbdata['LogonServer']
             parsed_data['Logon Domain Name'] = kerbdata['LogonDomainName']
-            parsed_data['Logon Domain SID'] = PACparseSID(kerbdata['LogonDomainId'])
+
+            # LogonDomainId parsing
+            if kerbdata['LogonDomainId'] == b'':
+                parsed_data['Logon Domain SID'] = kerbdata['LogonDomainId']
+            else:
+                parsed_data['Logon Domain SID'] = kerbdata['LogonDomainId'].formatCanonical()
+
+            # UserAccountControl parsing
             UAC = kerbdata['UserAccountControl']
             UAC_Flags = []
-            for flag in UserAccountControl_Flags:
+            for flag in USER_ACCOUNT_Codes:
                 if UAC & flag.value:
                     UAC_Flags.append(flag.name)
             parsed_data['User Account Control'] = "(%s) %s" % (UAC, ", ".join(UAC_Flags))
             parsed_data['Extra SID Count'] = kerbdata['SidCount']
-            parsed_data['Extra SIDs'] = ', '.join([sid for sid in PACparseExtraSids(kerbdata.fields['ExtraSids'])])
-            parsed_data['Resource Group Domain SID'] = PACparseSID(kerbdata.fields['ResourceGroupDomainSid'])
+            extraSids = []
+
+            # ExtraSids parsing
+            for extraSid in kerbdata['ExtraSids']:
+                sid = extraSid['Sid'].formatCanonical()
+                attributes = extraSid['Attributes']
+                attributes_flags = []
+                for flag in SE_GROUP_Attributes:
+                    if attributes & flag.value:
+                        attributes_flags.append(flag.name)
+                extraSids.append("%s (%s)" % (sid, ', '.join(attributes_flags)))
+            parsed_data['Extra SIDs'] = ', '.join(extraSids)
+
+            # ResourceGroupDomainSid parsing
+            if kerbdata['ResourceGroupDomainSid'] == b'':
+                parsed_data['Resource Group Domain SID'] = kerbdata['ResourceGroupDomainSid']
+            else:
+                parsed_data['Resource Group Domain SID'] = kerbdata['ResourceGroupDomainSid'].formatCanonical()
+
             parsed_data['Resource Group Count'] = kerbdata['ResourceGroupCount']
             parsed_data['Resource Group Ids'] = ', '.join([str(gid['RelativeId']) for gid in PACparseGroupIds(kerbdata['ResourceGroupIds'])])
             parsed_data['LMKey'] = hexlify(kerbdata['LMKey']).decode('utf-8')
@@ -306,27 +339,25 @@ def parse_pac(pacType, args):
             clientInfo.fromString(data)
             parsed_data = {}
             try:
-                parsed_data['Client Id'] = PACparseFILETIME(clientInfo.fields['ClientId'])
-            except Exception as e:
-                logging.debug(e)
-                logging.debug("Trying to parse the value with another method")
+                parsed_data['Client Id'] = PACparseFILETIME(clientInfo['ClientId'])
+            except:
                 try:
                     parsed_data['Client Id'] = PACparseFILETIME(FILETIME(data[:32]))
                 except Exception as e:
                     logging.error(e)
-            parsed_data['Client Name'] = clientInfo.fields['Name'].decode('utf-16-le')
+            parsed_data['Client Name'] = clientInfo['Name'].decode('utf-16-le')
             parsed_tuPAC.append({"ClientName": parsed_data})
 
         elif infoBuffer['ulType'] == pac.PAC_UPN_DNS_INFO:
             upn = pac.UPN_DNS_INFO(data)
-            UpnLength = upn.fields['UpnLength']
-            UpnOffset = upn.fields['UpnOffset']
+            UpnLength = upn['UpnLength']
+            UpnOffset = upn['UpnOffset']
             UpnName = data[UpnOffset:UpnOffset+UpnLength].decode('utf-16-le')
-            DnsDomainNameLength = upn.fields['DnsDomainNameLength']
-            DnsDomainNameOffset = upn.fields['DnsDomainNameOffset']
+            DnsDomainNameLength = upn['DnsDomainNameLength']
+            DnsDomainNameOffset = upn['DnsDomainNameOffset']
             DnsName = data[DnsDomainNameOffset:DnsDomainNameOffset + DnsDomainNameLength].decode('utf-16-le')
             parsed_data = {}
-            parsed_data['Flags'] = upn.fields['Flags']
+            parsed_data['Flags'] = upn['Flags']
             parsed_data['UPN'] = UpnName
             parsed_data['DNS Domain Name'] = DnsName
             parsed_tuPAC.append({"UpnDns": parsed_data})
@@ -334,16 +365,16 @@ def parse_pac(pacType, args):
         elif infoBuffer['ulType'] == pac.PAC_SERVER_CHECKSUM:
             signatureData = pac.PAC_SIGNATURE_DATA(data)
             parsed_data = {}
-            parsed_data['Signature Type'] = ChecksumTypes(signatureData.fields['SignatureType']).name
-            parsed_data['Signature'] = hexlify(signatureData.fields['Signature']).decode('utf-8')
+            parsed_data['Signature Type'] = ChecksumTypes(signatureData['SignatureType']).name
+            parsed_data['Signature'] = hexlify(signatureData['Signature']).decode('utf-8')
             parsed_tuPAC.append({"ServerChecksum": parsed_data})
 
         elif infoBuffer['ulType'] == pac.PAC_PRIVSVR_CHECKSUM:
             signatureData = pac.PAC_SIGNATURE_DATA(data)
             parsed_data = {}
-            parsed_data['Signature Type'] = ChecksumTypes(signatureData.fields['SignatureType']).name
+            parsed_data['Signature Type'] = ChecksumTypes(signatureData['SignatureType']).name
             # signatureData.dump()
-            parsed_data['Signature'] = hexlify(signatureData.fields['Signature']).decode('utf-8')
+            parsed_data['Signature'] = hexlify(signatureData['Signature']).decode('utf-8')
             parsed_tuPAC.append({"KDCChecksum": parsed_data})
 
         elif infoBuffer['ulType'] == pac.PAC_CREDENTIALS_INFO:
