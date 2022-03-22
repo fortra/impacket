@@ -947,7 +947,7 @@ if __name__ == '__main__':
     guid_known.add_argument('-output-file', action='store', help='Output filename')
 
     dnt_lookup = nspi_attacks.add_parser('dnt-lookup', formatter_class=SmartFormatter, help='Lookup Distinguished Name Tags')
-    dnt_lookup.add_argument('-lookup-type', choices=['EXTENDED', 'FULL', 'GUIDS'], nargs='?', default='MINIMAL',
+    dnt_lookup.add_argument('-lookup-type', choices=['EXTENDED', 'FULL', 'GUIDS'], nargs='?', default='EXTENDED',
         help='R|Lookup type:\n'
              '  EXTENDED - Request extended set of fields (default)\n'
              '  FULL     - Request all fields for each row\n'
