@@ -233,6 +233,8 @@ class NSPIAttacks(Exchanger):
         self.__handler = None
 
         self.htable = {}
+        self.anyContainerID = 0
+
         self.props = list()
         self.stat = nspi.STAT()
         self.stat['CodePage'] = nspi.CP_TELETEX
@@ -288,6 +290,9 @@ class NSPIAttacks(Exchanger):
 
         for ab in htable:
             MId = ab[PR_EMS_AB_CONTAINERID]
+
+            if self.anyContainerID == 0 and MId != 0:
+                self.anyContainerID = NSPIAttacks._int_to_dword(MId)
 
             self.htable[MId] = {}
             self.htable[MId]['flags'] = ab[PR_CONTAINER_FLAGS]
@@ -444,6 +449,9 @@ class NSPIAttacks(Exchanger):
         printOnlyGUIDs = False
         useAsExplicitTable = False
 
+        if self.anyContainerID == 0:
+            self.load_htable()
+
         if table_MId == None and eTable == None:
             raise Exception("Wrong arguments!")
         elif table_MId != None and eTable != None:
@@ -531,7 +539,7 @@ class NSPIAttacks(Exchanger):
                     eTableInt = eTable
 
                 resp = nspi.hNspiQueryRows(self.__dce, self.__handler,
-                    ContainerID=0, Count=count, pPropTags=attrs, lpETable=eTableInt)
+                    ContainerID=self.anyContainerID, Count=count, pPropTags=attrs, lpETable=eTableInt)
 
                 try:
                     # Addressing to PropertyRowSet_r must be inside try / except,
