@@ -1,0 +1,24 @@
+# Rules to label Pull Requests
+version: 1
+labels:
+  - label: "Examples"
+    files:
+      - "examples/.*"
+  - label: "Library"
+    files:
+      - "impacket/.*"
+  - label: "CI/CD & Tests"
+    files:
+      - "tests/.*"
+      - "tox.ini"
+      - "Dockerfile"
+      - ".github/.*"
+  - label: "Setup"
+    files:
+      - "setup.py"
+      - "requirements*.txt"
+      - "MANIFEST.in"
+  - label: "Docs"
+    files:
+      - "*.md"
+      - "LICENSE"
