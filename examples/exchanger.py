@@ -233,7 +233,7 @@ class NSPIAttacks(Exchanger):
         self.__handler = None
 
         self.htable = {}
-        self.anyExistingContainerID = 0
+        self.anyExistingContainerID = -1
 
         self.props = list()
         self.stat = nspi.STAT()
@@ -279,15 +279,23 @@ class NSPIAttacks(Exchanger):
 
         self._parse_and_set_htable(resp_simpl)
 
-    def load_htable_stat(self, onlyFillAnyExistingContainerID=False):
+    def load_htable_stat(self):
+        for MId in self.htable:
+            self.update_stat(MId)
+            self.htable[MId]['count'] = self.stat['TotalRecs']
+            self.htable[MId]['start_mid'] = self.stat['CurrentRec']
+
+    def load_htable_containerid(self):
+        if self.anyExistingContainerID != -1:
+            return
+
+        if self.htable == {}:
+            self.load_htable()
+
         for MId in self.htable:
             self.update_stat(MId)
 
-            if onlyFillAnyExistingContainerID == False:
-                self.htable[MId]['count'] = self.stat['TotalRecs']
-                self.htable[MId]['start_mid'] = self.stat['CurrentRec']
-
-            if onlyFillAnyExistingContainerID and self.stat['CurrentRec'] > 0:
+            if self.stat['CurrentRec'] > 0:
                 self.anyExistingContainerID = NSPIAttacks._int_to_dword(MId)
                 return
 
@@ -452,9 +460,8 @@ class NSPIAttacks(Exchanger):
         printOnlyGUIDs = False
         useAsExplicitTable = False
 
-        if self.anyExistingContainerID == 0:
-            self.load_htable()
-            self.load_htable_stat(onlyFillAnyExistingContainerID=True)
+        if self.anyExistingContainerID == -1:
+            self.load_htable_containerid()
 
         if table_MId == None and eTable == None:
             raise Exception("Wrong arguments!")
