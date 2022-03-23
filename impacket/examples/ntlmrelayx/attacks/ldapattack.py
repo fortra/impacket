@@ -651,7 +651,7 @@ class LDAPAttack(ProtocolAttack):
 
         certificate_template_attributes = ["msPKI-Enrollment-Flag", "name", "nTSecurityDescriptor", "pKIExtendedKeyUsage"]
         self.client.search("CN=Certificate Templates,CN=Public Key Services,CN=Services," + configuration_naming_context,
-                           "(&(objectClass=pKICertificateTemplate)(|%s))" % "".join(("(name=" + tpl + ")" for tpl in offered_templates)),
+                           "(&(objectClass=pKICertificateTemplate)(|%s))" % "".join(("(name=" + escape_filter_chars(tpl) + ")" for tpl in offered_templates)),
                            search_scope=ldap3.LEVEL, attributes=certificate_template_attributes,
                            controls=security_descriptor_control(sdflags=0x04))
 
