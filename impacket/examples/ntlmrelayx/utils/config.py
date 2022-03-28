@@ -132,6 +132,9 @@ class NTLMRelayxConfig:
     def setEnumLocalAdmins(self, enumLocalAdmins):
         self.enumLocalAdmins = enumLocalAdmins
 
+    def setAddComputerSMB(self, addComputerSMB):
+        self.addComputerSMB = addComputerSMB
+
     def setEncoding(self, encoding):
         self.encoding = encoding
 

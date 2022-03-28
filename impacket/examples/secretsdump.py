@@ -501,6 +501,9 @@ class RemoteOperations:
             LOG.error("Couldn't get DC info for domain %s" % self.__domainName)
             raise Exception('Fatal, aborting')
 
+    def getSamr(self):
+        return self.__samr
+
     def getDrsr(self):
         return self.__drsr
 
@@ -585,6 +588,9 @@ class RemoteOperations:
             self.connectSamr(self.getMachineNameAndDomain()[1])
 
         return self.__domainSid
+
+    def getDomainHandle(self):
+        return self.__domainHandle
 
     def getMachineKerberosSalt(self):
         """

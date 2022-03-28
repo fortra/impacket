@@ -38,6 +38,7 @@ import argparse
 import sys
 import logging
 import cmd
+import re
 try:
     from urllib.request import ProxyHandler, build_opener, Request
 except ImportError:
@@ -147,6 +148,7 @@ def start_servers(options, threads):
         c.setExeFile(options.e)
         c.setCommand(options.c)
         c.setEnumLocalAdmins(options.enum_local_admins)
+        c.setAddComputerSMB(options.smb_add_computer)
         c.setEncoding(codec)
         c.setMode(mode)
         c.setAttacks(PROTOCOL_ATTACKS)
@@ -278,7 +280,9 @@ if __name__ == '__main__':
     smboptions.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. '
                                      'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
-
+    smboptions.add_argument('--smb-add-computer', action='store', metavar='COMPUTERNAME', required=False, const='Rand', nargs='?', help='Attempt to add a new computer account via SMB. '
+                            'The Domain Controller must be specified with the FQDN and not its IP address.')
+    
     #RPC arguments
     rpcoptions = parser.add_argument_group("RPC client options")
     rpcoptions.add_argument('-rpc-mode', choices=["TSCH"], default="TSCH", help='Protocol to attack, only TSCH supported')
@@ -343,6 +347,11 @@ if __name__ == '__main__':
        logging.error("Set -auth-smb to relay DCE/RPC to SMB pipes")
        sys.exit(1)
 
+    # IPv4 address REGEX for the target
+    if re.search(r'\b((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.|$)){4}\b', options.target) is not None:
+       logging.error("To add a machine account through SMB the target Domain Controller must be specified with its FQDN")
+       sys.exit(1)
+
     # Init the example's logger theme
     logger.init(options.ts)
 
@@ -372,6 +381,9 @@ if __name__ == '__main__':
     else:
         if options.tf is not None:
             #Targetfile specified
+            if (options.smb_add_computer):
+                logging.info("To add a machine account through SMB only the Domain Controller must be specified as target")
+                sys.exit(1)
             logging.info("Running in relay mode to hosts in targetfile")
             targetSystem = TargetsProcessor(targetListFile=options.tf, protocolClients=PROTOCOL_CLIENTS, randomize=options.random)
             mode = 'RELAY'
