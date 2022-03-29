@@ -280,7 +280,7 @@ if __name__ == '__main__':
     smboptions.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. '
                                      'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
-    smboptions.add_argument('--smb-add-computer', action='store', metavar='COMPUTERNAME', required=False, const='Rand', nargs='?', help='Attempt to add a new computer account via SMB. '
+    smboptions.add_argument('--smb-add-computer', action='store', metavar=('COMPUTERNAME', 'PASSWORD'), required=False, nargs='*', help='Attempt to add a new computer account via SMB. '
                             'The Domain Controller must be specified with the FQDN and not its IP address.')
     
     #RPC arguments
@@ -345,11 +345,6 @@ if __name__ == '__main__':
 
     if options.rpc_use_smb and not options.auth_smb:
        logging.error("Set -auth-smb to relay DCE/RPC to SMB pipes")
-       sys.exit(1)
-
-    # IPv4 address REGEX for the target
-    if re.search(r'\b((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.|$)){4}\b', options.target) is not None:
-       logging.error("To add a machine account through SMB the target Domain Controller must be specified with its FQDN")
        sys.exit(1)
 
     # Init the example's logger theme

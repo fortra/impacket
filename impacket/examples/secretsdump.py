@@ -421,6 +421,37 @@ class RemoteOperations:
         self.__domainHandle = resp['DomainHandle']
         self.__domainName = domain
 
+    # No domain specification, it is retrieved from the specified target (which can be an IP address)
+    def connectSamr2(self, target) :
+        rpc = transport.DCERPCTransportFactory(self.__stringBindingSamr)
+        rpc.set_smb_connection(self.__smbConnection)
+        self.__samr = rpc.get_dce_rpc()
+        self.__samr.connect()
+        self.__samr.bind(samr.MSRPC_UUID_SAMR)
+        resp = samr.hSamrConnect(self.__samr, '\\\\%s\x00' % target)
+        serverHandle = resp['ServerHandle']
+
+        # Mainly reused from the addComputer.py script
+        enumDomain = samr.hSamrEnumerateDomainsInSamServer(self.__samr, serverHandle)
+        domains = enumDomain['Buffer']['Buffer']
+        domainsWithoutBuiltin = list(filter(lambda x : x['Name'].lower() != 'builtin', domains))
+        if len(domainsWithoutBuiltin) > 1:
+            print("This server provides multiple domains. Available domain(s):")
+            for domain in domains:
+                print(" * %s" % domain['Name'])
+            print("Consider specifying the Domain Controller with its FQDN and not its IP address.")
+            raise Exception()
+        else:
+            domain = domainsWithoutBuiltin[0]['Name']
+        
+        resp = samr.hSamrLookupDomainInSamServer(self.__samr, serverHandle, domain)
+        self.__domainSid = resp['DomainId'].formatCanonical()
+        LOG.debug('Domain name and SID: %s, %s' % (domain, self.__domainSid))
+
+        resp = samr.hSamrOpenDomain(self.__samr, serverHandle=serverHandle, domainId=resp['DomainId'])
+        self.__domainHandle = resp['DomainHandle']
+        self.__domainName = domain
+
     def __connectDrds(self):
         stringBinding = epm.hept_map(self.__smbConnection.getRemoteHost(), drsuapi.MSRPC_UUID_DRSUAPI,
                                      protocol='ncacn_ip_tcp')
