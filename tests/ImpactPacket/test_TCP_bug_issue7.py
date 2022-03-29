@@ -7,13 +7,9 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
-from impacket.ImpactPacket import TCP, ImpactPacketException
 import unittest
 from threading import Thread
+from impacket.ImpactPacket import TCP, ImpactPacketException
 
 
 class TestTCP(unittest.TestCase):
@@ -31,20 +27,20 @@ class TestTCP(unittest.TestCase):
                 try:
                     frame = '\x12\x34\x00\x50\x00\x00\x00\x01\x00\x00\x00\x00' \
                         '\x60\x00\x00\x00\x8d\x5c\x00\x00\x02\x00\x00\x00'
-                    tcp = TCP(frame)
+                    TCP(frame)
                 except ImpactPacketException as e:
                     if str(e) != "'TCP Option length is too low'":
                         raise e
-                except:
+                except Exception:
                     pass
 
         thread_hangs = it_hangs()
-        thread_hangs.setDaemon(True)
+        thread_hangs.daemon = True
         thread_hangs.start()
 
         thread_hangs.join(1.0)  # 1 seconds timeout
         self.assertEqual(thread_hangs.is_alive(), False)
 
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestTCP)
-unittest.main(defaultTest='suite')
+if __name__ == '__main__':
+    unittest.main(verbosity=1)

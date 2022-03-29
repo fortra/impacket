@@ -44,6 +44,19 @@ try:
 except ImportError:
   import readline
 
+
+mimikatz_intro = r"""
+  .#####.   mimikatz RPC interface
+ .## ^ ##.  "A La Vie, A L' Amour "
+ ## / \ ##  /* * *
+ ## \ / ##   Benjamin DELPY `gentilkiwi` ( benjamin@gentilkiwi.com )
+ '## v ##'   http://blog.gentilkiwi.com/mimikatz             (oe.eo)
+  '#####'    Impacket client by Alberto Solino (@agsolino)    * * */
+
+
+Type help for list of commands"""
+
+
 class MimikatzShell(cmd.Cmd):
     def __init__(self, dce):
         cmd.Cmd.__init__(self)
@@ -51,14 +64,7 @@ class MimikatzShell(cmd.Cmd):
 
         self.prompt = 'mimikatz # '
         self.tid = None
-        self.intro = '' \
-                    '  .#####.   mimikatz RPC interface\n'\
-                    ' .## ^ ##.  "A La Vie, A L\' Amour "\n'\
-                    ' ## / \ ##  /* * *\n'\
-                    ' ## \ / ##   Benjamin DELPY `gentilkiwi` ( benjamin@gentilkiwi.com )\n'\
-                    ' \'## v ##\'   http://blog.gentilkiwi.com/mimikatz             (oe.eo)\n'\
-                    '  \'#####\'    Impacket client by Alberto Solino (@agsolino)    * * */\n\n'\
-                    'Type help for list of commands'
+        self.intro = mimikatz_intro
         self.pwd = ''
         self.share = None
         self.loggedIn = True

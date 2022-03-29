@@ -1023,7 +1023,7 @@ class ITypeInfo(IRemUnknown2):
     def GetTypeComp(self):
         request = ITypeInfo_GetTypeComp()
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return ITypeComp(INTERFACE(self.get_cinstance(), ''.join(resp['ppTComp']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        return ITypeComp(INTERFACE(self.get_cinstance(), b''.join(resp['ppTComp']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
 
     def GetFuncDesc(self, index):
         request = ITypeInfo_GetFuncDesc()
@@ -1061,7 +1061,7 @@ class IDispatch(IRemUnknown2):
         request['iTInfo'] = 0
         request['lcid'] = 0
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return ITypeInfo(INTERFACE(self.get_cinstance(), ''.join(resp['ppTInfo']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        return ITypeInfo(INTERFACE(self.get_cinstance(), b''.join(resp['ppTInfo']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
 
     def GetIDsOfNames(self, rgszNames, lcid = 0):
         request = IDispatch_GetIDsOfNames()

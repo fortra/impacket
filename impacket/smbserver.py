@@ -2978,9 +2978,13 @@ class SMB2Commands:
                 # No credentials provided, let's grant access
                 if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_ANONYMOUS:
                     isAnonymus = True
+                    if smbServer._SMBSERVER__anonymousLogon == False:
+                        errorCode = STATUS_ACCESS_DENIED
+                    else:
+                        errorCode = STATUS_SUCCESS
                 else:
                     isGuest = True
-                errorCode = STATUS_SUCCESS
+                    errorCode = STATUS_SUCCESS
 
             if errorCode == STATUS_SUCCESS:
                 connData['Authenticated'] = True
@@ -3876,7 +3880,7 @@ class SMBSERVERHandler(socketserver.BaseRequestHandler):
         # In case of AF_INET6 the client_address contains 4 items, ignore the last 2
         self.__ip, self.__port = client_address[:2]
         self.__request = request
-        self.__connId = threading.currentThread().getName()
+        self.__connId = threading.current_thread().name
         self.__timeOut = 60 * 5
         self.__select_poll = select_poll
         # self.__connId = os.getpid()
@@ -3960,6 +3964,9 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
         # SMB2 Support flag = default not active
         self.__SMB2Support = False
+
+        # Allow anonymous logon
+        self.__anonymousLogon = True
 
         # Our list of commands we will answer, by default the NOT IMPLEMENTED one
         self.__smbCommandsHandler = SMBCommands()
@@ -4600,6 +4607,12 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
             self.__SMB2Support = self.__serverConfig.getboolean("global", "SMB2Support")
         else:
             self.__SMB2Support = False
+
+
+        if self.__serverConfig.has_option("global", "anonymous_logon"):
+            self.__anonymousLogon = self.__serverConfig.getboolean("global", "anonymous_logon")
+        else:
+            self.__anonymousLogon = True
 
         if self.__logFile != 'None':
             logging.basicConfig(filename=self.__logFile,

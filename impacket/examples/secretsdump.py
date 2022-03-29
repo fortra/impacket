@@ -41,17 +41,19 @@
 #   - https://code.google.com/p/creddump/
 #   - https://lab.mediaservice.net/code/cachedump.rb
 #   - https://insecurety.net/?p=768
-#   - http://www.beginningtoseethelight.org/ntsecurity/index.htm
+#   - https://web.archive.org/web/20190717124313/http://www.beginningtoseethelight.org/ntsecurity/index.htm
 #   - https://www.exploit-db.com/docs/english/18244-active-domain-offline-hash-dump-&-forensic-analysis.pdf
 #   - https://www.passcape.com/index.php?section=blog&cmd=details&id=15
 #
 from __future__ import division
 from __future__ import print_function
 import codecs
+import json
 import hashlib
 import logging
 import ntpath
 import os
+import re
 import random
 import string
 import time
@@ -159,7 +161,7 @@ class DOMAIN_ACCOUNT_F(Structure):
 #        ('Unknown4','<L=0'),
     )
 
-# Great help from here http://www.beginningtoseethelight.org/ntsecurity/index.htm
+# Great help from here https://web.archive.org/web/20190717124313/http://www.beginningtoseethelight.org/ntsecurity/index.htm
 class USER_ACCOUNT_V(Structure):
     structure = (
         ('Unknown','12s=b""'),
@@ -1557,6 +1559,27 @@ class LSASecrets(OfflineRegistry):
             extrasecret = "%s:plain_password_hex:%s" % (printname, hexlify(secretItem).decode('utf-8'))
             self.__secretItems.append(extrasecret)
             self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, extrasecret)
+        elif re.match('^L\$_SQSA_(S-[0-9]-[0-9]-([0-9])+-([0-9])+-([0-9])+-([0-9])+-([0-9])+)$', upperName) is not None:
+            # Decode stored security questions
+            sid = re.search('^L\$_SQSA_(S-[0-9]-[0-9]-([0-9])+-([0-9])+-([0-9])+-([0-9])+-([0-9])+)$', upperName).group(1)
+            try:
+                strDecoded = secretItem.decode('utf-16le').replace('\xa0',' ')
+                strDecoded = json.loads(strDecoded)
+            except:
+                pass
+            else:
+                output = []
+                if strDecoded['version'] == 1:
+                    output.append(" - Version : %d" % strDecoded['version'])
+                    for qk in strDecoded['questions']:
+                        output.append(" | Question: %s" % qk['question'])
+                        output.append(" | |--> Answer: %s" % qk['answer'])
+                    output = '\n'.join(output)
+                    secret = 'Security Questions for user %s: \n%s' % (sid, output)
+                else:
+                    LOG.warning("Unknown SQSA version (%s), please open an issue with the following data so we can add a parser for it." % str(strDecoded['version']))
+                    LOG.warning("Don't forget to remove sensitive content before sending the data in a Github issue.")
+                    secret = json.dumps(strDecoded, indent=4)
 
         if secret != '':
             printableSecret = secret
@@ -1865,10 +1888,10 @@ class NTDSHashes:
         self.__outputFileName = outputFileName
         self.__justUser = justUser
         self.__perSecretCallback = perSecretCallback
-		
-		# these are all the columns that we need to get the secrets. 
+
+		# these are all the columns that we need to get the secrets.
 		# If in the future someone finds other columns containing interesting things please extend ths table.
-        self.__filter_tables_usersecret = { 
+        self.__filter_tables_usersecret = {
             self.NAME_TO_INTERNAL['objectSid'] : 1,
             self.NAME_TO_INTERNAL['dBCSPwd'] : 1,
             self.NAME_TO_INTERNAL['name'] : 1,
@@ -1882,7 +1905,7 @@ class NTDSHashes:
             self.NAME_TO_INTERNAL['userAccountControl'] : 1,
             self.NAME_TO_INTERNAL['supplementalCredentials'] : 1,
             self.NAME_TO_INTERNAL['pekList'] : 1,
-        
+
         }
 
     def getResumeSessionFile(self):
