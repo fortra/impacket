@@ -147,7 +147,7 @@ def start_servers(options, threads):
         c.setExeFile(options.e)
         c.setCommand(options.c)
         c.setEnumLocalAdmins(options.enum_local_admins)
-        c.setDisableMulti(options.disable_multi)
+        c.setDisableMulti(options.no_multirelay)
         c.setEncoding(codec)
         c.setMode(mode)
         c.setAttacks(PROTOCOL_ATTACKS)
@@ -244,6 +244,7 @@ if __name__ == '__main__':
     parser.add_argument('--wcf-port', type=int, help='Port to listen on wcf server', default=9389)  # ADWS
     parser.add_argument('--raw-port', type=int, help='Port to listen on raw server', default=6666)
 
+    parser.add_argument('--no-multirelay', action="store_true", required=False, help='If set, disable multi-host relay (SMB and HTTP servers)')
     parser.add_argument('-ra','--random', action='store_true', help='Randomize target selection')
     parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
     parser.add_argument('-l','--lootdir', action='store', type=str, required=False, metavar = 'LOOTDIR',default='.', help='Loot '
@@ -258,7 +259,6 @@ if __name__ == '__main__':
     parser.add_argument('-smb2support', action="store_true", default=False, help='SMB2 Support')
     parser.add_argument('-ntlmchallenge', action="store", default=None, help='Specifies the NTLM server challenge used by the '
                                                                              'SMB Server (16 hex bytes long. eg: 1122334455667788)')
-
     parser.add_argument('-socks', action='store_true', default=False,
                         help='Launch a SOCKS proxy for the connection relayed')
     parser.add_argument('-wh','--wpad-host', action='store',help='Enable serving a WPAD file for Proxy Authentication attack, '
@@ -268,9 +268,6 @@ if __name__ == '__main__':
     parser.add_argument('-6','--ipv6', action='store_true',help='Listen on both IPv6 and IPv4')
     parser.add_argument('--remove-mic', action='store_true',help='Remove MIC (exploit CVE-2019-1040)')
     parser.add_argument('--serve-image', action='store',help='local path of the image that will we returned to clients')
-    parser.add_argument('--disable-multi', action="store_true", required=False, help='If set, disable multi-host relay')
-
-
     parser.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on '
                         'target system (for SMB and RPC). If not specified for SMB, hashes will be dumped (secretsdump.py must be'
                         ' in the same directory). For RPC no output will be provided.')
@@ -372,6 +369,9 @@ if __name__ == '__main__':
         logging.info("Running in relay mode to single host")
         mode = 'RELAY'
         targetSystem = TargetsProcessor(singleTarget=options.target, protocolClients=PROTOCOL_CLIENTS, randomize=options.random)
+        # Disabling multirelay feature (Single host + general candidate)
+        if targetSystem.generalCandidates:
+            options.no_multirelay = True
     else:
         if options.tf is not None:
             #Targetfile specified

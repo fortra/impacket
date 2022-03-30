@@ -2096,7 +2096,7 @@ class SMBQueryInformationDiskResponse_Parameters(Structure):
 
 ############# SMB_COM_LOGOFF_ANDX (0x74)
 class SMBLogOffAndX(SMBAndXCommand_Parameters):
-    strucure = ()
+    structure = ()
 
 ############# SMB_COM_CLOSE (0x04)
 class SMBClose_Parameters(SMBCommand_Parameters):
