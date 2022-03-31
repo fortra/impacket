@@ -253,8 +253,7 @@ class LDAPAttack(ProtocolAttack):
 
         # Get the domain we are in
         domaindn = domainDumper.root
-        # domain = re.sub(',DC=', '.', domaindn[domaindn.find('DC='):], flags=re.I)[3:]
-        domain = "DOMAIN.LOCAL"
+        domain = re.sub(',DC=', '.', domaindn[domaindn.find('DC='):], flags=re.I)[3:]
 
         # Get target computer DN
         result = self.getUserInfo(domainDumper, currentShadowCredentialsTarget)
