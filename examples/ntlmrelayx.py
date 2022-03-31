@@ -168,6 +168,10 @@ def start_servers(options, threads):
         c.setWebDAVOptions(options.serve_image)
         c.setIsADCSAttack(options.adcs)
         c.setADCSOptions(options.template)
+        c.setIsShadowCredentialsAttack(options.shadow_credentials)
+        c.setShadowCredentialsOptions(options.shadow_target, options.pfx_password, options.export_type,
+                                      options.cert_outfile_path)
+
         c.setAltName(options.altname)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
@@ -341,6 +345,17 @@ if __name__ == '__main__':
     adcsoptions.add_argument('--adcs', action='store_true', required=False, help='Enable AD CS relay attack')
     adcsoptions.add_argument('--template', action='store', metavar="TEMPLATE", required=False, help='AD CS template. Defaults to Machine or User whether relayed account name ends with `$`. Relaying a DC should require specifying `DomainController`')
     adcsoptions.add_argument('--altname', action='store', metavar="ALTNAME", required=False, help='Subject Alternative Name to use when performing ESC1 or ESC6 attacks.')
+
+    # Shadow Credentials attack options
+    shadowcredentials = parser.add_argument_group("Shadow Credentials attack options")
+    shadowcredentials.add_argument('--shadow-credentials', action='store_true', required=False,
+                                   help='Enable Shadow Credentials relay attack (msDS-KeyCredentialLink manipulation for PKINIT pre-authentication)')
+    shadowcredentials.add_argument('--shadow-target', action='store', required=False, help='target account (user or computer$) to populate msDS-KeyCredentialLink from')
+    shadowcredentials.add_argument('--pfx-password', action='store', required=False,
+                                   help='password for the PFX stored self-signed certificate (will be random if not set, not needed when exporting to PEM)')
+    shadowcredentials.add_argument('--export-type', action='store', required=False, choices=["PEM", " PFX"], type=lambda choice: choice.upper(), default="PFX",
+                                   help='choose to export cert+private key in PEM or PFX (i.e. #PKCS12) (default: PFX))')
+    shadowcredentials.add_argument('--cert-outfile-path', action='store', required=False, help='filename to store the generated self-signed PEM or PFX certificate and key')
 
     try:
        options = parser.parse_args()
