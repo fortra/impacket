@@ -168,6 +168,7 @@ def start_servers(options, threads):
         c.setWebDAVOptions(options.serve_image)
         c.setIsADCSAttack(options.adcs)
         c.setADCSOptions(options.template)
+        c.setAltName(options.altname)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
@@ -339,6 +340,7 @@ if __name__ == '__main__':
     adcsoptions = parser.add_argument_group("AD CS attack options")
     adcsoptions.add_argument('--adcs', action='store_true', required=False, help='Enable AD CS relay attack')
     adcsoptions.add_argument('--template', action='store', metavar="TEMPLATE", required=False, help='AD CS template. Defaults to Machine or User whether relayed account name ends with `$`. Relaying a DC should require specifying `DomainController`')
+    adcsoptions.add_argument('--altname', action='store', metavar="ALTNAME", required=False, help='Subject Alternative Name to use when performing ESC1 or ESC6 attacks.')
 
     try:
        options = parser.parse_args()
@@ -406,7 +408,7 @@ if __name__ == '__main__':
 
     if not options.no_wcf_server:
         RELAY_SERVERS.append(WCFRelayServer)
-        
+
     if not options.no_raw_server:
         RELAY_SERVERS.append(RAWRelayServer)
 
