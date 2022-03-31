@@ -400,7 +400,7 @@ class HTTPRelayServer(Thread):
                         return
                     else:
                         LOG.error('HTTPD(%s): Negotiating NTLM with %s://%s failed. Skipping to next target' % (
-                            self.server.server_address[1], self.target.scheme, self.target.netloc)
+                            self.server.server_address[1], self.target.scheme, self.target.netloc))
                         self.server.config.target.logTarget(self.target)
                         self.do_REDIRECT()
             elif messageType == 3:
