@@ -44,12 +44,13 @@ except ImportError:
     from urllib2 import ProxyHandler, build_opener, Request
 
 import json
+from time import sleep
 from threading import Thread
 
 from impacket import version
 from impacket.examples import logger
 from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer, WCFRelayServer, RAWRelayServer
-from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig
+from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig, parse_listening_ports
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, TargetsFileWatcher
 from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS
 
@@ -168,17 +169,6 @@ def start_servers(options, threads):
         c.setIsADCSAttack(options.adcs)
         c.setADCSOptions(options.template)
 
-        if server is HTTPRelayServer:
-            c.setListeningPort(options.http_port)
-            c.setDomainAccount(options.machine_account, options.machine_hashes, options.domain)
-        elif server is SMBRelayServer:
-            c.setListeningPort(options.smb_port)
-        elif server is WCFRelayServer:
-            c.setListeningPort(options.wcf_port)
-        elif server is RAWRelayServer:
-            c.setListeningPort(options.raw_port)
-        
-
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
             c.setMode('REDIRECT')
@@ -187,6 +177,23 @@ def start_servers(options, threads):
         #Use target randomization if configured and the server is not SMB
         if server is not SMBRelayServer and options.random:
             c.setRandomTargets(True)
+
+        if server is HTTPRelayServer:
+            c.setDomainAccount(options.machine_account, options.machine_hashes, options.domain)
+            for port in options.http_port:
+                c.setListeningPort(port)
+                s = server(c)
+                s.start()
+                threads.add(s)
+                sleep(0.1)
+            continue
+
+        elif server is SMBRelayServer:
+            c.setListeningPort(options.smb_port)
+        elif server is WCFRelayServer:
+            c.setListeningPort(options.wcf_port)
+        elif server is RAWRelayServer:
+            c.setListeningPort(options.raw_port)
 
         s = server(c)
         s.start()
@@ -240,7 +247,7 @@ if __name__ == '__main__':
     serversoptions.add_argument('--no-raw-server', action='store_true', help='Disables the RAW server')
 
     parser.add_argument('--smb-port', type=int, help='Port to listen on smb server', default=445)
-    parser.add_argument('--http-port', type=int, help='Port to listen on http server', default=80)
+    parser.add_argument('--http-port', help='Port(s) to listen on HTTP server. Can specify multiple ports by separating them with `,`, and ranges with `-`. Ex: `80,8000-8010`', default="80")
     parser.add_argument('--wcf-port', type=int, help='Port to listen on wcf server', default=9389)  # ADWS
     parser.add_argument('--raw-port', type=int, help='Port to listen on raw server', default=6666)
 
@@ -388,6 +395,11 @@ if __name__ == '__main__':
 
     if not options.no_http_server:
         RELAY_SERVERS.append(HTTPRelayServer)
+        try:
+            options.http_port = parse_listening_ports(options.http_port)
+        except ValueError:
+            logging.error("Incorrect specification of port range for HTTP server")
+            sys.exit(1)
 
         if options.r is not None:
             logging.info("Running HTTP server in redirect mode")
