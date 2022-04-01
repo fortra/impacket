@@ -17,9 +17,15 @@
 #
 
 import argparse
+import binascii
+import codecs
+import json
 import logging
+import re
 import sys
 import traceback
+import datetime
+
 import ldap3
 import ssl
 import ldapdomaindump
@@ -197,6 +203,7 @@ class DACLedit(object):
 
         self.rights = args.rights
         self.rights_guid = args.rights_guid
+        self.filename = args.filename
 
         logging.debug('Initializing domainDumper()')
         cnf = ldapdomaindump.domainDumpConfig()
@@ -204,29 +211,15 @@ class DACLedit(object):
         self.domain_dumper = ldapdomaindump.domainDumper(self.ldap_server, self.ldap_session, cnf)
 
         # Searching for target account with its security descriptor
-        # Set SD flags to only query for DACL
-        controls = security_descriptor_control(sdflags=0x04)
-        if self.target_sAMAccountName is not None:
-            _lookedup_principal = self.target_sAMAccountName
-            self.ldap_session.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(_lookedup_principal), attributes=['nTSecurityDescriptor'], controls=controls)
-        elif self.target_SID is not None:
-            _lookedup_principal = self.target_SID
-            self.ldap_session.search(self.domain_dumper.root, '(objectSid=%s)' % _lookedup_principal, attributes=['nTSecurityDescriptor'], controls=controls)
-        elif self.target_DN is not None:
-            _lookedup_principal = self.target_DN
-            self.ldap_session.search(self.domain_dumper.root, '(distinguishedName=%s)' % _lookedup_principal, attributes=['nTSecurityDescriptor'], controls=controls)
-        try:
-            self.target_principal = self.ldap_session.entries[0]
-            logging.debug('Target principal found in LDAP (%s)' % _lookedup_principal)
-        except IndexError:
-            raise('Target principal not found in LDAP (%s)' % _lookedup_principal)
+        self.search_principal_security_descriptor()
 
         # Extract security descriptor data
-        secDescData = self.target_principal['nTSecurityDescriptor'].raw_values[0]
-        self.principal_security_descriptor = ldaptypes.SR_SECURITY_DESCRIPTOR(data=secDescData)
+        self.principal_raw_security_descriptor = self.target_principal['nTSecurityDescriptor'].raw_values[0]
+        self.principal_security_descriptor = ldaptypes.SR_SECURITY_DESCRIPTOR(data=self.principal_raw_security_descriptor)
 
         # Searching for the principal SID if any principal argument was given and principal_SID wasn't
-        if self.principal_SID is None:
+        if self.principal_SID is None and self.principal_sAMAccountName is not None or self.principal_DN is not None:
+            _lookedup_principal = ""
             if self.principal_sAMAccountName is not None:
                 _lookedup_principal = self.principal_sAMAccountName
                 self.ldap_session.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(_lookedup_principal), attributes=['objectSid'])
@@ -246,11 +239,6 @@ class DACLedit(object):
         return
 
     def write(self):
-        # if self.target_SID is not None:
-        #     assert self.target_SID == format_sid(self.target_principal['objectSid'].raw_values[0])
-        # else:
-        #     self.target_SID = self.target_principal['objectSid'].raw_values[0]
-
         if self.rights == "FullControl" and self.rights_guid is None:
             logging.info("Appending ACE (%s --(GENERIC_ALL)--> %s)" % (self.principal_SID, format_sid(self.target_SID)))
             self.principal_security_descriptor['Dacl'].aces.append(self.create_access_allowed_ace(SIMPLE_PERMISSIONS.FullControl.value, self.principal_SID))
@@ -258,6 +246,7 @@ class DACLedit(object):
             for rights_guid in self.build_guids_for_rights():
                 logging.debug("Appending ACE (%s --(%s)--> %s)" % (self.principal_SID, rights_guid, format_sid(self.target_SID)))
                 self.principal_security_descriptor['Dacl'].aces.append(self.create_access_allowed_object_ace(rights_guid, self.principal_SID))
+        self.backup()
         self.modify_secDesc_for_dn(self.target_principal.entry_dn, self.principal_security_descriptor)
         return
 
@@ -296,21 +285,49 @@ class DACLedit(object):
             i += 1
         if dacl_must_be_replaced:
             self.principal_security_descriptor['Dacl'].aces = new_dacl
+            self.backup()
             self.modify_secDesc_for_dn(self.target_principal.entry_dn, self.principal_security_descriptor)
         else:
             logging.info("Nothing to remove...")
 
-    def flush(self):
-        # todo but implement a check, it could be a reeeeeaaally bad idea to flush an object DACL
-        pass
+    def backup(self):
+        backup = {}
+        backup["sd"] = binascii.hexlify(self.principal_raw_security_descriptor).decode('utf-8')
+        backup["dn"] = self.target_principal.entry_dn
+        if not self.filename:
+            self.filename = 'dacledit-%s.bak' % datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        with codecs.open(self.filename, 'w', 'utf-8') as outfile:
+            json.dump(backup, outfile)
+        logging.info('DACL backed up to %s', self.filename)
 
-    def backup(self, controlled_account, backup_filename):
-        # todo, check the format of the restore file when using ntlmrelayx, it could be nice to bring support for this, aclpwn is a bit old and not maintained anymore
-        pass
+    def restore(self):
+        with codecs.open(self.filename, 'r', 'utf-8') as infile:
+            restore = json.load(infile)
+            assert "sd" in restore.keys()
+            assert "dn" in restore.keys()
+        new_raw_security_descriptor = binascii.unhexlify(restore["sd"].encode('utf-8'))
+        new_security_descriptor = ldaptypes.SR_SECURITY_DESCRIPTOR(data=new_raw_security_descriptor)
+        self.backup()
+        self.modify_secDesc_for_dn(self.target_principal.entry_dn, new_security_descriptor)
 
-    def restore(self, controlled_account, backup_filename):
-        # todo, check the format of the restore file when using ntlmrelayx, it could be nice to bring support for this, aclpwn is a bit old and not maintained anymore
-        pass
+    def search_principal_security_descriptor(self):
+        _lookedup_principal = ""
+        # Set SD flags to only query for DACL
+        controls = security_descriptor_control(sdflags=0x04)
+        if self.target_sAMAccountName is not None:
+            _lookedup_principal = self.target_sAMAccountName
+            self.ldap_session.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(_lookedup_principal), attributes=['nTSecurityDescriptor'], controls=controls)
+        elif self.target_SID is not None:
+            _lookedup_principal = self.target_SID
+            self.ldap_session.search(self.domain_dumper.root, '(objectSid=%s)' % _lookedup_principal, attributes=['nTSecurityDescriptor'], controls=controls)
+        elif self.target_DN is not None:
+            _lookedup_principal = self.target_DN
+            self.ldap_session.search(self.domain_dumper.root, '(distinguishedName=%s)' % _lookedup_principal, attributes=['nTSecurityDescriptor'], controls=controls)
+        try:
+            self.target_principal = self.ldap_session.entries[0]
+            logging.debug('Target principal found in LDAP (%s)' % _lookedup_principal)
+        except IndexError:
+            raise ('Target principal not found in LDAP (%s)' % _lookedup_principal)
 
     def get_user_info(self, samname):
         self.ldap_session.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(samname), attributes=['objectSid'])
@@ -527,7 +544,8 @@ def parse_args():
     target_parser.add_argument("-target-dn", dest="target_DN", metavar="DN", type=str, required=False, help="Distinguished Name")
 
     dacl_parser = parser.add_argument_group("dacl editor")
-    dacl_parser.add_argument('-action', choices=['read', 'write', 'remove'], nargs='?', default='read', help='Action to operate on the DACL')
+    dacl_parser.add_argument('-action', choices=['read', 'write', 'remove', 'backup', 'restore'], nargs='?', default='read', help='Action to operate on the DACL')
+    dacl_parser.add_argument('-file', dest="filename", type=str, help='Filename and path for the backup (optional)/restore (required)')
     dacl_parser.add_argument('-rights', choices=['FullControl', 'ResetPassword', 'WriteMembers', 'DCSync'], nargs='?', default='FullControl', help='Rights to write/remove in the target DACL (default: FullControl)')
     dacl_parser.add_argument('-rights-guid', type=str, help='Manual GUID representing the right to write/remove')
 
@@ -766,6 +784,9 @@ def main():
         logging.critical('-principal, -principal-sid, or -principal-dn should be specified when using -action write')
         sys.exit(1)
 
+    if args.action == "restore" and not args.filename:
+        logging.critical('-file is required when using -action restore')
+
     domain, username, password, lmhash, nthash = parse_identity(args)
     if len(nthash) > 0 and lmhash == "":
         lmhash = "aad3b435b51404eeaad3b435b51404ee"
@@ -781,6 +802,10 @@ def main():
             dacledit.remove()
         elif args.action == 'flush':
             dacledit.flush()
+        elif args.action == 'backup':
+            dacledit.backup()
+        elif args.action == 'restore':
+            dacledit.restore()
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             traceback.print_exc()
