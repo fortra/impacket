@@ -41,11 +41,90 @@ OBJECT_TYPES_GUID = {}
 OBJECT_TYPES_GUID.update(SCHEMA_OBJECTS)
 OBJECT_TYPES_GUID.update(EXTENDED_RIGHTS)
 
+WELL_KNOWN_SIDS = {
+    'S-1-0': 'Null Authority',
+    'S-1-0-0': 'Nobody',
+    'S-1-1': 'World Authority',
+    'S-1-1-0': 'Everyone',
+    'S-1-2': 'Local Authority',
+    'S-1-2-0': 'Local',
+    'S-1-2-1': 'Console Logon',
+    'S-1-3': 'Creator Authority',
+    'S-1-3-0': 'Creator Owner',
+    'S-1-3-1': 'Creator Group',
+    'S-1-3-2': 'Creator Owner Server',
+    'S-1-3-3': 'Creator Group Server',
+    'S-1-3-4': 'Owner Rights',
+    'S-1-5-80-0': 'All Services',
+    'S-1-4': 'Non-unique Authority',
+    'S-1-5': 'NT Authority',
+    'S-1-5-1': 'Dialup',
+    'S-1-5-2': 'Network',
+    'S-1-5-3': 'Batch',
+    'S-1-5-4': 'Interactive',
+    'S-1-5-6': 'Service',
+    'S-1-5-7': 'Anonymous',
+    'S-1-5-8': 'Proxy',
+    'S-1-5-9': 'Enterprise Domain Controllers',
+    'S-1-5-10': 'Principal Self',
+    'S-1-5-11': 'Authenticated Users',
+    'S-1-5-12': 'Restricted Code',
+    'S-1-5-13': 'Terminal Server Users',
+    'S-1-5-14': 'Remote Interactive Logon',
+    'S-1-5-15': 'This Organization',
+    'S-1-5-17': 'This Organization',
+    'S-1-5-18': 'Local System',
+    'S-1-5-19': 'NT Authority',
+    'S-1-5-20': 'NT Authority',
+    'S-1-5-32-544': 'Administrators',
+    'S-1-5-32-545': 'Users',
+    'S-1-5-32-546': 'Guests',
+    'S-1-5-32-547': 'Power Users',
+    'S-1-5-32-548': 'Account Operators',
+    'S-1-5-32-549': 'Server Operators',
+    'S-1-5-32-550': 'Print Operators',
+    'S-1-5-32-551': 'Backup Operators',
+    'S-1-5-32-552': 'Replicators',
+    'S-1-5-64-10': 'NTLM Authentication',
+    'S-1-5-64-14': 'SChannel Authentication',
+    'S-1-5-64-21': 'Digest Authority',
+    'S-1-5-80': 'NT Service',
+    'S-1-5-83-0': 'NT VIRTUAL MACHINE\Virtual Machines',
+    'S-1-16-0': 'Untrusted Mandatory Level',
+    'S-1-16-4096': 'Low Mandatory Level',
+    'S-1-16-8192': 'Medium Mandatory Level',
+    'S-1-16-8448': 'Medium Plus Mandatory Level',
+    'S-1-16-12288': 'High Mandatory Level',
+    'S-1-16-16384': 'System Mandatory Level',
+    'S-1-16-20480': 'Protected Process Mandatory Level',
+    'S-1-16-28672': 'Secure Process Mandatory Level',
+    'S-1-5-32-554': 'BUILTIN\Pre-Windows 2000 Compatible Access',
+    'S-1-5-32-555': 'BUILTIN\Remote Desktop Users',
+    'S-1-5-32-557': 'BUILTIN\Incoming Forest Trust Builders',
+    'S-1-5-32-556': 'BUILTIN\\Network Configuration Operators',
+    'S-1-5-32-558': 'BUILTIN\Performance Monitor Users',
+    'S-1-5-32-559': 'BUILTIN\Performance Log Users',
+    'S-1-5-32-560': 'BUILTIN\Windows Authorization Access Group',
+    'S-1-5-32-561': 'BUILTIN\Terminal Server License Servers',
+    'S-1-5-32-562': 'BUILTIN\Distributed COM Users',
+    'S-1-5-32-569': 'BUILTIN\Cryptographic Operators',
+    'S-1-5-32-573': 'BUILTIN\Event Log Readers',
+    'S-1-5-32-574': 'BUILTIN\Certificate Service DCOM Access',
+    'S-1-5-32-575': 'BUILTIN\RDS Remote Access Servers',
+    'S-1-5-32-576': 'BUILTIN\RDS Endpoint Servers',
+    'S-1-5-32-577': 'BUILTIN\RDS Management Servers',
+    'S-1-5-32-578': 'BUILTIN\Hyper-V Administrators',
+    'S-1-5-32-579': 'BUILTIN\Access Control Assistance Operators',
+    'S-1-5-32-580': 'BUILTIN\Remote Management Users',
+}
+
+
 class RIGHTS_GUID(Enum):
-    WRITE_MEMBERS = "bf9679c0-0de6-11d0-a285-00aa003049e2"
-    RESET_PASSWORD = "00299570-246d-11d0-a768-00aa006e0529"
-    DS_REPLICATION_GET_CHANGES = "1131f6aa-9c07-11d1-f79f-00c04fc2dcd2"
-    DS_REPLICATION_GET_CHANGES_ALL = "1131f6ad-9c07-11d1-f79f-00c04fc2dcd2"
+    WriteMembers = "bf9679c0-0de6-11d0-a285-00aa003049e2"
+    ResetPassword = "00299570-246d-11d0-a768-00aa006e0529"
+    DS_Replication_Get_Changes = "1131f6aa-9c07-11d1-f79f-00c04fc2dcd2"
+    DS_Replication_Get_Changes_All = "1131f6ad-9c07-11d1-f79f-00c04fc2dcd2"
+
 
 class ACE_FLAGS(Enum):
     CONTAINER_INHERIT_ACE = ldaptypes.ACE.CONTAINER_INHERIT_ACE
@@ -56,60 +135,49 @@ class ACE_FLAGS(Enum):
     OBJECT_INHERIT_ACE = ldaptypes.ACE.OBJECT_INHERIT_ACE
     SUCCESSFUL_ACCESS_ACE_FLAG = ldaptypes.ACE.SUCCESSFUL_ACCESS_ACE_FLAG
 
+
 class ALLOWED_OBJECT_ACE_FLAGS(Enum):
     ACE_OBJECT_TYPE_PRESENT = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_OBJECT_TYPE_PRESENT
     ACE_INHERITED_OBJECT_TYPE_PRESENT = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_INHERITED_OBJECT_TYPE_PRESENT
 
-class ALLOWED_ACE_MASK_FLAGS(Enum):
-    GENERIC_READ = ldaptypes.ACCESS_MASK.GENERIC_READ
-    GENERIC_WRITE = ldaptypes.ACCESS_MASK.GENERIC_WRITE
-    GENERIC_EXECUTE = ldaptypes.ACCESS_MASK.GENERIC_EXECUTE
-    GENERIC_ALL = ldaptypes.ACCESS_MASK.GENERIC_ALL
-    MAXIMUM_ALLOWED = ldaptypes.ACCESS_MASK.MAXIMUM_ALLOWED
-    ACCESS_SYSTEM_SECURITY = ldaptypes.ACCESS_MASK.ACCESS_SYSTEM_SECURITY
-    SYNCHRONIZE = ldaptypes.ACCESS_MASK.SYNCHRONIZE
-    WRITE_OWNER = ldaptypes.ACCESS_MASK.WRITE_OWNER
-    WRITE_DACL = ldaptypes.ACCESS_MASK.WRITE_DACL
-    READ_CONTROL = ldaptypes.ACCESS_MASK.READ_CONTROL
-    DELETE = ldaptypes.ACCESS_MASK.DELETE
+
+class ACCESS_MASK(Enum):
+    GenericRead = 0x80000000
+    GenericWrite = 0x40000000
+    GenericExecute = 0x20000000
+    GenericAll = 0x10000000
+    MaximumAllowed = 0x02000000
+    AccessSystemSecurity = 0x01000000
+    Synchronize = 0x00100000
+    WriteOwner = 0x00080000
+    WriteDAC = 0x00040000
+    ReadControl = 0x00020000
+    Delete = 0x00010000
+    WriteAttributes = 0x00000100
+    ReadAttributes = 0x00000080
+    DeleteChild = 0x00000040
+    Execute_Traverse = 0x00000020
+    WriteExtendedAttributes = 0x00000010
+    ReadExtendedAttributes = 0x00000008
+    AppendData = 0x00000004
+    WriteData = 0x00000002
+    ReadData = 0x00000001
+
+
+class SIMPLE_PERMISSIONS(Enum):
+    FullControl = 0xf01ff
+    Read = 0x20094
+    Write = 0x200bc
+
 
 class ALLOWED_OBJECT_ACE_MASK_FLAGS(Enum):
-    ADS_RIGHT_DS_CONTROL_ACCESS = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CONTROL_ACCESS
-    ADS_RIGHT_DS_CREATE_CHILD = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CREATE_CHILD
-    ADS_RIGHT_DS_DELETE_CHILD = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_DELETE_CHILD
-    ADS_RIGHT_DS_READ_PROP = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_READ_PROP
-    ADS_RIGHT_DS_WRITE_PROP = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_WRITE_PROP
-    ADS_RIGHT_DS_SELF = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_SELF
+    ControlAccess = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CONTROL_ACCESS
+    CreateChild = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CREATE_CHILD
+    DeleteChild = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_DELETE_CHILD
+    ReadProperty = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_READ_PROP
+    WriteProperty = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_WRITE_PROP
+    Self = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_SELF
 
-# Create an ALLOW ACE with the specified sid
-def create_access_allowed_ace(access_mask, sid):
-    nace = ldaptypes.ACE()
-    nace['AceType'] = ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE
-    nace['AceFlags'] = 0x00
-    acedata = ldaptypes.ACCESS_ALLOWED_ACE()
-    acedata['Mask'] = ldaptypes.ACCESS_MASK()
-    acedata['Mask']['Mask'] = access_mask
-    acedata['Sid'] = ldaptypes.LDAP_SID()
-    acedata['Sid'].fromCanonical(sid)
-    nace['Ace'] = acedata
-    return nace
-
-# Create an object ACE with the specified privguid and our sid
-def create_access_allowed_object_ace(privguid, sid):
-    nace = ldaptypes.ACE()
-    nace['AceType'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE
-    nace['AceFlags'] = 0x00
-    acedata = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE()
-    acedata['Mask'] = ldaptypes.ACCESS_MASK()
-    acedata['Mask']['Mask'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CONTROL_ACCESS
-    acedata['ObjectType'] = string_to_bin(privguid)
-    acedata['InheritedObjectType'] = b''
-    acedata['Sid'] = ldaptypes.LDAP_SID()
-    acedata['Sid'].fromCanonical(sid)
-    assert sid == acedata['Sid'].formatCanonical()
-    acedata['Flags'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_OBJECT_TYPE_PRESENT
-    nace['Ace'] = acedata
-    return nace
 
 class DACLedit(object):
     """docstring for setrbcd"""
@@ -135,144 +203,75 @@ class DACLedit(object):
         cnf.basepath = None
         self.domain_dumper = ldapdomaindump.domainDumper(self.ldap_server, self.ldap_session, cnf)
 
-    def read(self):
+        # Searching for target account with its security descriptor
         # Set SD flags to only query for DACL
         controls = security_descriptor_control(sdflags=0x04)
         if self.target_sAMAccountName is not None:
-            self.ldap_session.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(self.target_sAMAccountName), attributes=['nTSecurityDescriptor'], controls=controls)
+            _lookedup_principal = self.target_sAMAccountName
+            self.ldap_session.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(_lookedup_principal), attributes=['nTSecurityDescriptor'], controls=controls)
         elif self.target_SID is not None:
-            self.ldap_session.search(self.domain_dumper.root, '(objectSid=%s)' % self.target_SID, attributes=['nTSecurityDescriptor'], controls=controls)
+            _lookedup_principal = self.target_SID
+            self.ldap_session.search(self.domain_dumper.root, '(objectSid=%s)' % _lookedup_principal, attributes=['nTSecurityDescriptor'], controls=controls)
         elif self.target_DN is not None:
-            self.ldap_session.search(self.domain_dumper.root, '(distinguishedName=%s)' % self.target_DN, attributes=['nTSecurityDescriptor'], controls=controls)
+            _lookedup_principal = self.target_DN
+            self.ldap_session.search(self.domain_dumper.root, '(distinguishedName=%s)' % _lookedup_principal, attributes=['nTSecurityDescriptor'], controls=controls)
         try:
             self.target_principal = self.ldap_session.entries[0]
-            secDescData = self.target_principal['nTSecurityDescriptor'].raw_values[0]
-            secDesc = ldaptypes.SR_SECURITY_DESCRIPTOR(data=secDescData)
-            parsed_dacl = self.parseDACL(secDesc['Dacl'])
-            self.printparsedDACL(parsed_dacl)
+            logging.debug('Target principal found in LDAP (%s)' % _lookedup_principal)
         except IndexError:
-            logging.error('Principal not found in LDAP')
-            return False
+            raise('Target principal not found in LDAP (%s)' % _lookedup_principal)
+
+        # Extract security descriptor data
+        secDescData = self.target_principal['nTSecurityDescriptor'].raw_values[0]
+        self.principal_security_descriptor = ldaptypes.SR_SECURITY_DESCRIPTOR(data=secDescData)
+
+        # Searching for the principal SID if any principal argument was given and principal_SID wasn't
+        if self.principal_SID is None:
+            if self.principal_sAMAccountName is not None:
+                _lookedup_principal = self.principal_sAMAccountName
+                self.ldap_session.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(_lookedup_principal), attributes=['objectSid'])
+            elif self.principal_DN is not None:
+                _lookedup_principal = self.principal_DN
+                self.ldap_session.search(self.domain_dumper.root, '(distinguishedName=%s)' % _lookedup_principal, attributes=['objectSid'])
+            try:
+                self.principal_SID = format_sid(self.ldap_session.entries[0]['objectSid'].raw_values[0])
+                logging.debug("Found principal SID to write in ACE(s): %s" % self.principal_SID)
+            except IndexError:
+                raise('Principal SID not found in LDAP (%s)' % _lookedup_principal)
+
+
+    def read(self):
+        parsed_dacl = self.parseDACL(self.principal_security_descriptor['Dacl'])
+        self.printparsedDACL(parsed_dacl)
         return
 
     def write(self):
-        if self.principal_SID is None:
-            if self.principal_sAMAccountName is not None:
-                self.ldap_session.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(self.principal_sAMAccountName), attributes=['objectSid'])
-            elif self.principal_DN is not None:
-                self.ldap_session.search(self.domain_dumper.root, '(distinguishedName=%s)' % self.principal_DN, attributes=['objectSid'])
-            try:
-                self.principal_SID = format_sid(self.ldap_session.entries[0]['objectSid'].raw_values[0])
-                pass
-            except IndexError:
-                logging.error('Principal not found in LDAP')
-                return False
-            logging.debug("Found principal SID to write in ACE(s): %s" % self.principal_SID)
+        # if self.target_SID is not None:
+        #     assert self.target_SID == format_sid(self.target_principal['objectSid'].raw_values[0])
+        # else:
+        #     self.target_SID = self.target_principal['objectSid'].raw_values[0]
 
-        # Set SD flags to only query for DACL
-        controls = security_descriptor_control(sdflags=0x04)
-        if self.target_sAMAccountName is not None:
-            self.ldap_session.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(self.target_sAMAccountName), attributes=['objectSid', 'nTSecurityDescriptor'], controls=controls)
-        elif self.target_SID is not None:
-            self.ldap_session.search(self.domain_dumper.root, '(objectSid=%s)' % self.target_SID, attributes=['objectSid', 'nTSecurityDescriptor'], controls=controls)
-        elif self.target_DN is not None:
-            self.ldap_session.search(self.domain_dumper.root, '(distinguishedName=%s)' % self.target_DN, attributes=['objectSid', 'nTSecurityDescriptor'], controls=controls)
-        try:
-            self.target_principal = self.ldap_session.entries[0]
-        except IndexError:
-            logging.error('Principal not found in LDAP')
-            return False
-        if self.target_SID is not None:
-            assert self.target_SID == self.target_principal['objectSid'].raw_values[0]
-        else:
-            self.target_SID = self.target_principal['objectSid'].raw_values[0]
-        secDescData = self.target_principal['nTSecurityDescriptor'].raw_values[0]
-        secDesc = ldaptypes.SR_SECURITY_DESCRIPTOR(data=secDescData)
-        if self.rights == "GenericAll" and self.rights_guid is None:
+        if self.rights == "FullControl" and self.rights_guid is None:
             logging.info("Appending ACE (%s --(GENERIC_ALL)--> %s)" % (self.principal_SID, format_sid(self.target_SID)))
-            secDesc['Dacl'].aces.append(create_access_allowed_ace(ldaptypes.ACCESS_MASK.GENERIC_ALL, self.principal_SID))
+            self.principal_security_descriptor['Dacl'].aces.append(self.create_access_allowed_ace(SIMPLE_PERMISSIONS.FullControl.value, self.principal_SID))
         else:
-            _rights_guids = []
-            if self.rights_guid is not None:
-                _rights_guids = [ self.rights_guid ]
-            elif self.rights == "WriteMembers":
-                _rights_guids = [ RIGHTS_GUID.WRITE_MEMBERS ]
-            elif self.rights == "ResetPassword":
-                _rights_guids = [ RIGHTS_GUID.RESET_PASSWORD ]
-            elif self.rights == "DCSync":
-                _rights_guids = [ RIGHTS_GUID.DS_REPLICATION_GET_CHANGES,
-                                 RIGHTS_GUID.DS_REPLICATION_GET_CHANGES_ALL ]
-            for rights_guid in _rights_guids:
-                logging.info("Appending ACE (%s --(%s)--> %s)" % (self.principal_SID, rights_guid.name, format_sid(self.target_SID)))
-                secDesc['Dacl'].aces.append(create_access_allowed_object_ace(rights_guid.value, self.principal_SID))
-        dn = self.target_principal.entry_dn
-        data = secDesc.getData()
-        self.ldap_session.modify(dn, {'nTSecurityDescriptor': (ldap3.MODIFY_REPLACE, [data])}, controls=controls)
-        if self.ldap_session.result['result'] == 0:
-            logging.info('DACL modified successfully!')
-        else:
-            if self.ldap_session.result['result'] == 50:
-                logging.error('Could not modify object, the server reports insufficient rights: %s',
-                              self.ldap_session.result['message'])
-            elif self.ldap_session.result['result'] == 19:
-                logging.error('Could not modify object, the server reports a constrained violation: %s',
-                              self.ldap_session.result['message'])
-            else:
-                logging.error('The server returned an error: %s', self.ldap_session.result['message'])
+            for rights_guid in self.build_guids_for_rights():
+                logging.debug("Appending ACE (%s --(%s)--> %s)" % (self.principal_SID, rights_guid, format_sid(self.target_SID)))
+                self.principal_security_descriptor['Dacl'].aces.append(self.create_access_allowed_object_ace(rights_guid, self.principal_SID))
+        self.modify_secDesc_for_dn(self.target_principal.entry_dn, self.principal_security_descriptor)
         return
 
     def remove(self):
-        if self.principal_SID is None:
-            if self.principal_sAMAccountName is not None:
-                self.ldap_session.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(self.principal_sAMAccountName), attributes=['objectSid'])
-            elif self.principal_DN is not None:
-                self.ldap_session.search(self.domain_dumper.root, '(distinguishedName=%s)' % self.principal_DN, attributes=['objectSid'])
-            try:
-                self.principal_SID = format_sid(self.ldap_session.entries[0]['objectSid'].raw_values[0])
-                pass
-            except IndexError:
-                logging.error('Principal not found in LDAP')
-                return False
-            logging.debug("Found principal SID: %s" % self.principal_SID)
-
-        # Set SD flags to only query for DACL
-        controls = security_descriptor_control(sdflags=0x04)
-        if self.target_sAMAccountName is not None:
-            self.ldap_session.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(self.target_sAMAccountName), attributes=['nTSecurityDescriptor'], controls=controls)
-        elif self.target_SID is not None:
-            self.ldap_session.search(self.domain_dumper.root, '(objectSid=%s)' % self.target_SID, attributes=['nTSecurityDescriptor'], controls=controls)
-        elif self.target_DN is not None:
-            self.ldap_session.search(self.domain_dumper.root, '(distinguishedName=%s)' % self.target_DN, attributes=['nTSecurityDescriptor'], controls=controls)
-        try:
-            self.target_principal = self.ldap_session.entries[0]
-        except IndexError:
-            logging.error('Principal not found in LDAP')
-            return False
-        secDescData = self.target_principal['nTSecurityDescriptor'].raw_values[0]
-        secDesc = ldaptypes.SR_SECURITY_DESCRIPTOR(data=secDescData)
-
         compare_aces = []
-        if self.rights == "GenericAll" and self.rights_guid is None:
-            # compare_aces.append(create_access_allowed_ace(ldaptypes.ACCESS_MASK.GENERIC_ALL, self.principal_SID))
-            compare_aces.append(create_access_allowed_ace(983551, self.principal_SID))
-            # todo : having issues with setting genericall ACEs, puttinf this hard value here to be able to remove a what-seems-like-genericall
-            pass
+        if self.rights == "FullControl" and self.rights_guid is None:
+            compare_aces.append(self.create_access_allowed_ace(SIMPLE_PERMISSIONS.FullControl.value, self.principal_SID))
         else:
-            _rights_guids = []
-            if self.rights_guid is not None:
-                _rights_guids = [self.rights_guid]
-            elif self.rights == "WriteMembers":
-                _rights_guids = [RIGHTS_GUID.WRITE_MEMBERS]
-            elif self.rights == "ResetPassword":
-                _rights_guids = [RIGHTS_GUID.RESET_PASSWORD]
-            elif self.rights == "DCSync":
-                _rights_guids = [RIGHTS_GUID.DS_REPLICATION_GET_CHANGES, RIGHTS_GUID.DS_REPLICATION_GET_CHANGES_ALL]
-            for rights_guid in _rights_guids:
-                compare_aces.append(create_access_allowed_object_ace(rights_guid.value, self.principal_SID))
+            for rights_guid in self.build_guids_for_rights():
+                compare_aces.append(self.create_access_allowed_object_ace(rights_guid, self.principal_SID))
         new_dacl = []
         i = 0
-        for ace in secDesc['Dacl'].aces:
-            # logging.debug("Comparing ACE[%d]" % i)
+        dacl_must_be_replaced = False
+        for ace in self.principal_security_descriptor['Dacl'].aces:
             ace_must_be_removed = False
             for compare_ace in compare_aces:
                 if ace['AceType'] == compare_ace['AceType'] \
@@ -284,34 +283,22 @@ class DACLedit(object):
                     and ace['Ace']['Sid']['IdentifierAuthority']['Value'] == compare_ace['Ace']['Sid']['IdentifierAuthority']['Value']:
                     if 'ObjectType' in ace['Ace'].fields.keys() and 'ObjectType' in compare_ace['Ace'].fields.keys():
                         if ace['Ace']['ObjectType'] == compare_ace['Ace']['ObjectType']:
-                            logging.debug("This ACE will be removed")
                             ace_must_be_removed = True
-                            self.printparsedACE(self.parseACE(ace))
+                            dacl_must_be_replaced = True
                     else:
-                        logging.debug("This ACE will be removed")
                         ace_must_be_removed = True
-                        elements_name = list(self.parseACE(ace).keys())
-                        for attribute in elements_name:
-                            logging.info("    %-26s: %s" % (attribute, self.parseACE(ace)[attribute]))
+                        dacl_must_be_replaced = True
             if not ace_must_be_removed:
                 new_dacl.append(ace)
+            elif logging.getLogger().level == logging.DEBUG:
+                logging.debug("This ACE will be removed")
+                self.printparsedACE(self.parseACE(ace))
             i += 1
-        secDesc['Dacl'].aces = new_dacl
-        dn = self.target_principal.entry_dn
-        data = secDesc.getData()
-        self.ldap_session.modify(dn, {'nTSecurityDescriptor': (ldap3.MODIFY_REPLACE, [data])}, controls=controls)
-        if self.ldap_session.result['result'] == 0:
-            logging.info('DACL modified successfully!')
+        if dacl_must_be_replaced:
+            self.principal_security_descriptor['Dacl'].aces = new_dacl
+            self.modify_secDesc_for_dn(self.target_principal.entry_dn, self.principal_security_descriptor)
         else:
-            if self.ldap_session.result['result'] == 50:
-                logging.error('Could not modify object, the server reports insufficient rights: %s',
-                              self.ldap_session.result['message'])
-            elif self.ldap_session.result['result'] == 19:
-                logging.error('Could not modify object, the server reports a constrained violation: %s',
-                              self.ldap_session.result['message'])
-            else:
-                logging.error('The server returned an error: %s', self.ldap_session.result['message'])
-        return
+            logging.info("Nothing to remove...")
 
     def flush(self):
         # todo but implement a check, it could be a reeeeeaaally bad idea to flush an object DACL
@@ -335,16 +322,40 @@ class DACLedit(object):
             logging.error('User not found in LDAP: %s' % samname)
             return False
 
+    def resolveSID(self, sid):
+        if sid in WELL_KNOWN_SIDS.keys():
+            return WELL_KNOWN_SIDS[sid]
+        else:
+            self.ldap_session.search(self.domain_dumper.root, '(objectSid=%s)' % sid, attributes=['samaccountname'])
+            try:
+                dn = self.ldap_session.entries[0].entry_dn
+                samname = self.ldap_session.entries[0]['samaccountname']
+                return samname
+            except IndexError:
+                logging.debug('SID not found in LDAP: %s' % sid)
+                return ""
+
     def parseDACL(self, dacl):
         parsed_dacl = []
         logging.info("Parsing DACL")
         i = 0
         for ace in dacl['Data']:
-            logging.debug("Parsing ACE[%d]" % i)
             parsed_ace = self.parseACE(ace)
             parsed_dacl.append(parsed_ace)
             i += 1
         return parsed_dacl
+
+    def parsePerms(self, fsr):
+        # get simple permission
+        _perms = []
+        for PERM in SIMPLE_PERMISSIONS:
+            if (fsr & PERM.value) == PERM.value:
+                _perms.append(PERM.name)
+                fsr = fsr & (not PERM.value)
+        for PERM in ACCESS_MASK:
+            if fsr & PERM.value:
+                _perms.append(PERM.name)
+        return _perms
 
     def parseACE(self, ace):
         if ace['TypeName'] == "ACCESS_ALLOWED_ACE" or ace['TypeName'] == "ACCESS_ALLOWED_OBJECT_ACE":
@@ -354,61 +365,77 @@ class DACLedit(object):
             for FLAG in ACE_FLAGS:
                 if ace.hasFlag(FLAG.value):
                     _ace_flags.append(FLAG.name)
-            parsed_ace['ACE flags'] = ", ".join(_ace_flags)
+            parsed_ace['ACE flags'] = ", ".join(_ace_flags) or "None"
 
             if ace['TypeName'] == "ACCESS_ALLOWED_ACE":
-                _access_mask_flags = []
-                # todo : something is wrong here, when creating a genericall manually on the DC, the Mask reflects here with a value of 983551, I'm not sure I'm parsing that data correctly
-                for FLAG in ALLOWED_ACE_MASK_FLAGS:
-                    if ace['Ace']['Mask'].hasPriv(FLAG.value):
-                        _access_mask_flags.append(FLAG.name)
-                parsed_ace['Mask'] = ", ".join(_access_mask_flags)
-                parsed_ace['Sid'] = ace['Ace']['Sid'].formatCanonical()
+                parsed_ace['Access mask'] = "%s (0x%x)" % (", ".join(self.parsePerms(ace['Ace']['Mask']['Mask'])), ace['Ace']['Mask']['Mask'])
+                parsed_ace['Trustee (SID)'] = "%s (%s)" % (self.resolveSID(ace['Ace']['Sid'].formatCanonical()) or "UNKNOWN", ace['Ace']['Sid'].formatCanonical())
                 # todo match the SID with the object sAMAccountName ?
             elif ace['TypeName'] == "ACCESS_ALLOWED_OBJECT_ACE":
                 _access_mask_flags = []
+                # todo check if this access mask parsing is okay
                 for FLAG in ALLOWED_OBJECT_ACE_MASK_FLAGS:
                     if ace['Ace']['Mask'].hasPriv(FLAG.value):
                         _access_mask_flags.append(FLAG.name)
-                parsed_ace['Mask'] = ", ".join(_access_mask_flags)
-                parsed_ace['Sid'] = ace['Ace']['Sid'].formatCanonical()
+                parsed_ace['Access mask'] = ", ".join(_access_mask_flags)
                 # todo match the SID with the object sAMAccountName ?
                 _object_flags = []
                 for FLAG in ALLOWED_OBJECT_ACE_FLAGS:
                     if ace['Ace'].hasFlag(FLAG.value):
                         _object_flags.append(FLAG.name)
-                parsed_ace['Object flags'] = ", ".join(_object_flags)
-                parsed_ace['Sid'] = ace['Ace']['Sid'].formatCanonical()
+                parsed_ace['Flags'] = ", ".join(_object_flags) or "None"
+                parsed_ace['Trustee (SID)'] = "%s (%s)" % (self.resolveSID(ace['Ace']['Sid'].formatCanonical()) or "UNKNOWN", ace['Ace']['Sid'].formatCanonical())
                 if ace['Ace']['ObjectTypeLen'] != 0:
                     obj_type = bin_to_string(ace['Ace']['ObjectType']).lower()
                     try:
-                        parsed_ace['Object type'] = "%s (%s)" % (OBJECT_TYPES_GUID[obj_type], obj_type)
+                        parsed_ace['Object type (GUID)'] = "%s (%s)" % (OBJECT_TYPES_GUID[obj_type], obj_type)
                     except KeyError:
-                        parsed_ace['Object type'] = "UNKNOWN (%s)" % obj_type
+                        parsed_ace['Object type (GUID)'] = "UNKNOWN (%s)" % obj_type
                 if ace['Ace']['InheritedObjectTypeLen'] != 0:
                     inh_obj_type = bin_to_string(ace['Ace']['InheritedObjectType']).lower()
                     try:
-                        parsed_ace['Inherited object type'] = "%s (%s)" % (OBJECT_TYPES_GUID[inh_obj_type], inh_obj_type)
+                        parsed_ace['Inherited type (GUID)'] = "%s (%s)" % (OBJECT_TYPES_GUID[inh_obj_type], inh_obj_type)
                     except KeyError:
-                        parsed_ace['Object type'] = "UNKNOWN (%s)" % inh_obj_type
+                        parsed_ace['Inherited type (GUID)'] = "UNKNOWN (%s)" % inh_obj_type
         else:
             logging.debug("ACE Type (%s) unsupported for parsing yet, feel free to contribute" % ace['TypeName'])
             parsed_ace = {}
-            parsed_ace['Type'] = ace['TypeName']
+            parsed_ace['ACE type'] = ace['TypeName']
             _ace_flags = []
             for FLAG in ACE_FLAGS:
                 if ace.hasFlag(FLAG.value):
                     _ace_flags.append(FLAG.name)
-            parsed_ace['Flags'] = ", ".join(_ace_flags)
+            parsed_ace['ACE flags'] = ", ".join(_ace_flags) or "None"
             parsed_ace['DEBUG'] = "ACE type not supported for parsing by dacleditor.py, feel free to contribute"
         return parsed_ace
 
     def printparsedDACL(self, parsed_dacl):
+        if self.principal_SID is None and self.principal_sAMAccountName or self.principal_DN:
+            if self.principal_sAMAccountName is not None:
+                _lookedup_principal = self.principal_sAMAccountName
+                self.ldap_session.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(_lookedup_principal), attributes=['objectSid'])
+            elif self.principal_DN is not None:
+                _lookedup_principal = self.principal_DN
+                self.ldap_session.search(self.domain_dumper.root, '(distinguishedName=%s)' % _lookedup_principal, attributes=['objectSid'])
+            try:
+                self.principal_SID = format_sid(self.ldap_session.entries[0]['objectSid'].raw_values[0])
+            except IndexError:
+                logging.error('Principal not found in LDAP (%s)' % _lookedup_principal)
+                return False
+            logging.debug("Found principal SID to write in ACE(s): %s" % self.principal_SID)
+
         logging.info("Printing parsed DACL")
         i = 0
+        if self.principal_SID is not None:
+            logging.info("Filtering results for SID (%s)" % self.principal_SID)
         for parsed_ace in parsed_dacl:
-            logging.info("  %-28s" % "ACE[%d] info" % i)
-            self.printparsedACE(parsed_ace)
+            print_ace = True
+            if self.principal_SID is not None:
+                if self.principal_SID not in parsed_ace['Trustee (SID)']:
+                    print_ace = False
+            if print_ace:
+                logging.info("  %-28s" % "ACE[%d] info" % i)
+                self.printparsedACE(parsed_ace)
             i += 1
 
     def printparsedACE(self, parsed_ace):
@@ -416,31 +443,93 @@ class DACLedit(object):
         for attribute in elements_name:
             logging.info("    %-26s: %s" % (attribute, parsed_ace[attribute]))
 
+    def build_guids_for_rights(self):
+        _rights_guids = []
+        if self.rights_guid is not None:
+            _rights_guids = [self.rights_guid]
+        elif self.rights == "WriteMembers":
+            _rights_guids = [RIGHTS_GUID.WriteMembers.value]
+        elif self.rights == "ResetPassword":
+            _rights_guids = [RIGHTS_GUID.ResetPassword.value]
+        elif self.rights == "DCSync":
+            _rights_guids = [RIGHTS_GUID.DS_Replication_Get_Changes.value, RIGHTS_GUID.DS_Replication_Get_Changes_All.value]
+        return _rights_guids
+
+    def modify_secDesc_for_dn(self, dn, secDesc):
+        data = secDesc.getData()
+        controls = security_descriptor_control(sdflags=0x04)
+        self.ldap_session.modify(dn, {'nTSecurityDescriptor': (ldap3.MODIFY_REPLACE, [data])}, controls=controls)
+        if self.ldap_session.result['result'] == 0:
+            logging.info('DACL modified successfully!')
+        else:
+            if self.ldap_session.result['result'] == 50:
+                logging.error('Could not modify object, the server reports insufficient rights: %s',
+                              self.ldap_session.result['message'])
+            elif self.ldap_session.result['result'] == 19:
+                logging.error('Could not modify object, the server reports a constrained violation: %s',
+                              self.ldap_session.result['message'])
+            else:
+                logging.error('The server returned an error: %s', self.ldap_session.result['message'])
+
+    def create_access_allowed_ace(self, access_mask, sid):
+        nace = ldaptypes.ACE()
+        nace['AceType'] = ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE
+        nace['AceFlags'] = 0x00
+        acedata = ldaptypes.ACCESS_ALLOWED_ACE()
+        acedata['Mask'] = ldaptypes.ACCESS_MASK()
+        acedata['Mask']['Mask'] = access_mask
+        acedata['Sid'] = ldaptypes.LDAP_SID()
+        acedata['Sid'].fromCanonical(sid)
+        nace['Ace'] = acedata
+        return nace
+
+    def create_access_allowed_object_ace(self, privguid, sid):
+        nace = ldaptypes.ACE()
+        nace['AceType'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE
+        nace['AceFlags'] = 0x00
+        acedata = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE()
+        acedata['Mask'] = ldaptypes.ACCESS_MASK()
+        acedata['Mask']['Mask'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CONTROL_ACCESS
+        acedata['ObjectType'] = string_to_bin(privguid)
+        acedata['InheritedObjectType'] = b''
+        acedata['Sid'] = ldaptypes.LDAP_SID()
+        acedata['Sid'].fromCanonical(sid)
+        assert sid == acedata['Sid'].formatCanonical()
+        acedata['Flags'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_OBJECT_TYPE_PRESENT
+        nace['Ace'] = acedata
+        return nace
+
+
+
 
 def parse_args():
     parser = argparse.ArgumentParser(add_help=True, description='Python editor for a principal\'s DACL.')
     parser.add_argument('identity', action='store', help='domain.local/username[:password]')
-    parser.add_argument("-principal", dest="principal_sAMAccountName", type=str, required=False, help="Principal to add in an ACE when writing in a DACL")
-    parser.add_argument("-principal-sid", dest="principal_SID", type=str, required=False, help="Principal to add in an ACE when writing in a DACL")
-    parser.add_argument("-principal-dn", dest="principal_DN", type=str, required=False, help="Principal to add in an ACE when writing in a DACL")
-    parser.add_argument("-target", dest="target_sAMAccountName", type=str, required=False, help="Target principal the attacker wants to read/write the DACL of")
-    parser.add_argument("-target-sid", dest="target_SID", type=str, required=False, help="Target principal the attacker wants to read/write the DACL of")
-    parser.add_argument("-target-dn", dest="target_DN", type=str, required=False, help="Target principal the attacker wants to read/write the DACL of")
-    parser.add_argument('-action', choices=['read', 'write', 'remove'], nargs='?', default='read', help='Action to operate on the DACL')
-    parser.add_argument('-rights', choices=['GenericAll', 'ResetPassword', 'WriteMembers', 'DCSync'], nargs='?', default='GenericAll', help='Rights to write/remove in the target DACL')
-    parser.add_argument('-rights-guid', type=str, help='Manual GUID representing the right to add to the target')
     parser.add_argument('-use-ldaps', action='store_true', help='Use LDAPS instead of LDAP')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
-    group = parser.add_argument_group('authentication')
-    group.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
-    group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
-    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) '
-                                                       'based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
-    group.add_argument('-aesKey', action="store", metavar="hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
-    group = parser.add_argument_group('connection')
-    group.add_argument('-dc-ip', action='store', metavar="ip address", help='IP Address of the domain controller or KDC (Key Distribution Center)'
-                                                                            ' for Kerberos. If omitted it will use the domain part (FQDN) specified in the identity parameter')
+
+    auth_con = parser.add_argument_group('authentication & connection')
+    auth_con.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    auth_con.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
+    auth_con.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
+    auth_con.add_argument('-aesKey', action="store", metavar="hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+    auth_con.add_argument('-dc-ip', action='store', metavar="ip address", help='IP Address of the domain controller or KDC (Key Distribution Center) for Kerberos. If omitted it will use the domain part (FQDN) specified in the identity parameter')
+
+    principal_parser = parser.add_argument_group("principal", description="Principal object to read/edit the DACL of")
+    principal_parser.add_argument("-principal", dest="principal_sAMAccountName", metavar="NAME", type=str, required=False, help="sAMAccountName")
+    principal_parser.add_argument("-principal-sid", dest="principal_SID", metavar="SID", type=str, required=False, help="Security IDentifier")
+    principal_parser.add_argument("-principal-dn", dest="principal_DN", metavar="DN", type=str, required=False, help="Distinguished Name")
+
+    target_parser = parser.add_argument_group("target", description="Object, controlled by the attacker, to reference in the ACE to create or to filter when printing a DACL")
+    target_parser.add_argument("-target", dest="target_sAMAccountName", metavar="NAME", type=str, required=False, help="sAMAccountName")
+    target_parser.add_argument("-target-sid", dest="target_SID", metavar="SID", type=str, required=False, help="Security IDentifier")
+    target_parser.add_argument("-target-dn", dest="target_DN", metavar="DN", type=str, required=False, help="Distinguished Name")
+
+    dacl_parser = parser.add_argument_group("dacl editor")
+    dacl_parser.add_argument('-action', choices=['read', 'write', 'remove'], nargs='?', default='read', help='Action to operate on the DACL')
+    dacl_parser.add_argument('-rights', choices=['FullControl', 'ResetPassword', 'WriteMembers', 'DCSync'], nargs='?', default='FullControl', help='Rights to write/remove in the target DACL (default: FullControl)')
+    dacl_parser.add_argument('-rights-guid', type=str, help='Manual GUID representing the right to write/remove')
 
     if len(sys.argv) == 1:
         parser.print_help()
