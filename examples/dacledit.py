@@ -167,7 +167,7 @@ class DACLedit(object):
             except IndexError:
                 logging.error('Principal not found in LDAP')
                 return False
-        logging.debug("Principal SID to write in ACE(s): %s" % self.principal_SID)
+            logging.debug("Found principal SID to write in ACE(s): %s" % self.principal_SID)
 
         # Set SD flags to only query for DACL
         controls = security_descriptor_control(sdflags=0x04)
@@ -233,7 +233,7 @@ class DACLedit(object):
             except IndexError:
                 logging.error('Principal not found in LDAP')
                 return False
-        logging.debug("Principal SID to write in comparison ACE(s): %s" % self.principal_SID)
+            logging.debug("Found principal SID: %s" % self.principal_SID)
 
         # Set SD flags to only query for DACL
         controls = security_descriptor_control(sdflags=0x04)
@@ -272,7 +272,7 @@ class DACLedit(object):
         new_dacl = []
         i = 0
         for ace in secDesc['Dacl'].aces:
-            logging.debug("Comparing ACE[%d]" % i)
+            # logging.debug("Comparing ACE[%d]" % i)
             ace_must_be_removed = False
             for compare_ace in compare_aces:
                 if ace['AceType'] == compare_ace['AceType'] \
@@ -290,7 +290,9 @@ class DACLedit(object):
                     else:
                         logging.debug("This ACE will be removed")
                         ace_must_be_removed = True
-                        self.printparsedACE(self.parseACE(ace))
+                        elements_name = list(self.parseACE(ace).keys())
+                        for attribute in elements_name:
+                            logging.info("    %-26s: %s" % (attribute, self.parseACE(ace)[attribute]))
             if not ace_must_be_removed:
                 new_dacl.append(ace)
             i += 1
