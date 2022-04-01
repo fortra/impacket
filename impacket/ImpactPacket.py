@@ -1576,7 +1576,7 @@ class TCP(Header):
             op_buf += op.get_bytes()
         num_pad = (4 - (len(op_buf) % 4)) % 4
         if num_pad:
-            array_frombytes(op_buf, "\0" * num_pad)
+            array_frombytes(op_buf, b"\0" * num_pad)
         return op_buf
 
     def __str__(self):
