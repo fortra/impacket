@@ -390,7 +390,7 @@ class DACLedit(object):
             logging.debug('Target principal found in LDAP (%s)' % _lookedup_principal)
         except IndexError:
             logging.error('Target principal not found in LDAP (%s)' % _lookedup_principal)
-            return
+            exit(0)
 
     
     # Attempts to retieve the SID and Distinguisehd Name from the sAMAccountName
@@ -546,8 +546,11 @@ class DACLedit(object):
         for parsed_ace in parsed_dacl:
             print_ace = True
             if self.principal_SID is not None:
-                if self.principal_SID not in parsed_ace['Trustee (SID)']:
-                    print_ace = False
+                try:
+                    if self.principal_SID not in parsed_ace['Trustee (SID)']:
+                        print_ace = False
+                except Exception as e:
+                    logging.error("Error filtering ACE, probably because of ACE type unsupported for parsing yet (%s)" % e)
             if print_ace:
                 logging.info("  %-28s" % "ACE[%d] info" % i)
                 self.printparsedACE(parsed_ace)
