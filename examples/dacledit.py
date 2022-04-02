@@ -227,12 +227,12 @@ class DACLedit(object):
         cnf.basepath = None
         self.domain_dumper = ldapdomaindump.domainDumper(self.ldap_server, self.ldap_session, cnf)
 
-        # Searching for target account with its security descriptor
-        self.search_principal_security_descriptor()
-
-        # Extract security descriptor data
-        self.principal_raw_security_descriptor = self.target_principal['nTSecurityDescriptor'].raw_values[0]
-        self.principal_security_descriptor = ldaptypes.SR_SECURITY_DESCRIPTOR(data=self.principal_raw_security_descriptor)
+        if self.target_sAMAccountName or self.target_SID or self.target_DN:
+            # Searching for target account with its security descriptor
+            self.search_target_principal_security_descriptor()
+            # Extract security descriptor data
+            self.principal_raw_security_descriptor = self.target_principal['nTSecurityDescriptor'].raw_values[0]
+            self.principal_security_descriptor = ldaptypes.SR_SECURITY_DESCRIPTOR(data=self.principal_raw_security_descriptor)
 
         # Searching for the principal SID if any principal argument was given and principal_SID wasn't
         if self.principal_SID is None and self.principal_sAMAccountName is not None or self.principal_DN is not None:
@@ -265,7 +265,7 @@ class DACLedit(object):
         # Creates ACEs with the specified GUIDs and the SID, or FullControl if no GUID is specified
         # Append the ACEs in the DACL locally
         if self.rights == "FullControl" and self.rights_guid is None:
-            logging.info("Appending ACE (%s --(GENERIC_ALL)--> %s)" % (self.principal_SID, format_sid(self.target_SID)))
+            logging.debug("Appending ACE (%s --(GENERIC_ALL)--> %s)" % (self.principal_SID, format_sid(self.target_SID)))
             self.principal_security_descriptor['Dacl'].aces.append(self.create_access_allowed_ace(SIMPLE_PERMISSIONS.FullControl.value, self.principal_SID))
         else:
             for rights_guid in self.build_guids_for_rights():
@@ -357,14 +357,22 @@ class DACLedit(object):
         # Extracts the Security Descriptor and converts it to the good ldaptypes format
         new_raw_security_descriptor = binascii.unhexlify(restore["sd"].encode('utf-8'))
         new_security_descriptor = ldaptypes.SR_SECURITY_DESCRIPTOR(data=new_raw_security_descriptor)
+
+        self.target_DN = restore["dn"]
+        # Searching for target account with its security descriptor
+        self.search_target_principal_security_descriptor()
+        # Extract security descriptor data
+        self.principal_raw_security_descriptor = self.target_principal['nTSecurityDescriptor'].raw_values[0]
+        self.principal_security_descriptor = ldaptypes.SR_SECURITY_DESCRIPTOR(data=self.principal_raw_security_descriptor)
+
         # Do a backup of the actual DACL and push the restoration
         self.backup()
-        self.modify_secDesc_for_dn(self.target_principal.entry_dn, new_security_descriptor)
+        self.modify_secDesc_for_dn(self.target_DN, new_security_descriptor)
         logging.info('The DACL has been well restored.')
 
     
     # Attempts to retrieve the DACL in the Security Descriptor of the specified target
-    def search_principal_security_descriptor(self):
+    def search_target_principal_security_descriptor(self):
         _lookedup_principal = ""
         # Set SD flags to only query for DACL
         controls = security_descriptor_control(sdflags=0x04)
