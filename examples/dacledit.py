@@ -381,7 +381,7 @@ class DACLedit(object):
             self.target_principal = self.ldap_session.entries[0]
             logging.debug('Target principal found in LDAP (%s)' % _lookedup_principal)
         except IndexError:
-            loggin.error('Target principal not found in LDAP (%s)' % _lookedup_principal)
+            logging.error('Target principal not found in LDAP (%s)' % _lookedup_principal)
             return
 
     
