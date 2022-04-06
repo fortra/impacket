@@ -940,7 +940,7 @@ class LDAPAttack(ProtocolAttack):
 
         # Add a new computer if that is requested
         # privileges required are not yet enumerated, neither is ms-ds-MachineAccountQuota
-        if self.config.addcomputer:
+        if self.config.addcomputer is not None:
             self.client.search(domainDumper.root, "(ObjectClass=domain)", attributes=['wellKnownObjects'])
             # Computer well-known GUID
             # https://social.technet.microsoft.com/Forums/windowsserver/en-US/d028952f-a25a-42e6-99c5-28beae2d3ac3/how-can-i-know-the-default-computer-container?forum=winservergen
