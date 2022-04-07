@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -200,7 +200,7 @@ class DumpSecrets:
 
             # NTDS Extraction we can try regardless of RemoteOperations failing. It might still work
             if self.__isRemote is True:
-                if self.__useVSSMethod and self.__remoteOps is not None:
+                if self.__useVSSMethod and self.__remoteOps is not None and self.__remoteOps.getRRP() is not None:
                     NTDSFileName = self.__remoteOps.saveNTDS()
                 else:
                     NTDSFileName = None

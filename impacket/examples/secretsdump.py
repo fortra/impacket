@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -404,6 +404,9 @@ class RemoteOperations:
         self.__rrp = rpc.get_dce_rpc()
         self.__rrp.connect()
         self.__rrp.bind(rrp.MSRPC_UUID_RRP)
+
+    def getRRP(self):
+        return self.__rrp
 
     def connectSamr(self, domain):
         rpc = transport.DCERPCTransportFactory(self.__stringBindingSamr)
@@ -1000,8 +1003,13 @@ class RemoteOperations:
     def saveNTDS(self):
         LOG.info('Searching for NTDS.dit')
         # First of all, let's try to read the target NTDS.dit registry entry
-        ans = rrp.hOpenLocalMachine(self.__rrp)
-        regHandle = ans['phKey']
+        try:
+            ans = rrp.hOpenLocalMachine(self.__rrp)
+            regHandle = ans['phKey']
+        except:
+            # Can't open the root key
+            return None
+
         try:
             ans = rrp.hBaseRegOpenKey(self.__rrp, self.__regHandle, 'SYSTEM\\CurrentControlSet\\Services\\NTDS\\Parameters')
             keyHandle = ans['phkResult']
