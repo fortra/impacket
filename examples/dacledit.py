@@ -149,10 +149,11 @@ class ACE_FLAGS(Enum):
     SUCCESSFUL_ACCESS_ACE_FLAG = ldaptypes.ACE.SUCCESSFUL_ACCESS_ACE_FLAG
 
 
-# ACE access allowed flags enum
-# For an access allowed ACE, flags that indicate if the ObjectType and the InheritedObjecType are set with a GUID
+# ACE flags enum
+# For an ACE, flags that indicate if the ObjectType and the InheritedObjecType are set with a GUID
+# Since these two flags are the same for Allowed and Denied access, the same class will be used from 'ldaptypes'
 # https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-access_allowed_object_ace
-class ALLOWED_OBJECT_ACE_FLAGS(Enum):
+class OBJECT_ACE_FLAGS(Enum):
     ACE_OBJECT_TYPE_PRESENT = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_OBJECT_TYPE_PRESENT
     ACE_INHERITED_OBJECT_TYPE_PRESENT = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_INHERITED_OBJECT_TYPE_PRESENT
 
@@ -193,6 +194,8 @@ class SIMPLE_PERMISSIONS(Enum):
 
 # Mask ObjectType field enum
 # Possible values for the Mask field in object-specific ACE (permitting to specify extended rights in the ObjectType field for example)
+# Since these flags are the same for Allowed and Denied access, the same class will be used from 'ldaptypes'
+# https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c79a383c-2b3f-4655-abe7-dcbb7ce0cfbe
 class ALLOWED_OBJECT_ACE_MASK_FLAGS(Enum):
     ControlAccess = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CONTROL_ACCESS
     CreateChild = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CREATE_CHILD
@@ -218,6 +221,7 @@ class DACLedit(object):
         self.principal_SID = args.principal_SID
         self.principal_DN = args.principal_DN
 
+        self.ace_type = args.ace_type
         self.rights = args.rights
         self.rights_guid = args.rights_guid
         self.filename = args.filename
@@ -266,11 +270,11 @@ class DACLedit(object):
         # Append the ACEs in the DACL locally
         if self.rights == "FullControl" and self.rights_guid is None:
             logging.debug("Appending ACE (%s --(GENERIC_ALL)--> %s)" % (self.principal_SID, format_sid(self.target_SID)))
-            self.principal_security_descriptor['Dacl'].aces.append(self.create_access_allowed_ace(SIMPLE_PERMISSIONS.FullControl.value, self.principal_SID))
+            self.principal_security_descriptor['Dacl'].aces.append(self.create_ace(SIMPLE_PERMISSIONS.FullControl.value, self.principal_SID, self.ace_type))
         else:
             for rights_guid in self.build_guids_for_rights():
                 logging.debug("Appending ACE (%s --(%s)--> %s)" % (self.principal_SID, rights_guid, format_sid(self.target_SID)))
-                self.principal_security_descriptor['Dacl'].aces.append(self.create_access_allowed_object_ace(rights_guid, self.principal_SID))
+                self.principal_security_descriptor['Dacl'].aces.append(self.create_object_ace(rights_guid, self.principal_SID, self.ace_type))
         # Backups current DACL before add the new one
         self.backup()
         # Effectively push the DACL with the new ACE
@@ -285,10 +289,10 @@ class DACLedit(object):
         # Creates ACEs with the specified GUIDs and the SID, or FullControl if no GUID is specified
         # These ACEs will be used as comparison templates
         if self.rights == "FullControl" and self.rights_guid is None:
-            compare_aces.append(self.create_access_allowed_ace(SIMPLE_PERMISSIONS.FullControl.value, self.principal_SID))
+            compare_aces.append(self.create_ace(SIMPLE_PERMISSIONS.FullControl.value, self.principal_SID, self.ace_type))
         else:
             for rights_guid in self.build_guids_for_rights():
-                compare_aces.append(self.create_access_allowed_object_ace(rights_guid, self.principal_SID))
+                compare_aces.append(self.create_object_ace(rights_guid, self.principal_SID, self.ace_type))
         new_dacl = []
         i = 0
         dacl_must_be_replaced = False
@@ -455,8 +459,8 @@ class DACLedit(object):
     # Parses a specified ACE and extract the different values (Flags, Access Mask, Trustee, ObjectType, InheritedObjectType)
     #   - ace : the ACE to parse
     def parseACE(self, ace):
-        # For the moment, only the Allowed Access ACE are supported
-        if ace['TypeName'] == "ACCESS_ALLOWED_ACE" or ace['TypeName'] == "ACCESS_ALLOWED_OBJECT_ACE":
+        # For the moment, only the Allowed and Denied Access ACE are supported
+        if ace['TypeName'] in [ "ACCESS_ALLOWED_ACE", "ACCESS_ALLOWED_OBJECT_ACE", "ACCESS_DENIED_ACE", "ACCESS_DENIED_OBJECT_ACE" ]:
             parsed_ace = {}
             parsed_ace['ACE Type'] = ace['TypeName']
             # Retrieves ACE's flags
@@ -468,30 +472,24 @@ class DACLedit(object):
 
             # For standard ACE
             # Extracts the access mask (by parsing the simple permissions) and the principal's SID
-            if ace['TypeName'] == "ACCESS_ALLOWED_ACE":
+            if ace['TypeName'] in [ "ACCESS_ALLOWED_ACE", "ACCESS_DENIED_ACE" ]:
                 parsed_ace['Access mask'] = "%s (0x%x)" % (", ".join(self.parsePerms(ace['Ace']['Mask']['Mask'])), ace['Ace']['Mask']['Mask'])
                 parsed_ace['Trustee (SID)'] = "%s (%s)" % (self.resolveSID(ace['Ace']['Sid'].formatCanonical()) or "UNKNOWN", ace['Ace']['Sid'].formatCanonical())
-                # todo match the SID with the object sAMAccountName ?
-            
+
             # For object-specific ACE
-            elif ace['TypeName'] == "ACCESS_ALLOWED_OBJECT_ACE":
+            elif ace['TypeName'] in [ "ACCESS_ALLOWED_OBJECT_ACE", "ACCESS_DENIED_OBJECT_ACE" ]:
                 # Extracts the mask values. These values will indicate the ObjectType purpose
-                # todo check if this access mask parsing is okay
                 _access_mask_flags = []
                 for FLAG in ALLOWED_OBJECT_ACE_MASK_FLAGS:
                     if ace['Ace']['Mask'].hasPriv(FLAG.value):
                         _access_mask_flags.append(FLAG.name)
                 parsed_ace['Access mask'] = ", ".join(_access_mask_flags)
-                # todo match the SID with the object sAMAccountName ?
-
                 # Extracts the ACE flag values and the trusted SID
                 _object_flags = []
-                for FLAG in ALLOWED_OBJECT_ACE_FLAGS:
+                for FLAG in OBJECT_ACE_FLAGS:
                     if ace['Ace'].hasFlag(FLAG.value):
                         _object_flags.append(FLAG.name)
                 parsed_ace['Flags'] = ", ".join(_object_flags) or "None"
-                parsed_ace['Trustee (SID)'] = "%s (%s)" % (self.resolveSID(ace['Ace']['Sid'].formatCanonical()) or "UNKNOWN", ace['Ace']['Sid'].formatCanonical())
-                
                 # Extracts the ObjectType GUID values
                 if ace['Ace']['ObjectTypeLen'] != 0:
                     obj_type = bin_to_string(ace['Ace']['ObjectType']).lower()
@@ -506,6 +504,9 @@ class DACLedit(object):
                         parsed_ace['Inherited type (GUID)'] = "%s (%s)" % (OBJECT_TYPES_GUID[inh_obj_type], inh_obj_type)
                     except KeyError:
                         parsed_ace['Inherited type (GUID)'] = "UNKNOWN (%s)" % inh_obj_type
+                # Extract the Trustee SID (the object that has the right over the DACL bearer)
+                parsed_ace['Trustee (SID)'] = "%s (%s)" % (self.resolveSID(ace['Ace']['Sid'].formatCanonical()) or "UNKNOWN", ace['Ace']['Sid'].formatCanonical())
+
         else:
             # If the ACE is not an access allowed
             logging.debug("ACE Type (%s) unsupported for parsing yet, feel free to contribute" % ace['TypeName'])
@@ -602,34 +603,44 @@ class DACLedit(object):
                 logging.error('The server returned an error: %s', self.ldap_session.result['message'])
 
 
-    # Builds a standard allowed access ACE for a specified access mask (rights) and a specified SID (the principal who obtains the right)
+    # Builds a standard ACE for a specified access mask (rights) and a specified SID (the principal who obtains the right)
     # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/72e7c7ea-bc02-4c74-a619-818a16bf6adb
     #   - access_mask : the allowed access mask
     #   - sid : the principal's SID
-    def create_access_allowed_ace(self, access_mask, sid):
+    #   - ace_type : the ACE type (allowed or denied)
+    def create_ace(self, access_mask, sid, ace_type):
         nace = ldaptypes.ACE()
-        nace['AceType'] = ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE
+        if ace_type == "allowed":
+            nace['AceType'] = ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE
+            acedata = ldaptypes.ACCESS_ALLOWED_ACE()
+        else:
+            nace['AceType'] = ldaptypes.ACCESS_DENIED_ACE.ACE_TYPE
+            acedata = ldaptypes.ACCESS_DENIED_ACE()
         nace['AceFlags'] = 0x00
-        acedata = ldaptypes.ACCESS_ALLOWED_ACE()
         acedata['Mask'] = ldaptypes.ACCESS_MASK()
         acedata['Mask']['Mask'] = access_mask
         acedata['Sid'] = ldaptypes.LDAP_SID()
         acedata['Sid'].fromCanonical(sid)
         nace['Ace'] = acedata
-        logging.debug('Allowed access ACE created.')
+        logging.debug('ACE created.')
         return nace
 
 
-    # Builds an object-specific allowed access ACE for a specified ObjectType (an extended right, a property, etc, to add) for a specified SID (the principal who obtains the right)
+    # Builds an object-specific for a specified ObjectType (an extended right, a property, etc, to add) for a specified SID (the principal who obtains the right)
     # The Mask is "ADS_RIGHT_DS_CONTROL_ACCESS" (the ObjectType GUID will identify an extended access right)
     # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c79a383c-2b3f-4655-abe7-dcbb7ce0cfbe
     #   - privguid : the ObjectType (an Extended Right here)
     #   - sid : the principal's SID
-    def create_access_allowed_object_ace(self, privguid, sid):
+    #   - ace_type : the ACE type (allowed or denied)
+    def create_object_ace(self, privguid, sid, ace_type):
         nace = ldaptypes.ACE()
-        nace['AceType'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE
+        if ace_type == "allowed":
+            nace['AceType'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE
+            acedata = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE()
+        else:
+            nace['AceType'] = ldaptypes.ACCESS_DENIED_OBJECT_ACE.ACE_TYPE
+            acedata = ldaptypes.ACCESS_DENIED_OBJECT_ACE()           
         nace['AceFlags'] = 0x00
-        acedata = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE()
         acedata['Mask'] = ldaptypes.ACCESS_MASK()
         acedata['Mask']['Mask'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CONTROL_ACCESS
         acedata['ObjectType'] = string_to_bin(privguid)
@@ -640,7 +651,7 @@ class DACLedit(object):
         # This ACE flag verifes if the ObjectType is valid
         acedata['Flags'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_OBJECT_TYPE_PRESENT
         nace['Ace'] = acedata
-        logging.debug('Object-specific allowed access ACE created.')
+        logging.debug('Object-specific ACE created.')
         return nace
 
 
@@ -672,7 +683,8 @@ def parse_args():
 
     dacl_parser = parser.add_argument_group("dacl editor")
     dacl_parser.add_argument('-action', choices=['read', 'write', 'remove', 'backup', 'restore'], nargs='?', default='read', help='Action to operate on the DACL')
-    dacl_parser.add_argument('-file', dest="filename", type=str, help='Filename and path for the backup (optional)/restore (required)')
+    dacl_parser.add_argument('-file', dest="filename", type=str, help='Filename/path (optional for -action backup, required for -restore))')
+    dacl_parser.add_argument('-ace-type', choices=['allowed', 'denied'], nargs='?', default='allowed', help='The ACE Type (access allowed or denied) that must be added or removed (default: allowed)')
     dacl_parser.add_argument('-rights', choices=['FullControl', 'ResetPassword', 'WriteMembers', 'DCSync'], nargs='?', default='FullControl', help='Rights to write/remove in the target DACL (default: FullControl)')
     dacl_parser.add_argument('-rights-guid', type=str, help='Manual GUID representing the right to write/remove')
 
