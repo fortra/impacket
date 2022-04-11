@@ -43,7 +43,7 @@
 #   - https://code.google.com/p/creddump/
 #   - https://lab.mediaservice.net/code/cachedump.rb
 #   - https://insecurety.net/?p=768
-#   - http://www.beginningtoseethelight.org/ntsecurity/index.htm
+#   - https://web.archive.org/web/20190717124313/http://www.beginningtoseethelight.org/ntsecurity/index.htm
 #   - https://www.exploit-db.com/docs/english/18244-active-domain-offline-hash-dump-&-forensic-analysis.pdf
 #   - https://www.passcape.com/index.php?section=blog&cmd=details&id=15
 #
@@ -213,7 +213,7 @@ class DumpSecrets:
 
                 # NTDS Extraction we can try regardless of RemoteOperations failing. It might still work
                 if self.__isRemote is True:
-                    if self.__useVSSMethod and self.__remoteOps is not None:
+                    if self.__useVSSMethod and self.__remoteOps is not None and self.__remoteOps.getRRP() is not None:
                         NTDSFileName = self.__remoteOps.saveNTDS()
                     else:
                         NTDSFileName = None

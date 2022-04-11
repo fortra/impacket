@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -698,71 +698,32 @@ class MSSQL:
 
         from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
         # Importing down here so pyasn1 is not required if kerberos is not used.
+        from impacket.krb5.ccache import CCache
         from impacket.krb5.asn1 import AP_REQ, Authenticator, TGS_REP, seq_set
         from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, KerberosError
         from impacket.krb5 import constants
         from impacket.krb5.types import Principal, KerberosTime, Ticket
         from pyasn1.codec.der import decoder, encoder
         from pyasn1.type.univ import noValue
-        from impacket.krb5.ccache import CCache
-        import os
         import datetime
 
-        if useCache is True:
-            try:
-                ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-            except:
-                # No cache present
-                pass
-            else:
-                # retrieve domain information from CCache file if needed
-                if domain == '':
-                    domain = ccache.principal.realm['data'].decode('utf-8')
-                    LOG.debug('Domain retrieved from CCache: %s' % domain)
+        if useCache:
+            domain, username, TGT, TGS = CCache.parseFile(domain, username, 'MSSQLSvc/%s:%d' % (self.server, self.port))
 
-                LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
-                principal = 'MSSQLSvc/%s.%s:%d@%s' % (self.server.split('.')[0], domain, self.port, domain.upper())
-                creds = ccache.getCredential(principal)
+            if TGS is None:
+                # search for the port's instance name instead (instance name based SPN)
+                LOG.debug('Searching target\'s instances to look for port number %s' % self.port)
+                instances = self.getInstances()
+                instanceName = None
+                for i in instances:
+                    try:
+                        if int(i['tcp']) == self.port:
+                            instanceName = i['InstanceName']
+                    except Exception as e:
+                        pass
 
-                if creds is not None:
-                    TGS = creds.toTGS(principal)
-                    LOG.debug('Using TGS from cache')
-                else:
-                    # search for the port's instance name instead (instance name based SPN)
-                    LOG.debug('Searching target\'s instances to look for port number %s' % self.port)
-                    instances = self.getInstances()
-                    instanceName = None
-                    for i in instances:
-                        try:
-                            if int(i['tcp']) == self.port:
-                                instanceName = i['InstanceName']
-                        except:
-                            pass
-
-                    if instanceName:
-                        principal = 'MSSQLSvc/%s.%s:%s@%s' % (self.server, domain, instanceName, domain.upper())
-                        creds = ccache.getCredential(principal)
-
-                    if creds is not None:
-                        TGS = creds.toTGS(principal)
-                        LOG.debug('Using TGS from cache')
-                    else:
-                        # Let's try for the TGT and go from there
-                        principal = 'krbtgt/%s@%s' % (domain.upper(),domain.upper())
-                        creds =  ccache.getCredential(principal)
-                        if creds is not None:
-                            TGT = creds.toTGT()
-                            LOG.debug('Using TGT from cache')
-                        else:
-                            LOG.debug("No valid credentials found in cache. ")
-
-                # retrieve user information from CCache file if needed
-                if username == '' and creds is not None:
-                    username = creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')
-                    LOG.debug('Username retrieved from CCache: %s' % username)
-                elif username == '' and len(ccache.principal.components) > 0:
-                    username = ccache.principal.components[0]['data'].decode('utf-8')
-                    LOG.debug('Username retrieved from CCache: %s' % username)
+                if instanceName:
+                    domain, username, TGT, TGS = CCache.parseFile(domain, username, 'MSSQLSvc/%s.%s:%s' % (self.server.split('.')[0], domain, instanceName))
 
         # First of all, we need to get a TGT for the user
         userName = Principal(username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
