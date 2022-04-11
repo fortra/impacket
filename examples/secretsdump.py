@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -81,6 +81,7 @@ class DumpSecrets:
         self.__lmhash = ''
         self.__nthash = ''
         self.__aesKey = options.aesKey
+        self.__aesKeyRodc = options.rodcKey
         self.__smbConnection = None
         self.__remoteOps = None
         self.__SAMHashes = None
@@ -165,12 +166,12 @@ class DumpSecrets:
                         # This will prevent establishing SMB connections using TGS for SPNs different to cifs/
                         logging.error('Policy SPN target name validation might be restricting full DRSUAPI dump. Try -just-dc-user')
                     else:
-                        logging.debug('RemoteOperations failed: %s' % str(e))
+                        logging.error('RemoteOperations failed: %s' % str(e))
 
             # If the KerberosKeyList method is enable we dump the secrets only via TGS-REQ
             if self.__useKeyListMethod is True:
                 try:
-                    self.__KeyListSecrets = KeyListSecrets(self.__domain, self.__remoteName, self.__rodc, self.__remoteOps)
+                    self.__KeyListSecrets = KeyListSecrets(self.__domain, self.__remoteName, self.__rodc, self.__aesKeyRodc, self.__remoteOps)
                     self.__KeyListSecrets.dump()
                 except Exception as e:
                     logging.error('Something went wrong with the Kerberos Key List approach.: %s' % str(e))
@@ -343,8 +344,8 @@ if __name__ == '__main__':
                              ' the ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication'
                                                                             ' (128 or 256 bits)')
-
     group.add_argument('-keytab', action="store", help='Read keys for SPN from keytab file')
+
     group = parser.add_argument_group('connection')
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
                                  'ommited it use the domain part (FQDN) specified in the target parameter')

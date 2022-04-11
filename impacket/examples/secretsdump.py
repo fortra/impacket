@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -2731,9 +2731,10 @@ class LocalOperations:
 
 
 class KeyListSecrets:
-    def __init__(self, domainName, kdc, kvno, remoteOps=None):
+    def __init__(self, domainName, kdc, kvno, rodcKey, remoteOps=None):
         self.__remoteOps = remoteOps
         self.__keyVersionNumber = kvno
+        self.__rodcKey = rodcKey
         if self.__remoteOps is None:
             self.__kdcHostName = kdc
             self.__domain = domainName
@@ -2800,7 +2801,7 @@ class KeyListSecrets:
         encodedEncTicketPart = encoder.encode(encTicketPart)
         # and we encrypt it with the RODC key
         cipher = _enctype_table[partialTGT['enc-part']['etype']]
-        key = Key(cipher.enctype, unhexlify('97b2d3f45f2300e14594d70cb6ff98c4303452a5c2ae8e446ad09d9cd22afb37'))
+        key = Key(cipher.enctype, unhexlify(self.__rodcKey))
         # key usage 2 -> key tgt service
         cipherText = cipher.encrypt(key, 2, encodedEncTicketPart, None)
 
@@ -2889,8 +2890,18 @@ class KeyListSecrets:
                 logging.error("User %s is not allowed to have passwords replicated in RODCs", userName)
             elif str(error).find('KDC_ERR_C_PRINCIPAL_UNKNOWN') >= 0:
                 logging.error("User %s doesn't exist", userName)
+            elif str(error).find('KDC_ERR_KEY_EXPIRED') >= 0:
+                logging.error("User %s's password has expired", userName)
+            elif str(error).find('Connection timed out') >= 0:
+                raise Exception("Connection timed out: check the KDC HostName or IP address, aborting")
+            elif str(error).find('Name or service not known') >= 0:
+                raise Exception("Name or service not known: check the KDC HostName or IP address, aborting")
             elif str(error).find('KDC_ERR_WRONG_REALM') >= 0:
-                logging.error("Domain '%s' doesn't exist", self.__domain)
+                raise Exception("KDC_ERR_WRONG_REALM: domain doesn't exist, aborting")
+            elif str(error).find('KDC_ERR_S_PRINCIPAL_UNKNOWN') >= 0:
+                raise Exception("KDC_ERR_S_PRINCIPAL_UNKNOWN: check the RODC krbtgt account number, aborting")
+            elif str(error).find('KRB_AP_ERR_BAD_INTEGRITY') >= 0:
+                raise Exception("KRB_AP_ERR_BAD_INTEGRITY: check the RODC AES key, aborting")
             else:
                 logging.error(error)
             return None
