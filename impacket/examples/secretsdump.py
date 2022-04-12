@@ -1163,6 +1163,7 @@ class SAMHashes(OfflineRegistry):
         self.__bootKey = bootKey
         self.__cryptoCommon = CryptoCommon()
         self.__itemsFound = {}
+        self.__itemsFoundJson = {"samHashes":[]}
         self.__perSecretCallback = perSecretCallback
 
     def MD5(self, data):
@@ -1282,9 +1283,28 @@ class SAMHashes(OfflineRegistry):
             if ntHash == b'':
                 ntHash = ntlm.NTOWFv1('','')
 
+
             answer =  "%s:%d:%s:%s:::" % (userName, rid, hexlify(lmHash).decode('utf-8'), hexlify(ntHash).decode('utf-8'))
             self.__itemsFound[rid] = answer
+            self.__itemsFoundJson["samHashes"].append({
+                    "rid":rid,
+                    "userName":userName, 
+                    "lmHash":hexlify(lmHash).decode('utf-8'),
+                    "ntHash":hexlify(ntHash).decode('utf-8'),
+                    "hashcatFormat":answer
+            })
             self.__perSecretCallback(answer)
+
+
+    def exportJson(self, baseFileName, remoteName, openFileFunc = None):
+        if len(self.__itemsFoundJson["samHashes"]) > 0:
+            for item in self.__itemsFoundJson["samHashes"]:
+                item['retrievedFrom']=remoteName
+            fileName = baseFileName+'.sam.json'
+            fd = openFile(fileName, openFileFunc=openFileFunc)
+            fd.write(json.dumps(self.__itemsFoundJson))
+            fd.close()
+            return fileName
 
     def export(self, baseFileName, openFileFunc = None):
         if len(self.__itemsFound) > 0:
@@ -1316,7 +1336,9 @@ class LSASecrets(OfflineRegistry):
         self.__securityFile = securityFile
         self.__remoteOps = remoteOps
         self.__cachedItems = []
+        self.__cachedItemsJson = {"cachedItems":[]}
         self.__secretItems = []
+        self.__secretItemsJson = {"secretItems":[]}
         self.__perSecretCallback = perSecretCallback
         self.__history = history
 
@@ -1474,6 +1496,12 @@ class LSASecrets(OfflineRegistry):
                 else:
                     answer = "%s/%s:%s:%s" % (domainLong, userName, hexlify(encHash).decode('utf-8'), userName)
 
+                self.__cachedItemsJson["cachedItems"].append({
+                    "domainLong":domainLong, 
+                    "userName":userName, 
+                    "encHash":hexlify(encHash).decode('utf-8'), 
+                    "hashcatFormat":answer
+                    })
                 self.__cachedItems.append(answer)
                 self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA_HASHED, answer)
 
@@ -1592,6 +1620,12 @@ class LSASecrets(OfflineRegistry):
         if secret != '':
             printableSecret = secret
             self.__secretItems.append(secret)
+            if upperName.startswith('_SC_'):
+                self.__secretItemsJson["secretItems"].append({
+                    "name":account,
+                    "plaintext":strDecoded,
+                    "secret":secret
+                    })
             self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, printableSecret)
         else:
             # Default print, hexdump
@@ -1681,12 +1715,32 @@ class LSASecrets(OfflineRegistry):
                         key += '_history'
                     self.__printSecret(key, secret)
 
+    def exportSecretsJson(self, baseFileName, remoteName, openFileFunc = None):
+        if len(self.__secretItemsJson["secretItems"]) > 0:
+            for item in self.__secretItemsJson["secretItems"]:
+                item['retrievedFrom']=remoteName
+            fileName = baseFileName+'.secrets.json'
+            fd = openFile(fileName, openFileFunc=openFileFunc)
+            fd.write(json.dumps(self.__secretItemsJson))
+            fd.close()
+            return fileName
+
     def exportSecrets(self, baseFileName, openFileFunc = None):
         if len(self.__secretItems) > 0:
             fileName = baseFileName+'.secrets'
             fd = openFile(fileName, openFileFunc=openFileFunc)
             for item in self.__secretItems:
                 fd.write(item+'\n')
+            fd.close()
+            return fileName
+
+    def exportCachedJson(self, baseFileName, remoteName, openFileFunc = None):
+        if len(self.__cachedItemsJson["cachedItems"]) > 0:
+            for item in self.__cachedItemsJson["cachedItems"]:
+                item['retrievedFrom']=remoteName
+            fileName = baseFileName+'.cached.json'
+            fd = openFile(fileName, openFileFunc=openFileFunc)
+            fd.write(json.dumps(self.__cachedItemsJson))
             fd.close()
             return fileName
 
