@@ -1,26 +1,30 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Simple ICMP6 ping.
+# Description:
+#   Simple ICMP6 ping.
 #
-# This implementation of ping uses the ICMP echo and echo-reply packets
-# to check the status of a host. If the remote host is up, it should reply
-# to the echo probe with an echo-reply packet.
-# Note that this isn't a definite test, as in the case the remote host is up
-# but refuses to reply the probes.
-# Also note that the user must have special access to be able to open a raw
-# socket, which this program requires.
+#   This implementation of ping uses the ICMP echo and echo-reply packets
+#   to check the status of a host. If the remote host is up, it should reply
+#   to the echo probe with an echo-reply packet.
+#   Note that this isn't a definite test, as in the case the remote host is up
+#   but refuses to reply the probes.
+#   Also note that the user must have special access to be able to open a raw
+#   socket, which this program requires.
 #
 # Authors:
-#  Alberto Solino (@agsolino)
+#   Alberto Solino (@agsolino)
 #
 # Reference for:
-#  ImpactPacket: ICMP6
-#  ImpactDecoder.
+#   ImpactPacket: ICMP6
+#   ImpactDecoder
+#
 
 import select
 import socket
@@ -50,7 +54,7 @@ ip.set_hop_limit(64)
 # Open a raw socket. Special permissions are usually required.
 s = socket.socket(socket.AF_INET6, socket.SOCK_RAW, socket.IPPROTO_ICMPV6)
 
-payload = "A"*156
+payload = b"A"*156
 
 print("PING %s %d data bytes" % (dst, len(payload)))
 seq_id = 0
@@ -69,7 +73,7 @@ while 1:
     s.sendto(icmp.get_packet(), (dst, 0))
 
     # Wait for incoming replies.
-    if s in select.select([s],[],[],1)[0]:
+    if s in select.select([s], [], [], 1)[0]:
         reply = s.recvfrom(2000)[0]
 
         # Use ImpactDecoder to reconstruct the packet hierarchy.
@@ -77,6 +81,6 @@ while 1:
 
         # If the packet matches, report it to the user.
         if ICMP6.ICMP6.ECHO_REPLY == rip.get_type():
-            print("%d bytes from %s: icmp_seq=%d " % (rip.child().get_size()-4,dst,rip.get_echo_sequence_number()))
+            print("%d bytes from %s: icmp_seq=%d " % (rip.child().get_size()-4, dst, rip.get_echo_sequence_number()))
 
         time.sleep(1)

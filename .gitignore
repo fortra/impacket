@@ -70,3 +70,6 @@ target/
 
 # PyCharm
 .idea
+
+# Test cases configuration
+tests/dcetests.cfg

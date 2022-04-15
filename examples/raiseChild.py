@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
-#
-# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   This script implements a child-domain to forest privilege escalation
@@ -52,7 +52,10 @@
 #     A domain is, however, the administrative boundary for managing objects, such as users, groups, and computers.
 #     In addition, each domain has its own individual security policies and trust relationships with other domains.
 #
+# Author:
+#   Alberto Solino (@agsolino)
 #
+
 from __future__ import division
 from __future__ import print_function
 import argparse
@@ -87,6 +90,7 @@ from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, 
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type.univ import noValue
 from impacket.examples import logger
+from impacket.examples.utils import parse_credentials
 from impacket.ntlm import LMOWFv1, NTOWFv1
 from impacket.dcerpc.v5.dtypes import RPC_SID, MAXIMUM_ALLOWED
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE
@@ -1267,9 +1271,7 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init(options.ts)
 
-    import re
-    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(
-        options.target).groups('')
+    domain, username, password = parse_credentials(options.target)
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)

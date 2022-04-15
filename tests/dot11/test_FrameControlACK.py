@@ -1,10 +1,15 @@
 #!/usr/bin/env python
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
-from impacket.dot11 import Dot11,Dot11Types,Dot11ControlFrameACK
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
 import unittest
+from impacket.dot11 import Dot11,Dot11Types,Dot11ControlFrameACK
+
 
 class TestDot11FrameControlACK(unittest.TestCase):
 
@@ -49,5 +54,6 @@ class TestDot11FrameControlACK(unittest.TestCase):
         self.ack.set_ra(ra)
         self.assertEqual(self.ack.get_ra().tolist(), [0x12,0x08,0x54,0xac,0x2f,0x34])
        
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11FrameControlACK)
-unittest.TextTestRunner(verbosity=1).run(suite)
+
+if __name__ == '__main__':
+    unittest.main(verbosity=1)

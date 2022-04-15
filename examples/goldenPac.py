@@ -1,20 +1,20 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino (@agsolino)
-#
 # Description:
-#   MS14-068 Exploit. Kudos to @BiDOrD for pulling it up first! 
+#   MS14-068 Exploit. Kudos to @BiDOrD for pulling it up first!
 #   Well done :).
-#   This one also established a SMBConnection and PSEXEcs the 
+#   This one also established a SMBConnection and PSEXEcs the
 #   target.
 #   A few important things:
 #   1) you must use the domain FQDN or use -dc-ip switch
-#   2) target must be a FQDN as well and matching the target's NetBIOS 
+#   2) target must be a FQDN as well and matching the target's NetBIOS
 #   3) Just RC4 at the moment - DONE (aes256 added)
 #   4) It won't work on Kerberos-only Domains (but can be fixed)
 #   5) Use WMIEXEC approach instead
@@ -28,6 +28,10 @@
 #       if domain.net and/or domain-host do not resolve, add them
 #       to the hosts file or use the -dc-ip and -target-ip parameters
 #
+# Author:
+#   Alberto Solino (@agsolino)
+#
+
 from __future__ import division
 from __future__ import print_function
 import cmd
@@ -53,6 +57,7 @@ from impacket.krb5.pac import PKERB_VALIDATION_INFO, KERB_VALIDATION_INFO, KERB_
     PAC_SIGNATURE_DATA, PAC_INFO_BUFFER, PAC_LOGON_INFO, PAC_CLIENT_INFO_TYPE, PAC_SERVER_CHECKSUM, \
     PAC_PRIVSVR_CHECKSUM, PACTYPE
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket.examples import remcomsvc, serviceinstall
 from impacket.smbconnection import SMBConnection, smb
 from impacket.structure import Structure
@@ -1108,15 +1113,7 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init(options.ts)
 
-    import re
-
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-        options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    domain, username, password, address = parse_target(options.target)
 
     if domain == '':
         logging.critical('Domain should be specified!')

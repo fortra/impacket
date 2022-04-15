@@ -1,10 +1,10 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2019 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
-#
-# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   [MS-SAMR] Interface implementation
@@ -17,6 +17,9 @@
 #   They are located at the end of this file.
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too.
+#
+# Author:
+#   Alberto Solino (@agsolino)
 #
 from __future__ import division
 from __future__ import print_function
@@ -2735,15 +2738,38 @@ def hSamrGetAliasMembership(dce, domainHandle, sidArray):
     request['SidArray']['Count'] = len(sidArray['Sids'])
     return dce.request(request)
 
-def hSamrChangePasswordUser(dce, userHandle, oldPassword, newPassword):
+def hSamrChangePasswordUser(dce, userHandle, oldPassword, newPassword, oldPwdHashNT='', newPwdHashLM='', newPwdHashNT=''):
     request = SamrChangePasswordUser()
     request['UserHandle'] = userHandle
 
     from impacket import crypto, ntlm
 
-    oldPwdHashNT = ntlm.NTOWFv1(oldPassword)
-    newPwdHashNT = ntlm.NTOWFv1(newPassword)
-    newPwdHashLM = ntlm.LMOWFv1(newPassword)
+    if oldPwdHashNT == '':
+        oldPwdHashNT = ntlm.NTOWFv1(oldPassword)
+    else:
+        # Let's convert the hashes to binary form, if not yet
+        try:
+            oldPwdHashNT = unhexlify(oldPwdHashNT)
+        except:
+            pass
+
+    if newPwdHashLM == '':
+        newPwdHashLM = ntlm.LMOWFv1(newPassword)
+    else:
+        # Let's convert the hashes to binary form, if not yet
+        try:
+            newPwdHashLM = unhexlify(newPwdHashLM)
+        except:
+            pass
+
+    if newPwdHashNT == '':
+        newPwdHashNT = ntlm.NTOWFv1(newPassword)
+    else:
+        # Let's convert the hashes to binary form, if not yet
+        try:
+            newPwdHashNT = unhexlify(newPwdHashNT)
+        except:
+            pass
 
     request['LmPresent'] = 0
     request['OldLmEncryptedWithNewLm'] = NULL

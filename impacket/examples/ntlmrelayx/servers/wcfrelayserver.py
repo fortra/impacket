@@ -1,27 +1,30 @@
 # -*- coding: utf-8 -*-
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# WCF Relay Server
+# Description:
+#   WCF Relay Server
+#
+#   This is the WCF server (ADWS too) which relays the NTLMSSP messages to other protocols
+#   Only NetTcpBinding is supported!
 #
 # Author:
-#  Clément Notin (@cnotin)
-# With code copied from smbrelayserver.py and httprelayserver.py authored by:
-#  Alberto Solino (@agsolino)
-#  Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
+#   Clément Notin (@cnotin)
+#   With code copied from smbrelayserver.py and httprelayserver.py authored by:
+#     Alberto Solino (@agsolino)
+#     Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #
-# Description:
-#             This is the WCF server (ADWS too) which relays the NTLMSSP messages to other protocols
-#             Only NetTcpBinding is supported!
-
-# FIXME tester en python 2 !
-# To support NetTcpBinding, this implements the ".NET Message Framing Protocol" [MC-NMF] and
-# ".NET NegotiateStream Protocol" [MS-NNS]
-# Thanks to inspiration from https://github.com/ernw/net.tcp-proxy/blob/master/nettcp/nmf.py
-# and https://github.com/ernw/net.tcp-proxy/blob/master/nettcp/stream/negotiate.py by @bluec0re
+# References:
+#   To support NetTcpBinding, this implements the ".NET Message Framing Protocol" [MC-NMF] and
+#   ".NET NegotiateStream Protocol" [MS-NNS]
+#   Thanks to inspiration from https://github.com/ernw/net.tcp-proxy/blob/master/nettcp/nmf.py
+#   and https://github.com/ernw/net.tcp-proxy/blob/master/nettcp/stream/negotiate.py by @bluec0re
+#
 
 import socket
 import socketserver

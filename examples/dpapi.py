@@ -1,15 +1,17 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author:
-#  Alberto Solino (@agsolino)
-#
 # Description:
-#       Example for using the DPAPI/Vault structures to unlock Windows Secrets.
+#   Example for using the DPAPI/Vault structures to unlock Windows Secrets.
+#
+# Author:
+#   Alberto Solino (@agsolino)
 #
 # Examples:
 #
@@ -20,14 +22,16 @@
 #   In the case of vaults, you might need to also provide the user's sid (and the user password will be asked).
 #   For system secrets, instead of a password you will need to specify the system and security hives.
 #
-# References: All of the work done by these guys. I just adapted their work to my needs.
-#       https://www.passcape.com/index.php?section=docsys&cmd=details&id=28
-#       https://github.com/jordanbtucker/dpapick
-#       https://github.com/gentilkiwi/mimikatz/wiki/howto-~-credential-manager-saved-credentials (and everything else Ben did )
-#       http://blog.digital-forensics.it/2016/01/windows-revaulting.html
-#       https://www.passcape.com/windows_password_recovery_vault_explorer
-#       https://www.passcape.com/windows_password_recovery_dpapi_master_key
+# References:
+#   All of the work done by these guys. I just adapted their work to my needs.
+#   - https://www.passcape.com/index.php?section=docsys&cmd=details&id=28
+#   - https://github.com/jordanbtucker/dpapick
+#   - https://github.com/gentilkiwi/mimikatz/wiki/howto-~-credential-manager-saved-credentials (and everything else Ben did )
+#   - http://blog.digital-forensics.it/2016/01/windows-revaulting.html
+#   - https://www.passcape.com/windows_password_recovery_vault_explorer
+#   - https://www.passcape.com/windows_password_recovery_dpapi_master_key
 #
+
 from __future__ import division
 from __future__ import print_function
 
@@ -35,7 +39,7 @@ import struct
 import argparse
 import logging
 import sys
-import re
+from six import b
 from binascii import unhexlify, hexlify
 from hashlib import pbkdf2_hmac
 
@@ -50,11 +54,13 @@ from impacket.dcerpc.v5 import bkrp
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE
 from impacket import version
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket.examples.secretsdump import LocalOperations, LSASecrets
 from impacket.structure import hexdump
 from impacket.dpapi import MasterKeyFile, MasterKey, CredHist, DomainKey, CredentialFile, DPAPI_BLOB, \
     CREDENTIAL_BLOB, VAULT_VCRD, VAULT_VPOL, VAULT_KNOWN_SCHEMAS, VAULT_VPOL_KEYS, P_BACKUP_KEY, PREFERRED_BACKUP_KEY, \
     PVK_FILE_HDR, PRIVATE_KEY_BLOB, privatekeyblob_to_pkcs1, DPAPI_DOMAIN_RSA_MASTER_KEY
+
 
 class DPAPI:
     def __init__(self, options):
@@ -266,11 +272,7 @@ class DPAPI:
                     return
 
             elif self.options.target is not None:
-                domain, username, password, remoteName = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(self.options.target).groups('')
-                #In case the password contains '@'
-                if '@' in remoteName:
-                    password = password + '@' + remoteName.rpartition('@')[0]
-                    remoteName = remoteName.rpartition('@')[2]
+                domain, username, password, remoteName = parse_target(self.options.target)
 
                 if domain is None:
                     domain = ''
@@ -335,8 +337,8 @@ class DPAPI:
 
         # credit to @gentilkiwi
         elif self.options.action.upper() == 'BACKUPKEYS':
-            domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-                self.options.target).groups('')
+            domain, username, password, address = parse_target(self.options.target)
+
             if password == '' and username != '' and self.options.hashes is None and self.options.no_pass is False and self.options.aesKey is None:
                 from getpass import getpass
                 password = getpass ("Password:")
@@ -476,6 +478,30 @@ class DPAPI:
                         keys = VAULT_VPOL_KEYS(data)
                         keys.dump()
                         return
+        elif self.options.action.upper() == 'UNPROTECT':
+            fp = open(options.file, 'rb')
+            data = fp.read()
+            blob = DPAPI_BLOB(data)
+
+            if self.options.key is not None:
+                key = unhexlify(self.options.key[2:])
+                if self.options.entropy_file is not None:
+                    fp2 = open(self.options.entropy_file, 'rb')
+                    entropy = fp2.read()
+                    fp2.close()
+                elif self.options.entropy is not None:
+                    entropy = b(self.options.entropy)
+                else:
+                    entropy = None
+
+                decrypted = blob.decrypt(key, entropy)
+                if decrypted is not None:
+                    print('Successfully decrypted data')
+                    hexdump(decrypted)
+                    return
+            else:
+                # Just print the data
+                blob.dump()
 
         print('Cannot decrypt (specify -key or -sid whenever applicable) ')
 
@@ -485,7 +511,7 @@ if __name__ == '__main__':
     logger.init()
     print(version.BANNER)
 
-    parser = argparse.ArgumentParser(add_help=True, description="Nose")
+    parser = argparse.ArgumentParser(add_help=True, description="Example for using the DPAPI/Vault structures to unlock Windows Secrets.")
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     subparsers = parser.add_subparsers(help='actions', dest='action')
 
@@ -535,6 +561,13 @@ if __name__ == '__main__':
     vault.add_argument('-vpol', action='store', required=False, help='Vault Policy file')
     vault.add_argument('-key', action='store', required=False, help='Master key used for decryption')
 
+    # A CryptUnprotectData command
+    unprotect = subparsers.add_parser('unprotect', help='Provides CryptUnprotectData functionality')
+    unprotect.add_argument('-file', action='store', required=True, help='File with DATA_BLOB to decrypt')
+    unprotect.add_argument('-key', action='store', required=False, help='Key used for decryption')
+    unprotect.add_argument('-entropy', action='store', default=None, required=False, help='String with extra entropy needed for decryption')
+    unprotect.add_argument('-entropy-file', action='store', default=None, required=False, help='File with binary entropy contents (overwrites -entropy)')
+
     options = parser.parse_args()
 
     if len(sys.argv)==1:
@@ -556,4 +589,4 @@ if __name__ == '__main__':
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
-        print(str(e))
+        print('ERROR: %s' % str(e))

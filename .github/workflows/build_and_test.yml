@@ -1,0 +1,97 @@
+# GitHub Action workflow to build and run Impacket's tests
+#
+
+name: Build and test Impacket
+
+on: [push, pull_request]
+
+env:
+  DOCKER_TAG: impacket:latests
+
+jobs:
+  lint:
+    name: Check syntaxs errors and warnings
+    runs-on: ubuntu-latest
+    if:
+      github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
+      github.repository
+
+    steps:
+      - name: Checkout Impacket
+        uses: actions/checkout@v2
+
+      - name: Setup Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install flake8
+
+      - name: Check syntax errors
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Check PEP8 warnings
+        run: |
+          flake8 . --count --ignore=E1,E2,E3,E501,W291,W293 --exit-zero --max-complexity=65 --max-line-length=127 --statistics
+
+  test:
+    name: Run unit tests and build wheel
+    needs: lint
+    runs-on: ubuntu-latest
+    if:
+      github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
+      github.repository
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.6", "3.7", "3.8", "3.9"]
+        experimental: [false]
+        include:
+          - python-version: "2.7"
+            experimental: true
+          - python-version: "3.10"
+            experimental: true
+    continue-on-error: ${{ matrix.experimental }}
+
+    steps:
+      - name: Checkout Impacket
+        uses: actions/checkout@v2
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          python -m pip install tox tox-gh-actions -r requirements.txt -r requirements-test.txt
+
+      - name: Run unit tests
+        run: |
+          tox -- -m 'not remote'
+
+      - name: Build wheel artifact
+        run: |
+          python setup.py bdist_wheel
+
+  docker:
+    name: Build docker image
+    needs: lint
+    runs-on: ubuntu-latest
+    if:
+      github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
+      github.repository
+
+    continue-on-error: true
+    steps:
+      - name: Checkout Impacket
+        uses: actions/checkout@v2
+
+      - name: Build docker image
+        run: |
+          docker build -t ${{ env.DOCKER_TAG }} .

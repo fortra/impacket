@@ -1,24 +1,27 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2020 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Scan for listening MSRPC interfaces
+# Description:
+#   Scan for listening MSRPC interfaces
 #
-# This binds to the MGMT interface and gets a list of interface UUIDs.
-# If the MGMT interface is not available, it takes a list of interface UUIDs
-# seen in the wild and tries to bind to each interface.
+#   This binds to the MGMT interface and gets a list of interface UUIDs.
+#   If the MGMT interface is not available, it takes a list of interface UUIDs
+#   seen in the wild and tries to bind to each interface.
 #
-# If -brute-opnums is specified, the script tries to call each of the first N
-# operation numbers for each UUID in turn and reports the outcome of each call.
+#   If -brute-opnums is specified, the script tries to call each of the first N
+#   operation numbers for each UUID in turn and reports the outcome of each call.
 #
-# This can generate a burst of connections to the given endpoint!
+#   This can generate a burst of connections to the given endpoint!
 #
 # Authors:
-#  Catalin Patulea <cat@vv.carleton.ca>
-#  Arseniy Sharoglazov <mohemiv@gmail.com> / Positive Technologies (https://www.ptsecurity.com/)
+#   Catalin Patulea <cat@vv.carleton.ca>
+#   Arseniy Sharoglazov <mohemiv@gmail.com> / Positive Technologies (https://www.ptsecurity.com/)
 #
 # TODO:
 #  [ ] The rpcmap.py connections are never closed. We need to close them.
@@ -34,6 +37,7 @@ import argparse
 
 from impacket.http import AUTH_BASIC
 from impacket.examples import logger, rpcdatabase
+from impacket.examples.utils import parse_credentials
 from impacket import uuid, version
 from impacket.dcerpc.v5.epm import KNOWN_UUIDS
 from impacket.dcerpc.v5 import transport, rpcrt, epm
@@ -45,6 +49,7 @@ from impacket.dcerpc.v5.rpch import RPC_PROXY_CONN_A1_401_ERR, \
     RPC_PROXY_INVALID_RPC_PORT_ERR, RPC_PROXY_HTTP_IN_DATA_401_ERR, \
     RPC_PROXY_CONN_A1_0X6BA_ERR, RPC_PROXY_CONN_A1_404_ERR, \
     RPC_PROXY_RPC_OUT_DATA_404_ERR
+
 
 class RPCMap():
     def __init__(self, stringbinding='', authLevel=6, bruteUUIDs=False, uuids=(),
@@ -323,8 +328,8 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    rpcdomain, rpcuser, rpcpass = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.auth_rpc).groups('')
-    transportdomain, transportuser, transportpass = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.auth_transport).groups('')
+    rpcdomain, rpcuser, rpcpass = parse_credentials(options.auth_rpc)
+    transportdomain, transportuser, transportpass = parse_credentials(options.auth_transport)
 
     if options.brute_opnums and options.brute_versions:
        logging.error("Specify only -brute-opnums or -brute-versions")

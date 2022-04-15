@@ -1,4 +1,10 @@
-# Author: Patrick Welzel (@kcirtapw)
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
 #
 # Description:
 #   Kerberos Keytab format implementation
@@ -6,6 +12,9 @@
 #   https://repo.or.cz/w/krb5dissect.git/blob_plain/HEAD:/keytab.txt
 #   As the ccache implementation, pretty lame and quick
 #   Feel free to improve
+#
+# Author:
+#   Patrick Welzel (@kcirtapw)
 #
 from datetime import datetime
 from enum import Enum
@@ -137,7 +146,7 @@ class KeytabEntry:
       keytab_entry {
           int32_t size;     # wtf, signed size. what could possibly ...
           uint16_t num_components;    /* sub 1 if version 0x501 */  |\
-          counted_octet_string realm;                               | \  Keytab
+          counted_octet_string realm;                               | \\  Keytab
           counted_octet_string components[num_components];          | /  Princial
           uint32_t name_type;   /* not present if version 0x501 */  |/
           uint32_t timestamp;

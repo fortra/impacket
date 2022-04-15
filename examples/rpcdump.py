@@ -1,18 +1,22 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2020 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# DCE/RPC endpoint mapper dumper.
+# Description:
+#   DCE/RPC endpoint mapper dumper.
 #
 # Author:
-#  Javier Kohen <jkohen@coresecurity.com>
-#  Alberto Solino <beto@coresecurity.com>
+#   Javier Kohen
+#   Alberto Solino (@agsolino)
 #
 # Reference for:
-#  DCE/RPC.
+#   DCE/RPC.
+#
 
 from __future__ import division
 from __future__ import print_function
@@ -22,6 +26,7 @@ import argparse
 
 from impacket.http import AUTH_NTLM
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket import uuid, version
 from impacket.dcerpc.v5 import transport, epm
 from impacket.dcerpc.v5.rpch import RPC_PROXY_INVALID_RPC_PORT_ERR, \
@@ -192,13 +197,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-    domain, username, password, remoteName = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in remoteName:
-        password = password + '@' + remoteName.rpartition('@')[0]
-        remoteName = remoteName.rpartition('@')[2]
+    domain, username, password, remoteName = parse_target(options.target)
 
     if domain is None:
         domain = ''

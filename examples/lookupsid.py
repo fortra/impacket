@@ -1,17 +1,22 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# DCE/RPC lookup sid brute forcer example
+# Description:
+#   DCE/RPC lookup sid brute forcer example
 #
 # Author:
-#  Alberto Solino (@agsolino)
+#   Alberto Solino (@agsolino)
 #
 # Reference for:
-#  DCE/RPC [MS-LSAT]
+#   DCE/RPC [MS-LSAT]
+#
+
 from __future__ import division
 from __future__ import print_function
 import sys
@@ -20,6 +25,7 @@ import argparse
 import codecs
 
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket import version
 from impacket.dcerpc.v5 import transport, lsat, lsad
 from impacket.dcerpc.v5.samr import SID_NAME_USE
@@ -172,15 +178,7 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init(options.ts)
 
-    import re
-
-    domain, username, password, remoteName = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-        options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in remoteName:
-        password = password + '@' + remoteName.rpartition('@')[0]
-        remoteName = remoteName.rpartition('@')[2]
+    domain, username, password, remoteName = parse_target(options.target)
 
     if domain is None:
         domain = ''

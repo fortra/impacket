@@ -1,3 +1,13 @@
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Copyright and license note from crypto.py:
+#
 # Copyright (C) 2013 by the Massachusetts Institute of Technology.
 # All rights reserved.
 #
@@ -25,7 +35,7 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
-
+#
 from binascii import unhexlify
 from functools import reduce
 from os import urandom
@@ -333,12 +343,12 @@ class _DESCBC(_SimplifiedEnctype):
             tempkey[7] = chr(ord(tempkey[7]) ^ 0xF0)
 
         cipher = DES.new(b(tempkey), DES.MODE_CBC, b(tempkey))
-        chekcsumkey = cipher.encrypt(s)[-8:]
-        chekcsumkey = fixparity(chekcsumkey)
-        if _is_weak_des_key(chekcsumkey):
-            chekcsumkey[7] = chr(ord(chekcsumkey[7]) ^ 0xF0)
+        checksumkey = cipher.encrypt(s)[-8:]
+        checksumkey = fixparity(checksumkey)
+        if _is_weak_des_key(checksumkey):
+            checksumkey[7] = chr(ord(checksumkey[7]) ^ 0xF0)
         
-        return Key(cls.enctype, chekcsumkey)
+        return Key(cls.enctype, checksumkey)
 
     @classmethod
     def basic_encrypt(cls, key, plaintext):

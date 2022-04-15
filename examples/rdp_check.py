@@ -1,25 +1,29 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
+#
+# Description:
+#   [MS-RDPBCGR] and [MS-CREDSSP] partial implementation
+#   just to reach CredSSP auth. This example test whether
+#   an account is valid on the target host.
 #
 # Author:
 #  Alberto Solino (@agsolino)
 #
-# Description: [MS-RDPBCGR] and [MS-CREDSSP] partial implementation 
-#              just to reach CredSSP auth. This example test whether
-#              an account is valid on the target host.
-#
 # ToDo:
-#    [x] Manage to grab the server's SSL key so we can finalize the whole
+#   [x] Manage to grab the server's SSL key so we can finalize the whole
 #        authentication process (check [MS-CSSP] section 3.1.5)
 #
 
 from struct import pack, unpack
 
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket.structure import Structure
 from impacket.spnego import GSSAPI, ASN1_SEQUENCE, ASN1_OCTET_STRING, asn1decode, asn1encode
 
@@ -558,13 +562,7 @@ if __name__ == '__main__':
  
     options = parser.parse_args()
 
-    import re
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    domain, username, password, address = parse_target(options.target)
 
     if domain is None:
         domain = ''

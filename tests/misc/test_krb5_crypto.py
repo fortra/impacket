@@ -1,13 +1,24 @@
+#!/usr/bin/env python
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
 from __future__ import print_function
 import unittest
-from binascii import hexlify, unhexlify
+from binascii import unhexlify
 
 from impacket.krb5.crypto import (Key, Enctype, encrypt, decrypt,
                                   Cksumtype, verify_checksum, _zeropad,
                                   string_to_key, prf, cf2)
 
+
 def h(hexstr):
     return unhexlify(hexstr)
+
 
 class AESTests(unittest.TestCase):
     def test_AES128(self):
@@ -186,5 +197,6 @@ class AESTests(unittest.TestCase):
         k = string_to_key(Enctype.DES_MD5, string, salt)
         self.assertEqual(k.contents, kb)
 
-if __name__=='__main__':
+
+if __name__ == '__main__':
     unittest.main(verbosity=1)

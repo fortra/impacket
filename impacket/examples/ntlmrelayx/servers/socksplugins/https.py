@@ -1,20 +1,19 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# A Socks Proxy for the HTTPS Protocol
+# Description:
+#   Socks Proxy for the HTTPS Protocol
+#
+#   A simple SOCKS server that proxies a connection to relayed HTTPS connections
 #
 # Author:
 #  Dirk-jan Mollema (@_dirkjan) / Fox-IT (https://www.fox-it.com)
 #
-# Description:
-#  A simple SOCKS server that proxies a connection to relayed HTTPS connections
-#
-# ToDo:
-#
-
 from impacket import LOG
 from impacket.examples.ntlmrelayx.servers.socksplugins.http import HTTPSocksRelay
 from impacket.examples.ntlmrelayx.utils.ssl import SSLServerMixin

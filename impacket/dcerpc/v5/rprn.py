@@ -1,10 +1,10 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
-#
-# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   [MS-RPRN] Interface implementation
@@ -14,9 +14,12 @@
 #   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
 #
 #   Some calls have helper functions, which makes it even easier to use.
-#   They are located at the end of this file. 
+#   They are located at the end of this file.
 #   Helper functions start with "h"<name of the call>.
-#   There are test cases for them too. 
+#   There are test cases for them too.
+#
+# Author:
+#   Alberto Solino (@agsolino)
 #
 from impacket import system_errors
 from impacket.dcerpc.v5.dtypes import ULONGLONG, UINT, USHORT, LPWSTR, DWORD, ULONG, NULL
@@ -140,6 +143,17 @@ PRINTER_NOTIFY_CATEGORY_ALL = 0x00010000
 PRINTER_NOTIFY_CATEGORY_3D  = 0x00020000
 
 
+# 3.1.4.4.8 RpcAddPrinterDriverEx Values
+APD_STRICT_UPGRADE              = 0x00000001
+APD_STRICT_DOWNGRADE            = 0x00000002
+APD_COPY_ALL_FILES              = 0x00000004
+APD_COPY_NEW_FILES              = 0x00000008
+APD_COPY_FROM_DIRECTORY         = 0x00000010
+APD_DONT_COPY_FILES_TO_CLUSTER  = 0x00001000
+APD_COPY_TO_ALL_SPOOLERS        = 0x00002000
+APD_INSTALL_WARNED_DRIVER       = 0x00008000
+APD_RETURN_BLOCKING_STATUS_CODE = 0x00010000
+
 ################################################################################
 # STRUCTURES
 ################################################################################
@@ -215,6 +229,48 @@ class PSPLCLIENT_INFO_3(NDRPOINTER):
     referent = (
         ('Data', SPLCLIENT_INFO_3),
     )
+
+# 2.2.1.5.1 DRIVER_INFO_1
+class DRIVER_INFO_1(NDRSTRUCT):
+    structure = (
+        ('pName', STRING_HANDLE ),
+    )
+class PDRIVER_INFO_1(NDRPOINTER):
+    referent = (
+        ('Data', DRIVER_INFO_1),
+    )
+
+# 2.2.1.5.2 DRIVER_INFO_2
+class DRIVER_INFO_2(NDRSTRUCT):
+    structure = (
+        ('cVersion',DWORD),
+        ('pName', LPWSTR),
+        ('pEnvironment', LPWSTR),
+        ('pDriverPath', LPWSTR),
+        ('pDataFile', LPWSTR),
+        ('pConfigFile', LPWSTR),
+    )
+class PDRIVER_INFO_2(NDRPOINTER):
+    referent = (
+        ('Data', DRIVER_INFO_2),
+    )
+
+# 2.2.1.2.3 DRIVER_CONTAINER
+class DRIVER_INFO_UNION(NDRUNION):
+    commonHdr = (
+        ('tag', ULONG),
+    )
+    union = {
+        1 : ('pNotUsed', PDRIVER_INFO_1),
+        2 : ('Level2', PDRIVER_INFO_2),
+    }
+
+class DRIVER_CONTAINER(NDRSTRUCT):
+    structure =  (
+        ('Level', DWORD),
+        ('DriverInfo', DRIVER_INFO_UNION),
+    )
+
 # 2.2.1.2.14 SPLCLIENT_CONTAINER
 class CLIENT_INFO_UNION(NDRUNION):
     commonHdr = (
@@ -231,7 +287,6 @@ class SPLCLIENT_CONTAINER(NDRSTRUCT):
         ('Level',DWORD),
         ('ClientInfo',CLIENT_INFO_UNION),
     )
-
 
 # 2.2.1.13.2 RPC_V2_NOTIFY_OPTIONS_TYPE
 class USHORT_ARRAY(NDRUniConformantArray):
@@ -356,15 +411,69 @@ class RpcOpenPrinterExResponse(NDRCALL):
        ('ErrorCode', ULONG),
     )
 
+# 3.1.4.4.2 RpcEnumPrinterDrivers (Opnum 10)
+class RpcEnumPrinterDrivers(NDRCALL):
+    opnum = 10
+    structure = (
+       ('pName', STRING_HANDLE),
+       ('pEnvironment', LPWSTR),
+       ('Level', DWORD),
+       ('pDrivers', PBYTE_ARRAY),
+       ('cbBuf', DWORD),
+    )
+
+class RpcEnumPrinterDriversResponse(NDRCALL):
+    structure = (
+       ('pDrivers', PBYTE_ARRAY),
+       ('pcbNeeded', DWORD),
+       ('pcReturned', DWORD),
+       ('ErrorCode', ULONG),
+    )
+
+# 3.1.4.4.4 RpcGetPrinterDriverDirectory (Opnum 12)
+class RpcGetPrinterDriverDirectory(NDRCALL):
+   opnum = 12
+   structure = (
+       ('pName', STRING_HANDLE),
+       ('pEnvironment', LPWSTR),
+       ('Level', DWORD),
+       ('pDriverDirectory', PBYTE_ARRAY),
+       ('cbBuf', DWORD)
+   )
+   
+class RpcGetPrinterDriverDirectoryResponse(NDRCALL):
+    structure = (
+       ('pDriverDirectory', PBYTE_ARRAY),
+       ('pcbNeeded', DWORD),
+       ('ErrorCode', ULONG)
+    )
+
+# 3.1.4.4.8 RpcAddPrinterDriverEx (Opnum 89)
+class RpcAddPrinterDriverEx(NDRCALL):
+    opnum = 89
+    structure = (
+       ('pName', STRING_HANDLE),
+       ('pDriverContainer', DRIVER_CONTAINER),
+       ('dwFileCopyFlags', DWORD),
+    )
+
+class RpcAddPrinterDriverExResponse(NDRCALL):
+    structure = (
+       ('ErrorCode', ULONG),
+    )
+
 ################################################################################
 # OPNUMs and their corresponding structures
 ################################################################################
 OPNUMS = {
     0  : (RpcEnumPrinters, RpcEnumPrintersResponse),
     1  : (RpcOpenPrinter, RpcOpenPrinterResponse),
+    10 : (RpcEnumPrinterDrivers, RpcEnumPrinterDriversResponse),
+    12 : (RpcGetPrinterDriverDirectory, RpcGetPrinterDriverDirectoryResponse),
     29 : (RpcClosePrinter, RpcClosePrinterResponse),
     65 : (RpcRemoteFindFirstPrinterChangeNotificationEx, RpcRemoteFindFirstPrinterChangeNotificationExResponse),
     69 : (RpcOpenPrinterEx, RpcOpenPrinterExResponse),
+    89 : (RpcAddPrinterDriverEx, RpcAddPrinterDriverExResponse),
 }
 
 ################################################################################
@@ -522,4 +631,106 @@ def hRpcEnumPrinters(dce, flags, name = NULL, level = 1):
 
     request['cbBuf'] = bytesNeeded
     request['pPrinterEnum'] = b'a' * bytesNeeded
+    return dce.request(request)
+
+
+def hRpcAddPrinterDriverEx(dce, pName, pDriverContainer, dwFileCopyFlags):
+    """
+    RpcAddPrinterDriverEx installs a printer driver on the print server
+    Full Documentation: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rprn/b96cc497-59e5-4510-ab04-5484993b259b
+
+    :param DCERPC_v5 dce: a connected DCE instance.
+    :param pName
+    :param pDriverContainer
+    :param dwFileCopyFlags
+
+    :return: raises DCERPCSessionError on error.
+    """
+    request = RpcAddPrinterDriverEx()
+    request['pName'] = checkNullString(pName)
+    request['pDriverContainer'] = pDriverContainer
+    request['dwFileCopyFlags'] = dwFileCopyFlags
+
+    #return request
+    return dce.request(request)
+
+
+def hRpcEnumPrinterDrivers(dce, pName, pEnvironment, Level):
+    """
+    RpcEnumPrinterDrivers enumerates the printer drivers installed on a specified print server.
+    Full Documentation: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rprn/857d00ac-3682-4a0d-86ca-3d3c372e5e4a
+
+    :param DCERPC_v5 dce: a connected DCE instance.
+    :param pName
+    :param pEnvironment
+    :param Level
+    :param pDrivers
+    :param cbBuf
+    :param pcbNeeded
+    :param pcReturned
+
+    :return: raises DCERPCSessionError on error.
+    """
+    # get value for cbBuf
+    request = RpcEnumPrinterDrivers()
+    request['pName']        = checkNullString(pName)
+    request['pEnvironment'] = pEnvironment
+    request['Level']        = Level
+    request['pDrivers']     = NULL
+    request['cbBuf']        = 0
+    try:
+        dce.request(request)
+    except DCERPCSessionError as e:
+        if str(e).find('ERROR_INSUFFICIENT_BUFFER') < 0:
+            raise
+        bytesNeeded = e.get_packet()['pcbNeeded']
+
+    # now do RpcEnumPrinterDrivers again
+    request = RpcEnumPrinterDrivers()
+    request['pName']        = checkNullString(pName)
+    request['pEnvironment'] = pEnvironment
+    request['Level']        = Level
+    request['pDrivers']     = b'a' * bytesNeeded
+    request['cbBuf']        = bytesNeeded
+
+    #return request
+    return dce.request(request)
+
+def hRpcGetPrinterDriverDirectory(dce, pName, pEnvironment, Level):
+    """
+    RpcGetPrinterDriverDirectory retrieves the path of the printer driver directory.
+    Full Documentation: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rprn/9df11cf4-4098-4852-ad72-d1f75a82bffe
+
+    :param DCERPC_v5 dce: a connected DCE instance.
+    :param pName
+    :param pEnvironment
+    :param Level
+    :param pDriverDirectory
+    :param cbBuf
+    :param pcbNeeded
+
+    :return: raises DCERPCSessionError on error.
+    """
+    # get value for cbBuf
+    request = RpcGetPrinterDriverDirectory()
+    request['pName']            = checkNullString(pName)
+    request['pEnvironment']     = pEnvironment
+    request['Level']            = Level
+    request['pDriverDirectory'] = NULL
+    request['cbBuf']            = 0
+    try:
+        dce.request(request)
+    except DCERPCSessionError as e:
+        if str(e).find('ERROR_INSUFFICIENT_BUFFER') < 0:
+            raise
+        bytesNeeded = e.get_packet()['pcbNeeded']
+    
+    # now do RpcGetPrinterDriverDirectory again
+    request = RpcGetPrinterDriverDirectory()
+    request['pName']            = checkNullString(pName)
+    request['pEnvironment']     = pEnvironment
+    request['Level']            = Level
+    request['pDriverDirectory'] = b'a' * bytesNeeded
+    request['cbBuf']            = bytesNeeded
+    
     return dce.request(request)

@@ -1,13 +1,16 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino (@agsolino)
-#
 # Description:
 #   Transport implementations for the DCE/RPC protocol.
+#
+# Author:
+#   Alberto Solino (@agsolino)
 #
 from __future__ import division
 from __future__ import print_function
@@ -27,11 +30,12 @@ from impacket.dcerpc.v5.rpcrt import DCERPCException, DCERPC_v5, DCERPC_v4
 from impacket.dcerpc.v5.rpch import RPCProxyClient, RPCProxyClientException, RPC_OVER_HTTP_v1, RPC_OVER_HTTP_v2
 from impacket.smbconnection import SMBConnection
 
+
 class DCERPCStringBinding:
-    parser = re.compile(r'(?:([a-fA-F0-9-]{8}(?:-[a-fA-F0-9-]{4}){3}-[a-fA-F0-9-]{12})@)?' # UUID (opt.)
-                        +'([_a-zA-Z0-9]*):' # Protocol Sequence
-                        +'([^\[]*)' # Network Address (opt.)
-                        +'(?:\[([^\]]*)\])?') # Endpoint and options (opt.)
+    parser = re.compile(r"(?:([a-fA-F0-9-]{8}(?:-[a-fA-F0-9-]{4}){3}-[a-fA-F0-9-]{12})@)?" +  # UUID (opt.)
+                        r"([_a-zA-Z0-9]*):" +  # Protocol Sequence
+                        r"([^\[]*)" +  # Network Address (opt.)
+                        r"(?:\[([^]]*)])?")  # Endpoint and options (opt.)
 
     def __init__(self, stringbinding):
         match = DCERPCStringBinding.parser.match(stringbinding)
@@ -87,6 +91,7 @@ class DCERPCStringBinding:
     def __str__(self):
         return DCERPCStringBindingCompose(self.__uuid, self.__ps, self.__na, self.__endpoint, self.__options)
 
+
 def DCERPCStringBindingCompose(uuid=None, protocol_sequence='', network_address='', endpoint='', options={}):
     s = ''
     if uuid:
@@ -101,6 +106,7 @@ def DCERPCStringBindingCompose(uuid=None, protocol_sequence='', network_address=
         s += ']'
 
     return s
+
 
 def DCERPCTransportFactory(stringbinding):
     sb = DCERPCStringBinding(stringbinding)
@@ -486,6 +492,7 @@ class SMBTransport(DCERPCTransport):
 
         self.__prefDialect = None
         self.__smb_connection = smb_connection
+        self.set_connect_timeout(30)
 
     def preferred_dialect(self, dialect):
         self.__prefDialect = dialect
@@ -493,7 +500,7 @@ class SMBTransport(DCERPCTransport):
     def setup_smb_connection(self):
         if not self.__smb_connection:
             self.__smb_connection = SMBConnection(self.getRemoteName(), self.getRemoteHost(), sess_port=self.get_dport(),
-                                                  preferredDialect=self.__prefDialect)
+                                                  preferredDialect=self.__prefDialect, timeout=self.get_connect_timeout())
             if self._strict_hostname_validation:
                 self.__smb_connection.setHostnameValidation(self._strict_hostname_validation, self._validation_allow_absent, self._accepted_hostname)
 

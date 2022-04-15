@@ -1,17 +1,19 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
+# Description:
+#   Wrapper class for SMB1/2/3 so it's transparent for the client.
+#   You can still play with the low level methods (version dependent)
+#   by calling getSMBServer()
+#
 # Author: Alberto Solino (@agsolino)
 #
-# Description:
-#
-# Wrapper class for SMB1/2/3 so it's transparent for the client.
-# You can still play with the low level methods (version dependent)
-# by calling getSMBServer()
-#
+
 import ntpath
 import socket
 
@@ -32,7 +34,7 @@ class SMBConnection:
     """
     SMBConnection class
 
-    :param string remoteName: name of the remote host, can be its NETBIOS name, IP or *\*SMBSERVER*.  If the later,
+    :param string remoteName: name of the remote host, can be its NETBIOS name, IP or *\\*SMBSERVER*.  If the later,
            and port is 139, the library will try to get the target's server name.
     :param string remoteHost: target server's remote address (IPv4, IPv6) or FQDN
     :param string/optional myName: client's NETBIOS name
@@ -89,7 +91,8 @@ class SMBConnection:
         :param string flags2: the SMB FLAGS2 capabilities
         :param string negoData: data to be sent as part of the nego handshake
 
-        :return: True, raises a Session Error if error.
+        :return: True
+        :raise SessionError: if error
         """
 
         # If port 445 and the name sent is *SMBSERVER we're setting the name to the IP. This is to help some old
@@ -264,7 +267,8 @@ class SMBConnection:
         :param string nthash: NTHASH used to authenticate using hashes (password is not used)
         :param bool ntlmFallback: If True it will try NTLMv1 authentication if NTLMv2 fails. Only available for SMBv1
 
-        :return: None, raises a Session Error if error.
+        :return: None
+        :raise SessionError: if error
         """
         self._ntlmFallback = ntlmFallback
         try:
@@ -291,9 +295,9 @@ class SMBConnection:
         :param struct TGS: same for TGS. See smb3.py for the format
         :param bool useCache: whether or not we should use the ccache for credentials lookup. If TGT or TGS are specified this is False
 
-        :return: None, raises a Session Error if error.
+        :return: None
+        :raise SessionError: if error
         """
-        import os
         from impacket.krb5.ccache import CCache
         from impacket.krb5.kerberosv5 import KerberosError
         from impacket.krb5 import constants
@@ -304,41 +308,8 @@ class SMBConnection:
         if TGT is not None or TGS is not None:
             useCache = False
 
-        if useCache is True:
-            try:
-                ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-            except:
-                # No cache present
-                pass
-            else:
-                LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
-                # retrieve domain information from CCache file if needed
-                if domain == '':
-                    domain = ccache.principal.realm['data'].decode('utf-8')
-                    LOG.debug('Domain retrieved from CCache: %s' % domain)
-
-                principal = 'cifs/%s@%s' % (self.getRemoteName().upper(), domain.upper())
-                creds = ccache.getCredential(principal)
-                if creds is None:
-                    # Let's try for the TGT and go from there
-                    principal = 'krbtgt/%s@%s' % (domain.upper(),domain.upper())
-                    creds =  ccache.getCredential(principal)
-                    if creds is not None:
-                        TGT = creds.toTGT()
-                        LOG.debug('Using TGT from cache')
-                    else:
-                        LOG.debug("No valid credentials found in cache. ")
-                else:
-                    TGS = creds.toTGS(principal)
-                    LOG.debug('Using TGS from cache')
-
-                # retrieve user information from CCache file if needed
-                if user == '' and creds is not None:
-                    user = creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')
-                    LOG.debug('Username retrieved from CCache: %s' % user)
-                elif user == '' and len(ccache.principal.components) > 0:
-                    user = ccache.principal.components[0]['data'].decode('utf-8')
-                    LOG.debug('Username retrieved from CCache: %s' % user)
+        if useCache:
+            domain, user, TGT, TGS = CCache.parseFile(domain, user, 'cifs/%s' % self.getRemoteName())
 
         while True:
             try:
@@ -400,7 +371,8 @@ class SMBConnection:
         """
         get a list of available shares at the connected target
 
-        :return: a list containing dict entries for each share, raises exception if error
+        :return: a list containing dict entries for each share
+        :raise SessionError: if error
         """
         # Get the shares through RPC
         from impacket.dcerpc.v5 import transport, srvs
@@ -420,7 +392,8 @@ class SMBConnection:
         :param string path: a base path relative to shareName
         :param string password: the password for the share
 
-        :return: a list containing smb.SharedFile items, raises a SessionError exception if error.
+        :return: a list containing smb.SharedFile items
+        :raise SessionError: if error
         """
 
         try:
@@ -434,8 +407,7 @@ class SMBConnection:
                    fileAttributes=FILE_ATTRIBUTE_NORMAL, impersonationLevel=SMB2_IL_IMPERSONATION, securityFlags=0,
                    oplockLevel=SMB2_OPLOCK_LEVEL_NONE, createContexts=None):
         """
-        creates a remote file
-
+        Creates a remote file
 
         :param HANDLE treeId: a valid handle for the share where the file is to be created
         :param string pathName: the path name of the file to create
@@ -450,9 +422,9 @@ class SMBConnection:
         :param int oplockLevel: The requested oplock level
         :param createContexts: A variable-length attribute that is sent with an SMB2 CREATE Request or SMB2 CREATE Response that either gives extra information about how the create will be processed, or returns extra information about how the create was processed.
 
-        :return: a valid file descriptor, if not raises a SessionError exception.
+        :return: a valid file descriptor
+        :raise SessionError: if error
         """
-
         if self.getDialect() == smb.SMB_DIALECT:
             _, flags2 = self._SMBConnection.get_flags()
 
@@ -511,8 +483,8 @@ class SMBConnection:
         :param int oplockLevel: The requested oplock level
         :param createContexts: A variable-length attribute that is sent with an SMB2 CREATE Request or SMB2 CREATE Response that either gives extra information about how the create will be processed, or returns extra information about how the create was processed.
 
-
-        :return: a valid file descriptor, if not raises a SessionError exception.
+        :return: a valid file descriptor
+        :raise SessionError: if error
         """
 
         if self.getDialect() == smb.SMB_DIALECT:
@@ -562,13 +534,13 @@ class SMBConnection:
         :param string data: buffer with the data to write
         :param integer offset: offset where to start writing the data
 
-        :return: amount of bytes written, if not raises a SessionError exception.
+        :return: amount of bytes written
+        :raise SessionError: if error
         """
         try:
             return self._SMBConnection.writeFile(treeId, fileId, data, offset)
         except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
-
 
     def readFile(self, treeId, fileId, offset = 0, bytesToRead = None, singleCall = True):
         """
@@ -580,7 +552,8 @@ class SMBConnection:
         :param integer bytesToRead: amount of bytes to attempt reading. If None, it will attempt to read Dialect['MaxBufferSize'] bytes.
         :param boolean singleCall: If True it won't attempt to read all bytesToRead. It will only make a single read call
 
-        :return: the data read, if not raises a SessionError exception. Length of data read is not always bytesToRead
+        :return: the data read. Length of data read is not always bytesToRead
+        :raise SessionError: if error
         """
         finished = False
         data = b''
@@ -623,8 +596,8 @@ class SMBConnection:
         :param HANDLE treeId: a valid handle for the share where the file is to be opened
         :param HANDLE fileId: a valid handle for the file/directory to be closed
 
-        :return: None, raises a SessionError exception if error.
-
+        :return: None
+        :raise SessionError: if error
         """
         try:
             return self._SMBConnection.close(treeId, fileId)
@@ -638,8 +611,8 @@ class SMBConnection:
         :param string shareName: a valid name for the share where the file is to be deleted
         :param string pathName: the path name to remove
 
-        :return: None, raises a SessionError exception if error.
-
+        :return: None
+        :raise SessionError: if error
         """
         try:
             return self._SMBConnection.remove(shareName, pathName)
@@ -650,11 +623,11 @@ class SMBConnection:
         """
         queries basic information about an opened file/directory
 
-        :param HANDLE treeId: a valid handle for the share where the file is to be opened
-        :param HANDLE fileId: a valid handle for the file/directory to be closed
+        :param HANDLE treeId: a valid handle for the share where the file is to be queried
+        :param HANDLE fileId: a valid handle for the file/directory to be queried
 
-        :return: a smb.SMBQueryFileBasicInfo structure.  raises a SessionError exception if error.
-
+        :return: a smb.SMBQueryFileStandardInfo structure.
+        :raise SessionError: if error
         """
         try:
             if self.getDialect() == smb.SMB_DIALECT:
@@ -672,8 +645,8 @@ class SMBConnection:
         :param string shareName: a valid name for the share where the directory is to be created
         :param string pathName: the path name or the directory to create
 
-        :return: None, raises a SessionError exception if error.
-
+        :return: None
+        :raise SessionError: if error
         """
         try:
             return self._SMBConnection.mkdir(shareName, pathName)
@@ -687,8 +660,8 @@ class SMBConnection:
         :param string shareName: a valid name for the share where directory is to be deleted
         :param string pathName: the path name or the directory to delete
 
-        :return: None, raises a SessionError exception if error.
-
+        :return: None
+        :raise SessionError: if error
         """
         try:
             return self._SMBConnection.rmdir(shareName, pathName)
@@ -703,8 +676,8 @@ class SMBConnection:
         :param string pipeName: the pipe name to check
         :param integer timeout: time to wait for an answer
 
-        :return: None, raises a SessionError exception if error.
-
+        :return: None
+        :raise SessionError: if error
         """
         try:
             return self._SMBConnection.waitNamedPipe(treeId, pipeName, timeout = timeout)
@@ -720,21 +693,20 @@ class SMBConnection:
         :param string data: buffer with the data to write
         :param boolean waitAnswer: whether or not to wait for an answer
 
-        :return: None, raises a SessionError exception if error.
-
+        :return: None
+        :raise SessionError: if error
         """
         try:
             return self._SMBConnection.TransactNamedPipe(treeId, fileId, data, waitAnswer = waitAnswer)
         except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
-
     def transactNamedPipeRecv(self):
         """
         reads from a named pipe using a transaction command
 
-        :return: data read, raises a SessionError exception if error.
-
+        :return: data read
+        :raise SessionError: if error
         """
         try:
             return self._SMBConnection.TransactNamedPipeRecv()
@@ -750,8 +722,8 @@ class SMBConnection:
         :param string data: buffer with the data to write
         :param boolean waitAnswer: whether or not to wait for an answer
 
-        :return: None, raises a SessionError exception if error.
-
+        :return: None
+        :raise SessionError: if error
         """
         try:
             if self.getDialect() == smb.SMB_DIALECT:
@@ -761,7 +733,6 @@ class SMBConnection:
         except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
-
     def readNamedPipe(self,treeId, fileId, bytesToRead = None ):
         """
         read from a named pipe
@@ -770,8 +741,8 @@ class SMBConnection:
         :param HANDLE fileId: a valid handle for the pipe
         :param integer bytesToRead: amount of data to read
 
-        :return: None, raises a SessionError exception if error.
-
+        :return: None
+        :raise SessionError: if error
         """
 
         try:
@@ -789,8 +760,8 @@ class SMBConnection:
         :param callback callback: function called to write the contents read.
         :param int shareAccessMode:
 
-        :return: None, raises a SessionError exception if error.
-
+        :return: None
+        :raise SessionError: if error
         """
         try:
             if shareAccessMode is None:
@@ -810,8 +781,8 @@ class SMBConnection:
         :param callback callback: function called to read the contents to be written.
         :param int shareAccessMode:
 
-        :return: None, raises a SessionError exception if error.
-
+        :return: None
+        :raise SessionError: if error
         """
         try:
             if shareAccessMode is None:
@@ -828,6 +799,8 @@ class SMBConnection:
 
         :param int tid: tree id of current connection
         :param string path: directory to list the snapshots of
+
+        :raise SessionError: if error
         """
 
         # Verify we're under SMB2+ session
@@ -865,6 +838,8 @@ class SMBConnection:
         :param int tid: tree id of current connection
         :param string path: directory at which to create mount point (must already exist)
         :param string target: target address of mount point
+
+        :raise SessionError: if error
         """
 
         # Verify we're under SMB2+ session
@@ -899,6 +874,8 @@ class SMBConnection:
 
         :param int tid: tree id of current connection
         :param string path: path to mount point to remove
+
+        :raise SessionError: if error
         """
 
         # Verify we're under SMB2+ session
@@ -929,8 +906,8 @@ class SMBConnection:
         :param string oldPath: the old path name or the directory/file to rename
         :param string newPath: the new path name or the directory/file to rename
 
-        :return: True, raises a SessionError exception if error.
-
+        :return: True
+        :raise SessionError: if error
         """
 
         try:
@@ -945,7 +922,8 @@ class SMBConnection:
         Not only the connection will be created but also a login attempt using the original credentials and
         method (Kerberos, PtH, etc)
 
-        :return: True, raises a SessionError exception if error
+        :return: True
+        :raise SessionError: if error
         """
         userName, password, domain, lmhash, nthash, aesKey, TGT, TGS = self.getCredentials()
         self.negotiateSession(self._preferredDialect)
@@ -988,6 +966,7 @@ class SMBConnection:
         except:
             pass
         self._SMBConnection.close_session()
+
 
 class SessionError(Exception):
     """

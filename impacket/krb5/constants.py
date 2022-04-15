@@ -1,17 +1,18 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino (@agsolino)
-#
 # Description:
 #   Constants for krb5.asn1 package. I took them out from the RFC plus
-#   some data from [MS-KILE] as well. 
+#   some data from [MS-KILE] as well.
 #
+# Author:
+#   Alberto Solino (@agsolino)
 #
-
 from impacket.dcerpc.v5.enum import Enum
 
 def encodeFlags(flags):
@@ -105,6 +106,8 @@ class PreAuthenticationDataTypes(Enum):
     PA_FX_FAST                 = 136
     PA_FX_ERROR                = 137
     PA_ENCRYPTED_CHALLENGE     = 138
+    KERB_KEY_LIST_REQ          = 161
+    KERB_KEY_LIST_REP          = 162
     PA_SUPPORTED_ENCTYPES      = 165
     PA_PAC_OPTIONS             = 167
 
@@ -442,6 +445,7 @@ class EncryptionTypes(Enum):
     rc4_hmac                     = 23
     rc4_hmac_exp                 = 24
     subkey_keymaterial           = 65
+    rc4_hmac_old_exp             = -135
 
 class ChecksumTypes(Enum):
     rsa_md5_des       = 8

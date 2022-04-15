@@ -1,10 +1,10 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
-#
-# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   [MS-DCOM] Interface implementation
@@ -14,22 +14,25 @@
 #   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
 #
 #   Some calls have helper functions, which makes it even easier to use.
-#   They are located at the end of this file. 
+#   They are located at the end of this file.
 #   Helper functions start with "h"<name of the call>.
-#   There are test cases for them too. 
+#   There are test cases for them too.
+#
+# Author:
+#   Alberto Solino (@agsolino)
 #
 # ToDo:
-# [X] Use the same DCE connection for all the calls. Right now is connecting to the remote machine
-#     for each call, making it slower.
+#   [X] Use the same DCE connection for all the calls. Right now is connecting to the remote machine
+#       for each call, making it slower.
+#   [X] Implement a ping mechanism, otherwise the garbage collector at the server shuts down the objects if
+#       not used, returning RPC_E_DISCONNECTED
 #
-# [X] Implement a ping mechanism, otherwise the garbage collector at the server shuts down the objects if 
-#    not used, returning RPC_E_DISCONNECTED
-#
+
 from __future__ import division
 from __future__ import print_function
 import socket
 from struct import pack
-from threading import Timer, currentThread
+from threading import Timer, current_thread
 
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRTLSTRUCT, UNKNOWNDATA
 from impacket.dcerpc.v5.dtypes import LPWSTR, ULONGLONG, HRESULT, GUID, USHORT, WSTR, DWORD, LPLONG, LONG, PGUID, ULONG, \
@@ -164,15 +167,27 @@ class handle_t(NDRSTRUCT):
 
 # 2.2.11 COMVERSION
 class COMVERSION(NDRSTRUCT):
+    default_major_version = 5
+    default_minor_version = 7
+
     structure = (
         ('MajorVersion',USHORT),
         ('MinorVersion',USHORT),
     )
+
+    @classmethod
+    def set_default_version(cls, major_version=None, minor_version=None):
+        # Set default dcom version for all new COMVERSION objects.
+        if major_version is not None:
+            cls.default_major_version = major_version
+        if minor_version is not None:
+            cls.default_minor_version = minor_version
+
     def __init__(self, data = None,isNDR64 = False):
         NDRSTRUCT.__init__(self, data, isNDR64)
         if data is None:
-            self['MajorVersion'] = 5
-            self['MinorVersion'] = 7
+            self['MajorVersion'] = self.default_major_version
+            self['MinorVersion'] = self.default_minor_version
 
 class PCOMVERSION(NDRPOINTER):
     referent = (
@@ -1075,7 +1090,7 @@ class DCOMConnection:
                 DCOMConnection.PINGTIMER.join()
                 DCOMConnection.PINGTIMER = None
         if self.__target in INTERFACE.CONNECTIONS:
-            del(INTERFACE.CONNECTIONS[self.__target][currentThread().getName()])
+            del(INTERFACE.CONNECTIONS[self.__target][current_thread().name])
         self.__portmap.disconnect()
         #print INTERFACE.CONNECTIONS
 
@@ -1131,7 +1146,7 @@ class INTERFACE:
             # We gotta check if we have a container inside our connection list, if not, create
             if (self.__target in INTERFACE.CONNECTIONS) is not True:
                 INTERFACE.CONNECTIONS[self.__target] = {}
-                INTERFACE.CONNECTIONS[self.__target][currentThread().getName()] = {}
+                INTERFACE.CONNECTIONS[self.__target][current_thread().name] = {}
 
             if objRef is not None:
                 self.process_interface(objRef)
@@ -1191,7 +1206,7 @@ class INTERFACE:
         return self.__ipidRemUnknown
 
     def get_dce_rpc(self):
-        return INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid]['dce']
+        return INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['dce']
 
     def get_cinstance(self):
         return self.__cinstance
@@ -1199,12 +1214,12 @@ class INTERFACE:
     def set_cinstance(self, cinstance):
         self.__cinstance = cinstance
 
-    def is_fdqn(self):
+    def is_fqdn(self):
         # I will assume the following
         # If I can't socket.inet_aton() then it's not an IPv4 address
         # Same for ipv6, but since socket.inet_pton is not available in Windows, I'll look for ':'. There can't be
         # an FQDN with ':'
-        # Is it isn't both, then it is a FDQN
+        # Is it isn't both, then it is a FQDN
         try:
             socket.inet_aton(self.__target)
         except:
@@ -1212,30 +1227,29 @@ class INTERFACE:
             try:
                 self.__target.index(':')
             except:
-                # Not an IPv6, it's a FDQN
+                # Not an IPv6, it's a FQDN
                 return True
         return False
 
-
     def connect(self, iid = None):
         if (self.__target in INTERFACE.CONNECTIONS) is True:
-            if currentThread().getName() in INTERFACE.CONNECTIONS[self.__target] and \
-                            (self.__oxid in INTERFACE.CONNECTIONS[self.__target][currentThread().getName()]) is True:
-                dce = INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid]['dce']
-                currentBinding = INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid]['currentBinding']
+            if current_thread().name in INTERFACE.CONNECTIONS[self.__target] and \
+                            (self.__oxid in INTERFACE.CONNECTIONS[self.__target][current_thread().name]) is True:
+                dce = INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['dce']
+                currentBinding = INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['currentBinding']
                 if currentBinding == iid:
                     # We don't need to alter_ctx
                     pass
                 else:
                     newDce = dce.alter_ctx(iid)
-                    INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid]['dce'] = newDce
-                    INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid]['currentBinding'] = iid
+                    INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['dce'] = newDce
+                    INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['currentBinding'] = iid
             else:
                 stringBindings = self.get_cinstance().get_string_bindings()
                 # No OXID present, we should create a new connection and store it
                 stringBinding = None
-                isTargetFDQN = self.is_fdqn()
-                LOG.debug('Target system is %s and isFDQN is %s' % (self.get_target(), isTargetFDQN))
+                isTargetFQDN = self.is_fqdn()
+                LOG.debug('Target system is %s and isFQDN is %s' % (self.get_target(), isTargetFQDN))
                 for strBinding in stringBindings:
                     # Here, depending on the get_target() value several things can happen
                     # 1) it's an IPv4 address
@@ -1257,7 +1271,7 @@ class INTERFACE:
                             stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
                             break
                         # If get_target() is a FQDN, does it match the hostname?
-                        elif isTargetFDQN and binding.upper().find(self.get_target().upper().partition('.')[0]) >= 0:
+                        elif isTargetFQDN and binding.upper().find(self.get_target().upper().partition('.')[0]) >= 0:
                             # Here we replace the aNetworkAddr with self.get_target()
                             # This is to help resolving the target system name.
                             # self.get_target() has been resolved already otherwise we wouldn't be here whereas
@@ -1298,10 +1312,10 @@ class INTERFACE:
                     #traceback.print_stack()
                     raise Exception("OXID NONE, something wrong!!!")
 
-                INTERFACE.CONNECTIONS[self.__target][currentThread().getName()] = {}
-                INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid] = {}
-                INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid]['dce'] = dce
-                INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid]['currentBinding'] = iid
+                INTERFACE.CONNECTIONS[self.__target][current_thread().name] = {}
+                INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid] = {}
+                INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['dce'] = dce
+                INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['currentBinding'] = iid
         else:
             # No connection created
             raise Exception('No connection created')
@@ -1324,7 +1338,7 @@ class INTERFACE:
         return resp
 
     def disconnect(self):
-        return INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid]['dce'].disconnect()
+        return INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['dce'].disconnect()
 
 
 # 3.1.1.5.6.1 IRemUnknown Methods

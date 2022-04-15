@@ -1,27 +1,31 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Simple ICMP ping.
+# Description:
+#   Simple ICMP ping.
 #
-# This implementation of ping uses the ICMP echo and echo-reply packets
-# to check the status of a host. If the remote host is up, it should reply
-# to the echo probe with an echo-reply packet.
-# Note that this isn't a definite test, as in the case the remote host is up
-# but refuses to reply the probes.
-# Also note that the user must have special access to be able to open a raw
-# socket, which this program requires.
+#   This implementation of ping uses the ICMP echo and echo-reply packets
+#   to check the status of a host. If the remote host is up, it should reply
+#   to the echo probe with an echo-reply packet.
+#   Note that this isn't a definite test, as in the case the remote host is up
+#   but refuses to reply the probes.
+#   Also note that the user must have special access to be able to open a raw
+#   socket, which this program requires.
 #
 # Authors:
-#  Gerardo Richarte <gera@coresecurity.com>
-#  Javier Kohen <jkohen@coresecurity.com>
+#   Gerardo Richarte (@gerasdf)
+#   Javier Kohen
 #
 # Reference for:
-#  ImpactPacket: IP, ICMP, DATA.
-#  ImpactDecoder.
+#   ImpactPacket: IP, ICMP, DATA
+#   ImpactDecoder
+#
 
 import select
 import socket
@@ -49,7 +53,7 @@ icmp = ImpactPacket.ICMP()
 icmp.set_icmp_type(icmp.ICMP_ECHO)
 
 # Include a 156-character long payload inside the ICMP packet.
-icmp.contains(ImpactPacket.Data("A"*156))
+icmp.contains(ImpactPacket.Data(b"A"*156))
 
 # Have the IP packet contain the ICMP packet (along with its payload).
 ip.contains(icmp)
@@ -72,7 +76,7 @@ while 1:
     s.sendto(ip.get_packet(), (dst, 0))
 
     # Wait for incoming replies.
-    if s in select.select([s],[],[],1)[0]:
+    if s in select.select([s], [], [], 1)[0]:
        reply = s.recvfrom(2000)[0]
 
        # Use ImpactDecoder to reconstruct the packet hierarchy.

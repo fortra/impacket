@@ -1,22 +1,25 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author:
-#  Alberto Solino (@agsolino)
-#
 # Description:
-#     This script will get the PAC of the specified target user just having a normal authenticated user credentials.
-#     It does so by using a mix of [MS-SFU]'s S4USelf + User to User Kerberos Authentication.
-#     Original idea (or accidental discovery :) ) of adding U2U capabilities inside a S4USelf by Benjamin Delpy (@gentilkiwi)
+#   This script will get the PAC of the specified target user just having a normal authenticated user credentials.
+#   It does so by using a mix of [MS-SFU]'s S4USelf + User to User Kerberos Authentication.
+#   Original idea (or accidental discovery :) ) of adding U2U capabilities inside a S4USelf by Benjamin Delpy (@gentilkiwi)
+#
+# Author:
+#   Alberto Solino (@agsolino)
 #
 # References:
+#   - U2U: https://tools.ietf.org/html/draft-ietf-cat-user2user-02
+#   - [MS-SFU]: https://msdn.microsoft.com/en-us/library/cc246071.aspx
 #
-#     U2U: https://tools.ietf.org/html/draft-ietf-cat-user2user-02
-#     [MS-SFU]: https://msdn.microsoft.com/en-us/library/cc246071.aspx
+
 from __future__ import division
 from __future__ import print_function
 import argparse
@@ -35,6 +38,7 @@ from pyasn1.type.univ import noValue
 from impacket import version
 from impacket.dcerpc.v5.rpcrt import TypeSerialization1
 from impacket.examples import logger
+from impacket.examples.utils import parse_credentials
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, seq_set, seq_set_iter, PA_FOR_USER_ENC, \
     EncTicketPart, AD_IF_RELEVANT, Ticket as TicketAsn1
@@ -305,8 +309,7 @@ if __name__ == '__main__':
 
     options = parser.parse_args()
 
-    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(
-        options.credentials).groups('')
+    domain, username, password = parse_credentials(options.credentials)
 
     if domain is None:
         domain = ''

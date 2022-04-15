@@ -1,54 +1,59 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Description: Performs various techniques to dump hashes from the
-#              remote machine without executing any agent there.
-#              For SAM and LSA Secrets (including cached creds)
-#              we try to read as much as we can from the registry
-#              and then we save the hives in the target system
-#              (%SYSTEMROOT%\\Temp dir) and read the rest of the
-#              data from there.
-#              For NTDS.dit we either:
-#                a. Get the domain users list and get its hashes
-#                   and Kerberos keys using [MS-DRDS] DRSGetNCChanges()
-#                   call, replicating just the attributes we need.
-#                b. Extract NTDS.dit via vssadmin executed  with the
-#                   smbexec approach.
-#                   It's copied on the temp dir and parsed remotely.
+# Description:
+#   Performs various techniques to dump hashes from the
+#   remote machine without executing any agent there.
+#   For SAM and LSA Secrets (including cached creds)
+#   we try to read as much as we can from the registry
+#   and then we save the hives in the target system
+#   (%SYSTEMROOT%\\Temp dir) and read the rest of the
+#   data from there.
+#   For NTDS.dit we either:
+#       a. Get the domain users list and get its hashes
+#          and Kerberos keys using [MS-DRDS] DRSGetNCChanges()
+#          call, replicating just the attributes we need.
+#       b. Extract NTDS.dit via vssadmin executed  with the
+#          smbexec approach.
+#          It's copied on the temp dir and parsed remotely.
 #
-#              The script initiates the services required for its working
-#              if they are not available (e.g. Remote Registry, even if it is
-#              disabled). After the work is done, things are restored to the
-#              original state.
+#   The script initiates the services required for its working
+#   if they are not available (e.g. Remote Registry, even if it is
+#   disabled). After the work is done, things are restored to the
+#   original state.
 #
 # Author:
 #  Alberto Solino (@agsolino)
 #
-# References: Most of the work done by these guys. I just put all
-#             the pieces together, plus some extra magic.
-#
-# https://github.com/gentilkiwi/kekeo/tree/master/dcsync
-# https://moyix.blogspot.com.ar/2008/02/syskey-and-sam.html
-# https://moyix.blogspot.com.ar/2008/02/decrypting-lsa-secrets.html
-# https://moyix.blogspot.com.ar/2008/02/cached-domain-credentials.html
-# https://web.archive.org/web/20130901115208/www.quarkslab.com/en-blog+read+13
-# https://code.google.com/p/creddump/
-# https://lab.mediaservice.net/code/cachedump.rb
-# https://insecurety.net/?p=768
-# http://www.beginningtoseethelight.org/ntsecurity/index.htm
-# https://www.exploit-db.com/docs/english/18244-active-domain-offline-hash-dump-&-forensic-analysis.pdf
-# https://www.passcape.com/index.php?section=blog&cmd=details&id=15
+# References:
+#   Most of the work done by these guys. I just put all
+#   the pieces together, plus some extra magic.
+#   - https://github.com/gentilkiwi/kekeo/tree/master/dcsync
+#   - https://moyix.blogspot.com.ar/2008/02/syskey-and-sam.html
+#   - https://moyix.blogspot.com.ar/2008/02/decrypting-lsa-secrets.html
+#   - https://moyix.blogspot.com.ar/2008/02/cached-domain-credentials.html
+#   - https://web.archive.org/web/20130901115208/www.quarkslab.com/en-blog+read+13
+#   - https://code.google.com/p/creddump/
+#   - https://lab.mediaservice.net/code/cachedump.rb
+#   - https://insecurety.net/?p=768
+#   - https://web.archive.org/web/20190717124313/http://www.beginningtoseethelight.org/ntsecurity/index.htm
+#   - https://www.exploit-db.com/docs/english/18244-active-domain-offline-hash-dump-&-forensic-analysis.pdf
+#   - https://www.passcape.com/index.php?section=blog&cmd=details&id=15
 #
 from __future__ import division
 from __future__ import print_function
 import codecs
+import json
 import hashlib
 import logging
 import ntpath
 import os
+import re
 import random
 import string
 import time
@@ -100,7 +105,7 @@ class SAM_KEY_DATA(Structure):
         ('Reserved','<Q=0'),
     )
 
-# Structure taken from mimikatz (@gentilkiwi) in the context of https://github.com/CoreSecurity/impacket/issues/326
+# Structure taken from mimikatz (@gentilkiwi) in the context of https://github.com/SecureAuthCorp/impacket/issues/326
 # Merci! Makes it way easier than parsing manually.
 class SAM_HASH(Structure):
     structure = (
@@ -156,7 +161,7 @@ class DOMAIN_ACCOUNT_F(Structure):
 #        ('Unknown4','<L=0'),
     )
 
-# Great help from here http://www.beginningtoseethelight.org/ntsecurity/index.htm
+# Great help from here https://web.archive.org/web/20190717124313/http://www.beginningtoseethelight.org/ntsecurity/index.htm
 class USER_ACCOUNT_V(Structure):
     structure = (
         ('Unknown','12s=b""'),
@@ -356,6 +361,7 @@ class RemoteOperations:
         self.__samr = None
         self.__domainHandle = None
         self.__domainName = None
+        self.__domainSid = None
 
         self.__drsr = None
         self.__hDrs = None
@@ -399,6 +405,9 @@ class RemoteOperations:
         self.__rrp.connect()
         self.__rrp.bind(rrp.MSRPC_UUID_RRP)
 
+    def getRRP(self):
+        return self.__rrp
+
     def connectSamr(self, domain):
         rpc = transport.DCERPCTransportFactory(self.__stringBindingSamr)
         rpc.set_smb_connection(self.__smbConnection)
@@ -409,6 +418,8 @@ class RemoteOperations:
         serverHandle = resp['ServerHandle']
 
         resp = samr.hSamrLookupDomainInSamServer(self.__samr, serverHandle, domain)
+        self.__domainSid = resp['DomainId'].formatCanonical()
+
         resp = samr.hSamrOpenDomain(self.__samr, serverHandle=serverHandle, domainId=resp['DomainId'])
         self.__domainHandle = resp['DomainHandle']
         self.__domainName = domain
@@ -569,11 +580,14 @@ class RemoteOperations:
             resp = e.get_packet()
         return resp
 
-    def ridToSid(self, rid):
+    def getDomainSid(self):
+        if self.__domainSid is not None:
+            return self.__domainSid
+
         if self.__samr is None:
             self.connectSamr(self.getMachineNameAndDomain()[1])
-        resp = samr.hSamrRidToSid(self.__samr, self.__domainHandle , rid)
-        return resp['Sid']
+
+        return self.__domainSid
 
     def getMachineKerberosSalt(self):
         """
@@ -989,8 +1003,13 @@ class RemoteOperations:
     def saveNTDS(self):
         LOG.info('Searching for NTDS.dit')
         # First of all, let's try to read the target NTDS.dit registry entry
-        ans = rrp.hOpenLocalMachine(self.__rrp)
-        regHandle = ans['phKey']
+        try:
+            ans = rrp.hOpenLocalMachine(self.__rrp)
+            regHandle = ans['phKey']
+        except:
+            # Can't open the root key
+            return None
+
         try:
             ans = rrp.hBaseRegOpenKey(self.__rrp, self.__regHandle, 'SYSTEM\\CurrentControlSet\\Services\\NTDS\\Parameters')
             keyHandle = ans['phkResult']
@@ -1548,6 +1567,27 @@ class LSASecrets(OfflineRegistry):
             extrasecret = "%s:plain_password_hex:%s" % (printname, hexlify(secretItem).decode('utf-8'))
             self.__secretItems.append(extrasecret)
             self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, extrasecret)
+        elif re.match('^L\$_SQSA_(S-[0-9]-[0-9]-([0-9])+-([0-9])+-([0-9])+-([0-9])+-([0-9])+)$', upperName) is not None:
+            # Decode stored security questions
+            sid = re.search('^L\$_SQSA_(S-[0-9]-[0-9]-([0-9])+-([0-9])+-([0-9])+-([0-9])+-([0-9])+)$', upperName).group(1)
+            try:
+                strDecoded = secretItem.decode('utf-16le').replace('\xa0',' ')
+                strDecoded = json.loads(strDecoded)
+            except:
+                pass
+            else:
+                output = []
+                if strDecoded['version'] == 1:
+                    output.append(" - Version : %d" % strDecoded['version'])
+                    for qk in strDecoded['questions']:
+                        output.append(" | Question: %s" % qk['question'])
+                        output.append(" | |--> Answer: %s" % qk['answer'])
+                    output = '\n'.join(output)
+                    secret = 'Security Questions for user %s: \n%s' % (sid, output)
+                else:
+                    LOG.warning("Unknown SQSA version (%s), please open an issue with the following data so we can add a parser for it." % str(strDecoded['version']))
+                    LOG.warning("Don't forget to remove sensitive content before sending the data in a Github issue.")
+                    secret = json.dumps(strDecoded, indent=4)
 
         if secret != '':
             printableSecret = secret
@@ -1857,6 +1897,25 @@ class NTDSHashes:
         self.__justUser = justUser
         self.__perSecretCallback = perSecretCallback
 
+		# these are all the columns that we need to get the secrets.
+		# If in the future someone finds other columns containing interesting things please extend ths table.
+        self.__filter_tables_usersecret = {
+            self.NAME_TO_INTERNAL['objectSid'] : 1,
+            self.NAME_TO_INTERNAL['dBCSPwd'] : 1,
+            self.NAME_TO_INTERNAL['name'] : 1,
+            self.NAME_TO_INTERNAL['sAMAccountType'] : 1,
+            self.NAME_TO_INTERNAL['unicodePwd'] : 1,
+            self.NAME_TO_INTERNAL['sAMAccountName'] : 1,
+            self.NAME_TO_INTERNAL['userPrincipalName'] : 1,
+            self.NAME_TO_INTERNAL['ntPwdHistory'] : 1,
+            self.NAME_TO_INTERNAL['lmPwdHistory'] : 1,
+            self.NAME_TO_INTERNAL['pwdLastSet'] : 1,
+            self.NAME_TO_INTERNAL['userAccountControl'] : 1,
+            self.NAME_TO_INTERNAL['supplementalCredentials'] : 1,
+            self.NAME_TO_INTERNAL['pekList'] : 1,
+
+        }
+
     def getResumeSessionFile(self):
         return self.__resumeSession.getFileName()
 
@@ -1865,7 +1924,7 @@ class NTDSHashes:
         peklist = None
         while True:
             try:
-                record = self.__ESEDB.getNextRow(self.__cursor)
+                record = self.__ESEDB.getNextRow(self.__cursor, filter_tables=self.__filter_tables_usersecret)
             except:
                 LOG.error('Error while calling getNextRow(), trying the next one')
                 continue
@@ -2385,7 +2444,7 @@ class NTDSHashes:
                     # Now let's keep moving through the NTDS file and decrypting what we find
                     while True:
                         try:
-                            record = self.__ESEDB.getNextRow(self.__cursor)
+                            record = self.__ESEDB.getNextRow(self.__cursor, filter_tables=self.__filter_tables_usersecret)
                         except:
                             LOG.error('Error while calling getNextRow(), trying the next one')
                             continue
@@ -2472,15 +2531,15 @@ class NTDSHashes:
                         for user in resp['Buffer']['Buffer']:
                             userName = user['Name']
 
-                            userSid = self.__remoteOps.ridToSid(user['RelativeId'])
+                            userSid = "%s-%i" % (self.__remoteOps.getDomainSid(), user['RelativeId'])
                             if resumeSid is not None:
                                 # Means we're looking for a SID before start processing back again
-                                if resumeSid == userSid.formatCanonical():
+                                if resumeSid == userSid:
                                     # Match!, next round we will back processing
-                                    LOG.debug('resumeSid %s reached! processing users from now on' % userSid.formatCanonical())
+                                    LOG.debug('resumeSid %s reached! processing users from now on' % userSid)
                                     resumeSid = None
                                 else:
-                                    LOG.debug('Skipping SID %s since it was processed already' % userSid.formatCanonical())
+                                    LOG.debug('Skipping SID %s since it was processed already' % userSid)
                                 continue
 
                             # Let's crack the user sid into DS_FQDN_1779_NAME
@@ -2489,7 +2548,7 @@ class NTDSHashes:
                             # For some reason tho, I get ERROR_DS_DRA_BAD_DN when doing so.
                             crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NAME_FORMAT.DS_SID_OR_SID_HISTORY_NAME,
                                                                          drsuapi.DS_NAME_FORMAT.DS_UNIQUE_ID_NAME,
-                                                                         name=userSid.formatCanonical())
+                                                                         name=userSid)
 
                             if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
                                 if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
@@ -2519,7 +2578,7 @@ class NTDSHashes:
                                 LOG.error(str(e))
 
                             # Saving the session state
-                            self.__resumeSession.writeResumeData(userSid.formatCanonical())
+                            self.__resumeSession.writeResumeData(userSid)
 
                         enumerationContext = resp['EnumerationContext']
                         status = resp['ErrorCode']

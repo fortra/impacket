@@ -1,13 +1,11 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
-#
-#
-# Author:
-#  beto (@agsolino)
 #
 # Description:
 #   This script will exploit CVE-2017-7494, uploading and executing the shared library specified by the user through
@@ -27,6 +25,8 @@
 #
 #   Same as before, but anonymous authentication will be used.
 #
+# Author:
+#   beto (@agsolino)
 #
 
 import argparse
@@ -36,6 +36,7 @@ from os import path
 
 from impacket import version
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket.nt_errors import STATUS_SUCCESS
 from impacket.smb import FILE_OPEN, SMB_DIALECT, SMB, SMBCommand, SMBNtCreateAndX_Parameters, SMBNtCreateAndX_Data, \
     FILE_READ_DATA, FILE_SHARE_READ, FILE_NON_DIRECTORY_FILE, FILE_WRITE_DATA, FILE_DIRECTORY_FILE
@@ -243,15 +244,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-        options.target).groups('')
-
-    # In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    domain, username, password, address = parse_target(options.target)
 
     if options.target_ip is None:
         options.target_ip = address

@@ -1,20 +1,22 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
 # Description:
-#    Cisco Discovery Protocol packet codecs.
+#   Cisco Discovery Protocol packet codecs.
 #
 # Author:
-#  Martin Candurra
-#  martincad at corest.com
+#   Martin Candurra
+#
 
 from struct import unpack
 import socket
 
-from impacket.ImpactPacket import Header
+from impacket.ImpactPacket import Header, array_tobytes
 from impacket import LOG
 
 IP_ADDRESS_LENGTH = 4
@@ -124,11 +126,11 @@ class CDPElement(Header):
         return self.get_word(2)
                 
     def get_data(self):        
-        return self.get_bytes().tostring()[4:self.get_length()]
+        return array_tobytes(self.get_bytes())[4:self.get_length()]
 
     def get_ip_address(self, offset = 0, ip = None):
         if not ip:
-            ip = self.get_bytes().tostring()[offset : offset + IP_ADDRESS_LENGTH]
+            ip = array_tobytes(self.get_bytes())[offset : offset + IP_ADDRESS_LENGTH]
         return socket.inet_ntoa( ip )
         
 class CDPDevice(CDPElement):
@@ -149,7 +151,7 @@ class Address(CDPElement):
     def __init__(self, aBuffer = None):
         CDPElement.__init__(self, aBuffer)
         if aBuffer:
-            data = self.get_bytes().tostring()[8:]
+            data = array_tobytes(self.get_bytes())[8:]
             self._generateAddressDetails(data)
 
     def _generateAddressDetails(self, buff):
@@ -353,10 +355,10 @@ class ProtocolHello(CDPElement):
         return self.get_byte(19)
 
     def get_cluster_command_mac(self):
-        return self.get_bytes().tostring()[20:20+6]
+        return array_tobytes(self.get_bytes())[20:20+6]
             
     def get_switch_mac(self):
-        return self.get_bytes().tostring()[28:28+6]
+        return array_tobytes(self.get_bytes())[28:28+6]
             
     def get_management_vlan(self):
         return self.get_word(36)

@@ -1,24 +1,21 @@
 #!/usr/bin/env python
-# Copyright (c) 2003-2013 CORE Security Technologies
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Description:
-#  Tests for helper used to build ProtocolPackets
+#   Tests for helper used to build ProtocolPackets
 #
 # Author:
-# Aureliano Calvo
-
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../../..")
-
+#   Aureliano Calvo
+#
 import unittest
 import impacket.helper as h
+
 
 class TestHelpers(unittest.TestCase):
     
@@ -53,5 +50,5 @@ class TestHelpers(unittest.TestCase):
         self.assertEqual(p.get_packet(), MockPacket(p.get_packet()).get_packet()) # it is the same packet after reprocessing.
         
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestHelpers)
-unittest.TextTestRunner(verbosity=1).run(suite)
+if __name__ == '__main__':
+    unittest.main(verbosity=1)

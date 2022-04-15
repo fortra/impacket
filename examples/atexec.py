@@ -1,19 +1,24 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# ATSVC example for some functions implemented, creates, enums, runs, delete jobs
-# This example executes a command on the target machine through the Task Scheduler 
-# service. Returns the output of such command
+# Description:
+#   ATSVC example for some functions implemented, creates, enums, runs, delete jobs
+#   This example executes a command on the target machine through the Task Scheduler
+#   service. Returns the output of such command
 #
 # Author:
-#  Alberto Solino (@agsolino)
+#   Alberto Solino (@agsolino)
 #
 # Reference for:
-#  DCE/RPC for TSCH
+#   DCE/RPC for TSCH
+#
+
 from __future__ import division
 from __future__ import print_function
 import string
@@ -29,6 +34,7 @@ from impacket.dcerpc.v5 import tsch, transport
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_GSS_NEGOTIATE, \
     RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+from impacket.examples.utils import parse_target
 from impacket.krb5.keytab import Keytab
 from six import PY2
 
@@ -36,7 +42,7 @@ CODEC = sys.stdout.encoding
 
 class TSCH_EXEC:
     def __init__(self, username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False, kdcHost=None,
-                 command=None, sessionId=None):
+                 command=None, sessionId=None, silentCommand=False):
         self.__username = username
         self.__password = password
         self.__domain = domain
@@ -46,6 +52,7 @@ class TSCH_EXEC:
         self.__doKerberos = doKerberos
         self.__kdcHost = kdcHost
         self.__command = command
+        self.__silentCommand = silentCommand
         self.sessionId = sessionId
 
         if hashes is not None:
@@ -156,7 +163,8 @@ class TSCH_EXEC:
     </Exec>
   </Actions>
 </Task>
-        """ % (xml_escape(cmd), xml_escape(args))
+        """ % ((xml_escape(cmd) if self.__silentCommand is False else self.__command.split()[0]), 
+            (xml_escape(args) if self.__silentCommand is False else " ".join(self.__command.split()[1:])))
         taskCreated = False
         try:
             logging.info('Creating task \\%s' % tmpName)
@@ -200,6 +208,10 @@ class TSCH_EXEC:
             dce.disconnect()
             return
 
+        if self.__silentCommand:
+            dce.disconnect()
+            return
+
         smbConnection = rpctransport.get_smb_connection()
         waitOnce = True
         while True:
@@ -221,7 +233,7 @@ class TSCH_EXEC:
                     raise
         logging.debug('Deleting file ADMIN$\\Temp\\%s' % tmpFileName)
         smbConnection.deleteFile('ADMIN$', 'Temp\\%s' % tmpFileName)
- 
+
         dce.disconnect()
 
 
@@ -234,8 +246,9 @@ if __name__ == '__main__':
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('command', action='store', nargs='*', default=' ', help='command to execute at the target ')
     parser.add_argument('-session-id', action='store', type=int, help='an existed logon session to use (no output, no cmd.exe)')
-
     parser.add_argument('-ts', action='store_true', help='adds timestamp to every logging output')
+    parser.add_argument('-silentcommand', action='store_true', default = False, help='does not execute cmd.exe to run '
+                                                                                     'given command (no output)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
                                                        '"%s"). If errors are detected, run chcp.com at the target, '
@@ -284,15 +297,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-        options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    domain, username, password, address = parse_target(options.target)
 
     if domain is None:
         domain = ''
@@ -310,5 +315,5 @@ if __name__ == '__main__':
         options.k = True
 
     atsvc_exec = TSCH_EXEC(username, password, domain, options.hashes, options.aesKey, options.k, options.dc_ip,
-                           ' '.join(options.command), options.session_id)
+                           ' '.join(options.command), options.session_id, options.silentcommand)
     atsvc_exec.play(address)

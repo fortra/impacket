@@ -1,35 +1,35 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Target utilities
+# Description:
+#   Target utilities
+#
+#   Classes for handling specified targets and keeping state of which targets have been processed
+#   Format of targets are based in URI syntax
+#       scheme://netloc/path
+#   where:
+#       scheme: the protocol to target (e.g. 'smb', 'mssql', 'all')
+#       netloc: int the form of domain\username@host:port (domain\username and port are optional, and don't forget
+#               to escape the '\')
+#       path: only used by specific attacks (e.g. HTTP attack).
+#
+#   Some examples:
+#       smb://1.1.1.1: It will target host 1.1.1.1 (protocol SMB) with any user connecting
+#       mssql://contoso.com\joe@10.1.1.1: It will target host 10.1.1.1 (protocol MSSQL) only when contoso.com\joe is
+#       connecting.
 #
 # Author:
-#  Alberto Solino (@agsolino)
-#  Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
+#   Alberto Solino (@agsolino)
+#   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #
-# Description:
-#     Classes for handling specified targets and keeping state of which targets have been processed
-#     Format of targets are based in URI syntax
-#         scheme://netloc/path
-#     where:
-#         scheme: the protocol to target (e.g. 'smb', 'mssql', 'all')
-#         netloc: int the form of domain\username@host:port (domain\username and port are optional, and don't forget
-#                 to escape the '\')
-#         path: only used by specific attacks (e.g. HTTP attack).
+# ToDo:
+#   [ ]: Expand the ALL:// to all the supported protocols
 #
-#     Some examples:
-#
-#         smb://1.1.1.1: It will target host 1.1.1.1 (protocol SMB) with any user connecting
-#         mssql://contoso.com\joe@10.1.1.1: It will target host 10.1.1.1 (protocol MSSQL) only when contoso.com\joe is
-#         connecting.
-#
-#  ToDo:
-# [ ]: Expand the ALL:// to all the supported protocols
-
-
 import os
 import random
 import time
@@ -130,7 +130,7 @@ class TargetsProcessor:
         if len(self.generalCandidates) > 0:
             if identity is not None:
                 for target in self.generalCandidates:
-                    tmpTarget =  '%s://%s@%s' % (target.scheme, identity.replace('/','\\'), target.netloc)
+                    tmpTarget = '%s://%s@%s' % (target.scheme, identity.replace('/', '\\'), target.netloc)
                     match = [x for x in self.finishedAttacks if x.geturl().upper() == tmpTarget.upper()]
                     if len(match) == 0:
                         self.generalCandidates.remove(target)
@@ -144,12 +144,16 @@ class TargetsProcessor:
                 self.generalCandidates = [x for x in self.originalTargets if
                                           x not in self.finishedAttacks and x.username is None]
 
-        if len(self.generalCandidates) == 0 and len(self.namedCandidates) == 0:
-            #We are here, which means all the targets are already exhausted by the client
-            LOG.info("All targets processed!")
+        if len(self.generalCandidates) == 0:
+            if len(self.namedCandidates) == 0:
+                # We are here, which means all the targets are already exhausted by the client
+                LOG.info("All targets processed!")
+            elif identity is not None:
+                # This user has no more targets
+                LOG.debug("No more targets for user %s" % identity)
             return None
-
-        return None
+        else:
+            return self.getTarget(identity)
 
 class TargetsFileWatcher(Thread):
     def __init__(self,targetprocessor):

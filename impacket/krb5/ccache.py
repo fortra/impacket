@@ -1,10 +1,10 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
-#
-# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   Kerberos Credential Cache format implementation
@@ -13,11 +13,15 @@
 #   Pretty lame and quick implementation, not a fun thing to do
 #   Contribution is welcome to make it the right way
 #
+# Author:
+#   Alberto Solino (@agsolino)
+#
 from __future__ import division
 from __future__ import print_function
 from datetime import datetime
+import os
 from struct import pack, unpack, calcsize
-from six import b
+from six import b, PY2
 
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type.univ import noValue
@@ -29,6 +33,11 @@ from impacket.krb5.asn1 import AS_REP, seq_set, TGS_REP, EncTGSRepPart, EncASRep
     EncKrbCredPart, KrbCredInfo, seq_set_iter
 from impacket.krb5.types import KerberosTime
 from impacket import LOG
+
+try:
+    FileNotFoundError
+except NameError:
+    FileNotFoundError = IOError
 
 DELTA_TIME = 1
 
@@ -56,7 +65,22 @@ class CountedOctetString(Structure):
     def prettyPrint(self, indent=''):
         return "%s%s" % (indent, hexlify(self['data']))
 
-class KeyBlock(Structure):
+
+class KeyBlockV3(Structure):
+    structure = (
+        ('keytype','!H=0'),
+        ('etype','!H=0'),
+        ('etype2', '!H=0'),  # Version 3 repeats the etype
+        ('keylen','!H=0'),
+        ('_keyvalue','_-keyvalue','self["keylen"]'),
+        ('keyvalue',':'),
+    )
+
+    def prettyPrint(self):
+        return "Key: (0x%x)%s" % (self['keytype'], hexlify(self['keyvalue']))
+
+
+class KeyBlockV4(Structure):
     structure = (
         ('keytype','!H=0'),
         ('etype','!H=0'),
@@ -138,7 +162,7 @@ class Principal:
             else:
                 component = component['data']
             principal += component + b'/'
-        
+
         principal = principal[:-1]
         if isinstance(self.realm['data'], bytes):
             realm = self.realm['data']
@@ -165,18 +189,29 @@ class Principal:
         return types.Principal(self.prettyPrint(), type=self.header['name_type'])
 
 class Credential:
-    class CredentialHeader(Structure):
+    class CredentialHeaderV3(Structure):
         structure = (
             ('client',':', Principal),
             ('server',':', Principal),
-            ('key',':', KeyBlock),
+            ('key',':', KeyBlockV3),
             ('time',':', Times),
             ('is_skey','B=0'),
             ('tktflags','!L=0'),
             ('num_address','!L=0'),
         )
 
-    def __init__(self, data=None):
+    class CredentialHeaderV4(Structure):
+        structure = (
+            ('client',':', Principal),
+            ('server',':', Principal),
+            ('key',':', KeyBlockV4),
+            ('time',':', Times),
+            ('is_skey','B=0'),
+            ('tktflags','!L=0'),
+            ('num_address','!L=0'),
+        )
+
+    def __init__(self, data=None, ccache_version=None):
         self.addresses = ()
         self.authData = ()
         self.header = None
@@ -184,7 +219,11 @@ class Credential:
         self.secondTicket = None
 
         if data is not None:
-            self.header = self.CredentialHeader(data)
+            if ccache_version == 3:
+                self.header = self.CredentialHeaderV3(data)
+            else:
+                self.header = self.CredentialHeaderV4(data)
+
             data = data[len(self.header):]
             self.addresses = []
             for address in range(self.header['num_address']):
@@ -202,7 +241,7 @@ class Credential:
             self.secondTicket = CountedOctetString(data)
             data = data[len( self.secondTicket):]
         else:
-            self.header = self.CredentialHeader()
+            self.header = self.CredentialHeaderV4()
 
     def __getitem__(self, key):
         return self.header[key]
@@ -308,7 +347,10 @@ class Credential:
         tgs['sessionKey'] = crypto.Key(cipher.enctype, self['key']['keyvalue'])
         return tgs
 
+
 class CCache:
+    # https://web.mit.edu/kerberos/krb5-devel/doc/formats/ccache_file_format.html
+
     class MiniHeader(Structure):
         structure = (
             ('file_format_version','!H=0x0504'),
@@ -320,18 +362,33 @@ class CCache:
         self.principal = None
         self.credentials = []
         self.miniHeader = None
+
         if data is not None:
-            miniHeader = self.MiniHeader(data)
-            data = data[len(miniHeader.getData()):]
+            if PY2:
+                ccache_version = unpack('>B', data[1])[0]
+            else:
+                ccache_version = data[1]
 
-            headerLen = miniHeader['headerlen']
+            # Versions 1 and 2 are not implemented yet
+            if ccache_version == 1 or ccache_version == 2:
+                raise NotImplementedError('Not Implemented!')
 
-            self.headers = []
-            while headerLen > 0:
-                header = Header(data)
-                self.headers.append(header)
-                headerLen -= len(header)
-                data = data[len(header):]
+            # Only Version 4 contains a header
+            if ccache_version == 4:
+                miniHeader = self.MiniHeader(data)
+                data = data[len(miniHeader.getData()):]
+
+                headerLen = miniHeader['headerlen']
+
+                self.headers = []
+                while headerLen > 0:
+                    header = Header(data)
+                    self.headers.append(header)
+                    headerLen -= len(header)
+                    data = data[len(header):]
+            else:
+                # Skip over the version bytes
+                data = data[2:]
 
             # Now the primary_principal
             self.principal = Principal(data)
@@ -341,7 +398,7 @@ class CCache:
             # Now let's parse the credentials
             self.credentials = []
             while len(data) > 0:
-                cred = Credential(data)
+                cred = Credential(data, ccache_version)
                 if cred['server'].prettyPrint().find(b'krb5_ccache_conf_data') < 0:
                     self.credentials.append(cred)
                 data = data[len(cred.getData()):]
@@ -429,7 +486,7 @@ class CCache:
         credential['server'] = tmpServer
         credential['is_skey'] = 0
 
-        credential['key'] = KeyBlock()
+        credential['key'] = KeyBlockV4()
         credential['key']['keytype'] = int(encASRepPart['key']['keytype'])
         credential['key']['keyvalue'] = encASRepPart['key']['keyvalue'].asOctets()
         credential['key']['keylen'] = len(credential['key']['keyvalue'])
@@ -489,7 +546,7 @@ class CCache:
         credential['server'] = tmpServer
         credential['is_skey'] = 0
 
-        credential['key'] = KeyBlock()
+        credential['key'] = KeyBlockV4()
         credential['key']['keytype'] = int(encTGSRepPart['key']['keytype'])
         credential['key']['keyvalue'] = encTGSRepPart['key']['keyvalue'].asOctets()
         credential['key']['keylen'] = len(credential['key']['keyvalue'])
@@ -498,7 +555,9 @@ class CCache:
         credential['time']['authtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['authtime']))
         credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['starttime']))
         credential['time']['endtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['endtime']))
-        credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['renew-till']))
+        # After KB4586793 for CVE-2020-17049 this timestamp may be omitted
+        if encTGSRepPart['renew-till'].hasValue():
+            credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['renew-till']))
 
         flags = self.reverseFlags(encTGSRepPart['flags'])
         credential['tktflags'] = flags
@@ -515,22 +574,80 @@ class CCache:
 
     @classmethod
     def loadFile(cls, fileName):
-        f = open(fileName,'rb')
-        data = f.read()
-        f.close()
-        return cls(data)
+        if fileName is None:
+            LOG.critical('CCache file is not found. Skipping...')
+            LOG.debug('The specified path is not correct or the KRB5CCNAME environment variable is not defined')
+            return None
+
+        try:
+            f = open(fileName, 'rb')
+            data = f.read()
+            f.close()
+            return cls(data)
+        except FileNotFoundError as e:
+            raise e
 
     def saveFile(self, fileName):
-        f = open(fileName,'wb+')
+        f = open(fileName, 'wb+')
         f.write(self.getData())
         f.close()
+
+    @classmethod
+    def parseFile(cls, domain='', username='', target=''):
+        """
+        parses the CCache file specified in the KRB5CCNAME environment variable
+
+        :param domain: an optional domain name of a user
+        :param username: an optional username of a user
+        :param target: an optional SPN of a target system
+
+        :return: domain, username, TGT, TGS
+        """
+
+        ccache = cls.loadFile(os.getenv('KRB5CCNAME'))
+        if ccache is None:
+            return domain, username, None, None
+
+        LOG.debug('Using Kerberos Cache: %s' % os.getenv('KRB5CCNAME'))
+
+        if domain == '':
+            domain = ccache.principal.realm['data'].decode('utf-8')
+            LOG.debug('Domain retrieved from CCache: %s' % domain)
+
+        creds = None
+        if target != '':
+            principal = '%s@%s' % (target.upper(), domain.upper())
+            creds = ccache.getCredential(principal)
+
+        TGT = None
+        TGS = None
+        if creds is None:
+            principal = 'krbtgt/%s@%s' % (domain.upper(), domain.upper())
+            creds = ccache.getCredential(principal)
+            if creds is not None:
+                LOG.debug('Using TGT from cache')
+                TGT = creds.toTGT()
+            else:
+                LOG.debug('No valid credentials found in cache')
+        else:
+            LOG.debug('Using TGS from cache')
+            TGS = creds.toTGS(principal)
+
+        if username == '' and creds is not None:
+            username = creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')
+            LOG.debug('Username retrieved from CCache: %s' % username)
+        elif username == '' and len(ccache.principal.components) > 0:
+            username = ccache.principal.components[0]['data'].decode('utf-8')
+            LOG.debug('Username retrieved from CCache: %s' % username)
+
+        return domain, username, TGT, TGS
 
     def prettyPrint(self):
         print(("Primary Principal: %s" % self.principal.prettyPrint()))
         print("Credentials: ")
         for i, credential in enumerate(self.credentials):
             print(("[%d]" % i))
-            credential.prettyPrint('\t') 
+            credential.prettyPrint('\t')
 
     @classmethod
     def loadKirbiFile(cls, fileName):
@@ -569,13 +686,14 @@ class CCache:
         credential['server'] = tmpServer
         credential['is_skey'] = 0
 
-        credential['key'] = KeyBlock()
+        credential['key'] = KeyBlockV4()
         credential['key']['keytype'] = int(krbCredInfo['key']['keytype'])
-        credential['key']['keyvalue'] = str(krbCredInfo['key']['keyvalue'])
+        credential['key']['keyvalue'] = krbCredInfo['key']['keyvalue'].asOctets()
         credential['key']['keylen'] = len(credential['key']['keyvalue'])
 
         credential['time'] = Times()
 
+        credential['time']['authtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['starttime']))
         credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['starttime']))
         credential['time']['endtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['endtime']))
         credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['renew-till']))
@@ -590,7 +708,7 @@ class CCache:
         )
         credential.ticket['length'] = len(credential.ticket['data'])
         credential.secondTicket = CountedOctetString()
-        credential.secondTicket['data'] = ''
+        credential.secondTicket['data'] = b''
         credential.secondTicket['length'] = 0
 
         self.credentials.append(credential)
@@ -621,8 +739,9 @@ class CCache:
 
         krbCredInfo['sname'] = noValue
         krbCredInfo['sname']['name-type'] = credential['server'].header['name_type']
-        seq_set_iter(krbCredInfo['sname'], 'name-string',
-                     (credential['server'].components[0].fields['data'], credential['server'].realm.fields['data']))
+        tmp_service_class = credential['server'].components[0].fields['data']
+        tmp_service_hostname = credential['server'].components[1].fields['data']
+        seq_set_iter(krbCredInfo['sname'], 'name-string', (tmp_service_class, tmp_service_hostname))
 
         encKrbCredPart = EncKrbCredPart()
         seq_set_iter(encKrbCredPart, 'ticket-info', (krbCredInfo,))
@@ -653,6 +772,5 @@ class CCache:
 
 
 if __name__ == '__main__':
-    import os
     ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
     ccache.prettyPrint()

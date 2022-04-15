@@ -1,7 +1,12 @@
 include MANIFEST.in
 include LICENSE
-include ChangeLog
+include ChangeLog.md
+include README.md
+include SECURITY.md
+include TESTING.md
+
 include requirements.txt
+
 include tox.ini
 recursive-include examples tests *.txt *.py
 recursive-include tests *

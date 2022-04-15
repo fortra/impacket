@@ -1,30 +1,32 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino (@agsolino)
-#
 # Description:
-#     Simple MQTT example aimed at playing with different login options. Can be converted into a account/password
-#     brute forcer quite easily.
+#   Simple MQTT example aimed at playing with different login options. Can be converted into a account/password
+#   brute forcer quite easily.
+#
+# Author:
+#   Alberto Solino (@agsolino)
 #
 # Reference for:
-#  MQTT and Structure
-#
+#   MQTT and Structure
 #
 
 from __future__ import print_function
 
 import argparse
 import logging
-import re
 import sys
 
 from impacket import version
 from impacket.examples import logger
+from impacket.examples.utils import parse_target
 from impacket.mqtt import CONNECT_ACK_ERROR_MSGS, MQTTConnection
 
 class MQTT_LOGIN:
@@ -75,13 +77,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-        options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    domain, username, password, address = parse_target(options.target)
 
     check_mqtt = MQTT_LOGIN(username, password, address, options)
     try:

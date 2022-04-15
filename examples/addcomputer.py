@@ -1,28 +1,35 @@
 #!/usr/bin/env python
-# SECUREAUTH LABS. Copyright 2019 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author:
-#  JaGoTu (@jagotu)
-#
 # Description:
-#     This script will add a computer account to the domain and set its password.
-#     Allows to use SAMR over SMB (this way is used by modern Windows computer when
-#     adding machines through the GUI) and LDAPS.
-#     Plain LDAP is not supported, as it doesn't allow setting the password.
+#   This script will add a computer account to the domain and set its password.
+#   Allows to use SAMR over SMB (this way is used by modern Windows computer when
+#   adding machines through the GUI) and LDAPS.
+#   Plain LDAP is not supported, as it doesn't allow setting the password.
+#
+# Author:
+#   JaGoTu (@jagotu)
 #
 # Reference for:
-#     SMB, SAMR, LDAP
+#   SMB, SAMR, LDAP
 #
+# ToDo:
+#   [ ]: Complete the process of joining a client computer to a domain via the SAMR protocol
+#
+
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
 from impacket import version
 from impacket.examples import logger
+from impacket.examples.utils import parse_credentials
 from impacket.dcerpc.v5 import samr, epm, transport
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
@@ -33,7 +40,6 @@ import sys
 import string
 import random
 import ssl
-import os
 from binascii import unhexlify
 
 
@@ -300,43 +306,9 @@ class ADDCOMPUTER:
         if TGT is not None or TGS is not None:
             useCache = False
 
+        targetName = 'ldap/%s' % self.__target
         if useCache:
-            try:
-                ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-            except Exception as e:
-                # No cache present
-                print(e)
-                pass
-            else:
-                # retrieve domain information from CCache file if needed
-                if domain == '':
-                    domain = ccache.principal.realm['data'].decode('utf-8')
-                    logging.debug('Domain retrieved from CCache: %s' % domain)
-
-                logging.debug('Using Kerberos Cache: %s' % os.getenv('KRB5CCNAME'))
-                principal = 'ldap/%s@%s' % (self.__target.upper(), domain.upper())
-
-                creds = ccache.getCredential(principal)
-                if creds is None:
-                    # Let's try for the TGT and go from there
-                    principal = 'krbtgt/%s@%s' % (domain.upper(), domain.upper())
-                    creds = ccache.getCredential(principal)
-                    if creds is not None:
-                        TGT = creds.toTGT()
-                        logging.debug('Using TGT from cache')
-                    else:
-                        logging.debug('No valid credentials found in cache')
-                else:
-                    TGS = creds.toTGS(principal)
-                    logging.debug('Using TGS from cache')
-
-                # retrieve user information from CCache file if needed
-                if user == '' and creds is not None:
-                    user = creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')
-                    logging.debug('Username retrieved from CCache: %s' % user)
-                elif user == '' and len(ccache.principal.components) > 0:
-                    user = ccache.principal.components[0]['data'].decode('utf-8')
-                    logging.debug('Username retrieved from CCache: %s' % user)
+            domain, user, TGT, TGS = CCache.parseFile(domain, user, targetName)
 
         # First of all, we need to get a TGT for the user
         userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
@@ -350,7 +322,7 @@ class ADDCOMPUTER:
             sessionKey = TGT['sessionKey']
 
         if TGS is None:
-            serverName = Principal('ldap/%s' % self.__target, type=constants.PrincipalNameType.NT_SRV_INST.value)
+            serverName = Principal(targetName, type=constants.PrincipalNameType.NT_SRV_INST.value)
             tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher,
                                                                     sessionKey)
         else:
@@ -406,8 +378,9 @@ class ADDCOMPUTER:
         request = ldap3.operation.bind.bind_operation(connection.version, ldap3.SASL, user, None, 'GSS-SPNEGO', blob.getData())
 
         # Done with the Kerberos saga, now let's get into LDAP
-        if connection.closed:  # try to open connection if closed
-                connection.open(read_server_info=False)
+        # try to open connection if closed
+        if connection.closed:
+            connection.open(read_server_info=False)
 
         connection.sasl_in_progress = True
         response = connection.post_send_single_response(connection.send('bindRequest', request, None))
@@ -527,6 +500,14 @@ class ADDCOMPUTER:
                 if self.__noAdd:
                     logging.info("Successfully set password of %s to %s." % (self.__computerName, self.__computerPassword))
                 else:
+                    checkForUser = samr.hSamrLookupNamesInDomain(dce, domainHandle, [self.__computerName])
+                    userRID = checkForUser['RelativeIds']['Element'][0]
+                    openUser = samr.hSamrOpenUser(dce, domainHandle, samr.MAXIMUM_ALLOWED, userRID)
+                    userHandle = openUser['UserHandle']
+                    req = samr.SAMPR_USER_INFO_BUFFER()
+                    req['tag'] = samr.USER_INFORMATION_CLASS.UserControlInformation
+                    req['Control']['UserAccountControl'] = samr.USER_WORKSTATION_TRUST_ACCOUNT
+                    samr.hSamrSetInformationUser2(dce, userHandle, req)
                     logging.info("Successfully added machine account %s with password %s." % (self.__computerName, self.__computerPassword))
 
         except Exception as e:
@@ -617,9 +598,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    import re
-    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?').match(options.account).groups(
-        '')
+    domain, username, password = parse_credentials(options.account)
 
     try:
         if domain is None or domain == '':

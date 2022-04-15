@@ -1,15 +1,17 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
 # Description:
-#  Helper used to build ProtocolPackets
+#   Helper used to build ProtocolPackets
 #
 # Author:
-# Aureliano Calvo
-
+#   Aureliano Calvo
+#
 
 import struct
 import functools
@@ -100,9 +102,9 @@ class ThreeBytesBigEndian(Field):
         Field.__init__(self, index)
                 
     def getter(self, o):
-        b=o.header.get_bytes()[self.index:self.index+3].tostring()
+        b = ip.array_tobytes(o.header.get_bytes()[self.index:self.index+3])
         #unpack requires a string argument of length 4 and b is 3 bytes long
-        (value,)=struct.unpack('!L', b'\x00'+b)
+        (value,) = struct.unpack('!L', b'\x00'+b)
         return value
 
     def setter(self, o, value):

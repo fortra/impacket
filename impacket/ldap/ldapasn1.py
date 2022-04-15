@@ -1,11 +1,10 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Impacket - Collection of Python classes for working with network protocols.
 #
-# This software is provided under under a slightly modified version
+# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
-#
-# Authors: Alberto Solino (@agsolino)
-#          Kacper Nowak (@kacpern)
 #
 # Description:
 #   RFC 4511 Minimalistic implementation. We don't need much functionality yet
@@ -14,7 +13,10 @@
 #   as we change them.
 #   Adding [MS-ADTS] specific functionality
 #
-
+# Authors:
+#   Alberto Solino (@agsolino)
+#   Kacper Nowak (@kacpern)
+#
 from pyasn1.codec.ber import encoder, decoder
 from pyasn1.type import univ, namedtype, namedval, tag, constraint
 

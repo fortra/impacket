@@ -1,10 +1,15 @@
 #!/usr/bin/env python
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
-from impacket.dot11 import Dot11,Dot11Types,Dot11ControlFramePSPoll
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
 import unittest
+from impacket.dot11 import Dot11,Dot11Types,Dot11ControlFramePSPoll
+
 
 class TestDot11FrameControlPSPoll(unittest.TestCase):
 
@@ -59,5 +64,6 @@ class TestDot11FrameControlPSPoll(unittest.TestCase):
         self.pspoll.set_ta(ta)
         self.assertEqual(self.pspoll.get_ta().tolist(), [0x12,0xbe,0xe5,0x05,0x4c,0x34])
      
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11FrameControlPSPoll)
-unittest.TextTestRunner(verbosity=1).run(suite)
+
+if __name__ == '__main__':
+    unittest.main(verbosity=1)
