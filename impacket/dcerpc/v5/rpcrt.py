@@ -34,6 +34,7 @@ from impacket.dcerpc.v5.ndr import NDRSTRUCT
 from impacket import hresult_errors
 from threading import Thread
 
+
 # MS/RPC Constants
 MSRPC_REQUEST   = 0x00
 MSRPC_PING      = 0x01
@@ -714,6 +715,10 @@ class MSRPCBind(Structure):
             self['ctx_num'] = 1
             self['ctx_items'] = b''
         self.__ctx_items = []
+        ctx_items_data = self["ctx_items"]
+        for i in range(int(self["_ctx_items"] / self._CTX_ITEM_LEN)):
+            self.__ctx_items.append(CtxItem(ctx_items_data))
+            ctx_items_data = ctx_items_data[self._CTX_ITEM_LEN:]
 
     def addCtxItem(self, item):
         self.__ctx_items.append(item)
@@ -1515,6 +1520,11 @@ class DCERPCServer(Thread):
         self._listenUUIDS[uuidtup_to_bin(ifaceUUID)]['SecondaryAddr'] = secondaryAddr
         self._listenUUIDS[uuidtup_to_bin(ifaceUUID)]['CallBacks'] = callbacks
         self.log("Callback added for UUID %s V:%s" % ifaceUUID)
+
+    def setListenAddress(self,addr):
+        self._listenAddress=addr
+        self._sock = socket.socket()
+        self._sock.bind((self._listenAddress, self._listenPort))
 
     def setListenPort(self, portNum):
         self._listenPort = portNum

@@ -49,7 +49,8 @@ def get_remote_config_file_path():
         return remote_config_file_path
     remote_config_file = getenv("REMOTE_CONFIG")
     if not remote_config_file:
-        remote_config_file = join("tests", "dcetests.cfg")
+        remote_config_file = "/root/PycharmProjects/impacket/tests/dcetests.cfg"
+#        remote_config_file = join("tests", "dcetests.cfg")
     return remote_config_file
 
 
