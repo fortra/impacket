@@ -137,8 +137,8 @@ class LdapShell(cmd.Cmd):
         if not self.client.server.ssl:
             print("Error adding a new computer with LDAP requires LDAPS.")
 
-        if len(args) != 1 and len(args) != 2:
-            raise Exception("Error expected a computer name and an optional password argument.")
+        if len(args) != 1 and len(args) != 2 and len(args) !=3:
+            raise Exception("Error expected a computer name, an optional password argument, and an optional nospns argument.")
 
         computer_name = args[0]
         if not computer_name.endswith('$'):
@@ -147,7 +147,7 @@ class LdapShell(cmd.Cmd):
         print("Attempting to add a new computer with the name: %s" % computer_name)
 
         password = ""
-        if len(args) == 1:
+        if len(args) == 1 or args[1] == "nospns":
             password = ''.join(random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
         else:
             password = args[1]
@@ -161,13 +161,35 @@ class LdapShell(cmd.Cmd):
         computer_hostname = computer_name[:-1] # Remove $ sign
         computer_dn = "CN=%s,CN=Computers,%s" % (computer_hostname, self.domain_dumper.root)
         print("New Computer DN: %s" % computer_dn)
-
-        spns = [
-            'HOST/%s' % computer_hostname,
-            'HOST/%s.%s' % (computer_hostname, domain),
-            'RestrictedKrbHost/%s' % computer_hostname,
-            'RestrictedKrbHost/%s.%s' % (computer_hostname, domain),
-        ]
+        
+        if len(args) == 3:
+            if args[2] == "nospns":
+                spns = [
+                    'HOST/%s.%s' % (computer_hostname, domain)
+                ]
+            else:
+                raise Exception("Invalid third argument: %s" %str(args[3]))     
+        elif len(args) == 2:
+            if args[1] != "nospns":
+                spns = [
+                    'HOST/%s' % computer_hostname,
+                    'HOST/%s.%s' % (computer_hostname, domain),
+                    'RestrictedKrbHost/%s' % computer_hostname,
+                    'RestrictedKrbHost/%s.%s' % (computer_hostname, domain),
+                ]
+            elif args[1] == "nospns":
+                spns = [
+                    'HOST/%s.%s' % (computer_hostname, domain)
+                ]
+        elif len(args) == 1:
+            spns = [
+                'HOST/%s' % computer_hostname,
+                'HOST/%s.%s' % (computer_hostname, domain),
+                'RestrictedKrbHost/%s' % computer_hostname,
+                'RestrictedKrbHost/%s.%s' % (computer_hostname, domain),
+            ]
+        else:
+            raise Exception("Invalid third argument: %s" %str(self.args[3])) 
         ucd = {
             'dnsHostName': '%s.%s' % (computer_hostname, domain),
             'userAccountControl': 4096,
@@ -185,6 +207,39 @@ class LdapShell(cmd.Cmd):
                 print('Failed to add a new computer: %s' % str(self.client.result))
         else:
             print('Adding new computer with username: %s and password: %s result: OK' % (computer_name, password))
+
+    def do_rename_computer(self, line):
+        args = shlex.split(line)
+
+        if len(args) != 2:
+            raise Exception("Current Computer sAMAccountName and New Computer sAMAccountName required (rename_computer comp1$ comp2$).")
+
+        current_name = args[0]
+
+        new_name = args[1]
+
+        self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(current_name), attributes=['objectSid', 'sAMAccountName'])
+        computer_dn = self.client.entries[0].entry_dn
+        
+        if not computer_dn:
+            raise Exception("Computer not found in LDAP: %s" % current_name)
+
+        entry = self.client.entries[0]
+        samAccountName = entry["samAccountName"].value
+        print("Original sAMAccountName: %s" % samAccountName)
+
+        print("New sAMAccountName: %s" % new_name)
+        self.client.modify(computer_dn, {'sAMAccountName':(ldap3.MODIFY_REPLACE, [new_name])})
+        
+        if self.client.result["result"] == 0:
+            print("Updated sAMAccountName successfully")
+        else:
+            if self.client.result['result'] == 50:
+                raise Exception('Could not modify object, the server reports insufficient rights: %s', self.client.result['message'])
+            elif self.client.result['result'] == 19:
+                raise Exception('Could not modify object, the server reports a constrained violation: %s', self.client.result['message'])
+            else:
+                raise Exception('The server returned an error: %s', self.client.result['message'])
 
     def do_add_user(self, line):
         args = shlex.split(line)
@@ -566,7 +621,8 @@ class LdapShell(cmd.Cmd):
 
     def do_help(self, line):
         print("""
- add_computer computer [password] - Adds a new computer to the domain with the specified password. Requires LDAPS.
+ add_computer computer [password] [nospns] - Adds a new computer to the domain with the specified password. If nospns is specified, computer will be created with only a single necessary HOST SPN. Requires LDAPS.
+ rename_computer current_name new_name - Sets the SAMAccountName attribute on a computer object to a new value.
  add_user new_user [parent] - Creates a new user.
  add_user_to_group user group - Adds a user to a group.
  change_password user [password] - Attempt to change a given user's password. Requires LDAPS.
