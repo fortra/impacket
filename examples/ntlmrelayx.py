@@ -32,7 +32,8 @@
 # Authors:
 #   Alberto Solino (@agsolino)
 #   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
-#
+#  Sylvain Heiniger / Compass Security (https://www.compass-security.com)
+
 
 import argparse
 import sys
@@ -48,7 +49,7 @@ from threading import Thread
 
 from impacket import version
 from impacket.examples import logger
-from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer, WCFRelayServer, RAWRelayServer
+from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer, WCFRelayServer, RAWRelayServer, RPCRelayServer
 from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, TargetsFileWatcher
 from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS
@@ -176,7 +177,8 @@ def start_servers(options, threads):
             c.setListeningPort(options.wcf_port)
         elif server is RAWRelayServer:
             c.setListeningPort(options.raw_port)
-        
+        elif server is RPCRelayServer:
+            c.setListeningPort(options.rpc_port)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
@@ -237,11 +239,13 @@ if __name__ == '__main__':
     serversoptions.add_argument('--no-http-server', action='store_true', help='Disables the HTTP server')
     serversoptions.add_argument('--no-wcf-server', action='store_true', help='Disables the WCF server')
     serversoptions.add_argument('--no-raw-server', action='store_true', help='Disables the RAW server')
+    serversoptions.add_argument('--no-rpc-server', action='store_true', help='Disables the RPC server')
 
     parser.add_argument('--smb-port', type=int, help='Port to listen on smb server', default=445)
     parser.add_argument('--http-port', type=int, help='Port to listen on http server', default=80)
     parser.add_argument('--wcf-port', type=int, help='Port to listen on wcf server', default=9389)  # ADWS
     parser.add_argument('--raw-port', type=int, help='Port to listen on raw server', default=6666)
+    parser.add_argument('--rpc-port', type=int, help='Port to listen on rpc server', default=135)
 
     parser.add_argument('-ra','--random', action='store_true', help='Randomize target selection')
     parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
@@ -379,6 +383,9 @@ if __name__ == '__main__':
             logging.info("Running in reflection mode")
             targetSystem = None
             mode = 'REFLECTION'
+
+    if not options.no_rpc_server:
+        RELAY_SERVERS.append(RPCRelayServer)
 
     if not options.no_smb_server:
         RELAY_SERVERS.append(SMBRelayServer)

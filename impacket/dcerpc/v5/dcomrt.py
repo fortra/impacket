@@ -69,6 +69,34 @@ IID_IRemUnknown2              = uuidtup_to_bin(('00000143-0000-0000-C000-0000000
 IID_IUnknown                  = uuidtup_to_bin(('00000000-0000-0000-C000-000000000046','0.0'))
 IID_IClassFactory             = uuidtup_to_bin(('00000001-0000-0000-C000-000000000046','0.0'))
 
+# Protocol Identifiers, from [c706] Annex I
+TOWERID_OSI_TP4 = 0x05
+TOWERID_OSI_CLNS = 0x06
+TOWERID_DOD_TCP = 0x0007
+TOWERID_DOD_UDP = 0x08
+TOWERID_DOD_IP = 0x09
+TOWERID_RPC_connectionless = 0x0a
+TOWERID_RPC_connectionoriented = 0x0b
+TOWERID_DNA_Session_Control = 0x02
+TOWERID_DNA_Session_Control_V3 = 0x03
+TOWERID_DNA_NSP_Transport = 0x04
+TOWERID_DNA_Routing = 0x06
+TOWERID_Named_Pipes = 0x10
+TOWERID_NetBIOS_11 = 0x11
+TOWERID_NetBEUI = 0x12
+TOWERID_Netware_SPX = 0x13
+TOWERID_Netware_IPX = 0x14
+TOWERID_Appletalk_Stream = 0x16
+TOWERID_Appletalk_Datagram = 0x17
+TOWERID_Appletalk = 0x18
+TOWERID_NetBIOS_19 = 0x19
+TOWERID_VINES_SPP = 0x1A
+TOWERID_VINES_IPC = 0x1B
+TOWERID_StreetTalk = 0x1C
+TOWERID_Unix_Domain_socket = 0x20
+TOWERID_null = 0x21
+TOWERID_NetBIOS_22 = 0x22
+
 class DCERPCSessionError(DCERPCException):
     def __init__(self, error_string=None, error_code=None, packet=None):
         DCERPCException.__init__(self, error_string, error_code, packet)
@@ -834,7 +862,7 @@ class ServerAlive2Response(NDRCALL):
        ('pComVersion', COMVERSION),
        ('ppdsaOrBindings', PDUALSTRINGARRAY),
        ('pReserved', LPLONG),
-       ('ErrorCode', error_status_t),
+       #('ErrorCode', error_status_t),
     )
 
 # 3.1.2.5.2.3.1 IActivation:: RemoteActivation (Opnum 0)
