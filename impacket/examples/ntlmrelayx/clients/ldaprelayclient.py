@@ -113,6 +113,7 @@ class LDAPRelayClient(ProtocolClient):
                             challenge['TargetInfoFields'] = new_av_pairs.getData()
                             challenge['TargetInfoFields_len'] = len(new_av_pairs.getData())
                             challenge['TargetInfoFields_max_len'] = len(new_av_pairs.getData())
+
                         return challenge
                 else:
                     raise LDAPRelayClientException('Server did not offer NTLM authentication!')
