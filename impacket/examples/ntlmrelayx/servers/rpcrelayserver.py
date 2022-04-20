@@ -111,7 +111,7 @@ class RPCRelayServer(Thread):
             req_type = self.request_header['type']
             LOG.debug('RPC: Received packet of type %s' % msrpc_message_type[req_type])
             if req_type in (MSRPC_BIND, MSRPC_ALTERCTX):
-                self.request_pdu_data = MSRPCRelayBind(self.request_header['pduData'])
+                self.request_pdu_data = MSRPCBind(self.request_header['pduData'])
             elif req_type == MSRPC_AUTH3:
                 # We don't need the data and don't have AUTH3 Structure anyway
                 # self.requestPduData = MSRPCAUTH3(self.requestHeader['pduData'])
@@ -257,7 +257,7 @@ class RPCRelayServer(Thread):
                 raise Exception('Protocol Client for %s not found!' % self.target.scheme.upper())
 
         def bind(self, challengeMessage=b''):
-            bindAck = MSRPCRelayBindAck()
+            bindAck = MSRPCBindAck()
 
             bindAck['max_tfrag'] = self.request_pdu_data['max_tfrag']
             bindAck['max_rfrag'] = self.request_pdu_data['max_rfrag']
