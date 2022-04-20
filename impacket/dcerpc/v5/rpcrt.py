@@ -1147,7 +1147,47 @@ class MSRPCRespHeader(MSRPCHeader):
             self['type'] = MSRPC_RESPONSE
             self['ctx_id'] = 0
 
+
 class MSRPCBind(Structure):
+    _CTX_ITEM_LEN = len(CtxItem())
+    structure = (
+        ('max_tfrag', '<H=4280'),
+        ('max_rfrag', '<H=4280'),
+        ('assoc_group', '<L=0'),
+        ('ctx_num', 'B=0'),
+        ('Reserved', 'B=0'),
+        ('Reserved2', '<H=0'),
+        ('_ctx_items', '_-ctx_items', 'self["ctx_num"]*self._CTX_ITEM_LEN'),
+        ('ctx_items', ':'),
+    )
+
+    def __init__(self, data=None, alignment=0):
+        Structure.__init__(self, data, alignment)
+        if data is None:
+            self['max_tfrag'] = 4280
+            self['max_rfrag'] = 4280
+            self['assoc_group'] = 0
+            self['ctx_num'] = 1
+            self['ctx_items'] = b''
+        self.__ctx_items = []
+
+    def addCtxItem(self, item):
+        self.__ctx_items.append(item)
+
+    def getCtxItems(self):
+        return self.__ctx_items
+
+    def getCtxItem(self, index):
+        return self.__ctx_items[index - 1]
+
+    def getData(self):
+        self['ctx_num'] = len(self.__ctx_items)
+        for i in self.__ctx_items:
+            self['ctx_items'] += i.getData()
+        return Structure.getData(self)
+
+
+class MSRPCRelayBind(Structure):
     _CTX_ITEM_LEN = len(CtxItem())
     structure = ( 
         ('max_tfrag','<H=4280'),
@@ -1189,7 +1229,53 @@ class MSRPCBind(Structure):
             self['ctx_items'] += i.getData()
         return Structure.getData(self)
 
-class MSRPCBindAck(Structure):
+
+class MSRPCBindAck(MSRPCHeader):
+    _SIZE = 26 # Up to SecondaryAddr
+    _CTX_ITEM_LEN = len(CtxItemResult())
+    structure = (
+        ('max_tfrag','<H=0'),
+        ('max_rfrag','<H=0'),
+        ('assoc_group','<L=0'),
+        ('SecondaryAddrLen','<H&SecondaryAddr'),
+        ('SecondaryAddr','z'),                          # Optional if SecondaryAddrLen == 0
+        ('PadLen','_-Pad','(4-((self["SecondaryAddrLen"]+self._SIZE) % 4))%4'),
+        ('Pad',':'),
+        ('ctx_num','B=0'),
+        ('Reserved','B=0'),
+        ('Reserved2','<H=0'),
+        ('_ctx_items','_-ctx_items','self["ctx_num"]*self._CTX_ITEM_LEN'),
+        ('ctx_items',':'),
+        ('_sec_trailer', '_-sec_trailer', '8 if self["auth_len"] > 0 else 0'),
+        ('sec_trailer',':'),
+        ('auth_dataLen','_-auth_data','self["auth_len"]'),
+        ('auth_data',':'),
+    )
+    def __init__(self, data = None, alignment = 0):
+        self.__ctx_items = []
+        MSRPCHeader.__init__(self,data,alignment)
+        if data is None:
+            self['Pad'] = b''
+            self['ctx_items'] = b''
+            self['sec_trailer'] = b''
+            self['auth_data'] = b''
+
+    def getCtxItems(self):
+        return self.__ctx_items
+
+    def getCtxItem(self,index):
+        return self.__ctx_items[index-1]
+
+    def fromString(self, data):
+        Structure.fromString(self,data)
+        # Parse the ctx_items
+        data = self['ctx_items']
+        for i in range(self['ctx_num']):
+            item = CtxItemResult(data)
+            self.__ctx_items.append(item)
+            data = data[len(item):]
+
+class MSRPCRelayBindAck(Structure):
     _SIZE = 26 # Up to SecondaryAddr
     _CTX_ITEM_LEN = len(CtxItemResult())
     structure = ( 
