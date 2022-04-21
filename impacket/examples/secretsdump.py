@@ -1588,6 +1588,24 @@ class LSASecrets(OfflineRegistry):
                     LOG.warning("Unknown SQSA version (%s), please open an issue with the following data so we can add a parser for it." % str(strDecoded['version']))
                     LOG.warning("Don't forget to remove sensitive content before sending the data in a Github issue.")
                     secret = json.dumps(strDecoded, indent=4)
+        elif re.match('^L\$([0-9A-Z]{3})-PRV-([0-9A-F]{32})$', upperName) is not None:
+            # Decode stored OpenGPG private key
+            keyid = re.search('^L\$([0-9A-Z]{3})-PRV-([0-9A-F]{32})$', upperName).group(2)
+            try:
+                b64key = secretItem.decode('utf-16le')
+            except:
+                pass
+            else:
+                secret = 'OpenGPG private key %s: \n%s' % (keyid, b64key)
+        elif re.match('^L\$([0-9A-Z]{3})-PUB-([0-9A-F]{32})$', upperName) is not None:
+            # Decode stored OpenGPG public key
+            keyid = re.search('^L\$([0-9A-Z]{3})-PUB-([0-9A-F]{32})$', upperName).group(2)
+            try:
+                b64key = secretItem.decode('utf-16le')
+            except:
+                pass
+            else:
+                secret = 'OpenGPG public key %s: \n%s' % (keyid, b64key)
 
         if secret != '':
             printableSecret = secret
