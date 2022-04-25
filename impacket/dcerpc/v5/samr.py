@@ -2915,7 +2915,7 @@ def hSamrSetPasswordInternal4New(dce, userHandle, password):
     request = SamrSetInformationUser2()
     request['UserHandle'] = userHandle
     request['UserInformationClass'] = USER_INFORMATION_CLASS.UserInternal4InformationNew
-    request['Buffer']['tag'] =  USER_INFORMATION_CLASS.UserInternal4InformationNew
+    request['Buffer']['tag'] = USER_INFORMATION_CLASS.UserInternal4InformationNew
     request['Buffer']['Internal4New']['I1']['WhichFields'] = 0x01000000 | 0x08000000
 
     request['Buffer']['Internal4New']['I1']['UserName'] = NULL
@@ -2950,6 +2950,31 @@ def hSamrSetPasswordInternal4New(dce, userHandle, password):
     cipher = ARC4.new(key)
     buffercrypt = cipher.encrypt(pwdbuff) + salt
 
-
     request['Buffer']['Internal4New']['UserPassword']['Buffer'] = buffercrypt
+    return dce.request(request)
+
+def hSamrSetNTInternal1(dce, userHandle, password, hashNT=''):
+    request = SamrSetInformationUser()
+    request['UserHandle'] = userHandle
+    request['UserInformationClass'] = USER_INFORMATION_CLASS.UserInternal1Information
+    request['Buffer']['tag'] = USER_INFORMATION_CLASS.UserInternal1Information
+
+    from impacket import crypto, ntlm
+
+    if hashNT == '':
+        hashNT = ntlm.NTOWFv1(password)
+    else:
+        # Let's convert the hashes to binary form, if not yet
+        try:
+            hashNT = unhexlify(hashNT)
+        except:
+            pass
+
+    session_key = dce.get_rpc_transport().get_smb_connection().getSessionKey()
+
+    request['Buffer']['Internal1']['EncryptedNtOwfPassword'] = crypto.SamEncryptNTLMHash(hashNT, session_key)
+    request['Buffer']['Internal1']['EncryptedLmOwfPassword'] = NULL
+    request['Buffer']['Internal1']['NtPasswordPresent'] = 1
+    request['Buffer']['Internal1']['LmPasswordPresent'] = 0
+
     return dce.request(request)
