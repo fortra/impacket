@@ -5,7 +5,8 @@
 
 # Description:
 #   This module will try to get the Machine Account Quota from the domain attribute ms-DS-MachineAccountQuota.
-#   If the value is superior to 0, it tries to list any computer object created by a user and returns the machine name and its creator sAMAccountName and SID.
+#   If the value is superior to 0, it tries to list any computer object created by a user and returns the machine
+#   name and its creator sAMAccountName and SID.
 #
 #   Author:
 #       TahiTi
