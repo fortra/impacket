@@ -134,7 +134,7 @@ class LdapShell(cmd.Cmd):
     def do_add_computer(self, line):
         args = shlex.split(line)
 
-        if not self.client.server.ssl:
+        if not self.client.server.ssl and not self.client.tls_started:
             print("Error adding a new computer with LDAP requires LDAPS.")
 
         if len(args) != 1 and len(args) != 2 and len(args) !=3:
@@ -243,6 +243,10 @@ class LdapShell(cmd.Cmd):
 
     def do_add_user(self, line):
         args = shlex.split(line)
+
+        if not self.client.server.ssl and not self.client.tls_started:
+            print("Error adding a new user with LDAP requires LDAPS.")
+
         if len(args) == 0:
             raise Exception("A username is required.")
 
@@ -356,6 +360,16 @@ class LdapShell(cmd.Cmd):
         self.stdout.flush()
         self.domain_dumper.domainDump()
         print('Domain info dumped into lootdir!')
+
+    def do_start_tls(self, line):
+        if not self.client.tls_started and not self.client.server.ssl:
+            print('Sending StartTLS command...')
+            if not self.client.start_tls():
+                raise Exception("StartTLS failed")
+            else:
+                print('StartTLS succeded, you are now using LDAPS!')
+        else:
+            print('It seems you are already connected through a TLS channel.')
 
     def do_disable_account(self, username):
         self.toggle_account_enable_disable(username, False)
@@ -637,6 +651,7 @@ class LdapShell(cmd.Cmd):
  grant_control target grantee - Grant full control of a given target object (sAMAccountName) to the grantee (sAMAccountName).
  set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
  set_rbcd target grantee - Grant the grantee (sAMAccountName) the ability to perform RBCD to the target (sAMAccountName).
+ start_tls - Send a StartTLS command to upgrade from LDAP to LDAPS. Use this to bypass channel binding for operations necessitating an encrypted channel.
  write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
  exit - Terminates this session.""")
 
