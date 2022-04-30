@@ -45,16 +45,7 @@ except ImportError:
   import readline
 
 
-mimikatz_intro = r"""
-  .#####.   mimikatz RPC interface
- .## ^ ##.  "A La Vie, A L' Amour "
- ## / \ ##  /* * *
- ## \ / ##   Benjamin DELPY `gentilkiwi` ( benjamin@gentilkiwi.com )
- '## v ##'   http://blog.gentilkiwi.com/mimikatz             (oe.eo)
-  '#####'    Impacket client by Alberto Solino (@agsolino)    * * */
-
-
-Type help for list of commands"""
+mimikatz_intro = r"""Type help for list of commands"""
 
 
 class MimikatzShell(cmd.Cmd):

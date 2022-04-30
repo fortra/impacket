@@ -454,8 +454,8 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
 
         item['FileName'] = os.path.basename(i).encode(encoding)
 
-        if level in [smb.SMB_FIND_FILE_BOTH_DIRECTORY_INFO, smb.SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO,
-                     smb2.SMB2_FILE_ID_BOTH_DIRECTORY_INFO]:
+        if level in [smb.SMB_FIND_FILE_BOTH_DIRECTORY_INFO, smb2.SMB2_FILE_BOTH_DIRECTORY_INFO,
+                     smb.SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO, smb2.SMB2_FILE_ID_BOTH_DIRECTORY_INFO]:
             item['EaSize'] = 0
             item['EndOfFile'] = size
             item['AllocationSize'] = size
@@ -4598,7 +4598,7 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         if self.__serverConfig.has_option('global', 'challenge'):
             self.__challenge = unhexlify(self.__serverConfig.get('global', 'challenge'))
         else:
-            self.__challenge = b'A' * 16
+            self.__challenge = b'A' * 8
 
         if self.__serverConfig.has_option("global", "jtr_dump_path"):
             self.__jtr_dump_path = self.__serverConfig.get("global", "jtr_dump_path")
