@@ -162,17 +162,26 @@ class OBJECT_ACE_FLAGS(Enum):
 # Access mask permits to encode principal's rights to an object. This is the rights the principal behind the specified SID has
 # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/7a53f60e-e730-4dfe-bbe9-b21b62eb790b
 class ACCESS_MASK(Enum):
+    # Generic Rights
     GenericRead = 0x80000000
     GenericWrite = 0x40000000
     GenericExecute = 0x20000000
     GenericAll = 0x10000000
+
+    # Maximum Allowed access type
     MaximumAllowed = 0x02000000
+
+    # Access System Acl access type
     AccessSystemSecurity = 0x01000000
+
+    # Standard access types
     Synchronize = 0x00100000
     WriteOwner = 0x00080000
     WriteDAC = 0x00040000
     ReadControl = 0x00020000
     Delete = 0x00010000
+
+    # Specific rights
     WriteAttributes = 0x00000100
     ReadAttributes = 0x00000080
     DeleteChild = 0x00000040
@@ -188,6 +197,9 @@ class ACCESS_MASK(Enum):
 # Simple permissions are combinaisons of extended permissions
 class SIMPLE_PERMISSIONS(Enum):
     FullControl = 0xf01ff
+    Modify = 0x0301bf
+    ReadAndExecute = 0x0200a9
+    ReadAndWrite = 0x02019f
     Read = 0x20094
     Write = 0x200bc
 
@@ -443,6 +455,7 @@ class DACLedit(object):
 
     
     # Parses an access mask to extract the different values from a simple permission
+    # https://stackoverflow.com/questions/28029872/retrieving-security-descriptor-and-getting-number-for-filesystemrights
     #   - fsr : the access mask to parse
     def parsePerms(self, fsr):
         _perms = []
@@ -933,6 +946,9 @@ def main():
     try:
         ldap_server, ldap_session = init_ldap_session(args, domain, username, password, lmhash, nthash)
         dacledit = DACLedit(ldap_server, ldap_session, args)
+        # a = dacledit.parsePerms(0xf01bf)
+        # print(a)
+        # exit(0)
         if args.action == 'read':
             dacledit.read()
         elif args.action == 'write':
