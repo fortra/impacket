@@ -364,15 +364,14 @@ class HTTPRelayServer(Thread):
                                                 authenticateMessage['user_name'].decode('ascii'))).upper()
 
                 self.target = self.server.config.target.getTarget(identity = self.authUser)
-
                 if self.target is None:
                     LOG.info("HTTPD(%s): Connection from %s@%s controlled, but there are no more targets left!" %
                         (self.server.server_address[1], self.authUser, self.client_address[0]))
                     self.send_not_found()
                     return
 
-                LOG.info("HTTPD(%s): Connection from %s@%s controlled, attacking target %s://%s" % (self.authUser,
-                    self.server.server_address[1], self.client_address[0], self.target.scheme, self.target.netloc))
+                LOG.info("HTTPD(%s): Connection from %s@%s controlled, attacking target %s://%s" % (self.server.server_address[1],
+                    self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
 
                 self.relayToHost = True
                 self.do_REDIRECT()
@@ -401,8 +400,21 @@ class HTTPRelayServer(Thread):
                     else:
                         LOG.error('HTTPD(%s): Negotiating NTLM with %s://%s failed. Skipping to next target' % (
                             self.server.server_address[1], self.target.scheme, self.target.netloc))
+
                         self.server.config.target.logTarget(self.target)
+                        self.target = self.server.config.target.getTarget(identity=self.authUser)
+
+                        if self.target is None:
+                            LOG.info( "HTTPD(%s): Connection from %s@%s controlled, but there are no more targets left!" %
+                                (self.server.server_address[1], self.authUser, self.client_address[0]))
+                            self.send_not_found()
+                            return
+
+                        LOG.info("HTTPD(%s): Connection from %s@%s controlled, attacking target %s://%s" % (self.server.server_address[1],
+                            self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
+
                         self.do_REDIRECT()
+
             elif messageType == 3:
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
@@ -428,6 +440,16 @@ class HTTPRelayServer(Thread):
                     if authenticateMessage['user_name'] != '':  # and authenticateMessage['user_name'][-1] != '$':
                         self.server.config.target.logTarget(self.target)
                         # No anonymous login, go to next host and avoid triggering a popup
+                        self.target = self.server.config.target.getTarget(identity=self.authUser)
+                        if self.target is None:
+                            LOG.info("HTTPD(%s): Connection from %s@%s controlled, but there are no more targets left!" %
+                                (self.server.server_address[1], self.authUser, self.client_address[0]))
+                            self.send_not_found()
+                            return
+
+                        LOG.info("HTTPD(%s): Connection from %s@%s controlled, attacking target %s://%s" % (self.server.server_address[1],
+                            self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
+
                         self.do_REDIRECT()
                     else:
                         # If it was an anonymous login, send 401
@@ -461,8 +483,8 @@ class HTTPRelayServer(Thread):
                         self.target = self.server.config.target.getTarget(identity=self.authUser)
 
                         if self.target is None:
-                            LOG.info("HTTPD: Connection from %s@%s controlled, but there are no more targets left!" % (
-                                self.authUser, self.client_address[0]))
+                            LOG.info("HTTPD(%s): Connection from %s@%s controlled, but there are no more targets left!" % (
+                                self.server.server_address[1], self.authUser, self.client_address[0]))
 
                             # Return Multi-Status status code to WebDAV servers
                             if self.command == "PROPFIND":
@@ -479,8 +501,8 @@ class HTTPRelayServer(Thread):
                             return
 
                         # We have the next target, let's keep relaying...
-                        LOG.info("HTTPD(%s): Connection from %s@%s controlled, attacking target %s://%s" % (self.authUser,
-                            self.server.server_address[1], self.client_address[0], self.target.scheme, self.target.netloc))
+                        LOG.info("HTTPD(%s): Connection from %s@%s controlled, attacking target %s://%s" % (self.server.server_address[1],
+                            self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
                         self.do_REDIRECT()
 
         def do_attack(self):
