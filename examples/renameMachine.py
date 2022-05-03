@@ -209,6 +209,9 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
 
 def init_ldap_connection(target, tls_version, args, domain, username, password, lmhash, nthash):
     user = '%s\\%s' % (domain, username)
+    connect_to = target
+    if args.dc_ip is not None:
+        connect_to = args.dc_ip
     if tls_version is not None:
         use_ssl = True
         port = 636
@@ -217,7 +220,7 @@ def init_ldap_connection(target, tls_version, args, domain, username, password, 
         use_ssl = False
         port = 389
         tls = None
-    ldap_server = ldap3.Server(target, get_info=ldap3.ALL, port=port, use_ssl=use_ssl, tls=tls)
+    ldap_server = ldap3.Server(connect_to, get_info=ldap3.ALL, port=port, use_ssl=use_ssl, tls=tls)
     if args.k:
         ldap_session = ldap3.Connection(ldap_server)
         ldap_session.bind()
