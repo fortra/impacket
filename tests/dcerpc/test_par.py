@@ -24,14 +24,14 @@ from tests.dcerpc import DCERPCTests
 
 from impacket.dcerpc.v5 import par
 from impacket.dcerpc.v5.dtypes import NULL
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
 
 class PARTests(DCERPCTests):
     iface_uuid = par.MSRPC_UUID_PAR
     string_binding_formatting = DCERPCTests.STRING_BINDING_MAPPER
     authn = True
-    authn_level = RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
+    authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
     def test_RpcAsyncEnumPrinters(self):
         dce, rpc_transport = self.connect()

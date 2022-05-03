@@ -29,7 +29,7 @@ from tests.dcerpc import DCERPCTests
 
 from impacket.dcerpc.v5 import even
 from impacket.dcerpc.v5.dtypes import NULL
-from impacket.dcerpc.v5.rpcrt import DCERPCException
+from impacket.dcerpc.v5.rpcrt import DCERPCException, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
 
 class RRPTests(DCERPCTests):
@@ -37,6 +37,7 @@ class RRPTests(DCERPCTests):
     iface_uuid = even.MSRPC_UUID_EVEN
     string_binding = r"ncacn_np:{0.machine}[\PIPE\eventlog]"
     authn = True
+    authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
     def test_ElfrOpenBELW(self):
         dce, rpctransport = self.connect()
