@@ -5,7 +5,7 @@ Project's main page at [www.secureauth.com](https://www.secureauth.com/labs/open
 Complete list of changes can be found at:
 https://github.com/SecureAuthCorp/impacket/commits/master
 
-## Unreleased changes
+## Impacket v0.10.0 (May 2022):
 
 1. Library improvements 
     * Dropped support for Python 2.7.
