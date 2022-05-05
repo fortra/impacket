@@ -578,7 +578,7 @@ class SessionError(Exception):
                 error_code_str = '%s(%s)' % error_code
 
         if self.nt_status:
-            return 'SMB SessionError: %s(%s)' % nt_errors.ERROR_MESSAGES[self.error_code]
+            return 'SMB SessionError: %s(%s)' % nt_errors.ERROR_MESSAGES.get(self.error_code, ("UNKNOWN_NTSTATUS", self.error_code))
         else:
             # Fall back to the old format
             return 'SMB SessionError: class: %s, code: %s' % (error_class_str, error_code_str)
