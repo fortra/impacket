@@ -360,7 +360,6 @@ if __name__ == '__main__':
 
     try:
        options = parser.parse_args()
-       print(options)
     except Exception as e:
        logging.error(str(e))
        sys.exit(1)
