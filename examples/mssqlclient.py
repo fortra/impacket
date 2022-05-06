@@ -44,9 +44,6 @@ if __name__ == '__main__':
      exit                       - terminates the server process (and this session)
      enable_xp_cmdshell         - you know what it means
      disable_xp_cmdshell        - you know what it means
-     enable_hexp_cmdshell	- enable xp_cmdshell using hex encoding to bypass AV/SQL query blacklisting
-     disable_hexp_cmdshell	- disables xp_cmdshell using hex encoding to bypass AV/SQL query blacklisting
-     hexp_cmdshell {cmd}	- executes cmd using hex encoded xp_cmdshell
      xp_cmdshell {cmd}          - executes cmd using xp_cmdshell
      sp_start_job {cmd}         - executes cmd using the sql server agent (blind)
      ! {cmd}                    - executes a local shell cmd
