@@ -714,7 +714,7 @@ class LDAPAttack(ProtocolAttack):
                     sid_map[sid] = sid
                     continue
 
-                if not len(self.client.response):
+                if not len(self.client.entries):
                     sid_map[sid] = sid
                 else:
                     sid_map[sid] = domain_fqdn + "\\" + self.client.response[0]["attributes"]["name"]
