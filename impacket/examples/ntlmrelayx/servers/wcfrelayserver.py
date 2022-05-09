@@ -304,12 +304,7 @@ class WCFRelayServer(Thread):
 
         def do_ntlm_auth(self, token, authenticateMessage):
             # For some attacks it is important to know the authenticated username, so we store it
-            if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
-                                            authenticateMessage['user_name'].decode('utf-16le'))).upper()
-            else:
-                self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('ascii'),
-                                            authenticateMessage['user_name'].decode('ascii'))).upper()
+            self.authUser = authenticateMessage.getUserString()
 
             if authenticateMessage['user_name'] != '' or self.target.hostname == '127.0.0.1':
                 clientResponse, errorCode = self.client.sendAuth(token)
