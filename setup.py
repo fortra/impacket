@@ -70,7 +70,7 @@ setup(
     scripts=glob.glob(os.path.join('examples', '*.py')),
     data_files=data_files,
     install_requires=['pyasn1>=0.2.3', 'pycryptodomex', 'pyOpenSSL>=0.16.2', 'six', 'ldap3>=2.5,!=2.5.2,!=2.5.0,!=2.6',
-                      'ldapdomaindump>=0.9.0', 'flask>=1.0', 'future', 'chardet'],
+                      'ldapdomaindump>=0.9.0', 'flask>=1.0', 'future', 'chardet', 'dsinternals'],
     extras_require={'pyreadline:sys_platform=="win32"': [],
                     },
     classifiers=[
