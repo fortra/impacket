@@ -949,9 +949,6 @@ def main():
     try:
         ldap_server, ldap_session = init_ldap_session(args, domain, username, password, lmhash, nthash)
         dacledit = DACLedit(ldap_server, ldap_session, args)
-        # a = dacledit.parsePerms(0xf01bf)
-        # print(a)
-        # exit(0)
         if args.action == 'read':
             dacledit.read()
         elif args.action == 'write':
