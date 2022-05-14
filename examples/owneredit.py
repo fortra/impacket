@@ -507,7 +507,6 @@ def main():
         elif args.action == 'write':
             owneredit.read()
             owneredit.write()
-            owneredit.read()
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             traceback.print_exc()
