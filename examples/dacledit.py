@@ -684,12 +684,12 @@ def parse_args():
     auth_con.add_argument('-aesKey', action="store", metavar="hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
     auth_con.add_argument('-dc-ip', action='store', metavar="ip address", help='IP Address of the domain controller or KDC (Key Distribution Center) for Kerberos. If omitted it will use the domain part (FQDN) specified in the identity parameter')
 
-    principal_parser = parser.add_argument_group("principal", description="Principal object to read/edit the DACL of")
+    principal_parser = parser.add_argument_group("principal", description="Object, controlled by the attacker, to reference in the ACE to create or to filter when printing a DACL")
     principal_parser.add_argument("-principal", dest="principal_sAMAccountName", metavar="NAME", type=str, required=False, help="sAMAccountName")
     principal_parser.add_argument("-principal-sid", dest="principal_SID", metavar="SID", type=str, required=False, help="Security IDentifier")
     principal_parser.add_argument("-principal-dn", dest="principal_DN", metavar="DN", type=str, required=False, help="Distinguished Name")
 
-    target_parser = parser.add_argument_group("target", description="Object, controlled by the attacker, to reference in the ACE to create or to filter when printing a DACL")
+    target_parser = parser.add_argument_group("target", description="Principal object to read/edit the DACL of")
     target_parser.add_argument("-target", dest="target_sAMAccountName", metavar="NAME", type=str, required=False, help="sAMAccountName")
     target_parser.add_argument("-target-sid", dest="target_SID", metavar="SID", type=str, required=False, help="Security IDentifier")
     target_parser.add_argument("-target-dn", dest="target_DN", metavar="DN", type=str, required=False, help="Distinguished Name")
