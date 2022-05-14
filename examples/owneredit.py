@@ -243,9 +243,9 @@ def parse_args():
                           help='IP Address of the domain controller or KDC (Key Distribution Center) for Kerberos. If omitted it will use the domain part (FQDN) specified in the identity parameter')
 
     new_owner_parser = parser.add_argument_group("owner", description="Object, controlled by the attacker, to set as owner of the target object")
-    new_owner_parser.add_argument("-owner", dest="new_owner_sAMAccountName", metavar="NAME", type=str, required=False, help="sAMAccountName")
-    new_owner_parser.add_argument("-owner-sid", dest="new_owner_SID", metavar="SID", type=str, required=False, help="Security IDentifier")
-    new_owner_parser.add_argument("-owner-dn", dest="new_owner_DN", metavar="DN", type=str, required=False, help="Distinguished Name")
+    new_owner_parser.add_argument("-new-owner", dest="new_owner_sAMAccountName", metavar="NAME", type=str, required=False, help="sAMAccountName")
+    new_owner_parser.add_argument("-new-owner-sid", dest="new_owner_SID", metavar="SID", type=str, required=False, help="Security IDentifier")
+    new_owner_parser.add_argument("-new-owner-dn", dest="new_owner_DN", metavar="DN", type=str, required=False, help="Distinguished Name")
 
     target_parser = parser.add_argument_group("target", description="Target object to edit the owner of")
     target_parser.add_argument("-target", dest="target_sAMAccountName", metavar="NAME", type=str, required=False, help="sAMAccountName")
