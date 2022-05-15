@@ -283,7 +283,7 @@ class DACLedit(object):
         # Creates ACEs with the specified GUIDs and the SID, or FullControl if no GUID is specified
         # Append the ACEs in the DACL locally
         if self.rights == "FullControl" and self.rights_guid is None:
-            logging.debug("Appending ACE (%s --(GENERIC_ALL)--> %s)" % (self.principal_SID, format_sid(self.target_SID)))
+            logging.debug("Appending ACE (%s --(FullControl)--> %s)" % (self.principal_SID, format_sid(self.target_SID)))
             self.principal_security_descriptor['Dacl'].aces.append(self.create_ace(SIMPLE_PERMISSIONS.FullControl.value, self.principal_SID, self.ace_type))
         else:
             for rights_guid in self.build_guids_for_rights():
