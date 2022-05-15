@@ -161,40 +161,42 @@ class OBJECT_ACE_FLAGS(Enum):
 # Access Mask enum
 # Access mask permits to encode principal's rights to an object. This is the rights the principal behind the specified SID has
 # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/7a53f60e-e730-4dfe-bbe9-b21b62eb790b
+# https://docs.microsoft.com/en-us/windows/win32/api/iads/ne-iads-ads_rights_enum?redirectedfrom=MSDN
 class ACCESS_MASK(Enum):
     # Generic Rights
-    GenericRead = 0x80000000
-    GenericWrite = 0x40000000
-    GenericExecute = 0x20000000
-    GenericAll = 0x10000000
+    GenericRead = 0x80000000 # ADS_RIGHT_GENERIC_READ
+    GenericWrite = 0x40000000 # ADS_RIGHT_GENERIC_WRITE
+    GenericExecute = 0x20000000 # ADS_RIGHT_GENERIC_EXECUTE
+    GenericAll = 0x10000000 # ADS_RIGHT_GENERIC_ALL
 
     # Maximum Allowed access type
     MaximumAllowed = 0x02000000
 
     # Access System Acl access type
-    AccessSystemSecurity = 0x01000000
+    AccessSystemSecurity = 0x01000000 # ADS_RIGHT_ACCESS_SYSTEM_SECURITY
 
     # Standard access types
-    Synchronize = 0x00100000
-    WriteOwner = 0x00080000
-    WriteDAC = 0x00040000
-    ReadControl = 0x00020000
-    Delete = 0x00010000
+    Synchronize = 0x00100000 # ADS_RIGHT_SYNCHRONIZE
+    WriteOwner = 0x00080000 # ADS_RIGHT_WRITE_OWNER
+    WriteDACL = 0x00040000 # ADS_RIGHT_WRITE_DAC
+    ReadControl = 0x00020000 # ADS_RIGHT_READ_CONTROL
+    Delete = 0x00010000 # ADS_RIGHT_DELETE
 
     # Specific rights
-    WriteAttributes = 0x00000100
-    ReadAttributes = 0x00000080
-    DeleteChild = 0x00000040
-    Execute_Traverse = 0x00000020
-    WriteExtendedAttributes = 0x00000010
-    ReadExtendedAttributes = 0x00000008
-    AppendData = 0x00000004
-    WriteData = 0x00000002
-    ReadData = 0x00000001
+    AllExtendedRights = 0x00000100 # ADS_RIGHT_DS_CONTROL_ACCESS
+    ListObject = 0x00000080 # ADS_RIGHT_DS_LIST_OBJECT
+    DeleteTree = 0x00000040 # ADS_RIGHT_DS_DELETE_TREE
+    WriteProperties = 0x00000020 # ADS_RIGHT_DS_WRITE_PROP
+    ReadProperties = 0x00000010 # ADS_RIGHT_DS_READ_PROP
+    Self = 0x00000008 # ADS_RIGHT_DS_SELF
+    ListChildObjects = 0x00000004 # ADS_RIGHT_ACTRL_DS_LIST
+    DeleteChild = 0x00000002 # ADS_RIGHT_DS_DELETE_CHILD
+    CreateChild = 0x00000001 # ADS_RIGHT_DS_CREATE_CHILD
 
 
 # Simple permissions enum
 # Simple permissions are combinaisons of extended permissions
+# https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2003/cc783530(v=ws.10)?redirectedfrom=MSDN
 class SIMPLE_PERMISSIONS(Enum):
     FullControl = 0xf01ff
     Modify = 0x0301bf
