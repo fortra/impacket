@@ -264,7 +264,7 @@ class TSHandler:
             print(row)
 
     def do_tasklist(self):
-        options = self.__options.verbose
+        options = self.__options
         if not options.verbose:
             with TSTS.LegacyAPI(self.__smbConnection, options.target_ip) as legacy:
                 handle = legacy.hRpcWinStationOpenServer()
