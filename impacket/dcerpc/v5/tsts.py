@@ -36,14 +36,19 @@ from impacket.dcerpc.v5.dtypes import NULL, BOOL, BOOLEAN, STR, WSTR, LPWSTR, WI
     LONG, UINT, ULONG, PULONG, LPDWORD, LARGE_INTEGER, DWORD, NDRHYPER, USHORT, UCHAR, PCHAR, BYTE, PBYTE, \
     UUID, GUID
 from impacket import system_errors
-from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5.enum import Enum
 from impacket.dcerpc.v5.rpcrt import DCERPCException, RPC_C_AUTHN_GSS_NEGOTIATE, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
-
 
 ################################################################################
 # Constants
 ################################################################################
+
+TermSrvSession_UUID      = uuidtup_to_bin(('484809d6-4239-471b-b5bc-61df8c23ac48','1.0'))
+TermSrvNotification_UUID = uuidtup_to_bin(('11899a43-2b68-4a76-92e3-a3d6ad8c26ce','1.0'))
+TermSrvEnumeration_UUID  = uuidtup_to_bin(('88143fd0-c28d-4b2b-8fef-8d882f6a9390','1.0'))
+RCMPublic_UUID           = uuidtup_to_bin(('bde95fdf-eee0-45de-9e12-e5a61cd0d4fe','1.0'))
+RcmListener_UUID         = uuidtup_to_bin(('497d95a6-2d27-4bf5-9bbd-a6046957133c','1.0'))
+LegacyAPI_UUID           = uuidtup_to_bin(('5ca4a760-ebb1-11cf-8611-00a0245420ed','1.0'))
 
 AUDIODRIVENAME_LENGTH                = 9
 WDPREFIX_LENGTH                      = 12
@@ -3105,7 +3110,7 @@ class TermSrvSession(TSTSEndpoint):
     def __init__(self, smb, target_ip):
         super().__init__(smb, target_ip,
                             stringbinding = r'ncacn_np:{}[\pipe\LSM_API_service]',
-                            endpoint = uuidtup_to_bin(('484809d6-4239-471b-b5bc-61df8c23ac48','1.0'))
+                            endpoint = TermSrvSession_UUID
         )
 
     # 3.3.4.1.1 RpcOpenSession (Opnum 0)
@@ -3254,7 +3259,7 @@ class TermSrvNotification(TSTSEndpoint):
     def __init__(self, smb, target_ip):
         super().__init__(smb, target_ip,
                             stringbinding = r'ncacn_np:{}[\pipe\LSM_API_service]',
-                            endpoint = uuidtup_to_bin(('11899a43-2b68-4a76-92e3-a3d6ad8c26ce','1.0'))
+                            endpoint = TermSrvNotification_UUID
         )
     # 3.3.4.2.1 RpcWaitForSessionState (Opnum 0)
     def hRpcWaitForSessionState(self, SessionId, State, Timeout):
@@ -3289,7 +3294,7 @@ class TermSrvEnumeration(TSTSEndpoint):
     def __init__(self, smb, target_ip):
         super().__init__(smb, target_ip,
                             stringbinding = r'ncacn_np:{}[\pipe\LSM_API_service]',
-                            endpoint      = uuidtup_to_bin(('88143fd0-c28d-4b2b-8fef-8d882f6a9390','1.0'))
+                            endpoint      = TermSrvEnumeration_UUID
         )
 
     # 3.3.4.3.1 RpcOpenEnum (Opnum 0)
@@ -3341,7 +3346,7 @@ class RCMPublic(TSTSEndpoint):
     def __init__(self, smb, target_ip):
         super().__init__(smb, target_ip,
                             stringbinding = r'ncacn_np:{}[\pipe\TermSrv_API_service]',
-                            endpoint = uuidtup_to_bin(('bde95fdf-eee0-45de-9e12-e5a61cd0d4fe','1.0'))
+                            endpoint = RCMPublic_UUID
         )
 
     # 3.5.4.1.1 RpcGetClientData (Opnum 0)
@@ -3391,7 +3396,7 @@ class RcmListener(TSTSEndpoint):
     def __init__(self, smb, target_ip):
         super().__init__(smb, target_ip,
                             stringbinding = r'ncacn_np:{}[\pipe\TermSrv_API_service]',
-                            endpoint = uuidtup_to_bin(('497d95a6-2d27-4bf5-9bbd-a6046957133c','1.0'))
+                            endpoint = RcmListener_UUID
         )
 
     # 3.5.4.2.1 RpcOpenListener (Opnum 0)
@@ -3435,7 +3440,7 @@ class LegacyAPI(TSTSEndpoint):
     def __init__(self, smb, target_ip):
         super().__init__(smb, target_ip,
                             stringbinding = r'ncacn_np:{}[\pipe\Ctx_WinStation_API_service]',
-                            endpoint = uuidtup_to_bin(('5ca4a760-ebb1-11cf-8611-00a0245420ed','1.0'))
+                            endpoint = LegacyAPI_UUID
         )
 
     # 3.7.4.1.1 RpcWinStationOpenServer (Opnum 0)
