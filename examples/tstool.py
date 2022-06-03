@@ -265,38 +265,16 @@ class TSHandler:
 
     def do_tasklist(self):
         options = self.__options
-        if not options.verbose:
-            with TSTS.LegacyAPI(self.__smbConnection, options.target_ip) as legacy:
-                handle = legacy.hRpcWinStationOpenServer()
-                r = legacy.hRpcWinStationGetAllProcesses(handle)
-                if not len(r):
-                    return None
-                maxImageNameLen = max([len(i['ImageName']) for i in r])
-                maxSidLen = max([len(i['pSid']) for i in r])
-                template = '{: <%d} {: <8} {: <11} {: <%d} {: >12}' % (maxImageNameLen, maxSidLen)
-                print(template.format('Image Name', 'PID', 'Session#', 'SID', 'Mem Usage'))
-                print(template.replace(': ',':=').format('','','','','')+'\n')
-                # print(('{: <%d} {: >8} {: >11} {: <%d} {: >12}' % (maxImageNameLen, maxSidLen)).format('='*maxImageNameLen, '='*8, '='*11, '='*maxSidLen, '='*12))
-                for procInfo in r:
-                    row = template.format(
-                                procInfo['ImageName'],
-                                procInfo['UniqueProcessId'],
-                                procInfo['SessionId'],
-                                procInfo['pSid'],
-                                '{:,} K'.format(procInfo['WorkingSetSize']//1000),
-                            )
-                    print(row)
-        else:
-            self.get_session_list()
-            # self.enumerate_sessions_info()
-            self.enumerate_sessions_config()
-            with TSTS.LegacyAPI(self.__smbConnection, options.target_ip) as legacy:
-                handle = legacy.hRpcWinStationOpenServer()
-                r = legacy.hRpcWinStationGetAllProcesses(handle)
-                if not len(r): 
-                    return None
-                maxImageNameLen = max([len(i['ImageName']) for i in r])
-                maxSidLen = max([len(i['pSid']) for i in r])
+        with TSTS.LegacyAPI(self.__smbConnection, options.target_ip) as legacy:
+            handle = legacy.hRpcWinStationOpenServer()
+            r = legacy.hRpcWinStationGetAllProcesses(handle)
+            if not len(r):
+                return None
+            maxImageNameLen = max([len(i['ImageName']) for i in r])
+            maxSidLen = max([len(i['pSid']) for i in r])
+            if options.verbose:
+                self.get_session_list()
+                self.enumerate_sessions_config()
                 maxUserNameLen = max([len(self.sessions[i]['Username']+self.sessions[i]['Domain'])+1 for i in self.sessions])+1
                 if maxUserNameLen < 11:
                     maxUserNameLen = 11
@@ -349,6 +327,20 @@ class TSHandler:
                                           workingset  = procInfo['WorkingSetSize']//1000
                                          )
                     print(row)
+            else:
+                template = '{: <%d} {: <8} {: <11} {: <%d} {: >12}' % (maxImageNameLen, maxSidLen)
+                print(template.format('Image Name', 'PID', 'Session#', 'SID', 'Mem Usage'))
+                print(template.replace(': ',':=').format('','','','','')+'\n')
+                for procInfo in r:
+                    row = template.format(
+                                procInfo['ImageName'],
+                                procInfo['UniqueProcessId'],
+                                procInfo['SessionId'],
+                                procInfo['pSid'],
+                                '{:,} K'.format(procInfo['WorkingSetSize']//1000),
+                            )
+                    print(row)
+        
 
     def do_taskkill(self):
         options = self.__options
