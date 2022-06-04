@@ -3083,12 +3083,598 @@ class RpcWinStationOpenSessionDirectoryResponse(NDRCALL):
 # Helper Functions
 ################################################################################
 
+# 3.3.4.1 TermSrvSession; \pipe\LSM_API_service; 484809d6-4239-471b-b5bc-61df8c23ac48
+# 3.3.4.1.1 RpcOpenSession (Opnum 0)
+def hRpcOpenSession(dce, SessionId):
+    request = RpcOpenSession()
+    request['SessionId'] = SessionId
+    return dce.request(request)['phSession']
+
+# 3.3.4.1.2 RpcCloseSession (Opnum 1)
+def hRpcCloseSession(dce, phSession):
+    request = RpcCloseSession()
+    request['phSession'] = phSession
+    return dce.request(request)
+
+# 3.3.4.1.3 RpcConnect (Opnum 2)
+def hRpcConnect(dce, hSession, TargetSessionId, Password = None):
+    if Password is None:
+        Password = ''
+    request = RpcConnect()
+    request['hSession'] = hSession
+    request['TargetSessionId'] = TargetSessionId
+    request['szPassword'] = Password + '\0'
+    try:
+        return dce.request(request)
+    except DCERPCSessionError as e:
+        if e.error_code == 0x1: # Strange, but this error_code is returned on success
+            resp = RpcConnectResponse()
+            resp['ErrorCode'] = 0
+            return resp
+        raise e
+
+# 3.3.4.1.4 RpcDisconnect (Opnum 3)
+def hRpcDisconnect(dce, hSession):
+    request = RpcDisconnect()
+    request['hSession'] = hSession
+    return dce.request(request)
+
+# 3.3.4.1.5 RpcLogoff (Opnum 4)
+def hRpcLogoff(dce, hSession):
+    request = RpcLogoff()
+    request['hSession'] = hSession
+    try:
+        return dce.request(request)
+    except DCERPCSessionError as e:
+        if e.error_code == 0x10000000: # Strange, but this error_code is returned on success
+            resp = RpcLogoffResponse()
+            resp['ErrorCode'] = 0
+            return resp
+        raise e
+        
+    return dce.request(request)
+
+# 3.3.4.1.6 RpcGetUserName (Opnum 5)
+def hRpcGetUserName(dce, hSession):
+    request = RpcGetUserName()
+    request['hSession'] = hSession
+    return dce.request(request)
+
+# 3.3.4.1.7 RpcGetTerminalName (Opnum 6)
+def hRpcGetTerminalName(dce, hSession):
+    request = RpcGetTerminalName()
+    request['hSession'] = hSession
+    return dce.request(request)
+
+# 3.3.4.1.8 RpcGetState (Opnum 7)
+def hRpcGetState(dce, hSession):
+    request = RpcGetState()
+    request['hSession'] = hSession
+    return dce.request(request)
+
+# 3.3.4.1.9 RpcIsSessionDesktopLocked (Opnum 8)
+def hRpcIsSessionDesktopLocked(dce, hSession):
+    request = RpcIsSessionDesktopLocked()
+    request['hSession'] = hSession
+    return dce.request(request)
+
+# 3.3.4.1.10 RpcShowMessageBox (Opnum 9)
+def hRpcShowMessageBox(dce, hSession, Title, Message, Style = 0, Timeout = 0, DoNotWait = True):
+    Title = Title if Title is not None else ' '
+    Message = Message if Message is not None else ''
+
+    request = RpcShowMessageBox()
+    request['hSession'] = hSession
+    request['szTitle'] = Title + '\0'
+    request['szMessage'] = Message + '\0'
+    request['ulStyle'] = Style
+    request['ulTimeout'] = Timeout
+    request['bDoNotWait'] = DoNotWait
+    return dce.request(request)
+
+# 3.3.4.1.11 RpcGetTimes (Opnum 10)
+def hRpcGetTimes(dce, hSession):
+    request = RpcGetTimes()
+    request['hSession'] = hSession
+    return dce.request(request)
+
+# 3.3.4.1.12 RpcGetSessionCounters (Opnum 11)
+def hRpcGetSessionCounters(dce, Entries):
+    request = RpcGetSessionCounters()
+    request['uEntries'] = Entries
+    return dce.request(request)
+
+# 3.3.4.1.13 RpcGetSessionInformation (Opnum 12)
+def hRpcGetSessionInformation(dce, SessionId):
+    request = RpcGetSessionInformation()
+    request['SessionId'] = SessionId
+    return dce.request(request)
+
+# 3.3.4.1.14 RpcGetLoggedOnCount (Opnum 15)
+def hRpcGetLoggedOnCount(dce):
+    request = RpcGetLoggedOnCount()
+    return dce.request(request)
+
+# 3.3.4.1.15 RpcGetSessionType (Opnum 16)
+def hRpcGetSessionType(dce, SessionId):
+    request = RpcGetSessionType()
+    request['SessionId'] = SessionId
+    return dce.request(request)
+
+# 3.3.4.1.16 RpcGetSessionInformationEx (Opnum 17)
+def hRpcGetSessionInformationEx(dce, SessionId):
+    request = RpcGetSessionInformationEx()
+    request['SessionId'] = SessionId
+    request['Level'] = 1
+    return dce.request(request)
+    '''
+    RpcGetSessionInformationExResponse 
+    LSMSessionInfoExPtr:            
+    tag:                             1 
+    LSM_SessionInfo_Level1:         
+        SessionState:                    State_Active 
+        SessionFlags:                    WTS_SESSIONSTATE_UNLOCK 
+        SessionName:                     'RDP-Tcp#0' 
+        DomainName:                      'W11-WKS' 
+        UserName:                        'john' 
+        ConnectTime:                     datetime.datetime(2022, 5, 9, 2, 34, 48, 700543) 
+        DisconnectTime:                  datetime.datetime(2022, 5, 9, 2, 34, 48, 547684) 
+        LogonTime:                       datetime.datetime(2022, 5, 9, 2, 23, 31, 119361) 
+        LastInputTime:                   datetime.datetime(1601, 1, 1, 2, 20, 54) 
+        ProtocolDataSize:                1816 
+        ProtocolData:                    
+    '''
+
+# 3.3.4.2 TermSrvNotification (LSM Notification); \PIPE\LSM_API_service; 11899a43-2b68-4a76-92e3-a3d6ad8c26ce
+# 3.3.4.2.1 RpcWaitForSessionState (Opnum 0)
+def hRpcWaitForSessionState(dce, SessionId, State, Timeout):
+    # State from WINSTATIONSTATECLASS class
+    request = RpcWaitForSessionState()
+    request['SessionId'] = SessionId
+    request['State'] = State
+    request['Timeout'] = Timeout
+    return dce.request(request)
+
+# 3.3.4.2.2 RpcRegisterAsyncNotification (Opnum 1)
+def hRpcRegisterAsyncNotification(dce, SessionId, Mask):
+    request = RpcRegisterAsyncNotification()
+    request['SessionId'] = SessionId
+    request['Mask'] = Mask
+    return dce.request(request)['phNotify']
+
+# 3.3.4.2.3 RpcWaitAsyncNotification (Opnum 2)
+def hRpcWaitAsyncNotification(dce, hNotify):
+    request = RpcWaitAsyncNotification()
+    request['hNotify'] = hNotify
+    return dce.request(request)
+
+# 3.3.4.2.4 RpcUnRegisterAsyncNotification (Opnum 3)
+def hRpcUnRegisterAsyncNotification(dce, hNotify):
+    request = RpcUnRegisterAsyncNotification()
+    request['hNotify'] = hNotify
+    return dce.request(request)
+
+# 3.3.4.3 TermSrvEnumeration; 88143fd0-c28d-4b2b-8fef-8d882f6a9390; \pipe\LSM_API_service
+# 3.3.4.3.1 RpcOpenEnum (Opnum 0)
+def hRpcOpenEnum(dce):
+    request = RpcOpenEnum()
+    return dce.request(request)['phEnum']
+
+# 3.3.4.3.2 RpcCloseEnum (Opnum 1)
+def hRpcCloseEnum(dce, phEnum):
+    request = RpcCloseEnum()
+    request['phEnum'] = phEnum
+    return dce.request(request)
+
+#NOT_IMPLEMENTED 3.3.4.3.3 RpcFilterByState (Opnum 2)
+
+#NOT_IMPLEMENTED 3.3.4.3.4 RpcFilterByCallersName (Opnum 3)
+
+#NOT_IMPLEMENTED 3.3.4.3.5 RpcEnumAddFilter (Opnum 4)
+
+# 3.3.4.3.6 RpcGetEnumResult (Opnum 5)
+def hRpcGetEnumResult(dce, hEnum, Level = 1):
+    request = RpcGetEnumResult()
+    request['hEnum'] = hEnum
+    request['Level'] = Level
+    return dce.request(request)
+
+#NOT_IMPLEMENTED 3.3.4.3.7 RpcFilterBySessionType (Opnum 6)
+
+#NOT_IMPLEMENTED 3.3.4.3.8 RpcGetSessionIds (Opnum 8)
+
+# 3.3.4.3.9 RpcGetEnumResultEx (Opnum 9)
+def hRpcGetEnumResultEx(dce, hEnum, Level = 1):
+    request = RpcGetEnumResultEx()
+    request['hEnum'] = hEnum
+    request['Level'] = Level
+    return dce.request(request)
+
+# 3.3.4.3.10 RpcGetAllSessions (Opnum 10)
+def hRpcGetAllSessions(dce, Level = 1):
+    request = RpcGetAllSessions()
+    request['pLevel'] = Level
+    return dce.request(request)
+
+#NOT_IMPLEMENTED 3.3.4.3.11 RpcGetAllSessionsEx (Opnum 11)
+
+
+# 3.5.4.1 RCMPublic bde95fdf-eee0-45de-9e12-e5a61cd0d4fe \pipe\TermSrv_API_service
+# 3.5.4.1.1 RpcGetClientData (Opnum 0)
+def hRpcGetClientData(dce, SessionId):
+    request = RpcGetClientData()
+    request['SessionId'] = SessionId
+    try:
+        return dce.request(request)
+    except:
+        return None
+
+# 3.5.4.1.2 RpcGetConfigData (Opnum 1)
+def hRpcGetConfigData(dce, SessionId):
+    request = RpcGetConfigData()
+    request['SessionId'] = SessionId
+    return dce.request(request)
+
+#NOT_IMPLEMENTED 3.5.4.1.3 RpcGetProtocolStatus (Opnum 2)
+
+# 3.5.4.1.4 RpcGetLastInputTime (Opnum 3)
+def hRpcGetLastInputTime(dce, SessionId):
+    request = RpcGetLastInputTime()
+    request['SessionId'] = SessionId
+    return dce.request(request)
+
+# 3.5.4.1.5 RpcGetRemoteAddress (Opnum 4)
+def hRpcGetRemoteAddress(dce, SessionId):
+    request = RpcGetRemoteAddress()
+    request['SessionId'] = SessionId
+    try:
+        return dce.request(request)
+    except:
+        return None
+
+# 3.5.4.1.6 RpcGetAllListeners (Opnum 8)
+def hRpcGetAllListeners(dce):
+    request = RpcGetAllListeners()
+    request['Level'] = 1
+    return dce.request(request)
+
+#NOT_IMPLEMENTED 3.5.4.1.7 RpcGetSessionProtocolLastInputTime (Opnum 9)
+#NOT_IMPLEMENTED 3.5.4.1.8 RpcGetUserCertificates (Opnum 10)
+#NOT_IMPLEMENTED 3.5.4.1.9 RpcQuerySessionData (Opnum 11)
+
+# 3.5.4.2 RCMListener 497d95a6-2d27-4bf5-9bbd-a6046957133c \pipe\TermSrv_API_service or \pipe\Ctx_WinStation_API_service
+# 3.5.4.2.1 RpcOpenListener (Opnum 0)
+def hRpcOpenListener(dce, ListenerName):
+    request = RpcOpenListener()
+    request['szListenerName'] = ListenerName + '\0'
+    return dce.request(request)['phListener']
+
+# 3.5.4.2.2 RpcCloseListener (Opnum 1)
+def hRpcCloseListener(dce, phListener):
+    request = RpcCloseListener()
+    request['phListener'] = phListener
+    return dce.request(request)
+    
+# 3.5.4.2.3 RpcStopListener (Opnum 2)
+def hRpcStopListener(dce, phListener):
+    request = RpcStopListener()
+    request['phListener'] = phListener
+    return dce.request(request)
+
+# 3.5.4.2.4 RpcStartListener (Opnum 3)
+def hRpcStartListener(dce, phListener):
+    request = RpcStartListener()
+    request['phListener'] = phListener
+    return dce.request(request)
+
+# 3.5.4.2.5 RpcIsListening (Opnum 4)
+def hRpcIsListening(dce, phListener):
+    request = RpcIsListening()
+    request['phListener'] = phListener
+    return dce.request(request)
+
+
+# 3.7.4.1 LegacyApi 5ca4a760-ebb1-11cf-8611-00a0245420ed \pipe\Ctx_WinStation_API_service
+#
+# In legacy api, response error_codes are represented as 1 byte boolean at the end of the response
+# so we have to ignore error checking by rpcrt module, by checkError=False
+#
+# 3.7.4.1.1 RpcWinStationOpenServer (Opnum 0)
+def hRpcWinStationOpenServer(dce):
+    request = RpcWinStationOpenServer()
+    resp = dce.request(request, checkError=False)
+    if resp['ErrorCode']:
+        return resp['phServer']
+    return None
+
+# 3.7.4.1.2 RpcWinStationCloseServer (Opnum 1)
+def hRpcWinStationCloseServer(dce, hServer):
+    request = RpcWinStationCloseServer()
+    request['hServer'] = hServer
+    return dce.request(request, checkError=False)
+
+#DOES_NOT_WORK 3.7.4.1.3 RpcIcaServerPing (Opnum 2)
+def hRpcIcaServerPing(dce, hServer):
+    request = RpcIcaServerPing()
+    request['hServer'] = hServer
+    return dce.request(request, checkError=False)
+
+
+# 3.7.4.1.8 RpcWinStationSendMessage (Opnum 7)
+def hRpcWinStationSendMessage(dce, hServer, LogonId, Title, Message, DoNotWait = True):
+    request = RpcWinStationSendMessage()
+    request['hServer'] = hServer
+    request['LogonId'] = LogonId
+    request['pTitle'] = ZEROPAD(Title,1024)
+    request['pMessage'] = ZEROPAD(Message,1024)
+    request['DoNotWait'] = DoNotWait
+    return dce.request(request, checkError=False)
+
+# 3.7.4.1.9 RpcLogonIdFromWinStationName (Opnum 8)
+def hRpcLogonIdFromWinStationName(dce, hServer, WinStationName):
+    request = RpcLogonIdFromWinStationName()
+    request['hServer'] = hServer
+    request['pWinStationName'] = ZEROPAD(WinStationName, WINSTATIONNAME_LENGTH + 1)
+    return dce.request(request, checkError=False)
+
+# 3.7.4.1.10 RpcWinStationNameFromLogonId (Opnum 9)
+def hRpcWinStationNameFromLogonId(dce, hServer, LoginId):
+    request = RpcWinStationNameFromLogonId()
+    request['hServer'] = hServer
+    request['LoginId'] = LoginId
+    request['pWinStationName'] = ZEROPAD('', WINSTATIONNAME_LENGTH + 1)
+    return dce.request(request, checkError=False)
+
+# 3.7.4.1.11 RpcWinStationConnect (Opnum 10)
+def hRpcWinStationConnect(dce, hServer, ClientLogonId, ConnectLogonId, TargetLogonId, Password, Wait = False):
+    # Session #1 in disconnected state
+    # You want to attach session #1 to your session and you know
+    # the password of the logged in user in session #1
+    # Your session ID: 3
+    # Parameters:
+    # ClientLogonId = 1
+    # ConnectLogonId = d
+    # TargetLogonId = 3
+    request = RpcWinStationConnect()
+    request['hServer'] = hServer
+    request['ClientLogonId'] = ClientLogonId
+    request['ConnectLogonId'] = ConnectLogonId
+    request['TargetLogonId'] = TargetLogonId
+    request['pPassword'] = Password + '\0'
+    request['Wait'] = Wait
+    return dce.request(request, checkError=False)
+
+# 3.7.4.1.12 RpcWinStationDisconnect (Opnum 13)
+def hRpcWinStationDisconnect(dce, hServer, LoginId, bWait = False):
+    request = RpcWinStationDisconnect()
+    request['hServer'] = hServer
+    request['LoginId'] = LoginId
+    request['bWait'] = bWait
+    return dce.request(request, checkError=False)
+
+# 3.7.4.1.13 RpcWinStationReset (Opnum 14)
+def hRpcWinStationReset(dce, hServer, LogonId, bWait = False):
+    request = RpcWinStationReset()
+    request['hServer'] = hServer
+    request['LogonId'] = LogonId
+    request['bWait'] = bWait
+    return dce.request(request, checkError=False)
+
+# 3.7.4.1.14 RpcWinStationShutdownSystem (Opnum 15)
+# ShutdownFlags == ENUM ShutdownFlags
+def hRpcWinStationShutdownSystem(dce, hServer, ClientLogonId, ShutdownFlags):
+    request = RpcWinStationShutdownSystem()
+    request['hServer'] = hServer
+    request['ClientLogonId'] = ClientLogonId
+    request['ShutdownFlags'] = ShutdownFlags
+    return dce.request(request, checkError=False)
+
+# 3.7.4.1.15 RpcWinStationWaitSystemEvent (Opnum 16)
+# EventMask == ENUM EventMask
+def hRpcWinStationWaitSystemEvent(dce, hServer, EventMask):
+    request = RpcWinStationWaitSystemEvent()
+    request['hServer'] = hServer
+    request['EventMask'] = EventMask
+    return dce.request(request, checkError=False)
+
+
+# 3.7.4.1.16 RpcWinStationShadow (Opnum 17)
+def hRpcWinStationShadow(dce, hServer, LogonId, pTargetServerName, TargetLogonId, HotKeyVk, HotkeyModifiers):
+    request = RpcWinStationShadow()
+    request['hServer'] = hServer
+    request['LogonId'] = LogonId
+    request['pTargetServerName'] = pTargetServerName
+    request['TargetLogonId'] = TargetLogonId
+    request['HotKeyVk'] = HotKeyVk
+    request['HotkeyModifiers'] = HotkeyModifiers
+    return dce.request(request, checkError=False)
+
+#OLD 3.6.4.1.19 RpcWinStationShadowTargetSetup (Opnum 18)
+def hRpcWinStationShadowTargetSetup(dce, hServer, LogonId):
+    request = RpcWinStationShadowTargetSetup()
+    request['hServer'] = hServer
+    request['LogonId'] = LogonId
+    return dce.request(request, checkError=False)
+
+# 3.7.4.1.17 RpcWinStationBreakPoint (Opnum 29)
+def hRpcWinStationBreakPoint(dce, hServer, LogonId, KernelFlag):
+    request = RpcWinStationBreakPoint()
+    request['hServer'] = hServer
+    request['LogonId'] = LogonId
+    request['KernelFlag'] = KernelFlag
+    return dce.request(request, checkError=False)
+
+#DOES_NOT_WORK 3.7.4.1.18 RpcWinStationReadRegistry (Opnum 30)
+def hRpcWinStationReadRegistry(dce, hServer):
+    request = RpcWinStationReadRegistry()
+    request['hServer'] = hServer
+    return dce.request(request, checkError=False)
+
+#DOES_NOT_WORK 3.7.4.1.19 OldRpcWinStationEnumerateProcesses (Opnum 34)
+def hOldRpcWinStationEnumerateProcesses(dce, hServer, ByteCount):
+    request = OldRpcWinStationEnumerateProcesses()
+    request['hServer'] = hServer
+    request['ByteCount'] = ByteCount
+    return dce.request(request, checkError=False)
+
+#DOES_NOT_WORK 3.7.4.1.20 RpcWinStationEnumerateProcesses (Opnum 36)
+def hRpcWinStationEnumerateProcesses(dce, hServer, ByteCount):
+    request = RpcWinStationEnumerateProcesses()
+    request['hServer'] = hServer
+    request['ByteCount'] = ByteCount
+    return dce.request(request, checkError=False)
+
+
+# 3.7.4.1.21 RpcWinStationTerminateProcess (Opnum 37)
+def hRpcWinStationTerminateProcess(dce, hServer, ProcessId, ExitCode = 0):
+    request = RpcWinStationTerminateProcess()
+    request['hServer'] = hServer
+    request['ProcessId'] = ProcessId
+    request['ExitCode'] = ExitCode
+    return dce.request(request, checkError=False)
+
+# 3.7.4.1.22 RpcWinStationGetAllProcesses (Opnum 43)
+def hRpcWinStationGetAllProcesses(dce, hServer):
+    # i'm giving up constructing legitimate structures for this method
+    # Going to parse raw response:
+    # 1. Skip ndrpointers
+    # 2. Create TS_SYS_PROCESS_INFORMATION structure one by one
+    # Tested and seems to work well on WIN11, WIN10, WIN2012R2, WIN7
+    request = RpcWinStationGetAllProcesses()
+    request['hServer'] = hServer
+    request['Level'] = 0
+    request['pNumberOfProcesses'] = 0x8000
+    resp = dce.request(request, checkError=False)
+    data = resp.getData()
+    bResult = bool(data[-1])
+    if not bResult:
+        raise DCERPCSessionError(error_code=resp['pResult'])
+    data = data[:-1]
+    procs = []
+    if not resp['pNumberOfProcesses']:
+        return procs
+    offset = 0
+    arrayOffset = 0
+    while 1:
+        offset = data.find(b'\x02\x00')
+        if offset > 12:
+            break
+        data = data[offset+2:]
+        arrayOffset = arrayOffset + offset + 2
+    procInfo = ''
+    while len(data)>1:
+        if len(data[len(procInfo):]) < 16:
+            break
+        # I think there some alignment problems...
+        # in the structure, second DWORD is thread count, i'm looking for the second DWORD
+        # in order to align the data correctly
+        # There is no proper errors handling!
+        b,c,d,e = struct.unpack('<LLLL',data[len(procInfo):len(procInfo)+16])
+        if b:
+            data = data[len(procInfo)-4:]
+        elif c:
+            data = data[len(procInfo):]
+        elif d:
+            data = data[len(procInfo)+4:]
+        elif e:
+            data = data[len(procInfo)+8:]
+            
+        procInfo = TS_SYS_PROCESS_INFORMATION()
+        procInfo.fromString(data)
+        procs.append(procInfo)
+    return procs
+
+# 3.7.4.1.23 RpcWinStationGetProcessSid (Opnum 44)
+def hRpcWinStationGetProcessSid(dce, hServer, dwUniqueProcessId, ProcessStartTime):
+    request = RpcWinStationGetProcessSid()
+    request['hServer'] = hServer
+    request['dwUniqueProcessId'] = dwUniqueProcessId
+    request['ProcessStartTime'] = ProcessStartTime
+    request['pProcessUserSid'] = b'\0' * 28
+    resp = dce.request(request, checkError=False)
+    if resp['pResult'] == pResult_ENUM.ERROR_STATUS_BUFFER_TOO_SMALL:
+        sizeNeeded = resp['pdwSizeNeeded']
+        request['pProcessUserSid'] = b'\0' * sizeNeeded
+        request['dwSidSize'] = sizeNeeded
+        resp = dce.request(request, checkError=False)
+    if resp['ErrorCode']:
+        return format_sid(resp['pProcessUserSid'])
+
+#NOT_IMPLEMENTED 3.7.4.1.24 RpcWinStationGetTermSrvCountersValue (Opnum 45)
+
+# 3.7.4.1.25 RpcWinStationReInitializeSecurity (Opnum 46)
+def hRpcWinStationReInitializeSecurity(dce, hServer):
+    request = RpcWinStationReInitializeSecurity()
+    request['hServer'] = hServer
+    return dce.request(request, checkError=False)
+
+#DOES_NOT_WORK 3.7.4.1.26 RpcWinStationGetLanAdapterName (Opnum 53)
+def hRpcWinStationGetLanAdapterName(dce, hServer, pPdName, LanAdapter):
+    request = RpcWinStationGetLanAdapterName()
+    request['hServer'] = hServer
+    request['pPdName'] = hServer
+    request['LanAdapter'] = hServer
+    return dce.request(request, checkError=False)
+
+#DOES_NOT_WORK 3.7.4.1.27 RpcWinStationUpdateSettings (Opnum 58)
+def hRpcWinStationUpdateSettings(dce, hServer, SettingsClass, SettingsParameters):
+    request = RpcWinStationUpdateSettings()
+    request['hServer'] = hServer
+    request['SettingsClass'] = hServer
+    request['SettingsParameters'] = hServer
+    return dce.request(request, checkError=False)
+
+
+# 3.7.4.1.28 RpcWinStationShadowStop (Opnum 59)
+def hRpcWinStationShadowStop(dce, hServer, LogonId, bWait):
+    request = RpcWinStationShadowStop()
+    request['hServer'] = hServer
+    request['LogonId'] = LogonId
+    request['bWait'] = bWait
+    return dce.request(request, checkError=False)
+
+# 3.7.4.1.29 RpcWinStationCloseServerEx (Opnum 60)
+def hRpcWinStationCloseServerEx(dce, hServer):
+    request = RpcWinStationShadowStop()
+    request['hServer'] = hServer
+    return dce.request(request, checkError=False)
+
+# 3.7.4.1.30 RpcWinStationIsHelpAssistantSession (Opnum 61)
+def hRpcWinStationIsHelpAssistantSession(dce, hServer, SessionId):
+    request = RpcWinStationShadowStop()
+    request['hServer'] = hServer
+    request['SessionId'] = SessionId
+    return dce.request(request, checkError=False)
+
+#NOT_IMPLEMENTED 3.7.4.1.31 RpcWinStationGetMachinePolicy (Opnum 62)
+
+#NOT_IMPLEMENTED 3.7.4.1.32 RpcWinStationCheckLoopBack (Opnum 65)
+
+#NOT_IMPLEMENTED 3.7.4.1.33 RpcConnectCallback (Opnum 66)
+
+#NOT_IMPLEMENTED 3.7.4.1.34 RpcWinStationGetAllProcesses_NT6 (Opnum 70)
+
+#DOES_NOT_WORK 3.7.4.1.35 RpcWinStationOpenSessionDirectory (Opnum 75)
+def hRpcWinStationOpenSessionDirectory(dce, hServer, pszServerName):
+    request = RpcWinStationShadowStop()
+    request['hServer'] = hServer
+    request['pszServerName'] = pszServerName
+    return dce.request(request, checkError=False)
+
+
+################################################################################
+# Initialization Classes and Helper classes
+################################################################################
+
 class TSTSEndpoint:
     def __init__(self, smb, target_ip, stringbinding, endpoint, kerberos = False):
         self._stringbinding = stringbinding.format(target_ip)
         self._endpoint = endpoint
         self._smbconnection = smb
         self._bind()
+
+        # Little hack to pass 'this' as 'dce' variable to a helper function
+        self.request = self._dce.request
     def _bind(self):
         self._rpctransport = transport.DCERPCTransportFactory(self._stringbinding)
         self._rpctransport.set_smb_connection(self._smbconnection)
@@ -3105,622 +3691,106 @@ class TSTSEndpoint:
     def __exit__(self, type, value, traceback):
         self._disconnect()
 
-# 3.3.4.1 TermSrvSession; \pipe\LSM_API_service; 484809d6-4239-471b-b5bc-61df8c23ac48
 class TermSrvSession(TSTSEndpoint):
     def __init__(self, smb, target_ip):
         super().__init__(smb, target_ip,
                             stringbinding = r'ncacn_np:{}[\pipe\LSM_API_service]',
                             endpoint = TermSrvSession_UUID
         )
+    hRpcOpenSession             = hRpcOpenSession
+    hRpcCloseSession            = hRpcCloseSession
+    hRpcConnect                 = hRpcConnect
+    hRpcDisconnect              = hRpcDisconnect
+    hRpcLogoff                  = hRpcLogoff
+    hRpcGetUserName             = hRpcGetUserName
+    hRpcGetTerminalName         = hRpcGetTerminalName
+    hRpcGetState                = hRpcGetState
+    hRpcIsSessionDesktopLocked  = hRpcIsSessionDesktopLocked
+    hRpcShowMessageBox          = hRpcShowMessageBox
+    hRpcGetTimes                = hRpcGetTimes
+    hRpcGetSessionCounters      = hRpcGetSessionCounters
+    hRpcGetSessionInformation   = hRpcGetSessionInformation
+    hRpcGetLoggedOnCount        = hRpcGetLoggedOnCount
+    hRpcGetSessionType          = hRpcGetSessionType
+    hRpcGetSessionInformationEx = hRpcGetSessionInformationEx
 
-    # 3.3.4.1.1 RpcOpenSession (Opnum 0)
-    def hRpcOpenSession(self, SessionId):
-        request = RpcOpenSession()
-        request['SessionId'] = SessionId
-        return self._dce.request(request)['phSession']
-
-    # 3.3.4.1.2 RpcCloseSession (Opnum 1)
-    def hRpcCloseSession(self, phSession):
-        request = RpcCloseSession()
-        request['phSession'] = phSession
-        return self._dce.request(request)
-
-    # 3.3.4.1.3 RpcConnect (Opnum 2)
-    def hRpcConnect(self, hSession, TargetSessionId, Password = None):
-        if Password is None:
-            Password = ''
-        request = RpcConnect()
-        request['hSession'] = hSession
-        request['TargetSessionId'] = TargetSessionId
-        request['szPassword'] = Password + '\0'
-        try:
-            return self._dce.request(request)
-        except DCERPCSessionError as e:
-            if e.error_code == 0x1: # Strange, but this error_code is returned on success
-                resp = RpcConnectResponse()
-                resp['ErrorCode'] = 0
-                return resp
-            raise e
-
-    # 3.3.4.1.4 RpcDisconnect (Opnum 3)
-    def hRpcDisconnect(self, hSession):
-        request = RpcDisconnect()
-        request['hSession'] = hSession
-        return self._dce.request(request)
-
-    # 3.3.4.1.5 RpcLogoff (Opnum 4)
-    def hRpcLogoff(self, hSession):
-        request = RpcLogoff()
-        request['hSession'] = hSession
-        try:
-            return self._dce.request(request)
-        except DCERPCSessionError as e:
-            if e.error_code == 0x10000000: # Strange, but this error_code is returned on success
-                resp = RpcLogoffResponse()
-                resp['ErrorCode'] = 0
-                return resp
-            raise e
-            
-        return self._dce.request(request)
-
-    # 3.3.4.1.6 RpcGetUserName (Opnum 5)
-    def hRpcGetUserName(self, hSession):
-        request = RpcGetUserName()
-        request['hSession'] = hSession
-        return self._dce.request(request)
-
-    # 3.3.4.1.7 RpcGetTerminalName (Opnum 6)
-    def hRpcGetTerminalName(self, hSession):
-        request = RpcGetTerminalName()
-        request['hSession'] = hSession
-        return self._dce.request(request)
-
-    # 3.3.4.1.8 RpcGetState (Opnum 7)
-    def hRpcGetState(self, hSession):
-        request = RpcGetState()
-        request['hSession'] = hSession
-        return self._dce.request(request)
-
-    # 3.3.4.1.9 RpcIsSessionDesktopLocked (Opnum 8)
-    def hRpcIsSessionDesktopLocked(self, hSession):
-        request = RpcIsSessionDesktopLocked()
-        request['hSession'] = hSession
-        return self._dce.request(request)
-
-    # 3.3.4.1.10 RpcShowMessageBox (Opnum 9)
-    def hRpcShowMessageBox(self, hSession, Title, Message, Style = 0, Timeout = 0, DoNotWait = True):
-        Title = Title if Title is not None else ' '
-        Message = Message if Message is not None else ''
-
-        request = RpcShowMessageBox()
-        request['hSession'] = hSession
-        request['szTitle'] = Title + '\0'
-        request['szMessage'] = Message + '\0'
-        request['ulStyle'] = Style
-        request['ulTimeout'] = Timeout
-        request['bDoNotWait'] = DoNotWait
-        return self._dce.request(request)
-
-    # 3.3.4.1.11 RpcGetTimes (Opnum 10)
-    def hRpcGetTimes(self, hSession):
-        request = RpcGetTimes()
-        request['hSession'] = hSession
-        return self._dce.request(request)
-
-    # 3.3.4.1.12 RpcGetSessionCounters (Opnum 11)
-    def hRpcGetSessionCounters(self, Entries):
-        request = RpcGetSessionCounters()
-        request['uEntries'] = Entries
-        return self._dce.request(request)
-
-    # 3.3.4.1.13 RpcGetSessionInformation (Opnum 12)
-    def hRpcGetSessionInformation(self, SessionId):
-        request = RpcGetSessionInformation()
-        request['SessionId'] = SessionId
-        return self._dce.request(request)
-
-    # 3.3.4.1.14 RpcGetLoggedOnCount (Opnum 15)
-    def hRpcGetLoggedOnCount(self):
-        request = RpcGetLoggedOnCount()
-        return self._dce.request(request)
-
-    # 3.3.4.1.15 RpcGetSessionType (Opnum 16)
-    def hRpcGetSessionType(self, SessionId):
-        request = RpcGetSessionType()
-        request['SessionId'] = SessionId
-        return self._dce.request(request)
-
-    # 3.3.4.1.16 RpcGetSessionInformationEx (Opnum 17)
-    def hRpcGetSessionInformationEx(self, SessionId):
-        request = RpcGetSessionInformationEx()
-        request['SessionId'] = SessionId
-        request['Level'] = 1
-        return self._dce.request(request)
-        '''
-        RpcGetSessionInformationExResponse 
-        LSMSessionInfoExPtr:            
-        tag:                             1 
-        LSM_SessionInfo_Level1:         
-            SessionState:                    State_Active 
-            SessionFlags:                    WTS_SESSIONSTATE_UNLOCK 
-            SessionName:                     'RDP-Tcp#0' 
-            DomainName:                      'W11-WKS' 
-            UserName:                        'john' 
-            ConnectTime:                     datetime.datetime(2022, 5, 9, 2, 34, 48, 700543) 
-            DisconnectTime:                  datetime.datetime(2022, 5, 9, 2, 34, 48, 547684) 
-            LogonTime:                       datetime.datetime(2022, 5, 9, 2, 23, 31, 119361) 
-            LastInputTime:                   datetime.datetime(1601, 1, 1, 2, 20, 54) 
-            ProtocolDataSize:                1816 
-            ProtocolData:                    
-        '''
-
-# 3.3.4.2 TermSrvNotification (LSM Notification); \PIPE\LSM_API_service; 11899a43-2b68-4a76-92e3-a3d6ad8c26ce
 class TermSrvNotification(TSTSEndpoint):
     def __init__(self, smb, target_ip):
         super().__init__(smb, target_ip,
                             stringbinding = r'ncacn_np:{}[\pipe\LSM_API_service]',
                             endpoint = TermSrvNotification_UUID
         )
-    # 3.3.4.2.1 RpcWaitForSessionState (Opnum 0)
-    def hRpcWaitForSessionState(self, SessionId, State, Timeout):
-        # State from WINSTATIONSTATECLASS class
-        request = RpcWaitForSessionState()
-        request['SessionId'] = SessionId
-        request['State'] = State
-        request['Timeout'] = Timeout
-        return self._dce.request(request)
+    hRpcWaitForSessionState         = hRpcWaitForSessionState
+    hRpcRegisterAsyncNotification   = hRpcRegisterAsyncNotification
+    hRpcWaitAsyncNotification       = hRpcWaitAsyncNotification
+    hRpcUnRegisterAsyncNotification = hRpcUnRegisterAsyncNotification
 
-    # 3.3.4.2.2 RpcRegisterAsyncNotification (Opnum 1)
-    def hRpcRegisterAsyncNotification(self, SessionId, Mask):
-        request = RpcRegisterAsyncNotification()
-        request['SessionId'] = SessionId
-        request['Mask'] = Mask
-        return self._dce.request(request)['phNotify']
-
-    # 3.3.4.2.3 RpcWaitAsyncNotification (Opnum 2)
-    def hRpcWaitAsyncNotification(self, hNotify):
-        request = RpcWaitAsyncNotification()
-        request['hNotify'] = hNotify
-        return self._dce.request(request)
-
-    # 3.3.4.2.4 RpcUnRegisterAsyncNotification (Opnum 3)
-    def hRpcUnRegisterAsyncNotification(self, hNotify):
-        request = RpcUnRegisterAsyncNotification()
-        request['hNotify'] = hNotify
-        return self._dce.request(request)
-
-# 3.3.4.3 TermSrvEnumeration; 88143fd0-c28d-4b2b-8fef-8d882f6a9390; \pipe\LSM_API_service
 class TermSrvEnumeration(TSTSEndpoint):
     def __init__(self, smb, target_ip):
         super().__init__(smb, target_ip,
                             stringbinding = r'ncacn_np:{}[\pipe\LSM_API_service]',
                             endpoint      = TermSrvEnumeration_UUID
         )
+    hRpcOpenEnum        = hRpcOpenEnum
+    hRpcCloseEnum       = hRpcCloseEnum
+    hRpcGetEnumResult   = hRpcGetEnumResult
+    hRpcGetEnumResultEx = hRpcGetEnumResultEx
+    hRpcGetAllSessions  = hRpcGetAllSessions
 
-    # 3.3.4.3.1 RpcOpenEnum (Opnum 0)
-    def hRpcOpenEnum(self):
-        request = RpcOpenEnum()
-        return self._dce.request(request)['phEnum']
-
-    # 3.3.4.3.2 RpcCloseEnum (Opnum 1)
-    def hRpcCloseEnum(self, phEnum):
-        request = RpcCloseEnum()
-        request['phEnum'] = phEnum
-        return self._dce.request(request)
-    
-    #NOT_IMPLEMENTED 3.3.4.3.3 RpcFilterByState (Opnum 2)
-    
-    #NOT_IMPLEMENTED 3.3.4.3.4 RpcFilterByCallersName (Opnum 3)
-    
-    #NOT_IMPLEMENTED 3.3.4.3.5 RpcEnumAddFilter (Opnum 4)
-    
-    # 3.3.4.3.6 RpcGetEnumResult (Opnum 5)
-    def hRpcGetEnumResult(self, hEnum, Level = 1):
-        request = RpcGetEnumResult()
-        request['hEnum'] = hEnum
-        request['Level'] = Level
-        return self._dce.request(request)
-
-    #NOT_IMPLEMENTED 3.3.4.3.7 RpcFilterBySessionType (Opnum 6)
-    
-    #NOT_IMPLEMENTED 3.3.4.3.8 RpcGetSessionIds (Opnum 8)
-
-    # 3.3.4.3.9 RpcGetEnumResultEx (Opnum 9)
-    def hRpcGetEnumResultEx(self, hEnum, Level = 1):
-        request = RpcGetEnumResultEx()
-        request['hEnum'] = hEnum
-        request['Level'] = Level
-        return self._dce.request(request)
-
-    # 3.3.4.3.10 RpcGetAllSessions (Opnum 10)
-    def hRpcGetAllSessions(self, Level = 1):
-        request = RpcGetAllSessions()
-        request['pLevel'] = Level
-        return self._dce.request(request)
-    
-    #NOT_IMPLEMENTED 3.3.4.3.11 RpcGetAllSessionsEx (Opnum 11)
-
-
-# 3.5.4.1 RCMPublic bde95fdf-eee0-45de-9e12-e5a61cd0d4fe \pipe\TermSrv_API_service
 class RCMPublic(TSTSEndpoint):
     def __init__(self, smb, target_ip):
         super().__init__(smb, target_ip,
                             stringbinding = r'ncacn_np:{}[\pipe\TermSrv_API_service]',
                             endpoint = RCMPublic_UUID
         )
+    hRpcGetClientData    = hRpcGetClientData
+    hRpcGetConfigData    = hRpcGetConfigData
+    hRpcGetLastInputTime = hRpcGetLastInputTime
+    hRpcGetRemoteAddress = hRpcGetRemoteAddress
+    hRpcGetAllListeners  = hRpcGetAllListeners
 
-    # 3.5.4.1.1 RpcGetClientData (Opnum 0)
-    def hRpcGetClientData(self, SessionId):
-        request = RpcGetClientData()
-        request['SessionId'] = SessionId
-        try:
-            return self._dce.request(request)
-        except:
-            return None
 
-    # 3.5.4.1.2 RpcGetConfigData (Opnum 1)
-    def hRpcGetConfigData(self, SessionId):
-        request = RpcGetConfigData()
-        request['SessionId'] = SessionId
-        return self._dce.request(request)
-    
-    #NOT_IMPLEMENTED 3.5.4.1.3 RpcGetProtocolStatus (Opnum 2)
-
-    # 3.5.4.1.4 RpcGetLastInputTime (Opnum 3)
-    def hRpcGetLastInputTime(self, SessionId):
-        request = RpcGetLastInputTime()
-        request['SessionId'] = SessionId
-        return self._dce.request(request)
-
-    # 3.5.4.1.5 RpcGetRemoteAddress (Opnum 4)
-    def hRpcGetRemoteAddress(self, SessionId):
-        request = RpcGetRemoteAddress()
-        request['SessionId'] = SessionId
-        try:
-            return self._dce.request(request)
-        except:
-            return None
-
-    # 3.5.4.1.6 RpcGetAllListeners (Opnum 8)
-    def hRpcGetAllListeners(self):
-        request = RpcGetAllListeners()
-        request['Level'] = 1
-        return self._dce.request(request)
-    
-    #NOT_IMPLEMENTED 3.5.4.1.7 RpcGetSessionProtocolLastInputTime (Opnum 9)
-    #NOT_IMPLEMENTED 3.5.4.1.8 RpcGetUserCertificates (Opnum 10)
-    #NOT_IMPLEMENTED 3.5.4.1.9 RpcQuerySessionData (Opnum 11)
-
-# 3.5.4.2 RCMListener 497d95a6-2d27-4bf5-9bbd-a6046957133c \pipe\TermSrv_API_service or \pipe\Ctx_WinStation_API_service
 class RcmListener(TSTSEndpoint):
     def __init__(self, smb, target_ip):
         super().__init__(smb, target_ip,
                             stringbinding = r'ncacn_np:{}[\pipe\TermSrv_API_service]',
                             endpoint = RcmListener_UUID
         )
+    hRpcOpenListener  = hRpcOpenListener
+    hRpcCloseListener = hRpcCloseListener
+    hRpcStopListener  = hRpcStopListener
+    hRpcStartListener = hRpcStartListener
+    hRpcIsListening   = hRpcIsListening
 
-    # 3.5.4.2.1 RpcOpenListener (Opnum 0)
-    def hRpcOpenListener(self, ListenerName):
-        request = RpcOpenListener()
-        request['szListenerName'] = ListenerName + '\0'
-        return self._dce.request(request)['phListener']
-
-    # 3.5.4.2.2 RpcCloseListener (Opnum 1)
-    def hRpcCloseListener(self, phListener):
-        request = RpcCloseListener()
-        request['phListener'] = phListener
-        return self._dce.request(request)
-        
-    # 3.5.4.2.3 RpcStopListener (Opnum 2)
-    def hRpcStopListener(self, phListener):
-        request = RpcStopListener()
-        request['phListener'] = phListener
-        return self._dce.request(request)
-
-    # 3.5.4.2.4 RpcStartListener (Opnum 3)
-    def hRpcStartListener(self, phListener):
-        request = RpcStartListener()
-        request['phListener'] = phListener
-        return self._dce.request(request)
-
-    # 3.5.4.2.5 RpcIsListening (Opnum 4)
-    def hRpcIsListening(self, phListener):
-        request = RpcIsListening()
-        request['phListener'] = phListener
-        return self._dce.request(request)
-
-
-
-# 3.7.4.1 LegacyApi 5ca4a760-ebb1-11cf-8611-00a0245420ed \pipe\Ctx_WinStation_API_service
-#
-# In legacy api, response error_codes are represented as 1 byte boolean at the end of the response
-# so we have to ignore error checking by rpcrt module, by checkError=False
-#
 class LegacyAPI(TSTSEndpoint):
     def __init__(self, smb, target_ip):
         super().__init__(smb, target_ip,
                             stringbinding = r'ncacn_np:{}[\pipe\Ctx_WinStation_API_service]',
                             endpoint = LegacyAPI_UUID
         )
-
-    # 3.7.4.1.1 RpcWinStationOpenServer (Opnum 0)
-    def hRpcWinStationOpenServer(self):
-        request = RpcWinStationOpenServer()
-        resp = self._dce.request(request, checkError=False)
-        if resp['ErrorCode']:
-            return resp['phServer']
-        return None
-
-    # 3.7.4.1.2 RpcWinStationCloseServer (Opnum 1)
-    def hRpcWinStationCloseServer(self, hServer):
-        request = RpcWinStationCloseServer()
-        request['hServer'] = hServer
-        return self._dce.request(request, checkError=False)
-
-    #DOES_NOT_WORK 3.7.4.1.3 RpcIcaServerPing (Opnum 2)
-    def hRpcIcaServerPing(self, hServer):
-        request = RpcIcaServerPing()
-        request['hServer'] = hServer
-        return self._dce.request(request, checkError=False)
-
-
-    # 3.7.4.1.8 RpcWinStationSendMessage (Opnum 7)
-    def hRpcWinStationSendMessage(self, hServer, LogonId, Title, Message, DoNotWait = True):
-        request = RpcWinStationSendMessage()
-        request['hServer'] = hServer
-        request['LogonId'] = LogonId
-        request['pTitle'] = ZEROPAD(Title,1024)
-        request['pMessage'] = ZEROPAD(Message,1024)
-        request['DoNotWait'] = DoNotWait
-        return self._dce.request(request, checkError=False)
-
-    # 3.7.4.1.9 RpcLogonIdFromWinStationName (Opnum 8)
-    def hRpcLogonIdFromWinStationName(self, hServer, WinStationName):
-        request = RpcLogonIdFromWinStationName()
-        request['hServer'] = hServer
-        request['pWinStationName'] = ZEROPAD(WinStationName, WINSTATIONNAME_LENGTH + 1)
-        return self._dce.request(request, checkError=False)
-
-    # 3.7.4.1.10 RpcWinStationNameFromLogonId (Opnum 9)
-    def hRpcWinStationNameFromLogonId(self, hServer, LoginId):
-        request = RpcWinStationNameFromLogonId()
-        request['hServer'] = hServer
-        request['LoginId'] = LoginId
-        request['pWinStationName'] = ZEROPAD('', WINSTATIONNAME_LENGTH + 1)
-        return self._dce.request(request, checkError=False)
-
-    # 3.7.4.1.11 RpcWinStationConnect (Opnum 10)
-    def hRpcWinStationConnect(self, hServer, ClientLogonId, ConnectLogonId, TargetLogonId, Password, Wait = False):
-        # Session #1 in disconnected state
-        # You want to attach session #1 to your session and you know
-        # the password of the logged in user in session #1
-        # Your session ID: 3
-        # Parameters:
-        # ClientLogonId = 1
-        # ConnectLogonId = d
-        # TargetLogonId = 3
-        request = RpcWinStationConnect()
-        request['hServer'] = hServer
-        request['ClientLogonId'] = ClientLogonId
-        request['ConnectLogonId'] = ConnectLogonId
-        request['TargetLogonId'] = TargetLogonId
-        request['pPassword'] = Password + '\0'
-        request['Wait'] = Wait
-        return self._dce.request(request, checkError=False)
-
-    # 3.7.4.1.12 RpcWinStationDisconnect (Opnum 13)
-    def hRpcWinStationDisconnect(self, hServer, LoginId, bWait = False):
-        request = RpcWinStationDisconnect()
-        request['hServer'] = hServer
-        request['LoginId'] = LoginId
-        request['bWait'] = bWait
-        return self._dce.request(request, checkError=False)
-
-    # 3.7.4.1.13 RpcWinStationReset (Opnum 14)
-    def hRpcWinStationReset(self, hServer, LogonId, bWait = False):
-        request = RpcWinStationReset()
-        request['hServer'] = hServer
-        request['LogonId'] = LogonId
-        request['bWait'] = bWait
-        return self._dce.request(request, checkError=False)
-
-    # 3.7.4.1.14 RpcWinStationShutdownSystem (Opnum 15)
-    # ShutdownFlags == ENUM ShutdownFlags
-    def hRpcWinStationShutdownSystem(self, hServer, ClientLogonId, ShutdownFlags):
-        request = RpcWinStationShutdownSystem()
-        request['hServer'] = hServer
-        request['ClientLogonId'] = ClientLogonId
-        request['ShutdownFlags'] = ShutdownFlags
-        return self._dce.request(request, checkError=False)
-
-    # 3.7.4.1.15 RpcWinStationWaitSystemEvent (Opnum 16)
-    # EventMask == ENUM EventMask
-    def hRpcWinStationWaitSystemEvent(self, hServer, EventMask):
-        request = RpcWinStationWaitSystemEvent()
-        request['hServer'] = hServer
-        request['EventMask'] = EventMask
-        return self._dce.request(request, checkError=False)
-
-
-    # 3.7.4.1.16 RpcWinStationShadow (Opnum 17)
-    def hRpcWinStationShadow(self, hServer, LogonId, pTargetServerName, TargetLogonId, HotKeyVk, HotkeyModifiers):
-        request = RpcWinStationShadow()
-        request['hServer'] = hServer
-        request['LogonId'] = LogonId
-        request['pTargetServerName'] = pTargetServerName
-        request['TargetLogonId'] = TargetLogonId
-        request['HotKeyVk'] = HotKeyVk
-        request['HotkeyModifiers'] = HotkeyModifiers
-        return self._dce.request(request, checkError=False)
-
-    #OLD 3.6.4.1.19 RpcWinStationShadowTargetSetup (Opnum 18)
-    def hRpcWinStationShadowTargetSetup(self, hServer, LogonId):
-        request = RpcWinStationShadowTargetSetup()
-        request['hServer'] = hServer
-        request['LogonId'] = LogonId
-        return self._dce.request(request, checkError=False)
-
-    # 3.7.4.1.17 RpcWinStationBreakPoint (Opnum 29)
-    def hRpcWinStationBreakPoint(self, hServer, LogonId, KernelFlag):
-        request = RpcWinStationBreakPoint()
-        request['hServer'] = hServer
-        request['LogonId'] = LogonId
-        request['KernelFlag'] = KernelFlag
-        return self._dce.request(request, checkError=False)
-
-    #DOES_NOT_WORK 3.7.4.1.18 RpcWinStationReadRegistry (Opnum 30)
-    def hRpcWinStationReadRegistry(self, hServer):
-        request = RpcWinStationReadRegistry()
-        request['hServer'] = hServer
-        return self._dce.request(request, checkError=False)
-
-    #DOES_NOT_WORK 3.7.4.1.19 OldRpcWinStationEnumerateProcesses (Opnum 34)
-    def hOldRpcWinStationEnumerateProcesses(self, hServer, ByteCount):
-        request = OldRpcWinStationEnumerateProcesses()
-        request['hServer'] = hServer
-        request['ByteCount'] = ByteCount
-        return self._dce.request(request, checkError=False)
-
-    #DOES_NOT_WORK 3.7.4.1.20 RpcWinStationEnumerateProcesses (Opnum 36)
-    def hRpcWinStationEnumerateProcesses(self, hServer, ByteCount):
-        request = RpcWinStationEnumerateProcesses()
-        request['hServer'] = hServer
-        request['ByteCount'] = ByteCount
-        return self._dce.request(request, checkError=False)
-
-
-    # 3.7.4.1.21 RpcWinStationTerminateProcess (Opnum 37)
-    def hRpcWinStationTerminateProcess(self, hServer, ProcessId, ExitCode = 0):
-        request = RpcWinStationTerminateProcess()
-        request['hServer'] = hServer
-        request['ProcessId'] = ProcessId
-        request['ExitCode'] = ExitCode
-        return self._dce.request(request, checkError=False)
-
-    # 3.7.4.1.22 RpcWinStationGetAllProcesses (Opnum 43)
-    def hRpcWinStationGetAllProcesses(self, hServer):
-        # i'm giving up constructing legitimate structures for this method
-        # Going to parse raw response:
-        # 1. Skip ndrpointers
-        # 2. Create TS_SYS_PROCESS_INFORMATION structure one by one
-        # Tested and seems to work well on WIN11, WIN10, WIN2012R2, WIN7
-        request = RpcWinStationGetAllProcesses()
-        request['hServer'] = hServer
-        request['Level'] = 0
-        request['pNumberOfProcesses'] = 0x8000
-        resp = self._dce.request(request, checkError=False)
-        data = resp.getData()
-        bResult = bool(data[-1])
-        if not bResult:
-            raise DCERPCSessionError(error_code=resp['pResult'])
-        data = data[:-1]
-        procs = []
-        if not resp['pNumberOfProcesses']:
-            return procs
-        offset = 0
-        arrayOffset = 0
-        while 1:
-            offset = data.find(b'\x02\x00')
-            if offset > 12:
-                break
-            data = data[offset+2:]
-            arrayOffset = arrayOffset + offset + 2
-        procInfo = ''
-        while len(data)>1:
-            if len(data[len(procInfo):]) < 16:
-                break
-            # I think there some alignment problems...
-            # in the structure, second DWORD is thread count, i'm looking for the second DWORD
-            # in order to align the data correctly
-            # There is no proper errors handling!
-            b,c,d,e = struct.unpack('<LLLL',data[len(procInfo):len(procInfo)+16])
-            if b:
-                data = data[len(procInfo)-4:]
-            elif c:
-                data = data[len(procInfo):]
-            elif d:
-                data = data[len(procInfo)+4:]
-            elif e:
-                data = data[len(procInfo)+8:]
-                
-            procInfo = TS_SYS_PROCESS_INFORMATION()
-            procInfo.fromString(data)
-            procs.append(procInfo)
-        return procs
-
-    # 3.7.4.1.23 RpcWinStationGetProcessSid (Opnum 44)
-    def hRpcWinStationGetProcessSid(self, hServer, dwUniqueProcessId, ProcessStartTime):
-        request = RpcWinStationGetProcessSid()
-        request['hServer'] = hServer
-        request['dwUniqueProcessId'] = dwUniqueProcessId
-        request['ProcessStartTime'] = ProcessStartTime
-        request['pProcessUserSid'] = b'\0' * 28
-        resp = self._dce.request(request, checkError=False)
-        if resp['pResult'] == pResult_ENUM.ERROR_STATUS_BUFFER_TOO_SMALL:
-            sizeNeeded = resp['pdwSizeNeeded']
-            request['pProcessUserSid'] = b'\0' * sizeNeeded
-            request['dwSidSize'] = sizeNeeded
-            resp = self._dce.request(request, checkError=False)
-        if resp['ErrorCode']:
-            return format_sid(resp['pProcessUserSid'])
-    
-    #NOT_IMPLEMENTED 3.7.4.1.24 RpcWinStationGetTermSrvCountersValue (Opnum 45)
-
-    # 3.7.4.1.25 RpcWinStationReInitializeSecurity (Opnum 46)
-    def hRpcWinStationReInitializeSecurity(self, hServer):
-        request = RpcWinStationReInitializeSecurity()
-        request['hServer'] = hServer
-        return self._dce.request(request, checkError=False)
-
-    #DOES_NOT_WORK 3.7.4.1.26 RpcWinStationGetLanAdapterName (Opnum 53)
-    def hRpcWinStationGetLanAdapterName(self, hServer, pPdName, LanAdapter):
-        request = RpcWinStationGetLanAdapterName()
-        request['hServer'] = hServer
-        request['pPdName'] = hServer
-        request['LanAdapter'] = hServer
-        return self._dce.request(request, checkError=False)
-
-    #DOES_NOT_WORK 3.7.4.1.27 RpcWinStationUpdateSettings (Opnum 58)
-    def hRpcWinStationUpdateSettings(self, hServer, SettingsClass, SettingsParameters):
-        request = RpcWinStationUpdateSettings()
-        request['hServer'] = hServer
-        request['SettingsClass'] = hServer
-        request['SettingsParameters'] = hServer
-        return self._dce.request(request, checkError=False)
-
-
-    # 3.7.4.1.28 RpcWinStationShadowStop (Opnum 59)
-    def hRpcWinStationShadowStop(self, hServer, LogonId, bWait):
-        request = RpcWinStationShadowStop()
-        request['hServer'] = hServer
-        request['LogonId'] = LogonId
-        request['bWait'] = bWait
-        return self._dce.request(request, checkError=False)
-
-    # 3.7.4.1.29 RpcWinStationCloseServerEx (Opnum 60)
-    def hRpcWinStationCloseServerEx(self, hServer):
-        request = RpcWinStationShadowStop()
-        request['hServer'] = hServer
-        return self._dce.request(request, checkError=False)
-
-    # 3.7.4.1.30 RpcWinStationIsHelpAssistantSession (Opnum 61)
-    def hRpcWinStationIsHelpAssistantSession(self, hServer, SessionId):
-        request = RpcWinStationShadowStop()
-        request['hServer'] = hServer
-        request['SessionId'] = SessionId
-        return self._dce.request(request, checkError=False)
-
-    #NOT_IMPLEMENTED 3.7.4.1.31 RpcWinStationGetMachinePolicy (Opnum 62)
-    
-    #NOT_IMPLEMENTED 3.7.4.1.32 RpcWinStationCheckLoopBack (Opnum 65)
-    
-    #NOT_IMPLEMENTED 3.7.4.1.33 RpcConnectCallback (Opnum 66)
-
-    #NOT_IMPLEMENTED 3.7.4.1.34 RpcWinStationGetAllProcesses_NT6 (Opnum 70)
-
-    #DOES_NOT_WORK 3.7.4.1.35 RpcWinStationOpenSessionDirectory (Opnum 75)
-    def hRpcWinStationOpenSessionDirectory(self, hServer, pszServerName):
-        request = RpcWinStationShadowStop()
-        request['hServer'] = hServer
-        request['pszServerName'] = pszServerName
-        return self._dce.request(request, checkError=False)
+    hRpcWinStationOpenServer             = hRpcWinStationOpenServer
+    hRpcWinStationCloseServer            = hRpcWinStationCloseServer
+    hRpcIcaServerPing                    = hRpcIcaServerPing
+    hRpcWinStationSendMessage            = hRpcWinStationSendMessage
+    hRpcLogonIdFromWinStationName        = hRpcLogonIdFromWinStationName
+    hRpcWinStationNameFromLogonId        = hRpcWinStationNameFromLogonId
+    hRpcWinStationConnect                = hRpcWinStationConnect
+    hRpcWinStationDisconnect             = hRpcWinStationDisconnect
+    hRpcWinStationReset                  = hRpcWinStationReset
+    hRpcWinStationShutdownSystem         = hRpcWinStationShutdownSystem
+    hRpcWinStationWaitSystemEvent        = hRpcWinStationWaitSystemEvent
+    hRpcWinStationShadow                 = hRpcWinStationShadow
+    hRpcWinStationShadowTargetSetup      = hRpcWinStationShadowTargetSetup
+    hRpcWinStationBreakPoint             = hRpcWinStationBreakPoint
+    hRpcWinStationReadRegistry           = hRpcWinStationReadRegistry
+    hOldRpcWinStationEnumerateProcesses  = hOldRpcWinStationEnumerateProcesses
+    hRpcWinStationEnumerateProcesses     = hRpcWinStationEnumerateProcesses
+    hRpcWinStationTerminateProcess       = hRpcWinStationTerminateProcess
+    hRpcWinStationGetAllProcesses        = hRpcWinStationGetAllProcesses
+    hRpcWinStationGetProcessSid          = hRpcWinStationGetProcessSid
+    hRpcWinStationReInitializeSecurity   = hRpcWinStationReInitializeSecurity
+    hRpcWinStationGetLanAdapterName      = hRpcWinStationGetLanAdapterName
+    hRpcWinStationUpdateSettings         = hRpcWinStationUpdateSettings
+    hRpcWinStationShadowStop             = hRpcWinStationShadowStop
+    hRpcWinStationCloseServerEx          = hRpcWinStationCloseServerEx
+    hRpcWinStationIsHelpAssistantSession = hRpcWinStationIsHelpAssistantSession
