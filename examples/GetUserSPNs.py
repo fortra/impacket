@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
