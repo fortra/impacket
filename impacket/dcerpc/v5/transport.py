@@ -470,7 +470,7 @@ class SMBTransport(DCERPCTransport):
     """Implementation of ncacn_np protocol sequence"""
 
     def __init__(self, remoteName, dstport=445, filename='', username='', password='', domain='', lmhash='', nthash='',
-                 aesKey='', TGT=None, TGS=None, remote_host='', smb_connection=0, doKerberos=False, kdcHost=None):
+                 aesKey='', TGT=None, TGS=None, remote_host='', smb_connection=0, doKerberos=False, kdcHost=None, myName=None):
         DCERPCTransport.__init__(self, remoteName, dstport)
         self.__socket = None
         self.__tid = 0
@@ -480,7 +480,7 @@ class SMBTransport(DCERPCTransport):
         self.set_credentials(username, password, domain, lmhash, nthash, aesKey, TGT, TGS)
         self._doKerberos = doKerberos
         self._kdcHost = kdcHost
-
+        self._netbiosName = None
         if remote_host != '':
             self.setRemoteHost(remote_host)
 
@@ -496,10 +496,17 @@ class SMBTransport(DCERPCTransport):
 
     def preferred_dialect(self, dialect):
         self.__prefDialect = dialect
-
+    def set_netbiosname(self,myName):
+        self._netbiosName =myName
     def setup_smb_connection(self):
-        if not self.__smb_connection:
-            self.__smb_connection = SMBConnection(self.getRemoteName(), self.getRemoteHost(), sess_port=self.get_dport(),
+        if not self.__smb_connection :
+            if self._netbiosName is not None:
+                ## Initiate SMBConnection Class with supplied NetBios Name.
+                self.__smb_connection = SMBConnection(self.getRemoteName(), self.getRemoteHost(), myName=self._netbiosName, sess_port=self.get_dport(),
+                                                  preferredDialect=self.__prefDialect, timeout=self.get_connect_timeout())
+                ## If no netbios name supplied. Follow through with default hostname.
+            else:
+                self.__smb_connection = SMBConnection(self.getRemoteName(), self.getRemoteHost(), sess_port=self.get_dport(),
                                                   preferredDialect=self.__prefDialect, timeout=self.get_connect_timeout())
             if self._strict_hostname_validation:
                 self.__smb_connection.setHostnameValidation(self._strict_hostname_validation, self._validation_allow_absent, self._accepted_hostname)
