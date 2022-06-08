@@ -470,7 +470,7 @@ class SMBTransport(DCERPCTransport):
     """Implementation of ncacn_np protocol sequence"""
 
     def __init__(self, remoteName, dstport=445, filename='', username='', password='', domain='', lmhash='', nthash='',
-                 aesKey='', TGT=None, TGS=None, remote_host='', smb_connection=0, doKerberos=False, kdcHost=None, myName=None):
+                 aesKey='', TGT=None, TGS=None, remote_host='', smb_connection=0, doKerberos=False, kdcHost=None):
         DCERPCTransport.__init__(self, remoteName, dstport)
         self.__socket = None
         self.__tid = 0
@@ -496,8 +496,8 @@ class SMBTransport(DCERPCTransport):
 
     def preferred_dialect(self, dialect):
         self.__prefDialect = dialect
-    def set_netbiosname(self,myName):
-        self._netbiosName =myName
+    def set_netbiosname(self,netbios):
+        self._netbiosName =netbios
     def setup_smb_connection(self):
         if not self.__smb_connection :
             if self._netbiosName is not None:

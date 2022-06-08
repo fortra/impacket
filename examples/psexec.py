@@ -132,6 +132,9 @@ class PSEXEC:
             sys.exit(1)
 
         global dialect
+        # setting the netbios to global 
+        global netbiosname
+        netbiosname = self.__netbios
         dialect = rpctransport.get_smb_connection().getDialect()
 
         try:
@@ -237,14 +240,14 @@ class Pipes(Thread):
         self.pipe = pipe
         self.permissions = permissions
         self.daemon = True
-
     def connectPipe(self):
         try:
             lock.acquire()
             global dialect
+            global netbiosname
             #self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(), sess_port = self.port, preferredDialect = SMB_DIALECT)
             self.server = SMBConnection(self.transport.get_smb_connection().getRemoteName(), self.transport.get_smb_connection().getRemoteHost(),
-                                        sess_port=self.port, preferredDialect=dialect)
+                                        sess_port=self.port, preferredDialect=dialect, myName=netbiosname)
             user, passwd, domain, lm, nt, aesKey, TGT, TGS = self.credentials
             if self.transport.get_kerberos() is True:
                 self.server.kerberosLogin(user, passwd, domain, lm, nt, aesKey, kdcHost=self.transport.get_kdcHost(), TGT=TGT, TGS=TGS)
@@ -261,7 +264,6 @@ class Pipes(Thread):
                 import traceback
                 traceback.print_exc()
             logging.error("Something wen't wrong connecting the pipes(%s), try again" % self.__class__)
-
 
 class RemoteStdOutPipe(Pipes):
     def __init__(self, transport, pipe, permisssions):
@@ -482,10 +484,15 @@ class RemoteShell(cmd.Cmd):
         self.port = port
         self.transport = transport
         self.intro = '[!] Press help for extra shell commands'
-
     def connect_transferClient(self):
+        global netbiosname
+
         #self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port = self.port, preferredDialect = SMB_DIALECT)
-        self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port=self.port,
+        if netbiosname is not None:
+            self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port=self.port,
+                                                preferredDialect=dialect, myName=netbiosname)
+        else:
+            self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port=self.port,
                                             preferredDialect=dialect)
         user, passwd, domain, lm, nt, aesKey, TGT, TGS = self.credentials
         if self.transport.get_kerberos() is True:
