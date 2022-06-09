@@ -414,6 +414,8 @@ class RegHandler:
         if rootKey.upper() == 'HKLM':
             ans = rrp.hOpenLocalMachine(dce)
         elif rootKey.upper() == 'HKU':
+            ans = rrp.hOpenUser(dce)
+        elif rootKey.upper() == 'HKCU':
             ans = rrp.hOpenCurrentUser(dce)
         elif rootKey.upper() == 'HKCR':
             ans = rrp.hOpenClassesRoot(dce)
