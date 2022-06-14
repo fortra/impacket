@@ -50,13 +50,17 @@ class GetADUsers:
         self.__doKerberos = cmdLineOptions.k
         self.__target = None
         self.__kdcHost = cmdLineOptions.dc_ip
+        self.__search_domain = cmdLineOptions.search_domain
         self.__requestUser = cmdLineOptions.user
         self.__all = cmdLineOptions.all
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
         # Create the baseDN
-        domainParts = self.__domain.split('.')
+        if self.__search_domain != None:
+            domainParts = self.__search_domain.split('.')
+        else:
+            domainParts = self.__domain.split('.')
         self.baseDN = ''
         for i in domainParts:
             self.baseDN += 'dc=%s,' % i
@@ -187,6 +191,7 @@ if __name__ == '__main__':
 
     parser.add_argument('target', action='store', help='domain/username[:password]')
     parser.add_argument('-user', action='store', metavar='username', help='Requests data for specific user ')
+    parser.add_argument('-search-domain', action='store', help='Get users for a specific domain')
     parser.add_argument('-all', action='store_true', help='Return all users, including those with no email '
                                                            'addresses and disabled accounts. When used with -user it '
                                                           'will return user\'s info even if the account is disabled')
