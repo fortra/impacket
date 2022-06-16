@@ -4827,7 +4827,7 @@ class SimpleSMBServer:
             self.__smbConfig.set('global', 'log_file', 'None')
             self.__smbConfig.set('global', 'rpc_apis', 'yes')
             self.__smbConfig.set('global', 'credentials_file', '')
-            self.__smbConfig.set('global', 'challenge', "A" * 16)
+            self.__smbConfig.set('global', 'challenge', "1122334455667788")
 
             # IPC always needed
             self.__smbConfig.add_section('IPC$')
