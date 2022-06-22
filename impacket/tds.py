@@ -663,7 +663,7 @@ class MSSQL:
             LOG.info("Encryption required, switching to TLS")
 
             # Switching to TLS now
-            ctx = SSL.Context(SSL.TLSv1_METHOD)
+            ctx = SSL.Context(SSL.TLSv1_2_METHOD)
             ctx.set_cipher_list('RC4, AES256')
             tls = SSL.Connection(ctx,None)
             tls.set_connect_state()
@@ -872,7 +872,7 @@ class MSSQL:
             LOG.info("Encryption required, switching to TLS")
 
             # Switching to TLS now
-            ctx = SSL.Context(SSL.TLSv1_METHOD)
+            ctx = SSL.Context(SSL.TLSv1_2_METHOD)
             ctx.set_cipher_list('RC4, AES256')
             tls = SSL.Connection(ctx,None)
             tls.set_connect_state()
