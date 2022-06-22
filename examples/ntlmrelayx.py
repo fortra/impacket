@@ -111,7 +111,30 @@ class MiniShell(cmd.Cmd):
             logging.error("ERROR: %s" % str(e))
         else:
             if len(items) > 0:
-                self.printTable(items, header=headers)
+                if("=" in line and len(line.replace('socks','').split('='))==2):
+                    _filter=line.replace('socks','').split('=')[0]
+                    _value=line.replace('socks','').split('=')[1]
+                    if(_filter=='target'):
+                        _filter=1
+                    elif(_filter=='username'):
+                        _filter=2
+                    elif(_filter=='admin'):
+                        _filter=3
+                    else:
+                        logging.info('Expect : target / username / admin = value')                    
+                    _items=[]
+                    for i in items:
+                        if(_value.lower() in i[_filter].lower()):
+                            _items.append(i)
+                    if(len(_items)>0):
+                        self.printTable(_items,header=headers)
+                    else:
+                        logging.info('No relay matching filter available!')
+
+                elif("=" in line):
+                    logging.info('Expect target/username/admin = value')
+                else:
+                    self.printTable(items, header=headers)
             else:
                 logging.info('No Relays Available!')
 
