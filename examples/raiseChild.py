@@ -552,9 +552,17 @@ class RAISECHILD:
 
     @staticmethod
     def getMachineName(machineIP):
-        s = SMBConnection(machineIP, machineIP)
         try:
-            s.login('','')
+            s = SMBConnection(machineIP, machineIP)
+            s.login('', '')
+        except OSError as e:
+            if str(e).find('timed out') > 0:
+                raise Exception('The connection is timed out. '
+                                'Probably 445/TCP port is closed. '
+                                'Try to specify corresponding NetBIOS name or FQDN '
+                                'instead of IP address')
+            else:
+                raise
         except Exception:
             logging.debug('Error while anonymous logging into %s' % machineIP)
         else:
@@ -563,9 +571,17 @@ class RAISECHILD:
 
     @staticmethod
     def getDNSMachineName(machineIP):
-        s = SMBConnection(machineIP, machineIP)
         try:
-            s.login('','')
+            s = SMBConnection(machineIP, machineIP)
+            s.login('', '')
+        except OSError as e:
+            if str(e).find('timed out') > 0:
+                raise Exception('The connection is timed out. '
+                                'Probably 445/TCP port is closed. '
+                                'Try to specify corresponding NetBIOS name or FQDN '
+                                'instead of IP address')
+            else:
+                raise
         except Exception:
             logging.debug('Error while anonymous logging into %s' % machineIP)
         else:
@@ -1222,7 +1238,6 @@ class RAISECHILD:
                 executer.run(self.__target)
 
 if __name__ == '__main__':
-
     print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Privilege Escalation from a child domain up to its "
@@ -1240,7 +1255,6 @@ if __name__ == '__main__':
                         'dump credentials. Administrator (500) by default.')
 
     group = parser.add_argument_group('authentication')
-
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
@@ -1305,4 +1319,4 @@ if __name__ == '__main__':
         logging.critical(str(e))
         if hasattr(e, 'error_code'):
             if e.error_code == 0xc0000073:
-                logging.info("Account not found in domain. (RID:%s)", options.targetRID)
+                logging.info("Account not found in domain. (RID:%s)" % options.targetRID)
