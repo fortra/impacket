@@ -44,6 +44,7 @@ if __name__ == '__main__':
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-ip', '--interface-address', action='store', default='0.0.0.0', help='ip address of listening interface')
     parser.add_argument('-port', action='store', default='445', help='TCP port for listening incoming connections (default 445)')
+    parser.add_argument('-dropssp', action='store_true', default=False, help='Disable NTLM ESS/SSP during negotiation')
     parser.add_argument('-smb2support', action='store_true', default=False, help='SMB2 Support (experimental!)')
     parser.add_argument('-outputfile', action='store', default=None, help='Output file to log smbserver output messages')
 
@@ -72,6 +73,7 @@ if __name__ == '__main__':
 
     server.addShare(options.shareName.upper(), options.sharePath, comment)
     server.setSMB2Support(options.smb2support)
+    server.setDropSSP(options.dropssp)
 
     # If a user was specified, let's add it to the credentials for the SMBServer. If no user is specified, anonymous
     # connections will be allowed
