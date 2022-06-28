@@ -115,7 +115,7 @@ class LDAPConnection:
             self._socket.connect(sa)
         else:
             # Switching to TLS now
-            ctx = SSL.Context(SSL.TLSv1_METHOD)
+            ctx = SSL.Context(SSL.TLSv1_2_METHOD)
             # ctx.set_cipher_list('RC4')
             self._socket = SSL.Connection(ctx, self._socket)
             self._socket.connect(sa)
