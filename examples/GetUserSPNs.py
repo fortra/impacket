@@ -180,7 +180,7 @@ class GetUserSPNs:
         # In short, we're interested in splitting the checksum and the rest of the encrypted data
         #
         # Regarding AES encryption type (AES128 CTS HMAC-SHA1 96 and AES256 CTS HMAC-SHA1 96)
-        # last 12 bytes of the encrypted ticket represent the checksum of the decrypted 
+        # last 12 bytes of the encrypted ticket represent the checksum of the decrypted
         # ticket
         if decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.rc4_hmac.value:
             entry = '$krb5tgs$%d$*%s$%s$%s*$%s$%s' % (
@@ -275,79 +275,30 @@ class GetUserSPNs:
         else:
             searchFilter += ')'
 
+        self.answers = []
+
         try:
+            sc = ldap.SimplePagedResultsControl(size=1000)
             resp = ldapConnection.search(searchFilter=searchFilter,
                                          attributes=['servicePrincipalName', 'sAMAccountName',
                                                      'pwdLastSet', 'MemberOf', 'userAccountControl', 'lastLogon'],
-                                         sizeLimit=100000)
+                                                     sizeLimit=0, searchControls = [sc], perRecordCallback=self.processRecord)
         except ldap.LDAPSearchError as e:
             if e.getErrorString().find('sizeLimitExceeded') >= 0:
                 logging.debug('sizeLimitExceeded exception caught, giving up and processing the data received')
-                # We reached the sizeLimit, process the answers we have already and that's it. Until we implement
-                # paged queries
-                resp = e.getAnswers()
                 pass
             else:
                 raise
 
-        answers = []
-        logging.debug('Total of records returned %d' % len(resp))
+        logging.debug('Total of records returned %d' % len(self.answers))
 
-        for item in resp:
-            if isinstance(item, ldapasn1.SearchResultEntry) is not True:
-                continue
-            mustCommit = False
-            sAMAccountName =  ''
-            memberOf = ''
-            SPNs = []
-            pwdLastSet = ''
-            userAccountControl = 0
-            lastLogon = 'N/A'
-            delegation = ''
-            try:
-                for attribute in item['attributes']:
-                    if str(attribute['type']) == 'sAMAccountName':
-                        sAMAccountName = str(attribute['vals'][0])
-                        mustCommit = True
-                    elif str(attribute['type']) == 'userAccountControl':
-                        userAccountControl = str(attribute['vals'][0])
-                        if int(userAccountControl) & UF_TRUSTED_FOR_DELEGATION:
-                            delegation = 'unconstrained'
-                        elif int(userAccountControl) & UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION:
-                            delegation = 'constrained'
-                    elif str(attribute['type']) == 'memberOf':
-                        memberOf = str(attribute['vals'][0])
-                    elif str(attribute['type']) == 'pwdLastSet':
-                        if str(attribute['vals'][0]) == '0':
-                            pwdLastSet = '<never>'
-                        else:
-                            pwdLastSet = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
-                    elif str(attribute['type']) == 'lastLogon':
-                        if str(attribute['vals'][0]) == '0':
-                            lastLogon = '<never>'
-                        else:
-                            lastLogon = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
-                    elif str(attribute['type']) == 'servicePrincipalName':
-                        for spn in attribute['vals']:
-                            SPNs.append(str(spn))
-
-                if mustCommit is True:
-                    if int(userAccountControl) & UF_ACCOUNTDISABLE:
-                        logging.debug('Bypassing disabled account %s ' % sAMAccountName)
-                    else:
-                        for spn in SPNs:
-                            answers.append([spn, sAMAccountName, memberOf, pwdLastSet, lastLogon, delegation])
-            except Exception as e:
-                logging.error('Skipping item, cannot process due to error %s' % str(e))
-                pass
-
-        if len(answers)>0:
-            self.printTable(answers, header=[ "ServicePrincipalName", "Name", "MemberOf", "PasswordLastSet", "LastLogon", "Delegation"])
+        if len(self.answers)>0:
+            self.printTable(self.answers, header=[ "ServicePrincipalName", "Name", "MemberOf", "PasswordLastSet", "LastLogon", "Delegation"])
             print('\n\n')
 
             if self.__requestTGS is True or self.__requestUser is not None:
                 # Let's get unique user names and a SPN to request a TGS for
-                users = dict( (vals[1], vals[0]) for vals in answers)
+                users = dict( (vals[1], vals[0]) for vals in self.answers)
 
                 # Get a TGT for the current user
                 TGT = self.getTGT()
@@ -380,6 +331,54 @@ class GetUserSPNs:
 
         else:
             print("No entries found!")
+
+    def processRecord(self, item):
+        if isinstance(item, ldapasn1.SearchResultEntry) is not True:
+            return
+        mustCommit = False
+        sAMAccountName =  ''
+        memberOf = ''
+        SPNs = []
+        pwdLastSet = ''
+        userAccountControl = 0
+        lastLogon = 'N/A'
+        delegation = ''
+        try:
+            for attribute in item['attributes']:
+                if str(attribute['type']) == 'sAMAccountName':
+                    sAMAccountName = str(attribute['vals'][0])
+                    mustCommit = True
+                elif str(attribute['type']) == 'userAccountControl':
+                    userAccountControl = str(attribute['vals'][0])
+                    if int(userAccountControl) & UF_TRUSTED_FOR_DELEGATION:
+                        delegation = 'unconstrained'
+                    elif int(userAccountControl) & UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION:
+                        delegation = 'constrained'
+                elif str(attribute['type']) == 'memberOf':
+                    memberOf = str(attribute['vals'][0])
+                elif str(attribute['type']) == 'pwdLastSet':
+                    if str(attribute['vals'][0]) == '0':
+                        pwdLastSet = '<never>'
+                    else:
+                        pwdLastSet = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
+                elif str(attribute['type']) == 'lastLogon':
+                    if str(attribute['vals'][0]) == '0':
+                        lastLogon = '<never>'
+                    else:
+                        lastLogon = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
+                elif str(attribute['type']) == 'servicePrincipalName':
+                    for spn in attribute['vals']:
+                        SPNs.append(str(spn))
+
+            if mustCommit is True:
+                if int(userAccountControl) & UF_ACCOUNTDISABLE:
+                    logging.debug('Bypassing disabled account %s ' % sAMAccountName)
+                else:
+                    for spn in SPNs:
+                        self.answers.append([spn, sAMAccountName, memberOf, pwdLastSet, lastLogon, delegation])
+        except Exception as e:
+            logging.error('Skipping item, cannot process due to error %s' % str(e))
+            pass
 
     def request_users_file_TGSs(self):
 
