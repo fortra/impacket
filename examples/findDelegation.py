@@ -32,7 +32,7 @@ from impacket.examples import logger
 from impacket.examples.utils import parse_credentials
 from impacket.ldap import ldap, ldapasn1
 from impacket.ldap import ldaptypes
-from impacket.smbconnection import SMBConnection
+from impacket.smbconnection import SMBConnection, SessionError
 
 
 class FindDelegation:
@@ -90,10 +90,14 @@ class FindDelegation:
             s.login('', '')
         except OSError as e:
             if str(e).find('timed out') > 0:
-                raise Exception('The connection is timed out. '
-                                'Probably 445/TCP port is closed. '
-                                'Try to specify corresponding NetBIOS name or FQDN '
-                                'as the value of the -dc-host option')
+                raise Exception('The connection is timed out. Probably 445/TCP port is closed. Try to specify '
+                                'corresponding NetBIOS name or FQDN as the value of the -dc-host option.')
+            else:
+                raise
+        except SessionError as e:
+            if str(e).find('STATUS_NOT_SUPPORTED') > 0:
+                raise Exception('The SMB request is not supported. Probably NTLM is disabled. Try to specify '
+                                'corresponding NetBIOS name or FQDN as the value of the -dc-host option.')
             else:
                 raise
         except Exception:
@@ -135,8 +139,13 @@ class FindDelegation:
                     ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
                                                  self.__aesKey, kdcHost=self.__kdcIP)
             else:
-                if self.__kdcIP is not None and self.__kdcHost is not None:
-                    logging.critical("If the credentials are valid, check the hostname and IP address of KDC. They must match exactly each other")
+                if str(e).find('NTLMAuthNegotiate') >= 0:
+                    logging.critical("NTLM negotiation failed. Probably NTLM is disabled. Try to use Kerberos "
+                                     "authentication instead")
+                else:
+                    if self.__kdcIP is not None and self.__kdcHost is not None:
+                        logging.critical("If the credentials are valid, check the hostname and IP address of KDC. They "
+                                         "must match exactly each other")
                 raise
 
         searchFilter = "(&(|(UserAccountControl:1.2.840.113556.1.4.803:=16777216)(UserAccountControl:1.2.840.113556.1.4.803:=" \

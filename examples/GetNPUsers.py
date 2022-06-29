@@ -45,7 +45,8 @@ from impacket.krb5.asn1 import AS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, AS_REP, s
 from impacket.krb5.kerberosv5 import sendReceive, KerberosError
 from impacket.krb5.types import KerberosTime, Principal
 from impacket.ldap import ldap, ldapasn1
-from impacket.smbconnection import SMBConnection
+from impacket.smbconnection import SMBConnection, SessionError
+
 
 class GetUserNoPreAuth:
     @staticmethod
@@ -99,10 +100,14 @@ class GetUserNoPreAuth:
             s.login('', '')
         except OSError as e:
             if str(e).find('timed out') > 0:
-                raise Exception('The connection is timed out. '
-                                'Probably 445/TCP port is closed. '
-                                'Try to specify corresponding NetBIOS name or FQDN '
-                                'as the value of the -dc-host option')
+                raise Exception('The connection is timed out. Probably 445/TCP port is closed. Try to specify '
+                                'corresponding NetBIOS name or FQDN as the value of the -dc-host option')
+            else:
+                raise
+        except SessionError as e:
+            if str(e).find('STATUS_NOT_SUPPORTED') > 0:
+                raise Exception('The SMB request is not supported. Probably NTLM is disabled. Try to specify '
+                                'corresponding NetBIOS name or FQDN as the value of the -dc-host option')
             else:
                 raise
         except Exception:
@@ -277,8 +282,13 @@ class GetUserNoPreAuth:
                 resp = e.getAnswers()
                 pass
             else:
-                if self.__kdcIP is not None and self.__kdcHost is not None:
-                    logging.critical("If the credentials are valid, check the hostname and IP address of KDC. They must match exactly each other")
+                if str(e).find('NTLMAuthNegotiate') >= 0:
+                    logging.critical("NTLM negotiation failed. Probably NTLM is disabled. Try to use Kerberos "
+                                     "authentication instead.")
+                else:
+                    if self.__kdcIP is not None and self.__kdcHost is not None:
+                        logging.critical("If the credentials are valid, check the hostname and IP address of KDC. They "
+                                         "must match exactly each other")
                 raise
 
         answers = []

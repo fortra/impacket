@@ -557,10 +557,14 @@ class RAISECHILD:
             s.login('', '')
         except OSError as e:
             if str(e).find('timed out') > 0:
-                raise Exception('The connection is timed out. '
-                                'Probably 445/TCP port is closed. '
-                                'Try to specify corresponding NetBIOS name or FQDN '
-                                'instead of IP address')
+                raise Exception('The connection is timed out. Probably 445/TCP port is closed. Try to specify '
+                                'corresponding NetBIOS name or FQDN instead of IP address')
+            else:
+                raise
+        except SessionError as e:
+            if str(e).find('STATUS_NOT_SUPPORTED') > 0:
+                raise Exception('The SMB request is not supported. Probably NTLM is disabled. Try to specify '
+                                'corresponding NetBIOS name or FQDN as the value of the -dc-host option.')
             else:
                 raise
         except Exception:
@@ -576,10 +580,14 @@ class RAISECHILD:
             s.login('', '')
         except OSError as e:
             if str(e).find('timed out') > 0:
-                raise Exception('The connection is timed out. '
-                                'Probably 445/TCP port is closed. '
-                                'Try to specify corresponding NetBIOS name or FQDN '
-                                'instead of IP address')
+                raise Exception('The connection is timed out. Probably 445/TCP port is closed. Try to specify '
+                                'corresponding NetBIOS name or FQDN instead of IP address.')
+            else:
+                raise
+        except SessionError as e:
+            if str(e).find('STATUS_NOT_SUPPORTED') > 0:
+                raise Exception('The SMB request is not supported. Probably NTLM is disabled. Try to specify '
+                                'corresponding NetBIOS name or FQDN as the value of the -dc-host option.')
             else:
                 raise
         except Exception:
