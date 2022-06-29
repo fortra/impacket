@@ -33,6 +33,7 @@ import codecs
 import logging
 import sys
 import time
+import binascii
 from struct import unpack
 
 from impacket import version
@@ -283,6 +284,8 @@ class RegHandler:
                 rrp.REG_QWORD, rrp.REG_QWORD_LITTLE_ENDIAN
             ):
                 valueData = int(self.__options.vd)
+            elif dwType == rrp.REG_BINARY:
+                valueData = binascii.a2b_hex(self.__options.vd)
             else:
                 valueData = self.__options.vd
 
