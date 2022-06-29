@@ -55,7 +55,8 @@ class SSLServerMixin(object):
         # Create a context, we don't really care about the SSL/TLS
         # versions used since it is only intended for local use and thus
         # doesn't have to be super-secure
-        ctx = SSL.Context(SSL.SSLv23_METHOD)
+        ctx = SSL.Context(SSL.TLS_METHOD)
+        ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
         try:
             ctx.use_privatekey_file(cert)
             ctx.use_certificate_file(cert)

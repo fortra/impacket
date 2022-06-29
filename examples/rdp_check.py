@@ -409,8 +409,8 @@ if __name__ == '__main__':
        # a self-signed X.509 certificate.
 
        # Switching to TLS now
-       ctx = SSL.Context(SSL.TLSv1_2_METHOD)
-       ctx.set_cipher_list(b'RC4,AES')
+       ctx = SSL.Context(SSL.TLS_METHOD)
+       ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
        tls = SSL.Connection(ctx,s)
        tls.set_connect_state()
        tls.do_handshake()
@@ -446,7 +446,6 @@ if __name__ == '__main__':
        buff = tls.recv(4096)
        ts_request.fromString(buff)
 
-   
        # 3. The client encrypts the public key it received from the server (contained 
        # in the X.509 certificate) in the TLS handshake from step 1, by using the 
        # confidentiality support of SPNEGO. The public key that is encrypted is the 
