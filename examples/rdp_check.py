@@ -466,11 +466,9 @@ if __name__ == '__main__':
        # Get server public key
        server_cert =  tls.get_peer_certificate()
        pkey = server_cert.get_pubkey()
-       dump = crypto.dump_privatekey(crypto.FILETYPE_ASN1, pkey)
-
-       # Fix up due to PyOpenSSL lack for exporting public keys
-       dump = dump[7:]
-       dump = b'\x30'+ asn1encode(dump)
+       dump = crypto.dump_publickey(crypto.FILETYPE_ASN1, pkey)
+       # Parsing the key from ASN1 encoded
+       dump = dump[24:]
 
        cipher = SPNEGOCipher(type3['flags'], exportedSessionKey)
        signature, cripted_key = cipher.encrypt(dump)
