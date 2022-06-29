@@ -4660,17 +4660,42 @@ from impacket.dcerpc.v5.rpcrt import DCERPCServer
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.dcerpc.v5.srvs import NetrShareEnum, NetrShareEnumResponse, SHARE_INFO_1, NetrServerGetInfo, \
     NetrServerGetInfoResponse, NetrShareGetInfo, NetrShareGetInfoResponse
-from impacket.dcerpc.v5.wkst import NetrWkstaGetInfo, NetrWkstaGetInfoResponse
+from impacket.dcerpc.v5.wkst import NetrWkstaGetInfo, NetrWkstaGetInfoResponse, NetrWkstaUserEnum, \
+    NetrWkstaUserEnumResponse, WKSTA_USER_INFO_0, WKSTA_USER_INFO_1
 from impacket.system_errors import ERROR_INVALID_LEVEL
 
 
 class WKSTServer(DCERPCServer):
     def __init__(self):
+
+        self._users = None
+        self.__serverConfig = None
+
         DCERPCServer.__init__(self)
         self.wkssvcCallBacks = {
             0: self.NetrWkstaGetInfo,
+            2: self.NetrWkstaUserEnum
         }
         self.addCallbacks(('6BFFD098-A112-3610-9833-46C3F87E345A', '1.0'), '\\PIPE\\wkssvc', self.wkssvcCallBacks)
+
+    def setServerConfig(self, config):
+        self.__serverConfig = config
+
+    def processConfigFile(self, configFile=None):
+        if configFile is not None:
+            self.__serverConfig = configparser.ConfigParser()
+            self.__serverConfig.read(configFile)
+        sections = self.__serverConfig.sections()
+
+        # Remove the global section and ensure we only use sections that we actually expect.
+        del (sections[sections.index('global')])
+        self._users = {}
+        for section in sections:
+            if self.__serverConfig.has_option(section, 'wkui1_username') and \
+                    self.__serverConfig.has_option(section, 'wkui1_logon_domain') and \
+                    self.__serverConfig.has_option(section, 'wkui1_oth_domains') and \
+                    self.__serverConfig.has_option(section, 'wkui1_logon_server'):
+                self._users[section] = dict(self.__serverConfig.items(section))
 
     def NetrWkstaGetInfo(self, data):
         request = NetrWkstaGetInfo(data)
@@ -4702,6 +4727,50 @@ class WKSTServer(DCERPCServer):
 
         return answer
 
+    def NetrWkstaUserEnum(self, data):
+        request = NetrWkstaUserEnum(data)
+        UserEnum = NetrWkstaUserEnumResponse()
+        self.log("NetrWkstaUserEnum Level: %d" % request['UserInfo']['Level'])
+
+        if request['UserInfo']['Level'] not in (0, 1):
+            UserEnum['ErrorCode'] = ERROR_INVALID_LEVEL
+            return UserEnum
+
+        for key, user in self._users.items():
+            if user.get('wkui1_username') == '':
+                self.log("NetrWkstaUserEnum: No spoofed username (wkui1_username) was supplied. Return ERROR_ACCESS_DENIED.")
+                UserEnum['ErrorCode'] = 5
+                UserEnum['UserInfo']['Level'] = request['UserInfo']['Level']
+                UserEnum['UserInfo']['WkstaUserInfo']['tag'] = request['UserInfo']['WkstaUserInfo']['tag']
+                return UserEnum
+        
+        UserEnum['ErrorCode'] = 0
+        UserEnum['TotalEntries'] = len(self._users)
+        UserEnum['UserInfo']['Level'] = request['UserInfo']['Level']
+        UserEnum['UserInfo']['WkstaUserInfo']['tag'] = request['UserInfo']['WkstaUserInfo']['tag']
+        if request['UserInfo']['Level'] == 0:
+            UserEnum['UserInfo']['WkstaUserInfo']['Level0']['EntriesRead'] = len(self._users)
+        elif request['UserInfo']['Level'] == 1:
+            UserEnum['UserInfo']['WkstaUserInfo']['Level1']['EntriesRead'] = len(self._users)
+        for key, user in self._users.items():
+            if isinstance(user, dict):
+                if request['UserInfo']['Level'] == 0:
+                    self.log("NetrWkstaUserEnum: Returned " + user.get('wkui1_username') + " as WKSTA_USER_INFO_0.")
+                    # Setup WKSTA_USER_INFO_0 with supplied information and append it to the buffer.
+                    UserInfo = WKSTA_USER_INFO_0()
+                    UserInfo['wkui0_username'] = user.get('wkui1_username') + '\x00'
+                    UserEnum['UserInfo']['WkstaUserInfo']['Level0']['Buffer'].append(UserInfo)
+                elif request['UserInfo']['Level'] == 1:
+                    self.log("NetrWkstaUserEnum: Returned " + user.get('wkui1_logon_domain') + "\\" + user.get('wkui1_username') + " as WKSTA_USER_INFO_1.")
+                    # Setup WKSTA_USER_INFO_1 with supplied information and append it to the buffer.
+                    UserInfo = WKSTA_USER_INFO_1()
+                    UserInfo['wkui1_username']     = user.get('wkui1_username') + '\x00'
+                    UserInfo['wkui1_logon_domain'] = user.get('wkui1_logon_domain') + '\x00'
+                    UserInfo['wkui1_oth_domains']  = user.get('wkui1_oth_domains') + '\x00'
+                    UserInfo['wkui1_logon_server'] = user.get('wkui1_logon_server') + '\x00'
+                    UserEnum['UserInfo']['WkstaUserInfo']['Level1']['Buffer'].append(UserInfo)
+
+        return UserEnum
 
 class SRVSServer(DCERPCServer):
     def __init__(self):
@@ -4730,54 +4799,58 @@ class SRVSServer(DCERPCServer):
         # Let's check the log file
         self.__logFile = self.__serverConfig.get('global', 'log_file')
         if self.__logFile != 'None':
-            logging.basicConfig(filename=self.__logFile,
-                                level=logging.DEBUG,
-                                format="%(asctime)s: %(levelname)s: %(message)s",
-                                datefmt='%m/%d/%Y %I:%M:%S %p')
+            logging.basicConfig(filename=self.__logFile, 
+                             level=logging.DEBUG, 
+                             format="%(asctime)s: %(levelname)s: %(message)s", 
+                             datefmt='%m/%d/%Y %I:%M:%S %p')
 
-        # Remove the global one
-        del (sections[sections.index('global')])
+        # Remove the global section and ensure we only use sections that we actually expect.
+        del(sections[sections.index('global')])
         self._shares = {}
-        for i in sections:
-            self._shares[i] = dict(self.__serverConfig.items(i))
+        for section in sections:
+            if self.__serverConfig.has_option(section, 'comment') and \
+                    self.__serverConfig.has_option(section, 'read only') and \
+                    self.__serverConfig.has_option(section, 'share type') and \
+                    self.__serverConfig.has_option(section, 'path'):
+                self._shares[section] = dict(self.__serverConfig.items(section))
 
     def NetrShareGetInfo(self, data):
-        request = NetrShareGetInfo(data)
-        self.log("NetrGetShareInfo Level: %d" % request['Level'])
+       request = NetrShareGetInfo(data)
+       self.log("NetrGetShareInfo Level: %d" % request['Level'])
 
-        s = request['NetName'][:-1].upper()
-        answer = NetrShareGetInfoResponse()
-        if s in self._shares:
-            share = self._shares[s]
+       s = request['NetName'][:-1].upper()
+       answer = NetrShareGetInfoResponse()
+       if s in self._shares:
+           share  = self._shares[s]
 
-            answer['InfoStruct']['tag'] = 1
-            answer['InfoStruct']['ShareInfo1']['shi1_netname'] = s + '\x00'
-            answer['InfoStruct']['ShareInfo1']['shi1_type'] = share['share type']
-            answer['InfoStruct']['ShareInfo1']['shi1_remark'] = share['comment'] + '\x00'
-            answer['ErrorCode'] = 0
-        else:
-            answer['InfoStruct']['tag'] = 1
-            answer['InfoStruct']['ShareInfo1'] = NULL
-            answer['ErrorCode'] = 0x0906  # WERR_NET_NAME_NOT_FOUND
+           answer['InfoStruct']['tag'] = 1
+           answer['InfoStruct']['ShareInfo1']['shi1_netname']= s + '\x00'
+           answer['InfoStruct']['ShareInfo1']['shi1_type'] = share['share type']
+           answer['InfoStruct']['ShareInfo1']['shi1_remark'] = share['comment']+ '\x00'
+           answer['ErrorCode'] = 0
+       else:
+           answer['InfoStruct']['tag'] = 1
+           answer['InfoStruct']['ShareInfo1'] = NULL
+           answer['ErrorCode'] = 0x0906 # WERR_NET_NAME_NOT_FOUND
 
-        return answer
+       return answer
 
     def NetrServerGetInfo(self, data):
-        request = NetrServerGetInfo(data)
-        self.log("NetrServerGetInfo Level: %d" % request['Level'])
-        answer = NetrServerGetInfoResponse()
-        answer['InfoStruct']['tag'] = 101
-        # PLATFORM_ID_NT = 500
-        answer['InfoStruct']['ServerInfo101']['sv101_platform_id'] = 500
-        answer['InfoStruct']['ServerInfo101']['sv101_name'] = request['ServerName']
-        # Windows 7 = 6.1
-        answer['InfoStruct']['ServerInfo101']['sv101_version_major'] = 6
-        answer['InfoStruct']['ServerInfo101']['sv101_version_minor'] = 1
-        # Workstation = 1
-        answer['InfoStruct']['ServerInfo101']['sv101_type'] = 1
-        answer['InfoStruct']['ServerInfo101']['sv101_comment'] = NULL
-        answer['ErrorCode'] = 0
-        return answer
+       request = NetrServerGetInfo(data)
+       self.log("NetrServerGetInfo Level: %d" % request['Level'])
+       answer = NetrServerGetInfoResponse()
+       answer['InfoStruct']['tag'] = 101
+       # PLATFORM_ID_NT = 500
+       answer['InfoStruct']['ServerInfo101']['sv101_platform_id'] = 500
+       answer['InfoStruct']['ServerInfo101']['sv101_name'] = request['ServerName']
+       # Windows 7 = 6.1
+       answer['InfoStruct']['ServerInfo101']['sv101_version_major'] = 6
+       answer['InfoStruct']['ServerInfo101']['sv101_version_minor'] = 1
+       # Workstation = 1
+       answer['InfoStruct']['ServerInfo101']['sv101_type'] = 1
+       answer['InfoStruct']['ServerInfo101']['sv101_comment'] = NULL
+       answer['ErrorCode'] = 0
+       return answer
 
     def NetrShareEnum(self, data):
         request = NetrShareEnum(data)
@@ -4911,3 +4984,13 @@ class SimpleSMBServer:
             self.__smbConfig.set("global", "SMB2Support", "False")
         self.__server.setServerConfig(self.__smbConfig)
         self.__server.processConfigFile()
+    
+    def addLoggedOnUser(self, wkui1_username, wkui1_logon_domain='', wkui1_oth_domains='', wkui1_logon_server=''):
+        user = wkui1_username
+        self.__smbConfig.add_section(user)
+        self.__smbConfig.set(user, 'wkui1_username', wkui1_username)
+        self.__smbConfig.set(user, 'wkui1_logon_domain', wkui1_logon_domain)
+        self.__smbConfig.set(user, 'wkui1_oth_domains', wkui1_oth_domains)
+        self.__smbConfig.set(user, 'wkui1_logon_server', wkui1_logon_server)
+        self.__wkstServer.setServerConfig(self.__smbConfig)
+        self.__wkstServer.processConfigFile()
