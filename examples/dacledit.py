@@ -8,7 +8,7 @@
 # for more information.
 #
 # Description:
-#   Python script for handling the msDS-AllowedToActOnBehalfOfOtherIdentity property of a target computer
+#   Python script to read and manage the Discretionary Access Control List of an object
 #
 # Authors:
 #   Charlie BROMBERG (@_nwodtuhs)
