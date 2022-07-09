@@ -267,8 +267,12 @@ class GetUserSPNs:
                 raise
 
         # Building the search filter
-        searchFilter = "(&(servicePrincipalName=*)(UserAccountControl:1.2.840.113556.1.4.803:=512)" \
-                       "(!(UserAccountControl:1.2.840.113556.1.4.803:=2))(!(objectCategory=computer))"
+        if options.computer is True:
+            searchFilter = "(&(servicePrincipalName=*)(!(UserAccountControl:1.2.840.113556.1.4.803:=512))" \
+                           "(!(UserAccountControl:1.2.840.113556.1.4.803:=2))(objectCategory=computer)"
+        else:
+            searchFilter = "(&(servicePrincipalName=*)(UserAccountControl:1.2.840.113556.1.4.803:=512)" \
+                           "(!(UserAccountControl:1.2.840.113556.1.4.803:=2))(!(objectCategory=computer))"
 
         if self.__requestUser is not None:
             searchFilter += '(sAMAccountName:=%s))' % self.__requestUser
@@ -440,6 +444,7 @@ if __name__ == '__main__':
 
     group = parser.add_argument_group('authentication')
 
+    group.add_argument('-computer', action="store_true", help='Search for Computers instead of Users')
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
