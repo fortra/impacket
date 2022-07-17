@@ -2565,6 +2565,12 @@ class SMBCommands:
                     authenticateMessage['domain_name'].decode('utf-16le'),
                     authenticateMessage['user_name'].decode('utf-16le'),
                     authenticateMessage['host_name'].decode('utf-16le')))
+                if self.auth_callback is not None:
+                    smbServer.auth_callback(
+                        domain_name=authenticateMessage['domain_name'].decode('utf-16le'),
+                        user_name=authenticateMessage['user_name'].decode('utf-16le'),
+                        host_name=authenticateMessage['host_name'].decode('utf-16le')
+                   )
                 # Do we have credentials to check?
                 if len(smbServer.getCredentials()) > 0:
                     identity = authenticateMessage['user_name'].decode('utf-16le').lower()
@@ -3968,6 +3974,8 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         # Allow anonymous logon
         self.__anonymousLogon = True
 
+        self.__auth_callback = None
+
         # Our list of commands we will answer, by default the NOT IMPLEMENTED one
         self.__smbCommandsHandler = SMBCommands()
         self.__smbTrans2Handler = TRANS2Commands()
@@ -4288,6 +4296,12 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
     def getJTRdumpPath(self):
         return self.__jtr_dump_path
+
+    def getAuthCallback(self):
+        return self.__auth_callback
+
+    def setAuthCallback(self, callback):
+        self.__auth_callback = callback
 
     def verify_request(self, request, client_address):
         # TODO: Control here the max amount of processes we want to launch
@@ -4911,3 +4925,9 @@ class SimpleSMBServer:
             self.__smbConfig.set("global", "SMB2Support", "False")
         self.__server.setServerConfig(self.__smbConfig)
         self.__server.processConfigFile()
+
+    def getAuthCallback(self):
+        return self.__server.getAuthCallback()
+
+    def setAuthCallback(self, callback):
+        self.__server.setAuthCallback(callback)
