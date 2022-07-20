@@ -117,6 +117,8 @@ class LDAPConnection:
             # Switching to TLS now
             ctx = SSL.Context(SSL.TLS_METHOD)
             ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
+            SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION = 0x00040000
+            ctx.set_options(SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION)
             self._socket = SSL.Connection(ctx, self._socket)
             self._socket.connect(sa)
             self._socket.do_handshake()
