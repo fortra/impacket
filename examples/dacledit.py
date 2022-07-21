@@ -21,7 +21,7 @@ import binascii
 import codecs
 import json
 import logging
-import re
+import os
 import sys
 import traceback
 import datetime
@@ -360,6 +360,10 @@ class DACLedit(object):
         backup["dn"] = self.target_principal.entry_dn
         if not self.filename:
             self.filename = 'dacledit-%s.bak' % datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        else:
+            if os.path.exists(self.filename):
+                logging.ingo("File %s already exists, I'm refusing to overwrite it, setting another filename")
+                self.filename = 'dacledit-%s.bak' % datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         with codecs.open(self.filename, 'w', 'utf-8') as outfile:
             json.dump(backup, outfile)
         logging.info('DACL backed up to %s', self.filename)
