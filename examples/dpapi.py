@@ -491,6 +491,8 @@ class DPAPI:
                     fp2.close()
                 elif self.options.entropy is not None:
                     entropy = b(self.options.entropy)
+                elif self.options.entropy_hex is not None:
+                    entropy = unhexlify(self.options.entropy_hex)
                 else:
                     entropy = None
 
@@ -567,6 +569,7 @@ if __name__ == '__main__':
     unprotect.add_argument('-key', action='store', required=False, help='Key used for decryption')
     unprotect.add_argument('-entropy', action='store', default=None, required=False, help='String with extra entropy needed for decryption')
     unprotect.add_argument('-entropy-file', action='store', default=None, required=False, help='File with binary entropy contents (overwrites -entropy)')
+    unprotect.add_argument('-entropy-hex', action='store', default=None, required=False, help='Hex string with entropy (overwrites -entropy)')
 
     options = parser.parse_args()
 

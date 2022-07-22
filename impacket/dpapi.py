@@ -479,11 +479,28 @@ class DPAPI_BLOB(Structure):
 
     def decrypt(self, key, entropy = None):
         keyHash = SHA1.new(key).digest()
-        sessionKey = HMAC.new(keyHash, self['Salt'], ALGORITHMS_DATA[self['HashAlgo']][1])
-        if entropy is not None:
-            sessionKey.update(entropy)
+        hashAlgo = ALGORITHMS(self['HashAlgo'])
+        
+        if hashAlgo == ALGORITHMS.CALG_SHA1:
+            derivedKey = keyHash + b'\x00'* (64 - len(keyHash))
+            
+            ipad = bytearray([ i ^ 0x36 for i in bytearray(derivedKey)])
+            opad = bytearray([ i ^ 0x5c for i in bytearray(derivedKey)])
 
-        sessionKey = sessionKey.digest()
+            bufferI = SHA1.new(ipad + self['Salt']).digest()
+            if entropy:
+                bufferO = SHA1.new(opad + bufferI + entropy).digest()
+            else:
+                bufferO = SHA1.new(opad + bufferI).digest()
+            
+            sessionKey = bufferO
+
+        else:
+            sessionKey = HMAC.new(keyHash, self['Salt'], ALGORITHMS_DATA[self['HashAlgo']][1])
+            if entropy is not None:
+                sessionKey.update(entropy)
+
+            sessionKey = sessionKey.digest()
 
         # Derive the key
         derivedKey = self.deriveKey(sessionKey)
