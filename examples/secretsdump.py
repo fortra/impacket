@@ -200,7 +200,7 @@ class DumpSecrets:
                         else:
                             raise
 
-                    self.__remoteOps  = RemoteOperations(self.__smbConnection, self.__ldapConnection, self.__doKerberos, self.__kdcHost)
+                    self.__remoteOps  = RemoteOperations(self.__smbConnection, self.__doKerberos, self.__kdcHost, self.__ldapConnection)
                     self.__remoteOps.setExecMethod(self.__options.exec_method)
                     if self.__justDC is False and self.__justDCNTLM is False and self.__useKeyListMethod is False or self.__useVSSMethod is True:
                         self.__remoteOps.enableRegistry()
