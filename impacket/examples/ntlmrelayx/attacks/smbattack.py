@@ -80,7 +80,7 @@ class SMBAttack(ProtocolAttack):
                         self.__SMBConnection.getSMBServer().set_flags(flags2=flags2)
 
                     remoteOps  = RemoteOperations(self.__SMBConnection, False)
-                    remoteOps.connectSamr2(self.__SMBConnection.getRemoteHost())
+                    remoteOps.connectSamr(remoteOps.getMachineNameAndDomain()[1])
                 except Exception as e:
                     if "rpc_s_access_denied" in str(e): # user doesn't have correct privileges
                         LOG.info("SAMR access denied")
