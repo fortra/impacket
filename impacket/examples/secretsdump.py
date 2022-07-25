@@ -630,6 +630,11 @@ class RemoteOperations:
         return resp
 
     def getDomainUsersLDAP(self, searchFilter):
+        domainUsers = []
+        if self.__ldapConnection is None:
+            LOG.error('Failed to establish LDAP connection, the user list will be empty')
+            return domainUsers
+
         try:
             LOG.debug('Search Filter=%s' % searchFilter)
             sc = SimplePagedResultsControl(size=100)
@@ -639,7 +644,6 @@ class RemoteOperations:
 
         self.__ldapConnection.close()
 
-        domainUsers = []
         for item in resp:
             if isinstance(item, SearchResultEntry):
                 msDSPrincipalName = ''
