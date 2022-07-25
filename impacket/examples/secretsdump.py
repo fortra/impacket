@@ -366,7 +366,7 @@ class RemoteFile:
         return "\\\\%s\\ADMIN$\\%s" % (self.__smbConnection.getRemoteHost(), self.__fileName)
 
 class RemoteOperations:
-    def __init__(self, smbConnection, ldapConnection, doKerberos, kdcHost=None):
+    def __init__(self, smbConnection, doKerberos, kdcHost=None, ldapConnection=None):
         self.__smbConnection = smbConnection
         if self.__smbConnection is not None:
             self.__smbConnection.setTimeout(5*60)
