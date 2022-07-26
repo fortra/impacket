@@ -323,6 +323,8 @@ def ZEROPAD(data, size = None):
     return data
 
 def getUnixTime(t):
+    if t < 116444736000000000:
+        return 0
     t -= 116444736000000000
     t /= 10000000
     return t
