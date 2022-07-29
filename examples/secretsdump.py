@@ -371,6 +371,15 @@ if __name__ == '__main__':
 
     domain, username, password, remoteName = parse_target(options.target)
 
+    if options.resumefile is not None:
+        if os.path.isfile(options.resumefile) and os.access(options.resumefile, os.R_OK):
+            # if the -resumefile option is specified then there is no need to dump all other things
+            logging.info('Since the -resumefile option is specified, resume extracting only NTDS.DIT data')
+            options.just_dc = True
+        else:
+            logging.error('Cannot open the resume session file: %s' % options.resumefile)
+            sys.exit(1)
+
     if options.just_dc_user is not None:
         if options.use_vss is True:
             logging.error('-just-dc-user switch is not supported in VSS mode')
