@@ -1495,7 +1495,7 @@ class SMB3:
         smbLock['FileID']       = fileId
         smbLock['LockCount']    = len(locks)
         smbLock['LockSequence'] = lockSequence
-        smbLock['Locks']        = ''.join(str(x) for x in locks)
+        smbLock['Locks']        = locks
 
         packet['Data'] = smbLock
 
