@@ -236,3 +236,9 @@ class VALIDATION_INFO(TypeSerialization1):
     structure = (
         ('Data', PKERB_VALIDATION_INFO),
     )
+    
+# 2.15 PAC_REQUESTOR
+class PAC_REQUESTOR(NDRSTRUCT):
+    structure = (
+        ('UserSid', RPC_SID),
+    )
