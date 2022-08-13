@@ -24,7 +24,7 @@
 #       python net.py Administrator:password@targetMachine group -name "Domain Admins" -join EvilUs3r
 #
 # Author:
-#   Alex (@Alexio2)
+#   Alex Romero (@NtAlexio2)
 #
 # Reference for:
 #   [MS-SAMR]
