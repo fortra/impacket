@@ -18,7 +18,6 @@
 
 import argparse
 import base64
-import chardet
 import logging
 import os
 import re
@@ -30,6 +29,8 @@ from io import BytesIO
 
 from Cryptodome.Cipher import AES
 from Cryptodome.Util.Padding import unpad
+
+import charset_normalizer as chardet
 
 from impacket import version
 from impacket.examples import logger, utils

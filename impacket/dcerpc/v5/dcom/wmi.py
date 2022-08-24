@@ -25,6 +25,7 @@ from __future__ import print_function
 from struct import unpack, calcsize, pack
 from functools import partial
 import collections
+import collections.abc
 import logging
 import six
 
@@ -43,12 +44,12 @@ from impacket.structure import Structure, hexdump
 
 def format_structure(d, level=0):
     x = ""
-    if isinstance(d, collections.Mapping):
+    if isinstance(d, collections.abc.Mapping):
         lenk = max([len(str(x)) for x in list(d.keys())])
         for k, v in list(d.items()):
             key_text = "\n" + " "*level + " "*(lenk - len(str(k))) + str(k)
             x += key_text + ": " + format_structure(v, level=level+lenk)
-    elif isinstance(d, collections.Iterable) and not isinstance(d, str):
+    elif isinstance(d, collections.abc.Iterable) and not isinstance(d, str):
         for e in d:
             x += "\n" + " "*level + "- " + format_structure(e, level=level+4)
     else:

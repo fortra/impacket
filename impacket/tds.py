@@ -663,8 +663,8 @@ class MSSQL:
             LOG.info("Encryption required, switching to TLS")
 
             # Switching to TLS now
-            ctx = SSL.Context(SSL.TLSv1_METHOD)
-            ctx.set_cipher_list('RC4, AES256')
+            ctx = SSL.Context(SSL.TLS_METHOD)
+            ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
             tls = SSL.Connection(ctx,None)
             tls.set_connect_state()
             while True:
@@ -872,8 +872,8 @@ class MSSQL:
             LOG.info("Encryption required, switching to TLS")
 
             # Switching to TLS now
-            ctx = SSL.Context(SSL.TLSv1_METHOD)
-            ctx.set_cipher_list('RC4, AES256')
+            ctx = SSL.Context(SSL.TLS_METHOD)
+            ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
             tls = SSL.Connection(ctx,None)
             tls.set_connect_state()
             while True:

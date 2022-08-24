@@ -495,7 +495,7 @@ class RegHandler:
                 print("Unknown Type 0x%x!" % valueType)
                 hexdump(valueData)
         except Exception as e:
-            logging.debug('Exception thrown when printing reg value %s', str(e))
+            logging.debug('Exception thrown when printing reg value %s' % str(e))
             print('Invalid data')
             pass
 
