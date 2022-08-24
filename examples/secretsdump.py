@@ -99,6 +99,7 @@ class DumpSecrets:
         self.__isRemote = True
         self.__outputFileName = options.outputfile
         self.__doKerberos = options.k
+        self.__skipSAM = options.skip_sam
         self.__justDC = options.just_dc
         self.__justDCNTLM = options.just_dc_ntlm
         self.__justUser = options.just_dc_user
@@ -178,18 +179,19 @@ class DumpSecrets:
             else:
                 # If RemoteOperations succeeded, then we can extract SAM and LSA
                 if self.__justDC is False and self.__justDCNTLM is False and self.__canProcessSAMLSA:
-                    try:
-                        if self.__isRemote is True:
-                            SAMFileName = self.__remoteOps.saveSAM()
-                        else:
-                            SAMFileName = self.__samHive
+                    if not self.__skipSAM:
+                        try:
+                            if self.__isRemote is True:
+                                SAMFileName = self.__remoteOps.saveSAM()
+                            else:
+                                SAMFileName = self.__samHive
 
-                        self.__SAMHashes = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote)
-                        self.__SAMHashes.dump()
-                        if self.__outputFileName is not None:
-                            self.__SAMHashes.export(self.__outputFileName)
-                    except Exception as e:
-                        logging.error('SAM hashes extraction failed: %s' % str(e))
+                            self.__SAMHashes = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote)
+                            self.__SAMHashes.dump()
+                            if self.__outputFileName is not None:
+                                self.__SAMHashes.export(self.__outputFileName)
+                        except Exception as e:
+                            logging.error('SAM hashes extraction failed: %s' % str(e))
 
                     try:
                         if self.__isRemote is True:
@@ -321,6 +323,8 @@ if __name__ == '__main__':
                         help='Use the Kerb-Key-List method instead of default DRSUAPI')
     parser.add_argument('-exec-method', choices=['smbexec', 'wmiexec', 'mmcexec'], nargs='?', default='smbexec', help='Remote exec '
                         'method to use at target (only when using -use-vss). Default: smbexec')
+    parser.add_argument('-skip-sam', action='store_true', default=False,
+                       help='Skip SAM hive extraction (extract only LSA secrets from SECURITY hive)')
 
     group = parser.add_argument_group('display options')
     group.add_argument('-just-dc-user', action='store', metavar='USERNAME',
