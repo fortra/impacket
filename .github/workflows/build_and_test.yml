@@ -18,10 +18,10 @@ jobs:
 
     steps:
       - name: Checkout Impacket
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Setup Python 3.8
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
 
@@ -48,19 +48,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.6", "3.7", "3.8", "3.9"]
+        python-version: ["3.6", "3.7", "3.8", "3.9", "3.10"]
         experimental: [false]
         include:
-          - python-version: "3.10"
+          - python-version: "3.11-dev"
             experimental: true
     continue-on-error: ${{ matrix.experimental }}
 
     steps:
       - name: Checkout Impacket
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -88,7 +88,7 @@ jobs:
     continue-on-error: true
     steps:
       - name: Checkout Impacket
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Build docker image
         run: |
