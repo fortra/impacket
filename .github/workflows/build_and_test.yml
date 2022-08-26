@@ -10,7 +10,7 @@ env:
 
 jobs:
   lint:
-    name: Check syntaxs errors and warnings
+    name: Check syntax errors and warnings
     runs-on: ubuntu-latest
     if:
       github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
