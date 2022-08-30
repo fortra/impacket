@@ -5,11 +5,11 @@ Project's main page at [www.secureauth.com](https://www.secureauth.com/labs/open
 Complete list of changes can be found at:
 https://github.com/SecureAuthCorp/impacket/commits/master
 
-## Unreleased changes
+## Impacket v0.10.0 (May 2022):
 
 1. Library improvements 
-    * Dropped support for Python 2.7. We'll keep it running under GitHub Actions/`Tox` as experimental just for visibility.
-    * Refactored the testing infrastructure:
+    * Dropped support for Python 2.7.
+    * Refactored the testing infrastructure (@martingalloar):
       * Added `pytest` as the testing framework to organize and mark test
         cases. `Tox` remain as the automation framework, and `Coverage.py`
         for measuring code coverage.
@@ -17,17 +17,50 @@ https://github.com/SecureAuthCorp/impacket/commits/master
       * Local and remote test cases were marked for easy run and configuration. 
       * DCE/RPC endpoint test cases were refactored and moved to a new layout. 
       * An initial testing guide with the main steps to prepare a testing environment and run them. 
-      * Fixed a good amount of DCE/RPC endpoint test cases that were failing, and added tests for `[MS-PAR]`.
+      * Fixed a good amount of DCE/RPC endpoint test cases that were failing. 
+      * Added tests for `[MS-PAR]`, `[MS-RPRN]`, CCache and DPAPI.
     * Added a function to compute the Netlogon Authenticator at client-side in `[MS-NRPC]` (@0xdeaddood)
     * Added `[MS-DSSP]` protocol implementation (@simondotsh)
     * Added GetDriverDirectory functions to `[MS-PAR]` and `[MS-RPRN]` (@raithedavion)
+    * Refactored the Credential Cache:
+	  * Added new parseFile function to ccache.py (@rmaksimov)
+	  * Added support for loading CCache Version 3 (@reznok)
+	  * Modified fromKRBCRED function used to load a Kirbi file (@0xdeaddood)
+	  * Fixed Ccache to Kirbi conversion (@ShutdownRepo)
+	* Fixed default NTLM server challenge in smbserver (@rtpt-jonaslieb)
 
 2. Examples improvements
+	* [exchanger.py](examples/exchanger.py):
+	  * Fixed a bug when a Global Address List doesn't exist on the server (@mohemiv)
+	* [mimikatz.py](examples/mimikatz.py)
+	  * Updated intro to not trigger the AV on windows (@mpgn)
 	* [ntlmrelayx.py](examples/ntlmrelayx.py):
-	   * Implemented RAWRelayServer (@CCob)
-    
+	  * Implemented RAW Relay Server (@CCob)
+	  * Added an LDAP attack dumping information about the domain's ADCS enrollment services (@SAERXCIT)
+      * Added multi-relay feature to the HTTP Relay Server. Now one incoming HTTP connection could be 
+        used against multiple targets (@0xdeaddood)
+      * Added an option to disable the multi-relay feature (@zblurx and @0xdeaddood)
+      * Added multiple HTTP listeners running at the same time (@SAERXCIT)
+      * Support for the ADCS ESC1 and ESC6 attacks (@hugo-syn)
+      * Added Shadow Credentials attack (@ShutdownRepo, @Tw1sm, @nodauf and @p0dalirius)
+      * Added the ability to define a password for the LDAP attack addComputer (@ShutdownRepo)
+      * Added rename_computer and modify add_computer in LDAP interactive shell (@capnkrunchy)
+      * Implemented StartTLS (@ThePirateWhoSmellsOfSunflowers)
+    * [reg.py](examples/reg.py):
+      * Added save function to allow remote saving of registry hives (@ShutdownRepo and @scopedsecurity)
+    * [secretsdump.py](examples/secretsdump.py):
+      * Added an option to dump credentials using the Kerberos Key List attack (@0xdeaddood)
+    * [smbpasswd.py](examples/smbpasswd.py):
+      * Added an option to force credentials change via injecting new values into SAM (@snovvcrash and @alefburzmali)
 3. New examples
-	* [machine_role.py](examples/machine_role.py): This script retrieves a host's role along with its primary domain details (@simondotsh)
+	* [machine_role.py](examples/machine_role.py): This script retrieves a host's role along with its 
+	  primary domain details (@simondotsh)
+    * [keylistattack.py](examples/keylistattack.py): This example implements the Kerberos Key List
+      attack to dump credentials abusing RODCs and Azure AD Kerberos Servers (@0xdeaddood)
+
+As always, thanks a lot to all these contributors that make this library better every day (since last version):
+
+@rmaksimov @simondotsh @CCob @raithedavion @SAERXCIT @Maltemo @dirkjanm @reznok @ShutdownRepo @scopedsecurity @Tw1sm @nodauf @p0dalirius @zblurx @hugo-syn @capnkrunchy @mohemiv @mpgn @rtpt-jonaslieb @snovvcrash @alefburzmali @ThePirateWhoSmellsOfSunflowers @jlvcm
 
 ## Impacket v0.9.24 (October 2021):
 
@@ -155,6 +188,7 @@ As always, thanks a lot to all these contributors that make this library better 
 	- [rpcmap.py](examples/rpcmap.py): Scan for listening DCE/RPC interfaces (by @mohemiv).
 
 As always, thanks a lot to all these contributors that make this library better every day (since last version):
+
 @mohemiv @mpgn @Romounet @ThePirateWhoSmellsOfSunflowers @rmaksimov @fuzzKitty @tshmul @spinenkoia @AaronRobson @ABCIFOGeowi40 @cclauss @cnotin @5alt @franferrax @Dliv3 @dirkjanm @Mr-Gag @vbersier @phefley @Hackndo
 
 

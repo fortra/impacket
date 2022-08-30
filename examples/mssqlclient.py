@@ -61,7 +61,7 @@ if __name__ == '__main__':
             except:
                 pass
 
-        def sp_start_job(self, s):
+        def do_sp_start_job(self, s):
             try:
                 self.sql.sql_query("DECLARE @job NVARCHAR(100);"
                                    "SET @job='IdxDefrag'+CONVERT(NVARCHAR(36),NEWID());"
