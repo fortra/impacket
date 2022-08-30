@@ -12,7 +12,7 @@
 # Author:
 #   Alberto Solino (@agsolino)
 #
-from impacket.dcerpc.v5.dtypes import ULONG, RPC_UNICODE_STRING, FILETIME, PRPC_SID, USHORT
+from impacket.dcerpc.v5.dtypes import ULONG, RPC_UNICODE_STRING, FILETIME, PRPC_SID, USHORT, RPC_SID
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER
 from impacket.dcerpc.v5.nrpc import USER_SESSION_KEY, CHAR_FIXED_8_ARRAY, PUCHAR_ARRAY, PRPC_UNICODE_STRING_ARRAY
 from impacket.dcerpc.v5.rpcrt import TypeSerialization1
@@ -30,6 +30,8 @@ PAC_PRIVSVR_CHECKSUM = 7
 PAC_CLIENT_INFO_TYPE = 10
 PAC_DELEGATION_INFO  = 11
 PAC_UPN_DNS_INFO     = 12
+PAC_ATTRIBUTES_INFO  = 17
+PAC_REQUESTOR_INFO   = 18
 
 ################################################################################
 # STRUCTURES
@@ -235,4 +237,17 @@ class PAC_DEVICE_CLAIMS_INFO(Structure):
 class VALIDATION_INFO(TypeSerialization1):
     structure = (
         ('Data', PKERB_VALIDATION_INFO),
+    )
+
+# 2.14 PAC_ATTRIBUTES_INFO
+class PAC_ATTRIBUTE_INFO(NDRSTRUCT):
+    structure = (
+        ('FlagsLength', ULONG),
+        ('Flags', ULONG),
+    )
+
+# 2.15 PAC_REQUESTOR
+class PAC_REQUESTOR(NDRSTRUCT):
+    structure = (
+        ('UserSid', RPC_SID),
     )

@@ -101,6 +101,10 @@ class UF_FLAG_Codes(Enum):
     UF_PARTIAL_SECRETS_ACCOUNT = 0x04000000
     UF_USE_AES_KEYS = 0x08000000
 
+# PAC_ATTRIBUTES_INFO Flags code
+class Attributes_Flags(Enum):
+    PAC_WAS_REQUESTED = 0x00000001
+    PAC_WAS_GIVEN_IMPLICITLY = 0x00000002
 
 def parse_ccache(args):
     ccache = CCache.loadFile(args.ticket)
@@ -422,7 +426,24 @@ def parse_pac(pacType, args):
             parsed_data['TransitedListSize'] = delegationInfo.fields['TransitedListSize'].fields['Data']
             parsed_data['S4UTransitedServices'] = delegationInfo['S4UTransitedServices'].decode('utf-8')
             parsed_tuPAC.append({"DelegationInfo": parsed_data})
+        elif infoBuffer['ulType'] == pac.PAC_ATTRIBUTES_INFO:
+            attributeInfo = pac.PAC_ATTRIBUTE_INFO(data)
+            flags = attributeInfo['Flags']
+            attr_flags = []
+            for flag_lib in Attributes_Flags:
+                if flags & flag_lib.value:
+                    attr_flags.append(flag_lib.name)
 
+            parsed_data = {
+                'Flags': f"({flags}) {', '.join(attr_flags)}"
+            }
+            parsed_tuPAC.append({"Attributes Info": parsed_data})
+        elif infoBuffer['ulType'] == pac.PAC_REQUESTOR_INFO:
+            requestorInfo = pac.PAC_REQUESTOR(data)
+            parsed_data = {
+                'UserSid': requestorInfo['UserSid'].formatCanonical()
+            }
+            parsed_tuPAC.append({"Requestor Info": parsed_data})
         else:
             logging.debug("Unsupported PAC structure: %s. Please raise an issue or PR" % infoBuffer['ulType'])
 
