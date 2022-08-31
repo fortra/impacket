@@ -271,7 +271,7 @@ class PAC_ATTRIBUTE_INFO(NDRSTRUCT):
 # In the meantime, using LDAP_SID with minimal custom implementation
 class PAC_REQUESTOR:
 
-    def __init__(self, data):
+    def __init__(self, data=None):
         self.fields = {'UserSid': LDAP_SID(data)}
 
     # For other method not implemented, directly call 'UserSid' field
