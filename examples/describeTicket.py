@@ -36,6 +36,7 @@ from impacket.krb5.asn1 import TGS_REP, EncTicketPart, AD_IF_RELEVANT
 from impacket.krb5.ccache import CCache
 from impacket.krb5.constants import ChecksumTypes
 from impacket.krb5.crypto import Key, _enctype_table, InvalidChecksum, string_to_key
+from impacket.ldap.ldaptypes import LDAP_SID
 
 PSID = PRPC_SID
 
@@ -100,6 +101,11 @@ class UF_FLAG_Codes(Enum):
     UF_NO_AUTH_DATA_REQUIRED = 0x02000000
     UF_PARTIAL_SECRETS_ACCOUNT = 0x04000000
     UF_USE_AES_KEYS = 0x08000000
+
+# PAC_ATTRIBUTES_INFO Flags code
+class Upn_Dns_Flags(Enum):
+    U_UsernameOnly = 0x00000001
+    S_SidSamSupplied = 0x00000002
 
 # PAC_ATTRIBUTES_INFO Flags code
 class Attributes_Flags(Enum):
@@ -360,10 +366,26 @@ def parse_pac(pacType, args):
             DnsDomainNameLength = upn['DnsDomainNameLength']
             DnsDomainNameOffset = upn['DnsDomainNameOffset']
             DnsName = data[DnsDomainNameOffset:DnsDomainNameOffset + DnsDomainNameLength].decode('utf-16-le')
+            flags = upn['Flags']
+            attr_flags = []
+            for flag_lib in Upn_Dns_Flags:
+                if flags & flag_lib.value:
+                    attr_flags.append(flag_lib.name)
             parsed_data = {}
-            parsed_data['Flags'] = upn['Flags']
+            parsed_data['Flags'] = f"({flags}) {', '.join(attr_flags)}"
             parsed_data['UPN'] = UpnName
             parsed_data['DNS Domain Name'] = DnsName
+
+            if Upn_Dns_Flags.S_SidSamSupplied.name in attr_flags:
+                # SamAccountName and Sid is also supplied
+                SamNameLength = upn['SamNameLength']
+                SamNameOffset = upn['SamNameOffset']
+                SamName = data[SamNameOffset:SamNameOffset+SamNameLength].decode('utf-16-le')
+                SidLength = upn['SidLength']
+                SidOffset = upn['SidOffset']
+                Sid = LDAP_SID(data[SidOffset:SidOffset+SidLength])  # Using LDAP_SID instead of RPC_SID (https://github.com/SecureAuthCorp/impacket/issues/1386)
+                parsed_data["SamAccountName"] = SamName
+                parsed_data["UserSid"] = Sid.formatCanonical()
             parsed_tuPAC.append({"UpnDns": parsed_data})
 
         elif infoBuffer['ulType'] == pac.PAC_SERVER_CHECKSUM:

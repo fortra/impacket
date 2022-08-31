@@ -207,6 +207,10 @@ class UPN_DNS_INFO(Structure):
         ('DnsDomainNameLength', '<H=0'),
         ('DnsDomainNameOffset', '<H=0'),
         ('Flags', '<L=0'),
+        ('SamNameLength', '<H=0'),
+        ('SamNameOffset', '<H=0'),
+        ('SidLength', '<H=0'),
+        ('SidOffset', '<H=0'),
     )
 
 # 2.11 PAC_CLIENT_CLAIMS_INFO
