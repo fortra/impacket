@@ -377,6 +377,7 @@ def parse_pac(pacType, args):
             parsed_data['DNS Domain Name'] = DnsName
 
             if Upn_Dns_Flags.S_SidSamSupplied.name in attr_flags:
+                upn = pac.UPN_DNS_INFO_FULL(data)
                 # SamAccountName and Sid is also supplied
                 SamNameLength = upn['SamNameLength']
                 SamNameOffset = upn['SamNameOffset']

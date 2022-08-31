@@ -206,6 +206,17 @@ class UPN_DNS_INFO(Structure):
         ('UpnOffset', '<H=0'),
         ('DnsDomainNameLength', '<H=0'),
         ('DnsDomainNameOffset', '<H=0'),
+        ('Flags', '<L=0')
+    )
+
+# 2.10 UPN_DNS_INFO
+# Full struct with S Flag new fields
+class UPN_DNS_INFO_FULL(Structure):
+    structure = (
+        ('UpnLength', '<H=0'),
+        ('UpnOffset', '<H=0'),
+        ('DnsDomainNameLength', '<H=0'),
+        ('DnsDomainNameOffset', '<H=0'),
         ('Flags', '<L=0'),
         ('SamNameLength', '<H=0'),
         ('SamNameOffset', '<H=0'),
