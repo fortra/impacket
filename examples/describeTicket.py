@@ -332,9 +332,7 @@ def parse_ccache(args):
             # iterate over each attribute of the current PAC
             for attribute in element_type[element_type_name]:
                 value = element_type[element_type_name][attribute]
-                if isinstance(value, str):
-                    logging.info("    %-26s: %s" % (attribute, value))
-                elif isinstance(value, Sequence):
+                if isinstance(value, Sequence) and not isinstance(value, str):
                     # If the value is an array, print as a multiline view for better readability
                     if len(value) > 0:
                         logging.info("    %-26s: %s" % (attribute, value[0]))
@@ -343,7 +341,7 @@ def parse_ccache(args):
                     else:
                         logging.info("    %-26s:" % attribute)
                 else:
-                    logging.debug(f"Unknown data type : {type(value)} > {value}")
+                    logging.info("    %-26s: %s" % (attribute, value))
 
         cred_number += 1
 
