@@ -408,13 +408,19 @@ def parse_pac(pacType, args):
             parsed_data['Group Count'] = kerbdata['GroupCount']
 
             all_groups_id = [str(gid['RelativeId']) for gid in PACparseGroupIds(kerbdata['GroupIds'])]
-            groups = [", ".join(all_groups_id)]
+            parsed_data['Groups'] = ", ".join(all_groups_id)
+            groups = []
+            unknown_count = 0
             # Searching for common group name
             for gid in all_groups_id:
                 group_name = MsBuiltInGroups.get(gid)
                 if group_name:
                     groups.append(f"({gid}) {group_name}")
-            parsed_data['Groups'] = groups
+                else:
+                    unknown_count += 1
+            if unknown_count > 0:
+                groups.append(f"+{unknown_count} Unknown custom group{'s' if unknown_count > 1 else ''}")
+            parsed_data['Groups (decoded)'] = groups
 
             # UserFlags parsing
             UserFlags = kerbdata['UserFlags']
