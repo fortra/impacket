@@ -3,6 +3,7 @@ include LICENSE
 include ChangeLog.md
 include README.md
 include SECURITY.md
+include TESTING.md
 
 include requirements.txt
 

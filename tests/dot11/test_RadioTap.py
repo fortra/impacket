@@ -1,17 +1,13 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
 import unittest
-sys.path.insert(0, "../..")
-
 from impacket.dot11 import RadioTap
 from impacket.ImpactPacket import Data
 
@@ -584,6 +580,6 @@ class TestRadioTap(unittest.TestCase):
         self.assertEqual(self.rt3.get_rate(), 2)
         self.assertEqual(self.rt3.get_dBm_ant_signal(), 0xa6)
 
-if __name__ == "__main__":
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestRadioTap)
-    unittest.main(defaultTest='suite')
+
+if __name__ == '__main__':
+    unittest.main(verbosity=1)

@@ -1,30 +1,15 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-#Impact test version
-try:
-    from impacket.ImpactDecoder import EthDecoder
-    from impacket.ImpactPacket import TCP
-except:
-    raise
-    pass
-
-#Standalone test version
-try:
-    import sys
-    sys.path.insert(0,"../..")
-    from ImpactDecoder import EthDecoder
-    from ImpactPacket import TCP
-except:
-    pass
-
 import unittest
+from impacket.ImpactPacket import TCP
+
 
 class TestTCP(unittest.TestCase):
 
@@ -149,5 +134,6 @@ class TestTCP(unittest.TestCase):
         self.assertEqual(self.tcp.get_CWR(), 1)
         self.assertEqual(self.tcp.get_th_flags(), 0xAA )
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestTCP)
-unittest.main(defaultTest='suite')
+
+if __name__ == '__main__':
+    unittest.main(verbosity=1)

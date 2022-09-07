@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -45,16 +45,7 @@ except ImportError:
   import readline
 
 
-mimikatz_intro = r"""
-  .#####.   mimikatz RPC interface
- .## ^ ##.  "A La Vie, A L' Amour "
- ## / \ ##  /* * *
- ## \ / ##   Benjamin DELPY `gentilkiwi` ( benjamin@gentilkiwi.com )
- '## v ##'   http://blog.gentilkiwi.com/mimikatz             (oe.eo)
-  '#####'    Impacket client by Alberto Solino (@agsolino)    * * */
-
-
-Type help for list of commands"""
+mimikatz_intro = r"""Type help for list of commands"""
 
 
 class MimikatzShell(cmd.Cmd):

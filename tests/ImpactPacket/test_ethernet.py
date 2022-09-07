@@ -1,18 +1,16 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-import sys
-sys.path.insert(0,"../..")
-
-from impacket.ImpactPacket import Ethernet, EthernetTag
-from array import array
 import unittest
+from array import array
+from impacket.ImpactPacket import Ethernet, EthernetTag
+
 
 class TestEthernet(unittest.TestCase):
 
@@ -112,5 +110,5 @@ class TestEthernet(unittest.TestCase):
         self.assertEqual(eth_copy.get_packet(), self.frame[:12] + tags[0] + tags[2] + self.frame[-2:])
 
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestEthernet)
-unittest.main(defaultTest='suite')
+if __name__ == '__main__':
+    unittest.main(verbosity=1)

@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -2096,7 +2096,7 @@ class SMBQueryInformationDiskResponse_Parameters(Structure):
 
 ############# SMB_COM_LOGOFF_ANDX (0x74)
 class SMBLogOffAndX(SMBAndXCommand_Parameters):
-    strucure = ()
+    structure = ()
 
 ############# SMB_COM_CLOSE (0x04)
 class SMBClose_Parameters(SMBCommand_Parameters):

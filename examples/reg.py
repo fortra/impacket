@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -185,6 +185,11 @@ class RegHandler:
                 self.add(dce, self.__options.keyName)
             elif self.__action == 'DELETE':
                 self.delete(dce, self.__options.keyName)
+            elif self.__action == 'SAVE':
+                self.save(dce, self.__options.keyName)
+            elif self.__action == 'BACKUP':
+                for hive in ["HKLM\SAM", "HKLM\SYSTEM", "HKLM\SECURITY"]:
+                    self.save(dce, hive)
             else:
                 logging.error('Method %s not implemented yet!' % self.__action)
         except (Exception, KeyboardInterrupt) as e:
@@ -194,6 +199,17 @@ class RegHandler:
         finally:
             if self.__remoteOps:
                 self.__remoteOps.finish()
+
+    def save(self, dce, keyName):
+        hRootKey, subKey = self.__strip_root_key(dce, keyName)
+        outputFileName = "%s\%s.save" % (self.__options.outputPath, subKey)
+        logging.debug("Dumping %s, be patient it can take a while for large hives (e.g. HKLM\SYSTEM)" % keyName)
+        try:
+            ans2 = rrp.hBaseRegOpenKey(dce, hRootKey, subKey, dwOptions=rrp.REG_OPTION_BACKUP_RESTORE | rrp.REG_OPTION_OPEN_LINK, samDesired=rrp.KEY_READ)
+            rrp.hBaseRegSaveKey(dce, ans2['phkResult'], outputFileName)
+            logging.info("Saved %s to %s" % (keyName, outputFileName))
+        except Exception as e:
+            logging.error("Couldn't save %s: %s" % (keyName, e))
 
     def query(self, dce, keyName):
         hRootKey, subKey = self.__strip_root_key(dce, keyName)
@@ -477,7 +493,7 @@ class RegHandler:
                 print("Unknown Type 0x%x!" % valueType)
                 hexdump(valueData)
         except Exception as e:
-            logging.debug('Exception thrown when printing reg value %s', str(e))
+            logging.debug('Exception thrown when printing reg value %s' % str(e))
             print('Invalid data')
             pass
 
@@ -542,9 +558,19 @@ if __name__ == '__main__':
     # copy_parser = subparsers.add_parser('copy', help='Copies a registry entry to a specified location in the remote '
     #                                                   'computer')
 
-    # A save command
-    # save_parser = subparsers.add_parser('save', help='Saves a copy of specified subkeys, entries, and values of the '
-    #                                                 'registry in a specified file.')
+    #A save command
+    save_parser = subparsers.add_parser('save', help='Saves a copy of specified subkeys, entries, and values of the '
+                                                    'registry in a specified file.')
+    save_parser.add_argument('-keyName', action='store', required=True,
+                               help='Specifies the full path of the subkey. The '
+                                    'keyName must include a valid root key. Valid root keys for the local computer are: HKLM,'
+                                    ' HKU, HKCR.')
+    save_parser.add_argument('-o', dest='outputPath', action='store', metavar='\\\\192.168.0.2\share', required=True, help='Output UNC path the target system must export the registry saves to')
+
+    # A special backup command to save HKLM\SAM, HKLM\SYSTEM and HKLM\SECURITY
+    backup_parser = subparsers.add_parser('backup', help='(special command) Backs up HKLM\SAM, HKLM\SYSTEM and HKLM\SECURITY to a specified file.')
+    backup_parser.add_argument('-o', dest='outputPath', action='store', metavar='\\\\192.168.0.2\share', required=True,
+                             help='Output UNC path the target system must export the registry saves to')
 
     # A load command
     # load_parser = subparsers.add_parser('load', help='Writes saved subkeys and entries back to a different subkey in '

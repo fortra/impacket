@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -25,7 +25,6 @@ import ldap3
 import ssl
 import ldapdomaindump
 from binascii import unhexlify
-import os
 from ldap3.protocol.formatters.formatters import format_sid
 
 from impacket import version
@@ -92,43 +91,9 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
     if TGT is not None or TGS is not None:
         useCache = False
 
+    target = 'ldap/%s' % target
     if useCache:
-        try:
-            ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-        except Exception as e:
-            # No cache present
-            print(e)
-            pass
-        else:
-            # retrieve domain information from CCache file if needed
-            if domain == '':
-                domain = ccache.principal.realm['data'].decode('utf-8')
-                logging.debug('Domain retrieved from CCache: %s' % domain)
-
-            logging.debug('Using Kerberos Cache: %s' % os.getenv('KRB5CCNAME'))
-            principal = 'ldap/%s@%s' % (target.upper(), domain.upper())
-
-            creds = ccache.getCredential(principal)
-            if creds is None:
-                # Let's try for the TGT and go from there
-                principal = 'krbtgt/%s@%s' % (domain.upper(), domain.upper())
-                creds = ccache.getCredential(principal)
-                if creds is not None:
-                    TGT = creds.toTGT()
-                    logging.debug('Using TGT from cache')
-                else:
-                    logging.debug('No valid credentials found in cache')
-            else:
-                TGS = creds.toTGS(principal)
-                logging.debug('Using TGS from cache')
-
-            # retrieve user information from CCache file if needed
-            if user == '' and creds is not None:
-                user = creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')
-                logging.debug('Username retrieved from CCache: %s' % user)
-            elif user == '' and len(ccache.principal.components) > 0:
-                user = ccache.principal.components[0]['data'].decode('utf-8')
-                logging.debug('Username retrieved from CCache: %s' % user)
+        domain, user, TGT, TGS = CCache.parseFile(domain, user, target)
 
     # First of all, we need to get a TGT for the user
     userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
@@ -142,7 +107,7 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
         sessionKey = TGT['sessionKey']
 
     if TGS is None:
-        serverName = Principal('ldap/%s' % target, type=constants.PrincipalNameType.NT_SRV_INST.value)
+        serverName = Principal(target, type=constants.PrincipalNameType.NT_SRV_INST.value)
         tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher,
                                                                 sessionKey)
     else:
@@ -441,9 +406,9 @@ def parse_args():
                                      description='Python (re)setter for property msDS-AllowedToActOnBehalfOfOtherIdentity for Kerberos RBCD attacks.')
     parser.add_argument('identity', action='store', help='domain.local/username[:password]')
     parser.add_argument("-delegate-to", type=str, required=True,
-                        help="Target computer account the attacker has at least WriteProperty to")
+                        help="Target account the DACL is to be read/edited/etc.")
     parser.add_argument("-delegate-from", type=str, required=False,
-                        help="Attacker controlled machine account to write on the msDS-Allo[...] property (only when using `-action write`)")
+                        help="Attacker controlled account to write on the rbcd property of -delegate-to (only when using `-action write`)")
     parser.add_argument('-action', choices=['read', 'write', 'remove', 'flush'], nargs='?', default='read',
                         help='Action to operate on msDS-AllowedToActOnBehalfOfOtherIdentity')
 
@@ -577,7 +542,6 @@ def main():
         elif args.action == 'remove':
             rbcd.remove(args.delegate_from)
         elif args.action == 'flush':
-            rbcd.flush()
             rbcd.flush()
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:

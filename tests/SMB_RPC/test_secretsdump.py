@@ -1,21 +1,20 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
-import logging
 import os
+import logging
+import pytest
 import unittest
+from tests import RemoteTestCase
 
 from impacket.examples.secretsdump import LocalOperations, RemoteOperations, SAMHashes, LSASecrets, NTDSHashes
 from impacket.smbconnection import SMBConnection
+
 
 def _print_helper(*args, **kwargs):
     try:
@@ -23,7 +22,9 @@ def _print_helper(*args, **kwargs):
     except UnicodeError:
         pass
 
+
 class DumpSecrets:
+
     def __init__(self, remoteName, username='', password='', domain='', options=None):
         self.__useVSSMethod = options.use_vss
         self.__remoteName = remoteName
@@ -33,7 +34,7 @@ class DumpSecrets:
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
-        self.__aesKey = options.aesKey
+        self.__aes_key_128 = options.aes_key_128
         self.__smbConnection = None
         self.__remoteOps = None
         self.__SAMHashes = None
@@ -66,7 +67,7 @@ class DumpSecrets:
         self.__smbConnection = SMBConnection(self.__remoteName, self.__remoteHost)
         if self.__doKerberos:
             self.__smbConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash,
-                                               self.__nthash, self.__aesKey, self.__kdcHost)
+                                               self.__nthash, self.__aes_key_128, self.__kdcHost)
         else:
             self.__smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
 
@@ -212,7 +213,7 @@ class DumpSecrets:
                             os.unlink(resumeFile)
             try:
                 self.cleanup()
-            except:
+            except Exception:
                 pass
 
     def cleanup(self):
@@ -231,7 +232,7 @@ class DumpSecrets:
                 raise
 
 class Options(object):
-    aesKey=None
+    aes_key_128 = None
     bootkey=None
     dc_ip=None
     debug=False
@@ -255,7 +256,9 @@ class Options(object):
     use_vss=False
     user_status=False
 
-class SecretsDumpTests(unittest.TestCase):
+
+class SecretsDumpTests(RemoteTestCase):
+
     def test_VSS_History(self):
         options = Options()
         options.target_ip = self.machine
@@ -296,20 +299,14 @@ class SecretsDumpTests(unittest.TestCase):
         dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
         dumper.dump()
 
-class Tests(SecretsDumpTests):
+
+@pytest.mark.remote
+class Tests(SecretsDumpTests, unittest.TestCase):
+
     def setUp(self):
-        SecretsDumpTests.setUp(self)
-        # Put specific configuration for target machine with SMB1
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
-        self.serverName = configFile.get('SMBTransport', 'servername')
-        self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.aesKey   = configFile.get('SMBTransport', 'aesKey128')
+        super(Tests, self).setUp()
+        self.set_transport_config(aes_keys=True)
+
 
 if __name__ == "__main__":
-    suite = unittest.TestLoader().loadTestsFromTestCase(Tests)
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)

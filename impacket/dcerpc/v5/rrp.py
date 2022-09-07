@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -63,13 +63,14 @@ PRRP_UNICODE_STRING = PRPC_UNICODE_STRING
 # 2.2.4 REGSAM
 REGSAM = ULONG
 
-KEY_QUERY_VALUE        = 0x00000001
-KEY_SET_VALUE          = 0x00000002
-KEY_CREATE_SUB_KEY     = 0x00000004
-KEY_ENUMERATE_SUB_KEYS = 0x00000008
-KEY_CREATE_LINK        = 0x00000020
-KEY_WOW64_64KEY        = 0x00000100
-KEY_WOW64_32KEY        = 0x00000200
+KEY_QUERY_VALUE             = 0x00000001
+KEY_SET_VALUE               = 0x00000002
+KEY_CREATE_SUB_KEY          = 0x00000004
+KEY_ENUMERATE_SUB_KEYS      = 0x00000008
+KEY_CREATE_LINK             = 0x00000020
+KEY_WOW64_64KEY             = 0x00000100
+KEY_WOW64_32KEY             = 0x00000200
+KEY_READ                    = 0x00020019
 
 REG_BINARY              = 3
 REG_DWORD               = 4
@@ -82,6 +83,10 @@ REG_NONE                = 0
 REG_QWORD               = 11
 REG_QWORD_LITTLE_ENDIAN = 11
 REG_SZ                  = 1
+
+# 3.1.5.15 BaseRegOpenKey (Opnum 15)
+REG_OPTION_BACKUP_RESTORE   = 0x00000004
+REG_OPTION_OPEN_LINK        = 0x00000008
 
 # 3.1.5.7 BaseRegCreateKey (Opnum 6)
 REG_CREATED_NEW_KEY     = 0x00000001
