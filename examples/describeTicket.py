@@ -13,14 +13,15 @@
 # Authors:
 #   Remi Gascou (@podalirius_)
 #   Charlie Bromberg (@_nwodtuhs)
+#   Mathieu Calemard du Gardin (@Dramelac_)
 
 import logging
 import sys
 import traceback
 import argparse
-import binascii
 import datetime
 import base64
+from typing import Sequence
 
 from Cryptodome.Hash import MD4
 from enum import Enum
@@ -36,6 +37,7 @@ from impacket.krb5.asn1 import TGS_REP, EncTicketPart, AD_IF_RELEVANT
 from impacket.krb5.ccache import CCache
 from impacket.krb5.constants import ChecksumTypes
 from impacket.krb5.crypto import Key, _enctype_table, InvalidChecksum, string_to_key
+from impacket.ldap.ldaptypes import LDAP_SID
 
 PSID = PRPC_SID
 
@@ -100,6 +102,117 @@ class UF_FLAG_Codes(Enum):
     UF_NO_AUTH_DATA_REQUIRED = 0x02000000
     UF_PARTIAL_SECRETS_ACCOUNT = 0x04000000
     UF_USE_AES_KEYS = 0x08000000
+
+# PAC_ATTRIBUTES_INFO Flags code
+class Upn_Dns_Flags(Enum):
+    U_UsernameOnly = 0x00000001
+    S_SidSamSupplied = 0x00000002
+
+# PAC_ATTRIBUTES_INFO Flags code
+class Attributes_Flags(Enum):
+    PAC_WAS_REQUESTED = 0x00000001
+    PAC_WAS_GIVEN_IMPLICITLY = 0x00000002
+
+
+# Builtin known Windows Group
+MsBuiltInGroups = {
+    "498": "Enterprise Read-Only Domain Controllers",
+    "512": "Domain Admins",
+    "513": "Domain Users",
+    "514": "Domain Guests",
+    "515": "Domain Computers",
+    "516": "Domain Controllers",
+    "517": "Cert Publishers",
+    "518": "Schema Admins",
+    "519": "Enterprise Admins",
+    "520": "Group Policy Creator Owners",
+    "521": "Read-Only Domain Controllers",
+    "522": "Cloneable Controllers",
+    "525": "Protected Users",
+    "526": "Key Admins",
+    "527": "Enterprise Key Admins",
+    "553": "RAS and IAS Servers",
+    "571": "Allowed RODC Password Replication Group",
+    "572": "Denied RODC Password Replication Group",
+    "S-1-1-0": "Everyone",
+    "S-1-2-0": "Local",
+    "S-1-2-1": "Console Logon",
+    "S-1-3-0": "Creator Owner",
+    "S-1-3-1": "Creator Group",
+    "S-1-3-2": "Owner Server",
+    "S-1-3-3": "Group Server",
+    "S-1-3-4": "Owner Rights",
+    "S-1-5-1": "Dialup",
+    "S-1-5-2": "Network",
+    "S-1-5-3": "Batch",
+    "S-1-5-4": "Interactive",
+    "S-1-5-6": "Service",
+    "S-1-5-7": "Anonymous Logon",
+    "S-1-5-8": "Proxy",
+    "S-1-5-9": "Enterprise Domain Controllers",
+    "S-1-5-10": "Self",
+    "S-1-5-11": "Authenticated Users",
+    "S-1-5-12": "Restricted Code",
+    "S-1-5-13": "Terminal Server User",
+    "S-1-5-14": "Remote Interactive Logon",
+    "S-1-5-15": "This Organization",
+    "S-1-5-17": "IUSR",
+    "S-1-5-18": "System (or LocalSystem)",
+    "S-1-5-19": "NT Authority (LocalService)",
+    "S-1-5-20": "Network Service",
+    "S-1-5-32-544": "Administrators",
+    "S-1-5-32-545": "Users",
+    "S-1-5-32-546": "Guests",
+    "S-1-5-32-547": "Power Users",
+    "S-1-5-32-548": "Account Operators",
+    "S-1-5-32-549": "Server Operators",
+    "S-1-5-32-550": "Print Operators",
+    "S-1-5-32-551": "Backup Operators",
+    "S-1-5-32-552": "Replicators",
+    "S-1-5-32-554": "Builtin\\Pre-Windows",
+    "S-1-5-32-555": "Builtin\\Remote Desktop Users",
+    "S-1-5-32-556": "Builtin\\Network Configuration Operators",
+    "S-1-5-32-557": "Builtin\\Incoming Forest Trust Builders",
+    "S-1-5-32-558": "Builtin\\Performance Monitor Users",
+    "S-1-5-32-559": "Builtin\\Performance Log Users",
+    "S-1-5-32-560": "Builtin\\Windows Authorization Access Group",
+    "S-1-5-32-561": "Builtin\\Terminal Server License Servers",
+    "S-1-5-32-562": "Builtin\\Distributed COM Users",
+    "S-1-5-32-568": "Builtin\\IIS_IUSRS",
+    "S-1-5-32-569": "Builtin\\Cryptographic Operators",
+    "S-1-5-32-573": "Builtin\\Event Log Readers",
+    "S-1-5-32-574": "Builtin\\Certificate Service DCOM Access",
+    "S-1-5-32-575": "Builtin\\RDS Remote Access Servers",
+    "S-1-5-32-576": "Builtin\\RDS Endpoint Servers",
+    "S-1-5-32-577": "Builtin\\RDS Management Servers",
+    "S-1-5-32-578": "Builtin\\Hyper-V Administrators",
+    "S-1-5-32-579": "Builtin\\Access Control Assistance Operators",
+    "S-1-5-32-580": "Builtin\\Remote Management Users",
+    "S-1-5-64-10": "NTLM Authentication",
+    "S-1-5-64-14": "SChannel Authentication",
+    "S-1-5-64-21": "Digest Authentication",
+    "S-1-5-80": "NT Service",
+    "S-1-5-80-0": "All Services",
+    "S-1-5-83-0": "NT VIRTUAL MACHINE\\Virtual Machines",
+    "S-1-5-113": "Local Account",
+    "S-1-5-114": "Local Account and member of Administrators group",
+    "S-1-5-1000": "Other Organization",
+    "S-1-15-2-1": "All app packages",
+    "S-1-16-0": "ML Untrusted",
+    "S-1-16-4096": "ML Low",
+    "S-1-16-8192": "ML Medium",
+    "S-1-16-8448": "ML Medium Plus",
+    "S-1-16-12288": "ML High",
+    "S-1-16-16384": "ML System",
+    "S-1-16-20480": "ML Protected Process",
+    "S-1-16-28672": "ML Secure Process",
+    "S-1-18-1": "Authentication authority asserted identity",
+    "S-1-18-2": "Service asserted identity",
+    "S-1-18-3": "Fresh public key identity",
+    "S-1-18-4": "Key trust identity",
+    "S-1-18-5": "Key property MFA",
+    "S-1-18-6": "Key property attestation",
+}
 
 
 def parse_ccache(args):
@@ -210,13 +323,26 @@ def parse_ccache(args):
         adIfRelevant = decoder.decode(encTicketPart['authorization-data'][0]['ad-data'], asn1Spec=AD_IF_RELEVANT())[0]
         # So here we have the PAC
         pacType = pac.PACTYPE(adIfRelevant[0]['ad-data'].asOctets())
+        # parsing every PAC
         parsed_pac = parse_pac(pacType, args)
         logging.info("%-30s:" % "Decoding credential[%d]['ticket']['enc-part']" % cred_number)
+        # One section per PAC
         for element_type in parsed_pac:
             element_type_name = list(element_type.keys())[0]
             logging.info("  %-28s" % element_type_name)
+            # iterate over each attribute of the current PAC
             for attribute in element_type[element_type_name]:
-                logging.info("    %-26s: %s" % (attribute, element_type[element_type_name][attribute]))
+                value = element_type[element_type_name][attribute]
+                if isinstance(value, Sequence) and not isinstance(value, str):
+                    # If the value is an array, print as a multiline view for better readability
+                    if len(value) > 0:
+                        logging.info("    %-26s: %s" % (attribute, value[0]))
+                        for subvalue in value[1:]:
+                            logging.info(" "*32+"%s" % subvalue)
+                    else:
+                        logging.info("    %-26s:" % attribute)
+                else:
+                    logging.info("    %-26s: %s" % (attribute, value))
 
         cred_number += 1
 
@@ -281,7 +407,21 @@ def parse_pac(pacType, args):
             parsed_data['User RID'] = kerbdata['UserId']
             parsed_data['Group RID'] = kerbdata['PrimaryGroupId']
             parsed_data['Group Count'] = kerbdata['GroupCount']
-            parsed_data['Groups'] = ', '.join([str(gid['RelativeId']) for gid in PACparseGroupIds(kerbdata['GroupIds'])])
+
+            all_groups_id = [str(gid['RelativeId']) for gid in PACparseGroupIds(kerbdata['GroupIds'])]
+            parsed_data['Groups'] = ", ".join(all_groups_id)
+            groups = []
+            unknown_count = 0
+            # Searching for common group name
+            for gid in all_groups_id:
+                group_name = MsBuiltInGroups.get(gid)
+                if group_name:
+                    groups.append(f"({gid}) {group_name}")
+                else:
+                    unknown_count += 1
+            if unknown_count > 0:
+                groups.append(f"+{unknown_count} Unknown custom group{'s' if unknown_count > 1 else ''}")
+            parsed_data['Groups (decoded)'] = groups
 
             # UserFlags parsing
             UserFlags = kerbdata['UserFlags']
@@ -318,8 +458,15 @@ def parse_pac(pacType, args):
                 for flag in SE_GROUP_Attributes:
                     if attributes & flag.value:
                         attributes_flags.append(flag.name)
-                extraSids.append("%s (%s)" % (sid, ', '.join(attributes_flags)))
-            parsed_data['Extra SIDs'] = ', '.join(extraSids)
+                # Group name matching
+                group_name = MsBuiltInGroups.get(sid, '')
+                if not group_name and len(sid.split('-')) == 8:
+                    # Try to find an RID match
+                    group_name = MsBuiltInGroups.get(sid.split('-')[-1], '')
+                if group_name:
+                    group_name = f" {group_name}"
+                extraSids.append("%s%s (%s)" % (sid, group_name, ', '.join(attributes_flags)))
+            parsed_data['Extra SIDs'] = extraSids
 
             # ResourceGroupDomainSid parsing
             if kerbdata['ResourceGroupDomainSid'] == b'':
@@ -350,16 +497,43 @@ def parse_pac(pacType, args):
 
         elif infoBuffer['ulType'] == pac.PAC_UPN_DNS_INFO:
             upn = pac.UPN_DNS_INFO(data)
+            # UPN PArsing
             UpnLength = upn['UpnLength']
             UpnOffset = upn['UpnOffset']
             UpnName = data[UpnOffset:UpnOffset+UpnLength].decode('utf-16-le')
+
+            # DNS Name Parsing
             DnsDomainNameLength = upn['DnsDomainNameLength']
             DnsDomainNameOffset = upn['DnsDomainNameOffset']
             DnsName = data[DnsDomainNameOffset:DnsDomainNameOffset + DnsDomainNameLength].decode('utf-16-le')
+
+            # Flag parsing
+            flags = upn['Flags']
+            attr_flags = []
+            for flag_lib in Upn_Dns_Flags:
+                if flags & flag_lib.value:
+                    attr_flags.append(flag_lib.name)
             parsed_data = {}
-            parsed_data['Flags'] = upn['Flags']
+            parsed_data['Flags'] = f"({flags}) {', '.join(attr_flags)}"
             parsed_data['UPN'] = UpnName
             parsed_data['DNS Domain Name'] = DnsName
+
+            # Depending on the flag supplied, additional data may be supplied
+            if Upn_Dns_Flags.S_SidSamSupplied.name in attr_flags:
+                # SamAccountName and Sid is also supplied
+                upn = pac.UPN_DNS_INFO_FULL(data)
+                # Sam parsing
+                SamNameLength = upn['SamNameLength']
+                SamNameOffset = upn['SamNameOffset']
+                SamName = data[SamNameOffset:SamNameOffset+SamNameLength].decode('utf-16-le')
+
+                # Sid parsing
+                SidLength = upn['SidLength']
+                SidOffset = upn['SidOffset']
+                Sid = LDAP_SID(data[SidOffset:SidOffset+SidLength])  # Using LDAP_SID instead of RPC_SID (https://github.com/SecureAuthCorp/impacket/issues/1386)
+
+                parsed_data["SamAccountName"] = SamName
+                parsed_data["UserSid"] = Sid.formatCanonical()
             parsed_tuPAC.append({"UpnDns": parsed_data})
 
         elif infoBuffer['ulType'] == pac.PAC_SERVER_CHECKSUM:
@@ -422,7 +596,26 @@ def parse_pac(pacType, args):
             parsed_data['TransitedListSize'] = delegationInfo.fields['TransitedListSize'].fields['Data']
             parsed_data['S4UTransitedServices'] = delegationInfo['S4UTransitedServices'].decode('utf-8')
             parsed_tuPAC.append({"DelegationInfo": parsed_data})
+        elif infoBuffer['ulType'] == pac.PAC_ATTRIBUTES_INFO:
+            # Parsing 2.14 PAC_ATTRIBUTES_INFO
+            attributeInfo = pac.PAC_ATTRIBUTE_INFO(data)
+            flags = attributeInfo['Flags']
+            attr_flags = []
+            for flag_lib in Attributes_Flags:
+                if flags & flag_lib.value:
+                    attr_flags.append(flag_lib.name)
 
+            parsed_data = {
+                'Flags': f"({flags}) {', '.join(attr_flags)}"
+            }
+            parsed_tuPAC.append({"Attributes Info": parsed_data})
+        elif infoBuffer['ulType'] == pac.PAC_REQUESTOR_INFO:
+            # Parsing 2.15 PAC_REQUESTOR
+            requestorInfo = pac.PAC_REQUESTOR(data)
+            parsed_data = {
+                'UserSid': requestorInfo['UserSid'].formatCanonical()
+            }
+            parsed_tuPAC.append({"Requestor Info": parsed_data})
         else:
             logging.debug("Unsupported PAC structure: %s. Please raise an issue or PR" % infoBuffer['ulType'])
 
