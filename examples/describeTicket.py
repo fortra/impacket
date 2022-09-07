@@ -13,6 +13,7 @@
 # Authors:
 #   Remi Gascou (@podalirius_)
 #   Charlie Bromberg (@_nwodtuhs)
+#   Mathieu Calemard du Gardin (@Dramelac_)
 
 import logging
 import sys
