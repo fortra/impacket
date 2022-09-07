@@ -348,7 +348,7 @@ class GETST:
                          )
             message = encoder.encode(tgsReq)
 
-            logging.info('\tRequesting S4U2Proxy')
+            logging.info('Requesting S4U2Proxy')
             r = sendReceive(message, self.__domain, kdcHost)
             return r, None, sessionKey, None
 
@@ -488,7 +488,7 @@ class GETST:
             logging.debug('Final TGS')
             print(tgsReq.prettyPrint())
 
-        logging.info('\tRequesting S4U2self')
+        logging.info('Requesting S4U2self')
         message = encoder.encode(tgsReq)
 
         r = sendReceive(message, self.__domain, kdcHost)
@@ -670,7 +670,7 @@ class GETST:
                      )
         message = encoder.encode(tgsReq)
 
-        logging.info('\tRequesting S4U2Proxy')
+        logging.info('Requesting S4U2Proxy')
         r = sendReceive(message, self.__domain, kdcHost)
         return r, None, sessionKey, None
 
