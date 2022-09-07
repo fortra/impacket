@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -13,7 +13,7 @@
 #   the -impersonate switch to request the ticket on behalf other user (it will use S4U2Self/S4U2Proxy to
 #   request the ticket.)
 #
-#   Similar feature has been implemented already by Benjamin Delphi (@gentilkiwi) in Kekeo (s4u)
+#   Similar feature has been implemented already by Benjamin Delpy (@gentilkiwi) in Kekeo (s4u)
 #
 #   Examples:
 #       ./getST.py -hashes lm:nt -spn cifs/contoso-dc contoso.com/user
@@ -59,8 +59,7 @@ from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, 
 from impacket.krb5.ccache import CCache, Credential
 from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, _AES256CTS, Enctype
 from impacket.krb5.constants import TicketFlags, encodeFlags
-from impacket.krb5.kerberosv5 import getKerberosTGS
-from impacket.krb5.kerberosv5 import getKerberosTGT, sendReceive
+from impacket.krb5.kerberosv5 import getKerberosTGS, getKerberosTGT, sendReceive
 from impacket.krb5.types import Principal, KerberosTime, Ticket
 from impacket.ntlm import compute_nthash
 from impacket.winregistry import hexdump
@@ -657,6 +656,7 @@ class GETST:
         return r, None, sessionKey, None
 
     def run(self):
+        tgt = None
 
         # Do we have a TGT cached?
         domain, _, TGT, _ = CCache.parseFile(self.__domain)

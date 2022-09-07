@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -91,7 +91,7 @@ from impacket.dcerpc.v5.ndr import NULL
 class SAMRTests(DCERPCTests):
     iface_uuid = samr.MSRPC_UUID_SAMR
     authn = True
-    authn_level = ntlm.NTLM_AUTH_PKT_INTEGRITY
+    authn_level = ntlm.NTLM_AUTH_PKT_PRIVACY
 
     server_name_string = "BETO\x00"
     full_name_string = "BETO"

