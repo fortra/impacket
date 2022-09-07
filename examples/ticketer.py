@@ -249,8 +249,8 @@ class TICKETER:
 
         if self.__options.extra_pac:
             self.createUpnDnsPac(pacInfos)
-            self.createAttributesInfoPac(pacInfos)
-            self.createRequestorInfoPac(pacInfos)
+        self.createAttributesInfoPac(pacInfos)
+        self.createRequestorInfoPac(pacInfos)
 
         return pacInfos
 
