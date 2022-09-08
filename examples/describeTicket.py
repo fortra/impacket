@@ -223,10 +223,15 @@ def parse_ccache(args):
 
     for creds in ccache.credentials:
         logging.info('Parsing credential[%d]:' % cred_number)
-        TGS = creds.toTGS()
-        # sessionKey = hexlify(TGS['sessionKey'].contents).decode('utf-8')
-        decodedTicket = decoder.decode(TGS['KDC_REP'], asn1Spec=TGS_REP())[0]
 
+        rawTicket = creds.toTGS()
+        decodedTicket = decoder.decode(rawTicket['KDC_REP'], asn1Spec=TGS_REP())[0]
+
+        # Printing the session key
+        sessionKey = hexlify(rawTicket['sessionKey'].contents).decode('utf-8')
+        logging.info("%-30s: %s" % ("Ticket Session Key", sessionKey))
+
+        # Beginning the parsing of the ticket
         logging.info("%-30s: %s" % ("User Name", creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')))
         logging.info("%-30s: %s" % ("User Realm", creds['client'].prettyPrint().split(b'@')[1].decode('utf-8')))
         spn = creds['server'].prettyPrint().split(b'@')[0].decode('utf-8')
