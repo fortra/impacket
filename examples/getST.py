@@ -457,8 +457,6 @@ class GETST:
 
 
         if self.__options.u2u:
-            logging.info("Combining S4U2self with U2U")
-            logging.info("TGT session key: %s" % hexlify(sessionKey.contents).decode())
             opts.append(constants.KDCOptions.renewable_ok.value)
             opts.append(constants.KDCOptions.enc_tkt_in_skey.value)
 
@@ -488,7 +486,7 @@ class GETST:
             logging.debug('Final TGS')
             print(tgsReq.prettyPrint())
 
-        logging.info('Requesting S4U2self')
+        logging.info('Requesting S4U2self%s' % ('+U2U' if self.__options.u2u else ''))
         message = encoder.encode(tgsReq)
 
         r = sendReceive(message, self.__domain, kdcHost)
@@ -689,21 +687,11 @@ class GETST:
             # Still no TGT
             userName = Principal(self.__user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
             logging.info('Getting TGT for user')
-            if self.__options.u2u and self.__password:
-                # 1. calculating the NT hash for the user password
-                # 2. Using it to call getKerberosTGT and obtain a ticket with an RC4_HMAC session key
-                # 3. the RC4_HMAC session key can then be used for SPN-less RBCD abuse (session key set as new password of the user between S4U2self and S4U2proxy)
-                logging.info("Requesting TGT with etype RC4")
-                self.__nthash = hexlify(string_to_key(23, self.__password, '').contents).decode()
-                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
-                                                                        unhexlify(self.__lmhash), unhexlify(self.__nthash),
-                                                                        self.__aesKey,
-                                                                        self.__kdcHost)
-            else:
-                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
+            tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                     unhexlify(self.__lmhash), unhexlify(self.__nthash),
                                                                     self.__aesKey,
                                                                     self.__kdcHost)
+            logging.debug("TGT session key: %s" % hexlify(sessionKey.contents).decode())
 
         # Ok, we have valid TGT, let's try to get a service ticket
         if self.__options.impersonate is None:
