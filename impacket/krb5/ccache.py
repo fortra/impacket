@@ -729,7 +729,7 @@ class CCache:
         krbCredInfo['pname']['name-type'] = principal.header['name_type']
         seq_set_iter(krbCredInfo['pname'], 'name-string', (principal.components[0].fields['data'],))
 
-        krbCredInfo['flags'] = credential['tktflags']
+        krbCredInfo['flags'] = format(credential['tktflags'], 'b').zfill(32)
 
         krbCredInfo['starttime'] = KerberosTime.to_asn1(datetime.utcfromtimestamp(credential['time']['starttime']))
         krbCredInfo['endtime'] = KerberosTime.to_asn1(datetime.utcfromtimestamp(credential['time']['endtime']))
