@@ -177,7 +177,7 @@ def start_servers(options, threads):
         c.setAttacks(PROTOCOL_ATTACKS)
         c.setLootdir(options.lootdir)
         c.setOutputFile(options.output_file)
-        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid)
+        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid, options.add_dns_record)
         c.setRPCOptions(options.rpc_mode, options.rpc_use_smb, options.auth_smb, options.hashes_smb, options.rpc_smb_port)
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
@@ -352,6 +352,7 @@ if __name__ == '__main__':
     ldapoptions.add_argument('--dump-laps', action='store_true', required=False, help='Attempt to dump any LAPS passwords readable by the user')
     ldapoptions.add_argument('--dump-gmsa', action='store_true', required=False, help='Attempt to dump any gMSA passwords readable by the user')
     ldapoptions.add_argument('--dump-adcs', action='store_true', required=False, help='Attempt to dump ADCS enrollment services and certificate templates info')
+    ldapoptions.add_argument('--add-dns-record', nargs=2, action='store', metavar=('NAME', 'IPADDR'), required=False, help='Add the <NAME> record to DNS via LDAP pointing to <IPADDR>')
 
     #IMAP options
     imapoptions = parser.add_argument_group("IMAP client options")
@@ -406,6 +407,10 @@ if __name__ == '__main__':
     from impacket.examples.ntlmrelayx.clients import PROTOCOL_CLIENTS
     from impacket.examples.ntlmrelayx.attacks import PROTOCOL_ATTACKS
 
+    if options.add_dns_record:
+        dns_name = options.add_dns_record[0].lower()
+        if dns_name == 'wpad' or dns_name == '*':
+            logging.warning('You are asking to add a `wpad` or a wildcard DNS name. This can cause disruption in larger networks (using multiple DNS subdomains) or if workstations already use a proxy config.')
 
     if options.codec is not None:
         codec = options.codec
