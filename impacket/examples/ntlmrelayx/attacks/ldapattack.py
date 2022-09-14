@@ -408,9 +408,9 @@ class LDAPAttack(ProtocolAttack):
         # Dictionary for restore data
         restoredata = {}
 
-        # Query for the sid of our user
+        # Query for the sid of our incoming account (can be a user or a computer in case of a newly creation computer account (i.e. MachineAccountQuot abuse)
         try:
-            self.client.search(userDn, '(objectClass=user)', attributes=['sAMAccountName', 'objectSid'])
+            self.client.search(userDn, '(objectClass=*)', attributes=['sAMAccountName', 'objectSid'])
             entry = self.client.entries[0]
         except IndexError:
             LOG.error('Could not retrieve infos for user: %s' % userDn)
