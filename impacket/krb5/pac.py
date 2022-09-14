@@ -210,7 +210,7 @@ class UPN_DNS_INFO(Structure):
     )
 
 # 2.10 UPN_DNS_INFO
-# Full struct with S Flag new fields
+# Full struct including additional fields (use this structure when S Flag is set)
 class UPN_DNS_INFO_FULL(Structure):
     structure = (
         ('UpnLength', '<H=0'),
