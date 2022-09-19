@@ -70,7 +70,7 @@ class PacketBuffer(object):
 
     def set_bytes_from_string(self, data):
         "Sets the value of the packet buffer from the string 'data'"
-        self.__bytes = array.array('B', data)
+        self.__bytes = array.array('B', data.encode())
 
     def get_buffer_as_string(self):
         "Returns the packet buffer as a string object"
