@@ -151,11 +151,11 @@ class DhcpPacket(ProtocolPacket, structure.Structure):
     def packOptions(self, options):
         # options is an array of tuples: ('name',value)
 
-        answer = ''
+        answer = b''
         for name, value in options:
             code,format = self.options[name]
             val = self.pack(format, value)
-            answer += '%c%c%s' % (code, len(val), val)
+            answer += (b'%c%c%s' if six.PY2 else b'%c%c%b') % (code, len(val), val)
 
         return answer
 
