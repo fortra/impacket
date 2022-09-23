@@ -106,13 +106,14 @@ class S4U2SELF:
             buff = buff[len(infoBuffer):]
 
 
-    def __init__(self, behalfUser, username = '', password = '', domain='', hashes = None):
+    def __init__(self, behalfUser, username = '', password = '', domain='', hashes = None, kdcHost=None):
         self.__username = username
         self.__password = password
         self.__domain = domain.upper()
         self.__behalfUser = behalfUser
         self.__lmhash = ''
         self.__nthash = ''
+        self.__kdcHost = kdcHost
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
@@ -121,7 +122,7 @@ class S4U2SELF:
 
         userName = Principal(self.__username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
         tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
-                                                                unhexlify(self.__lmhash), unhexlify(self.__nthash))
+                                                                unhexlify(self.__lmhash), unhexlify(self.__nthash), kdcHost=self.__kdcHost)
 
         decodedTGT = decoder.decode(tgt, asn1Spec = AS_REP())[0]
 
@@ -253,7 +254,7 @@ class S4U2SELF:
 
         message = encoder.encode(tgsReq)
 
-        r = sendReceive(message, self.__domain, None)
+        r = sendReceive(message, self.__domain, self.__kdcHost)
 
         tgs = decoder.decode(r, asn1Spec = TGS_REP())[0]
 
@@ -303,6 +304,8 @@ if __name__ == '__main__':
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-dc-ip', action='store', metavar="ip address", help='IP Address of the domain controller. If '
+                                                                            'ommited it use the domain part (FQDN) specified in the target parameter')
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
@@ -326,7 +329,7 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.INFO)
 
     try:
-        dumper = S4U2SELF(options.targetUser, username, password, domain, options.hashes)
+        dumper = S4U2SELF(options.targetUser, username, password, domain, options.hashes, options.dc_ip)
         dumper.dump()
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
