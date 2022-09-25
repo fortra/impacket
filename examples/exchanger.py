@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -233,6 +233,8 @@ class NSPIAttacks(Exchanger):
         self.__handler = None
 
         self.htable = {}
+        self.anyExistingContainerID = -1
+
         self.props = list()
         self.stat = nspi.STAT()
         self.stat['CodePage'] = nspi.CP_TELETEX
@@ -282,6 +284,20 @@ class NSPIAttacks(Exchanger):
             self.update_stat(MId)
             self.htable[MId]['count'] = self.stat['TotalRecs']
             self.htable[MId]['start_mid'] = self.stat['CurrentRec']
+
+    def load_htable_containerid(self):
+        if self.anyExistingContainerID != -1:
+            return
+
+        if self.htable == {}:
+            self.load_htable()
+
+        for MId in self.htable:
+            self.update_stat(MId)
+
+            if self.stat['CurrentRec'] > 0:
+                self.anyExistingContainerID = NSPIAttacks._int_to_dword(MId)
+                return
 
     def _parse_and_set_htable(self, htable):
         self.htable = {}
@@ -444,6 +460,9 @@ class NSPIAttacks(Exchanger):
         printOnlyGUIDs = False
         useAsExplicitTable = False
 
+        if self.anyExistingContainerID == -1:
+            self.load_htable_containerid()
+
         if table_MId == None and eTable == None:
             raise Exception("Wrong arguments!")
         elif table_MId != None and eTable != None:
@@ -531,7 +550,7 @@ class NSPIAttacks(Exchanger):
                     eTableInt = eTable
 
                 resp = nspi.hNspiQueryRows(self.__dce, self.__handler,
-                    ContainerID=0, Count=count, pPropTags=attrs, lpETable=eTableInt)
+                    ContainerID=self.anyExistingContainerID, Count=count, pPropTags=attrs, lpETable=eTableInt)
 
                 try:
                     # Addressing to PropertyRowSet_r must be inside try / except,
@@ -939,7 +958,7 @@ if __name__ == '__main__':
     guid_known.add_argument('-output-file', action='store', help='Output filename')
 
     dnt_lookup = nspi_attacks.add_parser('dnt-lookup', formatter_class=SmartFormatter, help='Lookup Distinguished Name Tags')
-    dnt_lookup.add_argument('-lookup-type', choices=['EXTENDED', 'FULL', 'GUIDS'], nargs='?', default='MINIMAL',
+    dnt_lookup.add_argument('-lookup-type', choices=['EXTENDED', 'FULL', 'GUIDS'], nargs='?', default='EXTENDED',
         help='R|Lookup type:\n'
              '  EXTENDED - Request extended set of fields (default)\n'
              '  FULL     - Request all fields for each row\n'

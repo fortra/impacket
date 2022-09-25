@@ -52,7 +52,7 @@ Getting Impacket
 
 ### Latest version
 
-* Impacket v0.9.24
+* Impacket v0.10.0
 
   [![Python versions](https://img.shields.io/pypi/pyversions/impacket.svg)](https://pypi.python.org/pypi/impacket/)
 
@@ -60,7 +60,7 @@ Getting Impacket
 
 ### Development version
 
-* Impacket v0.9.25-dev (**[master branch](https://github.com/SecureAuthCorp/impacket/tree/master)**)
+* Impacket v0.10.1-dev (**[master branch](https://github.com/SecureAuthCorp/impacket/tree/master)**)
 
   [![Python versions](https://img.shields.io/badge/python-3.6%20|%203.7%20|%203.8%20|%203.9-blue.svg)](https://github.com/SecureAuthCorp/impacket/tree/master)
 
