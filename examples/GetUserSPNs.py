@@ -175,7 +175,11 @@ class GetUserSPNs:
 
         return TGT
 
-    def outputTGS(self, decodedTGS, oldSessionKey, sessionKey, username, spn, fd=None):
+    def outputTGS(self, ticket, oldSessionKey, sessionKey, username, spn, fd=None):
+        if self.__preauth:
+            decodedTGS = decoder.decode(ticket, asn1Spec=AS_REP())[0]
+        else:
+            decodedTGS = decoder.decode(ticket, asn1Spec=TGS_REP())[0]
         # According to RFC4757 (RC4-HMAC) the cipher part is like:
         # struct EDATA {
         #       struct HEADER {
@@ -240,7 +244,7 @@ class GetUserSPNs:
             logging.debug('About to save TGS for %s' % username)
             ccache = CCache()
             try:
-                ccache.fromTGS(tgs, oldSessionKey, sessionKey)
+                ccache.fromTGS(ticket, oldSessionKey, sessionKey)
                 ccache.saveFile('%s.ccache' % username)
             except Exception as e:
                 logging.error(str(e))
@@ -433,9 +437,7 @@ class GetUserSPNs:
                                                                             aesKey=self.__aesKey,
                                                                             kdcHost=self.__kdcHost,
                                                                             service=username)
-                    asRep = decoder.decode(tgt, asn1Spec=AS_REP())[0]
-
-                    self.outputTGS(asRep, oldSessionKey, sessionKey, username, username, fd)
+                    self.outputTGS(tgt, oldSessionKey, sessionKey, username, username, fd)
                 except Exception as e:
                     logging.debug("Exception:", exc_info=True)
                     logging.error('Principal: %s - %s' % (username, str(e)))
@@ -461,8 +463,7 @@ class GetUserSPNs:
                                                                             self.__kdcHost,
                                                                             TGT['KDC_REP'], TGT['cipher'],
                                                                             TGT['sessionKey'])
-                    decodedTGS = decoder.decode(tgs, asn1Spec=TGS_REP())[0]
-                    self.outputTGS(decodedTGS, oldSessionKey, sessionKey, username, username, fd)
+                    self.outputTGS(tgs, oldSessionKey, sessionKey, username, username, fd)
                 except Exception as e:
                     logging.debug("Exception:", exc_info=True)
                     logging.error('Principal: %s - %s' % (username, str(e)))
