@@ -42,6 +42,7 @@ class GETTGT:
         self.__aesKey = options.aesKey
         self.__options = options
         self.__kdcHost = options.dc_ip
+        self.__service = options.service
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
 
@@ -55,9 +56,14 @@ class GETTGT:
 
     def run(self):
         userName = Principal(self.__user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-        tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
-                                                                unhexlify(self.__lmhash), unhexlify(self.__nthash), self.__aesKey,
-                                                                self.__kdcHost)
+        tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(clientName = userName,
+                                                                password = self.__password,
+                                                                domain = self.__domain,
+                                                                lmhash = unhexlify(self.__lmhash),
+                                                                nthash = unhexlify(self.__nthash),
+                                                                aesKey = self.__aesKey,
+                                                                kdcHost = self.__kdcHost,
+                                                                service = self.__service)
         self.saveTicket(tgt,oldSessionKey)
 
 if __name__ == '__main__':
@@ -80,6 +86,7 @@ if __name__ == '__main__':
                                                                             '(128 or 256 bits)')
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
                        'ommited it use the domain part (FQDN) specified in the target parameter')
+    group.add_argument('-service', action='store', metavar="SPN", help='Request a Service Ticket directly through an AS-REQ')
 
     if len(sys.argv)==1:
         parser.print_help()

@@ -92,7 +92,7 @@ def sendReceive(data, host, kdcHost):
 
     return r
 
-def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True):
+def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True, service=''):
 
     # Convert to binary form, just in case we're receiving strings
     if isinstance(lmhash, str):
@@ -114,7 +114,10 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     asReq = AS_REQ()
 
     domain = domain.upper()
-    serverName = Principal('krbtgt/%s'%domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)  
+    if service == '':
+        serverName = Principal('krbtgt/%s'%domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+    else:
+        serverName = Principal(service, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
 
     pacRequest = KERB_PA_PAC_REQUEST()
     pacRequest['include-pac'] = requestPAC
@@ -339,7 +342,10 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
         # probably bad password if preauth is disabled
         if preAuth is False:
             error_msg = "failed to decrypt session key: %s" % str(e)
-            raise SessionKeyDecryptionError(error_msg, asRep, cipher, key, cipherText)
+            # Commenting error below in order to return tgt, so that Kerberoast through AS-REQ can be conducted
+            # raise SessionKeyDecryptionError(error_msg, asRep, cipher, key, cipherText)
+            LOG.debug(SessionKeyDecryptionError(error_msg, asRep, cipher, key, cipherText))
+            return tgt, None, key, None
         raise
     encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
 
