@@ -80,7 +80,7 @@ class GetUserSPNs:
         self.__targetDomain = target_domain
         self.__lmhash = ''
         self.__nthash = ''
-        self.__preauth = cmdLineOptions.preauth
+        self.__no_preauth = cmdLineOptions.no_preauth
         self.__outputFileName = cmdLineOptions.outputfile
         self.__usersFile = cmdLineOptions.usersfile
         self.__aesKey = cmdLineOptions.aesKey
@@ -176,7 +176,7 @@ class GetUserSPNs:
         return TGT
 
     def outputTGS(self, ticket, oldSessionKey, sessionKey, username, spn, fd=None):
-        if self.__preauth:
+        if self.__no_preauth:
             decodedTGS = decoder.decode(ticket, asn1Spec=AS_REP())[0]
         else:
             decodedTGS = decoder.decode(ticket, asn1Spec=TGS_REP())[0]
@@ -420,7 +420,7 @@ class GetUserSPNs:
         self.request_multiple_TGSs(usernames)
 
     def request_multiple_TGSs(self, usernames):
-        if self.__preauth:
+        if self.__no_preauth:
             if self.__outputFileName is not None:
                 fd = open(self.__outputFileName, 'w+')
             else:
@@ -428,8 +428,8 @@ class GetUserSPNs:
 
             for username in usernames:
                 try:
-                    preauth_pincipal = Principal(self.__preauth, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-                    tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(clientName=preauth_pincipal,
+                    no_preauth_pincipal = Principal(self.__no_preauth, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+                    tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(clientName=no_preauth_pincipal,
                                                                             password=self.__password,
                                                                             domain=self.__domain,
                                                                             lmhash=(self.__lmhash),
@@ -483,7 +483,7 @@ if __name__ == '__main__':
     parser.add_argument('-target-domain', action='store',
                         help='Domain to query/request if different than the domain of the user. '
                              'Allows for Kerberoasting across trusts.')
-    parser.add_argument('-preauth', action='store', help='account that does not require preauth, to obtain Service Ticket'
+    parser.add_argument('-no-preauth', action='store', help='account that does not require preauth, to obtain Service Ticket'
                                                          ' through the AS')
     parser.add_argument('-usersfile', help='File with user per line to test')
     parser.add_argument('-request', action='store_true', default=False, help='Requests TGS for users and output them '
