@@ -10,3 +10,4 @@ flask>=1.0
 pyreadline;sys_platform == 'win32'
 dsinternals
 dnspython
+ldap3

