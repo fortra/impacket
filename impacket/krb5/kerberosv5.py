@@ -20,6 +20,7 @@ import random
 import socket
 import struct
 
+from os import environ
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.error import PyAsn1Error
 from pyasn1.type.univ import noValue, Sequence
@@ -352,7 +353,9 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     return tgt, cipher, key, sessionKey
 
 def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
-
+    tgsflags = [f for f in environ.get('KRBTGSFLAGS', "").split(',') if f]
+    if not tgsflags:
+        tgsflags = ['forwardable', 'renewable', 'renewable_ok', 'canonicalize']
     # Decode the TGT
     try:
         decodedTGT = decoder.decode(tgt, asn1Spec = AS_REP())[0]
@@ -411,10 +414,11 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     reqBody = seq_set(tgsReq, 'req-body')
 
     opts = list()
-    opts.append( constants.KDCOptions.forwardable.value )
-    opts.append( constants.KDCOptions.renewable.value )
-    opts.append( constants.KDCOptions.renewable_ok.value )
-    opts.append( constants.KDCOptions.canonicalize.value )
+    for flag in tgsflags:
+        try:
+            opts.append( getattr(constants.KDCOptions,flag).value )
+        except AttributeError:
+            LOG.error(f"{flag} is not a TGS valid flag.")
 
     reqBody['kdc-options'] = constants.encodeFlags(opts)
     seq_set(reqBody, 'sname', serverName.components_to_asn1)
