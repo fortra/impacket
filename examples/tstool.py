@@ -58,12 +58,12 @@ class TSHandler:
         self.__doKerberos = options.k
         self.__kdcHost = options.dc_ip
         self.__smbConnection = None
-        self.__remoteOps = None
 
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
 
     def connect(self, remoteName, remoteHost):
+        self.remoteName = remoteName
         self.__smbConnection = SMBConnection(remoteName, remoteHost, sess_port=int(self.__options.port))
 
         if self.__doKerberos:
@@ -83,9 +83,7 @@ class TSHandler:
 
     def get_session_list(self):
         # Retreive session list
-        smb = self.__smbConnection
-        target_ip = self.__options.target_ip
-        with TSTS.TermSrvEnumeration(self.__smbConnection, self.__options.target_ip) as lsm:
+        with TSTS.TermSrvEnumeration(self.__smbConnection, self.__options.target_ip, self.__doKerberos) as lsm:
             handle = lsm.hRpcOpenEnum()
             rsessions = lsm.hRpcGetEnumResult(handle, Level=1)['ppSessionEnumResult']
             lsm.hRpcCloseEnum(handle)
@@ -93,43 +91,39 @@ class TSHandler:
             for i in rsessions:
                 sess = i['SessionInfo']['SessionEnum_Level1']
                 state = TSTS.enum2value(TSTS.WINSTATIONSTATECLASS, sess['State']).split('_')[-1]
-                self.sessions[sess['SessionId']] = { 'state'         :state,
-                                                'SessionName'   :sess['Name'],
-                                                'RemoteIp'      :'',
-                                                'ClientName'    :'',
-                                                'Username'      :'',
-                                                'Domain'        :'',
-                                                'Resolution'    :'',
-                                                'ClientTimeZone':''
-                                            }
+                self.sessions[sess['SessionId']] = { 'state'        :state,
+                                                    'SessionName'   :sess['Name'],
+                                                    'RemoteIp'      :'',
+                                                    'ClientName'    :'',
+                                                    'Username'      :'',
+                                                    'Domain'        :'',
+                                                    'Resolution'    :'',
+                                                    'ClientTimeZone':''
+                                                }
 
     def enumerate_sessions_config(self):
         # Get session config one by one
-        smb = self.__smbConnection
-        target_ip = self.__options.target_ip
         if len(self.sessions):
-            with TSTS.RCMPublic(self.__smbConnection, self.__options.target_ip) as termsrv:
+            with TSTS.RCMPublic(self.__smbConnection, self.__options.target_ip, self.__doKerberos) as termsrv:
                 for SessionId in self.sessions:
                     resp = termsrv.hRpcGetClientData(SessionId)
                     if resp is not None:
                         self.sessions[SessionId]['RemoteIp']       = resp['ppBuff']['ClientAddress']
                         self.sessions[SessionId]['ClientName']     = resp['ppBuff']['ClientName']
                         if len(resp['ppBuff']['UserName']) and not len(self.sessions[SessionId]['Username']):
-                            self.sessions[SessionId]['Username']       = resp['ppBuff']['UserName']
+                            self.sessions[SessionId]['Username']   = resp['ppBuff']['UserName']
                         if len(resp['ppBuff']['Domain']) and not len(self.sessions[SessionId]['Domain']):
-                            self.sessions[SessionId]['Domain']         = resp['ppBuff']['Domain']
+                            self.sessions[SessionId]['Domain']     = resp['ppBuff']['Domain']
                         self.sessions[SessionId]['Resolution']     = '{}x{}'.format(
-                                                                    resp['ppBuff']['HRes'],
-                                                                    resp['ppBuff']['VRes']
-                                                                )
+                                                                        resp['ppBuff']['HRes'],
+                                                                        resp['ppBuff']['VRes']
+                                                                    )
                         self.sessions[SessionId]['ClientTimeZone'] = resp['ppBuff']['ClientTimeZone']['StandardName']
 
     def enumerate_sessions_info(self):
         # Get session info one by one
-        smb = self.__smbConnection
-        target_ip = self.__options.target_ip
         if len(self.sessions):
-            with TSTS.TermSrvSession(self.__smbConnection, self.__options.target_ip) as TermSrvSession:
+            with TSTS.TermSrvSession(self.__smbConnection, self.__options.target_ip, self.__doKerberos) as TermSrvSession:
                 for SessionId in self.sessions.keys():
                     sessdata = TermSrvSession.hRpcGetSessionInformationEx(SessionId)
                     sessflags = TSTS.enum2value(TSTS.SESSIONFLAGS, sessdata['LSMSessionInfoExPtr']['LSM_SessionInfo_Level1']['SessionFlags'])
@@ -265,7 +259,7 @@ class TSHandler:
 
     def do_tasklist(self):
         options = self.__options
-        with TSTS.LegacyAPI(self.__smbConnection, options.target_ip) as legacy:
+        with TSTS.LegacyAPI(self.__smbConnection, options.target_ip, self.__doKerberos) as legacy:
             handle = legacy.hRpcWinStationOpenServer()
             r = legacy.hRpcWinStationGetAllProcesses(handle)
             if not len(r):
@@ -321,7 +315,7 @@ class TSHandler:
                                           pid         = procInfo['UniqueProcessId'],
                                           sessionName = self.sessions[sessId]['SessionName'],
                                           sessid      = procInfo['SessionId'],
-                                          sessstate  = self.sessions[sessId]['state'].replace('Disconnected','Disc'),
+                                          sessstate   = self.sessions[sessId]['state'].replace('Disconnected','Disc'),
                                           sid         = procInfo['pSid'],
                                           sessionuser = fullUserName,
                                           workingset  = procInfo['WorkingSetSize']//1000
@@ -340,7 +334,6 @@ class TSHandler:
                                 '{:,} K'.format(procInfo['WorkingSetSize']//1000),
                             )
                     print(row)
-        
 
     def do_taskkill(self):
         options = self.__options
@@ -348,7 +341,7 @@ class TSHandler:
             LOG.error('One of the following is required: -pid, -name')
             return
         pidList = []
-        with TSTS.LegacyAPI(self.__smbConnection, options.target_ip) as legacy:
+        with TSTS.LegacyAPI(self.__smbConnection, options.target_ip, self.__doKerberos) as legacy:
             handle = legacy.hRpcWinStationOpenServer()
             if options.pid is None and options.name is not None:
                 r = legacy.hRpcWinStationGetAllProcesses(handle)
@@ -375,7 +368,7 @@ class TSHandler:
 
     def do_tscon(self):
         options = self.__options
-        with TSTS.TermSrvSession(self.__smbConnection, options.target_ip) as TSSession:
+        with TSTS.TermSrvSession(self.__smbConnection, options.target_ip, self.__doKerberos) as TSSession:
             try:
                 session_handle = None
                 print('Connecting SessionID %d to %d ...' % (options.source, options.dest), end='')
@@ -405,7 +398,7 @@ class TSHandler:
 
     def do_tsdiscon(self):
         options = self.__options
-        with TSTS.TermSrvSession(self.__smbConnection, options.target_ip) as TSSession:
+        with TSTS.TermSrvSession(self.__smbConnection, options.target_ip, self.__doKerberos) as TSSession:
             try:
                 print('Disconnecting SessionID: %d ...' % options.session, end='')
                 session_handle = TSSession.hRpcOpenSession(options.session)
@@ -424,7 +417,7 @@ class TSHandler:
 
     def do_logoff(self):
         options = self.__options
-        with TSTS.TermSrvSession(self.__smbConnection, options.target_ip) as TSSession:
+        with TSTS.TermSrvSession(self.__smbConnection, options.target_ip, self.__doKerberos) as TSSession:
             try:
                 print('Signing-out SessionID: %d ...' % options.session, end='')
                 session_handle = TSSession.hRpcOpenSession(options.session)
@@ -445,7 +438,7 @@ class TSHandler:
 
     def do_shutdown(self):
         options = self.__options
-        with TSTS.LegacyAPI(self.__smbConnection, options.target_ip) as legacy:
+        with TSTS.LegacyAPI(self.__smbConnection, options.target_ip, self.__doKerberos) as legacy:
             handle = legacy.hRpcWinStationOpenServer()
             flags = 0
             flagsList = []
@@ -472,8 +465,7 @@ class TSHandler:
 
     def do_msg(self):
         options = self.__options
-
-        with TSTS.TermSrvSession(self.__smbConnection, options.target_ip) as TSSession:
+        with TSTS.TermSrvSession(self.__smbConnection, options.target_ip, self.__doKerberos) as TSSession:
             try:
                 print('Sending message to SessionID: %d ...' % options.session, end='')
                 session_handle = TSSession.hRpcOpenSession(options.session)
