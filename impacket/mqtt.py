@@ -244,8 +244,7 @@ class MQTTConnection:
         s.connect((self._targetHost, int(self._targetPort)))
 
         if self._isSSL is True:
-            ctx = SSL.Context(SSL.TLS_METHOD)
-            ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
+            ctx = SSL.Context(SSL.TLSv1_METHOD)
             self._socket = SSL.Connection(ctx, s)
             self._socket.set_connect_state()
             self._socket.do_handshake()
