@@ -38,8 +38,9 @@ from impacket.examples import logger
 from impacket.examples.utils import parse_target
 from impacket.smbconnection import SMBConnection
 from impacket import LOG
-from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_GSS_NEGOTIATE, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+from impacket.dcerpc.v5 import transport, lsat, lsad
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_GSS_NEGOTIATE, RPC_C_AUTHN_LEVEL_PKT_PRIVACY, DCERPCException
+from impacket.dcerpc.v5.dtypes import MAXIMUM_ALLOWED
 
 from impacket.dcerpc.v5 import tsts as TSTS
 import traceback
@@ -257,6 +258,48 @@ class TSHandler:
         for row in result:
             print(row)
 
+    def lookupSids(self):
+        # Slightly modified code from lookupsid.py
+        try:
+            stringbinding = r'ncacn_np:%s[\pipe\lsarpc]' % self.__options.target_ip
+            rpctransport = transport.DCERPCTransportFactory(stringbinding)
+            rpctransport.set_smb_connection(self.__smbConnection)
+            dce = rpctransport.get_dce_rpc()
+            if self.__doKerberos:
+                dce.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
+            dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
+            dce.connect()
+
+            dce.bind(lsat.MSRPC_UUID_LSAT)
+            sids = list(self.sids.keys())
+            if len(sids) > 32:
+                sids = sids[:32] # TODO in future update
+            resp = lsad.hLsarOpenPolicy2(dce, MAXIMUM_ALLOWED | lsat.POLICY_LOOKUP_NAMES)
+            policyHandle = resp['PolicyHandle']
+            try:
+                resp = lsat.hLsarLookupSids(dce, policyHandle, sids, lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta)
+            except DCERPCException as e:
+                if str(e).find('STATUS_SOME_NOT_MAPPED') >= 0:
+                    resp = e.get_packet()
+                else: 
+                    raise
+            for sid, item in zip(sids,resp['TranslatedNames']['Names']):
+                # if item['Use'] != SID_NAME_USE.SidTypeUnknown:
+                domainIndex = item['DomainIndex']
+                if domainIndex == -1: # Unknown domain
+                    self.sids[sid] = '{}\\{}'.format('???', item['Name'])
+                elif domainIndex >= 0:
+                    name = '{}\\{}'.format(resp['ReferencedDomains']['Domains'][item['DomainIndex']]['Name'], item['Name'])
+                    self.sids[sid] = name
+            dce.disconnect()
+        except:
+            logging.debug(traceback.format_exc())
+
+    def sidToUser(self, sid):
+        if sid[:2] == 'S-' and sid in self.sids:
+            return self.sids[sid]
+        return sid
+
     def do_tasklist(self):
         options = self.__options
         with TSTS.LegacyAPI(self.__smbConnection, options.target_ip, self.__doKerberos) as legacy:
@@ -264,6 +307,15 @@ class TSHandler:
             r = legacy.hRpcWinStationGetAllProcesses(handle)
             if not len(r):
                 return None
+
+            self.sids = {}
+            for procInfo in r:
+                sid = procInfo['pSid']
+                if sid[:2] == 'S-' and sid not in self.sids:
+                    self.sids[sid] = sid
+            
+            self.lookupSids()
+
             maxImageNameLen = max([len(i['ImageName']) for i in r])
             maxSidLen = max([len(i['pSid']) for i in r])
             if options.verbose:
@@ -316,7 +368,7 @@ class TSHandler:
                                           sessionName = self.sessions[sessId]['SessionName'],
                                           sessid      = procInfo['SessionId'],
                                           sessstate   = self.sessions[sessId]['state'].replace('Disconnected','Disc'),
-                                          sid         = procInfo['pSid'],
+                                          sid         = self.sidToUser(procInfo['pSid']),
                                           sessionuser = fullUserName,
                                           workingset  = procInfo['WorkingSetSize']//1000
                                          )
@@ -330,7 +382,7 @@ class TSHandler:
                                 procInfo['ImageName'],
                                 procInfo['UniqueProcessId'],
                                 procInfo['SessionId'],
-                                procInfo['pSid'],
+                                self.sidToUser(procInfo['pSid']),
                                 '{:,} K'.format(procInfo['WorkingSetSize']//1000),
                             )
                     print(row)
