@@ -171,6 +171,7 @@ class HTTPSocksRelay(SocksRelay):
             response.append(part)
         # Append the body
         response.append(b'')
+        
         response.append(data.split(EOL+EOL)[1])
         senddata = EOL.join(response)
 
@@ -187,6 +188,11 @@ class HTTPSocksRelay(SocksRelay):
         except KeyError:
             # No body, could be a simple GET or a POST without body
             # no need to check if we already have the full packet
+            pass
+        try:
+            senddata = senddata.replace(EOL+EOL+EOL+EOL, EOL+EOL)
+        except Exception as e:
+            LOG.error(str(e))
             pass
         return senddata
 
