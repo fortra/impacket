@@ -528,6 +528,11 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init(options.ts)
 
+    if options.no_preauth and options.usersfile is None:
+        logging.error('You have to specify -usersfile when -no-preauth is supplied. Usersfile must contain'
+                      ' a list of SPNs and/or sAMAccountNames to Kerberoast.')
+        sys.exit(1)
+
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
         # Print the Library's installation path
