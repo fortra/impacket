@@ -114,7 +114,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     asReq = AS_REQ()
 
     domain = domain.upper()
-    if service == '':
+    if service == '' or service is None:
         serverName = Principal('krbtgt/%s'%domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
     else:
         serverName = Principal(service, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
