@@ -10,10 +10,12 @@
 # Description:
 #   This script will gather data about the domain's users and their corresponding email addresses. It will also
 #   include some extra information about last logon and last password set attributes.
-#   You can enable or disable the the attributes shown in the final table by changing the values in line 184 and
-#   headers in line 190.
+#   You can enable or disable the the attributes shown in the final table by changing the values in line 147 and
+#   headers in line 71.
+#   You can show all attributes from LDAP using the -all-attributes parameter. In that case attributes are displayed
+#   as a list and not as a pretty table.
 #   If no entries are returned that means users don't have email addresses specified. If so, you can use the
-#   -all-users parameter.
+#   -all parameter.
 #
 # Author:
 #   Alberto Solino (@agsolino)
@@ -65,11 +67,13 @@ class GetADUsers:
         # Remove last ','
         self.baseDN = self.baseDN[:-1]
 
-        # Let's calculate the header and format
-        self.__header = ["Name", "Email", "PasswordLastSet", "LastLogon"]
-        # Since we won't process all rows at once, this will be fixed lengths
-        self.__colLen = [20, 30, 19, 19]
-        self.__outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(self.__colLen)])
+        # If default attributes only, display a nice table. If not, raw list will be displayed
+        if options.all_attributes is not True:
+            # Let's calculate the header and format
+            self.__header = ["Name", "Email", "PasswordLastSet", "LastLogon"]
+            # Since we won't process all rows at once, this will be fixed lengths
+            self.__colLen = [20, 30, 19, 19]
+            self.__outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(self.__colLen)])
 
     def getMachineName(self, target):
         try:
@@ -103,30 +107,52 @@ class GetADUsers:
     def processRecord(self, item):
         if isinstance(item, ldapasn1.SearchResultEntry) is not True:
             return
-        sAMAccountName = ''
-        pwdLastSet = ''
-        mail = ''
-        lastLogon = 'N/A'
+ 
+        attributes = {}
+
         try:
             for attribute in item['attributes']:
                 if str(attribute['type']) == 'sAMAccountName':
                     if attribute['vals'][0].asOctets().decode('utf-8').endswith('$') is False:
                         # User Account
-                        sAMAccountName = attribute['vals'][0].asOctets().decode('utf-8')
+                        attributes[str(attribute['type'])]=attribute['vals'][0].asOctets().decode('utf-8')
+                    else:
+                        attributes[str(attribute['type'])]=''
                 elif str(attribute['type']) == 'pwdLastSet':
                     if str(attribute['vals'][0]) == '0':
-                        pwdLastSet = '<never>'
+                        attributes[str(attribute['type'])]='<never>'
                     else:
-                        pwdLastSet = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
+                        attributes[str(attribute['type'])]=str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
                 elif str(attribute['type']) == 'lastLogon':
                     if str(attribute['vals'][0]) == '0':
-                        lastLogon = '<never>'
+                        attributes[str(attribute['type'])]='<never>'
                     else:
-                        lastLogon = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
+                        attributes[str(attribute['type'])]=str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
                 elif str(attribute['type']) == 'mail':
-                    mail = str(attribute['vals'][0])
+                    attributes[str(attribute['type'])]=str(attribute['vals'][0])
+                else:
+                    if options.all_attributes is True:
+                        if str(attribute['vals'][0]) == '0':
+                            attributes[str(attribute['type'])]='<empty>'
+                        else:
+                            try:
+                                attributes[str(attribute['type'])]=attribute['vals'][0].asOctets().decode('utf-8')
+                            except UnicodeDecodeError:
+                                attributes[str(attribute['type'])]='<invalid utf-8>'
 
-            print((self.__outputFormat.format(*[sAMAccountName, mail, pwdLastSet, lastLogon])))
+            if options.all_attributes is False:
+                if 'mail' not in attributes.keys():
+                    attributes['mail'] = '<empty>'
+                if 'lastLogon' not in attributes.keys():
+                    attributes['lastLogon'] = 'N/A'
+
+                print((self.__outputFormat.format(*[attributes['sAMAccountName'], attributes['mail'], attributes['pwdLastSet'], attributes['lastLogon']])))
+            else:
+                logging.info('----------[ %s ]----------'%attributes['sAMAccountName'])
+                
+                for key in attributes.keys():
+                    logging.info('%s : %s'%(key, attributes[key]))
+                print('')
         except Exception as e:
             logging.debug("Exception", exc_info=True)
             logging.error('Skipping item, cannot process due to error %s' % str(e))
@@ -173,9 +199,11 @@ class GetADUsers:
                 raise
 
         logging.info('Querying %s for information about domain.' % self.__target)
-        # Print header
-        print((self.__outputFormat.format(*self.__header)))
-        print(('  '.join(['-' * itemLen for itemLen in self.__colLen])))
+        # If default attributes only, display a nice table. If not, raw list will be displayed
+        if options.all_attributes is not True:
+            # Print header
+            print((self.__outputFormat.format(*self.__header)))
+            print(('  '.join(['-' * itemLen for itemLen in self.__colLen])))
 
         # Building the search filter
         if self.__all:
@@ -191,7 +219,12 @@ class GetADUsers:
         try:
             logging.debug('Search Filter=%s' % searchFilter)
             sc = ldap.SimplePagedResultsControl(size=100)
-            ldapConnection.search(searchFilter=searchFilter,
+            if options.all_attributes is True:
+                logging.warning('Querying all attributes. This can take a long time.')
+                ldapConnection.search(searchFilter=searchFilter,
+                                  sizeLimit=0, searchControls = [sc], perRecordCallback=self.processRecord)
+            else:
+                ldapConnection.search(searchFilter=searchFilter,
                                   attributes=['sAMAccountName', 'pwdLastSet', 'mail', 'lastLogon'],
                                   sizeLimit=0, searchControls = [sc], perRecordCallback=self.processRecord)
         except ldap.LDAPSearchError:
@@ -210,6 +243,7 @@ if __name__ == '__main__':
     parser.add_argument('-all', action='store_true', help='Return all users, including those with no email '
                                                            'addresses and disabled accounts. When used with -user it '
                                                           'will return user\'s info even if the account is disabled')
+    parser.add_argument('-all-attributes', action='store_true', help='Query all attributes of each LDAP user object')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
