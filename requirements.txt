@@ -9,3 +9,5 @@ ldapdomaindump>=0.9.0
 flask>=1.0
 pyreadline;sys_platform == 'win32'
 dsinternals
+pyasn1-modules
+requests-toolbelt
