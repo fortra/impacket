@@ -63,6 +63,7 @@ class NTLMRelayxConfig:
         self.interactive = False
         self.enumLocalAdmins = False
         self.SMBServerChallenge = None
+        self.rpc_attack = None
 
         # RPC options
         self.rpc_mode = None
@@ -108,6 +109,9 @@ class NTLMRelayxConfig:
 
     def setSMBChallenge(self, value):
         self.SMBServerChallenge = value
+
+    def setSMBRPCAttack(self, value):
+        self.rpc_attack = value
 
     def setSMB2Support(self, value):
         self.smb2support = value

