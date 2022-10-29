@@ -616,7 +616,8 @@ class CCache:
 
         creds = None
         if target != '':
-            principal = '%s@%s' % (target.upper(), domain.upper())
+            targetRealm = target.replace(target.split('.')[0]+'.', '')
+            principal = '%s@%s' % (target.upper(), targetRealm.upper())
             creds = ccache.getCredential(principal)
 
         TGT = None
