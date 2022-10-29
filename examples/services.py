@@ -326,8 +326,8 @@ if __name__ == '__main__':
     group.add_argument('-target-ip', action='store', metavar="ip address", help='IP Address of the target machine. If '
                        'ommited it will use whatever was specified as target. This is useful when target is the NetBIOS '
                        'name and you cannot resolve it')
-    group.add_argument('-port', choices=['135', '445', '49679'], nargs='?', default='445', metavar="destination port",
-                       help='Destination TCP port to connect to (135: MSRPC portmapper (also uses 49679), 445: SMB (default), 49679: directly to MS-SCMR)')
+    group.add_argument('-port', type=int, nargs='?', default='445', metavar="destination port",
+                       help='Destination TCP port to connect to (135: MSRPC portmapper (also uses the dynamic MS-SCMR port), 445: SMB (default), other: directly to MS-SCMR)')
  
     if len(sys.argv)==1:
         parser.print_help()
