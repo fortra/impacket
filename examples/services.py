@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
@@ -29,8 +29,8 @@ import codecs
 
 from impacket.examples import logger
 from impacket.examples.utils import parse_target
-from impacket import version
-from impacket.dcerpc.v5 import transport, scmr
+from impacket import version, ntlm
+from impacket.dcerpc.v5 import transport, scmr, epm
 from impacket.dcerpc.v5.ndr import NULL
 from impacket.crypto import encryptSecret
 
@@ -55,10 +55,13 @@ class SVCCTL:
 
     def run(self, remoteName, remoteHost):
 
-        stringbinding = r'ncacn_np:%s[\pipe\svcctl]' % remoteName
+        if self.__port == 445:
+            stringbinding = r'ncacn_np:%s[\pipe\svcctl]' % remoteName
+        else:
+            stringbinding = epm.hept_map(remoteName, scmr.MSRPC_UUID_SCMR, protocol='ncacn_ip_tcp')
         logging.debug('StringBinding %s'%stringbinding)
         rpctransport = transport.DCERPCTransportFactory(stringbinding)
-        rpctransport.set_dport(self.__port)
+        #rpctransport.set_dport(self.__port)
         rpctransport.setRemoteHost(remoteHost)
         if hasattr(rpctransport, 'set_credentials'):
             # This method exists only for selected protocol sequences.
@@ -70,6 +73,8 @@ class SVCCTL:
     def doStuff(self, rpctransport):
         dce = rpctransport.get_dce_rpc()
         #dce.set_credentials(self.__username, self.__password)
+        if self.__port == 135:
+            dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
         dce.connect()
         #dce.set_max_fragment_size(1)
         #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
@@ -320,8 +325,8 @@ if __name__ == '__main__':
     group.add_argument('-target-ip', action='store', metavar="ip address", help='IP Address of the target machine. If '
                        'ommited it will use whatever was specified as target. This is useful when target is the NetBIOS '
                        'name and you cannot resolve it')
-    group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port",
-                       help='Destination port to connect to SMB Server')
+    group.add_argument('-port', choices=['135', '445'], nargs='?', default='445', metavar="destination port",
+                       help='Destination TCP port to connect to (135: MSRPC (also uses 49679), 445: SMB (default))')
  
     if len(sys.argv)==1:
         parser.print_help()
