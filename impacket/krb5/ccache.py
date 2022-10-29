@@ -623,7 +623,10 @@ class CCache:
         TGT = None
         TGS = None
         if creds is None:
-            principal = 'krbtgt/%s@%s' % (domain.upper(), domain.upper())
+            targetRealm = domain
+            if target != '':
+                targetRealm = target.replace(target.split('.')[0]+'.', '')
+            principal = 'krbtgt/%s@%s' % (targetRealm.upper(), domain.upper())
             creds = ccache.getCredential(principal)
             if creds is not None:
                 LOG.debug('Using TGT from cache')
