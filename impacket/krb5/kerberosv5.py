@@ -418,7 +418,11 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
 
     reqBody['kdc-options'] = constants.encodeFlags(opts)
     seq_set(reqBody, 'sname', serverName.components_to_asn1)
-    reqBody['realm'] = domain
+    targetServerName = ''
+    for i, c in enumerate(serverName.components):
+        targetServerName = c
+    targetRealm = targetServerName.replace(targetServerName.split('.')[0]+'.', '')
+    reqBody['realm'] = targetRealm
 
     now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
 
