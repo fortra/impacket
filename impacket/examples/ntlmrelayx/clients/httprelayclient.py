@@ -70,6 +70,7 @@ class HTTPRelayClient(ProtocolClient):
             LOG.error('No authentication requested by the server for url %s' % self.targetHost)
             if self.serverConfig.isADCSAttack:
                 LOG.info('IIS cert server may allow anonymous authentication, sending NTLM auth anyways')
+                self.authenticationMethod = "NTLM"
             else:
                 return False
 
