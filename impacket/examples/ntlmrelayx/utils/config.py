@@ -191,7 +191,7 @@ class NTLMRelayxConfig:
     def setMSSQLOptions(self, queries):
         self.queries = queries
 
-    def setRPCOptions(self, rpc_mode, rpc_use_smb, auth_smb, hashes_smb, rpc_smb_port):
+    def setRPCOptions(self, rpc_mode, rpc_use_smb, auth_smb, hashes_smb, rpc_smb_port, icpr_ca_name):
         self.rpc_mode = rpc_mode
         self.rpc_use_smb = rpc_use_smb
         self.smbdomain, self.smbuser, self.smbpass = parse_credentials(auth_smb)
@@ -203,6 +203,7 @@ class NTLMRelayxConfig:
             self.smbnthash = ''
 
         self.rpc_smb_port = rpc_smb_port
+        self.icpr_ca_name = icpr_ca_name
 
     def setInteractive(self, interactive):
         self.interactive = interactive
