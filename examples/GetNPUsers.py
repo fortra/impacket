@@ -306,12 +306,12 @@ class GetUserNoPreAuth:
             try:
                 for attribute in item['attributes']:
                     if str(attribute['type']) == 'sAMAccountName':
-                        sAMAccountName = str(attribute['vals'][0])
+                        sAMAccountName = attribute['vals'][0].asOctets().decode()
                         mustCommit = True
                     elif str(attribute['type']) == 'userAccountControl':
                         userAccountControl = "0x%x" % int(attribute['vals'][0])
                     elif str(attribute['type']) == 'memberOf':
-                        memberOf = str(attribute['vals'][0])
+                        memberOf = attribute['vals'][0].asOctets().decode()
                     elif str(attribute['type']) == 'pwdLastSet':
                         if str(attribute['vals'][0]) == '0':
                             pwdLastSet = '<never>'
