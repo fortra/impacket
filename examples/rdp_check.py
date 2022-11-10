@@ -382,7 +382,14 @@ if __name__ == '__main__':
        tpkt['TPDU'] = tpdu.getData()
    
        s = socket.socket()
-       s.connect((host,3389))
+       try:
+           s.connect((host,3389))
+       except Exception as err:
+           if str(err).find("refused") > 0:
+               logging.error("Connection Refused")
+           else:
+               logging.error(err)
+           return
        s.sendall(tpkt.getData())
        pkt = s.recv(8192)
        tpkt.fromString(pkt)
