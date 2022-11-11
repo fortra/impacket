@@ -113,6 +113,9 @@ def main():
                 else:
                     print(line, end=' ')
         else:
+            f = open(options.outputfile, 'a')
+            f.write('=' * 20 + '\n' + options.target_ip + '\n' + '=' * 20 + '\n')
+            f.close()
             shell.cmdloop()
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:

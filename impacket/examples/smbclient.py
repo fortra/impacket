@@ -75,7 +75,7 @@ class MiniImpacketShell(cmd.Cmd):
     def precmd(self,line):
         # switch to unicode
         f = open(self.outputfile, 'a')
-        f.write(line + "\n")
+        f.write('> ' + line + "\n")
         f.close()
         if PY2:
             return line.decode('utf-8')
