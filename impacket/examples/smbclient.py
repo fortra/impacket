@@ -42,7 +42,7 @@ except ImportError:
   import readline
 
 class MiniImpacketShell(cmd.Cmd):
-    def __init__(self, smbClient, tcpShell=None):
+    def __init__(self, smbClient, tcpShell=None, outputfile=None):
         #If the tcpShell parameter is passed (used in ntlmrelayx),
         # all input and output is redirected to a tcp socket
         # instead of to stdin / stdout
@@ -67,12 +67,16 @@ class MiniImpacketShell(cmd.Cmd):
         self.loggedIn = True
         self.last_output = None
         self.completion = []
+        self.outputfile = outputfile
 
     def emptyline(self):
         pass
 
     def precmd(self,line):
         # switch to unicode
+        f = open(self.outputfile, 'a')
+        f.write(line + "\n")
+        f.close()
         if PY2:
             return line.decode('utf-8')
         return line
@@ -323,8 +327,11 @@ class MiniImpacketShell(cmd.Cmd):
             LOG.error("Not logged in")
             return
         resp = self.smb.listShares()
+        f = open(self.outputfile, 'a')
         for i in range(len(resp)):
+            f.write(resp[i]['shi1_netname'][:-1] + '\n')
             print(resp[i]['shi1_netname'][:-1])
+        f.close()
 
     def do_use(self,line):
         if self.loggedIn is False:
@@ -369,6 +376,9 @@ class MiniImpacketShell(cmd.Cmd):
         if self.loggedIn is False:
             LOG.error("Not logged in")
             return
+        f = open(self.outputfile, 'a')
+        f.write(self.pwd)
+        f.close()
         print(self.pwd)
 
     def do_ls(self, wildcard, display = True):
@@ -385,12 +395,18 @@ class MiniImpacketShell(cmd.Cmd):
         self.completion = []
         pwd = pwd.replace('/','\\')
         pwd = ntpath.normpath(pwd)
+        of = open(self.outputfile, 'a')
         for f in self.smb.listPath(self.share, pwd):
             if display is True:
+                of.write("%crw-rw-rw- %10d  %s %s" % (
+                'd' if f.is_directory() > 0 else '-', f.get_filesize(), time.ctime(float(f.get_mtime_epoch())),
+                f.get_longname()) + "\n")
+                
                 print("%crw-rw-rw- %10d  %s %s" % (
                 'd' if f.is_directory() > 0 else '-', f.get_filesize(), time.ctime(float(f.get_mtime_epoch())),
                 f.get_longname()))
             self.completion.append((f.get_longname(), f.is_directory()))
+        of.close()
 
 
     def do_rm(self, filename):
@@ -507,16 +523,23 @@ class MiniImpacketShell(cmd.Cmd):
         output = fh.getvalue()
         encoding = chardet.detect(output)["encoding"]
         error_msg = "[-] Output cannot be correctly decoded, are you sure the text is readable ?"
+        f = open(self.outputfile, 'a')
         if encoding:
             try:
+                f.write(output.decode(encoding) + '\n')
                 print(output.decode(encoding))
+                f.close()
             except:
+                f.write(error_msg + '\n')
                 print(error_msg)
+                f.close()
             finally:
                 fh.close()
         else:
+            f.write(error_msg + '\n')
             print(error_msg)
             fh.close()
+            f.close()
 
     def do_close(self, line):
         self.do_logoff(line)
