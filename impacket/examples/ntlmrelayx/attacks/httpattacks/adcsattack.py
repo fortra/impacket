@@ -58,7 +58,7 @@ class ADCSAttack:
         response = self.client.getresponse()
 
         if response.status != 200:
-            LOG.error("Error getting certificate! Make sure you have entered valid certiface template.")
+            LOG.error("Error getting certificate! Make sure you have entered valid certificate template.")
             return
 
         content = response.read()
@@ -76,7 +76,12 @@ class ADCSAttack:
         certificate = response.read().decode()
 
         certificate_store = self.generate_pfx(key, certificate)
-        LOG.info("Base64 certificate of user %s: \n%s" % (self.username, base64.b64encode(certificate_store).decode()))
+        LOG.info("Writing certificate to %s.pfx" % self.username)
+        f = open("%s.pfx" % self.username, 'wb')
+        f.write(certificate_store)
+        f.close()
+        LOG.info("Certificate successfully written to file")
+        #LOG.info("Base64 certificate of user %s: \n%s" % (self.username, base64.b64encode(certificate_store).decode()))
 
         if self.config.altName:
             LOG.info("This certificate can also be used for user : {}".format(self.config.altName))
