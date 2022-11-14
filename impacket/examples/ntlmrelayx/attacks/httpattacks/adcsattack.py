@@ -15,6 +15,7 @@
 
 import re
 import base64
+import os
 from OpenSSL import crypto
 
 from impacket import LOG
@@ -76,12 +77,18 @@ class ADCSAttack:
         certificate = response.read().decode()
 
         certificate_store = self.generate_pfx(key, certificate)
-        LOG.info("Writing certificate to %s.pfx" % self.username)
-        f = open("%s.pfx" % self.username, 'wb')
-        f.write(certificate_store)
-        f.close()
-        LOG.info("Certificate successfully written to file")
-        #LOG.info("Base64 certificate of user %s: \n%s" % (self.username, base64.b64encode(certificate_store).decode()))
+        LOG.info("Writing certificate to %s/%s.pfx" % (self.config.lootdir, self.username))
+        try:
+            if not os.path.isdir(self.config.lootdir):
+                os.mkdir(self.config.lootdir)
+            f = open("%s/%s.pfx" % (self.config.lootdir, self.username), 'wb')
+            f.write(certificate_store)
+            f.close()
+            LOG.info("Certificate successfully written to file")
+        except Exception as e:
+            LOG.info("Unable to write certificate to file, printing B64 of certificate to console instead")
+            LOG.info("Base64 certificate of user %s: \n%s" % (self.username, base64.b64encode(certificate_store).decode()))
+            pass
 
         if self.config.altName:
             LOG.info("This certificate can also be used for user : {}".format(self.config.altName))
