@@ -81,9 +81,8 @@ class ADCSAttack:
         try:
             if not os.path.isdir(self.config.lootdir):
                 os.mkdir(self.config.lootdir)
-            f = open("%s/%s.pfx" % (self.config.lootdir, self.username), 'wb')
-            f.write(certificate_store)
-            f.close()
+            with open("%s/%s.pfx" % (self.config.lootdir, self.username), 'wb') as f:
+                f.write(certificate_store)
             LOG.info("Certificate successfully written to file")
         except Exception as e:
             LOG.info("Unable to write certificate to file, printing B64 of certificate to console instead")
