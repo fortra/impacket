@@ -1100,8 +1100,7 @@ if __name__ == '__main__':
     parser.add_argument('-user-id', action="store", default = '500', help='user id for the user the ticket will be '
                                                                           'created for (default = 500)')
     parser.add_argument('-extra-sid', action="store", help='Comma separated list of ExtraSids to be included inside the ticket\'s PAC')
-    parser.add_argument('-extra-pac', action='store_true', help='Populate your ticket with extra PAC (UPN_DNS, ATTRIBUTES and REQUESTOR)')
-    parser.add_argument('-duration', action="store", default = '87600', help='Amount of hours till the ticket expires '
+    parser.add_argument('-duration', action="store", default='87600', help='Amount of hours till the ticket expires '
                                                                             '(default = 24*365*10)')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
