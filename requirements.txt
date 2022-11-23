@@ -1,6 +1,7 @@
 future
 six
 charset_normalizer
+chardet
 pyasn1>=0.2.3
 pycryptodomex
 pyOpenSSL>=21.0.0
