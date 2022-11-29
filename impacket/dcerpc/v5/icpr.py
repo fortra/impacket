@@ -139,7 +139,7 @@ class CertServerRequestResponse(NDRCALL):
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
-@staticmethod
+
 def translate_error_code(error_code: int) -> str:
     error_code &= 0xFFFFFFFF
     if error_code in hresult_errors.ERROR_MESSAGES:
@@ -153,7 +153,6 @@ def translate_error_code(error_code: int) -> str:
     else:
         return "unknown error code: 0x%x" % error_code
 
-@staticmethod
 def hCertServerRequest(
     dce: DCERPC_v5,
     csr: bytes,
