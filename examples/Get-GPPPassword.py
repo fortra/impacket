@@ -20,7 +20,7 @@
 import argparse
 import base64
 import xml
-import chardet
+import charset_normalizer
 import logging
 import os
 import re
@@ -160,7 +160,7 @@ class GetGPPasswords(object):
         except Exception as e:
             raise
         output = fh.getvalue()
-        encoding = chardet.detect(output)["encoding"]
+        encoding = charset_normalizer.detect(output)["encoding"]
         if encoding is not None:
             filecontent = output.decode(encoding).rstrip()
             if "cpassword" in filecontent:
