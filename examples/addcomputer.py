@@ -148,7 +148,7 @@ class ADDCOMPUTER:
             connectTo = self.__targetIp
         try:
             user = '%s\\%s' % (self.__domain, self.__username)
-            tls = ldap3.Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1_2)
+            tls = ldap3.Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1_2, ciphers='ALL:@SECLEVEL=0')
             try:
                 ldapServer = ldap3.Server(connectTo, use_ssl=True, port=self.__port, get_info=ldap3.ALL, tls=tls)
                 if self.__doKerberos:
@@ -164,7 +164,7 @@ class ADDCOMPUTER:
 
             except ldap3.core.exceptions.LDAPSocketOpenError:
                 #try tlsv1
-                tls = ldap3.Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1)
+                tls = ldap3.Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1_2, ciphers='ALL:@SECLEVEL=0')
                 ldapServer = ldap3.Server(connectTo, use_ssl=True, port=self.__port, get_info=ldap3.ALL, tls=tls)
                 if self.__doKerberos:
                     ldapConn = ldap3.Connection(ldapServer)

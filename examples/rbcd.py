@@ -483,7 +483,7 @@ def init_ldap_connection(target, tls_version, args, domain, username, password, 
     if tls_version is not None:
         use_ssl = True
         port = 636
-        tls = ldap3.Tls(validate=ssl.CERT_NONE, version=tls_version)
+        tls = ldap3.Tls(validate=ssl.CERT_NONE, version=tls_version, ciphers='ALL:@SECLEVEL=0')
     else:
         use_ssl = False
         port = 389
