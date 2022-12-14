@@ -1926,7 +1926,7 @@ class NTDSHashes:
 
     def __init__(self, ntdsFile, bootKey, isRemote=False, history=False, noLMHash=True, remoteOps=None,
                  useVSSMethod=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None,
-                 justUser=None, printUserStatus=False,
+                 justUser=None, skipUser=None, printUserStatus=False,
                  perSecretCallback = lambda secretType, secret : _print_helper(secret),
                  resumeSessionMgr=ResumeSessionMgrInFile):
         self.__bootKey = bootKey
@@ -1949,6 +1949,7 @@ class NTDSHashes:
         self.__resumeSession = resumeSessionMgr(resumeSession)
         self.__outputFileName = outputFileName
         self.__justUser = justUser
+        self.__skipUser = skipUser
         self.__perSecretCallback = perSecretCallback
 
 		# these are all the columns that we need to get the secrets.
@@ -2428,7 +2429,16 @@ class NTDSHashes:
         hashesOutputFile = None
         keysOutputFile = None
         clearTextOutputFile = None
+        skipUsers = []
 
+        if self.__skipUser:
+            if os.path.isfile(self.__skipUser):
+                f = open(self.__skipUser, 'r')
+                skipUsers = [ line.strip() for line in f ]
+                f.close()
+            else:
+                skipUsers = self.__skipUser.split(',')
+        
         if self.__useVSSMethod is True:
             if self.__NTDS is None:
                 # No NTDS.dit file provided and were asked to use VSS
@@ -2584,7 +2594,8 @@ class NTDSHashes:
 
                         for user in resp['Buffer']['Buffer']:
                             userName = user['Name']
-
+                            if userName in skipUsers:
+                                continue
                             userSid = "%s-%i" % (self.__remoteOps.getDomainSid(), user['RelativeId'])
                             if resumeSid is not None:
                                 # Means we're looking for a SID before start processing back again

@@ -469,7 +469,8 @@ class HTTPRelayServer(Thread):
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                               self.server.config.outputFile)
 
-                    self.server.config.target.logTarget(self.target, True, self.authUser)
+                    if not self.server.config.isADCSAttack:
+                        self.server.config.target.logTarget(self.target, True, self.authUser)
                     self.do_attack()
                     if self.server.config.disableMulti:
                         # We won't use the redirect trick, closing connection...
