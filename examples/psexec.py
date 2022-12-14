@@ -145,7 +145,7 @@ class PSEXEC:
                 except Exception as e:
                     logging.critical(str(e))
                     sys.exit(1)
-                installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), f)
+                installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), f, self.__serviceName, self.__remoteBinaryName)
 
             if installService.install() is False:
                 return
