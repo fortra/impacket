@@ -636,7 +636,7 @@ class DACLedit(object):
             nace['AceType'] = ldaptypes.ACCESS_DENIED_ACE.ACE_TYPE
             acedata = ldaptypes.ACCESS_DENIED_ACE()
         if self.inheritance:
-            nace['AceFlags'] = 0x03
+            nace['AceFlags'] = ldaptypes.ACE.OBJECT_INHERIT_ACE + ldaptypes.ACE.CONTAINER_INHERIT_ACE
         else:
             nace['AceFlags'] = 0x00
         acedata['Mask'] = ldaptypes.ACCESS_MASK()
@@ -663,7 +663,7 @@ class DACLedit(object):
             nace['AceType'] = ldaptypes.ACCESS_DENIED_OBJECT_ACE.ACE_TYPE
             acedata = ldaptypes.ACCESS_DENIED_OBJECT_ACE()           
         if self.inheritance:
-            nace['AceFlags'] = 0x03
+            nace['AceFlags'] = ldaptypes.ACE.OBJECT_INHERIT_ACE + ldaptypes.ACE.CONTAINER_INHERIT_ACE
         else:
             nace['AceFlags'] = 0x00
         acedata['Mask'] = ldaptypes.ACCESS_MASK()
