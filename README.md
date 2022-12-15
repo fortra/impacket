@@ -7,7 +7,9 @@
 Impacket
 ========
 
-SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+FORTRA. Copyright (C) 2022 Fortra. All rights reserved.
+
+Impacket was originally created by [SecureAuth](https://www.secureauth.com/labs/open-source-tools/impacket), and now maintained by Fortra's Core Security.
 
 Impacket is a collection of Python classes for working with network
 protocols. Impacket is focused on providing low-level
