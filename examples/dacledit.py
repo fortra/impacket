@@ -240,6 +240,8 @@ class DACLedit(object):
         self.rights_guid = args.rights_guid
         self.filename = args.filename
         self.inheritance = args.inheritance
+        if self.inheritance:
+            logging.info("NB: objects with adminCount=1 will no inherit ACEs from their parent container/OU")
 
         logging.debug('Initializing domainDumper()')
         cnf = ldapdomaindump.domainDumpConfig()
@@ -712,7 +714,8 @@ def parse_args():
     dacl_parser.add_argument('-ace-type', choices=['allowed', 'denied'], nargs='?', default='allowed', help='The ACE Type (access allowed or denied) that must be added or removed (default: allowed)')
     dacl_parser.add_argument('-rights', choices=['FullControl', 'ResetPassword', 'WriteMembers', 'DCSync'], nargs='?', default='FullControl', help='Rights to write/remove in the target DACL (default: FullControl)')
     dacl_parser.add_argument('-rights-guid', type=str, help='Manual GUID representing the right to write/remove')
-    dacl_parser.add_argument('-inheritance', action="store_true", help='Enable the inheritance in the ACE flag with CONTAINER_INHERIT_ACE and OBJECT_INHERIT_ACE. Useful when target is a Container or an OU.')
+    dacl_parser.add_argument('-inheritance', action="store_true", help='Enable the inheritance in the ACE flag with CONTAINER_INHERIT_ACE and OBJECT_INHERIT_ACE. Useful when target is a Container or an OU, '
+                                                                       'ACE will be inherited by objects within the container/OU (except objects with adminCount=1)')
 
     if len(sys.argv) == 1:
         parser.print_help()
