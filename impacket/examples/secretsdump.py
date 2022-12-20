@@ -102,6 +102,45 @@ try:
     from pyasn1.codec.der import encoder, decoder
 except ImportError:
     LOG.critical('This module needs pyasn1 installed')
+try:
+    from dissect.esedb import EseDB
+
+    class ESENT_DB:
+        def __init__(self, fileName, pageSize = 8192, isRemote = False):
+            if isRemote:
+                self.fh = fileName
+                self.fh.open()
+            else:
+                self.fh = open(fileName, "rb")
+            self.db = EseDB(self.fh, impacket_compat=True)
+
+        def openTable(self, tableName):
+            # Impacket only ever asks for the "next" record, so our cursor can simply be the record iterator
+            return self.db.table(tableName).records()
+
+        def getNextRow(self, cursor, filter_tables):
+            # Impacket uses a list to filter column names to make parsing a bit more efficient, but our parsing already
+            # skips columns you don't request the value for
+            try:
+                # Impacket treats column names as bytes so we need to wrap all records to translate column lookup
+                return RecordWrapper(next(cursor))
+            except StopIteration:
+                return None
+
+        def close(self):
+            self.fh.close()
+
+
+    class RecordWrapper:
+        def __init__(self, record):
+            self._record = record
+
+        def __getitem__(self, attr):
+            # Impacket treats column names as bytes so decode to string
+            return self._record.get(attr.decode())
+except ImportError as e:
+    LOG.critical("Warning: You don't have dissect.esedb installed.")
+    LOG.critical("Install dissect.esedb for higher performance.")
 
 try:
     rand = random.SystemRandom()
