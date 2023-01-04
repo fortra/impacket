@@ -481,15 +481,16 @@ if __name__ == '__main__':
                                                                           '(128 or 256 bits)')
     group.add_argument('-authentication-choice', action="store", choices=['simple','sicilyNegotiate'], default='sicilyNegotiate', 
                        help='LDAP authentication choice between simple and NTLM.'
-                            ' If ommited it use sicilyNegotiate (NTLM).')
+                            '\'simple\' must be used with password and not NTLM.'
+                            'If omitted it use sicilyNegotiate (NTLM).')
 
     group = parser.add_argument_group('connection')
     group.add_argument('-dc-ip', action='store', metavar='ip address', help='IP Address of the domain controller. If '
-                                                                            'ommited it use the domain part (FQDN) '
+                                                                            'omitted it use the domain part (FQDN) '
                                                                             'specified in the target parameter. Ignored'
                                                                             'if -target-domain is specified.')
     group.add_argument('-dc-host', action='store', metavar='hostname', help='Hostname of the domain controller to use. '
-                                                                            'If ommited, the domain part (FQDN) '
+                                                                            'If omitted, the domain part (FQDN) '
                                                                             'specified in the account parameter will be used')
 
     if len(sys.argv) == 1:
@@ -519,7 +520,7 @@ if __name__ == '__main__':
     else:
         targetDomain = userDomain
 
-    if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
+    if password == '' and username != '' and options.authentication_choice == 'simple' or (options.hashes is None and options.no_pass is False and options.aesKey is None):
         from getpass import getpass
 
         password = getpass("Password:")
