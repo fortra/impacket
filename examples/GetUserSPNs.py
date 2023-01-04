@@ -80,6 +80,7 @@ class GetUserSPNs:
         self.__targetDomain = target_domain
         self.__lmhash = ''
         self.__nthash = ''
+        self.__authenticationChoice = cmdLineOptions.authentication_choice
         self.__outputFileName = cmdLineOptions.outputfile
         self.__usersFile = cmdLineOptions.usersfile
         self.__aesKey = cmdLineOptions.aesKey
@@ -267,7 +268,7 @@ class GetUserSPNs:
         try:
             ldapConnection = ldap.LDAPConnection('ldap://%s' % self.__target, self.baseDN, self.__kdcIP)
             if self.__doKerberos is not True:
-                ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+                ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__authenticationChoice)
             else:
                 ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash,
                                              self.__nthash,
@@ -277,7 +278,7 @@ class GetUserSPNs:
                 # We need to try SSL
                 ldapConnection = ldap.LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcIP)
                 if self.__doKerberos is not True:
-                    ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+                    ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__authenticationChoice)
                 else:
                     ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash,
                                                  self.__nthash,
@@ -478,6 +479,9 @@ if __name__ == '__main__':
                             'line')
     group.add_argument('-aesKey', action="store", metavar="hex key", help='AES key to use for Kerberos Authentication '
                                                                           '(128 or 256 bits)')
+    group.add_argument('-authentication-choice', action="store", choices=['simple','sicilyNegotiate'], default='sicilyNegotiate', 
+                       help='LDAP authentication choice between simple and NTLM.'
+                            ' If ommited it use sicilyNegotiate (NTLM).')
 
     group = parser.add_argument_group('connection')
     group.add_argument('-dc-ip', action='store', metavar='ip address', help='IP Address of the domain controller. If '
