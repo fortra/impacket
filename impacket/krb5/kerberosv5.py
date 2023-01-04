@@ -439,7 +439,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
 
     message = encoder.encode(tgsReq)
 
-    r = sendReceive(message, domain, kdcHost)
+    r = sendReceive(message, targetRealm, kdcHost)
 
     # Get the session key
 
