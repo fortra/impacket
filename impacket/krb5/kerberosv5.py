@@ -359,11 +359,6 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     except:
         decodedTGT = decoder.decode(tgt, asn1Spec = TGS_REP())[0]
 
-    currentRealm = ''
-    for i, c in enumerate(decodedTGT.components):
-        if i == 3:
-            currentRealm = c._value
-
     targetRealm = ''
     for i, c in enumerate(decodedTGT.components):
         if i == 5:
@@ -433,9 +428,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
 
     reqBody['kdc-options'] = constants.encodeFlags(opts)
     seq_set(reqBody, 'sname', serverName.components_to_asn1)
-    if currentRealm != targetRealm:
-        currentRealm = targetRealm
-    reqBody['realm'] = currentRealm
+    reqBody['realm'] = targetRealm
 
     now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
 
@@ -452,7 +445,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
 
     message = encoder.encode(tgsReq)
 
-    r = sendReceive(message, currentRealm, kdcHost)
+    r = sendReceive(message, targetRealm, kdcHost)
 
     # Get the session key
 
