@@ -114,7 +114,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     asReq = AS_REQ()
 
     domain = domain.upper()
-    serverName = Principal('krbtgt/%s'%domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+    serverName = Principal('krbtgt/%s'%domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)  
 
     pacRequest = KERB_PA_PAC_REQUEST()
     pacRequest['include-pac'] = requestPAC
@@ -352,7 +352,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     return tgt, cipher, key, sessionKey
 
 def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
-    
+
     # Decode the TGT
     try:
         decodedTGT = decoder.decode(tgt, asn1Spec = AS_REP())[0]
