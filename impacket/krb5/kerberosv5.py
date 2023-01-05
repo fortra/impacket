@@ -593,8 +593,8 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                     if lmhash == b'' and nthash == b'' and (aesKey == b'' or aesKey is None) and TGT is None and TGS is None:
                         from impacket.ntlm import compute_lmhash, compute_nthash
                         LOG.debug('Got KDC_ERR_ETYPE_NOSUPP, fallback to RC4')
-                        lmhash = compute_lmhash(password) 
-                        nthash = compute_nthash(password)
+                        lmhash = compute_lmhash(password)
+                        nthash = compute_nthash(password) 
                     else:
                         raise 
                 else:
