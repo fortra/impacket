@@ -414,7 +414,7 @@ class CCache:
 
     def getCredential(self, server, anySPN=True):
         for c in self.credentials:
-            if c['server'].prettyPrint().upper() == b(server.upper()) or c['server'].prettyPrint().upper().split(b'@')[0] == b(server.upper()) \
+            if c['server'].prettyPrint().upper() == b(server.upper()) or c['server'].prettyPrint().upper().split(b'@')[0] == b(server.upper())\
                     or c['server'].prettyPrint().upper().split(b'@')[0] == b(server.upper().split('@')[0]):
                 LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper().decode('utf-8'))
                 return c
@@ -428,7 +428,7 @@ class CCache:
                     # Let's take the port out for comparison
                     cachedSPN = (c['server'].prettyPrint().upper().split(b'/')[1].split(b'@')[0].split(b':')[0] + b'@' + c['server'].prettyPrint().upper().split(b'/')[1].split(b'@')[1])
                     searchSPN = '%s@%s' % (server.upper().split('/')[1].split('@')[0].split(':')[0],
-                                           server.upper().split('/')[1].split('@')[1])
+                                               server.upper().split('/')[1].split('@')[1])
                     if cachedSPN == b(searchSPN):
                         LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper().decode('utf-8'))
                         return c
@@ -615,6 +615,7 @@ class CCache:
             LOG.debug('Domain retrieved from CCache: %s' % domain)
 
         creds = None
+        targetRealm = domain
         if target != '':
             targetRealm = target.replace(target.split('.')[0]+'.', '')
             principal = '%s@%s' % (target.upper(), targetRealm.upper())
@@ -623,9 +624,6 @@ class CCache:
         TGT = None
         TGS = None
         if creds is None:
-            targetRealm = domain
-            if target != '':
-                targetRealm = target.replace(target.split('.')[0]+'.', '')
             principal = 'krbtgt/%s@%s' % (targetRealm.upper(), domain.upper())
             creds = ccache.getCredential(principal)
             if creds is None:
