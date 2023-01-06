@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -371,8 +371,10 @@ class RBCD(object):
                 logging.info('Accounts allowed to act on behalf of other identity:')
                 for ace in sd['Dacl'].aces:
                     SID = ace['Ace']['Sid'].formatCanonical()
-                    SamAccountName = self.get_sid_info(ace['Ace']['Sid'].formatCanonical())[1]
-                    logging.info('    %-10s   (%s)' % (SamAccountName, SID))
+                    SidInfos = self.get_sid_info(ace['Ace']['Sid'].formatCanonical())
+                    if SidInfos:
+                        SamAccountName = SidInfos[1]
+                        logging.info('    %-10s   (%s)' % (SamAccountName, SID))
             else:
                 logging.info('Attribute msDS-AllowedToActOnBehalfOfOtherIdentity is empty')
         except IndexError:
@@ -483,7 +485,7 @@ def init_ldap_connection(target, tls_version, args, domain, username, password, 
     if tls_version is not None:
         use_ssl = True
         port = 636
-        tls = ldap3.Tls(validate=ssl.CERT_NONE, version=tls_version)
+        tls = ldap3.Tls(validate=ssl.CERT_NONE, version=tls_version, ciphers='ALL:@SECLEVEL=0')
     else:
         use_ssl = False
         port = 389

@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -175,7 +175,7 @@ class NTLMRelayxConfig:
     def setRandomTargets(self, randomtargets):
         self.randomtargets = randomtargets
 
-    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser, addcomputer, delegateaccess, dumplaps, dumpgmsa, dumpadcs, sid):
+    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser, addcomputer, delegateaccess, dumplaps, dumpgmsa, dumpadcs, sid, adddnsrecord):
         self.dumpdomain = dumpdomain
         self.addda = addda
         self.aclattack = aclattack
@@ -187,6 +187,7 @@ class NTLMRelayxConfig:
         self.dumpgmsa = dumpgmsa
         self.dumpadcs = dumpadcs
         self.sid = sid
+        self.adddnsrecord = adddnsrecord
 
     def setMSSQLOptions(self, queries):
         self.queries = queries
