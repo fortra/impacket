@@ -627,7 +627,7 @@ class SMB2PreAuthIntegrityCapabilities(Structure):
     structure = (
         ('HashAlgorithmCount','<H=0'),
         ('SaltLength','<H=0'),
-		('_HashAlgorithms', '_-HashAlgorithms', 'self["HashAlgorithmCount"]*2'),
+        ('_HashAlgorithms', '_-HashAlgorithms', 'self["HashAlgorithmCount"]*2'),
         ('HashAlgorithms',':=""'),
         ('Salt',':=""'),
     )
