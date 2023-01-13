@@ -2,9 +2,11 @@ Impacket
 ========
 
 [![Latest Version](https://img.shields.io/pypi/v/impacket.svg)](https://pypi.python.org/pypi/impacket/)
-[![Build and test Impacket](https://github.com/SecureAuthCorp/impacket/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/SecureAuthCorp/impacket/actions/workflows/build_and_test.yml)
+[![Build and test Impacket](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml)
 
-SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+FORTRA. Copyright (C) 2022 Fortra. All rights reserved.
+
+Impacket was originally created by [SecureAuth](https://www.secureauth.com/labs/open-source-tools/impacket), and now maintained by Fortra's Core Security.
 
 Impacket is a collection of Python classes for working with network
 protocols. Impacket is focused on providing low-level
@@ -14,10 +16,6 @@ Packets can be constructed from scratch, as well as parsed from
 raw data, and the object-oriented API makes it simple to work with 
 deep hierarchies of protocols. The library provides a set of tools
 as examples of what can be done within the context of this library.
-
-A description of some of the tools can be found at
-[SecureAuth Labs' Open Source Website](https://www.secureauth.com/labs/open-source-tools/impacket).
-
 
 What protocols are featured?
 ----------------------------
@@ -34,7 +32,7 @@ What protocols are featured?
 Maintainer
 ==========
 
-[<img src="https://www.secureauth.com/wp-content/uploads/2020/10/SA_Logo_Blue_Hori-web.png" width="320"/>](https://www.secureauth.com/)
+[Core Security](https://www.coresecurity.com/)
 
 
 Table of Contents
@@ -56,13 +54,13 @@ Getting Impacket
 
   [![Python versions](https://img.shields.io/pypi/pyversions/impacket.svg)](https://pypi.python.org/pypi/impacket/)
 
-[Current and past releases](https://github.com/SecureAuthCorp/impacket/releases)
+[Current and past releases](https://github.com/fortra/impacket/releases)
 
 ### Development version
 
-* Impacket v0.10.1-dev (**[master branch](https://github.com/SecureAuthCorp/impacket/tree/master)**)
+* Impacket v0.10.1-dev (**[master branch](https://github.com/fortra/impacket/tree/master)**)
 
-  [![Python versions](https://img.shields.io/badge/python-3.6%20|%203.7%20|%203.8%20|%203.9-blue.svg)](https://github.com/SecureAuthCorp/impacket/tree/master)
+  [![Python versions](https://img.shields.io/badge/python-3.6%20|%203.7%20|%203.8%20|%203.9-blue.svg)](https://github.com/fortra/impacket/tree/master)
 
 
 Setup
@@ -145,6 +143,6 @@ Contact Us
 ==========
 
 Whether you want to report a bug, send a patch, or give some suggestions
-on this package, drop us a few lines at oss@secureauth.com.
+on this package, reach out to us at https://www.coresecurity.com/about/contact.
 
 For security-related questions check our [security policy](SECURITY.md).

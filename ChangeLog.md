@@ -1,9 +1,9 @@
 # ChangeLog
 
-Project's main page at [www.secureauth.com](https://www.secureauth.com/labs/open-source-tools/impacket).
+Project owner's main page is at www.coresecurity.com.
 
 Complete list of changes can be found at:
-https://github.com/SecureAuthCorp/impacket/commits/master
+https://github.com/fortra/impacket/commits/master
 
 ## Impacket v0.10.0 (May 2022):
 
