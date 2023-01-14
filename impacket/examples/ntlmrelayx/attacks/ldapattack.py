@@ -748,10 +748,12 @@ class LDAPAttack(ProtocolAttack):
 
             for ace in (a for a in sd["Dacl"]["Data"] if a["AceType"] == ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE):
                 sid = format_sid(ace["Ace"]["Sid"].getData())
-                if ace["Ace"]["ObjectTypeLen"] == 0:
+                if ace["Ace"]["Flags"] == 2:
                     uuid = bin_to_string(ace["Ace"]["InheritedObjectType"]).lower()
-                else:
+                elif ace["Ace"]["Flags"] == 1:
                     uuid = bin_to_string(ace["Ace"]["ObjectType"]).lower()
+                else:
+                    continue
 
                 if not uuid in enrollment_uuids:
                     continue
@@ -782,7 +784,7 @@ class LDAPAttack(ProtocolAttack):
                     sid_map[sid] = sid
                     continue
 
-                if not len(self.client.response):
+                if not len(self.client.entries):
                     sid_map[sid] = sid
                 else:
                     sid_map[sid] = domain_fqdn + "\\" + self.client.response[0]["attributes"]["name"]
