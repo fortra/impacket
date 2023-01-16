@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -145,7 +145,7 @@ class PSEXEC:
                 except Exception as e:
                     logging.critical(str(e))
                     sys.exit(1)
-                installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), f)
+                installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), f, self.__serviceName, self.__remoteBinaryName)
 
             if installService.install() is False:
                 return
@@ -284,7 +284,7 @@ class RemoteStdOutPipe(Pipes):
                                 # Append new data to the buffer while there is data to read
                                 __stdoutOutputBuffer += stdout_ans
 
-                        promptRegex = b'([a-zA-Z]:[\\\/])((([a-zA-Z0-9 -\.]*)[\\\/]?)+(([a-zA-Z0-9 -\.]+))?)?>$'
+                        promptRegex = rb'([a-zA-Z]:[\\\/])((([a-zA-Z0-9 -\.]*)[\\\/]?)+(([a-zA-Z0-9 -\.]+))?)?>$'
 
                         endsWithPrompt = bool(re.match(promptRegex, __stdoutOutputBuffer) is not None)
                         if endsWithPrompt == True:

