@@ -15,6 +15,7 @@ https://github.com/fortra/impacket/commits/master
 * [1224](https://github.com/fortra/impacket/pull/1224): **[renameMachine]** Added renameMachine
 * [1253](https://github.com/fortra/impacket/pull/1253): **[ntlmrelayx]** Added LSA dump on top of SAM dump for ntlmrelayx
 * [1256](https://github.com/fortra/impacket/pull/1256): **[tgssub]** Added tgssub script for service substitution
+* [1261](https://github.com/fortra/impacket/pull/1261): **[secretsdump]** LSA's Security Questions Security Answers structure empty fix
 * [1267](https://github.com/fortra/impacket/pull/1267): **[Get-GPPPasswords]** Better handling of various XML files in Group Policy Preferences
 * [1270](https://github.com/fortra/impacket/pull/1270): **[ticketer]** Fix ticketer duration to support default 10 hours tickets
 * [1280](https://github.com/fortra/impacket/pull/1280): **[machineAccountQuota]** added machineAccountQuota
