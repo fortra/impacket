@@ -53,7 +53,7 @@ setup(
     name=PACKAGE_NAME,
     version="{}.{}.{}.{}{}".format(VER_MAJOR, VER_MINOR, VER_MAINT, VER_PREREL, VER_LOCAL),
     description="Network protocols Constructors and Dissectors",
-    url="https://www.coresecurity.com",
+    url="https://github.com/dar-suridata/impacket-no-examples",
     author="SecureAuth Corporation",
     maintainer="Fortra",
     license="Apache modified",
