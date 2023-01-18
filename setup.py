@@ -17,7 +17,7 @@ import platform
 from setuptools import setup
 from subprocess import *
 
-PACKAGE_NAME = "impacket"
+PACKAGE_NAME = "impacket-no-examples"
 
 VER_MAJOR = 0
 VER_MINOR = 10
@@ -52,7 +52,7 @@ def read(fname):
 setup(
     name=PACKAGE_NAME,
     version="{}.{}.{}.{}{}".format(VER_MAJOR, VER_MINOR, VER_MAINT, VER_PREREL, VER_LOCAL),
-    description="Network protocols Constructors and Dissectors",
+    description="Network protocols Constructors and Dissectors without examples",
     url="https://github.com/dar-suridata/impacket-no-examples",
     author="SecureAuth Corporation",
     maintainer="Fortra",
@@ -60,12 +60,8 @@ setup(
     long_description=read('README.md'),
     long_description_content_type="text/markdown",
     platforms=["Unix", "Windows"],
-    packages=['impacket', 'impacket.dcerpc', 'impacket.examples', 'impacket.dcerpc.v5', 'impacket.dcerpc.v5.dcom',
-              'impacket.krb5', 'impacket.ldap', 'impacket.examples.ntlmrelayx',
-              'impacket.examples.ntlmrelayx.clients', 'impacket.examples.ntlmrelayx.servers',
-              'impacket.examples.ntlmrelayx.servers.socksplugins', 'impacket.examples.ntlmrelayx.utils',
-              'impacket.examples.ntlmrelayx.attacks', 'impacket.examples.ntlmrelayx.attacks.httpattacks'],
-    scripts=glob.glob(os.path.join('examples', '*.py')),
+    packages=['impacket'],
+    scripts=glob.glob(os.path.join('*.py')),
     data_files=data_files,
     install_requires=['pyasn1>=0.2.3', 'pycryptodomex', 'pyOpenSSL>=21.0.0', 'six', 'ldap3>=2.5,!=2.5.2,!=2.5.0,!=2.6',
                       'ldapdomaindump>=0.9.0', 'flask>=1.0', 'future', 'charset_normalizer', 'dsinternals'],
