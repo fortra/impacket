@@ -54,13 +54,13 @@ Getting Impacket
 
   [![Python versions](https://img.shields.io/pypi/pyversions/impacket.svg)](https://pypi.python.org/pypi/impacket/)
 
-[Current and past releases](https://github.com/fortra/impacket/releases)
+[Current and past releases](https://github.com/dar-suridata/impacket-no-examples/releases)
 
 ### Development version
 
-* Impacket v0.10.1-dev (**[master branch](https://github.com/fortra/impacket/tree/master)**)
+* Impacket v0.10.1-dev (**[master branch](https://github.com/dar-suridata/impacket-no-examples/tree/master)**)
 
-  [![Python versions](https://img.shields.io/badge/python-3.6%20|%203.7%20|%203.8%20|%203.9-blue.svg)](https://github.com/fortra/impacket/tree/master)
+  [![Python versions](https://img.shields.io/badge/python-3.6%20|%203.7%20|%203.8%20|%203.9-blue.svg)](https://github.com/dar-suridata/impacket-no-examples/tree/master)
 
 
 Setup
