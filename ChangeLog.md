@@ -5,6 +5,41 @@ Project owner's main page is at www.coresecurity.com.
 Complete list of changes can be found at:
 https://github.com/fortra/impacket/commits/master
 
+## ThePorgs edits:
+* [1135](https://github.com/fortra/impacket/pull/1135): **[GetUserSPNs]** Improved searchFilter for GetUserSPNs
+* [1137](https://github.com/fortra/impacket/pull/1137): **[SystemDPAPIdump]** Added script example 
+* [1154](https://github.com/fortra/impacket/pull/1154): **[ntlmrelayx]** Unfiltered SID query when operating ACL attack
+* [1184](https://github.com/fortra/impacket/pull/1184): **[findDelegation]** Added user filter on findDelegation
+* [1201](https://github.com/fortra/impacket/pull/1201): **[describeTicket]** Added describeTicket
+* [1202](https://github.com/fortra/impacket/pull/1202): **[getST]** Added -self, -altservice and -u2u to getST for S4U2self abuse, S4U2self+u2u, and service substitution
+* [1224](https://github.com/fortra/impacket/pull/1224): **[renameMachine]** Added renameMachine
+* [1253](https://github.com/fortra/impacket/pull/1253): **[ntlmrelayx]** Added LSA dump on top of SAM dump for ntlmrelayx
+* [1256](https://github.com/fortra/impacket/pull/1256): **[tgssub]** Added tgssub script for service substitution
+* [1267](https://github.com/fortra/impacket/pull/1267): **[Get-GPPPasswords]** Better handling of various XML files in Group Policy Preferences
+* [1270](https://github.com/fortra/impacket/pull/1270): **[ticketer]** Fix ticketer duration to support default 10 hours tickets
+* [1280](https://github.com/fortra/impacket/pull/1280): **[machineAccountQuota]** added machineAccountQuota
+* [1288](https://github.com/fortra/impacket/pull/1288): **[ntlmrelayx]** LDAP attack: bypass computer creation restrictions with CVE-2021-34470
+* [1289](https://github.com/fortra/impacket/pull/1289): **[ntlmrelayx]** LDAP attack: Add DNS records through LDAP
+* [1291](https://github.com/fortra/impacket/pull/1291): **[dacledit]** New example script for DACL manipulation
+* [1318](https://github.com/fortra/impacket/pull/1318): **[ntlmrelayx]** Dump ADCS: bug fixes
+* [1323](https://github.com/fortra/impacket/pull/1323): **[owneredit]** New example script to change an object's owner
+* [1329](https://github.com/fortra/impacket/pull/1329): **[secretsdump]** Use a custom LDAP filter during a DCSync
+* [1353](https://github.com/fortra/impacket/pull/1353): **[ntlmrelayx]** add filter option
+* [1360](https://github.com/fortra/impacket/pull/1360): **[smbserver]** Added flag to drop SSP from Net-NTLMv1 auth
+* [1367](https://github.com/fortra/impacket/pull/1367): **[secretsdump]** Add UTC date to cached domain logon information
+* [1391](https://github.com/fortra/impacket/pull/1391): **[ticketer]** Ticketer extra-pac implementation
+* [1393](https://github.com/fortra/impacket/pull/1393): **[rbcd]** Handled SID not found in LDAP error
+* [1397](https://github.com/fortra/impacket/pull/1397): **[mssqlclient]** commands and prompt improvements
+* [1411](https://github.com/fortra/impacket/pull/1411): **[ticketer]** Sapphire tickets
+* [1413](https://github.com/fortra/impacket/pull/1413): **[getST]** Support for Kerberoasting without pre-authentication and ST request through AS-REQ
+* [1421](https://github.com/fortra/impacket/pull/1421): **[ntlmrelayx]** Fix leftover space in shadow credentials argument
+* [1425](https://github.com/fortra/impacket/pull/1425): **[ntlmrelayx]** Add SCCM NTLM Relay Attack
+* [1432](https://github.com/fortra/impacket/pull/1432): **[httprelayclient]** force NTLM auth if anonymous auth is enabled (ADCS)
+* [1444](https://github.com/fortra/impacket/pull/1444): **[Get-GPPPassword]** Better handling of various XML files in Group Policy Preferences
+* [1449](https://github.com/fortra/impacket/pull/1449): **[addcomputer,rbcd]** Allow weak TLS ciphers for LDAP connections
+* [1450](https://github.com/fortra/impacket/pull/1450): **[PsExec]** Support for name customization using a custom binary file
+
+
 ## Impacket v0.10.0 (May 2022):
 
 1. Library improvements 

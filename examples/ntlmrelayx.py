@@ -111,7 +111,30 @@ class MiniShell(cmd.Cmd):
             logging.error("ERROR: %s" % str(e))
         else:
             if len(items) > 0:
-                self.printTable(items, header=headers)
+                if("=" in line and len(line.replace('socks','').split('='))==2):
+                    _filter=line.replace('socks','').split('=')[0]
+                    _value=line.replace('socks','').split('=')[1]
+                    if(_filter=='target'):
+                        _filter=1
+                    elif(_filter=='username'):
+                        _filter=2
+                    elif(_filter=='admin'):
+                        _filter=3
+                    else:
+                        logging.info('Expect : target / username / admin = value')                    
+                    _items=[]
+                    for i in items:
+                        if(_value.lower() in i[_filter].lower()):
+                            _items.append(i)
+                    if(len(_items)>0):
+                        self.printTable(_items,header=headers)
+                    else:
+                        logging.info('No relay matching filter available!')
+
+                elif("=" in line):
+                    logging.info('Expect target/username/admin = value')
+                else:
+                    self.printTable(items, header=headers)
             else:
                 logging.info('No Relays Available!')
 
@@ -154,7 +177,7 @@ def start_servers(options, threads):
         c.setAttacks(PROTOCOL_ATTACKS)
         c.setLootdir(options.lootdir)
         c.setOutputFile(options.output_file)
-        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid)
+        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid, options.add_dns_record)
         c.setRPCOptions(options.rpc_mode, options.rpc_use_smb, options.auth_smb, options.hashes_smb, options.rpc_smb_port)
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
@@ -173,6 +196,9 @@ def start_servers(options, threads):
                                       options.cert_outfile_path)
 
         c.setAltName(options.altname)
+        c.setIsSCCMAttack(options.sccm)
+        c.setSCCMOptions(options.sccm_device, options.sccm_fqdn, 
+                            options.sccm_server, options.sccm_sleep)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
@@ -329,6 +355,7 @@ if __name__ == '__main__':
     ldapoptions.add_argument('--dump-laps', action='store_true', required=False, help='Attempt to dump any LAPS passwords readable by the user')
     ldapoptions.add_argument('--dump-gmsa', action='store_true', required=False, help='Attempt to dump any gMSA passwords readable by the user')
     ldapoptions.add_argument('--dump-adcs', action='store_true', required=False, help='Attempt to dump ADCS enrollment services and certificate templates info')
+    ldapoptions.add_argument('--add-dns-record', nargs=2, action='store', metavar=('NAME', 'IPADDR'), required=False, help='Add the <NAME> record to DNS via LDAP pointing to <IPADDR>')
 
     #IMAP options
     imapoptions = parser.add_argument_group("IMAP client options")
@@ -357,6 +384,14 @@ if __name__ == '__main__':
                                    help='choose to export cert+private key in PEM or PFX (i.e. #PKCS12) (default: PFX))')
     shadowcredentials.add_argument('--cert-outfile-path', action='store', required=False, help='filename to store the generated self-signed PEM or PFX certificate and key')
 
+    # SCCM options
+    sccmoptions = parser.add_argument_group("SCCM attack options")
+    sccmoptions.add_argument('--sccm', action='store_true', required=False, help='Enable SCCM relay attack')
+    sccmoptions.add_argument('--sccm-device', action='store', metavar="DEVICE", required=False, help='Name of fake device to register')
+    sccmoptions.add_argument('--sccm-fqdn', action='store', metavar="FQDN", required=False, help='Fully qualified domain name of the target domain')
+    sccmoptions.add_argument('--sccm-server', action='store', metavar="HOSTNAME", required=False, help='Hostname of the target SCCM server')
+    sccmoptions.add_argument('--sccm-sleep', action='store', metavar="SECONDS", type=int, default=5, required=False, help='Sleep time before requesting policy')
+
     try:
        options = parser.parse_args()
     except Exception as e:
@@ -383,6 +418,10 @@ if __name__ == '__main__':
     from impacket.examples.ntlmrelayx.clients import PROTOCOL_CLIENTS
     from impacket.examples.ntlmrelayx.attacks import PROTOCOL_ATTACKS
 
+    if options.add_dns_record:
+        dns_name = options.add_dns_record[0].lower()
+        if dns_name == 'wpad' or dns_name == '*':
+            logging.warning('You are asking to add a `wpad` or a wildcard DNS name. This can cause disruption in larger networks (using multiple DNS subdomains) or if workstations already use a proxy config.')
 
     if options.codec is not None:
         codec = options.codec

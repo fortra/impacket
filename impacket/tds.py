@@ -48,6 +48,8 @@ class DummyPrint:
     def logMessage(self,message):
         if message == '\n':
             print(message)
+        elif message == '\r':
+            print()
         else:
             print(message, end=' ')
 
@@ -979,6 +981,13 @@ class MSSQL:
                 col['Length'] = 10
                 fmt = '%%%ds'
 
+            col['minLenght'] = 0
+            for row in self.rows:
+                if len(str(row[col['Name']])) > col['minLenght']:
+                   col['minLenght'] = len(str(row[col['Name']]))
+            if col['minLenght'] < col['Length']:
+                col['Length'] = col['minLenght']
+
             if len(col['Name']) > col['Length']:
                 col['Length'] = len(col['Name'])
             elif col['Length'] > self.MAX_COL_LEN:
@@ -992,11 +1001,10 @@ class MSSQL:
             return
         for col in self.colMeta:
             self.__rowsPrinter.logMessage(col['Format'] % col['Name'] + self.COL_SEPARATOR)
-        self.__rowsPrinter.logMessage('\n')
+        self.__rowsPrinter.logMessage('\r')
         for col in self.colMeta:
             self.__rowsPrinter.logMessage('-'*col['Length'] + self.COL_SEPARATOR)
-        self.__rowsPrinter.logMessage('\n')
-
+        self.__rowsPrinter.logMessage('\r')
 
     def printRows(self):
         if self.lastError is True:
