@@ -50,9 +50,9 @@ Getting Impacket
 
 ### Latest version
 
-* Impacket v0.10.0
+* Impacket no examples v0.10.1 [Forked from Impacket v0.10.0]
 
-  [![Python versions](https://img.shields.io/pypi/pyversions/impacket.svg)](https://pypi.python.org/pypi/impacket/)
+  [![Python versions](https://img.shields.io/pypi/pyversions/impacket.svg)](https://pypi.python.org/pypi/impacket-no-examples/)
 
 [Current and past releases](https://github.com/dar-suridata/impacket-no-examples/releases)
 
