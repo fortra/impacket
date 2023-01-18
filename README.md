@@ -70,7 +70,7 @@ Setup
 
 In order to grab the latest stable release with `pip` run:
 
-    python3 -m pip install impacket
+    python3 -m pip install impacket-no-examples
 
 
 ### Installing the library
