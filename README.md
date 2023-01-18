@@ -1,4 +1,4 @@
-Impacket
+Impacket - No Examples
 ========
 
 [![Latest Version](https://img.shields.io/pypi/v/impacket.svg)](https://pypi.python.org/pypi/impacket/)
@@ -14,8 +14,8 @@ programmatic access to the packets and for some protocols (e.g.
 SMB1-3 and MSRPC) the protocol implementation itself.
 Packets can be constructed from scratch, as well as parsed from 
 raw data, and the object-oriented API makes it simple to work with 
-deep hierarchies of protocols. The library provides a set of tools
-as examples of what can be done within the context of this library.
+deep hierarchies of protocols. In this fork the library not provides examples,
+which can cause of virus detecation in diffrent anti viruses systems.
 
 What protocols are featured?
 ----------------------------
@@ -72,23 +72,19 @@ In order to grab the latest stable release with `pip` run:
 
     python3 -m pip install impacket
 
-> :information_source: This will make the Impacket library available to
-your Python code, but will not provide you with the example scripts. 
 
-### Installing the library + example scripts
+### Installing the library
 
-In order to install the library and the example scripts, download and
+In order to install the library, download and
 extract the package, and execute the following command from the
 directory where the Impacket's release has been unpacked:
 
     python3 -m pip install .
 
 > :information_source: This will install the library into the default Python
-modules path, where you can make use of the example scripts from the directory.
+modules path.
 
-> :warning: Make sure the example scripts you're using are consistent with the
-library version that's installed in your python environment.
-We recommend using [virtual environments](https://docs.python.org/3/library/venv.html) to
+> We recommend using [virtual environments](https://docs.python.org/3/library/venv.html) to
 make sure system-wide installations doesn't interfere with it.
 
 
