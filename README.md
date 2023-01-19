@@ -1,8 +1,8 @@
 Impacket - No Examples
 ========
 
-[![Latest Version](https://img.shields.io/pypi/v/impacket.svg)](https://pypi.python.org/pypi/impacket/)
-[![Build and test Impacket](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml)
+[![Latest Version](https://img.shields.io/pypi/v/impacket-no-examples.svg)](https://pypi.python.org/pypi/impacket-no-examples/)
+[![Build and test Impacket](https://github.com/fortra/impacket-no-examples/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml)
 
 FORTRA. Copyright (C) 2022 Fortra. All rights reserved.
 
@@ -53,7 +53,7 @@ Getting Impacket
 
 * Impacket no examples v0.10.1 [Forked from Impacket v0.10.0]
 
-  [![Python versions](https://img.shields.io/pypi/pyversions/impacket.svg)](https://pypi.python.org/pypi/impacket-no-examples/)
+  [![Python versions](https://img.shields.io/pypi/pyversions/impacket-no-examples.svg)](https://pypi.python.org/pypi/impacket-no-examples/)
 
 [Current and past releases](https://github.com/dar-suridata/impacket-no-examples/releases)
 
