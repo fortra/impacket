@@ -14,8 +14,9 @@ programmatic access to the packets and for some protocols (e.g.
 SMB1-3 and MSRPC) the protocol implementation itself.
 Packets can be constructed from scratch, as well as parsed from 
 raw data, and the object-oriented API makes it simple to work with 
-deep hierarchies of protocols. In this fork the library not provides examples,
-which can cause of virus detecation in diffrent anti viruses systems.
+deep hierarchies of protocols.
+The library in this fork does not provide examples,
+which may result in detection by different anti-virus systems.
 
 What protocols are featured?
 ----------------------------
