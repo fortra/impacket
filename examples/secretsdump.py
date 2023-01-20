@@ -61,6 +61,7 @@ from impacket.examples import logger
 from impacket.examples.utils import parse_target
 from impacket.smbconnection import SMBConnection
 from impacket.ldap.ldap import LDAPConnection, LDAPSessionError
+from impacket.dcerpc.v5.dcomrt import DCOMConnection
 
 from impacket.examples.secretsdump import LocalOperations, RemoteOperations, SAMHashes, LSASecrets, NTDSHashes, \
     KeyListSecrets
@@ -85,6 +86,7 @@ class DumpSecrets:
         self.__aesKeyRodc = options.rodcKey
         self.__smbConnection = None
         self.__ldapConnection = None
+        self.__dcomConnection = None
         self.__remoteOps = None
         self.__SAMHashes = None
         self.__NTDSHashes = None
@@ -163,6 +165,10 @@ class DumpSecrets:
             else:
                 raise
 
+    def dcomConnect(self):
+        self.__dcomConnection = DCOMConnection(self.__remoteHost, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
+                                               self.__aesKey, oxidResolver=True, doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
+
     def dump(self):
         try:
             if self.__remoteName.upper() == 'LOCAL' and self.__username == '':
@@ -187,6 +193,12 @@ class DumpSecrets:
                         self.ldapConnect()
                     except Exception as e:
                         logging.error('LDAP connection failed: %s' % str(e))
+                if self.__useVSSMethod:
+                    logging.info('Connecting to target via DCOM')
+                    try:
+                        self.dcomConnect()
+                    except Exception as e:
+                        logging.error('DCOM connection failed: %s' % str(e))
                 try:
                     try:
                         self.connect()
@@ -200,7 +212,8 @@ class DumpSecrets:
                         else:
                             raise
 
-                    self.__remoteOps  = RemoteOperations(self.__smbConnection, self.__doKerberos, self.__kdcHost, self.__ldapConnection)
+                    self.__remoteOps  = RemoteOperations(self.__smbConnection, self.__doKerberos, self.__kdcHost, self.__ldapConnection,
+                                                         self.__dcomConnection)
                     self.__remoteOps.setExecMethod(self.__options.exec_method)
                     if self.__justDC is False and self.__justDCNTLM is False and self.__useKeyListMethod is False or self.__useVSSMethod is True:
                         self.__remoteOps.enableRegistry()
@@ -324,14 +337,14 @@ class DumpSecrets:
 
     def cleanup(self):
         logging.info('Cleaning up... ')
-        if self.__remoteOps:
-            self.__remoteOps.finish()
         if self.__SAMHashes:
             self.__SAMHashes.finish()
         if self.__LSASecrets:
             self.__LSASecrets.finish()
         if self.__NTDSHashes:
             self.__NTDSHashes.finish()
+        if self.__remoteOps:
+            self.__remoteOps.finish()
         if self.__KeyListSecrets:
             self.__KeyListSecrets.finish()
 

@@ -366,11 +366,13 @@ class RemoteFile:
         return "\\\\%s\\ADMIN$\\%s" % (self.__smbConnection.getRemoteHost(), self.__fileName)
 
 class RemoteOperations:
-    def __init__(self, smbConnection, doKerberos, kdcHost=None, ldapConnection=None):
+    def __init__(self, smbConnection, doKerberos, kdcHost=None, ldapConnection=None, dcomConnection=None):
         self.__smbConnection = smbConnection
         if self.__smbConnection is not None:
             self.__smbConnection.setTimeout(5*60)
         self.__ldapConnection = ldapConnection
+        self.__dcomConnection = dcomConnection
+        self.__iWbemServices = None
         self.__serviceName = 'RemoteRegistry'
         self.__stringBindingWinReg = r'ncacn_np:445[\pipe\winreg]'
         self.__rrp = None
@@ -402,8 +404,6 @@ class RemoteOperations:
 
         self.__batchFile = '%TEMP%\\execute.bat'
         self.__shell = '%COMSPEC% /Q /c '
-        self.__output = '%SYSTEMROOT%\\Temp\\__output'
-        self.__answerTMP = b''
 
         self.__execMethod = 'smbexec'
 
@@ -834,6 +834,12 @@ class RemoteOperations:
                     pass
                 else:
                     raise
+        if self.__smbConnection is not None:
+            self.__smbConnection.logoff()
+        if self.__iWbemServices is not None:
+            self.__iWbemServices.RemRelease()
+        if self.__dcomConnection is not None:
+            self.__dcomConnection.disconnect()
 
     def getBootKey(self):
         bootKey = b''
@@ -936,10 +942,10 @@ class RemoteOperations:
 
     def __mmcExec(self,command):
         command = command.replace('%COMSPEC%', 'c:\\windows\\system32\\cmd.exe')
-        username, password, domain, lmhash, nthash, aesKey, _, _ = self.__smbConnection.getCredentials()
-        dcom = DCOMConnection(self.__smbConnection.getRemoteHost(), username, password, domain, lmhash, nthash, aesKey,
-                              oxidResolver=False, doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
-        iInterface = dcom.CoCreateInstanceEx(string_to_bin('49B2791A-B1AE-4C90-9B8E-E860BA07F889'), IID_IDispatch)
+        if self.__dcomConnection is None:
+            LOG.error("DCOMConnection not initialized")
+            raise Exception('DCOMConnection not initialized')
+        iInterface = self.__dcomConnection.CoCreateInstanceEx(string_to_bin('49B2791A-B1AE-4C90-9B8E-E860BA07F889'), IID_IDispatch)
         iMMC = IDispatch(iInterface)
 
         resp = iMMC.GetIDsOfNames(('Document',))
@@ -1006,22 +1012,15 @@ class RemoteOperations:
     def __wmiExec(self, command):
         # Convert command to wmi exec friendly format
         command = command.replace('%COMSPEC%', 'cmd.exe')
-        username, password, domain, lmhash, nthash, aesKey, _, _ = self.__smbConnection.getCredentials()
-        dcom = DCOMConnection(self.__smbConnection.getRemoteHost(), username, password, domain, lmhash, nthash, aesKey,
-                              oxidResolver=False, doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
-        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
-        iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
-        iWbemServices= iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
-        iWbemLevel1Login.RemRelease()
+        self.__initWmi()
 
-        win32Process,_ = iWbemServices.GetObject('Win32_Process')
+        win32Process,_ = self.__iWbemServices.GetObject('Win32_Process')
         win32Process.Create(command, '\\', None)
-
-        dcom.disconnect()
+        win32Process.RemRelease()
 
     def __executeRemote(self, data):
         self.__tmpServiceName = ''.join([random.choice(string.ascii_letters) for _ in range(8)])
-        command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' > ' + self.__batchFile + ' & ' + \
+        command = self.__shell + 'echo ' + data + ' > ' + self.__batchFile + ' & ' + \
                   self.__shell + self.__batchFile
         command += ' & ' + 'del ' + self.__batchFile
 
@@ -1036,58 +1035,80 @@ class RemoteOperations:
             raise Exception('Invalid exec method %s, aborting' % self.__execMethod)
 
 
-    def __answer(self, data):
-        self.__answerTMP += data
+    def __initWmi(self):
+        if self.__iWbemServices is not None:
+            return
+        if self.__dcomConnection is None:
+            LOG.error("DCOMConnection not initialized")
+            raise Exception('DCOMConnection not initialized')
+        try:
+            iInterface = self.__dcomConnection.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
+            iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
+            self.__iWbemServices = iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
+            self.__iWbemServices.get_dce_rpc().set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
+            iWbemLevel1Login.RemRelease()
+        except:
+            LOG.error('Exception', exc_info=True)
+            raise
 
-    def __getLastVSS(self, forDrive=None):
-        if forDrive:
-            command = '%COMSPEC% /C vssadmin list shadows /for=' + forDrive
-        else:
-            command = '%COMSPEC% /C vssadmin list shadows'
-        self.__executeRemote(command)
-        time.sleep(5)
-        tries = 0
+    def __wmiQuery(self, query):
+        LOG.debug("Executing WMI query: %s" % query)
+        iEnumWbemClassObject = self.__iWbemServices.ExecQuery(query.replace("\\", "\\\\"))
+        returnedList = list()
         while True:
             try:
-                self.__smbConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
-                break
+                currentDict = dict()
+                pEnum = iEnumWbemClassObject.Next(0xffffffff,1)[0]
+                record = pEnum.getProperties()
+                for k,v in record.items():
+                    currentDict[k] = v['value']
+                returnedList.append(currentDict)
             except Exception as e:
-                if tries > 30:
-                    # We give up
-                    raise Exception('Too many tries trying to list vss shadows')
-                if str(e).find('SHARING') > 0:
-                    # Stuff didn't finish yet.. wait more
-                    time.sleep(5)
-                    tries +=1
-                    pass
-                else:
+                if str(e).find('S_FALSE') < 0:
+                    LOG.error("Error with WMI query")
+                    iEnumWbemClassObject.RemRelease()
                     raise
+                else:
+                    break
+        iEnumWbemClassObject.RemRelease()
+        return returnedList
 
-        lines = self.__answerTMP.split(b'\n')
-        lastShadow = b''
-        lastShadowFor = b''
-        lastShadowId = b''
+    def __getLastVSS(self, forDrive):
+        self.__initWmi()
+        driveRecord = self.__wmiQuery("SELECT DriveLetter,DeviceID FROM Win32_Volume WHERE DriveLetter='" + forDrive + "'")
+        driveId = driveRecord[0]["DeviceID"]
 
-        # Let's find the last one
-        # The string used to search the shadow for drive. Wondering what happens
-        # in other languages
-        SHADOWFOR = b'Volume: ('
-        IDSTART = b'Shadow Copy ID: {'
-        IDLEN=len('3547017b-0ac9-478b-88e6-f9be7e1c11999')
+        shadowCopiesRecords = self.__wmiQuery("SELECT InstallDate,ID,DeviceObject,VolumeName "
+                                              "from Win32_ShadowCopy where VolumeName='" + driveId + "'")
+        try:
+            lastShadowCopy = max(shadowCopiesRecords, key=lambda x: float(x['InstallDate'].split("+")[0]))
+        except ValueError:
+            # No shadow copy
+            return '',''
 
-        for line in lines:
-           if line.find(b'GLOBALROOT') > 0:
-               lastShadow = line[line.find(b'\\\\?'):][:-1]
-           elif line.find(SHADOWFOR) > 0:
-               lastShadowFor = line[line.find(SHADOWFOR)+len(SHADOWFOR):][:2]
-           elif line.find(IDSTART) > 0:
-               lastShadowId = line[line.find(IDSTART)+len(IDSTART):][:IDLEN-1]
+        LOG.debug('__getLastVSS found last VSS %s with ID of %s' % (lastShadowCopy['DeviceObject'], lastShadowCopy['ID']))
+        return lastShadowCopy['DeviceObject'], lastShadowCopy['ID']
 
-        self.__smbConnection.deleteFile('ADMIN$', 'Temp\\__output')
+    def __createVSS(self, forDrive):
+        self.__initWmi()
+        if not forDrive.endswith('\\'):
+            forDrive += '\\'
+        try:
+            win32ShadowCopy, _ = self.__iWbemServices.GetObject('Win32_ShadowCopy')
+            resp = win32ShadowCopy.Create(forDrive, 'ClientAccessible')
+            LOG.debug('Shadow copy created with ID %s' % resp.ShadowID)
+            win32ShadowCopy.RemRelease()
+        except Exception:
+            LOG.debug('Exception', exc_info=True)
+            raise
 
-        LOG.debug('__getLastVSS found last VSS %s on %s with ID of %s' % (lastShadow.decode('utf-8'), lastShadowFor.decode('utf-8'), lastShadowId.decode('utf-8')))
-
-        return lastShadow.decode('utf-8'), lastShadowFor.decode('utf-8'), lastShadowId.decode('utf-8')
+    def __deleteVSS(self, shadowId):
+        self.__initWmi()
+        try:
+            self.__iWbemServices.DeleteInstance('Win32_ShadowCopy.ID="' + shadowId + '"')
+            return True
+        except:
+            return False
 
     def saveNTDS(self):
         LOG.info('Searching for NTDS.dit')
@@ -1120,13 +1141,19 @@ class RemoteOperations:
         LOG.info('Registry says NTDS.dit is at %s. Calling vssadmin to get a copy. This might take some time' % ntdsLocation)
         LOG.info('Using %s method for remote execution' % self.__execMethod)
         # Get the list of remote shadows
-        shadow, shadowFor, shadowId = self.__getLastVSS(forDrive=ntdsDrive)
-        if shadow == '' or (shadow != '' and shadowFor != ntdsDrive):
+        shadow, shadowId = self.__getLastVSS(forDrive=ntdsDrive)
+        if shadow == '':
             # No shadow, create one
-            self.__executeRemote('%%COMSPEC%% /C vssadmin create shadow /For=%s' % ntdsDrive)
-            shadow, shadowFor, shadowId = self.__getLastVSS(forDrive=ntdsDrive)
+            LOG.debug('No shadow copy found for NTDS drive')
+            try:
+                LOG.debug("Creating a shadow copy")
+                self.__createVSS(ntdsDrive)
+            except:
+                LOG.error("Could not create a VSS")
+                raise
+            shadow, shadowId = self.__getLastVSS(forDrive=ntdsDrive)
             shouldRemove = True
-            if shadow == '' or shadowFor != ntdsDrive:
+            if shadow == '':
                 raise Exception('Could not get a VSS')
         else:
             # There was already a shadow, let's not delete this
@@ -1136,27 +1163,14 @@ class RemoteOperations:
         tmpFileName = ''.join([random.choice(string.ascii_letters) for _ in range(8)]) + '.tmp'
 
         self.__executeRemote('%%COMSPEC%% /C copy %s%s %%SYSTEMROOT%%\\Temp\\%s' % (shadow, ntdsLocation[2:], tmpFileName))
+        time.sleep(1)
 
         if shouldRemove is True:
-            LOG.debug('Trying to delete shadow copy using command : %%COMSPEC%% /C vssadmin delete shadows /shadow="{%s}" /Quiet' % shadowId)
-            self.__executeRemote('%%COMSPEC%% /C vssadmin delete shadows /shadow="{%s}" /Quiet' % shadowId)
-
-
-        tries = 0
-        while True:
-            try:
-                self.__smbConnection.deleteFile('ADMIN$', 'Temp\\__output')
-                break
-            except Exception as e:
-                if tries >= 30:
-                    raise e
-                if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') >= 0 or str(e).find('STATUS_SHARING_VIOLATION') >=0:
-                    tries += 1
-                    time.sleep(5)
-                    pass
-                else:
-                    logging.error('Cannot delete target file \\\\%s\\ADMIN$\\Temp\\__output: %s' % (self.__smbConnection.getRemoteHost(), str(e)))
-                    pass
+            LOG.debug('Trying to delete shadow copy %s through WMI' % shadowId)
+            if self.__deleteVSS(shadowId):
+                LOG.debug("Shadow copy deleted successfully")
+            else:
+                LOG.info("Error deleting shadow copy %s. Try deleting it manually")
 
         remoteFileName = RemoteFile(self.__smbConnection, 'Temp\\%s' % tmpFileName)
 
