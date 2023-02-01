@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -13,7 +13,7 @@
 #   the -impersonate switch to request the ticket on behalf other user (it will use S4U2Self/S4U2Proxy to
 #   request the ticket.)
 #
-#   Similar feature has been implemented already by Benjamin Delphi (@gentilkiwi) in Kekeo (s4u)
+#   Similar feature has been implemented already by Benjamin Delpy (@gentilkiwi) in Kekeo (s4u)
 #
 #   Examples:
 #       ./getST.py -hashes lm:nt -spn cifs/contoso-dc contoso.com/user

@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -663,8 +663,8 @@ class MSSQL:
             LOG.info("Encryption required, switching to TLS")
 
             # Switching to TLS now
-            ctx = SSL.Context(SSL.TLSv1_METHOD)
-            ctx.set_cipher_list('RC4, AES256')
+            ctx = SSL.Context(SSL.TLS_METHOD)
+            ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
             tls = SSL.Connection(ctx,None)
             tls.set_connect_state()
             while True:
@@ -872,8 +872,8 @@ class MSSQL:
             LOG.info("Encryption required, switching to TLS")
 
             # Switching to TLS now
-            ctx = SSL.Context(SSL.TLSv1_METHOD)
-            ctx.set_cipher_list('RC4, AES256')
+            ctx = SSL.Context(SSL.TLS_METHOD)
+            ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
             tls = SSL.Connection(ctx,None)
             tls.set_connect_state()
             while True:

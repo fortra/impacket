@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -32,7 +32,7 @@ from impacket.smbconnection import SMBConnection, SMB2_DIALECT_002, SMB2_DIALECT
     FILE_READ_DATA, FILE_SHARE_READ, FILE_SHARE_WRITE
 from impacket.smb3structs import FILE_DIRECTORY_FILE, FILE_LIST_DIRECTORY
 
-import chardet
+import charset_normalizer as chardet
 
 
 # If you wanna have readline like functionality in Windows, install pyreadline

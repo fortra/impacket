@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -406,9 +406,9 @@ def parse_args():
                                      description='Python (re)setter for property msDS-AllowedToActOnBehalfOfOtherIdentity for Kerberos RBCD attacks.')
     parser.add_argument('identity', action='store', help='domain.local/username[:password]')
     parser.add_argument("-delegate-to", type=str, required=True,
-                        help="Target computer account the attacker has at least WriteProperty to")
+                        help="Target account the DACL is to be read/edited/etc.")
     parser.add_argument("-delegate-from", type=str, required=False,
-                        help="Attacker controlled machine account to write on the msDS-Allo[...] property (only when using `-action write`)")
+                        help="Attacker controlled account to write on the rbcd property of -delegate-to (only when using `-action write`)")
     parser.add_argument('-action', choices=['read', 'write', 'remove', 'flush'], nargs='?', default='read',
                         help='Action to operate on msDS-AllowedToActOnBehalfOfOtherIdentity')
 

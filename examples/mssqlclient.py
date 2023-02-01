@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -61,7 +61,7 @@ if __name__ == '__main__':
             except:
                 pass
 
-        def sp_start_job(self, s):
+        def do_sp_start_job(self, s):
             try:
                 self.sql.sql_query("DECLARE @job NVARCHAR(100);"
                                    "SET @job='IdxDefrag'+CONVERT(NVARCHAR(36),NEWID());"
