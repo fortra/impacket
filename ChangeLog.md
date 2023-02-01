@@ -1,15 +1,51 @@
 # ChangeLog
 
-Project's main page at [www.secureauth.com](https://www.secureauth.com/labs/open-source-tools/impacket).
+Project owner's main page is at www.coresecurity.com.
 
 Complete list of changes can be found at:
-https://github.com/SecureAuthCorp/impacket/commits/master
+https://github.com/fortra/impacket/commits/master
 
-## Unreleased changes
+## ThePorgs edits:
+* [1135](https://github.com/fortra/impacket/pull/1135): **[GetUserSPNs]** Improved searchFilter for GetUserSPNs
+* [1137](https://github.com/fortra/impacket/pull/1137): **[SystemDPAPIdump]** Added script example 
+* [1154](https://github.com/fortra/impacket/pull/1154): **[ntlmrelayx]** Unfiltered SID query when operating ACL attack
+* [1184](https://github.com/fortra/impacket/pull/1184): **[findDelegation]** Added user filter on findDelegation
+* [1201](https://github.com/fortra/impacket/pull/1201): **[describeTicket]** Added describeTicket
+* [1202](https://github.com/fortra/impacket/pull/1202): **[getST]** Added -self, -altservice and -u2u to getST for S4U2self abuse, S4U2self+u2u, and service substitution
+* [1224](https://github.com/fortra/impacket/pull/1224): **[renameMachine]** Added renameMachine
+* [1253](https://github.com/fortra/impacket/pull/1253): **[ntlmrelayx]** Added LSA dump on top of SAM dump for ntlmrelayx
+* [1256](https://github.com/fortra/impacket/pull/1256): **[tgssub]** Added tgssub script for service substitution
+* [1261](https://github.com/fortra/impacket/pull/1261): **[secretsdump]** LSA's Security Questions Security Answers structure empty fix
+* [1267](https://github.com/fortra/impacket/pull/1267): **[Get-GPPPasswords]** Better handling of various XML files in Group Policy Preferences
+* [1270](https://github.com/fortra/impacket/pull/1270): **[ticketer]** Fix ticketer duration to support default 10 hours tickets
+* [1280](https://github.com/fortra/impacket/pull/1280): **[machineAccountQuota]** added machineAccountQuota
+* [1288](https://github.com/fortra/impacket/pull/1288): **[ntlmrelayx]** LDAP attack: bypass computer creation restrictions with CVE-2021-34470
+* [1289](https://github.com/fortra/impacket/pull/1289): **[ntlmrelayx]** LDAP attack: Add DNS records through LDAP
+* [1291](https://github.com/fortra/impacket/pull/1291): **[dacledit]** New example script for DACL manipulation
+* [1318](https://github.com/fortra/impacket/pull/1318): **[ntlmrelayx]** Dump ADCS: bug fixes
+* [1323](https://github.com/fortra/impacket/pull/1323): **[owneredit]** New example script to change an object's owner
+* [1329](https://github.com/fortra/impacket/pull/1329): **[secretsdump]** Use a custom LDAP filter during a DCSync
+* [1353](https://github.com/fortra/impacket/pull/1353): **[ntlmrelayx]** add filter option
+* [1360](https://github.com/fortra/impacket/pull/1360): **[smbserver]** Added flag to drop SSP from Net-NTLMv1 auth
+* [1367](https://github.com/fortra/impacket/pull/1367): **[secretsdump]** Add UTC date to cached domain logon information
+* [1391](https://github.com/fortra/impacket/pull/1391): **[ticketer]** Ticketer extra-pac implementation
+* [1393](https://github.com/fortra/impacket/pull/1393): **[rbcd]** Handled SID not found in LDAP error
+* [1397](https://github.com/fortra/impacket/pull/1397): **[mssqlclient]** commands and prompt improvements
+* [1411](https://github.com/fortra/impacket/pull/1411): **[ticketer]** Sapphire tickets
+* [1413](https://github.com/fortra/impacket/pull/1413): **[getST]** Support for Kerberoasting without pre-authentication and ST request through AS-REQ
+* [1421](https://github.com/fortra/impacket/pull/1421): **[ntlmrelayx]** Fix leftover space in shadow credentials argument
+* [1425](https://github.com/fortra/impacket/pull/1425): **[ntlmrelayx]** Add SCCM NTLM Relay Attack
+* [1432](https://github.com/fortra/impacket/pull/1432): **[httprelayclient]** force NTLM auth if anonymous auth is enabled (ADCS)
+* [1444](https://github.com/fortra/impacket/pull/1444): **[Get-GPPPassword]** Better handling of various XML files in Group Policy Preferences
+* [1449](https://github.com/fortra/impacket/pull/1449): **[addcomputer,rbcd]** Allow weak TLS ciphers for LDAP connections
+* [1450](https://github.com/fortra/impacket/pull/1450): **[PsExec]** Support for name customization using a custom binary file
+
+
+## Impacket v0.10.0 (May 2022):
 
 1. Library improvements 
-    * Dropped support for Python 2.7. We'll keep it running under GitHub Actions/`Tox` as experimental just for visibility.
-    * Refactored the testing infrastructure:
+    * Dropped support for Python 2.7.
+    * Refactored the testing infrastructure (@martingalloar):
       * Added `pytest` as the testing framework to organize and mark test
         cases. `Tox` remain as the automation framework, and `Coverage.py`
         for measuring code coverage.
@@ -17,17 +53,50 @@ https://github.com/SecureAuthCorp/impacket/commits/master
       * Local and remote test cases were marked for easy run and configuration. 
       * DCE/RPC endpoint test cases were refactored and moved to a new layout. 
       * An initial testing guide with the main steps to prepare a testing environment and run them. 
-      * Fixed a good amount of DCE/RPC endpoint test cases that were failing, and added tests for `[MS-PAR]`.
+      * Fixed a good amount of DCE/RPC endpoint test cases that were failing. 
+      * Added tests for `[MS-PAR]`, `[MS-RPRN]`, CCache and DPAPI.
     * Added a function to compute the Netlogon Authenticator at client-side in `[MS-NRPC]` (@0xdeaddood)
     * Added `[MS-DSSP]` protocol implementation (@simondotsh)
     * Added GetDriverDirectory functions to `[MS-PAR]` and `[MS-RPRN]` (@raithedavion)
+    * Refactored the Credential Cache:
+	  * Added new parseFile function to ccache.py (@rmaksimov)
+	  * Added support for loading CCache Version 3 (@reznok)
+	  * Modified fromKRBCRED function used to load a Kirbi file (@0xdeaddood)
+	  * Fixed Ccache to Kirbi conversion (@ShutdownRepo)
+	* Fixed default NTLM server challenge in smbserver (@rtpt-jonaslieb)
 
 2. Examples improvements
+	* [exchanger.py](examples/exchanger.py):
+	  * Fixed a bug when a Global Address List doesn't exist on the server (@mohemiv)
+	* [mimikatz.py](examples/mimikatz.py)
+	  * Updated intro to not trigger the AV on windows (@mpgn)
 	* [ntlmrelayx.py](examples/ntlmrelayx.py):
-	   * Implemented RAWRelayServer (@CCob)
-    
+	  * Implemented RAW Relay Server (@CCob)
+	  * Added an LDAP attack dumping information about the domain's ADCS enrollment services (@SAERXCIT)
+      * Added multi-relay feature to the HTTP Relay Server. Now one incoming HTTP connection could be 
+        used against multiple targets (@0xdeaddood)
+      * Added an option to disable the multi-relay feature (@zblurx and @0xdeaddood)
+      * Added multiple HTTP listeners running at the same time (@SAERXCIT)
+      * Support for the ADCS ESC1 and ESC6 attacks (@hugo-syn)
+      * Added Shadow Credentials attack (@ShutdownRepo, @Tw1sm, @nodauf and @p0dalirius)
+      * Added the ability to define a password for the LDAP attack addComputer (@ShutdownRepo)
+      * Added rename_computer and modify add_computer in LDAP interactive shell (@capnkrunchy)
+      * Implemented StartTLS (@ThePirateWhoSmellsOfSunflowers)
+    * [reg.py](examples/reg.py):
+      * Added save function to allow remote saving of registry hives (@ShutdownRepo and @scopedsecurity)
+    * [secretsdump.py](examples/secretsdump.py):
+      * Added an option to dump credentials using the Kerberos Key List attack (@0xdeaddood)
+    * [smbpasswd.py](examples/smbpasswd.py):
+      * Added an option to force credentials change via injecting new values into SAM (@snovvcrash and @alefburzmali)
 3. New examples
-	* [machine_role.py](examples/machine_role.py): This script retrieves a host's role along with its primary domain details (@simondotsh)
+	* [machine_role.py](examples/machine_role.py): This script retrieves a host's role along with its 
+	  primary domain details (@simondotsh)
+    * [keylistattack.py](examples/keylistattack.py): This example implements the Kerberos Key List
+      attack to dump credentials abusing RODCs and Azure AD Kerberos Servers (@0xdeaddood)
+
+As always, thanks a lot to all these contributors that make this library better every day (since last version):
+
+@rmaksimov @simondotsh @CCob @raithedavion @SAERXCIT @Maltemo @dirkjanm @reznok @ShutdownRepo @scopedsecurity @Tw1sm @nodauf @p0dalirius @zblurx @hugo-syn @capnkrunchy @mohemiv @mpgn @rtpt-jonaslieb @snovvcrash @alefburzmali @ThePirateWhoSmellsOfSunflowers @jlvcm
 
 ## Impacket v0.9.24 (October 2021):
 
@@ -155,6 +224,7 @@ As always, thanks a lot to all these contributors that make this library better 
 	- [rpcmap.py](examples/rpcmap.py): Scan for listening DCE/RPC interfaces (by @mohemiv).
 
 As always, thanks a lot to all these contributors that make this library better every day (since last version):
+
 @mohemiv @mpgn @Romounet @ThePirateWhoSmellsOfSunflowers @rmaksimov @fuzzKitty @tshmul @spinenkoia @AaronRobson @ABCIFOGeowi40 @cclauss @cnotin @5alt @franferrax @Dliv3 @dirkjanm @Mr-Gag @vbersier @phefley @Hackndo
 
 

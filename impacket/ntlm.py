@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -145,6 +145,9 @@ NTLMSSP_NEGOTIATE_OEM_DOMAIN_SUPPLIED      = 0x00001000
 # If set, the connection SHOULD be anonymous
 NTLMSSP_NEGOTIATE_ANONYMOUS                = 0x00000800
 
+# Flags used by Responder to drop SSP (little endian)
+NTLMSSP_DROP_SSP_STATIC                    = 0xe2818215
+
 # If set, LM authentication is not allowed and only NT authentication is used.
 NTLMSSP_NEGOTIATE_NT_ONLY                  = 0x00000400
 
@@ -269,7 +272,7 @@ class VERSION(Structure):
     )
 
 class NTLMAuthNegotiate(Structure):
-
+    
     structure = (
         ('','"NTLMSSP\x00'),
         ('message_type','<L=1'),
@@ -587,7 +590,7 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlm
        auth['flags'] |= NTLMSSP_NEGOTIATE_TARGET_INFO
     auth['flags'] |= NTLMSSP_NEGOTIATE_NTLM | NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY | NTLMSSP_NEGOTIATE_UNICODE | \
                      NTLMSSP_REQUEST_TARGET |  NTLMSSP_NEGOTIATE_128 | NTLMSSP_NEGOTIATE_56
-
+    
     # We're not adding workstation / domain fields this time. Normally Windows clients don't add such information but,
     # we will save the workstation name to be used later.
     auth.setWorkstation(workstation)

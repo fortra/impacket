@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -121,7 +121,7 @@ class RPCRTTests(RemoteTestCase):
         self.stringBinding = epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
         print(self.stringBinding)
         dce = self.connectDCE(self.username, '', self.domain, self.lmhash, self.nthash, dceFragment=0,
-                              auth_level=RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, auth_type=RPC_C_AUTHN_GSS_NEGOTIATE,
+                              auth_level=RPC_C_AUTHN_LEVEL_PKT_PRIVACY, auth_type=RPC_C_AUTHN_GSS_NEGOTIATE,
                               dceAuth=True,
                               doKerberos=True, bind=samr.MSRPC_UUID_SAMR)
         self.stringBinding = oldBinding
