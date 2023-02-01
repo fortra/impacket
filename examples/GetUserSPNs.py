@@ -398,7 +398,7 @@ class GetUserSPNs:
                         principalName.components = [downLevelLogonName]
 
                         tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
-                                                                                self.__kdcHost,
+                                                                                self.__kdcIP,
                                                                                 TGT['KDC_REP'], TGT['cipher'],
                                                                                 TGT['sessionKey'])
                         self.outputTGS(tgs, oldSessionKey, sessionKey, sAMAccountName,
@@ -461,7 +461,7 @@ class GetUserSPNs:
                     principalName.components = [username]
 
                     tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
-                                                                            self.__kdcHost,
+                                                                            self.__kdcIP,
                                                                             TGT['KDC_REP'], TGT['cipher'],
                                                                             TGT['sessionKey'])
                     self.outputTGS(tgs, oldSessionKey, sessionKey, username, username, fd)
