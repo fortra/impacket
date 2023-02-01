@@ -207,6 +207,7 @@ def start_servers(options, threads):
         c.setExeFile(options.e)
         c.setCommand(options.c)
         c.setEnumLocalAdmins(options.enum_local_admins)
+        c.setEnumDomain(options.enum_domain)
         c.setDisableMulti(options.no_multirelay)
         c.setEncoding(codec)
         c.setMode(mode)
@@ -352,6 +353,7 @@ if __name__ == '__main__':
     smboptions.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. '
                                      'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
+    smboptions.add_argument('--enum-domain', action='store_true', required=False, help='Enumerate domain')
 
     #RPC arguments
     rpcoptions = parser.add_argument_group("RPC client options")
