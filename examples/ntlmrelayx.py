@@ -115,6 +115,42 @@ class MiniShell(cmd.Cmd):
             else:
                 logging.info('No Relays Available!')
 
+    def do_admsocks(self, line):
+        headers = ["Protocol", "Target", "Username", "AdminStatus", "Port"]
+        url = "http://localhost:9090/ntlmrelayx/api/v1.0/relays"
+        try:
+            proxy_handler = ProxyHandler({})
+            opener = build_opener(proxy_handler)
+            response = Request(url)
+            r = opener.open(response)
+            result = r.read()
+            items = json.loads(result)
+
+        except Exception as e:
+            logging.error("ERROR: %s" % str(e))
+        else:
+          try:
+            if len(items) > 0:
+              new_list = [] # New dict to store the "items" JSON array
+              idx = 0
+              admonly = 'TRUE' # Search string for Admin
+              for line in items:
+                if admonly in line:
+                  new_list.insert(idx, line)
+                  idx += 1
+              if len(new_list) == 0:
+                print("\nNo Admin Sessions Available") # Do I really need to explain this?
+              else:
+                lineLen = len(new_list)
+                for i in range(lineLen):
+                  break
+              self.printTable(new_list, header=headers)
+          # Exception added to handle max() ValueError on the rowMaxLen in printTable function
+          except ValueError as e:
+            print()
+          else:
+              logging.info('No Relays Available!')
+                
     def do_startservers(self, line):
         if not self.serversRunning:
             start_servers(options, self.relayThreads)
