@@ -411,11 +411,13 @@ class RegHandler:
             subKey = '\\'.join(keyName.split('\\')[1:])
         except Exception:
             raise Exception('Error parsing keyName %s' % keyName)
-        if rootKey.upper() == 'HKLM':
+        if rootKey.upper() in ['HKLM','HKEY_LOCAL_MACHINE']:
             ans = rrp.hOpenLocalMachine(dce)
-        elif rootKey.upper() == 'HKU':
+        elif rootKey.upper() in ['HKCU','HKEY_CURRENT_USER']:
             ans = rrp.hOpenCurrentUser(dce)
-        elif rootKey.upper() == 'HKCR':
+        elif rootKey.upper() in ['HKU','HKEY_USERS']:
+            ans = rrp.hOpenUsers(dce)
+        elif rootKey.upper() in ['HKCR','HKEY_CLASSES_ROOT']:
             ans = rrp.hOpenClassesRoot(dce)
         else:
             raise Exception('Invalid root key %s ' % rootKey)
