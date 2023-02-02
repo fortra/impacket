@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -394,7 +394,7 @@ class GetUserSPNs:
                         principalName.components = [downLevelLogonName]
 
                         tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
-                                                                                self.__kdcHost,
+                                                                                self.__kdcIP,
                                                                                 TGT['KDC_REP'], TGT['cipher'],
                                                                                 TGT['sessionKey'])
                         self.outputTGS(tgs, oldSessionKey, sessionKey, sAMAccountName,
@@ -432,7 +432,7 @@ class GetUserSPNs:
                 principalName.components = [username]
 
                 tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
-                                                                        self.__kdcHost,
+                                                                        self.__kdcIP,
                                                                         TGT['KDC_REP'], TGT['cipher'],
                                                                         TGT['sessionKey'])
                 self.outputTGS(tgs, oldSessionKey, sessionKey, username, username, fd)
