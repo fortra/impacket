@@ -2576,7 +2576,18 @@ def hSamrCreateUser2InDomain(dce, domainHandle, name, accountType=USER_NORMAL_AC
     request['Name'] = name
     request['AccountType'] = accountType
     request['DesiredAccess'] = desiredAccess
-    return dce.request(request)
+    try:
+        return dce.request(request)
+    except DCERPCSessionError as e:
+        if e.error_code == 0xc0000022:
+            raise Exception("Relayed user doesn't have right to create a machine account!")
+        elif e.error_code == 0xc00002e7:
+            raise Exception("Relayed user machine quota exceeded!")
+        elif e.error_code == 0xc0000062:
+            raise Exception("Account name not accepted, maybe the '$' at the end is missing ?")
+        else:
+            raise e
+
 
 def hSamrCreateUserInDomain(dce, domainHandle, name, desiredAccess=GROUP_ALL_ACCESS):
     request = SamrCreateUserInDomain()

@@ -208,6 +208,7 @@ def start_servers(options, threads):
         c.setCommand(options.c)
         c.setEnumLocalAdmins(options.enum_local_admins)
         c.setEnumDomain(options.enum_domain)
+        c.setAddComputerSMB(options.smb_add_computer)
         c.setDisableMulti(options.no_multirelay)
         c.setEncoding(codec)
         c.setMode(mode)
@@ -355,6 +356,8 @@ if __name__ == '__main__':
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
     smboptions.add_argument('--enum-domain', action='store_true', required=False, help='Enumerate domain')
 
+    smboptions.add_argument('--smb-add-computer', action='store', metavar=('COMPUTERNAME', 'PASSWORD'), required=False, nargs='*', help='Attempt to add a new computer account via SMB.')
+    
     #RPC arguments
     rpcoptions = parser.add_argument_group("RPC client options")
     rpcoptions.add_argument('-rpc-mode', choices=["TSCH"], default="TSCH", help='Protocol to attack, only TSCH supported')
@@ -476,6 +479,9 @@ if __name__ == '__main__':
     else:
         if options.tf is not None:
             #Targetfile specified
+            if (options.smb_add_computer):
+                logging.info("To add a machine account through SMB only the Domain Controller must be specified as target")
+                sys.exit(1)
             logging.info("Running in relay mode to hosts in targetfile")
             targetSystem = TargetsProcessor(targetListFile=options.tf, protocolClients=PROTOCOL_CLIENTS, randomize=options.random)
             mode = 'RELAY'

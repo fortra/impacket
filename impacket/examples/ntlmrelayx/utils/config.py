@@ -151,6 +151,9 @@ class NTLMRelayxConfig:
     def setEnumDomain(self, enumDomain):
         self.enumDomain = enumDomain
 
+    def setAddComputerSMB(self, addComputerSMB):
+        self.addComputerSMB = addComputerSMB
+
     def setDisableMulti(self, disableMulti):
         self.disableMulti = disableMulti
 

