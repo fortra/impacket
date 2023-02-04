@@ -22,6 +22,7 @@ https://github.com/fortra/impacket/commits/master
 * [1280](https://github.com/fortra/impacket/pull/1280): **[machineAccountQuota]** added machineAccountQuota
 * [1288](https://github.com/fortra/impacket/pull/1288): **[ntlmrelayx]** LDAP attack: bypass computer creation restrictions with CVE-2021-34470 (in https://github.com/ThePorgs/impacket/pull/8)
 * [1289](https://github.com/fortra/impacket/pull/1289): **[ntlmrelayx]** LDAP attack: Add DNS records through LDAP
+* [1290](https://github.com/fortra/impacket/pull/1290): **[ntlmrelayx]** Adds the creation of a new machine account through SMB (in https://github.com/ThePorgs/impacket/pull/24)
 * [1291](https://github.com/fortra/impacket/pull/1291): **[dacledit]** New example script for DACL manipulation (in https://github.com/ThePorgs/impacket/pull/7)
 * [1301](https://github.com/fortra/impacket/pull/1301): **[secretsdump]** Added OpenGPG public/private key parsing (in https://github.com/ThePorgs/impacket/pull/19)
 * [1318](https://github.com/fortra/impacket/pull/1318): **[ntlmrelayx]** Dump ADCS: bug fixes (in https://github.com/ThePorgs/impacket/pull/9)
