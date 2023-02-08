@@ -279,7 +279,7 @@ class DumpSecrets:
                                                useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM,
                                                pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
                                                outputFileName=self.__outputFileName, justUser=self.__justUser,
-                                               ldapFilter=self.__ldapFilter, printUserStatus=self.__printUserStatus)
+                                               ldapFilter=self.__ldapFilter, printUserStatus=self.__printUserStatus, isADAMLDS=self.__options.adamlds)
                 try:
                     self.__NTDSHashes.dump()
                 except Exception as e:
