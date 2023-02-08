@@ -1966,7 +1966,7 @@ class NTDSHashes:
                  useVSSMethod=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None,
                  justUser=None, ldapFilter=None, printUserStatus=False,
                  perSecretCallback = lambda secretType, secret : _print_helper(secret),
-                 resumeSessionMgr=ResumeSessionMgrInFile):
+                 resumeSessionMgr=ResumeSessionMgrInFile, isADAMLDS=False):
         self.__bootKey = bootKey
         self.__NTDS = ntdsFile
         self.__history = history
@@ -1989,7 +1989,7 @@ class NTDSHashes:
         self.__justUser = justUser
         self.__ldapFilter = ldapFilter
         self.__perSecretCallback = perSecretCallback
-        self.__isADAMLDS = False
+        self.__isADAMLDS = isADAMLDS
 
 		# these are all the columns that we need to get the secrets.
 		# If in the future someone finds other columns containing interesting things please extend ths table.
@@ -2028,24 +2028,24 @@ class NTDSHashes:
 
             if record is None:
                 break
+
             elif record.get(self.NAME_TO_INTERNAL['pekList']) is not None:
                 # If we detect a Schema object with a PEKlist, it's a psuedo-PEKlist which must be mixed with
                 # the pseudo-PEKlist found in the Root object.
-                if record.get(b'ATTm3') == 'Schema':
+                if self.__isADAMLDS and record.get(b'ATTm3') == 'Schema':
                     LOG.debug("Possible ADAM LDS detected based on PEKList attribute in Schma object")
                     AdamSchemaPekList = unhexlify(record[self.NAME_TO_INTERNAL['pekList']])            
-                    self.__isADAMLDS = True
                     continue
 
                 # If we have a blank ATTm3 (name) record, it's the Root record's psuedo-PEKlist object to be mixed 
                 # with the schema to form the bootkey for ADAMLDS
-                elif record.get(b'ATTm3') == None:
+                elif self.__isADAMLDS and record.get(b'ATTm3') == None:
                     AdamRootPekList = unhexlify(record[self.NAME_TO_INTERNAL['pekList']])
                     continue
 
                 # if the PEKlist obeys the standard PEK header format, then it's a real PEKlist, which we will
                 # later decode with the bootkey to get the decrypted PEKlist.
-                elif record.get(self.NAME_TO_INTERNAL['pekList']).startswith(b"03000000") or record.get(self.NAME_TO_INTERNAL['pekList']).startswith(b"02000000"):
+                if record.get(self.NAME_TO_INTERNAL['pekList']).startswith(b"03000000") or record.get(self.NAME_TO_INTERNAL['pekList']).startswith(b"02000000"):
                     peklist = unhexlify(record[self.NAME_TO_INTERNAL['pekList']])
 
             # ADAMLDS accounts do not have sAMAccountType values, and their username values are stored in a very 
@@ -2054,12 +2054,6 @@ class NTDSHashes:
                 # Okey.. we found some users, but we're not yet ready to process them.
                 # Let's just store them in a temp list
                 self.__tmpUsers.append(record)
-
-        # Now that we're done searching for PEKlists:
-        # the PEKList is found normally in the blank ATTm3 (name) Root object, so if we found it there and we didn't see a Schema PEK, transfer
-        # the value of ADAMRootPekList to the variable peklist
-        if not self.__isADAMLDS:
-            peklist = AdamRootPekList
 
         # Here we calculate the permutations of root and schema pseudo-peklist to generate the ADAMLDS bootkey value
         if self.__isADAMLDS and AdamSchemaPekList is not None and AdamRootPekList is not None:
@@ -2075,7 +2069,7 @@ class NTDSHashes:
             self.__bootKey = bytearray(bootkey)
             LOG.debug("Calculated ADAMLDS bootkey: %s" % hexlify(self.__bootKey))
 
-        elif self.__isADAMLDS:
+        elif self.__isADAMLDS and self.__bootKey == b'':
             LOG.critical("ADAMLDS ditfile detected, but could not calculate bootkey!")
             raise Exception("ADAMLDS ditfile detected, but could not calculate bootkey!")
 
