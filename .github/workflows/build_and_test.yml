@@ -40,7 +40,7 @@ jobs:
   test:
     name: Run unit tests and build wheel
     needs: lint
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     if:
       github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
       github.repository
@@ -48,11 +48,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.6", "3.7", "3.8", "3.9"]
+        python-version: ["3.7", "3.8", "3.9"]
         experimental: [false]
+        os: [ubuntu-latest]
         include:
+          - python-version: "3.6"
+            experimental: false
+            os: ubuntu-20.04
           - python-version: "3.10"
             experimental: true
+            os: ubuntu-latest
     continue-on-error: ${{ matrix.experimental }}
 
     steps:
