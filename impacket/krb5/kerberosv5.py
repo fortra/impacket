@@ -427,7 +427,16 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     opts.append( constants.KDCOptions.canonicalize.value )
 
     reqBody['kdc-options'] = constants.encodeFlags(opts)
-    seq_set(reqBody, 'sname', serverName.components_to_asn1)
+    realmInServerName = ""
+    # check if current ticket is a referral TGT
+    for i, c in enumerate(serverName.components):
+        if i==1:
+            realmInServerName = c.split('.',1)[1].upper()
+    if realmInServerName != targetRealm:
+        referralTGTsName = Principal('krbtgt/%s' % (realmInServerName), type=constants.PrincipalNameType.NT_SRV_INST.value)
+        seq_set(reqBody, 'sname', referralTGTsName.components_to_asn1)
+    else:
+        seq_set(reqBody, 'sname', serverName.components_to_asn1)
     reqBody['realm'] = targetRealm
 
     now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
