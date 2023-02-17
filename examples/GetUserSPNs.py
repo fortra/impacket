@@ -304,15 +304,18 @@ class GetUserSPNs:
         searchFilter += ')'
 
         try:
+            # Microsoft Active Directory set an hard limit of 1000 entries returned by any search
+            paged_search_control = ldapasn1.SimplePagedResultsControl(criticality=True, size=1000)
+
             resp = ldapConnection.search(searchFilter=searchFilter,
                                          attributes=['servicePrincipalName', 'sAMAccountName',
                                                      'pwdLastSet', 'MemberOf', 'userAccountControl', 'lastLogon'],
-                                         sizeLimit=100000)
+                                         searchControls=[paged_search_control])
+
         except ldap.LDAPSearchError as e:
             if e.getErrorString().find('sizeLimitExceeded') >= 0:
+                # We should never reach this code as we use paged search now
                 logging.debug('sizeLimitExceeded exception caught, giving up and processing the data received')
-                # We reached the sizeLimit, process the answers we have already and that's it. Until we implement
-                # paged queries
                 resp = e.getAnswers()
                 pass
             else:
