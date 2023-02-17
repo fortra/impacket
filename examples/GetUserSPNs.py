@@ -88,6 +88,7 @@ class GetUserSPNs:
         self.__kdcHost = cmdLineOptions.dc_host
         self.__saveTGS = cmdLineOptions.save
         self.__requestUser = cmdLineOptions.request_user
+        self.__stealth = cmdLineOptions.stealth
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
@@ -291,12 +292,18 @@ class GetUserSPNs:
                 raise
 
         # Building the search filter
+        filter_spn = "servicePrincipalName=*"
         filter_person = "objectCategory=person"
         filter_not_disabled = "!(userAccountControl:1.2.840.113556.1.4.803:=2)"
 
         searchFilter = "(&"
         searchFilter += "(" + filter_person + ")"
         searchFilter += "(" + filter_not_disabled + ")"
+
+        if self.__stealth is True:
+            logging.warning('Stealth option may cause huge memory consumption / out-of-memory errors on very large domains.')
+        else:
+            searchFilter += "(" + filter_spn + ")"
 
         if self.__requestUser is not None:
             searchFilter += '(sAMAccountName:=%s)' % self.__requestUser
@@ -459,6 +466,8 @@ if __name__ == '__main__':
     parser.add_argument('-target-domain', action='store',
                         help='Domain to query/request if different than the domain of the user. '
                              'Allows for Kerberoasting across trusts.')
+    parser.add_argument('-stealth', action='store_true', help='Removes the (servicePrincipalName=*) filter from the LDAP query for added stealth. '
+                                                              'May cause huge memory consumption / errors on large domains.')
     parser.add_argument('-usersfile', help='File with user per line to test')
     parser.add_argument('-request', action='store_true', default=False, help='Requests TGS for users and output them '
                                                                              'in JtR/hashcat format (default False)')
