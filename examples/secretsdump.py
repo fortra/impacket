@@ -576,6 +576,22 @@ class DumpSecrets:
         """
         return self.__options
 
+    @property
+    def username(self) -> str:
+        return self.__username
+
+    @username.setter
+    def username(self, new_username: str) -> None:
+        self.__username = new_username
+
+    @property
+    def password(self) -> str:
+        return self.__password
+
+    @password.setter
+    def password(self, new_password: str) -> None:
+        self.__password = new_password
+
 
 # Process command-line arguments.
 if __name__ == "__main__":
