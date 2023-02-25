@@ -129,9 +129,61 @@ class DumpSecretsOptions:
         self.pwd_last_set = pwd_last_set
         self.user_status = user_status
         self.resumefile = resumefile
-        self.hashes = hashes
         self.dc_ip = dc_ip
         self.exec_method = exec_method
+        self.__hashes = hashes
+        self.lmhash = ""
+        self.nthash = ""
+        if hashes is not None:
+            self.lmhash, self.nthash = hashes.split(":")
+
+    @property
+    def hashes(self) -> str:
+        return self.__hashes
+
+    @hashes.setter
+    def hashes(self, value: str):
+        if value is not None:
+            self.__hashes = value
+            self.lmhash, self.nthash = value.split(":")
+        else:
+            self.lmhash, self.nthash = "", ""
+
+    def reset(self, keep_ip: bool = False) -> None:
+        """Set all attributes to None.
+
+        Args:
+            keep_ip (bool, optional): Use it to keep the self.target_ip attribute. Defaults to False.
+        """
+
+        if not keep_ip:
+            self.target_ip = None
+
+        (
+            self.use_vss,
+            self.use_keylist,
+            self.aesKey,
+            self.rodcKey,
+            self.rodcNo,
+            self.system,
+            self.bootkey,
+            self.security,
+            self.sam,
+            self.ntds,
+            self.history,
+            self.hashes,
+            self.outputfile,
+            self.k,
+            self.just_dc,
+            self.just_dc_ntlm,
+            self.just_dc_user,
+            self.ldapfilter,
+            self.pwd_last_set,
+            self.user_status,
+            self.resumefile,
+            self.dc_ip,
+            self.exec_method,
+        ) = (None,) * 23
 
 
 class DumpSecrets:
@@ -166,17 +218,10 @@ class DumpSecrets:
         if options is None:
             options = DumpSecretsOptions()
 
-        self.__useVSSMethod = options.use_vss
-        self.__useKeyListMethod = options.use_keylist
         self.__remoteName = remoteName
-        self.__remoteHost = options.target_ip
         self.__username = username
         self.__password = password
         self.__domain = domain
-        self.__lmhash = ""
-        self.__nthash = ""
-        self.__aesKey = options.aesKey
-        self.__aesKeyRodc = options.rodcKey
         self.__smbConnection = None
         self.__ldapConnection = None
         self.__remoteOps = None
@@ -184,58 +229,40 @@ class DumpSecrets:
         self.__NTDSHashes = None
         self.__LSASecrets = None
         self.__KeyListSecrets = None
-        self.__rodc = options.rodcNo
-        self.__systemHive = options.system
-        self.__bootkey = options.bootkey
-        self.__securityHive = options.security
-        self.__samHive = options.sam
-        self.__ntdsFile = options.ntds
-        self.__history = options.history
         self.__noLMHash = True
         self.__isRemote = True
-        self.__outputFileName = options.outputfile
-        self.__doKerberos = options.k
-        self.__justDC = options.just_dc
-        self.__justDCNTLM = options.just_dc_ntlm
-        self.__justUser = options.just_dc_user
-        self.__ldapFilter = options.ldapfilter
-        self.__pwdLastSet = options.pwd_last_set
-        self.__printUserStatus = options.user_status
-        self.__resumeFileName = options.resumefile
         self.__canProcessSAMLSA = True
-        self.__kdcHost = options.dc_ip
         self.__options = options
 
-        if options.hashes is not None:
-            self.__lmhash, self.__nthash = options.hashes.split(":")
-
     def connect(self):
-        self.__smbConnection = SMBConnection(self.__remoteName, self.__remoteHost)
-        if self.__doKerberos:
+        self.__smbConnection = SMBConnection(
+            self.__remoteName, self.__options.target_ip
+        )
+        if self.__options.k:
             self.__smbConnection.kerberosLogin(
                 self.__username,
                 self.__password,
                 self.__domain,
-                self.__lmhash,
-                self.__nthash,
-                self.__aesKey,
-                self.__kdcHost,
+                self.__options.lmhash,
+                self.__options.nthash,
+                self.__options.aesKey,
+                self.__options.dc_ip,
             )
         else:
             self.__smbConnection.login(
                 self.__username,
                 self.__password,
                 self.__domain,
-                self.__lmhash,
-                self.__nthash,
+                self.__options.lmhash,
+                self.__options.nthash,
             )
 
     def ldapConnect(self):
-        if self.__doKerberos:
-            self.__target = self.__remoteHost
+        if self.__options.k:
+            self.__target = self.__options.target_ip
         else:
-            if self.__kdcHost is not None:
-                self.__target = self.__kdcHost
+            if self.__options.dc_ip is not None:
+                self.__target = self.__options.dc_ip
             else:
                 self.__target = self.__domain
 
@@ -253,49 +280,49 @@ class DumpSecrets:
 
         try:
             self.__ldapConnection = LDAPConnection(
-                "ldap://%s" % self.__target, self.baseDN, self.__kdcHost
+                "ldap://%s" % self.__target, self.baseDN, self.__options.dc_ip
             )
-            if self.__doKerberos is not True:
+            if self.__options.k is not True:
                 self.__ldapConnection.login(
                     self.__username,
                     self.__password,
                     self.__domain,
-                    self.__lmhash,
-                    self.__nthash,
+                    self.__options.lmhash,
+                    self.__options.nthash,
                 )
             else:
                 self.__ldapConnection.kerberosLogin(
                     self.__username,
                     self.__password,
                     self.__domain,
-                    self.__lmhash,
-                    self.__nthash,
-                    self.__aesKey,
-                    kdcHost=self.__kdcHost,
+                    self.__options.lmhash,
+                    self.__options.nthash,
+                    self.__options.aesKey,
+                    kdcHost=self.__options.dc_ip,
                 )
         except LDAPSessionError as e:
             if str(e).find("strongerAuthRequired") >= 0:
                 # We need to try SSL
                 self.__ldapConnection = LDAPConnection(
-                    "ldaps://%s" % self.__target, self.baseDN, self.__kdcHost
+                    "ldaps://%s" % self.__target, self.baseDN, self.__options.dc_ip
                 )
-                if self.__doKerberos is not True:
+                if self.__options.k is not True:
                     self.__ldapConnection.login(
                         self.__username,
                         self.__password,
                         self.__domain,
-                        self.__lmhash,
-                        self.__nthash,
+                        self.__options.lmhash,
+                        self.__options.nthash,
                     )
                 else:
                     self.__ldapConnection.kerberosLogin(
                         self.__username,
                         self.__password,
                         self.__domain,
-                        self.__lmhash,
-                        self.__nthash,
-                        self.__aesKey,
-                        kdcHost=self.__kdcHost,
+                        self.__options.lmhash,
+                        self.__options.nthash,
+                        self.__options.aesKey,
+                        kdcHost=self.__options.dc_ip,
                     )
             else:
                 raise
@@ -304,22 +331,22 @@ class DumpSecrets:
         try:
             if self.__remoteName.upper() == "LOCAL" and self.__username == "":
                 self.__isRemote = False
-                self.__useVSSMethod = True
-                if self.__systemHive:
-                    localOperations = LocalOperations(self.__systemHive)
+                self.__options.use_vss = True
+                if self.__options.system:
+                    localOperations = LocalOperations(self.__options.system)
                     bootKey = localOperations.getBootKey()
-                    if self.__ntdsFile is not None:
+                    if self.__options.ntds is not None:
                         # Let's grab target's configuration about LM Hashes storage
                         self.__noLMHash = localOperations.checkNoLMHashPolicy()
                 else:
                     import binascii
 
-                    bootKey = binascii.unhexlify(self.__bootkey)
+                    bootKey = binascii.unhexlify(self.__options.bootkey)
 
             else:
                 self.__isRemote = True
                 bootKey = None
-                if self.__ldapFilter is not None:
+                if self.__options.ldapfilter is not None:
                     logging.info(
                         "Querying %s for information about domain users via LDAP"
                         % self.__domain
@@ -334,7 +361,7 @@ class DumpSecrets:
                     except Exception as e:
                         if (
                             os.getenv("KRB5CCNAME") is not None
-                            and self.__doKerberos is True
+                            and self.__options.k is True
                         ):
                             # SMBConnection failed. That might be because there was no way to log into the
                             # target system. We just have a last resort. Hope we have tickets cached and that they
@@ -349,16 +376,16 @@ class DumpSecrets:
 
                     self.__remoteOps = RemoteOperations(
                         self.__smbConnection,
-                        self.__doKerberos,
-                        self.__kdcHost,
+                        self.__options.k,
+                        self.__options.dc_ip,
                         self.__ldapConnection,
                     )
                     self.__remoteOps.setExecMethod(self.__options.exec_method)
                     if (
-                        self.__justDC is False
-                        and self.__justDCNTLM is False
-                        and self.__useKeyListMethod is False
-                        or self.__useVSSMethod is True
+                        self.__options.just_dc is False
+                        and self.__options.just_dc_ntlm is False
+                        and self.__options.use_keylist is False
+                        or self.__options.use_vss is True
                     ):
                         self.__remoteOps.enableRegistry()
                         bootKey = self.__remoteOps.getBootKey()
@@ -369,7 +396,7 @@ class DumpSecrets:
                     if (
                         str(e).find("STATUS_USER_SESSION_DELETED")
                         and os.getenv("KRB5CCNAME") is not None
-                        and self.__doKerberos is True
+                        and self.__options.k is True
                     ):
                         # Giving some hints here when SPN target name validation is set to something different to Off
                         # This will prevent establishing SMB connections using TGS for SPNs different to cifs/
@@ -380,13 +407,13 @@ class DumpSecrets:
                         logging.error("RemoteOperations failed: %s" % str(e))
 
             # If the KerberosKeyList method is enable we dump the secrets only via TGS-REQ
-            if self.__useKeyListMethod is True:
+            if self.__options.use_keylist is True:
                 try:
                     self.__KeyListSecrets = KeyListSecrets(
                         self.__domain,
                         self.__remoteName,
-                        self.__rodc,
-                        self.__aesKeyRodc,
+                        self.__options.rodcNo,
+                        self.__options.rodcKey,
                         self.__remoteOps,
                     )
                     self.__KeyListSecrets.dump()
@@ -398,22 +425,22 @@ class DumpSecrets:
             else:
                 # If RemoteOperations succeeded, then we can extract SAM and LSA
                 if (
-                    self.__justDC is False
-                    and self.__justDCNTLM is False
+                    self.__options.just_dc is False
+                    and self.__options.just_dc_ntlm is False
                     and self.__canProcessSAMLSA
                 ):
                     try:
                         if self.__isRemote is True:
                             SAMFileName = self.__remoteOps.saveSAM()
                         else:
-                            SAMFileName = self.__samHive
+                            SAMFileName = self.__options.sam
 
                         self.__SAMHashes = SAMHashes(
                             SAMFileName, bootKey, isRemote=self.__isRemote
                         )
                         self.__SAMHashes.dump()
-                        if self.__outputFileName is not None:
-                            self.__SAMHashes.export(self.__outputFileName)
+                        if self.__options.outputfile is not None:
+                            self.__SAMHashes.export(self.__options.outputfile)
                     except Exception as e:
                         logging.error("SAM hashes extraction failed: %s" % str(e))
 
@@ -421,21 +448,21 @@ class DumpSecrets:
                         if self.__isRemote is True:
                             SECURITYFileName = self.__remoteOps.saveSECURITY()
                         else:
-                            SECURITYFileName = self.__securityHive
+                            SECURITYFileName = self.__options.security
 
                         self.__LSASecrets = LSASecrets(
                             SECURITYFileName,
                             bootKey,
                             self.__remoteOps,
                             isRemote=self.__isRemote,
-                            history=self.__history,
+                            history=self.__options.history,
                         )
                         self.__LSASecrets.dumpCachedHashes()
-                        if self.__outputFileName is not None:
-                            self.__LSASecrets.exportCached(self.__outputFileName)
+                        if self.__options.outputfile is not None:
+                            self.__LSASecrets.exportCached(self.__options.outputfile)
                         self.__LSASecrets.dumpSecrets()
-                        if self.__outputFileName is not None:
-                            self.__LSASecrets.exportSecrets(self.__outputFileName)
+                        if self.__options.outputfile is not None:
+                            self.__LSASecrets.exportSecrets(self.__options.outputfile)
                     except Exception as e:
                         if logging.getLogger().level == logging.DEBUG:
                             import traceback
@@ -446,7 +473,7 @@ class DumpSecrets:
                 # NTDS Extraction we can try regardless of RemoteOperations failing. It might still work
                 if self.__isRemote is True:
                     if (
-                        self.__useVSSMethod
+                        self.__options.use_vss
                         and self.__remoteOps is not None
                         and self.__remoteOps.getRRP() is not None
                     ):
@@ -454,23 +481,23 @@ class DumpSecrets:
                     else:
                         NTDSFileName = None
                 else:
-                    NTDSFileName = self.__ntdsFile
+                    NTDSFileName = self.__options.ntds
 
                 self.__NTDSHashes = NTDSHashes(
                     NTDSFileName,
                     bootKey,
                     isRemote=self.__isRemote,
-                    history=self.__history,
+                    history=self.__options.history,
                     noLMHash=self.__noLMHash,
                     remoteOps=self.__remoteOps,
-                    useVSSMethod=self.__useVSSMethod,
-                    justNTLM=self.__justDCNTLM,
-                    pwdLastSet=self.__pwdLastSet,
-                    resumeSession=self.__resumeFileName,
-                    outputFileName=self.__outputFileName,
-                    justUser=self.__justUser,
-                    ldapFilter=self.__ldapFilter,
-                    printUserStatus=self.__printUserStatus,
+                    useVSSMethod=self.__options.use_vss,
+                    justNTLM=self.__options.just_dc_ntlm,
+                    pwdLastSet=self.__options.pwd_last_set,
+                    resumeSession=self.__options.resumefile,
+                    outputFileName=self.__options.outputfile,
+                    justUser=self.__options.just_dc_user,
+                    ldapFilter=self.__options.ldapfilter,
+                    printUserStatus=self.__options.user_status,
                 )
                 try:
                     self.__NTDSHashes.dump()
@@ -486,15 +513,15 @@ class DumpSecrets:
                         if resumeFile is not None:
                             os.unlink(resumeFile)
                     logging.error(e)
-                    if (self.__justUser or self.__ldapFilter) and str(e).find(
-                        "ERROR_DS_NAME_ERROR_NOT_UNIQUE"
-                    ) >= 0:
+                    if (
+                        self.__options.just_dc_user or self.__options.ldapfilter
+                    ) and str(e).find("ERROR_DS_NAME_ERROR_NOT_UNIQUE") >= 0:
                         logging.info(
                             "You just got that error because there might be some duplicates of the same name. "
                             "Try specifying the domain name for the user as well. It is important to specify it "
                             "in the form of NetBIOS domain name/user (e.g. contoso/Administratror)."
                         )
-                    elif self.__useVSSMethod is False:
+                    elif self.__options.use_vss is False:
                         logging.info(
                             "Something went wrong with the DRSUAPI approach. Try again with -use-vss parameter"
                         )
