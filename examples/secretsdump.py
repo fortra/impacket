@@ -150,40 +150,35 @@ class DumpSecretsOptions:
             self.lmhash, self.nthash = "", ""
 
     def reset(self, keep_ip: bool = False) -> None:
-        """Set all attributes to None.
-
-        Args:
-            keep_ip (bool, optional): Use it to keep the self.target_ip attribute. Defaults to False.
-        """
-
+        """Set all members to their initial value."""
         if not keep_ip:
             self.target_ip = None
 
-        (
-            self.use_vss,
-            self.use_keylist,
-            self.aesKey,
-            self.rodcKey,
-            self.rodcNo,
-            self.system,
-            self.bootkey,
-            self.security,
-            self.sam,
-            self.ntds,
-            self.history,
-            self.hashes,
-            self.outputfile,
-            self.k,
-            self.just_dc,
-            self.just_dc_ntlm,
-            self.just_dc_user,
-            self.ldapfilter,
-            self.pwd_last_set,
-            self.user_status,
-            self.resumefile,
-            self.dc_ip,
-            self.exec_method,
-        ) = (None,) * 23
+        self.use_vss = False
+        self.use_keylist = False
+        self.aesKey = None
+        self.rodcKey = None
+        self.rodcNo = None
+        self.system = None
+        self.bootkey = None
+        self.security = None
+        self.sam = None
+        self.ntds = None
+        self.history = False
+        self.outputfile = None
+        self.k = False
+        self.just_dc = False
+        self.just_dc_ntlm = False
+        self.just_dc_user = None
+        self.ldapfilter = None
+        self.pwd_last_set = False
+        self.user_status = False
+        self.resumefile = None
+        self.dc_ip = None
+        self.exec_method = None
+        self.hashes = None
+        self.lmhash = ""
+        self.nthash = ""
 
 
 class DumpSecrets:
@@ -222,6 +217,8 @@ class DumpSecrets:
         self.__username = username
         self.__password = password
         self.__domain = domain
+        self.__options = options
+
         self.__smbConnection = None
         self.__ldapConnection = None
         self.__remoteOps = None
@@ -232,7 +229,6 @@ class DumpSecrets:
         self.__noLMHash = True
         self.__isRemote = True
         self.__canProcessSAMLSA = True
-        self.__options = options
 
     def connect(self):
         self.__smbConnection = SMBConnection(
@@ -525,7 +521,8 @@ class DumpSecrets:
                         logging.info(
                             "Something went wrong with the DRSUAPI approach. Try again with -use-vss parameter"
                         )
-                self.cleanup()
+                finally:
+                    self.cleanup()
         except (Exception, KeyboardInterrupt) as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
@@ -556,6 +553,8 @@ class DumpSecrets:
 
     def cleanup(self):
         logging.info("Cleaning up... ")
+        # Need to reset this value to avoid chained dump problems
+        self.__canProcessSAMLSA = True
         if self.__remoteOps:
             self.__remoteOps.finish()
         if self.__SAMHashes:
