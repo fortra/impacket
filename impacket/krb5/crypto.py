@@ -366,6 +366,11 @@ class _DESCBC(_SimplifiedEnctype):
     def string_to_key(cls, string, salt, params):
         if params is not None and params != b'':
             raise ValueError('Invalid DES string-to-key parameters')
+        if not isinstance(string, bytes):
+            string = string.encode("utf-8")
+        if not isinstance(salt, bytes):
+            salt = salt.encode("utf-8")
+
         key = cls.mit_des_string_to_key(string, salt)
         return key
     
@@ -408,6 +413,11 @@ class _DES3CBC(_SimplifiedEnctype):
     def string_to_key(cls, string, salt, params):
         if params is not None and params != b'':
             raise ValueError('Invalid DES3 string-to-key parameters')
+        if not isinstance(string, bytes):
+            string = string.encode("utf-8")
+        if not isinstance(salt, bytes):
+            salt = salt.encode("utf-8")
+
         k = cls.random_to_key(_nfold(string + salt, 21))
         return cls.derive(k, b'kerberos')
 
@@ -433,6 +443,11 @@ class _AESEnctype(_SimplifiedEnctype):
 
     @classmethod
     def string_to_key(cls, string, salt, params):
+        if not isinstance(string, bytes):
+            string = string.encode("utf-8")
+        if not isinstance(salt, bytes):
+            salt = salt.encode("utf-8")
+
         (iterations,) = unpack('>L', params or b'\x00\x00\x10\x00')
         prf = lambda p, s: HMAC.new(p, s, SHA).digest()
         seed = PBKDF2(string, salt, cls.seedsize, iterations, prf)
