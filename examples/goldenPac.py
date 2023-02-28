@@ -980,7 +980,7 @@ class MS14_068:
                 authTime = encASRepPart['authtime']
 
                 serverName = Principal('krbtgt/%s' % self.__domain.upper(),
-                                       type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+                                       type=constants.PrincipalNameType.NT_SRV_INST.value)
                 tgs, cipher, oldSessionKey, sessionKey = self.getKerberosTGS(serverName, domain, self.__kdcHost, tgt,
                                                                              cipher, sessionKey, authTime)
 
