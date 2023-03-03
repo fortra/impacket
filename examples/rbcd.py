@@ -371,8 +371,10 @@ class RBCD(object):
                 logging.info('Accounts allowed to act on behalf of other identity:')
                 for ace in sd['Dacl'].aces:
                     SID = ace['Ace']['Sid'].formatCanonical()
-                    SamAccountName = self.get_sid_info(ace['Ace']['Sid'].formatCanonical())[1]
-                    logging.info('    %-10s   (%s)' % (SamAccountName, SID))
+                    SidInfos = self.get_sid_info(ace['Ace']['Sid'].formatCanonical())
+                    if SidInfos:
+                        SamAccountName = SidInfos[1]
+                        logging.info('    %-10s   (%s)' % (SamAccountName, SID))
             else:
                 logging.info('Attribute msDS-AllowedToActOnBehalfOfOtherIdentity is empty')
         except IndexError:

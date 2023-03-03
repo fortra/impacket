@@ -5,6 +5,48 @@ Project owner's main page is at www.coresecurity.com.
 Complete list of changes can be found at:
 https://github.com/fortra/impacket/commits/master
 
+## ThePorgs edits:
+* [1135](https://github.com/fortra/impacket/pull/1135): **[GetUserSPNs]** Improved searchFilter for GetUserSPNs
+* [1137](https://github.com/fortra/impacket/pull/1137): **[SystemDPAPIdump]** Added script example (in https://github.com/ThePorgs/impacket/pull/6)
+* [1154](https://github.com/fortra/impacket/pull/1154): **[ntlmrelayx]** Unfiltered SID query when operating ACL attack
+* [1184](https://github.com/fortra/impacket/pull/1184): **[findDelegation]** Added user filter on findDelegation
+* [1201](https://github.com/fortra/impacket/pull/1201): **[describeTicket]** Added describeTicket
+* [1202](https://github.com/fortra/impacket/pull/1202): **[getST]** Added -self, -altservice and -u2u to getST for S4U2self abuse, S4U2self+u2u, and service substitution
+* [1224](https://github.com/fortra/impacket/pull/1224): **[renameMachine]** Added renameMachine
+* [1253](https://github.com/fortra/impacket/pull/1253): **[ntlmrelayx]** Added LSA dump on top of SAM dump for ntlmrelayx
+* [1256](https://github.com/fortra/impacket/pull/1256): **[tgssub]** Added tgssub script for service substitution
+* [1261](https://github.com/fortra/impacket/pull/1261): **[secretsdump]** LSA's Security Questions Security Answers structure empty fix (in https://github.com/ThePorgs/impacket/pull/21)
+* [1262](https://github.com/fortra/impacket/pull/1262): **[secretsdump]** Added parsing of SCM passwords (in https://github.com/ThePorgs/impacket/pull/20)
+* [1267](https://github.com/fortra/impacket/pull/1267): **[Get-GPPPasswords]** Better handling of various XML files in Group Policy Preferences
+* [1270](https://github.com/fortra/impacket/pull/1270): **[ticketer]** Fix ticketer duration to support default 10 hours tickets
+* [1280](https://github.com/fortra/impacket/pull/1280): **[machineAccountQuota]** added machineAccountQuota
+* [1288](https://github.com/fortra/impacket/pull/1288): **[ntlmrelayx]** LDAP attack: bypass computer creation restrictions with CVE-2021-34470 (in https://github.com/ThePorgs/impacket/pull/8)
+* [1289](https://github.com/fortra/impacket/pull/1289): **[ntlmrelayx]** LDAP attack: Add DNS records through LDAP
+* [1290](https://github.com/fortra/impacket/pull/1290): **[ntlmrelayx]** Adds the creation of a new machine account through SMB (in https://github.com/ThePorgs/impacket/pull/24)
+* [1291](https://github.com/fortra/impacket/pull/1291): **[dacledit]** New example script for DACL manipulation (in https://github.com/ThePorgs/impacket/pull/7)
+* [1301](https://github.com/fortra/impacket/pull/1301): **[secretsdump]** Added OpenGPG public/private key parsing (in https://github.com/ThePorgs/impacket/pull/19)
+* [1318](https://github.com/fortra/impacket/pull/1318): **[ntlmrelayx]** Dump ADCS: bug fixes (in https://github.com/ThePorgs/impacket/pull/9)
+* [1323](https://github.com/fortra/impacket/pull/1323): **[owneredit]** New example script to change an object's owner
+* [1329](https://github.com/fortra/impacket/pull/1329): **[secretsdump]** Use a custom LDAP filter during a DCSync
+* [1353](https://github.com/fortra/impacket/pull/1353): **[ntlmrelayx]** add filter option
+* [1360](https://github.com/fortra/impacket/pull/1360): **[smbserver]** Added flag to drop SSP from Net-NTLMv1 auth
+* [1367](https://github.com/fortra/impacket/pull/1367): **[secretsdump]** Add UTC date to cached domain logon information (in https://github.com/ThePorgs/impacket/pull/10)
+* [1391](https://github.com/fortra/impacket/pull/1391): **[ticketer]** Ticketer extra-pac implementation
+* [1393](https://github.com/fortra/impacket/pull/1393): **[rbcd]** Handled SID not found in LDAP error
+* [1397](https://github.com/fortra/impacket/pull/1397): **[mssqlclient]** commands and prompt improvements
+* [1411](https://github.com/fortra/impacket/pull/1411): **[ticketer]** Sapphire tickets (in https://github.com/ShutdownRepo/impacket/pull/42)
+* [1413](https://github.com/fortra/impacket/pull/1413): **[getST]** Support for Kerberoasting without pre-authentication and ST request through AS-REQ
+* [1421](https://github.com/fortra/impacket/pull/1421): **[ntlmrelayx]** Fix leftover space in shadow credentials argument (in https://github.com/ThePorgs/impacket/pull/23)
+* [1425](https://github.com/fortra/impacket/pull/1425): **[ntlmrelayx]** Add SCCM NTLM Relay Attack (in https://github.com/ThePorgs/impacket/pull/14)
+* [1432](https://github.com/fortra/impacket/pull/1432): **[httprelayclient]** force NTLM auth if anonymous auth is enabled (ADCS) (in https://github.com/ThePorgs/impacket/pull/15)
+* [1444](https://github.com/fortra/impacket/pull/1444): **[Get-GPPPassword]** Handling scheduled tasks (in https://github.com/ShutdownRepo/impacket/pull/43 and https://github.com/ThePorgs/impacket/pull/2)
+* [1449](https://github.com/fortra/impacket/pull/1449): **[addcomputer,rbcd]** Allow weak TLS ciphers for LDAP connections (in https://github.com/ThePorgs/impacket/pull/4 and https://github.com/ThePorgs/impacket/pull/13)
+* [1450](https://github.com/fortra/impacket/pull/1450): **[PsExec]** Support for name customization using a custom binary file (in https://github.com/ThePorgs/impacket/pull/3)
+* [1458](https://github.com/fortra/impacket/pull/1458): **[ntlmrelayx]** SID Bruteforce over SMB (in https://github.com/ThePorgs/impacket/pull/18)
+* [1462](https://github.com/fortra/impacket/pull/1462): **[ntlmrelayx]** Filter socks connections by Admin only (in https://github.com/ThePorgs/impacket/pull/16)
+* [1474](https://github.com/fortra/impacket/pull/1474): **[epm]** add known uuids (in https://github.com/ThePorgs/impacket/pull/26)
+
+
 ## Impacket v0.10.0 (May 2022):
 
 1. Library improvements 

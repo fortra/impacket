@@ -70,6 +70,7 @@ class HTTPRelayClient(ProtocolClient):
             LOG.error('No authentication requested by the server for url %s' % self.targetHost)
             if self.serverConfig.isADCSAttack:
                 LOG.info('IIS cert server may allow anonymous authentication, sending NTLM auth anyways')
+                self.authenticationMethod = "NTLM"
             else:
                 return False
 
@@ -97,7 +98,10 @@ class HTTPRelayClient(ProtocolClient):
             token = authenticateMessageBlob
         auth = base64.b64encode(token).decode("ascii")
         headers = {'Authorization':'%s %s' % (self.authenticationMethod, auth)}
-        self.session.request('GET', self.path,headers=headers)
+        if self.serverConfig.isSCCMAttack:
+            self.session.request("CCM_POST", self.path, headers=headers)
+        else:
+            self.session.request('GET', self.path,headers=headers)
         res = self.session.getresponse()
         if res.status == 401:
             return None, STATUS_ACCESS_DENIED
