@@ -176,7 +176,7 @@ class RemoteShell(cmd.Cmd):
         cmd.Cmd.__init__(self)
         self.__share = share
         self.__mode = mode
-        self.__output = '\\\\127.0.0.1\\' + self.__share + '\\' + OUTPUT_FILENAME
+        self.__output = '\\\\%COMPUTERNAME%\\' + self.__share + '\\' + OUTPUT_FILENAME
         self.__outputBuffer = b''
         self.__command = ''
         self.__shell = '%COMSPEC% /Q /c '
