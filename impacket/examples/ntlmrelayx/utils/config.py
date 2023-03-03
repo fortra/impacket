@@ -62,6 +62,7 @@ class NTLMRelayxConfig:
         self.exeFile = None
         self.interactive = False
         self.enumLocalAdmins = False
+        self.enumDomain = False
         self.SMBServerChallenge = None
 
         # RPC options
@@ -106,6 +107,13 @@ class NTLMRelayxConfig:
         self.ShadowCredentialsExportType = None
         self.ShadowCredentialsOutfilePath = None
 
+        # SCCM attack options
+        self.isSCCMAttack = False
+        self.sccm_device = None
+        self.sccm_fqdn = None
+        self.sccm_server = None
+        self._sccm_sleep = 5
+
     def setSMBChallenge(self, value):
         self.SMBServerChallenge = value
 
@@ -140,6 +148,9 @@ class NTLMRelayxConfig:
     def setEnumLocalAdmins(self, enumLocalAdmins):
         self.enumLocalAdmins = enumLocalAdmins
 
+    def setEnumDomain(self, enumDomain):
+        self.enumDomain = enumDomain
+
     def setDisableMulti(self, disableMulti):
         self.disableMulti = disableMulti
 
@@ -171,7 +182,7 @@ class NTLMRelayxConfig:
     def setRandomTargets(self, randomtargets):
         self.randomtargets = randomtargets
 
-    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser, addcomputer, delegateaccess, dumplaps, dumpgmsa, dumpadcs, sid):
+    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser, addcomputer, delegateaccess, dumplaps, dumpgmsa, dumpadcs, sid, adddnsrecord):
         self.dumpdomain = dumpdomain
         self.addda = addda
         self.aclattack = aclattack
@@ -183,6 +194,7 @@ class NTLMRelayxConfig:
         self.dumpgmsa = dumpgmsa
         self.dumpadcs = dumpadcs
         self.sid = sid
+        self.adddnsrecord = adddnsrecord
 
     def setMSSQLOptions(self, queries):
         self.queries = queries
@@ -242,6 +254,15 @@ class NTLMRelayxConfig:
 
     def setAltName(self, altName):
         self.altName = altName
+
+    def setIsSCCMAttack(self, isSCCMAttack):
+        self.isSCCMAttack = isSCCMAttack
+
+    def setSCCMOptions(self, device, fqdn, server, sleep_time):
+        self.sccm_device = device
+        self.sccm_fqdn = fqdn
+        self.sccm_server = server
+        self.sccm_sleep = sleep_time
 
 def parse_listening_ports(value):
     ports = set()
