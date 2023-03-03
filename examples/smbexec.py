@@ -95,7 +95,7 @@ class SMBServer(Thread):
         smbConfig.set('IPC$','comment','')
         smbConfig.set('IPC$','read only','yes')
         smbConfig.set('IPC$','share type','3')
-        smbConfig.set('IPC$','path')
+        smbConfig.set('IPC$','path','')
 
         self.smb = smbserver.SMBSERVER(('0.0.0.0',445), config_parser = smbConfig)
         logging.info('Creating tmp directory')
@@ -265,7 +265,7 @@ class RemoteShell(cmd.Cmd):
             self.transferClient.deleteFile(self.__share, OUTPUT_FILENAME)
         else:
             fd = open(SMBSERVER_DIR + '/' + OUTPUT_FILENAME,'r')
-            output_callback(fd.read())
+            output_callback(fd.read().encode('utf-8'))
             fd.close()
             os.unlink(SMBSERVER_DIR + '/' + OUTPUT_FILENAME)
 
