@@ -45,7 +45,7 @@ https://github.com/fortra/impacket/commits/master
 * [1458](https://github.com/fortra/impacket/pull/1458): **[ntlmrelayx]** SID Bruteforce over SMB (in https://github.com/ThePorgs/impacket/pull/18)
 * [1462](https://github.com/fortra/impacket/pull/1462): **[ntlmrelayx]** Filter socks connections by Admin only (in https://github.com/ThePorgs/impacket/pull/16)
 * [1474](https://github.com/fortra/impacket/pull/1474): **[epm]** add known uuids (in https://github.com/ThePorgs/impacket/pull/26)
-
+* [1487](https://github.com/fortra/impacket/pull/1487): **[GetUserSPNs]** Use LDAP paged search (in https://github.com/ThePorgs/impacket/pull/27)
 
 ## Impacket v0.10.0 (May 2022):
 
