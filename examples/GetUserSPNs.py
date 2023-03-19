@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -26,8 +26,6 @@
 #
 # ToDo:
 #   [X] Add the capability for requesting TGS and output them in JtR/hashcat format
-#   [X] Improve the search filter, we have to specify we don't want machine accounts in the answer
-#       (play with userAccountControl)
 #
 
 from __future__ import division
@@ -293,13 +291,17 @@ class GetUserSPNs:
                 raise
 
         # Building the search filter
-        searchFilter = "(&(servicePrincipalName=*)(UserAccountControl:1.2.840.113556.1.4.803:=512)" \
-                       "(!(UserAccountControl:1.2.840.113556.1.4.803:=2))(!(objectCategory=computer))"
+        filter_person = "objectCategory=person"
+        filter_not_disabled = "!(userAccountControl:1.2.840.113556.1.4.803:=2)"
+
+        searchFilter = "(&"
+        searchFilter += "(" + filter_person + ")"
+        searchFilter += "(" + filter_not_disabled + ")"
 
         if self.__requestUser is not None:
-            searchFilter += '(sAMAccountName:=%s))' % self.__requestUser
-        else:
-            searchFilter += ')'
+            searchFilter += '(sAMAccountName:=%s)' % self.__requestUser
+
+        searchFilter += ')'
 
         try:
             resp = ldapConnection.search(searchFilter=searchFilter,
@@ -318,7 +320,6 @@ class GetUserSPNs:
 
         answers = []
         logging.debug('Total of records returned %d' % len(resp))
-
         for item in resp:
             if isinstance(item, ldapasn1.SearchResultEntry) is not True:
                 continue
@@ -394,7 +395,7 @@ class GetUserSPNs:
                         principalName.components = [downLevelLogonName]
 
                         tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
-                                                                                self.__kdcHost,
+                                                                                self.__kdcIP,
                                                                                 TGT['KDC_REP'], TGT['cipher'],
                                                                                 TGT['sessionKey'])
                         self.outputTGS(tgs, oldSessionKey, sessionKey, sAMAccountName,
@@ -432,7 +433,7 @@ class GetUserSPNs:
                 principalName.components = [username]
 
                 tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
-                                                                        self.__kdcHost,
+                                                                        self.__kdcIP,
                                                                         TGT['KDC_REP'], TGT['cipher'],
                                                                         TGT['sessionKey'])
                 self.outputTGS(tgs, oldSessionKey, sessionKey, username, username, fd)

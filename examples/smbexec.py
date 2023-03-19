@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -36,6 +36,8 @@ from __future__ import division
 from __future__ import print_function
 import sys
 import os
+import random
+import string
 import cmd
 import argparse
 try:
@@ -53,7 +55,6 @@ from impacket.dcerpc.v5 import transport, scmr
 from impacket.krb5.keytab import Keytab
 
 OUTPUT_FILENAME = '__output'
-BATCH_FILENAME  = 'execute.bat'
 SMBSERVER_DIR   = '__tmp'
 DUMMY_SHARE     = 'TMP'
 SERVICE_NAME    = 'BTOBTO'
@@ -176,7 +177,6 @@ class RemoteShell(cmd.Cmd):
         self.__share = share
         self.__mode = mode
         self.__output = '\\\\127.0.0.1\\' + self.__share + '\\' + OUTPUT_FILENAME
-        self.__batchFile = '%TEMP%\\' + BATCH_FILENAME
         self.__outputBuffer = b''
         self.__command = ''
         self.__shell = '%COMSPEC% /Q /c '
@@ -274,12 +274,14 @@ class RemoteShell(cmd.Cmd):
             data = '$ProgressPreference="SilentlyContinue";' + data
             data = self.__pwsh + b64encode(data.encode('utf-16le')).decode()
 
-        command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' 2^>^&1 > ' + self.__batchFile + ' & ' + \
-                  self.__shell + self.__batchFile
+        batchFile = '%SYSTEMROOT%\\' + ''.join([random.choice(string.ascii_letters) for _ in range(8)]) + '.bat'
+                
+        command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' 2^>^&1 > ' + batchFile + ' & ' + \
+                  self.__shell + batchFile
 
         if self.__mode == 'SERVER':
             command += ' & ' + self.__copyBack
-        command += ' & ' + 'del ' + self.__batchFile
+        command += ' & ' + 'del ' + batchFile
 
         logging.debug('Executing %s' % command)
         resp = scmr.hRCreateServiceW(self.__scmr, self.__scHandle, self.__serviceName, self.__serviceName,
