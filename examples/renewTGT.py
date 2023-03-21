@@ -118,8 +118,8 @@ class RENEWTGT:
         reqBody = seq_set(tgsReq, 'req-body')
 
         opts = list()
-        opts.append( constants.KDCOptions.forwardable.value )
-        opts.append( constants.KDCOptions.renewable.value )
+        #opts.append( constants.KDCOptions.forwardable.value )
+        #opts.append( constants.KDCOptions.renewable.value )
         opts.append( constants.KDCOptions.renew.value )
         #opts.append( constants.KDCOptions.renewable_ok.value )
         opts.append( constants.KDCOptions.canonicalize.value )
