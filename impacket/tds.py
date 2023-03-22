@@ -1016,6 +1016,31 @@ class MSSQL:
                 self.__rowsPrinter.logMessage(col['Format'] % row[col['Name']] + self.COL_SEPARATOR)
             self.__rowsPrinter.logMessage('\n')
 
+    def getColumnsHeader(self) -> str:
+        columns = ""
+        if len(self.colMeta) == 0:
+            return
+        for col in self.colMeta:
+            columns += col['Format'] % col['Name'] + self.COL_SEPARATOR 
+        columns += "\n"
+
+        for col in self.colMeta:
+            columns += '-'*col['Length'] + self.COL_SEPARATOR
+        columns += "\n"
+        return columns
+
+    def getRows(self) -> str:
+        rows = ""
+        if self.lastError is True:
+            return
+        self.processColMeta()
+        rows += self.getColumnsHeader()
+        for row in self.rows:
+            for col in self.colMeta:
+                rows += col['Format'] % row[col['Name']] + self.COL_SEPARATOR
+            rows += "\n"
+        return rows
+
     def printReplies(self):
         for keys in list(self.replies.keys()):
             for i, key in enumerate(self.replies[keys]):
