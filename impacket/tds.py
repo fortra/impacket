@@ -1023,7 +1023,6 @@ class MSSQL:
         for col in self.colMeta:
             columns += col['Format'] % col['Name'] + self.COL_SEPARATOR 
         columns += "\n"
-
         for col in self.colMeta:
             columns += '-'*col['Length'] + self.COL_SEPARATOR
         columns += "\n"
