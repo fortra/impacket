@@ -68,29 +68,18 @@ Setup
 
 ### Quick start
 
-In order to grab the latest stable release with `pip` run:
+> :information_source: We recommend using `pipx` over `pip` for system-wide installations.
 
-    python3 -m pip install impacket
+In order to grab the latest stable release run:
 
-> :information_source: This will make the Impacket library available to
-your Python code, but will not provide you with the example scripts. 
+    python3 -m pipx install impacket
 
-### Installing the library + example scripts
-
-In order to install the library and the example scripts, download and
+If you want to play with the unreleased changes, download the development 
+version from the [master branch](https://github.com/fortra/impacket/tree/master),
 extract the package, and execute the following command from the
-directory where the Impacket's release has been unpacked:
+directory where Impacket has been unpacked:
 
-    python3 -m pip install .
-
-> :information_source: This will install the library into the default Python
-modules path, where you can make use of the example scripts from the directory.
-
-> :warning: Make sure the example scripts you're using are consistent with the
-library version that's installed in your python environment.
-We recommend using [virtual environments](https://docs.python.org/3/library/venv.html) to
-make sure system-wide installations doesn't interfere with it.
-
+    python3 -m pipx install .
 
 ### Docker Support
 
