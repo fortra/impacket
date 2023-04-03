@@ -137,7 +137,7 @@ class RemoteShell(cmd.Cmd):
         # We don't wanna deal with timeouts from now on.
         if self.__transferClient is not None:
             self.__transferClient.setTimeout(100000)
-            self.do_cd('\\')
+            self.set_prompt()
         else:
             self.__noOutput = True
 
@@ -145,11 +145,27 @@ class RemoteShell(cmd.Cmd):
         if self.__silentCommand is True:
             self.__shell = ''
 
+    def set_prompt(self):
+        if self.__shell_type == 'powershell':
+            self.prompt = 'PS ' + self.prompt + ' '
+        else:
+            self.prompt = self.__pwd + '>'
+
     def do_shell(self, s):
         os.system(s)
 
+    @staticmethod
+    def do_codec(codec):
+        global CODEC
+        if codec:
+            logging.info('CODEC has been changed from %s to %s' % (CODEC, codec))
+            CODEC = codec
+        else:
+            logging.info('The current value of CODEC is %s' % CODEC)
+
     def do_help(self, line):
         print("""
+ codec {codec}              - changes the current encoding to {codec}
  lcd {path}                 - changes the current local directory to {path}
  exit                       - terminates the server process (and this session)
  lput {src_file, dst_path}   - uploads a local file to the dst_path (dst_path = default current directory)
@@ -229,9 +245,7 @@ class RemoteShell(cmd.Cmd):
                 self.__pwd = ntpath.normpath(ntpath.join(self.__pwd, s))
             self.execute_remote('cd ')
             self.__pwd = self.__outputBuffer.strip('\r\n')
-            self.prompt = (self.__pwd + '>')
-            if self.__shell_type == 'powershell':
-                self.prompt = 'PS ' + self.prompt + ' '
+            self.set_prompt()
             self.__outputBuffer = ''
 
     def default(self, line):
@@ -248,7 +262,7 @@ class RemoteShell(cmd.Cmd):
                 self.__pwd = line
                 self.execute_remote('cd ')
                 self.__pwd = self.__outputBuffer.strip('\r\n')
-                self.prompt = (self.__pwd + '>')
+                self.set_prompt()
                 self.__outputBuffer = ''
         else:
             if line != '':
@@ -259,9 +273,10 @@ class RemoteShell(cmd.Cmd):
             try:
                 self.__outputBuffer += data.decode(CODEC)
             except UnicodeDecodeError:
-                logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
-                              'https://docs.python.org/3/library/codecs.html#standard-encodings\nand then execute wmiexec.py '
-                              'again with -codec and the corresponding codec')
+                logging.error('Decoding error detected, consider running chcp.com at the target,\n'
+                              'map the result with https://docs.python.org/3/library/codecs.html#standard-encodings\n'
+                              'and then execute wmiexec.py again with -codec and the corresponding codec\n'
+                              'or use the interactive command (codec {CODEC}) to change it on fly')
                 self.__outputBuffer += data.decode(CODEC, errors='replace')
 
         if self.__noOutput is True:
