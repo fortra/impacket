@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -403,7 +403,7 @@ class TICKETER:
         encTicketPart['authtime'] = KerberosTime.to_asn1(datetime.datetime.utcnow())
         encTicketPart['starttime'] = KerberosTime.to_asn1(datetime.datetime.utcnow())
         # Let's extend the ticket's validity a lil bit
-        ticketDuration = datetime.datetime.utcnow() + datetime.timedelta(days=int(self.__options.duration))
+        ticketDuration = datetime.datetime.utcnow() + datetime.timedelta(hours=int(self.__options.duration))
         encTicketPart['endtime'] = KerberosTime.to_asn1(ticketDuration)
         encTicketPart['renew-till'] = KerberosTime.to_asn1(ticketDuration)
         encTicketPart['authorization-data'] = noValue
@@ -745,8 +745,8 @@ if __name__ == '__main__':
     parser.add_argument('-user-id', action="store", default = '500', help='user id for the user the ticket will be '
                                                                           'created for (default = 500)')
     parser.add_argument('-extra-sid', action="store", help='Comma separated list of ExtraSids to be included inside the ticket\'s PAC')
-    parser.add_argument('-duration', action="store", default = '3650', help='Amount of days till the ticket expires '
-                                                                            '(default = 365*10)')
+    parser.add_argument('-duration', action="store", default = '87600', help='Amount of hours till the ticket expires '
+                                                                             '(default = 24*365*10)')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 

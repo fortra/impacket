@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -18,7 +18,6 @@
 
 import argparse
 import base64
-import chardet
 import logging
 import os
 import re
@@ -30,6 +29,8 @@ from io import BytesIO
 
 from Cryptodome.Cipher import AES
 from Cryptodome.Util.Padding import unpad
+
+import charset_normalizer as chardet
 
 from impacket import version
 from impacket.examples import logger, utils
