@@ -264,8 +264,8 @@ class RemoteShell(cmd.Cmd):
             self.transferClient.getFile(self.__share, OUTPUT_FILENAME, output_callback)
             self.transferClient.deleteFile(self.__share, OUTPUT_FILENAME)
         else:
-            fd = open(SMBSERVER_DIR + '/' + OUTPUT_FILENAME,'r')
-            output_callback(fd.read().encode('utf-8'))
+            fd = open(SMBSERVER_DIR + '/' + OUTPUT_FILENAME,'rb')
+            output_callback(fd.read())
             fd.close()
             os.unlink(SMBSERVER_DIR + '/' + OUTPUT_FILENAME)
 
