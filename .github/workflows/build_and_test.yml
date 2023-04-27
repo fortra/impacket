@@ -10,32 +10,17 @@ env:
 
 jobs:
   lint:
-    name: Check syntax errors and warnings
+    name: Lint Python code with ruff
     runs-on: ubuntu-latest
     if:
       github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
       github.repository
 
     steps:
-      - name: Checkout Impacket
-        uses: actions/checkout@v3
-
-      - name: Setup Python 3.8
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.8
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install flake8
-
-      - name: Check syntax errors
-        run: |
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-
-      - name: Check PEP8 warnings
-        run: |
-          flake8 . --count --ignore=E1,E2,E3,E501,W291,W293 --exit-zero --max-complexity=65 --max-line-length=127 --statistics
+      - uses: actions/checkout@v3
+      - run: pip install --user ruff
+      - run: ruff --format=github --line-length=66423 --target-version=py37
+                  --ignore=E101,E401,E402,E701,E703,E711,E712,E713,E714,E721,E722,E731,E741,F401,F403,F405,F601,F811,F841,F901 .
 
   test:
     name: Run unit tests and build wheel
