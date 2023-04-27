@@ -77,7 +77,6 @@ from impacket.krb5.pac import KERB_SID_AND_ATTRIBUTES, PAC_SIGNATURE_DATA, PAC_I
     PAC_ATTRIBUTE_INFO
 from impacket.krb5.types import KerberosTime, Principal
 from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
-from impacket.ldap.ldaptypes import LDAP_SID
 
 
 class TICKETER:
@@ -282,7 +281,7 @@ class TICKETER:
         pad = self.getPadLength(total_len)
         samName += b'\x00' * pad
 
-        user_sid = LDAP_SID()
+        user_sid = RPC_SID()
         user_sid.fromCanonical(f"{self.__options.domain_sid}-{self.__options.user_id}")
         upnDnsInfo['SidLength'] = len(user_sid)
         upnDnsInfo['SidOffset'] = total_len + pad
@@ -307,7 +306,7 @@ class TICKETER:
         pasRequestor = PAC_REQUESTOR()
         pasRequestor['UserSid'].fromCanonical(f"{self.__options.domain_sid}-{self.__options.user_id}")
 
-        pacInfos[PAC_REQUESTOR_INFO] = pasRequestor.getData()
+        pacInfos[PAC_REQUESTOR_INFO] = pasRequestor.getData()[4:]
 
     def createBasicTicket(self):
         if self.__options.request is True:

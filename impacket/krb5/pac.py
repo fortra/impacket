@@ -16,7 +16,6 @@ from impacket.dcerpc.v5.dtypes import ULONG, RPC_UNICODE_STRING, FILETIME, PRPC_
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER
 from impacket.dcerpc.v5.nrpc import USER_SESSION_KEY, CHAR_FIXED_8_ARRAY, PUCHAR_ARRAY, PRPC_UNICODE_STRING_ARRAY
 from impacket.dcerpc.v5.rpcrt import TypeSerialization1
-from impacket.ldap.ldaptypes import LDAP_SID
 from impacket.structure import Structure
 
 ################################################################################
@@ -264,28 +263,7 @@ class PAC_ATTRIBUTE_INFO(NDRSTRUCT):
 
 # 2.15 PAC_REQUESTOR
 # It should be RPC_SID (with NDRSTRUCT sub-class) but the impacket implementation is malfunctioning: https://github.com/SecureAuthCorp/impacket/issues/1386
-#class PAC_REQUESTOR(NDRSTRUCT):
-#    structure = (
-#        ('UserSid', RPC_SID),
-#    )
-# In the meantime, using LDAP_SID with minimal custom implementation
-class PAC_REQUESTOR:
-
-    def __init__(self, data=None):
-        self.fields = {'UserSid': LDAP_SID(data)}
-
-    # For other method not implemented, directly call 'UserSid' field
-    def __getitem__(self, key):
-        return self.fields[key]
-
-    def __setitem__(self, key, value):
-        self.fields[key] = value
-
-    def getData(self):
-        return self.fields['UserSid'].getData()
-
-    def __str__(self):
-        return self.getData()
-
-    def __len__(self):
-        return len(self.getData())
+class PAC_REQUESTOR(NDRSTRUCT):
+    structure = (
+        ('UserSid', RPC_SID),
+    )
