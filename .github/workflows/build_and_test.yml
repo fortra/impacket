@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v3
       - run: pip install --user ruff
       - run: ruff --format=github --line-length=66423 --target-version=py37
-                  --ignore=E101,E401,E402,E701,E703,E711,E712,E713,E714,E721,E722,E731,E741,F401,F403,F405,F601,F811,F841,F901 .
+                  --ignore=E101,E401,E402,E701,E721,E722,E731,E741,F401,F403,F405,F601,F811,F841 .
 
   test:
     name: Run unit tests and build wheel
