@@ -69,7 +69,7 @@ class os_id_test:
         pass
 
     def get_result_dict(self):
-        return self.__result_dict;
+        return self.__result_dict
 
     def get_final_result(self):
         "Returns a string representation of the final result of this test or None if no response was received"
@@ -195,7 +195,7 @@ class udp_closed_probe(os_id_test):
             return 0
   
         if icmp.get_icmp_code() != ICMP.ICMP_UNREACH_PORT:
-            return 0;
+            return 0
         
         
         self.err_data = icmp.child()
@@ -994,7 +994,7 @@ class OS_ID:
         self.__ports = ports
 
     def releasePcap(self):
-        if not (self.p is None):
+        if self.p is not None:
             self.p.close()
 
     def get_new_id(self):
@@ -1435,7 +1435,7 @@ class nmap1_seq_container(os_id_test):
             map(lambda x, gcd = self.seq_gcd: x / gcd, self.seq_diffs)
             for i in xrange(0, self.seq_num_responses - 1):
                 if abs(self.seq_responses[i+1].get_seq() - self.seq_responses[i].get_seq()) > 50000000:
-                    seqclass = nmap1_seq.SEQ_TR;
+                    seqclass = nmap1_seq.SEQ_TR
                     self.index = 9999999
                     break
                 avg_incr += self.seq_diffs[i]

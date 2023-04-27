@@ -125,7 +125,7 @@ class HTTPClientSecurityProvider:
 
     def get_auth_headers_basic(self, http_obj, method, path, headers):
         if self.__lmhash != '' or self.__nthash != '' or \
-           self.__aesKey != '' or self.__TGT != None or self.__TGS != None:
+           self.__aesKey != '' or self.__TGT is not None or self.__TGS is not None:
             raise Exception('Basic authentication in HTTP connection used, '
                             'so set a plaintext credentials to connect.')
 
@@ -182,7 +182,7 @@ class HTTPClientSecurityProvider:
         return serverChallenge, None
 
     def get_auth_headers_auto(self, http_obj, method, path, headers):
-        if self.__aesKey != '' or self.__TGT != None or self.__TGS != None:
+        if self.__aesKey != '' or self.__TGT is not None or self.__TGS is not None:
             raise Exception('NTLM authentication in HTTP connection used, ' \
                             'cannot use Kerberos.')
 

@@ -683,7 +683,7 @@ class LDAPAttack(ProtocolAttack):
                 else:
                     uuid = bin_to_string(ace["Ace"]["ObjectType"]).lower()
 
-                if not uuid in enrollment_uuids:
+                if uuid not in enrollment_uuids:
                     continue
 
                 enrollment_principals.add(sid)

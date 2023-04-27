@@ -2991,7 +2991,7 @@ class SMB2Commands:
                 # No credentials provided, let's grant access
                 if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_ANONYMOUS:
                     isAnonymus = True
-                    if smbServer._SMBSERVER__anonymousLogon == False:
+                    if smbServer._SMBSERVER__anonymousLogon is False:
                         errorCode = STATUS_ACCESS_DENIED
                     else:
                         errorCode = STATUS_SUCCESS

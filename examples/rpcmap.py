@@ -151,7 +151,7 @@ class RPCMap():
                 logging.info("Target MGMT interface not available")
                 logging.info("Bruteforcing UUIDs. The result may not be complete.")
                 self.bruteforce_uuids()
-            elif str(e).find('rpc_s_access_denied') and self.__msrpc_lockout_protection == False:
+            elif str(e).find('rpc_s_access_denied') and self.__msrpc_lockout_protection is False:
                 logging.info("Target MGMT interface requires authentication, but no credentials provided.")
                 logging.info("Bruteforcing UUIDs. The result may not be complete.")
                 self.bruteforce_uuids()

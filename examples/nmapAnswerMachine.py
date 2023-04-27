@@ -451,7 +451,7 @@ class NMAP2UDPResponder(ClosedUDPResponder):
        try: ipl = int(f['IPL'], 16)
        except: ipl = None
 
-       if not ipl is None:
+       if ipl is not None:
           data = out_onion[O_ICMP_DATA].get_packet()
           out_onion[O_ICMP].contains(ImpactPacket.Data())
           ip_and_icmp_len = out_onion[O_IP].get_size()

@@ -736,7 +736,7 @@ class SMB3:
         #Handle mutual authentication
         opts = list()
 
-        if mutualAuth == True:
+        if mutualAuth is True:
             from impacket.krb5.constants import APOptions
             opts.append(constants.APOptions.mutual_required.value)
 
@@ -786,7 +786,7 @@ class SMB3:
             self._Session['Connection']      = self._NetBIOSSession.get_socket()
 
 
-            if mutualAuth == True:
+            if mutualAuth is True:
                 #Lets get the session key in the AP_REP
                 from impacket.krb5.asn1 import AP_REP, EncAPRepPart
                 from impacket.krb5.crypto import Key, _enctype_table

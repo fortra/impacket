@@ -76,7 +76,7 @@ class ADDCOMPUTER:
         if self.__doKerberos and cmdLineOptions.dc_host is None:
             raise ValueError("Kerberos auth requires DNS name of the target DC. Use -dc-host.")
 
-        if self.__method == 'LDAPS' and not '.' in self.__domain:
+        if self.__method == 'LDAPS' and '.' not in self.__domain:
                 logging.warning('\'%s\' doesn\'t look like a FQDN. Generating baseDN will probably fail.' % self.__domain)
 
         if cmdLineOptions.hashes is not None:
@@ -95,7 +95,7 @@ class ADDCOMPUTER:
             self.__computerPassword = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(32))
 
         if self.__target is None:
-            if not '.' in self.__domain:
+            if '.' not in self.__domain:
                 logging.warning('No DC host set and \'%s\' doesn\'t look like a FQDN. DNS resolution of short names will probably fail.' % self.__domain)
             self.__target = self.__domain
 

@@ -45,7 +45,7 @@ class DCERPCTests(RemoteTestCase):
         """
         string_binding = string_binding or self.string_binding
         if not string_binding:
-            raise NotImplemented("String binding must be defined")
+            raise NotImplementedError("String binding must be defined")
 
         rpc_transport = transport.DCERPCTransportFactory(string_binding)
 

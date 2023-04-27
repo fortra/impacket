@@ -109,7 +109,7 @@ class Exchanger:
         self.__outputFd = open(self.__outputFileName, 'w+')
 
     def print(self, text):
-        if self.__outputFd != None:
+        if self.__outputFd is not None:
             if PY3:
                 self.__outputFd.write(text + '\n')
             else:
@@ -127,7 +127,7 @@ class Exchanger:
             return base64.b64encode(bytestr)
 
     def __del__(self):
-        if self.__outputFd != None:
+        if self.__outputFd is not None:
             self.__outputFd.close()
         self.__outputFd = None
 
@@ -338,9 +338,9 @@ class NSPIAttacks(Exchanger):
         MIds_print = []
 
         for MId in self.htable:
-            if parent_guid == None and 'parent_guid' not in self.htable[MId]:
+            if parent_guid is None and 'parent_guid' not in self.htable[MId]:
                 MIds_print.append(MId)
-            elif parent_guid != None and 'parent_guid' in self.htable[MId] and self.htable[MId]['parent_guid'] == parent_guid:
+            elif parent_guid is not None and 'parent_guid' in self.htable[MId] and self.htable[MId]['parent_guid'] == parent_guid:
                 MIds_print.append(MId)
 
         for MId in MIds_print:
@@ -384,9 +384,9 @@ class NSPIAttacks(Exchanger):
             if MId != 0:
                 self.print_htable(parent_guid=ab['guid'])
 
-        if parent_guid == None:
+        if parent_guid is None:
             for MId in self.htable:
-                if self.htable[MId]['printed'] == False:
+                if self.htable[MId]["printed"] is False:
                     print("Found parentless object!")
                     print("Name: %s" % self.htable[MId]['name'])
                     print("Guid: %s" % uuid.bin_to_string(self.htable[MId]['guid']).lower())
@@ -437,7 +437,7 @@ class NSPIAttacks(Exchanger):
             else:
                 self.print("%s: %s" % (property_name, row_simpl[aulPropTag]))
 
-        if empty == False and delimiter != None:
+        if empty is False and delimiter is not None:
             self.print(delimiter)
 
     def load_props(self):
@@ -463,11 +463,11 @@ class NSPIAttacks(Exchanger):
         if self.anyExistingContainerID == -1:
             self.load_htable_containerid()
 
-        if table_MId == None and eTable == None:
+        if table_MId is None and eTable is None:
             raise Exception("Wrong arguments!")
-        elif table_MId != None and eTable != None:
+        elif table_MId is not None and eTable is not None:
             raise Exception("Wrong arguments!")
-        elif table_MId != None:
+        elif table_MId is not None:
             # Let's call NspiUpdateStat
             # It's important when the given MId is taken from the hierarchy table,
             # especially in Multi-Tenant environments
@@ -513,7 +513,7 @@ class NSPIAttacks(Exchanger):
             useAsExplicitTable = True
 
         while True:
-            if eTable == None:
+            if eTable is None:
                 resp = nspi.hNspiQueryRows(self.__dce, self.__handler,
                     pStat=self.stat, Count=count, pPropTags=firstReqProps)
                 self.stat = resp['pStat']
@@ -542,7 +542,7 @@ class NSPIAttacks(Exchanger):
                     return False
 
             if useAsExplicitTable:
-                if eTable == None:
+                if eTable is None:
                     eTableInt = []
                     for row in resp_rows:
                         eTableInt.append(row[PR_INSTANCE_KEY])
@@ -588,7 +588,7 @@ class NSPIAttacks(Exchanger):
                     self.print_row(row, DELIMITER)
 
             # When the caller specified eTable it's always one NspiQueryRows call
-            if eTable != None:
+            if eTable is not None:
                 break
 
             # Table end reached
@@ -601,9 +601,9 @@ class NSPIAttacks(Exchanger):
                 break
 
     def req_print_guid(self, guid=None, attrs=[], count=50, guidFile=None):
-        if guid == None and guidFile == None:
+        if guid is None and guidFile is None:
             raise Exception("Wrong arguments!")
-        elif guid != None and guidFile != None:
+        elif guid is not None and guidFile is not None:
             raise Exception("Wrong arguments!")
 
         if attrs == []:
@@ -739,7 +739,7 @@ class ExchangerHelper:
         self.exch.set_credentials(self.__username, self.__password, self.__domain, options.hashes)
         self.exch.set_extended_output(options.debug)
 
-        if submodule in ['dump-tables', 'guid-known', 'dnt-lookup'] and options.output_file != None:
+        if submodule in ['dump-tables', 'guid-known', 'dnt-lookup'] and options.output_file is not None:
             self.exch.set_output_file(options.output_file)
 
         self.exch.connect_rpc(self.__remoteName, options.rpc_hostname)
@@ -756,19 +756,19 @@ class ExchangerHelper:
         self.exch.disconnect()
 
     def nspi_check(self, submodule, options):
-        if submodule == 'dump-tables' and options.name == None and options.guid == None:
+        if submodule == 'dump-tables' and options.name is None and options.guid is None:
             dump_tables.print_help()
             sys.exit(1)
 
-        if submodule == 'dump-tables' and options.name != None and options.guid != None:
+        if submodule == 'dump-tables' and options.name is not None and options.guid is not None:
             logging.error("Specify only one of -name or -guid")
             sys.exit(1)
 
-        if submodule == 'guid-known' and options.guid == None and options.guid_file == None:
+        if submodule == 'guid-known' and options.guid is None and options.guid_file is None:
             guid_known.print_help()
             sys.exit(1)
 
-        if submodule == 'guid-known' and options.guid != None and options.guid_file != None:
+        if submodule == 'guid-known' and options.guid is not None and options.guid_file is not None:
             logging.error("Specify only one of -guid or -guid-file")
             sys.exit(1)
 
@@ -783,7 +783,7 @@ class ExchangerHelper:
     def nspi_dump_tables(self, options):
         self.exch.set_output_type(options.output_type)
 
-        if options.lookup_type == None or options.lookup_type == 'MINIMAL':
+        if options.lookup_type is None or options.lookup_type == 'MINIMAL':
             propTags = NSPIAttacks.PROPS_MINUMAL
         elif options.lookup_type == 'EXTENDED':
             propTags = NSPIAttacks.PROPS_EXTENDED
@@ -793,7 +793,7 @@ class ExchangerHelper:
             # FULL
             propTags = []
 
-        if options.name != None and options.name.lower() in ['gal', 'default global address list', 'global address list']:
+        if options.name is not None and options.name.lower() in ['gal', 'default global address list', 'global address list']:
             logging.info("Lookuping Global Address List")
             table_MId = 0
         else:
@@ -805,7 +805,7 @@ class ExchangerHelper:
             # may not work in Multi-Tenant environments
             self.exch.load_htable()
 
-            if options.guid != None:
+            if options.guid is not None:
                 logging.info("Search for an address book with objectGUID = %s" % options.guid)
                 guid = uuid.string_to_bin(options.guid)
                 name = None
@@ -845,7 +845,7 @@ class ExchangerHelper:
     def nspi_guid_known(self, options):
         self.exch.set_output_type(options.output_type)
 
-        if options.lookup_type == None or options.lookup_type == 'MINIMAL':
+        if options.lookup_type is None or options.lookup_type == 'MINIMAL':
             propTags = NSPIAttacks.PROPS_MINUMAL
         elif options.lookup_type == 'EXTENDED':
             propTags = NSPIAttacks.PROPS_EXTENDED
@@ -853,13 +853,13 @@ class ExchangerHelper:
             # FULL
             propTags = []
 
-        if options.guid != None:
+        if options.guid is not None:
             self.exch.req_print_guid(options.guid, propTags)
         else:
             self.exch.req_print_guid(attrs=propTags, count=options.rows_per_request, guidFile=options.guid_file)
 
     def nspi_dnt_lookup(self, options):
-        if options.lookup_type == None or options.lookup_type == 'EXTENDED':
+        if options.lookup_type is None or options.lookup_type == 'EXTENDED':
             propTags = NSPIAttacks.PROPS_EXTENDED
         elif options.lookup_type == 'GUIDS':
             propTags = NSPIAttacks.PROPS_GUID
@@ -1029,7 +1029,7 @@ if __name__ == '__main__':
                              "You can try to request different DNT range")
 
         if 'Connection reset by peer' in error_text and \
-            exchHelper.exch._rpctransport.rts_ping_received == True and \
+            exchHelper.exch._rpctransport.rts_ping_received is True and \
             options.submodule.lower() == 'dnt-lookup':
             logging.critical("Most likely ntdsai.dll in lsass.exe has crashed "
                              "on a Domain Controller while processing a DNT which "

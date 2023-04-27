@@ -91,7 +91,7 @@ class GetGPPasswords(object):
             properties_list = root.getElementsByTagName("Properties")
             # function to get attribute if it exists, returns "" if empty
             read_or_empty = lambda element, attribute: (
-                element.getAttribute(attribute) if element.getAttribute(attribute) != None else "")
+                element.getAttribute(attribute) if element.getAttribute(attribute) is not None else "")
             for properties in properties_list:
                 results.append({
                     'newname': read_or_empty(properties, 'newName'),
@@ -122,7 +122,7 @@ class GetGPPasswords(object):
             raise
         output = fh.getvalue()
         encoding = chardet.detect(output)["encoding"]
-        if encoding != None:
+        if encoding is not None:
             filecontent = output.decode(encoding).rstrip()
             if 'cpassword' in filecontent:
                 logging.debug(filecontent)

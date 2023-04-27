@@ -434,7 +434,7 @@ class HTTPTransport(TCPTransport, RPCProxyClient):
                 raise DCERPCException("RPC Proxy port must be 80 or 443")
 
     def connect(self):
-        if self._useRpcProxy == False:
+        if self._useRpcProxy is False:
             # Connecting directly to the ncacn_http port
             #
             # Here we using RPC over HTTPv1 instead complex RPC over HTTP v2 syntax
@@ -458,7 +458,7 @@ class HTTPTransport(TCPTransport, RPCProxyClient):
         return self._transport.recv(self, forceRecv, count)
 
     def get_socket(self):
-        if self._useRpcProxy == False:
+        if self._useRpcProxy is False:
             return TCPTransport.get_socket(self)
         else:
             raise DCERPCException("This method is not supported for RPC Proxy connections")

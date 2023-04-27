@@ -1100,7 +1100,7 @@ def simplifyPropertyRowSet(propertyRowSet):
 def hNspiBind(dce, pStat=None):
     request = NspiBind()
 
-    if pStat == None:
+    if pStat is None:
         request['pStat']['CodePage'] = CP_TELETEX
     else:
         request['pStat'] = pStat
@@ -1131,7 +1131,7 @@ def hNspiQueryRows(dce, handler, dwFlags=fSkipObjects, pStat=None, ContainerID=0
     request['dwFlags'] = dwFlags
     request['Count'] = Count
 
-    if pStat == None:
+    if pStat is None:
         request['pStat']['ContainerID'] = ContainerID
     else:
         request['pStat'] = pStat

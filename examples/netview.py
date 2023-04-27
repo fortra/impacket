@@ -318,7 +318,7 @@ class USERENUM:
             key = '%s\x01%s' % (userName, sourceIP)
             myEntry = '%s\x01%s' % (self.__username, myIP)
             tmpSession.append(key)
-            if not(key in self.__targets[target]['Sessions']):
+            if key not in self.__targets[target]['Sessions']:
                 # Skipping myself
                 if key != myEntry:
                     self.__targets[target]['Sessions'].append(key)
@@ -402,7 +402,7 @@ class USERENUM:
             logonDomain = session['wkui1_logon_domain'][:-1]
             key = '%s\x01%s' % (userName, logonDomain)
             tmpLoggedUsers.add(key)
-            if not(key in self.__targets[target]['LoggedIn']):
+            if key not in self.__targets[target]['LoggedIn']:
                 self.__targets[target]['LoggedIn'].add(key)
                 # Are we filtering users?
                 if self.__filterUsers is not None:

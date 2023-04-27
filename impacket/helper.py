@@ -120,7 +120,7 @@ class ProtocolPacketMetaklass(type):
     def __new__(cls, name, bases, d):
         d["_fields"] = []
         items = list(d.items())
-        if not object in bases:
+        if object not in bases:
             bases += (object,)
         for k,v in items:
             if isinstance(v, Field):

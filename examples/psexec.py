@@ -287,7 +287,7 @@ class RemoteStdOutPipe(Pipes):
                         promptRegex = rb'([a-zA-Z]:[\\\/])((([a-zA-Z0-9 -\.]*)[\\\/]?)+(([a-zA-Z0-9 -\.]+))?)?>$'
 
                         endsWithPrompt = bool(re.match(promptRegex, __stdoutOutputBuffer) is not None)
-                        if endsWithPrompt == True:
+                        if endsWithPrompt is True:
                             # All data, we shouldn't have encoding errors
                             # Adding a space after the prompt because it's beautiful
                             __stdoutData = __stdoutOutputBuffer + b" "

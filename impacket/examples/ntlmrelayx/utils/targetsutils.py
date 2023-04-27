@@ -138,7 +138,7 @@ class TargetsProcessor:
                 LOG.debug("No more targets for user %s" % identity)
                 return None
             # Multirelay feature is disabled, general candidates are attacked just one time
-            elif multiRelay == False:
+            elif multiRelay is False:
                 for target in self.generalCandidates:
                     match = [x for x in self.finishedAttacks if x.hostname == target.netloc]
                     if len(match) == 0:
