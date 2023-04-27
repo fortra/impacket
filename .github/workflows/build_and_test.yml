@@ -3,7 +3,11 @@
 
 name: Build and test Impacket
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
 
 env:
   DOCKER_TAG: impacket:latests
@@ -12,10 +16,6 @@ jobs:
   lint:
     name: Check syntax errors and warnings
     runs-on: ubuntu-latest
-    if:
-      github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
-      github.repository
-
     steps:
       - name: Checkout Impacket
         uses: actions/checkout@v3
@@ -41,10 +41,6 @@ jobs:
     name: Run unit tests and build wheel
     needs: lint
     runs-on: ${{ matrix.os }}
-    if:
-      github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
-      github.repository
-
     strategy:
       fail-fast: false
       matrix:
@@ -86,10 +82,6 @@ jobs:
     name: Build docker image
     needs: lint
     runs-on: ubuntu-latest
-    if:
-      github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
-      github.repository
-
     continue-on-error: true
     steps:
       - name: Checkout Impacket
