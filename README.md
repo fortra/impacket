@@ -60,7 +60,7 @@ Getting Impacket
 
 * Impacket v0.10.1-dev (**[master branch](https://github.com/fortra/impacket/tree/master)**)
 
-  [![Python versions](https://img.shields.io/badge/python-3.6%20|%203.7%20|%203.8%20|%203.9-blue.svg)](https://github.com/fortra/impacket/tree/master)
+  [![Python versions](https://img.shields.io/badge/python-3.6%20|%203.7%20|%203.8%20|%203.9%20|%203.10-blue.svg)](https://github.com/fortra/impacket/tree/master)
 
 
 Setup
