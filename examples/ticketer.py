@@ -304,10 +304,10 @@ class TICKETER:
         pacInfos[PAC_ATTRIBUTES_INFO] = pacAttributes.getData()
 
     def createRequestorInfoPac(self, pacInfos):
-        pasRequestor = PAC_REQUESTOR()
-        pasRequestor['UserSid'].fromCanonical(f"{self.__options.domain_sid}-{self.__options.user_id}")
+        pacRequestor = PAC_REQUESTOR()
+        pacRequestor['UserSid'].fromCanonical(f"{self.__options.domain_sid}-{self.__options.user_id}")
 
-        pacInfos[PAC_REQUESTOR_INFO] = pasRequestor.getData()
+        pacInfos[PAC_REQUESTOR_INFO] = pacRequestor.getData()
 
     def createBasicTicket(self):
         if self.__options.request is True:
