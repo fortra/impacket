@@ -590,7 +590,7 @@ class MSSQL:
     def socketRecv(self, packetSize):
         data = self.socket.recv(packetSize)
         if self.tlsSocket is not None:
-            dd = ''
+            dd = b''
             self.tlsSocket.bio_write(data)
             while True:
                 try:
