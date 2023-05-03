@@ -46,6 +46,14 @@ class ServiceInstall:
 
         self.share = ''
 
+    @property
+    def serviceName(self):
+        return self.__service_name
+
+    @property
+    def binaryServiceName(self):
+        return self.__binary_service_name
+
     def getShare(self):
         return self.share
 
