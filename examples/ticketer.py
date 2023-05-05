@@ -59,7 +59,7 @@ from pyasn1.codec.der import encoder, decoder
 from pyasn1.type.univ import noValue
 
 from impacket import version
-from impacket.dcerpc.v5.dtypes import RPC_SID
+from impacket.dcerpc.v5.dtypes import RPC_SID, SID
 from impacket.dcerpc.v5.ndr import NDRULONG
 from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, \
     SE_GROUP_ENABLED, USER_NORMAL_ACCOUNT, USER_DONT_EXPIRE_PASSWORD
@@ -77,7 +77,6 @@ from impacket.krb5.pac import KERB_SID_AND_ATTRIBUTES, PAC_SIGNATURE_DATA, PAC_I
     PAC_ATTRIBUTE_INFO
 from impacket.krb5.types import KerberosTime, Principal
 from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
-from impacket.ldap.ldaptypes import LDAP_SID
 
 
 class TICKETER:
@@ -103,7 +102,7 @@ class TICKETER:
         t *= 10000000
         t += 116444736000000000
         return t
-    
+
     @staticmethod
     def getPadLength(data_length):
         return ((data_length + 7) // 8 * 8) - data_length
@@ -282,7 +281,7 @@ class TICKETER:
         pad = self.getPadLength(total_len)
         samName += b'\x00' * pad
 
-        user_sid = LDAP_SID()
+        user_sid = SID()
         user_sid.fromCanonical(f"{self.__options.domain_sid}-{self.__options.user_id}")
         upnDnsInfo['SidLength'] = len(user_sid)
         upnDnsInfo['SidOffset'] = total_len + pad
@@ -305,6 +304,7 @@ class TICKETER:
 
     def createRequestorInfoPac(self, pacInfos):
         pacRequestor = PAC_REQUESTOR()
+        pacRequestor['UserSid'] = SID()
         pacRequestor['UserSid'].fromCanonical(f"{self.__options.domain_sid}-{self.__options.user_id}")
 
         pacInfos[PAC_REQUESTOR_INFO] = pacRequestor.getData()
@@ -451,7 +451,7 @@ class TICKETER:
         flags.append(TicketFlags.forwardable.value)
         flags.append(TicketFlags.proxiable.value)
         flags.append(TicketFlags.renewable.value)
-        if self.__domain == self.__server: 
+        if self.__domain == self.__server:
             flags.append(TicketFlags.initial.value)
         flags.append(TicketFlags.pre_authent.value)
         encTicketPart['flags'] = encodeFlags(flags)
