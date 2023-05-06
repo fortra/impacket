@@ -248,6 +248,8 @@ class TICKETER:
 
         if self.__options.extra_pac:
             self.createUpnDnsPac(pacInfos)
+
+        if self.__options.old_pac is False:
             self.createAttributesInfoPac(pacInfos)
             self.createRequestorInfoPac(pacInfos)
 
@@ -883,6 +885,8 @@ if __name__ == '__main__':
                                                                           'created for (default = 500)')
     parser.add_argument('-extra-sid', action="store", help='Comma separated list of ExtraSids to be included inside the ticket\'s PAC')
     parser.add_argument('-extra-pac', action='store_true', help='Populate your ticket with extra PAC (UPN_DNS)')
+    parser.add_argument('-old-pac', action='store_true', help='Use the old PAC structure to create your ticket (exclude '
+                                                              'PAC_ATTRIBUTES_INFO and PAC_REQUESTOR')
     parser.add_argument('-duration', action="store", default = '87600', help='Amount of hours till the ticket expires '
                                                                              '(default = 24*365*10)')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
