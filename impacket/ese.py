@@ -583,7 +583,7 @@ class ESENT_PAGE:
             valueOffset = unpack('<H',tag[2:])[0] & 0x7fff
             tmpData = list(self.data[baseOffset+valueOffset:][:valueSize])
             pageFlags = ord(tmpData[1]) >> 5
-            tmpData[1] = chr(ord(tmpData[1:2]) & 0x1f)
+            tmpData[1] = chr(ord(tmpData[1:2][0]) & 0x1f)
             tagData = "".join(tmpData)
         else:
             valueSize = unpack('<H', tag[:2])[0] & 0x1fff
