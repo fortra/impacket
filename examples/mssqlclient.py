@@ -61,6 +61,7 @@ if __name__ == '__main__':
      ! {cmd}                    - executes a local shell cmd
      show_query                 - show query
      mask_query                 - mask query
+     export_to_file ""{query}"" ""{filepath}"" - export data to file, use double quotes
      """)
 
         def postcmd(self, stop, line):
@@ -251,6 +252,21 @@ if __name__ == '__main__':
                                "on sl.sid = r.sid where r.type in ('S','E','X','U','G')")
                 self.sql.printReplies()
                 self.sql.printRows()
+            except:
+                pass
+
+        def do_export_to_file(self, line):
+            try:
+                line_splited = line.split('""')
+                if len(line_splited) != 5:
+                    print('expected 2 arguments. ""query"" ""filepath""')
+                    return
+                query = line_splited[1]
+                filepath = line_splited[3]
+                self.sql_query(query)
+                self.sql.printReplies()
+                with open(filepath, 'w') as f:
+                    f.write(self.sql.getRows())
             except:
                 pass
 
