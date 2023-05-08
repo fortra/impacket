@@ -606,7 +606,7 @@ def queryPathInformation(path, filename, level):
                     infoRecord['FileAttributes'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
             elif level == smb.SMB_QUERY_FILE_EA_INFO or level == smb2.SMB2_FILE_EA_INFO:
                 infoRecord = smb.SMBQueryFileEaInfo()
-            elif level == smb2.SMB2_FILE_STREAM_INFO:
+            elif level == smb.SMB_QUERY_FILE_STREAM_INFO or level == smb2.SMB2_FILE_STREAM_INFO:
                 infoRecord = smb.SMBFileStreamInformation()
             else:
                 LOG.error('Unknown level for query path info! 0x%x' % level)
