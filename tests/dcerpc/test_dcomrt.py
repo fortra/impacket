@@ -198,7 +198,7 @@ class DCOMConnectionTests(RemoteTestCase, unittest.TestCase):
         iEventSystem.RemRelease()
         dcom.disconnect()
 
-    @pytest.mark.skip
+    @pytest.mark.remote
     def test_comev(self):
         dcom = dcomrt.DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
         iInterface = dcom.CoCreateInstanceEx(comev.CLSID_EventSystem, comev.IID_IEventSystem)
