@@ -66,11 +66,12 @@ class GetUserNoPreAuth:
         for row in items:
             print(outputFormat.format(*row))
 
-    def __init__(self, username, password, domain, cmdLineOptions):
+    def __init__(self, username, password, user_domain, target_domain, cmdLineOptions):
         self.__username = username
         self.__password = password
-        self.__domain = domain
+        self.__domain = user_domain
         self.__target = None
+        self.__targetDomain = target_domain
         self.__lmhash = ''
         self.__nthash = ''
         self.__no_pass = cmdLineOptions.no_pass
@@ -87,12 +88,19 @@ class GetUserNoPreAuth:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
         # Create the baseDN
-        domainParts = self.__domain.split('.')
+        domainParts = self.__targetDomain.split('.')
         self.baseDN = ''
         for i in domainParts:
             self.baseDN += 'dc=%s,' % i
         # Remove last ','
         self.baseDN = self.baseDN[:-1]
+        # We can't set the KDC to a custom IP or Hostname when requesting things cross-domain
+        # because then the KDC host will be used for both
+        # the initial and the referral ticket, which breaks stuff.
+        if user_domain != self.__targetDomain and (self.__kdcIP or self.__kdcHost):
+            logging.warning('KDC IP address and hostname will be ignored because of cross-domain targeting.')
+            self.__kdcIP = None
+            self.__kdcHost = None
 
     def getMachineName(self, target):
         try:
@@ -218,13 +226,13 @@ class GetUserNoPreAuth:
             self.request_users_file_TGTs()
             return
 
-        if self.__kdcHost is not None:
+        if self.__kdcHost is not None and self.__targetDomain == self.__domain:
             self.__target = self.__kdcHost
         else:
-            if self.__kdcIP is not None:
+            if self.__kdcIP is not None and self.__targetDomain == self.__domain:
                 self.__target = self.__kdcIP
             else:
-                self.__target = self.__domain
+                self.__target = self.__targetDomain
 
             if self.__doKerberos:
                 logging.info('Getting machine hostname')
@@ -370,6 +378,9 @@ if __name__ == '__main__':
                                   "'Do not require Kerberos preauthentication' set and export their TGTs for cracking")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]]')
+    parser.add_argument('-target-domain', action='store',
+                        help='Domain to query/request if different than the domain of the user. '
+                             'Allows for AS-REP roasting across trusts.')
     parser.add_argument('-request', action='store_true', default=False, help='Requests TGT for users and output them '
                                                                                'in JtR/hashcat format (default False)')
     parser.add_argument('-outputfile', action='store',
@@ -396,7 +407,8 @@ if __name__ == '__main__':
     group = parser.add_argument_group('connection')
     group.add_argument('-dc-ip', action='store', metavar='ip address', help='IP Address of the domain controller. If '
                                                                               'ommited it use the domain part (FQDN) '
-                                                                              'specified in the target parameter')
+                                                                              'specified in the target parameter. Ignored'
+                                                                              'if -target-domain is specified.')
     group.add_argument('-dc-host', action='store', metavar='hostname', help='Hostname of the domain controller to use. '
                                                                               'If ommited, the domain part (FQDN) '
                                                                               'specified in the account parameter will be used')
@@ -431,11 +443,16 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    domain, username, password = parse_credentials(options.target)
+    userDomain, username, password = parse_credentials(options.target)
 
-    if domain == '':
-        logging.critical('Domain should be specified!')
+    if userDomain == '':
+        logging.critical('userDomain should be specified!')
         sys.exit(1)
+
+    if options.target_domain:
+        targetDomain = options.target_domain
+    else:
+        targetDomain = userDomain
 
     if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
         from getpass import getpass
@@ -452,7 +469,7 @@ if __name__ == '__main__':
         options.request = True
 
     try:
-        executer = GetUserNoPreAuth(username, password, domain, options)
+        executer = GetUserNoPreAuth(username, password, userDomain, targetDomain, options)
         executer.run()
     except Exception as e:
         logging.debug("Exception:", exc_info=True)
