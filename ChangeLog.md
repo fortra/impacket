@@ -28,7 +28,7 @@ https://github.com/fortra/impacket/commits/master
     * [mssqlclient.py](examples/mssqlclient.py):
       * Added multiple new commands. Now supports xp_dirtree execution (@Mayfly277, @trietend and @TurtleARM).
     * [ntlmrelayx.py](examples/ntlmrelayx.py):
-      * Added ability to spawn SQLShell when running ntlmrelayx in interactive mode (@sploutchy).
+      * Added ability to trigger SQLShell when running ntlmrelayx in interactive mode (@sploutchy).
 
 3. New examples
     * N/A
