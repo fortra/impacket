@@ -27,13 +27,15 @@ https://github.com/fortra/impacket/commits/master
       * Security fixes for privilege escalation vulnerabilities (@bugch3ck).  
     * [mssqlclient.py](examples/mssqlclient.py):
       * Added multiple new commands. Now supports xp_dirtree execution (@Mayfly277, @trietend and @TurtleARM).
+    * [ntlmrelayx.py](examples/ntlmrelayx.py):
+      * Added ability to spawn SQLShell when running ntlmrelayx in interactive mode (@sploutchy).
 
 3. New examples
     * N/A
     
 As always, thanks a lot to all these contributors that make this library better every day (up to now):
 
-@ly4k @nopernik @snovvcrash @ShutdownRepo @kiwids0220 @mpgn @CT-H00K @rmaksimov @arossert @aevy-syn @tirkarthi @p0dalirius @Dramelac @Mayfly277 @S3cur3Th1sSh1t @nobbd @AdrianVollmer @trietend @TurtleARM @ThePirateWhoSmellsOfSunflowers @SAERXCIT @clavoillotte @Marshall-Hallenbeck @nobbd 
+@ly4k @nopernik @snovvcrash @ShutdownRepo @kiwids0220 @mpgn @CT-H00K @rmaksimov @arossert @aevy-syn @tirkarthi @p0dalirius @Dramelac @Mayfly277 @S3cur3Th1sSh1t @nobbd @AdrianVollmer @trietend @TurtleARM @ThePirateWhoSmellsOfSunflowers @SAERXCIT @clavoillotte @Marshall-Hallenbeck @nobbd @sploutchy
 
 
 ## Impacket v0.10.0 (May 2022):
