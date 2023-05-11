@@ -581,10 +581,11 @@ class ESENT_PAGE:
         if self.__DBHeader['Version'] == 0x620 and self.__DBHeader['FileFormatRevision'] >= 17 and self.__DBHeader['PageSize'] > 8192:
             valueSize = unpack('<H', tag[:2])[0] & 0x7fff
             valueOffset = unpack('<H',tag[2:])[0] & 0x7fff
-            tmpData = list(self.data[baseOffset+valueOffset:][:valueSize])
-            pageFlags = ord(tmpData[1]) >> 5
-            tmpData[1] = chr(ord(tmpData[1:2][0]) & 0x1f)
-            tagData = "".join(tmpData)
+            tmpData = bytearray(self.data[baseOffset+valueOffset:][:valueSize])
+            pageFlags = tmpData[1] >> 5
+            tmpData[1] = tmpData[1:2][0] & 0x1f
+            tmpData = bytes(tmpData)
+            tagData = tmpData
         else:
             valueSize = unpack('<H', tag[:2])[0] & 0x1fff
             pageFlags = (unpack('<H', tag[2:])[0] & 0xe000) >> 13
