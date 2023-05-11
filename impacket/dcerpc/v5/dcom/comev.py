@@ -1731,7 +1731,7 @@ class IEnumEventObject(IDispatch):
     def Clone(self):
         request = IEnumEventObject_Clone()
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return IEnumEventObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppInterface']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        return IEnumEventObject(INTERFACE(self.get_cinstance(), b''.join(resp['ppInterface']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
 
     def Next(self, cReqElem):
         request = IEnumEventObject_Next()
@@ -1739,7 +1739,7 @@ class IEnumEventObject(IDispatch):
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
         interfaces = list()
         for interface in resp['ppInterface']:
-            interfaces.append(IEventClass2(INTERFACE(self.get_cinstance(), ''.join(interface['abData']), self.get_ipidRemUnknown(), target = self.get_target())))
+            interfaces.append(IEventClass2(INTERFACE(self.get_cinstance(), b''.join(interface['abData']), self.get_ipidRemUnknown(), target = self.get_target())))
         return interfaces
 
     def Reset(self):
@@ -1761,7 +1761,7 @@ class IEventObjectCollection(IDispatch):
     def get__NewEnum(self):
         request = IEventObjectCollection_get__NewEnum()
         resp = self.request(request, iid = self._iid , uuid = self.get_iPid())
-        return IEnumEventObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self._get_target()))
+        return IEnumEventObject(INTERFACE(self.get_cinstance(), b''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self._get_target()))
 
     def get_Item(self, objectID):
         request = IEventObjectCollection_get_Item()
@@ -1772,7 +1772,7 @@ class IEventObjectCollection(IDispatch):
     def get_NewEnum(self):
         request = IEventObjectCollection_get_NewEnum()
         resp = self.request(request, iid = self._iid , uuid = self.get_iPid())
-        return IEnumEventObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        return IEnumEventObject(INTERFACE(self.get_cinstance(), b''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
 
     def get_Count(self):
         request = IEventObjectCollection_get_Count()
@@ -1802,7 +1802,7 @@ class IEventSystem(IDispatch):
         request['progID']['asData']=progID
         request['queryCriteria']['asData']=queryCriteria
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        iInterface = IDispatch(INTERFACE(self.get_cinstance(), ''.join(resp['ppInterface']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        iInterface = IDispatch(INTERFACE(self.get_cinstance(), b''.join(resp['ppInterface']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
         return IEventObjectCollection(iInterface.RemQueryInterface(1, (IID_IEventObjectCollection,)))
 
     def Store(self, progID, pInterface):
@@ -1829,7 +1829,7 @@ class IEventSystem(IDispatch):
         request['progID']['asData']=progID
         request['queryCriteria']['asData']=queryCriteria
         resp = self.request(request, uuid = self.get_iPid())
-        iInterface = IDispatch(INTERFACE(self.get_cinstance(), ''.join(resp['ppInterface']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        iInterface = IDispatch(INTERFACE(self.get_cinstance(), b''.join(resp['ppInterface']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
         return IEventObjectCollection(iInterface.RemQueryInterface(1, (IID_IEventObjectCollection,)))
 
     def RemoveS(self,progID, queryCriteria):
