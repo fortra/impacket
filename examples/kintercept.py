@@ -29,6 +29,17 @@ import struct, socket, argparse, asyncore
 from binascii import crc32
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type.univ import noValue
+import os
+import sys
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket import version
 from impacket.krb5 import constants
 from impacket.krb5.crypto import Cksumtype

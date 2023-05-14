@@ -45,6 +45,16 @@ from hashlib import pbkdf2_hmac
 
 from Cryptodome.Cipher import AES, PKCS1_v1_5
 from Cryptodome.Hash import HMAC, SHA1, MD4
+import os
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket.uuid import bin_to_string
 from impacket import crypto
 from impacket.smbconnection import SMBConnection

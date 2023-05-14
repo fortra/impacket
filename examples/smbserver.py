@@ -18,6 +18,16 @@ import sys
 import argparse
 import logging
 
+import os
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket.examples import logger
 from impacket import smbserver, version
 from impacket.ntlm import compute_lmhash, compute_nthash

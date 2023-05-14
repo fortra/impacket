@@ -25,6 +25,15 @@ import logging
 import os
 import sys
 
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket import version
 from impacket.dcerpc.v5 import epm, mimilib
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE

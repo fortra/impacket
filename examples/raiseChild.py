@@ -79,6 +79,15 @@ except ImportError:
      logging.critical('This module needs pyasn1 installed')
      logging.critical('You can get it from https://pypi.python.org/pypi/pyasn1')
      sys.exit(1)
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket import version
 from impacket.krb5.types import Principal, KerberosTime
 from impacket.krb5 import constants

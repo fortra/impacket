@@ -29,6 +29,16 @@ import logging
 import os
 import random
 
+import sys
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket.examples import logger
 from impacket.examples.secretsdump import RemoteOperations, KeyListSecrets
 from impacket.examples.utils import parse_target

@@ -35,6 +35,16 @@ import sys
 import logging
 import argparse
 
+import os
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket.http import AUTH_BASIC
 from impacket.examples import logger, rpcdatabase
 from impacket.examples.utils import parse_credentials

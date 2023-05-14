@@ -34,6 +34,16 @@ import logging
 import sys
 from os import path
 
+import os
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket import version
 from impacket.examples import logger
 from impacket.examples.utils import parse_target

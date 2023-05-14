@@ -31,6 +31,16 @@ import socket
 import time
 import sys
 
+import os
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket import ImpactDecoder, IP6, ICMP6, version
 
 print(version.BANNER)

@@ -28,6 +28,16 @@ import sys
 import pcapy
 from pcapy import open_offline
 
+import os
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket.ImpactDecoder import EthDecoder, LinuxSLLDecoder
 
 

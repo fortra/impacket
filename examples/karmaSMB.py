@@ -64,6 +64,15 @@ except ImportError:
     import configparser as ConfigParser
 from threading import Thread
 
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket.examples import logger
 from impacket import smbserver, smb, version
 import impacket.smb3structs as smb2

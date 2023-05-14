@@ -29,6 +29,15 @@ import string
 import time
 from six import PY3
 
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket.examples import logger
 from impacket import version, smb
 from impacket.smbconnection import SMBConnection

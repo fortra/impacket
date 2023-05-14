@@ -41,6 +41,15 @@ except ImportError:
   import readline
 from six import PY2, text_type
 from datetime import datetime
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket.examples import logger
 from impacket import version
 from impacket.structure import Structure

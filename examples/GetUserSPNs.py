@@ -37,6 +37,16 @@ from datetime import datetime
 from binascii import hexlify, unhexlify
 
 from pyasn1.codec.der import decoder
+import os
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket import version
 from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_TRUSTED_FOR_DELEGATION, \
     UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION

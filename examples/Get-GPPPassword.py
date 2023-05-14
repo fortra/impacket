@@ -32,6 +32,15 @@ from Cryptodome.Util.Padding import unpad
 
 import charset_normalizer as chardet
 
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket import version
 from impacket.examples import logger, utils
 from impacket.smbconnection import SMBConnection, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB_DIALECT, SessionError

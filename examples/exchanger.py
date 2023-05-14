@@ -32,6 +32,16 @@ import binascii
 import sys
 from six import PY3
 
+import os
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket import uuid, version
 from impacket.http import AUTH_BASIC
 from impacket.examples import logger

@@ -58,6 +58,16 @@ from binascii import unhexlify
 from pyasn1.codec.der import encoder, decoder
 from pyasn1.type.univ import noValue
 
+import os
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket import version
 from impacket.dcerpc.v5.dtypes import RPC_SID, SID
 from impacket.dcerpc.v5.ndr import NDRULONG

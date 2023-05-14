@@ -31,6 +31,16 @@ from threading import Thread
 import pcapy
 from pcapy import findalldevs, open_live
 
+import os
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket.ImpactDecoder import EthDecoder, LinuxSLLDecoder
 
 

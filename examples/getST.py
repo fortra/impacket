@@ -50,6 +50,15 @@ from six import b
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type.univ import noValue
 
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket import version
 from impacket.examples import logger
 from impacket.examples.utils import parse_credentials

@@ -27,6 +27,16 @@ import ldapdomaindump
 from binascii import unhexlify
 from ldap3.protocol.formatters.formatters import format_sid
 
+import os
+
+sys.path.append(
+    os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__),
+            '..'
+        )
+    )
+)
 from impacket import version
 from impacket.examples import logger, utils
 from impacket.ldap import ldaptypes
