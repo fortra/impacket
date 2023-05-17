@@ -1315,7 +1315,7 @@ def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-
     tower['Floors'] = interface.getData() + dataRep.getData() + protId.getData() + transportData
 
     request = ept_map()
-    request['max_towers'] = 1
+    request['max_towers'] = 4
     request['map_tower']['tower_length'] = len(tower)
     request['map_tower']['tower_octet_string'] = tower.getData()
 
