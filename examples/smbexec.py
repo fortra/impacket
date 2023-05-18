@@ -206,8 +206,13 @@ class RemoteShell(cmd.Cmd):
         self.transferClient = rpc.get_smb_connection()
         self.do_cd('')
 
-    def finish(self):
-        logging.info("FINISH!")
+    def finish(self):        
+        # Just in case the ouput file is still in the share
+        try:
+            self.transferClient.deleteFile(self.__share, OUTPUT_FILENAME)
+        except:
+            pass
+        
         # Just in case the service is still created
         try:
            self.__scmr = self.__rpc.get_dce_rpc()
@@ -223,8 +228,7 @@ class RemoteShell(cmd.Cmd):
         except scmr.DCERPCException:
            pass
         
-        # Just in case the ouput file is still in the share
-        self.transferClient.deleteFile(self.__share, OUTPUT_FILENAME)
+
 
     def do_shell(self, s):
         os.system(s)
