@@ -207,6 +207,7 @@ class RemoteShell(cmd.Cmd):
         self.do_cd('')
 
     def finish(self):
+        logging.info("FINISH!")
         # Just in case the service is still created
         try:
            self.__scmr = self.__rpc.get_dce_rpc()
@@ -221,6 +222,9 @@ class RemoteShell(cmd.Cmd):
            scmr.hRCloseServiceHandle(self.__scmr, service)
         except scmr.DCERPCException:
            pass
+        
+        # Just in case the ouput file is still in the share
+        self.transferClient.deleteFile(self.__share, OUTPUT_FILENAME)
 
     def do_shell(self, s):
         os.system(s)
@@ -396,8 +400,6 @@ if __name__ == '__main__':
     if options.service_name is None:
         options.service_name = ''.join([random.choice(string.ascii_letters) for i in range(8)])
 
-    logging.info(options.service_name)
-    
     try:
         executer = CMDEXEC(username, password, domain, options.hashes, options.aesKey, options.k, options.dc_ip,
                            options.mode, options.share, int(options.port), options.service_name, options.shell_type)
