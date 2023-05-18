@@ -259,10 +259,7 @@ if __name__ == '__main__':
                                                                           '(128 or 256 bits)')
     
     group = parser.add_argument_group('connection')
-    group.add_argument('-dc-ip', action='store', metavar='ip address', help='IP Address of the domain controller. If '
-                                                                            'ommited it use the domain part (FQDN) '
-                                                                            'specified in the target parameter. Ignored'
-                                                                            'if -target-domain is specified.')
+    group.add_argument('-dc-ip', action='store', metavar='ip address', help='IP Address of the domain controller.')
 
     if len(sys.argv) == 1:
         parser.print_help()
