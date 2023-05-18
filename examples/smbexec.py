@@ -57,7 +57,6 @@ from impacket.krb5.keytab import Keytab
 OUTPUT_FILENAME = '__output'
 SMBSERVER_DIR   = '__tmp'
 DUMMY_SHARE     = 'TMP'
-SERVICE_NAME    = 'BTOBTO'
 CODEC = sys.stdout.encoding
 
 class SMBServer(Thread):
@@ -120,7 +119,7 @@ class SMBServer(Thread):
 
 class CMDEXEC:
     def __init__(self, username='', password='', domain='', hashes=None, aesKey=None, doKerberos=None,
-                 kdcHost=None, mode=None, share=None, port=445, serviceName=SERVICE_NAME, shell_type=None):
+                 kdcHost=None, mode=None, share=None, port=445, serviceName='BTOBTO', shell_type=None):
 
         self.__username = username
         self.__password = password
@@ -338,7 +337,7 @@ if __name__ == '__main__':
                        'name and you cannot resolve it')
     group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port",
                        help='Destination port to connect to SMB Server')
-    group.add_argument('-service-name', action='store', metavar="service_name", default = SERVICE_NAME, help='The name of the'
+    group.add_argument('-service-name', action='store', metavar="service_name", help='The name of the'
                                          'service used to trigger the payload')
 
     group = parser.add_argument_group('authentication')
@@ -394,6 +393,11 @@ if __name__ == '__main__':
     if options.aesKey is not None:
         options.k = True
 
+    if options.service_name is None:
+        options.service_name = ''.join([random.choice(string.ascii_letters) for i in range(8)])
+
+    logging.info(options.service_name)
+    
     try:
         executer = CMDEXEC(username, password, domain, options.hashes, options.aesKey, options.k, options.dc_ip,
                            options.mode, options.share, int(options.port), options.service_name, options.shell_type)
