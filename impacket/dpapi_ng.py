@@ -1,6 +1,6 @@
 import math
 import struct
-from impacket.dcerpc.v5.gkdi import FFCDHKey, GroupKeyEnvelope
+from impacket.dcerpc.v5.gkdi import ECDHKey, FFCDHKey, GroupKeyEnvelope
 from impacket.ldap.ldaptypes import ACE, ACL, ACCESS_ALLOWED_ACE, ACCESS_MASK, SR_SECURITY_DESCRIPTOR, LDAP_SID
 from impacket.structure import Structure
 from Cryptodome.Hash import SHA512, SHA256, HMAC
@@ -284,7 +284,10 @@ def generate_kek_secret_from_pubkey(gke: GroupKeyEnvelope, key_id: KeyIdentifier
             int.from_bytes(ffcdh_key['FieldOrder'], byteorder="big"),
         )
         shared_secret = shared_secret_int.to_bytes((shared_secret_int.bit_length() + 7) // 8, byteorder="big")
-
+    elif "ECDH_P" in gke['SecAlgo'].decode('utf-16le'):
+        ecdh_key = ECDHKey(key_id["Unknown"])
+        # not yet supported
+        return
     kek_context = "KDS public key\0".encode("utf-16le")
     otherinfo = "SHA512\0".encode("utf-16le") + kek_context + KDS_SERVICE_LABEL
     return compute_kdf_hash(length=32, otherinfo=otherinfo, key_material=shared_secret), kek_context
