@@ -92,7 +92,7 @@ def sendReceive(data, host, kdcHost, port=88):
 
     return r
 
-def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True):
+def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True, serverName=None):
 
     # Convert to binary form, just in case we're receiving strings
     if isinstance(lmhash, str):
@@ -110,11 +110,17 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
             aesKey = unhexlify(aesKey)
         except TypeError:
             pass
+    if serverName is not None and not isinstance(serverName, Principal):
+        try:
+            serverName = Principal(serverName, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+        except TypeError:
+            pass
 
     asReq = AS_REQ()
 
     domain = domain.upper()
-    serverName = Principal('krbtgt/%s'%domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)  
+    if serverName is None:
+        serverName = Principal('krbtgt/%s'%domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
 
     pacRequest = KERB_PA_PAC_REQUEST()
     pacRequest['include-pac'] = requestPAC
