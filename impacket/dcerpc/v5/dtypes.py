@@ -15,12 +15,13 @@
 
 from __future__ import division
 from __future__ import print_function
-from struct import pack
+from struct import pack, unpack
 from six import binary_type
 
 from impacket.dcerpc.v5.ndr import NDRULONG, NDRUHYPER, NDRSHORT, NDRLONG, NDRPOINTER, NDRUniConformantArray, \
     NDRUniFixedArray, NDR, NDRHYPER, NDRSMALL, NDRPOINTERNULL, NDRSTRUCT, \
     NDRUSMALL, NDRBOOLEAN, NDRUSHORT, NDRFLOAT, NDRDOUBLEFLOAT, NULL
+from impacket.structure import Structure
 
 DWORD = NDRULONG
 BOOL = NDRULONG
@@ -443,7 +444,40 @@ class PULARGE_INTEGER(NDRPOINTER):
         ('Data', ULARGE_INTEGER),
     )
 
+# 2.4.2.2 SID--Packet Representation
+# This SID structure is a packet representation of the SID type for use by block protocols.
+class SID_IDENTIFIER_AUTHORITY(Structure):
+    structure = (
+        ('Value', '6s'),
+    )
+
+class SID(Structure):
+    structure = (
+        ('Revision', '<B'),
+        ('SubAuthorityCount', '<B'),
+        ('IdentifierAuthority', ':', SID_IDENTIFIER_AUTHORITY),
+        ('SubLen', '_-SubAuthority', 'self["SubAuthorityCount"]*4'),
+        ('SubAuthority', ':'),
+    )
+
+    def formatCanonical(self):
+        ans = 'S-%d-%d' % (self['Revision'], ord(self['IdentifierAuthority']['Value'][5:6]))
+        for i in range(self['SubAuthorityCount']):
+            ans += '-%d' % (unpack('<L', self['SubAuthority'][i * 4:i * 4 + 4])[0])
+        return ans
+
+    def fromCanonical(self, canonical):
+        items = canonical.split('-')
+        self['Revision'] = int(items[1])
+        self['IdentifierAuthority'] = SID_IDENTIFIER_AUTHORITY()
+        self['IdentifierAuthority']['Value'] = b'\x00\x00\x00\x00\x00' + pack('B', int(items[2]))
+        self['SubAuthorityCount'] = len(items) - 3
+        self['SubAuthority'] = b''
+        for i in range(self['SubAuthorityCount']):
+            self['SubAuthority'] += pack('<L', int(items[i + 3]))
+
 # 2.4.2.3 RPC_SID
+# The RPC_SID structure is an IDL representation of the SID type for use by RPC-based protocols.
 class DWORD_ARRAY(NDRUniConformantArray):
     item = '<L'
 

