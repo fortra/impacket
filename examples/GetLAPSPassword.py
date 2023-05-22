@@ -28,7 +28,6 @@ from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5.epm import hept_map
 from impacket.dcerpc.v5.gkdi import MSRPC_UUID_GKDI, GkdiGetKey, GroupKeyEnvelope
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
-from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE
 from impacket.dpapi_ng import EncryptedPasswordBlob, KeyIdentifier, compute_kek, create_sd, decrypt_plaintext, unwrap_cek
 from impacket.examples import logger
 from impacket.examples.utils import parse_credentials
@@ -39,7 +38,6 @@ from pyasn1_modules import rfc5652
 import argparse
 import json
 import logging
-import os
 import sys
 
 class GetLAPSPassword:
@@ -92,7 +90,6 @@ class GetLAPSPassword:
             parsed_cms_data, remaining = decoder.decode(encryptedLAPSBlob['Blob'], asn1Spec=rfc5652.ContentInfo())
             enveloped_data_blob = parsed_cms_data['content']
             parsed_enveloped_data, _ = decoder.decode(enveloped_data_blob, asn1Spec=rfc5652.EnvelopedData())
-
             recipient_infos = parsed_enveloped_data['recipientInfos']
             kek_recipient_info = recipient_infos[0]['kekri']
             kek_identifier = kek_recipient_info['kekid'] 
@@ -230,7 +227,7 @@ class GetLAPSPassword:
             paged_search_control = ldapasn1.SimplePagedResultsControl(criticality=True, size=1000)
 
             resp = ldapConnection.search(searchFilter=searchFilter,
-                                         attributes=['msLAPS-EncryptedPassword', 'msLAPS-Password', 'sAMAccountName', 'ms-MCS-AdmPwd'],
+                                         attributes=['msLAPS-EncryptedPassword', 'msLAPS-PasswordExpirationTime', 'msLAPS-Password', 'sAMAccountName', 'ms-MCS-AdmPwd'],
                                          searchControls=[paged_search_control])
 
         except ldap.LDAPSearchError as e:
@@ -271,7 +268,7 @@ class GetLAPSPassword:
                         # timestamp = r["t"]
                         lapsUsername = r["n"]
                         lapsPassword = r["p"]
-                    elif str(attribute['type']) == 'ms-Mcs-AdmPwdExpirationTime':
+                    elif str(attribute['type']) == 'ms-Mcs-AdmPwdExpirationTime' or str(attribute['type']) == 'msLAPS-PasswordExpirationTime':
                         if str(attribute['vals'][0]) != '0':
                             lapsPasswordExpiration = datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))).strftime('%Y-%m-%d %H:%M:%S')
                     elif str(attribute['type']) == 'ms-Mcs-AdmPwd':
