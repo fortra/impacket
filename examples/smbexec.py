@@ -231,8 +231,6 @@ class RemoteShell(cmd.Cmd):
            scmr.hRCloseServiceHandle(self.__scmr, service)
         except scmr.DCERPCException:
            pass
-        
-
 
     def do_shell(self, s):
         os.system(s)
