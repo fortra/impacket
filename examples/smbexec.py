@@ -119,12 +119,11 @@ class SMBServer(Thread):
 
 class CMDEXEC:
     def __init__(self, username='', password='', domain='', hashes=None, aesKey=None, doKerberos=None,
-                 kdcHost=None, mode=None, share=None, port=445, serviceName='BTOBTO', shell_type=None):
+                 kdcHost=None, mode=None, share=None, port=445, serviceName=None, shell_type=None):
 
         self.__username = username
         self.__password = password
         self.__port = port
-        self.__serviceName = serviceName
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
@@ -137,6 +136,11 @@ class CMDEXEC:
         self.shell = None
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
+
+        if serviceName is None:
+            self.__serviceName = ''.join([random.choice(string.ascii_letters) for i in range(8)])
+        else:
+            self.__serviceName = serviceName
 
     def run(self, remoteName, remoteHost):
         stringbinding = r'ncacn_np:%s[\pipe\svcctl]' % remoteName
@@ -400,9 +404,6 @@ if __name__ == '__main__':
 
     if options.aesKey is not None:
         options.k = True
-
-    if options.service_name is None:
-        options.service_name = ''.join([random.choice(string.ascii_letters) for i in range(8)])
 
     try:
         executer = CMDEXEC(username, password, domain, options.hashes, options.aesKey, options.k, options.dc_ip,
