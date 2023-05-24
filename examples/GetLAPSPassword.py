@@ -42,7 +42,7 @@ import sys
 
 class GetLAPSPassword:
     @staticmethod
-    def printTable(items, header):
+    def printTable(items, header, outputfile):
         colLen = []
         for i, col in enumerate(header):
             rowMaxLen = max([len(row[i]) for row in items])
@@ -53,10 +53,15 @@ class GetLAPSPassword:
         # Print header
         print(outputFormat.format(*header))
         print('  '.join(['-' * itemLen for itemLen in colLen]))
-
-        # And now the rows
         for row in items:
-            print(outputFormat.format(*row))
+                print(outputFormat.format(*row))
+        
+        if outputfile:
+            with open(outputfile, 'w') as file:
+                outputFormat_file = '\t'.join(['{%d:%ds}' % (num, width) for num, width in enumerate(colLen)]) # Added tab delimited output for files
+                file.write(outputFormat_file.format(*header) + "\n")
+                for row in items:
+                    file.write((outputFormat_file.format(*row)).strip() + "\n") # Removed extraneous field to clean up output saved to a file
 
     def __init__(self, username, password, domain, cmdLineOptions):
         self.options = cmdLineOptions
@@ -71,6 +76,7 @@ class GetLAPSPassword:
         self.__kdcIP = cmdLineOptions.dc_ip
         self.__kdcHost = cmdLineOptions.dc_host
         self.__targetComputer = cmdLineOptions.computer
+        self.__outputFile = cmdLineOptions.outputfile
         self.__KDSCache = {}
 
         if cmdLineOptions.hashes is not None:
@@ -227,7 +233,8 @@ class GetLAPSPassword:
             paged_search_control = ldapasn1.SimplePagedResultsControl(criticality=True, size=1000)
 
             resp = ldapConnection.search(searchFilter=searchFilter,
-                                         attributes=['msLAPS-EncryptedPassword', 'msLAPS-PasswordExpirationTime', 'msLAPS-Password', 'sAMAccountName', 'ms-MCS-AdmPwd'],
+                                         attributes=['msLAPS-EncryptedPassword', 'msLAPS-PasswordExpirationTime', 'msLAPS-Password', 'sAMAccountName', \
+                                         'ms-Mcs-AdmPwdExpirationTime', 'ms-MCS-AdmPwd'],
                                          searchControls=[paged_search_control])
 
         except ldap.LDAPSearchError as e:
@@ -288,7 +295,7 @@ class GetLAPSPassword:
                 logging.error("No LAPS data returned")
             return 
         
-        self.printTable(entries,['Host','LAPS Username','LAPS Password','LAPS Password Expiration', 'LAPSv2'])
+        self.printTable(entries,['Host','LAPS Username','LAPS Password','LAPS Password Expiration', 'LAPSv2'], self.__outputFile)
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -301,6 +308,7 @@ if __name__ == '__main__':
 
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-outputfile', '-o', action='store', help='Outputs to a file.')
 
     group = parser.add_argument_group('authentication')
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
