@@ -63,7 +63,7 @@ RESULT_MESSAGES = {
     0: "password changed successfully",
     1: "protocol error: malformed request",
     2: "server error (KRB5_KPASSWD_HARDERROR)",
-    3: "authentication failed",
+    3: "authentication failed (may also indicate that the target user was not found)",
     4: "password change rejected (KRB5_KPASSWD_SOFTERROR)",
     5: "access denied",
     6: "protocol error: bad version",
