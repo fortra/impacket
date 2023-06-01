@@ -58,9 +58,7 @@ def sendReceive(data, host, kdcHost):
 
     LOG.debug('Trying to connect to KDC at %s' % targetHost)
     try:
-        af, socktype, proto, canonname, sa = socket.getaddrinfo(targetHost, 88, 0, socket.SOCK_STREAM)[0]
-        s = socket.socket(af, socktype, proto)
-        s.connect(sa)
+        s = socket.create_connection((targetHost, 88), 2.0)
     except socket.error as e:
         raise socket.error("Connection error (%s:%s)" % (targetHost, 88), e)
 
