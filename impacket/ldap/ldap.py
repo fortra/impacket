@@ -551,14 +551,14 @@ class LDAPConnection:
                 searchFilter['extensibleMatch']['dnAttributes'] = bool(dn)
             if matchingRule:
                 searchFilter['extensibleMatch']['matchingRule'] = matchingRule
-            searchFilter['extensibleMatch']['matchValue'] = value
+            searchFilter['extensibleMatch']['matchValue'] = LDAPConnection._processLdapString(value)
         else:
             if not RE_ATTRIBUTE.match(attribute):
                 raise LDAPFilterInvalidException("invalid filter attribute: '%s'" % attribute)
             if value == '*' and operator == '=':  # present
                 searchFilter['present'] = attribute
             elif '*' in value and operator == '=':  # substring
-                assertions = value.split('*')
+                assertions = [LDAPConnection._processLdapString(assertion) for assertion in value.split('*')]
                 choice = searchFilter['substrings']['substrings'].getComponentType()
                 substrings = []
                 if assertions[0]:
@@ -570,6 +570,7 @@ class LDAPConnection:
                 searchFilter['substrings']['type'] = attribute
                 searchFilter['substrings']['substrings'].setComponents(*substrings)
             elif '*' not in value:  # simple
+                value = LDAPConnection._processLdapString(value)
                 if operator == '=':
                     searchFilter['equalityMatch'].setComponents(attribute, value)
                 elif operator == '~=':
@@ -582,6 +583,15 @@ class LDAPConnection:
                 raise LDAPFilterInvalidException("invalid filter '(%s%s%s)'" % (attribute, operator, value))
 
         return searchFilter
+
+
+    @classmethod
+    def _processLdapString(cls, ldapstr):
+        def replace_escaped_chars(match):
+            return chr(int(match.group(1), 16))  # group(1) == "XX" (valid hex)
+
+        escaped_chars = re.compile(r'\\([0-9a-fA-F]{2})')  # Capture any sequence of "\XX" (where XX is a valid hex)
+        return re.sub(escaped_chars, replace_escaped_chars, ldapstr)
 
 
 class LDAPFilterSyntaxError(SyntaxError):
