@@ -208,9 +208,8 @@ class GetUserNoPreAuth:
 
     @staticmethod
     def outputTGT(entry, fd=None):
-        if fd is None:
-            print(entry)
-        else:
+        print(entry)
+        if fd is not None:
             fd.write(entry + '\n')
 
     def run(self):
