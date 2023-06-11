@@ -86,6 +86,7 @@
 #   [MS-SAMR] https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/acb3204a-da8b-478e-9139-1ea589edb880
 #   [MS-SAMR] https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/9699d8ca-e1a4-433c-a8c3-d7bebeb01476
 #   [MS-SAMR] https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/538222f7-1b89-4811-949a-0eac62e38dce
+#   [LDAP] https://learn.microsoft.com/en-us/troubleshoot/windows-server/identity/change-windows-active-directory-user-password
 #   [KPASSWD] https://www.rfc-editor.org/rfc/rfc3244.txt
 #   https://snovvcrash.github.io/2020/10/31/pretending-to-be-smbpasswd-with-impacket.html
 #   https://www.n00py.io/2021/09/resetting-expired-passwords-remotely/
@@ -104,6 +105,7 @@ from getpass import getpass
 from impacket import version
 from impacket.dcerpc.v5 import transport, samr, epm
 from impacket.krb5 import kpasswd
+from impacket.ldap import ldap, ldapasn1
 
 from impacket.examples import logger
 from impacket.examples.utils import parse_target
@@ -561,6 +563,154 @@ class SmbPassword(SamrPassword):
         return transport.SMBTransport(self.address, filename=r"\samr")
 
 
+class LdapPassword(PasswordHandler):
+    """Use LDAP to change or reset a user's password"""
+
+    ldapConnection = None
+    baseDN = None
+
+    def connect(self, targetDomain):
+        """Connect to LDAPS with the credentials provided in __init__"""
+
+        if self.ldapConnection:
+            return True
+
+        ldapURI = "ldaps://" + self.address
+        self.baseDN = "DC=" + ",DC=".join(targetDomain.split("."))
+
+        logging.debug(f"Connecting to {ldapURI} as {self.domain}\\{self.username}")
+        try:
+            ldapConnection = ldap.LDAPConnection(ldapURI, self.baseDN, self.address)
+            if not self.doKerberos:
+                ldapConnection.login(self.username, self.password, self.domain, self.pwdHashLM, self.pwdHashNT)
+            else:
+                ldapConnection.kerberosLogin(
+                    self.username,
+                    self.password,
+                    self.domain,
+                    self.pwdHashLM,
+                    self.pwdHashNT,
+                    self.aesKey,
+                    kdcHost=self.kdcHost,
+                )
+        except ldap.LDAPSessionError as e:
+            logging.error(f"Cannot connect to {ldapURI} as {self.domain}\\{self.username}: {e}")
+            return False
+
+        self.ldapConnection = ldapConnection
+        return True
+
+    def encodeLdapPassword(self, password):
+        """
+        Encode the password according to Microsoft's specifications
+
+        Password must be surrounded by quotes and UTF-16 encoded
+        """
+        return f'"{password}"'.encode("utf-16-le")
+
+    def findTargetDN(self, targetUsername, targetDomain):
+        """Find the DN of the targeted user"""
+
+        answers = self.ldapConnection.search(
+            searchFilter=f"(sAMAccountName={targetUsername})",
+            searchBase=self.baseDN,
+            attributes=("distinguishedName",),
+        )
+
+        # return the DN of the first item
+        for item in answers:
+            if not isinstance(item, ldapasn1.SearchResultEntry):
+                # skipping references to other partitions
+                continue
+
+            return str(item["objectName"])
+
+    def _modifyPassword(self, change, targetUsername, targetDomain, oldPasswordEncoded, newPasswordEncoded):
+        if not self.connect(targetDomain):
+            return False
+
+        targetDN = self.findTargetDN(targetUsername, targetDomain)
+        if not targetDN:
+            logging.critical("Could not find the target user in LDAP")
+            return False
+
+        logging.debug(f"Found target distinguishedName: {targetDN}")
+
+        # Build our Modify request
+        request = ldapasn1.ModifyRequest()
+        request["object"] = targetDN
+
+        if change:
+            request["changes"][0]["operation"] = ldapasn1.Operation("delete")
+            request["changes"][0]["modification"]["type"] = "unicodePwd"
+            request["changes"][0]["modification"]["vals"][0] = oldPasswordEncoded
+            request["changes"][1]["operation"] = ldapasn1.Operation("add")
+            request["changes"][1]["modification"]["type"] = "unicodePwd"
+            request["changes"][1]["modification"]["vals"][0] = newPasswordEncoded
+        else:
+            request["changes"][0]["operation"] = ldapasn1.Operation("replace")
+            request["changes"][0]["modification"]["type"] = "unicodePwd"
+            request["changes"][0]["modification"]["vals"][0] = newPasswordEncoded
+
+        logging.debug(f"Sending: {str(request)}")
+
+        response = self.ldapConnection.sendReceive(request)[0]
+
+        logging.debug(f"Receiving: {str(response)}")
+
+        resultCode = int(response["protocolOp"]["modifyResponse"]["resultCode"])
+        result = str(ldapasn1.ResultCode(resultCode))
+        diagMessage = str(response["protocolOp"]["modifyResponse"]["diagnosticMessage"])
+
+        if result == "success":
+            logging.info(f"Password was changed successfully for {targetDN}")
+            return True
+
+        if result == "constraintViolation":
+            logging.error(
+                f"Could not change the password of {targetDN}, possibly due to the password "
+                "policy or an invalid oldPassword."
+            )
+        elif result == "insufficientAccessRights":
+            logging.error(f"Could not set the password of {targetDN}, {self.domain}\\{self.username} has insufficient rights")
+        else:
+            logging.error(f"Could not change the password of {targetDN}. {result}: {diagMessage}")
+
+        return False
+
+    def _changePassword(
+        self, targetUsername, targetDomain, oldPassword, newPassword, oldPwdHashLM, oldPwdHashNT, newPwdHashLM, newPwdHashNT
+    ):
+        """
+        Change the password of a user.
+
+        Must send a delete operation with the oldPassword and an add
+        operation with the newPassword in the same modify request.
+        """
+
+        if not oldPassword or not newPassword:
+            logging.critical("LDAP requires the old and new passwords in plaintext")
+            return False
+
+        oldPasswordEncoded = self.encodeLdapPassword(oldPassword)
+        newPasswordEncoded = self.encodeLdapPassword(newPassword)
+        return self._modifyPassword(True, targetUsername, targetDomain, oldPasswordEncoded, newPasswordEncoded)
+
+    def _setPassword(self, targetUsername, targetDomain, newPassword, newPwdHashLM, newPwdHashNT):
+        """
+        Set the password of a user.
+
+        Must send a modify operation with the newPassword (must have privileges).
+        """
+
+        if not newPassword:
+            logging.critical("LDAP requires the new password in plaintext")
+            return False
+
+        newPasswordEncoded = self.encodeLdapPassword(newPassword)
+        return self._modifyPassword(False, targetUsername, targetDomain, None, newPasswordEncoded)
+
+
 def init_logger(options):
     logger.init(options.ts)
     if options.debug is True:
@@ -615,6 +765,7 @@ def parse_args():
             "smb-samr",
             "rpc-samr",
             "kpasswd",
+            "ldap",
         ),
     )
     group.add_argument(
@@ -657,18 +808,24 @@ if __name__ == "__main__":
     options = parse_args()
     init_logger(options)
 
-    if options.protocol == "kpasswd":
-        PasswordProtocol = KPassword
-    elif options.protocol == "rpc-samr":
-        PasswordProtocol = RpcPassword
-    else:
-        PasswordProtocol = SmbPassword
+    handlers = {
+        "kpasswd": KPassword,
+        "rpc-samr": RpcPassword,
+        "smb-samr": SmbPassword,
+        "ldap": LdapPassword,
+    }
+
+    try:
+        PasswordProtocol = handlers[options.protocol]
+    except KeyError:
+        logging.critical(f"Unsupported password protocol {options.protocol}")
+        sys.exit(1)
 
     # Parse account whose password is changed
     targetDomain, targetUsername, oldPassword, address = parse_target(options.target)
 
     if not targetDomain:
-        if options.protocol != "kpasswd":
+        if options.protocol in ("rpc-samr", "smb-samr"):
             targetDomain = "Builtin"
         else:
             targetDomain = address
