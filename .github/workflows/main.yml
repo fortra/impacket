@@ -9,14 +9,11 @@ on:
 
 jobs:
   build:
-
-    name: Package py to exe
-
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
-        #  os: [ ubuntu-latest ]
-        python-version: ["3.7", "3.8", "3.9", "3.10"]
+#         os: [ ubuntu-latest, macos-latest, windows-latest ]
+        os: [ ubuntu-latest ]
+        python-version: ["3.9", "3.10"]
 
     runs-on: ${{ matrix.os }}
 
@@ -35,7 +32,7 @@ jobs:
 
       - name: Package Artifacts
         run: |
-          pyinstaller examples\wmiexec.py --onefile
+          pyinstaller examples/wmiexec.py --onefile
         
       - uses: actions/upload-artifact@v2
         with:
