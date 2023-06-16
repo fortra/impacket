@@ -15,6 +15,8 @@ https://github.com/fortra/impacket/commits/master
 2. Examples improvements
     * [GetADUsers.py](examples/GetADUsers.py), [GetNPUsers.py](examples/GetNPUsers.py), [GetUserSPNs.py](examples/GetUserSPNs.py) and [findDelegation.py](examples/findDelegation.py):
       * Added dc-host option to connect to specific KDC using its FQDN or NetBIOS name (@rmaksimov and @0xdeaddood).
+    * [GetNPUsers.py](examples/GetNPUsers.py)
+      * Printing TGT in stdout despite -outputfile parameter (@alexisbalbachan and @Zamanry)
     * [GetUserSPNs.py](examples/GetUserSPNs.py):
       * Added LDAP paged search (@ThePirateWhoSmellsOfSunflowers and @SAERXCIT).
       * Added a -stealth flag to remove the SPN filter from the LDAP query (@clavoillotte).
