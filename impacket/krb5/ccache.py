@@ -495,8 +495,9 @@ class CCache:
         credential['time']['authtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['authtime']))
         credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['starttime']))
         credential['time']['endtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['endtime']))
-        credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['renew-till']))
-
+        # After KB4586793 for CVE-2020-17049 this timestamp may be omitted
+        if encASRepPart['renew-till'].hasValue():
+            credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['renew-till']))
         flags = self.reverseFlags(encASRepPart['flags'])
         credential['tktflags'] = flags
 
@@ -696,7 +697,9 @@ class CCache:
         credential['time']['authtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['starttime']))
         credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['starttime']))
         credential['time']['endtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['endtime']))
-        credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['renew-till']))
+        # After KB4586793 for CVE-2020-17049 this timestamp may be omitted
+        if krbCredInfo['renew-till'].hasValue():
+            credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['renew-till']))
 
         flags = self.reverseFlags(krbCredInfo['flags'])
         credential['tktflags'] = flags
