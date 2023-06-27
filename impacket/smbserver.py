@@ -3478,6 +3478,7 @@ class SMB2Commands:
                             errorCode = STATUS_ACCESS_DENIED
                     elif informationLevel == smb2.SMB2_FILE_ALLOCATION_INFO:
                         # See https://github.com/samba-team/samba/blob/master/source3/smbd/smb2_trans2.c#LL5201C8-L5201C39
+                        smbServer.log("Warning: SMB2_FILE_ALLOCATION_INFO not implemented")
                         errorCode = STATUS_SUCCESS
                     else:
                         smbServer.log('Unknown level for set file info! 0x%x' % informationLevel, logging.ERROR)
