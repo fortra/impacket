@@ -35,7 +35,7 @@ from impacket.ldap.ldapasn1 import Filter, Control, SimplePagedResultsControl, R
     KNOWN_CONTROLS, CONTROL_PAGEDRESULTS, NOTIFICATION_DISCONNECT, KNOWN_NOTIFICATIONS, BindRequest, SearchRequest, \
     SearchResultDone, LDAPMessage
 from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3
-from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
+from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, TypesMech
 
 try:
     import OpenSSL
@@ -311,6 +311,50 @@ class LDAPConnection:
             # NTLM Auth
             type3, exportedSessionKey = getNTLMSSPType3(negotiate, bytes(type2), user, password, domain, lmhash, nthash)
             bindRequest['authentication']['sicilyResponse'] = type3.getData()
+            response = self.sendReceive(bindRequest)[0]['protocolOp']
+        elif authenticationChoice == 'sasl':
+            if lmhash != '' or nthash != '':
+                if len(lmhash) % 2:
+                    lmhash = '0' + lmhash
+                if len(nthash) % 2:
+                    nthash = '0' + nthash
+                try:
+                    lmhash = unhexlify(lmhash)
+                    nthash = unhexlify(nthash)
+                except TypeError:
+                    pass
+
+            bindRequest['name'] = user
+
+            # NTLM Negotiate
+            negotiate = getNTLMSSPType1('', domain)
+
+            blob = SPNEGO_NegTokenInit()
+            blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
+            blob['MechToken'] = negotiate.getData()
+
+            bindRequest['authentication']['sasl']['mechanism'] = 'GSS-SPNEGO'
+            bindRequest['authentication']['sasl']['credentials'] = blob.getData()
+            response = self.sendReceive(bindRequest)[0]['protocolOp']
+            if response['bindResponse']['resultCode'] != ResultCode('saslBindInProgress'):
+                raise LDAPSessionError(
+                    errorString='Error in bindRequest during the NTLMAuthNegotiate request -> %s: %s' %
+                                (response['bindResponse']['resultCode'].prettyPrint(),
+                                 response['bindResponse']['diagnosticMessage'])
+                )
+
+            # NTLM Challenge
+            serverSaslCreds = response['bindResponse']['serverSaslCreds']
+            spnegoTokenResp = SPNEGO_NegTokenResp(serverSaslCreds.asOctets())
+            type2 = spnegoTokenResp['ResponseToken']
+
+            # NTLM Auth
+            type3, exportedSessionKey = getNTLMSSPType3(negotiate, type2, user, password, domain, lmhash, nthash)
+            blob = SPNEGO_NegTokenResp()
+            blob['ResponseToken'] = type3.getData()
+
+            bindRequest['authentication']['sasl']['mechanism'] = 'GSS-SPNEGO'
+            bindRequest['authentication']['sasl']['credentials'] = blob.getData()
             response = self.sendReceive(bindRequest)[0]['protocolOp']
         else:
             raise LDAPSessionError(errorString="Unknown authenticationChoice: '%s'" % authenticationChoice)
