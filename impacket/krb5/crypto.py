@@ -58,7 +58,7 @@ from Cryptodome.Cipher import AES, DES3, ARC4, DES
 from Cryptodome.Hash import HMAC, MD4, MD5, SHA
 from Cryptodome.Protocol.KDF import PBKDF2
 from Cryptodome.Util.number import GCD as gcd
-from six import b, PY3, indexbytes
+from six import b, PY3, indexbytes, binary_type
 
 
 def get_random_bytes(lenBytes):
@@ -366,9 +366,9 @@ class _DESCBC(_SimplifiedEnctype):
     def string_to_key(cls, string, salt, params):
         if params is not None and params != b'':
             raise ValueError('Invalid DES string-to-key parameters')
-        if not isinstance(string, six.binary_type):
+        if not isinstance(string, binary_type):
             string = string.encode("utf-8")
-        if not isinstance(salt, six.binary_type):
+        if not isinstance(salt, binary_type):
             salt = salt.encode("utf-8")
 
         key = cls.mit_des_string_to_key(string, salt)
@@ -413,9 +413,9 @@ class _DES3CBC(_SimplifiedEnctype):
     def string_to_key(cls, string, salt, params):
         if params is not None and params != b'':
             raise ValueError('Invalid DES3 string-to-key parameters')
-        if not isinstance(string, six.binary_type):
+        if not isinstance(string, binary_type):
             string = string.encode("utf-8")
-        if not isinstance(salt, six.binary_type):
+        if not isinstance(salt, binary_type):
             salt = salt.encode("utf-8")
 
         k = cls.random_to_key(_nfold(string + salt, 21))
@@ -443,9 +443,9 @@ class _AESEnctype(_SimplifiedEnctype):
 
     @classmethod
     def string_to_key(cls, string, salt, params):
-        if not isinstance(string, six.binary_type):
+        if not isinstance(string, binary_type):
             string = string.encode("utf-8")
-        if not isinstance(salt, six.binary_type):
+        if not isinstance(salt, binary_type):
             salt = salt.encode("utf-8")
 
         (iterations,) = unpack('>L', params or b'\x00\x00\x10\x00')
