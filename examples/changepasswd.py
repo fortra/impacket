@@ -9,9 +9,12 @@
 #
 # Description:
 #   This script is a collection of functions to change or reset the password of
-#   a user via various protocols. It currently supports:
+#   a user via various protocols. It supports:
 #   - MS-SAMR over SMB or RPC transport (NetUserChangePassword and NetUserSetInfo protocols)
 #   - Kerberos change-password and reset-password protocols
+#   - LDAP password change and reset
+#
+#   The last documented mechanism (XACT-SMB) is not implemented.
 #
 #   A password change can usually be initiated when the previous password (or its
 #   hash) is known, by the account itself or any other user.
@@ -38,11 +41,17 @@
 #       * Must have a valid TGT/key or valid password for the user
 #       * Must provide the new password as plaintext
 #       * Password policy is enforced
-#   - Kerberos Change Password:
+#   - Kerberos Set Password:
 #       * Must use Kerberos authentication
 #       * Must have a valid TGT/key or valid password for the admin
 #       * Must provide the new password as plaintext
+#   - LDAP password change:
+#       * The server must support TLS. If the DC is misconfigured, you cannot connect
+#       * Must provide the old and new passwords as plaintext
 #       * Password policy is enforced
+#   - LDAP password set:
+#       * The server must support TLS. If the DC is misconfigured, you cannot connect
+#       * Must provide the new password as plaintext
 #
 #   Examples:
 #     SAMR protocol over SMB transport to change passwords (like smbpasswd, -protocol smb-samr is implied)
@@ -71,6 +80,17 @@
 #     Kerberos Reset Password protocol (like kpasswd) (-newhashes is not supported and -k is implied)
 #       changepasswd.py -reset -protocol kpasswd contoso.local/j.doe@DC1 -newpass 'N3wPassw0rd!'
 #               -altuser CONTOSO/SrvAdm
+#
+#     LDAP password change (like ldappasswd) (-newhashes is not supported)
+#       changepasswd.py -p ldap contoso.local/j.doe:'Passw0rd!'@DC1 -newpass 'N3wPassw0rd!'
+#       changepasswd.py -p ldap -k contoso.local/j.doe:'Passw0rd!'@DC1 -newpass 'N3wPassw0rd!'
+#
+#     LDAP password set (-newhashes is not supported)
+#       changepasswd.py -reset -p ldap contoso.local/j.doe:'Passw0rd!'@DC1 -newpass 'N3wPassw0rd!'
+#               -altuser administrator -althash 6fe945ead39a7a6a2091001d98a913ab
+#       changepasswd.py -reset -p ldap -k contoso.local/j.doe:'Passw0rd!'@DC1 -newpass 'N3wPassw0rd!'
+#               -altuser CONTOSO/SrvAdm -k -no-pass
+#
 #
 # This script is based on smbpasswd.py.
 #
@@ -798,6 +818,10 @@ def parse_args():
             "in the target parameter"
         ),
     )
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
 
     return parser.parse_args()
 
