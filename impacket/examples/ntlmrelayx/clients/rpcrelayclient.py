@@ -19,11 +19,11 @@ from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
 from impacket.ntlm import NTLMAuthChallenge
 from impacket.spnego import SPNEGO_NegTokenResp
 
-from impacket.dcerpc.v5 import transport, rpcrt, epm, tsch
+from impacket.dcerpc.v5 import transport, rpcrt, epm, tsch, icpr
 from impacket.dcerpc.v5.ndr import NDRCALL
 from impacket.dcerpc.v5.rpcrt import DCERPC_v5, MSRPCBind, CtxItem, MSRPCHeader, SEC_TRAILER, MSRPCBindAck, \
     MSRPCRespHeader, MSRPCBindNak, DCERPCException, RPC_C_AUTHN_WINNT, RPC_C_AUTHN_LEVEL_CONNECT, \
-    rpc_status_codes, rpc_provider_reason
+    rpc_status_codes, rpc_provider_reason, RPC_C_AUTHN_LEVEL_NONE
 
 PROTOCOL_CLIENT_CLASS = "RPCRelayClient"
 
@@ -130,12 +130,16 @@ class RPCRelayClient(ProtocolClient):
 
         if self.endpoint == "TSCH":
             self.endpoint_uuid = tsch.MSRPC_UUID_TSCHS
+        elif self.endpoint == "ICPR":
+            self.endpoint_uuid = icpr.MSRPC_UUID_ICPR
         else:
             raise NotImplementedError("Not implemented!")
 
         if self.serverConfig.rpc_use_smb:
             if self.endpoint == "TSCH":
                 self.stringbinding = "ncacn_np:%s[\\pipe\\atsvc]" % target.netloc
+            if self.endpoint == "ICPR":
+                self.stringbinding = "ncacn_np:%s[\\pipe\\cert]" % target.netloc
             else:
                 raise NotImplementedError("Not implemented!")
         else:
@@ -154,11 +158,13 @@ class RPCRelayClient(ProtocolClient):
             rpctransport.set_dport(self.serverConfig.rpc_smb_port)
 
         self.session = MYDCERPC_v5(rpctransport)
-        self.session.set_auth_level(RPC_C_AUTHN_LEVEL_CONNECT)
-        self.session.connect()
 
         if self.serverConfig.rpc_use_smb:
+            self.session.set_auth_level(RPC_C_AUTHN_LEVEL_NONE)
             LOG.info("Authentication to smb://%s:%d succeeded" % (self.target.netloc, self.serverConfig.rpc_smb_port))
+        else:
+            self.session.set_auth_level(RPC_C_AUTHN_LEVEL_CONNECT)
+        self.session.connect()
 
         return True
 

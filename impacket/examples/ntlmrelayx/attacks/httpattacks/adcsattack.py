@@ -81,7 +81,8 @@ class ADCSAttack:
         if self.config.altName:
             LOG.info("This certificate can also be used for user : {}".format(self.config.altName))
 
-    def generate_csr(self, key, CN, altName):
+    @staticmethod
+    def generate_csr(key, CN, altName, csr_type = crypto.FILETYPE_PEM):
         LOG.info("Generating CSR...")
         req = crypto.X509Req()
         req.get_subject().CN = CN
@@ -93,16 +94,18 @@ class ADCSAttack:
         req.set_pubkey(key)
         req.sign(key, "sha256")
 
-        return crypto.dump_certificate_request(crypto.FILETYPE_PEM, req)
+        return crypto.dump_certificate_request(csr_type, req)
 
-    def generate_pfx(self, key, certificate):
-        certificate = crypto.load_certificate(crypto.FILETYPE_PEM, certificate)
+    @staticmethod
+    def generate_pfx(key, certificate, cert_type = crypto.FILETYPE_PEM):
+        certificate = crypto.load_certificate(cert_type, certificate)
         p12 = crypto.PKCS12()
         p12.set_certificate(certificate)
         p12.set_privatekey(key)
         return p12.export()
 
-    def generate_certattributes(self, template, altName):
+    @staticmethod
+    def generate_certattributes(template, altName):
 
         if altName:
             return "CertificateTemplate:{}%0d%0aSAN:upn={}".format(template, altName)
