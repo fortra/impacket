@@ -77,7 +77,7 @@ from impacket.dcerpc.v5.dcom.oaut import IID_IDispatch, IDispatch, DISPPARAMS, D
 from impacket.dcerpc.v5.dcomrt import DCOMConnection, OBJREF, FLAGS_OBJREF_CUSTOM, OBJREF_CUSTOM, OBJREF_HANDLER, \
     OBJREF_EXTENDED, OBJREF_STANDARD, FLAGS_OBJREF_HANDLER, FLAGS_OBJREF_STANDARD, FLAGS_OBJREF_EXTENDED, \
     IRemUnknown2, INTERFACE
-from impacket.ese import ESENT_DB
+from impacket.ese import ESENT_DB, getUnixTime
 from impacket.dpapi import DPAPI_SYSTEM
 from impacket.smb3structs import FILE_READ_DATA, FILE_SHARE_READ
 from impacket.nt_errors import STATUS_MORE_ENTRIES
@@ -523,6 +523,9 @@ class RemoteOperations:
             LOG.error("Couldn't get DC info for domain %s" % self.__domainName)
             raise Exception('Fatal, aborting')
 
+    def getSamr(self):
+        return self.__samr
+
     def getDrsr(self):
         return self.__drsr
 
@@ -669,6 +672,9 @@ class RemoteOperations:
             self.connectSamr(self.getMachineNameAndDomain()[1])
 
         return self.__domainSid
+
+    def getDomainHandle(self):
+        return self.__domainHandle
 
     def getMachineKerberosSalt(self):
         """
@@ -886,11 +892,11 @@ class RemoteOperations:
         except:
             raise Exception("Can't open %s hive" % hiveName)
         keyHandle = ans['phkResult']
-        rrp.hBaseRegSaveKey(self.__rrp, keyHandle, tmpFileName)
+        rrp.hBaseRegSaveKey(self.__rrp, keyHandle, '..\\Temp\\'+tmpFileName)
         rrp.hBaseRegCloseKey(self.__rrp, keyHandle)
         rrp.hBaseRegCloseKey(self.__rrp, regHandle)
         # Now let's open the remote file, so it can be read later
-        remoteFileName = RemoteFile(self.__smbConnection, 'SYSTEM32\\'+tmpFileName)
+        remoteFileName = RemoteFile(self.__smbConnection, 'Temp\\'+tmpFileName)
         return remoteFileName
 
     def saveSAM(self):
@@ -1557,11 +1563,12 @@ class LSASecrets(OfflineRegistry):
                 userName = plainText[:record['UserLength']].decode('utf-16le')
                 plainText = plainText[self.__pad(record['UserLength']) + self.__pad(record['DomainNameLength']):]
                 domainLong = plainText[:self.__pad(record['DnsDomainNameLength'])].decode('utf-16le')
+                timestamp = datetime.utcfromtimestamp(getUnixTime(record['LastWrite']))
 
                 if self.__vistaStyle is True:
-                    answer = "%s/%s:$DCC2$%s#%s#%s" % (domainLong, userName, iterationCount, userName, hexlify(encHash).decode('utf-8'))
+                    answer = "%s/%s:$DCC2$%s#%s#%s: (%s)" % (domainLong, userName, iterationCount, userName, hexlify(encHash).decode('utf-8'), timestamp)
                 else:
-                    answer = "%s/%s:%s:%s" % (domainLong, userName, hexlify(encHash).decode('utf-8'), userName)
+                    answer = "%s/%s:%s:%s: (%s)" % (domainLong, userName, hexlify(encHash).decode('utf-8'), userName, timestamp)
 
                 self.__cachedItems.append(answer)
                 self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA_HASHED, answer)
@@ -1605,6 +1612,7 @@ class LSASecrets(OfflineRegistry):
                     # We don't support getting this info for local targets at the moment
                     secret = self.UNKNOWN_USER + ':'
                 secret += strDecoded
+
         elif upperName.startswith('DEFAULTPASSWORD'):
             # defaults password for winlogon
             # Let's first try to decode the secret
@@ -1624,6 +1632,7 @@ class LSASecrets(OfflineRegistry):
                     # We don't support getting this info for local targets at the moment
                     secret = self.UNKNOWN_USER + ':'
                 secret += strDecoded
+
         elif upperName.startswith('ASPNET_WP_PASSWORD'):
             try:
                 strDecoded = secretItem.decode('utf-16le')
@@ -1631,6 +1640,7 @@ class LSASecrets(OfflineRegistry):
                 pass
             else:
                 secret = 'ASPNET: %s' % strDecoded
+
         elif upperName.startswith('DPAPI_SYSTEM'):
             # Decode the DPAPI Secrets
             dpapi = DPAPI_SYSTEM(secretItem)
@@ -1656,27 +1666,60 @@ class LSASecrets(OfflineRegistry):
             extrasecret = "%s:plain_password_hex:%s" % (printname, hexlify(secretItem).decode('utf-8'))
             self.__secretItems.append(extrasecret)
             self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, extrasecret)
-        elif re.match(r'^L\$_SQSA_(S-[0-9]-[0-9]-([0-9])+-([0-9])+-([0-9])+-([0-9])+-([0-9])+)$', upperName) is not None:
+
+        elif re.match('^L\$_SQSA_(S-[0-9]-[0-9]-([0-9])+-([0-9])+-([0-9])+-([0-9])+-([0-9])+)$', upperName) is not None:
             # Decode stored security questions
             sid = re.search(r'^L\$_SQSA_(S-[0-9]-[0-9]-([0-9])+-([0-9])+-([0-9])+-([0-9])+-([0-9])+)$', upperName).group(1)
             try:
-                strDecoded = secretItem.decode('utf-16le').replace('\xa0',' ')
+                strDecoded = secretItem.decode('utf-16le')
                 strDecoded = json.loads(strDecoded)
-            except:
+            except Exception as e:
                 pass
             else:
                 output = []
                 if strDecoded['version'] == 1:
-                    output.append(" - Version : %d" % strDecoded['version'])
-                    for qk in strDecoded['questions']:
-                        output.append(" | Question: %s" % qk['question'])
-                        output.append(" | |--> Answer: %s" % qk['answer'])
-                    output = '\n'.join(output)
-                    secret = 'Security Questions for user %s: \n%s' % (sid, output)
+                    if len(strDecoded['questions']) != 0:
+                        output.append(" - Version : %d" % strDecoded['version'])
+                        for qk in strDecoded['questions']:
+                            output.append(" | Question: %s" % qk['question'])
+                            output.append(" | |--> Answer: %s" % qk['answer'])
+                        output = '\n'.join(output)
+                        secret = 'Security questions for user %s: \n%s' % (sid, output)
+                    else:
+                        secret = 'Empty security questions for user %s.' % sid
                 else:
                     LOG.warning("Unknown SQSA version (%s), please open an issue with the following data so we can add a parser for it." % str(strDecoded['version']))
                     LOG.warning("Don't forget to remove sensitive content before sending the data in a Github issue.")
                     secret = json.dumps(strDecoded, indent=4)
+
+        elif re.match('^SCM:{([0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12})}', upperName) is not None:
+            # Decode stored service password
+            sid = re.search('^SCM:{([0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12})}', upperName).group(1)
+            try:
+                password = secretItem.decode('utf-16le').rstrip('\x00')
+            except:
+                pass
+            else:
+                secret = 'Password of service %s: %s' % (sid, password)
+
+        elif re.match('^L\$([0-9A-Z]{3})-PRV-([0-9A-F]{32})$', upperName) is not None:
+            # Decode stored OpenGPG private key
+            keyid = re.search('^L\$([0-9A-Z]{3})-PRV-([0-9A-F]{32})$', upperName).group(2)
+            try:
+                b64key = secretItem.decode('utf-16le')
+            except:
+                pass
+            else:
+                secret = 'OpenGPG private key %s: \n%s' % (keyid, b64key)
+        elif re.match('^L\$([0-9A-Z]{3})-PUB-([0-9A-F]{32})$', upperName) is not None:
+            # Decode stored OpenGPG public key
+            keyid = re.search('^L\$([0-9A-Z]{3})-PUB-([0-9A-F]{32})$', upperName).group(2)
+            try:
+                b64key = secretItem.decode('utf-16le')
+            except:
+                pass
+            else:
+                secret = 'OpenGPG public key %s: \n%s' % (keyid, b64key)
 
         if secret != '':
             printableSecret = secret

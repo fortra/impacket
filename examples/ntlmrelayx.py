@@ -138,6 +138,42 @@ class MiniShell(cmd.Cmd):
             else:
                 logging.info('No Relays Available!')
 
+    def do_admsocks(self, line):
+        headers = ["Protocol", "Target", "Username", "AdminStatus", "Port"]
+        url = "http://localhost:9090/ntlmrelayx/api/v1.0/relays"
+        try:
+            proxy_handler = ProxyHandler({})
+            opener = build_opener(proxy_handler)
+            response = Request(url)
+            r = opener.open(response)
+            result = r.read()
+            items = json.loads(result)
+
+        except Exception as e:
+            logging.error("ERROR: %s" % str(e))
+        else:
+          try:
+            if len(items) > 0:
+              new_list = [] # New dict to store the "items" JSON array
+              idx = 0
+              admonly = 'TRUE' # Search string for Admin
+              for line in items:
+                if admonly in line:
+                  new_list.insert(idx, line)
+                  idx += 1
+              if len(new_list) == 0:
+                print("\nNo Admin Sessions Available") # Do I really need to explain this?
+              else:
+                lineLen = len(new_list)
+                for i in range(lineLen):
+                  break
+              self.printTable(new_list, header=headers)
+          # Exception added to handle max() ValueError on the rowMaxLen in printTable function
+          except ValueError as e:
+            print()
+          else:
+              logging.info('No Relays Available!')
+                
     def do_startservers(self, line):
         if not self.serversRunning:
             start_servers(options, self.relayThreads)
@@ -171,6 +207,8 @@ def start_servers(options, threads):
         c.setExeFile(options.e)
         c.setCommand(options.c)
         c.setEnumLocalAdmins(options.enum_local_admins)
+        c.setEnumDomain(options.enum_domain)
+        c.setAddComputerSMB(options.smb_add_computer)
         c.setDisableMulti(options.no_multirelay)
         c.setEncoding(codec)
         c.setMode(mode)
@@ -197,6 +235,9 @@ def start_servers(options, threads):
                                       options.cert_outfile_path)
 
         c.setAltName(options.altname)
+        c.setIsSCCMAttack(options.sccm)
+        c.setSCCMOptions(options.sccm_device, options.sccm_fqdn, 
+                            options.sccm_server, options.sccm_sleep)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
@@ -315,7 +356,10 @@ if __name__ == '__main__':
                                      'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
     smboptions.add_argument('--rpc-attack', action='store', choices=[None, "TSCH", "ICPR"], required=False, default=None, help='Select the attack to perform over RPC over named pipes.')
+    smboptions.add_argument('--enum-domain', action='store_true', required=False, help='Enumerate domain')
 
+    smboptions.add_argument('--smb-add-computer', action='store', metavar=('COMPUTERNAME', 'PASSWORD'), required=False, nargs='*', help='Attempt to add a new computer account via SMB.')
+    
     #RPC arguments
     rpcoptions = parser.add_argument_group("RPC client options")
     rpcoptions.add_argument('-rpc-mode', choices=["TSCH", "ICPR"], default="TSCH", help='Protocol to attack')
@@ -380,9 +424,17 @@ if __name__ == '__main__':
     shadowcredentials.add_argument('--shadow-target', action='store', required=False, help='target account (user or computer$) to populate msDS-KeyCredentialLink from')
     shadowcredentials.add_argument('--pfx-password', action='store', required=False,
                                    help='password for the PFX stored self-signed certificate (will be random if not set, not needed when exporting to PEM)')
-    shadowcredentials.add_argument('--export-type', action='store', required=False, choices=["PEM", " PFX"], type=lambda choice: choice.upper(), default="PFX",
+    shadowcredentials.add_argument('--export-type', action='store', required=False, choices=["PEM", "PFX"], type=lambda choice: choice.upper(), default="PFX",
                                    help='choose to export cert+private key in PEM or PFX (i.e. #PKCS12) (default: PFX))')
     shadowcredentials.add_argument('--cert-outfile-path', action='store', required=False, help='filename to store the generated self-signed PEM or PFX certificate and key')
+
+    # SCCM options
+    sccmoptions = parser.add_argument_group("SCCM attack options")
+    sccmoptions.add_argument('--sccm', action='store_true', required=False, help='Enable SCCM relay attack')
+    sccmoptions.add_argument('--sccm-device', action='store', metavar="DEVICE", required=False, help='Name of fake device to register')
+    sccmoptions.add_argument('--sccm-fqdn', action='store', metavar="FQDN", required=False, help='Fully qualified domain name of the target domain')
+    sccmoptions.add_argument('--sccm-server', action='store', metavar="HOSTNAME", required=False, help='Hostname of the target SCCM server')
+    sccmoptions.add_argument('--sccm-sleep', action='store', metavar="SECONDS", type=int, default=5, required=False, help='Sleep time before requesting policy')
 
     try:
        options = parser.parse_args()
@@ -430,6 +482,9 @@ if __name__ == '__main__':
     else:
         if options.tf is not None:
             #Targetfile specified
+            if (options.smb_add_computer):
+                logging.info("To add a machine account through SMB only the Domain Controller must be specified as target")
+                sys.exit(1)
             logging.info("Running in relay mode to hosts in targetfile")
             targetSystem = TargetsProcessor(targetListFile=options.tf, protocolClients=PROTOCOL_CLIENTS, randomize=options.random)
             mode = 'RELAY'
