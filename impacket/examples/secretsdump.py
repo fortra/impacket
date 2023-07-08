@@ -69,7 +69,7 @@ from impacket import winregistry, ntlm
 from impacket.ldap.ldap import SimplePagedResultsControl, LDAPSearchError
 from impacket.ldap.ldapasn1 import SearchResultEntry
 from impacket.dcerpc.v5 import transport, rrp, scmr, wkst, samr, epm, drsuapi
-from impacket.dcerpc.v5.dtypes import NULL
+from impacket.dcerpc.v5.dtypes import NULL, SID
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, DCERPCException, RPC_C_AUTHN_GSS_NEGOTIATE
 from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dcom.oaut import IID_IDispatch, IDispatch, DISPPARAMS, DISPATCH_PROPERTYGET, \
@@ -548,10 +548,18 @@ class RemoteOperations:
         request['pmsgIn']['V8']['uuidDsaObjDest'] = self.__NtdsDsaObjectGuid
         request['pmsgIn']['V8']['uuidInvocIdSrc'] = self.__NtdsDsaObjectGuid
 
+        # Convert string SID to 2.4.2.2 packet SID
+        tsid = SID()
+        tsid.fromCanonical(userEntry)
+        packetSid  = pack("<B", tsid.fields['Revision'])
+        packetSid += pack("<B", tsid.fields['SubAuthorityCount'])
+        packetSid += tsid.fields['IdentifierAuthority'].fields['Value']
+        packetSid += tsid.fields['SubAuthority']
+
         dsName = drsuapi.DSNAME()
-        dsName['SidLen'] = 0
-        dsName['Guid'] = string_to_bin(userEntry[1:-1])
-        dsName['Sid'] = ''
+        dsName['SidLen'] = len(packetSid)
+        dsName['Guid'] = 0
+        dsName['Sid'] = packetSid
         dsName['NameLen'] = 0
         dsName['StringName'] = ('\x00')
 
@@ -638,7 +646,7 @@ class RemoteOperations:
         try:
             LOG.debug('Search Filter=%s' % searchFilter)
             sc = SimplePagedResultsControl(size=100)
-            resp = self.__ldapConnection.search(searchFilter=searchFilter, attributes=['msDS-PrincipalName'], sizeLimit=0, searchControls=[sc])
+            resp = self.__ldapConnection.search(searchFilter=searchFilter, attributes=['msDS-PrincipalName','objectSid'], sizeLimit=0, searchControls=[sc])
         except LDAPSearchError:
             raise
 
@@ -647,17 +655,21 @@ class RemoteOperations:
         for item in resp:
             if isinstance(item, SearchResultEntry):
                 msDSPrincipalName = ''
+                userSid = ''
                 try:
                     for attribute in item['attributes']:
                         if str(attribute['type']) == 'msDS-PrincipalName':
                             msDSPrincipalName = attribute['vals'][0].asOctets().decode('utf-8')
+                        if str(attribute['type']) == 'objectSid':
+                            tsid = SID(attribute['vals'][0].asOctets())
+                            userSid = tsid.formatCanonical()
                 except Exception as e:
                     LOG.debug("Exception", exc_info=True)
                     LOG.error('Skipping item, cannot process due to error %s' % str(e))
                     pass
                 else:
-                    LOG.debug('DA msDS-PrincipalName: %s' % msDSPrincipalName)
-                    domainUsers.append(msDSPrincipalName)
+                    LOG.debug('DA msDS-PrincipalName: %s, SID: %s' % (msDSPrincipalName, userSid))
+                    domainUsers.append([msDSPrincipalName, userSid])
 
         return domainUsers
 
@@ -2587,7 +2599,7 @@ class NTDSHashes:
                         formatOffered = drsuapi.DS_NT4_ACCOUNT_NAME_SANS_DOMAIN
 
                     crackedName = self.__remoteOps.DRSCrackNames(formatOffered,
-                                                                 drsuapi.DS_NAME_FORMAT.DS_UNIQUE_ID_NAME,
+                                                                 drsuapi.DS_STRING_SID_NAME,
                                                                  name=self.__justUser)
 
                     if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
@@ -2617,25 +2629,15 @@ class NTDSHashes:
                         LOG.error(str(e))
                 elif self.__ldapFilter is not None:
                     resp = self.__remoteOps.getDomainUsersLDAP(self.__ldapFilter)
-                    formatOffered = drsuapi.DS_NAME_FORMAT.DS_NT4_ACCOUNT_NAME
-                    for user in resp:
-                        crackedName = self.__remoteOps.DRSCrackNames(formatOffered,
-                                                                     drsuapi.DS_NAME_FORMAT.DS_UNIQUE_ID_NAME,
-                                                                     name=user)
+                    for (user,userSid) in resp:
 
-                        if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
-                            if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
-                                raise Exception("%s: %s" % system_errors.ERROR_MESSAGES[
-                                    0x2114 + crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
+                        userRecord = self.__remoteOps.DRSGetNCChanges(userSid)
+                        #userRecord.dump()
 
-                            userRecord = self.__remoteOps.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
-                            #userRecord.dump()
-                            replyVersion = 'V%d' % userRecord['pdwOutVersion']
-                            if userRecord['pmsgOut'][replyVersion]['cNumObjects'] == 0:
-                                raise Exception('DRSGetNCChanges didn\'t return any object!')
-                        else:
-                            LOG.warning('DRSCrackNames returned %d items for user %s, skipping' % (
-                                        crackedName['pmsgOut']['V1']['pResult']['cItems'], user))
+                        replyVersion = 'V%d' % userRecord['pdwOutVersion']
+                        if userRecord['pmsgOut'][replyVersion]['cNumObjects'] == 0:
+                            raise Exception('DRSGetNCChanges didn\'t return any object!')
+
                         try:
                             self.__decryptHash(userRecord,
                                                userRecord['pmsgOut'][replyVersion]['PrefixTableSrc']['pPrefixEntry'],
@@ -2666,28 +2668,14 @@ class NTDSHashes:
                                     LOG.debug('Skipping SID %s since it was processed already' % userSid)
                                 continue
 
-                            # Let's crack the user sid into DS_FQDN_1779_NAME
-                            # In theory I shouldn't need to crack the sid. Instead
-                            # I could use it when calling DRSGetNCChanges inside the DSNAME parameter.
-                            # For some reason tho, I get ERROR_DS_DRA_BAD_DN when doing so.
-                            crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NAME_FORMAT.DS_SID_OR_SID_HISTORY_NAME,
-                                                                         drsuapi.DS_NAME_FORMAT.DS_UNIQUE_ID_NAME,
-                                                                         name=userSid)
+                            userRecord = self.__remoteOps.DRSGetNCChanges(userSid)
+                            # userRecord.dump()
 
-                            if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
-                                if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
-                                    LOG.error("%s: %s" % system_errors.ERROR_MESSAGES[
-                                        0x2114 + crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
-                                    break
-                                userRecord = self.__remoteOps.DRSGetNCChanges(
-                                    crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
-                                # userRecord.dump()
-                                replyVersion = 'V%d' % userRecord['pdwOutVersion']
-                                if userRecord['pmsgOut'][replyVersion]['cNumObjects'] == 0:
-                                    raise Exception('DRSGetNCChanges didn\'t return any object!')
-                            else:
-                                LOG.warning('DRSCrackNames returned %d items for user %s, skipping' % (
-                                crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
+                            replyVersion = 'V%d' % userRecord['pdwOutVersion']
+
+                            if userRecord['pmsgOut'][replyVersion]['cNumObjects'] == 0:
+                                raise Exception('DRSGetNCChanges didn\'t return any object!')
+
                             try:
                                 self.__decryptHash(userRecord,
                                                    userRecord['pmsgOut'][replyVersion]['PrefixTableSrc']['pPrefixEntry'],
