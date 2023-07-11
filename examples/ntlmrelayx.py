@@ -98,6 +98,15 @@ class MiniShell(cmd.Cmd):
         return
 
     def do_socks(self, line):
+        '''Filter are available :
+ type : socks <filter> <value>
+ filters : target, username, admin 
+ values : 
+   - target : IP or FQDN
+   - username : domain/username
+   - admin : true or false 
+        '''
+
         headers = ["Protocol", "Target", "Username", "AdminStatus", "Port"]
         url = "http://localhost:9090/ntlmrelayx/api/v1.0/relays"
         try:
