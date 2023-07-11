@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -2160,10 +2160,7 @@ class SMBCommands:
                 else:
                     errorCode = STATUS_NO_SUCH_FILE
             elif createDisposition & smb.FILE_OPEN_IF == smb.FILE_OPEN_IF:
-                if os.path.exists(pathName) is True:
-                    mode |= os.O_TRUNC
-                else:
-                    mode |= os.O_TRUNC | os.O_CREAT
+                mode |= os.O_CREAT
             elif createDisposition & smb.FILE_CREATE == smb.FILE_CREATE:
                 if os.path.exists(pathName) is True:
                     errorCode = STATUS_OBJECT_NAME_COLLISION
@@ -2557,6 +2554,7 @@ class SMBCommands:
             elif messageType == 0x02:
                 # CHALLENGE_MESSAGE
                 raise Exception('Challenge Message raise, not implemented!')
+
             elif messageType == 0x03:
                 # AUTHENTICATE_MESSAGE, here we deal with authentication
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
@@ -2616,6 +2614,18 @@ class SMBCommands:
                     respToken = SPNEGO_NegTokenResp()
                     respToken['NegState'] = b'\x02'
                     smbServer.log("Could not authenticate user!")
+                if smbServer.auth_callback is not None:
+                    try:
+                        smbServer.auth_callback(
+                            smbServer=smbServer,
+                            connData=connData,
+                            domain_name=authenticateMessage['domain_name'].decode('utf-16le'),
+                            user_name=authenticateMessage['user_name'].decode('utf-16le'),
+                            host_name=authenticateMessage['host_name'].decode('utf-16le')
+                        )
+                    except Exception as e:
+                        print("[!] Could not call auth_callback: %s" % e)
+
             else:
                 raise Exception("Unknown NTLMSSP MessageType %d" % messageType)
 
@@ -3018,6 +3028,19 @@ class SMB2Commands:
                 respToken = SPNEGO_NegTokenResp()
                 respToken['NegState'] = b'\x02'
                 smbServer.log("Could not authenticate user!")
+
+            if smbServer.auth_callback is not None:
+                try:
+                    smbServer.auth_callback(
+                        smbServer=smbServer,
+                        connData=connData,
+                        domain_name=authenticateMessage['domain_name'].decode('utf-16le'),
+                        user_name=authenticateMessage['user_name'].decode('utf-16le'),
+                        host_name=authenticateMessage['host_name'].decode('utf-16le')
+                    )
+                except Exception as e:
+                    print("[!] Could not call auth_callback: %s" % e)
+
         else:
             raise Exception("Unknown NTLMSSP MessageType %d" % messageType)
 
@@ -3141,10 +3164,7 @@ class SMB2Commands:
                 else:
                     errorCode = STATUS_NO_SUCH_FILE
             elif createDisposition & smb2.FILE_OPEN_IF == smb2.FILE_OPEN_IF:
-                if os.path.exists(pathName) is True:
-                    mode |= os.O_TRUNC
-                else:
-                    mode |= os.O_TRUNC | os.O_CREAT
+                mode |= os.O_CREAT
             elif createDisposition & smb2.FILE_CREATE == smb2.FILE_CREATE:
                 if os.path.exists(pathName) is True:
                     errorCode = STATUS_OBJECT_NAME_COLLISION
@@ -3456,6 +3476,10 @@ class SMB2Commands:
                         except Exception as e:
                             smbServer.log("smb2SetInfo: %s" % e, logging.ERROR)
                             errorCode = STATUS_ACCESS_DENIED
+                    elif informationLevel == smb2.SMB2_FILE_ALLOCATION_INFO:
+                        # See https://github.com/samba-team/samba/blob/master/source3/smbd/smb2_trans2.c#LL5201C8-L5201C39
+                        smbServer.log("Warning: SMB2_FILE_ALLOCATION_INFO not implemented")
+                        errorCode = STATUS_SUCCESS
                     else:
                         smbServer.log('Unknown level for set file info! 0x%x' % informationLevel, logging.ERROR)
                         # UNSUPPORTED
@@ -3968,6 +3992,8 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         # Allow anonymous logon
         self.__anonymousLogon = True
 
+        self.auth_callback = None
+
         # Our list of commands we will answer, by default the NOT IMPLEMENTED one
         self.__smbCommandsHandler = SMBCommands()
         self.__smbTrans2Handler = TRANS2Commands()
@@ -4288,6 +4314,12 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
     def getJTRdumpPath(self):
         return self.__jtr_dump_path
+
+    def getAuthCallback(self):
+        return self.auth_callback
+
+    def setAuthCallback(self, callback):
+        self.auth_callback = callback
 
     def verify_request(self, request, client_address):
         # TODO: Control here the max amount of processes we want to launch
@@ -4911,3 +4943,9 @@ class SimpleSMBServer:
             self.__smbConfig.set("global", "SMB2Support", "False")
         self.__server.setServerConfig(self.__smbConfig)
         self.__server.processConfigFile()
+
+    def getAuthCallback(self):
+        return self.__server.getAuthCallback()
+
+    def setAuthCallback(self, callback):
+        self.__server.setAuthCallback(callback)

@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -35,7 +35,7 @@ from impacket.ldap.ldapasn1 import Filter, Control, SimplePagedResultsControl, R
     KNOWN_CONTROLS, CONTROL_PAGEDRESULTS, NOTIFICATION_DISCONNECT, KNOWN_NOTIFICATIONS, BindRequest, SearchRequest, \
     SearchResultDone, LDAPMessage
 from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3
-from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
+from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, TypesMech
 
 try:
     import OpenSSL
@@ -115,8 +115,10 @@ class LDAPConnection:
             self._socket.connect(sa)
         else:
             # Switching to TLS now
-            ctx = SSL.Context(SSL.TLSv1_METHOD)
-            # ctx.set_cipher_list('RC4')
+            ctx = SSL.Context(SSL.TLS_METHOD)
+            ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
+            SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION = 0x00040000
+            ctx.set_options(SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION)
             self._socket = SSL.Connection(ctx, self._socket)
             self._socket.connect(sa)
             self._socket.do_handshake()
@@ -296,6 +298,12 @@ class LDAPConnection:
             negotiate = getNTLMSSPType1('', domain)
             bindRequest['authentication']['sicilyNegotiate'] = negotiate.getData()
             response = self.sendReceive(bindRequest)[0]['protocolOp']
+            if response['bindResponse']['resultCode'] != ResultCode('success'):
+                raise LDAPSessionError(
+                    errorString='Error in bindRequest during the NTLMAuthNegotiate request -> %s: %s' %
+                                (response['bindResponse']['resultCode'].prettyPrint(),
+                                 response['bindResponse']['diagnosticMessage'])
+                )
 
             # NTLM Challenge
             type2 = response['bindResponse']['matchedDN']
@@ -303,6 +311,50 @@ class LDAPConnection:
             # NTLM Auth
             type3, exportedSessionKey = getNTLMSSPType3(negotiate, bytes(type2), user, password, domain, lmhash, nthash)
             bindRequest['authentication']['sicilyResponse'] = type3.getData()
+            response = self.sendReceive(bindRequest)[0]['protocolOp']
+        elif authenticationChoice == 'sasl':
+            if lmhash != '' or nthash != '':
+                if len(lmhash) % 2:
+                    lmhash = '0' + lmhash
+                if len(nthash) % 2:
+                    nthash = '0' + nthash
+                try:
+                    lmhash = unhexlify(lmhash)
+                    nthash = unhexlify(nthash)
+                except TypeError:
+                    pass
+
+            bindRequest['name'] = user
+
+            # NTLM Negotiate
+            negotiate = getNTLMSSPType1('', domain)
+
+            blob = SPNEGO_NegTokenInit()
+            blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
+            blob['MechToken'] = negotiate.getData()
+
+            bindRequest['authentication']['sasl']['mechanism'] = 'GSS-SPNEGO'
+            bindRequest['authentication']['sasl']['credentials'] = blob.getData()
+            response = self.sendReceive(bindRequest)[0]['protocolOp']
+            if response['bindResponse']['resultCode'] != ResultCode('saslBindInProgress'):
+                raise LDAPSessionError(
+                    errorString='Error in bindRequest during the NTLMAuthNegotiate request -> %s: %s' %
+                                (response['bindResponse']['resultCode'].prettyPrint(),
+                                 response['bindResponse']['diagnosticMessage'])
+                )
+
+            # NTLM Challenge
+            serverSaslCreds = response['bindResponse']['serverSaslCreds']
+            spnegoTokenResp = SPNEGO_NegTokenResp(serverSaslCreds.asOctets())
+            type2 = spnegoTokenResp['ResponseToken']
+
+            # NTLM Auth
+            type3, exportedSessionKey = getNTLMSSPType3(negotiate, type2, user, password, domain, lmhash, nthash)
+            blob = SPNEGO_NegTokenResp()
+            blob['ResponseToken'] = type3.getData()
+
+            bindRequest['authentication']['sasl']['mechanism'] = 'GSS-SPNEGO'
+            bindRequest['authentication']['sasl']['credentials'] = blob.getData()
             response = self.sendReceive(bindRequest)[0]['protocolOp']
         else:
             raise LDAPSessionError(errorString="Unknown authenticationChoice: '%s'" % authenticationChoice)
@@ -543,14 +595,14 @@ class LDAPConnection:
                 searchFilter['extensibleMatch']['dnAttributes'] = bool(dn)
             if matchingRule:
                 searchFilter['extensibleMatch']['matchingRule'] = matchingRule
-            searchFilter['extensibleMatch']['matchValue'] = value
+            searchFilter['extensibleMatch']['matchValue'] = LDAPConnection._processLdapString(value)
         else:
             if not RE_ATTRIBUTE.match(attribute):
                 raise LDAPFilterInvalidException("invalid filter attribute: '%s'" % attribute)
             if value == '*' and operator == '=':  # present
                 searchFilter['present'] = attribute
             elif '*' in value and operator == '=':  # substring
-                assertions = value.split('*')
+                assertions = [LDAPConnection._processLdapString(assertion) for assertion in value.split('*')]
                 choice = searchFilter['substrings']['substrings'].getComponentType()
                 substrings = []
                 if assertions[0]:
@@ -562,6 +614,7 @@ class LDAPConnection:
                 searchFilter['substrings']['type'] = attribute
                 searchFilter['substrings']['substrings'].setComponents(*substrings)
             elif '*' not in value:  # simple
+                value = LDAPConnection._processLdapString(value)
                 if operator == '=':
                     searchFilter['equalityMatch'].setComponents(attribute, value)
                 elif operator == '~=':
@@ -574,6 +627,15 @@ class LDAPConnection:
                 raise LDAPFilterInvalidException("invalid filter '(%s%s%s)'" % (attribute, operator, value))
 
         return searchFilter
+
+
+    @classmethod
+    def _processLdapString(cls, ldapstr):
+        def replace_escaped_chars(match):
+            return chr(int(match.group(1), 16))  # group(1) == "XX" (valid hex)
+
+        escaped_chars = re.compile(r'\\([0-9a-fA-F]{2})')  # Capture any sequence of "\XX" (where XX is a valid hex)
+        return re.sub(escaped_chars, replace_escaped_chars, ldapstr)
 
 
 class LDAPFilterSyntaxError(SyntaxError):

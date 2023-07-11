@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -318,7 +318,7 @@ class DPAPI:
                         break
                 masterkey=b''.join(resp['ppDataOut'][beginning:])
                 print('Decrypted key using rpc call')
-                print('Decrypted key: 0x%s' % hexlify(masterkey[beginning:]).decode())
+                print('Decrypted key: 0x%s' % hexlify(masterkey).decode())
                 return
 
             else:

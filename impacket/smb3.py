@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -184,7 +184,11 @@ class SMB3:
             'ClientName'               : '',    #
             #GSSoptions (MutualAuth and Delegate)
             'GSSoptions'               : {},
-            'PreauthIntegrityHashValue': a2b_hex(b'0'*128)
+            # If the client implements the SMB 3.1.1 dialect,
+            # it MUST also implement the following
+            'PreauthIntegrityHashId': 0,
+            'PreauthIntegrityHashValue': a2b_hex(b'0'*128),
+            'CipherId' : 0
         }
 
         self._Session = {
@@ -353,6 +357,28 @@ class SMB3:
 
     def getDialect(self):
         return self._Connection['Dialect']
+
+    def processContextList(self, contextCount, contextList):
+        offset = 0
+        while contextCount > 0:
+            context = SMB2NegotiateContext(contextList[offset:])
+            if context['ContextType'] == SMB2_PREAUTH_INTEGRITY_CAPABILITIES:
+                contextPreAuth = SMB2PreAuthIntegrityCapabilities(context['Data'])
+                self._Connection['PreauthIntegrityHashId'] = struct.unpack('<H', contextPreAuth['HashAlgorithms'])[0]
+            elif context['ContextType'] == SMB2_ENCRYPTION_CAPABILITIES:
+                contextEncryption = SMB2EncryptionCapabilities(context['Data'])
+                cipherId = struct.unpack('<H', contextEncryption['Ciphers'])[0]
+                self._Connection['CipherId'] = cipherId
+                if cipherId != 0:
+                    self._Connection['SupportsEncryption'] = True
+            elif context['ContextType'] == SMB2_COMPRESSION_CAPABILITIES:
+                pass
+            elif context['ContextType'] == SMB2_NETNAME_NEGOTIATE_CONTEXT_ID:
+                pass
+
+            padding = ((8 - (context['DataLength'] % 8)) % 8)
+            offset = 8 + context['DataLength'] + padding
+            contextCount -= 1
 
     def signSMB(self, packet):
         packet['Signature'] = '\x00'*16
@@ -532,12 +558,12 @@ class SMB3:
                     # to the negotiate request as specified in section 2.2.3.1 and initialize
                     # the Ciphers field with the ciphers supported by the client in the order of preference.
 
-                    negotiateContext2 = SMB2NegotiateContext ()
+                    negotiateContext2 = SMB2NegotiateContext()
                     negotiateContext2['ContextType'] = SMB2_ENCRYPTION_CAPABILITIES
 
                     encryptionCapabilities = SMB2EncryptionCapabilities()
                     encryptionCapabilities['CipherCount'] = 1
-                    encryptionCapabilities['Ciphers'] = 1
+                    encryptionCapabilities['Ciphers'] = b'\x01\x00'
 
                     negotiateContext2['Data'] = encryptionCapabilities.getData()
                     negotiateContext2['DataLength'] = len(negotiateContext2['Data'])
@@ -570,12 +596,17 @@ class SMB3:
         self._Connection['ServerGuid']        = negResp['ServerGuid']
         self._Connection['GSSNegotiateToken'] = negResp['Buffer']
         self._Connection['Dialect']           = negResp['DialectRevision']
+
         if (negResp['SecurityMode'] & SMB2_NEGOTIATE_SIGNING_REQUIRED) == SMB2_NEGOTIATE_SIGNING_REQUIRED or \
                 self._Connection['Dialect'] == SMB2_DIALECT_311:
             self._Connection['RequireSigning'] = True
         if self._Connection['Dialect'] == SMB2_DIALECT_311:
             # Always Sign
             self._Connection['RequireSigning'] = True
+            negContextCount = negResp['NegotiateContextCount']
+            # Process the Contexts as specified in section 3.2.5.2
+            if negContextCount > 0:
+                self.processContextList(negContextCount, negResp['NegotiateContextList'])
 
         if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_LEASING) == SMB2_GLOBAL_CAP_LEASING:
             self._Connection['SupportsFileLeasing'] = True
@@ -914,6 +945,9 @@ class SMB3:
         packet = self.SMB_PACKET()
         packet['Command'] = SMB2_SESSION_SETUP
         packet['Data']    = sessionSetup
+
+        # Initiate session preauth hash
+        self._Session['PreauthIntegrityHashValue'] = self._Connection['PreauthIntegrityHashValue']
 
         packetID = self.sendSMB(packet)
         ans = self.recvSMB(packetID)

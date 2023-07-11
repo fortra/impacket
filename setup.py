@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -53,11 +53,9 @@ setup(
     name=PACKAGE_NAME,
     version="{}.{}.{}.{}{}".format(VER_MAJOR, VER_MINOR, VER_MAINT, VER_PREREL, VER_LOCAL),
     description="Network protocols Constructors and Dissectors",
-    url="https://www.secureauth.com/labs/open-source-tools/impacket",
+    url="https://www.coresecurity.com",
     author="SecureAuth Corporation",
-    author_email="oss@secureauth.com",
-    maintainer="SecureAuth's Innovation Labs ",
-    maintainer_email="oss@secureauth.com",
+    maintainer="Fortra",
     license="Apache modified",
     long_description=read('README.md'),
     long_description_content_type="text/markdown",
@@ -69,8 +67,8 @@ setup(
               'impacket.examples.ntlmrelayx.attacks', 'impacket.examples.ntlmrelayx.attacks.httpattacks'],
     scripts=glob.glob(os.path.join('examples', '*.py')),
     data_files=data_files,
-    install_requires=['pyasn1>=0.2.3', 'pycryptodomex', 'pyOpenSSL>=0.16.2', 'six', 'ldap3>=2.5,!=2.5.2,!=2.5.0,!=2.6',
-                      'ldapdomaindump>=0.9.0', 'flask>=1.0', 'future', 'chardet', 'dsinternals'],
+    install_requires=['pyasn1>=0.2.3', 'pycryptodomex', 'pyOpenSSL>=21.0.0', 'six', 'ldap3>=2.5,!=2.5.2,!=2.5.0,!=2.6',
+                      'ldapdomaindump>=0.9.0', 'flask>=1.0', 'future', 'charset_normalizer', 'dsinternals'],
     extras_require={'pyreadline:sys_platform=="win32"': [],
                     },
     classifiers=[

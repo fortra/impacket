@@ -4,7 +4,7 @@ Licencing
 We provide this software under a slightly modified version of the
 Apache Software License. The only changes to the document were the
 replacement of "Apache" with "Impacket" and "Apache Software Foundation"
-with "SecureAuth Corporation". Feel free to compare the resulting
+with "Fortra". Feel free to compare the resulting
 document to the official Apache license.
 
 The `Apache Software License' is an Open Source Initiative Approved
@@ -12,7 +12,7 @@ License.
 
 
 The Apache Software License, Version 1.1
-Modifications by SecureAuth Corporation (see above)
+Modifications by Fortra (see above)
 
 Copyright (c) 2000 The Apache Software Foundation.  All rights
 reserved.
@@ -32,18 +32,18 @@ are met:
 3. The end-user documentation included with the redistribution,
    if any, must include the following acknowledgment:
       "This product includes software developed by
-       SecureAuth Corporation (https://www.secureauth.com/)."
+       SecureAuth Corporation (https://www.secureauth.com/) and Fortra (https://www.fortra.com)."
    Alternately, this acknowledgment may appear in the software itself,
    if and wherever such third-party acknowledgments normally appear.
 
-4. The names "Impacket", "SecureAuth Corporation" must
+4. The names "Impacket", "SecureAuth Corporation", and "Fortra" must
    not be used to endorse or promote products derived from this
    software without prior written permission. For written
-   permission, please contact oss@secureauth.com.
+   permission, please reach out to https://www.coresecurity.com/about/contact.
 
 5. Products derived from this software may not be called "Impacket",
    nor may "Impacket" appear in their name, without prior written
-   permission of SecureAuth Corporation.
+   permission of Fortra.
 
 THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
 WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES

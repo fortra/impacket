@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -385,8 +385,8 @@ class Registry:
         return parentKey
 
     def printValue(self, valueType, valueData):
-        if valueType == REG_SZ or valueType == REG_EXPAND_SZ:
-            if type(valueData) is int:
+        if valueType in [REG_SZ, REG_EXPAND_SZ, REG_MULTISZ]:
+            if isinstance(valueData, int):
                 print('NULL')
             else:
                 print("%s" % (valueData.decode('utf-16le')))
@@ -406,8 +406,6 @@ class Registry:
                     print(" NULL")
             except:
                 print(" NULL")
-        elif valueType == REG_MULTISZ:
-            print("%s" % (valueData.decode('utf-16le')))
         else:
             print("Unknown Type 0x%x!" % valueType)
             hexdump(valueData)
