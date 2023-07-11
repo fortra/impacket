@@ -55,7 +55,7 @@ from impacket.nt_errors import STATUS_NO_MORE_FILES, STATUS_NETWORK_NAME_DELETED
     STATUS_FILE_IS_A_DIRECTORY, STATUS_NOT_IMPLEMENTED, STATUS_INVALID_HANDLE, STATUS_OBJECT_NAME_COLLISION, \
     STATUS_NO_SUCH_FILE, STATUS_CANCELLED, STATUS_OBJECT_NAME_NOT_FOUND, STATUS_SUCCESS, STATUS_ACCESS_DENIED, \
     STATUS_NOT_SUPPORTED, STATUS_INVALID_DEVICE_REQUEST, STATUS_FS_DRIVER_REQUIRED, STATUS_INVALID_INFO_CLASS, \
-    STATUS_LOGON_FAILURE, STATUS_OBJECT_PATH_SYNTAX_BAD
+    STATUS_LOGON_FAILURE, STATUS_OBJECT_PATH_SYNTAX_BAD, STATUS_DIRECTORY_NOT_EMPTY
 
 # Setting LOG to current's module name
 LOG = logging.getLogger(__name__)
@@ -3437,8 +3437,11 @@ class SMB2Commands:
                     if informationLevel == smb2.SMB2_FILE_DISPOSITION_INFO:
                         infoRecord = smb.SMBSetFileDispositionInfo(setInfo['Buffer'])
                         if infoRecord['DeletePending'] > 0:
-                            # Mark this file for removal after closed
-                            connData['OpenedFiles'][fileID]['DeleteOnClose'] = True
+                            if os.path.isdir(pathName) and os.listdir(pathName):
+                                errorCode = STATUS_DIRECTORY_NOT_EMPTY
+                            else:
+                                # Mark this file for removal after closed
+                                connData['OpenedFiles'][fileID]['DeleteOnClose'] = True
                     elif informationLevel == smb2.SMB2_FILE_BASIC_INFO:
                         infoRecord = smb.SMBSetFileBasicInfo(setInfo['Buffer'])
                         # Creation time won't be set,  the other ones we play with.
