@@ -231,7 +231,7 @@ class S4U2SELF:
         reqBody['kdc-options'] = constants.encodeFlags(opts)
 
         serverName = Principal(self.__username, type=constants.PrincipalNameType.NT_UNKNOWN.value)
-        #serverName = Principal('krbtgt/%s' % domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+        #serverName = Principal('krbtgt/%s' % domain, type=constants.PrincipalNameType.NT_SRV_INST.value)
 
         seq_set(reqBody, 'sname', serverName.components_to_asn1)
         reqBody['realm'] = str(decodedTGT['crealm'])
