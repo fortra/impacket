@@ -535,22 +535,24 @@ class RemoteOperations:
         resp = drsuapi.hDRSCrackNames(self.__drsr, self.__hDrs, 0, formatOffered, formatDesired, (name,))
         return resp
 
-    def DRSGetNCChanges(self, userEntry):
-        if self.__drsr is None:
-            self.__connectDrds()
+    # Wrapper for calling _DRSGetNCChanges with a GUID
+    def DRSGetNCChangesGuid(self, userGuid):
+        dsName = drsuapi.DSNAME()
+        dsName['SidLen'] = 0
+        dsName['Guid'] = string_to_bin(userGuid[1:-1])
+        dsName['Sid'] = ''
+        dsName['NameLen'] = 0
+        dsName['StringName'] = ('\x00')
+        dsName['structLen'] = len(dsName.getData())
 
-        LOG.debug('Calling DRSGetNCChanges for %s ' % userEntry)
-        request = drsuapi.DRSGetNCChanges()
-        request['hDrs'] = self.__hDrs
-        request['dwInVersion'] = 8
+        return self._DRSGetNCChanges(userGuid, dsName)
 
-        request['pmsgIn']['tag'] = 8
-        request['pmsgIn']['V8']['uuidDsaObjDest'] = self.__NtdsDsaObjectGuid
-        request['pmsgIn']['V8']['uuidInvocIdSrc'] = self.__NtdsDsaObjectGuid
+    # Wrapper for calling _DRSGetNCChanges with a SID
+    def DRSGetNCChangesSid(self, userSid):
 
         # Convert string SID to 2.4.2.2 packet SID
         tsid = SID()
-        tsid.fromCanonical(userEntry)
+        tsid.fromCanonical(userSid)
         packetSid  = pack("<B", tsid.fields['Revision'])
         packetSid += pack("<B", tsid.fields['SubAuthorityCount'])
         packetSid += tsid.fields['IdentifierAuthority'].fields['Value']
@@ -562,8 +564,22 @@ class RemoteOperations:
         dsName['Sid'] = packetSid
         dsName['NameLen'] = 0
         dsName['StringName'] = ('\x00')
-
         dsName['structLen'] = len(dsName.getData())
+
+        return self._DRSGetNCChanges(userSid, dsName)
+
+    def _DRSGetNCChanges(self, userEntry, dsName):
+        if self.__drsr is None:
+            self.__connectDrds()
+
+        LOG.debug('Calling DRSGetNCChanges for %s ' % userEntry)
+        request = drsuapi.DRSGetNCChanges()
+        request['hDrs'] = self.__hDrs
+        request['dwInVersion'] = 8
+
+        request['pmsgIn']['tag'] = 8
+        request['pmsgIn']['V8']['uuidDsaObjDest'] = self.__NtdsDsaObjectGuid
+        request['pmsgIn']['V8']['uuidInvocIdSrc'] = self.__NtdsDsaObjectGuid
 
         request['pmsgIn']['V8']['pNC'] = dsName
 
@@ -2574,6 +2590,7 @@ class NTDSHashes:
                 LOG.info('Using the DRSUAPI method to get NTDS.DIT secrets')
                 status = STATUS_MORE_ENTRIES
                 enumerationContext = 0
+                lookupBySid = True
 
                 # Do we have to resume from a previously saved session?
                 if self.__resumeSession.hasResumeData():
@@ -2599,7 +2616,7 @@ class NTDSHashes:
                         formatOffered = drsuapi.DS_NT4_ACCOUNT_NAME_SANS_DOMAIN
 
                     crackedName = self.__remoteOps.DRSCrackNames(formatOffered,
-                                                                 drsuapi.DS_STRING_SID_NAME,
+                                                                 drsuapi.DS_NAME_FORMAT.DS_UNIQUE_ID_NAME,
                                                                  name=self.__justUser)
 
                     if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
@@ -2607,7 +2624,7 @@ class NTDSHashes:
                             raise Exception("%s: %s" % system_errors.ERROR_MESSAGES[
                                 0x2114 + crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
 
-                        userRecord = self.__remoteOps.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
+                        userRecord = self.__remoteOps.DRSGetNCChangesGuid(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
                         #userRecord.dump()
                         replyVersion = 'V%d' % userRecord['pdwOutVersion']
                         if userRecord['pmsgOut'][replyVersion]['cNumObjects'] == 0:
@@ -2629,11 +2646,34 @@ class NTDSHashes:
                         LOG.error(str(e))
                 elif self.__ldapFilter is not None:
                     resp = self.__remoteOps.getDomainUsersLDAP(self.__ldapFilter)
-                    for (user,userSid) in resp:
+                    formatOffered = drsuapi.DS_NAME_FORMAT.DS_NT4_ACCOUNT_NAME
+                    for (user, userSid) in resp:
 
-                        userRecord = self.__remoteOps.DRSGetNCChanges(userSid)
+                        # Try to lookup by SID, but fallback to DSCrackNames for GUID lookups otherwise
+                        if lookupBySid:
+                            try:
+                                userRecord = self.__remoteOps.DRSGetNCChangesSid(userSid)
+                            except drsuapi.DCERPCSessionError as e:
+                                LOG.debug("SID lookup unsuccessful, falling back to DRSCrackNames/GUID lookups")
+                                lookupBySid = False
+
+                        # We may need to run the above request again if it failed so this can't be an else
+                        if not lookupBySid:
+                            crackedName = self.__remoteOps.DRSCrackNames(formatOffered,
+                                                                         drsuapi.DS_NAME_FORMAT.DS_UNIQUE_ID_NAME,
+                                                                         name=user)
+
+                            if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
+                                if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
+                                    raise Exception("%s: %s" % system_errors.ERROR_MESSAGES[
+                                        0x2114 + crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
+
+                                userRecord = self.__remoteOps.DRSGetNCChangesGuid(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
+                            else:
+                                LOG.warning('DRSCrackNames returned %d items for user %s, skipping' % (
+                                            crackedName['pmsgOut']['V1']['pResult']['cItems'], user)
+)
                         #userRecord.dump()
-
                         replyVersion = 'V%d' % userRecord['pdwOutVersion']
                         if userRecord['pmsgOut'][replyVersion]['cNumObjects'] == 0:
                             raise Exception('DRSGetNCChanges didn\'t return any object!')
@@ -2668,11 +2708,34 @@ class NTDSHashes:
                                     LOG.debug('Skipping SID %s since it was processed already' % userSid)
                                 continue
 
-                            userRecord = self.__remoteOps.DRSGetNCChanges(userSid)
+                            # Try to lookup by SID, but fallback to DSCrackNames for GUID lookups otherwise
+                            if lookupBySid:
+                                try:
+                                    userRecord = self.__remoteOps.DRSGetNCChangesSid(userSid)
+                                except drsuapi.DCERPCSessionError as e:
+                                    LOG.debug("SID lookup unsuccessful, falling back to DRSCrackNames/GUID lookups")
+                                    lookupBySid = False
+
+                            # We may need to run the above request again if it failed so this can't be an else
+                            if not lookupBySid:
+                                crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NAME_FORMAT.DS_SID_OR_SID_HISTORY_NAME,
+                                                                             drsuapi.DS_NAME_FORMAT.DS_UNIQUE_ID_NAME,
+                                                                             name=userSid)
+
+                                if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
+                                    if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
+                                        LOG.error("%s: %s" % system_errors.ERROR_MESSAGES[
+                                            0x2114 + crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
+                                        break
+                                    userRecord = self.__remoteOps.DRSGetNCChangesGuid(
+                                        crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
+
+                                else:
+                                    LOG.warning('DRSCrackNames returned %d items for user %s, skipping' % (
+                                    crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
+
                             # userRecord.dump()
-
                             replyVersion = 'V%d' % userRecord['pdwOutVersion']
-
                             if userRecord['pmsgOut'][replyVersion]['cNumObjects'] == 0:
                                 raise Exception('DRSGetNCChanges didn\'t return any object!')
 
