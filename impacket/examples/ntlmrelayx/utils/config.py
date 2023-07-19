@@ -100,6 +100,13 @@ class NTLMRelayxConfig:
         self.ShadowCredentialsExportType = None
         self.ShadowCredentialsOutfilePath = None
 
+        # Admin service attack
+        self.isADMINAttack = False
+        self.sccmAdminToken = None # internal storage var; not a CLI flag option
+        self.logonname = None
+        self.displayname = None
+        self.objectsid = None
+
     def setSMBChallenge(self, value):
         self.SMBServerChallenge = value
 
@@ -237,6 +244,15 @@ class NTLMRelayxConfig:
 
     def setAltName(self, altName):
         self.altName = altName
+
+    def setisADMINAttack(self, isADMINAttack, logonname, displayname, objectsid):
+        self.isADMINAttack = isADMINAttack
+        self.logonname = logonname
+        self.displayname = displayname
+        self.objectsid = objectsid
+
+    def setSCCMAdminToken(self, token):
+        self.sccmAdminToken = token
 
 def parse_listening_ports(value):
     ports = set()

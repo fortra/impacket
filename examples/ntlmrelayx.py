@@ -205,6 +205,7 @@ def start_servers(options, threads):
                                       options.cert_outfile_path)
 
         c.setAltName(options.altname)
+        c.setisADMINAttack(options.adminservice, options.logonname, options.displayname, options.objectsid)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
@@ -389,6 +390,13 @@ if __name__ == '__main__':
     shadowcredentials.add_argument('--export-type', action='store', required=False, choices=["PEM", "PFX"], type=lambda choice: choice.upper(), default="PFX",
                                    help='choose to export cert+private key in PEM or PFX (i.e. #PKCS12) (default: PFX))')
     shadowcredentials.add_argument('--cert-outfile-path', action='store', required=False, help='filename to store the generated self-signed PEM or PFX certificate and key')
+
+    # Adminservice opions
+    adminoptions = parser.add_argument_group("SCCM AdminService attack options")
+    adminoptions.add_argument('--adminservice', action='store_true', required=False, help="Enable SCCM AdminService relay attack")
+    adminoptions.add_argument('--logonname', action='store', required=False, help="Logon name of the account to be added as an admin")
+    adminoptions.add_argument('--displayname', action='store', required=False, help="Display name name of the account to be added as an admin")
+    adminoptions.add_argument('--objectsid', action='store', required=False, help="SID of the account to be added as an admin")
 
     try:
        options = parser.parse_args()
