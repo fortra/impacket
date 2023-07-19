@@ -318,7 +318,7 @@ class DPAPI:
                         break
                 masterkey=b''.join(resp['ppDataOut'][beginning:])
                 print('Decrypted key using rpc call')
-                print('Decrypted key: 0x%s' % hexlify(masterkey[beginning:]).decode())
+                print('Decrypted key: 0x%s' % hexlify(masterkey).decode())
                 return
 
             else:

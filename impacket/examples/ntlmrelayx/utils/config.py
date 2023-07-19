@@ -52,12 +52,6 @@ class NTLMRelayxConfig:
         self.wpad_auth_num = 0
         self.smb2support = False
 
-        # WPAD options
-        self.serve_wpad = False
-        self.wpad_host = None
-        self.wpad_auth_num = 0
-        self.smb2support = False
-
         # SMB options
         self.exeFile = None
         self.interactive = False

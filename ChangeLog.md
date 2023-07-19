@@ -5,7 +5,7 @@ Project owner's main page is at www.coresecurity.com.
 Complete list of changes can be found at:
 https://github.com/fortra/impacket/commits/master
 
-## ThePorgs edits:
+## ThePorgs edits (not limited to):
 * [1135](https://github.com/fortra/impacket/pull/1135): **[GetUserSPNs]** Improved searchFilter for GetUserSPNs
 * [1137](https://github.com/fortra/impacket/pull/1137): **[SystemDPAPIdump]** Added script example (in https://github.com/ThePorgs/impacket/pull/6)
 * [1154](https://github.com/fortra/impacket/pull/1154): **[ntlmrelayx]** Unfiltered SID query when operating ACL attack
@@ -46,6 +46,40 @@ https://github.com/fortra/impacket/commits/master
 * [1462](https://github.com/fortra/impacket/pull/1462): **[ntlmrelayx]** Filter socks connections by Admin only (in https://github.com/ThePorgs/impacket/pull/16)
 * [1474](https://github.com/fortra/impacket/pull/1474): **[epm]** add known uuids (in https://github.com/ThePorgs/impacket/pull/26)
 * [1487](https://github.com/fortra/impacket/pull/1487): **[GetUserSPNs]** Use LDAP paged search (in https://github.com/ThePorgs/impacket/pull/27)
+
+## Impacket v0.10.1-dev (Unreleased changes):
+1. Library improvements 
+    * Added new Kerberos error codes (@ly4k).
+	* Added `[MS-TSTS]` Terminal Services Terminal Server Runtime Interface Protocol implementation (@nopernik).
+    * Changed the setting up for new SSL connections (@mpgn, @CT-H00K and @0xdeaddood).
+    * Added a callback function to smbserver for incoming authentications (@p0dalirius).
+
+2. Examples improvements
+    * [GetADUsers.py](examples/GetADUsers.py), [GetNPUsers.py](examples/GetNPUsers.py), [GetUserSPNs.py](examples/GetUserSPNs.py) and [findDelegation.py](examples/findDelegation.py):
+      * Added dc-host option to connect to specific KDC using its FQDN or NetBIOS name (@rmaksimov and @0xdeaddood).
+    * [GetNPUsers.py](examples/GetNPUsers.py)
+      * Printing TGT in stdout despite -outputfile parameter (@alexisbalbachan and @Zamanry)
+    * [GetUserSPNs.py](examples/GetUserSPNs.py):
+      * Added LDAP paged search (@ThePirateWhoSmellsOfSunflowers and @SAERXCIT).
+      * Added a -stealth flag to remove the SPN filter from the LDAP query (@clavoillotte).
+    * [psexec.py](examples/psexec.py):
+      * Added support for name customization using a custom binary file (@Dramelac).
+    * [smbexec.py](examples/smbexec.py):
+      * Security fixes for privilege escalation vulnerabilities (@bugch3ck). 
+    * [secretsdump.py](examples/secretsdump.py):
+      * Added a new option to extract only NTDS.DIT data for specific users based on an LDAP filter (@snovvcrash).
+      * Security fixes for privilege escalation vulnerabilities (@bugch3ck).  
+    * [mssqlclient.py](examples/mssqlclient.py):
+      * Added multiple new commands. Now supports xp_dirtree execution (@Mayfly277, @trietend and @TurtleARM).
+    * [ntlmrelayx.py](examples/ntlmrelayx.py):
+      * Added ability to trigger SQLShell when running ntlmrelayx in interactive mode (@sploutchy).
+
+3. New examples
+    * N/A
+    
+As always, thanks a lot to all these contributors that make this library better every day (up to now):
+
+@ly4k @nopernik @snovvcrash @ShutdownRepo @kiwids0220 @mpgn @CT-H00K @rmaksimov @arossert @aevy-syn @tirkarthi @p0dalirius @Dramelac @Mayfly277 @S3cur3Th1sSh1t @nobbd @AdrianVollmer @trietend @TurtleARM @ThePirateWhoSmellsOfSunflowers @SAERXCIT @clavoillotte @Marshall-Hallenbeck @nobbd @sploutchy
 
 ## Impacket v0.10.0 (May 2022):
 

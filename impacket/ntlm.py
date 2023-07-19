@@ -944,7 +944,7 @@ class NTLM_HTTP(object):
     MSG_TYPE = None
 
     @classmethod
-    def get_instace(cls,msg_64):
+    def get_instance(cls,msg_64):
         msg = None
         msg_type = 0
         if msg_64 != '':

@@ -843,7 +843,6 @@ class LDAPAttack(ProtocolAttack):
             LOG.info("Principals who can enroll using template `%s`: %s" % (entry["attributes"]["name"],
                      ", ".join(("`" + sid_map[principal] + "`" for principal in enrollment_principals))))
 
-        LOG.info("Done dumping ADCS info")
 
     def addDnsRecord(self, name, ipaddr):
         # https://github.com/Kevin-Robertson/Powermad/blob/master/Powermad.ps1

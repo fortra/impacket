@@ -98,6 +98,15 @@ class MiniShell(cmd.Cmd):
         return
 
     def do_socks(self, line):
+        '''Filter are available :
+ type : socks <filter> <value>
+ filters : target, username, admin 
+ values : 
+   - target : IP or FQDN
+   - username : domain/username
+   - admin : true or false 
+        '''
+
         headers = ["Protocol", "Target", "Username", "AdminStatus", "Port"]
         url = "http://localhost:9090/ntlmrelayx/api/v1.0/relays"
         try:
@@ -302,7 +311,7 @@ if __name__ == '__main__':
                                                                              'full URL, one per line')
     parser.add_argument('-w', action='store_true', help='Watch the target file for changes and update target list '
                                                         'automatically (only valid with -tf)')
-    parser.add_argument('-i','--interactive', action='store_true',help='Launch an smbclient or LDAP console instead'
+    parser.add_argument('-i','--interactive', action='store_true',help='Launch an smbclient, LDAP console or SQL shell instead'
                         'of executing a command after a successful relay. This console will listen locally on a '
                         ' tcp port and can be reached with for example netcat.')
 

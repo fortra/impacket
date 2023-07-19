@@ -61,7 +61,7 @@ from pyasn1.codec.der import encoder, decoder
 from pyasn1.type.univ import noValue
 
 from impacket import version
-from impacket.dcerpc.v5.dtypes import RPC_SID
+from impacket.dcerpc.v5.dtypes import RPC_SID, SID
 from impacket.dcerpc.v5.ndr import NDRULONG
 from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, \
     SE_GROUP_ENABLED, USER_NORMAL_ACCOUNT, USER_DONT_EXPIRE_PASSWORD
@@ -79,7 +79,6 @@ from impacket.krb5.pac import KERB_SID_AND_ATTRIBUTES, PAC_SIGNATURE_DATA, PAC_I
     PAC_ATTRIBUTE_INFO
 from impacket.krb5.types import KerberosTime, Principal
 from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
-from impacket.ldap.ldaptypes import LDAP_SID
 
 from impacket.krb5 import constants, pac
 from impacket.krb5.asn1 import AP_REQ, TGS_REQ, Authenticator, seq_set, seq_set_iter, PA_FOR_USER_ENC, Ticket as TicketAsn1
@@ -113,7 +112,7 @@ class TICKETER:
         t *= 10000000
         t += 116444736000000000
         return t
-    
+
     @staticmethod
     def getPadLength(data_length):
         return ((data_length + 7) // 8 * 8) - data_length
@@ -259,8 +258,10 @@ class TICKETER:
 
         if self.__options.extra_pac:
             self.createUpnDnsPac(pacInfos)
-        self.createAttributesInfoPac(pacInfos)
-        self.createRequestorInfoPac(pacInfos)
+
+        if self.__options.old_pac is False:
+            self.createAttributesInfoPac(pacInfos)
+            self.createRequestorInfoPac(pacInfos)
 
         return pacInfos
 
@@ -292,7 +293,7 @@ class TICKETER:
         pad = self.getPadLength(total_len)
         samName += b'\x00' * pad
 
-        user_sid = LDAP_SID()
+        user_sid = SID()
         user_sid.fromCanonical(f"{self.__options.domain_sid}-{self.__options.user_id}")
         upnDnsInfo['SidLength'] = len(user_sid)
         upnDnsInfo['SidOffset'] = total_len + pad
@@ -314,10 +315,11 @@ class TICKETER:
         pacInfos[PAC_ATTRIBUTES_INFO] = pacAttributes.getData()
 
     def createRequestorInfoPac(self, pacInfos):
-        pasRequestor = PAC_REQUESTOR()
-        pasRequestor['UserSid'].fromCanonical(f"{self.__options.domain_sid}-{self.__options.user_id}")
+        pacRequestor = PAC_REQUESTOR()
+        pacRequestor['UserSid'] = SID()
+        pacRequestor['UserSid'].fromCanonical(f"{self.__options.domain_sid}-{self.__options.user_id}")
 
-        pacInfos[PAC_REQUESTOR_INFO] = pasRequestor.getData()
+        pacInfos[PAC_REQUESTOR_INFO] = pacRequestor.getData()
 
     def createBasicTicket(self):
         if self.__options.request is True:
@@ -1100,9 +1102,11 @@ if __name__ == '__main__':
     parser.add_argument('-user-id', action="store", default = '500', help='user id for the user the ticket will be '
                                                                           'created for (default = 500)')
     parser.add_argument('-extra-sid', action="store", help='Comma separated list of ExtraSids to be included inside the ticket\'s PAC')
-    parser.add_argument('-extra-pac', action='store_true', help='Populate your ticket with extra PAC (UPN_DNS, ATTRIBUTES and REQUESTOR)')
+    parser.add_argument('-extra-pac', action='store_true', help='Populate your ticket with extra PAC (UPN_DNS)')
+    parser.add_argument('-old-pac', action='store_true', help='Use the old PAC structure to create your ticket (exclude '
+                                                              'PAC_ATTRIBUTES_INFO and PAC_REQUESTOR')
     parser.add_argument('-duration', action="store", default = '87600', help='Amount of hours till the ticket expires '
-                                                                            '(default = 24*365*10)')
+                                                                             '(default = 24*365*10)')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 

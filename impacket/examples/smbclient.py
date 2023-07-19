@@ -111,6 +111,8 @@ class MiniImpacketShell(cmd.Cmd):
  pwd - shows current remote directory
  password - changes the user password, the new password will be prompted for input
  ls {wildcard} - lists all the files in the current directory
+ lls {dirname} - lists all the files on the local filesystem.
+ tree {filepath} - recursively lists all files in folder and sub folders
  rm {file} - removes the selected file
  mkdir {dirname} - creates the directory under the current path
  rmdir {dirname} - removes the directory under the current path
@@ -369,7 +371,7 @@ class MiniImpacketShell(cmd.Cmd):
         if self.loggedIn is False:
             LOG.error("Not logged in")
             return
-        print(self.pwd)
+        print(self.pwd.replace("\\","/"))
 
     def do_ls(self, wildcard, display = True):
         if self.loggedIn is False:
@@ -391,6 +393,79 @@ class MiniImpacketShell(cmd.Cmd):
                 'd' if f.is_directory() > 0 else '-', f.get_filesize(), time.ctime(float(f.get_mtime_epoch())),
                 f.get_longname()))
             self.completion.append((f.get_longname(), f.is_directory()))
+    def do_lls(self, currentDir):
+        if currentDir == "":
+            currentDir = "./"
+        else:
+            pass
+        for LINE in os.listdir(currentDir):
+            print(LINE)
+
+    def do_listFiles(self, share, ip):
+        retList = []
+        retFiles = []
+        retInt = 0
+        try:                
+            for LINE in self.smb.listPath(self.share, ip):
+                if(LINE.get_longname() == "." or LINE.get_longname() == ".."):
+                    pass
+                else:
+                    retInt = retInt + 1
+                    print(ip.strip("*").replace("//","/") + LINE.get_longname())
+                    if(LINE.is_directory()):
+                        retval = ip.strip("*").replace("//","/") + LINE.get_longname()
+                        retList.append(retval)
+                    else:
+                        retval = ip.strip("*").replace("//","/") + LINE.get_longname()
+                        retFiles.append(retval)
+        except:
+            pass
+        return retList,retFiles,retInt
+
+    def do_tree(self, filepath):
+        folderList = []
+        retList = []
+        totalFilesRead = 0
+        if self.loggedIn is False:
+            LOG.error("Not logged in")
+            return
+        if self.tid is None:
+            LOG.error("No share selected")
+            return
+
+        if(not filepath.startswith("/")):
+            filepath = self.pwd + "/" + filepath + "/*"
+        if(filepath == "" or filepath == "./" or filepath == "./*"):
+            filepath = self.pwd + "/*"
+        if(filepath.startswith("./")):
+            filepath = self.pwd + filepath.strip(".")
+        if("./" in filepath and not filepath.startswith("./") and not filepath.endswith("./")):
+            filepath = filepath.replace("./","")
+        if(filepath.endswith("/") or not filepath.endswith("/*")):
+            filepath = filepath + "/*"
+        if(filepath.endswith("/*/*")):
+            filepath = filepath.replace("/*/*", "/*")
+        filepath = filepath.replace("\\", "/")
+        
+        for LINE in self.smb.listPath(self.share, filepath):
+            if(LINE.is_directory()):
+                if(LINE.get_longname() == "." or LINE.get_longname() == ".."):
+                    pass
+                else:
+                    totalFilesRead = totalFilesRead + 1 
+                    folderList.append(filepath.strip("*") + LINE.get_longname())
+            else:
+                print(filepath.strip("*") + LINE.get_longname())
+        for ITEM in folderList:
+            ITEM = ITEM + "/*"
+            try: 
+                retList, retFiles, retInt = self.do_listFiles(self.share,ITEM)
+                for q in retList:
+                    folderList.append(q)
+                totalFilesRead = totalFilesRead + retInt
+            except:
+                pass
+        print("Finished - " + str(totalFilesRead) + " files and folders")
 
 
     def do_rm(self, filename):
