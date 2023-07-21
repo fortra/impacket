@@ -590,8 +590,8 @@ def queryPathInformation(path, filename, level):
                 infoRecord['PositionInformation']['CurrentByteOffset'] = 0 #
                 infoRecord['ModeInformation']['mode'] = mode
                 infoRecord['AlignmentInformation']['AlignmentRequirement'] = 0 #
-                infoRecord['NameInformation']['FileName'] = fileName
-                infoRecord['NameInformation']['FileNameLength'] = len(fileName)
+                infoRecord['NameInformation']['FileName'] = fileName.encode('utf-16le')
+                infoRecord['NameInformation']['FileNameLength'] = len(fileName.encode('utf-16le'))
             elif level == smb2.SMB2_FILE_NETWORK_OPEN_INFO:
                 infoRecord = smb.SMBFileNetworkOpenInfo()
                 infoRecord['CreationTime'] = getFileTime(ctime)
