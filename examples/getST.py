@@ -626,7 +626,7 @@ class GETST:
         if TGT is not None:
             tgt, cipher, sessionKey = TGT['KDC_REP'], TGT['cipher'], TGT['sessionKey']
             oldSessionKey = sessionKey
-
+            
         if tgt is None:
             # Still no TGT
             userName = Principal(self.__user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
@@ -638,10 +638,16 @@ class GETST:
 
         # Ok, we have valid TGT, let's try to get a service ticket
         if self.__options.impersonate is None:
+
+            if self.__options.renew is True:
+                logging.info("Renewing TGT")
+
             # Normal TGS interaction
-            logging.info('Getting ST for user')
+            else:
+                logging.info('Getting ST for user')
+
             serverName = Principal(self.__options.spn, type=constants.PrincipalNameType.NT_SRV_INST.value)
-            tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, self.__kdcHost, tgt, cipher, sessionKey)
+            tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, self.__kdcHost, tgt, cipher, sessionKey, self.__options.renew)
             self.__saveFileName = self.__user
         else:
             # Here's the rock'n'roll
@@ -686,6 +692,7 @@ if __name__ == '__main__':
                                                                         'S4U2Self to be forwardable. For best results, the -hashes and -aesKey values for the '
                                                                         'specified -identity should be provided. This allows impresonation of protected users '
                                                                         'and bypass of "Kerberos-only" constrained delegation restrictions. See CVE-2020-17049')
+    parser.add_argument('-renew', action='store_true', help='Sets the RENEW ticket option to renew the TGT used for authentication. Set -spn to \'krbtgt/DOMAINFQDN\'')
 
     group = parser.add_argument_group('authentication')
 
