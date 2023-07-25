@@ -3730,6 +3730,20 @@ class SMB2Commands:
             lenData = len(data)
             padLen = (8 - (lenData % 8)) % 8
 
+            # For larger directory we might reach the OutputBufferLength so we need to set 
+            # the NextEntryOffset to 0 for the last entry the will fit the buffer
+            try:
+                # Check if the next data will exceed the OutputBufferLength
+                nextData = searchResult[nItem + 1].getData()
+                lenNextData = len(nextData)
+                nextTotalData = totalData + lenData + padLen + lenNextData
+                if nextTotalData >= queryDirectoryRequest['OutputBufferLength']:
+                    # Set the NextEntryOffset to 0 and get the data again
+                    searchResult[nItem]['NextEntryOffset'] = 0
+                    data = searchResult[nItem].getData()
+            except IndexError:
+                pass
+
             if (totalData + lenData) >= queryDirectoryRequest['OutputBufferLength']:
                 connData['OpenedFiles'][fileID]['Open']['EnumerationLocation'] -= 1
                 break
