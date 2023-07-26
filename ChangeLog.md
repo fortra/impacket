@@ -11,6 +11,8 @@ https://github.com/fortra/impacket/commits/master
 	* Added `[MS-TSTS]` Terminal Services Terminal Server Runtime Interface Protocol implementation (@nopernik).
     * Changed the setting up for new SSL connections (@mpgn, @CT-H00K and @0xdeaddood).
     * Added a callback function to smbserver for incoming authentications (@p0dalirius).
+    * Fix crash in winregistry (@laxa)
+    * Fixes in IDispatch derived classes in comev implementation (@NtAlexio2)
 
 2. Examples improvements
     * [GetADUsers.py](examples/GetADUsers.py), [GetNPUsers.py](examples/GetNPUsers.py), [GetUserSPNs.py](examples/GetUserSPNs.py) and [findDelegation.py](examples/findDelegation.py):
@@ -20,6 +22,8 @@ https://github.com/fortra/impacket/commits/master
     * [GetUserSPNs.py](examples/GetUserSPNs.py):
       * Added LDAP paged search (@ThePirateWhoSmellsOfSunflowers and @SAERXCIT).
       * Added a -stealth flag to remove the SPN filter from the LDAP query (@clavoillotte).
+      * Improved searchFilter (@ShutdownRepo)
+      * Use LDAP paged search (@ThePirateWhoSmellsOfSunflowers)
     * [psexec.py](examples/psexec.py):
       * Added support for name customization using a custom binary file (@Dramelac).
     * [smbexec.py](examples/smbexec.py):
@@ -31,13 +35,18 @@ https://github.com/fortra/impacket/commits/master
       * Added multiple new commands. Now supports xp_dirtree execution (@Mayfly277, @trietend and @TurtleARM).
     * [ntlmrelayx.py](examples/ntlmrelayx.py):
       * Added ability to trigger SQLShell when running ntlmrelayx in interactive mode (@sploutchy).
+      * Added filter option to the socks command in ntlmrelayx CLI (@shoxxdj)
+    * [addcomputer.py](examples/addcomputer.py), [rbcd.py](examples/rbcd.py):
+      * Allow weak TLS ciphers for LDAP connections (@AdrianVollmer)
+    * [Get-GPPPassword.py](examples/Get-GPPassword.py):
+      * Better handling of various XML files in Group Policy Preferences (@p0dalirius)
 
 3. New examples
-    * N/A
+    * [net.py](examples/net.py) (@NtAlexio2)
     
 As always, thanks a lot to all these contributors that make this library better every day (up to now):
 
-@ly4k @nopernik @snovvcrash @ShutdownRepo @kiwids0220 @mpgn @CT-H00K @rmaksimov @arossert @aevy-syn @tirkarthi @p0dalirius @Dramelac @Mayfly277 @S3cur3Th1sSh1t @nobbd @AdrianVollmer @trietend @TurtleARM @ThePirateWhoSmellsOfSunflowers @SAERXCIT @clavoillotte @Marshall-Hallenbeck @nobbd @sploutchy
+@ly4k @nopernik @snovvcrash @ShutdownRepo @kiwids0220 @mpgn @CT-H00K @rmaksimov @arossert @aevy-syn @tirkarthi @p0dalirius @Dramelac @Mayfly277 @S3cur3Th1sSh1t @nobbd @AdrianVollmer @trietend @TurtleARM @ThePirateWhoSmellsOfSunflowers @SAERXCIT @clavoillotte @Marshall-Hallenbeck @nobbd @sploutchy @Marshall-Hallenbeck
 
 
 ## Impacket v0.10.0 (May 2022):
