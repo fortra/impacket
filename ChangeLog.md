@@ -38,11 +38,11 @@ https://github.com/fortra/impacket/commits/master
       * Added filter option to the socks command in ntlmrelayx CLI (@shoxxdj)
     * [addcomputer.py](examples/addcomputer.py), [rbcd.py](examples/rbcd.py):
       * Allow weak TLS ciphers for LDAP connections (@AdrianVollmer)
-    * [Get-GPPPassword.py](examples/Get-GPPassword.py):
+    * [Get-GPPPassword.py](examples/Get-GPPPassword.py):
       * Better handling of various XML files in Group Policy Preferences (@p0dalirius)
 
 3. New examples
-    * [net.py](examples/net.py) (@NtAlexio2)
+    * [net.py](examples/net.py) Implementation of windows net.exe builtin tool (@NtAlexio2)
     
 As always, thanks a lot to all these contributors that make this library better every day (up to now):
 
