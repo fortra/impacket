@@ -185,6 +185,7 @@ def parse_args():
 
 if __name__ == '__main__':
 	print(version.BANNER)
+	print(version.WARNING_BANNER)
 
 	options = parse_args()
 	init_logger(options)

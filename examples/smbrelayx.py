@@ -1110,6 +1110,7 @@ if __name__ == '__main__':
 
     RELAY_SERVERS = ( SMBRelayServer, HTTPRelayServer )
     print(version.BANNER)
+    print(version.WARNING_BANNER)
     parser = argparse.ArgumentParser(add_help=False,
                                      description="For every connection received, this module will try to SMB relay that "
                                                  " connection to the target system or the original client")

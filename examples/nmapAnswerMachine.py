@@ -17,6 +17,7 @@ except ImportError:
 
 from impacket import ImpactPacket
 from impacket import ImpactDecoder
+from impacket import version
 from impacket.ImpactPacket import TCPOption, array_tobytes
 from impacket.examples import logger
 from impacket.examples import os_ident
@@ -1039,6 +1040,7 @@ def main():
 
 if __name__ == '__main__':
    # Init the example's logger theme
+   print(version.WARNING_BANNER)
    logger.init()
    main()
 
