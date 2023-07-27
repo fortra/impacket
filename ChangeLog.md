@@ -17,8 +17,8 @@ https://github.com/fortra/impacket/commits/master
     * Smbserver: Added SMB2_FILE_ALLOCATION_INFO type determination (@JerAxxxxxxx)
     * tds: Fixed python3 incompatibility when receiving over TLS socket (@exploide)
     * crypto: Ensure passwords are utf-8 encoded before deriving Kerberos keys (@jojonas)
-    * ese: Fixed python3 incompatibility when reading from db
-    * ldap queries: Escaped characters are now correctly parsed
+    * ese: Fixed python3 incompatibility when reading from db (@alexisbalbachan)
+    * ldap queries: Escaped characters are now correctly parsed (@alexisbalbachan)
 
 2. Examples improvements
     * [GetADUsers.py](examples/GetADUsers.py), [GetNPUsers.py](examples/GetNPUsers.py), [GetUserSPNs.py](examples/GetUserSPNs.py) and [findDelegation.py](examples/findDelegation.py):
