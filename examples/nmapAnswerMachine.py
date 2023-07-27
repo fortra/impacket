@@ -1040,7 +1040,7 @@ def main():
 
 if __name__ == '__main__':
    # Init the example's logger theme
-   print(vesrion.WARNING_BANNER)
+   print(version.WARNING_BANNER)
    logger.init()
    main()
 
