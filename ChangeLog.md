@@ -13,6 +13,7 @@ https://github.com/fortra/impacket/commits/master
     * Added a callback function to smbserver for incoming authentications (@p0dalirius).
     * Fix crash in winregistry (@laxa)
     * Fixes in IDispatch derived classes in comev implementation (@NtAlexio2)
+    * Fix CVE-2020-17049 in ccache.py (@godylockz)
 
 2. Examples improvements
     * [GetADUsers.py](examples/GetADUsers.py), [GetNPUsers.py](examples/GetNPUsers.py), [GetUserSPNs.py](examples/GetUserSPNs.py) and [findDelegation.py](examples/findDelegation.py):
@@ -40,13 +41,16 @@ https://github.com/fortra/impacket/commits/master
       * Allow weak TLS ciphers for LDAP connections (@AdrianVollmer)
     * [Get-GPPPassword.py](examples/Get-GPPPassword.py):
       * Better handling of various XML files in Group Policy Preferences (@p0dalirius)
+    * [smbclient.py](examples/smbclient.py):
+      * Added recursive file listing (@Sq00ky)
 
 3. New examples
     * [net.py](examples/net.py) Implementation of windows net.exe builtin tool (@NtAlexio2)
+    * [changepasswd.py](examples/changepasswd.py) New example that allows password changing or reseting through multiple protocols (@Alef-Burzmali)
     
 As always, thanks a lot to all these contributors that make this library better every day (up to now):
 
-@ly4k @nopernik @snovvcrash @ShutdownRepo @kiwids0220 @mpgn @CT-H00K @rmaksimov @arossert @aevy-syn @tirkarthi @p0dalirius @Dramelac @Mayfly277 @S3cur3Th1sSh1t @nobbd @AdrianVollmer @trietend @TurtleARM @ThePirateWhoSmellsOfSunflowers @SAERXCIT @clavoillotte @Marshall-Hallenbeck @nobbd @sploutchy @Marshall-Hallenbeck
+@ly4k @nopernik @snovvcrash @ShutdownRepo @kiwids0220 @mpgn @CT-H00K @rmaksimov @arossert @aevy-syn @tirkarthi @p0dalirius @Dramelac @Mayfly277 @S3cur3Th1sSh1t @nobbd @AdrianVollmer @trietend @TurtleARM @ThePirateWhoSmellsOfSunflowers @SAERXCIT @clavoillotte @Marshall-Hallenbeck @nobbd @sploutchy @Marshall-Hallenbeck @aevy-syn @almandin @rtpt-alexanderneumann @JerAxxxxxxx
 
 
 ## Impacket v0.10.0 (May 2022):
