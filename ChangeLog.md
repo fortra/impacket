@@ -14,12 +14,18 @@ https://github.com/fortra/impacket/commits/master
     * Fix crash in winregistry (@laxa)
     * Fixes in IDispatch derived classes in comev implementation (@NtAlexio2)
     * Fix CVE-2020-17049 in ccache.py (@godylockz)
+    * Smbserver: Added SMB2_FILE_ALLOCATION_INFO type determination (@JerAxxxxxxx)
+    * tds: Fixed python3 incompatibility when receiving over TLS socket (@exploide)
+    * crypto: Ensure passwords are utf-8 encoded before deriving Kerberos keys (@jojonas)
+    * ese: Fixed python3 incompatibility when reading from db
+    * ldap queries: Escaped characters are now correctly parsed
 
 2. Examples improvements
     * [GetADUsers.py](examples/GetADUsers.py), [GetNPUsers.py](examples/GetNPUsers.py), [GetUserSPNs.py](examples/GetUserSPNs.py) and [findDelegation.py](examples/findDelegation.py):
       * Added dc-host option to connect to specific KDC using its FQDN or NetBIOS name (@rmaksimov and @0xdeaddood).
     * [GetNPUsers.py](examples/GetNPUsers.py)
       * Printing TGT in stdout despite -outputfile parameter (@alexisbalbachan and @Zamanry)
+      * Fixed output hash format for AES128/256 (etype 17/18) (@erasmusc)
     * [GetUserSPNs.py](examples/GetUserSPNs.py):
       * Added LDAP paged search (@ThePirateWhoSmellsOfSunflowers and @SAERXCIT).
       * Added a -stealth flag to remove the SPN filter from the LDAP query (@clavoillotte).
@@ -28,7 +34,8 @@ https://github.com/fortra/impacket/commits/master
     * [psexec.py](examples/psexec.py):
       * Added support for name customization using a custom binary file (@Dramelac).
     * [smbexec.py](examples/smbexec.py):
-      * Security fixes for privilege escalation vulnerabilities (@bugch3ck). 
+      * Security fixes for privilege escalation vulnerabilities (@bugch3ck).
+      * Fixed python3 compatibility issues, added workaround TCP over NetBIOS being disabled (@ljrk0)
     * [secretsdump.py](examples/secretsdump.py):
       * Added a new option to extract only NTDS.DIT data for specific users based on an LDAP filter (@snovvcrash).
       * Security fixes for privilege escalation vulnerabilities (@bugch3ck).  
@@ -43,6 +50,8 @@ https://github.com/fortra/impacket/commits/master
       * Better handling of various XML files in Group Policy Preferences (@p0dalirius)
     * [smbclient.py](examples/smbclient.py):
       * Added recursive file listing (@Sq00ky)
+    * [ticketer.py](examples/ticketer.py):
+      * Ticket duration is now specified in hours instead of days (@Dramelac)
 
 3. New examples
     * [net.py](examples/net.py) Implementation of windows net.exe builtin tool (@NtAlexio2)
