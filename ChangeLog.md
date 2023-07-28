@@ -19,6 +19,7 @@ https://github.com/fortra/impacket/commits/master
     * crypto: Ensure passwords are utf-8 encoded before deriving Kerberos keys (@jojonas)
     * ese: Fixed python3 incompatibility when reading from db (@alexisbalbachan)
     * ldap queries: Escaped characters are now correctly parsed (@alexisbalbachan)
+    * Support SASL authentication in ldap protocol (@NtAlexio2)
 
 2. Examples improvements
     * [GetADUsers.py](examples/GetADUsers.py), [GetNPUsers.py](examples/GetNPUsers.py), [GetUserSPNs.py](examples/GetUserSPNs.py) and [findDelegation.py](examples/findDelegation.py):
@@ -44,6 +45,7 @@ https://github.com/fortra/impacket/commits/master
     * [ntlmrelayx.py](examples/ntlmrelayx.py):
       * Added ability to trigger SQLShell when running ntlmrelayx in interactive mode (@sploutchy).
       * Added filter option to the socks command in ntlmrelayx CLI (@shoxxdj)
+      * Added ability to register DNS records through LDAP.
     * [addcomputer.py](examples/addcomputer.py), [rbcd.py](examples/rbcd.py):
       * Allow weak TLS ciphers for LDAP connections (@AdrianVollmer)
     * [Get-GPPPassword.py](examples/Get-GPPPassword.py):
@@ -52,14 +54,15 @@ https://github.com/fortra/impacket/commits/master
       * Added recursive file listing (@Sq00ky)
     * [ticketer.py](examples/ticketer.py):
       * Ticket duration is now specified in hours instead of days (@Dramelac)
+      * Added extra-pac implementation (@Dramelac)
 
 3. New examples
     * [net.py](examples/net.py) Implementation of windows net.exe builtin tool (@NtAlexio2)
-    * [changepasswd.py](examples/changepasswd.py) New example that allows password changing or reseting through multiple protocols (@Alef-Burzmali)
+    * [changepasswd.py](examples/changepasswd.py) New example that allows password changing or reseting through multiple protocols (@Alef-Burzmali, @snovvcrash, @bransh, @Oddvarmoe and @p0dalirius)
     
 As always, thanks a lot to all these contributors that make this library better every day (up to now):
 
-@ly4k @nopernik @snovvcrash @ShutdownRepo @kiwids0220 @mpgn @CT-H00K @rmaksimov @arossert @aevy-syn @tirkarthi @p0dalirius @Dramelac @Mayfly277 @S3cur3Th1sSh1t @nobbd @AdrianVollmer @trietend @TurtleARM @ThePirateWhoSmellsOfSunflowers @SAERXCIT @clavoillotte @Marshall-Hallenbeck @nobbd @sploutchy @Marshall-Hallenbeck @aevy-syn @almandin @rtpt-alexanderneumann @JerAxxxxxxx
+@ly4k @nopernik @snovvcrash @ShutdownRepo @kiwids0220 @mpgn @CT-H00K @rmaksimov @arossert @aevy-syn @tirkarthi @p0dalirius @Dramelac @Mayfly277 @S3cur3Th1sSh1t @nobbd @AdrianVollmer @trietend @TurtleARM @ThePirateWhoSmellsOfSunflowers @SAERXCIT @clavoillotte @Marshall-Hallenbeck @sploutchy @almandin @rtpt-alexanderneumann @JerAxxxxxxx @NtAlexio2 @laxa @godylockz @exploide @jojonas @Zamanry @erasmusc @bugch3ck @ljrk0 @Sq00ky @shoxxdj @Alef-Burzmali @bransh Oddvarmoe
 
 
 ## Impacket v0.10.0 (May 2022):
