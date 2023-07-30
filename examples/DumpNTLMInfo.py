@@ -18,7 +18,7 @@
 #   when available, in this script.
 # 
 #   It's very easy to use:
-#       python dumpntlm.py 192.168.1.63
+#       python DumpNTLMInfo.py 192.168.1.63
 #
 # Author:
 #   Alex Romero (@NtAlexio2)
@@ -509,7 +509,9 @@ class DumpNtlm:
             mode = 'SIGNING_ENABLED'
         if (secMode & SMB2_NEGOTIATE_SIGNING_REQUIRED) == SMB2_NEGOTIATE_SIGNING_REQUIRED:
             mode += ' | SIGNING_REQUIRED'
-        print("[+] Security        : {}".format(mode))
+        else:
+            mode += ' (not required)'
+        print("[+] Server Security : {}".format(mode))
 
 
     def DisplayDialect(self, dialect):
