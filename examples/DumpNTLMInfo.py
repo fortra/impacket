@@ -64,7 +64,7 @@ class RPC:
     def __init__(self, target) -> None:
         self.MaxTrasmitionSize = 0
         self._initializeTransport(target)
-    
+
     def GetChallange(self):
         ntlmChallenge = None
         packet = self._create_bind_request()
@@ -73,9 +73,9 @@ class RPC:
         if buffer != 0:
             response = MSRPCHeader(buffer)
             bindResp = MSRPCBindAck(response.getData())
-            
+
             self.MaxTrasmitionSize = bindResp['max_rfrag']
-            
+
             ntlmChallenge = ntlm.NTLMAuthChallenge(bindResp['auth_data'])
         return ntlmChallenge
 
@@ -84,7 +84,7 @@ class RPC:
         self._rpctransport.set_credentials('', '', '', '', '')
         self._rpctransport.set_dport(135)
         self._rpctransport.connect()
-    
+
     def _create_bind_request(self):
         bind = MSRPCBind()
         item = CtxItem()
@@ -284,7 +284,7 @@ class SMB3:
             self._NetBIOSSession = nmb.NetBIOSTCPSession(my_name, remote_name, remote_host, nmb.TYPE_SERVER, sess_port, timeout)
         else:
             self._sequenceWindow += 1
-        
+
         self._negotiateResponse = self._negotiateSession(negSessionResponse)
 
     def GetNegotiateResponse(self):
@@ -376,7 +376,7 @@ class SMB3:
 
         blob = SPNEGO_NegTokenInit()
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
-        
+
         self._auth = ntlm.getNTLMSSPType1('', '', False)
         blob['MechToken'] = self._auth.getData()
 
@@ -401,6 +401,20 @@ class SmbConnection:
         self._myName     = self._get_my_name()
         self._nmbSession = None
         self._SMBConnection = None
+
+    def IsSmb1Enabled(self):
+        flags1 = SMB.FLAGS1_PATHCASELESS | SMB.FLAGS1_CANONICALIZED_PATHS
+        flags2 = SMB.FLAGS2_EXTENDED_SECURITY | SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_LONG_NAMES
+        smbv1NegoData = '\x02NT LM 0.12\x00'
+        smb1_enabled = False
+        try:
+            self._negotiateSessionWildcard(True, flags1=flags1, flags2=flags2, data=smbv1NegoData)
+        except Exception as e:
+            if 'No answer!' in str(e):
+                smb1_enabled = False
+        else:
+            smb1_enabled = True
+        return smb1_enabled
 
     def NegotiateSession(self):
         flags1 = SMB.FLAGS1_PATHCASELESS | SMB.FLAGS1_CANONICALIZED_PATHS
@@ -490,15 +504,17 @@ class DumpNtlm:
         negotiation = connection.NegotiateSession()
         dialect = negotiation['DialectRevision']
         secMode = negotiation['SecurityMode']
-        
-        self.DisplayDialect(dialect)
+
+        smb1_enabled = connection.IsSmb1Enabled()
+
+        self.DisplayDialect(dialect, smb1_enabled)
         self.DisplaySigning(secMode)
         self.DisplayIo(negotiation)
         self.DisplayTime(negotiation)
 
         ntlmChallenge = connection.GetChallange()
         self.DisplayChallangeInfo(ntlmChallenge)
-        
+
         nullSession = connection.Authenticate()
         self.DisplayNullSession(nullSession)
 
@@ -514,23 +530,24 @@ class DumpNtlm:
         print("[+] Server Security : {}".format(mode))
 
 
-    def DisplayDialect(self, dialect):
+    def DisplayDialect(self, dialect, smb1_enabled):
+        print("[+] SMBv1 Enabled   : {0}".format(smb1_enabled))
         if dialect == SMB2_DIALECT_002:
-            print("[+] Dialect         : SMB 002")
+            print("[+] Prefered Dialect: SMB 002")
         elif dialect == SMB2_DIALECT_21:
-            print("[+] Dialect         : SMB 2.1")
+            print("[+] Prefered Dialect: SMB 2.1")
         elif dialect == SMB2_DIALECT_30:
-            print("[+] Dialect         : SMB 3.0")
+            print("[+] Prefered Dialect: SMB 3.0")
         elif dialect == SMB2_DIALECT_302:
-            print("[+] Dialect         : SMB 3.0.2")
+            print("[+] Prefered Dialect: SMB 3.0.2")
         elif dialect == SMB2_DIALECT_302:
-            print("[+] Dialect         : SMB 3.0.2")
+            print("[+] Prefered Dialect: SMB 3.0.2")
         elif dialect == SMB2_DIALECT_311:
-            print("[+] Dialect         : SMB 3.1.1")
+            print("[+] Prefered Dialect: SMB 3.1.1")
         elif type(dialect) is str:
-            print("[+] Dialect         : {}".format(dialect)) # SMB1
+            print("[+] Prefered Dialect: {}".format(dialect)) # SMB1
         else:
-            print("[+] Dialect         : 0x{:x}".format(dialect))
+            print("[+] Prefered Dialect: 0x{:x}".format(dialect))
 
 
     def DisplayIo(self, negotiateResponse):
@@ -644,3 +661,4 @@ if __name__ == '__main__':
             import traceback
             traceback.print_exc()
         logging.error(str(e))
+ 
