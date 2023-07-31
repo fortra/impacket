@@ -50,7 +50,7 @@ Getting Impacket
 
 ### Latest version
 
-* Impacket v0.10.0
+* Impacket v0.11.0
 
   [![Python versions](https://img.shields.io/pypi/pyversions/impacket.svg)](https://pypi.python.org/pypi/impacket/)
 
@@ -58,7 +58,7 @@ Getting Impacket
 
 ### Development version
 
-* Impacket v0.10.1-dev (**[master branch](https://github.com/fortra/impacket/tree/master)**)
+* Impacket v0.12.0-dev (**[master branch](https://github.com/fortra/impacket/tree/master)**)
 
   [![Python versions](https://img.shields.io/badge/python-3.6%20|%203.7%20|%203.8%20|%203.9%20|%203.10-blue.svg)](https://github.com/fortra/impacket/tree/master)
 
