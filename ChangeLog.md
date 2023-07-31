@@ -5,7 +5,7 @@ Project owner's main page is at www.coresecurity.com.
 Complete list of changes can be found at:
 https://github.com/fortra/impacket/commits/master
 
-## Impacket v0.10.1-dev (Unreleased changes):
+## Impacket v0.11.0 (Aug 2023):
 1. Library improvements 
     * Added new Kerberos error codes (@ly4k).
 	* Added `[MS-TSTS]` Terminal Services Terminal Server Runtime Interface Protocol implementation (@nopernik).
