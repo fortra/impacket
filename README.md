@@ -4,7 +4,7 @@ Impacket
 [![Latest Version](https://img.shields.io/pypi/v/impacket.svg)](https://pypi.python.org/pypi/impacket/)
 [![Build and test Impacket](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml)
 
-FORTRA. Copyright (C) 2022 Fortra. All rights reserved.
+FORTRA. Copyright (C) 2023 Fortra. All rights reserved.
 
 Impacket was originally created by [SecureAuth](https://www.secureauth.com/labs/open-source-tools/impacket), and now maintained by Fortra's Core Security.
 
