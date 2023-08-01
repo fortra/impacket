@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -20,9 +20,9 @@ from subprocess import *
 PACKAGE_NAME = "impacket"
 
 VER_MAJOR = 0
-VER_MINOR = 10
-VER_MAINT = 1
-VER_PREREL = "dev1"
+VER_MINOR = 11
+VER_MAINT = 0
+VER_PREREL = ""
 try:
     if call(["git", "branch"], stderr=STDOUT, stdout=open(os.devnull, 'w')) == 0:
         p = Popen("git log -1 --format=%cd --date=format:%Y%m%d.%H%M%S", shell=True, stdin=PIPE, stderr=PIPE, stdout=PIPE)
@@ -51,7 +51,7 @@ def read(fname):
 
 setup(
     name=PACKAGE_NAME,
-    version="{}.{}.{}.{}{}".format(VER_MAJOR, VER_MINOR, VER_MAINT, VER_PREREL, VER_LOCAL),
+    version="{}.{}.{}".format(VER_MAJOR, VER_MINOR, VER_MAINT),
     description="Network protocols Constructors and Dissectors",
     url="https://www.coresecurity.com",
     author="SecureAuth Corporation",
@@ -72,6 +72,7 @@ setup(
     extras_require={'pyreadline:sys_platform=="win32"': [],
                     },
     classifiers=[
+        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.7",
