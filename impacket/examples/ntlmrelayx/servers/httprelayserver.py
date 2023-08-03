@@ -435,8 +435,7 @@ class HTTPRelayServer(Thread):
                 if self.server.config.isADMINAttack:
                     LOG.info("Exiting standard auth flow to add SCCM admin...")
                     self.server.config.setSCCMAdminToken(token)
-                    LOG.info("HTTPD(%s): Authenticating against %s://%s as %s" % (self.server.server_address[1],
-                        self.target.scheme, self.target.netloc, self.authUser))
+                    LOG.info("Authenticating against %s://%s as %s" % (self.target.scheme, self.target.netloc, self.authUser))
                     self.do_attack()
                     return
 
