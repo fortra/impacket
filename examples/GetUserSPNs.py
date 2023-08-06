@@ -447,7 +447,7 @@ class GetUserSPNs:
                                                                             nthash=(self.__nthash),
                                                                             aesKey=self.__aesKey,
                                                                             kdcHost=self.__kdcHost,
-                                                                            service=username)
+                                                                            serverName=username)
                     self.outputTGS(tgt, oldSessionKey, sessionKey, username, username, fd)
                 except Exception as e:
                     logging.debug("Exception:", exc_info=True)
