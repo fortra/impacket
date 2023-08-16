@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -3476,6 +3476,10 @@ class SMB2Commands:
                         except Exception as e:
                             smbServer.log("smb2SetInfo: %s" % e, logging.ERROR)
                             errorCode = STATUS_ACCESS_DENIED
+                    elif informationLevel == smb2.SMB2_FILE_ALLOCATION_INFO:
+                        # See https://github.com/samba-team/samba/blob/master/source3/smbd/smb2_trans2.c#LL5201C8-L5201C39
+                        smbServer.log("Warning: SMB2_FILE_ALLOCATION_INFO not implemented")
+                        errorCode = STATUS_SUCCESS
                     else:
                         smbServer.log('Unknown level for set file info! 0x%x' % informationLevel, logging.ERROR)
                         # UNSUPPORTED
