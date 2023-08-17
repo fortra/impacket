@@ -7,7 +7,6 @@
 # for more information.
 #
 
-import six
 from impacket import structure
 from impacket.ImpactPacket import ProtocolPacket
 
@@ -155,7 +154,7 @@ class DhcpPacket(ProtocolPacket, structure.Structure):
         for name, value in options:
             code,format = self.options[name]
             val = self.pack(format, value)
-            answer += (b'%c%c%s' if six.PY2 else b'%c%c%b') % (code, len(val), val)
+            answer += b'%c%c%s' % (code, len(val), val)
 
         return answer
 
@@ -171,10 +170,11 @@ class DhcpPacket(ProtocolPacket, structure.Structure):
         # print '%r' % options
         answer = []
         i = 0
+        options = bytearray(options)
         while i < len(options)-1:
-            name, format = self.getOptionNameAndFormat(options[i] if six.PY3 else ord(options[i]))
+            name, format = self.getOptionNameAndFormat(options[i])
             # size = self.calcUnpackSize(format, options[i+1:])
-            size = options[i+1] if six.PY3 else ord(options[i+1])
+            size = options[i+1]
             # print i, name, format, size
             value = self.unpack(format, options[i+2:i+2+size])
             answer.append((name, value))
