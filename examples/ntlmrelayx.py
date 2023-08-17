@@ -205,6 +205,9 @@ def start_servers(options, threads):
                                       options.cert_outfile_path)
 
         c.setAltName(options.altname)
+        c.setIsSCCMAttack(options.sccm)
+        c.setSCCMOptions(options.sccm_device, options.sccm_fqdn, 
+                            options.sccm_server, options.sccm_sleep)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
@@ -389,6 +392,14 @@ if __name__ == '__main__':
     shadowcredentials.add_argument('--export-type', action='store', required=False, choices=["PEM", "PFX"], type=lambda choice: choice.upper(), default="PFX",
                                    help='choose to export cert+private key in PEM or PFX (i.e. #PKCS12) (default: PFX))')
     shadowcredentials.add_argument('--cert-outfile-path', action='store', required=False, help='filename to store the generated self-signed PEM or PFX certificate and key')
+
+    # SCCM options
+    sccmoptions = parser.add_argument_group("SCCM attack options")
+    sccmoptions.add_argument('--sccm', action='store_true', required=False, help='Enable SCCM relay attack')
+    sccmoptions.add_argument('--sccm-device', action='store', metavar="DEVICE", required=False, help='Name of fake device to register')
+    sccmoptions.add_argument('--sccm-fqdn', action='store', metavar="FQDN", required=False, help='Fully qualified domain name of the target domain')
+    sccmoptions.add_argument('--sccm-server', action='store', metavar="HOSTNAME", required=False, help='Hostname of the target SCCM server')
+    sccmoptions.add_argument('--sccm-sleep', action='store', metavar="SECONDS", type=int, default=5, required=False, help='Sleep time before requesting policy')
 
     try:
        options = parser.parse_args()

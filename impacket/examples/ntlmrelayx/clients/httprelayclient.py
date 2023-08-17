@@ -98,7 +98,10 @@ class HTTPRelayClient(ProtocolClient):
             token = authenticateMessageBlob
         auth = base64.b64encode(token).decode("ascii")
         headers = {'Authorization':'%s %s' % (self.authenticationMethod, auth)}
-        self.session.request('GET', self.path,headers=headers)
+        if self.serverConfig.isSCCMAttack:
+            self.session.request("CCM_POST", self.path, headers=headers)
+        else:
+            self.session.request('GET', self.path,headers=headers)
         res = self.session.getresponse()
         if res.status == 401:
             return None, STATUS_ACCESS_DENIED
