@@ -271,6 +271,11 @@ def webService(server):
     @app.route('/ntlmrelayx/api/v1.0/relays', methods=['GET'])
     def get_info(relay):
         pass
+    
+    @app.after_request
+    def after_request(response):
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return response
 
     app.run(host='0.0.0.0', port=9090)
 

@@ -28,6 +28,8 @@ from impacket.examples.ntlmrelayx.clients import ProtocolClient
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
 from impacket.ntlm import NTLMAuthChallenge
 from impacket.spnego import SPNEGO_NegTokenResp
+import os
+import sslkeylog
 
 PROTOCOL_CLIENT_CLASSES = ["HTTPRelayClient","HTTPSRelayClient"]
 
@@ -122,6 +124,7 @@ class HTTPSRelayClient(HTTPRelayClient):
     PLUGIN_NAME = "HTTPS"
 
     def __init__(self, serverConfig, target, targetPort = 443, extendedSecurity=True ):
+        sslkeylog.set_keylog(os.environ.get('SSLKEYLOGFILE'))
         HTTPRelayClient.__init__(self, serverConfig, target, targetPort, extendedSecurity)
 
     def initConnection(self):
