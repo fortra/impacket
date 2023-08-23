@@ -669,7 +669,13 @@ class DACLedit(object):
         else:
             nace['AceFlags'] = 0x00
         acedata['Mask'] = ldaptypes.ACCESS_MASK()
-        acedata['Mask']['Mask'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CONTROL_ACCESS
+        # WriteMembers not an extended right, we need read and write mask on the attribute (https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c79a383c-2b3f-4655-abe7-dcbb7ce0cfbe)
+        if privguid == RIGHTS_GUID.WriteMembers.value:
+            acedata['Mask'][
+                'Mask'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_READ_PROP + ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_WRITE_PROP
+        # Other rights in this script are extended rights and need the DS_CONTROL_ACCESS mask
+        else:
+            acedata['Mask']['Mask'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CONTROL_ACCESS
         acedata['ObjectType'] = string_to_bin(privguid)
         acedata['InheritedObjectType'] = b''
         acedata['Sid'] = ldaptypes.LDAP_SID()
