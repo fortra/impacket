@@ -663,13 +663,18 @@ class DACLedit(object):
             acedata = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE()
         else:
             nace['AceType'] = ldaptypes.ACCESS_DENIED_OBJECT_ACE.ACE_TYPE
-            acedata = ldaptypes.ACCESS_DENIED_OBJECT_ACE()           
+            acedata = ldaptypes.ACCESS_DENIED_OBJECT_ACE()
         if self.inheritance:
             nace['AceFlags'] = ldaptypes.ACE.OBJECT_INHERIT_ACE + ldaptypes.ACE.CONTAINER_INHERIT_ACE
         else:
             nace['AceFlags'] = 0x00
+        # Self-Membership is a validated right, it needs a DS_SELF mask as per https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c79a383c-2b3f-4655-abe7-dcbb7ce0cfbe
+        if privguid == RIGHTS_GUID.WriteMembers.value:
+            acedata['Mask']['Mask'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_SELF
+        # Other rights in this script are extended rights and need the DS_CONTROL_ACCESS mask
+        else:
+            acedata['Mask']['Mask'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CONTROL_ACCESS
         acedata['Mask'] = ldaptypes.ACCESS_MASK()
-        acedata['Mask']['Mask'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CONTROL_ACCESS
         acedata['ObjectType'] = string_to_bin(privguid)
         acedata['InheritedObjectType'] = b''
         acedata['Sid'] = ldaptypes.LDAP_SID()
