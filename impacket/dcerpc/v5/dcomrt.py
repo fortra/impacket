@@ -1086,14 +1086,15 @@ class DCOMConnection:
         return DCOMConnection.PORTMAPS[self.__target]
 
     def disconnect(self):
-        if DCOMConnection.PINGTIMER is not None:
+        # https://github.com/fortra/impacket/issues/1039
+        if self.__target in DCOMConnection.PORTMAPS.keys():
             del(DCOMConnection.PORTMAPS[self.__target])
+        if self.__target in DCOMConnection.OID_SET.keys():
             del(DCOMConnection.OID_SET[self.__target])
-            if len(DCOMConnection.PORTMAPS) == 0:
-                # This means there are no more clients using this object, kill it
-                DCOMConnection.PINGTIMER.cancel()
-                DCOMConnection.PINGTIMER.join()
-                DCOMConnection.PINGTIMER = None
+        if DCOMConnection.PINGTIMER and len(DCOMConnection.PORTMAPS) == 0:
+            DCOMConnection.PINGTIMER.cancel()
+            DCOMConnection.PINGTIMER.join()
+            DCOMConnection.PINGTIMER = None
         if self.__target in INTERFACE.CONNECTIONS:
             del(INTERFACE.CONNECTIONS[self.__target][current_thread().name])
         self.__portmap.disconnect()
