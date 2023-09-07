@@ -476,8 +476,8 @@ if __name__ == '__main__':
     parser.add_argument('-save', action='store_true', default=False, help='Saves TGS requested to disk. Format is '
                                                                           '<username>.ccache. Auto selects -request')
     parser.add_argument('-outputfile', action='store',
-                        help='Output filename to write ciphers in JtR/hashcat format')
-    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
+                        help='Output filename to write ciphers in JtR/hashcat format. Auto selects -request')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output.')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
