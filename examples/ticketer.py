@@ -906,6 +906,7 @@ class TICKETER:
 
         pacUpnDnsInfoIB = None
         if pacUpnDnsInfoBlob is not None:
+            logging.info("Buliding PAC_UPN_DNS_INFO blob")
             pacUpnDnsInfoIB = PAC_INFO_BUFFER()
             pacUpnDnsInfoIB['ulType'] = PAC_UPN_DNS_INFO
             pacUpnDnsInfoIB['cbBufferSize'] = len(pacUpnDnsInfoBlob)
@@ -914,18 +915,22 @@ class TICKETER:
 
         pacAttributesInfoIB = None
         if pacAttributesInfoBlob is not None:
+            logging.info("Buliding PAC_ATTRIBUTES_INFO blob")
             pacAttributesInfoIB = PAC_INFO_BUFFER()
             pacAttributesInfoIB['ulType'] = PAC_ATTRIBUTES_INFO
             pacAttributesInfoIB['cbBufferSize'] = len(pacAttributesInfoBlob)
             pacAttributesInfoIB['Offset'] = offsetData
+            logging.info(pacAttributesInfoIB)
             offsetData = self.getBlockLength(offsetData + pacAttributesInfoIB['cbBufferSize'])
 
         pacRequestorInfoIB = None
         if pacRequestorInfoBlob is not None:
+            logging.info("Buliding PAC_REQUESTOR_INFO blob")
             pacRequestorInfoIB = PAC_INFO_BUFFER()
             pacRequestorInfoIB['ulType'] = PAC_REQUESTOR_INFO
             pacRequestorInfoIB['cbBufferSize'] = len(pacRequestorInfoBlob)
             pacRequestorInfoIB['Offset'] = offsetData
+            logging.info(pacRequestorInfoIB)
             offsetData = self.getBlockLength(offsetData + pacRequestorInfoIB['cbBufferSize'])
 
         serverChecksumIB = PAC_INFO_BUFFER()
