@@ -337,6 +337,7 @@ class TICKETER:
             tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                     unhexlify(lmhash), unhexlify(nthash), None,
                                                                     self.__options.dc_ip)
+            self.__tgt, self.__tgt_cipher, self.__tgt_session_key = tgt, cipher, sessionKey
             if self.__domain == self.__server:
                 kdcRep = decoder.decode(tgt, asn1Spec=AS_REP())[0]
             else:
@@ -387,7 +388,7 @@ class TICKETER:
                 return None, None
             kdcRep['cname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
             kdcRep['cname']['name-string'] = noValue
-            kdcRep['cname']['name-string'][0] = self.__target
+            kdcRep['cname']['name-string'][0] = self.__options.impersonate or self.__target
 
         else:
             logging.info('Creating basic skeleton ticket and PAC Infos')
@@ -654,8 +655,7 @@ class TICKETER:
                 self.createAttributesInfoPac(pacInfos)
             if self.__options.old_pac is False and not RequestorInfoPacInS4UU2UPAC:
                 if self.__options.user_id == "500":
-                    logging.warning(
-                        "User ID is 500, which is Impacket's default. If you specified -user-id, you can ignore this message. "
+                    logging.warning("User ID is 500, which is Impacket's default. If you specified -user-id, you can ignore this message. "
                         "If you didn't, and you get a KDC_ERR_TGT_REVOKED error when using the ticket, you will need to specify the -user-id "
                         "with the RID of the target user to impersonate")
                 self.createRequestorInfoPac(pacInfos)
