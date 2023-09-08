@@ -848,6 +848,11 @@ class TICKETER:
     def signEncryptTicket(self, kdcRep, encASorTGSRepPart, encTicketPart, pacInfos):
         logging.info('Signing/Encrypting final ticket')
 
+        logging.info(pacInfos)
+        logging.info(PAC_ATTRIBUTES_INFO)
+        logging.info(PAC_REQUESTOR_INFO)
+
+
         # Basic PAC count
         pac_count = 4
 
@@ -906,7 +911,7 @@ class TICKETER:
 
         pacUpnDnsInfoIB = None
         if pacUpnDnsInfoBlob is not None:
-            logging.info("Buliding PAC_UPN_DNS_INFO blob")
+            logging.info("Building PAC_UPN_DNS_INFO blob")
             pacUpnDnsInfoIB = PAC_INFO_BUFFER()
             pacUpnDnsInfoIB['ulType'] = PAC_UPN_DNS_INFO
             pacUpnDnsInfoIB['cbBufferSize'] = len(pacUpnDnsInfoBlob)
@@ -915,7 +920,7 @@ class TICKETER:
 
         pacAttributesInfoIB = None
         if pacAttributesInfoBlob is not None:
-            logging.info("Buliding PAC_ATTRIBUTES_INFO blob")
+            logging.info("Building PAC_ATTRIBUTES_INFO blob")
             pacAttributesInfoIB = PAC_INFO_BUFFER()
             pacAttributesInfoIB['ulType'] = PAC_ATTRIBUTES_INFO
             pacAttributesInfoIB['cbBufferSize'] = len(pacAttributesInfoBlob)
@@ -925,7 +930,7 @@ class TICKETER:
 
         pacRequestorInfoIB = None
         if pacRequestorInfoBlob is not None:
-            logging.info("Buliding PAC_REQUESTOR_INFO blob")
+            logging.info("Building PAC_REQUESTOR_INFO blob")
             pacRequestorInfoIB = PAC_INFO_BUFFER()
             pacRequestorInfoIB['ulType'] = PAC_REQUESTOR_INFO
             pacRequestorInfoIB['cbBufferSize'] = len(pacRequestorInfoBlob)
