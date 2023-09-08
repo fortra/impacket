@@ -628,6 +628,7 @@ class TICKETER:
             logging.info("\tClearing signatures")
             for bufferN in range(pacType['cBuffers']):
                 infoBuffer = pac.PAC_INFO_BUFFER(buff)
+                logging.info(infoBuffer['ulType'])
                 data = pacType['Buffers'][infoBuffer['Offset'] - 8:][:infoBuffer['cbBufferSize']]
                 buff = buff[len(infoBuffer):]
                 if infoBuffer['ulType'] in [PAC_SERVER_CHECKSUM, PAC_PRIVSVR_CHECKSUM]:
@@ -847,11 +848,6 @@ class TICKETER:
 
     def signEncryptTicket(self, kdcRep, encASorTGSRepPart, encTicketPart, pacInfos):
         logging.info('Signing/Encrypting final ticket')
-
-        logging.info(pacInfos)
-        logging.info(PAC_ATTRIBUTES_INFO)
-        logging.info(PAC_REQUESTOR_INFO)
-
 
         # Basic PAC count
         pac_count = 4
