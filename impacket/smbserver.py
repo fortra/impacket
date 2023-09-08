@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -606,7 +606,7 @@ def queryPathInformation(path, filename, level):
                     infoRecord['FileAttributes'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
             elif level == smb.SMB_QUERY_FILE_EA_INFO or level == smb2.SMB2_FILE_EA_INFO:
                 infoRecord = smb.SMBQueryFileEaInfo()
-            elif level == smb2.SMB2_FILE_STREAM_INFO:
+            elif level == smb.SMB_QUERY_FILE_STREAM_INFO or level == smb2.SMB2_FILE_STREAM_INFO:
                 infoRecord = smb.SMBFileStreamInformation()
             else:
                 LOG.error('Unknown level for query path info! 0x%x' % level)
@@ -2160,10 +2160,7 @@ class SMBCommands:
                 else:
                     errorCode = STATUS_NO_SUCH_FILE
             elif createDisposition & smb.FILE_OPEN_IF == smb.FILE_OPEN_IF:
-                if os.path.exists(pathName) is True:
-                    mode |= os.O_TRUNC
-                else:
-                    mode |= os.O_TRUNC | os.O_CREAT
+                mode |= os.O_CREAT
             elif createDisposition & smb.FILE_CREATE == smb.FILE_CREATE:
                 if os.path.exists(pathName) is True:
                     errorCode = STATUS_OBJECT_NAME_COLLISION
@@ -3167,10 +3164,7 @@ class SMB2Commands:
                 else:
                     errorCode = STATUS_NO_SUCH_FILE
             elif createDisposition & smb2.FILE_OPEN_IF == smb2.FILE_OPEN_IF:
-                if os.path.exists(pathName) is True:
-                    mode |= os.O_TRUNC
-                else:
-                    mode |= os.O_TRUNC | os.O_CREAT
+                mode |= os.O_CREAT
             elif createDisposition & smb2.FILE_CREATE == smb2.FILE_CREATE:
                 if os.path.exists(pathName) is True:
                     errorCode = STATUS_OBJECT_NAME_COLLISION
@@ -3482,6 +3476,10 @@ class SMB2Commands:
                         except Exception as e:
                             smbServer.log("smb2SetInfo: %s" % e, logging.ERROR)
                             errorCode = STATUS_ACCESS_DENIED
+                    elif informationLevel == smb2.SMB2_FILE_ALLOCATION_INFO:
+                        # See https://github.com/samba-team/samba/blob/master/source3/smbd/smb2_trans2.c#LL5201C8-L5201C39
+                        smbServer.log("Warning: SMB2_FILE_ALLOCATION_INFO not implemented")
+                        errorCode = STATUS_SUCCESS
                     else:
                         smbServer.log('Unknown level for set file info! 0x%x' % informationLevel, logging.ERROR)
                         # UNSUPPORTED

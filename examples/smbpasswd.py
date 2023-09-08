@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -33,7 +33,7 @@
 #  	https://snovvcrash.github.io/2020/10/31/pretending-to-be-smbpasswd-with-impacket.html
 #  	https://www.n00py.io/2021/09/resetting-expired-passwords-remotely/
 #  	https://github.com/samba-team/samba/blob/master/source3/utils/smbpasswd.c
-#  	https://github.com/SecureAuthCorp/impacket/pull/381
+#  	https://github.com/fortra/impacket/pull/381
 #  	https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/acb3204a-da8b-478e-9139-1ea589edb880
 #  	https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/9699d8ca-e1a4-433c-a8c3-d7bebeb01476
 #  	https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-samr/538222f7-1b89-4811-949a-0eac62e38dce
@@ -185,6 +185,7 @@ def parse_args():
 
 if __name__ == '__main__':
 	print(version.BANNER)
+	print(version.WARNING_BANNER)
 
 	options = parse_args()
 	init_logger(options)
