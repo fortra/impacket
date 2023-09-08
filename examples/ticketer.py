@@ -604,6 +604,7 @@ class TICKETER:
             # 1. S4U2Self + U2U
             logging.info('\tRequesting S4U2self+U2U to obtain %s\'s PAC' % self.__options.impersonate)
             tgs, cipher, oldSessionKey, sessionKey = self.getKerberosS4U2SelfU2U()
+            self.saveTicket(tgs, sessionKey)
 
             # 2. extract PAC
             logging.info('\tDecrypting ticket & extracting PAC')
@@ -628,7 +629,6 @@ class TICKETER:
             logging.info("\tClearing signatures")
             for bufferN in range(pacType['cBuffers']):
                 infoBuffer = pac.PAC_INFO_BUFFER(buff)
-                logging.info(infoBuffer['ulType'])
                 data = pacType['Buffers'][infoBuffer['Offset'] - 8:][:infoBuffer['cbBufferSize']]
                 buff = buff[len(infoBuffer):]
                 if infoBuffer['ulType'] in [PAC_SERVER_CHECKSUM, PAC_PRIVSVR_CHECKSUM]:
