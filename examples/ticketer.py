@@ -654,6 +654,10 @@ class TICKETER:
             if self.__options.old_pac is False and not AttributesInfoPacInS4UU2UPAC:
                 self.createAttributesInfoPac(pacInfos)
             if self.__options.old_pac is False and not RequestorInfoPacInS4UU2UPAC:
+                if self.__options.user_id == "500":
+                    logger.info("WARNING: User ID is 500, which is Impacket's default. If you specified -user-id, you can ignore this message. "
+                                "If you didn't, and you get a KDC_ERR_TGT_REVOKED error when using the ticket, you will need to specify the -user-id "
+                                "with the RID of the target user to impersonate")
                 self.createRequestorInfoPac(pacInfos)
 
             # changing ticket flags to match TGT / ST
