@@ -19,11 +19,22 @@
 
 import os
 import cmd
+import sys
 
 
 class SQLSHELL(cmd.Cmd):
-    def __init__(self, SQL, show_queries=False):
-        cmd.Cmd.__init__(self)
+    def __init__(self, SQL, show_queries=False, tcpShell=None):
+        if tcpShell is not None:
+            cmd.Cmd.__init__(self, stdin=tcpShell.stdin, stdout=tcpShell.stdout)
+            sys.stdout = tcpShell.stdout
+            sys.stdin = tcpShell.stdin
+            sys.stderr = tcpShell.stdout
+            self.use_rawinput = False
+            self.shell = tcpShell
+        else:
+            cmd.Cmd.__init__(self)
+            self.shell = None
+
         self.sql = SQL
         self.show_queries = show_queries
         self.at = []
@@ -259,4 +270,6 @@ class SQLSHELL(cmd.Cmd):
         pass
 
     def do_exit(self, line):
+        if self.shell is not None:
+            self.shell.close()
         return True
