@@ -61,6 +61,7 @@ class FindDelegation:
         self.__targetDomain = target_domain
         self.__lmhash = ''
         self.__nthash = ''
+        self.__authenticationChoice = cmdLineOptions.authentication_choice
         self.__aesKey = cmdLineOptions.aesKey
         self.__doKerberos = cmdLineOptions.k
         #[!] in this script the value of -dc-ip option is self.__kdcIP and the value of -dc-host option is self.__kdcHost
@@ -125,7 +126,7 @@ class FindDelegation:
         try:
             ldapConnection = ldap.LDAPConnection('ldap://%s' % self.__target, self.baseDN, self.__kdcIP)
             if self.__doKerberos is not True:
-                ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+                ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__authenticationChoice)
             else:
                 ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
                                              self.__aesKey, kdcHost=self.__kdcIP)
@@ -134,7 +135,7 @@ class FindDelegation:
                 # We need to try SSL
                 ldapConnection = ldap.LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcIP)
                 if self.__doKerberos is not True:
-                    ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+                    ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__authenticationChoice)
                 else:
                     ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
                                                  self.__aesKey, kdcHost=self.__kdcIP)
@@ -269,13 +270,18 @@ if __name__ == '__main__':
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
                                                                             '(128 or 256 bits)')
 
+    group.add_argument('-authentication-choice', action="store", choices=['simple','sicilyNegotiate'], default='sicilyNegotiate', 
+                       help='LDAP authentication choice between simple and NTLM.'
+                            '\'simple\' must be used with password and not NTLM.'
+                            'If omitted it use sicilyNegotiate (NTLM).')
+    
     group = parser.add_argument_group('connection')
     group.add_argument('-dc-ip', action='store', metavar='ip address', help='IP Address of the domain controller. If '
-                                                                              'ommited it use the domain part (FQDN) '
+                                                                              'omitted it use the domain part (FQDN) '
                                                                               'specified in the target parameter. Ignored'
                                                                               'if -target-domain is specified.')
     group.add_argument('-dc-host', action='store', metavar='hostname', help='Hostname of the domain controller to use. '
-                                                                              'If ommited, the domain part (FQDN) '
+                                                                              'If omitted, the domain part (FQDN) '
                                                                               'specified in the account parameter will be used')
 
     if len(sys.argv)==1:
@@ -305,7 +311,7 @@ if __name__ == '__main__':
     else:
         targetDomain = userDomain
 
-    if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
+    if password == '' and username != '' and options.authentication_choice == 'simple' or (options.hashes is None and options.no_pass is False and options.aesKey is None):
         from getpass import getpass
         password = getpass("Password:")
 
