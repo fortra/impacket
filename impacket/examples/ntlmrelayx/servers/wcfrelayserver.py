@@ -253,13 +253,14 @@ class WCFRelayServer(Thread):
 
             # Relay worked, do whatever we want here...
             if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
+                LOG.info("Authenticating against %s://%s with client IP %s as %s\\%s SUCCEED" % (
                     self.target.scheme, self.target.netloc,
+                    self.client_address[0],
                     authenticateMessage['domain_name'].decode('utf-16le'),
                     authenticateMessage['user_name'].decode('utf-16le')))
             else:
-                LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
-                    self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('ascii'),
+                LOG.info("Authenticating against %s://%s with client IP %s as %s\\%s SUCCEED" % (
+                    self.target.scheme, self.target.netloc, self.client_address[0], authenticateMessage['domain_name'].decode('ascii'),
                     authenticateMessage['user_name'].decode('ascii')))
 
             ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
