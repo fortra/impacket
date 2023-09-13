@@ -38,7 +38,7 @@ class SQLSHELL(cmd.Cmd):
     disable_xp_cmdshell        - you know what it means
     enum_db                    - enum databases
     enum_links                 - enum linked servers
-    enum_impersonate           - check logins that can be impersonate
+    enum_impersonate           - check logins that can be impersonated
     enum_logins                - enum login users
     enum_users                 - enum current db users
     enum_owner                 - enum db owner
@@ -203,6 +203,7 @@ class SQLSHELL(cmd.Cmd):
             pass
 
     def do_enum_impersonate(self, line):
+        old_db = self.sql.currentDB
         try:
             self.sql_query("select name from sys.databases")
             result = []
@@ -232,6 +233,8 @@ class SQLSHELL(cmd.Cmd):
             self.sql.printRows()
         except:
             pass
+        finally:
+            self.sql_query("use " + old_db)
 
     def do_enum_logins(self, line):
         try:
