@@ -21,6 +21,14 @@ import os
 import cmd
 import sys
 
+def handle_lastError(f):
+    def wrapper(*args):
+        try:
+            f(*args)
+        finally:
+            if(args[0].sql.lastError):
+                print(args[0].sql.lastError)
+    return wrapper
 
 class SQLSHELL(cmd.Cmd):
     def __init__(self, SQL, show_queries=False, tcpShell=None):
@@ -97,14 +105,17 @@ class SQLSHELL(cmd.Cmd):
             self.sql_query(exec_as)
             self.sql.printReplies()
 
+    @handle_lastError
     def do_exec_as_login(self, s):
         exec_as = "execute as login='%s';" % s
         self.execute_as(exec_as)
 
+    @handle_lastError
     def do_exec_as_user(self, s):
         exec_as = "execute as user='%s';" % s
         self.execute_as(exec_as)
 
+    @handle_lastError
     def do_use_link(self, s):
         if s == 'localhost':
             self.at = []
@@ -128,6 +139,7 @@ class SQLSHELL(cmd.Cmd):
     def do_shell(self, s):
         os.system(s)
 
+    @handle_lastError
     def do_xp_dirtree(self, s):
         try:
             self.sql_query("exec master.sys.xp_dirtree '%s',1,1" % s)
@@ -136,6 +148,7 @@ class SQLSHELL(cmd.Cmd):
         except:
             pass
 
+    @handle_lastError
     def do_xp_cmdshell(self, s):
         try:
             self.sql_query("exec master..xp_cmdshell '%s'" % s)
@@ -145,6 +158,7 @@ class SQLSHELL(cmd.Cmd):
         except:
             pass
 
+    @handle_lastError
     def do_sp_start_job(self, s):
         try:
             self.sql_query("DECLARE @job NVARCHAR(100);"
@@ -166,6 +180,7 @@ class SQLSHELL(cmd.Cmd):
         else:
             os.chdir(s)
 
+    @handle_lastError
     def do_enable_xp_cmdshell(self, line):
         try:
             self.sql_query("exec master.dbo.sp_configure 'show advanced options',1;RECONFIGURE;"
@@ -175,6 +190,7 @@ class SQLSHELL(cmd.Cmd):
         except:
             pass
 
+    @handle_lastError
     def do_disable_xp_cmdshell(self, line):
         try:
             self.sql_query("exec sp_configure 'xp_cmdshell', 0 ;RECONFIGURE;exec sp_configure "
@@ -184,6 +200,7 @@ class SQLSHELL(cmd.Cmd):
         except:
             pass
 
+    @handle_lastError
     def do_enum_links(self, line):
         self.sql_query("EXEC sp_linkedservers")
         self.sql.printReplies()
@@ -192,11 +209,13 @@ class SQLSHELL(cmd.Cmd):
         self.sql.printReplies()
         self.sql.printRows()
 
+    @handle_lastError
     def do_enum_users(self, line):
         self.sql_query("EXEC sp_helpuser")
         self.sql.printReplies()
         self.sql.printRows()
 
+    @handle_lastError
     def do_enum_db(self, line):
         try:
             self.sql_query("select name, is_trustworthy_on from sys.databases")
@@ -205,6 +224,7 @@ class SQLSHELL(cmd.Cmd):
         except:
             pass
 
+    @handle_lastError
     def do_enum_owner(self, line):
         try:
             self.sql_query("SELECT name [Database], suser_sname(owner_sid) [Owner] FROM sys.databases")
@@ -213,6 +233,7 @@ class SQLSHELL(cmd.Cmd):
         except:
             pass
 
+    @handle_lastError
     def do_enum_impersonate(self, line):
         old_db = self.sql.currentDB
         try:
@@ -247,6 +268,7 @@ class SQLSHELL(cmd.Cmd):
         finally:
             self.sql_query("use " + old_db)
 
+    @handle_lastError
     def do_enum_logins(self, line):
         try:
             self.sql_query("select r.name,r.type_desc,r.is_disabled, sl.sysadmin, sl.securityadmin, "
@@ -258,6 +280,7 @@ class SQLSHELL(cmd.Cmd):
         except:
             pass
 
+    @handle_lastError
     def default(self, line):
         try:
             self.sql_query(line)
