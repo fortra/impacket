@@ -31,6 +31,8 @@ PAC_PRIVSVR_CHECKSUM = 7
 PAC_CLIENT_INFO_TYPE = 10
 PAC_DELEGATION_INFO  = 11
 PAC_UPN_DNS_INFO     = 12
+PAC_ATTRIBUTES_INFO  = 17
+PAC_REQUESTOR_INFO   = 18
 
 ################################################################################
 # STRUCTURES
