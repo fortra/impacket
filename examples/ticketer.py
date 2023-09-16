@@ -599,7 +599,8 @@ class TICKETER:
 
         if self.__options.impersonate:
             # Doing Sapphire Ticket
-            # todo : in its actual form, ticketer is limited to the PAC structures that are supported in impacket. Unsupported structures will be ignored. The PAC is not completely copy-pasted here.
+            # todo : in its actual form, ticketer is limited to the PAC structures that are supported in impacket.
+            #  Unsupported structures will be ignored. The PAC is not completely copy-pasted here.
 
             # 1. S4U2Self + U2U
             logging.info('\tRequesting S4U2self+U2U to obtain %s\'s PAC' % self.__options.impersonate)
@@ -1190,9 +1191,46 @@ if __name__ == '__main__':
     else:
         password = options.password
 
-    if options.impersonate and not options.request:
-        logging.error('-impersonate parameter needs to be used along -request')
-        sys.exit(1)
+    if options.impersonate:
+        # args that can't be None: -aesKey, -domain-sid, -nthash, -request, -domain, -user, -password
+        # -user-id can't be None except if -old-pac is set
+        # args that can't be False: -request
+        missing_params = [
+            param_name
+            for (param, param_name) in
+            zip(
+                [
+                    options.request,
+                    options.aesKey, options.nthash,
+                    options.domain, options.user, options.password,
+                    options.domain_sid, options.user_id
+                ],
+                [
+                    "-request",
+                    "-aesKey", "-nthash",
+                    "-domain", "-user", "-password",
+                    "-domain-sid", "-user-id"
+                ]
+            )
+            if param is None or (param_name == "-request" and not param)
+        ]
+        if missing_params:
+            logging.error(f"missing parameters to do sapphire ticket : {', '.join(missing_params)}")
+            sys.exit(1)
+        if not options.old_pac and not options.user_id:
+            logging.error(f"missing parameter -user-id. Must be set if not doing -old-pac")
+            sys.exit(1)
+        # ignored params: -extra-pac, -extra-sid, -groups, -duration
+        # -user-id ignored if -old-pac
+        ignored_params = []
+        if options.extra_pac: ignored_params.append("-extra-pac")
+        if options.extra_sid is not None: ignored_params.append("-extra-sid")
+        if options.groups is not None: ignored_params.append("-groups")
+        if options.duration is not None: ignored_params.append("-duration")
+        if ignored_params:
+            logging.error(f"doing sapphire ticket, ignoring following parameters : {', '.join(ignored_params)}")
+        if options.old_pac and options.user_id is not None:
+            logging.error(f"parameter -user-id will be ignored when specifying -old-pac in a sapphire ticket attack")
 
     try:
         executer = TICKETER(options.target, password, options.domain, options)
