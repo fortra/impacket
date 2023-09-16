@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -618,6 +618,7 @@ class SMB2NegotiateContext(Structure):
         ('ContextType','<H=0'),
         ('DataLength','<H=0'),
         ('Reserved','<L=0'),
+        ('_Data', '_-Data', 'self["DataLength"]'),
         ('Data',':=""'),
     )
 
@@ -626,6 +627,7 @@ class SMB2PreAuthIntegrityCapabilities(Structure):
     structure = (
         ('HashAlgorithmCount','<H=0'),
         ('SaltLength','<H=0'),
+        ('_HashAlgorithms', '_-HashAlgorithms', 'self["HashAlgorithmCount"]*2'),
         ('HashAlgorithms',':=""'),
         ('Salt',':=""'),
     )
@@ -634,7 +636,7 @@ class SMB2PreAuthIntegrityCapabilities(Structure):
 class SMB2EncryptionCapabilities(Structure):
     structure = (
         ('CipherCount','<H=0'),
-        ('Ciphers','<H=0'),
+        ('Ciphers',':=""'),
     )
 
 # SMB2_COMPRESSION_CAPABILITIES

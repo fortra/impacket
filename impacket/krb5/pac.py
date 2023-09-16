@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -12,7 +12,7 @@
 # Author:
 #   Alberto Solino (@agsolino)
 #
-from impacket.dcerpc.v5.dtypes import ULONG, RPC_UNICODE_STRING, FILETIME, PRPC_SID, USHORT, RPC_SID
+from impacket.dcerpc.v5.dtypes import ULONG, RPC_UNICODE_STRING, FILETIME, PRPC_SID, USHORT, RPC_SID, SID
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER
 from impacket.dcerpc.v5.nrpc import USER_SESSION_KEY, CHAR_FIXED_8_ARRAY, PUCHAR_ARRAY, PRPC_UNICODE_STRING_ARRAY
 from impacket.dcerpc.v5.rpcrt import TypeSerialization1
@@ -31,8 +31,6 @@ PAC_PRIVSVR_CHECKSUM = 7
 PAC_CLIENT_INFO_TYPE = 10
 PAC_DELEGATION_INFO  = 11
 PAC_UPN_DNS_INFO     = 12
-PAC_ATTRIBUTES_INFO  = 17
-PAC_REQUESTOR_INFO   = 18
 
 ################################################################################
 # STRUCTURES
@@ -210,7 +208,7 @@ class UPN_DNS_INFO(Structure):
     )
 
 # 2.10 UPN_DNS_INFO
-# Full struct with S Flag new fields
+# Full struct including additional fields (use this structure when S Flag is set)
 class UPN_DNS_INFO_FULL(Structure):
     structure = (
         ('UpnLength', '<H=0'),
@@ -263,29 +261,8 @@ class PAC_ATTRIBUTE_INFO(NDRSTRUCT):
     )
 
 # 2.15 PAC_REQUESTOR
-# It should be RPC_SID (with NDRSTRUCT sub-class) but the impacket implementation is malfunctioning: https://github.com/SecureAuthCorp/impacket/issues/1386
-#class PAC_REQUESTOR(NDRSTRUCT):
-#    structure = (
-#        ('UserSid', RPC_SID),
-#    )
-# In the meantime, using LDAP_SID with minimal custom implementation
-class PAC_REQUESTOR:
+class PAC_REQUESTOR(Structure):
+    structure = (
+        ('UserSid',':',SID),
+    )
 
-    def __init__(self, data=None):
-        self.fields = {'UserSid': LDAP_SID(data)}
-
-    # For other method not implemented, directly call 'UserSid' field
-    def __getitem__(self, key):
-        return self.fields[key]
-
-    def __setitem__(self, key, value):
-        self.fields[key] = value
-
-    def getData(self):
-        return self.fields['UserSid'].getData()
-
-    def __str__(self):
-        return self.getData()
-
-    def __len__(self):
-        return len(self.getData())

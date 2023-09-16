@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -48,7 +48,7 @@ except NotImplementedError:
     rand = random
     pass
 
-def sendReceive(data, host, kdcHost):
+def sendReceive(data, host, kdcHost, port=88):
     if kdcHost is None:
         targetHost = host
     else:
@@ -56,13 +56,13 @@ def sendReceive(data, host, kdcHost):
 
     messageLen = struct.pack('!i', len(data))
 
-    LOG.debug('Trying to connect to KDC at %s' % targetHost)
+    LOG.debug('Trying to connect to KDC at %s:%s' % (targetHost, port))
     try:
-        af, socktype, proto, canonname, sa = socket.getaddrinfo(targetHost, 88, 0, socket.SOCK_STREAM)[0]
+        af, socktype, proto, canonname, sa = socket.getaddrinfo(targetHost, port, 0, socket.SOCK_STREAM)[0]
         s = socket.socket(af, socktype, proto)
         s.connect(sa)
     except socket.error as e:
-        raise socket.error("Connection error (%s:%s)" % (targetHost, 88), e)
+        raise socket.error("Connection error (%s:%s)" % (targetHost, port), e)
 
     s.sendall(messageLen + data)
 
@@ -92,7 +92,7 @@ def sendReceive(data, host, kdcHost):
 
     return r
 
-def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True):
+def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True, serverName=None):
 
     # Convert to binary form, just in case we're receiving strings
     if isinstance(lmhash, str):
@@ -110,11 +110,17 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
             aesKey = unhexlify(aesKey)
         except TypeError:
             pass
+    if serverName is not None and not isinstance(serverName, Principal):
+        try:
+            serverName = Principal(serverName, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+        except TypeError:
+            pass
 
     asReq = AS_REQ()
 
     domain = domain.upper()
-    serverName = Principal('krbtgt/%s'%domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)  
+    if serverName is None:
+        serverName = Principal('krbtgt/%s'%domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
 
     pacRequest = KERB_PA_PAC_REQUEST()
     pacRequest['include-pac'] = requestPAC
