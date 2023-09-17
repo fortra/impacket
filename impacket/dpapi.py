@@ -1204,19 +1204,19 @@ def deriveKeysFromUser(sid, password):
         tmpKey2 = pbkdf2_hmac('sha256', tmpKey, sid.encode('utf-16le'), 1)[:16]
         key3 = HMAC.new(tmpKey2, (sid + '\0').encode('utf-16le'), SHA1).digest()[:20]
 
-        return key1, key2, key3
+        return [key1, key2, key3]
 
 def deriveKeysFromUserkey(sid, pwdhash):
     if len(pwdhash) == 20:
         # SHA1
         key1 = HMAC.new(pwdhash, (sid + '\0').encode('utf-16le'), SHA1).digest()
-        key2 = None
-    else:
-        # Assume MD4
-        key1 = HMAC.new(pwdhash, (sid + '\0').encode('utf-16le'), SHA1).digest()
-        # For Protected users
-        tmpKey = pbkdf2_hmac('sha256', pwdhash, sid.encode('utf-16le'), 10000)
-        tmpKey2 = pbkdf2_hmac('sha256', tmpKey, sid.encode('utf-16le'), 1)[:16]
-        key2 = HMAC.new(tmpKey2, (sid + '\0').encode('utf-16le'), SHA1).digest()[:20]
+        return [key1]
 
-    return key1, key2
+    # Assume MD4
+    key1 = HMAC.new(pwdhash, (sid + '\0').encode('utf-16le'), SHA1).digest()
+    # For Protected users
+    tmpKey = pbkdf2_hmac('sha256', pwdhash, sid.encode('utf-16le'), 10000)
+    tmpKey2 = pbkdf2_hmac('sha256', tmpKey, sid.encode('utf-16le'), 1)[:16]
+    key2 = HMAC.new(tmpKey2, (sid + '\0').encode('utf-16le'), SHA1).digest()[:20]
+
+    return [key1, key2]

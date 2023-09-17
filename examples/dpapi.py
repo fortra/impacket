@@ -476,18 +476,21 @@ class DPAPI:
                 blob.dump()
 
         elif self.options.action.upper() == 'CREDHIST':
-            fp = open(options.file, 'rb')
+            fp = open(self.options.file, 'rb')
             data = fp.read()
             chf = CREDHIST_FILE(data)
 
-            keys = []
+            if len(chf.credhist_entries_list) == 0:
+                print('The CREDHIST file is empty')
+                return
 
             # Handle key options
-            if self.options.key and self.options.sid:
+            if self.options.key:
                 key = unhexlify(self.options.key[2:])
-                keys = deriveKeysFromUserkey(self.options.sid, key)
+                keys = deriveKeysFromUserkey(chf.credhist_entries_list[0].sid, key)
 
-            elif self.options.sid and self.options.key is None:
+            # Only other option is using a password
+            else:
                 # Do we have a password?
                 if self.options.password is None:
                     # Nope let's ask it
@@ -495,11 +498,8 @@ class DPAPI:
                     password = getpass("Password:")
                 else:
                     password = options.password
-                keys = deriveKeysFromUser(self.options.sid, password)
 
-            else:
-                chf.dump()
-                return
+                keys = deriveKeysFromUser(chf.credhist_entries_list[0].sid, password)
 
             if self.options.entry is None:
                 # First find the correct key to the 1st entry
@@ -513,6 +513,9 @@ class DPAPI:
                 # Wrong key
                 if real_key is None:
                     chf.dump()
+                    print()
+                    print('Cannot decrypt (wrong key or password)')
+                    return
 
                 else:
                     chf.decrypt(real_key)
@@ -523,14 +526,16 @@ class DPAPI:
                         return
 
             else:
-                real_key = None
                 for k in keys:
                     chf.decrypt_entry_by_index(self.options.entry, k)
                     if chf.credhist_entries_list[self.options.entry].pwdhash is not None:
-                        chf.dump()
+                        chf.credhist_entries_list[self.options.entry].dump()
                         return
 
-                chf.dump()
+                chf.credhist_entries_list[self.options.entry].dump()
+                print()
+                print('Cannot decrypt (wrong key or password)')
+                return
 
         print('Cannot decrypt (specify -key or -sid whenever applicable) ')
 
@@ -600,9 +605,8 @@ if __name__ == '__main__':
     # A CREDHIST command
     credhist = subparsers.add_parser('credhist', help='CREDHIST related functions')
     credhist.add_argument('-file', action='store', required=True, help='CREDHIST file')
-    credhist.add_argument('-sid', action='store', help='SID of the user')
     credhist.add_argument('-key', action='store', help='Specific key to use for decryption')
-    credhist.add_argument('-password', action='store', help='User\'s password. If you specified the SID and not the password it will be prompted')
+    credhist.add_argument('-password', action='store', help='User\'s password')
     credhist.add_argument('-entry', action='store', type=int, help='Entry index in CREDHIST')
 
     options = parser.parse_args()
