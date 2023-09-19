@@ -381,7 +381,7 @@ class SMBConnection:
         dce = rpctransport.get_dce_rpc()
         dce.connect()
         dce.bind(srvs.MSRPC_UUID_SRVS)
-        resp = srvs.hNetrShareEnum(dce, 1)
+        resp = srvs.hNetrShareEnum(dce, 1, serverName="\\\\" + self.getRemoteHost())
         return resp['InfoStruct']['ShareInfo']['Level1']['Buffer']
 
     def listPath(self, shareName, path, password = None):

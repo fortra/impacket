@@ -43,6 +43,8 @@ from impacket.dcerpc.v5.rpcrt import TypeSerialization1, RPC_C_AUTHN_LEVEL_PKT_I
     RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE, RPC_C_AUTHN_WINNT, DCERPCException
 from impacket.dcerpc.v5 import transport
 
+DCOM_TIMEOUT = 300
+
 CLSID_ActivationContextInfo   = string_to_bin('000001a5-0000-0000-c000-000000000046')
 CLSID_ActivationPropertiesIn  = string_to_bin('00000338-0000-0000-c000-000000000046')
 CLSID_ActivationPropertiesOut = string_to_bin('00000339-0000-0000-c000-000000000046')
@@ -1070,6 +1072,10 @@ class DCOMConnection:
             self.__portmap.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
         self.__portmap.connect()
         DCOMConnection.PORTMAPS[self.__target] = self.__portmap
+    
+    def set_connect_timeout(self, timeout):
+        global DCOM_TIMEOUT
+        DCOM_TIMEOUT = timeout
 
     def CoCreateInstanceEx(self, clsid, iid):
         scm = IRemoteSCMActivator(self.__portmap)
@@ -1081,14 +1087,15 @@ class DCOMConnection:
         return DCOMConnection.PORTMAPS[self.__target]
 
     def disconnect(self):
-        if DCOMConnection.PINGTIMER is not None:
+        # https://github.com/fortra/impacket/issues/1039
+        if self.__target in DCOMConnection.PORTMAPS.keys():
             del(DCOMConnection.PORTMAPS[self.__target])
+        if self.__target in DCOMConnection.OID_SET.keys():
             del(DCOMConnection.OID_SET[self.__target])
-            if len(DCOMConnection.PORTMAPS) == 0:
-                # This means there are no more clients using this object, kill it
-                DCOMConnection.PINGTIMER.cancel()
-                DCOMConnection.PINGTIMER.join()
-                DCOMConnection.PINGTIMER = None
+        if DCOMConnection.PINGTIMER and len(DCOMConnection.PORTMAPS) == 0:
+            DCOMConnection.PINGTIMER.cancel()
+            DCOMConnection.PINGTIMER.join()
+            DCOMConnection.PINGTIMER = None
         if self.__target in INTERFACE.CONNECTIONS:
             del(INTERFACE.CONNECTIONS[self.__target][current_thread().name])
         self.__portmap.disconnect()
@@ -1291,7 +1298,7 @@ class INTERFACE:
                     dcomInterface.set_credentials(*DCOMConnection.PORTMAPS[self.__target].get_credentials())
                     dcomInterface.set_kerberos(DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().get_kerberos(),
                                                DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().get_kdcHost())
-                dcomInterface.set_connect_timeout(300)
+                dcomInterface.set_connect_timeout(DCOM_TIMEOUT)
                 dce = dcomInterface.get_dce_rpc()
 
                 if iid is None:
