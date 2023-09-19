@@ -104,7 +104,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
-    parser.add_argument('usernames', action='store', nargs='+', help='Username(s) to resolve')
+    parser.add_argument('usernames', action='store', nargs='+', help='Username(s) or SID(s) to resolve (can also be a file path)')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
