@@ -1942,7 +1942,7 @@ class NTDSHashes:
         structure = (
             ('Header','8s=b""'),
             ('KeyMaterial','16s=b""'),
-            ('Unknown','<L=0'),
+            ('Length','<L=0'),
             ('EncryptedHash', ':'),
         )
 
@@ -2299,8 +2299,19 @@ class NTDSHashes:
                 NTHistory = []
                 if record[self.NAME_TO_INTERNAL['lmPwdHistory']] is not None:
                     encryptedLMHistory = self.CRYPTED_HISTORY(unhexlify(record[self.NAME_TO_INTERNAL['lmPwdHistory']]))
-                    tmpLMHistory = self.__removeRC4Layer(encryptedLMHistory)
-                    for i in range(0, len(tmpLMHistory) // 16):
+                    if encryptedLMHistory['Header'][:4] == b'\x13\x00\x00\x00':
+                        encryptedLMHistory = self.CRYPTED_HASHW16(
+                            unhexlify(record[self.NAME_TO_INTERNAL['lmPwdHistory']])
+                        )
+                        pekIndex = hexlify(encryptedLMHistory['Header'])
+                        tmpLMHistory = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])],
+                                                                      encryptedLMHistory['EncryptedHash'],
+                                                                      encryptedLMHistory['KeyMaterial'])
+                        nb_hashes = encryptedLMHistory['Length'] // 16
+                    else:
+                        tmpLMHistory = self.__removeRC4Layer(encryptedLMHistory)
+                        nb_hashes = len(tmpLMHistory) // 16
+                    for i in range(nb_hashes):
                         LMHash = self.__removeDESLayer(tmpLMHistory[i * 16:(i + 1) * 16], rid)
                         LMHistory.append(LMHash)
 
@@ -2315,20 +2326,16 @@ class NTDSHashes:
                         tmpNTHistory = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])],
                                                                       encryptedNTHistory['EncryptedHash'],
                                                                       encryptedNTHistory['KeyMaterial'])
+                        nb_hashes = encryptedNTHistory['Length'] // 16
                     else:
                         tmpNTHistory = self.__removeRC4Layer(encryptedNTHistory)
+                        nb_hashes = len(encryptedNTHistory) // 16
 
-                    for i in range(0, len(tmpNTHistory) // 16):
+                    for i in range(nb_hashes):
                         NTHash = self.__removeDESLayer(tmpNTHistory[i * 16:(i + 1) * 16], rid)
                         NTHistory.append(NTHash)
-
-                for i, (LMHash, NTHash) in enumerate(
-                        map(lambda l, n: (l, n) if l else ('', n), LMHistory[1:], NTHistory[1:])):
-                    if self.__noLMHash:
-                        lmhash = hexlify(ntlm.LMOWFv1('', ''))
-                    else:
-                        lmhash = hexlify(LMHash)
-
+                for i, (LMHash, NTHash) in enumerate(map(lambda l, n: (l, n) if l else ('', n), LMHistory, NTHistory)):
+                    lmhash = hexlify(LMHash)
                     answer = "%s_history%d:%s:%s:%s:::" % (userName, i, rid, lmhash.decode('utf-8'),
                                                            hexlify(NTHash).decode('utf-8'))
                     if outputFile is not None:
@@ -2444,12 +2451,8 @@ class NTDSHashes:
 
             if self.__history:
                 for i, (LMHashHistory, NTHashHistory) in enumerate(
-                        map(lambda l, n: (l, n) if l else ('', n), LMHistory[1:], NTHistory[1:])):
-                    if self.__noLMHash:
-                        lmhash = hexlify(ntlm.LMOWFv1('', ''))
-                    else:
-                        lmhash = hexlify(LMHashHistory)
-
+                        map(lambda l, n: (l, n) if l else ('', n), LMHistory, NTHistory)):
+                    lmhash = hexlify(LMHashHistory)
                     answer = "%s_history%d:%s:%s:%s:::" % (userName, i, rid, lmhash.decode('utf-8'),
                                                            hexlify(NTHashHistory).decode('utf-8'))
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
