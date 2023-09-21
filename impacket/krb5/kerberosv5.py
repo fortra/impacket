@@ -124,7 +124,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     if serverName is None:
         serverName = Principal('krbtgt/%s'%domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
     else:
-        serverName = Principal(service, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+        serverName = Principal(serverName, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
 
     pacRequest = KERB_PA_PAC_REQUEST()
     pacRequest['include-pac'] = requestPAC
