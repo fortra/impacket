@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -1110,6 +1110,7 @@ if __name__ == '__main__':
 
     RELAY_SERVERS = ( SMBRelayServer, HTTPRelayServer )
     print(version.BANNER)
+    print(version.WARNING_BANNER)
     parser = argparse.ArgumentParser(add_help=False,
                                      description="For every connection received, this module will try to SMB relay that "
                                                  " connection to the target system or the original client")

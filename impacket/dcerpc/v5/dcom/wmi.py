@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -11,7 +11,7 @@
 #
 #   Best way to learn how to use these calls is to grab the protocol standard
 #   so you understand what the call does, and then read the test case located
-#   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
+#   at https://github.com/fortra/impacket/tree/master/tests/SMB_RPC
 #
 #   Since DCOM is like an OO RPC, instead of helper functions you will see the
 #   classes described in the standards developed.
@@ -2462,7 +2462,7 @@ class IWbemClassObject(IRemUnknown):
                     ndTable |= self.__ndEntry(i, True, True)
             else:
                 if itemValue == '':
-                    # https://github.com/SecureAuthCorp/impacket/pull/1069#issuecomment-835179409
+                    # https://github.com/fortra/impacket/pull/1069#issuecomment-835179409
                     # Force inherited_default to avoid 'obscure' issue in wmipersist.py
                     ndTable |= self.__ndEntry(i, True, True)
                     valueTable += pack('<L', 0)

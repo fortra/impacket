@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -19,7 +19,7 @@ from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR
 
 class LDAPTests(RemoteTestCase):
     def connect(self, login=True):
-        self.ldapConnection = ldap.LDAPConnection(self.url, self.baseDN)
+        self.ldapConnection = ldap.LDAPConnection(self.url, self.baseDN, self.machine)
         if login:
             self.ldapConnection.login(self.username, self.password)
         return self.ldapConnection
@@ -80,6 +80,14 @@ class LDAPTests(RemoteTestCase):
             user=self.username, password=self.password, domain=self.domain
         )
 
+        self.dummySearch(ldapConnection)
+
+    def test_saslNtlm(self):
+        ldapConnection = self.connect(False)
+        ldapConnection.login(
+            user=self.username, password=self.password, domain=self.domain,
+            authenticationChoice="sasl"
+        )
         self.dummySearch(ldapConnection)
 
     def test_kerberosLogin(self):
