@@ -17,6 +17,7 @@ import hashlib
 import random
 import string
 import binascii
+import platform
 from six import b
 
 from impacket.structure import Structure
@@ -300,7 +301,7 @@ class NTLMAuthNegotiate(Structure):
         self['host_name']=''
         self['domain_name']=''
         self['os_version']=''
-        self._workstation = ''
+        self._workstation =''
 
     def setWorkstation(self, workstation):
         self._workstation = workstation
@@ -590,7 +591,7 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlm
 
     # We're not adding workstation / domain fields this time. Normally Windows clients don't add such information but,
     # we will save the workstation name to be used later.
-    auth.setWorkstation(workstation)
+    auth.setWorkstation(platform.node().upper())
 
     return auth
 
