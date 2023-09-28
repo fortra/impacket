@@ -51,7 +51,7 @@ def auth_callback(smbServer, connData, domain_name, user_name, host_name):
     if not user:
         user = "unknown"
 
-    print(f"[*] Received connection from {user} at {host_name}, connection will be relayed after re-authentication")
+    LOG.info(f"Received connection from {user} at {host_name}, connection will be relayed after re-authentication")
 
 
 class SMBRelayServer(Thread):
