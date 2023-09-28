@@ -63,7 +63,7 @@ class GETTGT:
                                                                 nthash = unhexlify(self.__nthash),
                                                                 aesKey = self.__aesKey,
                                                                 kdcHost = self.__kdcHost,
-                                                                service = self.__service)
+                                                                serverName = self.__service)
         self.saveTicket(tgt,oldSessionKey)
 
 if __name__ == '__main__':
