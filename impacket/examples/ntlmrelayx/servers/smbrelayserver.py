@@ -111,7 +111,7 @@ class SMBRelayServer(Thread):
 
         self.server = SMBSERVER((config.interfaceIp,smbport), config_parser = smbConfig)
         if not self.config.disableMulti:
-            self.server.auth_callback = auth_callback
+            self.server.setAuthCallback(auth_callback)
         logging.getLogger('impacket.smbserver').setLevel(logging.CRITICAL)
 
         self.server.processConfigFile()
