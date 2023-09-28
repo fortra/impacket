@@ -112,7 +112,7 @@ class SAMRDump:
             if self.__csvOutput is True:
                 print('%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (username, uid, user['FullName'], user['PrimaryGroupId'],
                                                       user['BadPasswordCount'], user['LogonCount'],pwdLastSet,
-                                                      dontExpire, accountDisabled, user['UserComment'].replace(',','.'),user['AdminComment'].replace(',','.')
+                                                      dontExpire, accountDisabled, user['UserComment'].replace(',','.'),user['AdminComment'].replace(',','.'),
                                                       user['ScriptPath']  ))
             else:
                 base = "%s (%d)" % (username, uid)
