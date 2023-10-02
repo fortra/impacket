@@ -96,7 +96,9 @@ class LsaLookupNames:
         policyHandle = lsad.hLsarOpenPolicy2(self.__dce)['PolicyHandle']
         resp = lsat.hLsarLookupSids2(self.__dce, policyHandle, (sid,))
         lsad.hLsarClose(self.__dce, policyHandle)
-        return resp['TranslatedNames']['Names'][0]['Name']
+        name = resp['TranslatedNames']['Names'][0]
+        name = '{0}\\{1}'.format(resp['ReferencedDomains']['Domains'][name['DomainIndex']]['Name'], name['Name'])
+        return name
 
 
 if __name__ == '__main__':
