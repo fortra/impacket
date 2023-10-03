@@ -357,12 +357,12 @@ class Net:
             print("[+] {} account deleted succesfully!".format(self.__action))
 
         elif self.__is_option_present(self.__options, 'join'):
-            print("[*] Adding user account '{}' to group '{}'".format(self.__options.name, self.__options.join))
+            print("[*] Adding user account '{}' to group '{}'".format(self.__options.join, self.__options.name))
             actionObject.Join(self.__options.name, self.__options.join)
             print("[+] User account added to {} succesfully!".format(self.__options.name))
 
         elif self.__is_option_present(self.__options, 'unjoin'):
-            print("[*] Removing user account '{}' from group '{}'".format(self.__options.name, self.__options.unjoin))
+            print("[*] Removing user account '{}' from group '{}'".format(self.__options.unjoin, self.__options.name))
             actionObject.UnJoin(self.__options.name, self.__options.unjoin)
             print("[+] User account removed from {} succesfully!".format(self.__options.name))
 
