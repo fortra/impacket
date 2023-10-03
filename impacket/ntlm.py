@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -942,7 +942,7 @@ class NTLM_HTTP(object):
     MSG_TYPE = None
 
     @classmethod
-    def get_instace(cls,msg_64):
+    def get_instance(cls,msg_64):
         msg = None
         msg_type = 0
         if msg_64 != '':
