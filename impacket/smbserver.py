@@ -3437,8 +3437,11 @@ class SMB2Commands:
                     if informationLevel == smb2.SMB2_FILE_DISPOSITION_INFO:
                         infoRecord = smb.SMBSetFileDispositionInfo(setInfo['Buffer'])
                         if infoRecord['DeletePending'] > 0:
-                            # Mark this file for removal after closed
-                            connData['OpenedFiles'][fileID]['DeleteOnClose'] = True
+                            if os.path.isdir(pathName) and os.listdir(pathName):
+                                errorCode = STATUS_DIRECTORY_NOT_EMPTY
+                            else:
+                                # Mark this file for removal after closed
+                                connData['OpenedFiles'][fileID]['DeleteOnClose'] = True
                     elif informationLevel == smb2.SMB2_FILE_BASIC_INFO:
                         infoRecord = smb.SMBSetFileBasicInfo(setInfo['Buffer'])
                         # Creation time won't be set,  the other ones we play with.
