@@ -42,7 +42,7 @@ import hashlib
 import hmac
 
 from binascii import unhexlify, hexlify, a2b_hex
-from six import PY2, b, text_type
+from six import b, ensure_str
 from six.moves import configparser, socketserver
 
 # For signing
@@ -234,6 +234,7 @@ def getShares(connId, smbServer):
 
 
 def searchShare(connId, share, smbServer):
+    share = ensure_str(share)
     config = smbServer.getServerConfig()
     if config.has_section(share):
         return dict(config.items(share))
@@ -3214,10 +3215,10 @@ class SMB2Commands:
                         else:
                             if sys.platform == 'win32':
                                 mode |= os.O_BINARY
-                            if str(pathName) in smbServer.getRegisteredNamedPipes():
+                            if ensure_str(pathName) in smbServer.getRegisteredNamedPipes():
                                 fid = PIPE_FILE_DESCRIPTOR
                                 sock = socket.socket()
-                                sock.connect(smbServer.getRegisteredNamedPipes()[str(pathName)])
+                                sock.connect(smbServer.getRegisteredNamedPipes()[ensure_str(pathName)])
                             else:
                                 fid = os.open(pathName, mode)
                     except Exception as e:
