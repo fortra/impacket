@@ -578,7 +578,13 @@ class SessionError(Exception):
                 error_code_str = '%s(%s)' % error_code
 
         if self.nt_status:
-            return 'SMB SessionError: %s(%s)' % nt_errors.ERROR_MESSAGES.get(self.error_code, ("UNKNOWN_NTSTATUS", self.error_code))
+            key = self.error_code
+            if key in nt_errors.ERROR_MESSAGES:
+                error_msg_short = nt_errors.ERROR_MESSAGES[key][0] 
+                error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
+                return 'SMB SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
+            else:
+                return 'SMB SessionError: unknown error code: 0x%x' % self.error_code
         else:
             # Fall back to the old format
             return 'SMB SessionError: class: %s, code: %s' % (error_class_str, error_code_str)
