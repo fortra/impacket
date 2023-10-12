@@ -58,6 +58,7 @@ from impacket import nmb, ntlm, nt_errors, LOG
 from impacket.structure import Structure
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_OID, asn1encode, ASN1_AID
 from impacket.krb5.gssapi import KRB5_AP_REQ
+import six
 
 # For signing
 import hashlib
@@ -3495,7 +3496,8 @@ class SMB(object):
                 self.login_extended(user, password, domain, lmhash, nthash, use_ntlmv2 = True)
             except:
                 # If the target OS is Windows 5.0 or Samba, let's try using NTLMv1
-                if ntlm_fallback and ((self.get_server_lanman().find('Windows 2000') != -1) or (self.get_server_lanman().find('Samba') != -1)):
+                if ntlm_fallback and ((six.ensure_binary(self.get_server_lanman()).find(b'Windows 2000') != -1) or
+                                      (six.ensure_binary(self.get_server_lanman()).find(b'Samba') != -1)):
                     self.login_extended(user, password, domain, lmhash, nthash, use_ntlmv2 = False)
                     self.__isNTLMv2 = False
                 else:
