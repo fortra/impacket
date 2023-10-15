@@ -411,6 +411,9 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
         files.append(os.path.join(dirName, '..'))
 
     if pattern != '':
+        if not os.path.exists(dirName):
+            return None, 0, STATUS_OBJECT_NAME_NOT_FOUND
+
         for file in os.listdir(dirName):
             if fnmatch.fnmatch(file.lower(), pattern.lower()):
                 entry = os.path.join(dirName, file)
