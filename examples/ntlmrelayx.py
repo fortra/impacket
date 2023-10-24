@@ -305,6 +305,7 @@ if __name__ == '__main__':
                                                                              'SMB Server (16 hex bytes long. eg: 1122334455667788)')
     parser.add_argument('-socks', action='store_true', default=False,
                         help='Launch a SOCKS proxy for the connection relayed')
+    parser.add_argument('-socks-address', default='127.0.0.1:1080', help='SOCKS5 server address, port or address:port, the address is also used for the HTTP API')
     parser.add_argument('-wh','--wpad-host', action='store',help='Enable serving a WPAD file for Proxy Authentication attack, '
                                                                    'setting the proxy host to the one supplied.')
     parser.add_argument('-wa','--wpad-auth-num', action='store', type=int, default=1, help='Prompt for authentication N times for clients without MS16-077 installed '
@@ -471,8 +472,18 @@ if __name__ == '__main__':
     threads = set()
     socksServer = None
     if options.socks is True:
+        socks_address_parts = options.socks_address.split(":")
+        if len(socks_address_parts) == 1 and socks_address_parts[0].isdigit():
+            socks_address = ("127.0.0.1", int(socks_address_parts[0]))
+        elif len(socks_address_parts) == 1 and not socks_address_parts[0].isdigit():
+            socks_address = (socks_address_parts[0], 1080)
+        elif len(socks_address_parts) == 2 and socks_address_parts[1].isdigit():
+            socks_address = (socks_address_parts[0], int(socks_address_parts[1]))
+        else:
+            raise ValueError(f"malformed SOCKS5 server address: {options.socks_address}")
+
         # Start a SOCKS proxy in the background
-        socksServer = SOCKS()
+        socksServer = SOCKS(server_address=socks_address)
         socksServer.daemon_threads = True
         socks_thread = Thread(target=socksServer.serve_forever)
         socks_thread.daemon = True
