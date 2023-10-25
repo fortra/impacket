@@ -411,6 +411,9 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
         files.append(os.path.join(dirName, '..'))
 
     if pattern != '':
+        if not os.path.exists(dirName):
+            return None, 0, STATUS_OBJECT_NAME_NOT_FOUND
+
         for file in os.listdir(dirName):
             if fnmatch.fnmatch(file.lower(), pattern.lower()):
                 entry = os.path.join(dirName, file)
@@ -590,8 +593,8 @@ def queryPathInformation(path, filename, level):
                 infoRecord['PositionInformation']['CurrentByteOffset'] = 0 #
                 infoRecord['ModeInformation']['mode'] = mode
                 infoRecord['AlignmentInformation']['AlignmentRequirement'] = 0 #
-                infoRecord['NameInformation']['FileName'] = fileName
-                infoRecord['NameInformation']['FileNameLength'] = len(fileName)
+                infoRecord['NameInformation']['FileName'] = fileName.encode('utf-16le')
+                infoRecord['NameInformation']['FileNameLength'] = len(fileName.encode('utf-16le'))
             elif level == smb2.SMB2_FILE_NETWORK_OPEN_INFO:
                 infoRecord = smb.SMBFileNetworkOpenInfo()
                 infoRecord['CreationTime'] = getFileTime(ctime)
@@ -3437,8 +3440,11 @@ class SMB2Commands:
                     if informationLevel == smb2.SMB2_FILE_DISPOSITION_INFO:
                         infoRecord = smb.SMBSetFileDispositionInfo(setInfo['Buffer'])
                         if infoRecord['DeletePending'] > 0:
-                            # Mark this file for removal after closed
-                            connData['OpenedFiles'][fileID]['DeleteOnClose'] = True
+                            if os.path.isdir(pathName) and os.listdir(pathName):
+                                errorCode = STATUS_DIRECTORY_NOT_EMPTY
+                            else:
+                                # Mark this file for removal after closed
+                                connData['OpenedFiles'][fileID]['DeleteOnClose'] = True
                     elif informationLevel == smb2.SMB2_FILE_BASIC_INFO:
                         infoRecord = smb.SMBSetFileBasicInfo(setInfo['Buffer'])
                         # Creation time won't be set,  the other ones we play with.
@@ -3729,6 +3735,20 @@ class SMB2Commands:
             data = searchResult[nItem].getData()
             lenData = len(data)
             padLen = (8 - (lenData % 8)) % 8
+
+            # For larger directory we might reach the OutputBufferLength so we need to set 
+            # the NextEntryOffset to 0 for the last entry the will fit the buffer
+            try:
+                # Check if the next data will exceed the OutputBufferLength
+                nextData = searchResult[nItem + 1].getData()
+                lenNextData = len(nextData)
+                nextTotalData = totalData + lenData + padLen + lenNextData
+                if nextTotalData >= queryDirectoryRequest['OutputBufferLength']:
+                    # Set the NextEntryOffset to 0 and get the data again
+                    searchResult[nItem]['NextEntryOffset'] = 0
+                    data = searchResult[nItem].getData()
+            except IndexError:
+                pass
 
             if (totalData + lenData) >= queryDirectoryRequest['OutputBufferLength']:
                 connData['OpenedFiles'][fileID]['Open']['EnumerationLocation'] -= 1
