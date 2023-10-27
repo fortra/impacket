@@ -41,7 +41,7 @@ from impacket.examples import logger
 from impacket.examples.utils import parse_target
 from impacket.system_errors import ERROR_NO_MORE_ITEMS
 from impacket.structure import hexdump
-from impacket.smbconnection import SMBConnection
+from impacket.smbconnection import SMBConnection, SessionError
 from impacket.dcerpc.v5.dtypes import READ_CONTROL
 
 
@@ -173,7 +173,8 @@ class RegHandler:
             self.__remoteOps.enableRegistry()
         except Exception as e:
             logging.debug(str(e))
-            logging.warning('Cannot check RemoteRegistry status. Hoping it is started...')
+            logging.warning('Cannot check RemoteRegistry status. Triggering start trough named pipe...')
+            self.triggerWinReg()
             self.__remoteOps.connectWinReg()
 
         try:
@@ -199,6 +200,17 @@ class RegHandler:
         finally:
             if self.__remoteOps:
                 self.__remoteOps.finish()
+
+    def triggerWinReg(self):
+        # original idea from https://twitter.com/splinter_code/status/1715876413474025704
+        tid = self.__smbConnection.connectTree('IPC$')
+        try:
+            self.__smbConnection.openFile(tid, r'\winreg', 0x12019f, creationOption=0x40, fileAttributes=0x80)
+        except SessionError:
+            # STATUS_PIPE_NOT_AVAILABLE error is expected
+            pass
+        # give remote registry time to start
+        time.sleep(1)
 
     def save(self, dce, keyName):
         hRootKey, subKey = self.__strip_root_key(dce, keyName)
