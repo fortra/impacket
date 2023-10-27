@@ -9,14 +9,14 @@
 #
 # Description:
 #   Dump remote host information in ntlm authentication model, without credentials.
-#   For SMB protocols (1/2/3), it's easy to use SMBConnection class (thanks to @agsolino),
-#   but since negotiate response is not available in original classes,
+#   For SMB protocols (1/2/3), it's easy to use SMBConnection class (thanks to @agsolino), 
+#   but since negotiate response is not available in original classes, 
 #   we made out custom classes based on them.
 #   The usefull information in negotiate response are "Dialect Version", "Signing Options",
 #   "Maximum bytes allowed per smb request" and "Servers time information".
 #   The point is sometimes server dosn't include "boot time" in response. But we show it,
 #   when available, in this script.
-#
+# 
 #   It's very easy to use:
 #       python DumpNTLMInfo.py 192.168.1.63
 #
@@ -30,7 +30,7 @@
 # ToDo:
 #   [ ] MSSQL
 #   [ ] Find new protocols using NTLM for authentication in network.
-#
+# 
 
 import os
 import sys
@@ -103,7 +103,7 @@ class RPC:
         sec_trailer = SEC_TRAILER()
         sec_trailer['auth_type']   = RPC_C_AUTHN_WINNT
         sec_trailer['auth_level']  = RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
-        sec_trailer['auth_ctx_id'] = 0 + 79231
+        sec_trailer['auth_ctx_id'] = 0 + 79231 
         pad = (4 - (len(packet.get_packet()) % 4)) % 4
         if pad != 0:
            packet['pduData'] += b'\xFF'*pad
@@ -115,7 +115,7 @@ class RPC:
 
 
 class SMB1:
-    def __init__(self, remote_name, remote_host, my_name=None,
+    def __init__(self, remote_name, remote_host, my_name=None, 
                     sess_port=445, timeout=60, session=None, negSessionResponse=None):
         self._uid = 0
         self._dialects_data = None
@@ -253,6 +253,7 @@ class SMB1:
         return sessionSetup
 
     def _wrapper(self, sessionResponse):
+        sessionResponse['SecurityMode'] = 0x0
         sessionResponse['DialectRevision'] = SMB_DIALECT
         if self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SIGNATURES_ENABLED:
             sessionResponse['SecurityMode'] = SMB2_NEGOTIATE_SIGNING_ENABLED
@@ -272,7 +273,7 @@ class SMB1:
 
 
 class SMB3:
-    def __init__(self, remote_name, remote_host, my_name=None,
+    def __init__(self, remote_name, remote_host, my_name=None, 
                     sess_port=445, timeout=60, session=None, negSessionResponse=None):
         self._NetBIOSSession = session
         self._sequenceWindow = 0
@@ -427,10 +428,10 @@ class SmbConnection:
         packet = self._negotiateSessionWildcard(True, flags1=flags1, flags2=flags2, data=negoData)
 
         if packet[0:1] == b'\xfe':
-            self._SMBConnection = SMB3(self.hostname, self.target, self._myName, self._sess_port,
+            self._SMBConnection = SMB3(self.hostname, self.target, self._myName, self._sess_port, 
                                         self._timeout, session=self._nmbSession, negSessionResponse=SMB2Packet(packet))
         else:
-            self._SMBConnection = SMB1(self.hostname, self.target, self._myName, self._sess_port,
+            self._SMBConnection = SMB1(self.hostname, self.target, self._myName, self._sess_port, 
                                         self._timeout, session=self._nmbSession, negSessionResponse=packet)
         return self._SMBConnection.GetNegotiateResponse()
 
@@ -503,7 +504,7 @@ class DumpNtlm:
 
         negotiation = connection.NegotiateSession()
         dialect = negotiation['DialectRevision']
-        secMode = negotiation['SecurityMode'] if 'SecurityMode' in negotiation.fields.keys() else 0
+        secMode = negotiation['SecurityMode']
 
         smb1_enabled = connection.IsSmb1Enabled()
 
