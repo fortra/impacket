@@ -179,6 +179,7 @@ class SMB3:
             'ServerCapabilities'       : 0,    #
             'ClientSecurityMode'       : 0,    #
             'ServerSecurityMode'       : 0,    #
+            'SupportsNotifications'    : False,
             # Outside the protocol
             'ServerIP'                 : '',    #
             'ClientName'               : '',    #
@@ -209,6 +210,7 @@ class SMB3:
             'DecryptionKey'            : '',
             'SigningKey'               : '',
             'ApplicationKey'           : b'',
+            'SupportsNotification'     : False,
             # Outside the protocol
             'SessionFlags'             : 0,     #
             'ServerName'               : '',    #
@@ -624,6 +626,8 @@ class SMB3:
                 self._Connection['SupportsPersistentHandles'] = True
             if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_ENCRYPTION) == SMB2_GLOBAL_CAP_ENCRYPTION:
                 self._Connection['SupportsEncryption'] = True
+            if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_NOTIFICATIONS) == SMB2_GLOBAL_CAP_NOTIFICATIONS:
+                self._Connection['SupportsNotifications'] = True
 
             self._Connection['ServerCapabilities'] = negResp['Capabilities']
             self._Connection['ServerSecurityMode'] = negResp['SecurityMode']
@@ -782,6 +786,7 @@ class SMB3:
         if ans.isValidAnswer(STATUS_SUCCESS):
             self._Session['SessionID']       = ans['SessionID']
             self._Session['SigningRequired'] = self._Connection['RequireSigning']
+            self._Session['SupportsNotification'] = self._Connection['SupportsNotifications']
             self._Session['UserCredentials'] = (user, password, domain, lmhash, nthash)
             self._Session['Connection']      = self._NetBIOSSession.get_socket()
 
@@ -889,6 +894,7 @@ class SMB3:
             self._Session['SigningActivated']  = False
             self._Session['CalculatePreAuthHash'] = False
             self._Session['PreauthIntegrityHashValue'] = a2b_hex(b'0'*128)
+            self._Session['SupportsNotification'] = False
             raise Exception('Unsuccessful Login')
 
 
@@ -957,6 +963,7 @@ class SMB3:
         if ans.isValidAnswer(STATUS_MORE_PROCESSING_REQUIRED):
             self._Session['SessionID']       = ans['SessionID']
             self._Session['SigningRequired'] = self._Connection['RequireSigning']
+            self._Session['SupportsNotification'] = self._Connection['SupportsNotifications']
             self._Session['UserCredentials'] = (user, password, domain, lmhash, nthash)
             self._Session['Connection']      = self._NetBIOSSession.get_socket()
             sessionSetupResponse = SMB2SessionSetup_Response(ans['Data'])
@@ -1094,6 +1101,7 @@ class SMB3:
                 self._Session['SigningActivated']  = False
                 self._Session['CalculatePreAuthHash'] = False
                 self._Session['PreauthIntegrityHashValue'] = a2b_hex(b'0'*128)
+                self._Session['SupportsNotification'] = False
                 raise
 
     def connectTree(self, share):
@@ -1575,6 +1583,7 @@ class SMB3:
             self._Session['SigningKey']        = ''
             self._Session['SessionKey']        = ''
             self._Session['SigningActivated']  = False
+            self._Session['SupportsNotification'] = False
             return True
 
     def queryInfo(self, treeId, fileId, inputBlob = '', infoType = SMB2_0_INFO_FILE, fileInfoClass = SMB2_FILE_STANDARD_INFO, additionalInformation = 0, flags = 0 ):
