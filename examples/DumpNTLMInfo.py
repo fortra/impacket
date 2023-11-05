@@ -253,6 +253,7 @@ class SMB1:
         return sessionSetup
 
     def _wrapper(self, sessionResponse):
+        sessionResponse['SecurityMode'] = 0x0
         sessionResponse['DialectRevision'] = SMB_DIALECT
         if self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SIGNATURES_ENABLED:
             sessionResponse['SecurityMode'] = SMB2_NEGOTIATE_SIGNING_ENABLED
@@ -661,4 +662,3 @@ if __name__ == '__main__':
             import traceback
             traceback.print_exc()
         logging.error(str(e))
- 
