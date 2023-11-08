@@ -712,7 +712,7 @@ class KerberosError(SessionError):
         return self.packet
 
     def getErrorString( self ):
-        return constants.ERROR_MESSAGES[self.error]
+        return str(self)
 
     def __str__( self ):
         retString = 'Kerberos SessionError: %s(%s)' % (constants.ERROR_MESSAGES[self.error])
@@ -721,7 +721,13 @@ class KerberosError(SessionError):
             if self.error == constants.ErrorCodes.KRB_ERR_GENERIC.value:
                 eData = decoder.decode(self.packet['e-data'], asn1Spec = KERB_ERROR_DATA())[0]
                 nt_error = struct.unpack('<L', eData['data-value'].asOctets()[:4])[0]
-                retString += '\nNT ERROR: %s(%s)' % (nt_errors.ERROR_MESSAGES[nt_error])
+
+                if nt_error in nt_errors.ERROR_MESSAGES:
+                    error_msg_short = nt_errors.ERROR_MESSAGES[nt_error][0] 
+                    error_msg_verbose = nt_errors.ERROR_MESSAGES[nt_error][1] 
+                    retString += '\nNT ERROR: code: 0x%x - %s - %s' % (nt_error, error_msg_short, error_msg_verbose)
+                else:
+                    retString += '\nNT ERROR: unknown error code: 0x%x' % nt_error
         except:
             pass
 
