@@ -2457,7 +2457,7 @@ class SMBCommands:
                             mechStr = MechTypes[mechType]
                         else:
                             mechStr = hexlify(mechType)
-                        smbServer.log("Unsupported MechType '%s'" % mechStr, logging.CRITICAL)
+                        smbServer.log("Unsupported MechType '%s'" % mechStr, logging.DEBUG)
                         # We don't know the token, we answer back again saying
                         # we just support NTLM.
                         # ToDo: Build this into a SPNEGO_NegTokenResp()
@@ -2859,7 +2859,7 @@ class SMB2Commands:
                         mechStr = MechTypes[mechType]
                     else:
                         mechStr = hexlify(mechType)
-                    smbServer.log("Unsupported MechType '%s'" % mechStr, logging.CRITICAL)
+                    smbServer.log("Unsupported MechType '%s'" % mechStr, logging.DEBUG)
                     # We don't know the token, we answer back again saying
                     # we just support NTLM.
                     # ToDo: Build this into a SPNEGO_NegTokenResp()
