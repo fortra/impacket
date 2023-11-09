@@ -244,7 +244,7 @@ def activeConnectionsWatcher(server):
             client.killConnection()
 
 
-def webService(addr):
+def webService(addr, port):
     def _webService(server):
         from flask import Flask, jsonify
 
@@ -274,7 +274,7 @@ def webService(addr):
         def get_info(relay):
             pass
 
-        app.run(host=addr, port=9090)
+        app.run(host=addr, port=port)
 
     return _webService
 
@@ -457,7 +457,7 @@ class SocksRequestHandler(socketserver.BaseRequestHandler):
 
 
 class SOCKS(socketserver.ThreadingMixIn, socketserver.TCPServer):
-    def __init__(self, server_address=('127.0.0.1', 1080), handler_class=SocksRequestHandler):
+    def __init__(self, server_address=('127.0.0.1', 1080), handler_class=SocksRequestHandler, api_port=9090):
         LOG.info('SOCKS proxy started. Listening on %s:%d', server_address[0], server_address[1])
 
         self.activeRelays = {}
@@ -480,7 +480,7 @@ class SOCKS(socketserver.ThreadingMixIn, socketserver.TCPServer):
         self.__timer = RepeatedTimer(KEEP_ALIVE_TIMER, keepAliveTimer, self)
 
         # Let's start our RESTful API
-        self.restAPI = Thread(target=webService(server_address[0]), args=(self, ))
+        self.restAPI = Thread(target=webService(server_address[0], api_port), args=(self, ))
         self.restAPI.daemon = True
         self.restAPI.start()
 
