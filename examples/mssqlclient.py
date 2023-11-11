@@ -54,6 +54,9 @@ if __name__ == '__main__':
                                                                             '(128 or 256 bits)')
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
                        'ommited it use the domain part (FQDN) specified in the target parameter')
+    group.add_argument('-target-ip', action='store', metavar = "ip address",
+                       help='IP Address of the target machine. If omitted it will use whatever was specified as target. '
+                            'This is useful when target is the NetBIOS name and you cannot resolve it')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -68,7 +71,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    domain, username, password, address = parse_target(options.target)
+    domain, username, password, remoteName = parse_target(options.target)
 
     if domain is None:
         domain = ''
@@ -77,10 +80,13 @@ if __name__ == '__main__':
         from getpass import getpass
         password = getpass("Password:")
 
+    if options.target_ip is None:
+        options.target_ip = remoteName
+
     if options.aesKey is not None:
         options.k = True
 
-    ms_sql = tds.MSSQL(address, int(options.port))
+    ms_sql = tds.MSSQL(options.target_ip, int(options.port), remoteName)
     ms_sql.connect()
     try:
         if options.k is True:
