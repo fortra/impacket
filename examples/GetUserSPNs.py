@@ -252,7 +252,7 @@ class GetUserSPNs:
             except Exception as e:
                 logging.error(str(e))
 
-    def get_ldap_connection(self, protocol='ldap'):
+    def get_ldap_connection(self, protocol='ldap', valid=False):
         if self.__doKerberos is True:
             try:
                 ldapConnection = ldap.LDAPConnection('%s://%s' % (protocol, self.__target), self.baseDN, self.__kdcIP)
@@ -296,20 +296,28 @@ class GetUserSPNs:
             connection = ldap3.Connection(server, user=ldapUser, password=self.__password,
                                           authentication=ldap3.NTLM)
         if not connection.bind():
-            if connection.result['result'] == ldap3.core.results.RESULT_STRONGER_AUTH_REQUIRED and protocol == 'ldaps':
-                logging.warning('Authentication failed with ldaps, trying channel binding')
-                self.__ldap_channel_binding = True
-                self.get_ldap_connection(protocol='ldaps')
-                return get_ldap_connection()
-            elif connection.result['result'] == ldap3.core.results.RESULT_STRONGER_AUTH_REQUIRED and protocol == 'ldap':
-                logging.warning('Authentication failed with ldaps, trying ldaps')
-                self.get_ldap_connection(protocol='ldaps')
-                return get_ldap_connection()
+            if connection.result['result'] == ldap3.core.results.RESULT_INVALID_CREDENTIALS and valid is True\
+                    and protocol == 'ldaps' and self.__ldap_channel_binding is False:
+                    logging.warning('Authentication failed with LDAPS, trying with channel binding')
+                    self.__ldap_channel_binding = True
+                    return self.get_ldap_connection(protocol='ldaps', valid=valid)
+            elif connection.result['result'] == ldap3.core.results.RESULT_STRONGER_AUTH_REQUIRED:
+                if protocol == 'ldaps' and self.__ldap_channel_binding is False:
+                    logging.warning('Authentication failed with LDAPS, trying with channel binding')
+                    self.__ldap_channel_binding = True
+                    return self.get_ldap_connection(protocol='ldaps', valid=valid)
+                if protocol == 'ldap':
+                    # setting this because we would not have received RESULT_STRONGER_AUTH_REQUIRED
+                    # if the credentials were invalid. This is important because a lack of ldap channel binding
+                    # in an environment that enforces it will often show up as a (misnomer) error RESULT_INVALID_CREDENTIALS
+                    valid = True
+                    logging.warning('Authentication failed with LDAP, trying LDAPS')
+                    return self.get_ldap_connection(protocol='ldaps', valid=valid)
             else:
-                raise Exception('Failed to authenticate. Error: %s Code: %d' % (connection.result['message'], connection.result['result']))
+                raise Exception('Failed to authenticate. Error: %s' 
+                                % ldap3.core.results.RESULT_CODES[connection.result['result']])
         logging.info('Successfully authenticated')
         self.__root = server.info.other['defaultNamingContext'][0]
-
         return connection
 
     def run(self):
