@@ -326,40 +326,6 @@ class SMBRelayClient(ProtocolClient):
         else:
             challenge.fromString(self.sendNegotiatev2(negotiateMessage))
 
-        from impacket.ntlm import AV_PAIRS, NTLMSSP_AV_HOSTNAME, NTLMSSP_AV_DOMAINNAME, NTLMSSP_AV_DNS_DOMAINNAME, NTLMSSP_AV_DNS_HOSTNAME
-        if challenge['TargetInfoFields_len'] > 0:
-            av_pairs = AV_PAIRS(challenge['TargetInfoFields'][:challenge['TargetInfoFields_len']])
-            if av_pairs[NTLMSSP_AV_HOSTNAME] is not None:
-                try:
-                    self.sessionData['ServerName'] = av_pairs[NTLMSSP_AV_HOSTNAME][1].decode('utf-16le')
-                except:
-                    # For some reason, we couldn't decode Unicode here.. silently discard the operation
-                    pass
-            if av_pairs[NTLMSSP_AV_DOMAINNAME] is not None:
-                try:
-                    if self.sessionData['ServerName'] != av_pairs[NTLMSSP_AV_DOMAINNAME][1].decode('utf-16le'):
-                        self.sessionData['ServerDomain'] = av_pairs[NTLMSSP_AV_DOMAINNAME][1].decode('utf-16le')
-                except:
-                    # For some reason, we couldn't decode Unicode here.. silently discard the operation
-                    pass
-            if av_pairs[NTLMSSP_AV_DNS_DOMAINNAME] is not None:
-                try:
-                    self.sessionData['ServerDNSDomainName'] = av_pairs[NTLMSSP_AV_DNS_DOMAINNAME][1].decode('utf-16le')
-                except:
-                    # For some reason, we couldn't decode Unicode here.. silently discard the operation
-                    pass
-
-            if av_pairs[NTLMSSP_AV_DNS_HOSTNAME] is not None:
-                try:
-                    self.sessionData['ServerDNSHostName'] = av_pairs[NTLMSSP_AV_DNS_HOSTNAME][1].decode('utf-16le')
-                except:
-                    # For some reason, we couldn't decode Unicode here.. silently discard the operation
-                    pass
-
-        self.session._SMBConnection._SMB__server_name = self.sessionData['ServerName']
-        self.session._SMBConnection._SMB__server_dns_domain_name = self.sessionData['ServerDNSDomainName']
-        self.session._SMBConnection._SMB__server_domain = self.sessionData['ServerDomain']
-
         self.negotiateMessage = negotiateMessage
         self.challengeMessage = challenge.getData()
 

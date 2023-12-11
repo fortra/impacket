@@ -26,6 +26,8 @@
 #
 # ToDo:
 #   [X] Add the capability for requesting TGS and output them in JtR/hashcat format
+#   [X] Improve the search filter, we have to specify we don't want machine accounts in the answer
+#       (play with userAccountControl)
 #
 
 from __future__ import division
@@ -291,17 +293,13 @@ class GetUserSPNs:
                 raise
 
         # Building the search filter
-        filter_person = "objectCategory=person"
-        filter_not_disabled = "!(userAccountControl:1.2.840.113556.1.4.803:=2)"
-
-        searchFilter = "(&"
-        searchFilter += "(" + filter_person + ")"
-        searchFilter += "(" + filter_not_disabled + ")"
+        searchFilter = "(&(servicePrincipalName=*)(UserAccountControl:1.2.840.113556.1.4.803:=512)" \
+                       "(!(UserAccountControl:1.2.840.113556.1.4.803:=2))(!(objectCategory=computer))"
 
         if self.__requestUser is not None:
-            searchFilter += '(sAMAccountName:=%s)' % self.__requestUser
-
-        searchFilter += ')'
+            searchFilter += '(sAMAccountName:=%s))' % self.__requestUser
+        else:
+            searchFilter += ')'
 
         try:
             resp = ldapConnection.search(searchFilter=searchFilter,
@@ -320,6 +318,7 @@ class GetUserSPNs:
 
         answers = []
         logging.debug('Total of records returned %d' % len(resp))
+
         for item in resp:
             if isinstance(item, ldapasn1.SearchResultEntry) is not True:
                 continue
