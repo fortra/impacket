@@ -8,9 +8,8 @@
 # for more information.
 #
 # Description:
-#   This script is inspired from Alberto Solino's -> imacket-GetAdUsers. 
+#   This script  is inspired from Alberto Solino's -> imacket-GetAdUsers. 
 #   This script will make a LDAP query to DC and gather information about all the COMPUTERS present in DC.
-#   31-12-2023 have tested in 2 differnt environments and it worked find both via PASSWORD and HASH based authentication.
 #   
 #
 # Inspired from author:
@@ -41,7 +40,7 @@ from impacket.ldap import ldap, ldapasn1
 from impacket.smbconnection import SMBConnection, SessionError
 
 
-class GetADUsers:
+class GetADComputers:
     def __init__(self, username, password, domain, cmdLineOptions):
         self.options = cmdLineOptions
         self.__username = username
@@ -263,7 +262,7 @@ if __name__ == '__main__':
         options.k = True
 
     try:
-        executer = GetADUsers(username, password, domain, options)
+        executer = GetADComputers(username, password, domain, options)
         executer.run()
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
