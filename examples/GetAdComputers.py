@@ -8,8 +8,9 @@
 # for more information.
 #
 # Description:
-#   This script  is inspired from Alberto Solino's -> imacket-GetAdUsers. 
+#   This script is inspired from Alberto Solino's -> imacket-GetAdUsers. 
 #   This script will make a LDAP query to DC and gather information about all the COMPUTERS present in DC.
+#   31-12-2023 have tested in 2 differnt evnrioments and it worked find both via PASSWORD and HASH based authentication.
 #   
 #
 # Inspired from author:
