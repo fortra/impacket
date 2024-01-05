@@ -502,6 +502,19 @@ class PA_FOR_USER_ENC(univ.Sequence):
         _sequence_optional_component('cksum', 2, Checksum()),
         _sequence_optional_component('auth-package', 3, KerberosString()))
 
+class S4UUserID(univ.Sequence):
+    componentType = namedtype.NamedTypes(
+        _sequence_component('nonce', 0, UInt32()),
+        _sequence_optional_component("cname", 1, PrincipalName()),
+        _sequence_component("crealm", 2, Realm()),
+        _sequence_optional_component("subject-certificate", 3, univ.OctetString()),
+        _sequence_optional_component('options', 4, univ.BitString()))
+
+class PA_S4U_X509_USER(univ.Sequence):
+    componentType = namedtype.NamedTypes(
+        _sequence_component('user-id', 0, S4UUserID()),
+        _sequence_component('checksum', 1, Checksum()))
+
 class KERB_ERROR_DATA(univ.Sequence):
     componentType = namedtype.NamedTypes(
         _sequence_component('data-type', 1, Int32()),

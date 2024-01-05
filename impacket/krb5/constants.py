@@ -102,6 +102,7 @@ class PreAuthenticationDataTypes(Enum):
     TD_REQ_SEQ                 = 108
     PA_PAC_REQUEST             = 128
     PA_FOR_USER                = 129
+    PA_S4U_X509_USER           = 130
     PA_FX_COOKIE               = 133 
     PA_FX_FAST                 = 136
     PA_FX_ERROR                = 137
