@@ -82,7 +82,7 @@ from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
 
 from impacket.krb5 import constants, pac
 from impacket.krb5.asn1 import AP_REQ, TGS_REQ, Authenticator, seq_set, seq_set_iter, PA_FOR_USER_ENC, Ticket as TicketAsn1
-from impacket.krb5.crypto import _HMACMD5, _AES256CTS, string_to_key
+from impacket.krb5.crypto import _HMACMD5, string_to_key
 from impacket.krb5.kerberosv5 import sendReceive
 from impacket.krb5.types import Ticket
 from impacket.winregistry import hexdump
@@ -125,7 +125,7 @@ class TICKETER:
         keytab = Keytab.loadFile(filename)
         keyblock = keytab.getKey("%s@%s" % (options.spn, self.__domain))
         if keyblock:
-            if keyblock["keytype"] == Enctype.AES256 or keyblock["keytype"] == Enctype.AES128:
+            if keyblock["keytype"] == Enctype.AES256_SHA1 or keyblock["keytype"] == Enctype.AES128_SHA1:
                 options.aesKey = keyblock.hexlifiedValue()
             elif keyblock["keytype"] == Enctype.RC4:
                 options.nthash = keyblock.hexlifiedValue()
@@ -988,9 +988,9 @@ class TICKETER:
 
         checkSumFunctionServer = _checksum_table[serverChecksum['SignatureType']]
         if serverChecksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes256.value:
-            keyServer = Key(Enctype.AES256, unhexlify(self.__options.aesKey))
+            keyServer = Key(Enctype.AES256_SHA1, unhexlify(self.__options.aesKey))
         elif serverChecksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes128.value:
-            keyServer = Key(Enctype.AES128, unhexlify(self.__options.aesKey))
+            keyServer = Key(Enctype.AES128_SHA1, unhexlify(self.__options.aesKey))
         elif serverChecksum['SignatureType'] == ChecksumTypes.hmac_md5.value:
             keyServer = Key(Enctype.RC4, unhexlify(self.__options.nthash))
         else:
@@ -998,9 +998,9 @@ class TICKETER:
 
         checkSumFunctionPriv = _checksum_table[privSvrChecksum['SignatureType']]
         if privSvrChecksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes256.value:
-            keyPriv = Key(Enctype.AES256, unhexlify(self.__options.aesKey))
+            keyPriv = Key(Enctype.AES256_SHA1, unhexlify(self.__options.aesKey))
         elif privSvrChecksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes128.value:
-            keyPriv = Key(Enctype.AES128, unhexlify(self.__options.aesKey))
+            keyPriv = Key(Enctype.AES128_SHA1, unhexlify(self.__options.aesKey))
         elif privSvrChecksum['SignatureType'] == ChecksumTypes.hmac_md5.value:
             keyPriv = Key(Enctype.RC4, unhexlify(self.__options.nthash))
         else:

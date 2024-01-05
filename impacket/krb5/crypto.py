@@ -55,7 +55,7 @@ from os import urandom
 from struct import pack, unpack
 
 from Cryptodome.Cipher import AES, DES3, ARC4, DES
-from Cryptodome.Hash import HMAC, MD4, MD5, SHA
+from Cryptodome.Hash import HMAC, MD4, MD5, SHA1
 from Cryptodome.Protocol.KDF import PBKDF2
 from Cryptodome.Util.number import GCD as gcd
 from six import b, PY3, indexbytes, binary_type
@@ -70,8 +70,8 @@ class Enctype(object):
     DES_MD4 = 2
     DES_MD5 = 3
     DES3 = 16
-    AES128 = 17
-    AES256 = 18
+    AES128_SHA1 = 17
+    AES256_SHA1 = 18
     RC4 = 23
 
 
@@ -383,7 +383,7 @@ class _DES3CBC(_SimplifiedEnctype):
     blocksize = 8
     padsize = 8
     macsize = 20
-    hashmod = SHA
+    hashmod = SHA1
 
     @classmethod
     def random_to_key(cls, seed):
@@ -434,12 +434,12 @@ class _DES3CBC(_SimplifiedEnctype):
         return des3.decrypt(bytes(ciphertext))
 
 
-class _AESEnctype(_SimplifiedEnctype):
+class _AES_SHA1_Enctype(_SimplifiedEnctype):
     # Base class for aes128-cts and aes256-cts.
     blocksize = 16
     padsize = 1
     macsize = 12
-    hashmod = SHA
+    hashmod = SHA1
 
     @classmethod
     def string_to_key(cls, string, salt, params):
@@ -449,7 +449,7 @@ class _AESEnctype(_SimplifiedEnctype):
             salt = salt.encode("utf-8")
 
         (iterations,) = unpack('>L', params or b'\x00\x00\x10\x00')
-        prf = lambda p, s: HMAC.new(p, s, SHA).digest()
+        prf = lambda p, s: HMAC.new(p, s, SHA1).digest()
         seed = PBKDF2(string, salt, cls.seedsize, iterations, prf)
         tkey = cls.random_to_key(seed)
         return cls.derive(tkey, b'kerberos')
@@ -495,14 +495,14 @@ class _AESEnctype(_SimplifiedEnctype):
         return plaintext + lastplaintext
 
 
-class _AES128CTS(_AESEnctype):
-    enctype = Enctype.AES128
+class _AES128_SHA1_CTS(_AES_SHA1_Enctype):
+    enctype = Enctype.AES128_SHA1
     keysize = 16
     seedsize = 16
 
 
-class _AES256CTS(_AESEnctype):
-    enctype = Enctype.AES256
+class _AES256_SHA1_CTS(_AES_SHA1_Enctype):
+    enctype = Enctype.AES256_SHA1
     keysize = 32
     seedsize = 32
 
@@ -556,7 +556,7 @@ class _RC4(_EnctypeProfile):
 
     @classmethod
     def prf(cls, key, string):
-        return HMAC.new(key.contents, bytes(string), SHA).digest()
+        return HMAC.new(key.contents, bytes(string), SHA1).digest()
 
 
 class _ChecksumProfile(object):
@@ -593,12 +593,12 @@ class _SimplifiedChecksum(_ChecksumProfile):
 
 class _SHA1AES128(_SimplifiedChecksum):
     macsize = 12
-    enc = _AES128CTS
+    enc = _AES128_SHA1_CTS
 
 
 class _SHA1AES256(_SimplifiedChecksum):
     macsize = 12
-    enc = _AES256CTS
+    enc = _AES256_SHA1_CTS
 
 
 class _SHA1DES3(_SimplifiedChecksum):
@@ -623,8 +623,8 @@ class _HMACMD5(_ChecksumProfile):
 _enctype_table = {
     Enctype.DES_MD5: _DESCBC,
     Enctype.DES3: _DES3CBC,
-    Enctype.AES128: _AES128CTS,
-    Enctype.AES256: _AES256CTS,
+    Enctype.AES128_SHA1: _AES128_SHA1_CTS,
+    Enctype.AES256_SHA1: _AES256_SHA1_CTS,
     Enctype.RC4: _RC4
 }
 
