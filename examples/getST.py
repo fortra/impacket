@@ -8,7 +8,7 @@
 # for more information.
 #
 # Description:
-#   Given a password, hash, aesKey or TGT in ccache, it will request a Service Ticket and save it as ccache
+#   Given a password, hash, aesKey, aesSha2Key or TGT in ccache, it will request a Service Ticket and save it as ccache
 #   If the account has constrained delegation (with protocol transition) privileges you will be able to use
 #   the -impersonate switch to request the ticket on behalf other user (it will use S4U2Self/S4U2Proxy to
 #   request the ticket.)
@@ -54,15 +54,31 @@ from impacket import version
 from impacket.examples import logger
 from impacket.examples.utils import parse_credentials
 from impacket.krb5 import constants
-from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, seq_set, seq_set_iter, PA_FOR_USER_ENC, \
+from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, seq_set, seq_set_iter, PA_S4U_X509_USER, S4UUserID, \
     Ticket as TicketAsn1, EncTGSRepPart, PA_PAC_OPTIONS, EncTicketPart
 from impacket.krb5.ccache import CCache
-from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, _AES256_SHA1_CTS, Enctype
+from impacket.krb5.crypto import Key, _enctype_table, make_checksum, string_to_key, Enctype
 from impacket.krb5.constants import TicketFlags, encodeFlags
 from impacket.krb5.kerberosv5 import getKerberosTGS, getKerberosTGT, sendReceive
 from impacket.krb5.types import Principal, KerberosTime, Ticket
 from impacket.ntlm import compute_nthash
 from impacket.winregistry import hexdump
+
+def cksumtype_for_enctype(enctype):
+    options = {
+        Enctype.DES_MD4: constants.ChecksumTypes.rsa_md4_des.value,
+        Enctype.DES_MD5: constants.ChecksumTypes.rsa_md5_des.value,
+        Enctype.DES3: constants.ChecksumTypes.hmac_sha1_des3_kd.value,
+        Enctype.RC4: constants.ChecksumTypes.hmac_md5.value,
+        Enctype.AES128_SHA1: constants.ChecksumTypes.hmac_sha1_96_aes128.value,
+        Enctype.AES256_SHA1: constants.ChecksumTypes.hmac_sha1_96_aes256.value,
+        Enctype.AES128_SHA256: constants.ChecksumTypes.hmac_sha256_128_aes128.value,
+        Enctype.AES256_SHA384: constants.ChecksumTypes.hmac_sha384_192_aes256.value
+    }
+
+    if enctype not in options:
+        raise ValueError('No checksum type for enctype %d' % enctype)
+    return options[enctype]
 
 
 class GETST:
@@ -73,6 +89,7 @@ class GETST:
         self.__lmhash = ''
         self.__nthash = ''
         self.__aesKey = options.aesKey
+        self.__aesSha2Key = options.aesSha2Key
         self.__options = options
         self.__kdcHost = options.dc_ip
         self.__force_forwardable = options.force_forwardable
@@ -88,7 +105,7 @@ class GETST:
         ccache.fromTGS(ticket, sessionKey, sessionKey)
         ccache.saveFile(self.__saveFileName + '.ccache')
 
-    def doS4U2ProxyWithAdditionalTicket(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost, additional_ticket_path):
+    def doS4U2ProxyWithAdditionalTicket(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, aesSha2Key, kdcHost, additional_ticket_path):
         if not os.path.isfile(additional_ticket_path):
             logging.error("Ticket %s doesn't exist" % additional_ticket_path)
             exit(0)
@@ -118,6 +135,11 @@ class GETST:
                         aesKey = unhexlify(aesKey)
                     except TypeError:
                         pass
+                if isinstance(aesSha2Key, str):
+                    try:
+                        aesSha2Key = unhexlify(aesSha2Key)
+                    except TypeError:
+                        pass
 
                 # Compute NTHash and AESKey if they're not provided in arguments
                 if self.__password != '' and self.__domain != '' and self.__user != '':
@@ -128,10 +150,16 @@ class GETST:
                             print(hexlify(nthash).decode())
                     if not aesKey:
                         salt = self.__domain.upper() + self.__user
-                        aesKey = _AES256_SHA1_CTS.string_to_key(self.__password, salt, params=None).contents
+                        aesSha2Key = string_to_key(Enctype.AES256_SHA1, self.__password, salt, params=None).contents
                         if logging.getLogger().level == logging.DEBUG:
                             logging.debug('AESKey')
                             print(hexlify(aesKey).decode())
+                    if not aesSha2Key:
+                        salt = self.__domain.upper() + self.__user
+                        aesSha2Key = string_to_key(Enctype.AES256_SHA384, self.__password, salt, params=None).contents
+                        if logging.getLogger().level == logging.DEBUG:
+                            logging.debug('AESSHA2Key')
+                            print(hexlify(aesSha2Key).decode())
 
                 # Get the encrypted ticket returned in the TGS. It's encrypted with one of our keys
                 cipherText = tgs['ticket']['enc-part']['cipher']
@@ -141,8 +169,10 @@ class GETST:
                 newCipher = _enctype_table[int(tgs['ticket']['enc-part']['etype'])]
                 if newCipher.enctype == Enctype.RC4:
                     key = Key(newCipher.enctype, nthash)
-                else:
+                elif newCipher.enctype in (Enctype.AES128_SHA1, Enctype.AES256_SHA1):
                     key = Key(newCipher.enctype, aesKey)
+                else:
+                    key = Key(newCipher.enctype, aesSha2Key)
 
                 # Decrypt and decode the ticket
                 # Key Usage 2
@@ -266,10 +296,7 @@ class GETST:
             reqBody['nonce'] = random.getrandbits(31)
             seq_set_iter(reqBody, 'etype',
                          (
-                             int(constants.EncryptionTypes.rc4_hmac.value),
-                             int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
-                             int(constants.EncryptionTypes.des_cbc_md5.value),
-                             int(cipher.enctype)
+                             int(cipher.enctype),
                          )
                          )
             message = encoder.encode(tgsReq)
@@ -295,11 +322,20 @@ class GETST:
 
             return r, cipher, sessionKey, newSessionKey
 
-    def doS4U(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost):
+    def doS4U(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, aesSha2Key, kdcHost):
         decodedTGT = decoder.decode(tgt, asn1Spec=AS_REP())[0]
         # Extract the ticket from the TGT
         ticket = Ticket()
         ticket.from_asn1(decodedTGT['ticket'])
+
+        nonce = random.getrandbits(31)
+
+        tgsReq = TGS_REQ()
+
+        tgsReq['pvno'] = 5
+        tgsReq['msg-type'] = int(constants.ApplicationTagNumbers.TGS_REQ.value)
+
+        tgsReq['padata'] = noValue
 
         apReq = AP_REQ()
         apReq['pvno'] = 5
@@ -309,6 +345,27 @@ class GETST:
         apReq['ap-options'] = constants.encodeFlags(opts)
         seq_set(apReq, 'ticket', ticket.to_asn1)
 
+        reqBody = seq_set(tgsReq, 'req-body')
+
+        opts = list()
+        opts.append(constants.KDCOptions.forwardable.value)
+        opts.append(constants.KDCOptions.renewable.value)
+        opts.append(constants.KDCOptions.canonicalize.value)
+
+        reqBody['kdc-options'] = constants.encodeFlags(opts)
+
+        serverName = Principal(self.__user, type=constants.PrincipalNameType.NT_UNKNOWN.value)
+
+        seq_set(reqBody, 'sname', serverName.components_to_asn1)
+        reqBody['realm'] = str(decodedTGT['crealm'])
+
+        now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+
+        reqBody['till'] = KerberosTime.to_asn1(now)
+        reqBody['nonce'] = nonce
+        seq_set_iter(reqBody, 'etype',
+                     (int(cipher.enctype),))
+
         authenticator = Authenticator()
         authenticator['authenticator-vno'] = 5
         authenticator['crealm'] = str(decodedTGT['crealm'])
@@ -317,6 +374,19 @@ class GETST:
         clientName.from_asn1(decodedTGT, 'crealm', 'cname')
 
         seq_set(authenticator, 'cname', clientName.components_to_asn1)
+
+        reqBodyEncCksumType = cksumtype_for_enctype(cipher.enctype)
+
+        reqBodyEnc = encoder.encode(reqBody)[2:]
+        reqBodyEncCksum = make_checksum(reqBodyEncCksumType, sessionKey, 6, reqBodyEnc)
+
+        if logging.getLogger().level == logging.DEBUG:
+            logging.debug('KDC-REQ-BODY checksum')
+            hexdump(reqBodyEncCksum)
+
+        authenticator['cksum'] = noValue
+        authenticator['cksum']['cksumtype'] = int(reqBodyEncCksumType)
+        authenticator['cksum']['checksum'] = reqBodyEncCksum
 
         now = datetime.datetime.utcnow()
         authenticator['cusec'] = now.microsecond
@@ -341,12 +411,6 @@ class GETST:
 
         encodedApReq = encoder.encode(apReq)
 
-        tgsReq = TGS_REQ()
-
-        tgsReq['pvno'] = 5
-        tgsReq['msg-type'] = int(constants.ApplicationTagNumbers.TGS_REQ.value)
-
-        tgsReq['padata'] = noValue
         tgsReq['padata'][0] = noValue
         tgsReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_TGS_REQ.value)
         tgsReq['padata'][0]['padata-value'] = encodedApReq
@@ -356,61 +420,34 @@ class GETST:
         # identified to the KDC by the user's name and realm.
         clientName = Principal(self.__options.impersonate, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
 
-        S4UByteArray = struct.pack('<I', constants.PrincipalNameType.NT_PRINCIPAL.value)
-        S4UByteArray += b(self.__options.impersonate) + b(self.__domain) + b'Kerberos'
+        s4uUserId = S4UUserID()
+        s4uUserId['nonce'] = nonce
+        seq_set(s4uUserId, 'cname', clientName.components_to_asn1)
+        s4uUserId['crealm'] = self.__domain
+
+        s4uUserIdEncCksumType = cksumtype_for_enctype(cipher.enctype)
+
+        s4uUserIdEnc = encoder.encode(s4uUserId)
+        s4uUserIdEncCksum = make_checksum(s4uUserIdEncCksumType, sessionKey, 26, s4uUserIdEnc)
+
+        paS4uX509User = PA_S4U_X509_USER()
+        paS4uX509User['user-id'] = noValue
+        paS4uX509User['user-id']['nonce'] = nonce
+        seq_set(paS4uX509User['user-id'], 'cname', clientName.components_to_asn1)
+        paS4uX509User['user-id']['crealm'] = self.__domain
+        paS4uX509User['checksum'] = noValue
+        paS4uX509User['checksum']['cksumtype'] = int(s4uUserIdEncCksumType)
+        paS4uX509User['checksum']['checksum'] = s4uUserIdEncCksum
 
         if logging.getLogger().level == logging.DEBUG:
-            logging.debug('S4UByteArray')
-            hexdump(S4UByteArray)
-
-        # Finally cksum is computed by calling the KERB_CHECKSUM_HMAC_MD5 hash
-        # with the following three parameters: the session key of the TGT of
-        # the service performing the S4U2Self request, the message type value
-        # of 17, and the byte array S4UByteArray.
-        checkSum = _HMACMD5.checksum(sessionKey, 17, S4UByteArray)
-
-        if logging.getLogger().level == logging.DEBUG:
-            logging.debug('CheckSum')
-            hexdump(checkSum)
-
-        paForUserEnc = PA_FOR_USER_ENC()
-        seq_set(paForUserEnc, 'userName', clientName.components_to_asn1)
-        paForUserEnc['userRealm'] = self.__domain
-        paForUserEnc['cksum'] = noValue
-        paForUserEnc['cksum']['cksumtype'] = int(constants.ChecksumTypes.hmac_md5.value)
-        paForUserEnc['cksum']['checksum'] = checkSum
-        paForUserEnc['auth-package'] = 'Kerberos'
-
-        if logging.getLogger().level == logging.DEBUG:
-            logging.debug('PA_FOR_USER_ENC')
-            print(paForUserEnc.prettyPrint())
-
-        encodedPaForUserEnc = encoder.encode(paForUserEnc)
+            logging.debug('PA-S4U-X509-USER')
+            print(paS4uX509User.prettyPrint())
+            logging.debug('PA-S4U-X509-USER (hexdump)')
+            hexdump(encoder.encode(paS4uX509User))
 
         tgsReq['padata'][1] = noValue
-        tgsReq['padata'][1]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_FOR_USER.value)
-        tgsReq['padata'][1]['padata-value'] = encodedPaForUserEnc
-
-        reqBody = seq_set(tgsReq, 'req-body')
-
-        opts = list()
-        opts.append(constants.KDCOptions.forwardable.value)
-        opts.append(constants.KDCOptions.renewable.value)
-        opts.append(constants.KDCOptions.canonicalize.value)
-
-        reqBody['kdc-options'] = constants.encodeFlags(opts)
-
-        serverName = Principal(self.__user, type=constants.PrincipalNameType.NT_UNKNOWN.value)
-
-        seq_set(reqBody, 'sname', serverName.components_to_asn1)
-        reqBody['realm'] = str(decodedTGT['crealm'])
-
-        now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
-
-        reqBody['till'] = KerberosTime.to_asn1(now)
-        reqBody['nonce'] = random.getrandbits(31)
-        seq_set_iter(reqBody, 'etype',
-                     (int(cipher.enctype), int(constants.EncryptionTypes.rc4_hmac.value)))
+        tgsReq['padata'][1]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_S4U_X509_USER.value)
+        tgsReq['padata'][1]['padata-value'] = encoder.encode(paS4uX509User)
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('Final TGS')
@@ -439,6 +476,11 @@ class GETST:
                     aesKey = unhexlify(aesKey)
                 except TypeError:
                     pass
+            if isinstance(aesSha2Key, str):
+                try:
+                    aesSha2Key = unhexlify(aesSha2Key)
+                except TypeError:
+                    pass
 
             # Compute NTHash and AESKey if they're not provided in arguments
             if self.__password != '' and self.__domain != '' and self.__user != '':
@@ -449,10 +491,16 @@ class GETST:
                         print(hexlify(nthash).decode())
                 if not aesKey:
                     salt = self.__domain.upper() + self.__user
-                    aesKey = _AES256_SHA1_CTS.string_to_key(self.__password, salt, params=None).contents
+                    aesKey = string_to_key(Enctype.AES256_SHA1, self.__password, salt, params=None).contents
                     if logging.getLogger().level == logging.DEBUG:
                         logging.debug('AESKey')
                         print(hexlify(aesKey).decode())
+                if not aesSha2Key:
+                    salt = self.__domain.upper() + self.__user
+                    aesSha2Key = string_to_key(Enctype.AES256_SHA384, self.__password, salt, params=None).contents
+                    if logging.getLogger().level == logging.DEBUG:
+                        logging.debug('AESSHA2Key')
+                        print(hexlify(aesSha2Key).decode())
 
             # Get the encrypted ticket returned in the TGS. It's encrypted with one of our keys
             cipherText = tgs['ticket']['enc-part']['cipher']
@@ -462,8 +510,10 @@ class GETST:
             newCipher = _enctype_table[int(tgs['ticket']['enc-part']['etype'])]
             if newCipher.enctype == Enctype.RC4:
                 key = Key(newCipher.enctype, nthash)
-            else:
+            elif newCipher.enctype in (Enctype.AES128_SHA1, Enctype.AES256_SHA1):
                 key = Key(newCipher.enctype, aesKey)
+            else:
+                key = Key(newCipher.enctype, aesSha2Key)
 
             # Decrypt and decode the ticket
             # Key Usage 2
@@ -533,36 +583,7 @@ class GETST:
         authenticator['cusec'] = now.microsecond
         authenticator['ctime'] = KerberosTime.to_asn1(now)
 
-        encodedAuthenticator = encoder.encode(authenticator)
-
-        # Key Usage 7
-        # TGS-REQ PA-TGS-REQ padata AP-REQ Authenticator (includes
-        # TGS authenticator subkey), encrypted with the TGS session
-        # key (Section 5.5.1)
-        encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 7, encodedAuthenticator, None)
-
-        apReq['authenticator'] = noValue
-        apReq['authenticator']['etype'] = cipher.enctype
-        apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
-
-        encodedApReq = encoder.encode(apReq)
-
         tgsReq = TGS_REQ()
-
-        tgsReq['pvno'] = 5
-        tgsReq['msg-type'] = int(constants.ApplicationTagNumbers.TGS_REQ.value)
-        tgsReq['padata'] = noValue
-        tgsReq['padata'][0] = noValue
-        tgsReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_TGS_REQ.value)
-        tgsReq['padata'][0]['padata-value'] = encodedApReq
-
-        # Add resource-based constrained delegation support
-        paPacOptions = PA_PAC_OPTIONS()
-        paPacOptions['flags'] = constants.encodeFlags((constants.PAPacOptions.resource_based_constrained_delegation.value,))
-
-        tgsReq['padata'][1] = noValue
-        tgsReq['padata'][1]['padata-type'] = constants.PreAuthenticationDataTypes.PA_PAC_OPTIONS.value
-        tgsReq['padata'][1]['padata-value'] = encoder.encode(paPacOptions)
 
         reqBody = seq_set(tgsReq, 'req-body')
 
@@ -585,14 +606,50 @@ class GETST:
 
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.getrandbits(31)
-        seq_set_iter(reqBody, 'etype',
-                     (
-                         int(constants.EncryptionTypes.rc4_hmac.value),
-                         int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
-                         int(constants.EncryptionTypes.des_cbc_md5.value),
-                         int(cipher.enctype)
-                     )
-                     )
+        seq_set_iter(reqBody, 'etype', (int(cipher.enctype), ))
+
+        reqBodyEncCksumType = cksumtype_for_enctype(cipher.enctype)
+
+        reqBodyEnc = encoder.encode(reqBody)[4:]
+        reqBodyEncCksum = make_checksum(reqBodyEncCksumType, sessionKey, 6, reqBodyEnc)
+
+        if logging.getLogger().level == logging.DEBUG:
+            logging.debug('KDC-REQ-BODY checksum')
+            hexdump(reqBodyEncCksum)
+
+        authenticator['cksum'] = noValue
+        authenticator['cksum']['cksumtype'] = int(reqBodyEncCksumType)
+        authenticator['cksum']['checksum'] = reqBodyEncCksum
+
+        encodedAuthenticator = encoder.encode(authenticator)
+
+        # Key Usage 7
+        # TGS-REQ PA-TGS-REQ padata AP-REQ Authenticator (includes
+        # TGS authenticator subkey), encrypted with the TGS session
+        # key (Section 5.5.1)
+        encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 7, encodedAuthenticator, None)
+
+        apReq['authenticator'] = noValue
+        apReq['authenticator']['etype'] = cipher.enctype
+        apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
+
+        encodedApReq = encoder.encode(apReq)
+
+        tgsReq['pvno'] = 5
+        tgsReq['msg-type'] = int(constants.ApplicationTagNumbers.TGS_REQ.value)
+        tgsReq['padata'] = noValue
+        tgsReq['padata'][0] = noValue
+        tgsReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_TGS_REQ.value)
+        tgsReq['padata'][0]['padata-value'] = encodedApReq
+
+        # Add resource-based constrained delegation support
+        paPacOptions = PA_PAC_OPTIONS()
+        paPacOptions['flags'] = constants.encodeFlags((constants.PAPacOptions.resource_based_constrained_delegation.value,))
+
+        tgsReq['padata'][1] = noValue
+        tgsReq['padata'][1]['padata-type'] = constants.PreAuthenticationDataTypes.PA_PAC_OPTIONS.value
+        tgsReq['padata'][1]['padata-value'] = encoder.encode(paPacOptions)
+
         message = encoder.encode(tgsReq)
 
         logging.info('\tRequesting S4U2Proxy')
@@ -634,6 +691,7 @@ class GETST:
             tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                     unhexlify(self.__lmhash), unhexlify(self.__nthash),
                                                                     self.__aesKey,
+                                                                    self.__aesSha2Key,
                                                                     self.__kdcHost)
 
         # Ok, we have valid TGT, let's try to get a service ticket
@@ -650,9 +708,9 @@ class GETST:
                 # Editing below to pass hashes for decryption
                 if self.__additional_ticket is not None:
                     tgs, cipher, oldSessionKey, sessionKey = self.doS4U2ProxyWithAdditionalTicket(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey,
-                                                                                                  self.__kdcHost, self.__additional_ticket)
+                                                                                                  self.__aesSha2Key, self.__kdcHost, self.__additional_ticket)
                 else:
-                    tgs, cipher, oldSessionKey, sessionKey = self.doS4U(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey, self.__kdcHost)
+                    tgs, cipher, oldSessionKey, sessionKey = self.doS4U(tgt, cipher, oldSessionKey, sessionKey, unhexlify(self.__nthash), self.__aesKey, self.__aesSha2Key, self.__kdcHost)
             except Exception as e:
                 logging.debug("Exception", exc_info=True)
                 logging.error(str(e))
@@ -670,7 +728,7 @@ class GETST:
 if __name__ == '__main__':
     print(version.BANNER)
 
-    parser = argparse.ArgumentParser(add_help=True, description="Given a password, hash or aesKey, it will request a "
+    parser = argparse.ArgumentParser(add_help=True, description="Given a password, hash, aesKey or aesSha2Key, it will request a "
                                                                 "Service Ticket and save it as ccache")
     parser.add_argument('identity', action='store', help='[domain/]username[:password]')
     parser.add_argument('-spn', action="store", required=True, help='SPN (service/server) of the target service the '
@@ -683,9 +741,10 @@ if __name__ == '__main__':
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-force-forwardable', action='store_true', help='Force the service ticket obtained through '
-                                                                        'S4U2Self to be forwardable. For best results, the -hashes and -aesKey values for the '
-                                                                        'specified -identity should be provided. This allows impresonation of protected users '
-                                                                        'and bypass of "Kerberos-only" constrained delegation restrictions. See CVE-2020-17049')
+                                                                        'S4U2Self to be forwardable. For best results, the -hashes, -aesKey and -aesSha2Key '
+                                                                        'values for the specified -identity should be provided. This allows impresonation of '
+                                                                        'protected users and bypass of "Kerberos-only" constrained delegation restrictions. '
+                                                                        'See CVE-2020-17049')
 
     group = parser.add_argument_group('authentication')
 
@@ -694,8 +753,10 @@ if __name__ == '__main__':
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
                                                        '(KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the '
                                                        'ones specified in the command line')
-    group.add_argument('-aesKey', action="store", metavar="hex key", help='AES key to use for Kerberos Authentication '
+    group.add_argument('-aesKey', action="store", metavar="hex key", help='AES HMAC-SHA1 key to use for Kerberos Authentication '
                                                                           '(128 or 256 bits)')
+    group.add_argument('-aesSha2Key', action="store", metavar="hex key", help='AES HMAC-SHA2 key to use for Kerberos Authentication '
+                                                                              '(128 or 256 bits)')
     group.add_argument('-dc-ip', action='store', metavar="ip address", help='IP Address of the domain controller. If '
                                                                             'ommited it use the domain part (FQDN) specified in the target parameter')
 
@@ -725,12 +786,12 @@ if __name__ == '__main__':
             logging.critical('Domain should be specified!')
             sys.exit(1)
 
-        if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
+        if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None and options.aesSha2Key is None:
             from getpass import getpass
 
             password = getpass("Password:")
 
-        if options.aesKey is not None:
+        if options.aesKey or options.aesSha2Key:
             options.k = True
 
         executer = GETST(username, password, domain, options)
