@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -17,6 +17,7 @@ except ImportError:
 
 from impacket import ImpactPacket
 from impacket import ImpactDecoder
+from impacket import version
 from impacket.ImpactPacket import TCPOption, array_tobytes
 from impacket.examples import logger
 from impacket.examples import os_ident
@@ -1039,6 +1040,7 @@ def main():
 
 if __name__ == '__main__':
    # Init the example's logger theme
+   print(version.WARNING_BANNER)
    logger.init()
    main()
 
