@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -48,6 +48,8 @@ class DummyPrint:
     def logMessage(self,message):
         if message == '\n':
             print(message)
+        elif message == '\r':
+            print()
         else:
             print(message, end=' ')
 
@@ -588,7 +590,7 @@ class MSSQL:
     def socketRecv(self, packetSize):
         data = self.socket.recv(packetSize)
         if self.tlsSocket is not None:
-            dd = ''
+            dd = b''
             self.tlsSocket.bio_write(data)
             while True:
                 try:
@@ -663,8 +665,8 @@ class MSSQL:
             LOG.info("Encryption required, switching to TLS")
 
             # Switching to TLS now
-            ctx = SSL.Context(SSL.TLSv1_METHOD)
-            ctx.set_cipher_list('RC4, AES256')
+            ctx = SSL.Context(SSL.TLS_METHOD)
+            ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
             tls = SSL.Connection(ctx,None)
             tls.set_connect_state()
             while True:
@@ -872,8 +874,8 @@ class MSSQL:
             LOG.info("Encryption required, switching to TLS")
 
             # Switching to TLS now
-            ctx = SSL.Context(SSL.TLSv1_METHOD)
-            ctx.set_cipher_list('RC4, AES256')
+            ctx = SSL.Context(SSL.TLS_METHOD)
+            ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
             tls = SSL.Connection(ctx,None)
             tls.set_connect_state()
             while True:
@@ -979,6 +981,13 @@ class MSSQL:
                 col['Length'] = 10
                 fmt = '%%%ds'
 
+            col['minLenght'] = 0
+            for row in self.rows:
+                if len(str(row[col['Name']])) > col['minLenght']:
+                   col['minLenght'] = len(str(row[col['Name']]))
+            if col['minLenght'] < col['Length']:
+                col['Length'] = col['minLenght']
+
             if len(col['Name']) > col['Length']:
                 col['Length'] = len(col['Name'])
             elif col['Length'] > self.MAX_COL_LEN:
@@ -992,11 +1001,10 @@ class MSSQL:
             return
         for col in self.colMeta:
             self.__rowsPrinter.logMessage(col['Format'] % col['Name'] + self.COL_SEPARATOR)
-        self.__rowsPrinter.logMessage('\n')
+        self.__rowsPrinter.logMessage('\r')
         for col in self.colMeta:
             self.__rowsPrinter.logMessage('-'*col['Length'] + self.COL_SEPARATOR)
-        self.__rowsPrinter.logMessage('\n')
-
+        self.__rowsPrinter.logMessage('\r')
 
     def printRows(self):
         if self.lastError is True:
@@ -1014,7 +1022,6 @@ class MSSQL:
                 if key['TokenType'] == TDS_ERROR_TOKEN:
                     error =  "ERROR(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le'))                                      
                     self.lastError = SQLErrorException("ERROR: Line %d: %s" % (key['LineNumber'], key['MsgText'].decode('utf-16le')))
-                    LOG.error(error)
 
                 elif key['TokenType'] == TDS_INFO_TOKEN:
                     LOG.info("INFO(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le')))

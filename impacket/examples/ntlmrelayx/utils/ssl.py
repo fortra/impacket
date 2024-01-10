@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -55,7 +55,8 @@ class SSLServerMixin(object):
         # Create a context, we don't really care about the SSL/TLS
         # versions used since it is only intended for local use and thus
         # doesn't have to be super-secure
-        ctx = SSL.Context(SSL.SSLv23_METHOD)
+        ctx = SSL.Context(SSL.TLS_METHOD)
+        ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
         try:
             ctx.use_privatekey_file(cert)
             ctx.use_certificate_file(cert)

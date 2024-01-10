@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -228,7 +228,7 @@ class WMIOfflineTests(unittest.TestCase):
         echo 'Select * from Win32_UTCTime' | wmiquery.py username:password@x.x.x.x -file -
 
         The following lines were added in the impacket.dcerpc.v5.dcomrt.INTERFACE class constructor:
-        https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_22/impacket/dcerpc/v5/dcomrt.py#L1111-L1112
+        https://github.com/fortra/impacket/blob/impacket_0_9_22/impacket/dcerpc/v5/dcomrt.py#L1111-L1112
         if objRef and b'Win32_CurrentTime' in objRef:
             import base64, textwrap, zlib
             print('\n'.join(textwrap.wrap(base64.b64encode(zlib.compress(objRef)), 96)))
@@ -262,7 +262,7 @@ class WMIOfflineTests(unittest.TestCase):
         wmipersist.py username:password@x.x.x.x -debug install -name ASEC -timer 1000 -vbs toexec.vbs
 
         The following lines were added in the impacket.dcerpc.v5.dcom.wmi.IWbemClassObject.SpawnInstance():
-        https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_22/impacket/dcerpc/v5/dcom/wmi.py#L2557
+        https://github.com/fortra/impacket/blob/impacket_0_9_22/impacket/dcerpc/v5/dcom/wmi.py#L2557
         import base64, textwrap, zlib
         print('\n'.join(textwrap.wrap(base64.b64encode(zlib.compress(objRefCustomIn.getData())), 96)))
         """
@@ -271,8 +271,8 @@ class WMIOfflineTests(unittest.TestCase):
         # impacket.dcerpc.v5.dcom.wmi.CLASS_PART.getProperties() (links below). I won't change that code since I
         # don't know the potential splash damage. If you've changed it and found yourself trying to figure out why
         # does this test fail, just delete this comment, remove string quotes, and inline the following variables
-        # https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_22/impacket/dcerpc/v5/dcom/wmi.py#L341-L344
-        # https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_22/impacket/dcerpc/v5/dcom/wmi.py#L568-L569
+        # https://github.com/fortra/impacket/blob/impacket_0_9_22/impacket/dcerpc/v5/dcom/wmi.py#L341-L344
+        # https://github.com/fortra/impacket/blob/impacket_0_9_22/impacket/dcerpc/v5/dcom/wmi.py#L568-L569
         default_creator_sid = '[1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0]'
         false = 'False'
 

@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -48,7 +48,7 @@ from tests.dcerpc import DCERPCTests
 from impacket.dcerpc.v5 import tsch, atsvc, sasec
 from impacket.dcerpc.v5.atsvc import AT_INFO
 from impacket.dcerpc.v5.dtypes import NULL
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from impacket.system_errors import ERROR_NOT_SUPPORTED
 
 
@@ -56,7 +56,7 @@ class ATSVCTests(DCERPCTests):
     iface_uuid = atsvc.MSRPC_UUID_ATSVC
     string_binding = r"ncacn_np:{0.machine}[\PIPE\atsvc]"
     authn = True
-    authn_level = RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
+    authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
     def test_NetrJobEnum(self):
         dce, rpc_transport = self.connect()
@@ -208,7 +208,7 @@ class SASECTests(DCERPCTests):
     iface_uuid = sasec.MSRPC_UUID_SASEC
     string_binding = r"ncacn_np:{0.machine}[\PIPE\atsvc]"
     authn = True
-    authn_level = RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
+    authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
     def test_SASetAccountInformation(self):
         dce, rpc_transport = self.connect()
@@ -292,7 +292,7 @@ class TSCHTests(DCERPCTests):
     iface_uuid = tsch.MSRPC_UUID_TSCHS
     string_binding = r"ncacn_np:{0.machine}[\PIPE\atsvc]"
     authn = True
-    authn_level = RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
+    authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
     def test_SchRpcHighestVersion(self):
         dce, rpc_transport = self.connect()

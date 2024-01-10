@@ -1,15 +1,76 @@
 # ChangeLog
 
-Project's main page at [www.secureauth.com](https://www.secureauth.com/labs/open-source-tools/impacket).
+Project owner's main page is at www.coresecurity.com.
 
 Complete list of changes can be found at:
-https://github.com/SecureAuthCorp/impacket/commits/master
+https://github.com/fortra/impacket/commits/master
 
-## Unreleased changes
+## Impacket v0.11.0 (Aug 2023):
+1. Library improvements 
+    * Added new Kerberos error codes (@ly4k).
+	* Added `[MS-TSTS]` Terminal Services Terminal Server Runtime Interface Protocol implementation (@nopernik).
+    * Changed the setting up for new SSL connections (@mpgn, @CT-H00K and @0xdeaddood).
+    * Added a callback function to smbserver for incoming authentications (@p0dalirius).
+    * Fix crash in winregistry (@laxa)
+    * Fixes in IDispatch derived classes in comev implementation (@NtAlexio2)
+    * Fix CVE-2020-17049 in ccache.py (@godylockz)
+    * Smbserver: Added SMB2_FILE_ALLOCATION_INFO type determination (@JerAxxxxxxx)
+    * tds: Fixed python3 incompatibility when receiving over TLS socket (@exploide)
+    * crypto: Ensure passwords are utf-8 encoded before deriving Kerberos keys (@jojonas)
+    * ese: Fixed python3 incompatibility when reading from db (@alexisbalbachan)
+    * ldap queries: Escaped characters are now correctly parsed (@alexisbalbachan)
+    * Support SASL authentication in ldap protocol (@NtAlexio2)
+
+2. Examples improvements
+    * [GetADUsers.py](examples/GetADUsers.py), [GetNPUsers.py](examples/GetNPUsers.py), [GetUserSPNs.py](examples/GetUserSPNs.py) and [findDelegation.py](examples/findDelegation.py):
+      * Added dc-host option to connect to specific KDC using its FQDN or NetBIOS name (@rmaksimov and @0xdeaddood).
+    * [GetNPUsers.py](examples/GetNPUsers.py)
+      * Printing TGT in stdout despite -outputfile parameter (@alexisbalbachan and @Zamanry)
+      * Fixed output hash format for AES128/256 (etype 17/18) (@erasmusc)
+    * [GetUserSPNs.py](examples/GetUserSPNs.py):
+      * Added LDAP paged search (@ThePirateWhoSmellsOfSunflowers and @SAERXCIT).
+      * Added a -stealth flag to remove the SPN filter from the LDAP query (@clavoillotte).
+      * Improved searchFilter (@ShutdownRepo)
+      * Use LDAP paged search (@ThePirateWhoSmellsOfSunflowers)
+    * [psexec.py](examples/psexec.py):
+      * Added support for name customization using a custom binary file (@Dramelac).
+    * [smbexec.py](examples/smbexec.py):
+      * Security fixes for privilege escalation vulnerabilities (@bugch3ck).
+      * Fixed python3 compatibility issues, added workaround TCP over NetBIOS being disabled (@ljrk0)
+    * [secretsdump.py](examples/secretsdump.py):
+      * Added a new option to extract only NTDS.DIT data for specific users based on an LDAP filter (@snovvcrash).
+      * Security fixes for privilege escalation vulnerabilities (@bugch3ck).  
+    * [mssqlclient.py](examples/mssqlclient.py):
+      * Added multiple new commands. Now supports xp_dirtree execution (@Mayfly277, @trietend and @TurtleARM).
+    * [ntlmrelayx.py](examples/ntlmrelayx.py):
+      * Added ability to trigger SQLShell when running ntlmrelayx in interactive mode (@sploutchy).
+      * Added filter option to the socks command in ntlmrelayx CLI (@shoxxdj)
+      * Added ability to register DNS records through LDAP.
+    * [addcomputer.py](examples/addcomputer.py), [rbcd.py](examples/rbcd.py):
+      * Allow weak TLS ciphers for LDAP connections (@AdrianVollmer)
+    * [Get-GPPPassword.py](examples/Get-GPPPassword.py):
+      * Better handling of various XML files in Group Policy Preferences (@p0dalirius)
+    * [smbclient.py](examples/smbclient.py):
+      * Added recursive file listing (@Sq00ky)
+    * [ticketer.py](examples/ticketer.py):
+      * Ticket duration is now specified in hours instead of days (@Dramelac)
+      * Added extra-pac implementation (@Dramelac)
+
+3. New examples
+    * [net.py](examples/net.py) Implementation of windows net.exe builtin tool (@NtAlexio2)
+    * [changepasswd.py](examples/changepasswd.py) New example that allows password changing or reseting through multiple protocols (@Alef-Burzmali, @snovvcrash, @bransh, @api0cradle and @p0dalirius)
+    * [DumpNTLMInfo.py](examples/DumpNTLMInfo.py) New example that dumps remote host information in ntlm authentication model, without credentials. For SMB protocols v1, v2 and v3. (@NtAlexio2)
+    
+As always, thanks a lot to all these contributors that make this library better every day (up to now):
+
+@ly4k @nopernik @snovvcrash @ShutdownRepo @kiwids0220 @mpgn @CT-H00K @rmaksimov @arossert @aevy-syn @tirkarthi @p0dalirius @Dramelac @Mayfly277 @S3cur3Th1sSh1t @nobbd @AdrianVollmer @trietend @TurtleARM @ThePirateWhoSmellsOfSunflowers @SAERXCIT @clavoillotte @Marshall-Hallenbeck @sploutchy @almandin @rtpt-alexanderneumann @JerAxxxxxxx @NtAlexio2 @laxa @godylockz @exploide @jojonas @Zamanry @erasmusc @bugch3ck @ljrk0 @Sq00ky @shoxxdj @Alef-Burzmali @bransh @api0cradle @alexisbalbachan @0xdeaddood @NtAlexio2 @sanmopre
+
+
+## Impacket v0.10.0 (May 2022):
 
 1. Library improvements 
-    * Dropped support for Python 2.7. We'll keep it running under GitHub Actions/`Tox` as experimental just for visibility.
-    * Refactored the testing infrastructure:
+    * Dropped support for Python 2.7.
+    * Refactored the testing infrastructure (@martingalloar):
       * Added `pytest` as the testing framework to organize and mark test
         cases. `Tox` remain as the automation framework, and `Coverage.py`
         for measuring code coverage.
@@ -17,17 +78,50 @@ https://github.com/SecureAuthCorp/impacket/commits/master
       * Local and remote test cases were marked for easy run and configuration. 
       * DCE/RPC endpoint test cases were refactored and moved to a new layout. 
       * An initial testing guide with the main steps to prepare a testing environment and run them. 
-      * Fixed a good amount of DCE/RPC endpoint test cases that were failing, and added tests for `[MS-PAR]`.
+      * Fixed a good amount of DCE/RPC endpoint test cases that were failing. 
+      * Added tests for `[MS-PAR]`, `[MS-RPRN]`, CCache and DPAPI.
     * Added a function to compute the Netlogon Authenticator at client-side in `[MS-NRPC]` (@0xdeaddood)
     * Added `[MS-DSSP]` protocol implementation (@simondotsh)
     * Added GetDriverDirectory functions to `[MS-PAR]` and `[MS-RPRN]` (@raithedavion)
+    * Refactored the Credential Cache:
+	  * Added new parseFile function to ccache.py (@rmaksimov)
+	  * Added support for loading CCache Version 3 (@reznok)
+	  * Modified fromKRBCRED function used to load a Kirbi file (@0xdeaddood)
+	  * Fixed Ccache to Kirbi conversion (@ShutdownRepo)
+	* Fixed default NTLM server challenge in smbserver (@rtpt-jonaslieb)
 
 2. Examples improvements
+	* [exchanger.py](examples/exchanger.py):
+	  * Fixed a bug when a Global Address List doesn't exist on the server (@mohemiv)
+	* [mimikatz.py](examples/mimikatz.py)
+	  * Updated intro to not trigger the AV on windows (@mpgn)
 	* [ntlmrelayx.py](examples/ntlmrelayx.py):
-	   * Implemented RAWRelayServer (@CCob)
-    
+	  * Implemented RAW Relay Server (@CCob)
+	  * Added an LDAP attack dumping information about the domain's ADCS enrollment services (@SAERXCIT)
+      * Added multi-relay feature to the HTTP Relay Server. Now one incoming HTTP connection could be 
+        used against multiple targets (@0xdeaddood)
+      * Added an option to disable the multi-relay feature (@zblurx and @0xdeaddood)
+      * Added multiple HTTP listeners running at the same time (@SAERXCIT)
+      * Support for the ADCS ESC1 and ESC6 attacks (@hugo-syn)
+      * Added Shadow Credentials attack (@ShutdownRepo, @Tw1sm, @nodauf and @p0dalirius)
+      * Added the ability to define a password for the LDAP attack addComputer (@ShutdownRepo)
+      * Added rename_computer and modify add_computer in LDAP interactive shell (@capnkrunchy)
+      * Implemented StartTLS (@ThePirateWhoSmellsOfSunflowers)
+    * [reg.py](examples/reg.py):
+      * Added save function to allow remote saving of registry hives (@ShutdownRepo and @scopedsecurity)
+    * [secretsdump.py](examples/secretsdump.py):
+      * Added an option to dump credentials using the Kerberos Key List attack (@0xdeaddood)
+    * [smbpasswd.py](examples/smbpasswd.py):
+      * Added an option to force credentials change via injecting new values into SAM (@snovvcrash and @alefburzmali)
 3. New examples
-	* [machine_role.py](examples/machine_role.py): This script retrieves a host's role along with its primary domain details (@simondotsh)
+	* [machine_role.py](examples/machine_role.py): This script retrieves a host's role along with its 
+	  primary domain details (@simondotsh)
+    * [keylistattack.py](examples/keylistattack.py): This example implements the Kerberos Key List
+      attack to dump credentials abusing RODCs and Azure AD Kerberos Servers (@0xdeaddood)
+
+As always, thanks a lot to all these contributors that make this library better every day (since last version):
+
+@rmaksimov @simondotsh @CCob @raithedavion @SAERXCIT @Maltemo @dirkjanm @reznok @ShutdownRepo @scopedsecurity @Tw1sm @nodauf @p0dalirius @zblurx @hugo-syn @capnkrunchy @mohemiv @mpgn @rtpt-jonaslieb @snovvcrash @alefburzmali @ThePirateWhoSmellsOfSunflowers @jlvcm
 
 ## Impacket v0.9.24 (October 2021):
 
@@ -155,6 +249,7 @@ As always, thanks a lot to all these contributors that make this library better 
 	- [rpcmap.py](examples/rpcmap.py): Scan for listening DCE/RPC interfaces (by @mohemiv).
 
 As always, thanks a lot to all these contributors that make this library better every day (since last version):
+
 @mohemiv @mpgn @Romounet @ThePirateWhoSmellsOfSunflowers @rmaksimov @fuzzKitty @tshmul @spinenkoia @AaronRobson @ABCIFOGeowi40 @cclauss @cnotin @5alt @franferrax @Dliv3 @dirkjanm @Mr-Gag @vbersier @phefley @Hackndo
 
 

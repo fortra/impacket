@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -108,7 +108,7 @@ class TargetsProcessor:
                 newTarget = urlparse('%s://%s@%s%s' % (target.scheme, gotUsername.replace('/','\\'), target.netloc, target.path))
                 self.finishedAttacks.append(newTarget)
 
-    def getTarget(self, identity=None):
+    def getTarget(self, identity=None, multiRelay=True):
         # ToDo: We should have another list of failed attempts (with user) and check that inside this method so we do not
         # retry those targets.
         if identity is not None and len(self.namedCandidates) > 0:
@@ -137,6 +137,15 @@ class TargetsProcessor:
                         return target
                 LOG.debug("No more targets for user %s" % identity)
                 return None
+            # Multirelay feature is disabled, general candidates are attacked just one time
+            elif multiRelay == False:
+                for target in self.generalCandidates:
+                    match = [x for x in self.finishedAttacks if x.hostname == target.netloc]
+                    if len(match) == 0:
+                        self.generalCandidates.remove(target)
+                        return target
+                LOG.debug("No more targets")
+                return None
             else:
                 return self.generalCandidates.pop()
         else:
@@ -153,7 +162,7 @@ class TargetsProcessor:
                 LOG.debug("No more targets for user %s" % identity)
             return None
         else:
-            return self.getTarget(identity)
+            return self.getTarget(identity, multiRelay)
 
 class TargetsFileWatcher(Thread):
     def __init__(self,targetprocessor):

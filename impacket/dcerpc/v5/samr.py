@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2019 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -11,7 +11,7 @@
 #
 #   Best way to learn how to use these calls is to grab the protocol standard
 #   so you understand what the call does, and then read the test case located
-#   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
+#   at https://github.com/fortra/impacket/tree/master/tests/SMB_RPC
 #
 #   Some calls have helper functions, which makes it even easier to use.
 #   They are located at the end of this file.
@@ -2915,7 +2915,7 @@ def hSamrSetPasswordInternal4New(dce, userHandle, password):
     request = SamrSetInformationUser2()
     request['UserHandle'] = userHandle
     request['UserInformationClass'] = USER_INFORMATION_CLASS.UserInternal4InformationNew
-    request['Buffer']['tag'] =  USER_INFORMATION_CLASS.UserInternal4InformationNew
+    request['Buffer']['tag'] = USER_INFORMATION_CLASS.UserInternal4InformationNew
     request['Buffer']['Internal4New']['I1']['WhichFields'] = 0x01000000 | 0x08000000
 
     request['Buffer']['Internal4New']['I1']['UserName'] = NULL
@@ -2950,6 +2950,31 @@ def hSamrSetPasswordInternal4New(dce, userHandle, password):
     cipher = ARC4.new(key)
     buffercrypt = cipher.encrypt(pwdbuff) + salt
 
-
     request['Buffer']['Internal4New']['UserPassword']['Buffer'] = buffercrypt
+    return dce.request(request)
+
+def hSamrSetNTInternal1(dce, userHandle, password, hashNT=''):
+    request = SamrSetInformationUser()
+    request['UserHandle'] = userHandle
+    request['UserInformationClass'] = USER_INFORMATION_CLASS.UserInternal1Information
+    request['Buffer']['tag'] = USER_INFORMATION_CLASS.UserInternal1Information
+
+    from impacket import crypto, ntlm
+
+    if hashNT == '':
+        hashNT = ntlm.NTOWFv1(password)
+    else:
+        # Let's convert the hashes to binary form, if not yet
+        try:
+            hashNT = unhexlify(hashNT)
+        except:
+            pass
+
+    session_key = dce.get_rpc_transport().get_smb_connection().getSessionKey()
+
+    request['Buffer']['Internal1']['EncryptedNtOwfPassword'] = crypto.SamEncryptNTLMHash(hashNT, session_key)
+    request['Buffer']['Internal1']['EncryptedLmOwfPassword'] = NULL
+    request['Buffer']['Internal1']['NtPasswordPresent'] = 1
+    request['Buffer']['Internal1']['LmPasswordPresent'] = 0
+
     return dce.request(request)

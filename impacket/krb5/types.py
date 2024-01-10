@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -40,6 +40,7 @@ import re
 import struct
 
 from pyasn1.codec.der import decoder
+from six import ensure_binary
 
 from . import asn1
 from . import constants
@@ -151,7 +152,7 @@ If the value contains no realm, then default_realm will be used."""
         strings = name.setComponentByName('name-string'
                                           ).getComponentByName('name-string')
         for i, c in enumerate(self.components):
-            strings.setComponentByPosition(i, c)
+            strings.setComponentByPosition(i, ensure_binary(c))
 
         return name
 

@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2022 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -986,10 +986,13 @@ class SessionError(Exception):
         return self.packet
 
     def getErrorString( self ):
-        return nt_errors.ERROR_MESSAGES[self.error]
+        return str(self)
 
     def __str__( self ):
-        if self.error in nt_errors.ERROR_MESSAGES:
-            return 'SMB SessionError: %s(%s)' % (nt_errors.ERROR_MESSAGES[self.error])
+        key = self.error
+        if key in nt_errors.ERROR_MESSAGES:
+            error_msg_short = nt_errors.ERROR_MESSAGES[key][0] 
+            error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
+            return 'SMB SessionError: code: 0x%x - %s - %s' % (self.error, error_msg_short, error_msg_verbose)
         else:
-            return 'SMB SessionError: 0x%x' % self.error
+            return 'SMB SessionError: unknown error code: 0x%x' % self.error

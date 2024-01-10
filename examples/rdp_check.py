@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -409,8 +409,11 @@ if __name__ == '__main__':
        # a self-signed X.509 certificate.
 
        # Switching to TLS now
-       ctx = SSL.Context(SSL.TLSv1_2_METHOD)
-       ctx.set_cipher_list(b'RC4,AES')
+       ctx = SSL.Context(SSL.TLS_METHOD)
+       ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
+       SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION = 0x00040000
+       ctx.set_options(SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION)
+       ctx.set_options(SSL.OP_DONT_INSERT_EMPTY_FRAGMENTS)
        tls = SSL.Connection(ctx,s)
        tls.set_connect_state()
        tls.do_handshake()
@@ -446,7 +449,6 @@ if __name__ == '__main__':
        buff = tls.recv(4096)
        ts_request.fromString(buff)
 
-   
        # 3. The client encrypts the public key it received from the server (contained 
        # in the X.509 certificate) in the TLS handshake from step 1, by using the 
        # confidentiality support of SPNEGO. The public key that is encrypted is the 
@@ -467,11 +469,9 @@ if __name__ == '__main__':
        # Get server public key
        server_cert =  tls.get_peer_certificate()
        pkey = server_cert.get_pubkey()
-       dump = crypto.dump_privatekey(crypto.FILETYPE_ASN1, pkey)
-
-       # Fix up due to PyOpenSSL lack for exporting public keys
-       dump = dump[7:]
-       dump = b'\x30'+ asn1encode(dump)
+       dump = crypto.dump_publickey(crypto.FILETYPE_ASN1, pkey)
+       # Parsing the key from ASN1 encoded
+       dump = dump[24:]
 
        cipher = SPNEGOCipher(type3['flags'], exportedSessionKey)
        signature, cripted_key = cipher.encrypt(dump)

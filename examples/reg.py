@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -41,7 +41,7 @@ from impacket.examples import logger
 from impacket.examples.utils import parse_target
 from impacket.system_errors import ERROR_NO_MORE_ITEMS
 from impacket.structure import hexdump
-from impacket.smbconnection import SMBConnection
+from impacket.smbconnection import SMBConnection, SessionError
 from impacket.dcerpc.v5.dtypes import READ_CONTROL
 
 
@@ -173,7 +173,8 @@ class RegHandler:
             self.__remoteOps.enableRegistry()
         except Exception as e:
             logging.debug(str(e))
-            logging.warning('Cannot check RemoteRegistry status. Hoping it is started...')
+            logging.warning('Cannot check RemoteRegistry status. Triggering start trough named pipe...')
+            self.triggerWinReg()
             self.__remoteOps.connectWinReg()
 
         try:
@@ -199,6 +200,17 @@ class RegHandler:
         finally:
             if self.__remoteOps:
                 self.__remoteOps.finish()
+
+    def triggerWinReg(self):
+        # original idea from https://twitter.com/splinter_code/status/1715876413474025704
+        tid = self.__smbConnection.connectTree('IPC$')
+        try:
+            self.__smbConnection.openFile(tid, r'\winreg', 0x12019f, creationOption=0x40, fileAttributes=0x80)
+        except SessionError:
+            # STATUS_PIPE_NOT_AVAILABLE error is expected
+            pass
+        # give remote registry time to start
+        time.sleep(1)
 
     def save(self, dce, keyName):
         hRootKey, subKey = self.__strip_root_key(dce, keyName)
@@ -413,8 +425,10 @@ class RegHandler:
             raise Exception('Error parsing keyName %s' % keyName)
         if rootKey.upper() == 'HKLM':
             ans = rrp.hOpenLocalMachine(dce)
-        elif rootKey.upper() == 'HKU':
+        elif rootKey.upper() == 'HKCU':
             ans = rrp.hOpenCurrentUser(dce)
+        elif rootKey.upper() == 'HKU':
+            ans = rrp.hOpenUsers(dce)
         elif rootKey.upper() == 'HKCR':
             ans = rrp.hOpenClassesRoot(dce)
         else:
@@ -493,7 +507,7 @@ class RegHandler:
                 print("Unknown Type 0x%x!" % valueType)
                 hexdump(valueData)
         except Exception as e:
-            logging.debug('Exception thrown when printing reg value %s', str(e))
+            logging.debug('Exception thrown when printing reg value %s' % str(e))
             print('Invalid data')
             pass
 
@@ -520,7 +534,7 @@ if __name__ == '__main__':
     query_parser.add_argument('-keyName', action='store', required=True,
                               help='Specifies the full path of the subkey. The '
                                    'keyName must include a valid root key. Valid root keys for the local computer are: HKLM,'
-                                   ' HKU, HKCR.')
+                                   ' HKU, HKCU, HKCR.')
     query_parser.add_argument('-v', action='store', metavar="VALUENAME", required=False, help='Specifies the registry '
                            'value name that is to be queried. If omitted, all value names for keyName are returned. ')
     query_parser.add_argument('-ve', action='store_true', default=False, required=False, help='Queries for the default '
@@ -533,7 +547,7 @@ if __name__ == '__main__':
     add_parser.add_argument('-keyName', action='store', required=True,
                               help='Specifies the full path of the subkey. The '
                                    'keyName must include a valid root key. Valid root keys for the local computer are: HKLM,'
-                                   ' HKU, HKCR.')
+                                   ' HKU, HKCU, HKCR.')
     add_parser.add_argument('-v', action='store', metavar="VALUENAME", required=False, help='Specifies the registry '
                            'value name that is to be set.')
     add_parser.add_argument('-vt', action='store', metavar="VALUETYPE", required=False, help='Specifies the registry '
@@ -548,7 +562,7 @@ if __name__ == '__main__':
     delete_parser.add_argument('-keyName', action='store', required=True,
                               help='Specifies the full path of the subkey. The '
                                    'keyName must include a valid root key. Valid root keys for the local computer are: HKLM,'
-                                   ' HKU, HKCR.')
+                                   ' HKU, HKCU, HKCR.')
     delete_parser.add_argument('-v', action='store', metavar="VALUENAME", required=False, help='Specifies the registry '
                            'value name that is to be deleted.')
     delete_parser.add_argument('-va', action='store_true', required=False, help='Delete all values under this key.')
@@ -564,7 +578,7 @@ if __name__ == '__main__':
     save_parser.add_argument('-keyName', action='store', required=True,
                                help='Specifies the full path of the subkey. The '
                                     'keyName must include a valid root key. Valid root keys for the local computer are: HKLM,'
-                                    ' HKU, HKCR.')
+                                    ' HKU, HKCU, HKCR.')
     save_parser.add_argument('-o', dest='outputPath', action='store', metavar='\\\\192.168.0.2\share', required=True, help='Output UNC path the target system must export the registry saves to')
 
     # A special backup command to save HKLM\SAM, HKLM\SYSTEM and HKLM\SECURITY

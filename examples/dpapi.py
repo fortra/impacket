@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -59,7 +59,7 @@ from impacket.examples.secretsdump import LocalOperations, LSASecrets
 from impacket.structure import hexdump
 from impacket.dpapi import MasterKeyFile, MasterKey, CredHist, DomainKey, CredentialFile, DPAPI_BLOB, \
     CREDENTIAL_BLOB, VAULT_VCRD, VAULT_VPOL, VAULT_KNOWN_SCHEMAS, VAULT_VPOL_KEYS, P_BACKUP_KEY, PREFERRED_BACKUP_KEY, \
-    PVK_FILE_HDR, PRIVATE_KEY_BLOB, privatekeyblob_to_pkcs1, DPAPI_DOMAIN_RSA_MASTER_KEY
+    PVK_FILE_HDR, PRIVATE_KEY_BLOB, privatekeyblob_to_pkcs1, DPAPI_DOMAIN_RSA_MASTER_KEY, deriveKeysFromUser, deriveKeysFromUserkey, CREDHIST_FILE
 
 
 class DPAPI:
@@ -88,34 +88,6 @@ class DPAPI:
         if 'MachineKey' not in self.dpapiSystem or 'UserKey' not in self.dpapiSystem:
             logging.error('Cannot grab MachineKey/UserKey from LSA, aborting...')
             sys.exit(1)
-
-
-
-    def deriveKeysFromUser(self, sid, password):
-        # Will generate two keys, one with SHA1 and another with MD4
-        key1 = HMAC.new(SHA1.new(password.encode('utf-16le')).digest(), (sid + '\0').encode('utf-16le'), SHA1).digest()
-        key2 = HMAC.new(MD4.new(password.encode('utf-16le')).digest(), (sid + '\0').encode('utf-16le'), SHA1).digest()
-        # For Protected users
-        tmpKey = pbkdf2_hmac('sha256', MD4.new(password.encode('utf-16le')).digest(), sid.encode('utf-16le'), 10000)
-        tmpKey2 = pbkdf2_hmac('sha256', tmpKey, sid.encode('utf-16le'), 1)[:16]
-        key3 = HMAC.new(tmpKey2, (sid + '\0').encode('utf-16le'), SHA1).digest()[:20]
-
-        return key1, key2, key3
-
-    def deriveKeysFromUserkey(self, sid, pwdhash):
-        if len(pwdhash) == 20:
-            # SHA1
-            key1 = HMAC.new(pwdhash, (sid + '\0').encode('utf-16le'), SHA1).digest()
-            key2 = None
-        else:
-            # Assume MD4
-            key1 = HMAC.new(pwdhash, (sid + '\0').encode('utf-16le'), SHA1).digest()
-            # For Protected users
-            tmpKey = pbkdf2_hmac('sha256', pwdhash, sid.encode('utf-16le'), 10000)
-            tmpKey2 = pbkdf2_hmac('sha256', tmpKey, sid.encode('utf-16le'), 1)[:16]
-            key2 = HMAC.new(tmpKey2, (sid + '\0').encode('utf-16le'), SHA1).digest()[:20]
-
-        return key1, key2
 
     def run(self):
         if self.options.action.upper() == 'MASTERKEY':
@@ -168,7 +140,7 @@ class DPAPI:
                 # Use SID + hash
                 # We have hives, let's try to decrypt with them
                 self.getLSA()
-                key1, key2 = self.deriveKeysFromUserkey(self.options.sid, self.dpapiSystem['UserKey'])
+                key1, key2 = deriveKeysFromUserkey(self.options.sid, self.dpapiSystem['UserKey'])
                 decryptedKey = mk.decrypt(key1)
                 if decryptedKey:
                     print('Decrypted key with UserKey + SID')
@@ -191,7 +163,7 @@ class DPAPI:
                     return
             elif self.options.key and self.options.sid:
                 key = unhexlify(self.options.key[2:])
-                key1, key2 = self.deriveKeysFromUserkey(self.options.sid, key)
+                key1, key2 = deriveKeysFromUserkey(self.options.sid, key)
                 decryptedKey = mk.decrypt(key1)
                 if decryptedKey:
                     print('Decrypted key with key provided + SID')
@@ -232,7 +204,7 @@ class DPAPI:
                     password = getpass("Password:")
                 else:
                     password = options.password
-                key1, key2, key3 = self.deriveKeysFromUser(self.options.sid, password)
+                key1, key2, key3 = deriveKeysFromUser(self.options.sid, password)
 
                 # if mkf['flags'] & 4 ? SHA1 : MD4
                 decryptedKey = mk.decrypt(key3)
@@ -318,7 +290,7 @@ class DPAPI:
                         break
                 masterkey=b''.join(resp['ppDataOut'][beginning:])
                 print('Decrypted key using rpc call')
-                print('Decrypted key: 0x%s' % hexlify(masterkey[beginning:]).decode())
+                print('Decrypted key: 0x%s' % hexlify(masterkey).decode())
                 return
 
             else:
@@ -503,6 +475,68 @@ class DPAPI:
                 # Just print the data
                 blob.dump()
 
+        elif self.options.action.upper() == 'CREDHIST':
+            fp = open(self.options.file, 'rb')
+            data = fp.read()
+            chf = CREDHIST_FILE(data)
+
+            if len(chf.credhist_entries_list) == 0:
+                print('The CREDHIST file is empty')
+                return
+
+            # Handle key options
+            if self.options.key:
+                key = unhexlify(self.options.key[2:])
+                keys = deriveKeysFromUserkey(chf.credhist_entries_list[0].sid, key)
+
+            # Only other option is using a password
+            else:
+                # Do we have a password?
+                if self.options.password is None:
+                    # Nope let's ask it
+                    from getpass import getpass
+                    password = getpass("Password:")
+                else:
+                    password = options.password
+
+                keys = deriveKeysFromUser(chf.credhist_entries_list[0].sid, password)
+
+            if self.options.entry is None:
+                # First find the correct key to the 1st entry
+                real_key = None
+                for k in keys:
+                    chf.decrypt_entry_by_index(0, k)
+                    if chf.credhist_entries_list[0].pwdhash is not None:
+                        real_key = k
+                        break
+
+                # Wrong key
+                if real_key is None:
+                    chf.dump()
+                    print()
+                    print('Cannot decrypt (wrong key or password)')
+                    return
+
+                else:
+                    chf.decrypt(real_key)
+                    chf.dump()
+
+                    # Fully successful decryption
+                    if chf.credhist_entries_list[-1].pwdhash is not None:
+                        return
+
+            else:
+                for k in keys:
+                    chf.decrypt_entry_by_index(self.options.entry, k)
+                    if chf.credhist_entries_list[self.options.entry].pwdhash is not None:
+                        chf.credhist_entries_list[self.options.entry].dump()
+                        return
+
+                chf.credhist_entries_list[self.options.entry].dump()
+                print()
+                print('Cannot decrypt (wrong key or password)')
+                return
+
         print('Cannot decrypt (specify -key or -sid whenever applicable) ')
 
 
@@ -567,6 +601,13 @@ if __name__ == '__main__':
     unprotect.add_argument('-key', action='store', required=False, help='Key used for decryption')
     unprotect.add_argument('-entropy', action='store', default=None, required=False, help='String with extra entropy needed for decryption')
     unprotect.add_argument('-entropy-file', action='store', default=None, required=False, help='File with binary entropy contents (overwrites -entropy)')
+
+    # A CREDHIST command
+    credhist = subparsers.add_parser('credhist', help='CREDHIST related functions')
+    credhist.add_argument('-file', action='store', required=True, help='CREDHIST file')
+    credhist.add_argument('-key', action='store', help='Specific key to use for decryption')
+    credhist.add_argument('-password', action='store', help='User\'s password')
+    credhist.add_argument('-entry', action='store', type=int, help='Entry index in CREDHIST')
 
     options = parser.parse_args()
 

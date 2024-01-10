@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -42,7 +42,7 @@ import hashlib
 import hmac
 
 from binascii import unhexlify, hexlify, a2b_hex
-from six import PY2, b, text_type
+from six import b, ensure_str
 from six.moves import configparser, socketserver
 
 # For signing
@@ -234,6 +234,7 @@ def getShares(connId, smbServer):
 
 
 def searchShare(connId, share, smbServer):
+    share = ensure_str(share)
     config = smbServer.getServerConfig()
     if config.has_section(share):
         return dict(config.items(share))
@@ -411,6 +412,9 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
         files.append(os.path.join(dirName, '..'))
 
     if pattern != '':
+        if not os.path.exists(dirName):
+            return None, 0, STATUS_OBJECT_NAME_NOT_FOUND
+
         for file in os.listdir(dirName):
             if fnmatch.fnmatch(file.lower(), pattern.lower()):
                 entry = os.path.join(dirName, file)
@@ -454,8 +458,8 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
 
         item['FileName'] = os.path.basename(i).encode(encoding)
 
-        if level in [smb.SMB_FIND_FILE_BOTH_DIRECTORY_INFO, smb.SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO,
-                     smb2.SMB2_FILE_ID_BOTH_DIRECTORY_INFO]:
+        if level in [smb.SMB_FIND_FILE_BOTH_DIRECTORY_INFO, smb2.SMB2_FILE_BOTH_DIRECTORY_INFO,
+                     smb.SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO, smb2.SMB2_FILE_ID_BOTH_DIRECTORY_INFO]:
             item['EaSize'] = 0
             item['EndOfFile'] = size
             item['AllocationSize'] = size
@@ -590,8 +594,8 @@ def queryPathInformation(path, filename, level):
                 infoRecord['PositionInformation']['CurrentByteOffset'] = 0 #
                 infoRecord['ModeInformation']['mode'] = mode
                 infoRecord['AlignmentInformation']['AlignmentRequirement'] = 0 #
-                infoRecord['NameInformation']['FileName'] = fileName
-                infoRecord['NameInformation']['FileNameLength'] = len(fileName)
+                infoRecord['NameInformation']['FileName'] = fileName.encode('utf-16le')
+                infoRecord['NameInformation']['FileNameLength'] = len(fileName.encode('utf-16le'))
             elif level == smb2.SMB2_FILE_NETWORK_OPEN_INFO:
                 infoRecord = smb.SMBFileNetworkOpenInfo()
                 infoRecord['CreationTime'] = getFileTime(ctime)
@@ -606,7 +610,7 @@ def queryPathInformation(path, filename, level):
                     infoRecord['FileAttributes'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
             elif level == smb.SMB_QUERY_FILE_EA_INFO or level == smb2.SMB2_FILE_EA_INFO:
                 infoRecord = smb.SMBQueryFileEaInfo()
-            elif level == smb2.SMB2_FILE_STREAM_INFO:
+            elif level == smb.SMB_QUERY_FILE_STREAM_INFO or level == smb2.SMB2_FILE_STREAM_INFO:
                 infoRecord = smb.SMBFileStreamInformation()
             else:
                 LOG.error('Unknown level for query path info! 0x%x' % level)
@@ -2160,10 +2164,7 @@ class SMBCommands:
                 else:
                     errorCode = STATUS_NO_SUCH_FILE
             elif createDisposition & smb.FILE_OPEN_IF == smb.FILE_OPEN_IF:
-                if os.path.exists(pathName) is True:
-                    mode |= os.O_TRUNC
-                else:
-                    mode |= os.O_TRUNC | os.O_CREAT
+                mode |= os.O_CREAT
             elif createDisposition & smb.FILE_CREATE == smb.FILE_CREATE:
                 if os.path.exists(pathName) is True:
                     errorCode = STATUS_OBJECT_NAME_COLLISION
@@ -2557,6 +2558,7 @@ class SMBCommands:
             elif messageType == 0x02:
                 # CHALLENGE_MESSAGE
                 raise Exception('Challenge Message raise, not implemented!')
+
             elif messageType == 0x03:
                 # AUTHENTICATE_MESSAGE, here we deal with authentication
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
@@ -2616,6 +2618,18 @@ class SMBCommands:
                     respToken = SPNEGO_NegTokenResp()
                     respToken['NegState'] = b'\x02'
                     smbServer.log("Could not authenticate user!")
+                if smbServer.auth_callback is not None:
+                    try:
+                        smbServer.auth_callback(
+                            smbServer=smbServer,
+                            connData=connData,
+                            domain_name=authenticateMessage['domain_name'].decode('utf-16le'),
+                            user_name=authenticateMessage['user_name'].decode('utf-16le'),
+                            host_name=authenticateMessage['host_name'].decode('utf-16le')
+                        )
+                    except Exception as e:
+                        print("[!] Could not call auth_callback: %s" % e)
+
             else:
                 raise Exception("Unknown NTLMSSP MessageType %d" % messageType)
 
@@ -3018,6 +3032,19 @@ class SMB2Commands:
                 respToken = SPNEGO_NegTokenResp()
                 respToken['NegState'] = b'\x02'
                 smbServer.log("Could not authenticate user!")
+
+            if smbServer.auth_callback is not None:
+                try:
+                    smbServer.auth_callback(
+                        smbServer=smbServer,
+                        connData=connData,
+                        domain_name=authenticateMessage['domain_name'].decode('utf-16le'),
+                        user_name=authenticateMessage['user_name'].decode('utf-16le'),
+                        host_name=authenticateMessage['host_name'].decode('utf-16le')
+                    )
+                except Exception as e:
+                    print("[!] Could not call auth_callback: %s" % e)
+
         else:
             raise Exception("Unknown NTLMSSP MessageType %d" % messageType)
 
@@ -3141,10 +3168,7 @@ class SMB2Commands:
                 else:
                     errorCode = STATUS_NO_SUCH_FILE
             elif createDisposition & smb2.FILE_OPEN_IF == smb2.FILE_OPEN_IF:
-                if os.path.exists(pathName) is True:
-                    mode |= os.O_TRUNC
-                else:
-                    mode |= os.O_TRUNC | os.O_CREAT
+                mode |= os.O_CREAT
             elif createDisposition & smb2.FILE_CREATE == smb2.FILE_CREATE:
                 if os.path.exists(pathName) is True:
                     errorCode = STATUS_OBJECT_NAME_COLLISION
@@ -3194,10 +3218,10 @@ class SMB2Commands:
                         else:
                             if sys.platform == 'win32':
                                 mode |= os.O_BINARY
-                            if str(pathName) in smbServer.getRegisteredNamedPipes():
+                            if ensure_str(pathName) in smbServer.getRegisteredNamedPipes():
                                 fid = PIPE_FILE_DESCRIPTOR
                                 sock = socket.socket()
-                                sock.connect(smbServer.getRegisteredNamedPipes()[str(pathName)])
+                                sock.connect(smbServer.getRegisteredNamedPipes()[ensure_str(pathName)])
                             else:
                                 fid = os.open(pathName, mode)
                     except Exception as e:
@@ -3417,8 +3441,11 @@ class SMB2Commands:
                     if informationLevel == smb2.SMB2_FILE_DISPOSITION_INFO:
                         infoRecord = smb.SMBSetFileDispositionInfo(setInfo['Buffer'])
                         if infoRecord['DeletePending'] > 0:
-                            # Mark this file for removal after closed
-                            connData['OpenedFiles'][fileID]['DeleteOnClose'] = True
+                            if os.path.isdir(pathName) and os.listdir(pathName):
+                                errorCode = STATUS_DIRECTORY_NOT_EMPTY
+                            else:
+                                # Mark this file for removal after closed
+                                connData['OpenedFiles'][fileID]['DeleteOnClose'] = True
                     elif informationLevel == smb2.SMB2_FILE_BASIC_INFO:
                         infoRecord = smb.SMBSetFileBasicInfo(setInfo['Buffer'])
                         # Creation time won't be set,  the other ones we play with.
@@ -3456,6 +3483,10 @@ class SMB2Commands:
                         except Exception as e:
                             smbServer.log("smb2SetInfo: %s" % e, logging.ERROR)
                             errorCode = STATUS_ACCESS_DENIED
+                    elif informationLevel == smb2.SMB2_FILE_ALLOCATION_INFO:
+                        # See https://github.com/samba-team/samba/blob/master/source3/smbd/smb2_trans2.c#LL5201C8-L5201C39
+                        smbServer.log("Warning: SMB2_FILE_ALLOCATION_INFO not implemented")
+                        errorCode = STATUS_SUCCESS
                     else:
                         smbServer.log('Unknown level for set file info! 0x%x' % informationLevel, logging.ERROR)
                         # UNSUPPORTED
@@ -3705,6 +3736,20 @@ class SMB2Commands:
             data = searchResult[nItem].getData()
             lenData = len(data)
             padLen = (8 - (lenData % 8)) % 8
+
+            # For larger directory we might reach the OutputBufferLength so we need to set 
+            # the NextEntryOffset to 0 for the last entry the will fit the buffer
+            try:
+                # Check if the next data will exceed the OutputBufferLength
+                nextData = searchResult[nItem + 1].getData()
+                lenNextData = len(nextData)
+                nextTotalData = totalData + lenData + padLen + lenNextData
+                if nextTotalData >= queryDirectoryRequest['OutputBufferLength']:
+                    # Set the NextEntryOffset to 0 and get the data again
+                    searchResult[nItem]['NextEntryOffset'] = 0
+                    data = searchResult[nItem].getData()
+            except IndexError:
+                pass
 
             if (totalData + lenData) >= queryDirectoryRequest['OutputBufferLength']:
                 connData['OpenedFiles'][fileID]['Open']['EnumerationLocation'] -= 1
@@ -3967,6 +4012,8 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
         # Allow anonymous logon
         self.__anonymousLogon = True
+
+        self.auth_callback = None
 
         # Our list of commands we will answer, by default the NOT IMPLEMENTED one
         self.__smbCommandsHandler = SMBCommands()
@@ -4289,6 +4336,12 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
     def getJTRdumpPath(self):
         return self.__jtr_dump_path
 
+    def getAuthCallback(self):
+        return self.auth_callback
+
+    def setAuthCallback(self, callback):
+        self.auth_callback = callback
+
     def verify_request(self, request, client_address):
         # TODO: Control here the max amount of processes we want to launch
         # returning False, closes the connection
@@ -4598,7 +4651,7 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         if self.__serverConfig.has_option('global', 'challenge'):
             self.__challenge = unhexlify(self.__serverConfig.get('global', 'challenge'))
         else:
-            self.__challenge = b'A' * 16
+            self.__challenge = b'A' * 8
 
         if self.__serverConfig.has_option("global", "jtr_dump_path"):
             self.__jtr_dump_path = self.__serverConfig.get("global", "jtr_dump_path")
@@ -4911,3 +4964,9 @@ class SimpleSMBServer:
             self.__smbConfig.set("global", "SMB2Support", "False")
         self.__server.setServerConfig(self.__smbConfig)
         self.__server.processConfigFile()
+
+    def getAuthCallback(self):
+        return self.__server.getAuthCallback()
+
+    def setAuthCallback(self, callback):
+        self.__server.setAuthCallback(callback)
