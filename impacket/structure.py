@@ -11,6 +11,10 @@ from __future__ import division
 from __future__ import print_function
 from struct import pack, unpack, calcsize
 from six import b, PY3
+from sys import stdout
+
+
+encoding = stdout.encoding
 
 class Structure:
     """ sublcasses can define commonHdr and/or structure.
@@ -172,7 +176,7 @@ class Structure:
         del self.fields[key]
         
     def __str__(self):
-        return self.getData()
+        return self.getData().decode(encoding)
 
     def __len__(self):
         # XXX: improve
