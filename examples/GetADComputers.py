@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright (C) 2024 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -69,9 +69,7 @@ class GetADComputers:
 
         # Let's calculate the header and format
         self.__header = ["SAM AcctName", "DNS Hostname", "OS Version", "OS"]
-        #self.__header = ["Common Name"]
         # Since we won't process all rows at once, this will be fixed lengths
-        #self.__colLen = [20]
         self.__colLen = [15, 35, 15, 20]
         self.__outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(self.__colLen)])
 
@@ -116,19 +114,19 @@ class GetADComputers:
             for attribute in item['attributes']:
                 if str(attribute['type']) == 'sAMAccountName':
                     if attribute['vals'][0].asOctets().decode('utf-8').endswith('$') is True:
-                        # User Account
+                        # sAMAccountName
                         sAMAccountName = attribute['vals'][0].asOctets().decode('utf-8')
                 if str(attribute['type']) == 'dNSHostName':
                     if attribute['vals'][0].asOctets().decode('utf-8').endswith('$') is False:
-                        # User Account
+                        # dNSHostName
                         dNSHostName = attribute['vals'][0].asOctets().decode('utf-8')
                 if str(attribute['type']) == 'operatingSystem':
                     if attribute['vals'][0].asOctets().decode('utf-8').endswith('$') is False:
-                        # User Account
+                        # operatingSystem
                         operatingSystem = attribute['vals'][0].asOctets().decode('utf-8')
                 if str(attribute['type']) == 'operatingSystemVersion':
                     if attribute['vals'][0].asOctets().decode('utf-8').endswith('$') is False:
-                        # User Account
+                        # operatingSystemVersion
                         operatingSystemVersion = attribute['vals'][0].asOctets().decode('utf-8')
  
 
@@ -208,9 +206,6 @@ if __name__ == '__main__':
 
     parser.add_argument('target', action='store', help='domain[/username[:password]]')
     parser.add_argument('-user', action='store', metavar='username', help='Requests data for specific user ')
-    #parser.add_argument('-all', action='store_true', help='Return all users, including those with no email '
-                                                           #'addresses and disabled accounts. When used with -user it '
-                                                          #'will return user\'s info even if the account is disabled')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
