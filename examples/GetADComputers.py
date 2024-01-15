@@ -56,7 +56,7 @@ class GetADComputers:
         self.__kdcIP = cmdLineOptions.dc_ip
         self.__kdcHost = cmdLineOptions.dc_host
         self.__requestUser = cmdLineOptions.user
-        self.__dns2IP = cmdLineOptions.dns2IP
+        self.__resolveIP = cmdLineOptions.resolveIP
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
@@ -69,7 +69,7 @@ class GetADComputers:
         self.baseDN = self.baseDN[:-1]
 
         # Let's calculate the header and format
-        if self.__dns2IP : #dns2IP flag is used, we will try to resolve the IP address
+        if self.__resolveIP : #resolveIP flag is used, we will try to resolve the IP address
             self.__header = ["SAM AcctName", "DNS Hostname", "OS Version", "OS", "IPAddress"]
             # Since we won't process all rows at once, this will be fixed lengths
             self.__colLen = [15, 35, 15, 35, 20]
@@ -121,9 +121,9 @@ class GetADComputers:
         operatingSystemVersion = ''
         try:
 
-            if(self.__dns2IP): #will resolve the IP address
+            if(self.__resolveIP): #will resolve the IP address
                 resolvedIPAddress=''
-                dns2IP = dns.resolver.Resolver()
+                resolveIP = dns.resolver.Resolver()
                 dns.resolver.default_resolver = dns.resolver.Resolver(configure=False) #Dont want to use the default DNS in /etc/resolv.conf
                 dns.resolver.default_resolver.nameservers = [self.__kdcIP] #converting DCIP from STRING to LIST
                 for attribute in item['attributes']:
@@ -233,8 +233,6 @@ class GetADComputers:
             sc = ldap.SimplePagedResultsControl(size=100)
             
             ldapConnection.search(searchFilter=searchFilter,attributes=['sAMAccountName','dNSHostName','operatingSystem','operatingSystemVersion'],sizeLimit=0, searchControls = [sc], perRecordCallback=self.processRecord)
-            #result = ldapConnection.search(searchFilter=searchFilter,attributes=['sAMAccountName', 'cn'],sizeLimit=0, searchControls = [sc])
-            #print (result)
             
         except ldap.LDAPSearchError:
                 raise
@@ -245,13 +243,14 @@ class GetADComputers:
 if __name__ == '__main__':
     print((version.BANNER))
 
-    parser = argparse.ArgumentParser(add_help = True, description = "Queries target domain for users data")
+    parser = argparse.ArgumentParser(add_help = True, description = "Queries target domain for computer data")
 
     parser.add_argument('target', action='store', help='domain[/username[:password]]')
     parser.add_argument('-user', action='store', metavar='username', help='Requests data for specific user ')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
-
+    parser.add_argument('-resolveIP', action='store_true',  help='Tries to resolve the IP address of computer objects, by performing the nslookup on the DC.')
+    
     group = parser.add_argument_group('authentication')
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
@@ -261,7 +260,7 @@ if __name__ == '__main__':
                                                        'line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
                                                                             '(128 or 256 bits)')
-
+    
     group = parser.add_argument_group('connection')
     group.add_argument('-dc-ip', action='store', metavar='ip address', help='IP Address of the domain controller. If '
                                                                               'ommited it use the domain part (FQDN) '
@@ -270,7 +269,7 @@ if __name__ == '__main__':
                                                                               'If ommited, the domain part (FQDN) '
                                                                               'specified in the account parameter will be used')
 
-    group.add_argument('-dns2IP', action='store_true',  help='Tries to resolve the IP address of computer objects, by performing the nslookup on the DC.')
+    
 
 
     if len(sys.argv)==1:
