@@ -10,7 +10,7 @@
 # Description:
 #   This script  is inspired from Alberto Solino's -> imacket-GetAdUsers. 
 #   This script will make a LDAP query to DC and gather information about all the COMPUTERS present in DC.
-#   
+#   Also, has the capablity of resolving the IP addresses of the idenitifed hosts by making a DNS query of A record to the DC.    
 #
 # Inspired from author:
 #   Alberto Solino (@agsolino)
@@ -30,6 +30,7 @@ from __future__ import unicode_literals
 import argparse
 import logging
 import sys
+import dns.resolver
 from datetime import datetime
 
 from impacket import version
@@ -55,7 +56,7 @@ class GetADComputers:
         self.__kdcIP = cmdLineOptions.dc_ip
         self.__kdcHost = cmdLineOptions.dc_host
         self.__requestUser = cmdLineOptions.user
-        #self.__all = cmdLineOptions.all
+        self.__dns2IP = cmdLineOptions.dns2IP
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
@@ -68,10 +69,19 @@ class GetADComputers:
         self.baseDN = self.baseDN[:-1]
 
         # Let's calculate the header and format
-        self.__header = ["SAM AcctName", "DNS Hostname", "OS Version", "OS"]
-        # Since we won't process all rows at once, this will be fixed lengths
-        self.__colLen = [15, 35, 15, 20]
-        self.__outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(self.__colLen)])
+        if self.__dns2IP : #dns2IP flag is used, we will try to resolve the IP address
+            self.__header = ["SAM AcctName", "DNS Hostname", "OS Version", "OS", "IPAddress"]
+            # Since we won't process all rows at once, this will be fixed lengths
+            self.__colLen = [15, 35, 15, 35, 20]
+            self.__outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(self.__colLen)])
+
+        else:
+            self.__header = ["SAM AcctName", "DNS Hostname", "OS Version", "OS"]
+            # Since we won't process all rows at once, this will be fixed lengths
+            self.__colLen = [15, 35, 15, 20]
+            self.__outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(self.__colLen)])
+
+ 
 
     def getMachineName(self, target):
         try:
@@ -109,28 +119,60 @@ class GetADComputers:
         dNSHostName = ''
         operatingSystem = ''
         operatingSystemVersion = ''
-
         try:
-            for attribute in item['attributes']:
-                if str(attribute['type']) == 'sAMAccountName':
-                    if attribute['vals'][0].asOctets().decode('utf-8').endswith('$') is True:
-                        # sAMAccountName
-                        sAMAccountName = attribute['vals'][0].asOctets().decode('utf-8')
-                if str(attribute['type']) == 'dNSHostName':
-                    if attribute['vals'][0].asOctets().decode('utf-8').endswith('$') is False:
-                        # dNSHostName
-                        dNSHostName = attribute['vals'][0].asOctets().decode('utf-8')
-                if str(attribute['type']) == 'operatingSystem':
-                    if attribute['vals'][0].asOctets().decode('utf-8').endswith('$') is False:
-                        # operatingSystem
-                        operatingSystem = attribute['vals'][0].asOctets().decode('utf-8')
-                if str(attribute['type']) == 'operatingSystemVersion':
-                    if attribute['vals'][0].asOctets().decode('utf-8').endswith('$') is False:
-                        # operatingSystemVersion
-                        operatingSystemVersion = attribute['vals'][0].asOctets().decode('utf-8')
+
+            if(self.__dns2IP): #will resolve the IP address
+                resolvedIPAddress=''
+                dns2IP = dns.resolver.Resolver()
+                dns.resolver.default_resolver = dns.resolver.Resolver(configure=False) #Dont want to use the default DNS in /etc/resolv.conf
+                dns.resolver.default_resolver.nameservers = [self.__kdcIP] #converting DCIP from STRING to LIST
+                for attribute in item['attributes']:
+                    if str(attribute['type']) == 'sAMAccountName':
+                        if attribute['vals'][0].asOctets().decode('utf-8').endswith('$') is True:
+                            # sAMAccountName
+                            sAMAccountName = attribute['vals'][0].asOctets().decode('utf-8')
+                    if str(attribute['type']) == 'dNSHostName':
+                        if attribute['vals'][0].asOctets().decode('utf-8').endswith('$') is False:
+                            # dNSHostName + IP resolve
+                            dNSHostName = attribute['vals'][0].asOctets().decode('utf-8')
+                            try:
+                                answers=dns.resolver.resolve(attribute['vals'][0].asOctets().decode('utf-8'),'A',tcp=True)
+                                for rdata in answers:
+                                    resolvedIPAddress = rdata.address
+                            except:
+                                    resolvedIPAddress = '<unable to resolve>'
+                    if str(attribute['type']) == 'operatingSystem':
+                        if attribute['vals'][0].asOctets().decode('utf-8').endswith('$') is False:
+                            # operatingSystem
+                            operatingSystem = attribute['vals'][0].asOctets().decode('utf-8')
+                    if str(attribute['type']) == 'operatingSystemVersion':
+                        if attribute['vals'][0].asOctets().decode('utf-8').endswith('$') is False:
+                            # operatingSystemVersion
+                            operatingSystemVersion = attribute['vals'][0].asOctets().decode('utf-8')
+                print((self.__outputFormat.format(*[sAMAccountName, dNSHostName, operatingSystemVersion,operatingSystem,resolvedIPAddress])))
+
+            else: #won't resolve the IP address
+                for attribute in item['attributes']:
+                    if str(attribute['type']) == 'sAMAccountName':
+                        if attribute['vals'][0].asOctets().decode('utf-8').endswith('$') is True:
+                            # sAMAccountName
+                            sAMAccountName = attribute['vals'][0].asOctets().decode('utf-8')
+                    if str(attribute['type']) == 'dNSHostName':
+                        if attribute['vals'][0].asOctets().decode('utf-8').endswith('$') is False:
+                            # dNSHostName
+                            dNSHostName = attribute['vals'][0].asOctets().decode('utf-8')
+                    if str(attribute['type']) == 'operatingSystem':
+                        if attribute['vals'][0].asOctets().decode('utf-8').endswith('$') is False:
+                            # operatingSystem
+                            operatingSystem = attribute['vals'][0].asOctets().decode('utf-8')
+                    if str(attribute['type']) == 'operatingSystemVersion':
+                        if attribute['vals'][0].asOctets().decode('utf-8').endswith('$') is False:
+                            # operatingSystemVersion
+                            operatingSystemVersion = attribute['vals'][0].asOctets().decode('utf-8')
+                print((self.__outputFormat.format(*[sAMAccountName, dNSHostName, operatingSystemVersion,operatingSystem])))
+        
  
 
-            print((self.__outputFormat.format(*[sAMAccountName, dNSHostName, operatingSystemVersion,operatingSystem])))
         except Exception as e:
             logging.debug("Exception", exc_info=True)
             logging.error('Skipping item, cannot process due to error %s' % str(e))
@@ -149,6 +191,7 @@ class GetADComputers:
                 logging.info('Getting machine hostname')
                 self.__target = self.getMachineName(self.__target)
 
+     
         # Connect to LDAP
         try:
             ldapConnection = ldap.LDAPConnection('ldap://%s' % self.__target, self.baseDN, self.__kdcIP)
@@ -226,6 +269,9 @@ if __name__ == '__main__':
     group.add_argument('-dc-host', action='store', metavar='hostname', help='Hostname of the domain controller to use. '
                                                                               'If ommited, the domain part (FQDN) '
                                                                               'specified in the account parameter will be used')
+
+    group.add_argument('-dns2IP', action='store_true',  help='Tries to resolve the IP address of computer objects, by performing the nslookup on the DC.')
+
 
     if len(sys.argv)==1:
         parser.print_help()
