@@ -19,9 +19,11 @@ import re
 target_regex = re.compile(r"(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)")
 
 
-# Regular expression to parse credentials information
-credential_regex = re.compile(r"(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?")
+# Regular expression to parse Active Directory credentials information
+ad_credential_regex = re.compile(r"(?:(?:([^/:]*)/)?([^:]*)(?::(.*))?)?")
 
+# Regular expression to parse standard Kerberos credentials information
+krb5_credential_regex = re.compile(r"([^@:]*)@([^/@:]*)(?::(.*))?")
 
 def parse_target(target):
     """ Helper function to parse target information. The expected format is:
@@ -47,6 +49,8 @@ def parse_target(target):
 def parse_credentials(credentials):
     """ Helper function to parse credentials information. The expected format is:
 
+    <USERNAME@><DOMAIN><:PASSWORD>
+    OR
     <DOMAIN></USERNAME><:PASSWORD>
 
     :param credentials: credentials to parse
@@ -55,6 +59,10 @@ def parse_credentials(credentials):
     :return: tuple of domain, username and password
     :rtype: (string, string, string)
     """
-    domain, username, password = credential_regex.match(credentials).groups('')
+    res = krb5_credential_regex.match(credentials)
+    if res:
+        username, domain, password = res.groups('')
+    else:
+        domain, username, password = ad_credential_regex.match(credentials).groups('')
 
     return domain, username, password
