@@ -3607,6 +3607,15 @@ class SMB(object):
 
         setup = '\x53\x00\x00\x00'
         name = '\\PIPE%s\x00' % pipe
+        if self.__flags2 & SMB.FLAGS2_UNICODE:
+            start_of_name = 32+3+28+len(setup)#32 is smb_header,28 is parameter,3 is wordcount and bytecount
+            start_pad = 2-(start_of_name%2)
+            name = start_pad*b'\x00' + name.encode('utf-16le')
+            end_of_name = start_of_name+len(name) 
+            pad_len = 4-(end_of_name%4)
+            name += pad_len*b'\x00'
+        else:
+            name = name.encode('utf-8')
         transCommand['Parameters']['Setup'] = setup
         transCommand['Parameters']['TotalParameterCount'] = 0
         transCommand['Parameters']['TotalDataCount'] = 0
