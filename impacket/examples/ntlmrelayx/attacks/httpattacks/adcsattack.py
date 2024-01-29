@@ -16,6 +16,7 @@
 import re
 import base64
 from OpenSSL import crypto
+from textwrap import wrap
 
 from impacket import LOG
 
@@ -25,7 +26,7 @@ ELEVATED = []
 
 class ADCSAttack:
 
-    def _run(self):
+    def _run(self,text_width=80):
         key = crypto.PKey()
         key.generate_key(crypto.TYPE_RSA, 4096)
 
@@ -76,7 +77,13 @@ class ADCSAttack:
         certificate = response.read().decode()
 
         certificate_store = self.generate_pfx(key, certificate)
-        LOG.info("Base64 certificate of user %s: \n%s" % (self.username, base64.b64encode(certificate_store).decode()))
+        LOG.info("Base64-encoded PKCS#12 of user %s:" % (self.username))
+
+        pkcs_dump = base64.b64encode(certificate_store).decode()
+
+        for i in wrap(pkcs_dump,text_width):
+            print(i)
+
 
         if self.config.altName:
             LOG.info("This certificate can also be used for user : {}".format(self.config.altName))
