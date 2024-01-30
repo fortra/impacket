@@ -500,6 +500,20 @@ class NTLMAuthChallengeResponse(Structure):
         lanman_end    = self['lanman_len'] + lanman_offset
         self['lanman'] = data[ lanman_offset : lanman_end]
 
+    def getUserString(self):
+        if self['flags'] & NTLMSSP_NEGOTIATE_UNICODE:
+            user = self['user_name'].decode('utf-16le')
+            domain = self['domain_name'].decode('utf-16le')
+        else:
+            user = self['user_name'].decode('cp437')
+            domain = self['domain_name'].decode('cp437')
+
+        # user is in UPN format
+        if not domain and '@' in user:
+            user, _, domain = user.rpartition("@")
+
+        return ('%s/%s' % (domain, user)).upper()
+
 class ImpacketStructure(Structure):
     def set_parent(self, other):
         self.parent = other
