@@ -1105,11 +1105,6 @@ class LDAPAttack(ProtocolAttack):
             if dns_name_ok and dns_ipaddr_ok:
                 self.addDnsRecord(name, ipaddr)
 
-        # Perform the Delegate attack if it is enabled and we relayed a computer account
-        if self.config.delegateaccess and self.username[-1] == '$':
-            self.delegateAttack(self.config.escalateuser, self.username, domainDumper, self.config.sid)
-            return
-
         # Add a new computer if that is requested
         # privileges required are not yet enumerated, neither is ms-ds-MachineAccountQuota
         if self.config.addcomputer is not None:
@@ -1124,6 +1119,11 @@ class LDAPAttack(ProtocolAttack):
             self.addComputer(computerscontainer, domainDumper)
             return
 
+        # Perform the Delegate attack if it is enabled and we relayed a computer account
+        if self.config.delegateaccess and self.username[-1] == '$':
+            self.delegateAttack(self.config.escalateuser, self.username, domainDumper, self.config.sid)
+            return
+        
         # Perform the Shadow Credentials attack if it is enabled
         if self.config.IsShadowCredentialsAttack:
             self.shadowCredentialsAttack(domainDumper)
