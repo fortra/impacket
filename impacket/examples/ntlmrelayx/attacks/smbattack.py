@@ -121,7 +121,7 @@ class SMBAttack(ProtocolAttack):
                     req['tag'] = samr.USER_INFORMATION_CLASS.UserControlInformation
                     req['Control']['UserAccountControl'] = samr.USER_WORKSTATION_TRUST_ACCOUNT
                     samr.hSamrSetInformationUser2(remoteOps.getSamr(), userHandle, req)
-                    print("Successfully added machine account %s with password %s" % (computerName, newPassword))
+                    LOG.info("Successfully added machine account %s with password %s" % (computerName, newPassword))
                 except Exception as e:
                     LOG.error(str(e))
 
