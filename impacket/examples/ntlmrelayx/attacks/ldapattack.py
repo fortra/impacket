@@ -1117,7 +1117,6 @@ class LDAPAttack(ProtocolAttack):
             ][0]
             LOG.debug("Computer container is {}".format(computerscontainer))
             self.addComputer(computerscontainer, domainDumper)
-            return
 
         # Perform the Delegate attack if it is enabled and we relayed a computer account
         if self.config.delegateaccess and self.username[-1] == '$':
