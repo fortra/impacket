@@ -716,6 +716,56 @@ class LdapPassword(PasswordHandler):
         newPasswordEncoded = self.encodeLdapPassword(newPassword)
         return self._modifyPassword(True, targetUsername, targetDomain, oldPasswordEncoded, newPasswordEncoded)
 
+    def unlockAccount(self, targetUsername, targetDomain):
+        """
+        unlock account of a user
+
+        Must send a modify operation (must have privileges).
+        """
+
+        if not targetUsername:
+            logging.critical("LDAP requires the target username")
+            return False
+
+        if not self.connect(targetDomain):
+            return False
+
+        targetDN = self.findTargetDN(targetUsername, targetDomain)
+        if not targetDN:
+            logging.critical("Could not find the target user in LDAP")
+            return False
+
+        logging.debug(f"Found target distinguishedName: {targetDN}")
+
+        # Build our Modify request
+        request = ldapasn1.ModifyRequest()
+        request["object"] = targetDN
+
+        request["changes"][0]["operation"] = ldapasn1.Operation("replace")
+        request["changes"][0]["modification"]["type"] = "lockoutTime"
+        request["changes"][0]["modification"]["vals"][0] = '0'
+
+        logging.debug(f"Sending: {str(request)}")
+
+        response = self.ldapConnection.sendReceive(request)[0]
+
+        logging.debug(f"Receiving: {str(response)}")
+
+        resultCode = int(response["protocolOp"]["modifyResponse"]["resultCode"])
+        result = str(ldapasn1.ResultCode(resultCode))
+        diagMessage = str(response["protocolOp"]["modifyResponse"]["diagnosticMessage"])
+
+        if result == "success":
+            logging.info(f"Account unlocked successfully: {targetDN}")
+            return True
+        elif result == "insufficientAccessRights":
+            logging.error(f"Could not unlock {targetDN}, {self.domain}\\{self.username} has insufficient rights")
+        else:
+            logging.error(f"Could not unlock {targetDN}. {result}: {diagMessage}")
+
+        return False
+
+
     def _setPassword(self, targetUsername, targetDomain, newPassword, newPwdHashLM, newPwdHashNT):
         """
         Set the password of a user.
@@ -789,6 +839,11 @@ def parse_args():
         ),
     )
     group.add_argument(
+        "-unlock",
+        action="store_true",
+        help="Try to unlock the account (requires -altuser and (-altpass or -althash))",
+    )
+    group.add_argument(
         "-reset",
         "-admin",
         action="store_true",
@@ -839,13 +894,14 @@ if __name__ == "__main__":
         "ldap": LdapPassword,
     }
 
+
     try:
-        PasswordProtocol = handlers[options.protocol]
+        PasswordProtocol = handlers[options.protocol if not options.unlock else "ldap"]
     except KeyError:
         logging.critical(f"Unsupported password protocol {options.protocol}")
         sys.exit(1)
 
-    # Parse account whose password is changed
+    # Parse account whose password is changed or unlocked
     targetDomain, targetUsername, oldPassword, address = parse_target(options.target)
 
     if not targetDomain:
@@ -864,7 +920,7 @@ if __name__ == "__main__":
         oldPwdHashLM = ""
         oldPwdHashNT = ""
 
-    if oldPassword == "" and oldPwdHashNT == "":
+    if oldPassword == "" and oldPwdHashNT == "" and not options.unlock:
         if options.reset:
             pass  # no need for old one when we reset
         elif options.no_pass:
@@ -884,7 +940,7 @@ if __name__ == "__main__":
     else:
         newPwdHashLM = ""
         newPwdHashNT = ""
-        if options.newpass is None:
+        if options.newpass is None and options.unlock is False:
             newPassword = getpass("New password: ")
             if newPassword != getpass("Retype new password: "):
                 logging.critical("Passwords do not match, try again.")
@@ -948,6 +1004,11 @@ if __name__ == "__main__":
     # Attempt the password change/reset
     if options.reset:
         handler.setPassword(targetUsername, targetDomain, newPassword, newPwdHashLM, newPwdHashNT)
+    elif options.unlock:
+        if not options.altuser or (not options.altpass and not options.althash):
+            logging.critical("You must specify an altuser and an althash or altpass to use unlock")
+            sys.exit(1)
+        handler.unlockAccount(targetUsername, targetDomain)
     else:
         if (authDomain, authUsername) != (targetDomain, targetUsername):
             logging.warning(
