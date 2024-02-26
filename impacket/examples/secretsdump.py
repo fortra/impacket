@@ -1229,6 +1229,26 @@ class RemoteOperations:
 
         return remoteFileName
 
+    def createSSandDownload(self, volume, path):
+        LOG.info('Creating SS')
+        ssID = self.__wmiCreateShadow(volume)
+        LOG.info('Getting SMB equivalente PATH to access remotely the SS')
+        path = self.__wmiGetLastSSRemotePath(ssID)
+
+        localPaths = ['%s\\SAM' % path, '%s\\SYSTEM' % path, '%s\\SECURITY' % path]
+
+        with open(localPaths[0], 'wb') as local_file:
+            self.__smbConnection.getFile('ADMIN$', '%s\\System32\\Config\\SAM' % path, local_file.write)
+
+        with open(localPaths[1], 'wb') as local_file:
+            self.__smbConnection.getFile('ADMIN$', '%s\\System32\\Config\\SYSTEM' % path, local_file.write)
+
+        with open(localPaths[2], 'wb') as local_file:
+            self.__smbConnection.getFile('ADMIN$', '%s\\System32\\Config\\SECURITY' % path, local_file.write)
+
+
+        return localPaths
+
 class CryptoCommon:
     # Common crypto stuff used over different classes
     def deriveKey(self, baseKey):
