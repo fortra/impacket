@@ -1047,6 +1047,45 @@ class RemoteOperations:
 
         dcom.disconnect()
 
+    def __wmiCreateShadow(self, volume):
+        username, password, domain, lmhash, nthash, aesKey, _, _ = self.__smbConnection.getCredentials()
+        dcom = DCOMConnection(self.__smbConnection.getRemoteHost(), username, password, domain, lmhash, nthash, aesKey,
+                              oxidResolver=False, doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
+        iWbemServices= iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
+        iWbemLevel1Login.RemRelease()
+
+        win32ShadowCopy,_ = iWbemServices.GetObject('Win32_ShadowCopy')
+        shadowId = win32ShadowCopy.Create(volume)
+
+        dcom.disconnect()
+
+        return shadowId
+
+    def __wmiGetLastSSRemotePath(self, ssID):
+        query = 'SELECT InstallDate FROM Win32_ShadowCopy where SetID="%s"'.format(ssID)
+        username, password, domain, lmhash, nthash, aesKey, _, _ = self.__smbConnection.getCredentials()
+        dcom = DCOMConnection(self.__smbConnection.getRemoteHost(), username, password, domain, lmhash, nthash, aesKey,
+                              oxidResolver=False, doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
+        iWbemServices= iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
+        iWbemLevel1Login.RemRelease()
+
+        query_result = iWbemServices.ExecQuery(query)
+
+        year = query_result[:4]
+        month = query_result[4:6]
+        day = query_result[6:8]
+        hour = query_result[8:10]
+        minute = query_result[10:12]
+        second = query_result[12:14]
+
+        dcom.disconnect()
+
+        return "@GMT-%s.%s.%s-%s.%s.%s".format(year, day, month, hour, minute, second)
+
     def __executeRemote(self, data):
         self.__tmpServiceName = ''.join([random.choice(string.ascii_letters) for _ in range(8)])
         command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' > ' + self.__batchFile + ' & ' + \
