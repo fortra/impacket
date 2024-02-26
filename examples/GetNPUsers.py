@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -195,22 +195,36 @@ class GetUserNoPreAuth:
             # The user doesn't have UF_DONT_REQUIRE_PREAUTH set
             raise Exception('User %s doesn\'t have UF_DONT_REQUIRE_PREAUTH set' % userName)
 
+        # Let's output the TGT enc-part/cipher in John format, in case somebody wants to use it.
         if self.__outputFormat == 'john':
-            # Let's output the TGT enc-part/cipher in John format, in case somebody wants to use it.
-            return '$krb5asrep$%s@%s:%s$%s' % (clientName, domain,
-                                               hexlify(asRep['enc-part']['cipher'].asOctets()[:16]).decode(),
-                                               hexlify(asRep['enc-part']['cipher'].asOctets()[16:]).decode())
-        else:
-            # Let's output the TGT enc-part/cipher in Hashcat format, in case somebody wants to use it.
-            return '$krb5asrep$%d$%s@%s:%s$%s' % ( asRep['enc-part']['etype'], clientName, domain,
+            # Check what type of encryption is used for the enc-part data
+            # This will inform how the hash output needs to be formatted
+            if asRep['enc-part']['etype'] == 17 or asRep['enc-part']['etype'] == 18:
+                return '$krb5asrep$%d$%s%s$%s$%s' % (asRep['enc-part']['etype'], domain, clientName,
+                                                     hexlify(asRep['enc-part']['cipher'].asOctets()[:-12]).decode(),
+                                                     hexlify(asRep['enc-part']['cipher'].asOctets()[-12:]).decode())
+            else:
+                return '$krb5asrep$%s@%s:%s$%s' % (clientName, domain,
                                                    hexlify(asRep['enc-part']['cipher'].asOctets()[:16]).decode(),
                                                    hexlify(asRep['enc-part']['cipher'].asOctets()[16:]).decode())
+        
+        # Let's output the TGT enc-part/cipher in Hashcat format, in case somebody wants to use it.
+        else:
+            # Check what type of encryption is used for the enc-part data
+            # This will inform how the hash output needs to be formatted
+            if asRep['enc-part']['etype'] == 17 or asRep['enc-part']['etype'] == 18:
+                return '$krb5asrep$%d$%s$%s$%s$%s' % (asRep['enc-part']['etype'], clientName, domain,
+                                                     hexlify(asRep['enc-part']['cipher'].asOctets()[-12:]).decode(),
+                                                     hexlify(asRep['enc-part']['cipher'].asOctets()[:-12]).decode())
+            else:
+                return '$krb5asrep$%d$%s@%s:%s$%s' % (asRep['enc-part']['etype'], clientName, domain,
+                                                      hexlify(asRep['enc-part']['cipher'].asOctets()[:16]).decode(),
+                                                      hexlify(asRep['enc-part']['cipher'].asOctets()[16:]).decode())
 
     @staticmethod
     def outputTGT(entry, fd=None):
-        if fd is None:
-            print(entry)
-        else:
+        print(entry)
+        if fd is not None:
             fd.write(entry + '\n')
 
     def run(self):

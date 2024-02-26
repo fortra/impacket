@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -243,36 +243,40 @@ def activeConnectionsWatcher(server):
             LOG.info('Relay connection for %s at %s(%d) already exists. Discarding' % (userName, target, port))
             client.killConnection()
 
-def webService(server):
-    from flask import Flask, jsonify
 
-    app = Flask(__name__)
+def webService(addr, port):
+    def _webService(server):
+        from flask import Flask, jsonify
 
-    log = logging.getLogger('werkzeug')
-    log.setLevel(logging.ERROR)
+        app = Flask(__name__)
 
-    @app.route('/')
-    def index():
-        print(server.activeRelays)
-        return "Relays available: %s!" % (len(server.activeRelays))
+        log = logging.getLogger('werkzeug')
+        log.setLevel(logging.ERROR)
 
-    @app.route('/ntlmrelayx/api/v1.0/relays', methods=['GET'])
-    def get_relays():
-        relays = []
-        for target in server.activeRelays:
-            for port in server.activeRelays[target]:
-                for user in server.activeRelays[target][port]:
-                    if user != 'data' and user != 'scheme':
-                        protocol = server.activeRelays[target][port]['scheme']
-                        isAdmin = server.activeRelays[target][port][user]['isAdmin']
-                        relays.append([protocol, target, user, isAdmin, str(port)])
-        return jsonify(relays)
+        @app.route('/')
+        def index():
+            print(server.activeRelays)
+            return "Relays available: %s!" % (len(server.activeRelays))
 
-    @app.route('/ntlmrelayx/api/v1.0/relays', methods=['GET'])
-    def get_info(relay):
-        pass
+        @app.route('/ntlmrelayx/api/v1.0/relays', methods=['GET'])
+        def get_relays():
+            relays = []
+            for target in server.activeRelays:
+                for port in server.activeRelays[target]:
+                    for user in server.activeRelays[target][port]:
+                        if user != 'data' and user != 'scheme':
+                            protocol = server.activeRelays[target][port]['scheme']
+                            isAdmin = server.activeRelays[target][port][user]['isAdmin']
+                            relays.append([protocol, target, user, isAdmin, str(port)])
+            return jsonify(relays)
 
-    app.run(host='0.0.0.0', port=9090)
+        @app.route('/ntlmrelayx/api/v1.0/relays', methods=['GET'])
+        def get_info(relay):
+            pass
+
+        app.run(host=addr, port=port)
+
+    return _webService
 
 class SocksRequestHandler(socketserver.BaseRequestHandler):
     def __init__(self, request, client_address, server):
@@ -453,8 +457,8 @@ class SocksRequestHandler(socketserver.BaseRequestHandler):
 
 
 class SOCKS(socketserver.ThreadingMixIn, socketserver.TCPServer):
-    def __init__(self, server_address=('0.0.0.0', 1080), handler_class=SocksRequestHandler):
-        LOG.info('SOCKS proxy started. Listening at port %d', server_address[1] )
+    def __init__(self, server_address=('127.0.0.1', 1080), handler_class=SocksRequestHandler, api_port=9090):
+        LOG.info('SOCKS proxy started. Listening on %s:%d', server_address[0], server_address[1])
 
         self.activeRelays = {}
         self.socksPlugins = {}
@@ -476,7 +480,7 @@ class SOCKS(socketserver.ThreadingMixIn, socketserver.TCPServer):
         self.__timer = RepeatedTimer(KEEP_ALIVE_TIMER, keepAliveTimer, self)
 
         # Let's start our RESTful API
-        self.restAPI = Thread(target=webService, args=(self, ))
+        self.restAPI = Thread(target=webService(server_address[0], api_port), args=(self, ))
         self.restAPI.daemon = True
         self.restAPI.start()
 

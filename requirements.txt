@@ -1,4 +1,4 @@
-future
+setuptools
 six
 charset_normalizer
 pyasn1>=0.2.3
