@@ -1057,14 +1057,16 @@ class RemoteOperations:
         iWbemLevel1Login.RemRelease()
 
         win32ShadowCopy,_ = iWbemServices.GetObject('Win32_ShadowCopy')
-        shadowId = win32ShadowCopy.Create(volume)
+        result = win32ShadowCopy.Create(volume, 'ClientAccessible')
+
+        shadowId = result.ShadowID
 
         dcom.disconnect()
 
         return shadowId
 
     def __wmiGetLastSSRemotePath(self, ssID):
-        query = 'SELECT InstallDate FROM Win32_ShadowCopy where SetID="%s"'.format(ssID)
+        query = 'SELECT InstallDate FROM Win32_ShadowCopy where ID="%s"' % ssID
         username, password, domain, lmhash, nthash, aesKey, _, _ = self.__smbConnection.getCredentials()
         dcom = DCOMConnection(self.__smbConnection.getRemoteHost(), username, password, domain, lmhash, nthash, aesKey,
                               oxidResolver=False, doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
@@ -1073,7 +1075,8 @@ class RemoteOperations:
         iWbemServices= iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
         iWbemLevel1Login.RemRelease()
 
-        query_result = iWbemServices.ExecQuery(query)
+        result = iWbemServices.ExecQuery(query)
+        query_result = result.Next(0xffffffff, 1)[0].InstallDate
 
         year = query_result[:4]
         month = query_result[4:6]
@@ -1084,7 +1087,7 @@ class RemoteOperations:
 
         dcom.disconnect()
 
-        return "@GMT-%s.%s.%s-%s.%s.%s".format(year, day, month, hour, minute, second)
+        return "@GMT-%s.%s.%s-%s.%s.%s" % (year, day, month, hour, minute, second)
 
     def __executeRemote(self, data):
         self.__tmpServiceName = ''.join([random.choice(string.ascii_letters) for _ in range(8)])

@@ -170,6 +170,18 @@ class DumpSecrets:
             # Almost like LOCAL but create a Shadow Snapshot at target and download SAM, SYSTEM and SECURITY from the SS.
             # Then, parse locally
             if self.__remoteSSMethod:
+                try:
+                    self.connect()
+                except Exception as e:
+                    if os.getenv('KRB5CCNAME') is not None and self.__doKerberos is True:
+                        # SMBConnection failed. That might be because there was no way to log into the
+                        # target system. We just have a last resort. Hope we have tickets cached and that they
+                        # will work
+                        logging.debug('SMBConnection didn\'t work, hoping Kerberos will help (%s)' % str(e))
+                        pass
+                    else:
+                        raise
+
                 # TESTING C:\\
                 # Should specify Volume with argument
                 self.__remoteOps = RemoteOperations(self.__smbConnection, self.__doKerberos, self.__kdcHost,
