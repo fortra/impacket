@@ -459,10 +459,11 @@ class TDS_COLMETADATA(Structure):
     )
 
 class MSSQL:
-    def __init__(self, address, port=1433, rowsPrinter=DummyPrint()):
+    def __init__(self, address, port=1433, remoteName = '', rowsPrinter=DummyPrint()):
         #self.packetSize = 32764
         self.packetSize = 32763
         self.server = address
+        self.remoteName = remoteName
         self.port = port
         self.socket = 0
         self.replies = {}
@@ -650,7 +651,6 @@ class MSSQL:
         return packet
 
     def kerberosLogin(self, database, username, password='', domain='', hashes=None, aesKey='', kdcHost=None, TGT=None, TGS=None, useCache=True):
-
         if hashes is not None:
             lmhash, nthash = hashes.split(':')
             lmhash = binascii.a2b_hex(lmhash)
@@ -663,7 +663,6 @@ class MSSQL:
         # Test this!
         if resp['Encryption'] == TDS_ENCRYPT_REQ or resp['Encryption'] == TDS_ENCRYPT_OFF:
             LOG.info("Encryption required, switching to TLS")
-
             # Switching to TLS now
             ctx = SSL.Context(SSL.TLS_METHOD)
             ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
@@ -690,7 +689,7 @@ class MSSQL:
 
         login['HostName'] = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
         login['AppName']  = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
-        login['ServerName'] = self.server.encode('utf-16le')
+        login['ServerName'] = self.remoteName.encode('utf-16le')
         login['CltIntName']  = login['AppName']
         login['ClientPID'] = random.randint(0,1024)
         login['PacketSize'] = self.packetSize
@@ -710,7 +709,7 @@ class MSSQL:
         import datetime
 
         if useCache:
-            domain, username, TGT, TGS = CCache.parseFile(domain, username, 'MSSQLSvc/%s:%d' % (self.server, self.port))
+            domain, username, TGT, TGS = CCache.parseFile(domain, username, 'MSSQLSvc/%s:%d' % (self.remoteName, self.port))
 
             if TGS is None:
                 # search for the port's instance name instead (instance name based SPN)
@@ -725,7 +724,7 @@ class MSSQL:
                         pass
 
                 if instanceName:
-                    domain, username, TGT, TGS = CCache.parseFile(domain, username, 'MSSQLSvc/%s.%s:%s' % (self.server.split('.')[0], domain, instanceName))
+                    domain, username, TGT, TGS = CCache.parseFile(domain, username, 'MSSQLSvc/%s.%s:%s' % (self.remoteName.split('.')[0], domain, instanceName))
 
         # First of all, we need to get a TGT for the user
         userName = Principal(username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
@@ -766,7 +765,7 @@ class MSSQL:
                 #         FQDN is the fully qualified domain name of the server.
                 #         port is the TCP port number.
                 #         instancename is the name of the SQL Server instance.
-                serverName = Principal('MSSQLSvc/%s.%s:%d' % (self.server.split('.')[0], domain, self.port), type=constants.PrincipalNameType.NT_SRV_INST.value)
+                serverName = Principal('MSSQLSvc/%s.%s:%d' % (self.remoteName.split('.')[0], domain, self.port), type=constants.PrincipalNameType.NT_SRV_INST.value)
                 try:
                     tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
                 except KerberosError as e:
@@ -899,7 +898,7 @@ class MSSQL:
 
         login['HostName'] = (''.join([random.choice(string.ascii_letters) for i in range(8)])).encode('utf-16le')
         login['AppName']  = (''.join([random.choice(string.ascii_letters) for i in range(8)])).encode('utf-16le')
-        login['ServerName'] = self.server.encode('utf-16le')
+        login['ServerName'] = self.remoteName.encode('utf-16le')
         login['CltIntName']  = login['AppName']
         login['ClientPID'] = random.randint(0,1024)
         login['PacketSize'] = self.packetSize
