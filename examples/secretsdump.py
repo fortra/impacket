@@ -110,6 +110,8 @@ class DumpSecrets:
         self.__resumeFileName = options.resumefile
         self.__canProcessSAMLSA = True
         self.__kdcHost = options.dc_ip
+        self.__remoteSSMethod = options.use_remoteSSMethod
+        self.__remoteSSMethodDownloadPath = options.remoteSS_local_path
         self.__options = options
 
         if options.hashes is not None:
@@ -168,6 +170,16 @@ class DumpSecrets:
             if self.__remoteName.upper() == 'LOCAL' and self.__username == '':
                 self.__isRemote = False
                 self.__useVSSMethod = True
+
+                if self.__remoteSSMethod:
+                    # TESTING C:\\
+                    # Should specify Volume with argument
+                    sam_path, system_path, security_path = self.__remoteOps.createSSandDownload('C:\\', self.__remoteSSMethodDownloadPath)
+
+                    self.__samHive = sam_path
+                    self.__systemHive = system_path
+                    self.__securityHive = security_path
+
                 if self.__systemHive:
                     localOperations = LocalOperations(self.__systemHive)
                     bootKey = localOperations.getBootKey()
@@ -363,13 +375,17 @@ if __name__ == '__main__':
     parser.add_argument('-outputfile', action='store',
                         help='base output filename. Extensions will be added for sam, secrets, cached and ntds')
     parser.add_argument('-use-vss', action='store_true', default=False,
-                        help='Use the VSS method instead of default DRSUAPI')
+                        help='Use the NTDSUTIL VSS method instead of default DRSUAPI')
     parser.add_argument('-rodcNo', action='store', type=int, help='Number of the RODC krbtgt account (only avaiable for Kerb-Key-List approach)')
     parser.add_argument('-rodcKey', action='store', help='AES key of the Read Only Domain Controller (only avaiable for Kerb-Key-List approach)')
     parser.add_argument('-use-keylist', action='store_true', default=False,
                         help='Use the Kerb-Key-List method instead of default DRSUAPI')
     parser.add_argument('-exec-method', choices=['smbexec', 'wmiexec', 'mmcexec'], nargs='?', default='smbexec', help='Remote exec '
                         'method to use at target (only when using -use-vss). Default: smbexec')
+    parser.add_argument('-use-remoteSSMethod', action='store_true',
+                        help='Remotely create Shadow Snapshot and download SAM, SYSTEM and SECURITY from it')
+    parser.add_argument('-remoteSS-local-path', action='store', default='.',
+                        help='Path where download SAM, SYSTEM and SECURITY from Shadow Snapshot. It defaults to current path')
 
     group = parser.add_argument_group('display options')
     group.add_argument('-just-dc-user', action='store', metavar='USERNAME',

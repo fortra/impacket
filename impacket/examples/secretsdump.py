@@ -1235,7 +1235,7 @@ class RemoteOperations:
         LOG.info('Getting SMB equivalente PATH to access remotely the SS')
         path = self.__wmiGetLastSSRemotePath(ssID)
 
-        localPaths = ['%s\\SAM' % path, '%s\\SYSTEM' % path, '%s\\SECURITY' % path]
+        localPaths = ['%s/SAM' % path, '%s/SYSTEM' % path, '%s/SECURITY' % path]
 
         with open(localPaths[0], 'wb') as local_file:
             self.__smbConnection.getFile('ADMIN$', '%s\\System32\\Config\\SAM' % path, local_file.write)
