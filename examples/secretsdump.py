@@ -172,6 +172,8 @@ class DumpSecrets:
             if self.__remoteSSMethod:
                 # TESTING C:\\
                 # Should specify Volume with argument
+                self.__remoteOps = RemoteOperations(self.__smbConnection, self.__doKerberos, self.__kdcHost,
+                                                    self.__ldapConnection)
                 sam_path, system_path, security_path = self.__remoteOps.createSSandDownload('C:\\',
                                                                                             self.__remoteSSMethodDownloadPath)
                 self.__samHive = sam_path
