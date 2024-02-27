@@ -167,18 +167,26 @@ class DumpSecrets:
 
     def dump(self):
         try:
-            if self.__remoteName.upper() == 'LOCAL' and self.__username == '':
+            # Almost like LOCAL but create a Shadow Snapshot at target and download SAM, SYSTEM and SECURITY from the SS.
+            # Then, parse locally
+            if self.__remoteSSMethod:
+                # TESTING C:\\
+                # Should specify Volume with argument
+                sam_path, system_path, security_path = self.__remoteOps.createSSandDownload('C:\\',
+                                                                                            self.__remoteSSMethodDownloadPath)
+                self.__samHive = sam_path
+                self.__systemHive = system_path
+                self.__securityHive = security_path
+
+                localOperations = LocalOperations(self.__systemHive)
+                bootKey = localOperations.getBootKey()
+                if self.__ntdsFile is not None:
+                    # Let's grab target's configuration about LM Hashes storage
+                    self.__noLMHash = localOperations.checkNoLMHashPolicy()
+
+            elif self.__remoteName.upper() == 'LOCAL' and self.__username == '':
                 self.__isRemote = False
                 self.__useVSSMethod = True
-
-                if self.__remoteSSMethod:
-                    # TESTING C:\\
-                    # Should specify Volume with argument
-                    sam_path, system_path, security_path = self.__remoteOps.createSSandDownload('C:\\', self.__remoteSSMethodDownloadPath)
-
-                    self.__samHive = sam_path
-                    self.__systemHive = system_path
-                    self.__securityHive = security_path
 
                 if self.__systemHive:
                     localOperations = LocalOperations(self.__systemHive)
