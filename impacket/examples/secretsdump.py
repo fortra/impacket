@@ -1232,25 +1232,20 @@ class RemoteOperations:
 
         return remoteFileName
 
-    def createSSandDownload(self, volume, path):
+    def createSSandDownload(self, volume, localPath):
         LOG.info('Creating SS')
         ssID = self.__wmiCreateShadow(volume)
-        LOG.info('Getting SMB equivalente PATH to access remotely the SS')
-        path = self.__wmiGetLastSSRemotePath(ssID)
+        LOG.info('Getting SMB equivalent PATH to access remotely the SS')
+        remotePath = self.__wmiGetLastSSRemotePath(ssID)
 
-        localPaths = ['%s/SAM' % path, '%s/SYSTEM' % path, '%s/SECURITY' % path]
+        paths = [('%s/SAM' % localPath, '%s\\System32\\Config\\SYSTEM' % remotePath), ('%s/SYSTEM' % localPath, '%s\\System32\\Config\\SYSTEM'), ('%s/SECURITY' % localPath, '%s\\System32\\Config\\SECURITY' % remotePath)]
 
-        with open(localPaths[0], 'wb') as local_file:
-            self.__smbConnection.getFile('ADMIN$', '%s\\System32\\Config\\SAM' % path, local_file.write)
+        for p in paths:
+            with open(p[0], 'wb') as local_file:
+                self.__smbConnection.getFile('ADMIN$', p[1], local_file.write)
 
-        with open(localPaths[1], 'wb') as local_file:
-            self.__smbConnection.getFile('ADMIN$', '%s\\System32\\Config\\SYSTEM' % path, local_file.write)
-
-        with open(localPaths[2], 'wb') as local_file:
-            self.__smbConnection.getFile('ADMIN$', '%s\\System32\\Config\\SECURITY' % path, local_file.write)
-
-
-        return localPaths
+        # Return a list of the local paths where SAM, SYSTEM and SECURITY were downloaded
+        return list(zip(*paths))[0]
 
 class CryptoCommon:
     # Common crypto stuff used over different classes
