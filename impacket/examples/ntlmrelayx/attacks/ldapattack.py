@@ -42,7 +42,7 @@ from impacket.ldap import ldaptypes
 from impacket.ldap.ldaptypes import ACCESS_ALLOWED_OBJECT_ACE, ACCESS_MASK, ACCESS_ALLOWED_ACE, ACE, OBJECTTYPE_GUID_MAP
 from impacket.uuid import string_to_bin, bin_to_string
 from impacket.structure import Structure, hexdump
-from impacket.examples.ntlmrelayx.attacks import shadow_credentials
+from impacket.examples.ntlmrelayx.utils import shadow_credentials
 
 # This is new from ldap3 v2.5
 try:
