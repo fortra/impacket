@@ -43,6 +43,7 @@ if __name__ == '__main__':
     parser.add_argument('-ip', '--interface-address', action='store', default='0.0.0.0', help='ip address of listening interface')
     parser.add_argument('-port', action='store', default='445', help='TCP port for listening incoming connections (default 445)')
     parser.add_argument('-smb2support', action='store_true', default=False, help='SMB2 Support (experimental!)')
+    parser.add_argument('-readonly', action='store_true', default=False, help='Make the share readonly')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -68,9 +69,14 @@ if __name__ == '__main__':
     else:
         comment = options.comment
 
+    if options.readonly:
+        readonly = 'yes'
+    else:
+        readonly = 'no'
+
     server = smbserver.SimpleSMBServer(listenAddress=options.interface_address, listenPort=int(options.port))
 
-    server.addShare(options.shareName.upper(), options.sharePath, comment)
+    server.addShare(options.shareName.upper(), options.sharePath, comment, readOnly=readonly)
     server.setSMB2Support(options.smb2support)
 
     # If a user was specified, let's add it to the credentials for the SMBServer. If no user is specified, anonymous
