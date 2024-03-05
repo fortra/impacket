@@ -628,6 +628,30 @@ class LdapShell(cmd.Cmd):
         except IndexError:
             return None
 
+    def do_whoami(self, line):
+        print(self.client.extend.standard.who_am_i())
+
+    def do_dirsync(self, line):
+        arguments = shlex.split(line)
+        if len(arguments) == 0:
+            raise Exception("A query is required.")
+
+        domain_dn = self.domain_dumper.root
+        sync_filter = arguments[0]
+        attributes = list(set(['name', 'sAMAccountName', 'objectsid'] + arguments[1:]))
+        
+        sync = self.client.extend.microsoft.dir_sync(domain_dn, attributes=attributes, sync_filter=sync_filter, incremental_values=False)
+
+        results = []
+        while sync.more_results:
+            results += sync.loop()
+
+        for result in results:
+            print(result['dn'])
+            for k, v in result['attributes'].items():
+                print(k, v)
+            print()
+
     def do_exit(self, line):
         if self.shell is not None:
             self.shell.close()
@@ -653,6 +677,8 @@ class LdapShell(cmd.Cmd):
  set_rbcd target grantee - Grant the grantee (sAMAccountName) the ability to perform RBCD to the target (sAMAccountName).
  start_tls - Send a StartTLS command to upgrade from LDAP to LDAPS. Use this to bypass channel binding for operations necessitating an encrypted channel.
  write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
+ whoami - get connected user
+ dirsync - Dirsync requested attributes
  exit - Terminates this session.""")
 
     def do_EOF(self, line):
