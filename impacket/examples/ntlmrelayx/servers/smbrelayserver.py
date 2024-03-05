@@ -44,6 +44,16 @@ from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
 from impacket.smbserver import getFileTime, decodeSMBString, encodeSMBString
 from impacket.smb3structs import SMB2Error
 
+def auth_callback(smbServer, connData, domain_name, user_name, host_name):
+    user = user_name
+    if domain_name:
+        user = domain_name + "/" + user_name
+    if not user:
+        user = "unknown"
+
+    LOG.info(f"Received connection from {user} at {host_name}, connection will be relayed after re-authentication")
+
+
 class SMBRelayServer(Thread):
     def __init__(self,config):
         Thread.__init__(self)
@@ -58,7 +68,7 @@ class SMBRelayServer(Thread):
         #Username we auth as gets stored here later
         self.authUser = None
         self.proxyTranslator = None
- 
+
 
         # Here we write a mini config for the server
         smbConfig = ConfigParser.ConfigParser()
@@ -100,6 +110,8 @@ class SMBRelayServer(Thread):
             smbport = 445
 
         self.server = SMBSERVER((config.interfaceIp,smbport), config_parser = smbConfig)
+        if not self.config.disableMulti:
+            self.server.setAuthCallback(auth_callback)
         logging.getLogger('impacket.smbserver').setLevel(logging.CRITICAL)
 
         self.server.processConfigFile()
@@ -166,7 +178,7 @@ class SMBRelayServer(Thread):
         respPacket['TreeID'] = 0
 
         respSMBCommand = smb3.SMB2Negotiate_Response()
-        
+
         # Just for the Nego Packet, then disable it
         respSMBCommand['SecurityMode'] = smb3.SMB2_NEGOTIATE_SIGNING_ENABLED
 

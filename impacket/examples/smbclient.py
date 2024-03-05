@@ -433,20 +433,13 @@ class MiniImpacketShell(cmd.Cmd):
             LOG.error("No share selected")
             return
 
-        if(not filepath.startswith("/")):
-            filepath = self.pwd + "/" + filepath + "/*"
-        if(filepath == "" or filepath == "./" or filepath == "./*"):
-            filepath = self.pwd + "/*"
-        if(filepath.startswith("./")):
-            filepath = self.pwd + filepath.strip(".")
-        if("./" in filepath and not filepath.startswith("./") and not filepath.endswith("./")):
-            filepath = filepath.replace("./","")
-        if(filepath.endswith("/") or not filepath.endswith("/*")):
-            filepath = filepath + "/*"
-        if(filepath.endswith("/*/*")):
-            filepath = filepath.replace("/*/*", "/*")
         filepath = filepath.replace("\\", "/")
-        
+        if not filepath.startswith("/"):
+            filepath = self.pwd.replace("\\", "/")  + "/" + filepath
+        if(not filepath.endswith("/*")):
+            filepath = filepath + "/*"
+        filepath = os.path.abspath(filepath).replace("//","/")
+
         for LINE in self.smb.listPath(self.share, filepath):
             if(LINE.is_directory()):
                 if(LINE.get_longname() == "." or LINE.get_longname() == ".."):
