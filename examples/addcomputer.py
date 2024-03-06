@@ -548,20 +548,7 @@ class ADDCOMPUTER:
                             else:
                                 raise
 
-                try:
-                    createUser = samr.hSamrCreateUser2InDomain(dce, domainHandle, self.__computerName, samr.USER_WORKSTATION_TRUST_ACCOUNT, samr.USER_FORCE_PASSWORD_CHANGE,)
-                except samr.DCERPCSessionError as e:
-                    if e.error_code == 0xc0000022:
-                        raise Exception("User %s doesn't have right to create a machine account!" % self.__username)
-                    elif e.error_code == 0xc00002e7:
-                        if self.__username.endswith('$'):
-                            logging.info("Using LDAPS method to bypass machine quota")
-                            return
-                        else:
-                            raise Exception("User %s machine quota exceeded!" % self.__username)
-                    else:
-                        raise
-
+                createUser = samr.hSamrCreateUser2InDomain(dce, domainHandle, self.__computerName, samr.USER_WORKSTATION_TRUST_ACCOUNT, samr.USER_FORCE_PASSWORD_CHANGE,)
                 userHandle = createUser['UserHandle']
 
             if self.__delete:
