@@ -489,13 +489,13 @@ class GetUserSPNs:
                                      'pwdLastSet', 'MemberOf', 'userAccountControl', 'lastLogon'],
                                      paged_size = 1000,
                                      generator=False)
-        # except ldap.LDAPSearchError as e:
-            # if e.getErrorString().find('sizeLimitExceeded') >= 0:
-                # We should never reach this code as we use paged search now
 
         answers = []
-        logging.debug('Total of records returned %d' % len(resp))
-        for item in resp:
+        # filter out the resRefs and keep the Entries
+        entries = [ item for item in resp if item['type'] == 'searchResEntry' ]
+        logging.debug('Total records returned %d' % len(entries))
+        
+        for item in entries:
             mustCommit = False
             sAMAccountName = ''
             memberOf = ''
@@ -517,7 +517,10 @@ class GetUserSPNs:
                 elif int(userAccountControl) & UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION:
                     delegation = 'constrained'
 
-                memberOf = item['attributes']['memberOf'][0]
+                # if the SPN is not a member of a group, this will throw an error
+                # so I just replace it with a string containing '(null)' because
+                # this does not get used in the SPN request anyways
+                memberOf = next(iter(item['attributes']['memberOf']), '(null)')
                 pwdLastSet = str(item['attributes']['pwdLastSet'])
                 lastLogon = str(item['attributes']['lastLogon'])
                 for spn in item['attributes']['servicePrincipalName']:
