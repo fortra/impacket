@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -35,7 +35,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help = True, description = "TDS client implementation (SSL supported).")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
-    parser.add_argument('-port', action='store', default='1433', help='target MSSQL port (default 1433)')
     parser.add_argument('-db', action='store', help='MSSQL database instance (default None)')
     parser.add_argument('-windows-auth', action='store_true', default=False, help='whether or not to use Windows '
                                                                                   'Authentication (default False)')
@@ -52,8 +51,16 @@ if __name__ == '__main__':
                        'ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
                                                                             '(128 or 256 bits)')
+
+    group = parser.add_argument_group('connection')
+
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
                        'ommited it use the domain part (FQDN) specified in the target parameter')
+    group.add_argument('-target-ip', action='store', metavar = "ip address",
+                       help='IP Address of the target machine. If omitted it will use whatever was specified as target. '
+                            'This is useful when target is the NetBIOS name and you cannot resolve it')
+    group.add_argument('-port', action='store', default='1433', help='target MSSQL port (default 1433)')
+
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -68,7 +75,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    domain, username, password, address = parse_target(options.target)
+    domain, username, password, remoteName = parse_target(options.target)
 
     if domain is None:
         domain = ''
@@ -77,10 +84,13 @@ if __name__ == '__main__':
         from getpass import getpass
         password = getpass("Password:")
 
+    if options.target_ip is None:
+        options.target_ip = remoteName
+
     if options.aesKey is not None:
         options.k = True
 
-    ms_sql = tds.MSSQL(address, int(options.port))
+    ms_sql = tds.MSSQL(options.target_ip, int(options.port), remoteName)
     ms_sql.connect()
     try:
         if options.k is True:

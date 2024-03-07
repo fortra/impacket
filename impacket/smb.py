@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -58,6 +58,7 @@ from impacket import nmb, ntlm, nt_errors, LOG
 from impacket.structure import Structure
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_OID, asn1encode, ASN1_AID
 from impacket.krb5.gssapi import KRB5_AP_REQ
+import six
 
 # For signing
 import hashlib
@@ -176,6 +177,7 @@ SMB_QUERY_FS_ATTRIBUTE_INFO      = 0x0105
 SMB_QUERY_FILE_BASIC_INFO        = 0x0101
 SMB_QUERY_FILE_STANDARD_INFO     = 0x0102
 SMB_QUERY_FILE_ALL_INFO          = 0x0107
+SMB_QUERY_FILE_STREAM_INFO       = 0x0109
 FILE_FS_FULL_SIZE_INFORMATION    = 0x03EF
 
 # SET_INFORMATION levels
@@ -578,7 +580,13 @@ class SessionError(Exception):
                 error_code_str = '%s(%s)' % error_code
 
         if self.nt_status:
-            return 'SMB SessionError: %s(%s)' % nt_errors.ERROR_MESSAGES[self.error_code]
+            key = self.error_code
+            if key in nt_errors.ERROR_MESSAGES:
+                error_msg_short = nt_errors.ERROR_MESSAGES[key][0] 
+                error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
+                return 'SMB SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
+            else:
+                return 'SMB SessionError: unknown error code: 0x%x' % self.error_code
         else:
             # Fall back to the old format
             return 'SMB SessionError: class: %s, code: %s' % (error_class_str, error_code_str)
@@ -3494,7 +3502,8 @@ class SMB(object):
                 self.login_extended(user, password, domain, lmhash, nthash, use_ntlmv2 = True)
             except:
                 # If the target OS is Windows 5.0 or Samba, let's try using NTLMv1
-                if ntlm_fallback and ((self.get_server_lanman().find('Windows 2000') != -1) or (self.get_server_lanman().find('Samba') != -1)):
+                if ntlm_fallback and ((six.ensure_binary(self.get_server_lanman()).find(b'Windows 2000') != -1) or
+                                      (six.ensure_binary(self.get_server_lanman()).find(b'Samba') != -1)):
                     self.login_extended(user, password, domain, lmhash, nthash, use_ntlmv2 = False)
                     self.__isNTLMv2 = False
                 else:

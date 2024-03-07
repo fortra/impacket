@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -2576,7 +2576,18 @@ def hSamrCreateUser2InDomain(dce, domainHandle, name, accountType=USER_NORMAL_AC
     request['Name'] = name
     request['AccountType'] = accountType
     request['DesiredAccess'] = desiredAccess
-    return dce.request(request)
+    try:
+        return dce.request(request)
+    except DCERPCSessionError as e:
+        if e.error_code == 0xc0000022:
+            raise Exception("Relayed user doesn't have right to create a machine account!")
+        elif e.error_code == 0xc00002e7:
+            raise Exception("Relayed user machine quota exceeded!")
+        elif e.error_code == 0xc0000062:
+            raise Exception("Account name not accepted, maybe the '$' at the end is missing ?")
+        else:
+            raise e
+
 
 def hSamrCreateUserInDomain(dce, domainHandle, name, desiredAccess=GROUP_ALL_ACCESS):
     request = SamrCreateUserInDomain()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright (C) 2023 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -479,16 +479,7 @@ class ADDCOMPUTER:
                             else:
                                 raise
 
-                try:
-                    createUser = samr.hSamrCreateUser2InDomain(dce, domainHandle, self.__computerName, samr.USER_WORKSTATION_TRUST_ACCOUNT, samr.USER_FORCE_PASSWORD_CHANGE,)
-                except samr.DCERPCSessionError as e:
-                    if e.error_code == 0xc0000022:
-                        raise Exception("User %s doesn't have right to create a machine account!" % self.__username)
-                    elif e.error_code == 0xc00002e7:
-                        raise Exception("User %s machine quota exceeded!" % self.__username)
-                    else:
-                        raise
-
+                createUser = samr.hSamrCreateUser2InDomain(dce, domainHandle, self.__computerName, samr.USER_WORKSTATION_TRUST_ACCOUNT, samr.USER_FORCE_PASSWORD_CHANGE,)
                 userHandle = createUser['UserHandle']
 
             if self.__delete:
