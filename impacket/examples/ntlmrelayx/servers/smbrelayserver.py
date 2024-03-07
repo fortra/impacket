@@ -258,7 +258,7 @@ class SMBRelayServer(Thread):
                        mechStr = MechTypes[mechType]
                    else:
                        mechStr = hexlify(mechType)
-                   smbServer.log("Unsupported MechType '%s'" % mechStr, logging.CRITICAL)
+                   smbServer.log("Unsupported MechType '%s'" % mechStr, logging.DEBUG)
                    # We don't know the token, we answer back again saying
                    # we just support NTLM.
                    respToken = SPNEGO_NegTokenResp()
