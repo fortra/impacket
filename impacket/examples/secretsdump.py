@@ -62,6 +62,7 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 from struct import unpack, pack
 from six import b, PY2
+from base64 import b64encode
 
 from impacket import LOG
 from impacket import system_errors
@@ -1902,6 +1903,11 @@ class NTDSHashes:
         'pekList':b'ATTk590689',
         'supplementalCredentials':b'ATTk589949',
         'pwdLastSet':b'ATTq589920',
+
+
+        'trustAuthIncoming':b'ATTk589953',
+        'trustAuthOutgoing':b'ATTk589959',
+        'trustPartner':b'ATTm589957'
     }
 
     NAME_TO_ATTRTYP = {
@@ -1998,7 +2004,7 @@ class NTDSHashes:
                  useVSSMethod=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None,
                  justUser=None, ldapFilter=None, printUserStatus=False,
                  perSecretCallback = lambda secretType, secret : _print_helper(secret),
-                 resumeSessionMgr=ResumeSessionMgrInFile):
+                 resumeSessionMgr=ResumeSessionMgrInFile, dumpTdo=False):
         self.__bootKey = bootKey
         self.__NTDS = ntdsFile
         self.__history = history
@@ -2014,6 +2020,7 @@ class NTDSHashes:
         self.__PEK = list()
         self.__cryptoCommon = CryptoCommon()
         self.__kerberosKeys = OrderedDict()
+        self.__tdoSecrets = OrderedDict()
         self.__clearTextPwds = OrderedDict()
         self.__justNTLM = justNTLM
         self.__resumeSession = resumeSessionMgr(resumeSession)
@@ -2021,10 +2028,12 @@ class NTDSHashes:
         self.__justUser = justUser
         self.__ldapFilter = ldapFilter
         self.__perSecretCallback = perSecretCallback
+        self.__dumpTdo = dumpTdo
 
 		# these are all the columns that we need to get the secrets.
 		# If in the future someone finds other columns containing interesting things please extend ths table.
         self.__filter_tables_usersecret = {
+            self.NAME_TO_INTERNAL['objectGUID'] : 1,
             self.NAME_TO_INTERNAL['objectSid'] : 1,
             self.NAME_TO_INTERNAL['dBCSPwd'] : 1,
             self.NAME_TO_INTERNAL['name'] : 1,
@@ -2039,6 +2048,9 @@ class NTDSHashes:
             self.NAME_TO_INTERNAL['supplementalCredentials'] : 1,
             self.NAME_TO_INTERNAL['pekList'] : 1,
 
+            self.NAME_TO_INTERNAL['trustAuthIncoming'] : 1,
+            self.NAME_TO_INTERNAL['trustAuthOutgoing'] : 1,
+            self.NAME_TO_INTERNAL['trustPartner'] : 1,
         }
 
     def getResumeSessionFile(self):
@@ -2140,6 +2152,77 @@ class NTDSHashes:
             dt = datetime.fromtimestamp(t)
             return dt.strftime("%Y-%m-%d %H:%M")
 
+    def __decryptTDOSecret(self, record, way, outputfile=None):
+        
+        LOG.debug('Entering NTDSHashes.__decryptTDOSecret')
+        trustAuthTypeList = ["NONE", "NT4OWF","CLEAR","VERSION"]
+        if way == "In":
+            val = record[self.NAME_TO_INTERNAL['trustAuthIncoming']]
+        else:
+            val = record[self.NAME_TO_INTERNAL['trustAuthOutgoing']]
+        cipherText = self.CRYPTED_BLOB(unhexlify(val))
+        plaintext = None
+        if cipherText['Header'][:4] == b'\x13\x00\x00\x00':
+            # Win2016 TP4 decryption is different
+            pekIndex = hexlify(cipherText['Header'])
+            plainText = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])],
+                                                        cipherText['EncryptedHash'][4:],
+                                                        cipherText['KeyMaterial'])
+            haveInfo = True
+        else:
+            plainText = self.__removeRC4Layer(cipherText)
+            haveInfo = True
+        tdoInfo = plainText.hex()
+        authInfoOffset = unpack('<L', unhexlify(tdoInfo[8:16]))[0]
+        authInfo = tdoInfo[authInfoOffset*2:]
+
+        if(len(authInfo[16:16+8]) != 8):
+            LOG.debug("Cannot process the TDO... Decryption failed")
+            LOG.debug('Leaving NTDSHashes.__decryptTDOSecret')
+            return
+        trustAuthType = trustAuthTypeList[unpack('<L', unhexlify(authInfo[16:16+8]))[0]]
+        trustPasswordNT = "Can only process CLEAR AUTH trusts"
+        trustPassword = ""
+        if(trustAuthType == "CLEAR"):
+            trustPassword = authInfo[32:88]
+            trustPasswordNT = hashlib.new('md4', unhexlify(trustPassword)).digest().hex()
+            trustPassword = b64encode(unhexlify(trustPassword)).decode()
+
+        trustPartner = record[self.NAME_TO_INTERNAL['trustPartner']]
+        answer = "{} {} {} : NT {} / PLAIN {} ".format(
+            way,
+            trustAuthType,
+            trustPartner,
+            trustPasswordNT,
+            trustPassword
+        )
+        
+        # Same thing to retrieve the old password
+        authInfoOffsetOld = unpack('<L', unhexlify(tdoInfo[16:24]))[0]
+        authInfoOld = tdoInfo[authInfoOffsetOld*2:]
+        trustPasswordNTOld = "Can only process CLEAR AUTH trusts"
+        trustPasswordOld = ""
+        if(trustAuthType == "CLEAR"):
+            trustPasswordOld = authInfoOld[32:88]
+            trustPasswordNTOld = hashlib.new('md4', unhexlify(trustPasswordOld)).digest().hex()
+            trustPasswordOld = b64encode(unhexlify(trustPasswordOld)).decode()
+
+        answerOld = "{} {} {} : NT {} / PLAIN {} ".format(
+            way + " - 1",
+            trustAuthType,
+            trustPartner,
+            trustPasswordNTOld,
+            trustPasswordOld
+        )
+
+        self.__tdoSecrets[answer] = None
+        self.__tdoSecrets[answerOld] = None
+        if outputfile != None:
+            self.__writeOutput(outputfile, answer + '\n' + answerOld + '\n')
+        LOG.debug('Leaving NTDSHashes.__decryptTDOSecret')
+
+        
+
     def __decryptSupplementalInfo(self, record, prefixTable=None, keysFile=None, clearTextFile=None):
         # This is based on [MS-SAMR] 2.2.10 Supplemental Credentials Structures
         haveInfo = False
@@ -2152,6 +2235,7 @@ class NTDSHashes:
                         userName = '%s\\%s' % (domain, record[self.NAME_TO_INTERNAL['sAMAccountName']])
                     else:
                         userName = '%s' % record[self.NAME_TO_INTERNAL['sAMAccountName']]
+
                     cipherText = self.CRYPTED_BLOB(unhexlify(record[self.NAME_TO_INTERNAL['supplementalCredentials']]))
 
                     if cipherText['Header'][:4] == b'\x13\x00\x00\x00':
@@ -2499,6 +2583,7 @@ class NTDSHashes:
         hashesOutputFile = None
         keysOutputFile = None
         clearTextOutputFile = None
+        tdoOutputFile = None
 
         if self.__useVSSMethod is True:
             if self.__NTDS is None:
@@ -2539,6 +2624,9 @@ class NTDSHashes:
                 if self.__justNTLM is False:
                     keysOutputFile = openFile(self.__outputFileName+'.ntds.kerberos',mode)
                     clearTextOutputFile = openFile(self.__outputFileName+'.ntds.cleartext',mode)
+                if self.__dumpTdo is True:
+                    tdoOutputFile = openFile(self.__outputFileName+'.ntds.tdo', mode)
+
 
             LOG.info('Dumping Domain Credentials (domain\\uid:rid:lmhash:nthash)')
             if self.__useVSSMethod:
@@ -2577,10 +2665,17 @@ class NTDSHashes:
                         if record is None:
                             break
                         try:
+                            pass
                             if record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES:
                                 self.__decryptHash(record, outputFile=hashesOutputFile)
                                 if self.__justNTLM is False:
                                     self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
+                            
+                            if record[self.NAME_TO_INTERNAL['trustAuthIncoming']] is not None and self.__NTDS is not None and self.__dumpTdo is True:
+                                self.__decryptTDOSecret(record, "In", outputfile=tdoOutputFile)
+                            if record[self.NAME_TO_INTERNAL['trustAuthOutgoing']] is not None and self.__NTDS is not None and self.__dumpTdo is True:
+                                self.__decryptTDOSecret(record, "Out", outputfile=tdoOutputFile)
+                                
                         except Exception as e:
                             LOG.debug('Exception', exc_info=True)
                             try:
@@ -2789,6 +2884,17 @@ class NTDSHashes:
 
                 for itemKey in list(self.__clearTextPwds.keys()):
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS_CLEARTEXT, itemKey)
+
+            # Display TDO secret extracted
+            if len(self.__tdoSecrets) > 0:
+                if self.__useVSSMethod is True:
+                    LOG.info('TDO secrets from %s ' % self.__NTDS)
+                else:
+                    LOG.info('TDO extraction only available with NTDS local dumpfile')
+
+                for itemKey in list(self.__tdoSecrets.keys()):
+                    self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, itemKey)
+
         finally:
             # Resources cleanup
             if hashesOutputFile is not None:
@@ -2799,6 +2905,9 @@ class NTDSHashes:
 
             if clearTextOutputFile is not None:
                 clearTextOutputFile.close()
+
+            if tdoOutputFile is not None:
+                tdoOutputFile.close()
 
             self.__resumeSession.endTransaction()
 
