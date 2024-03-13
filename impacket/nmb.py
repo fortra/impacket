@@ -32,9 +32,6 @@
 #
 # 3. This notice cannot be removed or altered from any source distribution.
 #
-from __future__ import division
-from __future__ import print_function
-from __future__ import absolute_import
 import errno
 import re
 import select

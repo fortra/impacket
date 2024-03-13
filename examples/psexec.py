@@ -27,7 +27,6 @@ import argparse
 import random
 import string
 import time
-from six import PY3
 
 from impacket.examples import logger
 from impacket import version, smb
@@ -269,7 +268,7 @@ class RemoteStdOutPipe(Pipes):
 
         global LastDataSent
 
-        if PY3:
+        if True: # PY3
             __stdoutOutputBuffer, __stdoutData = b"", b""
 
             while True:
@@ -329,53 +328,6 @@ class RemoteStdOutPipe(Pipes):
                         #     LastDataSent = ''
                     except:
                         pass
-        else:
-            __stdoutOutputBuffer, __stdoutData = "", ""
-
-            while True:
-                try:
-                    stdout_ans = self.server.readFile(self.tid, self.fid, 0, 1024)
-                except:
-                    pass
-                else:
-                    try:
-                        if stdout_ans != LastDataSent:
-                            if len(stdout_ans) != 0:
-                                # Append new data to the buffer while there is data to read
-                                __stdoutOutputBuffer += stdout_ans
-
-                        promptRegex = r'([a-zA-Z]:[\\\/])((([a-zA-Z0-9 -\.]*)[\\\/]?)+(([a-zA-Z0-9 -\.]+))?)?>$'
-
-                        endsWithPrompt = bool(re.match(promptRegex, __stdoutOutputBuffer) is not None)
-                        if endsWithPrompt:
-                            # All data, we shouldn't have encoding errors
-                            # Adding a space after the prompt because it's beautiful
-                            __stdoutData = __stdoutOutputBuffer + " "
-                            # Remainder data for next iteration
-                            __stdoutOutputBuffer = ""
-
-                        elif '\n' in __stdoutOutputBuffer:
-                            # We have read a line, print buffer if it is not empty
-                            lines = __stdoutOutputBuffer.split("\n")
-                            # All lines, we shouldn't have encoding errors
-                            __stdoutData = "\n".join(lines[:-1]) + "\n"
-                            # Remainder data for next iteration
-                            __stdoutOutputBuffer = lines[-1]
-
-                        if len(__stdoutData) != 0:
-                            # There is data to print
-                            sys.stdout.write(__stdoutData.decode(CODEC))
-                            sys.stdout.flush()
-                            __stdoutData = ""
-                        else:
-                            # Don't echo the command that was sent, and clear it up
-                            LastDataSent = ""
-                        # Just in case this got out of sync, i'm cleaning it up if there are more than 10 chars,
-                        # it will give false positives tho.. we should find a better way to handle this.
-                        # if LastDataSent > 10:
-                        #     LastDataSent = ''
-                    except Exception as e:
-                        pass
 
 
 class RemoteStdErrPipe(Pipes):
@@ -385,7 +337,7 @@ class RemoteStdErrPipe(Pipes):
     def run(self):
         self.connectPipe()
 
-        if PY3:
+        if True:  # PY3
             __stderrOutputBuffer, __stderrData = b'', b''
 
             while True:
@@ -428,43 +380,6 @@ class RemoteStdErrPipe(Pipes):
                         #     LastDataSent = ''
                     except Exception as e:
                         pass
-        else:
-            __stderrOutputBuffer, __stderrData = '', ''
-
-            while True:
-                try:
-                    stderr_ans = self.server.readFile(self.tid, self.fid, 0, 1024)
-                except:
-                    pass
-                else:
-                    try:
-                        if len(stderr_ans) != 0:
-                            # Append new data to the buffer while there is data to read
-                            __stderrOutputBuffer += stderr_ans
-
-                        if '\n' in __stderrOutputBuffer:
-                            # We have read a line, print buffer if it is not empty
-                            lines = __stderrOutputBuffer.split("\n")
-                            # All lines, we shouldn't have encoding errors
-                            __stderrData = "\n".join(lines[:-1]) + "\n"
-                            # Remainder data for next iteration
-                            __stderrOutputBuffer = lines[-1]
-
-                        if len(__stderrData) != 0:
-                            # There is data to print
-                            sys.stdout.write(__stderrData.decode(CODEC))
-                            sys.stdout.flush()
-                            __stderrData = ""
-                        else:
-                            # Don't echo the command that was sent, and clear it up
-                            LastDataSent = ""
-                        # Just in case this got out of sync, i'm cleaning it up if there are more than 10 chars,
-                        # it will give false positives tho.. we should find a better way to handle this.
-                        # if LastDataSent > 10:
-                        #     LastDataSent = ''
-                    except:
-                        pass
-
 
 class RemoteShell(cmd.Cmd):
     def __init__(self, server, port, credentials, tid, fid, share, transport):
@@ -539,10 +454,7 @@ class RemoteShell(cmd.Cmd):
             f = dst_path + '/' + src_file
             pathname = f.replace('/','\\')
             logging.info("Uploading %s to %s\\%s" % (src_file, self.share, dst_path))
-            if PY3:
-                self.transferClient.putFile(self.share, pathname, fh.read)
-            else:
-                self.transferClient.putFile(self.share, pathname.decode(sys.stdin.encoding), fh.read)
+            self.transferClient.putFile(self.share, pathname, fh.read)
             fh.close()
         except Exception as e:
             logging.error(str(e))
@@ -562,10 +474,7 @@ class RemoteShell(cmd.Cmd):
         return
 
     def default(self, line):
-        if PY3:
-            self.send_data(line.encode(CODEC)+b'\r\n')
-        else:
-            self.send_data(line.decode(sys.stdin.encoding).encode(CODEC)+'\r\n')
+        self.send_data(line.encode(CODEC)+b'\r\n')
 
     def send_data(self, data, hideOutput = True):
         if hideOutput is True:

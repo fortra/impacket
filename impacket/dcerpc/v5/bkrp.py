@@ -25,8 +25,6 @@
 #   [ ] 2.2.2 Client-Side-Wrapped Secret
 #
 
-from __future__ import division
-from __future__ import print_function
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRPOINTER, NDRUniConformantArray
 from impacket.dcerpc.v5.dtypes import DWORD, NTSTATUS, GUID, RPC_SID, NULL
 from impacket.dcerpc.v5.rpcrt import DCERPCException

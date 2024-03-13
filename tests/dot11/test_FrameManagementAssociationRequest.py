@@ -8,7 +8,6 @@
 # for more information.
 #
 import unittest
-from six import PY2
 from impacket.dot11 import Dot11Types
 from impacket.ImpactDecoder import RadioTapDecoder
 
@@ -26,16 +25,10 @@ class TestDot11ManagementAssociationRequestFrames(unittest.TestCase):
         self.radiotap_decoder = RadioTapDecoder()
         radiotap=self.radiotap_decoder.decode(self.rawframe)
 
-        if PY2:
-            self.assertEqual(str(radiotap.__class__), "impacket.dot11.RadioTap")
-        else:
-            self.assertEqual(str(radiotap.__class__), "<class 'impacket.dot11.RadioTap'>")
+        self.assertEqual(str(radiotap.__class__), "<class 'impacket.dot11.RadioTap'>")
 
         self.dot11=radiotap.child()
-        if PY2:
-            self.assertEqual(str(self.dot11.__class__), "impacket.dot11.Dot11")
-        else:
-            self.assertEqual(str(self.dot11.__class__), "<class 'impacket.dot11.Dot11'>")
+        self.assertEqual(str(self.dot11.__class__), "<class 'impacket.dot11.Dot11'>")
 
 
         type = self.dot11.get_type()
@@ -48,16 +41,10 @@ class TestDot11ManagementAssociationRequestFrames(unittest.TestCase):
         self.assertEqual(typesubtype,Dot11Types.DOT11_TYPE_MANAGEMENT_SUBTYPE_ASSOCIATION_REQUEST)
         
         self.management_base=self.dot11.child()
-        if PY2:
-            self.assertEqual(str(self.management_base.__class__), "impacket.dot11.Dot11ManagementFrame")
-        else:
-            self.assertEqual(str(self.management_base.__class__), "<class 'impacket.dot11.Dot11ManagementFrame'>")
+        self.assertEqual(str(self.management_base.__class__), "<class 'impacket.dot11.Dot11ManagementFrame'>")
         
         self.management_association_request=self.management_base.child()
-        if PY2:
-            self.assertEqual(str(self.management_association_request.__class__), "impacket.dot11.Dot11ManagementAssociationRequest")
-        else:
-            self.assertEqual(str(self.management_association_request.__class__), "<class 'impacket.dot11.Dot11ManagementAssociationRequest'>")
+        self.assertEqual(str(self.management_association_request.__class__), "<class 'impacket.dot11.Dot11ManagementAssociationRequest'>")
             
         
     def test_01(self):

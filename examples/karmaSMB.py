@@ -51,17 +51,12 @@
 #       hosting. *CAREFUL!!!*
 #
 
-from __future__ import division
-from __future__ import print_function
 import sys
 import os
 import argparse
 import logging
 import ntpath
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+import configparser as ConfigParser
 from threading import Thread
 
 from impacket.examples import logger

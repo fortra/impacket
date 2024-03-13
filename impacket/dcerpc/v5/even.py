@@ -22,8 +22,6 @@
 #   Alberto Solino (@agsolino)
 #   Itamar Mizrahi (@MrAnde7son)
 #
-from __future__ import division
-from __future__ import print_function
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDR, NDRPOINTERNULL, NDRUniConformantArray
 from impacket.dcerpc.v5.dtypes import ULONG, LPWSTR, RPC_UNICODE_STRING, LPSTR, NTSTATUS, NULL, PRPC_UNICODE_STRING, PULONG, USHORT, PRPC_SID, LPBYTE
 from impacket.dcerpc.v5.lsad import PRPC_UNICODE_STRING_ARRAY

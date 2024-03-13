@@ -20,8 +20,6 @@
 #   - [MS-SFU]: https://msdn.microsoft.com/en-us/library/cc246071.aspx
 #
 
-from __future__ import division
-from __future__ import print_function
 import argparse
 import datetime
 import logging

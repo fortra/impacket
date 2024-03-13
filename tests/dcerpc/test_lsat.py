@@ -16,8 +16,6 @@
 #   (h)LsarLookupSids2
 #   LsarLookupSids3
 #
-from __future__ import division
-from __future__ import print_function
 import pytest
 import unittest
 from six import assertRaisesRegex

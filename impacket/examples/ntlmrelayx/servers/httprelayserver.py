@@ -24,7 +24,7 @@ import random
 import struct
 import string
 from threading import Thread
-from six import PY2, b
+from six import b
 
 from impacket import ntlm, LOG
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
@@ -134,16 +134,10 @@ class HTTPRelayServer(Thread):
                 self.wfile.write(imgFile_data)
 
         def strip_blob(self, proxy):
-            if PY2:
-                if proxy:
-                    proxyAuthHeader = self.headers.getheader('Proxy-Authorization')
-                else:
-                    autorizationHeader = self.headers.getheader('Authorization')
+            if proxy:
+                proxyAuthHeader = self.headers.get('Proxy-Authorization')
             else:
-                if proxy:
-                    proxyAuthHeader = self.headers.get('Proxy-Authorization')
-                else:
-                    autorizationHeader = self.headers.get('Authorization')
+                autorizationHeader = self.headers.get('Authorization')
 
             if (proxy and proxyAuthHeader is None) or (not proxy and autorizationHeader is None):
                 self.do_AUTHHEAD(message = b'NTLM',proxy=proxy)

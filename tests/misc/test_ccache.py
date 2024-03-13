@@ -13,12 +13,7 @@
 import os
 import pytest
 import unittest
-from six import PY2
-if PY2:
-    mock = None
-    FileNotFoundError = IOError
-else:
-    from unittest import mock
+from unittest import mock
 from impacket.krb5.ccache import CCache, Credential
 
 
@@ -71,9 +66,7 @@ class CCACHETests(unittest.TestCase):
             ccache = CCache.loadKirbiFile(kirbi_file)
             self.assert_ccache(ccache)
 
-    @pytest.mark.skipif(PY2, reason="requires python 3.3 or higher")
     def test_ccache_parseFile_no_cache(self):
-        if not PY2:
             with mock.patch.dict(os.environ, {}, clear=True):
                 domain, username, TGT, TGS = CCache.parseFile(self.domain, self.username)
                 self.assertEqual(domain, self.domain)
@@ -81,16 +74,12 @@ class CCACHETests(unittest.TestCase):
                 self.assertIsNone(TGT)
                 self.assertIsNone(TGS)
 
-    @pytest.mark.skipif(PY2, reason="requires python 3.3 or higher")
     def test_ccache_parseFile_unexistent(self):
-        if not PY2:
             with mock.patch.dict(os.environ, {"KRB5CCNAME": "ccache-unexistent-file"}):
                 with self.assertRaises(FileNotFoundError):
                     CCache.parseFile(self.domain, self.username)
 
-    @pytest.mark.skipif(PY2, reason="requires python 3.3 or higher")
     def test_ccache_parseFile(self):
-        if not PY2:
             with mock.patch.dict(os.environ, {"KRB5CCNAME": self.cache_v4_file}):
                 domain, username, TGT, TGS = CCache.parseFile("")
                 self.assertEqual(domain, self.domain)

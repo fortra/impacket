@@ -22,13 +22,10 @@
 #   Alberto Solino (@agsolino)
 #
 
-from __future__ import division
-from __future__ import print_function
 from builtins import bytes
 import hashlib
 from struct import pack
 import six
-from six import PY2
 
 from impacket import LOG
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUNION, NDR, NDRENUM
@@ -1380,10 +1377,7 @@ def deriveKey(baseKey):
         key = pack('<L',baseKey)
         key1 = [key[0] , key[1] , key[2] , key[3] , key[0] , key[1] , key[2]]
         key2 = [key[3] , key[0] , key[1] , key[2] , key[3] , key[0] , key[1]]
-        if PY2:
-            return transformKey(b''.join(key1)),transformKey(b''.join(key2))
-        else:
-            return transformKey(bytes(key1)),transformKey(bytes(key2))
+        return transformKey(bytes(key1)),transformKey(bytes(key2))
 
 def removeDESLayer(cryptedHash, rid):
         Key1,Key2 = deriveKey(rid)

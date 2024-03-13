@@ -32,8 +32,6 @@
 #   Alberto Solino (@agsolino)
 #
 
-from __future__ import division
-from __future__ import print_function
 import cmd
 import logging
 import os
@@ -42,7 +40,6 @@ import string
 import time
 from binascii import unhexlify
 from threading import Thread, Lock
-from six import PY3
 
 from impacket.dcerpc.v5 import epm
 from impacket.dcerpc.v5.drsuapi import MSRPC_UUID_DRSUAPI, hDRSDomainControllerInfo, DRSBind, NTDSAPI_CLIENT_GUID, \
@@ -368,10 +365,7 @@ class RemoteShell(cmd.Cmd):
             f = dst_path + '/' + src_file
             pathname = f.replace('/','\\')
             logging.info("Uploading %s to %s\\%s" % (src_file, self.share, dst_path))
-            if PY3:
-                self.transferClient.putFile(self.share, pathname, fh.read)
-            else:
-                self.transferClient.putFile(self.share, pathname.decode(sys.stdin.encoding), fh.read)
+            self.transferClient.putFile(self.share, pathname, fh.read)
             fh.close()
         except Exception as e:
             logging.error(str(e))
@@ -395,10 +389,7 @@ class RemoteShell(cmd.Cmd):
         return
 
     def default(self, line):
-        if PY3:
-            self.send_data(line.encode('cp437')+b'\r\n')
-        else:
-            self.send_data(line.decode(sys.stdin.encoding).encode('cp437')+'\r\n')
+        self.send_data(line.encode('cp437')+b'\r\n')
 
     def send_data(self, data, hideOutput = True):
         if hideOutput is True:

@@ -13,8 +13,6 @@
 #   (h)stop_server_listening
 #   (h)inq_princ_name
 #
-from __future__ import division
-from __future__ import print_function
 import pytest
 import unittest
 from six import assertRaisesRegex
