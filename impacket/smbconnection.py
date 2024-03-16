@@ -986,7 +986,7 @@ class SessionError(Exception):
         return self.packet
 
     def getErrorString( self ):
-        return nt_errors.ERROR_MESSAGES[self.error]
+        return str(self)
 
     def __str__( self ):
         key = self.error
