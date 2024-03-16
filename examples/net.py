@@ -102,7 +102,7 @@ class SamrObject:
 
     def _get_user_handle(self, domain_handle, username):
         user_rid = self._get_object_rid(domain_handle, username)
-        response = samr.hSamrOpenUser(self._dce, domain_handle, samr.USER_ALL_ACCESS, user_rid)
+        response = samr.hSamrOpenUser(self._dce, domain_handle, samr.MAXIMUM_ALLOWED, user_rid)
         return response['UserHandle']
 
     def _get_group_handle(self, domain_handle, alias_name):

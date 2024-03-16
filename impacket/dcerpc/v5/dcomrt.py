@@ -966,7 +966,7 @@ class DCOMConnection:
     PORTMAPS = {}
 
     def __init__(self, target, username='', password='', domain='', lmhash='', nthash='', aesKey='', TGT=None, TGS=None,
-                 authLevel=RPC_C_AUTHN_LEVEL_PKT_PRIVACY, oxidResolver=False, doKerberos=False, kdcHost=None):
+                 authLevel=RPC_C_AUTHN_LEVEL_PKT_PRIVACY, oxidResolver=False, doKerberos=False, kdcHost=None, remoteHost=None):
         self.__target = target
         self.__userName = username
         self.__password = password
@@ -981,6 +981,7 @@ class DCOMConnection:
         self.__oxidResolver = oxidResolver
         self.__doKerberos = doKerberos
         self.__kdcHost = kdcHost
+        self.__remoteHost = remoteHost
         self.initConnection()
 
     @classmethod
@@ -1060,6 +1061,10 @@ class DCOMConnection:
     def initConnection(self):
         stringBinding = r'ncacn_ip_tcp:%s' % self.__target
         rpctransport = transport.DCERPCTransportFactory(stringBinding)
+
+        if self.__remoteHost:
+            rpctransport.setRemoteHost(self.__remoteHost)
+            rpctransport.setRemoteName(self.__target)
 
         if hasattr(rpctransport, 'set_credentials') and len(self.__userName) >=0:
             # This method exists only for selected protocol sequences.
@@ -1293,6 +1298,11 @@ class INTERFACE:
                     raise Exception('Can\'t find a valid stringBinding to connect')
 
                 dcomInterface = transport.DCERPCTransportFactory(stringBinding)
+
+                if DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().get_kerberos():
+                    dcomInterface.setRemoteHost(DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().getRemoteHost())
+                    dcomInterface.setRemoteName(DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().getRemoteName())
+
                 if hasattr(dcomInterface, 'set_credentials'):
                     # This method exists only for selected protocol sequences.
                     dcomInterface.set_credentials(*DCOMConnection.PORTMAPS[self.__target].get_credentials())
@@ -1591,7 +1601,7 @@ class IActivation:
 
         classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
         return IRemUnknown2(INTERFACE(classInstance, b''.join(resp['ppInterfaceData'][0]['abData']), ipidRemUnknown,
-                                      target=self.__portmap.get_rpc_transport().getRemoteHost()))
+                                      target=self.__portmap.get_rpc_transport().getRemoteName()))
 
 
 # 3.1.2.5.2.2 IRemoteSCMActivator Methods
@@ -1757,7 +1767,7 @@ class IRemoteSCMActivator:
         classInstance.set_auth_level(scmr['remoteReply']['authnHint'])
         classInstance.set_auth_type(self.__portmap.get_auth_type())
         return IRemUnknown2(INTERFACE(classInstance, b''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown,
-                                      target=self.__portmap.get_rpc_transport().getRemoteHost()))
+                                      target=self.__portmap.get_rpc_transport().getRemoteName()))
 
     def RemoteCreateInstance(self, clsId, iid):
         # Only supports one interface at a time
@@ -1921,4 +1931,4 @@ class IRemoteSCMActivator:
         classInstance.set_auth_level(scmr['remoteReply']['authnHint'])
         classInstance.set_auth_type(self.__portmap.get_auth_type())
         return IRemUnknown2(INTERFACE(classInstance, b''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown,
-                                      target=self.__portmap.get_rpc_transport().getRemoteHost()))
+                                      target=self.__portmap.get_rpc_transport().getRemoteName()))
