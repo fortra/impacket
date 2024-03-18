@@ -425,7 +425,8 @@ if __name__ == '__main__':
     group.add_argument('-dc-host', action='store', metavar='hostname', help='Hostname of the domain controller to use. '
                                                                               'If ommited, the domain part (FQDN) '
                                                                               'specified in the account parameter will be used')
-    group.add_argument('-targetdomain', action='store',metavar='targetdomain', help='The domain you would like to query in case of a bidirectional-trust.')
+    group.add_argument('-targetdomain', action='store',metavar='targetdomain', help='The domain you would like to target in case'
+                                                                               'of a domain trust.')
 
     if len(sys.argv)==1:
         parser.print_help()
