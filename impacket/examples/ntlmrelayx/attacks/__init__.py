@@ -39,6 +39,8 @@ class ProtocolAttack(Thread):
         self.client = client
         # By default we only use the username and remove the domain
         self.username = username.split('/')[1]
+        # But we also store the domain for later use
+        self.domain = username.split('/')[0]
 
     def run(self):
         raise RuntimeError('Virtual Function')
