@@ -170,6 +170,8 @@ class DumpSecrets:
             # Almost like LOCAL but create a Shadow Snapshot at target and download SAM, SYSTEM and SECURITY from the SS.
             # Then, parse locally
             if self.__remoteSSMethod:
+                self.__isRemote = False
+                self.__useVSSMethod = True
                 try:
                     self.connect()
                 except Exception as e:

