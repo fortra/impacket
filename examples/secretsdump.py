@@ -111,6 +111,7 @@ class DumpSecrets:
         self.__canProcessSAMLSA = True
         self.__kdcHost = options.dc_ip
         self.__remoteSSMethod = options.use_remoteSSMethod
+        self.__remoteSSMethodRemoteVolume = options.remoteSS_remote_volume
         self.__remoteSSMethodDownloadPath = options.remoteSS_local_path
         self.__options = options
 
@@ -189,7 +190,7 @@ class DumpSecrets:
                 self.__remoteOps = RemoteOperations(self.__smbConnection, self.__doKerberos, self.__kdcHost,
                                                     self.__ldapConnection)
                 self.__remoteOps.setExecMethod(self.__options.exec_method)
-                sam_path, system_path, security_path = self.__remoteOps.createSSandDownload('C:\\',
+                sam_path, system_path, security_path = self.__remoteOps.createSSandDownload(self.__remoteSSMethodRemoteVolume,
                                                                                             self.__remoteSSMethodDownloadPath)
                 self.__samHive = sam_path
                 self.__systemHive = system_path
@@ -408,7 +409,9 @@ if __name__ == '__main__':
     parser.add_argument('-exec-method', choices=['smbexec', 'wmiexec', 'mmcexec'], nargs='?', default='smbexec', help='Remote exec '
                         'method to use at target (only when using -use-vss). Default: smbexec')
     parser.add_argument('-use-remoteSSMethod', action='store_true',
-                        help='Remotely create Shadow Snapshot and download SAM, SYSTEM and SECURITY from it')
+                        help='Remotely create Shadow Snapshot via WMI and download SAM, SYSTEM and SECURITY from it, the parse locally')
+    parser.add_argument('-remoteSS-remote-volume', action='store', default='C:\\',
+                        help='Remote Volume to perform the Shadow Snapshot and download SAM, SYSTEM and SECURITY')
     parser.add_argument('-remoteSS-local-path', action='store', default='.',
                         help='Path where download SAM, SYSTEM and SECURITY from Shadow Snapshot. It defaults to current path')
 
