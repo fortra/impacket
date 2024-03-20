@@ -193,6 +193,11 @@ NTLM_NEGOTIATE_OEM                         = 0x00000002
 # If set, requests Unicode character set encoding. An alternate name for this field is NTLMSSP_NEGOTIATE_UNICODE.
 NTLMSSP_NEGOTIATE_UNICODE                  = 0x00000001
 
+# NTLMSSP Message Types
+NTLMSSP_AUTH_NEGOTIATE          = 0x01
+NTLMSSP_AUTH_CHALLENGE          = 0x02
+NTLMSSP_AUTH_CHALLENGE_RESPONSE = 0x03
+
 # AV_PAIR constants
 NTLMSSP_AV_EOL              = 0x00
 NTLMSSP_AV_HOSTNAME         = 0x01

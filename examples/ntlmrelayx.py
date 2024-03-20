@@ -34,6 +34,7 @@
 # Authors:
 #   Alberto Solino (@agsolino)
 #   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
+#  Sylvain Heiniger / Compass Security (https://www.compass-security.com)
 #
 
 import argparse
@@ -52,7 +53,7 @@ from threading import Thread
 
 from impacket import version
 from impacket.examples import logger
-from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer, WCFRelayServer, RAWRelayServer
+from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer, WCFRelayServer, RAWRelayServer, RPCRelayServer
 from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig, parse_listening_ports
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, TargetsFileWatcher
 from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS
@@ -242,6 +243,8 @@ def start_servers(options, threads):
             c.setListeningPort(options.wcf_port)
         elif server is RAWRelayServer:
             c.setListeningPort(options.raw_port)
+        elif server is RPCRelayServer:
+            c.setListeningPort(options.rpc_port)
 
         s = server(c)
         s.start()
@@ -293,11 +296,13 @@ if __name__ == '__main__':
     serversoptions.add_argument('--no-http-server', action='store_true', help='Disables the HTTP server')
     serversoptions.add_argument('--no-wcf-server', action='store_true', help='Disables the WCF server')
     serversoptions.add_argument('--no-raw-server', action='store_true', help='Disables the RAW server')
+    serversoptions.add_argument('--no-rpc-server', action='store_true', help='Disables the RPC server')
 
     parser.add_argument('--smb-port', type=int, help='Port to listen on smb server', default=445)
     parser.add_argument('--http-port', help='Port(s) to listen on HTTP server. Can specify multiple ports by separating them with `,`, and ranges with `-`. Ex: `80,8000-8010`', default="80")
     parser.add_argument('--wcf-port', type=int, help='Port to listen on wcf server', default=9389)  # ADWS
     parser.add_argument('--raw-port', type=int, help='Port to listen on raw server', default=6666)
+    parser.add_argument('--rpc-port', type=int, help='Port to listen on rpc server', default=135)
 
     parser.add_argument('--no-multirelay', action="store_true", required=False, help='If set, disable multi-host relay (SMB and HTTP servers)')
     parser.add_argument('--keep-relaying', action="store_true", required=False, help='If set, keeps relaying to a target even after a successful connection on it')
@@ -501,6 +506,9 @@ if __name__ == '__main__':
 
     if not options.no_raw_server:
         RELAY_SERVERS.append(RAWRelayServer)
+
+    if not options.no_rpc_server:
+        RELAY_SERVERS.append(RPCRelayServer)
 
     if targetSystem is not None and options.w:
         watchthread = TargetsFileWatcher(targetSystem)
