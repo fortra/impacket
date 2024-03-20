@@ -696,13 +696,13 @@ def packValue(valueType, value):
         retData = pack('>L', value)
     elif valueType == REG_EXPAND_SZ:
         try:
-            retData = value.encode('utf-16le')
+            retData = checkNullString(value).encode('utf-16le')
         except UnicodeDecodeError:
             import sys
             retData = value.decode(sys.getfilesystemencoding()).encode('utf-16le')
     elif valueType == REG_MULTI_SZ:
         try:
-            retData = value.encode('utf-16le')
+            retData = (checkNullString(value)+'\x00').encode('utf-16le')
         except UnicodeDecodeError:
             import sys
             retData = value.decode(sys.getfilesystemencoding()).encode('utf-16le')
@@ -712,7 +712,7 @@ def packValue(valueType, value):
         retData = pack('>Q', value)
     elif valueType == REG_SZ:
         try:
-            retData = value.encode('utf-16le')
+            retData = checkNullString(value).encode('utf-16le')
         except UnicodeDecodeError:
             import sys
             retData = value.decode(sys.getfilesystemencoding()).encode('utf-16le')
