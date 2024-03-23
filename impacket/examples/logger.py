@@ -51,12 +51,18 @@ class ImpacketFormatterTimeStamp(ImpacketFormatter):
   def formatTime(self, record, datefmt=None):
       return ImpacketFormatter.formatTime(self, record, datefmt="%Y-%m-%d %H:%M:%S")
 
-def init(ts=False):
+def init(ts=False, logfile=None):
+    handlers = []
     # We add a StreamHandler and formatter to the root logger
-    handler = logging.StreamHandler(sys.stdout)
+    handlers.append(logging.StreamHandler(sys.stdout))
+    if logfile:
+        handlers.append(logging.FileHandler(logfile))
     if not ts:
-        handler.setFormatter(ImpacketFormatter())
+        for handler in handlers:
+            handler.setFormatter(ImpacketFormatter())
     else:
-        handler.setFormatter(ImpacketFormatterTimeStamp())
-    logging.getLogger().addHandler(handler)
+        for handler in handlers:
+            handler.setFormatter(ImpacketFormatterTimeStamp())
+    for handler in handlers:
+        logging.getLogger().addHandler(handler)
     logging.getLogger().setLevel(logging.INFO)
