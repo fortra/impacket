@@ -27,6 +27,8 @@ from impacket.examples.utils import parse_target
 from impacket.examples.smbclient import MiniImpacketShell
 from impacket import version
 from impacket.smbconnection import SMBConnection
+from impacket.smb3structs import SMB2_DIALECT_21, SMB2_DIALECT_311
+from impacket.smb import SMB_DIALECT
 
 def main():
     # Init the example's logger theme
@@ -37,6 +39,7 @@ def main():
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the mini shell')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-smb-version', choices=['1', '2', '3'], help='SMB version to negotiate')
 
     group = parser.add_argument_group('authentication')
 
@@ -94,8 +97,16 @@ def main():
         lmhash = ''
         nthash = ''
 
+    if options.smb_version is not None:
+        smb_versions = (
+            (SMB_DIALECT, '1'),
+            (SMB2_DIALECT_21, '2'),
+            (SMB2_DIALECT_311, '3')
+        )
+        options.smb_version = [version[0] for version in smb_versions if version[1] == options.smb_version][0]
+
     try:
-        smbClient = SMBConnection(address, options.target_ip, sess_port=int(options.port))
+        smbClient = SMBConnection(address, options.target_ip, sess_port=int(options.port), preferredDialect=options.smb_version)
         if options.k is True:
             smbClient.kerberosLogin(username, password, domain, lmhash, nthash, options.aesKey, options.dc_ip )
         else:
