@@ -266,7 +266,7 @@ class SMBSocksRelay(SocksRelay):
                 respSMBCommand['DialectRevision'] = SMB2_DIALECT_WILDCARD
             else:
                 respSMBCommand['DialectRevision'] = self.serverDialect
-                resp['MessageID'] = 1
+                resp['MessageID'] = recvPacket['MessageID']
             respSMBCommand['ServerGuid'] = b(''.join([random.choice(string.ascii_letters) for _ in range(16)]))
             respSMBCommand['Capabilities'] = 0x7
             respSMBCommand['MaxTransactSize'] = 65536
