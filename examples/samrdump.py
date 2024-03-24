@@ -89,7 +89,7 @@ class SAMRDump:
         # Display results.
 
         if self.__csvOutput is True:
-            print('#Name,RID,FullName,PrimaryGroupId,BadPasswordCount,LogonCount,PasswordLastSet,PasswordDoesNotExpire,AccountIsDisabled,UserComment,ScriptPath')
+            print('#Name,RID,FullName,PrimaryGroupId,BadPasswordCount,LogonCount,PasswordLastSet,PasswordDoesNotExpire,AccountIsDisabled,AdminComment,UserComment,ScriptPath')
 
         for entry in entries:
             (username, uid, user) = entry
@@ -110,13 +110,14 @@ class SAMRDump:
                 accountDisabled = 'False'
 
             if self.__csvOutput is True:
-                print('%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (username, uid, user['FullName'], user['PrimaryGroupId'],
+                print('%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (username, uid, user['FullName'], user['PrimaryGroupId'],
                                                       user['BadPasswordCount'], user['LogonCount'],pwdLastSet,
-                                                      dontExpire, accountDisabled, user['UserComment'].replace(',','.'),
+                                                      dontExpire, accountDisabled, user['UserComment'].replace(',','.'),user['AdminComment'].replace(',','.'),
                                                       user['ScriptPath']  ))
             else:
                 base = "%s (%d)" % (username, uid)
                 print(base + '/FullName:', user['FullName'])
+                print(base + '/AdminComment:', user['AdminComment'])
                 print(base + '/UserComment:', user['UserComment'])
                 print(base + '/PrimaryGroupId:', user['PrimaryGroupId'])
                 print(base + '/BadPasswordCount:', user['BadPasswordCount'])
