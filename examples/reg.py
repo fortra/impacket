@@ -285,7 +285,9 @@ class RegHandler:
             ):
                 valueData = int(self.__options.vd)
             elif dwType == rrp.REG_BINARY:
-                valueData = binascii.a2b_hex(self.__options.vd)
+                bin_value_len = len(self.__options.vd)
+                bin_value_len += (bin_value_len & 1)
+                valueData = binascii.a2b_hex(self.__options.vd.ljust(bin_value_len, '0'))
             else:
                 valueData = self.__options.vd
 
