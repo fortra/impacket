@@ -35,7 +35,7 @@ from impacket import LOG
 USE_NTLMv2 = True # if false will fall back to NTLMv1 (or NTLMv1 with ESS a.k.a NTLM2)
 TEST_CASE = False # Only set to True when running Test Cases
 
-DEFAULT_LM_HASH = binascii.unhexlify('385359f4ebcc247b57a2ab140e714cd1')
+DEFAULT_LM_HASH = binascii.unhexlify('AAD3B435B51404EEAAD3B435B51404EE')
 
 def computeResponse(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='', nthash='',
                     use_ntlmv2=USE_NTLMv2):
