@@ -35,6 +35,7 @@ from impacket import LOG
 USE_NTLMv2 = True # if false will fall back to NTLMv1 (or NTLMv1 with ESS a.k.a NTLM2)
 TEST_CASE = False # Only set to True when running Test Cases
 
+DEFAULT_LM_HASH = binascii.unhexlify('385359f4ebcc247b57a2ab140e714cd1')
 
 def computeResponse(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='', nthash='',
                     use_ntlmv2=USE_NTLMv2):
@@ -741,7 +742,15 @@ def computeResponseNTLMv1(flags, serverChallenge, clientChallenge, serverName, d
 
 def compute_lmhash(password):
     # This is done according to Samba's encryption specification (docs/html/ENCRYPTION.html)
-    password = password.upper()
+    try:
+        password.encode("latin-1")
+    except UnicodeEncodeError:
+        # LM hash can be computed only from latin-1 encoded passwords
+        # If password contains unicode characters, outside latin-1, we return the default LM_HASH
+        return DEFAULT_LM_HASH
+
+    password = ''.join( c.upper() if c in string.ascii_letters else c for c in password )
+
     lmhash  = __DES_block(b(password[:7]), KNOWN_DES_INPUT)
     lmhash += __DES_block(b(password[7:14]), KNOWN_DES_INPUT)
     return lmhash
