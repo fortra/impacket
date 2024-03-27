@@ -7,8 +7,6 @@
 # for more information.
 #
 
-from __future__ import division
-from __future__ import print_function
 import base64
 import struct
 import calendar

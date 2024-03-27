@@ -24,8 +24,6 @@
 #   [ ] Support long values properly
 #
 
-from __future__ import division
-from __future__ import print_function
 from impacket import LOG
 try:
     from collections import OrderedDict

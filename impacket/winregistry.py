@@ -20,8 +20,6 @@
 #   [ ] Parse li records, probable the same as the ri but couldn't find any to probe
 #
 
-from __future__ import division
-from __future__ import print_function
 import sys
 from struct import unpack
 import ntpath

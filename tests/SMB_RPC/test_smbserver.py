@@ -78,7 +78,8 @@ from os.path import exists, join
 from os import mkdir, rmdir, remove
 from multiprocessing import Process
 
-from six import PY2, StringIO, BytesIO, b, assertRaisesRegex, assertCountEqual
+from io import StringIO, BytesIO
+from six import b, assertRaisesRegex, assertCountEqual
 
 from impacket.smb import SMB_DIALECT
 from impacket.smbserver import normalize_path, isInFileJail, SimpleSMBServer
@@ -341,7 +342,6 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
 
         client.close()
 
-    @unittest.skipIf(PY2, "Unicode filename expected failing in Python 2.x")
     def test_smbserver_list_path(self):
         """Test listing files in a shared folder.
         """
@@ -436,7 +436,7 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
         with assertRaisesRegex(self, SessionError, "STATUS_OBJECT_PATH_SYNTAX_BAD"):
             client.getFile(self.share_name, join("..", self.share_unjailed_file), local_file.write)
         local_file.seek(0)
-        self.assertEqual(local_file.read(), b(""))
+        self.assertEqual(local_file.read(), b"")
 
         # Check unexistent get file
         with assertRaisesRegex(self, SessionError, "STATUS_NO_SUCH_FILE"):
@@ -444,7 +444,6 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
 
         client.close()
 
-    @unittest.skipIf(PY2, "Unicode filename expected failing in Python 2.x")
     def test_smbserver_get_unicode_file(self):
         """Test reading unicode files from a shared folder.
         """

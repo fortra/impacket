@@ -20,8 +20,6 @@
 #       rewritten to output like a normal SQL client
 #
 
-from __future__ import division
-from __future__ import print_function
 import struct
 import socket
 import select

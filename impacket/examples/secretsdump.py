@@ -45,8 +45,6 @@
 #   - https://www.exploit-db.com/docs/english/18244-active-domain-offline-hash-dump-&-forensic-analysis.pdf
 #   - https://www.passcape.com/index.php?section=blog&cmd=details&id=15
 #
-from __future__ import division
-from __future__ import print_function
 import codecs
 import json
 import hashlib
@@ -61,7 +59,7 @@ from binascii import unhexlify, hexlify
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from struct import unpack, pack
-from six import b, PY2
+from six import b
 
 from impacket import LOG
 from impacket import system_errors
@@ -1208,10 +1206,7 @@ class CryptoCommon:
         key = pack('<L',baseKey)
         key1 = [key[0] , key[1] , key[2] , key[3] , key[0] , key[1] , key[2]]
         key2 = [key[3] , key[0] , key[1] , key[2] , key[3] , key[0] , key[1]]
-        if PY2:
-            return transformKey(b''.join(key1)),transformKey(b''.join(key2))
-        else:
-            return transformKey(bytes(key1)),transformKey(bytes(key2))
+        return transformKey(bytes(key1)),transformKey(bytes(key2))
 
     @staticmethod
     def decryptAES(key, value, iv=b'\x00'*16):

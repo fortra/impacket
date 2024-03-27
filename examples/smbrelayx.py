@@ -35,12 +35,7 @@
 #   Alberto Solino (@agsolino)
 #
 
-from __future__ import division
-from __future__ import print_function
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+import configparser as ConfigParser
 import http.server
 import socketserver
 import argparse
@@ -48,14 +43,10 @@ import base64
 import logging
 import os
 import sys
-try:
-    from urllib.parse import urlparse
-except ImportError:
-    from urlparse import urlparse
+from urllib.parse import urlparse
 from binascii import unhexlify, hexlify
 from struct import pack, unpack
 from threading import Thread
-from six import PY2
 
 from impacket import version
 from impacket.dcerpc.v5 import nrpc
@@ -522,10 +513,7 @@ class HTTPRelayServer(Thread):
 
         def do_GET(self):
             messageType = 0
-            if PY2:
-                authorizationHeader = self.headers.getheader('Authorization')
-            else:
-                authorizationHeader = self.headers.get('Authorization')
+            authorizationHeader = self.headers.get('Authorization')
 
             if authorizationHeader is None:
                 self.do_AUTHHEAD(message = b'NTLM')

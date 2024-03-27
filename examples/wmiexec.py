@@ -22,8 +22,6 @@
 #   DCOM
 #
 
-from __future__ import division
-from __future__ import print_function
 import sys
 import os
 import cmd
@@ -41,7 +39,6 @@ from impacket.dcerpc.v5.dcomrt import DCOMConnection, COMVERSION
 from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.krb5.keytab import Keytab
-from six import PY2
 
 OUTPUT_FILENAME = '__' + str(time.time())
 CODEC = sys.stdout.encoding
@@ -224,10 +221,7 @@ class RemoteShell(cmd.Cmd):
             print(self.__outputBuffer)
             self.__outputBuffer = ''
         else:
-            if PY2:
-                self.__pwd = ntpath.normpath(ntpath.join(self.__pwd, s.decode(sys.stdin.encoding)))
-            else:
-                self.__pwd = ntpath.normpath(ntpath.join(self.__pwd, s))
+            self.__pwd = ntpath.normpath(ntpath.join(self.__pwd, s))
             self.execute_remote('cd ')
             self.__pwd = self.__outputBuffer.strip('\r\n')
             self.prompt = (self.__pwd + '>')
@@ -294,10 +288,7 @@ class RemoteShell(cmd.Cmd):
 
         if self.__noOutput is False:
             command += ' 1> ' + '\\\\127.0.0.1\\%s' % self.__share + self.__output + ' 2>&1'
-        if PY2:
-            self.__win32Process.Create(command.decode(sys.stdin.encoding), self.__pwd, None)
-        else:
-            self.__win32Process.Create(command, self.__pwd, None)
+        self.__win32Process.Create(command, self.__pwd, None)
         self.get_output()
 
     def send_data(self, data):

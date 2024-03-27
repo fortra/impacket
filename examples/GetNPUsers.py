@@ -24,8 +24,6 @@
 #   Alberto Solino (@agsolino)
 #
 
-from __future__ import division
-from __future__ import print_function
 import argparse
 import datetime
 import logging

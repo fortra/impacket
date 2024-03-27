@@ -22,8 +22,6 @@
 # Author:
 #   Alberto Solino (@agsolino)
 #
-from __future__ import division
-from __future__ import print_function
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantVaryingArray, NDRENUM
 from impacket.dcerpc.v5.dcomrt import DCOMCALL, DCOMANSWER, IRemUnknown2, PMInterfacePointer, INTERFACE
 from impacket.dcerpc.v5.dtypes import LPWSTR, ULONG, DWORD, SHORT, GUID

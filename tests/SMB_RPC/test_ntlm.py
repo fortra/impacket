@@ -6,7 +6,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-from __future__ import print_function
 import unittest
 import struct
 

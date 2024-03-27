@@ -16,12 +16,10 @@
 # Author:
 #   Alberto Solino (@agsolino)
 #
-from __future__ import division
-from __future__ import print_function
 from datetime import datetime
 import os
 from struct import pack, unpack, calcsize
-from six import b, PY2
+from six import b
 
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type.univ import noValue
@@ -364,10 +362,7 @@ class CCache:
         self.miniHeader = None
 
         if data is not None:
-            if PY2:
-                ccache_version = unpack('>B', data[1])[0]
-            else:
-                ccache_version = data[1]
+            ccache_version = data[1]
 
             # Versions 1 and 2 are not implemented yet
             if ccache_version == 1 or ccache_version == 2:

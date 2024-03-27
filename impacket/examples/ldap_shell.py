@@ -20,7 +20,6 @@ import random
 import ldap3
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
 from ldap3.utils.conv import escape_filter_chars
-from six import PY2
 import shlex
 from impacket import LOG
 from ldap3.protocol.microsoft import security_descriptor_control
@@ -33,11 +32,6 @@ class LdapShell(cmd.Cmd):
 
     def __init__(self, tcp_shell, domain_dumper, client):
         cmd.Cmd.__init__(self, stdin=tcp_shell.stdin, stdout=tcp_shell.stdout)
-
-        if PY2:
-            # switch to unicode.
-            reload(sys) # noqa: F821 pylint:disable=undefined-variable
-            sys.setdefaultencoding('utf8')
 
         sys.stdout = tcp_shell.stdout
         sys.stdin = tcp_shell.stdin

@@ -21,8 +21,6 @@
 # Author:
 #   Alberto Solino (@agsolino)
 #
-from __future__ import division
-from __future__ import print_function
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRENUM, NDRUNION, NDRUniConformantVaryingArray, NDRPOINTER, NDR, NDRSTRUCT, \
     NDRUniConformantArray
 from impacket.dcerpc.v5.dtypes import DWORD, LPWSTR, STR, LUID, LONG, ULONG, RPC_UNICODE_STRING, PRPC_SID, LPBYTE, \

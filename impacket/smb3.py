@@ -28,9 +28,6 @@
 #   [ ] Fix up all the 'ToDo' comments inside the code
 #
 
-from __future__ import division
-from __future__ import print_function
-
 import socket
 import ntpath
 import random

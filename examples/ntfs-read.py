@@ -25,8 +25,6 @@
 #   [] Support compressed, encrypted and sparse files
 #
 
-from __future__ import division
-from __future__ import print_function
 import os
 import sys
 import logging
@@ -39,7 +37,6 @@ try:
   import pyreadline as readline
 except ImportError:
   import readline
-from six import PY2, text_type
 from datetime import datetime
 from impacket.examples import logger
 from impacket import version
@@ -783,10 +780,7 @@ class INODE:
             dataList[index+1] = sequenceArray[i+1]
             index += 2
 
-        if PY2:
-            return "".join(dataList)
-        else:
-            return bytes(dataList)
+        return bytes(dataList)
 
     def parseIndexBlocks(self, vcn):
         IndexEntries = []
@@ -887,7 +881,7 @@ class INODE:
                     return fn['FileName'].decode('utf-16le').upper()
             return None
 
-        toSearch = text_type(fileName.upper())
+        toSearch = str(fileName.upper())
 
         if INDEX_ROOT in self.Attributes:
             ir = self.Attributes[INDEX_ROOT]

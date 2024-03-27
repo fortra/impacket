@@ -23,10 +23,6 @@
 #   [ ]: Complete the process of joining a client computer to a domain via the SAMR protocol
 #
 
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 from impacket import version
 from impacket.examples import logger
 from impacket.examples.utils import parse_credentials

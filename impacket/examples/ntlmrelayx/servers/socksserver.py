@@ -20,8 +20,6 @@
 #   [ ] Port handlers should be dynamically subscribed, and coded in another place. This will help coding
 #       proxies for different protocols (e.g. MSSQL)
 #
-from __future__ import division
-from __future__ import print_function
 import socketserver
 import socket
 import time

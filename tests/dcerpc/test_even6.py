@@ -15,11 +15,8 @@
 #   EvtRpcOpenLogHandle
 #   EvtRpcGetChannelList
 #
-from __future__ import division
-from __future__ import print_function
 import pytest
 import unittest
-from six.moves import xrange
 
 from tests.dcerpc import DCERPCTests
 
@@ -58,7 +55,7 @@ class EVEN6Tests(DCERPCTests):
         resp = dce.request(request)
         resp.dump()
 
-        for i in xrange(resp['NumActualRecords']):
+        for i in range(resp['NumActualRecords']):
             event_offset = resp['EventDataIndices'][i]['Data']
             event_size = resp['EventDataSizes'][i]['Data']
             event = resp['ResultBuffer'][event_offset:event_offset + event_size]
@@ -75,7 +72,7 @@ class EVEN6Tests(DCERPCTests):
         resp = even6.hEvtRpcQueryNext(dce, log_handle, 5, 1000)
         resp.dump()
 
-        for i in xrange(resp['NumActualRecords']):
+        for i in range(resp['NumActualRecords']):
             event_offset = resp['EventDataIndices'][i]['Data']
             event_size = resp['EventDataSizes'][i]['Data']
             event = resp['ResultBuffer'][event_offset:event_offset + event_size]

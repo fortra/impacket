@@ -32,8 +32,6 @@ import struct
 from binascii import hexlify
 from threading import Thread
 
-from six import PY2
-
 from impacket import ntlm, LOG
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
@@ -82,8 +80,6 @@ class WCFRelayServer(Thread):
             while not len(buf) == length:
                 buf += self.request.recv(length - len(buf))
 
-            if PY2:
-                buf = bytearray(buf)
             return buf
 
         def handle(self):

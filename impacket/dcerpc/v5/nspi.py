@@ -20,11 +20,8 @@
 #   [ ] Test restriction structures
 #
 
-from __future__ import division
-from __future__ import print_function
 from struct import unpack
 from datetime import datetime
-from six import PY2
 import binascii
 
 from impacket import hresult_errors, mapi_constants, uuid
@@ -1008,10 +1005,7 @@ def get_dn_from_guid(guid, minimize=False):
 
     guid_bin = string_to_bin(guid)
 
-    if PY2:
-        return "%s%s" % (dn_template, binascii.hexlify(guid_bin))
-    else:
-        return "%s%s" % (dn_template, str(binascii.hexlify(guid_bin), 'ascii'))
+    return "%s%s" % (dn_template, str(binascii.hexlify(guid_bin), 'ascii'))
 
 class EXCH_SID(LDAP_SID):
     def __str__(self):

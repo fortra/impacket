@@ -48,8 +48,6 @@
 #   - https://www.passcape.com/index.php?section=blog&cmd=details&id=15
 #
 
-from __future__ import division
-from __future__ import print_function
 import argparse
 import codecs
 import logging

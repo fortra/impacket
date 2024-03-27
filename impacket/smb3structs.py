@@ -13,9 +13,6 @@
 #   Alberto Solino (@agsolino)
 #
 
-from __future__ import division
-from __future__ import print_function
-
 from impacket.structure import Structure
 
 # Constants

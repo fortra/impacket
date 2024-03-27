@@ -43,8 +43,6 @@
 #   [ ] When -request is specified, we could ask for a user2user ticket and also populate the received PAC
 #
 
-from __future__ import division
-from __future__ import print_function
 import argparse
 import datetime
 import logging
