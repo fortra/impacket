@@ -1697,7 +1697,7 @@ class SMB3:
         timestamp = path[path.index("@GMT-"):path.index("@GMT-")+24]
         path = path.replace(timestamp, '')
         from datetime import datetime
-        fTime = int((datetime.strptime(timestamp, '@GMT-%Y.%m.%d-%H.%M.%S') - datetime(1970,1,1)).total_seconds())
+        fTime = int((datetime.strptime(timestamp, '@GMT-%Y.%d.%m-%H.%M.%S') - datetime(1970,1,1)).total_seconds())
         fTime *= 10000000
         fTime += 116444736000000000
 
