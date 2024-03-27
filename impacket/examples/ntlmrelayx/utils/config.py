@@ -140,6 +140,9 @@ class NTLMRelayxConfig:
     def setDisableMulti(self, disableMulti):
         self.disableMulti = disableMulti
 
+    def setKeepRelay(self, keepRelay):
+        self.keepRelay = keepRelay
+
     def setEncoding(self, encoding):
         self.encoding = encoding
 

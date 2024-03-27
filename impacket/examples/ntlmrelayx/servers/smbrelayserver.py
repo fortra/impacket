@@ -144,7 +144,7 @@ class SMBRelayServer(Thread):
             if self.config.mode.upper() == 'REFLECTION':
                 self.targetprocessor = TargetsProcessor(singleTarget='SMB://%s:445/' % connData['ClientIP'])
 
-            self.target = self.targetprocessor.getTarget(multiRelay=False)
+            self.target = self.targetprocessor.getTarget(multiRelay=self.config.keepRelay)
             if self.target is None:
                 LOG.info('SMBD-%s: Connection from %s controlled, but there are no more targets left!' %
                          (connId, connData['ClientIP']))
@@ -417,7 +417,7 @@ class SMBRelayServer(Thread):
         #    return self.origsmb2TreeConnect(connId, smbServer, recvPacket)
 
         try:
-            if self.config.mode.upper () == 'REFLECTION':
+            if self.config.mode.upper() == 'REFLECTION':
                 self.targetprocessor = TargetsProcessor (singleTarget='SMB://%s:445/' % connData['ClientIP'])
 
             self.target = self.targetprocessor.getTarget(identity = self.authUser)
@@ -493,7 +493,7 @@ class SMBRelayServer(Thread):
             if self.config.mode.upper() == 'REFLECTION':
                 self.targetprocessor = TargetsProcessor(singleTarget='SMB://%s:445/' % connData['ClientIP'])
 
-            self.target = self.targetprocessor.getTarget(multiRelay=False)
+            self.target = self.targetprocessor.getTarget(multiRelay=self.config.keepRelay)
             if self.target is None:
                 LOG.info('SMBD-%s: Connection from %s controlled, but there are no more targets left!' %
                          (connId, connData['ClientIP']))
@@ -772,7 +772,7 @@ class SMBRelayServer(Thread):
         #    return self.smbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
 
         try:
-            if self.config.mode.upper () == 'REFLECTION':
+            if self.config.mode.upper() == 'REFLECTION':
                 self.targetprocessor = TargetsProcessor (singleTarget='SMB://%s:445/' % connData['ClientIP'])
 
             self.target = self.targetprocessor.getTarget(identity = self.authUser)
