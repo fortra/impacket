@@ -11,6 +11,8 @@ from __future__ import division
 from __future__ import print_function
 from struct import pack, unpack, calcsize
 from six import b, PY3
+from binascii import hexlify
+
 
 class Structure:
     """ sublcasses can define commonHdr and/or structure.
@@ -160,7 +162,7 @@ class Structure:
             data = data[size:]
 
         return self
-        
+
     def __setitem__(self, key, value):
         self.fields[key] = value
         self.data = None        # force recompute
@@ -170,9 +172,9 @@ class Structure:
 
     def __delitem__(self, key):
         del self.fields[key]
-        
+
     def __str__(self):
-        return self.getData()
+        return hexlify(self.getData())
 
     def __len__(self):
         # XXX: improve
