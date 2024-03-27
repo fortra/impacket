@@ -174,6 +174,11 @@ class DumpSecrets:
                     if self.__ntdsFile is not None:
                     # Let's grab target's configuration about LM Hashes storage
                         self.__noLMHash = localOperations.checkNoLMHashPolicy()
+
+                # if we are processing a LOCAL adam/lds ditfile, we will calculate the bootkey from it directly at a later stage
+                elif self.__options.adamlds is True:
+                    bootKey = None               
+
                 else:
                     import binascii
                     bootKey = binascii.unhexlify(self.__bootkey)
@@ -274,7 +279,7 @@ class DumpSecrets:
                                                useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM,
                                                pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
                                                outputFileName=self.__outputFileName, justUser=self.__justUser,
-                                               ldapFilter=self.__ldapFilter, printUserStatus=self.__printUserStatus)
+                                               ldapFilter=self.__ldapFilter, printUserStatus=self.__printUserStatus, isADAMLDS=self.__options.adamlds)
                 try:
                     self.__NTDSHashes.dump()
                 except Exception as e:
@@ -357,6 +362,8 @@ if __name__ == '__main__':
     parser.add_argument('-security', action='store', help='SECURITY hive to parse')
     parser.add_argument('-sam', action='store', help='SAM hive to parse')
     parser.add_argument('-ntds', action='store', help='NTDS.DIT file to parse')
+    parser.add_argument('-adamlds', action='store_true', default=False, help='Indicates that the .dit file to be parsed is an Active Directory '
+                        'Application Mode/Lightweight Directory Services (ADAM/LDS) file')
     parser.add_argument('-resumefile', action='store', help='resume file name to resume NTDS.DIT session dump (only '
                          'available to DRSUAPI approach). This file will also be used to keep updating the session\'s '
                          'state')
@@ -450,7 +457,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     if remoteName.upper() == 'LOCAL' and username == '':
-        if options.system is None and options.bootkey is None:
+        if options.system is None and options.bootkey is None and options.adamlds is None:
             logging.error('Either the SYSTEM hive or bootkey is required for local parsing, check help')
             sys.exit(1)
     else:
