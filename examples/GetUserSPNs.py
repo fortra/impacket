@@ -56,14 +56,6 @@ from impacket.ldap import ldap, ldapasn1
 from impacket.smbconnection import SMBConnection, SessionError
 from impacket.ntlm import compute_lmhash, compute_nthash
 
-
-# Our random number generator
-try:
-    rand = random.SystemRandom()
-except NotImplementedError:
-    rand = random
-    pass
-
 class GetUserSPNs:
     @staticmethod
     def printTable(items, header):
