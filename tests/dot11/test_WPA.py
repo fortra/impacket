@@ -34,7 +34,7 @@ class TestDot11WPAData(unittest.TestCase):
 
     def test_01_is_WPA(self):
         'Test WPAHeader is_WPA method'
-        self.assertEqual(self.wpa_header.is_WPA(), True)
+        self.assertTrue(self.wpa_header.is_WPA())
         
     def test_03_extIV(self):
         'Test WPAHeader extIV getter and setter methods'

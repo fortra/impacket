@@ -43,7 +43,7 @@ class TestDot11WEPData(unittest.TestCase):
         
     def test_01(self):
         'Test WEPHeader is_WEP method'
-        self.assertEqual(self.wep_header.is_WEP(), True)
+        self.assertTrue(self.wep_header.is_WEP())
     
     def test_02(self):
         'Test Packet Hierarchy'
@@ -133,7 +133,7 @@ class TestDot11WEPData(unittest.TestCase):
         wepdata = dot11_decoder.get_protocol(Dot11WEPData)
         decrypted = b'\xaa\xaa\x03\x00\x00\x00\x08\x00\x45\x00\x00\x3c\xa6\x07\x00\x00\x80\x01\xee\x5a\xc0\xa8\x01\x66\x40\xe9\xa3\x67\x08\x00\xc5\x56\x04\x00\x84\x05\x61\x62\x63\x64\x65\x66\x67\x68\x69\x6a\x6b\x6c\x6d\x6e\x6f\x70\x71\x72\x73\x74\x75\x76\x77\x61\x62\x63\x64\x65\x66\x67\x68\x69\xa1\xf9\x39\x85'
         self.assertEqual(wepdata.get_packet(), decrypted)
-        self.assertEqual(wepdata.check_icv(), True)
+        self.assertTrue(wepdata.check_icv())
         
         ip = dot11_decoder.get_protocol(IP)
         self.assertEqual(ip.get_ip_src(),'192.168.1.102')
