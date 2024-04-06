@@ -53,7 +53,7 @@ class AESTests(unittest.TestCase):
         plain = b'eight nine ten eleven twelve thirteen'
         cksum = h('01A4B088D45628F6946614E3')
         k = Key(Enctype.AES128, kb)
-        verify_checksum(Cksumtype.SHA1_AES128, k, keyusage, plain, cksum)
+        self.assertIsNone(verify_checksum(Cksumtype.SHA1_AES128, k, keyusage, plain, cksum))
 
     def test_AES256_checksum(self):
         # AES256 checksum
@@ -62,7 +62,7 @@ class AESTests(unittest.TestCase):
         plain = b'fourteen'
         cksum = h('E08739E3279E2903EC8E3836')
         k = Key(Enctype.AES256, kb)
-        verify_checksum(Cksumtype.SHA1_AES256, k, keyusage, plain, cksum)
+        self.assertIsNone(verify_checksum(Cksumtype.SHA1_AES256, k, keyusage, plain, cksum))
 
     def test_AES128_string_to_key(self):
         # AES128 string-to-key
