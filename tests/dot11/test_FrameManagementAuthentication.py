@@ -21,40 +21,28 @@ class TestDot11ManagementAuthenticationFrames(unittest.TestCase):
         self.rawframe=b"\x00\x00\x1c\x00\xef\x18\x00\x00\x39\x55\x6f\x05\x3c\x00\x00\x00\x10\x02\x85\x09\xa0\x00\xb8\x9d\x60\x00\x00\x1b\xb0\x00\x3a\x01\x00\x18\xf8\x6c\x76\x42\x70\x1a\x04\x54\xe3\x86\x00\x18\xf8\x6c\x76\x42\x30\xc8\x00\x00\x01\x00\x00\x00\xdd\x09\x00\x10\x18\x02\x00\x10\x00\x00\x00\x8a\x64\xe9\x3b"
         self.radiotap_decoder = RadioTapDecoder()
         radiotap=self.radiotap_decoder.decode(self.rawframe)
+        self.dot11=radiotap.child()
+        self.management_base=self.dot11.child()
+        self.management_authentication=self.management_base.child()
+            
+    def test_setups(self):
+        radiotap=self.radiotap_decoder.decode(self.rawframe)
 
         if PY2:
             self.assertEqual(str(radiotap.__class__), "impacket.dot11.RadioTap")
-        else:
-            self.assertEqual(str(radiotap.__class__), "<class 'impacket.dot11.RadioTap'>")
-
-        self.dot11=radiotap.child()
-        if PY2:
             self.assertEqual(str(self.dot11.__class__), "impacket.dot11.Dot11")
-        else:
-            self.assertEqual(str(self.dot11.__class__), "<class 'impacket.dot11.Dot11'>")
-
-        type = self.dot11.get_type()
-        self.assertEqual(type,Dot11Types.DOT11_TYPE_MANAGEMENT)
-        
-        subtype = self.dot11.get_subtype()
-        self.assertEqual(subtype,Dot11Types.DOT11_SUBTYPE_MANAGEMENT_AUTHENTICATION)
-        
-        typesubtype = self.dot11.get_type_n_subtype()
-        self.assertEqual(typesubtype,Dot11Types.DOT11_TYPE_MANAGEMENT_SUBTYPE_AUTHENTICATION)
-        
-        self.management_base=self.dot11.child()
-        if PY2:
             self.assertEqual(str(self.management_base.__class__), "impacket.dot11.Dot11ManagementFrame")
-        else:
-            self.assertEqual(str(self.management_base.__class__), "<class 'impacket.dot11.Dot11ManagementFrame'>")
-        
-        self.management_authentication=self.management_base.child()
-        if PY2:
             self.assertEqual(str(self.management_authentication.__class__), "impacket.dot11.Dot11ManagementAuthentication")
         else:
+            self.assertEqual(str(radiotap.__class__), "<class 'impacket.dot11.RadioTap'>")
+            self.assertEqual(str(self.dot11.__class__), "<class 'impacket.dot11.Dot11'>")
+            self.assertEqual(str(self.management_base.__class__), "<class 'impacket.dot11.Dot11ManagementFrame'>")
             self.assertEqual(str(self.management_authentication.__class__), "<class 'impacket.dot11.Dot11ManagementAuthentication'>")
-            
-        
+
+        self.assertEqual(self.dot11.get_type(), Dot11Types.DOT11_TYPE_MANAGEMENT)
+        self.assertEqual(self.dot11.get_subtype(), Dot11Types.DOT11_SUBTYPE_MANAGEMENT_AUTHENTICATION)
+        self.assertEqual(self.dot11.get_type_n_subtype(), Dot11Types.DOT11_TYPE_MANAGEMENT_SUBTYPE_AUTHENTICATION)
+
     def test_01(self):
         'Test Header and Tail Size field'
         self.assertEqual(self.management_base.get_header_size(), 22)

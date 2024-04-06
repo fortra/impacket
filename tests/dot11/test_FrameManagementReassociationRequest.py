@@ -21,39 +21,28 @@ class TestDot11ManagementReassociationRequestFrames(unittest.TestCase):
         self.rawframe=b"\x00\x00\x1c\x00\xef\x18\x00\x00\x9aK\x87\xae;\x00\x00\x00\x10\x02\x85\t\xa0\x00\xb5\x9d`\x00\x00\x18 \x00:\x01\x00\x18\xf8lvBp\x1a\x04T\xe3\x86\x00\x18\xf8lvB\x00\x081\x04\n\x00\x00\x18\xf8lvB\x00\x05ddwrt\x01\x08\x82\x84\x8b\x96$0Hl!\x02\n\x11$\x02\x01\x0e0\x14\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x02\x08\x002\x04\x0c\x12\x18`\xdd\t\x00\x10\x18\x02\x00\x10\x00\x00\x00p\x97\x1cA"
         self.radiotap_decoder = RadioTapDecoder()
         radiotap=self.radiotap_decoder.decode(self.rawframe)
+        self.dot11=radiotap.child()
+        self.management_base=self.dot11.child()
+        self.management_reassociation_request=self.management_base.child()
+
+    def test_setups(self):
+        radiotap = self.radiotap_decoder.decode(self.rawframe)
 
         if PY2:
             self.assertEqual(str(radiotap.__class__), "impacket.dot11.RadioTap")
-        else:
-            self.assertEqual(str(radiotap.__class__), "<class 'impacket.dot11.RadioTap'>")
-
-        self.dot11=radiotap.child()
-        if PY2:
             self.assertEqual(str(self.dot11.__class__), "impacket.dot11.Dot11")
-        else:
-            self.assertEqual(str(self.dot11.__class__), "<class 'impacket.dot11.Dot11'>")
-
-        type = self.dot11.get_type()
-        self.assertEqual(type,Dot11Types.DOT11_TYPE_MANAGEMENT)
-        
-        subtype = self.dot11.get_subtype()
-        self.assertEqual(subtype,Dot11Types.DOT11_SUBTYPE_MANAGEMENT_REASSOCIATION_REQUEST)
-        
-        typesubtype = self.dot11.get_type_n_subtype()
-        self.assertEqual(typesubtype,Dot11Types.DOT11_TYPE_MANAGEMENT_SUBTYPE_REASSOCIATION_REQUEST)
-        
-        self.management_base=self.dot11.child()
-        if PY2:
             self.assertEqual(str(self.management_base.__class__), "impacket.dot11.Dot11ManagementFrame")
-        else:
-            self.assertEqual(str(self.management_base.__class__), "<class 'impacket.dot11.Dot11ManagementFrame'>")
-        
-        self.management_reassociation_request=self.management_base.child()
-        if PY2:
             self.assertEqual(str(self.management_reassociation_request.__class__), "impacket.dot11.Dot11ManagementReassociationRequest")
         else:
-            self.assertEqual(str(self.management_reassociation_request.__class__), "<class 'impacket.dot11.Dot11ManagementReassociationRequest'>")
-            
+            self.assertEqual(str(radiotap.__class__), "<class 'impacket.dot11.RadioTap'>")
+            self.assertEqual(str(self.dot11.__class__), "<class 'impacket.dot11.Dot11'>")
+            self.assertEqual(str(self.management_base.__class__), "<class 'impacket.dot11.Dot11ManagementFrame'>")
+            self.assertEqual(str(self.management_reassociation_request.__class__),
+                             "<class 'impacket.dot11.Dot11ManagementReassociationRequest'>")
+
+        self.assertEqual(self.dot11.get_type(), Dot11Types.DOT11_TYPE_MANAGEMENT)
+        self.assertEqual(self.dot11.get_subtype(), Dot11Types.DOT11_SUBTYPE_MANAGEMENT_REASSOCIATION_REQUEST)
+        self.assertEqual(self.dot11.get_type_n_subtype(), Dot11Types.DOT11_TYPE_MANAGEMENT_SUBTYPE_REASSOCIATION_REQUEST)
         
     def test_01(self):
         'Test Header and Tail Size field'

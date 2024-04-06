@@ -19,10 +19,6 @@ class TestDot11WPA2Data(unittest.TestCase):
         self.frame_orig=b'\x08\x49\x24\x00\x00\x21\x29\x68\x33\x5d\x00\x15\xaf\xe4\xf1\x0f\x00\x21\x29\x68\x33\x5b\xe0\x31\x1b\x13\x00\x20\x00\x00\x00\x00\x84\x7d\x6a\x30\x8c\x60\x7e\x3b\x22\xdc\x16\xc1\x4b\x28\xd3\x26\x76\x9d\x2e\x59\x96\x31\x3e\x01\x6f\x61\xa2\x59\xc8\xdc\xd3\xc4\xad\x7c\xcc\x32\xa8\x9f\xf6\x03\x02\xe1\xac\x1d\x1e\x02\x8a\xcd\x5b\x94\x20\x2d\xfc\x6e\x37\x40\x2e\x46\x17\x19\x0c\xc0\x34\x07\xae\xe7\x77\xaf\xf9\x9f\x41\x53'
         d = Dot11(self.frame_orig)
         
-        self.assertEqual(d.get_type(),Dot11Types.DOT11_TYPE_DATA)
-        self.assertEqual(d.get_subtype(),Dot11Types.DOT11_SUBTYPE_DATA)
-        self.assertEqual(d.get_type_n_subtype(),Dot11Types.DOT11_TYPE_DATA_SUBTYPE_DATA)
-        
         data = Dot11DataFrame(d.get_body_as_string())
         d.contains(data)
         
@@ -31,6 +27,12 @@ class TestDot11WPA2Data(unittest.TestCase):
         
         self.wpa2_data = Dot11WPA2Data(self.wpa2_header.body_string)
         self.wpa2_header.contains(self.wpa2_data)
+
+    def test_setups(self):
+        d = Dot11(self.frame_orig)
+        self.assertEqual(d.get_type(), Dot11Types.DOT11_TYPE_DATA)
+        self.assertEqual(d.get_subtype(), Dot11Types.DOT11_SUBTYPE_DATA)
+        self.assertEqual(d.get_type_n_subtype(), Dot11Types.DOT11_TYPE_DATA_SUBTYPE_DATA)
 
     def test_01_is_WPA2(self):
         'Test WPA2Header is_WPA2 method'
