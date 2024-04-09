@@ -25,7 +25,6 @@ import random
 import struct
 import string
 from threading import Thread
-from six import PY2
 
 from impacket import ntlm, LOG
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile

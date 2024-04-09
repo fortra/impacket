@@ -7,20 +7,14 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-from __future__ import division
-from __future__ import print_function
 import unittest
-from six import PY2
 
 from impacket import IP6, ImpactDecoder, IP6_Extension_Headers
 
 
 class TestIP6(unittest.TestCase):
     def string_to_list(self, bytes):
-        if PY2:
-            return list(map(ord, list(bytes)))
-        else:
-            return list(bytes)
+        return list(bytes)
 
     def test_create_simple_hop_by_hop(self):
         hop_by_hop_binary_packet = [0x3a, 0x00, 0x01, 0x04, 0x00, 0x00, 0x00, 0x00]

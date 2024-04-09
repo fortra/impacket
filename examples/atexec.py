@@ -19,8 +19,6 @@
 #   DCE/RPC for TSCH
 #
 
-from __future__ import division
-from __future__ import print_function
 import string
 import sys
 import argparse
@@ -36,7 +34,6 @@ from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_GSS_NEGOTIATE, \
     RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from impacket.examples.utils import parse_target
 from impacket.krb5.keytab import Keytab
-from six import PY2
 
 CODEC = sys.stdout.encoding
 

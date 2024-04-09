@@ -8,7 +8,6 @@
 # for more information.
 #
 import unittest
-from six import PY2
 from impacket.dot11 import Dot11Types
 from impacket.ImpactDecoder import RadioTapDecoder
 
@@ -22,16 +21,10 @@ class TestDot11ManagementBeaconFrames(unittest.TestCase):
         self.radiotap_decoder = RadioTapDecoder()
         radiotap=self.radiotap_decoder.decode(self.rawframe)
 
-        if PY2:
-            self.assertEqual(str(radiotap.__class__), "impacket.dot11.RadioTap")
-        else:
-            self.assertEqual(str(radiotap.__class__), "<class 'impacket.dot11.RadioTap'>")
+        self.assertEqual(str(radiotap.__class__), "<class 'impacket.dot11.RadioTap'>")
 
         self.dot11=radiotap.child()
-        if PY2:
-            self.assertEqual(str(self.dot11.__class__), "impacket.dot11.Dot11")
-        else:
-            self.assertEqual(str(self.dot11.__class__), "<class 'impacket.dot11.Dot11'>")
+        self.assertEqual(str(self.dot11.__class__), "<class 'impacket.dot11.Dot11'>")
 
         type = self.dot11.get_type()
         self.assertEqual(type,Dot11Types.DOT11_TYPE_MANAGEMENT)
@@ -43,16 +36,10 @@ class TestDot11ManagementBeaconFrames(unittest.TestCase):
         self.assertEqual(typesubtype,Dot11Types.DOT11_TYPE_MANAGEMENT_SUBTYPE_BEACON)
         
         self.management_base=self.dot11.child()
-        if PY2:
-            self.assertEqual(str(self.management_base.__class__), "impacket.dot11.Dot11ManagementFrame")
-        else:
-            self.assertEqual(str(self.management_base.__class__), "<class 'impacket.dot11.Dot11ManagementFrame'>")
+        self.assertEqual(str(self.management_base.__class__), "<class 'impacket.dot11.Dot11ManagementFrame'>")
         
         self.management_beacon=self.management_base.child()
-        if PY2:
-            self.assertEqual(str(self.management_beacon.__class__), "impacket.dot11.Dot11ManagementBeacon")
-        else:
-            self.assertEqual(str(self.management_beacon.__class__), "<class 'impacket.dot11.Dot11ManagementBeacon'>")
+        self.assertEqual(str(self.management_beacon.__class__), "<class 'impacket.dot11.Dot11ManagementBeacon'>")
             
         
     def test_01(self):

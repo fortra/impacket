@@ -6,8 +6,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-from __future__ import division
-from __future__ import print_function
 import pytest
 import unittest
 from tests import RemoteTestCase

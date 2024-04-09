@@ -22,8 +22,6 @@
 #   ImpactDecoder
 #
 
-from __future__ import division
-from __future__ import print_function
 import sys
 import pcapy
 from pcapy import open_offline

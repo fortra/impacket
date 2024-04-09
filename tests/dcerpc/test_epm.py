@@ -10,8 +10,6 @@
 #   (h)ept_lookup
 #   (h)ept_map
 #
-from __future__ import division
-from __future__ import print_function
 import socket
 import pytest
 import unittest

@@ -8,7 +8,6 @@
 # for more information.
 #
 import unittest
-from six import PY2
 from impacket.ImpactDecoder import Dot11Decoder #,Dot11Types
 
 
@@ -28,24 +27,15 @@ class TestDot11Decoder(unittest.TestCase):
         
     def test_01_Dot11Decoder(self):
         'Test Dot11 decoder'
-        if PY2:
-            self.assertEqual(str(self.in0.__class__), "impacket.dot11.Dot11")
-        else:
-            self.assertEqual(str(self.in0.__class__), "<class 'impacket.dot11.Dot11'>")
+        self.assertEqual(str(self.in0.__class__), "<class 'impacket.dot11.Dot11'>")
         
     def test_02_Dot11DataFrameDecoder(self):
         'Test Dot11DataFrame decoder'
-        if PY2:
-            self.assertEqual(str(self.in1.__class__), "impacket.dot11.Dot11DataFrame")
-        else:
-            self.assertEqual(str(self.in1.__class__), "<class 'impacket.dot11.Dot11DataFrame'>")
+        self.assertEqual(str(self.in1.__class__), "<class 'impacket.dot11.Dot11DataFrame'>")
     
     def test_03_Dot11WEP(self):
         'Test Dot11WEP decoder'
-        if PY2:
-            self.assertEqual(str(self.in2.__class__), "impacket.dot11.Dot11WEP")
-        else:
-            self.assertEqual(str(self.in2.__class__), "<class 'impacket.dot11.Dot11WEP'>")
+        self.assertEqual(str(self.in2.__class__), "<class 'impacket.dot11.Dot11WEP'>")
 
     def test_04_Dot11WEPData(self):
         'Test Dot11WEPData decoder'

@@ -28,8 +28,6 @@
 #   [X] Add the capability for requesting TGS and output them in JtR/hashcat format
 #
 
-from __future__ import division
-from __future__ import print_function
 import argparse
 import logging
 import sys

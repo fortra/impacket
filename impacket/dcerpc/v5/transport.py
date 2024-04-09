@@ -12,18 +12,12 @@
 # Author:
 #   Alberto Solino (@agsolino)
 #
-from __future__ import division
-from __future__ import print_function
-
 import binascii
 import os
 import re
 import socket
 
-try:
-    from urllib.parse import urlparse, urlunparse
-except ImportError:
-    from urlparse import urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse
 
 from impacket import ntlm
 from impacket.dcerpc.v5.rpcrt import DCERPCException, DCERPC_v5, DCERPC_v4

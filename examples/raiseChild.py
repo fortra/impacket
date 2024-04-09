@@ -56,8 +56,6 @@
 #   Alberto Solino (@agsolino)
 #
 
-from __future__ import division
-from __future__ import print_function
 import argparse
 import datetime
 import logging
@@ -71,7 +69,6 @@ from threading import Thread, Lock
 from binascii import unhexlify, hexlify
 from socket import gethostbyname
 from struct import unpack
-from six import PY3
 
 try:
     import pyasn1
@@ -406,10 +403,7 @@ class RemoteShell(cmd.Cmd):
             f = dst_path + '/' + src_file
             pathname = f.replace('/','\\')
             logging.info("Uploading %s to %s\\%s" % (src_file, self.share, dst_path))
-            if PY3:
-                self.transferClient.putFile(self.share, pathname, fh.read)
-            else:
-                self.transferClient.putFile(self.share, pathname.decode(sys.stdin.encoding), fh.read)
+            self.transferClient.putFile(self.share, pathname, fh.read)
             fh.close()
         except Exception as e:
             logging.error(str(e))
@@ -433,10 +427,7 @@ class RemoteShell(cmd.Cmd):
         return
 
     def default(self, line):
-        if PY3:
-            self.send_data(line.encode('cp437')+b'\r\n')
-        else:
-            self.send_data(line.decode(sys.stdin.encoding).encode('cp437')+'\r\n')
+        self.send_data(line.encode('cp437')+b'\r\n')
 
     def send_data(self, data, hideOutput = True):
         if hideOutput is True:
