@@ -12,7 +12,7 @@ https://github.com/fortra/impacket/commits/master
 
 2. Examples improvements
     * [secretsdump.py](examples/secretsdump.py):
-        * Double DC Sync performance for DCs supporting SID lookups , (@tomspencer)
+        * Double DC Sync performance for DCs supporting SID lookups (@tomspencer)
     * [ticketer.py](examples/ticketer.py):
         * Support to create Sapphire tickets (@ShutdownRepo)
     * [GetUserSPNs.py](examples/GetUserSPNs.py), [getTGT.py](examples/getTGT.py):
@@ -33,7 +33,7 @@ https://github.com/fortra/impacket/commits/master
 
 As always, thanks a lot to all these contributors that make this library better every day (up to now):
 
-@tomspencer @tomspencer @ShutdownRepo @dadevel @gjhami @NtAlexio2 @F-Masood @BlWasp @gabrielg5 @XiaoliChan
+@tomspencer @anadrianmanrique @ShutdownRepo @dadevel @gjhami @NtAlexio2 @F-Masood @BlWasp @gabrielg5 @XiaoliChan
 
 	  
 ## Impacket v0.11.0 (Aug 2023):
