@@ -387,11 +387,6 @@ class MiniImpacketShell(cmd.Cmd):
             f = open(self.outputfile, 'a')
             f.write(self.pwd.replace("\\","/"))
             f.close()
-        if self.outputfile is not None:
-            f = open(self.outputfile, 'a')
-            f.write(self.pwd)
-            f.close()
-        print(self.pwd)
 
     def do_ls(self, wildcard, display = True):
         if self.loggedIn is False:
