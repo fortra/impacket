@@ -66,6 +66,7 @@ ERROR_MESSAGES = {
         0x00010002: ("DBG_CONTINUE","The debugger continued."),
         0x001C0001: ("STATUS_FLT_IO_COMPLETE","The IO was completed by a filter."),
         0x005B0002: ("STATUS_SMB_BAD_UID","The UID specified is not known as a valid ID on this server session."),
+        0x17000000: ("STATUS_MEMORY","Out of memory"),
         0xC0000467: ("STATUS_FILE_NOT_AVAILABLE","The file is temporarily unavailable."),
         0xC0000721: ("STATUS_CALLBACK_RETURNED_THREAD_AFFINITY","A threadpool worker thread entered a callback at thread affinity %p and exited at affinity %p.  This is unexpected, indicating that the callback missed restoring the priority."),
         0x40000000: ("STATUS_OBJECT_NAME_EXISTS","{Object Exists} An attempt was made to create an object but the object name already exists."),
