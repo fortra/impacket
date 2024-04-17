@@ -357,7 +357,7 @@ class LDAPAttack(ProtocolAttack):
                 return
             escalate_sid = str(result[1])
         else:
-            escalate_sid = usersam
+            escalate_sid = sid
 
         # Get target computer DN
         result = self.getUserInfo(domainDumper, targetsam)
