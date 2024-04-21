@@ -916,7 +916,7 @@ class LDAPAttack(ProtocolAttack):
 
         if self.config.interactive:
             if self.tcp_shell is not None:
-                LOG.info('Started interactive Ldap shell via TCP on 127.0.0.1:%d' % self.tcp_shell.port)
+                LOG.info('Started interactive Ldap shell via TCP on 127.0.0.1:%d as %s/%s' % (self.tcp_shell.port, self.domain, self.username))
                 # Start listening and launch interactive shell.
                 self.tcp_shell.listen()
                 ldap_shell = LdapShell(self.tcp_shell, domainDumper, self.client)
