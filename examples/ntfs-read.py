@@ -999,7 +999,7 @@ class MiniShell(cmd.Cmd):
         cmd.Cmd.__init__(self)
         self.volumePath = volume
         self.volume = NTFS(volume)
-        self.rootINode = self.volume.getINode(5)
+        self.rootINode = self.volume.getINode(FILE_Root)
         self.prompt = '\\>'
         self.intro = 'Type help for list of commands'
         self.currentINode = self.rootINode

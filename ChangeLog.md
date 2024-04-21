@@ -5,6 +5,37 @@ Project owner's main page is at www.coresecurity.com.
 Complete list of changes can be found at:
 https://github.com/fortra/impacket/commits/master
 
+## Impacket v0.12.0-dev:
+1. Library improvements
+    * Removed dsinternals dependency (@anadrianmanrique)
+    * Fixed srvs.hNetrShareEnum returning erronous shares (@cnotin)
+
+2. Examples improvements
+    * [secretsdump.py](examples/secretsdump.py):
+        * Double DC Sync performance for DCs supporting SID lookups (@tomspencer)
+    * [ticketer.py](examples/ticketer.py):
+        * Support to create Sapphire tickets (@ShutdownRepo)
+    * [GetUserSPNs.py](examples/GetUserSPNs.py), [getTGT.py](examples/getTGT.py):
+        * Support for Kerberoasting without pre-authentication and ST request through AS-REQ (@ShutdownRepo)
+    * [wmiexec.py](examples/wmiexec.py):
+        * Fix kerberos with remoteHost & add '-target-ip'(@XiaoliChan)
+    * [ntlmrelayx.py](examples/ntlmrelayx.py):
+        * Added the creation of a new machine account through SMB (@BlWasp)
+    * [getST.py](examples/getST.py):
+        * Added -self, -altservice and -u2u  for S4U2self abuse, S4U2self+u2u, and service substitution (@ShutdownRepo)
+    * [reg.py](examples/reg.py):
+        * Start remote registry as unprivileged user in reg.py (@dadevel)
+
+3. New examples
+    * [describeTicket.py](examples/describeTicket.py): Ticket describer and decrypter (@ShutdownRepo)\
+    * [GetADComputers.py](examples/GetADComputers.py): Query's DC via LDAP and returns the COMPUTER objects and the useful attributes such as full dns name, operating system name and version. (@F-Masood)
+    * [readLAPS.py](examples/readLAPS.py): tries to read all the LAPS password from the current domain computers (@F-Masood)
+
+As always, thanks a lot to all these contributors that make this library better every day (up to now):
+
+@tomspencer @anadrianmanrique @ShutdownRepo @dadevel @gjhami @NtAlexio2 @F-Masood @BlWasp @gabrielg5 @XiaoliChan @omry99
+
+	  
 ## Impacket v0.11.0 (Aug 2023):
 1. Library improvements 
     * Added new Kerberos error codes (@ly4k).

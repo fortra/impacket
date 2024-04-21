@@ -2,6 +2,7 @@ setuptools
 six
 charset_normalizer
 pyasn1>=0.2.3
+pyasn1_modules
 pycryptodomex
 pyOpenSSL>=21.0.0
 ldap3>=2.5,!=2.5.2,!=2.5.0,!=2.6
