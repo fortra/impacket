@@ -1283,6 +1283,8 @@ class RemoteOperations:
         LOG.info('Getting SMB equivalent PATH to access remotely the SS')
         ssVolume,originalVolume = self.__wmiGetLastSSDeviceObject(ssID)
         pathToCopy = "%s\\Windows\\Temp" % self.__wmiGetDriveLetterByVolumeName(originalVolume)
+        gmtSMBPath = self.__smbConnection.listSnapshots(self.__smbConnection.connectTree('ADMIN$'), '/')[0]
+        LOG.debug('Got SMB GMT Path: %s' % gmtSMBPath)
 
         randomNameSAM = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(6))
         randomNameSYSTEM = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(6))
@@ -1297,15 +1299,21 @@ class RemoteOperations:
             self.__connectSvcCtl()
             self.__getSCManagerHandle()
 
-        LOG.debug('Trying to copy the files to Temp directory')
-        self.__executeRemote('%%COMSPEC%% /C copy %s\\Windows\\System32\\Config\\SAM %s\\%s' % (ssVolume, pathToCopy, randomNameSAM))
-        time.sleep(5)
-        self.__executeRemote('%%COMSPEC%% /C copy %s\\Windows\\System32\\Config\\SYSTEM %s\\%s' % (ssVolume, pathToCopy, randomNameSYSTEM))
-        time.sleep(5)
-        self.__executeRemote('%%COMSPEC%% /C copy %s\\Windows\\System32\\Config\\SECURITY %s\\%s' % (ssVolume, pathToCopy, randomNameSECURITY))
-        time.sleep(5)
+        # Trying to avoid RCE and download via SMB
 
-        paths = [('%s/SAM' % localPath, '\\Temp\\%s' % randomNameSAM), ('%s/SYSTEM' % localPath, '\\Temp\\%s' % randomNameSYSTEM), ('%s/SECURITY' % localPath, '\\Temp\\%s' % randomNameSECURITY)]
+        #LOG.debug('Trying to copy the files to Temp directory')
+        #self.__executeRemote('%%COMSPEC%% /C copy %s\\Windows\\System32\\Config\\SAM %s\\%s' % (ssVolume, pathToCopy, randomNameSAM))
+        #time.sleep(5)
+        #self.__executeRemote('%%COMSPEC%% /C copy %s\\Windows\\System32\\Config\\SYSTEM %s\\%s' % (ssVolume, pathToCopy, randomNameSYSTEM))
+        #time.sleep(5)
+        #self.__executeRemote('%%COMSPEC%% /C copy %s\\Windows\\System32\\Config\\SECURITY %s\\%s' % (ssVolume, pathToCopy, randomNameSECURITY))
+        #time.sleep(5)
+
+        # Array of tuples of (local path to download, remote path of file)
+        paths = [('%s/SAM' % localPath, '%s\\System32\\config\\SAM' % gmtSMBPath),
+                 ('%s/SYSTEM' % localPath, '%s\\System32\\config\\SYSTEM' % gmtSMBPath),
+                 ('%s/SECURITY' % localPath, '%s\\System32\\config\\SECURITY' % gmtSMBPath)]
+        #paths = [('%s/SAM' % localPath, '\\Temp\\%s' % randomNameSAM), ('%s/SYSTEM' % localPath, '\\Temp\\%s' % randomNameSYSTEM), ('%s/SECURITY' % localPath, '\\Temp\\%s' % randomNameSECURITY)]
 
         for p in paths:
             with open(p[0], 'wb') as local_file:
