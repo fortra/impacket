@@ -23,10 +23,10 @@ class Groupchanger(object):
         self.ldap_session = ldap_session
 
         self.__action = args.action
-        self.__usertoadd = args.user_to_add
+        self.__user = args.user
         self.__group = args.group
         self.__group_domain = args.group_domain
-        self.__usertoadd_domain = args.user_to_add_domain
+        self.__user_domain = args.user_domain
 
     def domain_to_ldap(self,domain):
 
@@ -73,27 +73,27 @@ class Groupchanger(object):
             print('[-] Error: group' + self.__group + 'not found.')
             sys.exit(1)
            
-        print(f"[+] Checking if {self.__usertoadd} exists in the domain and if is already part of {self.__group}!")
+        print(f"[+] Checking if {self.__user} exists in the domain and if is already part of {self.__group}!")
 
         group_dn = self.ldap_session.entries[0].entry_dn
         members = self.ldap_session.entries[0].member
     
-        if self.__usertoadd_domain == None:
+        if self.__user_domain == None:
 
             dn = self.domain_dumper.root
 
         else:
-            dn = self.domain_to_ldap(self.__usertoadd_domain)
+            dn = self.domain_to_ldap(self.__user_domain)
             
 
         self.ldap_session.search(
             search_base=dn,
-            search_filter=f'(&(objectClass=user)(sAMAccountName={self.__usertoadd}))',
+            search_filter=f'(&(objectClass=user)(sAMAccountName={self.__user}))',
             attributes=['distinguishedName']
         )
 
         if self.ldap_session.entries:
-            print('[+] User ' + self.__usertoadd + ' found at the domain' + dn)
+            print('[+] User ' + self.__user + ' found at the domain' + dn)
         else:
             print('[-] Error: user not found.')
             sys.exit(1)
@@ -102,7 +102,7 @@ class Groupchanger(object):
 
         if user_dn in members:
 
-            print(f'[+] User {self.__usertoadd} is already a member of the group {self.__group}.')
+            print(f'[+] User {self.__user} is already a member of the group {self.__group}.')
 
             if self.__action == 'add':
 
@@ -115,9 +115,9 @@ class Groupchanger(object):
                     dn=group_dn,
                     changes={'member': [(ldap3.MODIFY_DELETE, [user_dn])]}
                 ):
-                    print(f'[+] User {self.__usertoadd} got deleted from the group {self.__group}.')
+                    print(f'[+] User {self.__user} got deleted from the group {self.__group}.')
                 else:
-                    print(f'[-] There was an error at deleting user {self.__usertoadd} from the group {self.__group} with error: {self.ldap_session.result["description"]}')               
+                    print(f'[-] There was an error at deleting user {self.__user} from the group {self.__group} with error: {self.ldap_session.result["description"]}')               
 
         else:
             
@@ -127,9 +127,9 @@ class Groupchanger(object):
                     dn=group_dn,
                     changes={'member': [(ldap3.MODIFY_ADD, [user_dn])]}
                 ):
-                    print(f'[+] User {self.__usertoadd} got added to the group {self.__group} successfully.')
+                    print(f'[+] User {self.__user} got added to the group {self.__group} successfully.')
                 else:
-                    print(f'[-] There was an error at adding user {self.__usertoadd} to the group {self.__group} with error: {self.ldap_session.result["description"]}')
+                    print(f'[-] There was an error at adding user {self.__user} to the group {self.__group} with error: {self.ldap_session.result["description"]}')
             
             elif self.__action == "remove":
 
@@ -138,7 +138,7 @@ class Groupchanger(object):
 
             else:
 
-                print(f"[+] User {self.__usertoadd} is not inside the group: {self.__group}.")         
+                print(f"[+] User {self.__user} is not inside the group: {self.__group}.")         
 
 
 def init_logger(args):
@@ -178,13 +178,13 @@ def parse_identity(args):
 def parse_args():
     parser = argparse.ArgumentParser(add_help=True, description='Add or remove a user from a group that you have control over.')
     parser.add_argument('identity', action='store', help='domain.local/username[:password]')
-    parser.add_argument('-user_to_add', action='store', metavar='username', help='The user that you want to add to a group')
+    parser.add_argument('-user', action='store', metavar='username', help='The user that you want to add or remove from a group')
     parser.add_argument('-group', action='store', help='The group you want the user to be added ')
     parser.add_argument('-use-ldaps', action='store_true', help='Use LDAPS instead of LDAP')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-group_domain', action='store', help='The domain the group is at, usefull when you have trusts and need to add a user to a group from another domain, by default it uses the current domain')
-    parser.add_argument('-user_to_add_domain', action='store', help='The domain the user is at, usefull when you have trusts and need to add a user to a group from another domain, by default it uses the current domain')
+    parser.add_argument('-user_domain', action='store', help='The domain the user is at, usefull when you have trusts and need to add a user to a group from another domain, by default it uses the current domain')
 
 
     auth_con = parser.add_argument_group('authentication & connection')
@@ -394,7 +394,7 @@ def main():
   
     init_logger(args)
 
-    if args.user_to_add is None and args.group is None:
+    if args.user is None and args.group is None:
 
         logging.critical('A username and a group to add should be specified!')
 
