@@ -25,18 +25,35 @@ class Groupchanger(object):
         self.__action = args.action
         self.__usertoadd = args.user
         self.__group = args.group
+        self.__domain = args.domain
+
+    def domain_to_ldap(self,domain):
+        parts = domain.split('.')
+        ldap_format = ','.join(['DC=' + part for part in parts])
+        return ldap_format
 
     def run(self):
         
         logging.debug('Initializing domainDumper()')
         cnf = ldapdomaindump.domainDumpConfig()
         cnf.basepath = None
-        self.domain_dumper = ldapdomaindump.domainDumper(self.ldap_server, self.ldap_session, cnf)
+
+        if self.__domain == None:
+
+            self.domain_dumper = ldapdomaindump.domainDumper(self.ldap_server, self.ldap_session, cnf)
+
+            dn = self.domain_dumper.root
+
+        else:
+            
+            self.domain_dumper = ldapdomaindump.domainDumper(self.ldap_server, self.ldap_session, cnf)
+
+            dn = self.domain_to_ldap("inlanefreight.ad")
 
         print(f"[+] Checking if group {self.__group} is in the domain!")
 
         self.ldap_session.search(
-            self.domain_dumper.root,
+            search_base=dn,
             search_filter=f'(&(objectClass=group)(cn={self.__group}))',
             attributes=['member']
         )
@@ -71,9 +88,9 @@ class Groupchanger(object):
 
             print(f'[+] User {self.__usertoadd} is already a member of the group {self.__group}.')
 
-            if self.__action == 'write':
+            if self.__action == 'add':
 
-                print(f"[+] Write action was called, since the user is already part of the group nothing got changed!")
+                print(f"[+] Add action was called, since the user is already part of the group nothing got changed!")
                 sys.exit(0)
 
             elif self.__action == 'remove':
@@ -88,7 +105,7 @@ class Groupchanger(object):
 
         else:
             
-            if self.__action == 'write':
+            if self.__action == 'add':
 
                 if self.ldap_session.modify(
                     dn=group_dn,
@@ -150,6 +167,7 @@ def parse_args():
     parser.add_argument('-use-ldaps', action='store_true', help='Use LDAPS instead of LDAP')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-domain', action='store', help='The domain the group is at, usefull when you have trusts and need to add a user to a group from another domain')
 
     auth_con = parser.add_argument_group('authentication & connection')
     auth_con.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
@@ -159,7 +177,7 @@ def parse_args():
     auth_con.add_argument('-dc-ip', action='store', metavar="ip address", help='IP Address of the domain controller or KDC (Key Distribution Center) for Kerberos. If omitted it will use the domain part (FQDN) specified in the identity parameter')
 
     dacl_parser = parser.add_argument_group("group editor")
-    dacl_parser.add_argument('-action', choices=['write', 'remove', 'read'], nargs='?', default='read', help='Action to operate over the group')
+    dacl_parser.add_argument('-action', choices=['add', 'remove', 'read'], nargs='?', default='read', help='Action to operate over the group')
 
     if len(sys.argv) == 1:
         parser.print_help()
