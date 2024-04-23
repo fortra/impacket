@@ -23,13 +23,17 @@ class Groupchanger(object):
         self.ldap_session = ldap_session
 
         self.__action = args.action
-        self.__usertoadd = args.user
+        self.__usertoadd = args.user_to_add
         self.__group = args.group
-        self.__domain = args.domain
+        self.__group_domain = args.group_domain
+        self.__usertoadd_domain = args.user_to_add_domain
 
     def domain_to_ldap(self,domain):
+
         parts = domain.split('.')
+
         ldap_format = ','.join(['DC=' + part for part in parts])
+
         return ldap_format
 
     def run(self):
@@ -38,7 +42,7 @@ class Groupchanger(object):
         cnf = ldapdomaindump.domainDumpConfig()
         cnf.basepath = None
 
-        if self.__domain == None:
+        if self.__group_domain == None:
 
             self.domain_dumper = ldapdomaindump.domainDumper(self.ldap_server, self.ldap_session, cnf)
 
@@ -48,9 +52,10 @@ class Groupchanger(object):
             
             self.domain_dumper = ldapdomaindump.domainDumper(self.ldap_server, self.ldap_session, cnf)
 
-            dn = self.domain_to_ldap("inlanefreight.ad")
+            dn = self.domain_to_ldap(self.__group_domain)
 
-        print(f"[+] Checking if group {self.__group} is in the domain!")
+
+        print(f"[+] Checking if group {self.__group} is in the domain {dn}!")
 
         self.ldap_session.search(
             search_base=dn,
@@ -58,26 +63,37 @@ class Groupchanger(object):
             attributes=['member']
         )
 
-        # Check if the group was found
+
         if self.ldap_session.entries:
-            print('[+] Group ' + self.__group + ' found.')
+
+            print('[+] Group ' + self.__group + ' found at domain ' + dn)
+
         else:
+
             print('[-] Error: group' + self.__group + 'not found.')
             sys.exit(1)
            
         print(f"[+] Checking if {self.__usertoadd} exists in the domain and if is already part of {self.__group}!")
 
         group_dn = self.ldap_session.entries[0].entry_dn
-        members = self.ldap_session.entries[0].member.values
+        members = self.ldap_session.entries[0].member
+    
+        if self.__usertoadd_domain == None:
+
+            dn = self.domain_dumper.root
+
+        else:
+            dn = self.domain_to_ldap(self.__usertoadd_domain)
+            
 
         self.ldap_session.search(
-            self.domain_dumper.root,
+            search_base=dn,
             search_filter=f'(&(objectClass=user)(sAMAccountName={self.__usertoadd}))',
             attributes=['distinguishedName']
         )
 
         if self.ldap_session.entries:
-            print('[+] User ' + self.__usertoadd + ' found.')
+            print('[+] User ' + self.__usertoadd + ' found at the domain' + dn)
         else:
             print('[-] Error: user not found.')
             sys.exit(1)
@@ -162,12 +178,14 @@ def parse_identity(args):
 def parse_args():
     parser = argparse.ArgumentParser(add_help=True, description='Add or remove a user from a group that you have control over.')
     parser.add_argument('identity', action='store', help='domain.local/username[:password]')
-    parser.add_argument('-user', action='store', metavar='username', help='The user that you want to add to a group')
+    parser.add_argument('-user_to_add', action='store', metavar='username', help='The user that you want to add to a group')
     parser.add_argument('-group', action='store', help='The group you want the user to be added ')
     parser.add_argument('-use-ldaps', action='store_true', help='Use LDAPS instead of LDAP')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
-    parser.add_argument('-domain', action='store', help='The domain the group is at, usefull when you have trusts and need to add a user to a group from another domain')
+    parser.add_argument('-group_domain', action='store', help='The domain the group is at, usefull when you have trusts and need to add a user to a group from another domain, by default it uses the current domain')
+    parser.add_argument('-user_to_add_domain', action='store', help='The domain the user is at, usefull when you have trusts and need to add a user to a group from another domain, by default it uses the current domain')
+
 
     auth_con = parser.add_argument_group('authentication & connection')
     auth_con.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
@@ -376,7 +394,7 @@ def main():
   
     init_logger(args)
 
-    if args.user is None and args.group is None:
+    if args.user_to_add is None and args.group is None:
 
         logging.critical('A username and a group to add should be specified!')
 
