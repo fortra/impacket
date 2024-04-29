@@ -27,10 +27,10 @@ https://github.com/fortra/impacket/commits/master
         * Start remote registry as unprivileged user in reg.py (@dadevel)
 
 3. New examples
-    * [describeTicket.py](examples/describeTicket.py): Ticket describer and decrypter (@ShutdownRepo)\
+    * [describeTicket.py](examples/describeTicket.py): Ticket describer and decrypter. (@ShutdownRepo)
     * [GetADComputers.py](examples/GetADComputers.py): Query's DC via LDAP and returns the COMPUTER objects and the useful attributes such as full dns name, operating system name and version. (@F-Masood)
-    * [readLAPS.py](examples/readLAPS.py): Tries to read all the LAPS password from the current domain computers (@F-Masood)
-    * [dacledit.py](examples/dacledit.py): This script can be used to read, write, remove, backup, restore ACEs (Access Control Entries) in an object DACL (Discretionary Access Control List). Charlie BROMBERG (@_nwodtuhs), Guillaume DAUMAS (@BlWasp_), Lucien DOUSTALY (@Wlayzz)
+    * [readLAPS.py](examples/readLAPS.py): Tries to read all the LAPS password from the current domain computers. (@F-Masood)
+    * [dacledit.py](examples/dacledit.py): This script can be used to read, write, remove, backup, restore ACEs (Access Control Entries) in an object DACL (Discretionary Access Control List). (@_nwodtuhs) (@BlWasp_) (@Wlayzz)
 
 As always, thanks a lot to all these contributors that make this library better every day (up to now):
 
