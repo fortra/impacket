@@ -148,8 +148,8 @@ class SMBRelayServer(Thread):
             if self.target is None:
                 LOG.info('SMBD-%s: Connection from %s controlled, but there are no more targets left!' %
                          (connId, connData['ClientIP']))
-                if self.server.config.enableRetries:
-                    self.server.config.target.reloadTargets(full_reload=True)
+                if self.config.enableRetries:
+                    self.config.target.reloadTargets(full_reload=True)
 
                 return [SMB2Error()], None, STATUS_BAD_NETWORK_NAME
 
@@ -167,7 +167,7 @@ class SMBRelayServer(Thread):
                 client = self.init_client(extSec)
             except Exception as e:
                 LOG.error("Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
-                self.targetprocessor.logTarget(self.target)
+                self.targetprocessor.logTarget(self.target, False, self.authUser)
             else:
                 connData['SMBClient'] = client
                 connData['EncryptionKey'] = client.getStandardSecurityChallenge()
@@ -302,7 +302,7 @@ class SMBRelayServer(Thread):
             except Exception as e:
                 LOG.debug("Exception:", exc_info=True)
                 # Log this target as processed for this client
-                self.targetprocessor.logTarget(self.target)
+                self.targetprocessor.logTarget(self.target, False, self.authUser)
                 # Raise exception again to pass it on to the SMB server
                 raise
 
@@ -428,8 +428,8 @@ class SMBRelayServer(Thread):
                 # No more targets to process, just let the victim to fail later
                 LOG.info('SMBD-%s: Connection from %s@%s controlled, but there are no more targets left!' %
                          (connId, self.authUser, connData['ClientIP']))
-                if self.server.config.enableRetries:
-                    self.server.config.target.reloadTargets(full_reload=True)
+                if self.config.enableRetries:
+                    self.config.target.reloadTargets(full_reload=True)
 
                 return self.origsmb2TreeConnect (connId, smbServer, recvPacket)
 
@@ -503,8 +503,8 @@ class SMBRelayServer(Thread):
             if self.target is None:
                 LOG.info('SMBD-%s: Connection from %s controlled, but there are no more targets left!' %
                          (connId, connData['ClientIP']))
-                if self.server.config.enableRetries:
-                    self.server.config.target.reloadTargets(full_reload=True)
+                if self.config.enableRetries:
+                    self.config.target.reloadTargets(full_reload=True)
 
                 return [smb.SMBCommand(smb.SMB.SMB_COM_NEGOTIATE)], None, STATUS_BAD_NETWORK_NAME
 
@@ -789,8 +789,8 @@ class SMBRelayServer(Thread):
                 # No more targets to process, just let the victim to fail later
                 LOG.info('SMBD-%s: Connection from %s@%s controlled, but there are no more targets left!' %
                          (connId, self.authUser, connData['ClientIP']))
-                if self.server.config.enableRetries:
-                    self.server.config.target.reloadTargets(full_reload=True)
+                if self.config.enableRetries:
+                    self.config.target.reloadTargets(full_reload=True)
 
                 return self.origsmbComTreeConnectAndX (connId, smbServer, recvPacket)
 
@@ -878,7 +878,8 @@ class SMBRelayServer(Thread):
     def init_client(self,extSec):
         if self.target.scheme.upper() in self.config.protocolClients:
             client = self.config.protocolClients[self.target.scheme.upper()](self.config, self.target, extendedSecurity = extSec)
-            client.initConnection()
+            if not client.initConnection():
+                raise Exception('Could not initialize connection')
         else:
             raise Exception('Protocol Client for %s not found!' % self.target.scheme)
 
