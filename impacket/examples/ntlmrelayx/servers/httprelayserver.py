@@ -407,14 +407,14 @@ class HTTPRelayServer(Thread):
                     if self.server.config.disableMulti:
                         LOG.error('HTTPD(%s): Negotiating NTLM with %s://%s failed' % (self.server.server_address[1],
                                   self.target.scheme, self.target.netloc))
-                        self.server.config.target.logTarget(self.target)
+                        self.server.config.target.registerTarget(self.target)
                         self.send_not_found()
                         return
                     else:
                         LOG.error('HTTPD(%s): Negotiating NTLM with %s://%s failed. Skipping to next target' % (
                             self.server.server_address[1], self.target.scheme, self.target.netloc))
 
-                        self.server.config.target.logTarget(self.target, gotUsername=self.authUser)
+                        self.server.config.target.registerTarget(self.target, gotUsername=self.authUser)
                         self.target = self.server.config.target.getTarget(identity=self.authUser)
 
                         if self.target is None:
@@ -454,7 +454,7 @@ class HTTPRelayServer(Thread):
                     # Only skip to next if the login actually failed, not if it was just anonymous login or a system account
                     # which we don't want
                     if authenticateMessage['user_name'] != '':  # and authenticateMessage['user_name'][-1] != '$':
-                        self.server.config.target.logTarget(self.target, gotUsername=self.authUser)
+                        self.server.config.target.registerTarget(self.target, gotUsername=self.authUser)
                         # No anonymous login, go to next host and avoid triggering a popup
                         self.target = self.server.config.target.getTarget(identity=self.authUser)
                         if self.target is None:
@@ -491,7 +491,7 @@ class HTTPRelayServer(Thread):
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                               self.server.config.outputFile)
 
-                    self.server.config.target.logTarget(self.target, True, self.authUser)
+                    self.server.config.target.registerTarget(self.target, True, self.authUser)
                     self.do_attack()
                     if self.server.config.disableMulti:
                         # We won't use the redirect trick, closing connection...

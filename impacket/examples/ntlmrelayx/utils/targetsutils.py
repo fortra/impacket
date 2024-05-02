@@ -104,7 +104,7 @@ class TargetsProcessor:
         self.generalCandidates = [x for x in self.originalTargets if x not in self.finishedAttacks and x not in self.failedAttacks and x.username is None]
         self.namedCandidates = [x for x in self.originalTargets if x not in self.finishedAttacks and x not in self.failedAttacks  and x.username is not None]
 
-    def logTarget(self, target, gotRelay = False, gotUsername = None):
+    def registerTarget(self, target, gotRelay = False, gotUsername = None):
         # If the target has a username, we can safely remove it from the list. Mission accomplished.
         if target.username is not None:
             if gotRelay:
