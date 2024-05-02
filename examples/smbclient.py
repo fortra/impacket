@@ -104,6 +104,11 @@ def main():
 
         shell = MiniImpacketShell(smbClient, None, options.outputfile)
 
+        if options.outputfile is not None:
+            f = open(options.outputfile, 'a')
+            f.write('=' * 20 + '\n' + options.target_ip + '\n' + '=' * 20 + '\n')
+            f.close()
+
         if options.inputfile is not None:
             logging.info("Executing commands from %s" % options.inputfile.name)
             for line in options.inputfile.readlines():
@@ -113,10 +118,8 @@ def main():
                 else:
                     print(line, end=' ')
         else:
-            f = open(options.outputfile, 'a')
-            f.write('=' * 20 + '\n' + options.target_ip + '\n' + '=' * 20 + '\n')
-            f.close()
             shell.cmdloop()
+
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
