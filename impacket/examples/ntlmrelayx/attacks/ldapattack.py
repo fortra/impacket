@@ -872,7 +872,7 @@ class LDAPAttack(ProtocolAttack):
 
         LOG.info('Adding `A` record `%s` pointing to `%s` at `%s`' % (a_record_name, ipaddr, a_record_dn))
         if not self.client.add(a_record_dn, ['top', 'dnsNode'], a_record_data):
-            LOG.error('Failed to add `A` record: ' % str(self.client.result))
+            LOG.error('Failed to add `A` record: %s' % str(self.client.result))
             return
 
         LOG.info('Added `A` record `%s`. DON\'T FORGET TO CLEANUP (set `dNSTombstoned` to `TRUE`, set `dnsRecord` to a NULL byte)' % a_record_name)
@@ -894,7 +894,7 @@ class LDAPAttack(ProtocolAttack):
 
         LOG.info('Adding `NS` record `%s` pointing to `%s` at `%s`' % (ns_record_name, ns_record_value, ns_record_dn))
         if not self.client.add(ns_record_dn, ['top', 'dnsNode'], ns_record_data):
-            LOG.error('Failed to add `NS` record `wpad`: ' % str(self.client.result))
+            LOG.error('Failed to add `NS` record `wpad`: %s' % str(self.client.result))
             return
 
         LOG.info('Added `NS` record `%s`. DON\'T FORGET TO CLEANUP (set `dNSTombstoned` to `TRUE`, set `dnsRecord` to a NULL byte)' % ns_record_name)
