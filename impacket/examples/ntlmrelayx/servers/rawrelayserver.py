@@ -79,7 +79,7 @@ class RAWRelayServer(Thread):
                 # Connection failed
                 LOG.error('Negotiating NTLM with %s://%s failed. Skipping to next target',
                           self.target.scheme, self.target.netloc)
-                self.server.config.target.logTarget(self.target)
+                self.server.config.target.registerTarget(self.target)
 
             else:
 
@@ -132,7 +132,7 @@ class RAWRelayServer(Thread):
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                               self.server.config.outputFile)
 
-                    self.server.config.target.logTarget(self.target, True, self.authUser)
+                    self.server.config.target.registerTarget(self.target, True, self.authUser)
 
                     self.do_attack()
 

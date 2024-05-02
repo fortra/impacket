@@ -167,7 +167,7 @@ class SMBRelayServer(Thread):
                 client = self.init_client(extSec)
             except Exception as e:
                 LOG.error("Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
-                self.targetprocessor.logTarget(self.target, False, self.authUser)
+                self.targetprocessor.registerTarget(self.target, False, self.authUser)
             else:
                 connData['SMBClient'] = client
                 connData['EncryptionKey'] = client.getStandardSecurityChallenge()
@@ -302,7 +302,7 @@ class SMBRelayServer(Thread):
             except Exception as e:
                 LOG.debug("Exception:", exc_info=True)
                 # Log this target as processed for this client
-                self.targetprocessor.logTarget(self.target, False, self.authUser)
+                self.targetprocessor.registerTarget(self.target, False, self.authUser)
                 # Raise exception again to pass it on to the SMB server
                 raise
 
@@ -356,14 +356,15 @@ class SMBRelayServer(Thread):
             if errorCode != STATUS_SUCCESS:
                 #Log this target as processed for this client
                 LOG.error("Authenticating against %s://%s as %s FAILED" % (self.target.scheme, self.target.netloc, self.authUser))
-                self.targetprocessor.logTarget(self.target, False, self.authUser)
+                self.targetprocessor.registerTarget(self.target, False, self.authUser)
                 client.killConnection()
             else:
                 # We have a session, create a thread and do whatever we want
                 LOG.info("Authenticating against %s://%s as %s SUCCEED" % (self.target.scheme, self.target.netloc, self.authUser))
                 # Log this target as processed for this client
+
                 if not self.config.isADCSAttack:
-                    self.targetprocessor.logTarget(self.target, True, self.authUser)
+                    self.targetprocessor.registerTarget(self.target, True, self.authUser)
 
                 ntlm_hash_data = outputToJohnFormat(connData['CHALLENGE_MESSAGE']['challenge'],
                                                     authenticateMessage['user_name'],
@@ -448,7 +449,7 @@ class SMBRelayServer(Thread):
             client = self.init_client(extSec)
         except Exception as e:
             LOG.error("Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
-            self.targetprocessor.logTarget(self.target, False, self.authUser)
+            self.targetprocessor.registerTarget(self.target, False, self.authUser)
         else:
             connData['relayToHost'] = True
             connData['Authenticated'] = False
@@ -529,7 +530,7 @@ class SMBRelayServer(Thread):
             except Exception as e:
                 LOG.error(
                     "Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
-                self.targetprocessor.logTarget(self.target, False, self.authUser)
+                self.targetprocessor.registerTarget(self.target, False, self.authUser)
             else:
                 connData['SMBClient'] = client
                 connData['EncryptionKey'] = client.getStandardSecurityChallenge()
@@ -597,7 +598,7 @@ class SMBRelayServer(Thread):
                     challengeMessage = self.do_ntlm_negotiate(client,token)
                 except Exception:
                     # Log this target as processed for this client
-                    self.targetprocessor.logTarget(self.target, False, self.authUser)
+                    self.targetprocessor.registerTarget(self.target, False, self.authUser)
                     # Raise exception again to pass it on to the SMB server
                     raise
 
@@ -651,7 +652,7 @@ class SMBRelayServer(Thread):
                     LOG.error("Authenticating against %s://%s as %s FAILED" % (self.target.scheme, self.target.netloc, self.authUser))
 
                     #Log this target as processed for this client
-                    self.targetprocessor.logTarget(self.target, False, self.authUser)
+                    self.targetprocessor.registerTarget(self.target, False, self.authUser)
 
                     client.killConnection()
 
@@ -661,7 +662,7 @@ class SMBRelayServer(Thread):
                     LOG.info("Authenticating against %s://%s as %s SUCCEED" % (self.target.scheme, self.target.netloc, self.authUser))
 
                     # Log this target as processed for this client
-                    self.targetprocessor.logTarget(self.target, True, self.authUser)
+                    self.targetprocessor.registerTarget(self.target, True, self.authUser)
 
                     ntlm_hash_data = outputToJohnFormat(connData['CHALLENGE_MESSAGE']['challenge'],
                                                         authenticateMessage['user_name'],
@@ -726,7 +727,7 @@ class SMBRelayServer(Thread):
                 packet['ErrorClass']  = errorCode & 0xff
 
                 #Log this target as processed for this client
-                self.targetprocessor.logTarget(self.target, False, self.authUser)
+                self.targetprocessor.registerTarget(self.target, False, self.authUser)
 
                 # Finish client's connection
                 #client.killConnection()
@@ -738,7 +739,7 @@ class SMBRelayServer(Thread):
                 LOG.info("Authenticating against %s://%s as %s SUCCEED" % (self.target.scheme, self.target.netloc, self.authUser))
 
                 # Log this target as processed for this client
-                self.targetprocessor.logTarget(self.target, True, self.authUser)
+                self.targetprocessor.registerTarget(self.target, True, self.authUser)
 
                 ntlm_hash_data = outputToJohnFormat('', sessionSetupData['Account'], sessionSetupData['PrimaryDomain'],
                                                     sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'])
@@ -809,7 +810,7 @@ class SMBRelayServer(Thread):
             client = self.init_client(extSec)
         except Exception as e:
             LOG.error("Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
-            self.targetprocessor.logTarget(self.target, False, self.authUser)
+            self.targetprocessor.registerTarget(self.target, False, self.authUser)
         else:
             connData['relayToHost'] = True
             connData['Authenticated'] = False
