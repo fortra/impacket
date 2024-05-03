@@ -292,7 +292,7 @@ if __name__ == '__main__':
     parser.add_argument('--raw-port', type=int, help='Port to listen on raw server', default=6666)
 
     parser.add_argument('--no-multirelay', action="store_true", required=False, help='If set, disable multi-host relay (SMB and HTTP servers)')
-    parser.add_argument('--enable-retries', action="store_true", required=False, help='When the target list is exhausted, start over from the beginning.')
+    parser.add_argument('--enable-retries', action="store_true", required=False, help='If set, keeps relaying to a target even after a successful connection on it')
     parser.add_argument('-ra','--random', action='store_true', help='Randomize target selection')
     parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
     parser.add_argument('-l','--lootdir', action='store', type=str, required=False, metavar = 'LOOTDIR',default='.', help='Loot '
