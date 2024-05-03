@@ -459,6 +459,8 @@ def parse_identity(args):
 
     if args.hashes is not None:
         lmhash, nthash = args.hashes.split(':')
+        if lmhash == '':
+            lmhash = 'aad3b435b51404eeaad3b435b51404ee'
     else:
         lmhash = ''
         nthash = ''
