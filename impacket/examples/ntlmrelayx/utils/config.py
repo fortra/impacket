@@ -43,6 +43,7 @@ class NTLMRelayxConfig:
         self.ipv6 = False
         self.remove_mic = False
         self.disableMulti = False
+        self.keepRelaying = False
 
         self.command = None
 
@@ -140,8 +141,8 @@ class NTLMRelayxConfig:
     def setDisableMulti(self, disableMulti):
         self.disableMulti = disableMulti
 
-    def setRetries(self, setRetries):
-        self.enableRetries = setRetries
+    def setKeepRelaying(self, keepRelaying):
+        self.keepRelaying = keepRelaying
 
     def setEncoding(self, encoding):
         self.encoding = encoding

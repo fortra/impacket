@@ -368,7 +368,7 @@ class HTTPRelayServer(Thread):
                     LOG.info("HTTPD(%s): Connection from %s@%s controlled, but there are no more targets left!" %
                         (self.server.server_address[1], self.authUser, self.client_address[0]))
                     self.send_not_found()
-                    if self.server.config.enableRetries:
+                    if self.server.config.keepRelaying:
                         self.server.config.target.reloadTargets(full_reload=True)
 
                     return
@@ -387,7 +387,7 @@ class HTTPRelayServer(Thread):
                         LOG.info("HTTPD(%s): Connection from %s controlled, but there are no more targets left!" % (
                             self.server.server_address[1], self.client_address[0]))
                         self.send_not_found()
-                        if self.server.config.enableRetries:
+                        if self.server.config.keepRelaying:
                             self.server.config.target.reloadTargets(full_reload=True)
 
                         return
@@ -421,7 +421,7 @@ class HTTPRelayServer(Thread):
                             LOG.info( "HTTPD(%s): Connection from %s@%s controlled, but there are no more targets left!" %
                                 (self.server.server_address[1], self.authUser, self.client_address[0]))
                             self.send_not_found()
-                            if self.server.config.enableRetries:
+                            if self.server.config.keepRelaying:
                                 self.server.config.target.reloadTargets(full_reload=True)
 
                             return
@@ -462,7 +462,7 @@ class HTTPRelayServer(Thread):
                                 (self.server.server_address[1], self.authUser, self.client_address[0]))
                             self.send_not_found()
 
-                            if self.server.config.enableRetries:
+                            if self.server.config.keepRelaying:
                                 self.server.config.target.reloadTargets(full_reload=True)
                             return
 
@@ -510,7 +510,7 @@ class HTTPRelayServer(Thread):
                             LOG.info("HTTPD(%s): Connection from %s@%s controlled, but there are no more targets left!" % (
                                 self.server.server_address[1], self.authUser, self.client_address[0]))
 
-                            if self.server.config.enableRetries:
+                            if self.server.config.keepRelaying:
                                 self.server.config.target.reloadTargets(full_reload=True)
 
 

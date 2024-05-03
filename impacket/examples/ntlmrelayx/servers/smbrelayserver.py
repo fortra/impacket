@@ -148,7 +148,7 @@ class SMBRelayServer(Thread):
             if self.target is None:
                 LOG.info('SMBD-%s: Connection from %s controlled, but there are no more targets left!' %
                          (connId, connData['ClientIP']))
-                if self.config.enableRetries:
+                if self.config.keepRelaying:
                     self.config.target.reloadTargets(full_reload=True)
 
                 return [SMB2Error()], None, STATUS_BAD_NETWORK_NAME
@@ -430,7 +430,7 @@ class SMBRelayServer(Thread):
                 # No more targets to process, just let the victim to fail later
                 LOG.info('SMBD-%s: Connection from %s@%s controlled, but there are no more targets left!' %
                          (connId, self.authUser, connData['ClientIP']))
-                if self.config.enableRetries:
+                if self.config.keepRelaying:
                     self.config.target.reloadTargets(full_reload=True)
 
                 return self.origsmb2TreeConnect (connId, smbServer, recvPacket)
@@ -505,7 +505,7 @@ class SMBRelayServer(Thread):
             if self.target is None:
                 LOG.info('SMBD-%s: Connection from %s controlled, but there are no more targets left!' %
                          (connId, connData['ClientIP']))
-                if self.config.enableRetries:
+                if self.config.keepRelaying:
                     self.config.target.reloadTargets(full_reload=True)
 
                 return [smb.SMBCommand(smb.SMB.SMB_COM_NEGOTIATE)], None, STATUS_BAD_NETWORK_NAME
@@ -791,7 +791,7 @@ class SMBRelayServer(Thread):
                 # No more targets to process, just let the victim to fail later
                 LOG.info('SMBD-%s: Connection from %s@%s controlled, but there are no more targets left!' %
                          (connId, self.authUser, connData['ClientIP']))
-                if self.config.enableRetries:
+                if self.config.keepRelaying:
                     self.config.target.reloadTargets(full_reload=True)
 
                 return self.origsmbComTreeConnectAndX (connId, smbServer, recvPacket)
