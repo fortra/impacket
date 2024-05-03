@@ -853,7 +853,17 @@ def hBaseRegGetKeySecurity(dce, hKey, securityInformation = OWNER_SECURITY_INFOR
     request['hKey'] = hKey
     request['SecurityInformation'] = securityInformation
     request['pRpcSecurityDescriptorIn']['lpSecurityDescriptor'] = NULL
-    request['pRpcSecurityDescriptorIn']['cbInSecurityDescriptor'] = 1024
+    request['pRpcSecurityDescriptorIn']['cbInSecurityDescriptor'] = 4096
+
+    return dce.request(request)
+
+def hBaseRegSetKeySecurity(dce, hKey, sd, securityInformation = OWNER_SECURITY_INFORMATION):
+    request = BaseRegSetKeySecurity()
+    request['hKey'] = hKey
+    request['SecurityInformation'] = securityInformation
+    request['pRpcSecurityDescriptor']['lpSecurityDescriptor'] = sd.getData()
+    request['pRpcSecurityDescriptor']['cbInSecurityDescriptor'] = len(sd.getData())
+    request['pRpcSecurityDescriptor']['cbOutSecurityDescriptor'] = len(sd.getData())
 
     return dce.request(request)
 
