@@ -13,6 +13,8 @@ https://github.com/fortra/impacket/commits/master
 2. Examples improvements
     * [secretsdump.py](examples/secretsdump.py):
         * Double DC Sync performance for DCs supporting SID lookups (@tomspencer)
+        * Added ability to skip dumping of SAM or SECURITY hives when performing remote operations (@RazzburyPi)
+        * Added ability to specify users to skip when dumping NTDS (@RazzburyPi)
     * [ticketer.py](examples/ticketer.py):
         * Support to create Sapphire tickets (@ShutdownRepo)
     * [GetUserSPNs.py](examples/GetUserSPNs.py), [getTGT.py](examples/getTGT.py):
@@ -21,19 +23,24 @@ https://github.com/fortra/impacket/commits/master
         * Fix kerberos with remoteHost & add '-target-ip'(@XiaoliChan)
     * [ntlmrelayx.py](examples/ntlmrelayx.py):
         * Added the creation of a new machine account through SMB (@BlWasp)
+        * NTLMRelayX Multirelay fixes for target handling (@alexisbalbachan)
+        * Writes certificates to file rather than outputting b64 to console (@RazzburyPi)
+        * Improved ability to continue relaying to ADCS web enrollment endpoint in order to request multiple certificates for different users (@RazzburyPi)
     * [getST.py](examples/getST.py):
         * Added -self, -altservice and -u2u  for S4U2self abuse, S4U2self+u2u, and service substitution (@ShutdownRepo)
     * [reg.py](examples/reg.py):
         * Start remote registry as unprivileged user in reg.py (@dadevel)
+    * [smbclient.py](examples/smbclient.py): Added ability to provide an output file that the smbclient mini shell will write commands and output to (@RazzburyPi)
 
 3. New examples
-    * [describeTicket.py](examples/describeTicket.py): Ticket describer and decrypter (@ShutdownRepo)\
+    * [describeTicket.py](examples/describeTicket.py): Ticket describer and decrypter. (@ShutdownRepo)
     * [GetADComputers.py](examples/GetADComputers.py): Query's DC via LDAP and returns the COMPUTER objects and the useful attributes such as full dns name, operating system name and version. (@F-Masood)
-    * [readLAPS.py](examples/readLAPS.py): tries to read all the LAPS password from the current domain computers (@F-Masood)
+    * [readLAPS.py](examples/readLAPS.py): Tries to read all the LAPS password from the current domain computers. (@F-Masood)
+    * [dacledit.py](examples/dacledit.py): This script can be used to read, write, remove, backup, restore ACEs (Access Control Entries) in an object DACL (Discretionary Access Control List). (@_nwodtuhs) (@BlWasp_) (@Wlayzz)
 
 As always, thanks a lot to all these contributors that make this library better every day (up to now):
 
-@tomspencer @anadrianmanrique @ShutdownRepo @dadevel @gjhami @NtAlexio2 @F-Masood @BlWasp @gabrielg5 @XiaoliChan @omry99
+@tomspencer @anadrianmanrique @ShutdownRepo @dadevel @gjhami @NtAlexio2 @F-Masood @BlWasp @gabrielg5 @XiaoliChan @omry99 @Wlayzz @themaks @alexisbalbachan @RazzburyPi
 
 	  
 ## Impacket v0.11.0 (Aug 2023):
