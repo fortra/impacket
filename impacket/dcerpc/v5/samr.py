@@ -1067,6 +1067,12 @@ class SAMPR_USER_INTERNAL5_INFORMATION_NEW(NDRSTRUCT):
         ('PasswordExpired', UCHAR),
     )
 
+class SAMPR_USER_RESET_INFORMATION(NDRSTRUCT):
+    structure = (
+        ('ExtendedWhichFields', ULONG),
+        ('ResetData', RPC_UNICODE_STRING),
+    )
+
 # 2.2.7.28 USER_INFORMATION_CLASS
 class USER_INFORMATION_CLASS(NDRENUM):
     class enumItems(Enum):
@@ -1093,6 +1099,7 @@ class USER_INFORMATION_CLASS(NDRENUM):
         UserInternal5Information    = 24
         UserInternal4InformationNew = 25
         UserInternal5InformationNew = 26
+        UserResetInformation        = 30
 
 # 2.2.7.29 SAMPR_USER_INFO_BUFFER
 class SAMPR_USER_INFO_BUFFER(NDRUNION):
@@ -1120,6 +1127,7 @@ class SAMPR_USER_INFO_BUFFER(NDRUNION):
         USER_INFORMATION_CLASS.UserInternal5Information   : ('Internal5', SAMPR_USER_INTERNAL5_INFORMATION),
         USER_INFORMATION_CLASS.UserInternal4InformationNew: ('Internal4New', SAMPR_USER_INTERNAL4_INFORMATION_NEW),
         USER_INFORMATION_CLASS.UserInternal5InformationNew: ('Internal5New', SAMPR_USER_INTERNAL5_INFORMATION_NEW),
+        USER_INFORMATION_CLASS.UserResetInformation       : ('Reset', SAMPR_USER_RESET_INFORMATION),
     }
 
 class PSAMPR_USER_INFO_BUFFER(NDRPOINTER):
