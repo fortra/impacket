@@ -1077,6 +1077,21 @@ class RemoteOperations:
 
         return shadowId
 
+    def __wmiDeleteShadow(self, ssID):
+        username, password, domain, lmhash, nthash, aesKey, _, _ = self.__smbConnection.getCredentials()
+        dcom = DCOMConnection(self.__smbConnection.getRemoteHost(), username, password, domain, lmhash, nthash, aesKey,
+                              oxidResolver=False, doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
+        iWbemServices = iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
+        iWbemLevel1Login.RemRelease()
+
+        wmiPath = 'Win32_ShadowCopy.ID="%s"' % ssID
+        LOG.debug('Trying to delete ShadowCopy')
+        iWbemServices.DeleteInstance(wmiPath)
+
+        dcom.disconnect()
+
     def __executeRemote(self, data):
         self.__tmpServiceName = ''.join([random.choice(string.ascii_letters) for _ in range(8)])
         command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' > ' + self.__batchFile + ' & ' + \
@@ -1242,7 +1257,10 @@ class RemoteOperations:
                 self.__smbConnection.getFile('ADMIN$', p[1], local_file.write)
 
         # Return a list of the local paths where SAM, SYSTEM and SECURITY were downloaded
-        LOG.debug('Downloaded from Shadow Snapshot SAM, SYSTEM and SECURITY. Dumping...')
+        LOG.debug('Trying to delete ShadowSnapshot')
+        self.__wmiDeleteShadow(ssID)
+
+        LOG.debug('Downloaded SAM, SYSTEM and SECURITY from Shadow Snapshot. Dumping...')
         return list(zip(*paths))[0]
 
 class CryptoCommon:
