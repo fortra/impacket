@@ -178,6 +178,9 @@ class RenewTGT:
         if TGT is not None:
             tgt, cipher, sessionKey = TGT['KDC_REP'], TGT['cipher'], TGT['sessionKey']
             oldSessionKey = sessionKey
+        else:
+            logging.error('No TGT found in ccache file')
+            exit(1)
 
         serverName = Principal('krbtgt/%s' % domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
         logging.info('Sending TGT renewal request...')
