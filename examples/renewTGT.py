@@ -157,18 +157,6 @@ class RenewTGT:
         ccache = CCache()
         
         ccache.fromTGS(ticket, sessionKey, sessionKey)
-        creds = ccache.credentials[0]
-        service_realm = creds['server'].realm['data']
-        service_class = ''
-        if len(creds['server'].components) == 2:
-            service_class = creds['server'].components[0]['data']
-            service_hostname = creds['server'].components[1]['data']
-        else:
-            service_hostname = creds['server'].components[0]['data']
-        if len(service_class) == 0:
-            service = "%s@%s" % (service_hostname, service_realm)
-        else:
-            service = "%s/%s@%s" % (service_class, service_hostname, service_realm)
         logging.info('Saving ticket in %s' % self.__saveFileName)
         ccache.saveFile(self.__saveFileName)
 
