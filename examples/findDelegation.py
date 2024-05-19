@@ -225,7 +225,25 @@ class FindDelegation:
                                 logging.debug('Bypassing disabled account %s ' % sAMAccountName)
                             else:
                                 for rights, objType in zip(rbcdRights,rbcdObjType):
-                                    answers.append([rights, objType, 'Resource-Based Constrained', sAMAccountName])
+                                    # Check if SPN exists
+                                    spnExists = "-"
+                                    if rights == "N/A":
+                                        query = "(servicePrincipalName=HOST/%s)" % sAMAccountName.rstrip("$")
+                                    else:
+                                        query = "(servicePrincipalName=%s)"%rights
+
+                                    respSpnExists = ldapConnection.search(
+                                        searchFilter=query, 
+                                        attributes=["servicePrincipalName", "distinguishedName"], 
+                                        sizeLimit=1
+                                    )
+                                    results = [item for item in respSpnExists if isinstance(item, ldapasn1.SearchResultEntry)]
+                                    if len(results) != 0:
+                                        spnExists = "Yes"
+                                    else:
+                                        spnExists = "No"
+
+                                    answers.append([rights, objType, 'Resource-Based Constrained', sAMAccountName, str(spnExists)])
                         
                 #print unconstrained + constrained delegation relationships
                 if delegation in ['Unconstrained', 'Constrained', 'Constrained w/ Protocol Transition']:
@@ -234,13 +252,31 @@ class FindDelegation:
                                 logging.debug('Bypassing disabled account %s ' % sAMAccountName)
                             else:
                                 for rights in rightsTo:
-                                    answers.append([sAMAccountName, objectType, delegation, rights])
+                                    # Check if SPN exists
+                                    spnExists = "-"
+                                    if rights == "N/A":
+                                        query = "(servicePrincipalName=HOST/%s)" % sAMAccountName.rstrip("$")
+                                    else:
+                                        query = "(servicePrincipalName=%s)"%rights
+
+                                    respSpnExists = ldapConnection.search(
+                                        searchFilter=query, 
+                                        attributes=["servicePrincipalName", "distinguishedName"], 
+                                        sizeLimit=1
+                                    )
+                                    results = [item for item in respSpnExists if isinstance(item, ldapasn1.SearchResultEntry)]
+                                    if len(results) != 0:
+                                        spnExists = "Yes"
+                                    else:
+                                        spnExists = "No"
+
+                                    answers.append([sAMAccountName, objectType, delegation, rights, str(spnExists)])
             except Exception as e:
                 logging.error('Skipping item, cannot process due to error %s' % str(e))
                 pass
 
-        if len(answers)>0:
-            self.printTable(answers, header=[ "AccountName", "AccountType", "DelegationType", "DelegationRightsTo"])
+        if len(answers) > 0:
+            self.printTable(answers, header=["AccountName", "AccountType", "DelegationType", "DelegationRightsTo", "SPN Exists"])
             print('\n\n')
         else:
             print("No entries found!")
