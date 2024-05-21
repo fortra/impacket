@@ -639,8 +639,8 @@ if __name__ == '__main__':
                             'This is useful when target is the NetBIOS name and you cannot resolve it')
     parser.add_argument('-port', type=int, default=445, metavar="destination port",
                     help='Destination port to connect to SMB/RPC Server')
-    parser.add_argument('-protocol', choices=['SMB', 'RPC'], nargs='?', default='SMB', metavar="protocol",
-                   help='Protocol to use (SMB or RPC). Default is SMB, port 135 uses RPC normally.')
+    parser.add_argument('-protocol', choices=['SMB', 'RPC'], nargs='?', metavar="protocol",
+                        help='Protocol to use (SMB or RPC). Default is SMB, port 135 uses RPC normally.')
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -648,9 +648,15 @@ if __name__ == '__main__':
 
     options = parser.parse_args()
 
-    if options.port == 135 and 'protocol' not in sys.argv:
-        options.protocol = 'RPC'
-
+    if options.port == 135:
+        if not options.protocol:
+            options.protocol = 'RPC'
+            logging.info("Port 135 specified; using RPC protocol by default. Use `-protocol SMB` to force SMB protocol.")
+        elif options.protocol == 'SMB':
+            logging.info("Port 135 specified with SMB protocol. Are you sure you don't want `-protocol RPC`?")
+    elif not options.protocol:
+        options.protocol = 'SMB'
+        logging.info("Defaulting to SMB protocol.")
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -663,6 +669,7 @@ if __name__ == '__main__':
             dumper = DumpNtlm(options.target_ip, options.target, int(options.port), options.protocol)
         else:
             dumper = DumpNtlm(options.target, options.target, int(options.port), options.protocol)
+        logging.info("Using target: %s, IP: %s, Port: %d, Protocol: %s" % (options.target, options.target_ip or options.target, options.port, options.protocol) )
         dumper.DisplayInfo()
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
