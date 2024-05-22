@@ -35,6 +35,28 @@ from impacket.ldap import ldaptypes
 from impacket.smbconnection import SMBConnection, SessionError
 
 
+def checkIfSPNExists(ldapConnection, sAMAccountName, rights):
+    # Check if SPN exists
+    spnExists = "-"
+    if rights == "N/A":
+        query = "(servicePrincipalName=HOST/%s)" % sAMAccountName.rstrip("$")
+    else:
+        query = "(servicePrincipalName=%s)"%rights
+
+    respSpnExists = ldapConnection.search(
+        searchFilter=query, 
+        attributes=["servicePrincipalName", "distinguishedName"], 
+        sizeLimit=1
+    )
+    results = [item for item in respSpnExists if isinstance(item, ldapasn1.SearchResultEntry)]
+    if len(results) != 0:
+        spnExists = "Yes"
+    else:
+        spnExists = "No"
+    
+    return spnExists
+
+
 class FindDelegation:
     @staticmethod
     def printTable(items, header):
@@ -225,24 +247,7 @@ class FindDelegation:
                                 logging.debug('Bypassing disabled account %s ' % sAMAccountName)
                             else:
                                 for rights, objType in zip(rbcdRights,rbcdObjType):
-                                    # Check if SPN exists
-                                    spnExists = "-"
-                                    if rights == "N/A":
-                                        query = "(servicePrincipalName=HOST/%s)" % sAMAccountName.rstrip("$")
-                                    else:
-                                        query = "(servicePrincipalName=%s)"%rights
-
-                                    respSpnExists = ldapConnection.search(
-                                        searchFilter=query, 
-                                        attributes=["servicePrincipalName", "distinguishedName"], 
-                                        sizeLimit=1
-                                    )
-                                    results = [item for item in respSpnExists if isinstance(item, ldapasn1.SearchResultEntry)]
-                                    if len(results) != 0:
-                                        spnExists = "Yes"
-                                    else:
-                                        spnExists = "No"
-
+                                    spnExists = checkIfSPNExists(ldapConnection, sAMAccountName, rights)
                                     answers.append([rights, objType, 'Resource-Based Constrained', sAMAccountName, str(spnExists)])
                         
                 #print unconstrained + constrained delegation relationships
@@ -252,24 +257,7 @@ class FindDelegation:
                                 logging.debug('Bypassing disabled account %s ' % sAMAccountName)
                             else:
                                 for rights in rightsTo:
-                                    # Check if SPN exists
-                                    spnExists = "-"
-                                    if rights == "N/A":
-                                        query = "(servicePrincipalName=HOST/%s)" % sAMAccountName.rstrip("$")
-                                    else:
-                                        query = "(servicePrincipalName=%s)"%rights
-
-                                    respSpnExists = ldapConnection.search(
-                                        searchFilter=query, 
-                                        attributes=["servicePrincipalName", "distinguishedName"], 
-                                        sizeLimit=1
-                                    )
-                                    results = [item for item in respSpnExists if isinstance(item, ldapasn1.SearchResultEntry)]
-                                    if len(results) != 0:
-                                        spnExists = "Yes"
-                                    else:
-                                        spnExists = "No"
-
+                                    spnExists = checkIfSPNExists(ldapConnection, sAMAccountName, rights)
                                     answers.append([sAMAccountName, objectType, delegation, rights, str(spnExists)])
             except Exception as e:
                 logging.error('Skipping item, cannot process due to error %s' % str(e))
