@@ -1,3 +1,6 @@
+# code based on pydsinternals project by p0dalirius
+# https://github.com/p0dalirius/pydsinternals
+
 import OpenSSL
 from Cryptodome.PublicKey import RSA
 import struct
