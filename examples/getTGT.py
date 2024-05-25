@@ -56,23 +56,8 @@ class GETTGT:
 
     def run(self):
         if self.__options.principal is not None:
-            principal_type = {
-            'NT_UNKNOWN': 0,
-            'NT_PRINCIPAL': 1,
-            'NT_SRV_INST': 2,
-            'NT_SRV_HST': 3,
-            'NT_SRV_XHST': 4,
-            'NT_UID': 5,
-            'NT_X500_PRINCIPAL': 6,
-            'NT_SMTP_NAME': 7,
-            'NT_ENTERPRISE': 10,
-            'NT_WELLKNOWN': 11,
-            'NT_SRV_HST_DOMAIN': 12,
-            'NT_MS_PRINCIPAL': -128,
-            'NT_MS_PRINCIPAL_AND_ID': -129,
-            'NT_ENT_PRINCIPAL_AND_ID': -130
-            }
-            principal = principal_type.get(self.__options.principal, constants.PrincipalNameType.NT_PRINCIPAL.value)
+            principal_type = getattr(constants.PrincipalNameType, self.__options.principal, constants.PrincipalNameType.NT_PRINCIPAL)
+            principal = principal_type.value
         else:
             principal = constants.PrincipalNameType.NT_PRINCIPAL.value
         userName = Principal(self.__user, type=principal)
@@ -108,7 +93,7 @@ if __name__ == '__main__':
                        'ommited it use the domain part (FQDN) specified in the target parameter')
     group.add_argument('-service', action='store', metavar="SPN", help='Request a Service Ticket directly through an AS-REQ')
     group.add_argument('-principal', action='store', help='Principal type. Default is NT_PRINCIPAL. Available types are NT_UNKNOWN, NT_PRINCIPAL, NT_SRV_INST, NT_SRV_HST, NT_SRV_XHST, NT_UID, NT_X500_PRINCIPAL, NT_SMTP_NAME, NT_ENTERPRISE, NT_WELLKNOWN, NT_SRV_HST_DOMAIN, NT_MS_PRINCIPAL, NT_MS_PRINCIPAL_AND_ID, NT_ENT_PRINCIPAL_AND_ID')
-
+    
     if len(sys.argv)==1:
         parser.print_help()
         print("\nExamples: ")
