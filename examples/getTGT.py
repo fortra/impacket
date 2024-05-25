@@ -87,7 +87,7 @@ if __name__ == '__main__':
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
                        'ommited it use the domain part (FQDN) specified in the target parameter')
     group.add_argument('-service', action='store', metavar="SPN", help='Request a Service Ticket directly through an AS-REQ')
-    group.add_argument('-principalType', nargs="?", type=lambda value: constants.PrincipalNameType[value.upper()],  action='store', default=constants.PrincipalNameType.NT_PRINCIPAL, help='PrincipalType of the token, can be one of  NT_UNKNOWN, NT_PRINCIPAL, NT_SRV_INST, NT_SRV_HST, NT_SRV_XHST, NT_UID, NT_SMTP_NAME, NT_ENTERPRISE, NT_WELLKNOWN, NT_SRV_HST_DOMAIN, NT_MS_PRINCIPAL, NT_MS_PRINCIPAL_AND_ID, NT_ENT_PRINCIPAL_AND_ID; default is NT_PRINCIPAL, ')
+    group.add_argument('-principalType', nargs="?", type=lambda value: constants.PrincipalNameType[value.upper()] if value.upper() in constants.PrincipalNameType.__members__ else None,  action='store', default=constants.PrincipalNameType.NT_PRINCIPAL, help='PrincipalType of the token, can be one of  NT_UNKNOWN, NT_PRINCIPAL, NT_SRV_INST, NT_SRV_HST, NT_SRV_XHST, NT_UID, NT_SMTP_NAME, NT_ENTERPRISE, NT_WELLKNOWN, NT_SRV_HST_DOMAIN, NT_MS_PRINCIPAL, NT_MS_PRINCIPAL_AND_ID, NT_ENT_PRINCIPAL_AND_ID; default is NT_PRINCIPAL, ')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -112,6 +112,10 @@ if __name__ == '__main__':
     try:
         if domain is None:
             logging.critical('Domain should be specified!')
+            sys.exit(1)
+
+        if options.principalType is None:
+            logging.critical('Invalid principalType!')
             sys.exit(1)
 
         if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
