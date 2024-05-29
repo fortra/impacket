@@ -3095,9 +3095,12 @@ def hNetrShareDel(dce, netName):
     request['NetName'] = netName
     return dce.request(request)
 
-def hNetrShareEnum(dce, level, resumeHandle = 0, preferedMaximumLength = 0xffffffff):
+def hNetrShareEnum(dce, level, resumeHandle = 0, preferedMaximumLength = 0xffffffff, serverName = '\x00'):
+    # serverName example: "\\\\1.2.3.4\x00"
+    if serverName[-1] != '\x00':
+        serverName += '\x00'  # final NULL byte is mandatory
     request = NetrShareEnum()
-    request['ServerName'] = '\x00'
+    request['ServerName'] = serverName
     request['PreferedMaximumLength'] = preferedMaximumLength
     request['ResumeHandle'] = resumeHandle
     request['InfoStruct']['Level'] = level

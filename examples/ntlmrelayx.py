@@ -57,10 +57,11 @@ from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS
 RELAY_SERVERS = []
 
 class MiniShell(cmd.Cmd):
-    def __init__(self, relayConfig, threads):
+    def __init__(self, relayConfig, threads, api_address):
         cmd.Cmd.__init__(self)
 
         self.prompt = 'ntlmrelayx> '
+        self.api_address = api_address
         self.tid = None
         self.relayConfig = relayConfig
         self.intro = 'Type help for list of commands'
@@ -108,7 +109,7 @@ class MiniShell(cmd.Cmd):
         '''
 
         headers = ["Protocol", "Target", "Username", "AdminStatus", "Port"]
-        url = "http://localhost:9090/ntlmrelayx/api/v1.0/relays"
+        url = "http://{}/ntlmrelayx/api/v1.0/relays".format(self.api_address)
         try:
             proxy_handler = ProxyHandler({})
             opener = build_opener(proxy_handler)
@@ -180,7 +181,9 @@ def start_servers(options, threads):
         c.setExeFile(options.e)
         c.setCommand(options.c)
         c.setEnumLocalAdmins(options.enum_local_admins)
+        c.setAddComputerSMB(options.add_computer)
         c.setDisableMulti(options.no_multirelay)
+        c.setKeepRelaying(options.keep_relaying)
         c.setEncoding(codec)
         c.setMode(mode)
         c.setAttacks(PROTOCOL_ATTACKS)
@@ -289,6 +292,7 @@ if __name__ == '__main__':
     parser.add_argument('--raw-port', type=int, help='Port to listen on raw server', default=6666)
 
     parser.add_argument('--no-multirelay', action="store_true", required=False, help='If set, disable multi-host relay (SMB and HTTP servers)')
+    parser.add_argument('--keep-relaying', action="store_true", required=False, help='If set, keeps relaying to a target even after a successful connection on it')
     parser.add_argument('-ra','--random', action='store_true', help='Randomize target selection')
     parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
     parser.add_argument('-l','--lootdir', action='store', type=str, required=False, metavar = 'LOOTDIR',default='.', help='Loot '
@@ -305,6 +309,9 @@ if __name__ == '__main__':
                                                                              'SMB Server (16 hex bytes long. eg: 1122334455667788)')
     parser.add_argument('-socks', action='store_true', default=False,
                         help='Launch a SOCKS proxy for the connection relayed')
+    parser.add_argument('-socks-address', default='127.0.0.1', help='SOCKS5 server address (also used for HTTP API)')
+    parser.add_argument('-socks-port', default=1080, type=int, help='SOCKS5 server port')
+    parser.add_argument('-http-api-port', default=9090, type=int, help='SOCKS5 HTTP API port')
     parser.add_argument('-wh','--wpad-host', action='store',help='Enable serving a WPAD file for Proxy Authentication attack, '
                                                                    'setting the proxy host to the one supplied.')
     parser.add_argument('-wa','--wpad-auth-num', action='store', type=int, default=1, help='Prompt for authentication N times for clients without MS16-077 installed '
@@ -322,7 +329,7 @@ if __name__ == '__main__':
     smboptions.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. '
                                      'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
-
+    
     #RPC arguments
     rpcoptions = parser.add_argument_group("RPC client options")
     rpcoptions.add_argument('-rpc-mode', choices=["TSCH"], default="TSCH", help='Protocol to attack, only TSCH supported')
@@ -355,13 +362,17 @@ if __name__ == '__main__':
     ldapoptions.add_argument('--no-acl', action='store_false', required=False, help='Disable ACL attacks')
     ldapoptions.add_argument('--no-validate-privs', action='store_false', required=False, help='Do not attempt to enumerate privileges, assume permissions are granted to escalate a user via ACL attacks')
     ldapoptions.add_argument('--escalate-user', action='store', required=False, help='Escalate privileges of this user instead of creating a new one')
-    ldapoptions.add_argument('--add-computer', action='store', metavar=('COMPUTERNAME', 'PASSWORD'), required=False, nargs='*', help='Attempt to add a new computer account')
     ldapoptions.add_argument('--delegate-access', action='store_true', required=False, help='Delegate access on relayed computer account to the specified account')
     ldapoptions.add_argument('--sid', action='store_true', required=False, help='Use a SID to delegate access rather than an account name')
     ldapoptions.add_argument('--dump-laps', action='store_true', required=False, help='Attempt to dump any LAPS passwords readable by the user')
     ldapoptions.add_argument('--dump-gmsa', action='store_true', required=False, help='Attempt to dump any gMSA passwords readable by the user')
     ldapoptions.add_argument('--dump-adcs', action='store_true', required=False, help='Attempt to dump ADCS enrollment services and certificate templates info')
     ldapoptions.add_argument('--add-dns-record', nargs=2, action='store', metavar=('NAME', 'IPADDR'), required=False, help='Add the <NAME> record to DNS via LDAP pointing to <IPADDR>')
+
+    #Common options for SMB and LDAP
+    commonoptions = parser.add_argument_group("Common options for SMB and LDAP")
+    commonoptions.add_argument('--add-computer', action='store', metavar=('COMPUTERNAME', 'PASSWORD'), required=False, nargs='*', help='Attempt to add a new computer account via SMB or LDAP, depending on the specified target. '
+        'This argument can be used either with the LDAP or the SMB service, as long as the target is a domain controller.')
 
     #IMAP options
     imapoptions = parser.add_argument_group("IMAP client options")
@@ -436,6 +447,9 @@ if __name__ == '__main__':
     else:
         if options.tf is not None:
             #Targetfile specified
+            if (options.add_computer):
+                logging.info("To add a machine account through SMB only the Domain Controller must be specified as target")
+                sys.exit(1)
             logging.info("Running in relay mode to hosts in targetfile")
             targetSystem = TargetsProcessor(targetListFile=options.tf, protocolClients=PROTOCOL_CLIENTS, randomize=options.random)
             mode = 'RELAY'
@@ -471,8 +485,9 @@ if __name__ == '__main__':
     threads = set()
     socksServer = None
     if options.socks is True:
+
         # Start a SOCKS proxy in the background
-        socksServer = SOCKS()
+        socksServer = SOCKS(server_address=(options.socks_address, options.socks_port), api_port=options.http_api_port)
         socksServer.daemon_threads = True
         socks_thread = Thread(target=socksServer.serve_forever)
         socks_thread.daemon = True
@@ -485,7 +500,7 @@ if __name__ == '__main__':
     logging.info("Servers started, waiting for connections")
     try:
         if options.socks:
-            shell = MiniShell(c, threads)
+            shell = MiniShell(c, threads, api_address='{}:{}'.format(options.socks_address, options.http_api_port))
             shell.cmdloop()
         else:
             sys.stdin.read()

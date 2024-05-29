@@ -40,6 +40,7 @@ import re
 import struct
 
 from pyasn1.codec.der import decoder
+from six import ensure_binary
 
 from . import asn1
 from . import constants
@@ -151,7 +152,7 @@ If the value contains no realm, then default_realm will be used."""
         strings = name.setComponentByName('name-string'
                                           ).getComponentByName('name-string')
         for i, c in enumerate(self.components):
-            strings.setComponentByPosition(i, c)
+            strings.setComponentByPosition(i, ensure_binary(c))
 
         return name
 

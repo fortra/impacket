@@ -369,7 +369,7 @@ class GetUserSPNs:
                             lastLogon = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
                     elif str(attribute['type']) == 'servicePrincipalName':
                         for spn in attribute['vals']:
-                            SPNs.append(str(spn))
+                            SPNs.append(spn.asOctets().decode('utf-8'))
 
                 if mustCommit is True:
                     if int(userAccountControl) & UF_ACCOUNTDISABLE:
