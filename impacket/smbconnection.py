@@ -381,7 +381,7 @@ class SMBConnection:
         dce = rpctransport.get_dce_rpc()
         dce.connect()
         dce.bind(srvs.MSRPC_UUID_SRVS)
-        resp = srvs.hNetrShareEnum(dce, 1)
+        resp = srvs.hNetrShareEnum(dce, 1, serverName="\\\\" + self.getRemoteHost())
         return resp['InfoStruct']['ShareInfo']['Level1']['Buffer']
 
     def listPath(self, shareName, path, password = None):
@@ -986,7 +986,7 @@ class SessionError(Exception):
         return self.packet
 
     def getErrorString( self ):
-        return str(self)
+        return nt_errors.ERROR_MESSAGES[self.error]
 
     def __str__( self ):
         key = self.error

@@ -67,8 +67,9 @@ setup(
               'impacket.examples.ntlmrelayx.attacks', 'impacket.examples.ntlmrelayx.attacks.httpattacks'],
     scripts=glob.glob(os.path.join('examples', '*.py')),
     data_files=data_files,
-    install_requires=['pyasn1>=0.2.3', 'pycryptodomex', 'pyOpenSSL>=21.0.0', 'six', 'ldap3>=2.5,!=2.5.2,!=2.5.0,!=2.6',
-                      'ldapdomaindump>=0.9.0', 'flask>=1.0', 'setuptools', 'charset_normalizer', 'dsinternals'],
+
+    install_requires=['pyasn1>=0.2.3', 'pyasn1_modules', 'pycryptodomex', 'pyOpenSSL>=21.0.0', 'six', 'ldap3>=2.5,!=2.5.2,!=2.5.0,!=2.6',
+                      'ldapdomaindump>=0.9.0', 'flask>=1.0', 'setuptools', 'charset_normalizer'],
     extras_require={'pyreadline:sys_platform=="win32"': [],
                     },
     classifiers=[

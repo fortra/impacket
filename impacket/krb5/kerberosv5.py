@@ -712,7 +712,7 @@ class KerberosError(SessionError):
         return self.packet
 
     def getErrorString( self ):
-        return str(self)
+        return constants.ERROR_MESSAGES[self.error]
 
     def __str__( self ):
         retString = 'Kerberos SessionError: %s(%s)' % (constants.ERROR_MESSAGES[self.error])
