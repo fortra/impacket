@@ -301,7 +301,7 @@ class RegHandler:
                 bin_value_len += (bin_value_len & 1)
                 valueData = binascii.a2b_hex(self.__options.vd.ljust(bin_value_len, '0'))
             else:
-                valueData = self.__options.vd
+                valueData = self.__options.vd + "\0" # Add a NULL Byte as terminator for Non Binary values
 
             ans3 = rrp.hBaseRegSetValue(
                 dce, ans2['phkResult'], self.__options.v, dwType, valueData
@@ -554,7 +554,7 @@ if __name__ == '__main__':
                                    'keyName must include a valid root key. Valid root keys for the local computer are: HKLM,'
                                    ' HKU, HKCU, HKCR.')
     add_parser.add_argument('-v', action='store', metavar="VALUENAME", required=False, help='Specifies the registry '
-                           'value name that is to be set.')
+                           'value name that is to be set. Set to "" to write the (Defualt) value')
     add_parser.add_argument('-vt', action='store', metavar="VALUETYPE", required=False, help='Specifies the registry '
                            'type name that is to be set. Default is REG_SZ. Valid types are: REG_NONE, REG_SZ, REG_EXPAND_SZ, '
                            'REG_BINARY, REG_DWORD, REG_DWORD_BIG_ENDIAN, REG_LINK, REG_MULTI_SZ, REG_QWORD',
