@@ -267,7 +267,21 @@ class SMBTests(RemoteTestCase):
         smb.login(self.username, self.password, self.domain)
         smb.getSessionKey()
         smb.logoff()
-        
+
+    def test_queryInfo(self):
+        smb = self.create_connection()
+        smb.login(self.username, self.password, self.domain)
+        tid = smb.connectTree(self.share)
+        fid = smb.createFile(tid, self.file)
+        file_info = smb.queryInfo(tid, fid)
+        self.assertEqual(file_info["AllocationSize"], 0)
+        self.assertEqual(file_info["EndOfFile"], 0)
+        self.assertEqual(file_info["Directory"], 0)
+        smb.closeFile(tid,fid)
+        smb.deleteFile(self.share, self.file)
+        smb.disconnectTree(tid)
+        smb.logoff()
+
     def __is_socket_opened(self, s):
         # We assume that if socket is selectable, it's open; and if it were not, it's closed.
         # Note: this method is accurate as long as the file descriptor used for the socket is not re-used
