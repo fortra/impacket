@@ -87,7 +87,7 @@ class SMBTests(RemoteTestCase):
         self.assertEqual(credentials, (self.username, self.password, self.domain, '', '', '', None, None))
         smb.logoff()
         del(smb)
-        
+
     def test_close_connection(self):
         smb = self.create_connection()
         smb.login(self.username, self.password, self.domain)
@@ -156,7 +156,7 @@ class SMBTests(RemoteTestCase):
         smb.deleteFile(self.share, self.file + '.bak')
         smb.disconnectTree(tid)
         smb.logoff()
-        
+
     def test_readwriteFile(self):
         smb = self.create_connection()
         smb.login(self.username, self.password, self.domain)
@@ -176,9 +176,8 @@ class SMBTests(RemoteTestCase):
         smb.closeFile(tid, fid)
         smb.deleteFile(self.share, self.file)
         smb.disconnectTree(tid)
-        
         smb.logoff()
-         
+
     def test_createdeleteDirectory(self):
         smb = self.create_connection()
         smb.login(self.username, self.password, self.domain)
@@ -194,7 +193,7 @@ class SMBTests(RemoteTestCase):
                 smb.deleteDirectory(self.share, nested_dir)
                 smb.deleteDirectory(self.share, self.directory)
         smb.logoff()
- 
+
     def test_getData(self):
         smb = self.create_connection()
         smb.login(self.username, self.password, self.domain)
