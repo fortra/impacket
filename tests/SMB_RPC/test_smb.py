@@ -204,6 +204,8 @@ class SMBTests(RemoteTestCase):
         smb.getServerOS()
         smb.doesSupportNTLMv2()
         smb.isLoginRequired()
+        smb.isSigningRequired()
+        smb.getIOCapabilities()
         smb.logoff()
 
     def test_getServerName(self):
