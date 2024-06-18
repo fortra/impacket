@@ -584,6 +584,13 @@ class DPAPI_BLOB(Structure):
 
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # if we've been given too much data, strip our rawData field
+        # so it matches with the interpreted data length.
+        if len(self.rawData) > len(self):
+            self.rawData = self.rawData[0:len(self)]
+
     def dump(self):
         print("[BLOB]")
         print("Version          : %8x (%d)" % (self['Version'], self['Version']))
@@ -649,7 +656,7 @@ class DPAPI_BLOB(Structure):
         # Now check the signature
 
         # ToDo Fix this, it's just ugly, more testing so we can remove one
-        toSign = (self.rawData[20:][:len(self.rawData)-20-len(self['Sign'])-4])
+        toSign = (self.rawData[20:len(self)-len(self['Sign'])-4])
 
         # Calculate the different HMACKeys
         keyHash2 = keyHash + b"\x00"*ALGORITHMS_DATA[self['HashAlgo']][1].block_size
