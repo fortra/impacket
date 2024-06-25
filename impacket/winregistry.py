@@ -450,12 +450,27 @@ class Registry:
 
         return resp
 
-    def getValue(self, keyValue):
-        # returns a tuple with (ValueType, ValueData) for the requested keyValue
-        regKey = ntpath.dirname(keyValue)
-        regValue = ntpath.basename(keyValue)
+    def getValue(self, keyValue, valueName=None):
+        """ returns a tuple with (ValueType, ValueData) for the requested keyValue
+            valueName is the name of the value (which can contain '\\')
+            if valueName is not  given, keyValue must be a string containing the full path to the value
+            if valueName is given, keyValue can be:
+                either a string containting the path to the key conaitning valueName,
+                or a instance of REG_NK containing the key itself (as returned by findKey())
+        """
+        key = None
+        if valueName is None:
+            regKey   = ntpath.dirname(keyValue)
+            regValue = ntpath.basename(keyValue)
+        else:
+            if isinstance(keyValue, REG_NK):
+                key = keyValue
+            else:
+                regKey = keyValue
+            regValue = valueName
 
-        key = self.findKey(regKey)
+        if key is None:
+            key = self.findKey(regKey)
 
         if key is None:
             return None
