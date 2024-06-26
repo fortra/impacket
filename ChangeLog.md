@@ -9,6 +9,8 @@ https://github.com/fortra/impacket/commits/master
 1. Library improvements
     * Removed dsinternals dependency (@anadrianmanrique)
     * Fixed srvs.hNetrShareEnum returning erronous shares (@cnotin)
+    * Fixed lmhash computing to support non standard characters in the password (@anadrianmanrique)
+    * Assorted fixes when processing Unicode data (@alexisbalbachan)
 
 2. Examples improvements
     * [secretsdump.py](examples/secretsdump.py):
@@ -26,11 +28,23 @@ https://github.com/fortra/impacket/commits/master
         * NTLMRelayX Multirelay fixes for target handling (@alexisbalbachan)
         * Writes certificates to file rather than outputting b64 to console (@RazzburyPi)
         * Improved ability to continue relaying to ADCS web enrollment endpoint in order to request multiple certificates for different users (@RazzburyPi)
+        * Fixed compatibility issue with other SMB clients connecting to the SOCKS proxy created by ntlmrelayx (@jfjallid)
+        * Allow configuration of the SOCKS5 address and port (@rtpt-erikgeiser)
     * [getST.py](examples/getST.py):
         * Added -self, -altservice and -u2u  for S4U2self abuse, S4U2self+u2u, and service substitution (@ShutdownRepo)
     * [reg.py](examples/reg.py):
         * Start remote registry as unprivileged user in reg.py (@dadevel)
-    * [smbclient.py](examples/smbclient.py): Added ability to provide an output file that the smbclient mini shell will write commands and output to (@RazzburyPi)
+        * Allowing adding Binary values (@dc3l1ne)
+    * [smbclient.py](examples/smbclient.py):
+    	* Added ability to provide an output file that the smbclient mini shell will write commands and output to (@RazzburyPi)
+    * [DumpNTLMInfo.py](examples/DumpNTLMInfo.py):
+    	* Allow execution on non-default ports (@jeffmcjunkin)
+     	* Fixed KeyError exception when running with a Windows 2003 target (@XiaoliChan)
+    * [findDelegation.py](examples/findDelegation.py):
+    	* Added new column to show if SPN exists (@p0dalirius)
+     * [mssqlclient.py](examples/mssqlclient.py):
+     	* Added `-target-ip` parameter to allow Kerberos authentication without much change in the DNS configuration of the local machine (@Palkovsky)
+
 
 3. New examples
     * [describeTicket.py](examples/describeTicket.py): Ticket describer and decrypter. (@ShutdownRepo)
@@ -40,7 +54,7 @@ https://github.com/fortra/impacket/commits/master
 
 As always, thanks a lot to all these contributors that make this library better every day (up to now):
 
-@tomspencer @anadrianmanrique @ShutdownRepo @dadevel @gjhami @NtAlexio2 @F-Masood @BlWasp @gabrielg5 @XiaoliChan @omry99 @Wlayzz @themaks @alexisbalbachan @RazzburyPi
+@tomspencer @anadrianmanrique @ShutdownRepo @dadevel @gjhami @NtAlexio2 @F-Masood @BlWasp @gabrielg5 @XiaoliChan @omry99 @Wlayzz @themaks @alexisbalbachan @RazzburyPi @jeffmcjunkin @p0dalirius @dc3l1ne @jfjallid @Palkovsky @rtpt-erikgeiser
 
 	  
 ## Impacket v0.11.0 (Aug 2023):
