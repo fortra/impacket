@@ -26,10 +26,12 @@
 # Author:
 #   Alberto Solino (@agsolino)
 #   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
+#   Roy Rahamim  (@0xRoyR)
 #
 # ToDo:
 #   [ ]: Expand the ALL:// to all the supported protocols
 #
+import re
 import os
 import random
 import time
@@ -39,12 +41,15 @@ except ImportError:
     from urlparse import urlparse
 from impacket import LOG
 from threading import Thread
+from impacket.examples.ntlmrelayx.utils.targetsconditions import Conditions
+from impacket.examples.ntlmrelayx.utils.customparser import ParsedCustom
 
 
 class TargetsProcessor:
-    def __init__(self, targetListFile=None, singleTarget=None, protocolClients=None, randomize=False):
+    def __init__(self, targetListFile=None, singleTarget=None, protocolClients=None, randomize=False, regex=False):
         # Here we store the attacks that already finished, mostly the ones that have usernames, since the
         # other ones will never finish.
+        self.regex = regex
         self.finishedAttacks = []
         self.failedAttacks = []
         self.protocolClients = protocolClients
@@ -78,7 +83,9 @@ class TargetsProcessor:
                 retVals.append(urlparse('%s%s' % (protocol, strippedTarget)))
             return retVals
         else:
-            return [urlparse(target)]
+            parsed_target = ParsedCustom(target)
+            if parsed_target:
+                return [parsed_target]
 
     def readTargets(self):
         try:
@@ -128,15 +135,31 @@ class TargetsProcessor:
             # We've been asked to match a username that is connected to us
             # Do we have an explicit request for it?
             for target in self.namedCandidates:
-                if target.username is not None:
-                    if target.username.upper() == identity.replace('/', '\\'):
+                if self.regex:
+                    matches = re.findall(target.username.upper(), identity.replace('/', '\\'))
+                    verified = Conditions(identity.split('/')[1].upper()).verified
+                    # TODO: ADD HERE LOGGING WHEN THERE ARE NO MATHCES AND WHEN THE CONDITIONS ('verified') ARE EVALUATING TO FALSE
+
+                    if not matches:
+                        LOG.info('There are no matches.')
+                    if not verified:
+                        LOG.info('Conditions are evaluating to False.')
+
+                    if matches and verified:
+                        target.username = matches[0]
+                        target.netloc = f'{target.username}@{target.hostname}'
                         self.namedCandidates.remove(target)
                         return target
-                    if target.username.find('\\') < 0:
-                        # Username with no domain, let's compare that way
-                        if target.username.upper() == identity.split('/')[1]:
+                elif target.username is not None:
+                        if target.username.upper() == identity.replace('/', '\\'):
                             self.namedCandidates.remove(target)
                             return target
+                    
+                if target.username.find('\\') < 0:
+                    # Username with no domain, let's compare that way
+                    if target.username.upper() == identity.split('/')[1]:
+                        self.namedCandidates.remove(target)
+                        return target
 
         # No identity match, let's just grab something from the generalCandidates list
         # Assuming it hasn't been relayed already
