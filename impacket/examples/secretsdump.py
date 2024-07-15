@@ -225,6 +225,65 @@ class USER_ACCOUNT_V(Structure):
         ('Data',':=b""'),
     )
 
+class USER_ACCOUNT_F(Structure):
+    structure = (
+        ('Unknown', '<Q=0'),
+        ('LastLogon', '<Q=0'),
+        ('Unknown1', '<Q=0'),
+        ('PwdLastSet', '<Q=0'),
+        ('AccountExpires', '<Q=0'),
+        ('LastIncorrectPwd', '<Q=0'),
+        ('UserName', '<L=0'),
+        ('Unknown2', '<L=0'),
+        ('Unsure', 'c'),
+        ('Active', 'c'),
+        ('Unknown3', 'c'),
+        ('PasswordNeverExpires', 'c'),
+        ('Unknown4', '<H'),
+        ('CountryCode', '<H'),
+        ('Unknown5', '<H'),
+        ('InvalidPwdCount', '<H'),
+        ('LogonCount', '<H'),
+        ('Data', ':=""'),
+    )
+
+class GROUP_ACCOUNT_C(Structure):
+    structure = (
+        ('GroupID', '<L=0'),
+        ('SecurityDescriptorOffset', '<L=0'),
+        ('SecurityDescriptorLength', '<L=0'),
+        ('Unknown', '<L=0'),
+        ('NameOffset', '<L=0'),
+        ('NameLength', '<L=0'),
+        ('Unknown1', '<L=0'),
+        ('CommentOffset', '<L=0'),
+        ('CommentLength', '<L=0'),
+        ('Unknown2', '<L=0'),
+        ('MemberOffset', '<L=0'),
+        ('MemberLength', '<L=0'),
+        ('MemberCount', '<L=0'),
+        ('Data', ':=""'),
+    )
+
+class NT6_SYSTEM_KEY(Structure):
+    structure = (
+        ('KeyId', '16s=""'),
+        ('KeyType', '<L=0'),
+        ('KeySize', '<L=0'),
+        ('_Secret', '_-Secret', 'self["KeySize"]'),
+        ('Key', ':'),
+    )
+
+class NT6_SYSTEM_KEYS(Structure):
+    structure = (
+        ('unkType0', '<L=0'),
+        ('CurrentKeyID', '16s=""'),
+        ('unkType1', '<L=0'),
+        ('nbKeys', '<L=0'),
+        ('_Secret', '_-Secret', 'self["nbKeys"]'),
+        ('Keys', ':'),
+    )
+
 class NL_RECORD(Structure):
     structure = (
         ('UserLength','<H=0'),
