@@ -777,10 +777,6 @@ class RemoteOperations:
                 LOG.error(e)
             return None
 
-    def __getSCManagerHandle(self):
-        ans = scmr.hROpenSCManagerW(self.__scmr)
-        self.__scManagerHandle = ans['lpScHandle']
-
     def __checkServiceStatus(self):
         # Open SC Manager
         ans = scmr.hROpenSCManagerW(self.__scmr)
@@ -1242,10 +1238,6 @@ class RemoteOperations:
         gmtSMBPath = self.__smbConnection.listSnapshots(self.__smbConnection.connectTree('ADMIN$'), '/')[0]
         LOG.debug('Got SMB GMT Path: %s' % gmtSMBPath)
         LOG.debug('Performed SS via WMI and got info')
-
-        if self.__execMethod == 'smbexec':
-            self.__connectSvcCtl()
-            self.__getSCManagerHandle()
 
         # Array of tuples of (local path to download, remote path of file)
         paths = [('%s/SAM' % localPath, '%s\\System32\\config\\SAM' % gmtSMBPath),
