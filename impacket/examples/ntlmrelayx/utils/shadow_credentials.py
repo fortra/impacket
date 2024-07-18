@@ -1,235 +1,97 @@
-# code based on pydsinternals project by p0dalirius
-# https://github.com/p0dalirius/pydsinternals
-
-import OpenSSL
-from Cryptodome.PublicKey import RSA
-import struct
-from Cryptodome.Util.number import bytes_to_long, long_to_bytes
-import hashlib
+from struct import pack
+from Cryptodome.Util.number import long_to_bytes
+from OpenSSL.crypto import PKey, X509
 import base64
-import binascii
-import random
+import uuid
 import datetime
 import time
-import os
 
-def raw_public_key( modulus,exponent,keySize,prime1,prime2 ):
-    b_blobType = b'RSA1'
-    b_keySize = struct.pack('<I', keySize)
+def getTicksNow():
+    diff_seconds = int( (datetime.datetime(1970,1,1) - datetime.datetime(1601,1,1)).total_seconds() )
+    return ( time.time_ns() + (diff_seconds * 1e9) ) // 100
 
-    b_exponent = long_to_bytes(exponent)
-    b_exponentSize = struct.pack('<I', len(b_exponent))
+def getDeviceId():
+    return uuid.uuid4().bytes
 
-    b_modulus = long_to_bytes(modulus)
-    b_modulusSize = struct.pack('<I', len(b_modulus))
+def createSelfSignedX509Certificate(subject,kSize=2048,nBefore,nAfter):
+    key = PKey()
+    key.generate_key(pkey_type=PKey.TYPE_RSA, size=kSize)
 
-    if prime1 == 0:
-        b_prime1Size = struct.pack('<I', 0)
-    else:
-        b_prime1 = long_to_bytes(prime1)
-        b_prime1Size = struct.pack('<I', len(b_prime1))
+    cert = X509()
 
-    if prime2 == 0:
-        b_prime2Size = struct.pack('<I', 0)
-    else:
-        b_prime2 = long_to_bytes(prime2)
-        b_prime2Size = struct.pack('<I', len(b_prime2))
+    cert.get_subject().CN = subject
+    cert.set_issuer(cert.get_subject())
+    cert.gmtime_adj_notBefore(nBefore)
+    cert.gmtime_adj_notAfter(nAfter)
+    cert.set_pubkey(key)
 
-    # Header
-    data = b_blobType
-    # Header
-    data += b_keySize
-    data += b_exponentSize + b_modulusSize + b_prime1Size + b_prime2Size
-    # Content
-    data += b_exponent + b_modulus
-    if prime1 != 0:
-        data += b_prime1
-    if prime2 != 0:
-        data += b_prime2
-    return data
+    cert.sign(key, hash_algo="sha256")
+    return key,certificate
 
-def createX509Certificate( subject,keySize,notBefore,notAfter ):
-    # create rsa key pair object
-    key = OpenSSL.crypto.PKey()
-    # generate key pair or 2048 of length
-    key.generate_key(OpenSSL.crypto.TYPE_RSA, keySize)
-    # create x509 certificate object
-    certificate = OpenSSL.crypto.X509()
+class KeyCredential():
+    @staticmethod
+    def raw_public_key(certificate,key):
+        pem_public_key = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, key)
+        public_key = RSA.importKey(pem_public_key)
 
-    # set cert params
-    certificate.get_subject().CN = subject
-    certificate.set_issuer(certificate.get_subject())
-    # Validity
-    certificate.gmtime_adj_notBefore(notBefore * 24 * 60 * 60)
-    certificate.gmtime_adj_notAfter(notAfter * 24 * 60 * 60)
+        kSize = pack("<I",public_key.size_in_bits())
+        exponent = long_to_bytes(public_key.e)
+        exponentSize += pack("<I",len(exponent))
+        modulus = long_to_bytes(public_key.m)
+        modulusSize += pack("<I",len(modulus))
 
-    certificate.set_pubkey(key)
+        padding = pack("<I",0)*2
 
-    # self-sign certificate with SHA256 digest and PKCS1 padding scheme
-    certificate.sign(key, "sha256")
+        return b'RSA1' + kSize + exponentSize + modulusSize + padding + exponent + modulus
 
-    pem_key = OpenSSL.crypto.dump_publickey(OpenSSL.crypto.FILETYPE_PEM, key)
-    pubkey = RSA.importKey(pem_key)
-    publicKey = raw_public_key(
-        modulus=pubkey.n,
-        exponent=pubkey.e,
-        keySize=pubkey.size_in_bits(),
-        prime1=0,
-        prime2=0
-    )
-    return certificate,publicKey,key
+    def __init__(self,certificate,key,deviceId,currentTime):
+        self.__publicKey = self.raw_public_key(certificate,key)
+        self.__rawKeyMaterial = (0x3,self.__publicKey)
+        self.__usage = (0x4,pack("<B",0x01))
+        self.__source = (0x5,pack("<B",0x0))
+        self.__deviceId = (0x6,deviceId)
+        self.__customKeyInfo = (0x7,pack("<BB",0x1,0x0))
+        currentTime = pack("<Q",currentTime)
+        self.__lastLogonTime = (0x8,pack("<Q",currentTime))
+        self.__creationTime = (0x9,pack("<Q",currentTime))
 
-def getRandomGUID():
-    a = sum([random.randint(0, 0xff) << (8*k) for k in range(4)])
-    b = sum([random.randint(0, 0xff) << (8*k) for k in range(2)])
-    c = sum([random.randint(0, 0xff) << (8*k) for k in range(2)])
-    d = sum([random.randint(0, 0xff) << (8*k) for k in range(2)])
-    e = sum([random.randint(0, 0xff) << (8*k) for k in range(6)])
+        self.__version = 0x200
 
-    data = b''
-    data += struct.pack("<L", a)
-    data += struct.pack("<H", b)
-    data += struct.pack("<H", c)
-    data += struct.pack(">H", d)
-    data += binascii.unhexlify(hex(e)[2:].rjust(12, '0'))
-    return data
+        self.__sha256 = base64.b64encode( hashlib.sha256(self.__publickey).digest() ).decode("utf-8")
 
-def getTimeTicks():
-    Value = datetime.datetime.now()
-    # diff 1601 - epoch
-    diff = datetime.datetime(1970, 1, 1, 0, 0, 0) - datetime.datetime(1601, 1, 1, 0, 0, 0)
-    # nanoseconds between 1601 and epoch
-    diff_ns = int(diff.total_seconds()) * 1000000000
-    # nanoseconds between epoch and now
-    now_ns = time.time_ns()
-    # ticks between 1601 and now
-    ticks = (diff_ns + now_ns) // 100
-    return ticks
+    def __packData(self,fields):
+        return b''.join( pack("<HB",len(field[1]),field[0]) + field[1] for field in fields] )
+    def __getKeyIndetifier(self):
+        self.__identifier = base64.b64decode( self.__sha256+"===" )
+        return (0x1,self.__identifier)
 
+    def __getKeyHash(self):
+        computed_hash = hashlib.sha256(self.__identifier).digest()
+        return (0x2,computed_hash)
 
-def getBinaryTime( timestamp_ticks ):
-    return struct.pack('<Q', timestamp_ticks)
+    def dumpBinary(self):
+        version = pack("<L",self.__version)
+
+        binaryData = self.__packData( [self.__getKeyIdentifier(),
+                                        self.__getKeyHash(),
+                                      ])
+
+        binaryProperties = self.__packData( [self.__rawKeyMaterial,
+                            self.__usage,
+                            self.__source,
+                            self.__deviceId,
+                            self.__customKeyInfo,
+                            self.__lastLogonTime,
+                            self.__creationTime,
+                         ])
+
+        return version + binaryData + binaryProperties
+
 
 def toDNWithBinary2String( binaryData, owner ):
     hexdata = binascii.hexlify(binaryData).decode("UTF-8")
     return "B:%d:%s:%s" % (len(binaryData)*2,hexdata,owner)
 
-
-def CreateKeyCredentialFromX509Certificate(publicKey,deviceId,owner,currentTime,isComputerKey=False):
-
-    # Process owner DN/UPN
-    print("onwer %s" % str(owner))
-    assert (len(owner) != 0)
-    if type(owner) == str:
-        Owner = owner
-    elif type(owner) == bytes:
-        Owner = owner.decode("UTF-8")
-
-    Version = 0x00000200 #version2
-
-    sha256 = hashlib.sha256(publicKey)
-
-    Identifier = base64.b64encode(sha256.digest()).decode("utf-8")
-
-    KeyHash = None
-    if currentTime is not None:
-        CreationTime = currentTime
-
-    RawKeyMaterial = publicKey
-    Usage = 0x01
-    LegacyUsage = None
-    Source = 0x00
-    DeviceId = deviceId
-    computed_hash = "\x00"*16
-    # Computer NGC keys have to meet some requirements to pass the validated write
-    # The CustomKeyInformation entry is not present.
-    # The KeyApproximateLastLogonTimeStamp entry is not present.
-
-    if not isComputerKey:
-        LastLogonTime = CreationTime
-        CustomKeyInfo = CustomKeyInformation(0x0)
-
-    # Serialize properties 3-9 first, as property 2 must contain their hash:
-    binaryData = b""
-    binaryProperties = b""
-
-    # Key Material
-    _data = RawKeyMaterial
-    binaryProperties += struct.pack("<H", len(_data))
-    binaryProperties += struct.pack("<B", 0x03)
-    binaryProperties += _data
-
-    # Key Usage
-    _data = None
-    if LegacyUsage is not None and Usage is None:
-        _data = LegacyUsage
-    elif Usage is not None and LegacyUsage is None:
-        _data = struct.pack("<B", Usage)
-    binaryProperties += struct.pack("<H", len(_data))
-    binaryProperties += struct.pack("<B", 0x04)
-    binaryProperties += _data
-
-    # Key Source
-    _data = struct.pack("<B", Source)
-    binaryProperties += struct.pack("<H", len(_data))
-    binaryProperties += struct.pack("<B", 0x05)
-    binaryProperties += _data
-
-    # Device ID
-    if DeviceId is not None:
-        _data = DeviceId
-        binaryProperties += struct.pack("<H", len(_data))
-        binaryProperties += struct.pack("<B",0x06)
-        binaryProperties += _data
-
-    # Custom Key Information
-    if CustomKeyInfo is not None:
-        _data = CustomKeyInfo
-        binaryProperties += struct.pack("<H", len(_data))
-        binaryProperties += struct.pack("<B",0x07)
-        binaryProperties += _data
-
-    # Last Logon Time
-    if LastLogonTime is not None:
-        _data = getBinaryTime(LastLogonTime)
-        binaryProperties += struct.pack("<H", len(_data))
-        binaryProperties += struct.pack("<B",0x08)
-        binaryProperties += _data
-
-    # Creation Time
-    _data = getBinaryTime(CreationTime)
-    binaryProperties += struct.pack("<H", len(_data))
-    binaryProperties += struct.pack("<B",0x09)
-    binaryProperties += _data
-
-    # Version
-    binaryData += struct.pack('<L',0x00000200)
-
-    # Key Identifier
-    _data = base64.b64decode( Identifier + "===")
-    binaryData += struct.pack("<H", len(_data))
-    binaryData += struct.pack("<B",0x01)
-    binaryData += _data
-
-    # Key Hash
-    computed_hash = hashlib.sha256(_data).digest()
-    binaryData += struct.pack("<H", len(computed_hash))
-    binaryData += struct.pack("<B",0x02)
-    binaryData += computed_hash
-
-    # Append the remaining entries
-    binaryData += binaryProperties
-
-    return binaryData
-
-
-
-def CustomKeyInformation(flags):
-    stream_data = b""
-    stream_data += struct.pack("<B",0x1)
-    stream_data += struct.pack("<B",flags)
-
-    return stream_data
 
 def exportPFX(certificate,key,path_to_file,password):
     if len(os.path.dirname(path_to_file)) != 0:

