@@ -174,7 +174,7 @@ class Structure:
         del self.fields[key]
 
     def __str__(self):
-        return hexlify(self.getData())
+        return str(hexlify(self.getData()).decode("ascii"))
 
     def __len__(self):
         # XXX: improve
