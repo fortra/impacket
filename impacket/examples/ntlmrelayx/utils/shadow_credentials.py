@@ -1,44 +1,60 @@
 from struct import pack
 from Cryptodome.Util.number import long_to_bytes
-from OpenSSL.crypto import PKey, X509
+from Cryptodome.PublicKey import RSA
+from OpenSSL.crypto import PKey, X509, TYPE_RSA
+import OpenSSL
 import base64
 import uuid
 import datetime
 import time
+import hashlib
+import binascii
+import os
+
+HASH_ALGO="sha256"
 
 def getTicksNow():
-    diff_seconds = int( (datetime.datetime(1970,1,1) - datetime.datetime(1601,1,1)).total_seconds() )
-    return ( time.time_ns() + (diff_seconds * 1e9) ) // 100
+    #diff_seconds = int( (datetime.datetime(1970,1,1) - datetime.datetime(1601,1,1)).total_seconds() )
+    #return ( time.time_ns() + (diff_seconds * 1e9) ) // 100
+        # diff 1601 - epoch
+    diff = datetime.datetime(1970, 1, 1, 0, 0, 0) - datetime.datetime(1601, 1, 1, 0, 0, 0)
+    # nanoseconds between 1601 and epoch
+    diff_ns = int(diff.total_seconds()) * 1000000000
+    # nanoseconds between epoch and now
+    now_ns = time.time_ns()
+    # ticks between 1601 and now
+    ticks = (diff_ns + now_ns) // 100
+    return ticks
 
 def getDeviceId():
     return uuid.uuid4().bytes
 
-def createSelfSignedX509Certificate(subject,kSize=2048,nBefore,nAfter):
+def createSelfSignedX509Certificate(subject,nBefore,nAfter,kSize=2048):
     key = PKey()
-    key.generate_key(pkey_type=PKey.TYPE_RSA, size=kSize)
+    key.generate_key(TYPE_RSA,kSize)
 
-    cert = X509()
+    certificate = X509()
 
-    cert.get_subject().CN = subject
-    cert.set_issuer(cert.get_subject())
-    cert.gmtime_adj_notBefore(nBefore)
-    cert.gmtime_adj_notAfter(nAfter)
-    cert.set_pubkey(key)
+    certificate.get_subject().CN = subject
+    certificate.set_issuer(certificate.get_subject())
+    certificate.gmtime_adj_notBefore(nBefore)
+    certificate.gmtime_adj_notAfter(nAfter)
+    certificate.set_pubkey(key)
 
-    cert.sign(key, hash_algo="sha256")
+    certificate.sign(key,HASH_ALGO)
     return key,certificate
 
 class KeyCredential():
     @staticmethod
     def raw_public_key(certificate,key):
-        pem_public_key = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, key)
+        pem_public_key = OpenSSL.crypto.dump_publickey(OpenSSL.crypto.FILETYPE_PEM, key)
         public_key = RSA.importKey(pem_public_key)
 
         kSize = pack("<I",public_key.size_in_bits())
         exponent = long_to_bytes(public_key.e)
-        exponentSize += pack("<I",len(exponent))
-        modulus = long_to_bytes(public_key.m)
-        modulusSize += pack("<I",len(modulus))
+        exponentSize = pack("<I",len(exponent))
+        modulus = long_to_bytes(public_key.n)
+        modulusSize = pack("<I",len(modulus))
 
         padding = pack("<I",0)*2
 
@@ -51,17 +67,17 @@ class KeyCredential():
         self.__source = (0x5,pack("<B",0x0))
         self.__deviceId = (0x6,deviceId)
         self.__customKeyInfo = (0x7,pack("<BB",0x1,0x0))
-        currentTime = pack("<Q",currentTime)
         self.__lastLogonTime = (0x8,pack("<Q",currentTime))
         self.__creationTime = (0x9,pack("<Q",currentTime))
 
         self.__version = 0x200
 
-        self.__sha256 = base64.b64encode( hashlib.sha256(self.__publickey).digest() ).decode("utf-8")
+        self.__sha256 = base64.b64encode( hashlib.sha256(self.__publicKey).digest() ).decode("utf-8")
 
     def __packData(self,fields):
-        return b''.join( pack("<HB",len(field[1]),field[0]) + field[1] for field in fields] )
-    def __getKeyIndetifier(self):
+        return b''.join( [ pack("<HB",len(field[1]),field[0]) + field[1] for field in fields] )
+
+    def __getKeyIdentifier(self):
         self.__identifier = base64.b64decode( self.__sha256+"===" )
         return (0x1,self.__identifier)
 

