@@ -338,8 +338,7 @@ class SMBRelayServer(Thread):
             client = connData['SMBClient']
             authenticateMessage = ntlm.NTLMAuthChallengeResponse()
             authenticateMessage.fromString(token)
-            self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
-                                        authenticateMessage['user_name'].decode('utf-16le'))).upper()
+            self.authUser = authenticateMessage.getUserString()
 
             if rawNTLM is True:
                 respToken2 = SPNEGO_NegTokenResp()
@@ -407,11 +406,8 @@ class SMBRelayServer(Thread):
 
     def smb2TreeConnect(self, connId, smbServer, recvPacket):
         connData = smbServer.getConnectionData(connId)
-
         authenticateMessage = connData['AUTHENTICATE_MESSAGE']
-
-        self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode ('utf-16le'),
-                                    authenticateMessage['user_name'].decode ('utf-16le'))).upper ()
+        self.authUser = authenticateMessage.getUserString()
 
         if self.config.disableMulti:
             return self.origsmb2TreeConnect(connId, smbServer, recvPacket)
@@ -629,8 +625,7 @@ class SMBRelayServer(Thread):
                 client = connData['SMBClient']
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
-                self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
-                                            authenticateMessage['user_name'].decode('utf-16le'))).upper()
+                self.authUser = authenticateMessage.getUserString()
 
                 clientResponse, errorCode = self.do_ntlm_auth(client,sessionSetupData['SecurityBlob'],
                                                               connData['CHALLENGE_MESSAGE']['challenge'])
@@ -771,8 +766,7 @@ class SMBRelayServer(Thread):
         connData = smbServer.getConnectionData(connId)
 
         authenticateMessage = connData['AUTHENTICATE_MESSAGE']
-        self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode ('utf-16le'),
-                                    authenticateMessage['user_name'].decode ('utf-16le'))).upper ()
+        self.authUser = authenticateMessage.getUserString()
 
         if self.config.disableMulti:
             return self.smbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
