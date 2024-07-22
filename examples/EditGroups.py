@@ -1,3 +1,17 @@
+#!/usr/bin/env python3
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# Copyright (C) 2024 Fortra. All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Description:
+#   Python script to change a group on AD, this script let you read if a user is part of a group, add a user to a group or remove a user from a group, the script use ldap to read, write or remove.
+# Author:
+#   Fabrizzio Bridi (@Fabrizzio53)
+
 import argparse
 import logging
 import sys
