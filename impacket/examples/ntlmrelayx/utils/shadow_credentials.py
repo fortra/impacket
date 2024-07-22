@@ -11,20 +11,19 @@ import hashlib
 import binascii
 import os
 
+# code based on:
+# 
+# https://podalirius.net/en/articles/parsing-the-msds-keycredentiallink-value-for-shadowcredentials-attack/
+# https://github.com/MichaelGrafnetter/DSInternals
+ 
 HASH_ALGO="sha256"
 
 def getTicksNow():
-    #diff_seconds = int( (datetime.datetime(1970,1,1) - datetime.datetime(1601,1,1)).total_seconds() )
-    #return ( time.time_ns() + (diff_seconds * 1e9) ) // 100
-        # diff 1601 - epoch
-    diff = datetime.datetime(1970, 1, 1, 0, 0, 0) - datetime.datetime(1601, 1, 1, 0, 0, 0)
-    # nanoseconds between 1601 and epoch
-    diff_ns = int(diff.total_seconds()) * 1000000000
-    # nanoseconds between epoch and now
-    now_ns = time.time_ns()
-    # ticks between 1601 and now
-    ticks = (diff_ns + now_ns) // 100
-    return ticks
+    # https://learn.microsoft.com/en-us/dotnet/api/system.datetime.ticks?view=net-5.0#system-datetime-ticks
+    dt_now = datetime.datetime.now()
+    csharp_epoch = datetime.datetime(year=1, month=1, day=1)
+    delta = dt_now - csharp_epoch
+    return int(delta.total_seconds() * 10000000) # Convert to microseconds and multiply by 10 for ticks
 
 def getDeviceId():
     return uuid.uuid4().bytes
