@@ -37,6 +37,7 @@ https://github.com/fortra/impacket/commits/master
     * [reg.py](examples/reg.py):
         * Start remote registry as unprivileged user in reg.py (@dadevel)
         * Allowing adding Binary values (@dc3l1ne)
+        * Add missing Null byte for REG_SZ values (@PfiatDe)
     * [smbclient.py](examples/smbclient.py):
     	* Added ability to provide an output file that the smbclient mini shell will write commands and output to (@RazzburyPi)
      	* Fixed path parse issue when running `tree` command (@trietend)
@@ -58,7 +59,7 @@ https://github.com/fortra/impacket/commits/master
 
 As always, thanks a lot to all these contributors that make this library better every day (up to now):
 
-@tomspencer @anadrianmanrique @ShutdownRepo @dadevel @gjhami @NtAlexio2 @F-Masood @BlWasp @gabrielg5 @XiaoliChan @omry99 @Wlayzz @themaks @alexisbalbachan @RazzburyPi @jeffmcjunkin @p0dalirius @dc3l1ne @jfjallid @Palkovsky @rtpt-erikgeiser @trietend @zblurx @dru1d-foofus
+@tomspencer @anadrianmanrique @ShutdownRepo @dadevel @gjhami @NtAlexio2 @F-Masood @BlWasp @gabrielg5 @XiaoliChan @omry99 @Wlayzz @themaks @alexisbalbachan @RazzburyPi @jeffmcjunkin @p0dalirius @dc3l1ne @jfjallid @Palkovsky @rtpt-erikgeiser @trietend @zblurx @dru1d-foofus @PfiatDe
 
 	  
 ## Impacket v0.11.0 (Aug 2023):
