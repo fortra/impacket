@@ -705,19 +705,26 @@ class RemoteOperations:
         return self.__domainHandle
 
     def getMachineKerberosSalt(self):
-        """
-        Returns Kerberos salt for the current connection if
-        we have the correct information
-        """
-        if self.__smbConnection.getServerName() == '':
-            # Todo: figure out an RPC call that gives us the domain FQDN
-            # instead of the NETBIOS name as NetrWkstaGetInfo does
-            return b''
-        else:
-            host = self.__smbConnection.getServerName()
-            domain = self.__smbConnection.getServerDNSDomainName()
-            salt = b'%shost%s.%s' % (domain.upper().encode('utf-8'), host.lower().encode('utf-8'), domain.lower().encode('utf-8'))
-            return salt
+	"""
+	Returns Kerberos salt for the current connection if
+	we have the correct information
+	"""
+	# Patched by @Defte_ when using Kerberos, the getServerName function returns nothing
+	# But we do need the domain FQDN as well as the computer name
+	if self.__smbConnection.getServerName() == '':
+	   # To do we can request the getMachineNameAndDomain() which returns:
+	   #   - The computer name
+	   #   - The NETBIOS domain name (not FQDN so we don't need it hence the _)
+	   # Using the getRemoteHost function we can get the DC's FQDN to which we substract the computer name
+	   # Once we have the domain FQDN and the computer name we can compute the Kerberos salt
+	   host, _ = self.getMachineNameAndDomain()
+	   domain = self.__smbConnection.getRemoteHost().split(f"{host.lower()}.")[1]
+	   LOG.debug(f"[Secretsdump][getMachineKerberosSalt] Host: {host} / Domain FQDN: {domain}")
+	else:
+	   host = self.__smbConnection.getServerName()
+	   domain = self.__smbConnection.getServerDNSDomainName()
+	salt = b'%shost%s.%s' % (domain.upper().encode('utf-8'), host.lower().encode('utf-8'), domain.lower().encode('utf-8'))
+	return salt
 
     def getMachineNameAndDomain(self):
         if self.__smbConnection.getServerName() == '':
