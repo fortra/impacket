@@ -77,7 +77,6 @@ class Groupchanger(object):
             attributes=['member']
         )
 
-
         if self.ldap_session.entries:
 
             print('[+] Group ' + self.__group + ' found at domain ' + dn)
@@ -86,26 +85,26 @@ class Groupchanger(object):
 
             print('[-] Error: group' + self.__group + 'not found.')
             sys.exit(1)
-           
-        print(f"[+] Checking if {self.__user} exists in the domain and if is already part of {self.__group}!")
 
         group_dn = self.ldap_session.entries[0].entry_dn
         members = self.ldap_session.entries[0].member
-    
+
         if self.__user_domain == None:
 
             dn = self.domain_dumper.root
 
         else:
-            dn = self.domain_to_ldap(self.__user_domain)
             
-
+            dn = self.domain_to_ldap(self.__user_domain)
+           
+        print(f"[+] Checking if {self.__user} exists in the domain {dn} and if is already part of {self.__group}!")
+            
         self.ldap_session.search(
             search_base=dn,
             search_filter=f'(&(objectClass=user)(sAMAccountName={self.__user}))',
             attributes=['distinguishedName']
         )
-
+        
         if self.ldap_session.entries:
             print('[+] User ' + self.__user + ' found at the domain' + dn)
         else:
