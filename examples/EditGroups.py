@@ -106,7 +106,7 @@ class Groupchanger(object):
         )
         
         if self.ldap_session.entries:
-            print('[+] User ' + self.__user + ' found at the domain' + dn)
+            print('[+] User ' + self.__user + ' found at the domain ' + dn)
         else:
             print('[-] Error: user not found.')
             sys.exit(1)
