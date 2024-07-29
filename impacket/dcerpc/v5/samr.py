@@ -28,7 +28,7 @@ from binascii import unhexlify
 from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRUNION, NDRPOINTER, NDRUniConformantArray, \
     NDRUniConformantVaryingArray, NDRENUM
 from impacket.dcerpc.v5.dtypes import NULL, RPC_UNICODE_STRING, ULONG, USHORT, UCHAR, LARGE_INTEGER, RPC_SID, LONG, STR, \
-    LPBYTE, SECURITY_INFORMATION, PRPC_SID, PRPC_UNICODE_STRING, LPWSTR
+    LPBYTE, SECURITY_INFORMATION, PRPC_SID, PRPC_UNICODE_STRING, LPWSTR, LONG64
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket import nt_errors, LOG
 from impacket.uuid import uuidtup_to_bin
@@ -872,6 +872,12 @@ class SAMPR_USER_ALL_INFORMATION(NDRSTRUCT):
         ('PrivateDataSensitive', UCHAR),
     )
 
+class SAMPR_USER_INTERNAL3_INFORMATION(NDRSTRUCT):
+    structure = (
+        ('I1', SAMPR_USER_ALL_INFORMATION),
+        ('LastBadPasswordTime', LARGE_INTEGER),
+    )
+
 # 2.2.7.7 SAMPR_USER_GENERAL_INFORMATION
 class SAMPR_USER_GENERAL_INFORMATION(NDRSTRUCT):
     structure = (
@@ -993,6 +999,11 @@ class SAMPR_USER_WORKSTATIONS_INFORMATION(NDRSTRUCT):
         ('WorkStations', RPC_UNICODE_STRING),
     )
 
+class SAMPR_USER_SET_PASSWORD_INFORMATION(NDRSTRUCT):
+    structure = (
+        ('Password', RPC_UNICODE_STRING),
+        ('PasswordExpired', UCHAR),
+    )
 # 2.2.7.20 SAMPR_USER_LOGON_HOURS_INFORMATION
 class SAMPR_USER_LOGON_HOURS_INFORMATION(NDRSTRUCT):
     structure = (
@@ -1029,6 +1040,43 @@ class SAMPR_ENCRYPTED_USER_PASSWORD_NEW(NDRSTRUCT):
     def getAlignment(self):
         return 1
 
+
+class SAMPR_USER_ALLOWED_TO_DELEGATE_TO_LIST(NDRSTRUCT):
+    structure = (
+        ('Size', ULONG),
+        ('NumSPNs', ULONG),
+        ('SPNList', RPC_UNICODE_STRING_ARRAY),
+    )
+    def getAlignment(self):
+        return 1
+
+class PSAMPR_USER_ALLOWED_TO_DELEGATE_TO_LIST(NDRSTRUCT):
+    structure = (
+        ('Data', SAMPR_USER_ALLOWED_TO_DELEGATE_TO_LIST),
+    )
+
+class SAMPR_BYTE_ARRAY_32K(NDRSTRUCT):
+    structure = (
+        ('Size', ULONG),
+        ('Data', PCHAR_ARRAY),
+    )
+    def getAlignment(self):
+        return 1
+
+class PSAMPR_BYTE_ARRAY_32K(NDRSTRUCT):
+    structure = (
+        ('Data', SAMPR_BYTE_ARRAY_32K),
+    )
+
+class SAMPR_ENCRYPTED_PASSWORD_AES(NDRSTRUCT):
+    structure = (
+        ('AuthData', '64s=b""'),
+        ('Salt', '16s=b""'),
+        ('cbCipher', ULONG),
+        ('Cipher', PCHAR_ARRAY),
+        ('PBKDF2Iterations', LONG64),
+    )
+
 # 2.2.7.23 SAMPR_USER_INTERNAL1_INFORMATION
 class SAMPR_USER_INTERNAL1_INFORMATION(NDRSTRUCT):
     structure = (
@@ -1037,6 +1085,15 @@ class SAMPR_USER_INTERNAL1_INFORMATION(NDRSTRUCT):
         ('NtPasswordPresent', UCHAR),
         ('LmPasswordPresent', UCHAR),
         ('PasswordExpired', UCHAR),
+    )
+
+class SAMPR_USER_INTERNAL2_INFORMATION(NDRSTRUCT):
+    structure = (
+        ('StatisticsToApply', ULONG),
+        ('LastLogon', LARGE_INTEGER),
+        ('LastLogoff', LARGE_INTEGER),
+        ('BadPasswordCount', USHORT),
+        ('LogonCount', USHORT),
     )
 
 # 2.2.7.24 SAMPR_USER_INTERNAL4_INFORMATION
@@ -1067,10 +1124,47 @@ class SAMPR_USER_INTERNAL5_INFORMATION_NEW(NDRSTRUCT):
         ('PasswordExpired', UCHAR),
     )
 
+class SAMPR_USER_INTERNAL6_INFORMATION(NDRSTRUCT):
+    structure = (
+        ('I1', SAMPR_USER_ALL_INFORMATION),
+        ('LastBadPasswordTime', LARGE_INTEGER),
+        ('ExtendedFields', ULONG),
+        ('UPNDefaulted', UCHAR),
+        ('UPN', RPC_UNICODE_STRING),
+        ('A2D2List', PSAMPR_USER_ALLOWED_TO_DELEGATE_TO_LIST),
+    )
+
+class SAMPR_USER_EXTENDED_INFORMATION(NDRSTRUCT):
+    structure = (
+        ('ExtendedWhichFields', ULONG),
+        ('UserTile', PSAMPR_BYTE_ARRAY_32K),
+        ('PasswordHint', RPC_UNICODE_STRING),
+        ('DontShowInLogonUI', UCHAR),
+        ('ShellAdminObjectProperties', PSAMPR_BYTE_ARRAY_32K),
+    )
+
+class SAMPR_USER_LOGON_UI_INFORMATION(NDRSTRUCT):
+    structure = (
+        ('PasswordIsBlank', UCHAR),
+        ('AccountIsDisabled', UCHAR),
+    )
+
 class SAMPR_USER_RESET_INFORMATION(NDRSTRUCT):
     structure = (
         ('ExtendedWhichFields', ULONG),
         ('ResetData', RPC_UNICODE_STRING),
+    )
+
+class SAMPR_USER_INTERNAL7_INFORMATION(NDRSTRUCT):
+    structure = (
+        ('UserPassword', SAMPR_ENCRYPTED_PASSWORD_AES),
+        ('PasswordExpired', UCHAR),
+    )
+
+class SAMPR_USER_INTERNAL8_INFORMATION(NDRSTRUCT):
+    structure = (
+        ('I1', SAMPR_USER_ALL_INFORMATION),
+        ('UserPassword', SAMPR_ENCRYPTED_PASSWORD_AES),
     )
 
 # 2.2.7.28 USER_INFORMATION_CLASS
@@ -1090,16 +1184,24 @@ class USER_INFORMATION_CLASS(NDRENUM):
         UserProfileInformation      = 12
         UserAdminCommentInformation = 13
         UserWorkStationsInformation = 14
+        UserSetPasswordInformation  = 15
         UserControlInformation      = 16
         UserExpiresInformation      = 17
         UserInternal1Information    = 18
+        UserInternal2Information    = 19
         UserParametersInformation   = 20
         UserAllInformation          = 21
+        UserInternal3Information    = 22
         UserInternal4Information    = 23
         UserInternal5Information    = 24
         UserInternal4InformationNew = 25
         UserInternal5InformationNew = 26
+        UserInternal6Information    = 27
+        UserExtendedInformation     = 28
+        UserLogonUIInformation      = 29
         UserResetInformation        = 30
+        UserInternal7Information    = 31
+        UserInternal8Information    = 32
 
 # 2.2.7.29 SAMPR_USER_INFO_BUFFER
 class SAMPR_USER_INFO_BUFFER(NDRUNION):
@@ -1118,16 +1220,24 @@ class SAMPR_USER_INFO_BUFFER(NDRUNION):
         USER_INFORMATION_CLASS.UserProfileInformation     : ('Profile', SAMPR_USER_PROFILE_INFORMATION),
         USER_INFORMATION_CLASS.UserAdminCommentInformation: ('AdminComment', SAMPR_USER_ADMIN_COMMENT_INFORMATION),
         USER_INFORMATION_CLASS.UserWorkStationsInformation: ('WorkStations', SAMPR_USER_WORKSTATIONS_INFORMATION),
+        USER_INFORMATION_CLASS.UserSetPasswordInformation : ('SetPassword', SAMPR_USER_SET_PASSWORD_INFORMATION),
         USER_INFORMATION_CLASS.UserControlInformation     : ('Control', USER_CONTROL_INFORMATION),
         USER_INFORMATION_CLASS.UserExpiresInformation     : ('Expires', USER_EXPIRES_INFORMATION),
         USER_INFORMATION_CLASS.UserInternal1Information   : ('Internal1', SAMPR_USER_INTERNAL1_INFORMATION),
+        USER_INFORMATION_CLASS.UserInternal2Information   : ('Internal2', SAMPR_USER_INTERNAL2_INFORMATION),
         USER_INFORMATION_CLASS.UserParametersInformation  : ('Parameters', SAMPR_USER_PARAMETERS_INFORMATION ),
         USER_INFORMATION_CLASS.UserAllInformation         : ('All', SAMPR_USER_ALL_INFORMATION),
+        USER_INFORMATION_CLASS.UserInternal3Information   : ('Internal3', SAMPR_USER_INTERNAL3_INFORMATION),
         USER_INFORMATION_CLASS.UserInternal4Information   : ('Internal4', SAMPR_USER_INTERNAL4_INFORMATION),
         USER_INFORMATION_CLASS.UserInternal5Information   : ('Internal5', SAMPR_USER_INTERNAL5_INFORMATION),
         USER_INFORMATION_CLASS.UserInternal4InformationNew: ('Internal4New', SAMPR_USER_INTERNAL4_INFORMATION_NEW),
         USER_INFORMATION_CLASS.UserInternal5InformationNew: ('Internal5New', SAMPR_USER_INTERNAL5_INFORMATION_NEW),
+        USER_INFORMATION_CLASS.UserInternal6Information   : ('Internal6', SAMPR_USER_INTERNAL6_INFORMATION),
+        USER_INFORMATION_CLASS.UserExtendedInformation    : ('Extended', SAMPR_USER_EXTENDED_INFORMATION),
+        USER_INFORMATION_CLASS.UserLogonUIInformation     : ('LogonUI', SAMPR_USER_LOGON_UI_INFORMATION),
         USER_INFORMATION_CLASS.UserResetInformation       : ('Reset', SAMPR_USER_RESET_INFORMATION),
+        USER_INFORMATION_CLASS.UserInternal7Information   : ('Internal7', SAMPR_USER_INTERNAL7_INFORMATION),
+        USER_INFORMATION_CLASS.UserInternal8Information   : ('Internal8', SAMPR_USER_INTERNAL8_INFORMATION),
     }
 
 class PSAMPR_USER_INFO_BUFFER(NDRPOINTER):
