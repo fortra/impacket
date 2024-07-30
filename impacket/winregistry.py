@@ -176,7 +176,8 @@ class Registry:
             LOG.warning("Unsupported version (%d.%d) - things might not work!" % (self.__regf['MajorVersion'], self.__regf['MinorVersion']))
 
     def close(self):
-        self.fd.close()
+        if hasattr(self, 'fd'):
+            self.fd.close()
 
     def __del__(self):
         self.close()
