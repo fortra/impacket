@@ -15,10 +15,13 @@
 #   Arseniy Sharoglazov <mohemiv@gmail.com> / Positive Technologies (https://www.ptsecurity.com/)
 #
 
+import os
 import re
 import ssl
 import base64
+import struct
 import binascii
+import datetime
 
 try:
     from http.client import HTTPConnection, HTTPSConnection
@@ -48,11 +51,14 @@ class HTTPClientSecurityProvider:
         self.__aesKey   = ''
         self.__TGT      = None
         self.__TGS      = None
+        self.__kdcHost = None
+        self.__useCache = True
 
         self.__auth_type = auth_type
 
         self.__auth_types = []
         self.__ntlmssp_info = None
+        self.__hostname = None
 
     def set_auth_type(self, auth_type):
         self.__auth_type = auth_type
@@ -66,7 +72,7 @@ class HTTPClientSecurityProvider:
     def get_ntlmssp_info(self):
         return self.__ntlmssp_info
 
-    def set_credentials(self, username, password, domain='', lmhash='', nthash='', aesKey='', TGT=None, TGS=None):
+    def set_credentials(self, username, password, domain='', lmhash='', nthash='', aesKey='', TGT=None, TGS=None, kdcHost=None):
         self.__username = username
         self.__password = password
         self.__domain   = domain
@@ -88,6 +94,7 @@ class HTTPClientSecurityProvider:
         self.__aesKey = aesKey
         self.__TGT    = TGT
         self.__TGS    = TGS
+        self.__kdcHost = kdcHost
 
     def parse_www_authenticate(self, header):
         ret = []
@@ -105,7 +112,8 @@ class HTTPClientSecurityProvider:
 
         return ret
 
-    def connect(self, protocol, host_L6):
+    def connect(self, protocol, host_L6, hostname=None):
+        self.__hostname = hostname
         if protocol == 'http':
             return HTTPConnection(host_L6)
         else:
@@ -120,6 +128,8 @@ class HTTPClientSecurityProvider:
             return self.get_auth_headers_basic(http_obj, method, path, headers)
         elif self.__auth_type in [AUTH_AUTO, AUTH_NTLM]:
             return self.get_auth_headers_auto(http_obj, method, path, headers)
+        elif self.__auth_type == AUTH_NEGOTIATE:
+            return self.get_auth_headers_kerberos(http_obj, method, path, headers)
         else:
             raise Exception('%s auth type not supported' % self.__auth_type)
 
@@ -182,10 +192,6 @@ class HTTPClientSecurityProvider:
         return serverChallenge, None
 
     def get_auth_headers_auto(self, http_obj, method, path, headers):
-        if self.__aesKey != '' or self.__TGT != None or self.__TGS != None:
-            raise Exception('NTLM authentication in HTTP connection used, ' \
-                            'cannot use Kerberos.')
-
         auth = ntlm.getNTLMSSPType1(domain=self.__domain)
         serverChallenge = self.send_ntlm_type1(http_obj, method, path, headers, auth.getData())[0]
 
@@ -205,4 +211,124 @@ class HTTPClientSecurityProvider:
                 raise Exception('No supported auth offered by URL: %s' % self.__auth_types)
 
         # Format: auth_headers, reserved, ...
+        return {'Authorization': auth_line_http}, None
+
+    def get_auth_headers_kerberos(self, http_obj, method, path, headers):
+        from impacket.krb5 import constants
+        from impacket.krb5.asn1 import AP_REQ, Authenticator, TGS_REP, seq_set
+        from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
+        from impacket.krb5.types import Principal, KerberosTime, Ticket
+        from impacket.krb5.gssapi import KRB5_AP_REQ
+        from impacket.krb5.ccache import CCache
+        from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, ASN1_OID, asn1encode, ASN1_AID
+        from pyasn1.codec.der import decoder, encoder
+        from pyasn1.type.univ import noValue
+
+        if self.__TGT is not None or self.__TGS is not None:
+            self.__useCache = False
+
+        if self.__useCache is True:
+            try:
+                ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
+            except:
+                # No cache present
+                pass
+            else:
+                LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
+                # retrieve domain information from CCache file if needed
+                if self.__domain == '':
+                    self.__domain = ccache.principal.realm['data'].decode('utf-8')
+                    LOG.debug('Domain retrieved from CCache: %s' % self.__domain)
+
+                principal = 'HTTP/%s@%s' % (self.__hostname, self.__domain.upper())
+                creds = ccache.getCredential(principal)
+                if creds is None:
+                    # Let's try for the TGT and go from there
+                    principal = 'krbtgt/%s@%s' % (self.__domain.upper(),self.__domain.upper())
+                    creds =  ccache.getCredential(principal)
+                    if creds is not None:
+                        self.__TGT = creds.toTGT()
+                        LOG.debug('Using TGT from cache')
+                    else:
+                        LOG.debug("No valid credentials found in cache. ")
+                else:
+                    self.__TGS = creds.toTGS(principal)
+                    LOG.debug('Using TGS from cache')
+
+                # retrieve user information from CCache file if needed
+                if self.__username == '' and creds is not None:
+                    self.__username = creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')
+                    LOG.debug('Username retrieved from CCache: %s' % self.__username)
+                elif self.__username == '' and len(ccache.principal.components) > 0:
+                    self.__username = ccache.principal.components[0]['data'].decode('utf-8')
+                    LOG.debug('Username retrieved from CCache: %s' % self.__username)
+
+
+        # First of all, we need to get a TGT for the user
+        userName = Principal(self.__username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+        if self.__TGT is None:
+            if self.__TGS is None:
+                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, self.__kdcHost)
+        else:
+            tgt = self.__TGT['KDC_REP']
+            cipher = self.__TGT['cipher']
+            sessionKey = self.__TGT['sessionKey']
+
+        if self.__TGS is None:
+            serverName = Principal('HTTP/%s' % (self.__hostname), type=constants.PrincipalNameType.NT_SRV_INST.value)
+            tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, self.__domain, self.__kdcHost, tgt, cipher, sessionKey)
+        else:
+            tgs = self.__TGS['KDC_REP']
+            cipher = self.__TGS['cipher']
+            sessionKey = self.__TGS['sessionKey']
+
+        # Let's build a NegTokenInit with a Kerberos REQ_AP
+
+        blob = SPNEGO_NegTokenInit()
+
+        # Kerberos
+        blob['MechTypes'] = [TypesMech['MS KRB5 - Microsoft Kerberos 5']]
+
+        # Let's extract the ticket from the TGS
+        tgs = decoder.decode(tgs, asn1Spec = TGS_REP())[0]
+        ticket = Ticket()
+        ticket.from_asn1(tgs['ticket'])
+
+        # Now let's build the AP_REQ
+        apReq = AP_REQ()
+        apReq['pvno'] = 5
+        apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
+
+        #Handle mutual authentication
+        opts = list()
+        opts.append(constants.APOptions.mutual_required.value)
+
+        apReq['ap-options'] = constants.encodeFlags(opts)
+        seq_set(apReq,'ticket', ticket.to_asn1)
+
+        authenticator = Authenticator()
+        authenticator['authenticator-vno'] = 5
+        authenticator['crealm'] = self.__domain
+        seq_set(authenticator, 'cname', userName.components_to_asn1)
+        now = datetime.datetime.utcnow()
+
+        authenticator['cusec'] = now.microsecond
+        authenticator['ctime'] = KerberosTime.to_asn1(now)
+
+        encodedAuthenticator = encoder.encode(authenticator)
+
+        # Key Usage 11
+        # AP-REQ Authenticator (includes application authenticator
+        # subkey), encrypted with the application session key
+        # (Section 5.5.1)
+        encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 11, encodedAuthenticator, None)
+
+        apReq['authenticator'] = noValue
+        apReq['authenticator']['etype'] = cipher.enctype
+        apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
+
+        blob['MechToken'] = struct.pack('B', ASN1_AID) + asn1encode( struct.pack('B', ASN1_OID) + asn1encode(
+            TypesMech['KRB5 - Kerberos 5'] ) + KRB5_AP_REQ + encoder.encode(apReq))
+
+        auth_line_http = 'Negotiate %s' % base64.b64encode(blob.getData()).decode('ascii')
         return {'Authorization': auth_line_http}, None
