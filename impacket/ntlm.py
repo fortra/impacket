@@ -955,7 +955,7 @@ class NTLM_HTTP(object):
         msg_type = 0
         if msg_64 != '':
             msg = base64.b64decode(msg_64[5:]) # Remove the 'NTLM '
-            msg_type = ord(msg[8])
+            msg_type = msg[8]
     
         for _cls in NTLM_HTTP.__subclasses__():
             if msg_type == _cls.MSG_TYPE:
