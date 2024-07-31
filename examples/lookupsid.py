@@ -40,7 +40,7 @@ class LSALookupSid:
         }
 
     def __init__(self, username='', password='', domain='', port = None,
-                 hashes = None, domain_sids = False, maxRid=4000):
+                 hashes = None, domain_sids = False, use_kerberos = False, maxRid=4000):
 
         self.__username = username
         self.__password = password
@@ -50,6 +50,7 @@ class LSALookupSid:
         self.__lmhash = ''
         self.__nthash = ''
         self.__domain_sids = domain_sids
+        self.__doKerberos = use_kerberos
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
@@ -61,6 +62,7 @@ class LSALookupSid:
         logging.info('StringBinding %s'%stringbinding)
         rpctransport = transport.DCERPCTransportFactory(stringbinding)
         rpctransport.set_dport(self.__port)
+        rpctransport.set_kerberos(self.__doKerberos)
 
         if self.KNOWN_PROTOCOLS[self.__port]['set_host']:
             rpctransport.setRemoteHost(remoteHost)
@@ -168,7 +170,11 @@ if __name__ == '__main__':
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful when proxying through smbrelayx)')
-
+    group.add_argument('-k', action="store_true", 
+                        help='Use Kerberos authentication. Grabs credentials from ccache file '
+                            '(KRB5CCNAME) based on target parameters. If valid credentials '
+                            'cannot be found, it will use the ones specified in the command '
+                            'line')
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
@@ -190,7 +196,7 @@ if __name__ == '__main__':
     if options.target_ip is None:
         options.target_ip = remoteName
 
-    lookup = LSALookupSid(username, password, domain, int(options.port), options.hashes, options.domain_sids, options.maxRid)
+    lookup = LSALookupSid(username, password, domain, int(options.port), options.hashes, options.domain_sids, options.k, options.maxRid)
     try:
         lookup.dump(remoteName, options.target_ip)
     except:
