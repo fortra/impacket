@@ -1501,7 +1501,7 @@ class SMBSessionSetupAndX_Extended_Response_Data(AsciiOrUnicodeStructure):
     )
     def getData(self):
         if self.structure == self.UnicodeStructure:
-            if len(str(self['SecurityBlob'])) % 2 == 0:
+            if len(self['SecurityBlob']) % 2 == 0:
                 self['Pad'] = '\x00'
         return AsciiOrUnicodeStructure.getData(self)
 
