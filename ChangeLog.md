@@ -12,6 +12,7 @@ https://github.com/fortra/impacket/commits/master
     * Fixed lmhash computing to support non standard characters in the password (@anadrianmanrique)
     * Assorted fixes when processing Unicode data (@alexisbalbachan)
     * Added `[MS-GKDI]` Group Key Distribution Protocol implementation (@zblurx)
+    * Fixed incorrect padding in SMBSessionSetupAndX_Extended_ResponseData (@rtpt-erikgeiser)
 
 2. Examples improvements
     * [secretsdump.py](examples/secretsdump.py):
