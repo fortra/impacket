@@ -72,7 +72,7 @@ if __name__ == '__main__':
     server = smbserver.SimpleSMBServer(listenAddress=options.interface_address, listenPort=int(options.port))
 
     if options.outputfile:
-        server.log('Switching output to file %s' % options.outputfile)
+        logging.info('Switching output to file %s' % options.outputfile)
         server.setLogFile(options.outputfile)
 
     server.addShare(options.shareName.upper(), options.sharePath, comment)
