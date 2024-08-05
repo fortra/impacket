@@ -295,7 +295,7 @@ class RegHandler:
                 vd = '\0'.join(self.__options.vd)
                 valueData = vd + 2 * '\0' # REG_MULTI_SZ ends with 2 null-bytes
             else:
-                vd = self.__options.vd[0]
+                vd = self.__options.vd[0] if len(self.__options.vd) > 0 else ''
                 if dwType in (
                     rrp.REG_DWORD, rrp.REG_DWORD_BIG_ENDIAN, rrp.REG_DWORD_LITTLE_ENDIAN,
                     rrp.REG_QWORD, rrp.REG_QWORD_LITTLE_ENDIAN
@@ -566,7 +566,7 @@ if __name__ == '__main__':
                             default='REG_SZ')
     add_parser.add_argument('-vd', action='append', metavar="VALUEDATA", required=False, help='Specifies the registry '
                            'value data that is to be set. In case of adding a REG_MULTI_SZ value, set this option once for each '
-                           'line you want to add.', default=[''])
+                           'line you want to add.', default=[])
 
     # An delete command
     delete_parser = subparsers.add_parser('delete', help='Deletes a subkey or entries from the registry')
