@@ -174,11 +174,15 @@ class GetUserSPNs:
 
         return TGT
 
-    def outputTGS(self, ticket, oldSessionKey, sessionKey, username, spn, fd=None):
+    def outputTGS(self, ticket, oldSessionKey, sessionKey, userPrincipalName, spn, fd=None):
         if self.__no_preauth:
             decodedTGS = decoder.decode(ticket, asn1Spec=AS_REP())[0]
         else:
             decodedTGS = decoder.decode(ticket, asn1Spec=TGS_REP())[0]
+
+        # remove domain part from DN and replace special character "/"
+        userPrincipalName = userPrincipalName.split('@')[0].replace('/','')
+
         # According to RFC4757 (RC4-HMAC) the cipher part is like:
         # struct EDATA {
         #       struct HEADER {
@@ -195,7 +199,7 @@ class GetUserSPNs:
         # ticket
         if decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.rc4_hmac.value:
             entry = '$krb5tgs$%d$*%s$%s$%s*$%s$%s' % (
-                constants.EncryptionTypes.rc4_hmac.value, username, decodedTGS['ticket']['realm'],
+                constants.EncryptionTypes.rc4_hmac.value, userPrincipalName, decodedTGS['ticket']['realm'],
                 spn.replace(':', '~'),
                 hexlify(decodedTGS['ticket']['enc-part']['cipher'][:16].asOctets()).decode(),
                 hexlify(decodedTGS['ticket']['enc-part']['cipher'][16:].asOctets()).decode())
@@ -205,7 +209,7 @@ class GetUserSPNs:
                 fd.write(entry + '\n')
         elif decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value:
             entry = '$krb5tgs$%d$%s$%s$*%s*$%s$%s' % (
-                constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value, username, decodedTGS['ticket']['realm'],
+                constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value, userPrincipalName, decodedTGS['ticket']['realm'],
                 spn.replace(':', '~'),
                 hexlify(decodedTGS['ticket']['enc-part']['cipher'][-12:].asOctets()).decode(),
                 hexlify(decodedTGS['ticket']['enc-part']['cipher'][:-12:].asOctets()).decode())
@@ -215,7 +219,7 @@ class GetUserSPNs:
                 fd.write(entry + '\n')
         elif decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value:
             entry = '$krb5tgs$%d$%s$%s$*%s*$%s$%s' % (
-                constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value, username, decodedTGS['ticket']['realm'],
+                constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value, userPrincipalName, decodedTGS['ticket']['realm'],
                 spn.replace(':', '~'),
                 hexlify(decodedTGS['ticket']['enc-part']['cipher'][-12:].asOctets()).decode(),
                 hexlify(decodedTGS['ticket']['enc-part']['cipher'][:-12:].asOctets()).decode())
@@ -225,7 +229,7 @@ class GetUserSPNs:
                 fd.write(entry + '\n')
         elif decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.des_cbc_md5.value:
             entry = '$krb5tgs$%d$*%s$%s$%s*$%s$%s' % (
-                constants.EncryptionTypes.des_cbc_md5.value, username, decodedTGS['ticket']['realm'],
+                constants.EncryptionTypes.des_cbc_md5.value, userPrincipalName, decodedTGS['ticket']['realm'],
                 spn.replace(':', '~'),
                 hexlify(decodedTGS['ticket']['enc-part']['cipher'][:16].asOctets()).decode(),
                 hexlify(decodedTGS['ticket']['enc-part']['cipher'][16:].asOctets()).decode())
@@ -240,11 +244,11 @@ class GetUserSPNs:
 
         if self.__saveTGS is True:
             # Save the ticket
-            logging.debug('About to save TGS for %s' % username)
+            logging.debug('About to save TGS for %s' % userPrincipalName)
             ccache = CCache()
             try:
                 ccache.fromTGS(ticket, oldSessionKey, sessionKey)
-                ccache.saveFile('%s.ccache' % username)
+                ccache.saveFile('%s.ccache' % userPrincipalName)
             except Exception as e:
                 logging.error(str(e))
 
@@ -318,7 +322,7 @@ class GetUserSPNs:
             paged_search_control = ldapasn1.SimplePagedResultsControl(criticality=True, size=1000)
 
             resp = ldapConnection.search(searchFilter=searchFilter,
-                                         attributes=['servicePrincipalName', 'sAMAccountName',
+                                         attributes=['servicePrincipalName', 'sAMAccountName', 'userPrincipalName',
                                                      'pwdLastSet', 'MemberOf', 'userAccountControl', 'lastLogon'],
                                          searchControls=[paged_search_control])
 
@@ -338,6 +342,7 @@ class GetUserSPNs:
                 continue
             mustCommit = False
             sAMAccountName = ''
+            userPrincipalName = ''
             memberOf = ''
             SPNs = []
             pwdLastSet = ''
@@ -349,6 +354,8 @@ class GetUserSPNs:
                     if str(attribute['type']) == 'sAMAccountName':
                         sAMAccountName = str(attribute['vals'][0])
                         mustCommit = True
+                    elif str(attribute['type']) == 'userPrincipalName':
+                        userPrincipalName = str(attribute['vals'][0])
                     elif str(attribute['type']) == 'userAccountControl':
                         userAccountControl = str(attribute['vals'][0])
                         if int(userAccountControl) & UF_TRUSTED_FOR_DELEGATION:
@@ -376,19 +383,19 @@ class GetUserSPNs:
                         logging.debug('Bypassing disabled account %s ' % sAMAccountName)
                     else:
                         for spn in SPNs:
-                            answers.append([spn, sAMAccountName, memberOf, pwdLastSet, lastLogon, delegation])
+                            answers.append([spn, sAMAccountName, userPrincipalName, memberOf, pwdLastSet, lastLogon, delegation])
             except Exception as e:
                 logging.error('Skipping item, cannot process due to error %s' % str(e))
                 pass
 
         if len(answers) > 0:
-            self.printTable(answers, header=["ServicePrincipalName", "Name", "MemberOf", "PasswordLastSet", "LastLogon",
+            self.printTable(answers, header=["ServicePrincipalName", "Name", "userPrincipalName", "MemberOf", "PasswordLastSet", "LastLogon",
                                              "Delegation"])
             print('\n\n')
 
             if self.__requestTGS is True or self.__requestUser is not None:
-                # Let's get unique user names and a SPN to request a TGS for
-                users = dict((vals[1], vals[0]) for vals in answers)
+                # Let's get unique user names
+                users = dict((vals[1], vals[2]) for vals in answers)
 
                 # Get a TGT for the current user
                 TGT = self.getTGT()
@@ -398,8 +405,7 @@ class GetUserSPNs:
                 else:
                     fd = None
 
-                for user, SPN in users.items():
-                    sAMAccountName = user
+                for sAMAccountName, userPrincipalName in users.items():
                     downLevelLogonName = self.__targetDomain + "\\" + sAMAccountName
 
                     try:
@@ -411,7 +417,7 @@ class GetUserSPNs:
                                                                                 self.__kdcIP,
                                                                                 TGT['KDC_REP'], TGT['cipher'],
                                                                                 TGT['sessionKey'])
-                        self.outputTGS(tgs, oldSessionKey, sessionKey, sAMAccountName,
+                        self.outputTGS(tgs, oldSessionKey, sessionKey, userPrincipalName,
                                        self.__targetDomain + "/" + sAMAccountName, fd)
                     except Exception as e:
                         logging.debug("Exception:", exc_info=True)
