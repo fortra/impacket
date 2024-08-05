@@ -702,7 +702,11 @@ def packValue(valueType, value):
             retData = value.decode(sys.getfilesystemencoding()).encode('utf-16le')
     elif valueType == REG_MULTI_SZ:
         try:
-            retData = (checkNullString(value)+'\x00').encode('utf-16le')
+            # REG_MULTI_SZ must end with 2 null-bytes
+            v = checkNullString(value)
+            if v[-2:] != '\x00':
+                v = v + '\x00'
+            retData = v.encode('utf-16le')
         except UnicodeDecodeError:
             import sys
             retData = value.decode(sys.getfilesystemencoding()).encode('utf-16le')
