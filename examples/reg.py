@@ -291,17 +291,22 @@ class RegHandler:
                 raise Exception('Error parsing value type %s' % self.__options.vt)
 
             #Fix (?) for packValue function
-            if dwType in (
-                rrp.REG_DWORD, rrp.REG_DWORD_BIG_ENDIAN, rrp.REG_DWORD_LITTLE_ENDIAN,
-                rrp.REG_QWORD, rrp.REG_QWORD_LITTLE_ENDIAN
-            ):
-                valueData = int(self.__options.vd)
-            elif dwType == rrp.REG_BINARY:
-                bin_value_len = len(self.__options.vd)
-                bin_value_len += (bin_value_len & 1)
-                valueData = binascii.a2b_hex(self.__options.vd.ljust(bin_value_len, '0'))
+            if dwType == rrp.REG_MULTI_SZ:
+                vd = '\0'.join(self.__options.vd)
+                valueData = vd + 2 * '\0' # REG_MULTI_SZ ends with 2 null-bytes
             else:
-                valueData = self.__options.vd + "\0" # Add a NULL Byte as terminator for Non Binary values
+                vd = self.__options.vd[0]
+                if dwType in (
+                    rrp.REG_DWORD, rrp.REG_DWORD_BIG_ENDIAN, rrp.REG_DWORD_LITTLE_ENDIAN,
+                    rrp.REG_QWORD, rrp.REG_QWORD_LITTLE_ENDIAN
+                ):
+                    valueData = int(vd)
+                elif dwType == rrp.REG_BINARY:
+                    bin_value_len = len(vd)
+                    bin_value_len += (bin_value_len & 1)
+                    valueData = binascii.a2b_hex(vd.ljust(bin_value_len, '0'))
+                else:
+                    valueData = vd + "\0" # Add a NULL Byte as terminator for Non Binary values
 
             ans3 = rrp.hBaseRegSetValue(
                 dce, ans2['phkResult'], self.__options.v, dwType, valueData
@@ -559,8 +564,9 @@ if __name__ == '__main__':
                            'type name that is to be set. Default is REG_SZ. Valid types are: REG_NONE, REG_SZ, REG_EXPAND_SZ, '
                            'REG_BINARY, REG_DWORD, REG_DWORD_BIG_ENDIAN, REG_LINK, REG_MULTI_SZ, REG_QWORD',
                             default='REG_SZ')
-    add_parser.add_argument('-vd', action='store', metavar="VALUEDATA", required=False, help='Specifies the registry '
-                           'value data that is to be set.', default='')
+    add_parser.add_argument('-vd', action='append', metavar="VALUEDATA", required=False, help='Specifies the registry '
+                           'value data that is to be set. In case of adding a REG_MULTI_SZ value, set this option once for each '
+                           'line you want to add.', default=[''])
 
     # An delete command
     delete_parser = subparsers.add_parser('delete', help='Deletes a subkey or entries from the registry')
