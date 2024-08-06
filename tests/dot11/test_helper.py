@@ -36,16 +36,16 @@ class TestHelpers(unittest.TestCase):
         p.three_bytes_field = 4
         p.long_field = 8
         
-        self.assertEqual(1, p.byte_field)
-        self.assertEqual(2, p.word_field)
-        self.assertEqual(4, p.three_bytes_field)
-        self.assertEqual(8, p.long_field)
+        self.assertEqual(p.byte_field, 1)
+        self.assertEqual(p.word_field, 2)
+        self.assertEqual(p.three_bytes_field, 4)
+        self.assertEqual(p.long_field, 8)
         
-        self.assertEqual(True, p.aliased_bit_field)
+        self.assertTrue(p.aliased_bit_field)
         
         p.aliased_bit_field = False
         
-        self.assertEqual(0, p.byte_field)
+        self.assertEqual(p.byte_field, 0)
         
         self.assertEqual(p.get_packet(), MockPacket(p.get_packet()).get_packet()) # it is the same packet after reprocessing.
         

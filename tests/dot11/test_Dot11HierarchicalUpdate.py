@@ -123,11 +123,11 @@ class TestDot11HierarchicalUpdate(unittest.TestCase):
         
         self.packet2.load_body(b"Header1**NewBody**Tail1")
 
-        self.assertEqual(self.packet1.parent(), None)
+        self.assertIsNone(self.packet1.parent())
         self.assertEqual(self.packet2.parent(), self.packet3)
         
         self.assertEqual(self.packet3.child(), self.packet2)
-        self.assertEqual(self.packet2.child(), None)
+        self.assertIsNone(self.packet2.child())
     
         self.assertEqual(self.packet1.body.get_buffer_as_string(), b"Body1")
         self.assertEqual(self.packet2.body.get_buffer_as_string(), b"Header1**NewBody**Tail1")

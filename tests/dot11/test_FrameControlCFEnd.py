@@ -18,20 +18,17 @@ class TestDot11FrameControlCFEnd(unittest.TestCase):
         self.frame_orig=b'\xe4\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x19\xe0\x98\x04\xd4\xad\x9c\x3c\xc0'
 
         d = Dot11(self.frame_orig)
-        
-        type = d.get_type()
-        self.assertEqual(type,Dot11Types.DOT11_TYPE_CONTROL)
-        
-        subtype = d.get_subtype()
-        self.assertEqual(subtype,Dot11Types.DOT11_SUBTYPE_CONTROL_CF_END)
-        
-        typesubtype = d.get_type_n_subtype()
-        self.assertEqual(typesubtype,Dot11Types.DOT11_TYPE_CONTROL_SUBTYPE_CF_END)
-            
+
         self.cfend = Dot11ControlFrameCFEnd(d.get_body_as_string())
             
         d.contains(self.cfend)
-        
+
+    def test_setups(self):
+        d = Dot11(self.frame_orig)
+        self.assertEqual(d.get_type(), Dot11Types.DOT11_TYPE_CONTROL)
+        self.assertEqual(d.get_subtype(), Dot11Types.DOT11_SUBTYPE_CONTROL_CF_END)
+        self.assertEqual(d.get_type_n_subtype(), Dot11Types.DOT11_TYPE_CONTROL_SUBTYPE_CF_END)
+
     def test_01_HeaderTailSize(self):
         'Test Header and Tail Size field'
         self.assertEqual(self.cfend.get_header_size(), 14)
