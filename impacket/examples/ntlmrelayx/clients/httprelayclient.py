@@ -58,6 +58,9 @@ class HTTPRelayClient(ProtocolClient):
         res.read()
         if res.status != 401:
             LOG.info('Status code returned: %d. Authentication does not seem required for URL' % res.status)
+            if self.serverConfig.sccm_dp_dump:
+                LOG.info('Anonymous Authentication appears to be enabled in the SCCM Distribution Point :), Use https://gitlab.com/badsectorlabs/sccmlooter instead! Its faster (golang)')
+                return None, STATUS_SUCCESS
         try:
             if 'NTLM' not in res.getheader('WWW-Authenticate') and 'Negotiate' not in res.getheader('WWW-Authenticate'):
                 LOG.error('NTLM Auth not offered by URL, offered protocols: %s' % res.getheader('WWW-Authenticate'))

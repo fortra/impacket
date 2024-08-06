@@ -101,6 +101,10 @@ class NTLMRelayxConfig:
         self.ShadowCredentialsExportType = None
         self.ShadowCredentialsOutfilePath = None
 
+        # SCCM attack options
+        self.isSCCMAttack = False
+        self.sccm_dp_dump = None
+
     def setSMBChallenge(self, value):
         self.SMBServerChallenge = value
 
@@ -244,6 +248,13 @@ class NTLMRelayxConfig:
 
     def setAltName(self, altName):
         self.altName = altName
+
+    def setIsSCCMAttack(self, isSCCMAttack):
+        self.isSCCMAttack = isSCCMAttack
+
+    def setSCCMOptions(self, sccm_dp_dump):
+        self.sccm_dp_dump = sccm_dp_dump
+    
 
 def parse_listening_ports(value):
     ports = set()
