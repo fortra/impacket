@@ -294,6 +294,7 @@ class RegHandler:
             if dwType == rrp.REG_MULTI_SZ:
                 vd = '\0'.join(self.__options.vd)
                 valueData = vd + 2 * '\0' # REG_MULTI_SZ ends with 2 null-bytes
+                valueDataToPrint = vd.replace('\0', '\n')
             else:
                 vd = self.__options.vd[0] if len(self.__options.vd) > 0 else ''
                 if dwType in (
@@ -307,6 +308,7 @@ class RegHandler:
                     valueData = binascii.a2b_hex(vd.ljust(bin_value_len, '0'))
                 else:
                     valueData = vd + "\0" # Add a NULL Byte as terminator for Non Binary values
+                valueDataToPrint = valueData
 
             ans3 = rrp.hBaseRegSetValue(
                 dce, ans2['phkResult'], self.__options.v, dwType, valueData
@@ -314,11 +316,11 @@ class RegHandler:
 
             if ans3['ErrorCode'] == 0:
                 print('Successfully set key %s\\%s of type %s to value %s' % (
-                    keyName, self.__options.v, self.__options.vt, valueData
+                    keyName, self.__options.v, self.__options.vt, valueDataToPrint
                 ))
             else:
                 print('Error 0x%08x while setting key %s\\%s of type %s to value %s' % (
-                    ans3['ErrorCode'], keyName, self.__options.v, self.__options.vt, valueData
+                    ans3['ErrorCode'], keyName, self.__options.v, self.__options.vt, valueDataToPrint
                 ))
 
     def delete(self, dce, keyName):
@@ -512,7 +514,7 @@ class RegHandler:
                 except:
                     print(" NULL")
             elif valueType == rrp.REG_MULTI_SZ:
-                print("%s" % (valueData.decode('utf-16le')[:-2]))
+                print("%s" % (valueData.decode('utf-16le')[:-2].replace('\0', '\n')))
             else:
                 print("Unknown Type 0x%x!" % valueType)
                 hexdump(valueData)
