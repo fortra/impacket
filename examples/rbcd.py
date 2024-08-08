@@ -413,6 +413,7 @@ def parse_args():
                         help='Action to operate on msDS-AllowedToActOnBehalfOfOtherIdentity')
 
     parser.add_argument('-use-ldaps', action='store_true', help='Use LDAPS instead of LDAP')
+    parser.add_argument('-use-channel-binding', action='store_true', help='Enable LDAPS Channel Binding during NTLM authentication')
 
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
@@ -491,14 +492,20 @@ def init_ldap_connection(target, tls_version, args, domain, username, password, 
         port = 389
         tls = None
     ldap_server = ldap3.Server(target, get_info=ldap3.ALL, port=port, use_ssl=use_ssl, tls=tls)
+    channel_binding = dict()
+    if args.use_channel_binding:
+        if hasattr(ldap3, 'TLS_CHANNEL_BINDING'):
+            channel_binding = dict(channel_binding=ldap3.TLS_CHANNEL_BINDING)
+        else:
+            raise RuntimeError('To use LDAP channel binding, install the patched ldap3 module: pip3 install git+https://github.com/ly4k/ldap3')
     if args.k:
         ldap_session = ldap3.Connection(ldap_server)
         ldap_session.bind()
         ldap3_kerberos_login(ldap_session, target, username, password, domain, lmhash, nthash, args.aesKey, kdcHost=args.dc_ip)
     elif args.hashes is not None:
-        ldap_session = ldap3.Connection(ldap_server, user=user, password=lmhash + ":" + nthash, authentication=ldap3.NTLM, auto_bind=True)
+        ldap_session = ldap3.Connection(ldap_server, user=user, password=lmhash + ":" + nthash, authentication=ldap3.NTLM, auto_bind=True, **channel_binding)
     else:
-        ldap_session = ldap3.Connection(ldap_server, user=user, password=password, authentication=ldap3.NTLM, auto_bind=True)
+        ldap_session = ldap3.Connection(ldap_server, user=user, password=password, authentication=ldap3.NTLM, auto_bind=True, **channel_binding)
 
     return ldap_server, ldap_session
 
