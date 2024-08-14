@@ -3982,7 +3982,7 @@ class SMB(object):
                         findNextParameter['SID'] = sid
                         findNextParameter['SearchCount'] = 1024
                         findNextParameter['InformationLevel'] = SMB_FIND_FILE_BOTH_DIRECTORY_INFO
-                        findNextParameter['ResumeKey'] = 0
+                        findNextParameter['ResumeKey'] = record["FileIndex"]
                         findNextParameter['Flags'] = SMB_FIND_RETURN_RESUME_KEYS | SMB_FIND_CLOSE_AT_EOS
                         if self.__flags2 & SMB.FLAGS2_UNICODE:
                             findNextParameter['FileName'] = resume_filename + b'\x00\x00'
