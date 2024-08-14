@@ -686,7 +686,7 @@ class RSetServiceObjectSecurity(NDRCALL):
     structure = (
         ('hService',SC_RPC_HANDLE),
         ('dwSecurityInformation',SECURITY_INFORMATION),
-        ('lpSecurityDescriptor',LPBYTE),
+        ('lpSecurityDescriptor',BYTE_ARRAY),
         ('cbBufSize',DWORD),
     )
 
@@ -1203,6 +1203,7 @@ def hRSetServiceObjectSecurity(dce, hService, dwSecurityInformation, lpSecurityD
     request = RSetServiceObjectSecurity()
     request['hService'] = hService
     request['dwSecurityInformation'] = dwSecurityInformation
+    request['lpSecurityDescriptor'] = lpSecurityDescriptor
     request['cbBufSize'] = cbBufSize
     return dce.request(request)
 
