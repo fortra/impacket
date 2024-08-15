@@ -456,7 +456,6 @@ class Registry:
             if valueName is not  given, keyValue must be a string containing the full path to the value
             if valueName is given, keyValue should be the string containing the path to the key containing valueName
         """
-        key = None
         if valueName is None:
             regKey   = ntpath.dirname(keyValue)
             regValue = ntpath.basename(keyValue)
