@@ -454,9 +454,7 @@ class Registry:
         """ returns a tuple with (ValueType, ValueData) for the requested keyValue
             valueName is the name of the value (which can contain '\\')
             if valueName is not  given, keyValue must be a string containing the full path to the value
-            if valueName is given, keyValue can be:
-                either a string containting the path to the key conaitning valueName,
-                or a instance of REG_NK containing the key itself (as returned by findKey())
+            if valueName is given, keyValue should be the string containing the path to the key containing valueName
         """
         key = None
         if valueName is None:
