@@ -500,12 +500,7 @@ if __name__ == '__main__':
     if options.no_multirelay:
         logging.info("Multirelay disabled")
     else:
-        if not options.no_smb_server and not options.no_http_server:
-            logging.info("Multirelay enabled for HTTP and SMB servers")
-        elif not options.no_smb_server:
-            logging.info("Multirelay enabled for SMB server")
-        elif not options.no_http_server:
-            logging.info("Multirelay enabled for HTTP server")
+        logging.info("Multirelay enabled")
 
     print("")
     logging.info("Servers started, waiting for connections")
