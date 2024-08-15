@@ -463,8 +463,7 @@ class Registry:
             regKey = keyValue
             regValue = valueName
 
-        if key is None:
-            key = self.findKey(regKey)
+        key = self.findKey(regKey)
 
         if key is None:
             return None
