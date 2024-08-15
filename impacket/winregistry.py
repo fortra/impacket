@@ -461,10 +461,7 @@ class Registry:
             regKey   = ntpath.dirname(keyValue)
             regValue = ntpath.basename(keyValue)
         else:
-            if isinstance(keyValue, REG_NK):
-                key = keyValue
-            else:
-                regKey = keyValue
+            regKey = keyValue
             regValue = valueName
 
         if key is None:
