@@ -496,6 +496,12 @@ if __name__ == '__main__':
 
     c = start_servers(options, threads)
 
+    # Log multirelay flag status
+    if options.no_multirelay:
+        logging.info("Multirelay disabled")
+    else:
+        logging.info("Multirelay enabled")
+
     print("")
     logging.info("Servers started, waiting for connections")
     try:
