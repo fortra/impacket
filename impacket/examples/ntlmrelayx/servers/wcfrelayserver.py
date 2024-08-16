@@ -348,12 +348,12 @@ class WCFRelayServer(Thread):
         self.server = None
 
     def run(self):
-        LOG.info("Setting up WCF Server")
-
         if self.config.listeningPort:
             wcfport = self.config.listeningPort
         else:
             wcfport = 9389  # ADWS
+
+        LOG.info("Setting up WCF Server on port %s" % wcfport)
 
         # changed to read from the interfaceIP set in the configuration
         self.server = self.WCFServer((self.config.interfaceIp, wcfport), self.WCFHandler, self.config)

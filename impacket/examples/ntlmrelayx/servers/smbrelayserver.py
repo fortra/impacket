@@ -923,6 +923,6 @@ class SMBRelayServer(Thread):
         self.server.server_close()
 
     def run(self):
-        LOG.info("Setting up SMB Server")
+        LOG.info("Setting up SMB Server on port %s" % self.server.server_address[1])
         self._start()
 
