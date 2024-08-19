@@ -87,7 +87,7 @@ def enumValues(reg, searchKey):
 
     for value in values:
         print("  %-30s: " % value, end=' ')
-        data = reg.getValue('%s\\%s'%(searchKey,value.decode('utf-8')))
+        data = reg.getValue(searchKey, value.decode('utf-8'))
         # Special case for binary string.. so it looks better formatted
         if data[0] == winregistry.REG_BINARY:
             print('')

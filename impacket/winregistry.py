@@ -451,10 +451,18 @@ class Registry:
 
         return resp
 
-    def getValue(self, keyValue):
-        # returns a tuple with (ValueType, ValueData) for the requested keyValue
-        regKey = ntpath.dirname(keyValue)
-        regValue = ntpath.basename(keyValue)
+    def getValue(self, keyValue, valueName=None):
+        """ returns a tuple with (ValueType, ValueData) for the requested keyValue
+            valueName is the name of the value (which can contain '\\')
+            if valueName is not  given, keyValue must be a string containing the full path to the value
+            if valueName is given, keyValue should be the string containing the path to the key containing valueName
+        """
+        if valueName is None:
+            regKey   = ntpath.dirname(keyValue)
+            regValue = ntpath.basename(keyValue)
+        else:
+            regKey = keyValue
+            regValue = valueName
 
         key = self.findKey(regKey)
 
