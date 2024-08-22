@@ -51,7 +51,7 @@ import random
 import struct
 import sys
 from binascii import hexlify, unhexlify
-from six import b
+from six import ensure_binary
 
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type.univ import noValue
@@ -414,7 +414,7 @@ class GETST:
         clientName = Principal(self.__options.impersonate, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
 
         S4UByteArray = struct.pack('<I', constants.PrincipalNameType.NT_PRINCIPAL.value)
-        S4UByteArray += b(self.__options.impersonate) + b(self.__domain) + b'Kerberos'
+        S4UByteArray += ensure_binary(self.__options.impersonate) + ensure_binary(self.__domain) + b'Kerberos'
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('S4UByteArray')
