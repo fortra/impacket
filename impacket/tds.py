@@ -1015,18 +1015,18 @@ class MSSQL:
                 self.__rowsPrinter.logMessage(col['Format'] % row[col['Name']] + self.COL_SEPARATOR)
             self.__rowsPrinter.logMessage('\n')
 
-    def printReplies(self):
+    def printReplies(self, error_logger=LOG.error, info_logger=LOG.info):
         for keys in list(self.replies.keys()):
             for i, key in enumerate(self.replies[keys]):
                 if key['TokenType'] == TDS_ERROR_TOKEN:
-                    error =  "ERROR(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le'))                                      
-                    self.lastError = SQLErrorException("ERROR: Line %d: %s" % (key['LineNumber'], key['MsgText'].decode('utf-16le')))
+                    self.lastError = SQLErrorException("ERROR(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le')))
+                    error_logger(self.lastError)
 
                 elif key['TokenType'] == TDS_INFO_TOKEN:
-                    LOG.info("INFO(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le')))
+                    info_logger("INFO(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le')))
 
                 elif key['TokenType'] == TDS_LOGINACK_TOKEN:
-                    LOG.info("ACK: Result: %s - %s (%d%d %d%d) " % (key['Interface'], key['ProgName'].decode('utf-16le'), key['MajorVer'], key['MinorVer'], key['BuildNumHi'], key['BuildNumLow']))
+                    info_logger("ACK: Result: %s - %s (%d%d %d%d) " % (key['Interface'], key['ProgName'].decode('utf-16le'), key['MajorVer'], key['MinorVer'], key['BuildNumHi'], key['BuildNumLow']))
 
                 elif key['TokenType'] == TDS_ENVCHANGE_TOKEN:
                     if key['Type'] in (TDS_ENVCHANGE_DATABASE, TDS_ENVCHANGE_LANGUAGE, TDS_ENVCHANGE_CHARSET, TDS_ENVCHANGE_PACKETSIZE):
@@ -1045,7 +1045,7 @@ class MSSQL:
                             _type = 'PACKETSIZE'
                         else:
                             _type = "%d" % key['Type']                 
-                        LOG.info("ENVCHANGE(%s): Old Value: %s, New Value: %s" % (_type,record['OldValue'].decode('utf-16le'), record['NewValue'].decode('utf-16le')))
+                        info_logger("ENVCHANGE(%s): Old Value: %s, New Value: %s" % (_type,record['OldValue'].decode('utf-16le'), record['NewValue'].decode('utf-16le')))
        
     def parseRow(self,token,tuplemode=False):
         # TODO: This REALLY needs to be improved. Right now we don't support correctly all the data types

@@ -43,13 +43,9 @@ class MSSQLAttack(ProtocolAttack):
         if self.config.queries is not None:
             for query in self.config.queries:
                 LOG.info('Executing SQL: %s' % query)
-                try:
-                    self.client.sql_query(query)
-                    self.client.printReplies()
-                    self.client.printRows()
-                finally:
-                    if(self.client.lastError):
-                        print(self.client.lastError)
+                self.client.sql_query(query)
+                self.client.printReplies()
+                self.client.printRows()
         else:
             LOG.error('No SQL queries specified for MSSQL relay!')
 
