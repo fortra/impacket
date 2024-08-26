@@ -28,11 +28,13 @@ https://github.com/fortra/impacket/commits/master
     * [ntlmrelayx.py](examples/ntlmrelayx.py):
         * Added the creation of a new machine account through SMB (@BlWasp)
         * NTLMRelayX Multirelay fixes for target handling (@alexisbalbachan)
+        * Logging multirelay status when triggering the example (@gabrielg5)
         * Writes certificates to file rather than outputting b64 to console (@RazzburyPi)
         * Improved ability to continue relaying to ADCS web enrollment endpoint in order to request multiple certificates for different users (@RazzburyPi)
         * Fixed compatibility issue with other SMB clients connecting to the SOCKS proxy created by ntlmrelayx (@jfjallid)
         * Allow configuration of the SOCKS5 address and port (@rtpt-erikgeiser)
         * Fixed implementation of MSSQLShell (@gabrielg5)
+        * Logging notification of received connections in all relay servers (@gabrielg5)
     * [getST.py](examples/getST.py):
         * Added -self, -altservice and -u2u  for S4U2self abuse, S4U2self+u2u, and service substitution (@ShutdownRepo)
     * [reg.py](examples/reg.py):
