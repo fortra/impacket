@@ -23,8 +23,8 @@
 #   Itamar (@MrAnde7son)
 #
 from impacket import system_errors
-from impacket.dcerpc.v5.dtypes import WSTR, DWORD, LPWSTR, ULONG, LARGE_INTEGER, WORD, BYTE
-from impacket.dcerpc.v5.ndr import NDRCALL, NDRPOINTER, NDRUniConformantArray, NDRUniVaryingArray, NDRSTRUCT
+from impacket.dcerpc.v5.dtypes import WSTR, DWORD, LPWSTR, ULONG, LARGE_INTEGER, WORD, BYTE, UUID
+from impacket.dcerpc.v5.ndr import NDRCALL, NDRPOINTER, NDRUniConformantArray, NDRUniVaryingArray, NDRSTRUCT, NULL
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.uuid import uuidtup_to_bin
 
@@ -43,6 +43,15 @@ class DCERPCSessionError(DCERPCException):
         else:
             return 'EVEN6 SessionError: unknown error code: 0x%x' % self.error_code
 
+def checkNullString(string):
+    if string == NULL:
+        return string
+
+    if string[-1:] != '\x00':
+        return string + '\x00'
+    else:
+        return string
+
 ################################################################################
 # CONSTANTS
 ################################################################################
@@ -57,22 +66,28 @@ EvtReadNewestToOldest = 0x00000200
 # STRUCTURES
 ################################################################################
 
-class CONTEXT_HANDLE_LOG_HANDLE(NDRSTRUCT):
-    align = 1
+class handle_t(NDRSTRUCT):
     structure = (
-        ('Data', '20s=""'),
+         ('context_handle_attributes',ULONG),
+         ('context_handle_uuid',UUID),
     )
+
+    def __init__(self, data=None, isNDR64=False):
+        NDRSTRUCT.__init__(self, data, isNDR64)
+        self['context_handle_uuid'] = b'\x00'*16
+
+    def isNull(self):
+        return self['context_handle_uuid'] == b'\x00'*16
+
+
+CONTEXT_HANDLE_LOG_HANDLE = handle_t
 
 class PCONTEXT_HANDLE_LOG_HANDLE(NDRPOINTER):
     referent = (
         ('Data', CONTEXT_HANDLE_LOG_HANDLE),
     )
 
-class CONTEXT_HANDLE_LOG_QUERY(NDRSTRUCT):
-    align = 1
-    structure = (
-        ('Data', '20s=""'),
-    )
+CONTEXT_HANDLE_LOG_QUERY = handle_t
 
 class PCONTEXT_HANDLE_LOG_QUERY(NDRPOINTER):
     referent = (
@@ -84,11 +99,7 @@ class LPPCONTEXT_HANDLE_LOG_QUERY(NDRPOINTER):
         ('Data', PCONTEXT_HANDLE_LOG_QUERY),
     )
 
-class CONTEXT_HANDLE_OPERATION_CONTROL(NDRSTRUCT):
-    align = 1
-    structure = (
-        ('Data', '20s=""'),
-    )
+CONTEXT_HANDLE_OPERATION_CONTROL = handle_t
 
 class PCONTEXT_HANDLE_OPERATION_CONTROL(NDRPOINTER):
     referent = (
@@ -192,6 +203,16 @@ class RESULT_SET(NDRSTRUCT):
 # RPC CALLS
 ################################################################################
 
+class EvtRpcRegisterControllableOperation(NDRCALL):
+    opnum = 4
+    structure = ()
+
+class EvtRpcRegisterControllableOperationResponse(NDRCALL):
+    structure = (
+        ('Handle', CONTEXT_HANDLE_OPERATION_CONTROL),
+        ('Error', DWORD),
+    )
+
 class EvtRpcRegisterLogQuery(NDRCALL):
     opnum = 5
     structure = (
@@ -207,7 +228,21 @@ class EvtRpcRegisterLogQueryResponse(NDRCALL):
         ('QueryChannelInfoSize', DWORD),
         ('QueryChannelInfo', EvtRpcQueryChannelInfoArray),
         ('Error', RPC_INFO),
-        )
+    )
+
+class EvtRpcClearLog(NDRCALL):
+    opnum = 6
+    structure = (
+        ('Handle', CONTEXT_HANDLE_OPERATION_CONTROL),
+        ('ChannelPath', WSTR),
+        ('BackupPath', WSTR),
+        ('Flags', DWORD),
+    )
+
+class EvtRpcClearLogResponse(NDRCALL):
+    structure = (
+        ('Error', RPC_INFO),
+    )
 
 class EvtRpcQueryNext(NDRCALL):
     opnum = 11
@@ -285,7 +320,9 @@ class EvtRpcGetChannelListResponse(NDRCALL):
 ################################################################################
 
 OPNUMS = {
+    4   : (EvtRpcRegisterControllableOperation, EvtRpcRegisterControllableOperationResponse),
     5   : (EvtRpcRegisterLogQuery, EvtRpcRegisterLogQueryResponse),
+    6   : (EvtRpcClearLog, EvtRpcClearLogResponse),
     11  : (EvtRpcQueryNext,  EvtRpcQueryNextResponse),
     12  : (EvtRpcQuerySeek, EvtRpcQuerySeekResponse),
     13  : (EvtRpcClose, EvtRpcCloseResponse),
@@ -297,12 +334,25 @@ OPNUMS = {
 # HELPER FUNCTIONS
 ################################################################################
 
+def hEvtRpcRegisterControllableOperation(dce):
+    request = EvtRpcRegisterControllableOperation()
+    resp = dce.request(request)
+    return resp
+
 def hEvtRpcRegisterLogQuery(dce, path, flags, query='*\x00'):
     request = EvtRpcRegisterLogQuery()
-
-    request['Path'] = path
+    request['Path'] = checkNullString(path)
     request['Query'] = query
     request['Flags'] = flags
+    resp = dce.request(request)
+    return resp
+
+def hEvtRpcClearLog(dce, handle, path):
+    request = EvtRpcClearLog()
+    request['Handle'] = handle
+    request['ChannelPath'] = checkNullString(path)
+    request['BackupPath'] = NULL
+    request['Flags'] = 0
     resp = dce.request(request)
     return resp
 
@@ -334,8 +384,7 @@ def hEvtRpcClose(dce, handle):
 
 def hEvtRpcOpenLogHandle(dce, channel, flags):
     request = EvtRpcOpenLogHandle()
-
-    request['Channel'] = channel
+    request['Channel'] = checkNullString(channel)
     request['Flags'] = flags
     return dce.request(request)
 
