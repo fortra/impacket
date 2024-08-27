@@ -38,12 +38,6 @@ except Exception:
     logging.critical("Warning: You don't have any crypto installed. You need pycryptodomex")
     logging.critical("See https://pypi.org/project/pycryptodomex/")
 
-# If you wanna have readline like functionality in Windows, install pyreadline
-try:
-  import pyreadline as readline
-except ImportError:
-  import readline
-
 
 mimikatz_intro = r"""Type help for list of commands"""
 

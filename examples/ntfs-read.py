@@ -34,11 +34,6 @@ import struct
 import argparse
 import cmd
 import ntpath
-# If you wanna have readline like functionality in Windows, install pyreadline
-try:
-  import pyreadline as readline
-except ImportError:
-  import readline
 from six import PY2, text_type
 from datetime import datetime
 from impacket.examples import logger
