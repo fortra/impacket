@@ -7,7 +7,7 @@ https://github.com/fortra/impacket/commits/master
 
 ## Impacket v0.12.0-dev:
 1. Library improvements
-    * Fix broken hRSetServiceObjectSecurity method. (@rkivys)
+    * Fixed broken hRSetServiceObjectSecurity method (@rkivys)
     * Removed dsinternals dependency (@anadrianmanrique)
     * Fixed srvs.hNetrShareEnum returning erronous shares (@cnotin)
     * Fixed lmhash computing to support non standard characters in the password (@anadrianmanrique)
@@ -31,7 +31,7 @@ https://github.com/fortra/impacket/commits/master
         * Added the creation of a new machine account through SMB (@BlWasp)
         * NTLMRelayX Multirelay fixes for target handling, added --keep-relaying flag (@alexisbalbachan)
         * Logging multirelay status when triggering the example (@gabrielg5)
-        * Writes certificates to file rather than outputting b64 to console (@RazzburyPi)
+        * Write certificates to file rather than outputting b64 to console (@RazzburyPi)
         * Improved ability to continue relaying to ADCS web enrollment endpoint in order to request multiple certificates for different users (@RazzburyPi)
         * Fixed compatibility issue with other SMB clients connecting to the SOCKS proxy created by ntlmrelayx (@jfjallid)
         * Allow configuration of the SOCKS5 address and port (@rtpt-erikgeiser)
@@ -44,7 +44,7 @@ https://github.com/fortra/impacket/commits/master
         * Added principalType as new parameter (@DevSpork)
     * [reg.py](examples/reg.py):
         * Start remote registry as unprivileged user in reg.py (@dadevel)
-        * Allowing adding Binary values (@dc3l1ne)
+        * Allow adding Binary values (@dc3l1ne)
         * Add missing Null byte for REG_SZ values (@PfiatDe)
         * Support for adding REG_MULTI_SZ values through (@garbrielg5)
     * [smbclient.py](examples/smbclient.py):
@@ -61,7 +61,7 @@ https://github.com/fortra/impacket/commits/master
      	* Added `-target-ip` parameter to allow Kerberos authentication without much change in the DNS configuration of the local machine (@Palkovsky)
     * [mssqlshell.py](examples/mssqlshell.py):
     	* Switching back to original DB after running `enum_impersonate` command (@exploide)
-        * Fixing logging in printReplies showing error messages (@gabrielg5)
+        * Fixed logging in printReplies showing error messages (@gabrielg5)
     * [registry-read.py](examples/registry-read.py):
      	* Fixed scenario where value name contains backlash (@DidierA)
     * [net.py](examples/net.py):
