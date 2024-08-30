@@ -696,7 +696,7 @@ class CCache:
 
         credential['time'] = Times()
 
-        credential['time']['authtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['starttime']))
+        credential['time']['authtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['authtime']))
         credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['starttime']))
         credential['time']['endtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['endtime']))
         # After KB4586793 for CVE-2020-17049 this timestamp may be omitted
@@ -736,6 +736,7 @@ class CCache:
 
         krbCredInfo['flags'] = credential['tktflags']
 
+        krbCredInfo['authtime'] = KerberosTime.to_asn1(datetime.utcfromtimestamp(credential['time']['authtime']))
         krbCredInfo['starttime'] = KerberosTime.to_asn1(datetime.utcfromtimestamp(credential['time']['starttime']))
         krbCredInfo['endtime'] = KerberosTime.to_asn1(datetime.utcfromtimestamp(credential['time']['endtime']))
         krbCredInfo['renew-till'] = KerberosTime.to_asn1(datetime.utcfromtimestamp(credential['time']['renew_till']))
@@ -756,7 +757,7 @@ class CCache:
         krbCred['msg-type'] = 22
 
         krbCred['enc-part'] = noValue
-        krbCred['enc-part']['etype'] = 0
+        krbCred['enc-part']['etype'] = credential['key']['keytype']
         krbCred['enc-part']['cipher'] = encoder.encode(encKrbCredPart)
 
         ticket = decoder.decode(credential.ticket['data'], asn1Spec=Ticket())[0]
