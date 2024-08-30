@@ -7,6 +7,7 @@ https://github.com/fortra/impacket/commits/master
 
 ## Impacket v0.12.0-dev:
 1. Library improvements
+    * Fix broken hRSetServiceObjectSecurity method. (@rkivys)
     * Removed dsinternals dependency (@anadrianmanrique)
     * Fixed srvs.hNetrShareEnum returning erronous shares (@cnotin)
     * Fixed lmhash computing to support non standard characters in the password (@anadrianmanrique)
@@ -15,7 +16,7 @@ https://github.com/fortra/impacket/commits/master
     * Fixed incorrect padding in SMBSessionSetupAndX_Extended_ResponseData (@rtpt-erikgeiser)
     * Upgraded dependency pyreadline -> pyreadline3 (@anadrianmanrique)
 
-2. Examples improvements
+3. Examples improvements
     * [secretsdump.py](examples/secretsdump.py):
         * Double DC Sync performance for DCs supporting SID lookups (@tomspencer)
         * Added ability to skip dumping of SAM or SECURITY hives when performing remote operations (@RazzburyPi)
@@ -28,7 +29,7 @@ https://github.com/fortra/impacket/commits/master
         * Fix kerberos with remoteHost & add '-target-ip'(@XiaoliChan)
     * [ntlmrelayx.py](examples/ntlmrelayx.py):
         * Added the creation of a new machine account through SMB (@BlWasp)
-        * NTLMRelayX Multirelay fixes for target handling (@alexisbalbachan)
+        * NTLMRelayX Multirelay fixes for target handling, added --keep-relaying flag (@alexisbalbachan)
         * Logging multirelay status when triggering the example (@gabrielg5)
         * Writes certificates to file rather than outputting b64 to console (@RazzburyPi)
         * Improved ability to continue relaying to ADCS web enrollment endpoint in order to request multiple certificates for different users (@RazzburyPi)
@@ -38,13 +39,19 @@ https://github.com/fortra/impacket/commits/master
         * Logging notification of received connections in all relay servers (@gabrielg5)
     * [getST.py](examples/getST.py):
         * Added -self, -altservice and -u2u  for S4U2self abuse, S4U2self+u2u, and service substitution (@ShutdownRepo)
+        * Added ability to set the RENEW ticket option to renew a TGT (@shikatano)
+    * [getTGT.py](examples/getTGT.py):
+        * Added principalType as new parameter (@DevSpork)
     * [reg.py](examples/reg.py):
         * Start remote registry as unprivileged user in reg.py (@dadevel)
         * Allowing adding Binary values (@dc3l1ne)
         * Add missing Null byte for REG_SZ values (@PfiatDe)
+        * Support for adding REG_MULTI_SZ values through (@garbrielg5)
     * [smbclient.py](examples/smbclient.py):
     	* Added ability to provide an output file that the smbclient mini shell will write commands and output to (@RazzburyPi)
      	* Fixed path parse issue when running `tree` command (@trietend)
+    * [smbserver.py](examples/smbserver.py):
+        * Added parameter "-outputfile" to set smbserver log file(gabrielg5) 
     * [DumpNTLMInfo.py](examples/DumpNTLMInfo.py):
     	* Allow execution on non-default ports (@jeffmcjunkin)
      	* Fixed KeyError exception when running with a Windows 2003 target (@XiaoliChan)
@@ -54,12 +61,15 @@ https://github.com/fortra/impacket/commits/master
      	* Added `-target-ip` parameter to allow Kerberos authentication without much change in the DNS configuration of the local machine (@Palkovsky)
     * [mssqlshell.py](examples/mssqlshell.py):
     	* Switching back to original DB after running `enum_impersonate` command (@exploide)
-     * [registry-read.py](examples/registry-read.py):
+        * Fixing logging in printReplies showing error messages (@gabrielg5)
+    * [registry-read.py](examples/registry-read.py):
      	* Fixed scenario where value name contains backlash (@DidierA)
-     * [net.py](examples/net.py):
+    * [net.py](examples/net.py):
      	* Fixed User "Account Active" property value (@marcobarlottini)
+    * [rbcd.py](examples/rbcd.py):
+        * Handled SID not found in LDAP error (@ShutdownRepo)
 
-3. New examples
+4. New examples
     * [describeTicket.py](examples/describeTicket.py): Ticket describer and decrypter. (@ShutdownRepo)
     * [GetADComputers.py](examples/GetADComputers.py): Query's DC via LDAP and returns the COMPUTER objects and the useful attributes such as full dns name, operating system name and version. (@F-Masood)
     * [GetLAPSPassword.py](examples/GetLAPSPassword.py): Extract LAPS passwords from LDAP (@zblurx and @dru1d-foofus)
@@ -67,7 +77,7 @@ https://github.com/fortra/impacket/commits/master
 
 As always, thanks a lot to all these contributors that make this library better every day (up to now):
 
-@tomspencer @anadrianmanrique @ShutdownRepo @dadevel @gjhami @NtAlexio2 @F-Masood @BlWasp @gabrielg5 @XiaoliChan @omry99 @Wlayzz @themaks @alexisbalbachan @RazzburyPi @jeffmcjunkin @p0dalirius @dc3l1ne @jfjallid @Palkovsky @rtpt-erikgeiser @trietend @zblurx @dru1d-foofus @PfiatDe @DidierA @marcobarlottini
+@tomspencer @anadrianmanrique @ShutdownRepo @dadevel @gjhami @NtAlexio2 @F-Masood @BlWasp @gabrielg5 @XiaoliChan @omry99 @Wlayzz @themaks @alexisbalbachan @RazzburyPi @jeffmcjunkin @p0dalirius @dc3l1ne @jfjallid @Palkovsky @rtpt-erikgeiser @trietend @zblurx @dru1d-foofus @PfiatDe @DidierA @marcobarlottini @PeterGabaldon @m8r1us @5yn @tzuralon 
 
 	  
 ## Impacket v0.11.0 (Aug 2023):
