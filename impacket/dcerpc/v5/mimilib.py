@@ -35,7 +35,17 @@ from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.uuid import uuidtup_to_bin
 from impacket.structure import Structure
 
-MSRPC_UUID_MIMIKATZ   = uuidtup_to_bin(('17FC11E9-C258-4B8D-8D07-2F4125156244', '1.0'))
+
+# Define the default RPC server interface used by mimikatz
+DEFAULT_UUID = uuidtup_to_bin(('17FC11E9-C258-4B8D-8D07-2F4125156244', '1.0'))
+
+# function to set msrpc uuid
+def set_msrpc_uuid(custom_guid=None):
+    global MSRPC_UUID_MIMIKATZ
+    if custom_guid is not None:
+        MSRPC_UUID_MIMIKATZ = uuidtup_to_bin((custom_guid, '1.0'))
+    else:
+        MSRPC_UUID_MIMIKATZ = DEFAULT_UUID
 
 class DCERPCSessionError(DCERPCException):
     def __init__(self, error_string=None, error_code=None, packet=None):

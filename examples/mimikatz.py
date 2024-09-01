@@ -122,6 +122,8 @@ def main():
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the mini shell')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-guid', help='Custom GUID for RPC interface. This GUID should be same as mimikatz '
+                                                        'rpc::server GUID, if omitted, the default UUID will be used')
 
     group = parser.add_argument_group('authentication')
 
@@ -176,6 +178,14 @@ def main():
     else:
         lmhash = ''
         nthash = ''
+
+    # Use the provided GUID or fall back to the default
+    if options.guid:
+        print(f"Custom GUID provided: {options.guid}")
+        mimilib.set_msrpc_uuid(options.guid)
+    else:
+        print("No custom GUID provided, using default UUID.")
+        mimilib.set_msrpc_uuid()
 
     bound = False
  
