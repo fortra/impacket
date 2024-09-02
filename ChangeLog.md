@@ -92,12 +92,12 @@ https://github.com/fortra/impacket/commits/master
     * [tstool.py](examples/tstool.py):
         * Added support for kerberos auth, resolves SIDs (@nopernik) 
   
-
 4. New examples
     * [describeTicket.py](examples/describeTicket.py): Ticket describer and decrypter. (@ShutdownRepo)
     * [GetADComputers.py](examples/GetADComputers.py): Query's DC via LDAP and returns the COMPUTER objects and the useful attributes such as full dns name, operating system name and version. (@F-Masood)
     * [GetLAPSPassword.py](examples/GetLAPSPassword.py): Extract LAPS passwords from LDAP (@zblurx and @dru1d-foofus)
-    * [dacledit.py](examples/dacledit.py): This script can be used to read, write, remove, backup, restore ACEs (Access Control Entries) in an object DACL (Discretionary Access Control List). (@_nwodtuhs) (@BlWasp_) (@Wlayzz)
+    * [dacledit.py](examples/dacledit.py): This script can be used to read, write, remove, backup, restore ACEs (Access Control Entries) in an object DACL (Discretionary Access Control List). (@ShutdownRepo) (@BlWasp_) (@Wlayzz)
+    * [owneredit.py](examples/oweneredit.py): Added this script to abuse WriteOwner (ADS_RIGHT_WRITE_OWNER) access rights. This allows to take ownership of another object, and then edit that object's DACL (@ShutdownRepo) (@BlWasp_)
 
 As always, thanks a lot to all these contributors that make this library better every day (up to now):
 
