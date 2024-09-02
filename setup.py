@@ -24,7 +24,7 @@ PACKAGE_NAME = "impacket"
 VER_MAJOR = 0
 VER_MINOR = 12
 VER_MAINT = 0
-VER_PREREL = "dev1"
+VER_PREREL = ""
 try:
     if call(["git", "branch"], stderr=STDOUT, stdout=open(os.devnull, 'w')) == 0:
         p = Popen("git log -1 --format=%cd --date=format:%Y%m%d.%H%M%S", shell=True, stdin=PIPE, stderr=PIPE, stdout=PIPE)
@@ -53,7 +53,8 @@ def read(fname):
 
 setup(
     name=PACKAGE_NAME,
-    version="{}.{}.{}.{}{}".format(VER_MAJOR, VER_MINOR, VER_MAINT,VER_PREREL,VER_LOCAL),
+    version="{}.{}.{}".format (VER_MAJOR, VER_MINOR, VER_MAINT),
+    #version="{}.{}.{}.{}{}".format(VER_MAJOR, VER_MINOR, VER_MAINT,VER_PREREL,VER_LOCAL),
     description="Network protocols Constructors and Dissectors",
     url="https://www.coresecurity.com",
     author="SecureAuth Corporation",
