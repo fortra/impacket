@@ -15,6 +15,12 @@ https://github.com/fortra/impacket/commits/master
     * Added `[MS-GKDI]` Group Key Distribution Protocol implementation (@zblurx)
     * Fixed incorrect padding in SMBSessionSetupAndX_Extended_ResponseData (@rtpt-erikgeiser)
     * Upgraded dependency pyreadline -> pyreadline3 (@anadrianmanrique)
+    * SMB Server:
+    	* Added query information level 0x0109 for smb1 "SMB_QUERY_FILE_STREAM_INFO" (@Adamkadaban)
+    	* Fixed filename encoding in queryPathInformation (@JerAxxxxxxx)
+    	* Fixed NextEntryOffset for large directory listings (@robnanola)
+     	* Fixed server returning an empty folder when cutting and pasting recursive directories (@robnanola)
+    * DHCP: Fixed encoding issues (@ujwalkomarla)
 
 3. Examples improvements
     * [secretsdump.py](examples/secretsdump.py):
@@ -37,9 +43,13 @@ https://github.com/fortra/impacket/commits/master
         * Allow configuration of the SOCKS5 address and port (@rtpt-erikgeiser)
         * Fixed implementation of MSSQLShell (@gabrielg5)
         * Logging notification of received connections in all relay servers (@gabrielg5)
+        * Add domain and username to interactive Ldap shell message (@minniear)
+        * Enhanced MSSQLShell in NTLMRelayX leveraging TcpShell & output messages (@gabrielg5)
+        * LDAP Attack: Bugfixes when parsing responses (@SAERXCIT)
     * [getST.py](examples/getST.py):
         * Added -self, -altservice and -u2u  for S4U2self abuse, S4U2self+u2u, and service substitution (@ShutdownRepo)
         * Added ability to set the RENEW ticket option to renew a TGT (@shikatano)
+        * Fixed unicode encoding error when using the -impersonate flag (@alexisbalbachan)
     * [getTGT.py](examples/getTGT.py):
         * Added principalType as new parameter (@DevSpork)
     * [reg.py](examples/reg.py):
@@ -66,8 +76,22 @@ https://github.com/fortra/impacket/commits/master
      	* Fixed scenario where value name contains backlash (@DidierA)
     * [net.py](examples/net.py):
      	* Fixed User "Account Active" property value (@marcobarlottini)
+        * Fixed log messages printing variables in the wrong order (@Cyb3rC3lt) 
     * [rbcd.py](examples/rbcd.py):
         * Handled SID not found in LDAP error (@ShutdownRepo)
+    * [GetUserSPNs.py](examples/GetUserSPNs.py):
+    	* Updated the help information for -outputfile to be consistent with -save (@scarvell)
+    * [ntfs-read.py](examples/ntfs-read.py):
+        * Minor refactor in ntfs-read.py to make it more human-readable (@NtAlexio2)
+    * [ldap_shell.py](examples/ldap_shell.py):
+        * Added support for dirsync and whoami commands (@nurfed1)
+    * [lookupsid.py](examples/lookupsid.py):
+        * Now supports kerberos auth (@A1vinSmith)
+    * [samrdump.py](examples/samrdump.py):
+        * Will fetch AdminComment using MSRPC (@joeldeleep)
+    * [tstool.py](examples/tstool.py):
+        * Added support for kerberos auth, resolves SIDs (@nopernik) 
+  
 
 4. New examples
     * [describeTicket.py](examples/describeTicket.py): Ticket describer and decrypter. (@ShutdownRepo)
@@ -77,7 +101,7 @@ https://github.com/fortra/impacket/commits/master
 
 As always, thanks a lot to all these contributors that make this library better every day (up to now):
 
-@tomspencer @anadrianmanrique @ShutdownRepo @dadevel @gjhami @NtAlexio2 @F-Masood @BlWasp @gabrielg5 @XiaoliChan @omry99 @Wlayzz @themaks @alexisbalbachan @RazzburyPi @jeffmcjunkin @p0dalirius @dc3l1ne @jfjallid @Palkovsky @rtpt-erikgeiser @trietend @zblurx @dru1d-foofus @PfiatDe @DidierA @marcobarlottini @PeterGabaldon @m8r1us @5yn @tzuralon 
+@tomspencer @anadrianmanrique @ShutdownRepo @dadevel @gjhami @NtAlexio2 @F-Masood @BlWasp @gabrielg5 @XiaoliChan @omry99 @Wlayzz @themaks @alexisbalbachan @RazzburyPi @jeffmcjunkin @p0dalirius @dc3l1ne @jfjallid @Palkovsky @rtpt-erikgeiser @trietend @zblurx @dru1d-foofus @PfiatDe @DidierA @marcobarlottini @PeterGabaldon @m8r1us @5yn @tzuralon @Adamkadaban @scarvell @JerAxxxxxxx @ujwalkomarla @robnanola @SAERXCIT @nurfed1 @A1vinSmith @joeldeleep @nopernik
 
 	  
 ## Impacket v0.11.0 (Aug 2023):
