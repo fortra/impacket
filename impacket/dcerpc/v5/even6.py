@@ -57,10 +57,16 @@ def checkNullString(string):
 ################################################################################
 
 # Evt Path Flags
-EvtQueryChannelName = 0x00000001
-EvtQueryFilePath = 0x00000002
+EvtQueryChannelName   = 0x00000001
+EvtQueryFilePath      = 0x00000002
+
+# EvtRpcExportLog
+EvtQueryTolerateQueryErrors = 0x00001000
+
+# EvtRpcRegisterLogQuery
 EvtReadOldestToNewest = 0x00000100
 EvtReadNewestToOldest = 0x00000200
+
 
 ################################################################################
 # STRUCTURES
@@ -244,6 +250,21 @@ class EvtRpcClearLogResponse(NDRCALL):
         ('Error', RPC_INFO),
     )
 
+class EvtRpcExportLog(NDRCALL):
+    opnum = 7
+    structure = (
+        ('Handle', CONTEXT_HANDLE_OPERATION_CONTROL),
+        ('ChannelPath', WSTR),
+        ('Query', WSTR),
+        ('BackupPath', WSTR),
+        ('Flags', DWORD),
+    )
+
+class EvtRpcExportLogResponse(NDRCALL):
+    structure = (
+        ('Error', RPC_INFO),
+    )
+
 class EvtRpcQueryNext(NDRCALL):
     opnum = 11
     structure = (
@@ -323,6 +344,7 @@ OPNUMS = {
     4   : (EvtRpcRegisterControllableOperation, EvtRpcRegisterControllableOperationResponse),
     5   : (EvtRpcRegisterLogQuery, EvtRpcRegisterLogQueryResponse),
     6   : (EvtRpcClearLog, EvtRpcClearLogResponse),
+    7   : (EvtRpcExportLog, EvtRpcExportLogResponse),
     11  : (EvtRpcQueryNext,  EvtRpcQueryNextResponse),
     12  : (EvtRpcQuerySeek, EvtRpcQuerySeekResponse),
     13  : (EvtRpcClose, EvtRpcCloseResponse),
@@ -347,11 +369,21 @@ def hEvtRpcRegisterLogQuery(dce, path, flags, query='*\x00'):
     resp = dce.request(request)
     return resp
 
-def hEvtRpcClearLog(dce, handle, path):
+def hEvtRpcClearLog(dce, handle, path, backupPath=NULL):
     request = EvtRpcClearLog()
     request['Handle'] = handle
     request['ChannelPath'] = checkNullString(path)
-    request['BackupPath'] = NULL
+    request['BackupPath'] = checkNullString(backupPath)
+    request['Flags'] = 0
+    resp = dce.request(request)
+    return resp
+
+def hEvtRpcExportLog(dce, handle, channelPath, query, backupPath):
+    request = EvtRpcExportLog()
+    request['Handle'] = handle
+    request['ChannelPath'] = checkNullString(channelPath)
+    request['Query'] = checkNullString(query)
+    request['BackupPath'] = checkNullString(backupPath)
     request['Flags'] = 0
     resp = dce.request(request)
     return resp
