@@ -35,7 +35,7 @@ class EVEN6Tests(DCERPCTests):
     authn = True
     authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
-    def test_EvtRpcClearLog(self):
+    def test_hEvtRpcClearLog(self):
         dce, rpctransport = self.connect()
 
         resp = even6.hEvtRpcRegisterControllableOperation(dce)
@@ -49,7 +49,7 @@ class EVEN6Tests(DCERPCTests):
         resp = even6.hEvtRpcClose(dce, control_handle)
         resp.dump()
 
-    def test_EvtRpcExportLog(self):
+    def test_hEvtRpcExportLog(self):
         dce, rpctransport = self.connect()
 
         resp = even6.hEvtRpcRegisterControllableOperation(dce)

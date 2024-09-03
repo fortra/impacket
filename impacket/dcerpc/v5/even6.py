@@ -364,7 +364,7 @@ def hEvtRpcRegisterControllableOperation(dce):
 def hEvtRpcRegisterLogQuery(dce, path, flags, query='*\x00'):
     request = EvtRpcRegisterLogQuery()
     request['Path'] = checkNullString(path)
-    request['Query'] = query
+    request['Query'] = checkNullString(query)
     request['Flags'] = flags
     resp = dce.request(request)
     return resp
