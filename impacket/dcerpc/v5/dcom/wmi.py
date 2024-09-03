@@ -91,8 +91,12 @@ WBEM_FLAVOR_ORIGIN_PROPAGATED              = 0x20
 WBEM_FLAVOR_ORIGIN_SYSTEM                  = 0x40
 WBEM_FLAVOR_AMENDED                        = 0x80
 
+
 # 2.2.6 ObjectFlags
 OBJECT_FLAGS = 'B=0'
+CIM_CLASS      = 0x01
+CIM_INSTANCE   = 0x02
+CIM_DECORATION = 0x04
 
 #2.2.77 Signature
 SIGNATURE = '<L=0x12345678'
@@ -900,7 +904,7 @@ class OBJECT_BLOCK(Structure):
             self.data = None
 
     def isInstance(self):
-        if self['ObjectFlags'] & 0x01:
+        if self['ObjectFlags'] & CIM_CLASS:
             return False
         return True
 
@@ -984,7 +988,7 @@ class OBJECT_BLOCK(Structure):
         return classDict
 
     def parseObject(self):
-        if (self['ObjectFlags'] & 0x01) == 0:
+        if (self['ObjectFlags'] & CIM_CLASS) == 0:
             # instance
             ctCurrent = self['InstanceType']['CurrentClass']
             currentName = ctCurrent.getClassName()
@@ -1005,7 +1009,7 @@ class OBJECT_BLOCK(Structure):
 
     def printInformation(self):
         # First off, do we have a class?
-        if (self['ObjectFlags'] & 0x01) == 0:
+        if (self['ObjectFlags'] & CIM_CLASS) == 0:
             # instance
             ctCurrent = self['InstanceType']['CurrentClass']
             currentName = ctCurrent.getClassName()
@@ -2516,7 +2520,7 @@ class IWbemClassObject(IRemUnknown):
             instanceData = OBJECT_BLOCK()
             instanceData.structure += OBJECT_BLOCK.decoration
             instanceData.structure += OBJECT_BLOCK.instanceType
-            instanceData['ObjectFlags'] = 6
+            instanceData['ObjectFlags'] = CIM_INSTANCE | CIM_DECORATION
             instanceData['Decoration'] = self.encodingUnit['ObjectBlock']['Decoration'].getData()
 
             instanceType = INSTANCE_TYPE()
@@ -2664,7 +2668,7 @@ class IWbemClassObject(IRemUnknown):
 
                 inParams = OBJECT_BLOCK()
                 inParams.structure += OBJECT_BLOCK.instanceType
-                inParams['ObjectFlags'] = 2
+                inParams['ObjectFlags'] = CIM_CLASS
                 inParams['Decoration'] = b''
 
                 instanceType = INSTANCE_TYPE()
@@ -2809,7 +2813,7 @@ class IWbemClassObject(IRemUnknown):
 
             outParams = OBJECT_BLOCK()
             outParams.structure += OBJECT_BLOCK.instanceType
-            outParams['ObjectFlags'] = 2
+            outParams['ObjectFlags'] = CIM_CLASS
             outParams['Decoration'] = b''
 
             instanceType = INSTANCE_TYPE()
