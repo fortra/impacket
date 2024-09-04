@@ -5,6 +5,9 @@ Project owner's main page is at www.coresecurity.com.
 Complete list of changes can be found at:
 https://github.com/fortra/impacket/commits/master
 
+## 2024-09-04 - A3Sec
+Reduce impacket library to exclude code and prevent to be detected as malicious code by scanners
+
 ## Impacket v0.12.0-dev:
 1. Library improvements
     * Removed dsinternals dependency (@anadrianmanrique)
