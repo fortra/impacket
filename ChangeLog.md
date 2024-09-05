@@ -5,7 +5,7 @@ Project owner's main page is at www.coresecurity.com.
 Complete list of changes can be found at:
 https://github.com/fortra/impacket/commits/master
 
-## Impacket v0.12.0-dev:
+## Impacket v0.12.0 (Sep 2024):
 1. Library improvements
     * Fixed broken hRSetServiceObjectSecurity method (@rkivys)
     * Removed dsinternals dependency (@anadrianmanrique)
