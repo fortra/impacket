@@ -138,7 +138,7 @@ class TICKETER:
         # 1) KERB_VALIDATION_INFO
         kerbdata = KERB_VALIDATION_INFO()
 
-        aTime = timegm(datetime.datetime.utcnow().timetuple())
+        aTime = timegm(datetime.datetime.now(datetime.timezone.utc).timetuple())
         unixTime = self.getFileTime(aTime)
 
         kerbdata['LogonTime']['dwLowDateTime'] = unixTime & 0xffffffff
@@ -487,7 +487,7 @@ class TICKETER:
 
         seq_set(authenticator, 'cname', clientName.components_to_asn1)
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         authenticator['cusec'] = now.microsecond
         authenticator['ctime'] = KerberosTime.to_asn1(now)
 
@@ -576,7 +576,7 @@ class TICKETER:
         seq_set(reqBody, 'sname', serverName.components_to_asn1)
         reqBody['realm'] = str(decodedTGT['crealm'])
 
-        now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
 
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.getrandbits(31)
@@ -597,7 +597,7 @@ class TICKETER:
     def customizeTicket(self, kdcRep, pacInfos):
         logging.info('Customizing ticket for %s/%s' % (self.__domain, self.__target))
 
-        ticketDuration = datetime.datetime.utcnow() + datetime.timedelta(hours=int(self.__options.duration))
+        ticketDuration = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=int(self.__options.duration))
 
         if self.__options.impersonate:
             # Doing Sapphire Ticket
@@ -715,8 +715,8 @@ class TICKETER:
             encTicketPart['transited'] = noValue
             encTicketPart['transited']['tr-type'] = 0
             encTicketPart['transited']['contents'] = ''
-            encTicketPart['authtime'] = KerberosTime.to_asn1(datetime.datetime.utcnow())
-            encTicketPart['starttime'] = KerberosTime.to_asn1(datetime.datetime.utcnow())
+            encTicketPart['authtime'] = KerberosTime.to_asn1(datetime.datetime.now(datetime.timezone.utc))
+            encTicketPart['starttime'] = KerberosTime.to_asn1(datetime.datetime.now(datetime.timezone.utc))
             # Let's extend the ticket's validity a lil bit
             encTicketPart['endtime'] = KerberosTime.to_asn1(ticketDuration)
             encTicketPart['renew-till'] = KerberosTime.to_asn1(ticketDuration)
@@ -840,7 +840,7 @@ class TICKETER:
         encRepPart['last-req'] = noValue
         encRepPart['last-req'][0] = noValue
         encRepPart['last-req'][0]['lr-type'] = 0
-        encRepPart['last-req'][0]['lr-value'] = KerberosTime.to_asn1(datetime.datetime.utcnow())
+        encRepPart['last-req'][0]['lr-value'] = KerberosTime.to_asn1(datetime.datetime.now(datetime.timezone.utc))
         encRepPart['nonce'] = 123456789
         encRepPart['key-expiration'] = KerberosTime.to_asn1(ticketDuration)
         flags = []
