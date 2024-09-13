@@ -292,8 +292,11 @@ class RemoteShell(cmd.Cmd):
 
         if self.__noOutput is False:
             command += ' 1> ' + '\\\\127.0.0.1\\%s' % self.__share + self.__output + ' 2>&1'
-        self.__win32Process.Create(command, self.__pwd, None)
-        self.get_output()
+        response = self.__win32Process.Create(command, self.__pwd, None)
+        if self.__noOutput is False:
+            self.get_output()
+        else:
+            response.printInformation() # print ProcessId and ReturnValue
 
     def send_data(self, data):
         self.execute_remote(data, self.__shell_type)
