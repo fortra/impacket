@@ -836,30 +836,36 @@ def SIGNKEY(flags, randomSessionKey, mode = 'Client'):
        signKey = None
    return signKey
 
-def SEALKEY(flags, randomSessionKey, mode = 'Client'):
-   if flags & NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
-       if flags & NTLMSSP_NEGOTIATE_128:
-           sealKey = randomSessionKey
-       elif flags & NTLMSSP_NEGOTIATE_56:
-           sealKey = randomSessionKey[:7]
-       else:
-           sealKey = randomSessionKey[:5]
+def SEALKEY(flags, randomSessionKey, mode="Client", revision=VERSION.NTLMSSP_REVISION_W2K3):
+    if flags & NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
+        if flags & NTLMSSP_NEGOTIATE_128:
+            sealKey = randomSessionKey
+        elif flags & NTLMSSP_NEGOTIATE_56:
+            sealKey = randomSessionKey[:7]
+        else:
+            sealKey = randomSessionKey[:5]
 
-       if mode == 'Client':
-               md5 = hashlib.new('md5')
-               md5.update(sealKey + b'session key to client-to-server sealing key magic constant\x00')
-               sealKey = md5.digest()
-       else:
-               md5 = hashlib.new('md5')
-               md5.update(sealKey + b'session key to server-to-client sealing key magic constant\x00')
-               sealKey = md5.digest()
+        if mode == "Client":
+            md5 = hashlib.new("md5")
+            md5.update(sealKey + b"session key to client-to-server sealing key magic constant\x00")
+            sealKey = md5.digest()
+        else:
+            md5 = hashlib.new("md5")
+            md5.update(sealKey + b"session key to server-to-client sealing key magic constant\x00")
+            sealKey = md5.digest()
 
-   elif flags & NTLMSSP_NEGOTIATE_56:
-       sealKey = randomSessionKey[:7] + b'\xa0'
-   else:
-       sealKey = randomSessionKey[:5] + b'\xe5\x38\xb0'
+    elif (flags & NTLMSSP_NEGOTIATE_LM_KEY) or (
+        flags & NTLMSSP_NEGOTIATE_DATAGRAM
+        and revision >= VERSION.NTLMSSP_REVISION_W2K3
+    ):
+        if flags & NTLMSSP_NEGOTIATE_56:
+            sealKey = randomSessionKey[:7] + b"\xa0"
+        else:
+            sealKey = randomSessionKey[:5] + b"\xe5\x38\xb0"
+    else:
+        sealKey = randomSessionKey
 
-   return sealKey
+    return sealKey
 
 
 def generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey):
