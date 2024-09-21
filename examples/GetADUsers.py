@@ -56,16 +56,25 @@ class GetADUsers:
         self.__kdcHost = cmdLineOptions.dc_host
         self.__requestUser = cmdLineOptions.user
         self.__all = cmdLineOptions.all
+        self.__targetdomain = cmdLineOptions.targetdomain
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
         # Create the baseDN
-        domainParts = self.__domain.split('.')
-        self.baseDN = ''
-        for i in domainParts:
-            self.baseDN += 'dc=%s,' % i
-        # Remove last ','
-        self.baseDN = self.baseDN[:-1]
+        if(self.__targetdomain == None):
+            domainParts = self.__domain.split('.')
+            self.baseDN = ''
+            for i in domainParts:
+                self.baseDN += 'dc=%s,' % i
+            # Remove last ','
+            self.baseDN = self.baseDN[:-1]
+        else:
+            domainParts = self.__targetdomain.split('.')
+            self.baseDN = ''
+            for i in domainParts:
+                self.baseDN += 'dc=%s,' % i
+            # Remove last ','
+            self.baseDN = self.baseDN[:-1]
 
         # Let's calculate the header and format
         self.__header = ["Name", "Email", "PasswordLastSet", "LastLogon"]
@@ -232,7 +241,8 @@ if __name__ == '__main__':
     group.add_argument('-dc-host', action='store', metavar='hostname', help='Hostname of the domain controller to use. '
                                                                               'If ommited, the domain part (FQDN) '
                                                                               'specified in the account parameter will be used')
-
+    group.add_argument('-targetdomain', action='store',metavar='targetdomain', help='The domain you would like to target in case'
+                                                                               'of a domain trust.')
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)

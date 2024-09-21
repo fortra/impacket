@@ -85,16 +85,25 @@ class GetUserNoPreAuth:
         #[!] in this script the value of -dc-ip option is self.__kdcIP and the value of -dc-host option is self.__kdcHost
         self.__kdcIP = cmdLineOptions.dc_ip
         self.__kdcHost = cmdLineOptions.dc_host
+        self.__targetdomain = cmdLineOptions.targetdomain
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
         # Create the baseDN
-        domainParts = self.__domain.split('.')
-        self.baseDN = ''
-        for i in domainParts:
-            self.baseDN += 'dc=%s,' % i
-        # Remove last ','
-        self.baseDN = self.baseDN[:-1]
+        if(self.__targetdomain == None):
+            domainParts = self.__domain.split('.')
+            self.baseDN = ''
+            for i in domainParts:
+                self.baseDN += 'dc=%s,' % i
+            # Remove last ','
+            self.baseDN = self.baseDN[:-1]
+        else:
+            domainParts = self.__targetdomain.split('.')
+            self.baseDN = ''
+            for i in domainParts:
+                self.baseDN += 'dc=%s,' % i
+            # Remove last ','
+            self.baseDN = self.baseDN[:-1]
 
     def getMachineName(self, target):
         try:
@@ -131,7 +140,10 @@ class GetUserNoPreAuth:
 
         asReq = AS_REQ()
 
-        domain = self.__domain.upper()
+        if self.__targetdomain != None:
+            domain = self.__targetdomain.upper()
+        else:
+            domain = self.__domain.upper()
         serverName = Principal('krbtgt/%s' % domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
 
         pacRequest = KERB_PA_PAC_REQUEST()
@@ -161,7 +173,6 @@ class GetUserNoPreAuth:
             raise Exception('Empty Domain not allowed in Kerberos')
 
         reqBody['realm'] = domain
-
         now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['rtime'] = KerberosTime.to_asn1(now)
@@ -416,6 +427,8 @@ if __name__ == '__main__':
     group.add_argument('-dc-host', action='store', metavar='hostname', help='Hostname of the domain controller to use. '
                                                                               'If ommited, the domain part (FQDN) '
                                                                               'specified in the account parameter will be used')
+    group.add_argument('-targetdomain', action='store',metavar='targetdomain', help='The domain you would like to target in case'
+                                                                               'of a domain trust.')
 
     if len(sys.argv)==1:
         parser.print_help()
