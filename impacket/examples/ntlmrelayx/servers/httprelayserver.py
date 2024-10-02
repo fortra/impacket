@@ -366,7 +366,7 @@ class HTTPRelayServer(Thread):
                     authenticateMessage['user_name']   = authenticateMessage['user_name'].decode('ascii').encode('utf-16le')
                 
                 self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
-                                            authenticateMessage['user_name'].decode('utf-16le'))).upper()
+                                                authenticateMessage['user_name'].decode('utf-16le'))).upper()
 
                 self.target = self.server.config.target.getTarget(identity = self.authUser)
                 if self.target is None:
@@ -440,15 +440,14 @@ class HTTPRelayServer(Thread):
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
 
-                if self.server.config.disableMulti:
-                    if not (authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE):
-                        authenticateMessage['domain_name'] = authenticateMessage['domain_name'].decode('ascii').encode('utf-16le')
-                        authenticateMessage['user_name']   = authenticateMessage['user_name'].decode('ascii').encode('utf-16le')
+                if not (authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE):
+                    authenticateMessage['domain_name'] = authenticateMessage['domain_name'].decode('ascii').encode('utf-16le')
+                    authenticateMessage['user_name']   = authenticateMessage['user_name'].decode('ascii').encode('utf-16le')
                 
-                    self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
-                                                authenticateMessage['user_name'].decode('utf-16le'))).upper()
-                    
-                    target = '%s://%s@%s' % (self.target.scheme, self.authUser.replace("/", '\\'), self.target.netloc)
+                self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
+                                            authenticateMessage['user_name'].decode('utf-16le'))).upper()
+
+                target = '%s://%s@%s' % (self.target.scheme, self.authUser.replace("/", '\\'), self.target.netloc)
 
                 if not self.do_ntlm_auth(token, authenticateMessage):
                     LOG.error("Authenticating against %s://%s as %s FAILED" % (self.target.scheme, self.target.netloc,
