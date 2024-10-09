@@ -373,7 +373,7 @@ class SCCMPoliciesAttack:
         try:
             register_response = self.registerClient(management_point, registration_request_payload)
             if register_response == None:
-                LOG.error(f"Device registration failed: {e}")
+                LOG.error(f"Device registration failed")
                 return
             root = ET.fromstring(register_response[:-1])
             client_guid = root.attrib["SMSID"].split("GUID:")[1]
