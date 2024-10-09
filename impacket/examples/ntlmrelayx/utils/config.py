@@ -103,6 +103,15 @@ class NTLMRelayxConfig:
         self.ShadowCredentialsExportType = None
         self.ShadowCredentialsOutfilePath = None
 
+        # SCCM attacks options
+        self.isSCCMPoliciesAttack = False
+        self.SCCMPoliciesClientname = None
+        self.SCCMPoliciesSleep = None
+        self.isSCCMDPAttack = False
+        self.SCCMDPIndexfile = None
+        self.SCCMDPExtensions = None
+        self.SCCMDPFiles = None
+
     def setSMBChallenge(self, value):
         self.SMBServerChallenge = value
 
@@ -243,6 +252,21 @@ class NTLMRelayxConfig:
         self.ShadowCredentialsPFXPassword = ShadowCredentialsPFXPassword
         self.ShadowCredentialsExportType = ShadowCredentialsExportType
         self.ShadowCredentialsOutfilePath = ShadowCredentialsOutfilePath
+    
+    def setIsSCCMPoliciesAttack(self, isSCCMPoliciesAttack):
+        self.isSCCMPoliciesAttack = isSCCMPoliciesAttack
+    
+    def setSCCMPoliciesOptions(self, sccm_policies_clientname, sccm_policies_sleep):
+        self.SCCMPoliciesClientname = sccm_policies_clientname
+        self.SCCMPoliciesSleep = sccm_policies_sleep
+    
+    def setIsSCCMDPAttack(self, isSCCMDPAttack):
+        self.isSCCMDPAttack = isSCCMDPAttack
+    
+    def setSCCMDPOptions(self, sccm_dp_indexfile, sccm_dp_extensions, sccm_dp_files):
+        self.SCCMDPIndexfile = sccm_dp_indexfile
+        self.SCCMDPExtensions = sccm_dp_extensions
+        self.SCCMDPFiles = sccm_dp_files
 
     def setAltName(self, altName):
         self.altName = altName
