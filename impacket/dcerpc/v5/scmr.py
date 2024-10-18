@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -686,7 +688,7 @@ class RSetServiceObjectSecurity(NDRCALL):
     structure = (
         ('hService',SC_RPC_HANDLE),
         ('dwSecurityInformation',SECURITY_INFORMATION),
-        ('lpSecurityDescriptor',LPBYTE),
+        ('lpSecurityDescriptor',BYTE_ARRAY),
         ('cbBufSize',DWORD),
     )
 
@@ -1203,6 +1205,7 @@ def hRSetServiceObjectSecurity(dce, hService, dwSecurityInformation, lpSecurityD
     request = RSetServiceObjectSecurity()
     request['hService'] = hService
     request['dwSecurityInformation'] = dwSecurityInformation
+    request['lpSecurityDescriptor'] = lpSecurityDescriptor
     request['cbBufSize'] = cbBufSize
     return dce.request(request)
 

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -495,6 +497,12 @@ if __name__ == '__main__':
         threads.add(socks_thread)
 
     c = start_servers(options, threads)
+
+    # Log multirelay flag status
+    if options.no_multirelay:
+        logging.info("Multirelay disabled")
+    else:
+        logging.info("Multirelay enabled")
 
     print("")
     logging.info("Servers started, waiting for connections")

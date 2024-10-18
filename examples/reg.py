@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -291,29 +293,36 @@ class RegHandler:
                 raise Exception('Error parsing value type %s' % self.__options.vt)
 
             #Fix (?) for packValue function
-            if dwType in (
-                rrp.REG_DWORD, rrp.REG_DWORD_BIG_ENDIAN, rrp.REG_DWORD_LITTLE_ENDIAN,
-                rrp.REG_QWORD, rrp.REG_QWORD_LITTLE_ENDIAN
-            ):
-                valueData = int(self.__options.vd)
-            elif dwType == rrp.REG_BINARY:
-                bin_value_len = len(self.__options.vd)
-                bin_value_len += (bin_value_len & 1)
-                valueData = binascii.a2b_hex(self.__options.vd.ljust(bin_value_len, '0'))
+            if dwType == rrp.REG_MULTI_SZ:
+                vd = '\0'.join(self.__options.vd)
+                valueData = vd + 2 * '\0' # REG_MULTI_SZ ends with 2 null-bytes
+                valueDataToPrint = vd.replace('\0', '\n\t\t')
             else:
-                valueData = self.__options.vd + "\0" # Add a NULL Byte as terminator for Non Binary values
+                vd = self.__options.vd[0] if len(self.__options.vd) > 0 else ''
+                if dwType in (
+                    rrp.REG_DWORD, rrp.REG_DWORD_BIG_ENDIAN, rrp.REG_DWORD_LITTLE_ENDIAN,
+                    rrp.REG_QWORD, rrp.REG_QWORD_LITTLE_ENDIAN
+                ):
+                    valueData = int(vd)
+                elif dwType == rrp.REG_BINARY:
+                    bin_value_len = len(vd)
+                    bin_value_len += (bin_value_len & 1)
+                    valueData = binascii.a2b_hex(vd.ljust(bin_value_len, '0'))
+                else:
+                    valueData = vd + "\0" # Add a NULL Byte as terminator for Non Binary values
+                valueDataToPrint = valueData
 
             ans3 = rrp.hBaseRegSetValue(
                 dce, ans2['phkResult'], self.__options.v, dwType, valueData
             )
 
             if ans3['ErrorCode'] == 0:
-                print('Successfully set key %s\\%s of type %s to value %s' % (
-                    keyName, self.__options.v, self.__options.vt, valueData
+                print('Successfully set\n\tkey\t%s\\%s\n\ttype\t%s\n\tvalue\t%s' % (
+                    keyName, self.__options.v, self.__options.vt, valueDataToPrint
                 ))
             else:
-                print('Error 0x%08x while setting key %s\\%s of type %s to value %s' % (
-                    ans3['ErrorCode'], keyName, self.__options.v, self.__options.vt, valueData
+                print('Error 0x%08x while setting\n\tkey\t%s\\%s\n\ttype\t%s\n\tvalue\t%s' % (
+                    ans3['ErrorCode'], keyName, self.__options.v, self.__options.vt, valueDataToPrint
                 ))
 
     def delete(self, dce, keyName):
@@ -559,8 +568,9 @@ if __name__ == '__main__':
                            'type name that is to be set. Default is REG_SZ. Valid types are: REG_NONE, REG_SZ, REG_EXPAND_SZ, '
                            'REG_BINARY, REG_DWORD, REG_DWORD_BIG_ENDIAN, REG_LINK, REG_MULTI_SZ, REG_QWORD',
                             default='REG_SZ')
-    add_parser.add_argument('-vd', action='store', metavar="VALUEDATA", required=False, help='Specifies the registry '
-                           'value data that is to be set.', default='')
+    add_parser.add_argument('-vd', action='append', metavar="VALUEDATA", required=False, help='Specifies the registry '
+                           'value data that is to be set. In case of adding a REG_MULTI_SZ value, set this option once for each '
+                           'line you want to add.', default=[])
 
     # An delete command
     delete_parser = subparsers.add_parser('delete', help='Deletes a subkey or entries from the registry')
