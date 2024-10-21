@@ -660,8 +660,11 @@ class exportRegistryParser:
     def enumValues(self,key):
         path = self.__keyToNodePath(key)
         node = self.__findNode(path)
-        values = list(node.data.keys())
-        return [s.encode('utf-8') for s in values]
+        if not node:
+            return None
+        else:
+            values = list(node.data.keys())
+            return [s.encode('utf-8') for s in values]
 
     def getValue(self, keyValue, valueName=None):
         """ returns a tuple with (ValueType, ValueData) for the requested keyValue
