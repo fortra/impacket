@@ -25,6 +25,8 @@
 from __future__ import division
 from __future__ import print_function
 import sys
+import re
+from binascii import unhexlify
 from struct import unpack
 import ntpath
 from six import b
@@ -160,7 +162,7 @@ StructMappings = {b'nk': REG_NK,
                   b'sk': REG_SK,
                  }
 
-class Registry:
+class saveRegistryParser:
     def __init__(self, hive, isRemote = False):
         self.__hive = hive
         if isRemote is True:
@@ -493,3 +495,236 @@ class Registry:
         if key['OffsetClassName'] > 0:
             value = self.__getBlock(key['OffsetClassName'])
             return value['Data']
+
+
+class RegistryNode:
+    def __init__(self, keyName, nodeName, data = None):
+        self.keyName = keyName
+        self.nodeName = nodeName
+        self.data = data
+        self.childKeys = {}
+    
+    def addChildNode(self, childKey):
+        self.childKeys = self.childKeys | childKey
+
+
+class exportRegistryParser:
+    def __init__(self, hive):
+        self.indent = ''
+        self.__hive = hive
+        self.fd = open(hive, encoding='utf-16-le')
+        self.__buildRegistryTree()
+        
+    def close(self):
+        if hasattr(self, 'fd'):
+            self.fd.close()
+
+    def __del__(self):
+        self.close()
+
+    def __parseValue(self,ValueType,ValueData):
+        ValueType = ValueType.replace('"','')      
+        if not ValueData :
+            return REG_SZ,ValueType
+        elif ValueType == 'hex(0)':
+            return REG_NONE, ValueData[0]
+        elif ValueType == 'hex(2)':
+            return REG_EXPAND_SZ, ValueData[0]
+        elif ValueType == 'hex':
+            return REG_BINARY, ValueData[0]
+        elif ValueType == 'dword':
+            return REG_DWORD, ValueData[0]
+        elif ValueType == 'hex(7)':
+            return REG_MULTISZ, ValueData[0]
+        elif ValueType == 'hex(b)':
+            return REG_QWORD, ValueData[0]
+        else:
+            return int(ValueType.replace('hex(','0x').replace(')',''),16), ValueData[0]
+
+    def __keyToNodePath(self, key):
+        return key.replace(f'{self.registryTree.keyName}\\','').strip('\\').split('\\')
+        
+    def __findNode(self, nodePath):
+        node = self.registryTree
+        try:
+            if nodePath != ['']:
+                for tempNode in nodePath:
+                    node = node.childKeys[tempNode]
+            return node
+        except:
+            return None
+
+    def __extractData(self, regkey_values):      
+        if not regkey_values:
+            return { 'default' : [REG_SZ, '']}
+        else:
+            data = {}
+            for line in regkey_values.split('\n'):           
+                ValueName, ValueType, *ValueData = line.split(':') 
+                if ValueName == '@':
+                    ValueName = 'default'
+                else:
+                    ValueName = ValueName.replace('"','')
+                ValueType, ValueData = self.__parseValue(ValueType,ValueData)
+                data = data | {ValueName : [ValueType, ValueData]}
+            return data
+    
+    def __buildChildNode(self, keyName, regkey_values):      
+        nodeName = ''.join(keyName.split('\\')[-1:])   
+        data  = self.__extractData(regkey_values)
+        node = { nodeName : RegistryNode(keyName, nodeName, data)}
+        
+        return node
+
+    def __buildRegistryTree(self):
+        pattern = re.compile(r'^\[(.*?)\]([\S\s]*?)\n\n',re.MULTILINE)
+        file = self.fd.read()
+        rootKey = True
+        for match in pattern.findall(file):
+            keyName = match[0]
+            regkey_values = match[1].strip('\n').replace(',','').replace(' ','').replace('\\\n','').replace('=',':')
+
+            if rootKey is True:
+                data = self.__extractData(regkey_values)
+                nodeName = ''.join(keyName.split('\\')[-1:])
+                self.registryTree = RegistryNode(keyName, nodeName, data)
+                rootKey = False
+            else:
+                parentPath = self.__keyToNodePath(keyName)[:-1]
+                node = self.__buildChildNode(keyName, regkey_values)
+                parentNode = self.__findNode(parentPath)
+                parentNode.addChildNode(node)
+
+    def __walkSubNodes(self, node):
+        print("%s%s" % (self.indent, node.nodeName ))
+        self.indent += '  '
+        if node.childKeys == {}:
+            self.indent = self.indent[:-2]
+            return
+
+        for subNode in list(node.childKeys.values()):
+            self.__walkSubNodes(subNode)
+
+        self.indent = self.indent[:-2]
+
+    def walk(self, parentKey):
+        path = self.__keyToNodePath(parentKey)
+        node = self.__findNode(path)
+
+        if node is None:
+            return
+
+        for subNode in list(node.childKeys.values()):
+            self.__walkSubNodes(subNode)
+
+    def printValue(self, valueType, valueData):
+        if valueType in [REG_SZ, REG_EXPAND_SZ, REG_MULTISZ] :
+            if valueData == b'' or valueData == b'\x00\x00':
+                print('NULL')
+            else:
+                print("%s" % (valueData.decode('utf-16le')))
+        elif valueType == REG_BINARY:
+            print('')
+            hexdump(valueData, self.indent)
+        elif valueType == REG_DWORD:
+            if valueData == b'':
+                print(0)
+            else:
+                print(int.from_bytes(valueData))
+        elif valueType == REG_QWORD:
+            print("%d" % (unpack('<Q',valueData)[0]))
+        elif valueType == REG_NONE:
+            try:
+                if len(valueData) > 1:
+                    print('')
+                    hexdump(valueData, self.indent)
+                else:
+                    print(" NULL")
+            except:
+                print(" NULL")
+        else:
+            print("Unknown Type 0x%x!" % valueType)
+            hexdump(valueData)
+
+    def findKey(self, key):
+        if key == '\\':
+            return '\\'
+        else:
+            return  '\\'.join(self.__keyToNodePath(key))
+
+    def enumKey(self, key):
+        path = self.__keyToNodePath(key)
+        node = self.__findNode(path)
+        return list(node.childKeys.keys())
+        
+    def enumValues(self,key):
+        path = self.__keyToNodePath(key)
+        node = self.__findNode(path)
+        values = list(node.data.keys())
+        return [s.encode('utf-8') for s in values]
+
+    def getValue(self, keyValue, valueName=None):
+        """ returns a tuple with (ValueType, ValueData) for the requested keyValue
+            valueName is the name of the value (which can contain '\\')
+            if valueName is not  given, keyValue must be a string containing the full path to the value
+            if valueName is given, keyValue should be the string containing the path to the key containing valueName
+        """
+        path = self.__keyToNodePath(keyValue)
+        if valueName is None:
+            keyPath = path[:-1]
+            regValue = ''.join(path[-1:])
+        else:
+            keyPath = path
+            regValue = valueName
+
+        try:
+            node = self.__findNode(keyPath)
+            ValueType, ValueData = node.data[regValue]
+            if ValueType in [REG_SZ]:
+                return ValueType, ValueData.encode("utf-16-le")
+            else: 
+                return ValueType, unhexlify(ValueData)
+        except:
+            return None
+
+    def getClass(self, className):
+        # Export format does not contain class name
+        return None
+
+
+class Registry:
+    def __init__(self, hive, isRemote = False, hiveFormat = 'save'):
+        self.indent = ''
+        self.__hiveFormat = hiveFormat
+        if self.__hiveFormat == 'save':
+            self.__registryParser = saveRegistryParser(hive, isRemote)
+        elif self.__hiveFormat == 'export':
+            self.__registryParser = exportRegistryParser(hive)
+        
+    def close(self):
+        if hasattr(self, 'fd'):
+            self.fd.close()
+
+    def __del__(self):
+        self.close()
+    
+    def walk(self, parentKey):
+        return self.__registryParser.walk(parentKey)
+            
+    def findKey(self, key):
+        return self.__registryParser.findKey(key)
+
+    def printValue(self, valueType, valueData):
+        return self.__registryParser.printValue(valueType, valueData)
+
+    def enumKey(self, parentKey):
+        return self.__registryParser.enumKey(parentKey)
+
+    def enumValues(self,key):
+        return self.__registryParser.enumValues(key)
+
+    def getValue(self, keyValue, valueName=None):
+        return self.__registryParser.getValue(keyValue, valueName)
+
+    def getClass(self, className):
+        return self.__registryParser.getClass(className)
