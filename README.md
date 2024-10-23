@@ -1,23 +1,41 @@
 Impacket-exe
 ========
 
-To build `examples/ntlmrelayx.py` into a standalone executable:
+To build a tool into an executable:
 
-Download and run `install-scripts/ntlmrelayx.ps1` as administrator
-* If you get an error about the script not being signed, run `Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process`, and type `a` when prompted
+EITHER
 
-The built executable will be located in `C:\Program Files\ntlmrelayx\ntlmrelayx.exe` and will be available in the PATH
+Use one of the installers:
+
+* Choose the installer for the tool from the `install-scripts` folder, available options are:
+
+```
+ntlmrelayx
+secretsdump
+```
+
+Run the install script as administrator in Powershell
+
+```
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+[install script].ps1
+```
+
+The built executable will be located in `C:\Program Files` and will be available in the PATH
 
 OR
 
-1. Download & install python (Check "Add Python to PATH" during install): https://www.python.org/downloads/
-2. Download this repository
-3. Open a terminal as administrator and navigate to this repository
-6. Run `py -m venv .venv`
-7. Run `.venv\Scripts\activate`
-8. Run `pip install -r requirements.txt`
-9. Run `py setup.py install`
-10. Run `pyinstaller --onefile examples\ntlmrelayx.py`
+* Download & install python (Check "Add Python to PATH" during install)
+* Download this repository
+* Open a terminal as administrator and navigate to this repository
+* Run the following commands
+```
+py -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+py setup.py install
+pyinstaller --onefile examples\[your tool].py
+```
 
 The built executable will be located inside the `dist` folder
 
