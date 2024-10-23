@@ -10,11 +10,42 @@ $repositoryFolder = Join-Path -Path $TempPath -ChildPath "impacket-exe-master"
 
 $applicationFolder = "C:\Program Files\ntlmrelayx"
 
+$machinePythonKey = "HKLM:\Software\Python\PythonCore"
+$userPythonKey = "HKCU:\Software\Python\PythonCore"
+
+$foundPython = $false
+
+# Check Local Machine Registry
+if (Test-Path $machinePythonKey) {
+    Get-ChildItem $machinePythonKey | ForEach-Object {
+        $versionInfo = Get-ItemProperty $_.PSPath
+        if ($_.PSChildName -eq "3.13") {
+            $foundPython = $true
+            Write-Host "Python $($_.PSChildName) found in Local Machine: $($versionInfo.InstallPath)"
+        }
+    }
+}
+
+# Check Current User Registry
+if (Test-Path $userPythonKey) {
+    Get-ChildItem $userPythonKey | ForEach-Object {
+        $versionInfo = Get-ItemProperty $_.PSPath
+        if ($_.PSChildName -eq "3.13") {
+            $foundPython = $true
+            Write-Host "Python $($_.PSChildName) found in Current User: $($versionInfo.InstallPath)"
+        }
+    }
+}
+
 # Download and install Python
-Write-Host "Installing Python"
-Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.13.0/python-3.13.0.exe" -OutFile $pythonInstaller
-Start-Process $pythonInstaller -ArgumentList "/quiet PrependPath=1" -Wait
-Remove-Item $pythonInstaller
+if (-not $foundPython) {
+    Write-Host "Python 3.13 is not installed, installing now"
+    Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.13.0/python-3.13.0-amd64.exe" -OutFile $pythonInstaller
+    Start-Process $pythonInstaller -ArgumentList "/quiet PrependPath=1 Include_launcher=0" -Wait
+
+    # Refresh PATH
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User") 
+}
 
 # Download and unzip repository
 Write-Host "Downloading repository"
@@ -27,12 +58,12 @@ Write-Host "Beginning build process"
 Set-Location -Path $repositoryFolder
 
 # Create and activate virtual environment
-py -m venv .venv
+python -m venv .venv
 .venv\Scripts\activate.ps1
 
 # Setup
 pip install -r requirements.txt
-py setup.py install
+python setup.py install
 
 # Build
 pyinstaller --onefile examples\ntlmrelayx.py
@@ -46,10 +77,14 @@ $application = Join-Path -Path $repositoryFolder -ChildPath "dist\ntlmrelayx.exe
 Copy-Item -Path $application -Destination $applicationFolder -Force
 
 # Clean up
-Write-Host "Cleaning up repository folder"
+Write-Host "Cleaning up"
 deactivate
 Set-Location -Path $startingDirectory
 Remove-Item -Recurse -Force $repositoryFolder
+
+if (-not $foundPython) {
+    Start-Process $pythonInstaller -ArgumentList "/uninstall /quiet PrependPath=1" -Wait
+}
 
 # Get the current PATH environment variable
 Write-Host "Updating PATH"
@@ -67,3 +102,5 @@ if ($currentPath -notlike "*$applicationFolder*") {
 } else {
     Write-Host "$applicationFolder is already in PATH."
 }
+
+Write-Host "Done!"
