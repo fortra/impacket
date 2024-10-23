@@ -4,8 +4,7 @@ Impacket-exe
 To build `examples/ntlmrelayx.py` into a standalone executable:
 
 Download and run `install-scripts/ntlmrelayx.ps1` as administrator
-* If you get an error about the script not being signed, run `Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
-`, and type `a` when prompted
+* If you get an error about the script not being signed, run `Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process`, and type `a` when prompted
 
 The built executable will be located in `C:\Program Files\ntlmrelayx\ntlmrelayx.exe` and will be available in the PATH
 
