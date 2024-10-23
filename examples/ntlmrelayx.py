@@ -243,7 +243,7 @@ def start_servers(options, threads):
 
         elif server is SMBRelayServer:
             if options.smb_port == 445:
-                print("SMB Server port set to 445 - redirecting to port 4445")
+                print("[*] SMB Server port set to 445 - redirecting to port 4445")
                 redirect_thread = Thread(target=redirect_smb_packets)
                 redirect_thread.start()
                 threads.add(redirect_thread)
