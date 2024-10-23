@@ -49,6 +49,8 @@ import json
 from time import sleep
 from threading import Thread
 
+import pydivert
+
 from impacket import version
 from impacket.examples import logger
 from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer, WCFRelayServer, RAWRelayServer
@@ -231,6 +233,13 @@ def start_servers(options, threads):
             continue
 
         elif server is SMBRelayServer:
+            if options.smb_port == 445:
+                redirect_thread = Thread(target=redirect_smb_packets)
+                redirect_thread.start()
+                threads.add(redirect_thread)
+                
+                options.smb_port = 4445
+
             c.setListeningPort(options.smb_port)
         elif server is WCFRelayServer:
             c.setListeningPort(options.wcf_port)
@@ -252,6 +261,16 @@ def stop_servers(threads):
     for thread in todelete:
         threads.remove(thread)
         del thread
+
+def redirect_smb_packets():
+    with pydivert.WinDivert("tcp.DstPort == 445 or tcp.SrcPort == 4445") as w:
+        for packet in w:
+            if packet.dst_port == 445:
+                packet.dst_port = 4445
+            if packet.src_port == 4445:
+                packet.src_port = 445
+            w.send(packet)
+
 
 # Process command-line arguments.
 if __name__ == '__main__':
