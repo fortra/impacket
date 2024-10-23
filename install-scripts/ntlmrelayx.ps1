@@ -1,10 +1,12 @@
+# Install ntlmrelayx
 
-$TempPath = $env:TEMP
+$startingDirectory = Get-Location
+$tempPath = $env:TEMP
 
 $pythonInstaller = Join-Path -Path $TempPath -ChildPath "python-3.13.0.exe"
 
 $repositoryArchive = Join-Path -Path $TempPath -ChildPath "impacket-exe.zip"
-$repositoryFolder = Join-Path -Path $TempPath -ChildPath "impacket-exe"
+$repositoryFolder = Join-Path -Path $TempPath -ChildPath "impacket-exe-master"
 
 $applicationFolder = "C:\Program Files\ntlmrelayx"
 
@@ -17,7 +19,7 @@ Remove-Item $pythonInstaller
 # Download and unzip repository
 Write-Host "Downloading repository"
 Invoke-WebRequest -Uri "https://github.com/p0rtL6/impacket-exe/archive/refs/heads/master.zip" -OutFile $repositoryArchive
-Expand-Archive -Path $repositoryArchive -DestinationPath $repositoryFolder
+Expand-Archive -Path $repositoryArchive -DestinationPath $tempPath -Force
 Remove-Item $repositoryArchive
 
 # Begin build process
@@ -35,16 +37,18 @@ py setup.py install
 # Build
 pyinstaller --onefile examples\ntlmrelayx.py
 
-
 # Prepare destination folder
 Write-Host "Copying executable to Program Files"
-New-Item -ItemType Directory -Path $applicationFolder
+New-Item -ItemType Directory -Path $applicationFolder -Force
 
 # Copy built executable into program files
-Copy-Item -Path Join-Path -Path $repositoryFolder -ChildPath "dist\ntlmrelayx.exe" -Destination $applicationFolder -Force
+$application = Join-Path -Path $repositoryFolder -ChildPath "dist\ntlmrelayx.exe"
+Copy-Item -Path $application -Destination $applicationFolder -Force
 
 # Clean up
 Write-Host "Cleaning up repository folder"
+deactivate
+Set-Location -Path $startingDirectory
 Remove-Item -Recurse -Force $repositoryFolder
 
 # Get the current PATH environment variable
@@ -63,5 +67,3 @@ if ($currentPath -notlike "*$applicationFolder*") {
 } else {
     Write-Host "$applicationFolder is already in PATH."
 }
-
-
