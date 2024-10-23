@@ -1,5 +1,34 @@
 <img width="2043" height="571" alt="Impacket_light" src="https://github.com/user-attachments/assets/14aed700-0c6e-4865-ac53-686b91874f50" />
 
+Impacket-exe
+========
+
+To build `examples/ntlmrelayx.py` into a standalone executable:
+
+Download and run `build.ps1`
+
+The built executable will be located in `C:\Program Files\ntlmrelayx\ntlmrelayx.exe` and will be available in the PATH
+
+OR
+
+1. Download & install python (Check "Add Python to PATH" during install): https://www.python.org/downloads/
+2. Download & install git: https://git-scm.com/downloads/win
+3. Open a terminal as administrator
+4. Run `git clone https://github.com/p0rtL6/impacket-exe`
+5. Run `cd impacket-exe`
+6. Run `py -m venv .venv`
+7. Run `.venv\Scripts\activate`
+8. Run `pip install -r requirements.txt`
+9. Run `py setup.py install`
+10. Run `pyinstaller --onefile examples\ntlmrelayx.py`
+
+The built executable will be located inside the `dist` folder
+
+
+
+
+
+(Original Readme)
 Impacket
 ========
 
