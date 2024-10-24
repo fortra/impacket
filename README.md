@@ -5,23 +5,16 @@ To build a tool into an executable:
 
 EITHER
 
-Use one of the installers:
+Use the installer:
 
-* Choose the installer for the tool from the `install-scripts` folder, available options are:
-
-```
-ntlmrelayx
-secretsdump
-```
+* Download `impacket-exe-installer.ps1`:
 
 Run the install script as administrator in Powershell
 
 ```
 Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
-[install script].ps1
+impacket-exe-installer.ps1
 ```
-
-The built executable will be located in `C:\Program Files` and will be available in the PATH
 
 OR
 
