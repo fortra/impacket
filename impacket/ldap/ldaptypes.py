@@ -18,6 +18,7 @@
 #
 from struct import unpack, pack
 from impacket.structure import Structure
+from enum import Enum
 
 # Global constant if the library should recalculate ACE sizes in objects that are decoded/re-encoded.
 # This defaults to True, but this causes the ACLs to not match on a binary level
@@ -493,3 +494,11 @@ OBJECTTYPE_GUID_MAP = {
     b'user': 'bf967aba-0de6-11d0-a285-00aa003049e2',
     b'groupPolicyContainer': 'f30e3bc2-9ff0-11d1-b603-0000f80367c1'
 }
+
+# https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/3888c2b7-35b9-45b7-afeb-b772aa932dd0
+class LDAP_SERVER_SD_FLAGS(Enum):
+    OWNER_SECURITY_INFORMATION = 0x1
+    GROUP_SECURITY_INFORMATION = 0x2
+    DACL_SECURITY_INFORMATION  = 0x4
+    SACL_SECURITY_INFORMATION  = 0x8
+
