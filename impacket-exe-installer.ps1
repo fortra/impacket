@@ -5,9 +5,7 @@
 $PythonVersion = '3.13.0'
 $StartingDirectory = Get-Location
 
-$AvailableScripts = New-Object System.Collections.Generic.HashSet[string]
-$AvailableScripts.Add('ntlmrelayx') | Out-Null
-$AvailableScripts.Add('secretsdump') | Out-Null
+$AvailableScripts = [System.Collections.Generic.HashSet[string]] @('DumpNTLMInfo','Get-GPPPassword','GetADComputers','GetADUsers','GetLAPSPassword','GetNPUsers','GetUserSPNs','addcomputer','atexec','changepasswd','dacledit','dcomexec','describeTicket','dpapi','esentutl','exchanger','findDelegation','getArch','getPac','getST','getTGT','goldenPac','karmaSMB','keylistattack','kintercept','lookupsid','machine_role','mimikatz','mqtt_check','mssqlclient','mssqlinstance','net','netview','ntfs-read','ntlmrelayx','owneredit','ping','ping6','psexec','raiseChild','rbcd','rdp_check','reg','registry-read','rpcdump','rpcmap','sambaPipe','samrdump','secretsdump','services','smbclient','smbexec','smbserver','sniff','sniffer','split','ticketConverter','ticketer','tstool','wmiexec','wmipersist','wmiquery')
 
 $SelectedScripts = New-Object System.Collections.Generic.HashSet[string]
 
@@ -75,14 +73,10 @@ function Show-HelpMenu {
     Write-Host ''
     Write-Host 'Options:'
     Write-Host "  $('-h  --help'.PadRight($HelpMenuPadding)) Display this menu"
+    Write-Host "  $('-s  --list-scripts'.PadRight($HelpMenuPadding)) List available scripts"
     foreach ($Option in $Options.Values) {
         $FormattedKeywords = $Option['Keywords'] -join '  '
         Write-Host "  $($FormattedKeywords.PadRight($HelpMenuPadding)) $($Option['Desc']) (default: $($Option['Value']))"
-    }
-    Write-Host ''
-    Write-Host 'Available Scripts:'
-    foreach ($AvailableScript in $AvailableScripts) {
-        Write-Host "  $AvailableScript"
     }
     Write-Host ''
 }
@@ -97,6 +91,14 @@ if ($Args.Count -eq 0) {
 for ($I = 0; $I -lt $Args.Count; $I++) {
     if ($Args[$I] -eq '-h' -or $Args[$I] -eq '--help') {
         Show-HelpMenu
+        exit 0
+    }
+    if ($Args[$I] -eq '-s' -or $Args[$I] -eq '--list-scripts') {
+        Write-Host 'Available Scripts:'
+        foreach ($AvailableScript in $AvailableScripts) {
+            Write-Host "  $AvailableScript"
+        }
+        Write-Host ''
         exit 0
     }
     elseif ($Args[$I].startsWith('-')) {
