@@ -80,6 +80,11 @@ function Show-HelpMenu {
         Write-Host "  $($FormattedKeywords.PadRight($HelpMenuPadding)) $($Option['Desc']) (default: $($Option['Value']))"
     }
     Write-Host ''
+    Write-Host 'Available Scripts:'
+    foreach ($AvailableScript in $AvailableScripts) {
+        Write-Host "  $AvailableScript"
+    }
+    Write-Host ''
 }
 
 ## PARSING CMD ARGS ##
