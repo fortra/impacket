@@ -29,7 +29,7 @@ $Flags['OverridePython'] = @{
 }
 $Flags['LeavePython'] = @{
     Name = 'Leave Installed Python'
-    Desc = 'If installed, do not uninstall Python $PythonVersion from the system'
+    Desc = "If installed, do not uninstall Python $PythonVersion from the system"
     Keywords = @('-L', '--leave-python')
     Value = $False
 }
