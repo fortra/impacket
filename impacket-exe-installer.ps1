@@ -62,7 +62,7 @@ function Show-HelpMenu {
     Write-Host '=== Impacket-exe Installer ==='
     Write-Host 'Downloads, builds, and installs scripts from the Impacket-exe repository'
     Write-Host ''
-    Write-Host 'Usage: impacket-exe-installer.ps1 [FLAGS] [OPTIONS] <scripts>'
+    Write-Host 'Usage: impacket-exe-installer.ps1 [FLAGS] [OPTIONS] [<scripts>]'
     Write-Host ''
     Write-Host 'Positional Arguments:'
     Write-Host "  $('<scripts>'.PadRight($HelpMenuPadding)) A space seperated list of scripts you want to install"
