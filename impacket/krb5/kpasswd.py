@@ -129,7 +129,7 @@ def createKPasswdRequest(principal, domain, newPasswd, tgs, cipher, sessionKey, 
         sequenceNumber = int.from_bytes(get_random_bytes(4), "big")
 
     if now is None:
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
 
     if not isinstance(newPasswd, bytes):
         newPasswd = newPasswd.encode("utf-8")
