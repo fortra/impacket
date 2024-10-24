@@ -156,6 +156,13 @@ class LDAPRelayClient(ProtocolClient):
     def parse_challenge_message(self, message):
         pass
 
+    def keepAlive(self):
+        # Basic LDAP query to keep the connection alive
+        self.session.search(search_base='',
+            search_filter='(objectClass=*)',
+            search_scope='BASE',
+            attributes=['namingContexts'])
+
 class LDAPSRelayClient(LDAPRelayClient):
     PLUGIN_NAME = "LDAPS"
     MODIFY_ADD = MODIFY_ADD
