@@ -4,6 +4,7 @@ Impacket-exe
 ========
 
 To build a tool into an executable:
+* You may have to disable Windows AV
 
 EITHER
 
