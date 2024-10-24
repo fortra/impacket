@@ -284,7 +284,7 @@ class GETST:
 
             seq_set(authenticator, 'cname', clientName.components_to_asn1)
 
-            now = datetime.datetime.utcnow()
+            now = datetime.datetime.now(datetime.timezone.utc)
             authenticator['cusec'] = now.microsecond
             authenticator['ctime'] = KerberosTime.to_asn1(now)
 
@@ -336,7 +336,7 @@ class GETST:
             myTicket = ticket.to_asn1(TicketAsn1())
             seq_set_iter(reqBody, 'additional-tickets', (myTicket,))
 
-            now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+            now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
 
             reqBody['till'] = KerberosTime.to_asn1(now)
             reqBody['nonce'] = random.getrandbits(31)
@@ -377,7 +377,7 @@ class GETST:
 
         seq_set(authenticator, 'cname', clientName.components_to_asn1)
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         authenticator['cusec'] = now.microsecond
         authenticator['ctime'] = KerberosTime.to_asn1(now)
 
@@ -474,7 +474,7 @@ class GETST:
         seq_set(reqBody, 'sname', serverName.components_to_asn1)
         reqBody['realm'] = str(decodedTGT['crealm'])
 
-        now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
 
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.getrandbits(31)
@@ -604,7 +604,7 @@ class GETST:
 
         seq_set(authenticator, 'cname', clientName.components_to_asn1)
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         authenticator['cusec'] = now.microsecond
         authenticator['ctime'] = KerberosTime.to_asn1(now)
 
@@ -656,7 +656,7 @@ class GETST:
         myTicket = ticket.to_asn1(TicketAsn1())
         seq_set_iter(reqBody, 'additional-tickets', (myTicket,))
 
-        now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
 
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.getrandbits(31)
