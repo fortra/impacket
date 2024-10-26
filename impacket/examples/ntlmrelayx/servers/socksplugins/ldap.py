@@ -13,6 +13,7 @@ from impacket import LOG, ntlm
 from impacket.examples.ntlmrelayx.servers.socksserver import SocksRelay
 from impacket.ldap.ldap import LDAPSessionError
 from impacket.ldap.ldapasn1 import KNOWN_NOTIFICATIONS, LDAPDN, NOTIFICATION_DISCONNECT, BindRequest, BindResponse, LDAPMessage, LDAPString, ResultCode
+from impacket.ntlm import NTLMSSP_NEGOTIATE_SIGN, NTLMSSP_NEGOTIATE_SEAL
 
 PLUGIN_CLASS = 'LDAPSocksRelay'
 
@@ -64,52 +65,15 @@ class LDAPSocksRelay(SocksRelay):
 
                         LOG.debug('Got NTLM bind request')
 
-                        # Building the NTLM negotiate message
-                        # It is taken from the smbserver example
+                        # Load negotiate message
                         negotiateMessage = ntlm.NTLMAuthNegotiate()
                         negotiateMessage.fromString(msg_component['authentication']['sicilyNegotiate'].asOctets())
 
-                        # Let's build the answer flags
-                        ansFlags = 0
-
-                        if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_56:
-                            ansFlags |= ntlm.NTLMSSP_NEGOTIATE_56
-                        if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_128:
-                            ansFlags |= ntlm.NTLMSSP_NEGOTIATE_128
-                        if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH:
-                            ansFlags |= ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH
-                        if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
-                            ansFlags |= ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY
-                        if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                            ansFlags |= ntlm.NTLMSSP_NEGOTIATE_UNICODE
-                        if negotiateMessage['flags'] & ntlm.NTLM_NEGOTIATE_OEM:
-                            ansFlags |= ntlm.NTLM_NEGOTIATE_OEM
-
-                        ansFlags |= ntlm.NTLMSSP_NEGOTIATE_VERSION | ntlm.NTLMSSP_NEGOTIATE_TARGET_INFO | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_NEGOTIATE_NTLM | ntlm.NTLMSSP_REQUEST_TARGET
-
-                        # Generating the AV_PAIRS
-                        # Using dummy data with the client
-                        av_pairs = ntlm.AV_PAIRS()
-                        av_pairs[ntlm.NTLMSSP_AV_HOSTNAME] = av_pairs[
-                            ntlm.NTLMSSP_AV_DNS_HOSTNAME] = 'DUMMY'.encode('utf-16le')
-                        av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME] = av_pairs[
-                            ntlm.NTLMSSP_AV_DNS_DOMAINNAME] = 'DUMMY'.encode('utf-16le')
-                        av_pairs[ntlm.NTLMSSP_AV_TIME] = struct.pack('<q', (
-                                    116444736000000000 + calendar.timegm(time.gmtime()) * 10000000))
-
-                        challengeMessage = ntlm.NTLMAuthChallenge()
-                        challengeMessage['flags'] = ansFlags
-                        challengeMessage['domain_len'] = len('DUMMY'.encode('utf-16le'))
-                        challengeMessage['domain_max_len'] = challengeMessage['domain_len']
-                        challengeMessage['domain_offset'] = 40 + 16
-                        challengeMessage['challenge'] = binascii.unhexlify('1122334455667788')
-                        challengeMessage['domain_name'] = 'DUMMY'.encode('utf-16le')
-                        challengeMessage['TargetInfoFields_len'] = len(av_pairs)
-                        challengeMessage['TargetInfoFields_max_len'] = len(av_pairs)
-                        challengeMessage['TargetInfoFields'] = av_pairs
-                        challengeMessage['TargetInfoFields_offset'] = 40 + 16 + len(challengeMessage['domain_name'])
-                        challengeMessage['Version'] = b'\xff' * 8
-                        challengeMessage['VersionLen'] = 8
+                        # Reuse the challenge message from the real authentication with the server
+                        challengeMessage = self.sessionData['CHALLENGE_MESSAGE']
+                        # We still remove the annoying flags
+                        challengeMessage['flags'] &= ~(NTLMSSP_NEGOTIATE_SIGN)
+                        challengeMessage['flags'] &= ~(NTLMSSP_NEGOTIATE_SEAL)
 
                         # Building the LDAP bind response message
                         bindresponse = BindResponse()

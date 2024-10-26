@@ -99,6 +99,7 @@ class LDAPRelayClient(ProtocolClient):
                     if result['result'] == RESULT_SUCCESS:
                         challenge = NTLMAuthChallenge()
                         challenge.fromString(result['server_creds'])
+                        self.sessionData['CHALLENGE_MESSAGE'] = challenge
                         return challenge
                 else:
                     raise LDAPRelayClientException('Server did not offer NTLM authentication!')
