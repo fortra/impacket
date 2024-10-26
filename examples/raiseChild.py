@@ -907,7 +907,7 @@ class RAISECHILD:
         encTicketPart = decoder.decode(plainText, asn1Spec = EncTicketPart())[0]
 
         # Let's extend the ticket's validity a lil bit
-        tenYearsFromNow = datetime.datetime.utcnow() + datetime.timedelta(days=365*10)
+        tenYearsFromNow = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365*10)
         encTicketPart['endtime'] = KerberosTime.to_asn1(tenYearsFromNow)
         encTicketPart['renew-till'] = KerberosTime.to_asn1(tenYearsFromNow)
         #print encTicketPart.prettyPrint()

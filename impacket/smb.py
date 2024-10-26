@@ -2883,7 +2883,7 @@ class SMB(object):
         timestamp |= self._dialects_parameters['LowDateTime']
         timestamp -= 116444736000000000
         timestamp //= 10000000
-        d = datetime.datetime.utcfromtimestamp(timestamp)
+        d = datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
         return d.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
     def disconnect_tree(self, tid):
@@ -3251,7 +3251,7 @@ class SMB(object):
         authenticator['authenticator-vno'] = 5
         authenticator['crealm'] = domain
         seq_set(authenticator, 'cname', userName.components_to_asn1)
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
 
         authenticator['cusec'] = now.microsecond
         authenticator['ctime'] = KerberosTime.to_asn1(now)
