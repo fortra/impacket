@@ -40,7 +40,13 @@
 import argparse
 import sys
 import logging
+
+# Patch readline to add backend property since cmd checks for it
+import readline
+readline.backend = 'readline'
+
 import cmd
+
 try:
     from urllib.request import ProxyHandler, build_opener, Request
 except ImportError:
