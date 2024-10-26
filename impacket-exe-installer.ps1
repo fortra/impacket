@@ -229,6 +229,7 @@ foreach ($Script in $SelectedScripts) {
     Write-Host "Building $Script..."
 
     # Build
+    pip install -r "example-requirements\$Script-requirements.txt"
     pyinstaller --onefile "examples\$Script.py"
 
     $BuiltScriptPath = Join-Path -Path $RepositoryFolder -ChildPath "dist\$Script.exe"
