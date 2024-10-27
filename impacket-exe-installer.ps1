@@ -5,7 +5,70 @@
 $PythonVersion = '3.13.0'
 $StartingDirectory = Get-Location
 
-$AvailableScripts = [System.Collections.Generic.HashSet[string]] @('DumpNTLMInfo','Get-GPPPassword','GetADComputers','GetADUsers','GetLAPSPassword','GetNPUsers','GetUserSPNs','addcomputer','atexec','changepasswd','dacledit','dcomexec','describeTicket','dpapi','esentutl','exchanger','findDelegation','getArch','getPac','getST','getTGT','goldenPac','karmaSMB','keylistattack','kintercept','lookupsid','machine_role','mimikatz','mqtt_check','mssqlclient','mssqlinstance','net','netview','ntfs-read','ntlmrelayx','owneredit','ping','ping6','psexec','raiseChild','rbcd','rdp_check','reg','registry-read','rpcdump','rpcmap','sambaPipe','samrdump','secretsdump','services','smbclient','smbexec','smbserver','sniff','sniffer','split','ticketConverter','ticketer','tstool','wmiexec','wmipersist','wmiquery')
+$availableScripts = @{
+    'DumpNTLMInfo' = @{requiredModules = @() }
+    'Get-GPPPassword' = @{requiredModules = @() }
+    'GetADComputers' = @{requiredModules = @() }
+    'GetADUsers' = @{requiredModules = @() }
+    'GetLAPSPassword' = @{requiredModules = @() }
+    'GetNPUsers' = @{requiredModules = @() }
+    'GetUserSPNs' = @{requiredModules = @() }
+    'addcomputer' = @{requiredModules = @() }
+    'atexec' = @{requiredModules = @() }
+    'changepasswd' = @{requiredModules = @() }
+    'dacledit' = @{requiredModules = @() }
+    'dcomexec' = @{requiredModules = @() }
+    'describeTicket' = @{requiredModules = @() }
+    'dpapi' = @{requiredModules = @() }
+    'esentutl' = @{requiredModules = @() }
+    'exchanger' = @{requiredModules = @() }
+    'findDelegation' = @{requiredModules = @() }
+    'getArch' = @{requiredModules = @() }
+    'getPac' = @{requiredModules = @() }
+    'getST' = @{requiredModules = @() }
+    'getTGT' = @{requiredModules = @() }
+    'goldenPac' = @{requiredModules = @() }
+    'karmaSMB' = @{requiredModules = @() }
+    'keylistattack' = @{requiredModules = @() }
+    'kintercept' = @{requiredModules = @() }
+    'lookupsid' = @{requiredModules = @() }
+    'machine_role' = @{requiredModules = @() }
+    'mimikatz' = @{requiredModules = @() }
+    'mqtt_check' = @{requiredModules = @() }
+    'mssqlclient' = @{requiredModules = @() }
+    'mssqlinstance' = @{requiredModules = @() }
+    'net' = @{requiredModules = @() }
+    'netview' = @{requiredModules = @() }
+    'ntfs-read' = @{requiredModules = @() }
+    'ntlmrelayx' = @{requiredModules = @() }
+    'owneredit' = @{requiredModules = @() }
+    'ping' = @{requiredModules = @() }
+    'ping6' = @{requiredModules = @() }
+    'psexec' = @{requiredModules = @() }
+    'raiseChild' = @{requiredModules = @() }
+    'rbcd' = @{requiredModules = @() }
+    'rdp_check' = @{requiredModules = @() }
+    'reg' = @{requiredModules = @() }
+    'registry-read' = @{requiredModules = @() }
+    'rpcdump' = @{requiredModules = @() }
+    'rpcmap' = @{requiredModules = @() }
+    'sambaPipe' = @{requiredModules = @() }
+    'samrdump' = @{requiredModules = @() }
+    'secretsdump' = @{requiredModules = @() }
+    'services' = @{requiredModules = @() }
+    'smbclient' = @{requiredModules = @() }
+    'smbexec' = @{requiredModules = @() }
+    'smbserver' = @{requiredModules = @() }
+    'sniff' = @{requiredModules = @('Npcap') }
+    'sniffer' = @{requiredModules = @() }
+    'split' = @{requiredModules = @('Npcap') }
+    'ticketConverter' = @{requiredModules = @() }
+    'ticketer' = @{requiredModules = @() }
+    'tstool' = @{requiredModules = @() }
+    'wmiexec' = @{requiredModules = @() }
+    'wmipersist' = @{requiredModules = @() }
+    'wmiquery' = @{requiredModules = @() }
+}
 
 $SelectedScripts = New-Object System.Collections.Generic.HashSet[string]
 
@@ -81,6 +144,18 @@ function Show-HelpMenu {
     Write-Host ''
 }
 
+function List-Scripts {
+    Write-Host 'Available Scripts:'
+    foreach ($AvailableScript in $AvailableScripts.GetEnumerator()) {
+        Write-Host "  $($AvailableScript.Key)"
+        #if ($AvailableScript.Value['RequiredModules'].Count -gt 0) {
+        #    Write-Host '    Required Modules:'
+        #    Write-Host "      $($AvailableScript.Value['RequiredModules'] -join "`n")"
+        #}
+    }
+    Write-Host ''
+}
+
 ## PARSING CMD ARGS ##
 
 if ($Args.Count -eq 0) {
@@ -94,11 +169,7 @@ for ($I = 0; $I -lt $Args.Count; $I++) {
         exit 0
     }
     if ($Args[$I] -eq '-s' -or $Args[$I] -eq '--list-scripts') {
-        Write-Host 'Available Scripts:'
-        foreach ($AvailableScript in $AvailableScripts) {
-            Write-Host "  $AvailableScript"
-        }
-        Write-Host ''
+        List-Scripts
         exit 0
     }
     elseif ($Args[$I].startsWith('-')) {
@@ -144,13 +215,13 @@ for ($I = 0; $I -lt $Args.Count; $I++) {
             throw
         }
     }
-    elseif ($AvailableScripts.Contains($Args[$I])) {
+    elseif ($AvailableScripts.ContainsKey($Args[$I])) {
         $SelectedScripts.Add($Args[$I]) | Out-Null
     }
     else {
-        $AvailableScriptsList = $AvailableScripts -join "`n    "
-        Write-Host "Error: Invalid installer selected, available options are:`n    $AvailableScriptsList`n"
-        Show-HelpMenu
+        $AvailableScriptsList = $AvailableScripts.Keys -join "`n    "
+        Write-Host "Error: Invalid installer selected."
+        List-Scripts
         throw
     }
 }
@@ -168,7 +239,7 @@ $TempPath = $Env:TEMP
 $PythonInstaller = Join-Path -Path $TempPath -ChildPath "python-$PythonVersion.exe"
 
 $RepositoryArchive = Join-Path -Path $TempPath -ChildPath "impacket-exe.zip"
-$RepositoryFolder = Join-Path -Path $TempPath -ChildPath "impacket-exe-master"
+$RepositoryFolder = Join-Path -Path $TempPath -ChildPath "impacket-exe-modules"
 
 $MachinePythonKey = "HKLM:\Software\Python\PythonCore"
 $UserPythonKey = "HKCU:\Software\Python\PythonCore"
@@ -209,7 +280,7 @@ if (-not $FoundPython -or $Flags['OverridePython']['Value']) {
 
 # Download and unzip repository
 Write-Host 'Downloading repository...'
-Invoke-WebRequest -Uri "https://github.com/p0rtL6/impacket-exe/archive/refs/heads/master.zip" -OutFile $RepositoryArchive
+Invoke-WebRequest -Uri "https://github.com/p0rtL6/impacket-exe/archive/refs/heads/modules.zip" -OutFile $RepositoryArchive
 Expand-Archive -Path $RepositoryArchive -DestinationPath $TempPath -Force
 Remove-Item $RepositoryArchive
 
@@ -219,7 +290,7 @@ Set-Location -Path $RepositoryFolder
 
 # Create and activate virtual environment
 python -m venv .venv
-.venv\Scripts\activate.ps1
+.venv\Scripts\Activate.ps1
 
 # Setup
 pip install -r requirements.txt
@@ -227,16 +298,25 @@ python setup.py install
 
 foreach ($Script in $SelectedScripts) {
     Write-Host "Building $Script..."
+    
+    # Run required modules Main
+    $Arguments = @('--onefile')
+    foreach ($ModuleName in $AvailableScripts[$Script]['RequiredModules']) {
+        Write-Host "Running module $ModuleName"
+        . "installer-modules\$ModuleName.ps1"
 
-    # Build
+        $Argument = Main
+        $Arguments += ($Argument)
+    }
+
     pip install -r "example-requirements\$Script-requirements.txt"
-    pyinstaller --onefile "examples\$Script.py"
+    pyinstaller $Arguments "examples\$Script.py"
 
     $BuiltScriptPath = Join-Path -Path $RepositoryFolder -ChildPath "dist\$Script.exe"
 
     if ($Flags['InstallSystemWide']['Value']) {
         # Prepare destination folder
-        Write-Host "Copying executable to Program Files..."
+        Write-Host 'Copying executable to Program Files...'
         New-Item -ItemType Directory -Path 'C:\Program Files\Impacket-exe' -Force
 
         # Copy built executable into program files
@@ -268,6 +348,17 @@ if ($Flags['InstallSystemWide']['Value']) {
 
 # Clean up
 Write-Host 'Cleaning up...'
+
+# Run required modules Cleanup
+foreach ($Script in $SelectedScripts) {
+    foreach ($ModuleName in $AvailableScripts[$Script]['RequiredModules']) {
+        Write-Host "Cleaning up module $ModuleName"
+        . "installer-modules\$ModuleName.ps1"
+
+        Cleanup
+    }
+}
+
 deactivate
 Set-Location -Path $StartingDirectory
 Remove-Item -Recurse -Force $RepositoryFolder
