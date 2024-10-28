@@ -108,7 +108,6 @@ class NTLMRelayxConfig:
         self.SCCMPoliciesClientname = None
         self.SCCMPoliciesSleep = None
         self.isSCCMDPAttack = False
-        self.SCCMDPIndexfile = None
         self.SCCMDPExtensions = None
         self.SCCMDPFiles = None
 
@@ -263,8 +262,7 @@ class NTLMRelayxConfig:
     def setIsSCCMDPAttack(self, isSCCMDPAttack):
         self.isSCCMDPAttack = isSCCMDPAttack
     
-    def setSCCMDPOptions(self, sccm_dp_indexfile, sccm_dp_extensions, sccm_dp_files):
-        self.SCCMDPIndexfile = sccm_dp_indexfile
+    def setSCCMDPOptions(self, sccm_dp_extensions, sccm_dp_files):
         self.SCCMDPExtensions = sccm_dp_extensions
         self.SCCMDPFiles = sccm_dp_files
 

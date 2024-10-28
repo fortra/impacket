@@ -212,7 +212,7 @@ def start_servers(options, threads):
         c.setIsSCCMPoliciesAttack(options.sccm_policies)
         c.setIsSCCMDPAttack(options.sccm_dp)
         c.setSCCMPoliciesOptions(options.sccm_policies_clientname, options.sccm_policies_sleep)
-        c.setSCCMDPOptions(options.sccm_dp_indexfile, options.sccm_dp_extensions, options.sccm_dp_files)
+        c.setSCCMDPOptions(options.sccm_dp_extensions, options.sccm_dp_files)
         
         c.setAltName(options.altname)
 
@@ -416,7 +416,6 @@ if __name__ == '__main__':
 
     sccmdpoptions = parser.add_argument_group("SCCM Distribution Point attack options")
     sccmdpoptions.add_argument('--sccm-dp', action='store_true', required=False, help='Enable SCCM Distribution Point attack. Perform package file dump from an SCCM Distribution Point. Expects as target \'http://<DP>/sms_dp_smspkg$/Datalib\'')
-    sccmdpoptions.add_argument('--sccm-dp-indexfile', action='store', required=False, help='The path to the index.json file produced by a previous run of the SCCM DP attack. Providing this argument will skip file indexing')
     sccmdpoptions.add_argument('--sccm-dp-extensions', action='store', required=False, help='A custom list of extensions to look for when downloading files from the SCCM Distribution Point. If not provided, defaults to .ps1,.bat,.xml,.txt,.pfx')
     sccmdpoptions.add_argument('--sccm-dp-files', action='store', required=False, help='The path to a file containing a list of specific URLs to download from the Distribution Point, instead of downloading by extensions. Providing this argument will skip file indexing')
 

