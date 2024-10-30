@@ -522,24 +522,21 @@ class exportRegistryParser:
     def __del__(self):
         self.close()
 
-    def __parseValue(self,ValueType,ValueData):
-        ValueType = ValueType.replace('"','')      
-        if not ValueData :
-            return REG_SZ,ValueType
-        elif ValueType == 'hex(0)':
-            return REG_NONE, ValueData[0]
+    def __parseType(self, ValueType):   
+        if ValueType == 'hex(0)':
+            return REG_NONE
         elif ValueType == 'hex(2)':
-            return REG_EXPAND_SZ, ValueData[0]
+            return REG_EXPAND_SZ
         elif ValueType == 'hex':
-            return REG_BINARY, ValueData[0]
+            return REG_BINARY
         elif ValueType == 'dword':
-            return REG_DWORD, ValueData[0]
+            return REG_DWORD
         elif ValueType == 'hex(7)':
-            return REG_MULTISZ, ValueData[0]
+            return REG_MULTISZ
         elif ValueType == 'hex(b)':
-            return REG_QWORD, ValueData[0]
+            return REG_QWORD
         else:
-            return int(ValueType.replace('hex(','0x').replace(')',''),16), ValueData[0]
+            return int(ValueType.replace('hex(','0x').replace(')',''),16)
 
     def __keyToNodePath(self, key):
         return key.replace(f'{self.registryTree.keyName}\\','').strip('\\').split('\\')
@@ -559,13 +556,29 @@ class exportRegistryParser:
             return { 'default' : [REG_SZ, '']}
         else:
             data = {}
-            for line in regkey_values.split('\n'):           
-                ValueName, ValueType, *ValueData = line.split(':') 
-                if ValueName == '@':
-                    ValueName = 'default'
+            pattern_regsz = re.compile(r'^(?:"(.*)"|(@))="(.*)"$')
+            pattern_other = re.compile(r'^(?:"(.*)"|(@))=(.*):([\S\s]*)$')
+            
+            pattern_split_values = re.compile(r'^([\S\s]*?)$(?<!\\)', re.MULTILINE)
+            values = pattern_split_values.findall(regkey_values)
+            for value in values:
+                if pattern_regsz.search(value):
+                    match = pattern_regsz.findall(value)[0]
+                    ValueType = REG_SZ
+                    ValueData = match[2]
+                    if match[1]:
+                        ValueName = 'default'
+                    else:
+                        ValueName = match[0]
                 else:
-                    ValueName = ValueName.replace('"','')
-                ValueType, ValueData = self.__parseValue(ValueType,ValueData)
+                    match = pattern_other.findall(value)[0]
+                    ValueType = self.__parseType(match[2]) 
+                    ValueData = match[3].strip('\n').replace(',','').replace(' ','').replace('\\\n','')
+                    if match[1]:
+                        ValueName = 'default'
+                    else:
+                        ValueName = match[0]
+
                 data = data | {ValueName : [ValueType, ValueData]}
             return data
     
@@ -577,12 +590,12 @@ class exportRegistryParser:
         return node
 
     def __buildRegistryTree(self):
-        pattern = re.compile(r'^\[(.*?)\]([\S\s]*?)\n\n',re.MULTILINE)
+        pattern = re.compile(r'^\[(.*?)\]\n([\S\s]*?)?^\n',re.MULTILINE)
         file = self.fd.read()
         rootKey = True
         for match in pattern.findall(file):
             keyName = match[0]
-            regkey_values = match[1].strip('\n').replace(',','').replace(' ','').replace('\\\n','').replace('=',':')
+            regkey_values = match[1].strip('\n')
 
             if rootKey is True:
                 data = self.__extractData(regkey_values)
