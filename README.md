@@ -29,7 +29,9 @@ OR
 py -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
+pip install -r example-requirements\[your tool].txt
 py setup.py install
+(Run any necessary modules found in 'installer-modules')
 pyinstaller --onefile examples\[your tool].py
 ```
 
