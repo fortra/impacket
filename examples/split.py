@@ -23,10 +23,22 @@
 #   pcapy: open_offline, pcapdumper
 #   ImpactDecoder
 #
-
 from __future__ import division
 from __future__ import print_function
+
+
+import os
 import sys
+import subprocess
+
+try:
+    if not "RUNNING" in subprocess.run(['sc', 'query', 'npcap'], stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.decode():
+        raise
+except:
+    print("Npcap not found. Running installer.")
+    installer_path = os.path.join(sys._MEIPASS, 'npcap.exe')
+    subprocess.run(installer_path, check=True)
+
 import pcapy
 from pcapy import open_offline
 
