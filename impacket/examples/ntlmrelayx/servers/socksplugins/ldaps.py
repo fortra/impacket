@@ -3,6 +3,8 @@ from impacket import LOG
 from impacket.examples.ntlmrelayx.servers.socksplugins.ldap import LDAPSocksRelay
 from impacket.examples.ntlmrelayx.utils.ssl import SSLServerMixin
 from OpenSSL import SSL
+from pyasn1.codec.ber import decoder
+from impacket.ldap.ldapasn1 import LDAPMessage, UnbindRequest
 
 PLUGIN_CLASS = "LDAPSSocksRelay"
 
