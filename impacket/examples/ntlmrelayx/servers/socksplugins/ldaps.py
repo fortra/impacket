@@ -39,12 +39,21 @@ class LDAPSSocksRelay(SSLServerMixin, LDAPSocksRelay):
         '''
 
         while not self.stop_event.is_set():
-            if recv_from.pending() == 0 and not select.select([recv_from], [], [], 1.0)[0]:
+            if recv_from.pending() == 0 and not select.select([recv_from], [], [], 0.01)[0]:
                 # No data ready to be read from recv_from
                 continue
 
             try:
                 data = recv_from.recv(LDAPSocksRelay.MSG_SIZE)
+                try:
+                    message, remaining = decoder.decode(data, asn1Spec=LDAPMessage())
+                    msg_component = message['protocolOp'].getComponent()
+                    if msg_component.isSameTypeWith(UnbindRequest):
+                        # Do not forward unbind requests, otherwise we would loose the SOCKS
+                        continue
+                except Exception as e:
+                    # Is probably not an unbind LDAP message
+                    pass
             except Exception:
                 if recv_from_is_server:
                     self.server_is_gone = True
@@ -69,4 +78,3 @@ class LDAPSSocksRelay(SSLServerMixin, LDAPSocksRelay):
 
                 self.stop_event.set()
                 return
-

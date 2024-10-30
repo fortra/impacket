@@ -12,7 +12,7 @@ from pyasn1.type import univ
 from impacket import LOG, ntlm
 from impacket.examples.ntlmrelayx.servers.socksserver import SocksRelay
 from impacket.ldap.ldap import LDAPSessionError
-from impacket.ldap.ldapasn1 import KNOWN_NOTIFICATIONS, LDAPDN, NOTIFICATION_DISCONNECT, BindRequest, BindResponse, LDAPMessage, LDAPString, ResultCode
+from impacket.ldap.ldapasn1 import KNOWN_NOTIFICATIONS, LDAPDN, NOTIFICATION_DISCONNECT, BindRequest, BindResponse, SearchRequest, SearchResultEntry, SearchResultDone, LDAPMessage, LDAPString, ResultCode, PartialAttributeList, PartialAttribute, AttributeValue, UnbindRequest
 from impacket.ntlm import NTLMSSP_NEGOTIATE_SIGN, NTLMSSP_NEGOTIATE_SEAL
 
 PLUGIN_CLASS = 'LDAPSocksRelay'
@@ -126,6 +126,53 @@ class LDAPSocksRelay(SocksRelay):
                         self.send(bindresponse, message['messageID'])
 
                         return True
+                else:
+                    msg_component = message['protocolOp'].getComponent()
+                    if msg_component.isSameTypeWith(SearchRequest):
+                        # Search request
+                        if msg_component['attributes'][0] == LDAPString('supportedCapabilities'):
+                            response = SearchResultEntry()
+                            response['objectName'] = LDAPDN('')
+                            response['attributes'] = PartialAttributeList()
+
+                            attribs = PartialAttribute()
+                            attribs.setComponentByName('type', 'supportedCapabilities')
+                            attribs.setComponentByName('vals', univ.SetOf(componentType=AttributeValue()))
+                            # LDAP_CAP_ACTIVE_DIRECTORY_OID
+                            attribs.getComponentByName('vals').setComponentByPosition(0, AttributeValue('1.2.840.113556.1.4.800'))
+                            # LDAP_CAP_ACTIVE_DIRECTORY_V51_OID
+                            attribs.getComponentByName('vals').setComponentByPosition(1, AttributeValue('1.2.840.113556.1.4.1670'))
+                            # LDAP_CAP_ACTIVE_DIRECTORY_LDAP_INTEG_OID
+                            attribs.getComponentByName('vals').setComponentByPosition(2, AttributeValue('1.2.840.113556.1.4.1791'))
+                            # ISO assigned OIDs
+                            attribs.getComponentByName('vals').setComponentByPosition(3, AttributeValue('1.2.840.113556.1.4.1935'))
+                            attribs.getComponentByName('vals').setComponentByPosition(4, AttributeValue('1.2.840.113556.1.4.2080'))
+                            attribs.getComponentByName('vals').setComponentByPosition(5, AttributeValue('1.2.840.113556.1.4.2237'))
+
+                            response['attributes'].append(attribs)
+                        elif msg_component['attributes'][0] == LDAPString('supportedSASLMechanisms'):
+                            response = SearchResultEntry()
+                            response['objectName'] = LDAPDN('')
+                            response['attributes'] = PartialAttributeList()
+
+                            attribs = PartialAttribute()
+                            attribs.setComponentByName('type', 'supportedSASLMechanisms')
+                            attribs.setComponentByName('vals', univ.SetOf(componentType=AttributeValue()))
+                            # Force NTLMSSP to avoid parsing every type of authentication
+                            attribs.getComponentByName('vals').setComponentByPosition(0, AttributeValue('NTLM'))
+
+                            response['attributes'].append(attribs)
+                        else:
+                            raise RuntimeError(f'Received unexpected message: {msg_component["attributes"][0]}')
+
+                        # Sending message
+                        self.send(response, message['messageID'])
+                        # Sending searchResDone
+                        result_done = SearchResultDone()
+                        result_done['resultCode'] = ResultCode('success')
+                        result_done['matchedDN'] = LDAPDN('')
+                        result_done['diagnosticMessage'] = LDAPString('')
+                        self.send(result_done, message['messageID'])
 
     def recv(self):
         '''Receive LDAP messages during the SOCKS client LDAP authentication.'''
@@ -216,13 +263,23 @@ class LDAPSocksRelay(SocksRelay):
         '''
 
         while not self.stop_event.is_set():
-            is_ready, a, b = select.select([recv_from], [], [], 1.0)
+            is_ready, a, b = select.select([recv_from], [], [], 0.01)
 
             if not is_ready:
                 continue
 
             try:
                 data = recv_from.recv(LDAPSocksRelay.MSG_SIZE)
+                try:
+                    message, remaining = decoder.decode(data, asn1Spec=LDAPMessage())
+                    msg_component = message['protocolOp'].getComponent()
+                    if msg_component.isSameTypeWith(UnbindRequest):
+                        # Do not forward unbind requests, otherwise we would loose the SOCKS
+                        continue
+                except Exception as e:
+                    # Is probably not an unbind LDAP message
+                    pass
+
             except Exception:
                 if recv_from_is_server:
                     self.server_is_gone = True
@@ -247,4 +304,3 @@ class LDAPSocksRelay(SocksRelay):
 
                 self.stop_event.set()
                 return
-
