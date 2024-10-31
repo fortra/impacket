@@ -325,7 +325,7 @@ class SocksRequestHandler(socketserver.BaseRequestHandler):
                 self.targetHost = socket.inet_ntoa(request['PAYLOAD'][:4])
                 self.targetPort = unpack('>H',request['PAYLOAD'][4:])[0]
             elif request['ATYP'] == ATYP.DOMAINNAME.value:
-                hostLength = unpack('!B',request['PAYLOAD'][0])[0]
+                hostLength = unpack('!B',request['PAYLOAD'][:1])[0]
                 self.targetHost = request['PAYLOAD'][1:hostLength+1]
                 self.targetPort = unpack('>H',request['PAYLOAD'][hostLength+1:])[0]
             else:
