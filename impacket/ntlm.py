@@ -37,7 +37,7 @@ TEST_CASE = False # Only set to True when running Test Cases
 
 
 def computeResponse(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='', nthash='',
-                    use_ntlmv2=USE_NTLMv2, channel_binding_value=''):
+                    use_ntlmv2=USE_NTLMv2, channel_binding_value=b''):
     if use_ntlmv2:
         return computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, domain, user, password,
                                      lmhash, nthash, use_ntlmv2=use_ntlmv2, channel_binding_value=channel_binding_value)
@@ -594,7 +594,7 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlm
 
     return auth
 
-def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2, channel_binding_value = ''):
+def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2, channel_binding_value = b''):
 
     # Safety check in case somebody sent password = None.. That's not allowed. Setting it to '' and hope for the best.
     if password is None:
@@ -898,7 +898,7 @@ def LMOWFv2( user, password, domain, lmhash = ''):
 
 
 def computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='',
-                          nthash='', use_ntlmv2=USE_NTLMv2, channel_binding_value=''):
+                          nthash='', use_ntlmv2=USE_NTLMv2, channel_binding_value=b''):
 
     responseServerVersion = b'\x01'
     hiResponseServerVersion = b'\x01'
@@ -920,10 +920,6 @@ def computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, d
     else:
         aTime = b'\x00'*8
     
-    if channel_binding_value is None:
-        channel_binding_value = b''
-    elif isinstance(channel_binding_value, str):
-        channel_binding_value = channel_binding_value.encode()
     if len(channel_binding_value) > 0:
         av_pairs[NTLMSSP_AV_CHANNEL_BINDINGS] = channel_binding_value
     
