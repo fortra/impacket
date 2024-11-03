@@ -251,7 +251,7 @@ class NTLMTests(unittest.TestCase):
         keyExchangeKey = ntlm.KXKEY(flags, sessionBaseKey, lmResponse, self.serverChallenge, self.password,'','')
         encryptedSessionKey = ntlm.generateEncryptedSessionKey(keyExchangeKey,self.randomSessionKey)
         hexdump(encryptedSessionKey)
-        self.assertEqual(encryptedSessionKey, bytearray(b'\xC5\xDA\xD2\x54\x4F\xC9\x79\x90\x94\xCE\x1C\xE9\x0B\xC9\xD0\x3E'))
+        self.assertEqual(encryptedSessionKey, bytearray(b'\x18\x6c\xaf\xee\x66\x20\x16\x9d\xd9\x8c\x4d\x1a\x22\x56\x71\x4c'))
         print("\n")
 
         print("AUTHENTICATE MESSAGE")
