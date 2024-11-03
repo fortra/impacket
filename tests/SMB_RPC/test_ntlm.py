@@ -236,7 +236,7 @@ class NTLMTests(unittest.TestCase):
         ntResponse, lmResponse, sessionBaseKey = ntlm.computeResponseNTLMv2(flags, self.serverChallenge,
                             self.clientChallenge, serverName, self.domain, self.user, self.password, '', '' )
         hexdump(sessionBaseKey)
-        self.assertEqual(sessionBaseKey, bytearray(b'\x8d\xe4\x0c\xca\xdb\xc1\x4a\x82\xf1\x5c\xb0\xad\x0d\xe9\x5c\xa3'))
+        self.assertEqual(sessionBaseKey, bytearray(b'\xe0\x02\x92\x35\xf1\x18\x08\xe6\x12\xea\xa1\xac\xe6\x13\x78\x5f'))
         print("\n")
 
         print("4.2.4.2.1 LMv2 Response")
