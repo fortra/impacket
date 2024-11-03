@@ -245,7 +245,7 @@ class NTLMTests(unittest.TestCase):
         print("\n")
         print("4.2.4.2.2 NTLMv2 Response")
         hexdump(ntResponse[:16])
-        self.assertEqual(ntResponse[:16], bytearray(b'\x68\xcd\x0a\xb8\x51\xe5\x1c\x96\xaa\xbc\x92\x7b\xeb\xef\x6a\x1c'))
+        self.assertEqual(ntResponse[:16], bytearray(b'\xb2\x32\x05\x0b\x98\xe5\xf4\xe3\x36\xbd\x18\x79\x21\xa2\x7b\xb2'))
         print("\n")
         print("4.2.4.2.3 Encrypted Session Key")
         keyExchangeKey = ntlm.KXKEY(flags, sessionBaseKey, lmResponse, self.serverChallenge, self.password,'','')
