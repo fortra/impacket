@@ -239,7 +239,7 @@ $TempPath = $Env:TEMP
 $PythonInstaller = Join-Path -Path $TempPath -ChildPath "python-$PythonVersion.exe"
 
 $RepositoryArchive = Join-Path -Path $TempPath -ChildPath "impacket-exe.zip"
-$RepositoryFolder = Join-Path -Path $TempPath -ChildPath "impacket-exe-modules"
+$RepositoryFolder = Join-Path -Path $TempPath -ChildPath "impacket-exe-master"
 
 $MachinePythonKey = "HKLM:\Software\Python\PythonCore"
 $UserPythonKey = "HKCU:\Software\Python\PythonCore"
@@ -280,7 +280,7 @@ if (-not $FoundPython -or $Flags['OverridePython']['Value']) {
 
 # Download and unzip repository
 Write-Host 'Downloading repository...'
-Invoke-WebRequest -Uri "https://github.com/p0rtL6/impacket-exe/archive/refs/heads/modules.zip" -OutFile $RepositoryArchive
+Invoke-WebRequest -Uri "https://github.com/p0rtL6/impacket-exe/archive/refs/heads/master.zip" -OutFile $RepositoryArchive
 Expand-Archive -Path $RepositoryArchive -DestinationPath $TempPath -Force
 Remove-Item $RepositoryArchive
 
