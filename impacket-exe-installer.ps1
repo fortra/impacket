@@ -82,6 +82,12 @@ $Options['OutputDir'] = @{
 }
 
 $Flags = New-object System.Collections.Hashtable
+$Flags['InstallAll'] = @{
+    Name = 'Install All Scripts'
+    Desc = 'Installs every script in the available scripts list'
+    Keywords = @('-a', '--all')
+    Value = $False
+}
 $Flags['OverridePython'] = @{
     Name = 'Override Installed Python'
     Desc = "Install Python $PythonVersion even if an existing python version is installed"
@@ -226,6 +232,12 @@ for ($I = 0; $I -lt $Args.Count; $I++) {
     }
 }
 
+if ($Flags['InstallAll']['Value']) {
+    foreach ($key in $AvailableScripts.Keys) {
+        $SelectedScripts.Add($key) | Out-Null
+    }
+}
+
 if ($SelectedScripts.Count -eq 0) {
     Write-Host "Error: Must select at least one script to install`n"
     Show-HelpMenu
@@ -309,7 +321,10 @@ foreach ($Script in $SelectedScripts) {
         $Arguments += ($Argument)
     }
 
-    pip install -r "example-requirements\$Script-requirements.txt"
+    if (Test-Path "example-requirements\$Script-requirements.txt") {
+        pip install -r "example-requirements\$Script-requirements.txt"
+    }
+    
     pyinstaller $Arguments "examples\$Script.py"
 
     $BuiltScriptPath = Join-Path -Path $RepositoryFolder -ChildPath "dist\$Script.exe"
@@ -352,7 +367,7 @@ Write-Host 'Cleaning up...'
 # Run required modules Cleanup
 foreach ($Script in $SelectedScripts) {
     foreach ($ModuleName in $AvailableScripts[$Script]['RequiredModules']) {
-        Write-Host "Cleaning up module $ModuleName"
+        Write-Host "Cleaning up module $ModuleName..."
         . "installer-modules\$ModuleName.ps1"
 
         Cleanup
