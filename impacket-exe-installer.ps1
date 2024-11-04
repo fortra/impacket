@@ -40,7 +40,7 @@ $availableScripts = @{
     'net' = @{requiredModules = @() }
     'netview' = @{requiredModules = @() }
     'ntfs-read' = @{requiredModules = @() }
-    'ntlmrelayx' = @{requiredModules = @() }
+    'ntlmrelayx' = @{requiredModules = @('ntlmrelayx') }
     'owneredit' = @{requiredModules = @() }
     'ping' = @{requiredModules = @() }
     'ping6' = @{requiredModules = @() }
