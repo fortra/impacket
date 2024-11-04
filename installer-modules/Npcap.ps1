@@ -32,7 +32,7 @@ function Main {
 }
 
 function Cleanup {
-    if ($env:InstalledNPcap) {
+    if ($env:InstalledNPcap -eq "True") {
         Start-Process 'C:\Program Files\Npcap\Uninstall.exe' -Wait
     }
 }
