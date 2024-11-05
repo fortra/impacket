@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -11,6 +13,8 @@ from __future__ import division
 from __future__ import print_function
 from struct import pack, unpack, calcsize
 from six import b, PY3
+from binascii import hexlify
+
 
 class Structure:
     """ sublcasses can define commonHdr and/or structure.
@@ -160,7 +164,7 @@ class Structure:
             data = data[size:]
 
         return self
-        
+
     def __setitem__(self, key, value):
         self.fields[key] = value
         self.data = None        # force recompute
@@ -170,9 +174,9 @@ class Structure:
 
     def __delitem__(self, key):
         del self.fields[key]
-        
+
     def __str__(self):
-        return self.getData()
+        return str(hexlify(self.getData()).decode("ascii"))
 
     def __len__(self):
         # XXX: improve

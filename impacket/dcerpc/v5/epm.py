@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -1315,7 +1317,7 @@ def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-
     tower['Floors'] = interface.getData() + dataRep.getData() + protId.getData() + transportData
 
     request = ept_map()
-    request['max_towers'] = 1
+    request['max_towers'] = 4
     request['map_tower']['tower_length'] = len(tower)
     request['map_tower']['tower_octet_string'] = tower.getData()
 

@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -35,6 +37,7 @@ from impacket import LOG
 USE_NTLMv2 = True # if false will fall back to NTLMv1 (or NTLMv1 with ESS a.k.a NTLM2)
 TEST_CASE = False # Only set to True when running Test Cases
 
+DEFAULT_LM_HASH = binascii.unhexlify('AAD3B435B51404EEAAD3B435B51404EE')
 
 def computeResponse(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='', nthash='',
                     use_ntlmv2=USE_NTLMv2, channel_binding_value=b''):
@@ -741,7 +744,15 @@ def computeResponseNTLMv1(flags, serverChallenge, clientChallenge, serverName, d
 
 def compute_lmhash(password):
     # This is done according to Samba's encryption specification (docs/html/ENCRYPTION.html)
-    password = password.upper()
+    try:
+        password.encode("latin-1")
+    except UnicodeEncodeError:
+        # LM hash can be computed only from latin-1 encoded passwords
+        # If password contains unicode characters, outside latin-1, we return the default LM_HASH
+        return DEFAULT_LM_HASH
+
+    password = ''.join( c.upper() if c in string.ascii_letters else c for c in password )
+
     lmhash  = __DES_block(b(password[:7]), KNOWN_DES_INPUT)
     lmhash += __DES_block(b(password[7:14]), KNOWN_DES_INPUT)
     return lmhash
@@ -960,7 +971,7 @@ class NTLM_HTTP(object):
         msg_type = 0
         if msg_64 != '':
             msg = base64.b64decode(msg_64[5:]) # Remove the 'NTLM '
-            msg_type = ord(msg[8])
+            msg_type = msg[8]
     
         for _cls in NTLM_HTTP.__subclasses__():
             if msg_type == _cls.MSG_TYPE:

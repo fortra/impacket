@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -43,6 +45,7 @@ class NTLMRelayxConfig:
         self.ipv6 = False
         self.remove_mic = False
         self.disableMulti = False
+        self.keepRelaying = False
 
         self.command = None
 
@@ -134,8 +137,14 @@ class NTLMRelayxConfig:
     def setEnumLocalAdmins(self, enumLocalAdmins):
         self.enumLocalAdmins = enumLocalAdmins
 
+    def setAddComputerSMB(self, addComputerSMB):
+        self.addComputerSMB = addComputerSMB
+
     def setDisableMulti(self, disableMulti):
         self.disableMulti = disableMulti
+
+    def setKeepRelaying(self, keepRelaying):
+        self.keepRelaying = keepRelaying
 
     def setEncoding(self, encoding):
         self.encoding = encoding

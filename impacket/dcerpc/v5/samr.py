@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -1067,6 +1069,12 @@ class SAMPR_USER_INTERNAL5_INFORMATION_NEW(NDRSTRUCT):
         ('PasswordExpired', UCHAR),
     )
 
+class SAMPR_USER_RESET_INFORMATION(NDRSTRUCT):
+    structure = (
+        ('ExtendedWhichFields', ULONG),
+        ('ResetData', RPC_UNICODE_STRING),
+    )
+
 # 2.2.7.28 USER_INFORMATION_CLASS
 class USER_INFORMATION_CLASS(NDRENUM):
     class enumItems(Enum):
@@ -1093,6 +1101,7 @@ class USER_INFORMATION_CLASS(NDRENUM):
         UserInternal5Information    = 24
         UserInternal4InformationNew = 25
         UserInternal5InformationNew = 26
+        UserResetInformation        = 30
 
 # 2.2.7.29 SAMPR_USER_INFO_BUFFER
 class SAMPR_USER_INFO_BUFFER(NDRUNION):
@@ -1120,6 +1129,7 @@ class SAMPR_USER_INFO_BUFFER(NDRUNION):
         USER_INFORMATION_CLASS.UserInternal5Information   : ('Internal5', SAMPR_USER_INTERNAL5_INFORMATION),
         USER_INFORMATION_CLASS.UserInternal4InformationNew: ('Internal4New', SAMPR_USER_INTERNAL4_INFORMATION_NEW),
         USER_INFORMATION_CLASS.UserInternal5InformationNew: ('Internal5New', SAMPR_USER_INTERNAL5_INFORMATION_NEW),
+        USER_INFORMATION_CLASS.UserResetInformation       : ('Reset', SAMPR_USER_RESET_INFORMATION),
     }
 
 class PSAMPR_USER_INFO_BUFFER(NDRPOINTER):
@@ -2576,7 +2586,18 @@ def hSamrCreateUser2InDomain(dce, domainHandle, name, accountType=USER_NORMAL_AC
     request['Name'] = name
     request['AccountType'] = accountType
     request['DesiredAccess'] = desiredAccess
-    return dce.request(request)
+    try:
+        return dce.request(request)
+    except DCERPCSessionError as e:
+        if e.error_code == 0xc0000022:
+            raise Exception("Relayed user doesn't have right to create a machine account!")
+        elif e.error_code == 0xc00002e7:
+            raise Exception("Relayed user machine quota exceeded!")
+        elif e.error_code == 0xc0000062:
+            raise Exception("Account name not accepted, maybe the '$' at the end is missing ?")
+        else:
+            raise e
+
 
 def hSamrCreateUserInDomain(dce, domainHandle, name, desiredAccess=GROUP_ALL_ACCESS):
     request = SamrCreateUserInDomain()

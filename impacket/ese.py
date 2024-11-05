@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -429,30 +431,6 @@ class ESENT_CATALOG_DATA_DEFINITION_ENTRY(Structure):
 
         Structure.__init__(self,data)
 
-
-#def pretty_print(x):
-#    if x in '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ ':
-#       return x
-#    else:
-#       return '.'
-#
-#def hexdump(data):
-#    x=str(data)
-#    strLen = len(x)
-#    i = 0
-#    while i < strLen:
-#        print "%04x  " % i,
-#        for j in range(16):
-#            if i+j < strLen:
-#                print "%02X" % ord(x[i+j]),
-#
-#            else:
-#                print "  ",
-#            if j%16 == 7:
-#                print "",
-#        print " ",
-#        print ''.join(pretty_print(x) for x in x[i:i+16] )
-#        i += 16
 
 def getUnixTime(t):
     t -= 116444736000000000

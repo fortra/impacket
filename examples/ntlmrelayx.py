@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -181,7 +183,9 @@ def start_servers(options, threads):
         c.setExeFile(options.e)
         c.setCommand(options.c)
         c.setEnumLocalAdmins(options.enum_local_admins)
+        c.setAddComputerSMB(options.add_computer)
         c.setDisableMulti(options.no_multirelay)
+        c.setKeepRelaying(options.keep_relaying)
         c.setEncoding(codec)
         c.setMode(mode)
         c.setAttacks(PROTOCOL_ATTACKS)
@@ -290,6 +294,7 @@ if __name__ == '__main__':
     parser.add_argument('--raw-port', type=int, help='Port to listen on raw server', default=6666)
 
     parser.add_argument('--no-multirelay', action="store_true", required=False, help='If set, disable multi-host relay (SMB and HTTP servers)')
+    parser.add_argument('--keep-relaying', action="store_true", required=False, help='If set, keeps relaying to a target even after a successful connection on it')
     parser.add_argument('-ra','--random', action='store_true', help='Randomize target selection')
     parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
     parser.add_argument('-l','--lootdir', action='store', type=str, required=False, metavar = 'LOOTDIR',default='.', help='Loot '
@@ -326,7 +331,7 @@ if __name__ == '__main__':
     smboptions.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. '
                                      'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
-
+    
     #RPC arguments
     rpcoptions = parser.add_argument_group("RPC client options")
     rpcoptions.add_argument('-rpc-mode', choices=["TSCH"], default="TSCH", help='Protocol to attack, only TSCH supported')
@@ -359,13 +364,17 @@ if __name__ == '__main__':
     ldapoptions.add_argument('--no-acl', action='store_false', required=False, help='Disable ACL attacks')
     ldapoptions.add_argument('--no-validate-privs', action='store_false', required=False, help='Do not attempt to enumerate privileges, assume permissions are granted to escalate a user via ACL attacks')
     ldapoptions.add_argument('--escalate-user', action='store', required=False, help='Escalate privileges of this user instead of creating a new one')
-    ldapoptions.add_argument('--add-computer', action='store', metavar=('COMPUTERNAME', 'PASSWORD'), required=False, nargs='*', help='Attempt to add a new computer account')
     ldapoptions.add_argument('--delegate-access', action='store_true', required=False, help='Delegate access on relayed computer account to the specified account')
     ldapoptions.add_argument('--sid', action='store_true', required=False, help='Use a SID to delegate access rather than an account name')
     ldapoptions.add_argument('--dump-laps', action='store_true', required=False, help='Attempt to dump any LAPS passwords readable by the user')
     ldapoptions.add_argument('--dump-gmsa', action='store_true', required=False, help='Attempt to dump any gMSA passwords readable by the user')
     ldapoptions.add_argument('--dump-adcs', action='store_true', required=False, help='Attempt to dump ADCS enrollment services and certificate templates info')
     ldapoptions.add_argument('--add-dns-record', nargs=2, action='store', metavar=('NAME', 'IPADDR'), required=False, help='Add the <NAME> record to DNS via LDAP pointing to <IPADDR>')
+
+    #Common options for SMB and LDAP
+    commonoptions = parser.add_argument_group("Common options for SMB and LDAP")
+    commonoptions.add_argument('--add-computer', action='store', metavar=('COMPUTERNAME', 'PASSWORD'), required=False, nargs='*', help='Attempt to add a new computer account via SMB or LDAP, depending on the specified target. '
+        'This argument can be used either with the LDAP or the SMB service, as long as the target is a domain controller.')
 
     #IMAP options
     imapoptions = parser.add_argument_group("IMAP client options")
@@ -440,6 +449,9 @@ if __name__ == '__main__':
     else:
         if options.tf is not None:
             #Targetfile specified
+            if (options.add_computer):
+                logging.info("To add a machine account through SMB only the Domain Controller must be specified as target")
+                sys.exit(1)
             logging.info("Running in relay mode to hosts in targetfile")
             targetSystem = TargetsProcessor(targetListFile=options.tf, protocolClients=PROTOCOL_CLIENTS, randomize=options.random)
             mode = 'RELAY'
@@ -485,6 +497,12 @@ if __name__ == '__main__':
         threads.add(socks_thread)
 
     c = start_servers(options, threads)
+
+    # Log multirelay flag status
+    if options.no_multirelay:
+        logging.info("Multirelay disabled")
+    else:
+        logging.info("Multirelay enabled")
 
     print("")
     logging.info("Servers started, waiting for connections")

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -66,10 +68,6 @@ class SMBServer(Thread):
 
     def cleanup_server(self):
         logging.info('Cleaning up..')
-        try:
-            os.unlink(SMBSERVER_DIR + '/smb.log')
-        except OSError:
-            pass
         os.rmdir(SMBSERVER_DIR)
 
     def run(self):
@@ -79,7 +77,7 @@ class SMBServer(Thread):
         smbConfig.set('global','server_name','server_name')
         smbConfig.set('global','server_os','UNIX')
         smbConfig.set('global','server_domain','WORKGROUP')
-        smbConfig.set('global','log_file',SMBSERVER_DIR + '/smb.log')
+        smbConfig.set('global','log_file','None')
         smbConfig.set('global','credentials_file','')
 
         # Let's add a dummy share

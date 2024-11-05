@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -49,7 +51,7 @@ CODEC = sys.stdout.encoding
 
 class WMIEXEC:
     def __init__(self, command='', username='', password='', domain='', hashes=None, aesKey=None, share=None,
-                 noOutput=False, doKerberos=False, kdcHost=None, shell_type=None):
+                 noOutput=False, doKerberos=False, kdcHost=None, remoteHost="", shell_type=None):
         self.__command = command
         self.__username = username
         self.__password = password
@@ -61,6 +63,7 @@ class WMIEXEC:
         self.__noOutput = noOutput
         self.__doKerberos = doKerberos
         self.__kdcHost = kdcHost
+        self.__remoteHost = remoteHost
         self.__shell_type = shell_type
         self.shell = None
         if hashes is not None:
@@ -68,7 +71,7 @@ class WMIEXEC:
 
     def run(self, addr, silentCommand=False):
         if self.__noOutput is False and silentCommand is False:
-            smbConnection = SMBConnection(addr, addr)
+            smbConnection = SMBConnection(addr, self.__remoteHost)
             if self.__doKerberos is False:
                 smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
             else:
@@ -88,7 +91,7 @@ class WMIEXEC:
             smbConnection = None
 
         dcom = DCOMConnection(addr, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
-                              self.__aesKey, oxidResolver=True, doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
+                              self.__aesKey, oxidResolver=True, doKerberos=self.__doKerberos, kdcHost=self.__kdcHost, remoteHost=self.__remoteHost)
         try:
             iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
             iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
@@ -393,6 +396,9 @@ if __name__ == '__main__':
                                                                           '(128 or 256 bits)')
     group.add_argument('-dc-ip', action='store', metavar="ip address", help='IP Address of the domain controller. If '
                                                                             'ommited it use the domain part (FQDN) specified in the target parameter')
+    group.add_argument('-target-ip', action='store', metavar="ip address",
+                       help='IP Address of the target machine. If omitted it will use whatever was specified as target. '
+                            'This is useful when target is the NetBIOS name and you cannot resolve it')
     group.add_argument('-A', action="store", metavar="authfile", help="smbclient/mount.cifs-style authentication file. "
                                                                       "See smbclient man page's -A option.")
     group.add_argument('-keytab', action="store", help='Read keys for SPN from keytab file')
@@ -442,6 +448,9 @@ if __name__ == '__main__':
             logging.debug('loaded smbclient auth file: domain=%s, username=%s, password=%s' % (
             repr(domain), repr(username), repr(password)))
 
+        if options.target_ip is None:
+            options.target_ip = address
+
         if domain is None:
             domain = ''
 
@@ -458,7 +467,7 @@ if __name__ == '__main__':
             options.k = True
 
         executer = WMIEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey,
-                           options.share, options.nooutput, options.k, options.dc_ip, options.shell_type)
+                           options.share, options.nooutput, options.k, options.dc_ip, options.target_ip, options.shell_type)
         executer.run(address, options.silentcommand)
     except KeyboardInterrupt as e:
         logging.error(str(e))

