@@ -933,9 +933,6 @@ def computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, d
     
     if len(channel_binding_value) > 0:
         av_pairs[NTLMSSP_AV_CHANNEL_BINDINGS] = channel_binding_value
-    
-    # The following variable length AvPairs must be terminated like so
-    av_pairs[NTLMSSP_AV_EOL] = b''
 
     # Format according to:
     # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/aee311d6-21a7-4470-92a5-c4ecb022a87b
