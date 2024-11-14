@@ -85,7 +85,7 @@ $Flags = New-object System.Collections.Hashtable
 $Flags['InstallAll'] = @{
     Name = 'Install All Scripts'
     Desc = 'Installs every script in the available scripts list'
-    Keywords = @('-a', '--all')
+    Keywords = @('-A', '--all')
     Value = $False
 }
 $Flags['OverridePython'] = @{
