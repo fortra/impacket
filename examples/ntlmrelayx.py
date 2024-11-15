@@ -40,11 +40,6 @@
 import argparse
 import sys
 import logging
-
-# Patch readline to add backend property since cmd checks for it
-import readline
-readline.backend = 'readline'
-
 import cmd
 
 try:
@@ -70,6 +65,10 @@ RELAY_SERVERS = []
 
 class MiniShell(cmd.Cmd):
     def __init__(self, relayConfig, threads, api_address):
+
+        import readline
+        readline.backend = 'readline'
+
         cmd.Cmd.__init__(self)
 
         self.prompt = 'ntlmrelayx> '

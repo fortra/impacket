@@ -46,6 +46,10 @@ mimikatz_intro = r"""Type help for list of commands"""
 
 class MimikatzShell(cmd.Cmd):
     def __init__(self, dce):
+
+        import readline
+        readline.backend = 'readline'
+
         cmd.Cmd.__init__(self)
         self.shell = None
 
