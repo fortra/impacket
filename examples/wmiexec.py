@@ -123,6 +123,10 @@ class WMIEXEC:
 
 class RemoteShell(cmd.Cmd):
     def __init__(self, share, win32Process, smbConnection, shell_type, silentCommand=False):
+
+        import readline
+        readline.backend = 'readline'
+
         cmd.Cmd.__init__(self)
         self.__share = share
         self.__output = '\\' + OUTPUT_FILENAME

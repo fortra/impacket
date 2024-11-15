@@ -43,6 +43,10 @@ if __name__ == '__main__':
 
     class WMIQUERY(cmd.Cmd):
         def __init__(self, iWbemServices):
+
+            import readline
+            readline.backend = 'readline'
+
             cmd.Cmd.__init__(self)
             self.iWbemServices = iWbemServices
             self.prompt = 'WQL> '
