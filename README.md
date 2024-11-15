@@ -2,13 +2,13 @@ Impacket-exe
 ========
 
 To build a tool into an executable:
-* You may have to disable Windows AV
+> You may have to disable Windows AV
 
 EITHER
 
 Use the installer:
 
-* Download `impacket-exe-installer.ps1`:
+> Download `impacket-exe-installer.ps1`:
 
 Run the install script as administrator in Powershell
 
@@ -34,6 +34,8 @@ pyinstaller --onefile examples\[your tool].py
 ```
 
 The built executable will be located inside the `dist` folder
+
+> Use Ctrl+Pause/Break to exit scripts.
 
 (Original Readme)
 Impacket
