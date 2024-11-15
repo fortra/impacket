@@ -470,6 +470,10 @@ class RemoteStdErrPipe(Pipes):
 
 class RemoteShell(cmd.Cmd):
     def __init__(self, server, port, credentials, tid, fid, share, transport):
+
+        import readline
+        readline.backend = 'readline'
+
         cmd.Cmd.__init__(self, False)
         self.prompt = '\x08'
         self.server = server

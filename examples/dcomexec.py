@@ -207,6 +207,10 @@ class DCOMEXEC:
 
 class RemoteShell(cmd.Cmd):
     def __init__(self, share, quit, executeShellCommand, smbConnection, shell_type, silentCommand=False):
+
+        import readline
+        readline.backend = 'readline'
+
         cmd.Cmd.__init__(self)
         self._share = share
         self._output = '\\' + OUTPUT_FILENAME
