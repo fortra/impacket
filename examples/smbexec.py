@@ -11,7 +11,7 @@
 #
 # Description:
 #   A similar approach to psexec w/o using RemComSvc. The technique is described here
-#   https://www.optiv.com/blog/owning-computers-without-shell-access
+#   https://web.archive.org/web/20190515131124/https://www.optiv.com/blog/owning-computers-without-shell-access
 #   Our implementation goes one step further, instantiating a local smbserver to receive the
 #   output of the commands. This is useful in the situation where the target machine does NOT
 #   have a writeable share available.
