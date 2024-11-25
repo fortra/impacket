@@ -40,10 +40,10 @@ TEST_CASE = False # Only set to True when running Test Cases
 DEFAULT_LM_HASH = binascii.unhexlify('AAD3B435B51404EEAAD3B435B51404EE')
 
 def computeResponse(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='', nthash='',
-                    use_ntlmv2=USE_NTLMv2):
+                    use_ntlmv2=USE_NTLMv2, channel_binding_value=b''):
     if use_ntlmv2:
         return computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, domain, user, password,
-                                     lmhash, nthash, use_ntlmv2=use_ntlmv2)
+                                     lmhash, nthash, use_ntlmv2=use_ntlmv2, channel_binding_value=channel_binding_value)
     else:
         return computeResponseNTLMv1(flags, serverChallenge, clientChallenge, serverName, domain, user, password,
                                      lmhash, nthash, use_ntlmv2=use_ntlmv2)
@@ -597,7 +597,7 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlm
 
     return auth
 
-def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2):
+def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2, channel_binding_value = b''):
 
     # Safety check in case somebody sent password = None.. That's not allowed. Setting it to '' and hope for the best.
     if password is None:
@@ -636,7 +636,7 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
 
     ntResponse, lmResponse, sessionBaseKey = computeResponse(ntlmChallenge['flags'], ntlmChallenge['challenge'],
                                                              clientChallenge, serverName, domain, user, password,
-                                                             lmhash, nthash, use_ntlmv2)
+                                                             lmhash, nthash, use_ntlmv2, channel_binding_value = channel_binding_value)
 
     # Let's check the return flags
     if (ntlmChallenge['flags'] & NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY) == 0:
@@ -909,7 +909,7 @@ def LMOWFv2( user, password, domain, lmhash = ''):
 
 
 def computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='',
-                          nthash='', use_ntlmv2=USE_NTLMv2):
+                          nthash='', use_ntlmv2=USE_NTLMv2, channel_binding_value=b''):
 
     responseServerVersion = b'\x01'
     hiResponseServerVersion = b'\x01'
@@ -930,9 +930,20 @@ def computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, d
         serverName = av_pairs.getData()
     else:
         aTime = b'\x00'*8
+    
+    if len(channel_binding_value) > 0:
+        av_pairs[NTLMSSP_AV_CHANNEL_BINDINGS] = channel_binding_value
 
-    temp = responseServerVersion + hiResponseServerVersion + b'\x00' * 6 + aTime + clientChallenge + b'\x00' * 4 + \
-           serverName + b'\x00' * 4
+    # Format according to:
+    # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/aee311d6-21a7-4470-92a5-c4ecb022a87b
+    temp = responseServerVersion # RespType 1 byte
+    temp += hiResponseServerVersion # HiRespType 1 byte
+    temp += b'\x00' * 2 # Reserved1 2 bytes
+    temp += b'\x00' * 4 # Reserved2 4 bytes
+    temp += aTime # TimeStamp 8 bytes
+    temp += clientChallenge # ChallengeFromClient 8 bytes
+    temp += b'\x00' * 4 # Reserved 4 bytes
+    temp += av_pairs.getData() # AvPairs variable
 
     ntProofStr = hmac_md5(responseKeyNT, serverChallenge + temp)
 
