@@ -3,8 +3,6 @@ from impacket import LOG
 from impacket.examples.ntlmrelayx.servers.socksplugins.ldap import LDAPSocksRelay
 from impacket.examples.ntlmrelayx.utils.ssl import SSLServerMixin
 from OpenSSL import SSL
-from pyasn1.codec.ber import decoder
-from impacket.ldap.ldapasn1 import LDAPMessage, UnbindRequest
 
 PLUGIN_CLASS = "LDAPSSocksRelay"
 
@@ -24,59 +22,26 @@ class LDAPSSocksRelay(SSLServerMixin, LDAPSocksRelay):
         self.wrapClientConnection()
 
         # Skip authentication using the same technique as LDAP
-        if not LDAPSocksRelay.skipAuthentication(self):
-            # Shut down TLS connection
-            self.socksSocket.shutdown()
+        try:
+            if not LDAPSocksRelay.skipAuthentication(self):
+                # Shut down TLS connection
+                self.socksSocket.shutdown()
+                return False
+        except SSL.SysCallError:
+            LOG.warning('Cannot wrap client socket in TLS/SSL')
             return False
 
         return True
-    
-    def recv_from_send_to(self, recv_from, send_to, recv_from_is_server: bool):
-        '''
-        Simple helper that receives data on the recv_from socket and sends it to send_to socket.
 
-        - The recv_from_is_server allows to properly stop the relay when the server closes connection.
-        - This method is called by the tunnelConnection method implemented for LDAPSocksRelay, it is
-        redefined here to support TLS.
-        '''
+    def wait_for_data(self, socket1, socket2):
+        rready = []
 
-        while not self.stop_event.is_set():
-            if recv_from.pending() == 0 and not select.select([recv_from], [], [], 0.01)[0]:
-                # No data ready to be read from recv_from
-                continue
+        if socket1.pending():
+            rready.append(socket1)
+        if socket2.pending():
+            rready.append(socket2)
 
-            try:
-                data = recv_from.recv(LDAPSocksRelay.MSG_SIZE)
-                try:
-                    message, remaining = decoder.decode(data, asn1Spec=LDAPMessage())
-                    msg_component = message['protocolOp'].getComponent()
-                    if msg_component.isSameTypeWith(UnbindRequest):
-                        # Do not forward unbind requests, otherwise we would loose the SOCKS
-                        continue
-                except Exception as e:
-                    # Is probably not an unbind LDAP message
-                    pass
-            except Exception:
-                if recv_from_is_server:
-                    self.server_is_gone = True
+        if not rready:
+            rready, _, exc = select.select([socket1, socket2], [], [])
 
-                self.stop_event.set()
-                return
-
-            LOG.debug(f'Received {len(data)} bytes from {"server" if recv_from_is_server else "client"}')
-
-            if data == b'':
-                if recv_from_is_server:
-                    self.server_is_gone = True
-
-                self.stop_event.set()
-                return
-            
-            try:
-                send_to.send(data)
-            except Exception:
-                if not recv_from_is_server:
-                    self.server_is_gone = True
-
-                self.stop_event.set()
-                return
+        return rready

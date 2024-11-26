@@ -1,10 +1,4 @@
-import calendar
 import select
-import socket
-import struct
-import time
-import binascii
-import threading
 from pyasn1.codec.ber import encoder, decoder
 from pyasn1.error import SubstrateUnderrunError
 from pyasn1.type import univ
@@ -12,7 +6,7 @@ from pyasn1.type import univ
 from impacket import LOG, ntlm
 from impacket.examples.ntlmrelayx.servers.socksserver import SocksRelay
 from impacket.ldap.ldap import LDAPSessionError
-from impacket.ldap.ldapasn1 import KNOWN_NOTIFICATIONS, LDAPDN, NOTIFICATION_DISCONNECT, BindRequest, BindResponse, SearchRequest, SearchResultEntry, SearchResultDone, LDAPMessage, LDAPString, ResultCode, PartialAttributeList, PartialAttribute, AttributeValue, UnbindRequest
+from impacket.ldap.ldapasn1 import KNOWN_NOTIFICATIONS, LDAPDN, NOTIFICATION_DISCONNECT, BindRequest, BindResponse, SearchRequest, SearchResultEntry, SearchResultDone, LDAPMessage, LDAPString, ResultCode, PartialAttributeList, PartialAttribute, AttributeValue, UnbindRequest, ExtendedRequest
 from impacket.ntlm import NTLMSSP_NEGOTIATE_SIGN, NTLMSSP_NEGOTIATE_SEAL
 
 PLUGIN_CLASS = 'LDAPSocksRelay'
@@ -37,7 +31,7 @@ class LDAPSocksRelay(SocksRelay):
     def skipAuthentication(self):
         # Faking an NTLM authentication with the client
         while True:
-            messages = self.recv()
+            messages = self.recv_ldap_msg()
             LOG.debug(f'Received {len(messages)} message(s)')
 
             for message in messages:
@@ -55,7 +49,7 @@ class LDAPSocksRelay(SocksRelay):
                         bindresponse['resultCode'] = ResultCode('success')
                         bindresponse['matchedDN'] = LDAPDN('NTLM')
                         bindresponse['diagnosticMessage'] = LDAPString('')
-                        self.send(bindresponse, message['messageID'])
+                        self.send_ldap_msg(bindresponse, message['messageID'])
 
                         # Let's receive next messages
                         continue
@@ -82,7 +76,7 @@ class LDAPSocksRelay(SocksRelay):
                         bindresponse['diagnosticMessage'] = LDAPString('')
 
                         # Sending the response
-                        self.send(bindresponse, message['messageID'])
+                        self.send_ldap_msg(bindresponse, message['messageID'])
 
                     else:
                         # Received an NTLM auth bind request
@@ -123,7 +117,7 @@ class LDAPSocksRelay(SocksRelay):
                         bindresponse['diagnosticMessage'] = LDAPString('')
 
                         # Sending successful response
-                        self.send(bindresponse, message['messageID'])
+                        self.send_ldap_msg(bindresponse, message['messageID'])
 
                         return True
                 else:
@@ -163,18 +157,19 @@ class LDAPSocksRelay(SocksRelay):
 
                             response['attributes'].append(attribs)
                         else:
-                            raise RuntimeError(f'Received unexpected message: {msg_component["attributes"][0]}')
+                            # Any other message triggers the closing of client connection
+                            return False
 
                         # Sending message
-                        self.send(response, message['messageID'])
+                        self.send_ldap_msg(response, message['messageID'])
                         # Sending searchResDone
                         result_done = SearchResultDone()
                         result_done['resultCode'] = ResultCode('success')
                         result_done['matchedDN'] = LDAPDN('')
                         result_done['diagnosticMessage'] = LDAPString('')
-                        self.send(result_done, message['messageID'])
+                        self.send_ldap_msg(result_done, message['messageID'])
 
-    def recv(self):
+    def recv_ldap_msg(self):
         '''Receive LDAP messages during the SOCKS client LDAP authentication.'''
 
         data = b''
@@ -209,7 +204,7 @@ class LDAPSocksRelay(SocksRelay):
 
         return response
     
-    def send(self, response, message_id, controls=None):
+    def send_ldap_msg(self, response, message_id, controls=None):
         '''Send LDAP messages during the SOCKS client LDAP authentication.'''
 
         message = LDAPMessage()
@@ -222,31 +217,55 @@ class LDAPSocksRelay(SocksRelay):
 
         return self.socksSocket.sendall(data)
 
+    def wait_for_data(self, socket1, socket2):
+        return select.select([socket1, socket2], [], [])[0]
+
+    def passthrough_sockets(self, client_sock, server_sock):
+        while True:
+            rready = self.wait_for_data(client_sock, server_sock)
+
+            for sock in rready:
+
+                if sock == client_sock:
+                    # Data received from client
+                    try:
+                        read = client_sock.recv(self.MSG_SIZE)
+                    except Exception:
+                        read = ''
+                    if not read:
+                        return
+
+                    if not self.is_allowed_request(read):
+                        # Stop client connection when unallowed requests are made
+                        return
+
+                    if not self.is_forwardable_request(read):
+                        # Do not forward unbind requests, otherwise we would loose the SOCKS
+                        continue
+
+                    try:
+                        server_sock.send(read)
+                    except Exception:
+                        raise BrokenPipeError('Broken pipe: LDAP server is gone')
+
+                elif sock == server_sock:
+                    # Data received from server
+                    try:
+                        read = server_sock.recv(self.MSG_SIZE)
+                    except Exception:
+                        read = ''
+                    if not read:
+                        raise BrokenPipeError('Broken pipe: LDAP server is gone')
+
+                    try:
+                        client_sock.send(read)
+                    except Exception:
+                        return
+
     def tunnelConnection(self):
         '''Charged of tunneling the rest of the connection.'''
 
-        self.stop_event = threading.Event()
-        self.server_is_gone = False
-
-        # Client to Server
-        c2s = threading.Thread(target=self.recv_from_send_to, args=(self.socksSocket, self.session, False))
-        c2s.daemon = True
-        # Server to Client
-        s2c = threading.Thread(target=self.recv_from_send_to, args=(self.session, self.socksSocket, True))
-        s2c.daemon = True
-
-        c2s.start()
-        s2c.start()
-
-        # Should wait until the client or server closes connection
-        c2s.join()
-        s2c.join()
-
-        if self.server_is_gone:
-            # There was an error with the server socket
-            # Raising an exception so that the socksserver.py module can remove the current relay
-            # from the available ones
-            raise BrokenPipeError('Broken pipe: LDAP server is gone')
+        self.passthrough_sockets(self.socksSocket, self.session)
         
         # Free the relay so that it can be reused
         self.activeRelays[self.username]['inUse'] = False
@@ -255,52 +274,33 @@ class LDAPSocksRelay(SocksRelay):
 
         return True
 
-    def recv_from_send_to(self, recv_from: socket.socket, send_to: socket.socket, recv_from_is_server: bool):
-        '''
-        Simple helper that receives data on the recv_from socket and sends it to send_to socket.
+    def is_forwardable_request(self, data):
+        try:
+            message, remaining = decoder.decode(data, asn1Spec=LDAPMessage())
+            msg_component = message['protocolOp'].getComponent()
 
-        The recv_from_is_server allows to properly stop the relay when the server closes connection.
-        '''
+            # Search for unbind requests
+            if msg_component.isSameTypeWith(UnbindRequest):
+                LOG.warning('Client tried to unbind LDAP connection, skipping message')
+                return False
+        except Exception:
+            # Is probably not an unbind LDAP message
+            pass
 
-        while not self.stop_event.is_set():
-            is_ready, a, b = select.select([recv_from], [], [], 0.01)
+        return True
 
-            if not is_ready:
-                continue
+    def is_allowed_request(self, data):
+        try:
+            message, remaining = decoder.decode(data, asn1Spec=LDAPMessage())
+            msg_component = message['protocolOp'].getComponent()
 
-            try:
-                data = recv_from.recv(LDAPSocksRelay.MSG_SIZE)
-                try:
-                    message, remaining = decoder.decode(data, asn1Spec=LDAPMessage())
-                    msg_component = message['protocolOp'].getComponent()
-                    if msg_component.isSameTypeWith(UnbindRequest):
-                        # Do not forward unbind requests, otherwise we would loose the SOCKS
-                        continue
-                except Exception as e:
-                    # Is probably not an unbind LDAP message
-                    pass
+            # Search for START_TLS LDAP extendedReq OID
+            if msg_component.isSameTypeWith(ExtendedRequest) and msg_component['requestName'].asOctets() == b'1.3.6.1.4.1.1466.20037':
+                # 1.3.6.1.4.1.1466.20037 is LDAP_START_TLS_OID
+                LOG.warning('Client tried to initiate Start TLS, closing connection')
+                return False
+        except Exception:
+            # Is probably not a ExtendedReq message
+            pass
 
-            except Exception:
-                if recv_from_is_server:
-                    self.server_is_gone = True
-
-                self.stop_event.set()
-                return
-
-            LOG.debug(f'Received {len(data)} byte(s) from {"server" if recv_from_is_server else "client"}')
-
-            if data == b'':
-                if recv_from_is_server:
-                    self.server_is_gone = True
-
-                self.stop_event.set()
-                return
-            
-            try:
-                send_to.send(data)
-            except Exception:
-                if not recv_from_is_server:
-                    self.server_is_gone = True
-
-                self.stop_event.set()
-                return
+        return True
