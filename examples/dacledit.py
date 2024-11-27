@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2024 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -96,7 +98,7 @@ WELL_KNOWN_SIDS = {
     'S-1-5-64-14': 'SChannel Authentication',
     'S-1-5-64-21': 'Digest Authority',
     'S-1-5-80': 'NT Service',
-    'S-1-5-83-0': 'NT VIRTUAL MACHINE\Virtual Machines',
+    'S-1-5-83-0': 'NT VIRTUAL MACHINE\\Virtual Machines',
     'S-1-16-0': 'Untrusted Mandatory Level',
     'S-1-16-4096': 'Low Mandatory Level',
     'S-1-16-8192': 'Medium Mandatory Level',
@@ -105,24 +107,24 @@ WELL_KNOWN_SIDS = {
     'S-1-16-16384': 'System Mandatory Level',
     'S-1-16-20480': 'Protected Process Mandatory Level',
     'S-1-16-28672': 'Secure Process Mandatory Level',
-    'S-1-5-32-554': 'BUILTIN\Pre-Windows 2000 Compatible Access',
-    'S-1-5-32-555': 'BUILTIN\Remote Desktop Users',
-    'S-1-5-32-557': 'BUILTIN\Incoming Forest Trust Builders',
+    'S-1-5-32-554': 'BUILTIN\\Pre-Windows 2000 Compatible Access',
+    'S-1-5-32-555': 'BUILTIN\\Remote Desktop Users',
+    'S-1-5-32-557': 'BUILTIN\\Incoming Forest Trust Builders',
     'S-1-5-32-556': 'BUILTIN\\Network Configuration Operators',
-    'S-1-5-32-558': 'BUILTIN\Performance Monitor Users',
-    'S-1-5-32-559': 'BUILTIN\Performance Log Users',
-    'S-1-5-32-560': 'BUILTIN\Windows Authorization Access Group',
-    'S-1-5-32-561': 'BUILTIN\Terminal Server License Servers',
-    'S-1-5-32-562': 'BUILTIN\Distributed COM Users',
-    'S-1-5-32-569': 'BUILTIN\Cryptographic Operators',
-    'S-1-5-32-573': 'BUILTIN\Event Log Readers',
-    'S-1-5-32-574': 'BUILTIN\Certificate Service DCOM Access',
-    'S-1-5-32-575': 'BUILTIN\RDS Remote Access Servers',
-    'S-1-5-32-576': 'BUILTIN\RDS Endpoint Servers',
-    'S-1-5-32-577': 'BUILTIN\RDS Management Servers',
-    'S-1-5-32-578': 'BUILTIN\Hyper-V Administrators',
-    'S-1-5-32-579': 'BUILTIN\Access Control Assistance Operators',
-    'S-1-5-32-580': 'BUILTIN\Remote Management Users',
+    'S-1-5-32-558': 'BUILTIN\\Performance Monitor Users',
+    'S-1-5-32-559': 'BUILTIN\\Performance Log Users',
+    'S-1-5-32-560': 'BUILTIN\\Windows Authorization Access Group',
+    'S-1-5-32-561': 'BUILTIN\\Terminal Server License Servers',
+    'S-1-5-32-562': 'BUILTIN\\Distributed COM Users',
+    'S-1-5-32-569': 'BUILTIN\\Cryptographic Operators',
+    'S-1-5-32-573': 'BUILTIN\\Event Log Readers',
+    'S-1-5-32-574': 'BUILTIN\\Certificate Service DCOM Access',
+    'S-1-5-32-575': 'BUILTIN\\RDS Remote Access Servers',
+    'S-1-5-32-576': 'BUILTIN\\RDS Endpoint Servers',
+    'S-1-5-32-577': 'BUILTIN\\RDS Management Servers',
+    'S-1-5-32-578': 'BUILTIN\\Hyper-V Administrators',
+    'S-1-5-32-579': 'BUILTIN\\Access Control Assistance Operators',
+    'S-1-5-32-580': 'BUILTIN\\Remote Management Users',
 }
 
 
@@ -871,7 +873,7 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
     authenticator['authenticator-vno'] = 5
     authenticator['crealm'] = domain
     seq_set(authenticator, 'cname', userName.components_to_asn1)
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
 
     authenticator['cusec'] = now.microsecond
     authenticator['ctime'] = KerberosTime.to_asn1(now)

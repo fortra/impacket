@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -718,7 +720,7 @@ class MS14_068:
         seq_set(reqBody, 'sname', serverName.components_to_asn1)
         reqBody['realm'] = decodedTGT['crealm'].prettyPrint()
 
-        now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
 
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.SystemRandom().getrandbits(31)
@@ -744,7 +746,7 @@ class MS14_068:
 
         seq_set(authenticator, 'cname', clientName.components_to_asn1)
 
-        now = datetime.datetime.utcnow() 
+        now = datetime.datetime.now(datetime.timezone.utc)
         authenticator['cusec'] =  now.microsecond
         authenticator['ctime'] = KerberosTime.to_asn1(now)
 

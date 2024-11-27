@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -18,7 +20,7 @@
 #
 from __future__ import division
 from __future__ import print_function
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 from struct import pack, unpack, calcsize
 from six import b, PY2
@@ -734,9 +736,9 @@ class CCache:
 
         krbCredInfo['flags'] = credential['tktflags']
 
-        krbCredInfo['starttime'] = KerberosTime.to_asn1(datetime.utcfromtimestamp(credential['time']['starttime']))
-        krbCredInfo['endtime'] = KerberosTime.to_asn1(datetime.utcfromtimestamp(credential['time']['endtime']))
-        krbCredInfo['renew-till'] = KerberosTime.to_asn1(datetime.utcfromtimestamp(credential['time']['renew_till']))
+        krbCredInfo['starttime'] = KerberosTime.to_asn1(datetime.fromtimestamp(credential['time']['starttime'], tz=timezone.utc))
+        krbCredInfo['endtime'] = KerberosTime.to_asn1(datetime.fromtimestamp(credential['time']['endtime'], tz=timezone.utc))
+        krbCredInfo['renew-till'] = KerberosTime.to_asn1(datetime.fromtimestamp(credential['time']['renew_till'], tz=timezone.utc))
 
         krbCredInfo['srealm'] = credential['server'].realm.fields['data']
 
