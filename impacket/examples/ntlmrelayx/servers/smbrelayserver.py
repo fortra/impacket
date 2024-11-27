@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -76,7 +78,7 @@ class SMBRelayServer(Thread):
         smbConfig.set('global','server_name','server_name')
         smbConfig.set('global','server_os','UNIX')
         smbConfig.set('global','server_domain','WORKGROUP')
-        smbConfig.set('global','log_file','smb.log')
+        smbConfig.set('global','log_file','None')
         smbConfig.set('global','credentials_file','')
 
         if self.config.smb2support is True:
@@ -923,6 +925,6 @@ class SMBRelayServer(Thread):
         self.server.server_close()
 
     def run(self):
-        LOG.info("Setting up SMB Server")
+        LOG.info("Setting up SMB Server on port %s" % self.server.server_address[1])
         self._start()
 

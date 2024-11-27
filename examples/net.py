@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -379,7 +381,7 @@ class Net:
                 print("Comment".ljust(30), info['AdminComment'])
                 print("User's comment".ljust(30), info['UserComment'])
                 print("Country/region code".ljust(30), "000 (System Default)" if info['CountryCode'] == 0 else info['CountryCode'])
-                print("Account active".ljust(30), self.__b2s(info['WhichFields'] & samr.USER_ACCOUNT_DISABLED == samr.USER_ACCOUNT_DISABLED))
+                print("Account active".ljust(30), self.__b2s(info['UserAccountControl'] & samr.USER_ACCOUNT_DISABLED != samr.USER_ACCOUNT_DISABLED))
                 print("Account expires".ljust(30), self.__get_time_string(info['AccountExpires']))
                 print('')
                 print("Password last set".ljust(30), self.__get_time_string(info['PasswordLastSet']))

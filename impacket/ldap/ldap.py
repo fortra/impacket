@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -213,7 +215,7 @@ class LDAPConnection:
         authenticator['authenticator-vno'] = 5
         authenticator['crealm'] = domain
         seq_set(authenticator, 'cname', userName.components_to_asn1)
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
 
         authenticator['cusec'] = now.microsecond
         authenticator['ctime'] = KerberosTime.to_asn1(now)
@@ -308,8 +310,31 @@ class LDAPConnection:
             # NTLM Challenge
             type2 = response['bindResponse']['matchedDN']
 
+            # If TLS is used, setup channel binding
+            channel_binding_value = b''
+            if self._SSL:
+                # From: https://github.com/ly4k/ldap3/commit/87f5760e5a68c2f91eac8ba375f4ea3928e2b9e0#diff-c782b790cfa0a948362bf47d72df8ddd6daac12e5757afd9d371d89385b27ef6R1383
+                from hashlib import md5
+                # Ugly but effective, to get the digest of the X509 DER in bytes
+                peer_cert_digest_str = self._socket.get_peer_certificate().digest('sha256').decode()
+                peer_cert_digest_bytes = bytes.fromhex(peer_cert_digest_str.replace(':', ''))
+            
+                channel_binding_struct = b''
+                initiator_address = b'\x00'*8
+                acceptor_address = b'\x00'*8
+
+                # https://datatracker.ietf.org/doc/html/rfc5929#section-4
+                application_data_raw = b'tls-server-end-point:' + peer_cert_digest_bytes
+                len_application_data = len(application_data_raw).to_bytes(4, byteorder='little', signed = False)
+                application_data = len_application_data
+                application_data += application_data_raw
+                channel_binding_struct += initiator_address
+                channel_binding_struct += acceptor_address
+                channel_binding_struct += application_data
+                channel_binding_value = md5(channel_binding_struct).digest()
+
             # NTLM Auth
-            type3, exportedSessionKey = getNTLMSSPType3(negotiate, bytes(type2), user, password, domain, lmhash, nthash)
+            type3, exportedSessionKey = getNTLMSSPType3(negotiate, bytes(type2), user, password, domain, lmhash, nthash, channel_binding_value=channel_binding_value)
             bindRequest['authentication']['sicilyResponse'] = type3.getData()
             response = self.sendReceive(bindRequest)[0]['protocolOp']
         elif authenticationChoice == 'sasl':

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -37,12 +39,6 @@ try:
 except Exception:
     logging.critical("Warning: You don't have any crypto installed. You need pycryptodomex")
     logging.critical("See https://pypi.org/project/pycryptodomex/")
-
-# If you wanna have readline like functionality in Windows, install pyreadline
-try:
-  import pyreadline as readline
-except ImportError:
-  import readline
 
 
 mimikatz_intro = r"""Type help for list of commands"""

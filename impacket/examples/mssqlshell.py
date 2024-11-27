@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -21,15 +23,6 @@ import os
 import cmd
 import sys
 
-def handle_lastError(f):
-    def wrapper(*args):
-        try:
-            f(*args)
-        finally:
-            if(args[0].sql.lastError):
-                print(args[0].sql.lastError)
-    return wrapper
-
 class SQLSHELL(cmd.Cmd):
     def __init__(self, SQL, show_queries=False, tcpShell=None):
         if tcpShell is not None:
@@ -48,6 +41,10 @@ class SQLSHELL(cmd.Cmd):
         self.at = []
         self.set_prompt()
         self.intro = '[!] Press help for extra shell commands'
+
+    def print_replies(self):
+        # to condense all calls to sql.printReplies with right logger in this context
+        self.sql.printReplies(error_logger=print, info_logger=print)
 
     def do_help(self, line):
         print("""
@@ -103,19 +100,16 @@ class SQLSHELL(cmd.Cmd):
             self.at.append((at, exec_as))
         else:
             self.sql_query(exec_as)
-            self.sql.printReplies()
+            self.print_replies()
 
-    @handle_lastError
     def do_exec_as_login(self, s):
         exec_as = "execute as login='%s';" % s
         self.execute_as(exec_as)
 
-    @handle_lastError
     def do_exec_as_user(self, s):
         exec_as = "execute as user='%s';" % s
         self.execute_as(exec_as)
 
-    @handle_lastError
     def do_use_link(self, s):
         if s == 'localhost':
             self.at = []
@@ -124,7 +118,7 @@ class SQLSHELL(cmd.Cmd):
         else:
             self.at.append((s, ''))
             row = self.sql_query('select system_user as "username"')
-            self.sql.printReplies()
+            self.print_replies()
             if len(row) < 1:
                 self.at = self.at[:-1]
 
@@ -139,26 +133,23 @@ class SQLSHELL(cmd.Cmd):
     def do_shell(self, s):
         os.system(s)
 
-    @handle_lastError
     def do_xp_dirtree(self, s):
         try:
             self.sql_query("exec master.sys.xp_dirtree '%s',1,1" % s)
-            self.sql.printReplies()
+            self.print_replies()
             self.sql.printRows()
         except:
             pass
 
-    @handle_lastError
     def do_xp_cmdshell(self, s):
         try:
             self.sql_query("exec master..xp_cmdshell '%s'" % s)
-            self.sql.printReplies()
+            self.print_replies()
             self.sql.colMeta[0]['TypeData'] = 80*2
             self.sql.printRows()
         except:
             pass
 
-    @handle_lastError
     def do_sp_start_job(self, s):
         try:
             self.sql_query("DECLARE @job NVARCHAR(100);"
@@ -169,7 +160,7 @@ class SQLSHELL(cmd.Cmd):
                                 "@subsystem='CMDEXEC',@command='%s',@on_success_action=1;"
                                 "EXEC msdb..sp_add_jobserver @job_name=@job;"
                                 "EXEC msdb..sp_start_job @job_name=@job;" % s)
-            self.sql.printReplies()
+            self.print_replies()
             self.sql.printRows()
         except:
             pass
@@ -180,60 +171,53 @@ class SQLSHELL(cmd.Cmd):
         else:
             os.chdir(s)
 
-    @handle_lastError
     def do_enable_xp_cmdshell(self, line):
         try:
             self.sql_query("exec master.dbo.sp_configure 'show advanced options',1;RECONFIGURE;"
                                 "exec master.dbo.sp_configure 'xp_cmdshell', 1;RECONFIGURE;")
-            self.sql.printReplies()
+            self.print_replies()
             self.sql.printRows()
         except:
             pass
 
-    @handle_lastError
     def do_disable_xp_cmdshell(self, line):
         try:
             self.sql_query("exec sp_configure 'xp_cmdshell', 0 ;RECONFIGURE;exec sp_configure "
                             "'show advanced options', 0 ;RECONFIGURE;")
-            self.sql.printReplies()
+            self.print_replies()
             self.sql.printRows()
         except:
             pass
 
-    @handle_lastError
     def do_enum_links(self, line):
         self.sql_query("EXEC sp_linkedservers")
-        self.sql.printReplies()
+        self.print_replies()
         self.sql.printRows()
         self.sql_query("EXEC sp_helplinkedsrvlogin")
-        self.sql.printReplies()
+        self.print_replies()
         self.sql.printRows()
 
-    @handle_lastError
     def do_enum_users(self, line):
         self.sql_query("EXEC sp_helpuser")
-        self.sql.printReplies()
+        self.print_replies()
         self.sql.printRows()
 
-    @handle_lastError
     def do_enum_db(self, line):
         try:
             self.sql_query("select name, is_trustworthy_on from sys.databases")
-            self.sql.printReplies()
+            self.print_replies()
             self.sql.printRows()
         except:
             pass
 
-    @handle_lastError
     def do_enum_owner(self, line):
         try:
             self.sql_query("SELECT name [Database], suser_sname(owner_sid) [Owner] FROM sys.databases")
-            self.sql.printReplies()
+            self.print_replies()
             self.sql.printRows()
         except:
             pass
 
-    @handle_lastError
     def do_enum_impersonate(self, line):
         old_db = self.sql.currentDB
         try:
@@ -260,7 +244,7 @@ class SQLSHELL(cmd.Cmd):
                                             "  ON pe.grantor_principal_id = pr2.principal_Id "
                                             "WHERE pe.type = 'IM'")
             result.extend(result_rows)
-            self.sql.printReplies()
+            self.print_replies()
             self.sql.rows = result
             self.sql.printRows()
         except:
@@ -268,23 +252,21 @@ class SQLSHELL(cmd.Cmd):
         finally:
             self.sql_query("use " + old_db)
 
-    @handle_lastError
     def do_enum_logins(self, line):
         try:
             self.sql_query("select r.name,r.type_desc,r.is_disabled, sl.sysadmin, sl.securityadmin, "
                             "sl.serveradmin, sl.setupadmin, sl.processadmin, sl.diskadmin, sl.dbcreator, "
                             "sl.bulkadmin from  master.sys.server_principals r left join master.sys.syslogins sl "
                             "on sl.sid = r.sid where r.type in ('S','E','X','U','G')")
-            self.sql.printReplies()
+            self.print_replies()
             self.sql.printRows()
         except:
             pass
 
-    @handle_lastError
     def default(self, line):
         try:
             self.sql_query(line)
-            self.sql.printReplies()
+            self.print_replies()
             self.sql.printRows()
         except:
             pass
