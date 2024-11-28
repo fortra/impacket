@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -193,7 +195,7 @@ class WCFRelayServer(Thread):
                 # Connection failed
                 LOG.error('Negotiating NTLM with %s://%s failed. Skipping to next target',
                           self.target.scheme, self.target.netloc)
-                self.server.config.target.logTarget(self.target)
+                self.server.config.target.registerTarget(self.target)
                 return
 
             # Calculate auth
@@ -272,7 +274,7 @@ class WCFRelayServer(Thread):
                 writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                       self.server.config.outputFile)
 
-            self.server.config.target.logTarget(self.target, True, self.authUser)
+            self.server.config.target.registerTarget(self.target, True, self.authUser)
 
             self.do_attack()
 
@@ -348,12 +350,12 @@ class WCFRelayServer(Thread):
         self.server = None
 
     def run(self):
-        LOG.info("Setting up WCF Server")
-
         if self.config.listeningPort:
             wcfport = self.config.listeningPort
         else:
             wcfport = 9389  # ADWS
+
+        LOG.info("Setting up WCF Server on port %s" % wcfport)
 
         # changed to read from the interfaceIP set in the configuration
         self.server = self.WCFServer((self.config.interfaceIp, wcfport), self.WCFHandler, self.config)

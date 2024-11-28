@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -48,7 +50,7 @@ except NotImplementedError:
     rand = random
     pass
 
-def sendReceive(data, host, kdcHost):
+def sendReceive(data, host, kdcHost, port=88):
     if kdcHost is None:
         targetHost = host
     else:
@@ -56,13 +58,13 @@ def sendReceive(data, host, kdcHost):
 
     messageLen = struct.pack('!i', len(data))
 
-    LOG.debug('Trying to connect to KDC at %s' % targetHost)
+    LOG.debug('Trying to connect to KDC at %s:%s' % (targetHost, port))
     try:
-        af, socktype, proto, canonname, sa = socket.getaddrinfo(targetHost, 88, 0, socket.SOCK_STREAM)[0]
+        af, socktype, proto, canonname, sa = socket.getaddrinfo(targetHost, port, 0, socket.SOCK_STREAM)[0]
         s = socket.socket(af, socktype, proto)
         s.connect(sa)
     except socket.error as e:
-        raise socket.error("Connection error (%s:%s)" % (targetHost, 88), e)
+        raise socket.error("Connection error (%s:%s)" % (targetHost, port), e)
 
     s.sendall(messageLen + data)
 
@@ -92,7 +94,7 @@ def sendReceive(data, host, kdcHost):
 
     return r
 
-def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True):
+def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True, serverName=None, kerberoast_no_preauth=False):
 
     # Convert to binary form, just in case we're receiving strings
     if isinstance(lmhash, str):
@@ -110,11 +112,20 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
             aesKey = unhexlify(aesKey)
         except TypeError:
             pass
+    if serverName is not None and not isinstance(serverName, Principal):
+        try:
+            serverName = Principal(serverName, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+        except TypeError:
+            pass
 
     asReq = AS_REQ()
 
     domain = domain.upper()
-    serverName = Principal('krbtgt/%s'%domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)  
+
+    if serverName is None:
+        serverName = Principal('krbtgt/%s'%domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+    else:
+        serverName = Principal(serverName, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
 
     pacRequest = KERB_PA_PAC_REQUEST()
     pacRequest['include-pac'] = requestPAC
@@ -144,7 +155,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
     reqBody['realm'] = domain
 
-    now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+    now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
     reqBody['till'] = KerberosTime.to_asn1(now)
     reqBody['rtime'] = KerberosTime.to_asn1(now)
     reqBody['nonce'] =  rand.getrandbits(31)
@@ -184,10 +195,10 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
                 seq_set_iter(reqBody, 'etype', supportedCiphers)
                 message = encoder.encode(asReq)
                 r = sendReceive(message, domain, kdcHost)
-            else: 
-                raise 
+            else:
+                raise
         else:
-            raise 
+            raise
 
     # This should be the PREAUTH_FAILED packet or the actual TGT if the target principal has the
     # 'Do not require Kerberos preauthentication' set
@@ -255,7 +266,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
         # Let's build the timestamp
         timeStamp = PA_ENC_TS_ENC()
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         timeStamp['patimestamp'] = KerberosTime.to_asn1(now)
         timeStamp['pausec'] = now.microsecond
 
@@ -301,7 +312,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
         reqBody['realm'] =  domain
 
-        now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['rtime'] =  KerberosTime.to_asn1(now)
         reqBody['nonce'] = rand.getrandbits(31)
@@ -339,7 +350,11 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
         # probably bad password if preauth is disabled
         if preAuth is False:
             error_msg = "failed to decrypt session key: %s" % str(e)
-            raise SessionKeyDecryptionError(error_msg, asRep, cipher, key, cipherText)
+            if kerberoast_no_preauth:
+                LOG.debug(SessionKeyDecryptionError(error_msg, asRep, cipher, key, cipherText))
+                return tgt, None, key, None
+            else:
+                raise SessionKeyDecryptionError(error_msg, asRep, cipher, key, cipherText)
         raise
     encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
 
@@ -351,7 +366,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
     return tgt, cipher, key, sessionKey
 
-def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
+def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew = False):
 
     # Decode the TGT
     try:
@@ -381,7 +396,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
 
     seq_set(authenticator, 'cname', clientName.components_to_asn1)
 
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
     authenticator['cusec'] =  now.microsecond
     authenticator['ctime'] = KerberosTime.to_asn1(now)
 
@@ -416,11 +431,14 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     opts.append( constants.KDCOptions.renewable_ok.value )
     opts.append( constants.KDCOptions.canonicalize.value )
 
+    if renew == True:
+        opts.append( constants.KDCOptions.renew.value )
+
     reqBody['kdc-options'] = constants.encodeFlags(opts)
     seq_set(reqBody, 'sname', serverName.components_to_asn1)
     reqBody['realm'] = domain
 
-    now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+    now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
 
     reqBody['till'] = KerberosTime.to_asn1(now)
     reqBody['nonce'] = rand.getrandbits(31)
@@ -501,7 +519,7 @@ def getKerberosType3(cipher, sessionKey, auth_data):
     encAPRepPart['subkey'].clear()
     encAPRepPart = encAPRepPart.clone()
 
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
     encAPRepPart['cusec'] = now.microsecond
     encAPRepPart['ctime'] = KerberosTime.to_asn1(now)
     encAPRepPart['seq-number'] = sequenceNumber
@@ -561,10 +579,10 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                             from impacket.ntlm import compute_lmhash, compute_nthash
                             LOG.debug('Got KDC_ERR_ETYPE_NOSUPP, fallback to RC4')
                             lmhash = compute_lmhash(password)
-                            nthash = compute_nthash(password) 
+                            nthash = compute_nthash(password)
                             continue
                         else:
-                            raise 
+                            raise
                     else:
                         raise
 
@@ -588,22 +606,22 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                         from impacket.ntlm import compute_lmhash, compute_nthash
                         LOG.debug('Got KDC_ERR_ETYPE_NOSUPP, fallback to RC4')
                         lmhash = compute_lmhash(password)
-                        nthash = compute_nthash(password) 
+                        nthash = compute_nthash(password)
                     else:
-                        raise 
+                        raise
                 else:
-                    raise 
+                    raise
             else:
                 break
         else:
             tgs = TGS['KDC_REP']
             cipher = TGS['cipher']
-            sessionKey = TGS['sessionKey'] 
+            sessionKey = TGS['sessionKey']
             break
 
     # Let's build a NegTokenInit with a Kerberos REQ_AP
 
-    blob = SPNEGO_NegTokenInit() 
+    blob = SPNEGO_NegTokenInit()
 
     # Kerberos
     blob['MechTypes'] = [TypesMech['MS KRB5 - Microsoft Kerberos 5']]
@@ -612,7 +630,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
     tgs = decoder.decode(tgs, asn1Spec = TGS_REP())[0]
     ticket = Ticket()
     ticket.from_asn1(tgs['ticket'])
-    
+
     # Now let's build the AP_REQ
     apReq = AP_REQ()
     apReq['pvno'] = 5
@@ -627,12 +645,12 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
     authenticator['authenticator-vno'] = 5
     authenticator['crealm'] = domain
     seq_set(authenticator, 'cname', userName.components_to_asn1)
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
 
     authenticator['cusec'] = now.microsecond
     authenticator['ctime'] = KerberosTime.to_asn1(now)
 
-    
+
     authenticator['cksum'] = noValue
     authenticator['cksum']['cksumtype'] = 0x8003
 
@@ -691,7 +709,7 @@ class KerberosError(SessionError):
         self.packet = packet
         if packet != 0:
             self.error = self.packet['error-code']
-       
+
     def getErrorCode( self ):
         return self.error
 
@@ -708,7 +726,13 @@ class KerberosError(SessionError):
             if self.error == constants.ErrorCodes.KRB_ERR_GENERIC.value:
                 eData = decoder.decode(self.packet['e-data'], asn1Spec = KERB_ERROR_DATA())[0]
                 nt_error = struct.unpack('<L', eData['data-value'].asOctets()[:4])[0]
-                retString += '\nNT ERROR: %s(%s)' % (nt_errors.ERROR_MESSAGES[nt_error])
+
+                if nt_error in nt_errors.ERROR_MESSAGES:
+                    error_msg_short = nt_errors.ERROR_MESSAGES[nt_error][0] 
+                    error_msg_verbose = nt_errors.ERROR_MESSAGES[nt_error][1] 
+                    retString += '\nNT ERROR: code: 0x%x - %s - %s' % (nt_error, error_msg_short, error_msg_verbose)
+                else:
+                    retString += '\nNT ERROR: unknown error code: 0x%x' % nt_error
         except:
             pass
 

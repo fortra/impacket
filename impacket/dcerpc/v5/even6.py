@@ -1,11 +1,14 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
-# Copyright (c) 2017 @MrAnde7son
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
+#
+# Copyright (c) 2017 @MrAnde7son
 #
 # Description:
 #   Initial [MS-EVEN6] Interface implementation

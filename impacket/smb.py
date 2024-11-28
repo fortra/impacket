@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -58,6 +60,7 @@ from impacket import nmb, ntlm, nt_errors, LOG
 from impacket.structure import Structure
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_OID, asn1encode, ASN1_AID
 from impacket.krb5.gssapi import KRB5_AP_REQ
+import six
 
 # For signing
 import hashlib
@@ -176,6 +179,7 @@ SMB_QUERY_FS_ATTRIBUTE_INFO      = 0x0105
 SMB_QUERY_FILE_BASIC_INFO        = 0x0101
 SMB_QUERY_FILE_STANDARD_INFO     = 0x0102
 SMB_QUERY_FILE_ALL_INFO          = 0x0107
+SMB_QUERY_FILE_STREAM_INFO       = 0x0109
 FILE_FS_FULL_SIZE_INFORMATION    = 0x03EF
 
 # SET_INFORMATION levels
@@ -578,7 +582,13 @@ class SessionError(Exception):
                 error_code_str = '%s(%s)' % error_code
 
         if self.nt_status:
-            return 'SMB SessionError: %s(%s)' % nt_errors.ERROR_MESSAGES[self.error_code]
+            key = self.error_code
+            if key in nt_errors.ERROR_MESSAGES:
+                error_msg_short = nt_errors.ERROR_MESSAGES[key][0] 
+                error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
+                return 'SMB SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
+            else:
+                return 'SMB SessionError: unknown error code: 0x%x' % self.error_code
         else:
             # Fall back to the old format
             return 'SMB SessionError: class: %s, code: %s' % (error_class_str, error_code_str)
@@ -1493,7 +1503,7 @@ class SMBSessionSetupAndX_Extended_Response_Data(AsciiOrUnicodeStructure):
     )
     def getData(self):
         if self.structure == self.UnicodeStructure:
-            if len(str(self['SecurityBlob'])) % 2 == 0:
+            if len(self['SecurityBlob']) % 2 == 0:
                 self['Pad'] = '\x00'
         return AsciiOrUnicodeStructure.getData(self)
 
@@ -2873,7 +2883,7 @@ class SMB(object):
         timestamp |= self._dialects_parameters['LowDateTime']
         timestamp -= 116444736000000000
         timestamp //= 10000000
-        d = datetime.datetime.utcfromtimestamp(timestamp)
+        d = datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc)
         return d.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
     def disconnect_tree(self, tid):
@@ -3241,7 +3251,7 @@ class SMB(object):
         authenticator['authenticator-vno'] = 5
         authenticator['crealm'] = domain
         seq_set(authenticator, 'cname', userName.components_to_asn1)
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
 
         authenticator['cusec'] = now.microsecond
         authenticator['ctime'] = KerberosTime.to_asn1(now)
@@ -3494,7 +3504,8 @@ class SMB(object):
                 self.login_extended(user, password, domain, lmhash, nthash, use_ntlmv2 = True)
             except:
                 # If the target OS is Windows 5.0 or Samba, let's try using NTLMv1
-                if ntlm_fallback and ((self.get_server_lanman().find('Windows 2000') != -1) or (self.get_server_lanman().find('Samba') != -1)):
+                if ntlm_fallback and ((six.ensure_binary(self.get_server_lanman()).find(b'Windows 2000') != -1) or
+                                      (six.ensure_binary(self.get_server_lanman()).find(b'Samba') != -1)):
                     self.login_extended(user, password, domain, lmhash, nthash, use_ntlmv2 = False)
                     self.__isNTLMv2 = False
                 else:
@@ -3973,7 +3984,7 @@ class SMB(object):
                         findNextParameter['SID'] = sid
                         findNextParameter['SearchCount'] = 1024
                         findNextParameter['InformationLevel'] = SMB_FIND_FILE_BOTH_DIRECTORY_INFO
-                        findNextParameter['ResumeKey'] = 0
+                        findNextParameter['ResumeKey'] = record["FileIndex"]
                         findNextParameter['Flags'] = SMB_FIND_RETURN_RESUME_KEYS | SMB_FIND_CLOSE_AT_EOS
                         if self.__flags2 & SMB.FLAGS2_UNICODE:
                             findNextParameter['FileName'] = resume_filename + b'\x00\x00'

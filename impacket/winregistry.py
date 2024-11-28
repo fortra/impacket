@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -176,7 +178,8 @@ class Registry:
             LOG.warning("Unsupported version (%d.%d) - things might not work!" % (self.__regf['MajorVersion'], self.__regf['MinorVersion']))
 
     def close(self):
-        self.fd.close()
+        if hasattr(self, 'fd'):
+            self.fd.close()
 
     def __del__(self):
         self.close()
@@ -385,8 +388,8 @@ class Registry:
         return parentKey
 
     def printValue(self, valueType, valueData):
-        if valueType == REG_SZ or valueType == REG_EXPAND_SZ:
-            if type(valueData) is int:
+        if valueType in [REG_SZ, REG_EXPAND_SZ, REG_MULTISZ]:
+            if isinstance(valueData, int):
                 print('NULL')
             else:
                 print("%s" % (valueData.decode('utf-16le')))
@@ -406,8 +409,6 @@ class Registry:
                     print(" NULL")
             except:
                 print(" NULL")
-        elif valueType == REG_MULTISZ:
-            print("%s" % (valueData.decode('utf-16le')))
         else:
             print("Unknown Type 0x%x!" % valueType)
             hexdump(valueData)
@@ -452,10 +453,18 @@ class Registry:
 
         return resp
 
-    def getValue(self, keyValue):
-        # returns a tuple with (ValueType, ValueData) for the requested keyValue
-        regKey = ntpath.dirname(keyValue)
-        regValue = ntpath.basename(keyValue)
+    def getValue(self, keyValue, valueName=None):
+        """ returns a tuple with (ValueType, ValueData) for the requested keyValue
+            valueName is the name of the value (which can contain '\\')
+            if valueName is not  given, keyValue must be a string containing the full path to the value
+            if valueName is given, keyValue should be the string containing the path to the key containing valueName
+        """
+        if valueName is None:
+            regKey   = ntpath.dirname(keyValue)
+            regValue = ntpath.basename(keyValue)
+        else:
+            regKey = keyValue
+            regValue = valueName
 
         key = self.findKey(regKey)
 

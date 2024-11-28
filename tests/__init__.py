@@ -1,7 +1,9 @@
 #!/usr/bin/env python
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
 #
-# This software is provided under under a slightly modified version
+# All rights reserved.
+#
+# This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #

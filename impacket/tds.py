@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -459,10 +461,11 @@ class TDS_COLMETADATA(Structure):
     )
 
 class MSSQL:
-    def __init__(self, address, port=1433, rowsPrinter=DummyPrint()):
+    def __init__(self, address, port=1433, remoteName = '', rowsPrinter=DummyPrint()):
         #self.packetSize = 32764
         self.packetSize = 32763
         self.server = address
+        self.remoteName = remoteName
         self.port = port
         self.socket = 0
         self.replies = {}
@@ -590,7 +593,7 @@ class MSSQL:
     def socketRecv(self, packetSize):
         data = self.socket.recv(packetSize)
         if self.tlsSocket is not None:
-            dd = ''
+            dd = b''
             self.tlsSocket.bio_write(data)
             while True:
                 try:
@@ -650,7 +653,6 @@ class MSSQL:
         return packet
 
     def kerberosLogin(self, database, username, password='', domain='', hashes=None, aesKey='', kdcHost=None, TGT=None, TGS=None, useCache=True):
-
         if hashes is not None:
             lmhash, nthash = hashes.split(':')
             lmhash = binascii.a2b_hex(lmhash)
@@ -663,7 +665,6 @@ class MSSQL:
         # Test this!
         if resp['Encryption'] == TDS_ENCRYPT_REQ or resp['Encryption'] == TDS_ENCRYPT_OFF:
             LOG.info("Encryption required, switching to TLS")
-
             # Switching to TLS now
             ctx = SSL.Context(SSL.TLS_METHOD)
             ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
@@ -690,7 +691,7 @@ class MSSQL:
 
         login['HostName'] = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
         login['AppName']  = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
-        login['ServerName'] = self.server.encode('utf-16le')
+        login['ServerName'] = self.remoteName.encode('utf-16le')
         login['CltIntName']  = login['AppName']
         login['ClientPID'] = random.randint(0,1024)
         login['PacketSize'] = self.packetSize
@@ -710,7 +711,7 @@ class MSSQL:
         import datetime
 
         if useCache:
-            domain, username, TGT, TGS = CCache.parseFile(domain, username, 'MSSQLSvc/%s:%d' % (self.server, self.port))
+            domain, username, TGT, TGS = CCache.parseFile(domain, username, 'MSSQLSvc/%s:%d' % (self.remoteName, self.port))
 
             if TGS is None:
                 # search for the port's instance name instead (instance name based SPN)
@@ -725,7 +726,7 @@ class MSSQL:
                         pass
 
                 if instanceName:
-                    domain, username, TGT, TGS = CCache.parseFile(domain, username, 'MSSQLSvc/%s.%s:%s' % (self.server.split('.')[0], domain, instanceName))
+                    domain, username, TGT, TGS = CCache.parseFile(domain, username, 'MSSQLSvc/%s.%s:%s' % (self.remoteName.split('.')[0], domain, instanceName))
 
         # First of all, we need to get a TGT for the user
         userName = Principal(username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
@@ -766,7 +767,7 @@ class MSSQL:
                 #         FQDN is the fully qualified domain name of the server.
                 #         port is the TCP port number.
                 #         instancename is the name of the SQL Server instance.
-                serverName = Principal('MSSQLSvc/%s.%s:%d' % (self.server.split('.')[0], domain, self.port), type=constants.PrincipalNameType.NT_SRV_INST.value)
+                serverName = Principal('MSSQLSvc/%s.%s:%d' % (self.remoteName.split('.')[0], domain, self.port), type=constants.PrincipalNameType.NT_SRV_INST.value)
                 try:
                     tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
                 except KerberosError as e:
@@ -817,7 +818,7 @@ class MSSQL:
         authenticator['authenticator-vno'] = 5
         authenticator['crealm'] = domain
         seq_set(authenticator, 'cname', userName.components_to_asn1)
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
 
         authenticator['cusec'] = now.microsecond
         authenticator['ctime'] = KerberosTime.to_asn1(now)
@@ -899,7 +900,7 @@ class MSSQL:
 
         login['HostName'] = (''.join([random.choice(string.ascii_letters) for i in range(8)])).encode('utf-16le')
         login['AppName']  = (''.join([random.choice(string.ascii_letters) for i in range(8)])).encode('utf-16le')
-        login['ServerName'] = self.server.encode('utf-16le')
+        login['ServerName'] = self.remoteName.encode('utf-16le')
         login['CltIntName']  = login['AppName']
         login['ClientPID'] = random.randint(0,1024)
         login['PacketSize'] = self.packetSize
@@ -1016,19 +1017,18 @@ class MSSQL:
                 self.__rowsPrinter.logMessage(col['Format'] % row[col['Name']] + self.COL_SEPARATOR)
             self.__rowsPrinter.logMessage('\n')
 
-    def printReplies(self):
+    def printReplies(self, error_logger=LOG.error, info_logger=LOG.info):
         for keys in list(self.replies.keys()):
             for i, key in enumerate(self.replies[keys]):
                 if key['TokenType'] == TDS_ERROR_TOKEN:
-                    error =  "ERROR(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le'))                                      
-                    self.lastError = SQLErrorException("ERROR: Line %d: %s" % (key['LineNumber'], key['MsgText'].decode('utf-16le')))
-                    LOG.error(error)
+                    self.lastError = SQLErrorException("ERROR(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le')))
+                    error_logger(self.lastError)
 
                 elif key['TokenType'] == TDS_INFO_TOKEN:
-                    LOG.info("INFO(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le')))
+                    info_logger("INFO(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le')))
 
                 elif key['TokenType'] == TDS_LOGINACK_TOKEN:
-                    LOG.info("ACK: Result: %s - %s (%d%d %d%d) " % (key['Interface'], key['ProgName'].decode('utf-16le'), key['MajorVer'], key['MinorVer'], key['BuildNumHi'], key['BuildNumLow']))
+                    info_logger("ACK: Result: %s - %s (%d%d %d%d) " % (key['Interface'], key['ProgName'].decode('utf-16le'), key['MajorVer'], key['MinorVer'], key['BuildNumHi'], key['BuildNumLow']))
 
                 elif key['TokenType'] == TDS_ENVCHANGE_TOKEN:
                     if key['Type'] in (TDS_ENVCHANGE_DATABASE, TDS_ENVCHANGE_LANGUAGE, TDS_ENVCHANGE_CHARSET, TDS_ENVCHANGE_PACKETSIZE):
@@ -1047,7 +1047,7 @@ class MSSQL:
                             _type = 'PACKETSIZE'
                         else:
                             _type = "%d" % key['Type']                 
-                        LOG.info("ENVCHANGE(%s): Old Value: %s, New Value: %s" % (_type,record['OldValue'].decode('utf-16le'), record['NewValue'].decode('utf-16le')))
+                        info_logger("ENVCHANGE(%s): Old Value: %s, New Value: %s" % (_type,record['OldValue'].decode('utf-16le'), record['NewValue'].decode('utf-16le')))
        
     def parseRow(self,token,tuplemode=False):
         # TODO: This REALLY needs to be improved. Right now we don't support correctly all the data types

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -34,38 +36,12 @@ import struct
 import argparse
 import cmd
 import ntpath
-# If you wanna have readline like functionality in Windows, install pyreadline
-try:
-  import pyreadline as readline
-except ImportError:
-  import readline
 from six import PY2, text_type
 from datetime import datetime
 from impacket.examples import logger
 from impacket import version
-from impacket.structure import Structure
+from impacket.structure import Structure, hexdump
 
-
-def pretty_print(x):
-    visible = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ '
-    return x if x in visible else '.'
-
-def hexdump(data):
-    x = str(data)
-    strLen = len(x)
-    i = 0
-    while i < strLen:
-        print("%04x  " % i, end=' ')
-        for j in range(16):
-            if i+j < strLen:
-                print("%02X" % ord(x[i+j]), end=' ')
-            else:
-                print("  ", end=' ')
-            if j%16 == 7:
-                print("", end=' ')
-        print(" ", end=' ')
-        print(''.join(pretty_print(x) for x in x[i:i+16] ))
-        i += 16
 
 # Reserved/fixed MFTs
 FIXED_MFTS = 16
@@ -1020,7 +996,7 @@ class MiniShell(cmd.Cmd):
         cmd.Cmd.__init__(self)
         self.volumePath = volume
         self.volume = NTFS(volume)
-        self.rootINode = self.volume.getINode(5)
+        self.rootINode = self.volume.getINode(FILE_Root)
         self.prompt = '\\>'
         self.intro = 'Type help for list of commands'
         self.currentINode = self.rootINode

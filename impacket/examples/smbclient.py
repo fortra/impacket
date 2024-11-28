@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -35,14 +37,8 @@ from impacket.smb3structs import FILE_DIRECTORY_FILE, FILE_LIST_DIRECTORY
 import charset_normalizer as chardet
 
 
-# If you wanna have readline like functionality in Windows, install pyreadline
-try:
-  import pyreadline as readline
-except ImportError:
-  import readline
-
 class MiniImpacketShell(cmd.Cmd):
-    def __init__(self, smbClient, tcpShell=None):
+    def __init__(self, smbClient, tcpShell=None, outputfile=None):
         #If the tcpShell parameter is passed (used in ntlmrelayx),
         # all input and output is redirected to a tcp socket
         # instead of to stdin / stdout
@@ -67,12 +63,17 @@ class MiniImpacketShell(cmd.Cmd):
         self.loggedIn = True
         self.last_output = None
         self.completion = []
+        self.outputfile = outputfile
 
     def emptyline(self):
         pass
 
     def precmd(self,line):
         # switch to unicode
+        if self.outputfile is not None:
+            f = open(self.outputfile, 'a')
+            f.write('> ' + line + "\n")
+            f.close()
         if PY2:
             return line.decode('utf-8')
         return line
@@ -111,6 +112,8 @@ class MiniImpacketShell(cmd.Cmd):
  pwd - shows current remote directory
  password - changes the user password, the new password will be prompted for input
  ls {wildcard} - lists all the files in the current directory
+ lls {dirname} - lists all the files on the local filesystem.
+ tree {filepath} - recursively lists all files in folder and sub folders
  rm {file} - removes the selected file
  mkdir {dirname} - creates the directory under the current path
  rmdir {dirname} - removes the directory under the current path
@@ -323,8 +326,14 @@ class MiniImpacketShell(cmd.Cmd):
             LOG.error("Not logged in")
             return
         resp = self.smb.listShares()
+        if self.outputfile is not None:
+            f = open(self.outputfile, 'a')
         for i in range(len(resp)):
+            if self.outputfile:
+                f.write(resp[i]['shi1_netname'][:-1] + '\n')
             print(resp[i]['shi1_netname'][:-1])
+        if self.outputfile:
+            f.close()
 
     def do_use(self,line):
         if self.loggedIn is False:
@@ -369,7 +378,11 @@ class MiniImpacketShell(cmd.Cmd):
         if self.loggedIn is False:
             LOG.error("Not logged in")
             return
-        print(self.pwd)
+        print(self.pwd.replace("\\","/"))
+        if self.outputfile is not None:        
+            f = open(self.outputfile, 'a')
+            f.write(self.pwd.replace("\\","/"))
+            f.close()
 
     def do_ls(self, wildcard, display = True):
         if self.loggedIn is False:
@@ -385,13 +398,88 @@ class MiniImpacketShell(cmd.Cmd):
         self.completion = []
         pwd = pwd.replace('/','\\')
         pwd = ntpath.normpath(pwd)
+        if self.outputfile is not None:
+            of = open(self.outputfile, 'a')
         for f in self.smb.listPath(self.share, pwd):
             if display is True:
+                if self.outputfile:
+                    of.write("%crw-rw-rw- %10d  %s %s" % (
+                    'd' if f.is_directory() > 0 else '-', f.get_filesize(), time.ctime(float(f.get_mtime_epoch())),
+                    f.get_longname()) + "\n")
+                
                 print("%crw-rw-rw- %10d  %s %s" % (
                 'd' if f.is_directory() > 0 else '-', f.get_filesize(), time.ctime(float(f.get_mtime_epoch())),
                 f.get_longname()))
             self.completion.append((f.get_longname(), f.is_directory()))
+        if self.outputfile:
+            of.close()
+    
+    def do_lls(self, currentDir):
+        if currentDir == "":
+            currentDir = "./"
+        else:
+            pass
+        for LINE in os.listdir(currentDir):
+            print(LINE)
 
+    def do_listFiles(self, share, ip):
+        retList = []
+        retFiles = []
+        retInt = 0
+        try:                
+            for LINE in self.smb.listPath(self.share, ip):
+                if(LINE.get_longname() == "." or LINE.get_longname() == ".."):
+                    pass
+                else:
+                    retInt = retInt + 1
+                    print(ip.strip("*").replace("//","/") + LINE.get_longname())
+                    if(LINE.is_directory()):
+                        retval = ip.strip("*").replace("//","/") + LINE.get_longname()
+                        retList.append(retval)
+                    else:
+                        retval = ip.strip("*").replace("//","/") + LINE.get_longname()
+                        retFiles.append(retval)
+        except:
+            pass
+        return retList,retFiles,retInt
+
+    def do_tree(self, filepath):
+        folderList = []
+        retList = []
+        totalFilesRead = 0
+        if self.loggedIn is False:
+            LOG.error("Not logged in")
+            return
+        if self.tid is None:
+            LOG.error("No share selected")
+            return
+
+        filepath = filepath.replace("\\", "/")
+        if not filepath.startswith("/"):
+            filepath = self.pwd.replace("\\", "/")  + "/" + filepath
+        if(not filepath.endswith("/*")):
+            filepath = filepath + "/*"
+        filepath = os.path.abspath(filepath).replace("//","/")
+
+        for LINE in self.smb.listPath(self.share, filepath):
+            if(LINE.is_directory()):
+                if(LINE.get_longname() == "." or LINE.get_longname() == ".."):
+                    pass
+                else:
+                    totalFilesRead = totalFilesRead + 1 
+                    folderList.append(filepath.strip("*") + LINE.get_longname())
+            else:
+                print(filepath.strip("*") + LINE.get_longname())
+        for ITEM in folderList:
+            ITEM = ITEM + "/*"
+            try: 
+                retList, retFiles, retInt = self.do_listFiles(self.share,ITEM)
+                for q in retList:
+                    folderList.append(q)
+                totalFilesRead = totalFilesRead + retInt
+            except:
+                pass
+        print("Finished - " + str(totalFilesRead) + " files and folders")
 
     def do_rm(self, filename):
         if self.tid is None:
@@ -507,14 +595,25 @@ class MiniImpacketShell(cmd.Cmd):
         output = fh.getvalue()
         encoding = chardet.detect(output)["encoding"]
         error_msg = "[-] Output cannot be correctly decoded, are you sure the text is readable ?"
+        if self.outputfile is not None:
+            f = open(self.outputfile, 'a')
         if encoding:
             try:
+                if self.outputfile:
+                    f.write(output.decode(encoding) + '\n')
+                    f.close()
                 print(output.decode(encoding))
             except:
+                if self.outputfile:
+                    f.write(error_msg + '\n')
+                    f.close()
                 print(error_msg)
             finally:
                 fh.close()
         else:
+            if self.outpufile:
+                f.write(error_msg + '\n')
+                f.close()
             print(error_msg)
             fh.close()
 

@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -46,6 +48,7 @@ class TargetsProcessor:
         # Here we store the attacks that already finished, mostly the ones that have usernames, since the
         # other ones will never finish.
         self.finishedAttacks = []
+        self.failedAttacks = []
         self.protocolClients = protocolClients
         if targetListFile is None:
             self.filename = None
@@ -59,8 +62,8 @@ class TargetsProcessor:
             # Randomize the targets based
             random.shuffle(self.originalTargets)
 
-        self.generalCandidates = [x for x in self.originalTargets if x.username is None]
-        self.namedCandidates = [x for x in self.originalTargets if x.username is not None]
+        self.reloadTargets(full_reload=True)
+
 
     @staticmethod
     def processTarget(target, protocolClients):
@@ -93,20 +96,32 @@ class TargetsProcessor:
         if len(self.originalTargets) == 0:
             LOG.critical("Warning: no valid targets specified!")
 
-        self.generalCandidates = [x for x in self.originalTargets if x not in self.finishedAttacks and x.username is None]
-        self.namedCandidates = [x for x in self.originalTargets if x not in self.finishedAttacks and x.username is not None]
+        self.reloadTargets()
 
-    def logTarget(self, target, gotRelay = False, gotUsername = None):
+
+    def reloadTargets(self, full_reload=False):
+        if full_reload:
+            self.finishedAttacks = []
+            self.failedAttacks = []
+        self.generalCandidates = [x for x in self.originalTargets if x not in self.finishedAttacks and x not in self.failedAttacks and x.username is None]
+        self.namedCandidates = [x for x in self.originalTargets if x not in self.finishedAttacks and x not in self.failedAttacks  and x.username is not None]
+
+    def registerTarget(self, target, gotRelay = False, gotUsername = None):
         # If the target has a username, we can safely remove it from the list. Mission accomplished.
-        if gotRelay is True:
-            if target.username is not None:
+        if target.username is not None:
+            if gotRelay:
                 self.finishedAttacks.append(target)
-            elif gotUsername is not None:
-                # We have data about the username we relayed the connection for,
-                # for a target that didn't have username specified.
-                # Let's log it
-                newTarget = urlparse('%s://%s@%s%s' % (target.scheme, gotUsername.replace('/','\\'), target.netloc, target.path))
+            else:
+                self.failedAttacks.append(target)
+        elif gotUsername is not None:
+            # We have data about the username we relayed the connection for,
+            # for a target that didn't have username specified.
+            # Let's log it
+            newTarget = urlparse('%s://%s@%s%s' % (target.scheme, gotUsername.replace('/','\\'), target.netloc, target.path))
+            if gotRelay:
                 self.finishedAttacks.append(newTarget)
+            else:
+                self.failedAttacks.append(newTarget)
 
     def getTarget(self, identity=None, multiRelay=True):
         # ToDo: We should have another list of failed attempts (with user) and check that inside this method so we do not
@@ -130,9 +145,11 @@ class TargetsProcessor:
         if len(self.generalCandidates) > 0:
             if identity is not None:
                 for target in self.generalCandidates:
-                    tmpTarget = '%s://%s@%s' % (target.scheme, identity.replace('/', '\\'), target.netloc)
+                    tmpTarget = '%s://%s@%s' % (target.scheme, identity.replace('/', '\\'), target.netloc + target.path)
                     match = [x for x in self.finishedAttacks if x.geturl().upper() == tmpTarget.upper()]
-                    if len(match) == 0:
+                    fail_match = [x for x in self.failedAttacks if x.geturl().upper() == tmpTarget.upper()]
+                    print(self.failedAttacks)
+                    if len(match) == 0 and len(fail_match) == 0:
                         self.generalCandidates.remove(target)
                         return target
                 LOG.debug("No more targets for user %s" % identity)
@@ -150,8 +167,11 @@ class TargetsProcessor:
                 return self.generalCandidates.pop()
         else:
             if len(self.originalTargets) > 0:
+                # Remove credentials from the URLs (otherwise they won't ever match)
+                finishedAttacks = [an_atk._replace(netloc=an_atk.hostname) for an_atk in self.finishedAttacks]
+                failedAttacks = [an_atk._replace(netloc=an_atk.hostname) for an_atk in self.failedAttacks]
                 self.generalCandidates = [x for x in self.originalTargets if
-                                          x not in self.finishedAttacks and x.username is None]
+                                          x not in finishedAttacks and x not in failedAttacks and x.username is None]
 
         if len(self.generalCandidates) == 0:
             if len(self.namedCandidates) == 0:

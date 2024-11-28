@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2022 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -113,6 +115,54 @@ REQUEST = {
 CHANNEL = {
     'SigningKey' : '',
     'Connection' : 0,
+}
+
+# Source:
+# https://en.wikipedia.org/wiki/List_of_Microsoft_Windows_versions
+# https://www.gaijin.at/en/infos/windows-version-numbers
+WIN_VERSIONS = {
+    102:"Windows 3.1",
+    103:"Windows 3.1",
+    153:"Windows 3.2",
+    300:"Windows 3.11",
+    528:"Windows NT 3.1 SP3",
+    807:"Windows NT 3.5",
+    950:"Windows 95",
+    1057:"Windows NT 3.51",
+    1381:"Windows NT 4.0",
+    1998:"Windows 98",
+    2195:"Windows 2000",
+    2222:"Windows 98 Second Edition",
+    2600:"Windows XP",
+    2700:"Windows XP",
+    2710:"Windows XP",
+    3000:"Windows Me",
+    3790:"Windows XP / Server 2003 / Server 2003 R2",
+    6002:"Windows Vista",
+    6003:"Windows Server 2008",
+    7601:"Windows 7 / Server 2008 R2",
+    8400:"Windows Home Server 2011",
+    9200:"Windows 8 / Server 2012",
+    9600:"Windows 8.1 / Server 2012 R2",
+    10240:"Windows 10",
+    10586:"Windows 10",
+    14393:"Windows 10 / Server 2016",
+    15063:"Windows 10",
+    16299:"Windows 10 / Server 2016",
+    17134:"Windows 10 / Server 2016",
+    17763:"Windows 10 / Server 2019",
+    18362:"Windows 10 / Server 2019",
+    18363:"Windows 10 / Server 2019",
+    19041:"Windows 10 / Server 2019",
+    19042:"Windows 10 / Server 2019",
+    19043:"Windows 10",
+    19044:"Windows 10",
+    19045:"Windows 10",
+    20348:"Windows Server 2022",
+    22000:"Windows 11",
+    22621:"Windows 11",
+    22631:"Windows 11",
+    25398:"Windows Server 2022",
 }
 
 
@@ -747,7 +797,7 @@ class SMB3:
         authenticator['authenticator-vno'] = 5
         authenticator['crealm'] = domain
         seq_set(authenticator, 'cname', userName.components_to_asn1)
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
 
         authenticator['cusec'] = now.microsecond
         authenticator['ctime'] = KerberosTime.to_asn1(now)
@@ -1001,14 +1051,15 @@ class SMB3:
                     version = ntlmChallenge['Version']
 
                     if len(version) >= 4:
-                        self._Session['ServerOS'] = "Windows %d.%d Build %d" % (indexbytes(version,0), indexbytes(version,1), struct.unpack('<H',version[2:4])[0])
+                        if struct.unpack('<H',version[2:4])[0] in WIN_VERSIONS.keys():
+                            self._Session['ServerOS'] = WIN_VERSIONS[struct.unpack('<H',version[2:4])[0]] + " Build %d" % struct.unpack('<H',version[2:4])[0]
+                        else:
+                            self._Session['ServerOS'] = "Windows %d.%d Build %d" % (indexbytes(version,0), indexbytes(version,1), struct.unpack('<H',version[2:4])[0])
                         self._Session["ServerOSMajor"] = indexbytes(version,0)
                         self._Session["ServerOSMinor"] = indexbytes(version,1)
                         self._Session["ServerOSBuild"] = struct.unpack('<H',version[2:4])[0]
 
             type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash)
-
-
 
             respToken2 = SPNEGO_NegTokenResp()
             respToken2['ResponseToken'] = type3.getData()
