@@ -529,20 +529,38 @@ def queryPathInformation(path, filename, level):
 
         if os.path.exists(pathName):
             (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(pathName)
+            if os.path.isdir(pathName):
+                fileAttributes = smb.ATTR_DIRECTORY
+            else:
+                fileAttributes = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
+
             if level == smb.SMB_QUERY_FILE_BASIC_INFO:
                 infoRecord = smb.SMBQueryFileBasicInfo()
                 infoRecord['CreationTime'] = getFileTime(ctime)
                 infoRecord['LastAccessTime'] = getFileTime(atime)
                 infoRecord['LastWriteTime'] = getFileTime(mtime)
                 infoRecord['LastChangeTime'] = getFileTime(mtime)
-                if os.path.isdir(pathName):
-                    infoRecord['ExtFileAttributes'] = smb.ATTR_DIRECTORY
-                else:
-                    infoRecord['ExtFileAttributes'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
-            elif level == smb.SMB_QUERY_FILE_STANDARD_INFO or level == smb2.SMB2_FILE_STANDARD_INFO:
+                infoRecord['ExtFileAttributes'] = fileAttributes
+            elif level == smb2.SMB2_FILE_BASIC_INFO:
+                infoRecord = smb2.FILE_BASIC_INFORMATION()
+                infoRecord['CreationTime'] = getFileTime(ctime)
+                infoRecord['LastAccessTime'] = getFileTime(atime)
+                infoRecord['LastWriteTime'] = getFileTime(mtime)
+                infoRecord['ChangeTime'] = getFileTime(mtime)
+                infoRecord['FileAttributes'] = fileAttributes
+            elif level == smb.SMB_QUERY_FILE_STANDARD_INFO:
                 infoRecord = smb.SMBQueryFileStandardInfo()
                 infoRecord['AllocationSize'] = size
                 infoRecord['EndOfFile'] = size
+                if os.path.isdir(pathName):
+                    infoRecord['Directory'] = 1
+                else:
+                    infoRecord['Directory'] = 0
+            elif level == smb2.SMB2_FILE_STANDARD_INFO:
+                infoRecord = smb2.FILE_STANDARD_INFORMATION()
+                infoRecord['AllocationSize'] = size
+                infoRecord['EndOfFile'] = size
+                infoRecord['NumberOfLinks'] = 0
                 if os.path.isdir(pathName):
                     infoRecord['Directory'] = 1
                 else:
@@ -553,10 +571,7 @@ def queryPathInformation(path, filename, level):
                 infoRecord['LastAccessTime'] = getFileTime(atime)
                 infoRecord['LastWriteTime'] = getFileTime(mtime)
                 infoRecord['LastChangeTime'] = getFileTime(mtime)
-                if os.path.isdir(pathName):
-                    infoRecord['ExtFileAttributes'] = smb.ATTR_DIRECTORY
-                else:
-                    infoRecord['ExtFileAttributes'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
+                infoRecord['ExtFileAttributes'] = fileAttributes
                 infoRecord['AllocationSize'] = size
                 infoRecord['EndOfFile'] = size
                 if os.path.isdir(pathName):
@@ -606,14 +621,14 @@ def queryPathInformation(path, filename, level):
                 infoRecord['ChangeTime'] = getFileTime(mtime)
                 infoRecord['AllocationSize'] = size
                 infoRecord['EndOfFile'] = size
-                if os.path.isdir(pathName):
-                    infoRecord['FileAttributes'] = smb.ATTR_DIRECTORY
-                else:
-                    infoRecord['FileAttributes'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
+                infoRecord['FileAttributes'] = fileAttributes
             elif level == smb.SMB_QUERY_FILE_EA_INFO or level == smb2.SMB2_FILE_EA_INFO:
                 infoRecord = smb.SMBQueryFileEaInfo()
             elif level == smb.SMB_QUERY_FILE_STREAM_INFO or level == smb2.SMB2_FILE_STREAM_INFO:
                 infoRecord = smb.SMBFileStreamInformation()
+            elif level == smb2.SMB2_ATTRIBUTE_TAG_INFO:
+                infoRecord = smb2.FILE_ATTRIBUTE_TAG_INFORMATION()
+                infoRecord['FileAttributes'] = fileAttributes
             else:
                 LOG.error('Unknown level for query path info! 0x%x' % level)
                 # UNSUPPORTED
