@@ -25,7 +25,7 @@
 from struct import pack, unpack
 
 from impacket.examples import logger
-from impacket.examples.utils import parse_target
+from impacket.examples.utils import parse_target, parse_credentials
 from impacket.structure import Structure
 from impacket.spnego import GSSAPI, ASN1_SEQUENCE, ASN1_OCTET_STRING, asn1decode, asn1encode
 
@@ -384,7 +384,13 @@ if __name__ == '__main__':
        tpkt['TPDU'] = tpdu.getData()
    
        s = socket.socket()
-       s.connect((host,3389))
+
+       try:
+           s.connect((host,3389))
+       except Exception as err:
+           logging.error(f"{host}: {err}")
+           return
+
        s.sendall(tpkt.getData())
        pkt = s.recv(8192)
        tpkt.fromString(pkt)
@@ -393,7 +399,7 @@ if __name__ == '__main__':
        if cr_tpdu['Type'] == TYPE_RDP_NEG_FAILURE:
            rdp_failure = RDP_NEG_FAILURE(tpdu['VariablePart'])
            rdp_failure.dump()
-           logging.error("Server doesn't support PROTOCOL_HYBRID, hence we can't use CredSSP to check credentials")
+           logging.error(f"{host}: Server doesn't support PROTOCOL_HYBRID, hence we can't use CredSSP to check credentials")
            return
        else:
            rdp_neg.fromString(tpdu['VariablePart'])
@@ -492,9 +498,9 @@ if __name__ == '__main__':
            buff = tls.recv(1024)
        except Exception as err:
            if str(err).find("denied") > 0:
-               logging.error("Access Denied")
+               logging.error(f"{host}: Access Denied")
            else:
-               logging.error(err)
+               logging.error(f"{host}: {err}")
            return
 
        # 4. After the server receives the public key in step 3, it first verifies that 
@@ -544,7 +550,7 @@ if __name__ == '__main__':
        ts_request['authInfo'] = signature.getData() + cripted_creds
        tls.send(ts_request.getData())
        tls.close()
-       logging.info("Access Granted")
+       logging.info(f"{host}: Access Granted")
 
     # Init the example's logger theme
     logger.init()
@@ -554,6 +560,7 @@ if __name__ == '__main__':
                                                                     "host using the RDP protocol.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
+    parser.add_argument('-t', '--targets', type=argparse.FileType("r"), help='File with targets separated by newlines')
 
     group = parser.add_argument_group('authentication')
 
@@ -564,7 +571,10 @@ if __name__ == '__main__':
  
     options = parser.parse_args()
 
-    domain, username, password, address = parse_target(options.target)
+    if not options.targets:
+        domain, username, password, address = parse_target(options.target)
+    else:
+        domain, username, password = parse_credentials(options.target)
 
     if domain is None:
         domain = ''
@@ -573,4 +583,10 @@ if __name__ == '__main__':
         from getpass import getpass
         password = getpass("Password:")
 
-    check_rdp(address, username, password, domain, options.hashes)
+    if not options.targets:
+        check_rdp(address, username, password, domain, options.hashes)
+    else:
+        targets = options.targets.read().splitlines()
+
+        for t in targets:
+            check_rdp(t, username, password, domain, options.hashes)
