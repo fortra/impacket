@@ -2613,7 +2613,7 @@ class IWbemClassObject(IRemUnknown):
     def createProperties(self, properties):
         for property in properties:
             # Do we have an object property?
-            if properties[property]['type'] == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
+            if properties[property]['type'] == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value and properties[property]['value'] != None:
                 # Yes.. let's create an Object for it too
                 objRef = OBJREF_CUSTOM()
                 objRef['iid'] = self._iid

@@ -101,10 +101,10 @@ if __name__ == '__main__':
                             print('%s |' % record[key]['value'], end=' ')
                     print() 
                 except Exception as e:
-                    if logging.getLogger().level == logging.DEBUG:
-                        import traceback
-                        traceback.print_exc()
                     if str(e).find('S_FALSE') < 0:
+                        if logging.getLogger().level == logging.DEBUG:
+                            import traceback
+                            traceback.print_exc()
                         raise
                     else:
                         break
