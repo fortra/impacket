@@ -23,6 +23,11 @@ import os
 import cmd
 import sys
 
+# for "do_upload"
+import hashlib
+import base64
+import shlex
+
 class SQLSHELL(cmd.Cmd):
     def __init__(self, SQL, show_queries=False, tcpShell=None):
         if tcpShell is not None:
@@ -65,6 +70,7 @@ class SQLSHELL(cmd.Cmd):
     sp_start_job {cmd}         - executes cmd using the sql server agent (blind)
     use_link {link}            - linked server to use (set use_link localhost to go back to local or use_link .. to get back one step)
     ! {cmd}                    - executes a local shell cmd
+    upload {from} {to}         - uploads file {from} to the SQLServer host {to}
     show_query                 - show query
     mask_query                 - mask query
     """)
@@ -132,6 +138,60 @@ class SQLSHELL(cmd.Cmd):
 
     def do_shell(self, s):
         os.system(s)
+
+    def do_upload(self, line):
+        BUFFER_SIZE = 5 * 1024
+        try:
+            # validate "xp_cmdshell" is enabled
+            self.sql.sql_query("exec master.dbo.sp_configure 'show advanced options', 1; RECONFIGURE;")
+            result = self.sql.sql_query("exec master.dbo.sp_configure 'xp_cmdshell'")
+            self.sql.sql_query("exec master.dbo.sp_configure 'show advanced options', 0; RECONFIGURE;")
+            if result[0].get('run_value') != 1:
+                print("[-] xp_cmdshell not enabled. Try running 'enable_xp_cmdshell' first")
+                return
+
+            args = shlex.split(line, posix=False)
+            local_path = args[0]
+            remote_path = args[1]
+
+            # upload file
+            with open(local_path, 'rb') as f:
+                data = f.read()
+                md5sum = hashlib.md5(data).hexdigest()
+                b64enc_data = b"".join(base64.b64encode(data).split()).decode()
+            print("[+] Data length (b64-encoded): %.2f KB with MD5: %s" % (len(b64enc_data) / 1024, str(md5sum)))
+            print("[+] Uploading...")
+            for i in range(0, len(b64enc_data), BUFFER_SIZE):
+                cmd = 'echo ' + b64enc_data[i:i+BUFFER_SIZE] + ' >> "' + remote_path + '.b64"'
+                self.sql.sql_query("EXEC xp_cmdshell '" + cmd + "'")
+            result = self.sql.sql_query("EXEC xp_fileexist '" + remote_path + ".b64'")
+            if result[0].get('File Exists') != 1:
+                print("[-] Error uploading file. Check permissions in the configured remote path")
+                return
+            print("[+] Uploaded")
+
+            # decode
+            cmd = 'certutil -decode "' + remote_path + '.b64" "' + remote_path + '"'
+            self.sql.sql_query("EXEC xp_cmdshell '" + cmd + "'")
+            print("[+] " + cmd)
+
+            # remove encoded
+            cmd = 'del "' + remote_path + '.b64"'
+            self.sql.sql_query("EXEC xp_cmdshell '" + cmd + "'")
+            print("[+] " + cmd)
+
+            # validate hash
+            cmd = 'certutil -hashfile "' + remote_path + '" MD5'
+            result = self.sql.sql_query("EXEC xp_cmdshell '" + cmd + "'")
+            print("[+] " + cmd)
+            md5sum_uploaded = result[1].get('output').replace(" ", "")
+            if md5sum == md5sum_uploaded:
+                print("[+] MD5 hashes match")
+            else:
+                print("[-] ERROR! MD5 hashes do NOT match!")
+                print("[+] Uploaded file MD5: %s" % md5sum_uploaded)
+        except Exception as e:
+            print("[-] Unhandled Exception:", e)
 
     def do_xp_dirtree(self, s):
         try:
