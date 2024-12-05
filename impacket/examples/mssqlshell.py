@@ -190,8 +190,8 @@ class SQLSHELL(cmd.Cmd):
             else:
                 print("[-] ERROR! MD5 hashes do NOT match!")
                 print("[+] Uploaded file MD5: %s" % md5sum_uploaded)
-        except:
-            pass
+        except Exception as e:
+            print("[-] Unhandled Exception:", e)
 
     def do_xp_dirtree(self, s):
         try:
