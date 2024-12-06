@@ -110,8 +110,8 @@ if __name__ == '__main__':
             for line in options.file.readlines():
                 print("SQL> %s" % line, end=' ')
                 shell.onecmd(line)
-        elif options.cmd:
-            for c in options.cmd:
+        elif options.command:
+            for c in options.command:
                 print("SQL> %s" % c)
                 shell.onecmd(c)
         else:
