@@ -1432,7 +1432,7 @@ class SAMHashes(OfflineRegistry):
             userName = V[userAccount['NameOffset']:userAccount['NameOffset']+userAccount['NameLength']].decode('utf-16le')
 
             if userAccount['NTHashLength'] == 0:
-                logging.error('SAM hashes extraction for user %s failed. The account doesn\'t have hash information.' % userName)
+                logging.debug('The account %s doesn\'t have hash information.' % userName)
                 continue
 
             encNTHash = b''
