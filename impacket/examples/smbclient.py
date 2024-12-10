@@ -29,6 +29,7 @@ import ntpath
 from six import PY2
 from impacket.dcerpc.v5 import samr, transport, srvs
 from impacket.dcerpc.v5.dtypes import NULL
+from impacket.examples.utils import gen_random_string
 from impacket import LOG
 from impacket.smbconnection import SMBConnection, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB_DIALECT, SessionError, \
     FILE_READ_DATA, FILE_SHARE_READ, FILE_SHARE_WRITE
@@ -106,6 +107,7 @@ class MiniImpacketShell(cmd.Cmd):
  login_hash {domain/username,lmhash:nthash} - logs into the current SMB connection using the password hashes
  logoff - logs off
  shares - list available shares
+ enum_perms - enumerate shares permissions
  use {sharename} - connect to an specific share
  cd {path} - changes the current directory to {path}
  lcd {path} - changes the current local directory to {path}
@@ -334,6 +336,44 @@ class MiniImpacketShell(cmd.Cmd):
             print(resp[i]['shi1_netname'][:-1])
         if self.outputfile:
             f.close()
+
+    def do_enum_perms(self, line):
+        if self.loggedIn is False:
+            LOG.error("Not logged in")
+            return
+        temp_dir = ntpath.normpath("\\" + gen_random_string())
+        permissions = []
+        shares = self.smb.listShares()
+
+        for share in shares:
+            share_name = share["shi1_netname"][:-1]
+            share_remark = share["shi1_remark"][:-1]
+            share_info = {"name": share_name, "remark": share_remark, "access": []}
+            read = False
+            write = False
+            try:
+                self.smb.listPath(share_name, "*")
+                read = True
+                share_info["access"].append("READ")
+            except SessionError as e:
+                pass
+
+            try:
+                self.smb.createDirectory(share_name, temp_dir)
+                self.smb.deleteDirectory(share_name, temp_dir)
+                write = True
+                share_info["access"].append("WRITE")
+            except SessionError as e:
+                pass
+
+            permissions.append(share_info)
+        
+        for share in permissions:
+            name = share["name"]
+            remark = share["remark"]
+            perms = share["access"]
+            print(f"{name:<15} {','.join(perms):<15} {remark}")
+
 
     def do_use(self,line):
         if self.loggedIn is False:
