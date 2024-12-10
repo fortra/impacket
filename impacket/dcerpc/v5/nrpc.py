@@ -1623,9 +1623,10 @@ class NL_AUTH_SHA2_SIGNATURE(Structure):
         ('Pad','<H=0xffff'),
         ('Flags','<H=0'),
         ('SequenceNumber','8s=""'),
-        ('Checksum','32s=""'),
+        ('Checksum','8s=""'),
         ('_Confounder','_-Confounder','8'),
         ('Confounder',':'),
+        ('Reserved','24s=""'),
     )
     def __init__(self, data = None, alignment = 0):
         Structure.__init__(self, data, alignment)
@@ -1698,7 +1699,7 @@ def ComputeNetlogonSignatureAES(authSignature, message, confounder, sessionKey):
     # If no confidentiality requested, it should be ''
     hm.update(confounder)
     hm.update(bytes(message))
-    return hm.digest()[:8]+'\x00'*24
+    return hm.digest()[:8]
 
 def ComputeNetlogonSignatureMD5(authSignature, message, confounder, sessionKey):
     # [MS-NRPC] Section 3.3.4.2.1, point 7
@@ -1712,6 +1713,21 @@ def ComputeNetlogonSignatureMD5(authSignature, message, confounder, sessionKey):
     hm = hmac.new(sessionKey, digestmod=hashlib.md5)
     hm.update(finalMD5)
     return hm.digest()[:8]
+
+def ComputeNetlogonAuthenticatorAES(clientStoredCredential, sessionKey):
+    # [MS-NRPC] Section 3.1.4.5
+    timestamp = int(time.time())
+
+    authenticator = NETLOGON_AUTHENTICATOR()
+    authenticator['Timestamp'] = timestamp
+
+    credential = unpack('<I', clientStoredCredential[:4])[0] + timestamp
+    if credential > 0xffffffff:
+        credential &= 0xffffffff
+    credential = pack('<I', credential)
+
+    authenticator['Credential'] = ComputeNetlogonCredentialAES(credential + clientStoredCredential[4:], sessionKey)
+    return authenticator
 
 def ComputeNetlogonAuthenticator(clientStoredCredential, sessionKey):
     # [MS-NRPC] Section 3.1.4.5
@@ -1761,7 +1777,7 @@ def SIGN(data, confounder, sequenceNum, key, aes = False):
     if aes is False:
         signature = NL_AUTH_SIGNATURE()
         signature['SignatureAlgorithm'] = NL_SIGNATURE_HMAC_MD5
-        if confounder == '':
+        if confounder == b'':
             signature['SealAlgorithm'] = NL_SEAL_NOT_ENCRYPTED
         else:
             signature['SealAlgorithm'] = NL_SEAL_RC4
@@ -1769,14 +1785,16 @@ def SIGN(data, confounder, sequenceNum, key, aes = False):
         signature['SequenceNumber'] = encryptSequenceNumberRC4(deriveSequenceNumber(sequenceNum), signature['Checksum'], key)
         return signature
     else:
-        signature = NL_AUTH_SIGNATURE()
+        signature = NL_AUTH_SHA2_SIGNATURE()
         signature['SignatureAlgorithm'] = NL_SIGNATURE_HMAC_SHA256
-        if confounder == '':
+        if confounder == b'':
             signature['SealAlgorithm'] = NL_SEAL_NOT_ENCRYPTED
         else:
             signature['SealAlgorithm'] = NL_SEAL_AES128
         signature['Checksum'] = ComputeNetlogonSignatureAES(signature, data, confounder, key)
         signature['SequenceNumber'] = encryptSequenceNumberAES(deriveSequenceNumber(sequenceNum), signature['Checksum'], key)
+        # 2.2.1.3.3 : Reserved: The sender SHOULD set these bytes to zero, and the receiver MUST ignore them.
+        signature['Reserved'] = b'\x00'*24
         return signature
 
 def SEAL(data, confounder, sequenceNum, key, aes = False):
