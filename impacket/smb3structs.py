@@ -1496,6 +1496,12 @@ class FILE_ALL_INFORMATION(Structure):
         ('NameInformation',':',FILE_NAME_INFORMATION),
     )
 
+class FILE_ATTRIBUTE_TAG_INFORMATION(Structure):
+    structure = (
+        ('FileAttributes','<L'),
+        ('ReparseTag','<L=0'),
+    )
+
 # SMB2_SET_INFO
 class SMB2SetInfo(Structure):
     SIZE = 32
