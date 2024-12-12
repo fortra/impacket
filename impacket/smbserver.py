@@ -502,6 +502,9 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
             item['LastAccessTime'] = getSMBTime(atime)
             item['LastWriteDate'] = getSMBDate(mtime)
             item['LastWriteTime'] = getSMBTime(mtime)
+        elif level in [smb.SMB_FIND_FILE_NAMES_INFO, smb2.SMB2_FILE_NAMES_INFO]:
+            padLen = (8 - (len(item) % 8)) % 8
+            item['NextEntryOffset'] = len(item) + padLen
         searchResult.append(item)
 
     # No more files
