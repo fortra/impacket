@@ -42,6 +42,7 @@ if __name__ == '__main__':
                                                                                   'Authentication (default False)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-show', action='store_true', help='show the queries')
+    parser.add_argument('-command', action='extend', nargs='*', help='Commands to execute in the SQL shell. Multiple commands can be passed.')
     parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the SQL shell')
 
     group = parser.add_argument_group('authentication')
@@ -107,10 +108,14 @@ if __name__ == '__main__':
         res = False
     if res is True:
         shell = SQLSHELL(ms_sql, options.show)
-        if options.file is None:
-            shell.cmdloop()
-        else:
+        if options.file:
             for line in options.file.readlines():
                 print("SQL> %s" % line, end=' ')
                 shell.onecmd(line)
+        elif options.command:
+            for c in options.command:
+                print("SQL> %s" % c)
+                shell.onecmd(c)
+        else:
+            shell.cmdloop()
     ms_sql.disconnect()
