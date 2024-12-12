@@ -360,13 +360,7 @@ class HTTPRelayServer(Thread):
             elif messageType == 3:
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
-
-                if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                    self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
-                                                authenticateMessage['user_name'].decode('utf-16le'))).upper()
-                else:
-                    self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('ascii'),
-                                                authenticateMessage['user_name'].decode('ascii'))).upper()
+                self.authUser = authenticateMessage.getUserString()
 
                 self.target = self.server.config.target.getTarget(identity = self.authUser)
                 if self.target is None:
@@ -441,13 +435,7 @@ class HTTPRelayServer(Thread):
                 authenticateMessage.fromString(token)
 
                 if self.server.config.disableMulti:
-                    if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                        self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
-                                                    authenticateMessage['user_name'].decode('utf-16le'))).upper()
-                    else:
-                        self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('ascii'),
-                                                    authenticateMessage['user_name'].decode('ascii'))).upper()
-
+                    self.authUser = authenticateMessage.getUserString()
                     target = '%s://%s@%s' % (self.target.scheme, self.authUser.replace("/", '\\'), self.target.netloc)
 
                 if not self.do_ntlm_auth(token, authenticateMessage):
