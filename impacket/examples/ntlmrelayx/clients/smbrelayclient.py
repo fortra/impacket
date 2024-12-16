@@ -36,7 +36,7 @@ from impacket.ntlm import NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_ALWAYS_SIGN, NTLM
 from impacket.smb import SMB, NewSMBPacket, SMBCommand, SMBSessionSetupAndX_Extended_Parameters, \
     SMBSessionSetupAndX_Extended_Data, SMBSessionSetupAndX_Extended_Response_Data, \
     SMBSessionSetupAndX_Extended_Response_Parameters, SMBSessionSetupAndX_Data, SMBSessionSetupAndX_Parameters
-from impacket.smb3 import SMB3, SMB2_GLOBAL_CAP_ENCRYPTION, SMB2_DIALECT_WILDCARD, SMB2Negotiate_Response, \
+from impacket.smb3 import SMB3, SMB2_GLOBAL_CAP_ENCRYPTION, SMB2_GLOBAL_CAP_NOTIFICATIONS, SMB2_DIALECT_WILDCARD, SMB2Negotiate_Response, \
     SMB2_NEGOTIATE, SMB2Negotiate, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30, SMB2_GLOBAL_CAP_LEASING, \
     SMB3Packet, SMB2_GLOBAL_CAP_LARGE_MTU, SMB2_GLOBAL_CAP_DIRECTORY_LEASING, SMB2_GLOBAL_CAP_MULTI_CHANNEL, \
     SMB2_GLOBAL_CAP_PERSISTENT_HANDLES, SMB2_NEGOTIATE_SIGNING_REQUIRED, SMB2Packet,SMB2SessionSetup, SMB2_SESSION_SETUP, STATUS_MORE_PROCESSING_REQUIRED, SMB2SessionSetup_Response
@@ -125,6 +125,8 @@ class MYSMB3(SMB3):
                 self._Connection['SupportsPersistentHandles'] = True
             if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_ENCRYPTION) == SMB2_GLOBAL_CAP_ENCRYPTION:
                 self._Connection['SupportsEncryption'] = True
+            if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_NOTIFICATIONS) == SMB2_GLOBAL_CAP_NOTIFICATIONS:
+                self._Connection['SupportsNotifications'] = True
 
             self._Connection['ServerCapabilities'] = negResp['Capabilities']
             self._Connection['ServerSecurityMode'] = negResp['SecurityMode']
