@@ -39,7 +39,7 @@ class LDAPSocksRelay(SocksRelay):
                 if msg_component.isSameTypeWith(BindRequest):
                     # BindRequest received
 
-                    if msg_component['name'] == LDAPDN('') and msg_component['authentication'] == univ.OctetString(''):
+                    if msg_component['authentication'] == univ.OctetString(''):
                         # First bind message without authentication
                         # Replying with a request for NTLM authentication
 
@@ -54,7 +54,7 @@ class LDAPSocksRelay(SocksRelay):
                         # Let's receive next messages
                         continue
 
-                    elif msg_component['name'] == LDAPDN('NTLM'):
+                    elif 'sicilyNegotiate' in msg_component['authentication']:
                         # Requested NTLM authentication
 
                         LOG.debug('Got NTLM bind request')
@@ -78,7 +78,7 @@ class LDAPSocksRelay(SocksRelay):
                         # Sending the response
                         self.send_ldap_msg(bindresponse, message['messageID'])
 
-                    else:
+                    elif 'sicilyResponse' in msg_component['authentication']:
                         # Received an NTLM auth bind request
 
                         # Parsing authentication method
@@ -120,11 +120,17 @@ class LDAPSocksRelay(SocksRelay):
                         self.send_ldap_msg(bindresponse, message['messageID'])
 
                         return True
+                    else:
+                        LOG.error('LDAP: Received an unknown LDAP binding request, cannot continue')
+                        return False
+
                 else:
                     msg_component = message['protocolOp'].getComponent()
                     if msg_component.isSameTypeWith(SearchRequest):
-                        # Search request
+                        # Pre-auth search request
+
                         if msg_component['attributes'][0] == LDAPString('supportedCapabilities'):
+                            # supportedCapabilities
                             response = SearchResultEntry()
                             response['objectName'] = LDAPDN('')
                             response['attributes'] = PartialAttributeList()
@@ -144,7 +150,9 @@ class LDAPSocksRelay(SocksRelay):
                             attribs.getComponentByName('vals').setComponentByPosition(5, AttributeValue('1.2.840.113556.1.4.2237'))
 
                             response['attributes'].append(attribs)
+
                         elif msg_component['attributes'][0] == LDAPString('supportedSASLMechanisms'):
+                            # supportedSASLMechanisms
                             response = SearchResultEntry()
                             response['objectName'] = LDAPDN('')
                             response['attributes'] = PartialAttributeList()
