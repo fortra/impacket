@@ -32,7 +32,10 @@ class LDAPSocksRelay(SocksRelay):
         # Faking an NTLM authentication with the client
         while True:
             messages = self.recv_ldap_msg()
-            LOG.debug(f'Received {len(messages)} message(s)')
+            if messages is None:
+                LOG.warning('LDAP: Client did not send ldap messages or closed connection')
+                return False
+            LOG.debug(f'LDAP: Received {len(messages)} message(s)')
 
             for message in messages:
                 msg_component = message['protocolOp'].getComponent()
@@ -43,7 +46,7 @@ class LDAPSocksRelay(SocksRelay):
                         # First bind message without authentication
                         # Replying with a request for NTLM authentication
 
-                        LOG.debug('Got empty bind request')
+                        LOG.debug('LDAP: Got empty bind request')
 
                         bindresponse = BindResponse()
                         bindresponse['resultCode'] = ResultCode('success')
@@ -57,7 +60,7 @@ class LDAPSocksRelay(SocksRelay):
                     elif 'sicilyNegotiate' in msg_component['authentication']:
                         # Requested NTLM authentication
 
-                        LOG.debug('Got NTLM bind request')
+                        LOG.debug('LDAP: Got NTLM bind request')
 
                         # Load negotiate message
                         negotiateMessage = ntlm.NTLMAuthNegotiate()
@@ -184,6 +187,9 @@ class LDAPSocksRelay(SocksRelay):
         done = False
         while not done:
             recvData = self.socksSocket.recv(self.MSG_SIZE)
+            if recvData == b'':
+                # Connection got closed
+                return None
             if len(recvData) < self.MSG_SIZE:
                 done = True
             data += recvData
@@ -194,19 +200,12 @@ class LDAPSocksRelay(SocksRelay):
                 message, remaining = decoder.decode(data, asn1Spec=LDAPMessage())
             except SubstrateUnderrunError:
                 # We need more data
-                remaining = data + self.socksSocket.recv(self.MSG_SIZE)
+                new_data = self.socksSocket.recv(self.MSG_SIZE)
+                if new_data == b'':
+                    # Connection got closed
+                    return None
+                remaining = data + new_data
             else:
-                if message['messageID'] == 0:  # unsolicited notification
-                    name = message['protocolOp']['extendedResp']['responseName'] or message['responseName']
-                    notification = KNOWN_NOTIFICATIONS.get(name, "Unsolicited Notification '%s'" % name)
-                    if name == NOTIFICATION_DISCONNECT:  # Server has disconnected
-                        self.close()
-                    raise LDAPSessionError(
-                        error=int(message['protocolOp']['extendedResp']['resultCode']),
-                        errorString='%s -> %s: %s' % (notification,
-                                                      message['protocolOp']['extendedResp']['resultCode'].prettyPrint(),
-                                                      message['protocolOp']['extendedResp']['diagnosticMessage'])
-                    )
                 response.append(message)
             data = remaining
 
@@ -278,7 +277,7 @@ class LDAPSocksRelay(SocksRelay):
         # Free the relay so that it can be reused
         self.activeRelays[self.username]['inUse'] = False
 
-        LOG.debug('Finished tunnelling')
+        LOG.debug('LDAP: Finished tunnelling')
 
         return True
 
@@ -289,7 +288,7 @@ class LDAPSocksRelay(SocksRelay):
 
             # Search for unbind requests
             if msg_component.isSameTypeWith(UnbindRequest):
-                LOG.warning('Client tried to unbind LDAP connection, skipping message')
+                LOG.warning('LDAP: Client tried to unbind LDAP connection, skipping message')
                 return False
         except Exception:
             # Is probably not an unbind LDAP message
@@ -305,7 +304,7 @@ class LDAPSocksRelay(SocksRelay):
             # Search for START_TLS LDAP extendedReq OID
             if msg_component.isSameTypeWith(ExtendedRequest) and msg_component['requestName'].asOctets() == b'1.3.6.1.4.1.1466.20037':
                 # 1.3.6.1.4.1.1466.20037 is LDAP_START_TLS_OID
-                LOG.warning('Client tried to initiate Start TLS, closing connection')
+                LOG.warning('LDAP: Client tried to initiate Start TLS, closing connection')
                 return False
         except Exception:
             # Is probably not a ExtendedReq message
