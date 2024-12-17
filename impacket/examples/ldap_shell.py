@@ -357,6 +357,27 @@ class LdapShell(cmd.Cmd):
             else:
                 raise Exception('The server returned an error: %s', self.client.result['message'])
 
+    def do_clear_keycredentiallinks(self, computer_name):
+        success = self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(computer_name), attributes=['objectSid', 'msDS-KeyCredentialLink'])
+        if success is False or len(self.client.entries) != 1:
+            raise Exception("Error expected only one search result got %d results", len(self.client.entries))
+
+        target = self.client.entries[0]
+        target_sid = target["objectsid"].value
+        print("Found Target DN: %s" % target.entry_dn)
+        print("Target SID: %s\n" % target_sid)
+
+        self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink':[ldap3.MODIFY_REPLACE, []]})
+        if self.client.result['result'] == 0:
+            print('KeyCredentialLinks cleared successfully!')
+        else:
+            if self.client.result['result'] == 50:
+                raise Exception('Could not modify object, the server reports insufficient rights: %s', self.client.result['message'])
+            elif self.client.result['result'] == 19:
+                raise Exception('Could not modify object, the server reports a constrained violation: %s', self.client.result['message'])
+            else:
+                raise Exception('The server returned an error: %s', self.client.result['message'])
+
     def do_dump(self, line):
         print('Dumping domain info...')
         self.stdout.flush()
@@ -667,6 +688,7 @@ class LdapShell(cmd.Cmd):
  add_user_to_group user group - Adds a user to a group.
  change_password user [password] - Attempt to change a given user's password. Requires LDAPS.
  clear_rbcd target - Clear the resource based constrained delegation configuration information.
+ clear_keycredentiallinks target - Clear the keycredentiallink information.
  disable_account user - Disable the user's account.
  enable_account user - Enable the user's account.
  dump - Dumps the domain.
