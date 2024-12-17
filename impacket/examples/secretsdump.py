@@ -162,7 +162,7 @@ class DOMAIN_ACCOUNT_F(Structure):
         ('MaxPasswordAge','<Q=0'),
         ('MinPasswordAge','<Q=0'),
         ('ForceLogoff','<Q=0'),
-        ('LockoutDuration','<Q=0'),
+        ('LockoutDuration','<q=0'),
         ('LockoutObservationWindow','<Q=0'),
         ('ModifiedCountAtLastPromotion','<Q=0'),
         ('NextRid','<L=0'),
@@ -1423,6 +1423,13 @@ class SAMHashes(OfflineRegistry):
 
         return ""
 
+    def nt_time_to_datetime(self, nt_time):
+        # NT Time is in 100-nanosecond intervals since 1601-01-01 (UTC)
+        # The difference between 1601 and 1970 is 11644473600 seconds
+        nt_time = int.from_bytes(nt_time, byteorder='little')  # Convert byte string to integer
+        unix_time = (nt_time - 116444736000000000) // 10000000  # Convert to Unix time (seconds)
+        return datetime.utcfromtimestamp(unix_time)
+
     def MD5(self, data):
         md5 = hashlib.new('md5')
         md5.update(data)
@@ -1500,6 +1507,8 @@ class SAMHashes(OfflineRegistry):
         F = self.getValue(ntpath.join(r'SAM\Domains\Account','F'))[1]
         domainData = DOMAIN_ACCOUNT_F(F)
         LockoutThreshold = domainData['LockoutThreshold']
+        LockoutDuration = domainData['LockoutDuration']
+        LockoutDurationMinutes = timedelta(microseconds=abs(LockoutDuration) // 10).total_seconds() / 60
 
         V = self.getValue(ntpath.join(r'SAM\Domains\Account','V'))[1]
         domainDataV = DOMAIN_ACCOUNT_V(V)
@@ -1555,11 +1564,18 @@ class SAMHashes(OfflineRegistry):
 
             userAccountF = USER_ACCOUNT_F(self.getValue(ntpath.join(usersKey, rid, 'F'))[1])
             InvalidPWDCount = userAccountF['InvalidPWDCount']
+            LastIncorrectPasswordTimestamp = userAccountF['LastIncorrectPasswordTimestamp']
+            LastIncorrectPasswordTimestamp_datetime = self.nt_time_to_datetime(LastIncorrectPasswordTimestamp)
             UserNumber = userAccountF['UserNumber']
             user_sid = f"{system_sid}-{UserNumber}"
 
             is_admin = user_sid in local_admins
             locked = InvalidPWDCount >= LockoutThreshold
+
+            if locked:  # Let's check if the LockoutDuration has passed.
+                lockout_expiry_time = LastIncorrectPasswordTimestamp_datetime + timedelta(minutes=LockoutDurationMinutes)
+                now = datetime.utcnow()
+                locked = now < lockout_expiry_time  # Compare current time with lockout expiry
 
             grouped_data = userAccountF['GroupedData']
             disabled = bool(grouped_data & 0x0001)
