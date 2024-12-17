@@ -216,26 +216,27 @@ class User(SamrObject):
         finally:
             self._close_domain()
 
-    def _hEnableAccount(self, user_handle):
+    def _hEnableAccount(self, user_handle, user_account_control):
         buffer = samr.SAMPR_USER_INFO_BUFFER()
         buffer['tag'] = samr.USER_INFORMATION_CLASS.UserControlInformation
-        buffer['Control']['UserAccountControl'] = samr.USER_ALL_ADMINCOMMENT
+        buffer['Control']['UserAccountControl'] = user_account_control ^ samr.USER_ACCOUNT_DISABLED
         samr.hSamrSetInformationUser2(self._dce, user_handle, buffer)
 
-    def _hDisableAccount(self, user_handle):
+    def _hDisableAccount(self, user_handle, user_account_control):
         buffer = samr.SAMPR_USER_INFO_BUFFER()
         buffer['tag'] = samr.USER_INFORMATION_CLASS.UserControlInformation
-        buffer['Control']['UserAccountControl'] = samr.USER_ACCOUNT_DISABLED | samr.USER_NORMAL_ACCOUNT
+        buffer['Control']['UserAccountControl'] = samr.USER_ACCOUNT_DISABLED | user_account_control
         samr.hSamrSetInformationUser2(self._dce, user_handle, buffer)
 
     def SetUserAccountControl(self, name, action):
+        info = self.Query(name)
         domain_handle = self._open_domain()
         try:
             user_handle = self._get_user_handle(domain_handle, name)
             if action == 'enable':
-                self._hEnableAccount(user_handle)
+                self._hEnableAccount(user_handle, info['UserAccountControl'])
             else:
-                self._hDisableAccount(user_handle)
+                self._hDisableAccount(user_handle, info['UserAccountControl'])
         finally:
             self._close_domain()
 
@@ -504,6 +505,8 @@ if __name__ == '__main__':
     computer_parser.add_argument('-create', action="store", metavar = "NAME", help='Add new computer account to domain.')
     computer_parser.add_argument('-remove', action="store", metavar = "NAME", help='Remove existing computer account from domain.')
     computer_parser.add_argument('-newPasswd', action="store", metavar = "PASSWORD", help='New password to set for creating account.')
+    computer_parser.add_argument('-enable', action="store", metavar = "NAME", help='Enables account.')
+    computer_parser.add_argument('-disable', action="store", metavar = "NAME", help='Disables account.')
 
     localgroup_parser = subparsers.add_parser('localgroup', help='Enumerate local groups (aliases) of local computer')
     localgroup_parser.add_argument('-name', action="store", metavar = "NAME", help='Operate on single specific domain group account.')
