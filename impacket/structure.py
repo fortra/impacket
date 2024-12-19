@@ -12,7 +12,7 @@
 from __future__ import division
 from __future__ import print_function
 from struct import pack, unpack, calcsize
-from six import b, PY3
+from six import ensure_binary, PY3
 from binascii import hexlify
 
 
@@ -197,7 +197,7 @@ class Structure:
 
         # quote specifier
         if format[:1] == "'" or format[:1] == '"':
-            return b(format[1:])
+            return ensure_binary(format[1:])
 
         # code specifier
         two = format.split('=')
@@ -245,26 +245,26 @@ class Structure:
         # "printf" string specifier
         if format[:1] == '%':
             # format string like specifier
-            return b(format % data)
+            return ensure_binary(format % data)
 
         # asciiz specifier
         if format[:1] == 'z':
             if isinstance(data,bytes):
-                return data + b('\0')
-            return bytes(b(data)+b('\0'))
+                return data + ensure_binary('\0')
+            return bytes(ensure_binary(data)+ensure_binary('\0'))
 
         # unicode specifier
         if format[:1] == 'u':
-            return bytes(data+b('\0\0') + (len(data) & 1 and b('\0') or b''))
+            return bytes(data+ensure_binary('\0\0') + (len(data) & 1 and ensure_binary('\0') or b''))
 
         # DCE-RPC/NDR string specifier
         if format[:1] == 'w':
             if len(data) == 0:
-                data = b('\0\0')
+                data = ensure_binary('\0\0')
             elif len(data) % 2:
-                data = b(data) + b('\0')
+                data = ensure_binary(data) + ensure_binary('\0')
             l = pack('<L', len(data)//2)
-            return b''.join([l, l, b('\0\0\0\0'), data])
+            return b''.join([l, l, ensure_binary('\0\0\0\0'), data])
 
         if data is None:
             raise Exception("Trying to pack None")
@@ -279,7 +279,7 @@ class Structure:
             elif isinstance(data, int):
                 return bytes(data)
             elif isinstance(data, bytes) is not True:
-                return bytes(b(data))
+                return bytes(ensure_binary(data))
             else:
                 return data
 
@@ -288,7 +288,7 @@ class Structure:
             if isinstance(data, bytes) or isinstance(data, bytearray):
                 return pack(format, data)
             else:
-                return pack(format, b(data))
+                return pack(format, ensure_binary(data))
 
         # struct like specifier
         return pack(format, data)
@@ -315,7 +315,7 @@ class Structure:
         # quote specifier
         if format[:1] == "'" or format[:1] == '"':
             answer = format[1:]
-            if b(answer) != data:
+            if ensure_binary(answer) != data:
                 raise Exception("Unpacked data doesn't match constant value '%r' should be '%r'" % (data, answer))
             return answer
 
@@ -361,7 +361,7 @@ class Structure:
 
         # asciiz specifier
         if format == 'z':
-            if data[-1:] != b('\x00'):
+            if data[-1:] != ensure_binary('\x00'):
                 raise Exception("%s 'z' field is not NUL terminated: %r" % (field, data))
             if PY3:
                 return data[:-1].decode('latin-1')
@@ -370,7 +370,7 @@ class Structure:
 
         # unicode specifier
         if format == 'u':
-            if data[-2:] != b('\x00\x00'):
+            if data[-2:] != ensure_binary('\x00\x00'):
                 raise Exception("%s 'u' field is not NUL-NUL terminated: %r" % (field, data))
             return data[:-2] # remove trailing NUL
 
@@ -524,11 +524,11 @@ class Structure:
 
         # asciiz specifier
         if format[:1] == 'z':
-            return data.index(b('\x00'))+1
+            return data.index(ensure_binary('\x00'))+1
 
         # asciiz specifier
         if format[:1] == 'u':
-            l = data.index(b('\x00\x00'))
+            l = data.index(ensure_binary('\x00\x00'))
             return l + (l & 1 and 3 or 2)
 
         # DCE-RPC/NDR string specifier
@@ -584,7 +584,7 @@ class Structure:
         if format in ['z',':','u']:
             return b''
         if format == 'w':
-            return b('\x00\x00')
+            return ensure_binary('\x00\x00')
 
         return 0
 
