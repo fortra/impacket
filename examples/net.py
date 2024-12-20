@@ -204,7 +204,7 @@ class User(SamrObject):
             samr.hSamrDeleteUser(self._dce, user_handle)
             raise
         else:
-            self._hEnableAccount(user_handle, self._create_account_type | samr.USER_ACCOUNT_DISABLED)
+            self._hEnableAccount(user_handle)
         finally:
             self._close_domain()
 
@@ -216,13 +216,15 @@ class User(SamrObject):
         finally:
             self._close_domain()
 
-    def _hEnableAccount(self, user_handle, user_account_control):
+    def _hEnableAccount(self, user_handle):
+        user_account_control = samr.hSamrQueryInformationUser2(self._dce, user_handle, samr.USER_INFORMATION_CLASS.UserAllInformation)['Buffer']['All']['UserAccountControl']
         buffer = samr.SAMPR_USER_INFO_BUFFER()
         buffer['tag'] = samr.USER_INFORMATION_CLASS.UserControlInformation
         buffer['Control']['UserAccountControl'] = user_account_control ^ samr.USER_ACCOUNT_DISABLED
         samr.hSamrSetInformationUser2(self._dce, user_handle, buffer)
 
-    def _hDisableAccount(self, user_handle, user_account_control):
+    def _hDisableAccount(self, user_handle):
+        user_account_control = samr.hSamrQueryInformationUser2(self._dce, user_handle, samr.USER_INFORMATION_CLASS.UserAllInformation)['Buffer']['All']['UserAccountControl']
         buffer = samr.SAMPR_USER_INFO_BUFFER()
         buffer['tag'] = samr.USER_INFORMATION_CLASS.UserControlInformation
         buffer['Control']['UserAccountControl'] = samr.USER_ACCOUNT_DISABLED | user_account_control
@@ -234,9 +236,9 @@ class User(SamrObject):
         try:
             user_handle = self._get_user_handle(domain_handle, name)
             if action == 'enable':
-                self._hEnableAccount(user_handle, info['UserAccountControl'])
+                self._hEnableAccount(user_handle)
             else:
-                self._hDisableAccount(user_handle, info['UserAccountControl'])
+                self._hDisableAccount(user_handle)
         finally:
             self._close_domain()
 
