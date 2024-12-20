@@ -115,6 +115,7 @@ class DumpSecrets:
         self.__resumeFileName = options.resumefile
         self.__canProcessSAMLSA = True
         self.__kdcHost = options.dc_ip
+        self.__kdcPort = options.dc_port
         self.__remoteSSMethod = options.use_remoteSSMethod
         self.__remoteSSMethodRemoteVolume = options.remoteSS_remote_volume
         self.__remoteSSMethodDownloadPath = options.remoteSS_local_path
@@ -153,7 +154,7 @@ class DumpSecrets:
         self.baseDN = self.baseDN[:-1]
 
         try:
-            self.__ldapConnection = LDAPConnection('ldap://%s' % self.__target, self.baseDN, self.__kdcHost)
+            self.__ldapConnection = LDAPConnection('ldap://%s:%s' % (self.__target, self.__kdcPort), self.baseDN, self.__kdcIP, self.__kdcPort)
             if self.__doKerberos is not True:
                 self.__ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
             else:
@@ -162,7 +163,7 @@ class DumpSecrets:
         except LDAPSessionError as e:
             if str(e).find('strongerAuthRequired') >= 0:
                 # We need to try SSL
-                self.__ldapConnection = LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcHost)
+                self.__ldapConnection = LDAPConnection('ldaps://%s:%s' % (self.__target, self.__kdcPort), self.baseDN, self.__kdcIP, self.__kdcPort)
                 if self.__doKerberos is not True:
                     self.__ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
                 else:
@@ -457,6 +458,8 @@ if __name__ == '__main__':
     group = parser.add_argument_group('connection')
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
                                  'ommited it use the domain part (FQDN) specified in the target parameter')
+    group.add_argument('-dc-port', action='store', metavar='port', help='Port of the domain controller. '
+                                                                            'Port used to communicate with the dc, instead of the default port')
     group.add_argument('-target-ip', action='store', metavar="ip address",
                        help='IP Address of the target machine. If omitted it will use whatever was specified as target. '
                             'This is useful when target is the NetBIOS name and you cannot resolve it')
