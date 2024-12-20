@@ -204,7 +204,7 @@ class User(SamrObject):
             samr.hSamrDeleteUser(self._dce, user_handle)
             raise
         else:
-            self._hEnableAccount(user_handle)
+            self._hEnableAccount(user_handle, self._create_account_type | samr.USER_ACCOUNT_DISABLED)
         finally:
             self._close_domain()
 
