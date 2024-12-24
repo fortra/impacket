@@ -148,13 +148,16 @@ def main():
     walk_parser = subparsers.add_parser('walk', help='walks the registry from the name node down')
     walk_parser.add_argument('-name', action='store', required=True, help='registry class name to start walking down from')
 
+    # Hive format
+    parser.add_argument('-format', action='store', choices=['save', 'export'], default='save',help="Hive format, either 'save' or 'export' (default: 'save')")
+
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
 
     options = parser.parse_args()
 
-    reg = winregistry.Registry(options.hive)
+    reg = winregistry.Registry(options.hive,hiveFormat = options.format)
 
     if options.action.upper() == 'ENUM_KEY':
         print("[%s]" % options.name)

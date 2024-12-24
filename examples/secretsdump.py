@@ -95,8 +95,14 @@ class DumpSecrets:
         self.__rodc = options.rodcNo
         self.__systemHive = options.system
         self.__bootkey = options.bootkey
+        self.__jdClass = options.lsa_jd
+        self.__skew1Class = options.lsa_skew1
+        self.__gbgClass = options.lsa_gbg
+        self.__dataClass = options.lsa_data
         self.__securityHive = options.security
+        self.__securityHiveExport = options.security_export
         self.__samHive = options.sam
+        self.__samHiveExport = options.sam_export
         self.__ntdsFile = options.ntds
         self.__skipSam = options.skip_sam
         self.__skipSecurity = options.skip_security
@@ -170,6 +176,19 @@ class DumpSecrets:
                                                         self.__aesKey, kdcHost=self.__kdcHost)
             else:
                 raise
+    
+    def getBootKey(self, jdClass, skew1Class, gbgClass, dataClass):
+        import binascii
+        bootKey = b''
+        tmpKey = jdClass.encode('utf-8') + skew1Class.encode('utf-8') + gbgClass.encode('utf-8') + dataClass.encode('utf-8')
+        transforms = [8, 5, 4, 2, 11, 9, 13, 3, 0, 6, 1, 12, 14, 10, 15, 7]
+        tmpKey = binascii.unhexlify(tmpKey)
+        for i in range(len(tmpKey)):
+            bootKey += tmpKey[transforms[i]:transforms[i] + 1]
+        
+        logging.info('Target system bootKey: 0x%s' % binascii.hexlify(bootKey).decode('utf-8'))
+
+        return bootKey
 
     def dump(self):
         try:
@@ -217,10 +236,11 @@ class DumpSecrets:
                     if self.__ntdsFile is not None:
                     # Let's grab target's configuration about LM Hashes storage
                         self.__noLMHash = localOperations.checkNoLMHashPolicy()
-                else:
+                elif self.__bootkey:
                     import binascii
                     bootKey = binascii.unhexlify(self.__bootkey)
-
+                elif self.__jdClass and self.__skew1Class and self.__gbgClass and self.__dataClass:  
+                    bootKey = self.getBootKey(self.__jdClass, self.__skew1Class, self.__gbgClass, self.__dataClass)                           
             else:
                 self.__isRemote = True
                 bootKey = None
@@ -274,10 +294,14 @@ class DumpSecrets:
                         try:
                             if self.__isRemote is True:
                                 SAMFileName = self.__remoteOps.saveSAM()
-                            else:
+                            elif self.__samHive:
                                 SAMFileName = self.__samHive
+                                samFormat = "save"
+                            elif self.__samHiveExport:
+                                SAMFileName = self.__samHiveExport
+                                samFormat = "export"
 
-                            self.__SAMHashes = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote)
+                            self.__SAMHashes = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote, format = samFormat)
                             self.__SAMHashes.dump()
                             if self.__outputFileName is not None:
                                 self.__SAMHashes.export(self.__outputFileName)
@@ -288,11 +312,15 @@ class DumpSecrets:
                         try:
                             if self.__isRemote is True:
                                 SECURITYFileName = self.__remoteOps.saveSECURITY()
-                            else:
+                            elif self.__securityHive:
                                 SECURITYFileName = self.__securityHive
+                                securityFormat = "save"
+                            elif self.__securityHiveExport:
+                                SECURITYFileName = self.__securityHiveExport
+                                securityFormat = "export"
 
                             self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps,
-                                                       isRemote=self.__isRemote, history=self.__history)
+                                                       isRemote=self.__isRemote, history=self.__history, format = securityFormat)
                             self.__LSASecrets.dumpCachedHashes()
                             if self.__outputFileName is not None:
                                 self.__LSASecrets.exportCached(self.__outputFileName)
@@ -400,8 +428,14 @@ if __name__ == '__main__':
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-system', action='store', help='SYSTEM hive to parse')
     parser.add_argument('-bootkey', action='store', help='bootkey for SYSTEM hive')
-    parser.add_argument('-security', action='store', help='SECURITY hive to parse')
-    parser.add_argument('-sam', action='store', help='SAM hive to parse')
+    parser.add_argument('-lsa-jd', action='store', help='Class name of HKLM\SYSTEM\CurrentControlSet\Control\Lsa\JD to compute the bootkey')
+    parser.add_argument('-lsa-skew1', action='store', help='Class name of HKLM\SYSTEM\CurrentControlSet\Control\Lsa\Skew1 to compute the bootkey')
+    parser.add_argument('-lsa-gbg', action='store', help='Class name of HKLM\SYSTEM\CurrentControlSet\Control\Lsa\GBG to compute the bootkey')
+    parser.add_argument('-lsa-data', action='store', help='Class name of HKLM\SYSTEM\CurrentControlSet\Control\Lsa\Data to compute the bootkey')
+    parser.add_argument('-security', action='store', help='SECURITY hive to parse in "save" format')
+    parser.add_argument('-security-export', action='store', help='SECURITY hive to parse in "export" format')
+    parser.add_argument('-sam', action='store', help='SAM hive to parse in "save" format')
+    parser.add_argument('-sam-export', action='store', help='SAM hive to parse in "export" format')
     parser.add_argument('-ntds', action='store', help='NTDS.DIT file to parse')
     parser.add_argument('-resumefile', action='store', help='resume file name to resume NTDS.DIT session dump (only '
                          'available to DRSUAPI approach). This file will also be used to keep updating the session\'s '
@@ -506,8 +540,8 @@ if __name__ == '__main__':
         sys.exit(1)
 
     if remoteName.upper() == 'LOCAL' and username == '':
-        if options.system is None and options.bootkey is None:
-            logging.error('Either the SYSTEM hive or bootkey is required for local parsing, check help')
+        if options.system is None and options.bootkey is None and (options.lsa_jd is None or options.lsa_skew1 is None or options.lsa_gbg is None or options.lsa_data is None):
+            logging.error('Either the SYSTEM hive, bootkey or the LSA\'s class names is required for local parsing, check help')
             sys.exit(1)
     else:
 
