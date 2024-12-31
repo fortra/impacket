@@ -233,6 +233,8 @@ class GetUserNoPreAuth:
             logging.info('Getting TGT for %s' % self.__username)
             entry = self.getTGT(self.__username)
             self.outputTGT(entry, fd)
+            if fd is not None:
+                fd.close()      
             return
 
         try:
@@ -245,7 +247,9 @@ class GetUserNoPreAuth:
                 # Cannot authenticate, we will try to get this users' TGT (hoping it has PreAuth disabled)
                 logging.info('Cannot authenticate %s, getting its TGT' % self.__username)
                 entry = self.getTGT(self.__username)
-                self.outputTGT(entry, fd)
+                self.outputTGT(entry, fd)     
+                if fd is not None:
+                    fd.close()       
                 return
 
         # Building the search filter
