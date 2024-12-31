@@ -210,12 +210,29 @@ class GetUserNoPreAuth:
             self.request_users_file_TGTs()
             return
 
+        if self.__kdcHost is not None:
+            self.__target = self.__kdcHost
+        else:
+            if self.__kdcIP is not None:
+                self.__target = self.__kdcIP
+            else:
+                self.__target = self.__domain
+
+            if self.__doKerberos:
+                logging.info('Getting machine hostname')
+                self.__target = self.getMachineName(self.__target)
+
+        if self.__outputFileName is not None:
+            fd = open(self.__outputFileName, 'w+')
+        else:
+            fd = None
+
         # Are we asked not to supply a password?
         if self.__doKerberos is False and self.__no_pass is True:
             # Yes, just ask the TGT and exit
             logging.info('Getting TGT for %s' % self.__username)
             entry = self.getTGT(self.__username)
-            self.outputTGT(entry, None)
+            self.outputTGT(entry, fd)
             return
 
         try:
@@ -228,7 +245,7 @@ class GetUserNoPreAuth:
                 # Cannot authenticate, we will try to get this users' TGT (hoping it has PreAuth disabled)
                 logging.info('Cannot authenticate %s, getting its TGT' % self.__username)
                 entry = self.getTGT(self.__username)
-                self.outputTGT(entry, None)
+                self.outputTGT(entry, fd)
                 return
 
         # Building the search filter
