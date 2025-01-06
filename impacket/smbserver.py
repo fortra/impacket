@@ -2926,6 +2926,8 @@ class SMB2Commands:
                 ansFlags |= ntlm.NTLMSSP_NEGOTIATE_UNICODE
             if negotiateMessage['flags'] & ntlm.NTLM_NEGOTIATE_OEM:
                 ansFlags |= ntlm.NTLM_NEGOTIATE_OEM
+            if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_SIGN:
+                ansFlags |= ntlm.NTLMSSP_NEGOTIATE_SIGN
 
             ansFlags |= ntlm.NTLMSSP_NEGOTIATE_VERSION | ntlm.NTLMSSP_NEGOTIATE_TARGET_INFO | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_NEGOTIATE_NTLM | ntlm.NTLMSSP_REQUEST_TARGET
 
