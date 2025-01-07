@@ -4635,9 +4635,8 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
             finalData = []
             totalPackets = len(packetsToSend)
             for idx, packet in enumerate(packetsToSend):
-                padLen = 0
+                padLen = -len(packet) % 8
                 if idx + 1 < totalPackets:
-                    padLen = -len(packet) % 8
                     packet['NextCommand'] = len(packet) + padLen
 
                 if connData['SignatureEnabled']:
