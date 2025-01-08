@@ -20,6 +20,8 @@
 #   Alberto Solino (@agsolino)
 #
 import sys
+import ldap3
+import ssl
 from struct import unpack
 from impacket import LOG
 from ldap3 import Server, Connection, ALL, NTLM, MODIFY_ADD
@@ -57,9 +59,19 @@ class LDAPRelayClient(ProtocolClient):
             self.session = None
 
     def initConnection(self):
-        self.server = Server("ldap://%s:%s" % (self.targetHost, self.targetPort), get_info=ALL)
-        self.session = Connection(self.server, user="a", password="b", authentication=NTLM)
-        self.session.open(False)
+        try:
+            tls = ldap3.Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1_2, ciphers='ALL:@SECLEVEL=0')
+            self.server = Server("ldaps://%s:%s" % (self.targetHost, self.targetPort), get_info=ALL, tls=tls)
+            self.session = Connection(self.server, user="a", password="b", authentication=NTLM)
+            self.session.open(False)
+        except ldap3.core.exceptions.LDAPSocketOpenError:
+            tls = ldap3.Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1, ciphers='ALL:@SECLEVEL=0')
+            self.server = Server("ldaps://%s:%s" % (self.targetHost, self.targetPort), get_info=ALL, tls=tls)
+            self.session = Connection(self.server, user="a", password="b", authentication=NTLM)
+            self.session.open(False)
+        except Exception as e:
+            LOG.error("Error initializing connection to %s: %s" % (self.targetHost, str(e)))
+            return False
         return True
 
     def sendNegotiate(self, negotiateMessage):
@@ -172,7 +184,17 @@ class LDAPSRelayClient(LDAPRelayClient):
         LDAPRelayClient.__init__(self, serverConfig, target, targetPort, extendedSecurity)
 
     def initConnection(self):
-        self.server = Server("ldaps://%s:%s" % (self.targetHost, self.targetPort), get_info=ALL)
-        self.session = Connection(self.server, user="a", password="b", authentication=NTLM)
-        self.session.open(False)
+        try:
+            tls = ldap3.Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1_2, ciphers='ALL:@SECLEVEL=0')
+            self.server = Server("ldaps://%s:%s" % (self.targetHost, self.targetPort), get_info=ALL, tls=tls)
+            self.session = Connection(self.server, user="a", password="b", authentication=NTLM)
+            self.session.open(False)
+        except ldap3.core.exceptions.LDAPSocketOpenError:
+            tls = ldap3.Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1, ciphers='ALL:@SECLEVEL=0')
+            self.server = Server("ldaps://%s:%s" % (self.targetHost, self.targetPort), get_info=ALL, tls=tls)
+            self.session = Connection(self.server, user="a", password="b", authentication=NTLM)
+            self.session.open(False)
+        except Exception as e:
+            LOG.error("Error initializing connection to %s: %s" % (self.targetHost, str(e)))
+            return False
         return True
