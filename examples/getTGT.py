@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -55,7 +57,7 @@ class GETTGT:
         ccache.saveFile(self.__user + '.ccache')
 
     def run(self):
-        userName = Principal(self.__user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+        userName = Principal(self.__user, type=options.principalType.value)
         tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(clientName = userName,
                                                                 password = self.__password,
                                                                 domain = self.__domain,
@@ -87,6 +89,7 @@ if __name__ == '__main__':
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
                        'ommited it use the domain part (FQDN) specified in the target parameter')
     group.add_argument('-service', action='store', metavar="SPN", help='Request a Service Ticket directly through an AS-REQ')
+    group.add_argument('-principalType', nargs="?", type=lambda value: constants.PrincipalNameType[value.upper()] if value.upper() in constants.PrincipalNameType.__members__ else None,  action='store', default=constants.PrincipalNameType.NT_PRINCIPAL, help='PrincipalType of the token, can be one of  NT_UNKNOWN, NT_PRINCIPAL, NT_SRV_INST, NT_SRV_HST, NT_SRV_XHST, NT_UID, NT_SMTP_NAME, NT_ENTERPRISE, NT_WELLKNOWN, NT_SRV_HST_DOMAIN, NT_MS_PRINCIPAL, NT_MS_PRINCIPAL_AND_ID, NT_ENT_PRINCIPAL_AND_ID; default is NT_PRINCIPAL, ')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -94,7 +97,6 @@ if __name__ == '__main__':
         print("\t./getTGT.py -hashes lm:nt contoso.com/user\n")
         print("\tit will use the lm:nt hashes for authentication. If you don't specify them, a password will be asked")
         sys.exit(1)
-
     options = parser.parse_args()
 
     # Init the example's logger theme
@@ -112,6 +114,10 @@ if __name__ == '__main__':
     try:
         if domain is None:
             logging.critical('Domain should be specified!')
+            sys.exit(1)
+
+        if options.principalType is None:
+            logging.critical('Invalid principalType!')
             sys.exit(1)
 
         if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -99,10 +101,10 @@ if __name__ == '__main__':
                             print('%s |' % record[key]['value'], end=' ')
                     print() 
                 except Exception as e:
-                    if logging.getLogger().level == logging.DEBUG:
-                        import traceback
-                        traceback.print_exc()
                     if str(e).find('S_FALSE') < 0:
+                        if logging.getLogger().level == logging.DEBUG:
+                            import traceback
+                            traceback.print_exc()
                         raise
                     else:
                         break

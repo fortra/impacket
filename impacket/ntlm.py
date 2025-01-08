@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -35,12 +37,13 @@ from impacket import LOG
 USE_NTLMv2 = True # if false will fall back to NTLMv1 (or NTLMv1 with ESS a.k.a NTLM2)
 TEST_CASE = False # Only set to True when running Test Cases
 
+DEFAULT_LM_HASH = binascii.unhexlify('AAD3B435B51404EEAAD3B435B51404EE')
 
 def computeResponse(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='', nthash='',
-                    use_ntlmv2=USE_NTLMv2):
+                    use_ntlmv2=USE_NTLMv2, channel_binding_value=b''):
     if use_ntlmv2:
         return computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, domain, user, password,
-                                     lmhash, nthash, use_ntlmv2=use_ntlmv2)
+                                     lmhash, nthash, use_ntlmv2=use_ntlmv2, channel_binding_value=channel_binding_value)
     else:
         return computeResponseNTLMv1(flags, serverChallenge, clientChallenge, serverName, domain, user, password,
                                      lmhash, nthash, use_ntlmv2=use_ntlmv2)
@@ -594,7 +597,7 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlm
 
     return auth
 
-def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2):
+def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2, channel_binding_value = b''):
 
     # Safety check in case somebody sent password = None.. That's not allowed. Setting it to '' and hope for the best.
     if password is None:
@@ -633,7 +636,7 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
 
     ntResponse, lmResponse, sessionBaseKey = computeResponse(ntlmChallenge['flags'], ntlmChallenge['challenge'],
                                                              clientChallenge, serverName, domain, user, password,
-                                                             lmhash, nthash, use_ntlmv2)
+                                                             lmhash, nthash, use_ntlmv2, channel_binding_value = channel_binding_value)
 
     # Let's check the return flags
     if (ntlmChallenge['flags'] & NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY) == 0:
@@ -741,7 +744,15 @@ def computeResponseNTLMv1(flags, serverChallenge, clientChallenge, serverName, d
 
 def compute_lmhash(password):
     # This is done according to Samba's encryption specification (docs/html/ENCRYPTION.html)
-    password = password.upper()
+    try:
+        password.encode("latin-1")
+    except UnicodeEncodeError:
+        # LM hash can be computed only from latin-1 encoded passwords
+        # If password contains unicode characters, outside latin-1, we return the default LM_HASH
+        return DEFAULT_LM_HASH
+
+    password = ''.join( c.upper() if c in string.ascii_letters else c for c in password )
+
     lmhash  = __DES_block(b(password[:7]), KNOWN_DES_INPUT)
     lmhash += __DES_block(b(password[7:14]), KNOWN_DES_INPUT)
     return lmhash
@@ -898,7 +909,7 @@ def LMOWFv2( user, password, domain, lmhash = ''):
 
 
 def computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='',
-                          nthash='', use_ntlmv2=USE_NTLMv2):
+                          nthash='', use_ntlmv2=USE_NTLMv2, channel_binding_value=b''):
 
     responseServerVersion = b'\x01'
     hiResponseServerVersion = b'\x01'
@@ -919,9 +930,20 @@ def computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, d
         serverName = av_pairs.getData()
     else:
         aTime = b'\x00'*8
+    
+    if len(channel_binding_value) > 0:
+        av_pairs[NTLMSSP_AV_CHANNEL_BINDINGS] = channel_binding_value
 
-    temp = responseServerVersion + hiResponseServerVersion + b'\x00' * 6 + aTime + clientChallenge + b'\x00' * 4 + \
-           serverName + b'\x00' * 4
+    # Format according to:
+    # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/aee311d6-21a7-4470-92a5-c4ecb022a87b
+    temp = responseServerVersion # RespType 1 byte
+    temp += hiResponseServerVersion # HiRespType 1 byte
+    temp += b'\x00' * 2 # Reserved1 2 bytes
+    temp += b'\x00' * 4 # Reserved2 4 bytes
+    temp += aTime # TimeStamp 8 bytes
+    temp += clientChallenge # ChallengeFromClient 8 bytes
+    temp += b'\x00' * 4 # Reserved 4 bytes
+    temp += av_pairs.getData() # AvPairs variable
 
     ntProofStr = hmac_md5(responseKeyNT, serverChallenge + temp)
 
@@ -946,7 +968,7 @@ class NTLM_HTTP(object):
         msg_type = 0
         if msg_64 != '':
             msg = base64.b64decode(msg_64[5:]) # Remove the 'NTLM '
-            msg_type = ord(msg[8])
+            msg_type = msg[8]
     
         for _cls in NTLM_HTTP.__subclasses__():
             if msg_type == _cls.MSG_TYPE:

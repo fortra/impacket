@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -127,7 +129,7 @@ def createKPasswdRequest(principal, domain, newPasswd, tgs, cipher, sessionKey, 
         sequenceNumber = int.from_bytes(get_random_bytes(4), "big")
 
     if now is None:
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
 
     if not isinstance(newPasswd, bytes):
         newPasswd = newPasswd.encode("utf-8")

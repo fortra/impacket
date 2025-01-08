@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -140,7 +142,7 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
     authenticator['authenticator-vno'] = 5
     authenticator['crealm'] = domain
     seq_set(authenticator, 'cname', userName.components_to_asn1)
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
 
     authenticator['cusec'] = now.microsecond
     authenticator['ctime'] = KerberosTime.to_asn1(now)
@@ -371,8 +373,10 @@ class RBCD(object):
                 logging.info('Accounts allowed to act on behalf of other identity:')
                 for ace in sd['Dacl'].aces:
                     SID = ace['Ace']['Sid'].formatCanonical()
-                    SamAccountName = self.get_sid_info(ace['Ace']['Sid'].formatCanonical())[1]
-                    logging.info('    %-10s   (%s)' % (SamAccountName, SID))
+                    SidInfos = self.get_sid_info(ace['Ace']['Sid'].formatCanonical())
+                    if SidInfos:
+                        SamAccountName = SidInfos[1]
+                        logging.info('    %-10s   (%s)' % (SamAccountName, SID))
             else:
                 logging.info('Attribute msDS-AllowedToActOnBehalfOfOtherIdentity is empty')
         except IndexError:
@@ -459,6 +463,8 @@ def parse_identity(args):
 
     if args.hashes is not None:
         lmhash, nthash = args.hashes.split(':')
+        if lmhash == '':
+            lmhash = 'aad3b435b51404eeaad3b435b51404ee'
     else:
         lmhash = ''
         nthash = ''

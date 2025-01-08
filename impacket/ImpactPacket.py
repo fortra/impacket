@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -430,7 +432,7 @@ class Header(PacketBuffer,ProtocolLayer):
         if(len(aBuffer) < hdr_len):         #we must do something like this
             diff = hdr_len - len(aBuffer)
             for i in range(0, diff):
-                aBuffer += '\x00'
+                aBuffer += b'\x00'
         self.set_bytes_from_string(aBuffer[:hdr_len])
 
     def get_header_size(self):

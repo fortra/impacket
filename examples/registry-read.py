@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -87,7 +89,7 @@ def enumValues(reg, searchKey):
 
     for value in values:
         print("  %-30s: " % value, end=' ')
-        data = reg.getValue('%s\\%s'%(searchKey,value.decode('utf-8')))
+        data = reg.getValue(searchKey, value.decode('utf-8'))
         # Special case for binary string.. so it looks better formatted
         if data[0] == winregistry.REG_BINARY:
             print('')
