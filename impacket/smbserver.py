@@ -1771,7 +1771,7 @@ class SMBCommands:
                 smbServer.log("Path not in current working directory", logging.ERROR)
                 errorCode = STATUS_OBJECT_PATH_SYNTAX_BAD
 
-            if os.path.exists(pathName) is not True:
+            elif not os.path.exists(pathName):
                 errorCode = STATUS_NO_SUCH_FILE
 
             else:
