@@ -718,8 +718,8 @@ class Registry:
             self.__registryParser = exportRegistryParser(hive)
         
     def close(self):
-        if hasattr(self, 'fd'):
-            self.fd.close()
+        if hasattr(self.__registryParser, 'fd'):
+            self.__registryParser.fd.close()
 
     def __del__(self):
         self.close()

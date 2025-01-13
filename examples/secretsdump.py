@@ -294,6 +294,7 @@ class DumpSecrets:
                         try:
                             if self.__isRemote is True:
                                 SAMFileName = self.__remoteOps.saveSAM()
+                                samFormat = "save"
                             elif self.__samHive:
                                 SAMFileName = self.__samHive
                                 samFormat = "save"
@@ -312,6 +313,7 @@ class DumpSecrets:
                         try:
                             if self.__isRemote is True:
                                 SECURITYFileName = self.__remoteOps.saveSECURITY()
+                                securityFormat = "save"
                             elif self.__securityHive:
                                 SECURITYFileName = self.__securityHive
                                 securityFormat = "save"
