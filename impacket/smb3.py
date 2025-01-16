@@ -1171,7 +1171,7 @@ class SMB3:
 
         treeConnect = SMB2TreeConnect()
         treeConnect['Buffer']     = path.encode('utf-16le')
-        treeConnect['PathLength'] = len(path.encode('utf-16le'))
+        treeConnect['PathLength'] = len(treeConnect['Buffer'])
 
         packet = self.SMB_PACKET()
         packet['Command'] = SMB2_TREE_CONNECT
@@ -1470,8 +1470,9 @@ class SMB3:
         if maxBufferSize is None:
             maxBufferSize = self._Connection['MaxReadSize']
         queryDirectory['OutputBufferLength'] = maxBufferSize
-        queryDirectory['FileNameLength']     = len(searchString.encode('utf-16le'))
         queryDirectory['Buffer']             = searchString.encode('utf-16le')
+        queryDirectory['FileNameLength']     = len(queryDirectory['Buffer'])
+        
 
         packet['Data'] = queryDirectory
 
@@ -1718,8 +1719,9 @@ class SMB3:
             renameReq = FILE_RENAME_INFORMATION_TYPE_2()
             renameReq['ReplaceIfExists'] = 1
             renameReq['RootDirectory']   = '\x00'*8
-            renameReq['FileNameLength']  = len(newPath.encode('utf-16le'))
             renameReq['FileName']        = newPath.encode('utf-16le')
+            renameReq['FileNameLength']  = len(renameReq['FileName'])
+
             self.setInfo(treeId, fileId, renameReq, infoType = SMB2_0_INFO_FILE, fileInfoClass = SMB2_FILE_RENAME_INFO)
         finally:
             if fileId is not None:
@@ -1964,9 +1966,10 @@ class SMB3:
 
         pipeWait = FSCTL_PIPE_WAIT_STRUCTURE()
         pipeWait['Timeout']          = timeout*100000
-        pipeWait['NameLength']       = len(pipename.encode('utf-16le'))
-        pipeWait['TimeoutSpecified'] = 1
         pipeWait['Name']             = pipename.encode('utf-16le')
+        pipeWait['NameLength']       = len(pipeWait['Name'] )
+        pipeWait['TimeoutSpecified'] = 1
+
 
         return self.ioctl(treeId, None, FSCTL_PIPE_WAIT,flags=SMB2_0_IOCTL_IS_FSCTL, inputBlob=pipeWait, maxInputResponse = 0, maxOutputResponse=0)
 
