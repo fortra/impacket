@@ -163,6 +163,7 @@ WIN_VERSIONS = {
     22621:"Windows 11",
     22631:"Windows 11",
     25398:"Windows Server 2022",
+    26100:"Windows 11 / Server 2025",
 }
 
 
