@@ -276,9 +276,9 @@ def stop_servers(threads):
 def redirect_smb_packets():
     with pydivert.WinDivert("tcp.DstPort == 445 or tcp.SrcPort == 4445") as w:
         for packet in w:
-            if packet.dst_port == 445:
+            if packet.dst_port == 445 and packet.is_inbound:
                 packet.dst_port = 4445
-            if packet.src_port == 4445:
+            if packet.src_port == 4445 and packet.is_outbound:
                 packet.src_port = 445
             w.send(packet)
 
