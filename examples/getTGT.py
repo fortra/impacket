@@ -29,7 +29,7 @@ from binascii import unhexlify
 from impacket import version
 from impacket.examples import logger
 from impacket.examples.utils import parse_credentials
-from impacket.krb5.kerberosv5 import getKerberosTGT
+from impacket.krb5.kerberosv5 import getKerberosTGT, parseKerberosOptions
 from impacket.krb5 import constants
 from impacket.krb5.types import Principal
 
@@ -45,6 +45,8 @@ class GETTGT:
         self.__options = options
         self.__kdcHost = options.dc_ip
         self.__service = options.service
+        self.__encryption = options.encryption
+        self.__tgtOptions = parseKerberosOptions(options.tgt_options)
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
 
@@ -65,7 +67,7 @@ class GETTGT:
                                                                 nthash = unhexlify(self.__nthash),
                                                                 aesKey = self.__aesKey,
                                                                 kdcHost = self.__kdcHost,
-                                                                serverName = self.__service)
+                                                                serverName = self.__service, encType=self.__encryption, options=self.__tgtOptions)
         self.saveTicket(tgt,oldSessionKey)
 
 if __name__ == '__main__':
@@ -90,6 +92,12 @@ if __name__ == '__main__':
                        'ommited it use the domain part (FQDN) specified in the target parameter')
     group.add_argument('-service', action='store', metavar="SPN", help='Request a Service Ticket directly through an AS-REQ')
     group.add_argument('-principalType', nargs="?", type=lambda value: constants.PrincipalNameType[value.upper()] if value.upper() in constants.PrincipalNameType.__members__ else None,  action='store', default=constants.PrincipalNameType.NT_PRINCIPAL, help='PrincipalType of the token, can be one of  NT_UNKNOWN, NT_PRINCIPAL, NT_SRV_INST, NT_SRV_HST, NT_SRV_XHST, NT_UID, NT_SMTP_NAME, NT_ENTERPRISE, NT_WELLKNOWN, NT_SRV_HST_DOMAIN, NT_MS_PRINCIPAL, NT_MS_PRINCIPAL_AND_ID, NT_ENT_PRINCIPAL_AND_ID; default is NT_PRINCIPAL, ')
+    
+    kerberos_options = parser.add_argument_group('kerberos options')
+
+    kerberos_options.add_argument('-tgs-options', action="store", metavar="hex value", default=None, help='The hexadecimal value to send to the Kerberos Ticket Granting Service (TGS).')
+    kerberos_options.add_argument('-tgt-options', action="store", metavar="hex value", default=None, help='The hexadecimal value to send to the Kerberos Ticket Granting Ticket (TGT).')
+    kerberos_options.add_argument('-encryption', action="store", metavar="18 or 23", default="23", help='Set encryption to AES256 (18) or RC4 (23).')
 
     if len(sys.argv)==1:
         parser.print_help()

@@ -80,7 +80,7 @@ from impacket.krb5.pac import KERB_SID_AND_ATTRIBUTES, PAC_SIGNATURE_DATA, PAC_I
     VALIDATION_INFO, PAC_CLIENT_INFO, KERB_VALIDATION_INFO, UPN_DNS_INFO_FULL, PAC_REQUESTOR_INFO, PAC_UPN_DNS_INFO, PAC_ATTRIBUTES_INFO, PAC_REQUESTOR, \
     PAC_ATTRIBUTE_INFO
 from impacket.krb5.types import KerberosTime, Principal
-from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
+from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, parseKerberosOptions
 
 from impacket.krb5 import constants, pac
 from impacket.krb5.asn1 import AP_REQ, TGS_REQ, Authenticator, seq_set, seq_set_iter, PA_FOR_USER_ENC, Ticket as TicketAsn1
@@ -97,6 +97,10 @@ class TICKETER:
         self.__options = options
         self.__tgt = None
         self.__tgt_session_key = None
+        self.__encryption = options.encryption
+        self.__tgtOptions = parseKerberosOptions(options.tgt_options)
+        self.__tgtOptions = parseKerberosOptions(options.tgt_options)
+
         if options.spn:
             spn = options.spn.split('/')
             self.__service = spn[0]
@@ -338,14 +342,14 @@ class TICKETER:
             userName = Principal(self.__options.user, type=PrincipalNameType.NT_PRINCIPAL.value)
             tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                     unhexlify(lmhash), unhexlify(nthash), None,
-                                                                    self.__options.dc_ip)
+                                                                    self.__options.dc_ip, encType=self.__encryption, options=self.__tgtOptions)
             self.__tgt, self.__tgt_cipher, self.__tgt_session_key = tgt, cipher, sessionKey
             if self.__domain == self.__server:
                 kdcRep = decoder.decode(tgt, asn1Spec=AS_REP())[0]
             else:
                 serverName = Principal(self.__options.spn, type=PrincipalNameType.NT_SRV_INST.value)
                 tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, self.__domain, None, tgt, cipher,
-                                                                        sessionKey)
+                                                                        sessionKey, encType=self.__encryption, options=self.__tgsOptions)
                 kdcRep = decoder.decode(tgs, asn1Spec=TGS_REP())[0]
 
             # Let's check we have all the necessary data based on the ciphers used. Boring checks
@@ -1142,6 +1146,12 @@ if __name__ == '__main__':
     parser.add_argument('-impersonate', action="store", help='Sapphire ticket. target username that will be impersonated (through S4U2Self+U2U)'
                                                              ' for querying the ST and extracting the PAC, which will be'
                                                              ' included in the new ticket')
+
+    kerberos_options = parser.add_argument_group('kerberos options')
+
+    kerberos_options.add_argument('-tgs-options', action="store", metavar="hex value", default=None, help='The hexadecimal value to send to the Kerberos Ticket Granting Service (TGS).')
+    kerberos_options.add_argument('-tgt-options', action="store", metavar="hex value", default=None, help='The hexadecimal value to send to the Kerberos Ticket Granting Ticket (TGT).')
+    kerberos_options.add_argument('-encryption', action="store", metavar="18 or 23", default="23", help='Set encryption to AES256 (18) or RC4 (23).')
 
     if len(sys.argv)==1:
         parser.print_help()

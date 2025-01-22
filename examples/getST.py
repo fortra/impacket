@@ -67,7 +67,7 @@ from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, 
 from impacket.krb5.ccache import CCache, Credential
 from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, _AES256CTS, Enctype, string_to_key
 from impacket.krb5.constants import TicketFlags, encodeFlags
-from impacket.krb5.kerberosv5 import getKerberosTGS, getKerberosTGT, sendReceive
+from impacket.krb5.kerberosv5 import getKerberosTGS, getKerberosTGT, parseKerberosOptions, sendReceive
 from impacket.krb5.types import Principal, KerberosTime, Ticket
 from impacket.ntlm import compute_nthash
 from impacket.winregistry import hexdump
@@ -87,6 +87,10 @@ class GETST:
         self.__additional_ticket = options.additional_ticket
         self.__saveFileName = None
         self.__no_s4u2proxy = options.no_s4u2proxy
+        self.__tgsOptions = parseKerberosOptions(options.tgt_options)
+        self.__tgtOptions = parseKerberosOptions(options.tgs_options)
+        self.__encryption = options.encryption
+
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
 
@@ -692,7 +696,7 @@ class GETST:
             tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                     unhexlify(self.__lmhash), unhexlify(self.__nthash),
                                                                     self.__aesKey,
-                                                                    self.__kdcHost)
+                                                                    self.__kdcHost, encType=self.__encryption, options=self.__tgtOptions)
             logging.debug("TGT session key: %s" % hexlify(sessionKey.contents).decode())
 
         # Ok, we have valid TGT, let's try to get a service ticket
@@ -706,7 +710,7 @@ class GETST:
                 logging.info('Getting ST for user')
 
             serverName = Principal(self.__options.spn, type=constants.PrincipalNameType.NT_SRV_INST.value)
-            tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, self.__kdcHost, tgt, cipher, sessionKey, self.__options.renew)
+            tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, self.__kdcHost, tgt, cipher, sessionKey, self.__options.renew, encType=self.__encryption, options=self.__tgsOptions)
             self.__saveFileName = self.__user
         else:
             # Here's the rock'n'roll
@@ -767,6 +771,12 @@ if __name__ == '__main__':
                                                                           '(128 or 256 bits)')
     group.add_argument('-dc-ip', action='store', metavar="ip address", help='IP Address of the domain controller. If '
                                                                             'omitted it use the domain part (FQDN) specified in the target parameter')
+
+    kerberos_options = parser.add_argument_group('kerberos options')
+
+    kerberos_options.add_argument('-tgs-options', action="store", metavar="hex value", default=None, help='The hexadecimal value to send to the Kerberos Ticket Granting Service (TGS).')
+    kerberos_options.add_argument('-tgt-options', action="store", metavar="hex value", default=None, help='The hexadecimal value to send to the Kerberos Ticket Granting Ticket (TGT).')
+    kerberos_options.add_argument('-encryption', action="store", metavar="18 or 23", default="23", help='Set encryption to AES256 (18) or RC4 (23).')
 
     if len(sys.argv) == 1:
         parser.print_help()

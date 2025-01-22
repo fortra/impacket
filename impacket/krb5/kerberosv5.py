@@ -94,6 +94,25 @@ def sendReceive(data, host, kdcHost, port=88):
 
     return r
 
+def parseKerberosOptions(hex=None):
+        if hex is None:
+            return None
+        
+        # convert hex to binary
+        scale = 16
+        kdcbin = bin(int(hex, scale))[2:].zfill(32)
+
+        # enable options based on binary (left to right)
+        options = list()
+        idx = -1
+        for b in kdcbin:
+            idx += 1
+            if int(b) == 1:
+                print("Adding " + constants.KDCOptions(idx).name)
+                options.append(constants.KDCOptions(idx).value)
+        
+        return options
+
 def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True, serverName=None, kerberoast_no_preauth=False, encType=None, options=None):
 
     # Convert to binary form, just in case we're receiving strings

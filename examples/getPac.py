@@ -45,7 +45,7 @@ from impacket.krb5 import constants
 from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, seq_set, seq_set_iter, PA_FOR_USER_ENC, \
     EncTicketPart, AD_IF_RELEVANT, Ticket as TicketAsn1
 from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, Enctype
-from impacket.krb5.kerberosv5 import getKerberosTGT, sendReceive
+from impacket.krb5.kerberosv5 import getKerberosTGT, parseKerberosOptions, sendReceive
 from impacket.krb5.pac import PACTYPE, PAC_INFO_BUFFER, KERB_VALIDATION_INFO, PAC_CLIENT_INFO_TYPE, PAC_CLIENT_INFO, \
     PAC_SERVER_CHECKSUM, PAC_SIGNATURE_DATA, PAC_PRIVSVR_CHECKSUM, PAC_UPN_DNS_INFO, UPN_DNS_INFO
 from impacket.krb5.types import Principal, KerberosTime, Ticket
@@ -108,13 +108,16 @@ class S4U2SELF:
             buff = buff[len(infoBuffer):]
 
 
-    def __init__(self, behalfUser, username = '', password = '', domain='', hashes = None):
+    def __init__(self, behalfUser, username = '', password = '', domain='', hashes = None, encType=None, tgtOptions=None):
         self.__username = username
         self.__password = password
         self.__domain = domain.upper()
         self.__behalfUser = behalfUser
         self.__lmhash = ''
         self.__nthash = ''
+        self.__encryption = encType
+        self.__tgtOptions = parseKerberosOptions(tgtOptions)
+
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
@@ -123,7 +126,7 @@ class S4U2SELF:
 
         userName = Principal(self.__username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
         tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
-                                                                unhexlify(self.__lmhash), unhexlify(self.__nthash))
+                                                                unhexlify(self.__lmhash), unhexlify(self.__nthash), encType=self.__encryption, options=self.__tgtOptions)
 
         decodedTGT = decoder.decode(tgt, asn1Spec = AS_REP())[0]
 
@@ -305,6 +308,12 @@ if __name__ == '__main__':
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    
+    kerberos_options = parser.add_argument_group('kerberos options')
+
+    kerberos_options.add_argument('-tgt-options', action="store", metavar="hex value", default=None, help='The hexadecimal value to send to the Kerberos Ticket Granting Ticket (TGT).')
+    kerberos_options.add_argument('-encryption', action="store", metavar="18 or 23", default="23", help='Set encryption to AES256 (18) or RC4 (23).')
+    
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
@@ -328,7 +337,7 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.INFO)
 
     try:
-        dumper = S4U2SELF(options.targetUser, username, password, domain, options.hashes)
+        dumper = S4U2SELF(options.targetUser, username, password, domain, options.hashes, options.encryption, options.tgt_options)
         dumper.dump()
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:

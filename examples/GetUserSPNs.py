@@ -47,7 +47,7 @@ from impacket.examples.utils import parse_credentials
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import TGS_REP, AS_REP
 from impacket.krb5.ccache import CCache
-from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
+from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, parseKerberosOptions
 from impacket.krb5.types import Principal
 from impacket.ldap import ldap, ldapasn1
 from impacket.smbconnection import SMBConnection, SessionError
@@ -92,8 +92,8 @@ class GetUserSPNs:
         self.__saveTGS = cmdLineOptions.save
         self.__requestUser = cmdLineOptions.request_user
         self.__stealth = cmdLineOptions.stealth
-        self.__tgsOptions = self.parseKerberosOptions(cmdLineOptions.tgs_options)
-        self.__tgtOptions = self.parseKerberosOptions(cmdLineOptions.tgt_options)
+        self.__tgsOptions = parseKerberosOptions(cmdLineOptions.tgs_options)
+        self.__tgtOptions = parseKerberosOptions(cmdLineOptions.tgt_options)
         self.__encryption = cmdLineOptions.encryption
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
@@ -135,23 +135,6 @@ class GetUserSPNs:
         else:
             s.logoff()
         return "%s.%s" % (s.getServerName(), s.getServerDNSDomainName())
-
-    @staticmethod
-    def parseKerberosOptions(hex):
-        # convert hex to binary
-        scale = 16
-        kdcbin = bin(int(hex, scale))[2:].zfill(32)
-
-        # enable options based on binary (left to right)
-        opt = list()
-        idx = -1
-        for b in kdcbin:
-            idx += 1
-            if int(b) == 1:
-                print("Adding " + constants.KDCOptions(idx).name)
-                opt.append(constants.KDCOptions(idx).value)
-        
-        return opt
 
     @staticmethod
     def getUnixTime(t):
@@ -558,7 +541,7 @@ if __name__ == '__main__':
                                                                             'specified in the account parameter will be used')
 
     kerberos_options = parser.add_argument_group('kerberos options')
-    
+
     kerberos_options.add_argument('-tgs-options', action="store", metavar="hex value", default=None, help='The hexadecimal value to send to the Kerberos Ticket Granting Service (TGS).')
     kerberos_options.add_argument('-tgt-options', action="store", metavar="hex value", default=None, help='The hexadecimal value to send to the Kerberos Ticket Granting Ticket (TGT).')
     kerberos_options.add_argument('-encryption', action="store", metavar="18 or 23", default="23", help='Set encryption to AES256 (18) or RC4 (23).')
