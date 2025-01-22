@@ -94,7 +94,7 @@ def sendReceive(data, host, kdcHost, port=88):
 
     return r
 
-def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True, serverName=None, kerberoast_no_preauth=False):
+def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True, serverName=None, kerberoast_no_preauth=False, encType=None, options=None):
 
     # Convert to binary form, just in case we're receiving strings
     if isinstance(lmhash, str):
@@ -181,6 +181,9 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     else:
         # We have hashes to try, only way is to request RC4 only
         supportedCiphers = (int(constants.EncryptionTypes.rc4_hmac.value),)
+
+    if encType:
+        supportedCiphers = (int(encType),)
 
     seq_set_iter(reqBody, 'etype', supportedCiphers)
 
@@ -301,10 +304,14 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
         reqBody = seq_set(asReq, 'req-body')
 
-        opts = list()
-        opts.append( constants.KDCOptions.forwardable.value )
-        opts.append( constants.KDCOptions.renewable.value )
-        opts.append( constants.KDCOptions.proxiable.value )
+        if options is not None:
+            opts = options
+        else:
+            opts = list()
+            opts.append( constants.KDCOptions.forwardable.value )
+            opts.append( constants.KDCOptions.renewable.value )
+            opts.append( constants.KDCOptions.proxiable.value )
+        
         reqBody['kdc-options'] = constants.encodeFlags(opts)
 
         seq_set(reqBody, 'sname', serverName.components_to_asn1)
@@ -366,7 +373,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
     return tgt, cipher, key, sessionKey
 
-def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew = False):
+def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew=False, encType=None, options=None):
 
     # Decode the TGT
     try:
@@ -425,11 +432,14 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
 
     reqBody = seq_set(tgsReq, 'req-body')
 
-    opts = list()
-    opts.append( constants.KDCOptions.forwardable.value )
-    opts.append( constants.KDCOptions.renewable.value )
-    opts.append( constants.KDCOptions.renewable_ok.value )
-    opts.append( constants.KDCOptions.canonicalize.value )
+    if options is not None:
+        opts = options
+    else:
+        opts = list()
+        opts.append( constants.KDCOptions.forwardable.value )
+        opts.append( constants.KDCOptions.renewable.value )
+        opts.append( constants.KDCOptions.renewable_ok.value )
+        opts.append( constants.KDCOptions.canonicalize.value )
 
     if renew == True:
         opts.append( constants.KDCOptions.renew.value )
@@ -442,14 +452,17 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
 
     reqBody['till'] = KerberosTime.to_asn1(now)
     reqBody['nonce'] = rand.getrandbits(31)
-    seq_set_iter(reqBody, 'etype',
-                      (
-                          int(constants.EncryptionTypes.rc4_hmac.value),
-                          int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
-                          int(constants.EncryptionTypes.des_cbc_md5.value),
-                          int(cipher.enctype)
-                       )
-                )
+    if encType is not None:
+        seq_set_iter(reqBody, 'etype', ( (int(encType),)))
+    else:
+        seq_set_iter(reqBody, 'etype',
+                        (
+                            int(constants.EncryptionTypes.rc4_hmac.value),
+                            int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
+                            int(constants.EncryptionTypes.des_cbc_md5.value),
+                            int(cipher.enctype)
+                        )
+                    )
 
     message = encoder.encode(tgsReq)
 
