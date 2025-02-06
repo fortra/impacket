@@ -14,7 +14,9 @@
 # Author:
 #   Martin Gallo (@martingalloar)
 #
+import random
 import re
+import string
 
 
 # Regular expression to parse target information
@@ -60,3 +62,6 @@ def parse_credentials(credentials):
     domain, username, password = credential_regex.match(credentials).groups('')
 
     return domain, username, password
+
+def gen_random_string(length=10):
+    return "".join(random.sample(string.ascii_letters, int(length)))
