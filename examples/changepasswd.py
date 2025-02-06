@@ -152,6 +152,7 @@ class PasswordHandler:
         doKerberos=False,
         aesKey="",
         kdcHost=None,
+        kdcPort=None,
     ):
         """
         Instantiate password change or reset with the credentials of the account making the changes.
@@ -614,7 +615,7 @@ class LdapPassword(PasswordHandler):
 
         logging.debug(f"Connecting to {ldapURI} as {self.domain}\\{self.username}")
         try:
-            ldapConnection = ldap.LDAPConnection(ldapURI, self.baseDN, self.address)
+            ldapConnection = ldap.LDAPConnection(ldapURI, self.baseDN, self.address, self.kdcPort)
             if not self.doKerberos:
                 ldapConnection.login(self.username, self.password, self.domain, self.pwdHashLM, self.pwdHashNT)
             else:
@@ -832,6 +833,8 @@ def parse_args():
             "in the target parameter"
         ),
     )
+    group.add_argument('-dc-port', action='store', metavar='port', help='Port of the domain controller. '
+                                                                        'Port used to communicate with the dc, instead of the default port')
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -967,6 +970,7 @@ if __name__ == "__main__":
         doKerberos,
         options.aesKey,
         kdcHost=options.dc_ip,
+        kdcPort=options.dc_port,
     )
 
     # Attempt the password change/reset
