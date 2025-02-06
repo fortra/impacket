@@ -30,11 +30,11 @@ import shlex
 
 class SQLSHELL(cmd.Cmd):
     def __init__(self, SQL, show_queries=False, tcpShell=None):
+            
+        import readline
+        readline.backend = 'readline'
+        
         if tcpShell is not None:
-
-            import readline
-            readline.backend = 'readline'
-
             cmd.Cmd.__init__(self, stdin=tcpShell.stdin, stdout=tcpShell.stdout)
             sys.stdout = tcpShell.stdout
             sys.stdin = tcpShell.stdin
