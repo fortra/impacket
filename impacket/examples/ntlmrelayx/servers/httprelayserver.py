@@ -480,6 +480,10 @@ class HTTPRelayServer(Thread):
                                                         authenticateMessage['lanman'], authenticateMessage['ntlm'])
                     self.client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
 
+                    if self.server.config.dumpHashes is True:
+                        LOG.info("Dumping hash for %s \n%s", self.authUser, ntlm_hash_data['hash_string'])
+                        LOG.info("Done dumping hash")
+
                     if self.server.config.outputFile is not None:
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                               self.server.config.outputFile)

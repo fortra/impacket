@@ -91,6 +91,11 @@ class SMBRelayServer(Thread):
         if self.config.outputFile is not None:
             smbConfig.set('global','jtr_dump_path',self.config.outputFile)
 
+        if self.config.dumpHashes is True:
+            smbConfig.set("global", "dump_hashes", "True")
+        else:
+            smbConfig.set("global", "dump_hashes", "False")
+        
         if self.config.SMBServerChallenge is not None:
             smbConfig.set('global', 'challenge', self.config.SMBServerChallenge)
 
@@ -372,6 +377,10 @@ class SMBRelayServer(Thread):
                                                     authenticateMessage['domain_name'], authenticateMessage['lanman'],
                                                     authenticateMessage['ntlm'])
                 client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
+
+                if self.server.getDumpHashes():
+                    LOG.info("Dumping hash for %s \n%s", self.authUser, ntlm_hash_data['hash_string'])
+                    LOG.info("Done dumping hash")
 
                 if self.server.getJTRdumpPath() != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
@@ -667,6 +676,10 @@ class SMBRelayServer(Thread):
                                                         authenticateMessage['lanman'], authenticateMessage['ntlm'])
                     client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
 
+                    if self.server.getDumpHashes():
+                        LOG.info("Dumping hash for %s \n%s", self.authUser, ntlm_hash_data['hash_string'])
+                        LOG.info("Done dumping hash")
+
                     if self.server.getJTRdumpPath() != '':
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                               self.server.getJTRdumpPath())
@@ -741,6 +754,10 @@ class SMBRelayServer(Thread):
                 ntlm_hash_data = outputToJohnFormat('', sessionSetupData['Account'], sessionSetupData['PrimaryDomain'],
                                                     sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'])
                 client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
+
+                if self.server.getDumpHashes():
+                    LOG.info("Dumping hash for %s \n%s", self.authUser, ntlm_hash_data['hash_string'])
+                    LOG.info("Done dumping hash")
 
                 if self.server.getJTRdumpPath() != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
