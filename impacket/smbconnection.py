@@ -753,7 +753,7 @@ class SMBConnection:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
 
-    def getFile(self, shareName, pathName, callback, shareAccessMode = None):
+    def getFile(self, shareName, pathName, callback, shareAccessMode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, mode = FILE_OPEN, offset = 0, password = None):
         """
         downloads a file
 
