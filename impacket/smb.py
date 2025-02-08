@@ -270,30 +270,50 @@ SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO = 0x105
 SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO = 0x106
 
 
-# DesiredAccess flags
-FILE_READ_DATA                   = 0x00000001
-FILE_WRITE_DATA                  = 0x00000002
-FILE_APPEND_DATA                 = 0x00000004
-FILE_EXECUTE                     = 0x00000020
-MAXIMUM_ALLOWED                  = 0x02000000
-GENERIC_ALL                      = 0x10000000
-GENERIC_EXECUTE                  = 0x20000000
-GENERIC_WRITE                    = 0x40000000
-GENERIC_READ                     = 0x80000000
+# AccessMask (DesiredAccess) flags
+# A 32-bit field of flags that indicate standard, specific, and generic access rights. 
+# These rights are used in access-control entries (ACEs) and are the primary means of specifying the requested or granted access to an object.
+# As Specified in 2.2.4.64.1 SMB_COM_NT_CREATE_ANDX (0xA2) Request
+FILE_READ_DATA                   = 0x00000001 # Indicates the right to read data from the file.
+FILE_WRITE_DATA                  = 0x00000002 # Indicates the right to write data into the file beyond the end of the file.
+FILE_APPEND_DATA                 = 0x00000004 # Indicates the right to append data to the file beyond the end of the file only.
+FILE_READ_EA                     = 0x00000008 # Indicates the right to read the extended attributes (EAs) of the file.
+FILE_WRITE_EA                    = 0x00000010 # Indicates the right to write or change the extended attributes (EAs) of the file.
+FILE_EXECUTE                     = 0x00000020 # Indicates the right to execute the file.
+FILE_READ_ATTRIBUTES             = 0x00000080 # Indicates the right to read the attributes of the file.
+FILE_WRITE_ATTRIBUTES            = 0x00000100 # Indicates the right to change the attributes of the file.
+DELETE                           = 0x00010000 # Indicates the right to delete or to rename the file.
+READ_CONTROL                     = 0x00020000 # Indicates the right to read the security descriptor of the file.
+WRITE_DAC                        = 0x00040000 # Indicates the right to change the discretionary access control list (DACL) in the security descriptor of the file.
+WRITE_OWNER                      = 0x00080000 # Indicates the right to change the owner in the security descriptor of the file.
+SYNCHRONIZE                      = 0x00100000 # SHOULD NOT be used by the sender and MUST be ignored by the receiver.
+ACCESS_SYSTEM_SECURITY           = 0x01000000 # Indicates the right to read or change the system access control list (SACL) in the security descriptor for the file. If the SE_SECURITY_NAME privilege is not set in the access token, the server MUST fail the open request and return STATUS_PRIVILEGE_NOT_HELD.
+MAXIMUM_ALLOWED                  = 0x02000000 # Indicates that the client requests an open to the file with the highest level of access that the client has on this file. If no access is granted for the client on this file, the server MUST fail the open and return a STATUS_ACCESS_DENIED.
+GENERIC_ALL                      = 0x10000000 # Indicates a request for all of the access flags that are previously listed except MAXIMUM_ALLOWED and ACCESS_SYSTEM_SECURITY.
+GENERIC_EXECUTE                  = 0x20000000 # Indicates a request for the following combination of access flags listed previously in this table: FILE_READ_ATTRIBUTES, FILE_EXECUTE, SYNCHRONIZE, and READ_CONTROL.
+GENERIC_WRITE                    = 0x40000000 # Indicates a request for the following combination of access flags listed previously in this table: FILE_WRITE_DATA, FILE_APPEND_DATA, SYNCHRONIZE, FILE_WRITE_ATTRIBUTES, and FILE_WRITE_EA.
+GENERIC_READ                     = 0x80000000 # Indicates a request for the following combination of access flags listed previously in this table:  FILE_READ_DATA, FILE_READ_ATTRIBUTES, FILE_READ_EA, and SYNCHRONIZE.
+
 
 # ShareAccess flags
-FILE_SHARE_NONE                  = 0x00000000
-FILE_SHARE_READ                  = 0x00000001
-FILE_SHARE_WRITE                 = 0x00000002
-FILE_SHARE_DELETE                = 0x00000004
+# A 32-bit field that specifies how the file SHOULD be shared with other processes.
+# As Specified in 2.2.4.64.1 SMB_COM_NT_CREATE_ANDX (0xA2) Request
+FILE_SHARE_NONE                  = 0x00000000 # No bits set - Prevents the file from being shared.
+FILE_SHARE_READ                  = 0x00000001 # Other open operations can be performed on the file for read access.
+FILE_SHARE_WRITE                 = 0x00000002 # Other open operations can be performed on the file for write access.
+FILE_SHARE_DELETE                = 0x00000004 # Other open operations can be performed on the file for delete access.
+
 
 # CreateDisposition flags
-FILE_SUPERSEDE                  = 0x00000000
-FILE_OPEN                       = 0x00000001
-FILE_CREATE                     = 0x00000002
-FILE_OPEN_IF                    = 0x00000003
-FILE_OVERWRITE                  = 0x00000004
-FILE_OVERWRITE_IF               = 0x00000005
+# A 32-bit value that represents the action to take if the file already exists or if the file is a new file and does not already exist.
+# As Specified in 2.2.4.64.1 SMB_COM_NT_CREATE_ANDX (0xA2) Request
+FILE_SUPERSEDE                  = 0x00000000 # No bits set - If the file already exists, it SHOULD be superseded (overwritten). If it does not already exist, then it SHOULD be created.
+FILE_OPEN                       = 0x00000001 # If the file already exists, it SHOULD be opened rather than created. If the file does not already exist, the operation MUST fail.
+FILE_CREATE                     = 0x00000002 # If the file already exists, the operation MUST fail. If the file does not already exist, it SHOULD be created.
+FILE_OPEN_IF                    = 0x00000003 # If the file already exists, it SHOULD be opened. If the file does not already exist, then it SHOULD be created. This value is equivalent to (FILE_OPEN | FILE_CREATE).
+FILE_OVERWRITE                  = 0x00000004 # If the file already exists, it SHOULD be opened and truncated. If the file does not already exist, the operation MUST fail.
+FILE_OVERWRITE_IF               = 0x00000005 # If the file already exists, it SHOULD be opened and truncated. If the file does not already exist, it SHOULD be created.
+
 
 def strerror(errclass, errcode):
     if errclass == 0x01:
@@ -3871,7 +3891,7 @@ class SMB(object):
            return transResponse['Data'][-transParameters['TotalDataCount']:] # Remove Potential Prefix Padding
         return None
 
-    def nt_create_andx(self,tid,filename, smb_packet=None, cmd = None, shareAccessMode = FILE_SHARE_READ | FILE_SHARE_WRITE, disposition = FILE_OPEN, accessMask = 0x2019f):
+    def nt_create_andx(self, tid, filename, smb_packet = None, cmd = None, shareAccessMode = FILE_SHARE_READ | FILE_SHARE_WRITE, disposition = FILE_OPEN, accessMask = READ_CONTROL | FILE_WRITE_ATTRIBUTES | FILE_READ_ATTRIBUTES | FILE_WRITE_EA | FILE_READ_EA | FILE_APPEND_DATA | FILE_WRITE_DATA):
         filename = filename.replace('/', '\\')
         filename = filename.encode('utf-16le') if self.__flags2 & SMB.FLAGS2_UNICODE else filename
 
@@ -4011,13 +4031,13 @@ class SMB(object):
 
         return files
 
-    def retr_file(self, service, filename, callback, mode = FILE_OPEN, offset = 0, password = None, shareAccessMode = SMB_ACCESS_READ):
+    def retr_file(self, service, filename, callback, mode = FILE_OPEN, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ):
         filename = filename.replace('/', '\\')
 
         fid = -1
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
-            fid = self.nt_create_andx(tid, filename, shareAccessMode = shareAccessMode, accessMask = 0x20089)
+            fid = self.nt_create_andx(tid, filename, shareAccessMode = shareAccessMode, accessMask = READ_CONTROL | FILE_READ_ATTRIBUTES | FILE_READ_EA | FILE_READ_DATA)
 
             res = self.query_file_info(tid, fid)
             datasize = SMBQueryFileStandardInfo(res)['EndOfFile']
@@ -4028,7 +4048,7 @@ class SMB(object):
                 self.close(tid, fid)
             self.disconnect_tree(tid)
 
-    def stor_file(self, service, filename, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = SMB_ACCESS_WRITE):
+    def stor_file(self, service, filename, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ):
         filename = filename.replace('/', '\\')
 
         fid = -1
@@ -4042,7 +4062,7 @@ class SMB(object):
                 self.close(tid, fid)
             self.disconnect_tree(tid)
 
-    def stor_file_nonraw(self, service, filename, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = SMB_ACCESS_WRITE ):
+    def stor_file_nonraw(self, service, filename, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ):
         filename = filename.replace('/', '\\')
 
         fid = -1
