@@ -4031,7 +4031,7 @@ class SMB(object):
 
         return files
 
-    def retr_file(self, service, filename, callback, mode = FILE_OPEN, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ):
+    def retr_file(self, service, filename, callback, mode = FILE_OPEN, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE):
         filename = filename.replace('/', '\\')
 
         fid = -1
