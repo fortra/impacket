@@ -766,11 +766,7 @@ class SMBConnection:
         :raise SessionError: if error
         """
         try:
-            if shareAccessMode is None:
-                # if share access mode is none, let's the underlying API deals with it
-                return self._SMBConnection.retr_file(shareName, pathName, callback)
-            else:
-                return self._SMBConnection.retr_file(shareName, pathName, callback, shareAccessMode=shareAccessMode)
+            return self._SMBConnection.retr_file(shareName, pathName, callback, shareAccessMode=shareAccessMode, mode=mode, offset=offset, password=password)
         except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
