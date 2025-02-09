@@ -755,39 +755,41 @@ class SMBConnection:
 
     def getFile(self, shareName, pathName, callback, shareAccessMode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, mode = FILE_OPEN, offset = 0, password = None):
         """
-        downloads a file
+        Reads a remote file and inputs the data to a callback method.
 
-        :param string shareName: name for the share where the file is to be retrieved
-        :param string pathName: the path name to retrieve
-        :param callback callback: function called to write the contents read.
-        :param int shareAccessMode:
+        :param string shareName: The name for the share where the file is to be retrieved.
+        :param string pathName: The path name to retrieve.
+        :param callback callback: A function called to write the contents read - the method receives bytes as an argument.
+        :param int shareAccessMode: Binary flags indicating what file permissions we would like to grant other processes for using our file.
+        :param int mode: Binary flags indicating what file operation we expect to happen when we open our file.
+        :param int offset: An offset for reading data from the file (used like `seek`).
+        :param int password: A password for password protected files & shares (Not Implemented in SMBv3).
 
         :return: None
         :raise SessionError: if error
         """
         try:
-            return self._SMBConnection.retr_file(shareName, pathName, callback, shareAccessMode=shareAccessMode, mode=mode, offset=offset, password=password)
+            return self._SMBConnection.retr_file(shareName, pathName, callback, mode=mode, offset=offset, password=password, shareAccessMode=shareAccessMode)
         except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
-    def putFile(self, shareName, pathName, callback, shareAccessMode = None):
+    def putFile(self, shareName, pathName, callback, shareAccessMode = FILE_SHARE_READ, mode = FILE_OVERWRITE_IF, offset = 0, password = None):
         """
-        uploads a file
+        Uploads data read from a callback method to a remote file.
 
-        :param string shareName: name for the share where the file is to be uploaded
-        :param string pathName: the path name to upload
-        :param callback callback: function called to read the contents to be written.
-        :param int shareAccessMode:
+        :param string shareName: The name for the share where the file is to be uploaded.
+        :param string pathName: The path name to upload.
+        :param callback callback: A function called to read the contents to be written - method should receive length of data as a value and return bytes (in the requested amount) to write.
+        :param int shareAccessMode: Binary flags indicating what file permissions we would like to grant other processes for using our file.
+        :param int mode: Binary flags indicating what file operation we expect to happen when we open our file.
+        :param int offset: An offset for writing data to the file (used like `seek`).
+        :param int password: A password for password protected files & shares (Not Implemented in SMBv3).
 
         :return: None
         :raise SessionError: if error
         """
         try:
-            if shareAccessMode is None:
-                # if share access mode is none, let's the underlying API deals with it
-                return self._SMBConnection.stor_file(shareName, pathName, callback)
-            else:
-                return self._SMBConnection.stor_file(shareName, pathName, callback, shareAccessMode)
+            return self._SMBConnection.stor_file(shareName, pathName, callback, mode=mode, offset=offset, password=password, shareAccessMode=shareAccessMode)
         except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
