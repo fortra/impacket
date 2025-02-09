@@ -273,7 +273,7 @@ SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO = 0x106
 # AccessMask (DesiredAccess) flags
 # A 32-bit field of flags that indicate standard, specific, and generic access rights. 
 # These rights are used in access-control entries (ACEs) and are the primary means of specifying the requested or granted access to an object.
-# As Specified in 2.2.4.64.1 SMB_COM_NT_CREATE_ANDX (0xA2) Request
+# As Specified in section 2.2.4.64.1 SMB_COM_NT_CREATE_ANDX (0xA2) Request
 FILE_READ_DATA                   = 0x00000001 # Indicates the right to read data from the file.
 FILE_WRITE_DATA                  = 0x00000002 # Indicates the right to write data into the file beyond the end of the file.
 FILE_APPEND_DATA                 = 0x00000004 # Indicates the right to append data to the file beyond the end of the file only.
@@ -297,7 +297,7 @@ GENERIC_READ                     = 0x80000000 # Indicates a request for the foll
 
 # ShareAccess flags
 # A 32-bit field that specifies how the file SHOULD be shared with other processes.
-# As Specified in 2.2.4.64.1 SMB_COM_NT_CREATE_ANDX (0xA2) Request
+# As Specified in section 2.2.4.64.1 SMB_COM_NT_CREATE_ANDX (0xA2) Request
 FILE_SHARE_NONE                  = 0x00000000 # No bits set - Prevents the file from being shared.
 FILE_SHARE_READ                  = 0x00000001 # Other open operations can be performed on the file for read access.
 FILE_SHARE_WRITE                 = 0x00000002 # Other open operations can be performed on the file for write access.
@@ -306,7 +306,7 @@ FILE_SHARE_DELETE                = 0x00000004 # Other open operations can be per
 
 # CreateDisposition flags
 # A 32-bit value that represents the action to take if the file already exists or if the file is a new file and does not already exist.
-# As Specified in 2.2.4.64.1 SMB_COM_NT_CREATE_ANDX (0xA2) Request
+# As Specified in section 2.2.4.64.1 SMB_COM_NT_CREATE_ANDX (0xA2) Request
 FILE_SUPERSEDE                  = 0x00000000 # No bits set - If the file already exists, it SHOULD be superseded (overwritten). If it does not already exist, then it SHOULD be created.
 FILE_OPEN                       = 0x00000001 # If the file already exists, it SHOULD be opened rather than created. If the file does not already exist, the operation MUST fail.
 FILE_CREATE                     = 0x00000002 # If the file already exists, the operation MUST fail. If the file does not already exist, it SHOULD be created.
