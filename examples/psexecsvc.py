@@ -1,3 +1,5 @@
+# Made with luv by Reino @_cablethief and @Defte_ :D
+
 import os
 import sys
 import cmd
