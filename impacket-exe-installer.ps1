@@ -6,7 +6,6 @@ $StartingDirectory = Get-Location
 $PythonInstallerPath = Join-Path -Path $Env:TEMP -ChildPath "python-$PythonVersion.exe"
 
 $RepositoryArchivePath = Join-Path -Path $Env:TEMP -ChildPath "impacket-exe.zip"
-$RepositoryFolderPath = Join-Path -Path $Env:TEMP -ChildPath "impacket-exe-master"
 
 $MachinePythonKey = "HKLM:\Software\Python\PythonCore"
 $UserPythonKey = "HKCU:\Software\Python\PythonCore"
@@ -90,6 +89,20 @@ $Options['OutputDir'] = @{
     Value    = $StartingDirectory
     Type     = 'Path'
 }
+$Options['Branch'] = @{
+    Name     = 'Repository Branch'
+    Desc     = 'Set the branch of the repository to download from'
+    Keywords = @('-b', '--branch')
+    Value    = 'master'
+    Type     = 'String'
+}
+$Options['Repository'] = @{
+    Name     = 'Repository'
+    Desc     = 'The Github repository to download from'
+    Keywords = @('-r', '--repository')
+    Value    = 'p0rtl6/impacket-exe'
+    Type     = 'String'
+}
 
 $Flags = New-object System.Collections.Hashtable
 $Flags['InstallAll'] = @{
@@ -116,7 +129,12 @@ $Flags['InstallSystemWide'] = @{
     Keywords = @('-I', '--install-systemwide')
     Value    = $False
 }
-
+$Flags['InstallFromCurrentDir'] = @{
+    Name     = 'Install From Current Directory'
+    Desc     = 'Install scripts from the current directory instead of downloading from a URL'
+    Keywords = @('-C', '--install-current-dir')
+    Value    = $False
+}
 
 function GetKeyByKeyword {
     param (
@@ -235,6 +253,7 @@ if ($SelectedScripts.Count -eq 0) {
     throw "Error: Must select at least one script to install (Use -h or --help for help)"
 }
 
+$ProgressPreference = 'SilentlyContinue'
 
 # Check Local Machine Registry
 if (Test-Path $MachinePythonKey) {
@@ -266,15 +285,23 @@ if (-not $FoundPython -or $Flags['OverridePython']['Value']) {
     $Env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User") 
 }
 
-# Download and unzip repository
-Write-Host 'Downloading repository...'
-Invoke-WebRequest -Uri "https://github.com/p0rtL6/impacket-exe/archive/refs/heads/master.zip" -OutFile $RepositoryArchivePath
-Expand-Archive -Path $RepositoryArchivePath -DestinationPath $Env:TEMP -Force
-Remove-Item $RepositoryArchivePath
+if (-not $Flags['InstallFromCurrentDir']['Value']) {
+    # Set the source
+    $RepositoryUrl = "https://github.com/$($Options['Repository']['Value'])/archive/refs/heads/$($Options['Branch']['Value']).zip"
+    $RepositoryFolderPath = Join-Path -Path $Env:TEMP -ChildPath "impacket-exe-$($Options['Branch']['Value'])"
 
-# Begin build process
-Write-Host 'Beginning build process...'
-Set-Location -Path $RepositoryFolderPath
+    # Download and unzip repository
+    Write-Host 'Downloading repository...'
+    Invoke-WebRequest -Uri $RepositoryUrl -OutFile $RepositoryArchivePath
+    Expand-Archive -Path $RepositoryArchivePath -DestinationPath $Env:TEMP -Force
+    Remove-Item $RepositoryArchivePath
+
+    # Begin build process
+    Write-Host 'Beginning build process...'
+    Set-Location -Path $RepositoryFolderPath
+} else {
+    $RepositoryFolderPath = Get-Location
+}
 
 # Create and activate virtual environment
 python -m venv .venv
@@ -352,7 +379,10 @@ foreach ($Script in $SelectedScripts) {
 
 deactivate
 Set-Location -Path $StartingDirectory
-Remove-Item -Recurse -Force $RepositoryFolderPath
+
+if (-not $Flags['InstallFromCurrentDir']['Value']) {
+    Remove-Item -Recurse -Force $RepositoryFolderPath
+}
 
 if (-not $Flags['LeavePython']['Value'] -and (-not $FoundPython -or $Flags['OverridePython']['Value'])) {
     Write-Host 'Uninstalling Python...'
