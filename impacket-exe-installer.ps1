@@ -3,10 +3,6 @@
 $PythonVersion = '3.13.0'
 $StartingDirectory = Get-Location
 
-$PythonInstallerPath = Join-Path -Path $Env:TEMP -ChildPath "python-$PythonVersion.exe"
-
-$RepositoryArchivePath = Join-Path -Path $Env:TEMP -ChildPath "impacket-exe.zip"
-
 $MachinePythonKey = "HKLM:\Software\Python\PythonCore"
 $UserPythonKey = "HKCU:\Software\Python\PythonCore"
 $FoundPython = $False
@@ -102,6 +98,20 @@ $Options['Repository'] = @{
     Keywords = @('-r', '--repository')
     Value    = 'p0rtl6/impacket-exe'
     Type     = 'String'
+}
+$Options['TempDir'] = @{
+    Name     = 'Temporary Directory'
+    Desc     = 'The temporary directory to download and build in'
+    Keywords = @('-t', '--temp-dir')
+    Value    = $ENV:Temp
+    Type     = 'Path'
+}
+$Options['ExtractDir'] = @{
+    Name     = 'Extraction Directory'
+    Desc     = 'The directory in which binaries extract to during runtime'
+    Keywords = @('-e', '--extract-dir')
+    Value    = $null
+    Type     = 'Path'
 }
 
 $Flags = New-object System.Collections.Hashtable
@@ -226,8 +236,11 @@ for ($I = 0; $I -lt $Args.Count; $I++) {
             if (-not $Value) {
                 throw "Error in $($Options[$OptionsKey]['Name']): No value recieved (Use -h or --help for help)"
             }
-            if ($Options[$OptionsKey]['type'] -eq 'Path' -and -not (Test-Path $Value)) {
-                throw "Error in $($Options[$OptionsKey]['Name']): Path does not exist (Use -h or --help for help)"
+            if ($Options[$OptionsKey]['type'] -eq 'Path') {
+                if (-not (Test-Path $Value)) {
+                    throw "Error in $($Options[$OptionsKey]['Name']): Path does not exist (Use -h or --help for help)"
+                }
+                $Value = (Resolve-Path $Value).Path
             }
             $Options[$OptionsKey]['Value'] = $Value
         }
@@ -275,6 +288,10 @@ if (Test-Path $UserPythonKey) {
     }
 }
 
+$PythonInstallerPath = Join-Path -Path $Options['TempDir']['Value'] -ChildPath "python-$PythonVersion.exe"
+
+$RepositoryArchivePath = Join-Path -Path $Options['TempDir']['Value'] -ChildPath "impacket-exe.zip"
+
 # Download and install Python
 if (-not $FoundPython -or $Flags['OverridePython']['Value']) {
     Write-Host "Python $PythonVersion is not installed, installing now..."
@@ -288,18 +305,19 @@ if (-not $FoundPython -or $Flags['OverridePython']['Value']) {
 if (-not $Flags['InstallFromCurrentDir']['Value']) {
     # Set the source
     $RepositoryUrl = "https://github.com/$($Options['Repository']['Value'])/archive/refs/heads/$($Options['Branch']['Value']).zip"
-    $RepositoryFolderPath = Join-Path -Path $Env:TEMP -ChildPath "impacket-exe-$($Options['Branch']['Value'])"
+    $RepositoryFolderPath = Join-Path -Path $Options['TempDir']['Value'] -ChildPath "impacket-exe-$($Options['Branch']['Value'])"
 
     # Download and unzip repository
     Write-Host 'Downloading repository...'
     Invoke-WebRequest -Uri $RepositoryUrl -OutFile $RepositoryArchivePath
-    Expand-Archive -Path $RepositoryArchivePath -DestinationPath $Env:TEMP -Force
+    Expand-Archive -Path $RepositoryArchivePath -DestinationPath $Options['TempDir']['Value'] -Force
     Remove-Item $RepositoryArchivePath
 
     # Begin build process
     Write-Host 'Beginning build process...'
     Set-Location -Path $RepositoryFolderPath
-} else {
+}
+else {
     $RepositoryFolderPath = Get-Location
 }
 
@@ -316,6 +334,12 @@ foreach ($Script in $SelectedScripts) {
     
     # Run required modules Main
     $Arguments = @('--onefile')
+
+    if ($Options['ExtractDir']['Value']) {
+        $Arguments += '--runtime-tmpdir'
+        $Arguments += $Options['ExtractDir']['Value']
+    }
+
     foreach ($ModuleName in $AvailableScripts[$Script]['RequiredModules']) {
         Write-Host "Running module $ModuleName"
         . "installer-modules\$ModuleName.ps1"
