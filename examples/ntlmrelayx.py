@@ -16,7 +16,7 @@
 #   by cDc extended to many target protocols (SMB, MSSQL, LDAP, etc).
 #   It receives a list of targets and for every connection received it
 #   will choose the next target and try to relay the credentials. Also, if
-#   specified, it will first to try authenticate against the client connecting
+#   specified, it will first try to authenticate against the client connecting
 #   to us.
 #
 #   It is implemented by invoking a SMB and HTTP Server, hooking to a few
