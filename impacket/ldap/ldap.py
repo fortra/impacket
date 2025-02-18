@@ -68,7 +68,7 @@ RE_EX_ATTRIBUTE_2 = re.compile(r'^(){0}%s?%s$' % (DN, MATCHING_RULE), re.I)
 
 
 class LDAPConnection:
-    def __init__(self, url, baseDN='', dstIp=None):
+    def __init__(self, url, baseDN='', dstIp=None, dstPort=None):
         """
         LDAPConnection class
 
@@ -85,16 +85,21 @@ class LDAPConnection:
         self._baseDN = baseDN
         self._dstIp = dstIp
 
+        if dstPort is not None and not dstPort.isdigit():
+            raise LDAPSessionError(errorString="Port is not a valid port: '%s'" % dstPort)
+        if dstPort is not None and 0 < int(dstPort) < 65535:
+            raise LDAPSessionError(errorString="Port is not in valid port range: '%s'" % dstPort)
+
         if url.startswith('ldap://'):
-            self._dstPort = 389
+            self._dstPort = 389 if dstPort is None else int(dstPort)
             self._SSL = False
             self._dstHost = url[7:]
         elif url.startswith('ldaps://'):
-            self._dstPort = 636
+            self._dstPort = 636 if dstPort is None else int(dstPort)
             self._SSL = True
             self._dstHost = url[8:]
         elif url.startswith('gc://'):
-            self._dstPort = 3268
+            self._dstPort = 3268 if dstPort is None else int(dstPort)
             self._SSL = False
             self._dstHost = url[5:]
         else:
