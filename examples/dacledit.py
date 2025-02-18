@@ -265,7 +265,7 @@ class DACLedit(object):
                 self.ldap_session.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(_lookedup_principal), attributes=['objectSid'])
             elif self.principal_DN is not None:
                 _lookedup_principal = self.principal_DN
-                self.ldap_session.search(self.domain_dumper.root, '(distinguishedName=%s)' % _lookedup_principal, attributes=['objectSid'])
+                self.ldap_session.search(_lookedup_principal, '(distinguishedName=%s)' % _lookedup_principal, attributes=['objectSid'])
             try:
                 self.principal_SID = format_sid(self.ldap_session.entries[0]['objectSid'].raw_values[0])
                 logging.debug("Found principal SID: %s" % self.principal_SID)
@@ -410,7 +410,7 @@ class DACLedit(object):
             self.ldap_session.search(self.domain_dumper.root, '(objectSid=%s)' % _lookedup_principal, attributes=['nTSecurityDescriptor'], controls=controls)
         elif self.target_DN is not None:
             _lookedup_principal = self.target_DN
-            self.ldap_session.search(self.domain_dumper.root, '(distinguishedName=%s)' % _lookedup_principal, attributes=['nTSecurityDescriptor'], controls=controls)
+            self.ldap_session.search(_lookedup_principal, '(distinguishedName=%s)' % _lookedup_principal, attributes=['nTSecurityDescriptor'], controls=controls)
         try:
             self.target_principal = self.ldap_session.entries[0]
             logging.debug('Target principal found in LDAP (%s)' % _lookedup_principal)
@@ -554,7 +554,7 @@ class DACLedit(object):
                 self.ldap_session.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(_lookedup_principal), attributes=['objectSid'])
             elif self.principal_DN is not None:
                 _lookedup_principal = self.principal_DN
-                self.ldap_session.search(self.domain_dumper.root, '(distinguishedName=%s)' % _lookedup_principal, attributes=['objectSid'])
+                self.ldap_session.search(_lookedup_principal, '(distinguishedName=%s)' % _lookedup_principal, attributes=['objectSid'])
             try:
                 self.principal_SID = format_sid(self.ldap_session.entries[0]['objectSid'].raw_values[0])
             except IndexError:
