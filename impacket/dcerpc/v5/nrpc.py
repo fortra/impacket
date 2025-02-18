@@ -1769,7 +1769,7 @@ def SIGN(data, confounder, sequenceNum, key, aes = False):
         signature['SequenceNumber'] = encryptSequenceNumberRC4(deriveSequenceNumber(sequenceNum), signature['Checksum'], key)
         return signature
     else:
-        signature = NL_AUTH_SIGNATURE()
+        signature = NL_AUTH_SHA2_SIGNATURE()
         signature['SignatureAlgorithm'] = NL_SIGNATURE_HMAC_SHA256
         if confounder == '':
             signature['SealAlgorithm'] = NL_SEAL_NOT_ENCRYPTED
@@ -1843,6 +1843,36 @@ def UNSEAL(data, auth_data, key, aes = False):
         cfounder = cipher.decrypt(auth_data['Confounder'])
         plain = cipher.decrypt(data)
         return plain, cfounder
+
+def toCompressedUtf8String(domain_name):
+    if domain_name is None:
+        raise ValueError("domain_name cannot be None")
+
+    MAX_LABEL_LENGTH = 63
+
+    buf = bytearray()
+    labels = domain_name.split('.')
+    
+    for label in labels:
+        label_bytes = label.encode('utf-8')
+        if len(label_bytes) > MAX_LABEL_LENGTH:
+            raise ValueError("Label exceeded max length of 63 bytes.")
+        buf.append(len(label_bytes))
+        buf.extend(label_bytes)
+    buf.append(0)
+
+    return bytes(buf)
+
+def createNlAuthMessage(clientComputerName, domainName):
+    auth = NL_AUTH_MESSAGE()
+    auth['MessageType'] = NL_AUTH_MESSAGE_REQUEST
+    if '.' in domainName:
+        auth['Flags'] = NL_AUTH_MESSAGE_NETBIOS_HOST | NL_AUTH_MESSAGE_DNS_DOMAIN
+        auth['Buffer'] = b(clientComputerName) + b'\x00' + toCompressedUtf8String(domainName)
+    else:
+        auth['Flags'] = NL_AUTH_MESSAGE_NETBIOS_DOMAIN | NL_AUTH_MESSAGE_NETBIOS_HOST
+        auth['Buffer'] = b(domainName) + b'\x00' + b(clientComputerName) + b'\x00'
+    return auth
 
 
 def getSSPType1(workstation='', domain='', signingRequired=False):
