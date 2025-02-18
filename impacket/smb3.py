@@ -1819,9 +1819,6 @@ class SMB3:
                     if (e.get_error_code()) != STATUS_NO_MORE_FILES:
                         raise
                     break
-                except Exception as e:
-                    print(str(e))
-                    raise
         finally:
             if fileId is not None:
                 self.close(treeId, fileId)
