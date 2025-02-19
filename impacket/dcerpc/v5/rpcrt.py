@@ -926,6 +926,9 @@ class DCERPC_v5(DCERPC):
     def set_aes(self, is_aes):
         self.__aesNegociated = is_aes
 
+    def set_aes(self, is_aes):
+        self.__aesNegociated = is_aes
+
     def set_session_key(self, session_key):
         self.__sessionKey = session_key
 

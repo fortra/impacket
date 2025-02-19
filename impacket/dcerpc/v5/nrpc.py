@@ -1777,7 +1777,7 @@ def SIGN(data, confounder, sequenceNum, key, aes = False):
     if aes is False:
         signature = NL_AUTH_SIGNATURE()
         signature['SignatureAlgorithm'] = NL_SIGNATURE_HMAC_MD5
-        if confounder == '':
+        if confounder == b'':
             signature['SealAlgorithm'] = NL_SEAL_NOT_ENCRYPTED
         else:
             signature['SealAlgorithm'] = NL_SEAL_RC4
@@ -1787,12 +1787,14 @@ def SIGN(data, confounder, sequenceNum, key, aes = False):
     else:
         signature = NL_AUTH_SHA2_SIGNATURE()
         signature['SignatureAlgorithm'] = NL_SIGNATURE_HMAC_SHA256
-        if confounder == '':
+        if confounder == b'':
             signature['SealAlgorithm'] = NL_SEAL_NOT_ENCRYPTED
         else:
             signature['SealAlgorithm'] = NL_SEAL_AES128
         signature['Checksum'] = ComputeNetlogonSignatureAES(signature, data, confounder, key)
         signature['SequenceNumber'] = encryptSequenceNumberAES(deriveSequenceNumber(sequenceNum), signature['Checksum'], key)
+        # 2.2.1.3.3 : Reserved: The sender SHOULD set these bytes to zero, and the receiver MUST ignore them.
+        signature['Reserved'] = b'\x00'*24
         return signature
 
 def SEAL(data, confounder, sequenceNum, key, aes = False):
