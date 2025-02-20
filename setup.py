@@ -67,7 +67,9 @@ setup(
               'impacket.krb5', 'impacket.ldap', 'impacket.examples.ntlmrelayx',
               'impacket.examples.ntlmrelayx.clients', 'impacket.examples.ntlmrelayx.servers',
               'impacket.examples.ntlmrelayx.servers.socksplugins', 'impacket.examples.ntlmrelayx.utils',
-              'impacket.examples.ntlmrelayx.attacks', 'impacket.examples.ntlmrelayx.attacks.httpattacks'],
+              'impacket.examples.ntlmrelayx.attacks', 'impacket.examples.ntlmrelayx.attacks.httpattacks',
+              'impacket.examples.krbrelayx', 'impacket.examples.krbrelayx.clients', 'impacket.examples.krbrelayx.servers',
+              'impacket.examples.krbrelayx.utils'],
     scripts=glob.glob(os.path.join('examples', '*.py')),
     data_files=data_files,
 
