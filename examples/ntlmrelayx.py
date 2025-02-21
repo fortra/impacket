@@ -206,6 +206,7 @@ def start_servers(options, threads):
         c.setWebDAVOptions(options.serve_image)
         c.setIsADCSAttack(options.adcs)
         c.setADCSOptions(options.template)
+        c.setEnumTemplates(options.enum_templates)
         c.setIsShadowCredentialsAttack(options.shadow_credentials)
         c.setShadowCredentialsOptions(options.shadow_target, options.pfx_password, options.export_type,
                                       options.cert_outfile_path)
@@ -396,6 +397,7 @@ if __name__ == '__main__':
     adcsoptions.add_argument('--adcs', action='store_true', required=False, help='Enable AD CS relay attack')
     adcsoptions.add_argument('--template', action='store', metavar="TEMPLATE", required=False, help='AD CS template. Defaults to Machine or User whether relayed account name ends with `$`. Relaying a DC should require specifying `DomainController`')
     adcsoptions.add_argument('--altname', action='store', metavar="ALTNAME", required=False, help='Subject Alternative Name to use when performing ESC1 or ESC6 attacks.')
+    adcsoptions.add_argument('--enum-templates', action='store_true', required=False, help='Enumerate enabled AD CS templates that the relayed account has access to')
 
     # Shadow Credentials attack options
     shadowcredentials = parser.add_argument_group("Shadow Credentials attack options")
