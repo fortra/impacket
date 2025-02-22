@@ -1488,7 +1488,7 @@ class LSASecrets(OfflineRegistry):
         LSA_RAW = 2
         LSA_KERBEROS = 3
 
-    def __init__(self, securityFile, bootKey, remoteOps=None, isRemote=False, history=False,
+    def __init__(self, securityFile, bootKey, remoteOps=None, localOps=None, remoteSSMethod=False, isRemote=False, history=False,
                  perSecretCallback=lambda secretType, secret: _print_helper(secret)):
         OfflineRegistry.__init__(self, securityFile, isRemote)
         self.__hashedBootKey = b''
@@ -1499,6 +1499,8 @@ class LSASecrets(OfflineRegistry):
         self.__cryptoCommon = CryptoCommon()
         self.__securityFile = securityFile
         self.__remoteOps = remoteOps
+        self.__localOps = localOps
+        self.__remoteSSMethod = remoteSSMethod
         self.__cachedItems = []
         self.__secretItems = []
         self.__perSecretCallback = perSecretCallback
@@ -1691,15 +1693,19 @@ class LSASecrets(OfflineRegistry):
             else:
                 # We have to get the account the service
                 # runs under
-                if hasattr(self.__remoteOps, 'getServiceAccount'):
+                
+                if hasattr(self.__remoteOps, 'getServiceAccount') and not self.__remoteSSMethod:
                     account = self.__remoteOps.getServiceAccount(name[4:])
                     if account is None:
                         secret = self.UNKNOWN_USER + ':'
                     else:
                         secret =  "%s:" % account
                 else:
-                    # We don't support getting this info for local targets at the moment
-                    secret = self.UNKNOWN_USER + ':'
+                    account = self.__localOps.getServiceAccount(name[4:])
+                    if account is None:
+                        secret = self.UNKNOWN_USER + ':'
+                    else: 
+                        secret = "%s:" % account
                 secret += strDecoded
         elif upperName.startswith('DEFAULTPASSWORD'):
             # defaults password for winlogon
@@ -2915,6 +2921,19 @@ class LocalOperations:
 
         return bootKey
 
+    def getServiceAccount(self, service_name):
+        LOG.debug('Retrieving account for %s service' % service_name)
+        try:
+             winreg = winregistry.Registry(self.__systemHive, False)
+             current_control_set = winreg.getValue('\\Select\\Current')[1]
+             current_control_set = "ControlSet%03d" % current_control_set
+             service_path = f'\\{current_control_set}\\Services\\{service_name}\\ObjectName'
+             object_name_value = winreg.getValue(service_path)
+             account_name = object_name_value[1].decode('utf-16le')
+             return account_name
+        except Exception as e:
+            LOG.error(e)
+            return None
 
     def checkNoLMHashPolicy(self):
         LOG.debug('Checking NoLMHash Policy')
