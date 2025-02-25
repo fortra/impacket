@@ -1,6 +1,37 @@
 Impacket
 ========
 
+Kerberos Options Branch
+-----------------------
+
+This branch exposes functionality to change the options on Kerberos requests.
+Originally taken from [Orpheus](https://github.com/trustedsec/orpheus).
+The functionality has been added to the underlying functions, and has been propogated up to the command line examples that use it. There has also been an example added that can generate the option codes that are used by the examples (follows the same format as Orpheus).
+
+**Examples updated:**
+
+ * GetUserSPNs.py
+ * addcomputer.py
+ * dacledit.py
+ * getPac.py
+ * getST.py
+ * getTGT.py
+ * goldenPac.py
+ * owneredit.py
+ * raiseChild.py
+ * rbcd.py
+ * ticketer.py
+
+**Added:**
+
+ * GenerateKerberosOptions.py
+
+**Modified Libraries:**
+
+ * kerberosv5.py
+
+---
+
 [![Latest Version](https://img.shields.io/pypi/v/impacket.svg)](https://pypi.python.org/pypi/impacket/)
 [![Build and test Impacket](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml)
 
