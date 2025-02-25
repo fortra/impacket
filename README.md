@@ -3,45 +3,26 @@
 Impacket-exe
 ========
 
-To build a tool into an executable:
+Windows Branch
+-----------------------
+
+This branch contains modifications to make impacket examples work on Windows as
+well as adding a helpful installer to build examples into standalone binaries.
+
+**To build a tool into an executable:**
 > You may have to disable Windows AV
 
-EITHER
-
-Use the installer:
-
-> Download `impacket-exe-installer.ps1`:
-
-Run the install script as administrator in Powershell
+Download `impacket-installer.ps1` and run the script as administrator in Powershell.
 
 ```
 Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
-impacket-exe-installer.ps1
+impacket-exe-installer.ps1 --help
 ```
-
-OR
-
-* Download & install python (Check "Add Python to PATH" during install)
-* Download this repository
-* Open a terminal as administrator and navigate to this repository
-* Run the following commands
-```
-py -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-pip install -r example-requirements\[your tool].txt
-py setup.py install
-(Run any necessary modules found in 'installer-modules')
-pyinstaller --onefile examples\[your tool].py
-```
-
-The built executable will be located inside the `dist` folder
 
 > Use Ctrl+Pause/Break to exit scripts.
 
-(Original Readme)
-Impacket
-========
+Original README
+---
 
 [![Latest Version](https://img.shields.io/pypi/v/impacket.svg)](https://pypi.python.org/pypi/impacket/)
 [![Build and test Impacket](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml)
