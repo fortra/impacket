@@ -6,7 +6,7 @@ Kerberos Options Branch
 
 This branch exposes functionality to change the options on Kerberos requests.
 Originally taken from [Orpheus](https://github.com/trustedsec/orpheus).
-The functionality has been added to the underlying functions, and has been propogated up to the command line examples that use it. There has also been an example added that can generate the option codes that are used by the examples (follows the same format as Orpheus).
+The functionality has been added to the underlying functions, and has been propagated up to the command line examples that use it. There has also been an example added that can generate the option codes that are used by the examples (follows the same format as Orpheus).
 
 **Examples updated:**
 
