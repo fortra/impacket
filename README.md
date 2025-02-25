@@ -1,6 +1,25 @@
 Impacket
 ========
 
+Krbrelayx Branch
+----------------
+
+This branch merges the tools from [krbrelayx](https://github.com/dirkjanm/krbrelayx) into the examples folder (including the necessary library files).
+
+**Added Examples:**
+
+ * addspn.py
+ * dnstool.py
+ * printerbug.py
+ * krbrelayx.py
+
+**Added Libraries:**
+
+ * krbrelayx (folder)
+
+Original README
+---
+
 [![Latest Version](https://img.shields.io/pypi/v/impacket.svg)](https://pypi.python.org/pypi/impacket/)
 [![Build and test Impacket](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml)
 
