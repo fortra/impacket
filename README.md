@@ -1,6 +1,31 @@
 Impacket
 ========
 
+Ntlm Relay Hash Dump Branch
+----------------
+
+This branch adds the option to dump ntlm hashes to the console
+during runtime in ntlmrelayx using `-dh` or `--dump-hashes`.
+
+**Examples Updated:**
+
+ * ntlmrelayx.py
+ * dnstool.py
+ * printerbug.py
+ * krbrelayx.py
+
+**Modified Libraries:**
+
+ * smbserver.py
+ * httprelayserver.py
+ * rawrelayserver.py
+ * smbrelayserver.py
+ * wcfrelayserver.py
+ * config.py
+
+Original README
+---
+
 [![Latest Version](https://img.shields.io/pypi/v/impacket.svg)](https://pypi.python.org/pypi/impacket/)
 [![Build and test Impacket](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml)
 
