@@ -903,7 +903,8 @@ class DCERPC_v5(DCERPC):
         self.__aesKey = ''
         self.__TGT    = None
         self.__TGS    = None
-        
+
+        self.__aesNegociated = False
         self.__clientSigningKey = b''
         self.__serverSigningKey = b''
         self.__clientSealingKey = b''
@@ -921,11 +922,12 @@ class DCERPC_v5(DCERPC):
         self.__cipher = None
         self.__confounder = b''
         self.__gss = None
-        self.__aseandsha = False
+    
+    def set_aes(self, is_aes):
+        self.__aesNegociated = is_aes
 
-    def set_session_key(self, session_key, aesandsha = False):
+    def set_session_key(self, session_key):
         self.__sessionKey = session_key
-        self.__aseandsha = aesandsha
 
     def get_session_key(self):
         return self.__sessionKey
@@ -1203,7 +1205,7 @@ class DCERPC_v5(DCERPC):
                                self.__clientSealingHandle)
                 elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
                     from impacket.dcerpc.v5 import nrpc
-                    sealedMessage, signature = nrpc.SEAL(plain_data, self.__confounder, self.__sequence, self.__sessionKey, self.__aseandsha)
+                    sealedMessage, signature = nrpc.SEAL(plain_data, self.__confounder, self.__sequence, self.__sessionKey, self.__aesNegociated)
                 elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
                     sealedMessage, signature = self.__gss.GSS_Wrap(self.__sessionKey, plain_data, self.__sequence)
 
@@ -1225,12 +1227,13 @@ class DCERPC_v5(DCERPC):
                                self.__sequence, 
                                self.__clientSealingHandle)
                 elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
+                    print("Sending data in RPC_C_AUTHN_LEVEL_PKT_INTEGRITY: %r" % plain_data)
                     from impacket.dcerpc.v5 import nrpc
                     signature = nrpc.SIGN(plain_data, 
                            self.__confounder, 
                            self.__sequence, 
                            self.__sessionKey, 
-                           self.__aseandsha)
+                           self.__aesNegociated)
                 elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
                     signature = self.__gss.GSS_GetMIC(self.__sessionKey, plain_data, self.__sequence)
 
@@ -1377,7 +1380,7 @@ class DCERPC_v5(DCERPC):
                         answer, cfounder = nrpc.UNSEAL(answer, 
                                auth_data[len(sec_trailer):],
                                self.__sessionKey, 
-                               self.__aseandsha)
+                               self.__aesNegociated)
                         self.__sequence += 1
                     elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
                         if self.__sequence > 0:
@@ -1409,7 +1412,7 @@ class DCERPC_v5(DCERPC):
                                self.__confounder, 
                                self.__sequence, 
                                self.__sessionKey, 
-                               self.__aseandsha)
+                               self.__aesNegociated)
                         self.__sequence += 1
                     elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
                         # Do NOT increment the sequence number when Signing Kerberos
@@ -1433,6 +1436,7 @@ class DCERPC_v5(DCERPC):
 
         answer.set_ctx_id(self._ctx+1)
         answer.__callid = self.__callid
+        # print(self.transfer_syntax)
         answer.bind(newUID, alter = 1, bogus_binds = bogus_binds, transfer_syntax = bin_to_uuidtup(self.transfer_syntax))
         return answer
 

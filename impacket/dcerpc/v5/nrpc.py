@@ -1623,9 +1623,10 @@ class NL_AUTH_SHA2_SIGNATURE(Structure):
         ('Pad','<H=0xffff'),
         ('Flags','<H=0'),
         ('SequenceNumber','8s=""'),
-        ('Checksum','32s=""'),
+        ('Checksum','8s=""'),
         ('_Confounder','_-Confounder','8'),
         ('Confounder',':'),
+        ('Reserved','24s=""'),
     )
     def __init__(self, data = None, alignment = 0):
         Structure.__init__(self, data, alignment)
@@ -1698,7 +1699,7 @@ def ComputeNetlogonSignatureAES(authSignature, message, confounder, sessionKey):
     # If no confidentiality requested, it should be ''
     hm.update(confounder)
     hm.update(bytes(message))
-    return hm.digest()[:8]+'\x00'*24
+    return hm.digest()[:8]
 
 def ComputeNetlogonSignatureMD5(authSignature, message, confounder, sessionKey):
     # [MS-NRPC] Section 3.3.4.2.1, point 7
@@ -1712,6 +1713,21 @@ def ComputeNetlogonSignatureMD5(authSignature, message, confounder, sessionKey):
     hm = hmac.new(sessionKey, digestmod=hashlib.md5)
     hm.update(finalMD5)
     return hm.digest()[:8]
+
+def ComputeNetlogonAuthenticatorAES(clientStoredCredential, sessionKey):
+    # [MS-NRPC] Section 3.1.4.5
+    timestamp = int(time.time())
+
+    authenticator = NETLOGON_AUTHENTICATOR()
+    authenticator['Timestamp'] = timestamp
+
+    credential = unpack('<I', clientStoredCredential[:4])[0] + timestamp
+    if credential > 0xffffffff:
+        credential &= 0xffffffff
+    credential = pack('<I', credential)
+
+    authenticator['Credential'] = ComputeNetlogonCredentialAES(credential + clientStoredCredential[4:], sessionKey)
+    return authenticator
 
 def ComputeNetlogonAuthenticator(clientStoredCredential, sessionKey):
     # [MS-NRPC] Section 3.1.4.5
@@ -1873,7 +1889,6 @@ def createNlAuthMessage(clientComputerName, domainName):
         auth['Flags'] = NL_AUTH_MESSAGE_NETBIOS_DOMAIN | NL_AUTH_MESSAGE_NETBIOS_HOST
         auth['Buffer'] = b(domainName) + b'\x00' + b(clientComputerName) + b'\x00'
     return auth
-
 
 def getSSPType1(workstation='', domain='', signingRequired=False):
     auth = NL_AUTH_MESSAGE()
