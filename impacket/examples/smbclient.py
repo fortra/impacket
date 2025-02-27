@@ -31,7 +31,7 @@ from impacket.dcerpc.v5 import samr, transport, srvs
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket import LOG
 from impacket.smbconnection import SMBConnection, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB_DIALECT, SessionError, \
-    FILE_READ_DATA, FILE_SHARE_READ, FILE_SHARE_WRITE
+    FILE_READ_DATA, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_SHARE_DELETE
 from impacket.smb3structs import FILE_DIRECTORY_FILE, FILE_LIST_DIRECTORY
 
 import charset_normalizer as chardet
@@ -574,7 +574,7 @@ class MiniImpacketShell(cmd.Cmd):
         fh = open(ntpath.basename(filename),'wb')
         pathname = ntpath.join(self.pwd,filename)
         try:
-            self.smb.getFile(self.share, pathname, fh.write)
+            self.smb.getFile(self.share, pathname, fh.write, shareAccessMode=FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
         except:
             fh.close()
             os.remove(filename)
