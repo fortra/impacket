@@ -255,3 +255,29 @@ def init_ldap_session(domain, username, password, lmhash, nthash, k, dc_ip, aesK
 # ----------
 
 EMPTY_LM_HASH = 'AAD3B435B51404EEAAD3B435B51404EE'
+import logging
+import sys
+def parse_identity(args):
+    domain, username, password = parse_credentials(args.identity)
+
+    if domain == '':
+        logging.critical('Domain should be specified!')
+        sys.exit(1)
+
+    if password == '' and username != '' and args.hashes is None and args.no_pass is False and args.aesKey is None:
+        from getpass import getpass
+        logging.info("No credentials supplied, supply password")
+        password = getpass("Password:")
+
+    if args.aesKey is not None:
+        args.k = True
+
+    if args.hashes is not None:
+        lmhash, nthash = args.hashes.split(':')
+        if lmhash == '':
+            lmhash = EMPTY_LM_HASH
+    else:
+        lmhash = ''
+        nthash = ''
+
+    return domain, username, password, lmhash, nthash
