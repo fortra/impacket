@@ -31,7 +31,7 @@ import sys
 from impacket import version
 from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_TRUSTED_FOR_DELEGATION, UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION
 from impacket.examples import logger
-from impacket.examples.utils import parse_credentials
+from impacket.examples.utils import parse_identity
 from impacket.ldap import ldap, ldapasn1
 from impacket.ldap import ldaptypes
 from impacket.smbconnection import SMBConnection, SessionError
@@ -313,7 +313,7 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init(options.ts, options.debug)
 
-    userDomain, username, password = parse_credentials(options.target)
+    userDomain, username, password, _, _, options.k = parse_identity(options.target, options.hashes, options.no_pass, options.aesKey, options.k)
 
     if userDomain == '':
         logging.critical('userDomain should be specified!')
@@ -323,13 +323,6 @@ if __name__ == '__main__':
         targetDomain = options.target_domain
     else:
         targetDomain = userDomain
-
-    if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
-        from getpass import getpass
-        password = getpass("Password:")
-
-    if options.aesKey is not None:
-        options.k = True
 
     try:
         executer = FindDelegation(username, password, userDomain, targetDomain, options)

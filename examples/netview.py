@@ -61,7 +61,7 @@ from queue import Queue
 from time import sleep
 
 from impacket.examples import logger
-from impacket.examples.utils import parse_credentials
+from impacket.examples.utils import parse_identity
 from impacket import version
 from impacket.smbconnection import SessionError
 from impacket.dcerpc.v5 import transport, wkst, srvs, samr
@@ -481,19 +481,9 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init(options.ts, options.debug)
 
-    domain, username, password = parse_credentials(options.identity)
+    domain, username, password, _, _, options.k = parse_identity(options.identity, options.hashes, options.no_pass, options.aesKey, options.k)
 
     try:
-        if domain is None:
-            domain = ''
-
-        if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
-            from getpass import getpass
-            password = getpass("Password:")
-
-        if options.aesKey is not None:
-            options.k = True
-
         executer = USERENUM(username, password, domain, options.hashes, options.aesKey, options.k, options)
         executer.run()
     except Exception as e:

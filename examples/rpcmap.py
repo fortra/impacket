@@ -39,7 +39,7 @@ import argparse
 
 from impacket.http import AUTH_BASIC
 from impacket.examples import logger, rpcdatabase
-from impacket.examples.utils import parse_credentials
+from impacket.examples.utils import parse_identity
 from impacket import uuid, version
 from impacket.dcerpc.v5.epm import KNOWN_UUIDS
 from impacket.dcerpc.v5 import transport, rpcrt, epm
@@ -324,26 +324,12 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init(options.ts, options.debug)
 
-    rpcdomain, rpcuser, rpcpass = parse_credentials(options.auth_rpc)
-    transportdomain, transportuser, transportpass = parse_credentials(options.auth_transport)
+    rpcdomain, rpcuser, rpcpass, _, _, _ = parse_identity(options.auth_rpc, options.hashes_rpc, options.no_pass, getpass_msg='Password for MSRPC communication:')
+    transportdomain, transportuser, transportpass, _, _, _ = parse_identity(options.auth_rpc, options.hashes_rpc, options.no_pass, getpass_msg='Password for RPC transport (SMB or HTTP):')
 
     if options.brute_opnums and options.brute_versions:
        logging.error("Specify only -brute-opnums or -brute-versions")
        sys.exit(1)
-
-    if rpcdomain is None:
-        rpcdomain = ''
-
-    if transportdomain is None:
-        transportdomain = ''
-
-    if rpcpass == '' and rpcuser != '' and options.hashes_rpc is None and options.no_pass is False:
-         from getpass import getpass
-         rpcpass = getpass("Password for MSRPC communication:")
-
-    if transportpass == '' and transportuser != '' and options.hashes_transport is None and options.no_pass is False:
-        from getpass import getpass
-        transportpass = getpass("Password for RPC transport (SMB or HTTP):")
 
     if options.uuid is not None:
         uuids = [uuid.string_to_uuidtup(options.uuid)]

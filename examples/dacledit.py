@@ -742,7 +742,7 @@ def main():
     if args.action == "restore" and not args.filename:
         logging.critical('-file is required when using -action restore')
 
-    domain, username, password, lmhash, nthash = parse_identity(args)
+    domain, username, password, lmhash, nthash, args.k = parse_identity(args.identity, args.hashes, args.no_pass, args.aesKey, args.k)
 
     try:
         ldap_server, ldap_session = init_ldap_session(domain, username, password, lmhash, nthash, args.k, args.dc_ip, args.aesKey, args.use_ldaps)

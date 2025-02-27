@@ -31,7 +31,7 @@ from __future__ import unicode_literals
 
 from impacket import version
 from impacket.examples import logger
-from impacket.examples.utils import parse_credentials
+from impacket.examples.utils import parse_identity
 from impacket.dcerpc.v5 import samr, epm, transport
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
@@ -457,22 +457,14 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     logger.init(options.ts, options.debug)
+    
+    domain, username, password, _, _, options.k = parse_identity(options.account, options.hashes, options.no_pass, options.aesKey, options.k)
 
-    domain, username, password = parse_credentials(options.account)
+    if domain == '':
+        logging.critical('Domain should be specified!')
+        sys.exit(1)
 
     try:
-        if domain is None or domain == '':
-            logging.critical('Domain should be specified!')
-            sys.exit(1)
-
-        if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
-            from getpass import getpass
-            password = getpass("Password:")
-
-        if options.aesKey is not None:
-            options.k = True
-
-
         executer = ADDCOMPUTER(username, password, domain, options)
         executer.run()
     except Exception as e:
