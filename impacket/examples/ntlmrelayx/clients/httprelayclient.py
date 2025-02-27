@@ -51,11 +51,15 @@ class HTTPRelayClient(ProtocolClient):
             self.path = '/'
         else:
             self.path = self.target.path
+        self.query = self.target.query
         return True
 
     def sendNegotiate(self,negotiateMessage):
         #Check if server wants auth
-        self.session.request('GET', self.path)
+        if self.query:
+            self.session.request('GET', self.path + '?' + self.query)
+        else:
+            self.session.request('GET', self.path)
         res = self.session.getresponse()
         res.read()
         if res.status != 401:
@@ -100,7 +104,10 @@ class HTTPRelayClient(ProtocolClient):
             token = authenticateMessageBlob
         auth = base64.b64encode(token).decode("ascii")
         headers = {'Authorization':'%s %s' % (self.authenticationMethod, auth)}
-        self.session.request('GET', self.path,headers=headers)
+        if self.query:
+            self.session.request('GET', self.path + '?' + self.query, headers=headers)
+        else:            
+            self.session.request('GET', self.path, headers=headers)
         res = self.session.getresponse()
         if res.status == 401:
             return None, STATUS_ACCESS_DENIED
@@ -132,6 +139,7 @@ class HTTPSRelayClient(HTTPRelayClient):
             self.path = '/'
         else:
             self.path = self.target.path
+        self.query = self.target.query
         try:
             uv_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
             self.session = HTTPSConnection(self.targetHost,self.targetPort, context=uv_context)
