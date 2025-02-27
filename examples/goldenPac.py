@@ -1121,13 +1121,6 @@ if __name__ == '__main__':
         logging.critical('Domain should be specified!')
         sys.exit(1)
 
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-
     if password == '' and username != '' and options.hashes is None:
         from getpass import getpass
         password = getpass("Password:")

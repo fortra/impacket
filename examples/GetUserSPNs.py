@@ -543,13 +543,6 @@ if __name__ == '__main__':
                       ' a list of SPNs and/or sAMAccountNames to Kerberoast.')
         sys.exit(1)
 
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-
     userDomain, username, password = parse_credentials(options.target)
 
     if userDomain == '':

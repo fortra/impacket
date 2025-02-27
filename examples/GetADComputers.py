@@ -283,13 +283,6 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init(options.ts, options.debug)
 
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-
     domain, username, password = parse_credentials(options.target)
 
     if domain == '':

@@ -186,12 +186,6 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init(options.ts, options.debug)
 
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-
     if options.rodcNo is None:
         logging.error("You must specify the RODC number (krbtgt_XXXXX)")
         sys.exit(1)
