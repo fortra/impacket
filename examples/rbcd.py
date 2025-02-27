@@ -32,7 +32,7 @@ from impacket.examples import logger, utils
 from impacket.ldap import ldaptypes
 from ldap3.utils.conv import escape_filter_chars
 
-from impacket.examples.utils import init_ldap_session
+from impacket.examples.utils import init_ldap_session, EMPTY_LM_HASH
 
 def create_empty_sd():
     sd = ldaptypes.SR_SECURITY_DESCRIPTOR()
@@ -319,7 +319,7 @@ def parse_identity(args):
     if args.hashes is not None:
         lmhash, nthash = args.hashes.split(':')
         if lmhash == '':
-            lmhash = 'aad3b435b51404eeaad3b435b51404ee'
+            lmhash = EMPTY_LM_HASH
     else:
         lmhash = ''
         nthash = ''
@@ -338,7 +338,7 @@ def main():
 
     domain, username, password, lmhash, nthash = parse_identity(args)
     if len(nthash) > 0 and lmhash == "":
-        lmhash = "aad3b435b51404eeaad3b435b51404ee"
+        lmhash = EMPTY_LM_HASH
 
     try:
         ldap_server, ldap_session = init_ldap_session(domain, username, password, lmhash, nthash, args.k, args.dc_ip, args.aesKey, args.use_ldaps)

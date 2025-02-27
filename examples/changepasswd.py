@@ -130,13 +130,9 @@ from impacket.krb5 import kerberosv5, kpasswd
 from impacket.ldap import ldap, ldapasn1
 
 from impacket.examples import logger
-from impacket.examples.utils import parse_target
+from impacket.examples.utils import parse_target, EMPTY_LM_HASH
 
 import OpenSSL
-
-
-EMPTY_LM_HASH = "aad3b435b51404eeaad3b435b51404ee"
-
 
 class PasswordHandler:
     """Generic interface for all the password protocols supported by this script"""
