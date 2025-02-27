@@ -292,7 +292,6 @@ class S4U2SELF:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    logger.init()
     print(version.BANNER)
 
     parser = argparse.ArgumentParser()
@@ -301,6 +300,7 @@ if __name__ == '__main__':
                                                        'for grabbing targetUser\'s PAC')
     parser.add_argument('-targetUser', action='store', required=True, help='the target user to retrieve the PAC of')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
 
     group = parser.add_argument_group('authentication')
 
@@ -310,6 +310,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
+    logger.init(options.ts, options.debug)
 
     domain, username, password = parse_credentials(options.credentials)
 

@@ -596,8 +596,6 @@ class KarmaSMBServer(Thread):
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
     print(version.BANNER)
     parser = argparse.ArgumentParser(add_help = False, description = "For every file request received, this module will "
                                                                      "return the pathname contents")
@@ -607,6 +605,8 @@ if __name__ == '__main__':
     parser.add_argument('-config', type=argparse.FileType('r'), metavar = 'pathname', help='config file name to map '
                         'extensions to files to deliver. For those extensions not present, pathname will be delivered')
     parser.add_argument('-smb2support', action='store_true', default=False, help='SMB2 Support (experimental!)')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
 
     if len(sys.argv)==1:
@@ -618,6 +618,9 @@ if __name__ == '__main__':
     except Exception as e:
        logging.critical(str(e))
        sys.exit(1)
+
+    # Init the example's logger theme
+    logger.init(options.ts, options.debug)
 
     s = KarmaSMBServer(options.smb2support)
     s.setDefaultFile(os.path.normpath(options.fileName))

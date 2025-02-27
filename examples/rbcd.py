@@ -471,19 +471,6 @@ def parse_identity(args):
 
     return domain, username, password, lmhash, nthash
 
-
-def init_logger(args):
-    # Init the example's logger theme and debug level
-    logger.init(args.ts)
-    if args.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-        logging.getLogger('impacket.smbserver').setLevel(logging.ERROR)
-
-
 def init_ldap_connection(target, tls_version, args, domain, username, password, lmhash, nthash):
     user = '%s\\%s' % (domain, username)
     if tls_version is not None:
@@ -528,7 +515,7 @@ def init_ldap_session(args, domain, username, password, lmhash, nthash):
 def main():
     print(version.BANNER)
     args = parse_args()
-    init_logger(args)
+    logger.init(args.ts, args.debug)
 
     if args.action == 'write' and args.delegate_from is None:
         logging.critical('`-delegate-from` should be specified when using `-action write` !')

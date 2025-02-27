@@ -797,7 +797,7 @@ if __name__ == '__main__':
         # the request would also need to embed an additional-ticket (the target user's TGT)
 
     # Init the example's logger theme
-    logger.init(options.ts)
+    logger.init(options.ts, options.debug)
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)

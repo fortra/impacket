@@ -526,9 +526,7 @@ class ADDCOMPUTER:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
-    print((version.BANNER))
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Adds a computer account to domain")
 
@@ -543,6 +541,7 @@ if __name__ == '__main__':
                                                                                  'If omitted, a random [A-Za-z0-9]{32} will be used.')
     parser.add_argument('-no-add', action='store_true', help='Don\'t add a computer, only set password on existing one.')
     parser.add_argument('-delete', action='store_true', help='Delete an existing computer.')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-method', choices=['SAMR', 'LDAPS'], default='SAMR', help='Method of adding the computer.'
                                                                                 'SAMR works over SMB.'
@@ -584,12 +583,7 @@ if __name__ == '__main__':
 
     options = parser.parse_args()
 
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
+    logger.init(options.ts, options.debug)
 
     domain, username, password = parse_credentials(options.account)
 
