@@ -1010,7 +1010,8 @@ class DCERPC_v5(DCERPC):
                                             use_ntlmv2=self._transport.doesSupportNTLMv2())
             elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
                 from impacket.dcerpc.v5 import nrpc
-                auth = nrpc.getSSPType1(self.__username[:-1], self.__domain, signingRequired=True)
+                #auth = nrpc.getSSPType1(self.__username[:-1], self.__domain, signingRequired=True)
+                auth = nrpc.createNlAuthMessage(self.__username[:-1], self.__domain)
             elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
                 self.__cipher, self.__sessionKey, auth = kerberosv5.getKerberosType1(self.__username, self.__password,
                                                                                      self.__domain, self.__lmhash,
