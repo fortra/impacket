@@ -30,7 +30,7 @@ from impacket.ldap import ldaptypes
 from ldap3.utils.conv import escape_filter_chars
 from ldap3.protocol.microsoft import security_descriptor_control
 
-from impacket.examples.utils import init_ldap_session, EMPTY_LM_HASH
+from impacket.examples.utils import init_ldap_session, parse_identity
 
 
 # Universal SIDs
@@ -262,30 +262,6 @@ def parse_args():
     return parser.parse_args()
 
 
-def parse_identity(args):
-    domain, username, password = utils.parse_credentials(args.identity)
-
-    if domain == '':
-        logging.critical('Domain should be specified!')
-        sys.exit(1)
-
-    if password == '' and username != '' and args.hashes is None and args.no_pass is False and args.aesKey is None:
-        from getpass import getpass
-        logging.info("No credentials supplied, supply password")
-        password = getpass("Password:")
-
-    if args.aesKey is not None:
-        args.k = True
-
-    if args.hashes is not None:
-        lmhash, nthash = args.hashes.split(':')
-    else:
-        lmhash = ''
-        nthash = ''
-
-    return domain, username, password, lmhash, nthash
-
-
 def main():
     print(version.BANNER)
     args = parse_args()
@@ -299,8 +275,6 @@ def main():
         logging.critical('-file is required when using -action restore')
 
     domain, username, password, lmhash, nthash = parse_identity(args)
-    if len(nthash) > 0 and lmhash == "":
-        lmhash = EMPTY_LM_HASH
 
     try:
         ldap_server, ldap_session = init_ldap_session(domain, username, password, lmhash, nthash, args.k, args.dc_ip, args.aesKey, args.use_ldaps)
