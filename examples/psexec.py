@@ -649,13 +649,6 @@ if __name__ == '__main__':
         if CODEC is None:
             CODEC = 'utf-8'
 
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-
     domain, username, password, remoteName = parse_target(options.target)
 
     if domain is None:
