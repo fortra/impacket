@@ -38,6 +38,8 @@ from impacket.krb5.crypto import Cksumtype
 from impacket.krb5.asn1 import TGS_REQ, TGS_REP, seq_set, PA_FOR_USER_ENC
 from impacket.krb5.types import Principal
 
+from impacket.examples import logger
+
 
 MAX_READ_SIZE = 16000
 MAX_BUFF_SIZE = 32000
