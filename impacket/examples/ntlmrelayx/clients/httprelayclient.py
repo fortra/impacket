@@ -106,7 +106,7 @@ class HTTPRelayClient(ProtocolClient):
         headers = {'Authorization':'%s %s' % (self.authenticationMethod, auth)}
         if self.query:
             self.session.request('GET', self.path + '?' + self.query, headers=headers)
-        else:            
+        else:
             self.session.request('GET', self.path, headers=headers)
         res = self.session.getresponse()
         if res.status == 401:
