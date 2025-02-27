@@ -35,7 +35,7 @@ from datetime import datetime
 from impacket import version
 from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE
 from impacket.examples import logger
-from impacket.examples.utils import parse_credentials
+from impacket.examples.utils import parse_identity
 from impacket.ldap import ldap, ldapasn1
 from impacket.smbconnection import SMBConnection, SessionError
 
@@ -242,18 +242,11 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init(options.ts, options.debug)
 
-    domain, username, password = parse_credentials(options.target)
+    domain, username, password, _, _, options.k = parse_identity(options.target, options.hashes, options.no_pass, options.aesKey, options.k)
 
     if domain == '':
         logging.critical('Domain should be specified!')
         sys.exit(1)
-
-    if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
-        from getpass import getpass
-        password = getpass("Password:")
-
-    if options.aesKey is not None:
-        options.k = True
 
     try:
         executer = GetADUsers(username, password, domain, options)

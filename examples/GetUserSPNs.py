@@ -43,7 +43,7 @@ from impacket import version
 from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_TRUSTED_FOR_DELEGATION, \
     UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION
 from impacket.examples import logger
-from impacket.examples.utils import parse_credentials
+from impacket.examples.utils import parse_identity
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import TGS_REP, AS_REP
 from impacket.krb5.ccache import CCache
@@ -543,7 +543,7 @@ if __name__ == '__main__':
                       ' a list of SPNs and/or sAMAccountNames to Kerberoast.')
         sys.exit(1)
 
-    userDomain, username, password = parse_credentials(options.target)
+    userDomain, username, password, _, _, options.k = parse_identity(options.identity, options.hashes, options.no_pass, options.aesKey, options.k)
 
     if userDomain == '':
         logging.critical('userDomain should be specified!')
@@ -553,14 +553,6 @@ if __name__ == '__main__':
         targetDomain = options.target_domain
     else:
         targetDomain = userDomain
-
-    if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
-        from getpass import getpass
-
-        password = getpass("Password:")
-
-    if options.aesKey is not None:
-        options.k = True
 
     if options.save is True or options.outputfile is not None:
         options.request = True
