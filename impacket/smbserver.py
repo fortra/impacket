@@ -1771,7 +1771,7 @@ class SMBCommands:
                 smbServer.log("Path not in current working directory", logging.ERROR)
                 errorCode = STATUS_OBJECT_PATH_SYNTAX_BAD
 
-            if os.path.exists(pathName) is not True:
+            elif not os.path.exists(pathName):
                 errorCode = STATUS_NO_SUCH_FILE
 
             else:
@@ -4403,10 +4403,11 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         packet['SecurityFeatures'] = m.digest()[:8]
         connData['SignSequenceNumber'] += 2
 
-    def signSMBv2(self, packet, signingSessionKey):
+    def signSMBv2(self, packet, signingSessionKey, padLength=0):
         packet['Signature'] = b'\x00' * 16
         packet['Flags'] |= smb2.SMB2_FLAGS_SIGNED
-        signature = hmac.new(signingSessionKey, packet.getData(), hashlib.sha256).digest()
+        packetData = packet.getData() + b'\x00' * padLength
+        signature = hmac.new(signingSessionKey, packetData, hashlib.sha256).digest()
         packet['Signature'] = signature[:16]
         # print "%s" % packet['Signature'].encode('hex')
 
@@ -4624,34 +4625,29 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
                         else:
                             respPacket['Data'] = str(respCommand)
 
-                        if connData['SignatureEnabled']:
-                            self.signSMBv2(respPacket, connData['SigningSessionKey'])
-
                         packetsToSend.append(respPacket)
             else:
                 # The SMBCommand took care of building the packet
                 packetsToSend = respPackets
 
         if isSMB2 is True:
-            # Let's build a compound answer
-            finalData = b''
-            i = 0
-            for i in range(len(packetsToSend) - 1):
-                packet = packetsToSend[i]
-                # Align to 8-bytes
-                padLen = (8 - (len(packet) % 8)) % 8
-                packet['NextCommand'] = len(packet) + padLen
-                if hasattr(packet, 'getData'):
-                    finalData += packet.getData() + padLen * b'\x00'
-                else:
-                    finalData += packet + padLen * b'\x00'
+            # Let's build a compound answer and sign it
+            finalData = []
+            totalPackets = len(packetsToSend)
+            for idx, packet in enumerate(packetsToSend):
+                padLen = -len(packet) % 8
+                if idx + 1 < totalPackets:
+                    packet['NextCommand'] = len(packet) + padLen
 
-            # Last one
-            if hasattr(packetsToSend[len(packetsToSend) - 1], 'getData'):
-                finalData += packetsToSend[len(packetsToSend) - 1].getData()
-            else:
-                finalData += packetsToSend[len(packetsToSend) - 1]
-            packetsToSend = [finalData]
+                if connData['SignatureEnabled']:
+                    self.signSMBv2(packet, connData['SigningSessionKey'], padLength=padLen)
+
+                if hasattr(packet, 'getData'):
+                    finalData.append(packet.getData() + padLen * b'\x00')
+                else:
+                    finalData.append(packet + padLen * b'\x00')
+
+            packetsToSend = [b"".join(finalData)]
 
         # We clear the compound requests
         connData['LastRequest'] = {}
