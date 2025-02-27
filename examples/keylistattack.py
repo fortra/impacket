@@ -153,6 +153,7 @@ if __name__ == '__main__':
     parser.add_argument('-full', action='store_true', default=False, help='Run the attack against all domain users. '
                         'Noisy! It could lead to more TGS requests being rejected')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
 
     group = parser.add_argument_group('LIST option')
     group.add_argument('-domain', action='store', help='The fully qualified domain name (only works with LIST)')
@@ -183,7 +184,7 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     # Init the example's logger theme
-    logger.init()
+    logger.init(options.ts, options.debug)
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)

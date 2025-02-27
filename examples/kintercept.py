@@ -267,6 +267,8 @@ def parse_args():
     parser.add_argument('--listen-addr', default='', help='Address to listen on')
     parser.add_argument('--request-handler', default='', metavar='HANDLER:ARG', help='Example: s4u2else:user')
     parser.add_argument('--reply-handler', default='', metavar='HANDLER:ARG', help='Example: tgs-rep-user:user')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     return vars(parser.parse_args())
 
 
@@ -275,6 +277,8 @@ if __name__ == '__main__':
     print(version.BANNER)
 
     args = parse_args()
+
+    logger.init(args.ts, args.debug)
 
     req_factory = rep_factory = InterceptConnFactory()
     if args['request_handler']:

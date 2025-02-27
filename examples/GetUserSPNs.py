@@ -536,7 +536,7 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     # Init the example's logger theme
-    logger.init(options.ts)
+    logger.init(options.ts, options.debug)
 
     if options.no_preauth and options.usersfile is None:
         logging.error('You have to specify -usersfile when -no-preauth is supplied. Usersfile must contain'

@@ -273,8 +273,6 @@ class RPCMap():
         print()
 
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
     print(version.BANNER)
 
     class SmartFormatter(argparse.HelpFormatter):
@@ -301,6 +299,7 @@ if __name__ == '__main__':
                                                                                  '(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)')
     parser.add_argument('-uuid', action='store', help='Test only this UUID')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
 
     group = parser.add_argument_group('ncacn-np-details')
 
@@ -322,13 +321,8 @@ if __name__ == '__main__':
         sys.exit(1)
  
     options = parser.parse_args()
-
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
+    # Init the example's logger theme
+    logger.init(options.ts, options.debug)
 
     rpcdomain, rpcuser, rpcpass = parse_credentials(options.auth_rpc)
     transportdomain, transportuser, transportpass = parse_credentials(options.auth_transport)

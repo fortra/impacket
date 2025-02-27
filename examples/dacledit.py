@@ -755,19 +755,6 @@ def parse_identity(args):
 
     return domain, username, password, lmhash, nthash
 
-
-def init_logger(args):
-    # Init the example's logger theme and debug level
-    logger.init(args.ts)
-    if args.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-        logging.getLogger('impacket.smbserver').setLevel(logging.ERROR)
-
-
 def get_machine_name(args, domain):
     if args.dc_ip is not None:
         s = SMBConnection(args.dc_ip, args.dc_ip)
@@ -957,7 +944,7 @@ def init_ldap_session(args, domain, username, password, lmhash, nthash):
 def main():
     print(version.BANNER)
     args = parse_args()
-    init_logger(args)
+    logger.init(args.ts, args.debug)
 
     if args.action == 'write' and args.principal_sAMAccountName is None and args.principal_SID is None and args.principal_DN is None:
         logging.critical('-principal, -principal-sid, or -principal-dn should be specified when using -action write')

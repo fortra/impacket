@@ -744,16 +744,6 @@ class LdapPassword(PasswordHandler):
         newPasswordEncoded = self.encodeLdapPassword(newPassword)
         return self._modifyPassword(False, targetUsername, targetDomain, None, newPasswordEncoded)
 
-
-def init_logger(options):
-    logger.init(options.ts)
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-
-
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Change or reset passwords over different protocols.",
@@ -844,7 +834,7 @@ if __name__ == "__main__":
     print(version.BANNER)
 
     options = parse_args()
-    init_logger(options)
+    logger.init(options.ts, options.debug)
 
     handlers = {
         "kpasswd": KPassword,
