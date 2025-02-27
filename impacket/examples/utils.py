@@ -251,3 +251,7 @@ def init_ldap_session(domain, username, password, lmhash, nthash, k, dc_ip, aesK
             return _init_ldap_connection(target, ssl.PROTOCOL_TLSv1, domain, username, password, lmhash, nthash, k, dc_ip, aesKey)
     else:
         return _init_ldap_connection(target, None, domain, username, password, lmhash, nthash, k, dc_ip, aesKey)
+
+# ----------
+
+EMPTY_LM_HASH = 'AAD3B435B51404EEAAD3B435B51404EE'
