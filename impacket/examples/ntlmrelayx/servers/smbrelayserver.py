@@ -379,8 +379,7 @@ class SMBRelayServer(Thread):
                 client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
 
                 if self.server.getDumpHashes():
-                    LOG.info("Dumping hash for %s \n%s", self.authUser, ntlm_hash_data['hash_string'])
-                    LOG.info("Done dumping hash")
+                    LOG.info(ntlm_hash_data['hash_string'])
 
                 if self.server.getJTRdumpPath() != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
@@ -677,8 +676,7 @@ class SMBRelayServer(Thread):
                     client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
 
                     if self.server.getDumpHashes():
-                        LOG.info("Dumping hash for %s \n%s", self.authUser, ntlm_hash_data['hash_string'])
-                        LOG.info("Done dumping hash")
+                        LOG.info(ntlm_hash_data['hash_string'])
 
                     if self.server.getJTRdumpPath() != '':
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
@@ -756,8 +754,7 @@ class SMBRelayServer(Thread):
                 client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
 
                 if self.server.getDumpHashes():
-                    LOG.info("Dumping hash for %s \n%s", self.authUser, ntlm_hash_data['hash_string'])
-                    LOG.info("Done dumping hash")
+                    LOG.info(ntlm_hash_data['hash_string'])
 
                 if self.server.getJTRdumpPath() != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
