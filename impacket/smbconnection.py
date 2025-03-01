@@ -705,7 +705,7 @@ class SMBConnection:
         except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
-    def queryInfo(self, treeId: int, fileId: int, fileInfoClass: int) -> Structure:
+    def queryInfo(self, treeId: int, fileId: int, fileInfoClass: int = None) -> Structure:
         """
         queries basic information about an opened file/directory
 
@@ -718,9 +718,15 @@ class SMBConnection:
         """
         try:
             if self.getDialect() == smb.SMB_DIALECT:
-                res = self._SMBConnection.query_file_info(treeId, fileId, fileInfoClass=fileInfoClass)
+                if not fileInfoClass:
+                    res = self._SMBConnection.query_file_info(treeId, fileId)
+                else:
+                    res = self._SMBConnection.query_file_info(treeId, fileId, fileInfoClass=fileInfoClass)
             else:
-                res = self._SMBConnection.queryInfo(treeId, fileId, fileInfoClass=fileInfoClass)
+                if not fileInfoClass:
+                    res = self._SMBConnection.queryInfo(treeId, fileId)
+                else:
+                    res = self._SMBConnection.queryInfo(treeId, fileId, fileInfoClass=fileInfoClass)
             return smb.SMBQueryFileStandardInfo(res)
         except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
