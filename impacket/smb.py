@@ -11,6 +11,9 @@
 # Author:
 #   Altered source done by Alberto Solino (@agsolino)
 #
+# Contributors:
+#   Raz Kissos (@covertivy)
+#
 # Copyright and license note from Pysmb:
 #
 # Copyright (C) 2001 Michael Teo <michaelteo@bigfoot.com>
@@ -48,11 +51,12 @@
 #
 from __future__ import division
 from __future__ import print_function
+from __future__ import annotations
 import os
 import socket
 from binascii import a2b_hex
 import datetime
-from struct import pack, unpack
+from struct import pack, unpack, pack_into
 from ctypes import BigEndianStructure, c_uint32
 from contextlib import contextmanager
 from pyasn1.type.univ import noValue
@@ -671,14 +675,29 @@ class SMB_DATE:
     def pack(self) -> bytes:
         return ((self._year << 9) & 0xFE00) + ((self._month << 5) & 0x01E0) + (self._day & 0x001F)
     
-    def pack_into(self) -> BigEndianStructure:
+    def pack_into(self) -> SMBDateStruct:
         """
         Helper method to easily access the data as a struct.
         """
-        import struct
         res = SMBDateStruct()
-        struct.pack_into(">H", res, 0, self.pack())
+        pack_into(">H", res, 0, self.pack())
         return res
+    
+    @classmethod
+    def from_int(cls, data: int) -> SMB_DATE:
+        """
+        Helper method to easily convert integer value to class object.
+        """
+        s = SMBDateStruct()
+        pack_into(">H", s, 0, data)
+        return cls.from_struct(s)
+        
+    @classmethod
+    def from_struct(cls, s: SMBDateStruct) -> SMB_DATE:
+        """
+        Helper method to easily convert struct to class object.
+        """
+        return cls(s.y + 1980, s.m, s.d)
 
 class SMBTimeStruct(BigEndianStructure):
     _fields_ = [
@@ -729,15 +748,29 @@ class SMB_TIME:
     def pack(self) -> bytes:
         return ((self._hour << 11) & 0xF800) + ((self._minutes << 5) & 0x07E0) + (self._seconds & 0x001F)
     
-    def pack_into(self) -> BigEndianStructure:
+    def pack_into(self) -> SMBTimeStruct:
         """
         Helper method to easily access the data as a struct.
         """
-        import struct
         res = SMBTimeStruct()
-        struct.pack_into(">H", res, 0, self.pack())
+        pack_into(">H", res, 0, self.pack())
         return res
 
+    @classmethod
+    def from_int(cls, data: int) -> SMB_TIME:
+        """
+        Helper method to easily convert integer value to class object.
+        """
+        s = SMBTimeStruct()
+        pack_into(">H", s, 0, data)
+        return cls.from_struct(s)
+        
+    @classmethod
+    def from_struct(cls, s: SMBTimeStruct) -> SMB_TIME:
+        """
+        Helper method to easily convert struct to class object.
+        """
+        return cls(s.h + 1980, s.m, s.s)
 
 # Contains information about a SMB shared device/service
 class SharedDevice:
