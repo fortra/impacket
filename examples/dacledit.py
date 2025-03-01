@@ -492,7 +492,7 @@ class DACLedit(object):
         for PERM in SIMPLE_PERMISSIONS:
             if (fsr & PERM.value) == PERM.value:
                 _perms.append(PERM.name)
-                fsr = fsr & (not PERM.value)
+                fsr = fsr & (~ PERM.value)
         for PERM in ACCESS_MASK:
             if fsr & PERM.value:
                 _perms.append(PERM.name)
