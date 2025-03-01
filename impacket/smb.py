@@ -53,6 +53,7 @@ import socket
 from binascii import a2b_hex
 import datetime
 from struct import pack, unpack
+from ctypes import BigEndianStructure, c_uint32
 from contextlib import contextmanager
 from pyasn1.type.univ import noValue
 
@@ -618,6 +619,125 @@ class SessionError(Exception):
 # currently supported by pysmb
 class UnsupportedFeature(Exception):
     pass
+
+# Define SMB DateTime Data according to (2.2.1.4 Time)
+class SMBDateStruct(BigEndianStructure):
+    _fields_ = [
+        ("y", c_uint32, 7),
+        ("m", c_uint32, 4),
+        ("d", c_uint32, 5),
+    ]
+
+class SMB_DATE:
+    def __init__(self, year: int, month: int, day: int) -> None:
+        self.year = year
+        self.month = month
+        self.day = day
+    
+    @property
+    def year(self) -> int:
+        return self._year + 1980
+    
+    @year.setter
+    def year(self, value: int) -> None:
+        value = value - 1980
+        if value < 0 or value > 119:
+            raise ValueError("Invalid year component.")
+        
+        self._year = value
+    
+    @property
+    def month(self) -> int:
+        return self._month
+    
+    @month.setter
+    def month(self, value: int) -> None:
+        if value < 0 or value > 12:
+            raise ValueError("Invalid month component.")
+        
+        self._month = value
+    
+    @property
+    def day(self) -> int:
+        return self._day
+    
+    @day.setter
+    def day(self, value: int) -> None:
+        if value < 0 or value > 31:
+            raise ValueError("Invalid day component.")
+        
+        self._day = value
+    
+    def pack(self) -> bytes:
+        return ((self._year << 9) & 0xFE00) + ((self._month << 5) & 0x01E0) + (self._day & 0x001F)
+    
+    def pack_into(self) -> BigEndianStructure:
+        """
+        Helper method to easily access the data as a struct.
+        """
+        import struct
+        res = SMBDateStruct()
+        struct.pack_into(">H", res, 0, self.pack())
+        return res
+
+class SMBTimeStruct(BigEndianStructure):
+    _fields_ = [
+        ("h", c_uint32, 5),
+        ("m", c_uint32, 6),
+        ("s", c_uint32, 5),
+    ]
+
+class SMB_TIME:
+    def __init__(self, hour: int, minutes: int, seconds: int) -> None:
+        self.hour = hour
+        self.minutes = minutes
+        self.seconds = seconds
+    
+    @property
+    def hour(self) -> int:
+        return self._hour
+    
+    @hour.setter
+    def hour(self, value: int) -> None:
+        if value < 0 or value > 23:
+            raise ValueError("Invalid hour component.")
+        
+        self._hour = value
+    
+    @property
+    def minutes(self) -> int:
+        return self._minutes
+    
+    @minutes.setter
+    def minutes(self, value: int) -> None:
+        if value < 0 or value > 59:
+            raise ValueError("Invalid minutes component.")
+        
+        self._minutes = value
+    
+    @property
+    def seconds(self) -> int:
+        return self._seconds
+    
+    @seconds.setter
+    def seconds(self, value: int) -> None:
+        if value < 0 or value > 59:
+            raise ValueError("Invalid seconds component.")
+        
+        self._seconds = value
+
+    def pack(self) -> bytes:
+        return ((self._hour << 11) & 0xF800) + ((self._minutes << 5) & 0x07E0) + (self._seconds & 0x001F)
+    
+    def pack_into(self) -> BigEndianStructure:
+        """
+        Helper method to easily access the data as a struct.
+        """
+        import struct
+        res = SMBTimeStruct()
+        struct.pack_into(">H", res, 0, self.pack())
+        return res
+
 
 # Contains information about a SMB shared device/service
 class SharedDevice:
