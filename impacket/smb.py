@@ -624,7 +624,18 @@ class SessionError(Exception):
 class UnsupportedFeature(Exception):
     pass
 
-# Define SMB DateTime Data according to (2.2.1.4 Time)
+# Add basic filetime conversion helper methods.
+def POSIXtoFT(t: int) -> int:
+    t *= 10000000
+    t += 116444736000000000
+    return int(t)
+
+def FTtoPOSIX(t: int) -> int:
+    t -= 116444736000000000
+    t //= 10000000
+    return int(t)
+
+# Define SMB Standard DateTime Data according to (2.2.1.4 Time)
 class SMBDateStruct(BigEndianStructure):
     _fields_ = [
         ("y", c_uint32, 7),
@@ -1252,20 +1263,32 @@ class SMBFindInfoStandard(AsciiOrUnicodeStructure):
     )
 
 # SET_FILE_INFORMATION structures
-# SMB_SET_FILE_DISPOSITION_INFO
+# 2.2.8.4.1 SMB_INFO_STANDARD
+class SMBSetStandardInfo(Structure):
+    structure = (
+        ('CreateDate','<H'),
+        ('CreationTime','<H'),
+        ('LastAccessDate','<H'),
+        ('LastAccessTime','<H'),
+        ('LastWriteDate','<H'),
+        ('LastWriteTime','<H'),
+        ('Reserved','<B=10'),
+    )
+
+# 2.2.8.4.4 SMB_SET_FILE_DISPOSITION_INFO
 class SMBSetFileDispositionInfo(Structure):
     structure = (
         ('DeletePending','<B'),
     )
 
-# SMB_SET_FILE_BASIC_INFO
+# 2.2.8.4.3 SMB_SET_FILE_BASIC_INFO
 class SMBSetFileBasicInfo(Structure):
     structure = (
         ('CreationTime','<q'),
         ('LastAccessTime','<q'),
         ('LastWriteTime','<q'),
         ('ChangeTime','<q'),
-        ('ExtFileAttributes','<H'),
+        ('ExtFileAttributes','<L'),
         ('Reserved','<L'),
     )
 
@@ -3230,6 +3253,21 @@ class SMB(object):
 
     def query_file_info(self, tid, fid, fileInfoClass = SMB_QUERY_FILE_STANDARD_INFO):
         self.send_trans2(tid, SMB.TRANS2_QUERY_FILE_INFORMATION, '\x00', pack('<HH', fid, fileInfoClass), '')
+
+        resp = self.recvSMB()
+        if resp.isValidAnswer(SMB.SMB_COM_TRANSACTION2):
+            trans2Response = SMBCommand(resp['Data'][0])
+            trans2Parameters = SMBTransaction2Response_Parameters(trans2Response['Parameters'])
+            # Remove Potential Prefix Padding
+            return trans2Response['Data'][-trans2Parameters['TotalDataCount']:]
+    
+    def set_file_info(self, tid, fid, fileInfoClass: int, file_info_data: Structure, password = None):
+        SMBTrans2SetFileInfo_Params = SMBSetFileInformation_Parameters()
+        SMBTrans2SetFileInfo_Params["FID"] = fid
+        SMBTrans2SetFileInfo_Params["InformationLevel"] = fileInfoClass
+        SMBTrans2SetFileInfo_Params["Reserved"] = 0
+        
+        self.send_trans2(tid, SMB.TRANS2_SET_FILE_INFORMATION, '\x00', SMBTrans2SetFileInfo_Params.getData(), file_info_data.getData())
 
         resp = self.recvSMB()
         if resp.isValidAnswer(SMB.SMB_COM_TRANSACTION2):
