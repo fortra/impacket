@@ -154,7 +154,6 @@ EVASION_MAX                      = 3
 RPC_X_BAD_STUB_DATA              = 0x6F7
 
 # SMB_FILE_ATTRIBUTES
-
 SMB_FILE_ATTRIBUTE_NORMAL        = 0x0000
 SMB_FILE_ATTRIBUTE_READONLY      = 0x0001
 SMB_FILE_ATTRIBUTE_HIDDEN        = 0x0002
@@ -188,8 +187,11 @@ SMB_QUERY_FILE_STREAM_INFO       = 0x0109
 FILE_FS_FULL_SIZE_INFORMATION    = 0x03EF
 
 # SET_INFORMATION levels
-SMB_SET_FILE_DISPOSITION_INFO    = 0x0102
+SMB_INFO_STANDARD                = 0x0001
+SMB_INFO_SET_EAS                 = 0x0002
 SMB_SET_FILE_BASIC_INFO          = 0x0101
+SMB_SET_FILE_DISPOSITION_INFO    = 0x0102
+SMB_SET_FILE_ALLOCATION_INFO     = 0x0103
 SMB_SET_FILE_END_OF_FILE_INFO    = 0x0104
 
 # Device Type [MS-CIFS] 2.2.8.2.5
@@ -1289,7 +1291,7 @@ class SMBSetFileBasicInfo(Structure):
         ('LastWriteTime','<q'),
         ('ChangeTime','<q'),
         ('ExtFileAttributes','<L'),
-        ('Reserved','<L'),
+        ('Reserved','<L=0'),
     )
 
 # FILE_STREAM_INFORMATION
@@ -3251,7 +3253,7 @@ class SMB(object):
 
         self.sendSMB(smb)
 
-    def query_file_info(self, tid, fid, fileInfoClass = SMB_QUERY_FILE_STANDARD_INFO):
+    def query_file_info(self, tid: int, fid: int, fileInfoClass: int = SMB_QUERY_FILE_STANDARD_INFO):
         self.send_trans2(tid, SMB.TRANS2_QUERY_FILE_INFORMATION, '\x00', pack('<HH', fid, fileInfoClass), '')
 
         resp = self.recvSMB()
@@ -3261,7 +3263,7 @@ class SMB(object):
             # Remove Potential Prefix Padding
             return trans2Response['Data'][-trans2Parameters['TotalDataCount']:]
     
-    def set_file_info(self, tid, fid, fileInfoClass: int, file_info_data: Structure, password = None):
+    def set_file_info(self, tid: int, fid: int, fileInfoClass: int, file_info_data: Structure, password = None):
         SMBTrans2SetFileInfo_Params = SMBSetFileInformation_Parameters()
         SMBTrans2SetFileInfo_Params["FID"] = fid
         SMBTrans2SetFileInfo_Params["InformationLevel"] = fileInfoClass
@@ -4408,6 +4410,8 @@ class SMB(object):
             writeResponse   = SMBCommand(smb['Data'][0])
             writeResponseParameters = SMBWriteAndXResponse_Parameters(writeResponse['Parameters'])
             write_offset += writeResponseParameters['Count']
+        
+        return write_offset
 
     def get_socket(self):
         return self._sess.get_socket()
