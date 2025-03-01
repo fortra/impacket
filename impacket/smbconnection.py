@@ -713,21 +713,24 @@ class SMBConnection:
         :param HANDLE fileId: A valid handle for the file/directory to be queried.
         :param int fileInfoClass: The desired file information class to query.
 
-        :return: a smb.SMBQueryFileStandardInfo structure.
+        :return: a smb.SMBQueryFileStandardInfo structure if not given any file info class.
+                Otherwise, returns raw bytes - which can be converted into any file information struct by the user.
         :raise SessionError: if error
         """
         try:
             if self.getDialect() == smb.SMB_DIALECT:
                 if not fileInfoClass:
                     res = self._SMBConnection.query_file_info(treeId, fileId)
+                    return smb.SMBQueryFileStandardInfo(res)
                 else:
                     res = self._SMBConnection.query_file_info(treeId, fileId, fileInfoClass=fileInfoClass)
             else:
                 if not fileInfoClass:
                     res = self._SMBConnection.queryInfo(treeId, fileId)
+                    return smb.SMBQueryFileStandardInfo(res)
                 else:
                     res = self._SMBConnection.queryInfo(treeId, fileId, fileInfoClass=fileInfoClass)
-            return smb.SMBQueryFileStandardInfo(res)
+            return res
         except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
     
