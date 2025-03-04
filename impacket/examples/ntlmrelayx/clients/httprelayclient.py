@@ -83,7 +83,10 @@ class HTTPRelayClient(ProtocolClient):
         #Negotiate auth
         negotiate = base64.b64encode(negotiateMessage).decode("ascii")
         headers = {'Authorization':'%s %s' % (self.authenticationMethod, negotiate)}
-        self.session.request('GET', self.path ,headers=headers)
+        if self.query:
+            self.session.request('GET', self.path + '?' + self.query, headers=headers)
+        else:
+            self.session.request('GET', self.path, headers=headers)
         res = self.session.getresponse()
         res.read()
         try:
