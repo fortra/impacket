@@ -1862,31 +1862,56 @@ def UNSEAL(data, auth_data, key, aes = False):
         plain = cipher.decrypt(data)
         return plain, cfounder
 
+def CompressedUtf8String(domain_name):
+    if domain_name is None:
+        raise ValueError("domain_name cannot be None")
+
+    MAX_LABEL_LENGTH = 63
+
+    buf = bytearray()
+    labels = domain_name.split('.')
+    
+    for label in labels:
+        label_bytes = label.encode('utf-8')
+        if len(label_bytes) > MAX_LABEL_LENGTH:
+            raise ValueError("Label exceeded max length of 63 bytes.")
+        buf.append(len(label_bytes))
+        buf.extend(label_bytes)
+    buf.append(0)
+
+    return bytes(buf)
 
 def getSSPType1(workstation='', domain='', signingRequired=False):
     auth = NL_AUTH_MESSAGE()
+    auth['MessageType'] = NL_AUTH_MESSAGE_REQUEST
     auth['Flags'] = 0
-    auth['Buffer'] = b''
-    auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_DOMAIN
+    
     if domain != '':
-        auth['Buffer'] = auth['Buffer'] + b(domain) + b'\x00'
+        if '.' in domain:
+            auth['Flags'] = NL_AUTH_MESSAGE_NETBIOS_HOST | NL_AUTH_MESSAGE_DNS_DOMAIN
+            if workstation != '':
+                auth['Buffer'] = b(workstation) + b'\x00' + CompressedUtf8String(domain)
+            else:
+                auth['Buffer'] = b'MYHOST\x00' + CompressedUtf8String(domain)
+        else:
+            auth['Flags'] = NL_AUTH_MESSAGE_NETBIOS_HOST | NL_AUTH_MESSAGE_NETBIOS_DOMAIN
+            if workstation != '':
+                auth['Buffer'] = b(domain) + b'\x00' + b(workstation) + b'\x00'
+            else:
+                auth['Buffer'] = b(domain) + b'\x00MYHOST\x00'
     else:
-        auth['Buffer'] += b'WORKGROUP\x00'
-
-    auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_HOST
-
-    if workstation != '':
-        auth['Buffer'] = auth['Buffer'] + b(workstation) + b'\x00'
-    else:
-        auth['Buffer'] += b'MYHOST\x00'
-
+        if workstation != '':
+            auth['Buffer'] = b'WORKGROUP\x00' + b(workstation) + b'\x00'
+        else:
+            auth['Buffer'] = b'WORKGROUP\x00MYHOST\x00'
+        
     auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_HOST_UTF8
-
+    
     if workstation != '':
         auth['Buffer'] += pack('<B',len(workstation)) + b(workstation) + b'\x00'
     else:
         auth['Buffer'] += b'\x06MYHOST\x00'
-
+        
     return auth
 
 ################################################################################
