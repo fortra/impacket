@@ -68,6 +68,9 @@ class ADDCOMPUTER:
         self.__targetIp = cmdLineOptions.dc_ip
         self.__baseDN = cmdLineOptions.baseDN
         self.__computerGroup = cmdLineOptions.computer_group
+        self.__encryption = cmdLineOptions.encryption
+        self.__tgtOptions = cmdLineOptions.tgt_options
+        self.__tgsOptions = cmdLineOptions.tgs_options
 
         if self.__targetIp is not None:
             self.__kdcHost = self.__targetIp
@@ -156,7 +159,7 @@ class ADDCOMPUTER:
                 if self.__doKerberos:
                     ldapConn = ldap3.Connection(ldapServer)
                     self.LDAP3KerberosLogin(ldapConn, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
-                                                 self.__aesKey, kdcHost=self.__kdcHost)
+                                                 self.__aesKey, kdcHost=self.__kdcHost, encType=self.__encryption, tgtOptions=self.__tgtOptions, tgsOptions=self.__tgsOptions)
                 elif self.__hashes is not None:
                     ldapConn = ldap3.Connection(ldapServer, user=user, password=self.__hashes, authentication=ldap3.NTLM)
                     ldapConn.bind()
@@ -171,7 +174,7 @@ class ADDCOMPUTER:
                 if self.__doKerberos:
                     ldapConn = ldap3.Connection(ldapServer)
                     self.LDAP3KerberosLogin(ldapConn, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
-                                                 self.__aesKey, kdcHost=self.__kdcHost)
+                                                 self.__aesKey, kdcHost=self.__kdcHost, encType=self.__encryption, tgtOptions=self.__tgtOptions, tgsOptions=self.__tgsOptions)
                 elif self.__hashes is not None:
                     ldapConn = ldap3.Connection(ldapServer, user=user, password=self.__hashes, authentication=ldap3.NTLM)
                     ldapConn.bind()
@@ -266,7 +269,7 @@ class ADDCOMPUTER:
         return connection.entries[0]
 
     def LDAP3KerberosLogin(self, connection, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost=None, TGT=None,
-                      TGS=None, useCache=True):
+                      TGS=None, useCache=True, encType=None, tgtOptions=None, tgsOptions=None):
         from pyasn1.codec.ber import encoder, decoder
         from pyasn1.type.univ import noValue
         """
@@ -300,7 +303,7 @@ class ADDCOMPUTER:
         # Importing down here so pyasn1 is not required if kerberos is not used.
         from impacket.krb5.ccache import CCache
         from impacket.krb5.asn1 import AP_REQ, Authenticator, TGS_REP, seq_set
-        from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
+        from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, parseKerberosOptions
         from impacket.krb5 import constants
         from impacket.krb5.types import Principal, KerberosTime, Ticket
         import datetime
@@ -317,7 +320,7 @@ class ADDCOMPUTER:
         if TGT is None:
             if TGS is None:
                 tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash,
-                                                                        aesKey, kdcHost)
+                                                                        aesKey, kdcHost, encType=encType, options=parseKerberosOptions(tgtOptions))
         else:
             tgt = TGT['KDC_REP']
             cipher = TGT['cipher']
@@ -326,7 +329,7 @@ class ADDCOMPUTER:
         if TGS is None:
             serverName = Principal(targetName, type=constants.PrincipalNameType.NT_SRV_INST.value)
             tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher,
-                                                                    sessionKey)
+                                                                    sessionKey, encType=encType, options=parseKerberosOptions(tgsOptions))
         else:
             tgs = TGS['KDC_REP']
             cipher = TGS['cipher']
@@ -576,6 +579,12 @@ if __name__ == '__main__':
     group.add_argument('-dc-ip', action='store',metavar = "ip",  help='IP of the domain controller to use. '
                                                                       'Useful if you can\'t translate the FQDN.'
                                                                       'specified in the account parameter will be used')
+
+    kerberos_options = parser.add_argument_group('kerberos options')
+
+    kerberos_options.add_argument('-tgs-options', action="store", metavar="hex value", default=None, help='The hexadecimal value to send to the Kerberos Ticket Granting Service (TGS).')
+    kerberos_options.add_argument('-tgt-options', action="store", metavar="hex value", default=None, help='The hexadecimal value to send to the Kerberos Ticket Granting Ticket (TGT).')
+    kerberos_options.add_argument('-encryption', action="store", metavar="18 or 23", default="23", help='Set encryption to AES256 (18) or RC4 (23).')
 
 
     if len(sys.argv)==1:
