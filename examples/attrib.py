@@ -157,21 +157,6 @@ class FileAttributes:
             ('E' if self.encrypted   else '-') + \
             ('P' if self.pinned      else '-') + \
             ('U' if self.unpinned    else '-')
-
-def calculate_set_attributes(options: argparse.Namespace) -> FileAttributes:
-    return FileAttributes(
-        readonly      = options.readonly,
-        hidden        = options.hidden,
-        system        = options.system,
-        archive       = options.archive,
-        normal        = options.normal,
-        temporary     = options.temporary,
-        compressed    = options.compressed,
-        offline       = options.offline,
-        encrypted     = options.encrypted,
-        pinned        = options.pinned,
-        unpinned      = options.unpinned,
-    )
         
 
 def attrib_query(connection: smbconnection.SMBConnection, tid: int, fid: int) -> FileAttributes:
@@ -185,9 +170,7 @@ def attrib_query(connection: smbconnection.SMBConnection, tid: int, fid: int) ->
     logging.debug(f"Got file / directory {attributes = }")
     return FileAttributes.unpack(attributes)
 
-def attrib_set(connection: smbconnection.SMBConnection, tid: int, fid: int, attribs: FileAttributes):
-    logging.debug(f"Setting file / directory attributes = {attribs.pack()}")
-    
+def attrib_set(connection: smbconnection.SMBConnection, tid: int, fid: int, attribs: FileAttributes) -> None:
     if connection.getDialect() == SMB_DIALECT:
         info_data = SMBSetFileBasicInfo()
         info_data['CreationTime'] = 0
@@ -204,6 +187,8 @@ def attrib_set(connection: smbconnection.SMBConnection, tid: int, fid: int, attr
         info_data['ChangeTime'] = 0
         info_data['FileAttributes'] = attribs.pack()
         fileInfoClass = SMB2_FILE_BASIC_INFO
+    
+    logging.debug(f"Setting file / directory attributes = {attribs.pack()}")
     
     connection.setInfo(tid, fid, fileInfoClass, info_data)
 
@@ -319,8 +304,21 @@ def main():
             if options.action == 'query':
                 print(attrib_query(connection, tid, fid), share, path)
             elif options.action == 'set':
-                attribs = calculate_set_attributes(options)
+                attribs = FileAttributes(
+                    readonly      = options.readonly,
+                    hidden        = options.hidden,
+                    system        = options.system,
+                    archive       = options.archive,
+                    normal        = options.normal,
+                    temporary     = options.temporary,
+                    compressed    = options.compressed,
+                    offline       = options.offline,
+                    encrypted     = options.encrypted,
+                    pinned        = options.pinned,
+                    unpinned      = options.unpinned,
+                )
                 attrib_set(connection, tid, fid, attribs)
+                print(attribs, share, path)
         finally:
             connection.closeFile(tid, fid)
             connection.disconnectTree(tid)
