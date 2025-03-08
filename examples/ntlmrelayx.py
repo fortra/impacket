@@ -40,6 +40,7 @@ import argparse
 import sys
 import logging
 import cmd
+
 try:
     from urllib.request import ProxyHandler, build_opener, Request
 except ImportError:
@@ -49,6 +50,8 @@ from urllib.parse import urlparse
 import json
 from time import sleep
 from threading import Thread
+
+import pydivert
 
 from impacket import version
 from impacket.examples import logger
@@ -61,6 +64,10 @@ RELAY_SERVERS = []
 
 class MiniShell(cmd.Cmd):
     def __init__(self, relayConfig, threads, api_address):
+
+        import readline
+        readline.backend = 'readline'
+
         cmd.Cmd.__init__(self)
 
         self.prompt = 'ntlmrelayx> '
@@ -236,6 +243,14 @@ def start_servers(options, threads):
             continue
 
         elif server is SMBRelayServer:
+            if options.smb_port == 445:
+                print("[*] SMB Server port set to 445 - redirecting to port 4445")
+                redirect_thread = Thread(target=redirect_smb_packets)
+                redirect_thread.start()
+                threads.add(redirect_thread)
+                
+                options.smb_port = 4445
+
             c.setListeningPort(options.smb_port)
         elif server is WCFRelayServer:
             c.setListeningPort(options.wcf_port)
@@ -257,6 +272,16 @@ def stop_servers(threads):
     for thread in todelete:
         threads.remove(thread)
         del thread
+
+def redirect_smb_packets():
+    with pydivert.WinDivert("tcp.DstPort == 445 or tcp.SrcPort == 4445") as w:
+        for packet in w:
+            if packet.dst_port == 445 and packet.is_inbound:
+                packet.dst_port = 4445
+            if packet.src_port == 4445 and packet.is_outbound:
+                packet.src_port = 445
+            w.send(packet)
+
 
 # Process command-line arguments.
 if __name__ == '__main__':
