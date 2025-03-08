@@ -206,8 +206,8 @@ def main():
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
-    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
-    group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
+    group.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-no-pass', action="store_true", help='Don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
                                                        '(KRB5CCNAME) based on target parameters. If valid credentials '
                                                        'cannot be found, it will use the ones specified in the command '
@@ -216,13 +216,14 @@ def main():
                                                                             '(128 or 256 bits)')
 
     group = parser.add_argument_group('connection')
+    group.add_argument('-p', '--port', default=SMB_SESSION_PORT, type=int, metavar="destination port", help='Destination port to connect to the SMB Server.')
     group.add_argument('-dc-ip', action='store', metavar="ip address",
                        help='IP Address of the domain controller. If omitted it will use the domain part (FQDN) specified in '
                             'the target parameter')
     group.add_argument('-target-ip', action='store', metavar="ip address",
                        help='IP Address of the target machine. If omitted it will use whatever was specified as target. '
                             'This is useful when target is the NetBIOS name and you cannot resolve it')
-    group.add_argument('-p', '--port', default=SMB_SESSION_PORT, type=int, metavar="destination port", help='Destination port to connect to SMB Server')
+    group.add_argument('-t', '--timeout', default=60, type=int, metavar="seconds", help='Set connection timeout (seconds).')
 
     subcommands = parser.add_subparsers(dest="action")
     
@@ -279,9 +280,9 @@ def main():
     path = ntpath.normpath(options.path)
 
     try:
-        connection = smbconnection.SMBConnection(address, options.target_ip, sess_port=int(options.port))
+        connection = smbconnection.SMBConnection(address, options.target_ip, sess_port=int(options.port), timeout=int(options.timeout))
         if options.k is True:
-            connection.kerberosLogin(username, password, domain, lmhash, nthash, options.aesKey, options.dc_ip )
+            connection.kerberosLogin(username, password, domain, lmhash, nthash, options.aesKey, options.dc_ip)
         else:
             connection.login(username, password, domain, lmhash, nthash)
 
