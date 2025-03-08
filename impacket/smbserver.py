@@ -198,14 +198,14 @@ def encodeSMBString(flags, text):
         return text.encode('ascii')
 
 
-def getSMBDate(t):
+def getSMBDate(t) -> bytes:
     d = datetime.date.fromtimestamp(t)
     return smb.SMB_DATE(d.year, d.month, d.day).pack()
 
 
-def getSMBTime(t):
+def getSMBTime(t) -> bytes:
     d = datetime.datetime.fromtimestamp(t)
-    return smb.SMB_TIME(d.hour, d.minute, d.second)
+    return smb.SMB_TIME(d.hour, d.minute, d.second).pack()
 
 
 def getShares(connId, smbServer):
