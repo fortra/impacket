@@ -4358,6 +4358,9 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
     def getJTRdumpPath(self):
         return self.__jtr_dump_path
 
+    def getDumpHashes(self):
+        return self.__dump_hashes
+
     def getAuthCallback(self):
         return self.auth_callback
 
@@ -4674,11 +4677,15 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         if self.__serverConfig.has_option("global", "jtr_dump_path"):
             self.__jtr_dump_path = self.__serverConfig.get("global", "jtr_dump_path")
 
+        if self.__serverConfig.has_option("global", "dump_hashes"):
+            self.__dump_hashes = self.__serverConfig.getboolean("global", "dump_hashes")
+        else:
+            self.__dump_hashes = False
+
         if self.__serverConfig.has_option("global", "SMB2Support"):
             self.__SMB2Support = self.__serverConfig.getboolean("global", "SMB2Support")
         else:
             self.__SMB2Support = False
-
 
         if self.__serverConfig.has_option("global", "anonymous_logon"):
             self.__anonymousLogon = self.__serverConfig.getboolean("global", "anonymous_logon")
