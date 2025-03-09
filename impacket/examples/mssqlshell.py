@@ -71,6 +71,7 @@ class SQLSHELL(cmd.Cmd):
     use_link {link}            - linked server to use (set use_link localhost to go back to local or use_link .. to get back one step)
     ! {cmd}                    - executes a local shell cmd
     upload {from} {to}         - uploads file {from} to the SQLServer host {to}
+    download {from} {to}       - downloads file from the SQLServer host {from} to {to}
     show_query                 - show query
     mask_query                 - mask query
     """)
@@ -139,13 +140,39 @@ class SQLSHELL(cmd.Cmd):
     def do_shell(self, s):
         os.system(s)
 
+    def do_download(self, line):
+        try:
+            args = shlex.split(line, posix=False)
+            remote_path = args[0]
+            local_path = args[1]
+
+            # download file
+            result = self.sql_query("EXEC xp_fileexist '" + remote_path + "'")
+            if result[0].get('File Exists') != 1:
+                print("[-] File does not exist")
+                return
+            print("[+] File exists, downloading...")
+            result = self.sql_query("SELECT * FROM OPENROWSET(BULK N'" + remote_path + "', SINGLE_BLOB) AS HexContent")
+            if len(result) == 0:
+                print("[-] Error downloading file. File is either empty or access is denied")
+                return
+
+            # write to disk
+            print("[+] Writing file to disk...")
+            with open(local_path, 'wb') as f:
+                data = bytes.fromhex(result[0].get('BulkColumn').decode())
+                f.write(data)
+            print("[+] Downloaded")
+        except Exception as e:
+            print("[-] Unhandled Exception:", e)
+
     def do_upload(self, line):
         BUFFER_SIZE = 5 * 1024
         try:
             # validate "xp_cmdshell" is enabled
-            self.sql.sql_query("exec master.dbo.sp_configure 'show advanced options', 1; RECONFIGURE;")
-            result = self.sql.sql_query("exec master.dbo.sp_configure 'xp_cmdshell'")
-            self.sql.sql_query("exec master.dbo.sp_configure 'show advanced options', 0; RECONFIGURE;")
+            self.sql_query("exec master.dbo.sp_configure 'show advanced options', 1; RECONFIGURE;")
+            result = self.sql_query("exec master.dbo.sp_configure 'xp_cmdshell'")
+            self.sql_query("exec master.dbo.sp_configure 'show advanced options', 0; RECONFIGURE;")
             if result[0].get('run_value') != 1:
                 print("[-] xp_cmdshell not enabled. Try running 'enable_xp_cmdshell' first")
                 return
@@ -163,8 +190,8 @@ class SQLSHELL(cmd.Cmd):
             print("[+] Uploading...")
             for i in range(0, len(b64enc_data), BUFFER_SIZE):
                 cmd = 'echo ' + b64enc_data[i:i+BUFFER_SIZE] + ' >> "' + remote_path + '.b64"'
-                self.sql.sql_query("EXEC xp_cmdshell '" + cmd + "'")
-            result = self.sql.sql_query("EXEC xp_fileexist '" + remote_path + ".b64'")
+                self.sql_query("EXEC xp_cmdshell '" + cmd + "'")
+            result = self.sql_query("EXEC xp_fileexist '" + remote_path + ".b64'")
             if result[0].get('File Exists') != 1:
                 print("[-] Error uploading file. Check permissions in the configured remote path")
                 return
@@ -172,17 +199,17 @@ class SQLSHELL(cmd.Cmd):
 
             # decode
             cmd = 'certutil -decode "' + remote_path + '.b64" "' + remote_path + '"'
-            self.sql.sql_query("EXEC xp_cmdshell '" + cmd + "'")
+            self.sql_query("EXEC xp_cmdshell '" + cmd + "'")
             print("[+] " + cmd)
 
             # remove encoded
             cmd = 'del "' + remote_path + '.b64"'
-            self.sql.sql_query("EXEC xp_cmdshell '" + cmd + "'")
+            self.sql_query("EXEC xp_cmdshell '" + cmd + "'")
             print("[+] " + cmd)
 
             # validate hash
             cmd = 'certutil -hashfile "' + remote_path + '" MD5'
-            result = self.sql.sql_query("EXEC xp_cmdshell '" + cmd + "'")
+            result = self.sql_query("EXEC xp_cmdshell '" + cmd + "'")
             print("[+] " + cmd)
             md5sum_uploaded = result[1].get('output').replace(" ", "")
             if md5sum == md5sum_uploaded:
