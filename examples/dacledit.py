@@ -725,6 +725,11 @@ def parse_args():
     dacl_parser.add_argument('-inheritance', action="store_true", help='Enable the inheritance in the ACE flag with CONTAINER_INHERIT_ACE and OBJECT_INHERIT_ACE. Useful when target is a Container or an OU, '
                                                                        'ACE will be inherited by objects within the container/OU (except objects with adminCount=1)')
 
+    kerberos_options = parser.add_argument_group('kerberos options')
+    kerberos_options.add_argument('-tgs-options', action="store", metavar="hex value", default=None, help='The hexadecimal value to send to the Kerberos Ticket Granting Service (TGS).')
+    kerberos_options.add_argument('-tgt-options', action="store", metavar="hex value", default=None, help='The hexadecimal value to send to the Kerberos Ticket Granting Ticket (TGT).')
+    kerberos_options.add_argument('-encryption', action="store", metavar="18 or 23", default="23", help='Set encryption to AES256 (18) or RC4 (23).')
+
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
@@ -784,7 +789,7 @@ def get_machine_name(args, domain):
 
 
 def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost=None,
-                         TGT=None, TGS=None, useCache=True):
+                         TGT=None, TGS=None, useCache=True, encType=None, tgtOptions=None, tgsOptions=None):
     from pyasn1.codec.ber import encoder, decoder
     from pyasn1.type.univ import noValue
     """
@@ -816,7 +821,7 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
     # Importing down here so pyasn1 is not required if kerberos is not used.
     from impacket.krb5.ccache import CCache
     from impacket.krb5.asn1 import AP_REQ, Authenticator, TGS_REP, seq_set
-    from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
+    from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, parseKerberosOptions
     from impacket.krb5 import constants
     from impacket.krb5.types import Principal, KerberosTime, Ticket
     import datetime
@@ -833,7 +838,7 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
     if TGT is None:
         if TGS is None:
             tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash,
-                                                                    aesKey, kdcHost)
+                                                                    aesKey, kdcHost, encType=encType, options=parseKerberosOptions(tgtOptions))
     else:
         tgt = TGT['KDC_REP']
         cipher = TGT['cipher']
@@ -842,7 +847,7 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
     if TGS is None:
         serverName = Principal(target, type=constants.PrincipalNameType.NT_SRV_INST.value)
         tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher,
-                                                                sessionKey)
+                                                                sessionKey, encType=encType, options=parseKerberosOptions(tgsOptions))
     else:
         tgs = TGS['KDC_REP']
         cipher = TGS['cipher']
@@ -910,7 +915,7 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
     return True
 
 
-def init_ldap_connection(target, tls_version, args, domain, username, password, lmhash, nthash):
+def init_ldap_connection(target, tls_version, args, domain, username, password, lmhash, nthash, encType=None, tgtOptions=None, tgsOptions=None):
     user = '%s\\%s' % (domain, username)
     connect_to = target
     if args.dc_ip is not None:
@@ -927,7 +932,7 @@ def init_ldap_connection(target, tls_version, args, domain, username, password, 
     if args.k:
         ldap_session = ldap3.Connection(ldap_server)
         ldap_session.bind()
-        ldap3_kerberos_login(ldap_session, target, username, password, domain, lmhash, nthash, args.aesKey, kdcHost=args.dc_ip)
+        ldap3_kerberos_login(ldap_session, target, username, password, domain, lmhash, nthash, args.aesKey, kdcHost=args.dc_ip, encType=args.encryption, tgtOptions=args.tgt_options, tgsOptions=args.tgs_options)
     elif args.hashes is not None:
         ldap_session = ldap3.Connection(ldap_server, user=user, password=lmhash + ":" + nthash, authentication=ldap3.NTLM, auto_bind=True)
     else:
@@ -936,7 +941,7 @@ def init_ldap_connection(target, tls_version, args, domain, username, password, 
     return ldap_server, ldap_session
 
 
-def init_ldap_session(args, domain, username, password, lmhash, nthash):
+def init_ldap_session(args, domain, username, password, lmhash, nthash, encType=None, tgtOptions=None, tgsOptions=None):
     if args.k:
         target = get_machine_name(args, domain)
     else:
