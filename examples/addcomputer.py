@@ -35,7 +35,7 @@ from impacket.examples.utils import parse_identity
 from impacket.dcerpc.v5 import samr, epm, transport
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
-from impacket.examples.utils import _ldap3_kerberos_login
+from impacket.examples.utils import ldap3_kerberos_login
 
 import ldap3
 import argparse
@@ -157,7 +157,7 @@ class ADDCOMPUTER:
                 ldapServer = ldap3.Server(connectTo, use_ssl=True, port=self.__port, get_info=ldap3.ALL, tls=tls)
                 if self.__doKerberos:
                     ldapConn = ldap3.Connection(ldapServer)
-                    _ldap3_kerberos_login(ldapConn, connectTo, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
+                    ldap3_kerberos_login(ldapConn, connectTo, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
                                                  self.__aesKey, kdcHost=self.__kdcHost)
                 elif self.__hashes is not None:
                     ldapConn = ldap3.Connection(ldapServer, user=user, password=self.__hashes, authentication=ldap3.NTLM)
@@ -172,7 +172,7 @@ class ADDCOMPUTER:
                 ldapServer = ldap3.Server(connectTo, use_ssl=True, port=self.__port, get_info=ldap3.ALL, tls=tls)
                 if self.__doKerberos:
                     ldapConn = ldap3.Connection(ldapServer)
-                    _ldap3_kerberos_login(ldapConn, connectTo, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
+                    ldap3_kerberos_login(ldapConn, connectTo, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
                                                  self.__aesKey, kdcHost=self.__kdcHost)
                 elif self.__hashes is not None:
                     ldapConn = ldap3.Connection(ldapServer, user=user, password=self.__hashes, authentication=ldap3.NTLM)
