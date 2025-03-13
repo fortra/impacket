@@ -83,7 +83,7 @@ def _get_machine_name(dc_ip, domain):
         s.logoff()
     return s.getServerName()
 
-def _ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost=None, TGT=None, TGS=None, useCache=True):
+def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost=None, TGT=None, TGS=None, useCache=True):
     from pyasn1.codec.ber import encoder, decoder
     from pyasn1.type.univ import noValue
     """
@@ -222,7 +222,7 @@ def _init_ldap_connection(target, tls_version, args, domain, username, password,
     if k:
         ldap_session = ldap3.Connection(ldap_server)
         ldap_session.bind()
-        _ldap3_kerberos_login(ldap_session, target, username, password, domain, lmhash, nthash, aesKey, kdcHost=dc_ip)
+        ldap3_kerberos_login(ldap_session, target, username, password, domain, lmhash, nthash, aesKey, kdcHost=dc_ip)
     elif lmhash == '' and nthash == '':
         ldap_session = ldap3.Connection(ldap_server, user=user, password=password, authentication=ldap3.NTLM, auto_bind=True)
     else:
