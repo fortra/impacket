@@ -16,6 +16,7 @@
 
 import logging
 import sys
+from impacket import version
 
 # This module can be used by scripts using the Impacket library 
 # in order to configure the root logger to output events 
@@ -53,12 +54,21 @@ class ImpacketFormatterTimeStamp(ImpacketFormatter):
   def formatTime(self, record, datefmt=None):
       return ImpacketFormatter.formatTime(self, record, datefmt="%Y-%m-%d %H:%M:%S")
 
-def init(ts=False):
+def init(ts=False, debug=False):
     # We add a StreamHandler and formatter to the root logger
     handler = logging.StreamHandler(sys.stdout)
-    if not ts:
-        handler.setFormatter(ImpacketFormatter())
-    else:
+
+    if ts:
         handler.setFormatter(ImpacketFormatterTimeStamp())
+    else:
+        handler.setFormatter(ImpacketFormatter())
+
     logging.getLogger().addHandler(handler)
-    logging.getLogger().setLevel(logging.INFO)
+
+    if debug is True:
+        logging.getLogger().setLevel(logging.DEBUG)
+        # Print the Library's installation path
+        logging.debug(version.getInstallationPath())
+    else:
+        logging.getLogger().setLevel(logging.INFO)
+        logging.getLogger('impacket.smbserver').setLevel(logging.ERROR)

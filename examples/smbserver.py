@@ -57,14 +57,7 @@ if __name__ == '__main__':
        logging.critical(str(e))
        sys.exit(1)
 
-    logger.init(options.ts)
-
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
+    logger.init(options.ts, options.debug)
 
     if options.comment is None:
         comment = ''
