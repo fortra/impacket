@@ -754,7 +754,7 @@ class LSASecrets():
             self.__secretItems.append(extrasecret)
             self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, extrasecret)
 
-        elif re.match('^L\$_SQSA_(S-[0-9]-[0-9]-([0-9])+-([0-9])+-([0-9])+-([0-9])+-([0-9])+)$', upperName) is not None:
+        elif re.match(r'^L\$_SQSA_(S-[0-9]-[0-9]-([0-9])+-([0-9])+-([0-9])+-([0-9])+-([0-9])+)$', upperName) is not None:
             # Decode stored security questions
             sid = re.search(r'^L\$_SQSA_(S-[0-9]-[0-9]-([0-9])+-([0-9])+-([0-9])+-([0-9])+-([0-9])+)$', upperName).group(1)
             try:
@@ -789,18 +789,18 @@ class LSASecrets():
             else:
                 secret = 'Password of service %s: %s' % (sid, password)
 
-        elif re.match('^L\$([0-9A-Z]{3})-PRV-([0-9A-F]{32})$', upperName) is not None:
+        elif re.match(r'^L\$([0-9A-Z]{3})-PRV-([0-9A-F]{32})$', upperName) is not None:
             # Decode stored OpenGPG private key
-            keyid = re.search('^L\$([0-9A-Z]{3})-PRV-([0-9A-F]{32})$', upperName).group(2)
+            keyid = re.search(r'^L\$([0-9A-Z]{3})-PRV-([0-9A-F]{32})$', upperName).group(2)
             try:
                 b64key = secretItem.decode('utf-16le')
             except:
                 pass
             else:
                 secret = 'OpenGPG private key %s: \n%s' % (keyid, b64key)
-        elif re.match('^L\$([0-9A-Z]{3})-PUB-([0-9A-F]{32})$', upperName) is not None:
+        elif re.match(r'^L\$([0-9A-Z]{3})-PUB-([0-9A-F]{32})$', upperName) is not None:
             # Decode stored OpenGPG public key
-            keyid = re.search('^L\$([0-9A-Z]{3})-PUB-([0-9A-F]{32})$', upperName).group(2)
+            keyid = re.search(r'^L\$([0-9A-Z]{3})-PUB-([0-9A-F]{32})$', upperName).group(2)
             try:
                 b64key = secretItem.decode('utf-16le')
             except:
@@ -886,7 +886,7 @@ class LSASecrets():
 
             for valueType in valueTypeList:
                 try:
-                    value = self.__remoteOps.retrieveSubKey(f'SECURITY\\Policy\\Secrets\\{key}\{valueType}', '', throttle=self.__throttle)
+                    value = self.__remoteOps.retrieveSubKey(f'SECURITY\\Policy\\Secrets\\{key}\\{valueType}', '', throttle=self.__throttle)
                 except Exception as e:
                     if logging.getLogger().level == logging.DEBUG:
                         import traceback
@@ -922,7 +922,7 @@ class LSASecrets():
 
         for valueType in valueTypeList:
             try:
-                value = self.__remoteOps.retrieveSubKey(f'SECURITY\\Policy\\Secrets\\{key}\{valueType}', '', throttle=self.__throttle)
+                value = self.__remoteOps.retrieveSubKey(f'SECURITY\\Policy\\Secrets\\{key}\\{valueType}', '', throttle=self.__throttle)
             except Exception as e:
                 if logging.getLogger().level == logging.DEBUG:
                     import traceback
