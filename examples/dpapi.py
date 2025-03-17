@@ -458,13 +458,17 @@ class DPAPI:
             blob = DPAPI_BLOB(data)
 
             if self.options.key is not None:
-                key = unhexlify(self.options.key[2:])
+                if self.options.key.startswith("0x"):
+                    self.options.key = self.options.key[2:]
+                key = unhexlify(self.options.key)
                 if self.options.entropy_file is not None:
                     fp2 = open(self.options.entropy_file, 'rb')
                     entropy = fp2.read()
                     fp2.close()
-                elif self.options.entropy is not None:
-                    entropy = b(self.options.entropy)
+               elif self.options.entropy is not None:
+                    if self.options.entropy.startswith("0x"):
+                        self.options.entropy = self.options.entropy[2:]
+                    entropy = unhexlify(self.options.entropy)
                 else:
                     entropy = None
 
@@ -600,8 +604,8 @@ if __name__ == '__main__':
     # A CryptUnprotectData command
     unprotect = subparsers.add_parser('unprotect', help='Provides CryptUnprotectData functionality')
     unprotect.add_argument('-file', action='store', required=True, help='File with DATA_BLOB to decrypt')
-    unprotect.add_argument('-key', action='store', required=False, help='Key used for decryption')
-    unprotect.add_argument('-entropy', action='store', default=None, required=False, help='String with extra entropy needed for decryption')
+    unprotect.add_argument('-key', action='store', required=False, help='Key used for decryption (in hex format)')
+    unprotect.add_argument('-entropy', action='store', default=None, required=False, help='Hex string with extra entropy needed for decryption')
     unprotect.add_argument('-entropy-file', action='store', default=None, required=False, help='File with binary entropy contents (overwrites -entropy)')
 
     # A CREDHIST command
