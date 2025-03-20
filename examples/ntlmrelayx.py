@@ -61,6 +61,10 @@ RELAY_SERVERS = []
 
 class MiniShell(cmd.Cmd):
     def __init__(self, relayConfig, threads, api_address):
+
+        import readline
+        readline.backend = 'readline'
+
         cmd.Cmd.__init__(self)
 
         self.prompt = 'ntlmrelayx> '

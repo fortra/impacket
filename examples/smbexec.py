@@ -174,6 +174,10 @@ class CMDEXEC:
 
 class RemoteShell(cmd.Cmd):
     def __init__(self, share, rpc, mode, serviceName, shell_type):
+
+        import readline
+        readline.backend = 'readline'
+
         cmd.Cmd.__init__(self)
         self.__share = share
         self.__mode = mode
