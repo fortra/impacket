@@ -47,7 +47,7 @@ from impacket.examples.utils import parse_credentials
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import TGS_REP, AS_REP
 from impacket.krb5.ccache import CCache
-from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
+from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, parseKerberosOptions
 from impacket.krb5.types import Principal
 from impacket.ldap import ldap, ldapasn1
 from impacket.smbconnection import SMBConnection, SessionError
@@ -92,6 +92,9 @@ class GetUserSPNs:
         self.__saveTGS = cmdLineOptions.save
         self.__requestUser = cmdLineOptions.request_user
         self.__stealth = cmdLineOptions.stealth
+        self.__tgsOptions = parseKerberosOptions(cmdLineOptions.tgs_options)
+        self.__tgtOptions = parseKerberosOptions(cmdLineOptions.tgt_options)
+        self.__encryption = cmdLineOptions.encryption
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
@@ -156,19 +159,25 @@ class GetUserSPNs:
                 tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, '', self.__domain,
                                                                         compute_lmhash(self.__password),
                                                                         compute_nthash(self.__password), self.__aesKey,
-                                                                        kdcHost=self.__kdcIP)
+                                                                        kdcHost=self.__kdcIP,
+                                                                        encType=self.__encryption,
+                                                                        options=self.__tgtOptions)
             except Exception as e:
                 logging.debug('TGT: %s' % str(e))
                 tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                         unhexlify(self.__lmhash),
                                                                         unhexlify(self.__nthash), self.__aesKey,
-                                                                        kdcHost=self.__kdcIP)
+                                                                        kdcHost=self.__kdcIP,
+                                                                        encType=self.__encryption,
+                                                                        options=self.__tgtOptions)
 
         else:
             tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                     unhexlify(self.__lmhash),
                                                                     unhexlify(self.__nthash), self.__aesKey,
-                                                                    kdcHost=self.__kdcIP)
+                                                                    kdcHost=self.__kdcIP,
+                                                                        encType=self.__encryption,
+                                                                        options=self.__tgtOptions)
         TGT = {}
         TGT['KDC_REP'] = tgt
         TGT['cipher'] = cipher
@@ -412,7 +421,7 @@ class GetUserSPNs:
                         tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
                                                                                 self.__kdcIP,
                                                                                 TGT['KDC_REP'], TGT['cipher'],
-                                                                                TGT['sessionKey'])
+                                                                                TGT['sessionKey'], options=self.__tgsOptions, encType=self.__encryption)
                         self.outputTGS(tgs, oldSessionKey, sessionKey, sAMAccountName,
                                        self.__targetDomain + "/" + sAMAccountName, fd)
                     except Exception as e:
@@ -450,7 +459,9 @@ class GetUserSPNs:
                                                                             aesKey=self.__aesKey,
                                                                             kdcHost=self.__kdcHost,
                                                                             serverName=username,
-                                                                            kerberoast_no_preauth=True)
+                                                                            kerberoast_no_preauth=True,
+                                                                            encType=self.__encryption,
+                                                                            options=self.__tgtOptions)
                     self.outputTGS(tgt, oldSessionKey, sessionKey, username, username, fd)
                 except Exception as e:
                     logging.debug("Exception:", exc_info=True)
@@ -471,7 +482,7 @@ class GetUserSPNs:
                     tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
                                                                             self.__kdcIP,
                                                                             TGT['KDC_REP'], TGT['cipher'],
-                                                                            TGT['sessionKey'])
+                                                                            TGT['sessionKey'], options=self.__tgsOptions, encType=self.__encryption)
                     self.outputTGS(tgs, oldSessionKey, sessionKey, username, username, fd)
                 except Exception as e:
                     logging.debug("Exception:", exc_info=True)
@@ -528,6 +539,12 @@ if __name__ == '__main__':
     group.add_argument('-dc-host', action='store', metavar='hostname', help='Hostname of the domain controller to use. '
                                                                             'If ommited, the domain part (FQDN) '
                                                                             'specified in the account parameter will be used')
+
+    kerberos_options = parser.add_argument_group('kerberos options')
+
+    kerberos_options.add_argument('-tgs-options', action="store", metavar="hex value", default=None, help='The hexadecimal value to send to the Kerberos Ticket Granting Service (TGS).')
+    kerberos_options.add_argument('-tgt-options', action="store", metavar="hex value", default=None, help='The hexadecimal value to send to the Kerberos Ticket Granting Ticket (TGT).')
+    kerberos_options.add_argument('-encryption', action="store", metavar="18 or 23", default="23", help='Set encryption to AES256 (18) or RC4 (23).')
 
     if len(sys.argv) == 1:
         parser.print_help()
