@@ -49,7 +49,7 @@ from impacket.smb3structs import *
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_MORE_PROCESSING_REQUIRED, STATUS_INVALID_PARAMETER, \
     STATUS_NO_MORE_FILES, STATUS_PENDING, STATUS_NOT_IMPLEMENTED, ERROR_MESSAGES
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_OID, asn1encode, ASN1_AID
-from impacket.krb5.gssapi import KRB5_AP_REQ
+from impacket.krb5.gssapismb import KRB5_AP_REQ
 
 
 # For signing
