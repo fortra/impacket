@@ -56,7 +56,7 @@ from impacket import version, smbserver
 from impacket.dcerpc.v5 import transport, scmr
 from impacket.krb5.keytab import Keytab
 
-OUTPUT_FILENAME = '__output'
+OUTPUT_FILENAME = '__output'.join(random.sample(['z','y','x','w','v','u','t','s','r','q','p','o','n','m','l','k','j','i','h','g','f','e','d','c','b','a'], 2))
 SMBSERVER_DIR   = '__tmp'
 DUMMY_SHARE     = 'TMP'
 CODEC = sys.stdout.encoding
