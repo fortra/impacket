@@ -63,24 +63,39 @@ def parse_credentials(credentials):
 
 # ----------
 
-from impacket.smbconnection import SMBConnection
+from impacket.smbconnection import SMBConnection, SessionError
 import ldap3
 import ssl
 from binascii import unhexlify
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
-def _get_machine_name(dc_ip, domain):
-    if dc_ip is not None:
+def _get_machine_name(dc_ip, domain, target_domain=None, fqdn=False):
+    if dc_ip is not None and target_domain == domain:
         s = SMBConnection(dc_ip, dc_ip)
+    elif target_domain is not None:
+        s = SMBConnection(target_domain, target_domain)
     else:
         s = SMBConnection(domain, domain)
     try:
         s.login('', '')
+    except OSError as e:
+        if str(e).find('timed out') > 0:
+            raise Exception('The connection is timed out. Probably 445/TCP port is closed. Try to specify corresponding NetBIOS name or FQDN as the value of the -dc-host option')
+        else:
+            raise
+    except SessionError as e:
+        if str(e).find('STATUS_NOT_SUPPORTED') > 0:
+            raise Exception('The SMB request is not supported. Probably NTLM is disabled. Try to specify corresponding NetBIOS name or FQDN as the value of the -dc-host option')
+        else:
+            raise
     except Exception:
         if s.getServerName() == '':
             raise Exception('Error while anonymous logging into %s' % domain)
     else:
         s.logoff()
+
+    if fqdn:
+        return "%s.%s" % (s.getServerName(), s.getServerDNSDomainName())
     return s.getServerName()
 
 def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost=None, TGT=None, TGS=None, useCache=True):
@@ -251,6 +266,42 @@ def init_ldap_session(domain, username, password, lmhash, nthash, k, dc_ip, aesK
             return _init_ldap_connection(target, ssl.PROTOCOL_TLSv1, domain, username, password, lmhash, nthash, k, dc_ip, aesKey)
     else:
         return _init_ldap_connection(target, None, domain, username, password, lmhash, nthash, k, dc_ip, aesKey)
+
+# ----------
+
+from impacket.ldap import ldap
+import logging
+def ldap_login(target, base_dn, kdc_ip, kdc_host, do_kerberos, username, password, domain, lmhash, nthash, aeskey, target_domain=None, fqdn=False):
+    if kdc_host is not None and domain == target_domain:
+        target = kdc_host
+    else:
+        if do_kerberos:
+            logging.info('Getting machine hostname')
+            target = _get_machine_name(kdc_ip, domain, target_domain, fqdn)
+
+    # Connect to LDAP
+    try:
+        ldapConnection = ldap.LDAPConnection('ldap://%s' % target, base_dn, kdc_ip)
+        if do_kerberos is not True:
+            ldapConnection.login(username, password, domain, lmhash, nthash)
+        else:
+            ldapConnection.kerberosLogin(username, password, domain, lmhash, nthash, aeskey, kdcHost=kdc_ip)
+    except ldap.LDAPSessionError as e:
+        if str(e).find('strongerAuthRequired') >= 0:
+            # We need to try SSL
+            ldapConnection = ldap.LDAPConnection('ldaps://%s' % target, base_dn, kdc_ip)
+            if do_kerberos is not True:
+                ldapConnection.login(username, password, domain, lmhash, nthash)
+            else:
+                ldapConnection.kerberosLogin(username, password, domain, lmhash, nthash, aeskey, kdcHost=kdc_ip)
+        else:
+            if str(e).find('NTLMAuthNegotiate') >= 0:
+                logging.critical("NTLM negotiation failed. Probably NTLM is disabled. Try to use Kerberos authentication instead.")
+            else:
+                if kdc_ip is not None and kdc_host is not None:
+                    logging.critical("If the credentials are valid, check the hostname and IP address of KDC. They must match exactly each other.")
+            raise
+    return ldapConnection
 
 # ----------
 

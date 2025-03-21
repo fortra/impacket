@@ -43,14 +43,13 @@ from impacket import version
 from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_TRUSTED_FOR_DELEGATION, \
     UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION
 from impacket.examples import logger
-from impacket.examples.utils import parse_identity
+from impacket.examples.utils import parse_identity, ldap_login
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import TGS_REP, AS_REP
 from impacket.krb5.ccache import CCache
 from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
 from impacket.krb5.types import Principal
 from impacket.ldap import ldap, ldapasn1
-from impacket.smbconnection import SMBConnection, SessionError
 from impacket.ntlm import compute_lmhash, compute_nthash
 
 
@@ -109,29 +108,6 @@ class GetUserSPNs:
             logging.warning('KDC IP address and hostname will be ignored because of cross-domain targeting.')
             self.__kdcIP = None
             self.__kdcHost = None
-
-    def getMachineName(self, target):
-        try:
-            s = SMBConnection(target, target)
-            s.login('', '')
-        except OSError as e:
-            if str(e).find('timed out') > 0:
-                raise Exception('The connection is timed out. Probably 445/TCP port is closed. Try to specify '
-                                'corresponding NetBIOS name or FQDN as the value of the -dc-host option')
-            else:
-                raise
-        except SessionError as e:
-            if str(e).find('STATUS_NOT_SUPPORTED') > 0:
-                raise Exception('The SMB request is not supported. Probably NTLM is disabled. Try to specify '
-                                'corresponding NetBIOS name or FQDN as the value of the -dc-host option')
-            else:
-                raise
-        except Exception:
-            if s.getServerName() == '':
-                raise Exception('Error while anonymous logging into %s' % target)
-        else:
-            s.logoff()
-        return "%s.%s" % (s.getServerName(), s.getServerDNSDomainName())
 
     @staticmethod
     def getUnixTime(t):
@@ -255,46 +231,10 @@ class GetUserSPNs:
             self.request_users_file_TGSs()
             return
 
-        if self.__kdcHost is not None and self.__targetDomain == self.__domain:
-            self.__target = self.__kdcHost
-        else:
-            if self.__kdcIP is not None and self.__targetDomain == self.__domain:
-                self.__target = self.__kdcIP
-            else:
-                self.__target = self.__targetDomain
-
-            if self.__doKerberos:
-                logging.info('Getting machine hostname')
-                self.__target = self.getMachineName(self.__target)
-
         # Connect to LDAP
-        try:
-            ldapConnection = ldap.LDAPConnection('ldap://%s' % self.__target, self.baseDN, self.__kdcIP)
-            if self.__doKerberos is not True:
-                ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
-            else:
-                ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash,
-                                             self.__nthash,
-                                             self.__aesKey, kdcHost=self.__kdcIP)
-        except ldap.LDAPSessionError as e:
-            if str(e).find('strongerAuthRequired') >= 0:
-                # We need to try SSL
-                ldapConnection = ldap.LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcIP)
-                if self.__doKerberos is not True:
-                    ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
-                else:
-                    ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash,
-                                                 self.__nthash,
-                                                 self.__aesKey, kdcHost=self.__kdcIP)
-            else:
-                if str(e).find('NTLMAuthNegotiate') >= 0:
-                    logging.critical("NTLM negotiation failed. Probably NTLM is disabled. Try to use Kerberos "
-                                     "authentication instead.")
-                else:
-                    if self.__kdcIP is not None and self.__kdcHost is not None:
-                        logging.critical("If the credentials are valid, check the hostname and IP address of KDC. They "
-                                         "must match exactly each other")
-                raise
+        ldapConnection = ldap_login(self.__target, self.baseDN, self.__kdcIP, self.__kdcHost, self.__doKerberos, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, target_domain=self.__targetDomain, fqdn=True)
+        # updating "self.__target" as it may have changed in the ldap_login processing
+        self.__target = ldapConnection._dstHost
 
         # Building the search filter
         filter_spn = "servicePrincipalName=*"
