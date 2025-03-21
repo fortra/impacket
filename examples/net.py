@@ -485,12 +485,12 @@ class Net:
 
 if __name__ == '__main__':
     print(version.BANNER)
-    logger.init()
 
     parser = argparse.ArgumentParser(add_help = True, description = "SAMR rpc client implementation.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
 
     subparsers = parser.add_subparsers(help='An account entry name', dest='entry', required=True)
 
@@ -556,11 +556,7 @@ if __name__ == '__main__':
         logging.error("argument '-newPasswd' is required for creating new account.")
         sys.exit(1)
 
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
+    logger.init(options.ts, options.debug)
 
     domain, username, password, address = parse_target(options.target)
 

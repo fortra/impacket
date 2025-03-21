@@ -28,7 +28,7 @@ from binascii import unhexlify
 
 from impacket import version
 from impacket.examples import logger
-from impacket.examples.utils import parse_credentials
+from impacket.examples.utils import parse_identity
 from impacket.krb5.kerberosv5 import getKerberosTGT
 from impacket.krb5 import constants
 from impacket.krb5.types import Principal
@@ -100,33 +100,19 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     # Init the example's logger theme
-    logger.init(options.ts)
+    logger.init(options.ts, options.debug)
 
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
+    domain, username, password, _, _, options.k = parse_identity(options.identity, options.hashes, options.no_pass, options.aesKey, options.k)
+    
+    if domain is None:
+        logging.critical('Domain should be specified!')
+        sys.exit(1)
 
-    domain, username, password = parse_credentials(options.identity)
+    if options.principalType is None:
+        logging.critical('Invalid principalType!')
+        sys.exit(1)
 
     try:
-        if domain is None:
-            logging.critical('Domain should be specified!')
-            sys.exit(1)
-
-        if options.principalType is None:
-            logging.critical('Invalid principalType!')
-            sys.exit(1)
-
-        if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
-            from getpass import getpass
-            password = getpass("Password:")
-
-        if options.aesKey is not None:
-            options.k = True
-
         executer = GETTGT(username, password, domain, options)
         executer.run()
     except Exception as e:
