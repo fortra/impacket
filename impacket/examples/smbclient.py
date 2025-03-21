@@ -42,6 +42,10 @@ class MiniImpacketShell(cmd.Cmd):
         #If the tcpShell parameter is passed (used in ntlmrelayx),
         # all input and output is redirected to a tcp socket
         # instead of to stdin / stdout
+
+        import readline
+        readline.backend = 'readline'
+
         if tcpShell is not None:
             cmd.Cmd.__init__(self, stdin=tcpShell.stdin, stdout=tcpShell.stdout)
             sys.stdout = tcpShell.stdout
