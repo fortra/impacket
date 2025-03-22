@@ -101,6 +101,7 @@ class MiniImpacketShell(cmd.Cmd):
     def do_help(self,line):
         print("""
  open {host,port=445} - opens a SMB connection against the target host/port
+ reconnect - reconnect connection, useful for broken pipes & interrupted sessions
  login {domain/username,passwd} - logs into the current SMB connection, no parameters for NULL connection. If no password specified, it'll be prompted
  kerberos_login {domain/username,passwd} - logs into the current SMB connection using Kerberos. If no password specified, it'll be prompted. Use the DNS resolvable domain name
  login_hash {domain/username,lmhash:nthash} - logs into the current SMB connection using the password hashes
@@ -179,6 +180,9 @@ class MiniImpacketShell(cmd.Cmd):
         self.nthash = None
         self.username = None
 
+    def do_reconnect(self, line):
+        self.smb.reconnect()
+    
     def do_login(self,line):
         if self.smb is None:
             LOG.error("No connection open")
