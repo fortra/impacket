@@ -783,7 +783,7 @@ class SMB_TIME:
         """
         Helper method to easily convert struct to class object.
         """
-        return cls(s.h + 1980, s.m, s.s)
+        return cls(s.h, s.m, s.s)
 
 # Contains information about a SMB shared device/service
 class SharedDevice:
