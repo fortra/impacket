@@ -38,6 +38,7 @@ class NTLMRelayxConfig:
         self.mode = None
         self.redirecthost = None
         self.outputFile = None
+        self.dumpHashes = False
         self.attacks = None
         self.lootdir = None
         self.randomtargets = False
@@ -132,6 +133,9 @@ class NTLMRelayxConfig:
 
     def setOutputFile(self, outputFile):
         self.outputFile = outputFile
+
+    def setdumpHashes(self, dumpHashes):
+        self.dumpHashes = dumpHashes
 
     def setTargets(self, target):
         self.target = target

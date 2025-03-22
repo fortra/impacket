@@ -585,6 +585,9 @@ class MiniImpacketShell(cmd.Cmd):
             raise
         fh.close()
 
+    def complete_cat(self, text, line, begidx, endidx):
+        return self.complete_get(text, line, begidx, endidx, include=1)
+    
     def do_cat(self, filename):
         if self.tid is None:
             LOG.error("No share selected")

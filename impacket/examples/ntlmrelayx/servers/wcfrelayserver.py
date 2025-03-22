@@ -270,6 +270,9 @@ class WCFRelayServer(Thread):
                                                 authenticateMessage['lanman'], authenticateMessage['ntlm'])
             self.client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
 
+            if self.server.config.dumpHashes is True:
+                LOG.info(ntlm_hash_data['hash_string'])
+
             if self.server.config.outputFile is not None:
                 writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                       self.server.config.outputFile)
