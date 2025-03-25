@@ -88,6 +88,7 @@ class GetUserSPNs:
         self.__requestTGS = cmdLineOptions.request
         # [!] in this script the value of -dc-ip option is self.__kdcIP and the value of -dc-host option is self.__kdcHost
         self.__kdcIP = cmdLineOptions.dc_ip
+        self.__kdcPort = cmdLineOptions.dc_port
         self.__kdcHost = cmdLineOptions.dc_host
         self.__saveTGS = cmdLineOptions.save
         self.__requestUser = cmdLineOptions.request_user
@@ -269,7 +270,7 @@ class GetUserSPNs:
 
         # Connect to LDAP
         try:
-            ldapConnection = ldap.LDAPConnection('ldap://%s' % self.__target, self.baseDN, self.__kdcIP)
+            ldapConnection = ldap.LDAPConnection('ldap://%s:%s' % (self.__target, self.__kdcPort), self.baseDN, self.__kdcIP, self.__kdcPort)
             if self.__doKerberos is not True:
                 ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
             else:
@@ -279,7 +280,7 @@ class GetUserSPNs:
         except ldap.LDAPSessionError as e:
             if str(e).find('strongerAuthRequired') >= 0:
                 # We need to try SSL
-                ldapConnection = ldap.LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcIP)
+                ldapConnection = ldap.LDAPConnection('ldaps://%s:%s' % (self.__target, self.__kdcPort), self.baseDN, self.__kdcIP, self.__kdcPort)
                 if self.__doKerberos is not True:
                     ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
                 else:
@@ -525,6 +526,8 @@ if __name__ == '__main__':
                                                                             'ommited it use the domain part (FQDN) '
                                                                             'specified in the target parameter. Ignored'
                                                                             'if -target-domain is specified.')
+    group.add_argument('-dc-port', action='store', metavar='port', help='Port of the domain controller. '
+                                                                            'Port used to communicate with the dc, instead of the default port')
     group.add_argument('-dc-host', action='store', metavar='hostname', help='Hostname of the domain controller to use. '
                                                                             'If ommited, the domain part (FQDN) '
                                                                             'specified in the account parameter will be used')
