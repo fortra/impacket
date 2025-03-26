@@ -283,6 +283,7 @@ if __name__ == '__main__':
     parser.add_argument('-i','--interactive', action='store_true',help='Launch an smbclient, LDAP console or SQL shell instead'
                         'of executing a command after a successful relay. This console will listen locally on a '
                         ' tcp port and can be reached with for example netcat.')
+    parser.add_argument('-lf','--log-file', action='store',help='path to logfile where all stdout will be logged as well.')
 
     # Interface address specification
     parser.add_argument('-ip','--interface-ip', action='store', metavar='INTERFACE_IP', help='IP address of interface to '
@@ -444,7 +445,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # Init the example's logger theme
-    logger.init(options.ts)
+    logger.init(options.ts, options.log_file)
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
