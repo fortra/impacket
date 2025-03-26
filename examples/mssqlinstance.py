@@ -48,7 +48,7 @@ if __name__ == '__main__':
     ms_sql = tds.MSSQL(options.host)
     instances = ms_sql.getInstances(int(options.timeout))
     if len(instances) == 0:
-        "No MSSQL Instances found"
+        print("No MSSQL Instances found")
     else:
         for i, instance in enumerate(instances):
             logging.info("Instance %d" % i)
