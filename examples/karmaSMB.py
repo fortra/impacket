@@ -415,7 +415,11 @@ class KarmaSMBServer(Thread):
             return [smb2.SMB2Error()], None, STATUS_NO_MORE_FILES 
         else:
             origName, targetFile =  connData['MS15011']['FileData']
-            (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(targetFile)
+            stat_result = os.stat(targetFile)
+            size = stat_result.st_size
+            atime = stat_result.st_atime
+            mtime = stat_result.st_mtime
+            ctime = stat_result.st_ctime
 
             infoRecord = smb.SMBFindFileIdBothDirectoryInfo( smb.SMB.FLAGS2_UNICODE )
             infoRecord['ExtFileAttributes'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
