@@ -916,7 +916,7 @@ class SMBFindFileBothDirectoryInfo(AsciiOrUnicodeStructure):
         ('ExtFileAttributes','<L=0'),
     )
     AsciiStructure = (
-        ('FileNameLength','<L-FileName','len(FileName)'),
+        ('FileNameLength','<L-FileName'),
         ('EaSize','<L=0'),
         ('ShortNameLength','<B=0'),
         ('Reserved','<B=0'),
@@ -924,7 +924,7 @@ class SMBFindFileBothDirectoryInfo(AsciiOrUnicodeStructure):
         ('FileName',':'),
     )
     UnicodeStructure = (
-        ('FileNameLength','<L-FileName','len(FileName)*2'),
+        ('FileNameLength','<L-FileName'),
         ('EaSize','<L=0'),
         ('ShortNameLength','<B=0'),
         ('Reserved','<B=0'),
@@ -946,14 +946,14 @@ class SMBFindFileIdFullDirectoryInfo(AsciiOrUnicodeStructure):
         ('ExtFileAttributes','<L=0'),
     )
     AsciiStructure = (
-        ('FileNameLength','<L-FileName','len(FileName)'),
+        ('FileNameLength','<L-FileName'),
         ('EaSize','<L=0'),
         ('Reserved', '<L=0'),
         ('FileID','<q=0'),
         ('FileName','z'),
     )
     UnicodeStructure = (
-        ('FileNameLength','<L-FileName','len(FileName)*2'),
+        ('FileNameLength','<L-FileName'),
         ('EaSize','<L=0'),
         ('Reserved','<L=0'),
         ('FileID','<q=0'),
@@ -974,7 +974,7 @@ class SMBFindFileIdBothDirectoryInfo(AsciiOrUnicodeStructure):
         ('ExtFileAttributes','<L=0'),
     )
     AsciiStructure = (
-        ('FileNameLength','<L-FileName','len(FileName)'),
+        ('FileNameLength','<L-FileName'),
         ('EaSize','<L=0'),
         ('ShortNameLength','<B=0'),
         ('Reserved','<B=0'),
@@ -984,7 +984,7 @@ class SMBFindFileIdBothDirectoryInfo(AsciiOrUnicodeStructure):
         ('FileName','z'),
     )
     UnicodeStructure = (
-        ('FileNameLength','<L-FileName','len(FileName)*2'),
+        ('FileNameLength','<L-FileName'),
         ('EaSize','<L=0'),
         ('ShortNameLength','<B=0'),
         ('Reserved','<B=0'),
@@ -1008,11 +1008,11 @@ class SMBFindFileDirectoryInfo(AsciiOrUnicodeStructure):
         ('ExtFileAttributes','<L=0'),
     )
     AsciiStructure = (
-        ('FileNameLength','<L-FileName','len(FileName)'),
+        ('FileNameLength','<L-FileName'),
         ('FileName','z'),
     )
     UnicodeStructure = (
-        ('FileNameLength','<L-FileName','len(FileName)*2'),
+        ('FileNameLength','<L-FileName'),
         ('FileName',':'),
     )
 
@@ -1023,11 +1023,11 @@ class SMBFindFileNamesInfo(AsciiOrUnicodeStructure):
         ('FileIndex','<L=0'),
     )
     AsciiStructure = (
-        ('FileNameLength','<L-FileName','len(FileName)'),
+        ('FileNameLength','<L-FileName'),
         ('FileName','z'),
     )
     UnicodeStructure = (
-        ('FileNameLength','<L-FileName','len(FileName)*2'),
+        ('FileNameLength','<L-FileName'),
         ('FileName',':'),
     )
 
@@ -1045,12 +1045,12 @@ class SMBFindFileFullDirectoryInfo(AsciiOrUnicodeStructure):
         ('ExtFileAttributes','<L=0'),
     )
     AsciiStructure = (
-        ('FileNameLength','<L-FileName','len(FileName)'),
+        ('FileNameLength','<L-FileName'),
         ('EaSize','<L'),
         ('FileName','z'),
     )
     UnicodeStructure = (
-        ('FileNameLength','<L-FileName','len(FileName)*2'),
+        ('FileNameLength','<L-FileName'),
         ('EaSize','<L'),
         ('FileName',':'),
     )
@@ -1070,11 +1070,11 @@ class SMBFindInfoStandard(AsciiOrUnicodeStructure):
         ('ExtFileAttributes','<H=0'),
     )
     AsciiStructure = (
-        ('FileNameLength','<B-FileName','len(FileName)'),
+        ('FileNameLength','<B-FileName'),
         ('FileName','z'),
     )
     UnicodeStructure = (
-        ('FileNameLength','<B-FileName','len(FileName)*2'),
+        ('FileNameLength','<B-FileName'),
         ('FileName',':'),
     )
 
@@ -1302,7 +1302,7 @@ class SMBQueryFileAllInfo(Structure):
         ('Directory','<B'),
         ('Reserved','<H=0'),
         ('EaSize','<L=0'),
-        ('FileNameLength','<L-FileName','len(FileName)'),
+        ('FileNameLength','<L-FileName'),
         ('FileName',':'),
     )
 
