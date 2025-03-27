@@ -220,7 +220,7 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
 
     return True
 
-def _init_ldap_connection(target, tls_version, args, domain, username, password, lmhash, nthash, k, dc_ip, aesKey):
+def _init_ldap_connection(target, tls_version, domain, username, password, lmhash, nthash, k, dc_ip, aesKey):
     user = '%s\\%s' % (domain, username)
     connect_to = target
     if dc_ip is not None:
