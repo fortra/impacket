@@ -130,13 +130,9 @@ from impacket.krb5 import kerberosv5, kpasswd
 from impacket.ldap import ldap, ldapasn1
 
 from impacket.examples import logger
-from impacket.examples.utils import parse_target
+from impacket.examples.utils import parse_target, EMPTY_LM_HASH
 
 import OpenSSL
-
-
-EMPTY_LM_HASH = "aad3b435b51404eeaad3b435b51404ee"
-
 
 class PasswordHandler:
     """Generic interface for all the password protocols supported by this script"""
@@ -744,16 +740,6 @@ class LdapPassword(PasswordHandler):
         newPasswordEncoded = self.encodeLdapPassword(newPassword)
         return self._modifyPassword(False, targetUsername, targetDomain, None, newPasswordEncoded)
 
-
-def init_logger(options):
-    logger.init(options.ts)
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-
-
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Change or reset passwords over different protocols.",
@@ -844,7 +830,7 @@ if __name__ == "__main__":
     print(version.BANNER)
 
     options = parse_args()
-    init_logger(options)
+    logger.init(options.ts, options.debug)
 
     handlers = {
         "kpasswd": KPassword,
