@@ -38,9 +38,8 @@ from datetime import datetime
 from impacket import version
 from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE
 from impacket.examples import logger
-from impacket.examples.utils import parse_credentials
+from impacket.examples.utils import parse_identity, ldap_login
 from impacket.ldap import ldap, ldapasn1
-from impacket.smbconnection import SMBConnection, SessionError
 
 
 class GetADComputers:
@@ -82,31 +81,6 @@ class GetADComputers:
             # Since we won't process all rows at once, this will be fixed lengths
             self.__colLen = [15, 35, 15, 20]
             self.__outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(self.__colLen)])
-
- 
-
-    def getMachineName(self, target):
-        try:
-            s = SMBConnection(target, target)
-            s.login('', '')
-        except OSError as e:
-            if str(e).find('timed out') > 0:
-                raise Exception('The connection is timed out. Probably 445/TCP port is closed. Try to specify '
-                                'corresponding NetBIOS name or FQDN as the value of the -dc-host option')
-            else:
-                raise
-        except SessionError as e:
-            if str(e).find('STATUS_NOT_SUPPORTED') > 0:
-                raise Exception('The SMB request is not supported. Probably NTLM is disabled. Try to specify '
-                                'corresponding NetBIOS name or FQDN as the value of the -dc-host option')
-            else:
-                raise
-        except Exception:
-            if s.getServerName() == '':
-                raise Exception('Error while anonymous logging into %s' % target)
-        else:
-            s.logoff()
-        return s.getServerName()
 
     @staticmethod
     def getUnixTime(t):
@@ -181,46 +155,10 @@ class GetADComputers:
             pass
 
     def run(self):
-        if self.__kdcHost is not None:
-            self.__target = self.__kdcHost
-        else:
-            if self.__kdcIP is not None:
-                self.__target = self.__kdcIP
-            else:
-                self.__target = self.__domain
-
-            if self.__doKerberos:
-                logging.info('Getting machine hostname')
-                self.__target = self.getMachineName(self.__target)
-
-     
         # Connect to LDAP
-        try:
-            ldapConnection = ldap.LDAPConnection('ldap://%s' % self.__target, self.baseDN, self.__kdcIP)
-            if self.__doKerberos is not True:
-                ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
-            else:
-                ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
-                                             self.__aesKey, kdcHost=self.__kdcIP)
-        except ldap.LDAPSessionError as e:
-            if str(e).find('strongerAuthRequired') >= 0:
-                # We need to try SSL
-                ldapConnection = ldap.LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcIP)
-                if self.__doKerberos is not True:
-                    ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
-                else:
-                    ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
-                                                 self.__aesKey, kdcHost=self.__kdcIP)
-            else:
-                if str(e).find('NTLMAuthNegotiate') >= 0:
-                    logging.critical("NTLM negotiation failed. Probably NTLM is disabled. Try to use Kerberos "
-                                     "authentication instead.")
-                else:
-                    if self.__kdcIP is not None and self.__kdcHost is not None:
-                        logging.critical("If the credentials are valid, check the hostname and IP address of KDC. They "
-                                         "must match exactly each other.")
-                raise
-
+        ldapConnection = ldap_login(self.__target, self.baseDN, self.__kdcIP, self.__kdcHost, self.__doKerberos, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
+        # updating "self.__target" as it may have changed in the ldap_login processing
+        self.__target = ldapConnection._dstHost
         logging.info('Querying %s for information about domain.' % self.__target)
         # Print header
         print((self.__outputFormat.format(*self.__header)))
@@ -281,27 +219,13 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     # Init the example's logger theme
-    logger.init(options.ts)
+    logger.init(options.ts, options.debug)
 
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-
-    domain, username, password = parse_credentials(options.target)
+    domain, username, password, _, _, options.k = parse_identity(options.target, options.hashes, options.no_pass, options.aesKey, options.k)
 
     if domain == '':
         logging.critical('Domain should be specified!')
         sys.exit(1)
-
-    if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
-        from getpass import getpass
-        password = getpass("Password:")
-
-    if options.aesKey is not None:
-        options.k = True
 
     try:
         executer = GetADComputers(username, password, domain, options)

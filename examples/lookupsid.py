@@ -157,6 +157,7 @@ if __name__ == '__main__':
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('maxRid', action='store', default = '4000', nargs='?', help='max Rid to check (default 4000)')
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
 
     group = parser.add_argument_group('connection')
@@ -184,7 +185,7 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     # Init the example's logger theme
-    logger.init(options.ts)
+    logger.init(options.ts, options.debug)
 
     domain, username, password, remoteName = parse_target(options.target)
 

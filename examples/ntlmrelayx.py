@@ -444,15 +444,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # Init the example's logger theme
-    logger.init(options.ts)
-
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-        logging.getLogger('impacket.smbserver').setLevel(logging.ERROR)
+    logger.init(options.ts, options.debug)
 
     # Let's register the protocol clients we have
     # ToDo: Do this better somehow
