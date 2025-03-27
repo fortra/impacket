@@ -146,9 +146,15 @@ class SQLSHELL(cmd.Cmd):
             remote_path = args[0]
             local_path = args[1]
 
+            # check permission
+            result = self.sql_query("SELECT HAS_PERMS_BY_NAME(NULL, NULL, 'ADMINISTER BULK OPERATIONS') AS HasBulkAdminPermission")
+            if result[0].get('HasBulkAdminPermission') != 1:
+                print("[-] Current user does not have 'ADMINISTER BULK OPERATIONS' permission")
+                return
+
             # download file
-            result = self.sql_query("EXEC xp_fileexist '" + remote_path + "'")
-            if result[0].get('File Exists') != 1:
+            result = self.sql_query("SELECT * FROM sys.dm_os_file_exists('" + remote_path + "')")
+            if result[0].get('file_exists') != 1:
                 print("[-] File does not exist")
                 return
             print("[+] File exists, downloading...")
