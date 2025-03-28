@@ -614,7 +614,7 @@ class MiniImpacketShell(cmd.Cmd):
             finally:
                 fh.close()
         else:
-            if self.outpufile:
+            if self.outputfile:
                 f.write(error_msg + '\n')
                 f.close()
             print(error_msg)
