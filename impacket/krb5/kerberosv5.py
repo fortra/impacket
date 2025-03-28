@@ -33,13 +33,13 @@ from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB
     EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_set, seq_set_iter, KERB_ERROR_DATA, METHOD_DATA, \
     ETYPE_INFO2, ETYPE_INFO, AP_REP, EncAPRepPart
 from impacket.krb5.types import KerberosTime, Principal, Ticket
-from impacket.krb5.gssapi import CheckSumField, GSS_C_DCE_STYLE, GSS_C_MUTUAL_FLAG, GSS_C_REPLAY_FLAG, \
+from impacket.krb5.gssapismb import CheckSumField, GSS_C_DCE_STYLE, GSS_C_MUTUAL_FLAG, GSS_C_REPLAY_FLAG, \
     GSS_C_SEQUENCE_FLAG, GSS_C_CONF_FLAG, GSS_C_INTEG_FLAG
 from impacket.krb5 import constants
 from impacket.krb5.crypto import Key, _enctype_table, InvalidChecksum
 from impacket.smbconnection import SessionError
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_OID, asn1encode, ASN1_AID
-from impacket.krb5.gssapi import KRB5_AP_REQ
+from impacket.krb5.gssapismb import KRB5_AP_REQ
 from impacket import nt_errors, LOG
 from impacket.krb5.ccache import CCache
 
@@ -488,18 +488,21 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
 ################################################################################
 # DCE RPC Helpers
 ################################################################################
-def getKerberosType3(cipher, sessionKey, auth_data):
+def getKerberosType3(cipher, sessionKey, auth_data, dce_style: True):
     negTokenResp = SPNEGO_NegTokenResp(auth_data)
     # If DCE_STYLE = FALSE
     #ap_rep = decoder.decode(negTokenResp['ResponseToken'][16:], asn1Spec=AP_REP())[0]
-    try:
-        krbError = KerberosError(packet = decoder.decode(negTokenResp['ResponseToken'][15:], asn1Spec = KRB_ERROR())[0])
-    except Exception:
-        pass
+    if dce_style:
+        try:
+            krbError = KerberosError(packet = decoder.decode(negTokenResp['ResponseToken'][15:], asn1Spec = KRB_ERROR())[0])
+        except Exception:
+            pass
+        else:
+            raise krbError
+        ap_rep = decoder.decode(negTokenResp['ResponseToken'], asn1Spec=AP_REP())[0]
     else:
-        raise krbError
-
-    ap_rep = decoder.decode(negTokenResp['ResponseToken'], asn1Spec=AP_REP())[0]
+        ap_rep = decoder.decode(negTokenResp['ResponseToken'][16:], asn1Spec=AP_REP())[0]
+    
 
     cipherText = ap_rep['enc-part']['cipher']
 
