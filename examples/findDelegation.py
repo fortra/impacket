@@ -109,7 +109,7 @@ class FindDelegation:
 
     def run(self):
         # Connect to LDAP
-        ldapConnection = ldap_login(self.__target, self.baseDN, self.__kdcIP, self.__kdcHost, self.__doKerberos, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, targetDomain=self.__targetDomain, fqdn=True)
+        ldapConnection = ldap_login(self.__target, self.baseDN, self.__kdcIP, self.__kdcHost, self.__doKerberos, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, target_domain=self.__targetDomain, fqdn=True)
         # updating "self.__target" as it may have changed in the ldap_login processing
         self.__target = ldapConnection._dstHost
 

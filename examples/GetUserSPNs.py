@@ -483,7 +483,7 @@ if __name__ == '__main__':
                       ' a list of SPNs and/or sAMAccountNames to Kerberoast.')
         sys.exit(1)
 
-    userDomain, username, password, _, _, options.k = parse_identity(options.identity, options.hashes, options.no_pass, options.aesKey, options.k)
+    userDomain, username, password, _, _, options.k = parse_identity(options.target, options.hashes, options.no_pass, options.aesKey, options.k)
 
     if userDomain == '':
         logging.critical('userDomain should be specified!')
