@@ -325,7 +325,7 @@ if __name__ == '__main__':
     logger.init(options.ts, options.debug)
 
     rpcdomain, rpcuser, rpcpass, _, _, _ = parse_identity(options.auth_rpc, options.hashes_rpc, options.no_pass, getpass_msg='Password for MSRPC communication:')
-    transportdomain, transportuser, transportpass, _, _, _ = parse_identity(options.auth_rpc, options.hashes_rpc, options.no_pass, getpass_msg='Password for RPC transport (SMB or HTTP):')
+    transportdomain, transportuser, transportpass, _, _, _ = parse_identity(options.auth_transport, options.hashes_transport, options.no_pass, getpass_msg='Password for RPC transport (SMB or HTTP):')
 
     if options.brute_opnums and options.brute_versions:
        logging.error("Specify only -brute-opnums or -brute-versions")
