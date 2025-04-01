@@ -69,18 +69,13 @@ import ssl
 from binascii import unhexlify
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
-def _get_machine_name(dc_ip, domain, target_domain=None, fqdn=False):
-    if dc_ip is not None and target_domain == domain:
-        s = SMBConnection(dc_ip, dc_ip)
-    elif target_domain is not None:
-        s = SMBConnection(target_domain, target_domain)
-    else:
-        s = SMBConnection(domain, domain)
+def _get_machine_name(machine, fqdn=False):
+    s = SMBConnection(machine, machine)
     try:
         s.login('', '')
     except Exception:
         if s.getServerName() == '':
-            raise Exception('Error while anonymous logging into %s' % domain)
+            raise Exception('Error while anonymous logging into %s' % machine)
     else:
         s.logoff()
 
@@ -242,7 +237,10 @@ def init_ldap_session(domain, username, password, lmhash, nthash, k, dc_ip, aesK
         use_ldaps   (boold) : SSL Ldap or Ldap
     """
     if k:
-        target = _get_machine_name(dc_ip, domain)
+        if dc_ip is not None:
+            target = _get_machine_name(dc_ip)
+        else:
+            target = _get_machine_name(domain)
     else:
         if dc_ip is not None:
             target = dc_ip
@@ -262,12 +260,20 @@ def init_ldap_session(domain, username, password, lmhash, nthash, k, dc_ip, aesK
 from impacket.ldap import ldap
 import logging
 def ldap_login(target, base_dn, kdc_ip, kdc_host, do_kerberos, username, password, domain, lmhash, nthash, aeskey, target_domain=None, fqdn=False):
-    if kdc_host is not None and domain == target_domain:
+    if kdc_host is not None and (target_domain is None or domain == target_domain):
         target = kdc_host
     else:
+        if kdc_ip is not None and (target_domain is None or domain == target_domain):
+            target = kdc_ip
+        else:
+            if target_domain is not None:
+                target = target_domain
+            else:
+                target = domain
+
         if do_kerberos:
             logging.info('Getting machine hostname')
-            target = _get_machine_name(kdc_ip, domain, target_domain, fqdn)
+            target = _get_machine_name(target, fqdn)
 
     # Connect to LDAP
     try:
