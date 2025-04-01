@@ -260,13 +260,16 @@ def init_ldap_session(domain, username, password, lmhash, nthash, k, dc_ip, aesK
 from impacket.ldap import ldap
 import logging
 def ldap_login(target, base_dn, kdc_ip, kdc_host, do_kerberos, username, password, domain, lmhash, nthash, aeskey, target_domain=None, fqdn=False):
-    if kdc_host is not None and domain == target_domain:
+    if kdc_host is not None and (target_domain is None or domain == target_domain):
         target = kdc_host
     else:
-        if kdc_ip is not None and domain == target_domain:
+        if kdc_ip is not None and (target_domain is None or domain == target_domain):
             target = kdc_ip
         else:
-            target = target_domain
+            if target_domain is not None:
+                target = target_domain
+            else:
+                target = domain
 
         if do_kerberos:
             logging.info('Getting machine hostname')
