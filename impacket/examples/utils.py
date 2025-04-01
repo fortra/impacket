@@ -70,7 +70,7 @@ from binascii import unhexlify
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
 def _get_machine_name(machine, fqdn=False):
-    s = SMBConnection(machine)
+    s = SMBConnection(machine, machine)
     try:
         s.login('', '')
     except Exception:
