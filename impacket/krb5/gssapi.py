@@ -259,6 +259,7 @@ class GSSAPI_AES():
         )
 
     def GSS_GetMIC(self, sessionKey, data, sequenceNumber, direction = 'init'):
+        raise Exception('Not tested')
         token = self.MIC()
 
         # Let's pad the data
@@ -285,15 +286,17 @@ class GSSAPI_AES():
         result = data[numBytes:] + data[:numBytes]
         return result
         
-    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True):
+    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, use_padding=False):
         token = self.WRAP()
 
         cipher = self.cipherType()
 
+        pad = 0
+        if use_padding:
         # Let's pad the data
-        pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 15
-        padStr = b'\xFF' * pad
-        data += padStr
+            pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 15
+            padStr = b'\xFF' * pad
+            data += padStr
 
         # The RRC field ([RFC4121] section 4.2.5) is 12 if no encryption is requested or 28 if encryption 
         # is requested. The RRC field is chosen such that all the data can be encrypted in place.
@@ -310,23 +313,24 @@ class GSSAPI_AES():
         cipherText = self.rotate(cipherText, token['RRC'] + token['EC'])
 
         #nn = self.unrotate(cipherText, token['RRC'] + token['EC'])
-        ret1 = cipherText[len(self.WRAP()) + token['RRC'] + token['EC']:]
-        ret2 = token.getData() + cipherText[:len(self.WRAP()) + token['RRC'] + token['EC']]
+        # ret1 = cipherText[len(self.WRAP()) + token['RRC'] + token['EC']:]
+        # ret2 = token.getData() + cipherText[:len(self.WRAP()) + token['RRC'] + token['EC']]
+        ret1 = cipherText
+        ret2 = token.getData()
 
         return ret1, ret2
 
-    def GSS_Unwrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, authData=None):
-        from impacket.dcerpc.v5.rpcrt import SEC_TRAILER
+    def GSS_Unwrap(self, sessionKey, data, sequenceNumber, direction = 'init'):
 
         cipher = self.cipherType()
-        token = self.WRAP(authData[len(SEC_TRAILER()):])
+        token = self.WRAP(data[:16])
 
-        rotated = authData[len(self.WRAP())+len(SEC_TRAILER()):] + data
+        rotated = data[16:]
  
         cipherText = self.unrotate(rotated, token['RRC'] + token['EC'])
         plainText = cipher.decrypt(sessionKey, KG_USAGE_ACCEPTOR_SEAL,  cipherText)
 
-        return plainText[:-(token['EC']+len(self.WRAP()))], None
+        return plainText[:-(token['EC']+ 16)], None
 
 class GSSAPI_AES256(GSSAPI_AES):
     checkSumProfile = crypto._SHA1AES256
