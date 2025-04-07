@@ -259,7 +259,7 @@ def init_ldap_session(domain, username, password, lmhash, nthash, k, dc_ip, aesK
 
 from impacket.ldap import ldap
 import logging
-def ldap_login(target, base_dn, kdc_ip, kdc_host, do_kerberos, username, password, domain, lmhash, nthash, aeskey, target_domain=None, fqdn=False):
+def ldap_login(target, base_dn, kdc_ip, kdc_host, do_kerberos, username, password, domain, lmhash, nthash, aeskey, ldaps_flag, target_domain=None, fqdn=False):
     if kdc_host is not None and (target_domain is None or domain == target_domain):
         target = kdc_host
     else:
@@ -274,10 +274,13 @@ def ldap_login(target, base_dn, kdc_ip, kdc_host, do_kerberos, username, passwor
         if do_kerberos:
             logging.info('Getting machine hostname')
             target = _get_machine_name(target, fqdn)
+    
+    # Added ldaps flag & placed check for ldaps if flag is enabled.
+    url = 'ldaps://%s' if ldaps_flag else 'ldap://%s'
 
     # Connect to LDAP
     try:
-        ldapConnection = ldap.LDAPConnection('ldap://%s' % target, base_dn, kdc_ip)
+        ldapConnection = ldap.LDAPConnection(url % target, base_dn, kdc_ip)
         if do_kerberos is not True:
             ldapConnection.login(username, password, domain, lmhash, nthash)
         else:
