@@ -78,6 +78,7 @@ class GetLAPSPassword:
         self.__kdcHost = cmdLineOptions.dc_host
         self.__targetComputer = cmdLineOptions.computer
         self.__outputFile = cmdLineOptions.outputfile
+        self.__ldaps_flag = cmdLineOptions.ldaps_flag
         self.__KDSCache = {}
 
         if cmdLineOptions.hashes is not None:
@@ -162,7 +163,7 @@ class GetLAPSPassword:
 
     def run(self):
         # Connect to LDAP
-        ldapConnection = ldap_login(self.__target, self.baseDN, self.__kdcIP, self.__kdcHost, self.__doKerberos, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
+        ldapConnection = ldap_login(self.__target, self.baseDN, self.__kdcIP, self.__kdcHost, self.__doKerberos, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, self.__ldaps_flag)
         # updating "self.__target" as it may have changed in the ldap_login processing
         self.__target = ldapConnection._dstHost
 
@@ -271,6 +272,10 @@ if __name__ == '__main__':
     group.add_argument('-dc-host', action='store', metavar='hostname', help='Hostname of the domain controller to use. '
                                                                               'If ommited, the domain part (FQDN) '
                                                                               'specified in the account parameter will be used')
+    
+    group.add_argument('-ldaps', dest='ldaps_flag', action="store_true", help='Enable LDAPS (LDAP over SSL). '
+                                                                                'Required when querying a Windows Server 2025'
+                                                                                'domain controller with LDAPS enforced.')
 
     if len(sys.argv)==1:
         parser.print_help()
