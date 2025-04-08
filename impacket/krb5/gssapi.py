@@ -143,7 +143,6 @@ class GSSAPI_RC4:
         )
 
     def GSS_GetMIC(self, sessionKey, data, sequenceNumber, direction = 'init'):
-        raise Exception('Not tested')
         GSS_GETMIC_HEADER = b'\x60\x23\x06\x09\x2a\x86\x48\x86\xf7\x12\x01\x02\x02'
         token = self.MIC()
 
@@ -259,7 +258,6 @@ class GSSAPI_AES():
         )
 
     def GSS_GetMIC(self, sessionKey, data, sequenceNumber, direction = 'init'):
-        raise Exception('Not tested')
         token = self.MIC()
 
         # Let's pad the data
