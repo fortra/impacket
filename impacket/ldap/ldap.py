@@ -446,7 +446,7 @@ class LDAPConnection:
 
     def encrypt(self, data):
         if self.__auth_type == "KRB5":
-            data, signature = self.__gss.GSS_Wrap(self.__sessionKey, data, self.sequenceNumber)
+            data, signature = self.__gss.GSS_Wrap_LDAP(self.__sessionKey, data, self.sequenceNumber)
             data = signature + data
             data = len(data).to_bytes(4, byteorder = 'big', signed = False) + data
         elif self.__auth_type == "NTLM-sasl":
@@ -460,7 +460,7 @@ class LDAPConnection:
     def decrypt(self, data):
         if self.__auth_type == "KRB5":
             data = data[4:]
-            data, _ = self.__gss.GSS_Unwrap(self.__sessionKey, data, 0, direction='init')
+            data, _ = self.__gss.GSS_Unwrap_LDAP(self.__sessionKey, data, 0, direction='init')
         elif self.__auth_type == "NTLM-sasl":
             data= data[4:]
             signature, data = self.__spnego_cipher_blob.decrypt(data)

@@ -29,7 +29,7 @@ from Cryptodome.Cipher import ARC4
 
 from impacket import ntlm, LOG
 from impacket.structure import Structure,pack,unpack
-from impacket.krb5 import kerberosv5, gssapismb as gssapi
+from impacket.krb5 import kerberosv5, gssapi
 from impacket.uuid import uuidtup_to_bin, generate, stringver_to_bin, bin_to_uuidtup
 from impacket.dcerpc.v5.dtypes import UCHAR, ULONG, USHORT
 from impacket.dcerpc.v5.ndr import NDRSTRUCT

@@ -59,7 +59,7 @@ from pyasn1.type.univ import noValue
 from impacket import nmb, ntlm, nt_errors, LOG
 from impacket.structure import Structure
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_OID, asn1encode, ASN1_AID
-from impacket.krb5.gssapismb import KRB5_AP_REQ
+from impacket.krb5.gssapi import KRB5_AP_REQ
 import six
 
 # For signing
