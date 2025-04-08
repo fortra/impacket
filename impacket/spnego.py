@@ -437,48 +437,27 @@ class SPNEGOCipher:
         self.__sequence = 0
 
     def encrypt(self, plain_data):
-        if self.__flags & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
-            # When NTLM2 is on, we sign the whole pdu, but encrypt just
-            # the data, not the dcerpc header. Weird..
-            sealedMessage, signature =  ntlm.SEAL(self.__flags, 
-                    self.__clientSigningKey, 
-                    self.__clientSealingKey,  
-                    plain_data, 
-                    plain_data, 
-                    self.__sequence, 
-                    self.__clientSealingHandle)
-        else:
-            sealedMessage, signature =  ntlm.SEAL(self.__flags, 
-                    self.__clientSigningKey, 
-                    self.__clientSealingKey,  
-                    plain_data, 
-                    plain_data, 
-                    self.__sequence, 
-                    self.__clientSealingHandle)
+        sealedMessage, signature =  ntlm.SEAL(self.__flags, 
+                self.__clientSigningKey, 
+                self.__clientSealingKey,  
+                plain_data, 
+                plain_data, 
+                self.__sequence, 
+                self.__clientSealingHandle)
 
         self.__sequence += 1
 
         return signature, sealedMessage
 
     def decrypt(self, answer):
-        if self.__flags & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
-            # TODO: FIX THIS, it's not calculating the signature well
-            # Since I'm not testing it we don't care... yet
-            answer, signature =  ntlm.SEAL(self.__flags, 
-                    self.__serverSigningKey, 
-                    self.__serverSealingKey,  
-                    answer[:16], 
-                    answer[16:], 
-                    self.__sequence, 
-                    self.__serverSealingHandle)
-        else:
-            answer, signature = ntlm.SEAL(self.__flags, 
-                    self.__serverSigningKey, 
-                    self.__serverSealingKey, 
-                    answer[:16], 
-                    answer[16:],
-                    self.__sequence, 
-                    self.__serverSealingHandle)
+        answer, signature =  ntlm.SEAL(self.__flags, 
+                self.__serverSigningKey, 
+                self.__serverSealingKey,  
+                answer[:16], 
+                answer[16:], 
+                self.__sequence, 
+                self.__serverSealingHandle)
+    
         self.__sequence += 1
 
         return signature, answer
