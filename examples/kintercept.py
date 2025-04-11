@@ -267,6 +267,13 @@ def parse_args():
     parser.add_argument('--listen-addr', default='', help='Address to listen on')
     parser.add_argument('--request-handler', default='', metavar='HANDLER:ARG', help='Example: s4u2else:user')
     parser.add_argument('--reply-handler', default='', metavar='HANDLER:ARG', help='Example: tgs-rep-user:user')
+
+    group = parser.add_argument_group('SOCKS Proxy Options')
+    group.add_argument('-socks', action='store_true', default=False,
+                        help='Use a SOCKS proxy for the connection')
+    group.add_argument('-socks-address', default='127.0.0.1', help='SOCKS5 server address')
+    group.add_argument('-socks-port', default=1080, type=int, help='SOCKS5 server port')
+
     return vars(parser.parse_args())
 
 
@@ -275,6 +282,15 @@ if __name__ == '__main__':
     print(version.BANNER)
 
     args = parse_args()
+
+    # Relay connections through a socks proxy
+    if (args.socks):
+        print('Relaying connections through SOCKS proxy (%s:%s)', args.socks_address, args.socks_port)
+        import socket
+        import socks
+
+        socks.set_default_proxy(socks.SOCKS5, args.socks_address, args.socks_port)
+        socket.socket = socks.socksocket
 
     req_factory = rep_factory = InterceptConnFactory()
     if args['request_handler']:
