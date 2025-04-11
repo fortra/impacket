@@ -701,6 +701,11 @@ def parse_args():
                                   'The information is encrypted using the AS reply key. Attack primitive known as UnPAC-the-Hash. (https://www.thehacker.recipes/ad/movement/kerberos/unpac-the-hash)'
     credential_info.add_argument('--asrep-key', action="store", metavar="HEXKEY", help='AS reply key for PAC Credentials decryption')
 
+    group = parser.add_argument_group('SOCKS Proxy Options')
+    group.add_argument('-socks', action='store_true', default=False,
+                        help='Use a SOCKS proxy for the connection')
+    group.add_argument('-socks-address', default='127.0.0.1', help='SOCKS5 server address')
+    group.add_argument('-socks-port', default=1080, type=int, help='SOCKS5 server port')
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -723,6 +728,15 @@ def main():
     print(version.BANNER)
     args = parse_args()
     logger.init(args.ts, args.debug)
+
+    # Relay connections through a socks proxy
+    if (args.socks):
+        logging.info('Relaying connections through SOCKS proxy (%s:%s)', args.socks_address, args.socks_port)
+        import socket
+        import socks
+
+        socks.set_default_proxy(socks.SOCKS5, args.socks_address, args.socks_port)
+        socket.socket = socks.socksocket
 
     try:
         parse_ccache(args)

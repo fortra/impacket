@@ -442,6 +442,12 @@ if __name__ == '__main__':
     sccmdpoptions.add_argument('--sccm-dp-extensions', action='store', required=False, help='A custom list of extensions to look for when downloading files from the SCCM Distribution Point. If not provided, defaults to .ps1,.bat,.xml,.txt,.pfx')
     sccmdpoptions.add_argument('--sccm-dp-files', action='store', required=False, help='The path to a file containing a list of specific URLs to download from the Distribution Point, instead of downloading by extensions. Providing this argument will skip file indexing')
 
+    group = parser.add_argument_group('SOCKS Proxy Options')
+    group.add_argument('-socks', action='store_true', default=False,
+                        help='Use a SOCKS proxy for the connection')
+    group.add_argument('-socks-address', default='127.0.0.1', help='SOCKS5 server address')
+    group.add_argument('-socks-port', default=1080, type=int, help='SOCKS5 server port')
+
     try:
        options = parser.parse_args()
     except Exception as e:
@@ -466,6 +472,15 @@ if __name__ == '__main__':
 
     # Init the example's logger theme
     logger.init(options.ts, options.debug)
+
+    # Relay connections through a socks proxy
+    if (options.socks):
+        logging.info('Relaying connections through SOCKS proxy (%s:%s)', options.socks_address, options.socks_port)
+        import socket
+        import socks
+
+        socks.set_default_proxy(socks.SOCKS5, options.socks_address, options.socks_port)
+        socket.socket = socks.socksocket
 
     # Let's register the protocol clients we have
     # ToDo: Do this better somehow
