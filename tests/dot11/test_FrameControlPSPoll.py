@@ -20,19 +20,16 @@ class TestDot11FrameControlPSPoll(unittest.TestCase):
         self.frame_orig=b'\xa6\x73\xf1\xaf\x48\x06\xee\x23\x2b\xc9\xfe\xbe\xe5\x05\x4c\x0a\x04\xa0\x00\x0f'
 
         d = Dot11(self.frame_orig)
-        
-        type = d.get_type()
-        self.assertEqual(type,Dot11Types.DOT11_TYPE_CONTROL)
-        
-        subtype = d.get_subtype()
-        self.assertEqual(subtype,Dot11Types.DOT11_SUBTYPE_CONTROL_POWERSAVE_POLL)
-        
-        typesubtype = d.get_type_n_subtype()
-        self.assertEqual(typesubtype,Dot11Types.DOT11_TYPE_CONTROL_SUBTYPE_POWERSAVE_POLL)
             
         self.pspoll = Dot11ControlFramePSPoll(d.get_body_as_string())
             
         d.contains(self.pspoll)
+
+    def test_setups(self):
+        d = Dot11(self.frame_orig)
+        self.assertEqual(d.get_type(), Dot11Types.DOT11_TYPE_CONTROL)
+        self.assertEqual(d.get_subtype(), Dot11Types.DOT11_SUBTYPE_CONTROL_POWERSAVE_POLL)
+        self.assertEqual(d.get_type_n_subtype(), Dot11Types.DOT11_TYPE_CONTROL_SUBTYPE_POWERSAVE_POLL)
         
     def test_01_HeaderTailSize(self):
         'Test Header and Tail Size field'
