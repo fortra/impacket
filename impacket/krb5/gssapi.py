@@ -57,6 +57,48 @@ KG_USAGE_INITIATOR_SIGN = 25
 
 KRB5_AP_REQ = struct.pack('<H', 0x1)
 
+# Kerberos OID: 1.2.840.113554.1.2.2
+KRB_OID = b'\x06\t*\x86H\x86\xf7\x12\x01\x02\x02'
+
+class MechIndepToken():
+    
+    def __init__(self, data=None, oid=KRB_OID):
+        self.data = data
+        self.token_oid = oid
+    
+    @staticmethod
+    def from_bytes(data=None):
+        if data[0:1] != b'\x60':
+            raise Exception('Incorrect token data!')
+        data = data[1:]
+        length, data = MechIndepToken.get_length(data)
+        token_data = data[0:length]
+        oid_length, data = MechIndepToken.get_length(token_data[1:])
+        token_oid = token_data[0:oid_length+2]
+        data = token_data[oid_length+2:]
+        return MechIndepToken(data, token_oid)
+
+    @staticmethod
+    def get_length(data):
+        if data[0] < 128:
+            return data[0], data
+        else:
+            bytes_count = data[0] - 128
+            return int.from_bytes(data[1:1+bytes_count], byteorder='big', signed=False), data[1+bytes_count:]
+
+    @staticmethod
+    def encode_length(length):
+        if length < 128:
+            return length.to_bytes(1, byteorder = 'big', signed = False)
+        else:
+            lb = length.to_bytes((length.bit_length() + 7) // 8, 'big')
+            return (128+len(lb)).to_bytes(1, byteorder = 'big', signed = False) + lb
+
+    def to_bytes(self):
+        temp = self.token_oid + self.data
+        temp = b'\x60' + self.encode_length(len(temp)) + temp
+        return temp[:-len(self.data)], self.data
+
 # 1.1.1. Initial Token - Checksum field
 class CheckSumField(Structure):
     structure = (
@@ -196,6 +238,70 @@ class GSSAPI_RC4:
     def GSS_Unwrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, authData=None):
         return self.GSS_Wrap(sessionKey, data, sequenceNumber, direction, encrypt, authData)
 
+    def GSS_Wrap_LDAP(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True):
+       
+        if encrypt:
+            data += b'\x01'
+
+        token = self.WRAP()
+        token['SGN_ALG'] = GSS_HMAC
+        token['SEAL_ALG'] = GSS_RC4
+
+        if direction == 'init':
+            token['SND_SEQ'] = struct.pack('>L', sequenceNumber) + b'\x00'*4
+        else:
+            token['SND_SEQ'] = struct.pack('>L', sequenceNumber) + b'\xff'*4
+
+        # Random confounder :)
+        token['Confounder'] = b(''.join([rand.choice(string.ascii_letters) for _ in range(8)]))
+
+        Ksign = HMAC.new(sessionKey.contents, b'signaturekey\0', MD5).digest()
+        Sgn_Cksum = MD5.new(struct.pack('<L',13) + token.getData()[:8] + token['Confounder'] + data).digest()
+
+        Klocal = bytearray()
+        from builtins import bytes
+        for n in bytes(sessionKey.contents):
+            Klocal.append( n ^ 0xF0)
+
+        Kcrypt = HMAC.new(Klocal,struct.pack('<L',0), MD5).digest()
+        Kcrypt = HMAC.new(Kcrypt,struct.pack('>L', sequenceNumber), MD5).digest()
+        
+        Sgn_Cksum = HMAC.new(Ksign, Sgn_Cksum, MD5).digest()
+
+        token['SGN_CKSUM'] = Sgn_Cksum[:8]
+
+        Kseq = HMAC.new(sessionKey.contents, struct.pack('<L',0), MD5).digest()
+        Kseq = HMAC.new(Kseq, token['SGN_CKSUM'], MD5).digest()
+
+        token['SND_SEQ'] = ARC4.new(Kseq).encrypt(token['SND_SEQ'])
+
+        if encrypt is False:
+            sspi_wrap = MechIndepToken.from_bytes(data)
+
+            wrap = self.WRAP(sspi_wrap.data[:32])
+            data = sspi_wrap.data[32:]
+            
+            Kseq = HMAC.new(sessionKey.contents, struct.pack('<L',0), MD5).digest()
+            Kseq = HMAC.new(Kseq, wrap['SGN_CKSUM'], MD5).digest()
+
+            snd_seq = ARC4.new(Kseq).encrypt(wrap['SND_SEQ'])
+
+            Kcrypt = HMAC.new(Klocal,struct.pack('<L',0), MD5).digest()
+            Kcrypt = HMAC.new(Kcrypt,snd_seq[:4], MD5).digest()
+            rc4 = ARC4.new(Kcrypt)
+            cipherText = rc4.decrypt(token['Confounder'] + data)[8:]
+            return cipherText[:-1], None
+        
+        elif encrypt is True:
+            rc4 = ARC4.new(Kcrypt)
+            token['Confounder'] = rc4.encrypt(token['Confounder'])
+            cipherText = rc4.encrypt(data)
+            finalData, cipherText = MechIndepToken(token.getData() + cipherText, KRB_OID).to_bytes()
+            return cipherText, finalData
+
+    def GSS_Unwrap_LDAP(self, sessionKey, data, sequenceNumber, direction = 'init'):
+        return self.GSS_Wrap_LDAP(sessionKey, data, sequenceNumber, direction, encrypt=False)
+
 class GSSAPI_AES():
     checkSumProfile = None
     cipherType = None
@@ -290,6 +396,52 @@ class GSSAPI_AES():
         plainText = cipher.decrypt(sessionKey, KG_USAGE_ACCEPTOR_SEAL,  cipherText)
 
         return plainText[:-(token['EC']+len(self.WRAP()))], None
+
+    def GSS_Wrap_LDAP(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, use_padding=False):
+        token = self.WRAP()
+
+        cipher = self.cipherType()
+
+        pad = 0
+        if use_padding:
+        # Let's pad the data
+            pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 15
+            padStr = b'\xFF' * pad
+            data += padStr
+
+        # The RRC field ([RFC4121] section 4.2.5) is 12 if no encryption is requested or 28 if encryption 
+        # is requested. The RRC field is chosen such that all the data can be encrypted in place.
+        rrc = 28
+
+        token['Flags'] = 6
+        token['EC'] = pad
+        token['RRC'] = 0
+        token['SND_SEQ'] = struct.pack('>Q',sequenceNumber)
+
+        cipherText = cipher.encrypt(sessionKey, KG_USAGE_INITIATOR_SEAL,  data + token.getData(), None)
+        token['RRC'] = rrc
+
+        cipherText = self.rotate(cipherText, token['RRC'] + token['EC'])
+
+        #nn = self.unrotate(cipherText, token['RRC'] + token['EC'])
+        # ret1 = cipherText[len(self.WRAP()) + token['RRC'] + token['EC']:]
+        # ret2 = token.getData() + cipherText[:len(self.WRAP()) + token['RRC'] + token['EC']]
+        ret1 = cipherText
+        ret2 = token.getData()
+
+        return ret1, ret2
+
+    def GSS_Unwrap_LDAP(self, sessionKey, data, sequenceNumber, direction = 'init'):
+
+        cipher = self.cipherType()
+        token = self.WRAP(data[:16])
+
+        rotated = data[16:]
+ 
+        cipherText = self.unrotate(rotated, token['RRC'] + token['EC'])
+        plainText = cipher.decrypt(sessionKey, KG_USAGE_ACCEPTOR_SEAL,  cipherText)
+
+        return plainText[:-(token['EC']+ 16)], None
 
 class GSSAPI_AES256(GSSAPI_AES):
     checkSumProfile = crypto._SHA1AES256
