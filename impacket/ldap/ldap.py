@@ -267,7 +267,7 @@ class LDAPConnection:
         chkField['Flags'] = GSS_C_SEQUENCE_FLAG | GSS_C_REPLAY_FLAG
 
         # If TLS is used, setup channel binding
-        channel_binding_value = b''
+        
         if self._SSL:
             chkField['Bnd'] = self.generateChannelBindingValue()
         if self.__signing:

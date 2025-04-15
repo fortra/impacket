@@ -498,9 +498,9 @@ def getKerberosType3(cipher, sessionKey, auth_data):
         pass
     else:
         raise krbError
-    
+
     ap_rep = decoder.decode(negTokenResp['ResponseToken'], asn1Spec=AP_REP())[0]
-    
+
     cipherText = ap_rep['enc-part']['cipher']
 
     # Key Usage 12
