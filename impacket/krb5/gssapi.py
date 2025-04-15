@@ -300,7 +300,7 @@ class GSSAPI_RC4:
             return cipherText, finalData
 
     def GSS_Unwrap_LDAP(self, sessionKey, data, sequenceNumber, direction = 'init'):
-        return self.GSS_Wrap(sessionKey, data, sequenceNumber, direction, encrypt=False)
+        return self.GSS_Wrap_LDAP(sessionKey, data, sequenceNumber, direction, encrypt=False)
 
 class GSSAPI_AES():
     checkSumProfile = None
