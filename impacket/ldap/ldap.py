@@ -101,29 +101,48 @@ class LDAPConnection:
             raise LDAPSessionError(errorString="Unknown URL prefix: '%s'" % url)
 
         # Try to connect
-        if self._dstIp is not None:
-            targetHost = self._dstIp
-        else:
-            targetHost = self._dstHost
+        targetHost = self._dstIp if self._dstIp else self._dstHost
+        LOG.debug(f'Connecting to {targetHost}, port {self._dstPort}, SSL {self._SSL}')
 
-        LOG.debug('Connecting to %s, port %d, SSL %s' % (targetHost, self._dstPort, self._SSL))
+        # Socket creation and connection with/without SSL
+        def create_socket_and_connect(use_ssl, host, port):
+            af, socktype, proto, _, sa = socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)[0]
+            raw_socket = socket.socket(af, socktype, proto)
+            # Try SSL connection
+            if use_ssl:
+                ctx = SSL.Context(SSL.TLS_METHOD)
+                ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
+                SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION = 0x00040000
+                ctx.set_options(SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION)
+                ssl_socket = SSL.Connection(ctx, raw_socket)
+                ssl_socket.connect(sa)
+                ssl_socket.do_handshake()
+                return ssl_socket
+            else:
+                # Normal connection
+                raw_socket.connect(sa)
+                return raw_socket
+            
         try:
-            af, socktype, proto, _, sa = socket.getaddrinfo(targetHost, self._dstPort, 0, socket.SOCK_STREAM)[0]
-            self._socket = socket.socket(af, socktype, proto)
-        except socket.error as e:
-            raise socket.error('Connection error (%s:%d)' % (targetHost, self._dstPort), e)
-
-        if self._SSL is False:
-            self._socket.connect(sa)
-        else:
-            # Switching to TLS now
-            ctx = SSL.Context(SSL.TLS_METHOD)
-            ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
-            SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION = 0x00040000
-            ctx.set_options(SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION)
-            self._socket = SSL.Connection(ctx, self._socket)
-            self._socket.connect(sa)
-            self._socket.do_handshake()
+            # This will work with LDAP, LDAPS by default
+            self._socket = create_socket_and_connect(self._SSL, targetHost, self._dstPort)
+        except TimeoutError as e:
+            # This will resolve timeout issue in case of LDAP and try with LDAPS
+            LOG.warning(f"Timeout on port {self._dstPort}: {e}")
+            if url.startswith('ldap://'):
+                self._dstPort = 636
+                self._SSL = True
+                # Slicing 7 because actual url still have ldap connection string.
+                self._dstHost = url[7:]
+                # Set target host
+                targetHost = self._dstIp if self._dstIp else self._dstHost
+                LOG.debug(f'Retrying using LDAPS. Connecting to {targetHost}, port {self._dstPort}, SSL {self._SSL}')
+                try:
+                    self._socket = create_socket_and_connect(self._SSL, targetHost, self._dstPort)
+                except Exception as ex:
+                    raise socket.error(f"LDAPS connection failed ({targetHost}:{self._dstPort})", ex)
+            else:
+                raise
 
     def kerberosLogin(self, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost=None, TGT=None,
                       TGS=None, useCache=True):
