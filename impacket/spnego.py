@@ -457,8 +457,6 @@ class SPNEGOCipher:
                 answer[16:], 
                 self.__sequence, 
                 self.__serverSealingHandle)
-    
-        self.__sequence += 1
 
         return signature, answer
     
