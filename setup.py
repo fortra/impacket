@@ -63,12 +63,14 @@ setup(
     long_description=read('README.md'),
     long_description_content_type="text/markdown",
     platforms=["Unix", "Windows"],
-    packages=['impacket', 'impacket.dcerpc', 'impacket.examples', 'impacket.dcerpc.v5', 'impacket.dcerpc.v5.dcom',
-              'impacket.krb5', 'impacket.ldap', 'impacket.examples.ntlmrelayx',
-              'impacket.examples.ntlmrelayx.clients', 'impacket.examples.ntlmrelayx.servers',
-              'impacket.examples.ntlmrelayx.servers.socksplugins', 'impacket.examples.ntlmrelayx.utils',
-              'impacket.examples.ntlmrelayx.attacks', 'impacket.examples.ntlmrelayx.attacks.httpattacks'],
-    scripts=glob.glob(os.path.join('examples', '*.py')),
+    packages = [
+    'impacket',
+    'impacket.dcerpc',
+    'impacket.dcerpc.v5',
+    'impacket.dcerpc.v5.dcom',
+    'impacket.krb5',
+    'impacket.ldap'
+    ],
     data_files=data_files,
 
     install_requires=['pyasn1>=0.2.3', 'pyasn1_modules', 'pycryptodomex', 'pyOpenSSL==24.0.0', 'six', 'ldap3>=2.5,!=2.5.2,!=2.5.0,!=2.6',
