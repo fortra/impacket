@@ -2222,7 +2222,7 @@ class DCERPCServer(Thread):
             if reason == 0:
                result = MSRPC_CONT_RESULT_ACCEPT
             if reason == 1:
-                LOG.error('Bind request for an unsupported interface %s' % bin_to_uuidtup(item['AbstractSyntax']))
+                LOG.error('Bind request for an unsupported interface %s' % bin_to_string(item['AbstractSyntax']))
 
             resp['ctx_num']             += 1
             itemResult                   = CtxItemResult()
@@ -2244,7 +2244,7 @@ class DCERPCServer(Thread):
             bind   = MSRPCBind(packet['pduData'])
             self.bind(packet, bind)
             packet = None
-        elif packet['type'] == MSRPC_REQUEST:
+        elif packet['type'] == MSRPC_REQUEST and not self._listenUUIDS.get(self._boundUUID) is None:
             request          = MSRPCRequestHeader(data)
             response         = MSRPCRespHeader(data)
             response['type'] = MSRPC_RESPONSE

