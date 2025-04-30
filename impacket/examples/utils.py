@@ -259,7 +259,7 @@ def init_ldap_session(domain, username, password, lmhash, nthash, k, dc_ip, aesK
 
 from impacket.ldap import ldap
 import logging
-def ldap_login(target, base_dn, kdc_ip, kdc_host, do_kerberos, username, password, domain, lmhash, nthash, aeskey, ldaps_flag, target_domain=None, fqdn=False):
+def ldap_login(target, base_dn, kdc_ip, kdc_host, do_kerberos, username, password, domain, lmhash, nthash, aeskey, ldaps_flag=False, target_domain=None, fqdn=False):
     if kdc_host is not None and (target_domain is None or domain == target_domain):
         target = kdc_host
     else:
