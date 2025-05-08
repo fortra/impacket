@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -901,7 +903,8 @@ class DCERPC_v5(DCERPC):
         self.__aesKey = ''
         self.__TGT    = None
         self.__TGS    = None
-        
+
+        self.__aesNegociated = False
         self.__clientSigningKey = b''
         self.__serverSigningKey = b''
         self.__clientSealingKey = b''
@@ -919,6 +922,9 @@ class DCERPC_v5(DCERPC):
         self.__cipher = None
         self.__confounder = b''
         self.__gss = None
+
+    def set_aes(self, is_aes):
+        self.__aesNegociated = is_aes
 
     def set_session_key(self, session_key):
         self.__sessionKey = session_key
@@ -1198,7 +1204,7 @@ class DCERPC_v5(DCERPC):
                                self.__clientSealingHandle)
                 elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
                     from impacket.dcerpc.v5 import nrpc
-                    sealedMessage, signature = nrpc.SEAL(plain_data, self.__confounder, self.__sequence, self.__sessionKey, False)
+                    sealedMessage, signature = nrpc.SEAL(plain_data, self.__confounder, self.__sequence, self.__sessionKey, self.__aesNegociated)
                 elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
                     sealedMessage, signature = self.__gss.GSS_Wrap(self.__sessionKey, plain_data, self.__sequence)
 
@@ -1225,7 +1231,7 @@ class DCERPC_v5(DCERPC):
                            self.__confounder, 
                            self.__sequence, 
                            self.__sessionKey, 
-                           False)
+                           self.__aesNegociated)
                 elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
                     signature = self.__gss.GSS_GetMIC(self.__sessionKey, plain_data, self.__sequence)
 
@@ -1372,7 +1378,7 @@ class DCERPC_v5(DCERPC):
                         answer, cfounder = nrpc.UNSEAL(answer, 
                                auth_data[len(sec_trailer):],
                                self.__sessionKey, 
-                               False)
+                               self.__aesNegociated)
                         self.__sequence += 1
                     elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
                         if self.__sequence > 0:
@@ -1404,7 +1410,7 @@ class DCERPC_v5(DCERPC):
                                self.__confounder, 
                                self.__sequence, 
                                self.__sessionKey, 
-                               False)
+                               self.__aesNegociated)
                         self.__sequence += 1
                     elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
                         # Do NOT increment the sequence number when Signing Kerberos

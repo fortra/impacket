@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -115,7 +117,10 @@ class TargetsProcessor:
             # We have data about the username we relayed the connection for,
             # for a target that didn't have username specified.
             # Let's log it
-            newTarget = urlparse('%s://%s@%s%s' % (target.scheme, gotUsername.replace('/','\\'), target.netloc, target.path))
+            if target.scheme.find('http') == 0 and target.query:
+                newTarget = urlparse('%s://%s@%s%s?%s' % (target.scheme, gotUsername.replace('/','\\'), target.netloc, target.path, target.query))
+            else:
+                newTarget = urlparse('%s://%s@%s%s' % (target.scheme, gotUsername.replace('/','\\'), target.netloc, target.path))
             if gotRelay:
                 self.finishedAttacks.append(newTarget)
             else:

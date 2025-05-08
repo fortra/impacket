@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -89,6 +91,11 @@ class SMBRelayServer(Thread):
         if self.config.outputFile is not None:
             smbConfig.set('global','jtr_dump_path',self.config.outputFile)
 
+        if self.config.dumpHashes is True:
+            smbConfig.set("global", "dump_hashes", "True")
+        else:
+            smbConfig.set("global", "dump_hashes", "False")
+        
         if self.config.SMBServerChallenge is not None:
             smbConfig.set('global', 'challenge', self.config.SMBServerChallenge)
 
@@ -261,7 +268,7 @@ class SMBRelayServer(Thread):
                        mechStr = MechTypes[mechType]
                    else:
                        mechStr = hexlify(mechType)
-                   smbServer.log("Unsupported MechType '%s'" % mechStr, logging.CRITICAL)
+                   smbServer.log("Unsupported MechType '%s'" % mechStr, logging.DEBUG)
                    # We don't know the token, we answer back again saying
                    # we just support NTLM.
                    respToken = SPNEGO_NegTokenResp()
@@ -338,8 +345,7 @@ class SMBRelayServer(Thread):
             client = connData['SMBClient']
             authenticateMessage = ntlm.NTLMAuthChallengeResponse()
             authenticateMessage.fromString(token)
-            self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
-                                        authenticateMessage['user_name'].decode('utf-16le'))).upper()
+            self.authUser = authenticateMessage.getUserString()
 
             if rawNTLM is True:
                 respToken2 = SPNEGO_NegTokenResp()
@@ -371,6 +377,9 @@ class SMBRelayServer(Thread):
                                                     authenticateMessage['domain_name'], authenticateMessage['lanman'],
                                                     authenticateMessage['ntlm'])
                 client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
+
+                if self.server.getDumpHashes():
+                    LOG.info(ntlm_hash_data['hash_string'])
 
                 if self.server.getJTRdumpPath() != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
@@ -407,11 +416,8 @@ class SMBRelayServer(Thread):
 
     def smb2TreeConnect(self, connId, smbServer, recvPacket):
         connData = smbServer.getConnectionData(connId)
-
         authenticateMessage = connData['AUTHENTICATE_MESSAGE']
-
-        self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode ('utf-16le'),
-                                    authenticateMessage['user_name'].decode ('utf-16le'))).upper ()
+        self.authUser = authenticateMessage.getUserString()
 
         if self.config.disableMulti:
             return self.origsmb2TreeConnect(connId, smbServer, recvPacket)
@@ -629,8 +635,7 @@ class SMBRelayServer(Thread):
                 client = connData['SMBClient']
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
-                self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
-                                            authenticateMessage['user_name'].decode('utf-16le'))).upper()
+                self.authUser = authenticateMessage.getUserString()
 
                 clientResponse, errorCode = self.do_ntlm_auth(client,sessionSetupData['SecurityBlob'],
                                                               connData['CHALLENGE_MESSAGE']['challenge'])
@@ -669,6 +674,9 @@ class SMBRelayServer(Thread):
                                                         authenticateMessage['domain_name'],
                                                         authenticateMessage['lanman'], authenticateMessage['ntlm'])
                     client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
+
+                    if self.server.getDumpHashes():
+                        LOG.info(ntlm_hash_data['hash_string'])
 
                     if self.server.getJTRdumpPath() != '':
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
@@ -745,6 +753,9 @@ class SMBRelayServer(Thread):
                                                     sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'])
                 client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
 
+                if self.server.getDumpHashes():
+                    LOG.info(ntlm_hash_data['hash_string'])
+
                 if self.server.getJTRdumpPath() != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                           self.server.getJTRdumpPath())
@@ -771,8 +782,7 @@ class SMBRelayServer(Thread):
         connData = smbServer.getConnectionData(connId)
 
         authenticateMessage = connData['AUTHENTICATE_MESSAGE']
-        self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode ('utf-16le'),
-                                    authenticateMessage['user_name'].decode ('utf-16le'))).upper ()
+        self.authUser = authenticateMessage.getUserString()
 
         if self.config.disableMulti:
             return self.smbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)

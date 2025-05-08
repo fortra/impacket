@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -358,13 +360,7 @@ class HTTPRelayServer(Thread):
             elif messageType == 3:
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
-
-                if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                    self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
-                                                authenticateMessage['user_name'].decode('utf-16le'))).upper()
-                else:
-                    self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('ascii'),
-                                                authenticateMessage['user_name'].decode('ascii'))).upper()
+                self.authUser = authenticateMessage.getUserString()
 
                 self.target = self.server.config.target.getTarget(identity = self.authUser)
                 if self.target is None:
@@ -439,13 +435,7 @@ class HTTPRelayServer(Thread):
                 authenticateMessage.fromString(token)
 
                 if self.server.config.disableMulti:
-                    if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                        self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
-                                                    authenticateMessage['user_name'].decode('utf-16le'))).upper()
-                    else:
-                        self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('ascii'),
-                                                    authenticateMessage['user_name'].decode('ascii'))).upper()
-
+                    self.authUser = authenticateMessage.getUserString()
                     target = '%s://%s@%s' % (self.target.scheme, self.authUser.replace("/", '\\'), self.target.netloc)
 
                 if not self.do_ntlm_auth(token, authenticateMessage):
@@ -489,6 +479,9 @@ class HTTPRelayServer(Thread):
                                                         authenticateMessage['domain_name'],
                                                         authenticateMessage['lanman'], authenticateMessage['ntlm'])
                     self.client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
+
+                    if self.server.config.dumpHashes is True:
+                        LOG.info(ntlm_hash_data['hash_string'])
 
                     if self.server.config.outputFile is not None:
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],

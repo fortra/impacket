@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -34,6 +36,34 @@ class EVEN6Tests(DCERPCTests):
     string_binding = r"ncacn_np:{0.machine}[\PIPE\eventlog]"
     authn = True
     authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+
+    def test_hEvtRpcClearLog(self):
+        dce, rpctransport = self.connect()
+
+        resp = even6.hEvtRpcRegisterControllableOperation(dce)
+        resp.dump()
+
+        control_handle = resp['Handle']
+
+        resp = even6.hEvtRpcClearLog(dce, control_handle, 'Security\x00')
+        resp.dump()
+
+        resp = even6.hEvtRpcClose(dce, control_handle)
+        resp.dump()
+
+    def test_hEvtRpcExportLog(self):
+        dce, rpctransport = self.connect()
+
+        resp = even6.hEvtRpcRegisterControllableOperation(dce)
+        resp.dump()
+
+        control_handle = resp['Handle']
+
+        resp = even6.hEvtRpcExportLog(dce, control_handle, 'Security\x00', '*\x00', 'C:\\Security_Log_Exported.evtx\x00')
+        resp.dump()
+
+        resp = even6.hEvtRpcClose(dce, control_handle)
+        resp.dump()
 
     def test_EvtRpcRegisterLogQuery_EvtRpcQueryNext(self):
         dce, rpctransport = self.connect()

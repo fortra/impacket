@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -41,7 +43,6 @@ from impacket.dcerpc.v5.dcomrt import DCOMConnection, COMVERSION
 from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.krb5.keytab import Keytab
-from six import PY2
 
 OUTPUT_FILENAME = '__' + str(time.time())
 CODEC = sys.stdout.encoding
@@ -224,10 +225,7 @@ class RemoteShell(cmd.Cmd):
             print(self.__outputBuffer)
             self.__outputBuffer = ''
         else:
-            if PY2:
-                self.__pwd = ntpath.normpath(ntpath.join(self.__pwd, s.decode(sys.stdin.encoding)))
-            else:
-                self.__pwd = ntpath.normpath(ntpath.join(self.__pwd, s))
+            self.__pwd = ntpath.normpath(ntpath.join(self.__pwd, s))
             self.execute_remote('cd ')
             self.__pwd = self.__outputBuffer.strip('\r\n')
             self.prompt = (self.__pwd + '>')
@@ -294,11 +292,11 @@ class RemoteShell(cmd.Cmd):
 
         if self.__noOutput is False:
             command += ' 1> ' + '\\\\127.0.0.1\\%s' % self.__share + self.__output + ' 2>&1'
-        if PY2:
-            self.__win32Process.Create(command.decode(sys.stdin.encoding), self.__pwd, None)
+        response = self.__win32Process.Create(command, self.__pwd, None)
+        if self.__noOutput is False:
+            self.get_output()
         else:
-            self.__win32Process.Create(command, self.__pwd, None)
-        self.get_output()
+            response.printInformation() # print ProcessId and ReturnValue
 
     def send_data(self, data):
         self.execute_remote(data, self.__shell_type)
@@ -408,7 +406,7 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     # Init the example's logger theme
-    logger.init(options.ts)
+    logger.init(options.ts, options.debug)
 
     if options.codec is not None:
         CODEC = options.codec
@@ -422,13 +420,6 @@ if __name__ == '__main__':
     if options.silentcommand and options.command == ' ':
         logging.error("-silentcommand switch and interactive shell not supported")
         sys.exit(1)
-
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
 
     if options.com_version is not None:
         try:

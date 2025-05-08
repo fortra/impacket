@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -97,6 +99,7 @@ class LDAPRelayClient(ProtocolClient):
                     if result['result'] == RESULT_SUCCESS:
                         challenge = NTLMAuthChallenge()
                         challenge.fromString(result['server_creds'])
+                        self.sessionData['CHALLENGE_MESSAGE'] = challenge
                         return challenge
                 else:
                     raise LDAPRelayClientException('Server did not offer NTLM authentication!')
@@ -153,6 +156,13 @@ class LDAPRelayClient(ProtocolClient):
     #Placeholder function for ldap3
     def parse_challenge_message(self, message):
         pass
+
+    def keepAlive(self):
+        # Basic LDAP query to keep the connection alive
+        self.session.search(search_base='',
+            search_filter='(objectClass=*)',
+            search_scope='BASE',
+            attributes=['namingContexts'])
 
 class LDAPSRelayClient(LDAPRelayClient):
     PLUGIN_NAME = "LDAPS"

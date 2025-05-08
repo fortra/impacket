@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -34,12 +36,6 @@ from impacket.smb3structs import FILE_DIRECTORY_FILE, FILE_LIST_DIRECTORY
 
 import charset_normalizer as chardet
 
-
-# If you wanna have readline like functionality in Windows, install pyreadline
-try:
-  import pyreadline as readline
-except ImportError:
-  import readline
 
 class MiniImpacketShell(cmd.Cmd):
     def __init__(self, smbClient, tcpShell=None, outputfile=None):
@@ -585,6 +581,9 @@ class MiniImpacketShell(cmd.Cmd):
             raise
         fh.close()
 
+    def complete_cat(self, text, line, begidx, endidx):
+        return self.complete_get(text, line, begidx, endidx, include=1)
+    
     def do_cat(self, filename):
         if self.tid is None:
             LOG.error("No share selected")
@@ -615,7 +614,7 @@ class MiniImpacketShell(cmd.Cmd):
             finally:
                 fh.close()
         else:
-            if self.outpufile:
+            if self.outputfile:
                 f.write(error_msg + '\n')
                 f.close()
             print(error_msg)

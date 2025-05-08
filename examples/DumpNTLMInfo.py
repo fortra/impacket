@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -629,11 +631,11 @@ class DumpNtlm:
 if __name__ == '__main__':
 
     print(version.BANNER)
-    logger.init()
 
     parser = argparse.ArgumentParser(add_help = True, description = "Do ntlm authentication and parse information.")
     parser.add_argument('target', action='store', help='<targetName or address>')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-target-ip', action='store', metavar="ip address",
                        help='IP Address of the target machine. If omitted it will use whatever was specified as target. '
                             'This is useful when target is the NetBIOS name and you cannot resolve it')
@@ -647,6 +649,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
+    logger.init(options.ts, options.debug)
 
     if options.port == 135:
         if not options.protocol:
@@ -657,12 +660,6 @@ if __name__ == '__main__':
     elif not options.protocol:
         options.protocol = 'SMB'
         logging.info("Defaulting to SMB protocol.")
-
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
 
     try:
         if options.target_ip is not None:

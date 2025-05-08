@@ -4,7 +4,7 @@ Impacket
 [![Latest Version](https://img.shields.io/pypi/v/impacket.svg)](https://pypi.python.org/pypi/impacket/)
 [![Build and test Impacket](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml)
 
-FORTRA. Copyright (C) 2023 Fortra. All rights reserved.
+Copyright Fortra, LLC and its affiliated companies. All rights reserved.
 
 Impacket was originally created by [SecureAuth](https://www.secureauth.com/labs/open-source-tools/impacket), and now maintained by Fortra's Core Security.
 
@@ -50,7 +50,7 @@ Getting Impacket
 
 ### Latest version
 
-* Impacket v0.11.0
+* Impacket v0.12.0
 
   [![Python versions](https://img.shields.io/pypi/pyversions/impacket.svg)](https://pypi.python.org/pypi/impacket/)
 
@@ -58,9 +58,9 @@ Getting Impacket
 
 ### Development version
 
-* Impacket v0.12.0-dev (**[master branch](https://github.com/fortra/impacket/tree/master)**)
+* Impacket v0.13.0-dev (**[master branch](https://github.com/fortra/impacket/tree/master)**)
 
-  [![Python versions](https://img.shields.io/badge/python-3.6%20|%203.7%20|%203.8%20|%203.9%20|%203.10-blue.svg)](https://github.com/fortra/impacket/tree/master)
+  [![Python versions](https://img.shields.io/badge/python-3.8%20|%203.9%20|%203.10%20|%203.11%20|%203.12-blue.svg)](https://github.com/fortra/impacket/tree/master)
 
 
 Setup

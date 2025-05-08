@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -36,6 +38,7 @@ class NTLMRelayxConfig:
         self.mode = None
         self.redirecthost = None
         self.outputFile = None
+        self.dumpHashes = False
         self.attacks = None
         self.lootdir = None
         self.randomtargets = False
@@ -101,6 +104,14 @@ class NTLMRelayxConfig:
         self.ShadowCredentialsExportType = None
         self.ShadowCredentialsOutfilePath = None
 
+        # SCCM attacks options
+        self.isSCCMPoliciesAttack = False
+        self.SCCMPoliciesClientname = None
+        self.SCCMPoliciesSleep = None
+        self.isSCCMDPAttack = False
+        self.SCCMDPExtensions = None
+        self.SCCMDPFiles = None
+
     def setSMBChallenge(self, value):
         self.SMBServerChallenge = value
 
@@ -122,6 +133,9 @@ class NTLMRelayxConfig:
 
     def setOutputFile(self, outputFile):
         self.outputFile = outputFile
+
+    def setdumpHashes(self, dumpHashes):
+        self.dumpHashes = dumpHashes
 
     def setTargets(self, target):
         self.target = target
@@ -241,6 +255,20 @@ class NTLMRelayxConfig:
         self.ShadowCredentialsPFXPassword = ShadowCredentialsPFXPassword
         self.ShadowCredentialsExportType = ShadowCredentialsExportType
         self.ShadowCredentialsOutfilePath = ShadowCredentialsOutfilePath
+    
+    def setIsSCCMPoliciesAttack(self, isSCCMPoliciesAttack):
+        self.isSCCMPoliciesAttack = isSCCMPoliciesAttack
+    
+    def setSCCMPoliciesOptions(self, sccm_policies_clientname, sccm_policies_sleep):
+        self.SCCMPoliciesClientname = sccm_policies_clientname
+        self.SCCMPoliciesSleep = sccm_policies_sleep
+    
+    def setIsSCCMDPAttack(self, isSCCMDPAttack):
+        self.isSCCMDPAttack = isSCCMDPAttack
+    
+    def setSCCMDPOptions(self, sccm_dp_extensions, sccm_dp_files):
+        self.SCCMDPExtensions = sccm_dp_extensions
+        self.SCCMDPFiles = sccm_dp_files
 
     def setAltName(self, altName):
         self.altName = altName

@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -27,7 +29,7 @@ from __future__ import print_function
 import sys
 
 from struct import unpack
-from datetime import datetime
+from datetime import datetime, timezone
 from binascii import unhexlify, hexlify
 from struct import pack
 from hashlib import pbkdf2_hmac
@@ -777,7 +779,7 @@ class VAULT_VCRD(Structure):
     def dump(self):
         print("[VCRD]")
         print("SchemaGuid  : %s" % bin_to_string(self['SchemaGuid']))
-        print("LastWritten : %s" % (datetime.utcfromtimestamp(getUnixTime(self['LastWritten']))))
+        print("LastWritten : %s" % (datetime.fromtimestamp(getUnixTime(self['LastWritten']), tz=timezone.utc)))
         print("FriendlyName: %s" % (self['FriendlyName'].decode('utf-16le')))
         print()
         for i,entry in enumerate(self.mapEntries):
@@ -1075,7 +1077,7 @@ class CREDENTIAL_BLOB(Structure):
 
     def dump(self):
         print("[CREDENTIAL]")
-        print("LastWritten : %s" % (datetime.utcfromtimestamp(getUnixTime(self['LastWritten']))))
+        print("LastWritten : %s" % (datetime.fromtimestamp(getUnixTime(self['LastWritten']), tz=timezone.utc)))
         print("Flags       : 0x%.8x (%s)" % (self['Flags'], getFlags(CREDENTIAL_FLAGS, self['Flags'])))
         print("Persist     : 0x%.8x (%s)" % (self['Persist'], CREDENTIAL_PERSIST(self['Persist']).name))
         print("Type        : 0x%.8x (%s)" % (self['Type'], CREDENTIAL_TYPE(self['Type']).name))

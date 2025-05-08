@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -2588,11 +2590,11 @@ def hSamrCreateUser2InDomain(dce, domainHandle, name, accountType=USER_NORMAL_AC
         return dce.request(request)
     except DCERPCSessionError as e:
         if e.error_code == 0xc0000022:
-            raise Exception("Relayed user doesn't have right to create a machine account!")
+            raise Exception("Authenticating account doesn't have the right to create a new machine account!")
         elif e.error_code == 0xc00002e7:
-            raise Exception("Relayed user machine quota exceeded!")
+            raise Exception("Authenticating account's machine account quota exceeded!")
         elif e.error_code == 0xc0000062:
-            raise Exception("Account name not accepted, maybe the '$' at the end is missing ?")
+            raise Exception("Account name not accepted, maybe the '$' at the end is missing?")
         else:
             raise e
 
@@ -2833,12 +2835,14 @@ def hSamrUnicodeChangePasswordUser2(dce, serverName='\x00', userName='', oldPass
 
     samUser = SAMPR_USER_PASSWORD()
     try:
-        samUser['Buffer'] = b'A'*(512-len(newPassword)*2) + newPassword.encode('utf-16le')
+        encoded_password = newPassword.encode('utf-16le')
     except UnicodeDecodeError:
         import sys
-        samUser['Buffer'] = b'A'*(512-len(newPassword)*2) + newPassword.decode(sys.getfilesystemencoding()).encode('utf-16le')
+        encoded_password = newPassword.decode(sys.getfilesystemencoding()).encode('utf-16le')
 
-    samUser['Length'] = len(newPassword)*2
+    samUser['Buffer'] = b'A' * (512 - len(encoded_password)) + encoded_password
+
+    samUser['Length'] = len(encoded_password)
     pwdBuff = samUser.getData()
 
     rc4 = ARC4.new(oldPwdHashNT)

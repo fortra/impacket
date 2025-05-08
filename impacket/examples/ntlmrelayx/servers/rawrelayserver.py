@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -128,6 +130,9 @@ class RAWRelayServer(Thread):
                                                         authenticateMessage['lanman'], authenticateMessage['ntlm'])
                     self.client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
 
+                    if self.server.config.dumpHashes is True:
+                        LOG.info(ntlm_hash_data['hash_string'])
+
                     if self.server.config.outputFile is not None:
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                               self.server.config.outputFile)
@@ -163,14 +168,8 @@ class RAWRelayServer(Thread):
             return True
 
         def do_ntlm_auth(self, token, authenticateMessage):
-
             # For some attacks it is important to know the authenticated username, so we store it
-            if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
-                                            authenticateMessage['user_name'].decode('utf-16le'))).upper()
-            else:
-                self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('ascii'),
-                                            authenticateMessage['user_name'].decode('ascii'))).upper()
+            self.authUser = authenticateMessage.getUserString()
 
             if authenticateMessage['user_name'] != '' or self.target.hostname == '127.0.0.1':
                 clientResponse, errorCode = self.client.sendAuth(token)

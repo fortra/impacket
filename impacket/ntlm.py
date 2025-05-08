@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -38,10 +40,10 @@ TEST_CASE = False # Only set to True when running Test Cases
 DEFAULT_LM_HASH = binascii.unhexlify('AAD3B435B51404EEAAD3B435B51404EE')
 
 def computeResponse(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='', nthash='',
-                    use_ntlmv2=USE_NTLMv2):
+                    use_ntlmv2=USE_NTLMv2, channel_binding_value=b'', service='cifs'):
     if use_ntlmv2:
         return computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, domain, user, password,
-                                     lmhash, nthash, use_ntlmv2=use_ntlmv2)
+                                     lmhash, nthash, use_ntlmv2=use_ntlmv2, channel_binding_value=channel_binding_value, service=service)
     else:
         return computeResponseNTLMv1(flags, serverChallenge, clientChallenge, serverName, domain, user, password,
                                      lmhash, nthash, use_ntlmv2=use_ntlmv2)
@@ -408,7 +410,7 @@ class NTLMAuthChallengeResponse(Structure):
         ('flags','<L'),
         ('VersionLen','_-Version','self.checkVersion(self["flags"])'), 
         ('Version',':=""'),
-        ('MICLen','_-MIC','self.checkMIC(self["flags"])'),
+        ('MICLen','_-MIC','self.checkMIC(self)'),
         ('MIC',':=""'),
         ('domain_name',':'),
         ('user_name',':'),
@@ -459,16 +461,15 @@ class NTLMAuthChallengeResponse(Structure):
         return 8
 
     @staticmethod
-    def checkMIC(flags):
+    def checkMIC(struct):
         # TODO: Find a proper way to check the MIC is in there
-        if flags is not None:
-           if flags & NTLMSSP_NEGOTIATE_VERSION == 0:
-              return 0
-        return 16
+        if 'MIC' in struct.fields:
+            return len(struct['MIC'])
+        return 0
                                                                                 
     def getData(self):
-        self['domain_offset']=64+self.checkMIC(self["flags"])+self.checkVersion(self["flags"])
-        self['user_offset']=64+self.checkMIC(self["flags"])+self.checkVersion(self["flags"])+len(self['domain_name'])
+        self['domain_offset']=64+self.checkMIC(self)+self.checkVersion(self["flags"])
+        self['user_offset']=64+self.checkMIC(self)+self.checkVersion(self["flags"])+len(self['domain_name'])
         self['host_offset']=self['user_offset']+len(self['user_name'])
         self['lanman_offset']=self['host_offset']+len(self['host_name'])
         self['ntlm_offset']=self['lanman_offset']+len(self['lanman'])
@@ -500,6 +501,20 @@ class NTLMAuthChallengeResponse(Structure):
         lanman_offset = self['lanman_offset'] 
         lanman_end    = self['lanman_len'] + lanman_offset
         self['lanman'] = data[ lanman_offset : lanman_end]
+
+    def getUserString(self):
+        if self['flags'] & NTLMSSP_NEGOTIATE_UNICODE:
+            user = self['user_name'].decode('utf-16le')
+            domain = self['domain_name'].decode('utf-16le')
+        else:
+            user = self['user_name'].decode('cp437')
+            domain = self['domain_name'].decode('cp437')
+
+        # user is in UPN format
+        if not domain and '@' in user:
+            user, _, domain = user.rpartition("@")
+
+        return ('%s/%s' % (domain, user)).upper()
 
 class ImpacketStructure(Structure):
     def set_parent(self, other):
@@ -563,7 +578,7 @@ def ntlmssp_DES_encrypt(key, challenge):
 
 # High level functions to use NTLMSSP
 
-def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlmv2 = USE_NTLMv2):
+def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlmv2 = USE_NTLMv2, version = None):
     # Let's do some encoding checks before moving on. Kind of dirty, but found effective when dealing with
     # international characters.
     import sys
@@ -589,13 +604,17 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlm
     auth['flags'] |= NTLMSSP_NEGOTIATE_NTLM | NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY | NTLMSSP_NEGOTIATE_UNICODE | \
                      NTLMSSP_REQUEST_TARGET |  NTLMSSP_NEGOTIATE_128 | NTLMSSP_NEGOTIATE_56
 
+    if version is not None:
+        auth['flags'] |= NTLMSSP_NEGOTIATE_VERSION
+        auth['os_version'] = version
+
     # We're not adding workstation / domain fields this time. Normally Windows clients don't add such information but,
     # we will save the workstation name to be used later.
     auth.setWorkstation(workstation)
 
     return auth
 
-def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2):
+def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2, channel_binding_value = b'', service='cifs', version=None):
 
     # Safety check in case somebody sent password = None.. That's not allowed. Setting it to '' and hope for the best.
     if password is None:
@@ -634,7 +653,7 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
 
     ntResponse, lmResponse, sessionBaseKey = computeResponse(ntlmChallenge['flags'], ntlmChallenge['challenge'],
                                                              clientChallenge, serverName, domain, user, password,
-                                                             lmhash, nthash, use_ntlmv2)
+                                                             lmhash, nthash, use_ntlmv2, channel_binding_value = channel_binding_value, service=service)
 
     # Let's check the return flags
     if (ntlmChallenge['flags'] & NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY) == 0:
@@ -700,6 +719,9 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
         ntlmChallengeResponse['lanman'] = b'\x00'
     else:
         ntlmChallengeResponse['lanman'] = lmResponse
+
+    if version is not None:
+        ntlmChallengeResponse['Version'] = version
     ntlmChallengeResponse['ntlm'] = ntResponse
     if encryptedRandomSessionKey is not None: 
         ntlmChallengeResponse['session_key'] = encryptedRandomSessionKey
@@ -907,19 +929,17 @@ def LMOWFv2( user, password, domain, lmhash = ''):
 
 
 def computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='',
-                          nthash='', use_ntlmv2=USE_NTLMv2):
-
+                          nthash='', use_ntlmv2=USE_NTLMv2, channel_binding_value=b'', service='cifs'):
     responseServerVersion = b'\x01'
     hiResponseServerVersion = b'\x01'
     responseKeyNT = NTOWFv2(user, password, domain, nthash)
-
     av_pairs = AV_PAIRS(serverName)
     # In order to support SPN target name validation, we have to add this to the serverName av_pairs. Otherwise we will
     # get access denied
     # This is set at Local Security Policy -> Local Policies -> Security Options -> Server SPN target name validation
     # level
     if TEST_CASE is False:
-        av_pairs[NTLMSSP_AV_TARGET_NAME] = 'cifs/'.encode('utf-16le') + av_pairs[NTLMSSP_AV_HOSTNAME][1]
+        av_pairs[NTLMSSP_AV_TARGET_NAME] = f"{service}/".encode('utf-16le') + av_pairs[NTLMSSP_AV_DNS_HOSTNAME][1]
         if av_pairs[NTLMSSP_AV_TIME] is not None:
            aTime = av_pairs[NTLMSSP_AV_TIME][1]
         else:
@@ -928,9 +948,20 @@ def computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, d
         serverName = av_pairs.getData()
     else:
         aTime = b'\x00'*8
+    
+    if len(channel_binding_value) > 0:
+        av_pairs[NTLMSSP_AV_CHANNEL_BINDINGS] = channel_binding_value
 
-    temp = responseServerVersion + hiResponseServerVersion + b'\x00' * 6 + aTime + clientChallenge + b'\x00' * 4 + \
-           serverName + b'\x00' * 4
+    # Format according to:
+    # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-nlmp/aee311d6-21a7-4470-92a5-c4ecb022a87b
+    temp = responseServerVersion # RespType 1 byte
+    temp += hiResponseServerVersion # HiRespType 1 byte
+    temp += b'\x00' * 2 # Reserved1 2 bytes
+    temp += b'\x00' * 4 # Reserved2 4 bytes
+    temp += aTime # TimeStamp 8 bytes
+    temp += clientChallenge # ChallengeFromClient 8 bytes
+    temp += b'\x00' * 4 # Reserved 4 bytes
+    temp += av_pairs.getData() # AvPairs variable
 
     ntProofStr = hmac_md5(responseKeyNT, serverChallenge + temp)
 

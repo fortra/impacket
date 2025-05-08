@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright (C) 2023 Fortra. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -22,6 +24,8 @@
 #       python net.py Administrator:password@targetMachine group -name "Domain Admins"
 #       python net.py Administrator:password@targetMachine computer -name DC$
 #       python net.py Administrator:password@targetMachine group -name "Domain Admins" -join EvilUs3r
+#       python net.py Administrator:password@targetMachine user -enable EvilUs3r
+#       python net.py Administrator:password@targetMachine user -disable EvilUs3r
 #
 # Author:
 #   Alex Romero (@NtAlexio2)
@@ -213,10 +217,31 @@ class User(SamrObject):
             self._close_domain()
 
     def _hEnableAccount(self, user_handle):
+        user_account_control = samr.hSamrQueryInformationUser2(self._dce, user_handle, samr.USER_INFORMATION_CLASS.UserAllInformation)['Buffer']['All']['UserAccountControl']
         buffer = samr.SAMPR_USER_INFO_BUFFER()
         buffer['tag'] = samr.USER_INFORMATION_CLASS.UserControlInformation
-        buffer['Control']['UserAccountControl'] = samr.USER_ALL_ADMINCOMMENT
+        buffer['Control']['UserAccountControl'] = user_account_control ^ samr.USER_ACCOUNT_DISABLED
         samr.hSamrSetInformationUser2(self._dce, user_handle, buffer)
+
+    def _hDisableAccount(self, user_handle):
+        user_account_control = samr.hSamrQueryInformationUser2(self._dce, user_handle, samr.USER_INFORMATION_CLASS.UserAllInformation)['Buffer']['All']['UserAccountControl']
+        buffer = samr.SAMPR_USER_INFO_BUFFER()
+        buffer['tag'] = samr.USER_INFORMATION_CLASS.UserControlInformation
+        buffer['Control']['UserAccountControl'] = samr.USER_ACCOUNT_DISABLED | user_account_control
+        samr.hSamrSetInformationUser2(self._dce, user_handle, buffer)
+
+    def SetUserAccountControl(self, name, action):
+        info = self.Query(name)
+        domain_handle = self._open_domain()
+        try:
+            user_handle = self._get_user_handle(domain_handle, name)
+            if action == 'enable':
+                self._hEnableAccount(user_handle)
+            else:
+                self._hDisableAccount(user_handle)
+        finally:
+            self._close_domain()
+
 
 
 class Computer(User):
@@ -356,6 +381,16 @@ class Net:
             actionObject.Remove(self.__options.remove)
             print("[+] {} account deleted succesfully!".format(self.__action))
 
+        elif self.__is_option_present(self.__options, 'enable'):
+            print("[*] Enabling {} account '{}'".format(self.__action, self.__options.enable))
+            actionObject.SetUserAccountControl(self.__options.enable, "enable")
+            print("[+] {} account enabled succesfully!".format(self.__action))
+
+        elif self.__is_option_present(self.__options, 'disable'):
+            print("[*] Disabling {} account '{}'".format(self.__action, self.__options.disable))
+            actionObject.SetUserAccountControl(self.__options.disable, "disable")
+            print("[+] {} account disabled succesfully!".format(self.__action))
+
         elif self.__is_option_present(self.__options, 'join'):
             print("[*] Adding user account '{}' to group '{}'".format(self.__options.join,self.__options.name))
             actionObject.Join(self.__options.name, self.__options.join)
@@ -379,7 +414,7 @@ class Net:
                 print("Comment".ljust(30), info['AdminComment'])
                 print("User's comment".ljust(30), info['UserComment'])
                 print("Country/region code".ljust(30), "000 (System Default)" if info['CountryCode'] == 0 else info['CountryCode'])
-                print("Account active".ljust(30), self.__b2s(info['WhichFields'] & samr.USER_ACCOUNT_DISABLED == samr.USER_ACCOUNT_DISABLED))
+                print("Account active".ljust(30), self.__b2s(info['UserAccountControl'] & samr.USER_ACCOUNT_DISABLED != samr.USER_ACCOUNT_DISABLED))
                 print("Account expires".ljust(30), self.__get_time_string(info['AccountExpires']))
                 print('')
                 print("Password last set".ljust(30), self.__get_time_string(info['PasswordLastSet']))
@@ -450,12 +485,12 @@ class Net:
 
 if __name__ == '__main__':
     print(version.BANNER)
-    logger.init()
 
     parser = argparse.ArgumentParser(add_help = True, description = "SAMR rpc client implementation.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
 
     subparsers = parser.add_subparsers(help='An account entry name', dest='entry', required=True)
 
@@ -464,12 +499,16 @@ if __name__ == '__main__':
     user_parser.add_argument('-create', action="store", metavar = "NAME", help='Add new user account to domain/computer.')
     user_parser.add_argument('-remove', action="store", metavar = "NAME", help='Remove existing user account from domain/computer.')
     user_parser.add_argument('-newPasswd', action="store", metavar = "PASSWORD", help='New password to set for creating account.')
+    user_parser.add_argument('-enable', action="store", metavar = "NAME", help='Enables account.')
+    user_parser.add_argument('-disable', action="store", metavar = "NAME", help='Disables account.')
 
     computer_parser = subparsers.add_parser('computer', help='Enumerate all computers in domain level')
     computer_parser.add_argument('-name', action="store", metavar = "NAME", help='Display single computer information.')
     computer_parser.add_argument('-create', action="store", metavar = "NAME", help='Add new computer account to domain.')
     computer_parser.add_argument('-remove', action="store", metavar = "NAME", help='Remove existing computer account from domain.')
     computer_parser.add_argument('-newPasswd', action="store", metavar = "PASSWORD", help='New password to set for creating account.')
+    computer_parser.add_argument('-enable', action="store", metavar = "NAME", help='Enables account.')
+    computer_parser.add_argument('-disable', action="store", metavar = "NAME", help='Disables account.')
 
     localgroup_parser = subparsers.add_parser('localgroup', help='Enumerate local groups (aliases) of local computer')
     localgroup_parser.add_argument('-name', action="store", metavar = "NAME", help='Operate on single specific domain group account.')
@@ -517,11 +556,7 @@ if __name__ == '__main__':
         logging.error("argument '-newPasswd' is required for creating new account.")
         sys.exit(1)
 
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
+    logger.init(options.ts, options.debug)
 
     domain, username, password, address = parse_target(options.target)
 
