@@ -73,6 +73,11 @@ def _get_machine_name(machine, fqdn=False):
     s = SMBConnection(machine, machine)
     try:
         s.login('', '')
+    except SessionError as e:
+        if str(e).find('STATUS_NOT_SUPPORTED') > 0:
+            raise Exception('The SMB request is not supported. Probably NTLM is disabled. Try to specify corresponding NetBIOS name or FQDN as the value of the -dc-host option')
+        else:
+            raise
     except Exception:
         if s.getServerName() == '':
             raise Exception('Error while anonymous logging into %s' % machine)
@@ -230,14 +235,11 @@ def _init_ldap_connection(target, tls_version, domain, username, password, lmhas
 
     return ldap_server, ldap_session
 
-def init_ldap_session(domain, username, password, lmhash, nthash, k, dc_ip, aesKey, use_ldaps):
-    """
-        k           (bool)  : use Kerberos authentication
-        dc_ip       (string): ip of the domain controller
-        use_ldaps   (boold) : SSL Ldap or Ldap
-    """
+def init_ldap_session(domain, username, password, lmhash, nthash, k, dc_ip, dc_host, aesKey, use_ldaps):
     if k:
-        if dc_ip is not None:
+        if dc_host is not None:
+            target = _get_machine_name(dc_host)
+        elif dc_ip is not None:
             target = _get_machine_name(dc_ip)
         else:
             target = _get_machine_name(domain)

@@ -241,6 +241,7 @@ def parse_args():
     auth_con.add_argument('-aesKey', action="store", metavar="hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
     auth_con.add_argument('-dc-ip', action='store', metavar="ip address",
                           help='IP Address of the domain controller or KDC (Key Distribution Center) for Kerberos. If omitted it will use the domain part (FQDN) specified in the identity parameter')
+    auth_con.add_argument('-dc-host', action='store', metavar="hostname", help='Hostname of the domain controller or KDC (Key Distribution Center) for Kerberos. If omitted, -dc-ip will be used')
 
     new_owner_parser = parser.add_argument_group("owner", description="Object, controlled by the attacker, to set as owner of the target object")
     new_owner_parser.add_argument("-new-owner", dest="new_owner_sAMAccountName", metavar="NAME", type=str, required=False, help="sAMAccountName")
@@ -277,7 +278,7 @@ def main():
     domain, username, password, lmhash, nthash, args.k = parse_identity(args.identity, args.hashes, args.no_pass, args.aesKey, args.k)
 
     try:
-        ldap_server, ldap_session = init_ldap_session(domain, username, password, lmhash, nthash, args.k, args.dc_ip, args.aesKey, args.use_ldaps)
+        ldap_server, ldap_session = init_ldap_session(domain, username, password, lmhash, nthash, args.k, args.dc_ip, args.dc_host, args.aesKey, args.use_ldaps)
         owneredit = OwnerEdit(ldap_server, ldap_session, args)
         if args.action == 'read':
             owneredit.read()
