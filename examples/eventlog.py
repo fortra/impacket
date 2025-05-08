@@ -23,7 +23,6 @@
 import sys
 import logging
 import argparse
-import logging
 from impacket import version
 from impacket.examples.utils import parse_target
 from impacket.dcerpc.v5 import transport
@@ -33,8 +32,7 @@ from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_GSS_NEGOTIATE, \
     RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
 class Eventlog:
-    def __init__(self, username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False, kdcHost=None,
-                 channelName=None):
+    def __init__(self, address, username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False, kdcHost=None):
         self.__username = username
         self.__password = password
         self.__domain = domain
@@ -43,13 +41,13 @@ class Eventlog:
         self.__aesKey = aesKey
         self.__doKerberos = doKerberos
         self.__kdcHost = kdcHost
-        self.__channelName = channelName
+        self.__address = address
 
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
-    def clear(self, addr):
-        stringbinding = self.__get_endpoint(addr)
+    def clear(self, channelName):
+        stringbinding = self.__get_endpoint()
         rpctransport = transport.DCERPCTransportFactory(stringbinding)
 
         if hasattr(rpctransport, 'set_credentials'):
@@ -58,17 +56,34 @@ class Eventlog:
                                          self.__aesKey)
             rpctransport.set_kerberos(self.__doKerberos, self.__kdcHost)
         try:
-            self.__do_clear(rpctransport)
+            self.__do_clear(rpctransport, channelName)
         except Exception as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
             logging.error(e)
 
-    def __get_endpoint(self, target):
-        return hept_map(target, even6.MSRPC_UUID_EVEN6, protocol='ncacn_ip_tcp')
+    def export(self, channelName, exportPath):
+        stringbinding = self.__get_endpoint()
+        rpctransport = transport.DCERPCTransportFactory(stringbinding)
 
-    def __do_clear(self, rpctransport):
+        if hasattr(rpctransport, 'set_credentials'):
+            # This method exists only for selected protocol sequences.
+            rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
+                                           self.__aesKey)
+            rpctransport.set_kerberos(self.__doKerberos, self.__kdcHost)
+        try:
+            self.__do_export(rpctransport, channelName, exportPath)
+        except Exception as e:
+            if logging.getLogger().level == logging.DEBUG:
+                import traceback
+                traceback.print_exc()
+            logging.error(e)
+
+    def __get_endpoint(self):
+        return hept_map(self.__address, even6.MSRPC_UUID_EVEN6, protocol='ncacn_ip_tcp')
+
+    def __do_clear(self, rpctransport, channelName):
         dce = rpctransport.get_dce_rpc()
 
         dce.set_credentials(*rpctransport.get_credentials())
@@ -81,12 +96,32 @@ class Eventlog:
         resp = even6.hEvtRpcRegisterControllableOperation(dce)
         logging.info("EvtRpcRegisterControllableOperation - OK")
 
-        even6.hEvtRpcClearLog(dce, resp['Handle'], self.__channelName)
+        even6.hEvtRpcClearLog(dce, resp['Handle'], channelName)
         logging.info("EvtRpcClearLog - OK")
 
         even6.hEvtRpcClose(dce, resp['Handle'])
         logging.info("EvtRpcClose - OK")
 
+    def __do_export(self, rpctransport, channelName, exportPath):
+        dce = rpctransport.get_dce_rpc()
+
+        dce.set_credentials(*rpctransport.get_credentials())
+        if self.__doKerberos is True:
+            dce.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
+        dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
+        dce.connect()
+        dce.bind(even6.MSRPC_UUID_EVEN6)
+
+        resp = even6.hEvtRpcRegisterControllableOperation(dce)
+        logging.info("EvtRpcRegisterControllableOperation - OK")
+
+        hControl = resp['Handle']
+
+        even6.hEvtRpcExportLog(dce, hControl, channelName, exportPath)
+        logging.info("hEvtRpcExportLog - OK")
+
+        even6.hEvtRpcClose(dce, hControl)
+        logging.info("EvtRpcClose - OK")
 
 
 # Process command-line arguments.
@@ -97,6 +132,8 @@ if __name__ == '__main__':
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-clear', action='store', type=str, metavar="CHANNEL", help='clears event records of given channel (example: Security)')
+    parser.add_argument('-export', action='store', type=str, metavar="CHANNEL", help='exports given channel (example: Security)')
+    parser.add_argument('-path', action='store', type=str, metavar="DISK_PATH", help='export file path on disk (example: C:\\temp\\security.evtx)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
@@ -137,7 +174,17 @@ if __name__ == '__main__':
     if options.aesKey is not None:
         options.k = True
 
-    channel_name = options.clear
-    eventlog = Eventlog(username, password, domain, options.hashes, options.aesKey, options.k, options.dc_ip,
-                           channel_name)
-    eventlog.clear(address)
+    eventlog = Eventlog(address, username, password, domain, options.hashes, 
+        options.aesKey, options.k, options.dc_ip)
+
+    if options.clear:
+        eventlog.clear(options.clear)
+
+    elif options.export:
+        if not options.path:
+            logging.error("no path specified.")
+        else:
+            eventlog.export(options.export, options.path)
+
+    else:
+        logging.error("no operation specified.")
