@@ -59,7 +59,7 @@ class EVEN6Tests(DCERPCTests):
 
         control_handle = resp['Handle']
 
-        resp = even6.hEvtRpcExportLog(dce, control_handle, 'Security\x00', '*\x00', 'C:\\Security_Log_Exported.evtx\x00')
+        resp = even6.hEvtRpcExportLog(dce, control_handle, 'Security\x00', 'C:\\Security_Log_Exported.evtx\x00')
         resp.dump()
 
         resp = even6.hEvtRpcClose(dce, control_handle)
