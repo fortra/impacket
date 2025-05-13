@@ -97,6 +97,7 @@ class NTLMRelayxConfig:
         self.isADCSAttack = False
         self.template = None
         self.altName = None
+        self.enumTemplates = False
 
         # Shadow Credentials attack options
         self.IsShadowCredentialsAttack = False
@@ -246,6 +247,9 @@ class NTLMRelayxConfig:
 
     def setIsADCSAttack(self, isADCSAttack):
         self.isADCSAttack = isADCSAttack
+
+    def setEnumTemplates(self, enumTemplates):
+        self.enumTemplates = enumTemplates
 
     def setIsShadowCredentialsAttack(self, IsShadowCredentialsAttack):
         self.IsShadowCredentialsAttack = IsShadowCredentialsAttack
