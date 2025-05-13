@@ -24,6 +24,7 @@
 #
 
 import re
+import struct
 import socket
 from binascii import unhexlify
 import random
@@ -552,7 +553,7 @@ class LDAPConnection:
             self.sequenceNumber += 1
         return self._socket.sendall(data)
 
-    def recv(self):
+    def recv_raw(self):
         REQUEST_SIZE = 8192
         data = b''
         done = False
@@ -562,16 +563,31 @@ class LDAPConnection:
                 done = True
             data += recvData
 
+        if self.__binded and self.__signing: # we need to decrypt every TCP frames, all at once
+            message_length = struct.unpack('!I', data[:4])[0]
+
+            done = False
+            while message_length != len(data) - 4:
+                while not done:
+                    recvData = self._socket.recv(REQUEST_SIZE)
+                    if len(recvData) < REQUEST_SIZE:
+                        done = True
+                    data += recvData
+
+            data = self.decrypt(data)
+
+        return data
+
+    def recv(self):
         response = []
-        if self.__binded and self.__signing:
-                data = self.decrypt(data)
+        data = self.recv_raw()
         while len(data) > 0:
             try:
                 # need to decrypt before
                 message, remaining = decoder.decode(data, asn1Spec=LDAPMessage())
             except SubstrateUnderrunError:
                 # We need more data
-                remaining = data + self._socket.recv(REQUEST_SIZE)
+                remaining = data + self.recv_raw() 
             else:
                 if message['messageID'] == 0:  # unsolicited notification
                     name = message['protocolOp']['extendedResp']['responseName'] or message['responseName']
