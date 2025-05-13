@@ -12,6 +12,8 @@
 from __future__ import division
 from __future__ import print_function
 from struct import pack, unpack, calcsize
+
+import six
 from six import b, PY3
 from binascii import hexlify
 
@@ -20,7 +22,7 @@ class Structure:
     """ sublcasses can define commonHdr and/or structure.
         each of them is an tuple of either two: (fieldName, format) or three: (fieldName, ':', class) fields.
         [it can't be a dictionary, because order is important]
-        
+
         where format specifies how the data in the field will be converted to/from bytes (string)
         class is the class to use when unpacking ':' fields.
 
@@ -28,7 +30,7 @@ class Structure:
            i.e. struct.pack('Hl',1,2) is valid, but format specifier 'Hl' is not (you must use 2 dfferent fields)
 
         format specifiers:
-          specifiers from module pack can be used with the same format 
+          specifiers from module pack can be used with the same format
           see struct.__doc__ (pack/unpack is finally called)
             x       [padding byte]
             c       [character]
@@ -52,7 +54,7 @@ class Structure:
             <       [little endian]
             >       [big endian]
 
-          usual printf like specifiers can be used (if started with %) 
+          usual printf like specifiers can be used (if started with %)
           [not recommended, there is no way to unpack this]
 
             %08x    will output an 8 bytes hex
@@ -75,11 +77,12 @@ class Structure:
             ?&fieldname "Address of field fieldname".
                         For packing it will simply pack the id() of fieldname. Or use 0 if fieldname doesn't exists.
                         For unpacking, it's used to know weather fieldname has to be unpacked or not, i.e. by adding a & field you turn another field (fieldname) in an optional field.
-            
+
     """
     commonHdr = ()
     structure = ()
     debug = 0
+    ENCODING = 'latin-1'   # Default encoding for strings
 
     def __init__(self, data = None, alignment = 0):
         if not hasattr(self, 'alignment'):
@@ -87,6 +90,9 @@ class Structure:
 
         self.fields    = {}
         self.rawData   = data
+
+        self.b = lambda x: six.ensure_binary(x, encoding=self.ENCODING)
+
         if data is not None:
             self.fromString(data)
         else:
@@ -137,7 +143,7 @@ class Structure:
             if self.alignment:
                 if len(data) % self.alignment:
                     data += (b'\x00'*self.alignment)[:-(len(data) % self.alignment)]
-            
+
         #if len(data) % self.alignment: data += ('\x00'*self.alignment)[:-(len(data) % self.alignment)]
         return data
 
@@ -197,7 +203,7 @@ class Structure:
 
         # quote specifier
         if format[:1] == "'" or format[:1] == '"':
-            return b(format[1:])
+            return self.b(format[1:])
 
         # code specifier
         two = format.split('=')
@@ -245,30 +251,30 @@ class Structure:
         # "printf" string specifier
         if format[:1] == '%':
             # format string like specifier
-            return b(format % data)
+            return self.b(format % data)
 
         # asciiz specifier
         if format[:1] == 'z':
             if isinstance(data,bytes):
-                return data + b('\0')
-            return bytes(b(data)+b('\0'))
+                return data + self.b('\0')
+            return bytes(self.b(data)+self.b('\0'))
 
         # unicode specifier
         if format[:1] == 'u':
-            return bytes(data+b('\0\0') + (len(data) & 1 and b('\0') or b''))
+            return bytes(data+self.b('\0\0') + (len(data) & 1 and self.b('\0') or b''))
 
         # DCE-RPC/NDR string specifier
         if format[:1] == 'w':
             if len(data) == 0:
-                data = b('\0\0')
+                data = self.b('\0\0')
             elif len(data) % 2:
-                data = b(data) + b('\0')
+                data = self.b(data) + self.b('\0')
             l = pack('<L', len(data)//2)
-            return b''.join([l, l, b('\0\0\0\0'), data])
+            return b''.join([l, l, self.b('\0\0\0\0'), data])
 
         if data is None:
             raise Exception("Trying to pack None")
-        
+
         # literal specifier
         if format[:1] == ':':
             if isinstance(data, Structure):
@@ -279,7 +285,7 @@ class Structure:
             elif isinstance(data, int):
                 return bytes(data)
             elif isinstance(data, bytes) is not True:
-                return bytes(b(data))
+                return bytes(self.b(data))
             else:
                 return data
 
@@ -288,7 +294,7 @@ class Structure:
             if isinstance(data, bytes) or isinstance(data, bytearray):
                 return pack(format, data)
             else:
-                return pack(format, b(data))
+                return pack(format, self.b(data))
 
         # struct like specifier
         return pack(format, data)
@@ -315,7 +321,7 @@ class Structure:
         # quote specifier
         if format[:1] == "'" or format[:1] == '"':
             answer = format[1:]
-            if b(answer) != data:
+            if self.b(answer) != data:
                 raise Exception("Unpacked data doesn't match constant value '%r' should be '%r'" % (data, answer))
             return answer
 
@@ -361,7 +367,7 @@ class Structure:
 
         # asciiz specifier
         if format == 'z':
-            if data[-1:] != b('\x00'):
+            if data[-1:] != self.b('\x00'):
                 raise Exception("%s 'z' field is not NUL terminated: %r" % (field, data))
             if PY3:
                 return data[:-1].decode('latin-1')
@@ -370,7 +376,7 @@ class Structure:
 
         # unicode specifier
         if format == 'u':
-            if data[-2:] != b('\x00\x00'):
+            if data[-2:] != self.b('\x00\x00'):
                 raise Exception("%s 'u' field is not NUL-NUL terminated: %r" % (field, data))
             return data[:-2] # remove trailing NUL
 
@@ -479,7 +485,7 @@ class Structure:
             pass
 
         # XXX: Try to match to actual values, raise if no match
-        
+
         # quote specifier
         if format[:1] == "'" or format[:1] == '"':
             return len(format)-1
@@ -524,11 +530,11 @@ class Structure:
 
         # asciiz specifier
         if format[:1] == 'z':
-            return data.index(b('\x00'))+1
+            return data.index(self.b('\x00'))+1
 
         # asciiz specifier
         if format[:1] == 'u':
-            l = data.index(b('\x00\x00'))
+            l = data.index(self.b('\x00\x00'))
             return l + (l & 1 and 3 or 2)
 
         # DCE-RPC/NDR string specifier
@@ -562,7 +568,7 @@ class Structure:
             if field[1][-l:] == descriptor:
                 return field[0]
         return None
-        
+
     def findLengthFieldFor(self, fieldName):
         descriptor = '-%s' % fieldName
         l = len(descriptor)
@@ -570,13 +576,13 @@ class Structure:
             if field[1][-l:] == descriptor:
                 return field[0]
         return None
-        
+
     def zeroValue(self, format):
         two = format.split('*')
         if len(two) == 2:
             if two[0].isdigit():
                 return (self.zeroValue(two[1]),)*int(two[0])
-                        
+
         if not format.find('*') == -1:
             return ()
         if 's' in format:
@@ -584,7 +590,7 @@ class Structure:
         if format in ['z',':','u']:
             return b''
         if format == 'w':
-            return b('\x00\x00')
+            return self.b('\x00\x00')
 
         return 0
 
