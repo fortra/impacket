@@ -22,7 +22,7 @@ class Structure:
     """ sublcasses can define commonHdr and/or structure.
         each of them is an tuple of either two: (fieldName, format) or three: (fieldName, ':', class) fields.
         [it can't be a dictionary, because order is important]
-
+        
         where format specifies how the data in the field will be converted to/from bytes (string)
         class is the class to use when unpacking ':' fields.
 
@@ -30,7 +30,7 @@ class Structure:
            i.e. struct.pack('Hl',1,2) is valid, but format specifier 'Hl' is not (you must use 2 dfferent fields)
 
         format specifiers:
-          specifiers from module pack can be used with the same format
+          specifiers from module pack can be used with the same format 
           see struct.__doc__ (pack/unpack is finally called)
             x       [padding byte]
             c       [character]
@@ -54,7 +54,7 @@ class Structure:
             <       [little endian]
             >       [big endian]
 
-          usual printf like specifiers can be used (if started with %)
+          usual printf like specifiers can be used (if started with %) 
           [not recommended, there is no way to unpack this]
 
             %08x    will output an 8 bytes hex
@@ -77,7 +77,7 @@ class Structure:
             ?&fieldname "Address of field fieldname".
                         For packing it will simply pack the id() of fieldname. Or use 0 if fieldname doesn't exists.
                         For unpacking, it's used to know weather fieldname has to be unpacked or not, i.e. by adding a & field you turn another field (fieldname) in an optional field.
-
+            
     """
     commonHdr = ()
     structure = ()
@@ -145,7 +145,7 @@ class Structure:
             if self.alignment:
                 if len(data) % self.alignment:
                     data += (b'\x00'*self.alignment)[:-(len(data) % self.alignment)]
-
+            
         #if len(data) % self.alignment: data += ('\x00'*self.alignment)[:-(len(data) % self.alignment)]
         return data
 
@@ -276,7 +276,7 @@ class Structure:
 
         if data is None:
             raise Exception("Trying to pack None")
-
+        
         # literal specifier
         if format[:1] == ':':
             if isinstance(data, Structure):
@@ -487,7 +487,7 @@ class Structure:
             pass
 
         # XXX: Try to match to actual values, raise if no match
-
+        
         # quote specifier
         if format[:1] == "'" or format[:1] == '"':
             return len(format)-1
@@ -570,7 +570,7 @@ class Structure:
             if field[1][-l:] == descriptor:
                 return field[0]
         return None
-
+        
     def findLengthFieldFor(self, fieldName):
         descriptor = '-%s' % fieldName
         l = len(descriptor)
@@ -578,13 +578,13 @@ class Structure:
             if field[1][-l:] == descriptor:
                 return field[0]
         return None
-
+        
     def zeroValue(self, format):
         two = format.split('*')
         if len(two) == 2:
             if two[0].isdigit():
                 return (self.zeroValue(two[1]),)*int(two[0])
-
+                        
         if not format.find('*') == -1:
             return ()
         if 's' in format:
