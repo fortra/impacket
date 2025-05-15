@@ -1452,7 +1452,7 @@ class SMB3:
                 bytesWritten += self.write(treeId, fileId, data[bytesWritten:], offset+bytesWritten, bytesToWrite-bytesWritten, waitAnswer)
             return bytesWritten
 
-    def queryDirectory(self, treeId, fileId, searchString = '*', resumeIndex = 0, informationClass = FILENAMES_INFORMATION, maxBufferSize = None, enumRestart = False, singleEntry = False):
+    def queryDirectory(self, treeId, fileId, searchString = '*', resumeIndex = 0, informationClass = FILENAMES_INFORMATION, maxBufferSize = None):
         if (treeId in self._Session['TreeConnectTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
         if (fileId in self._Session['OpenTable']) is False:
