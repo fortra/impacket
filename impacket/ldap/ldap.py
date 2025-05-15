@@ -36,7 +36,7 @@ from impacket import LOG
 from impacket.ldap.ldapasn1 import Filter, Control, SimplePagedResultsControl, ResultCode, Scope, DerefAliases, Operation, \
     KNOWN_CONTROLS, CONTROL_PAGEDRESULTS, NOTIFICATION_DISCONNECT, KNOWN_NOTIFICATIONS, BindRequest, SearchRequest, \
     SearchResultDone, LDAPMessage
-from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3, VERSION, MAC
+from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3, VERSION, hmac_md5, NTLMAuthChallenge
 from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, SPNEGOCipher, TypesMech
 
 try:
@@ -423,6 +423,11 @@ class LDAPConnection:
             
             # NTLM Auth
             type3, exportedSessionKey = getNTLMSSPType3(negotiate, type2, user, password, domain, lmhash, nthash, service='ldap', version=self.version, use_ntlmv2=True, channel_binding_value=channel_binding_value)
+            
+            # calculate MIC
+            newmic = hmac_md5(exportedSessionKey, negotiate.getData() + NTLMAuthChallenge(type2).getData() + type3.getData())
+            type3['MIC'] = newmic
+
             blob = SPNEGO_NegTokenResp()
             blob['ResponseToken'] = type3.getData()
             if self.__signing:
