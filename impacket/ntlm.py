@@ -410,7 +410,7 @@ class NTLMAuthChallengeResponse(Structure):
         ('flags','<L'),
         ('VersionLen','_-Version','self.checkVersion(self["flags"])'), 
         ('Version',':=""'),
-        ('MICLen','_-MIC','self.checkMIC(self)'),
+        ('MICLen','_-MIC','self.checkMIC(self["flags"])'),
         ('MIC',':=""'),
         ('domain_name',':'),
         ('user_name',':'),
@@ -461,15 +461,16 @@ class NTLMAuthChallengeResponse(Structure):
         return 8
 
     @staticmethod
-    def checkMIC(struct):
+    def checkMIC(flags):
         # TODO: Find a proper way to check the MIC is in there
-        if 'MIC' in struct.fields:
-            return len(struct['MIC'])
-        return 0
+        if flags is not None:
+           if flags & NTLMSSP_NEGOTIATE_VERSION == 0:
+              return 0
+        return 16
                                                                                 
     def getData(self):
-        self['domain_offset']=64+self.checkMIC(self)+self.checkVersion(self["flags"])
-        self['user_offset']=64+self.checkMIC(self)+self.checkVersion(self["flags"])+len(self['domain_name'])
+        self['domain_offset']=64+self.checkMIC(self["flags"])+self.checkVersion(self["flags"])
+        self['user_offset']=64+self.checkMIC(self["flags"])+self.checkVersion(self["flags"])+len(self['domain_name'])
         self['host_offset']=self['user_offset']+len(self['user_name'])
         self['lanman_offset']=self['host_offset']+len(self['host_name'])
         self['ntlm_offset']=self['lanman_offset']+len(self['lanman'])
