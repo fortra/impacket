@@ -82,7 +82,9 @@ class Structure:
     commonHdr = ()
     structure = ()
     debug = 0
-    ENCODING = 'latin-1'   # Default encoding for strings
+    # Encoding defaults to latin-1 which already was the de facto encoding for structures and works for most use cases.
+    # Now it can be configured to another encoding if needed.
+    ENCODING = 'latin-1'   # https://github.com/fortra/impacket/pull/1958
 
     def __init__(self, data = None, alignment = 0):
         if not hasattr(self, 'alignment'):
