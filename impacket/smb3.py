@@ -1793,7 +1793,7 @@ class SMB3:
         fileId = None
         try:
             # ToDo, we're assuming it's a directory, we should check what the file type is
-            fileId = self.create(treeId, ntpath.dirname(path), FILE_READ_ATTRIBUTES | FILE_READ_DATA, FILE_SHARE_READ |
+            fileId = self.create(treeId, path, FILE_READ_ATTRIBUTES | FILE_READ_DATA, FILE_SHARE_READ |
                                  FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                                  FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT, FILE_OPEN, 0,
                                  createContexts=createContexts)
