@@ -1802,7 +1802,7 @@ class SMB3:
             from impacket import smb
             while True:
                 try:
-                    res = self.queryDirectory(treeId, fileId, ntpath.basename(path), maxBufferSize=65535,
+                    res = self.queryDirectory(treeId, fileId, maxBufferSize=65535,
                                               informationClass=FILE_FULL_DIRECTORY_INFORMATION)
                     nextOffset = 1
                     while nextOffset != 0:
