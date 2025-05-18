@@ -791,7 +791,7 @@ class SMBConnection:
                 # if share access mode is none, let's the underlying API deals with it
                 return self._SMBConnection.stor_file(shareName, pathName, callback)
             else:
-                return self._SMBConnection.stor_file(shareName, pathName, callback, shareAccessMode)
+                return self._SMBConnection.stor_file(shareName, pathName, callback, shareAccessMode=shareAccessMode)
         except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
