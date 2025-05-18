@@ -1092,7 +1092,7 @@ class SMBSetFileBasicInfo(Structure):
         ('LastAccessTime','<q'),
         ('LastWriteTime','<q'),
         ('ChangeTime','<q'),
-        ('ExtFileAttributes','<H'),
+        ('ExtFileAttributes','<L'),
         ('Reserved','<L'),
     )
 
