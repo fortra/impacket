@@ -621,10 +621,11 @@ class SharedDevice:
 
 # Contains information about the shared file/directory
 class SharedFile:
-    def __init__(self, ctime, atime, mtime, filesize, allocsize, attribs, shortname, longname):
-        self.__ctime = ctime
-        self.__atime = atime
-        self.__mtime = mtime
+    def __init__(self, ctime, atime, wtime, mtime, filesize, allocsize, attribs, shortname, longname):
+        self.__ctime = ctime # CreateTime ([MS-CIFS] 2.2.8.1.4 SMB_FIND_FILE_DIRECTORY_INFO)
+        self.__atime = atime # LastAccessTime ([MS-CIFS] 2.2.8.1.4 SMB_FIND_FILE_DIRECTORY_INFO)
+        self.__wtime = wtime # LastWriteTime ([MS-CIFS] 2.2.8.1.4 SMB_FIND_FILE_DIRECTORY_INFO)
+        self.__mtime = mtime # LastAttrChangeTime ([MS-CIFS] 2.2.8.1.4 SMB_FIND_FILE_DIRECTORY_INFO)
         self.__filesize = filesize
         self.__allocsize = allocsize
         self.__attribs = attribs
@@ -648,6 +649,12 @@ class SharedFile:
 
     def get_ctime_epoch(self):
         return self.__convert_smbtime(self.__ctime)
+
+    def get_wtime(self):
+        return self.__wtime
+
+    def get_wtime_epoch(self):
+        return self.__convert_smbtime(self.__wtime)
 
     def get_mtime(self):
         return self.__mtime
@@ -3970,7 +3977,7 @@ class SMB(object):
                 filename = record['FileName'].decode('utf-16le') if self.__flags2 & SMB.FLAGS2_UNICODE else \
                                                                         record['FileName'].decode('cp437')
 
-                fileRecord = SharedFile(record['CreationTime'], record['LastAccessTime'], record['LastChangeTime'],
+                fileRecord = SharedFile(record['CreationTime'], record['LastAccessTime'], record['LastWriteTime'], record['LastChangeTime'],
                                   record['EndOfFile'], record['AllocationSize'], record['ExtFileAttributes'],
                                   shortname, filename)
                 files.append(fileRecord)
