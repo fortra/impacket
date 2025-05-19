@@ -474,4 +474,3 @@ class SPNEGOCipher:
                 self.__serverSealingHandle = cipher.encrypt
         self.__sequence += 1
         return signature
-

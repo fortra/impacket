@@ -69,7 +69,6 @@ setup(
     'impacket.dcerpc.v5',
     'impacket.dcerpc.v5.dcom',
     'impacket.krb5',
-    'impacket.ldap'
     ],
     data_files=data_files,
 
