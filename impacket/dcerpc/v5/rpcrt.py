@@ -1492,7 +1492,6 @@ class DCERPCServer(Thread):
     If you want to implement a DCE Interface Server, use this class as the base class
     """
     def __init__(self):
-        Thread.__init__(self)
         self._listenPort    = 0
         self._listenAddress = '127.0.0.1'
         self._listenUUIDS   = {}
@@ -1505,6 +1504,11 @@ class DCERPCServer(Thread):
         self.__log = LOG
         self._sock = socket.socket()
         self._sock.bind((self._listenAddress,self._listenPort))
+
+    def start(self):
+        Thread.__init__(self) #delay thrading.Thread.__init__ to avoid python 3.13 bug
+        self.daemon = True
+        Thread.start(self)
 
     def log(self, msg, level=logging.INFO):
         self.__log.log(level,msg)
