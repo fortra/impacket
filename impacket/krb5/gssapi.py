@@ -60,6 +60,12 @@ KRB5_AP_REQ = struct.pack('<H', 0x1)
 # Kerberos OID: 1.2.840.113554.1.2.2
 KRB_OID = b'\x06\t*\x86H\x86\xf7\x12\x01\x02\x02'
 
+def _calculateMICPad(data):
+    # Let's pad the data
+    pad = (4 - (len(data) % 4)) & 0x3
+    padbuffer = struct.pack("<B",pad) * pad
+    return padbuffer
+
 class MechIndepToken():
     
     def __init__(self, data=None, oid=KRB_OID):
@@ -145,10 +151,8 @@ class GSSAPI_RC4:
         GSS_GETMIC_HEADER = b'\x60\x23\x06\x09\x2a\x86\x48\x86\xf7\x12\x01\x02\x02'
         token = self.MIC()
 
-        # Let's pad the data
-        pad = (4 - (len(data) % 4)) & 0x3
-        padStr = b(chr(pad)) * pad
-        data += padStr
+        pad = _calculateMICPad(data)
+        data += pad
  
         token['SGN_ALG'] = GSS_HMAC
         if direction == 'init':
@@ -330,10 +334,8 @@ class GSSAPI_AES():
     def GSS_GetMIC(self, sessionKey, data, sequenceNumber, direction = 'init'):
         token = self.MIC()
 
-        # Let's pad the data
-        pad = (4 - (len(data) % 4)) & 0x3
-        padStr = chr(pad) * pad
-        data += padStr
+        pad = _calculateMICPad(data)
+        data += pad
 
         checkSumProfile = self.checkSumProfile()
 
