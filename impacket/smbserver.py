@@ -4923,7 +4923,9 @@ class SimpleSMBServer:
         # ask for shares using MS-RAP.
 
         self.__srvsServer = SRVSServer()
+        self.__srvsServer.daemon=True
         self.__wkstServer = WKSTServer()
+        self.__wkstServer.daemon=True
         self.__server.registerNamedPipe('srvsvc', ('127.0.0.1', self.__srvsServer.getListenPort()))
         self.__server.registerNamedPipe('wkssvc', ('127.0.0.1', self.__wkstServer.getListenPort()))
 
