@@ -305,6 +305,53 @@ class LdapShell(cmd.Cmd):
         else:
             raise Exception('Failed to add user to %s group: %s' % (group_name, str(self.client.result['description'])))
 
+    def do_gain_fullcontrol(self, line):
+        controls = security_descriptor_control(sdflags=0x04)
+
+        parts = shlex.split(line)
+        if len(parts) == 2:
+            search_filter, user_name = parts
+            search_base = self.domain_dumper.root
+        elif len(parts) == 3:
+            search_base, search_filter, user_name = parts
+        else:
+            raise Exception('Bad arguments')
+
+        self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(user_name)})', attributes=['objectSid'], controls=controls)
+        if not self.client.entries:
+            raise Exception(f'Could not find user: {self.client.result["description"]}: {self.client.result["message"]}')
+        if len(self.client.entries) > 1:
+            raise Exception('User name is not unique')
+        user_sid = self.client.entries[0]['objectSid'].value
+        print(f'Resolved {user_name!r} to {user_sid!r}')
+
+        self.client.search(search_base, search_filter, attributes=['nTSecurityDescriptor'], controls=controls)
+        if not self.client.entries:
+            raise Exception(f'Could not find target: {self.client.result["description"]}: {self.client.result["message"]}')
+        if len(self.client.entries) > 1:
+            raise Exception('Target filter matched more than one entry')
+        target_entry = self.client.entries[0]
+        print(f'Resolved {search_filter!r} to {target_entry.entry_dn!r}')
+
+        target_sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=target_entry['nTSecurityDescriptor'].raw_values[0])
+
+        new_ace = ldaptypes.ACE()
+        new_ace['AceType'] = ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE
+        acedata = ldaptypes.ACCESS_ALLOWED_ACE()
+        # allow inheritance, to disable set AceFlags to 0x00
+        new_ace['AceFlags'] = ldaptypes.ACE.OBJECT_INHERIT_ACE + ldaptypes.ACE.CONTAINER_INHERIT_ACE
+        acedata['Mask'] = ldaptypes.ACCESS_MASK()
+        acedata['Mask']['Mask'] = 0xf01ff  # FULL_CONTROL
+        acedata['Sid'] = ldaptypes.LDAP_SID()
+        acedata['Sid'].fromCanonical(user_sid)
+        new_ace['Ace'] = acedata
+        target_sd['Dacl'].aces.append(new_ace)
+
+        self.client.modify(target_entry.entry_dn, {'nTSecurityDescriptor': (ldap3.MODIFY_REPLACE, [target_sd.getData()])}, controls=controls)
+        if self.client.result['result'] != 0:
+            raise Exception(f'Failed to modify security descriptor: {self.client.result["description"]}: {self.client.result["message"]}')
+        print('Security descriptor modified successfully')
+
     def do_change_password(self, line):
         args = shlex.split(line)
 
@@ -665,6 +712,7 @@ class LdapShell(cmd.Cmd):
  rename_computer current_name new_name - Sets the SAMAccountName attribute on a computer object to a new value.
  add_user new_user [parent] - Creates a new user.
  add_user_to_group user group - Adds a user to a group.
+ gain_fullcontrol [search_base] search_filter grantee - Give grantee (sAMAccountName) FullControl on target specified by search filter.
  change_password user [password] - Attempt to change a given user's password. Requires LDAPS.
  clear_rbcd target - Clear the resource based constrained delegation configuration information.
  disable_account user - Disable the user's account.
