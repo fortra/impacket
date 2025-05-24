@@ -512,7 +512,7 @@ class NetBIOS:
     # Creates a NetBIOS instance without specifying any default NetBIOS domain nameserver.
     # All queries will be sent through the servport.
     def __init__(self, servport = NETBIOS_NS_PORT):
-        self.__servport = NETBIOS_NS_PORT
+        self.__servport = servport
         self.__nameserver = None
         self.__broadcastaddr = BROADCAST_ADDR
         self.mac = b'00-00-00-00-00-00'
