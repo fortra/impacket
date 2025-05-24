@@ -1809,7 +1809,7 @@ class SMB3:
                         fileInfo = smb.SMBFindFileFullDirectoryInfo(smb.SMB.FLAGS2_UNICODE)
                         fileInfo.fromString(res)
                         files.append(smb.SharedFile(fileInfo['CreationTime'], fileInfo['LastAccessTime'],
-                                                    fileInfo['LastChangeTime'], fileInfo['EndOfFile'],
+                                                    fileInfo['LastWriteTime'], fileInfo['LastChangeTime'], fileInfo['EndOfFile'],
                                                     fileInfo['AllocationSize'], fileInfo['ExtFileAttributes'],
                                                     fileInfo['FileName'].decode('utf-16le'),
                                                     fileInfo['FileName'].decode('utf-16le')))
