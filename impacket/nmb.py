@@ -517,7 +517,7 @@ class NetBIOS:
         self.__broadcastaddr = BROADCAST_ADDR
         self.mac = b'00-00-00-00-00-00'
 
-    def _setup_connection(self, dstaddr, timeout=None):
+    def _setup_connection(self, dstaddr):
         port = rand.randint(10000, 60000)
         af, socktype, proto, _canonname, _sa = socket.getaddrinfo(dstaddr, port, socket.AF_INET, socket.SOCK_DGRAM)[0]
         s = socket.socket(af, socktype, proto)
