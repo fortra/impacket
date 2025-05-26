@@ -566,8 +566,8 @@ class LDAPConnection:
         if self.__binded and self.__signing: # we need to decrypt every TCP frames, all at once
             message_length = struct.unpack('!I', data[:4])[0]
 
-            done = False
             while message_length != len(data) - 4:
+                done = False
                 while not done:
                     recvData = self._socket.recv(REQUEST_SIZE)
                     if len(recvData) < REQUEST_SIZE:
