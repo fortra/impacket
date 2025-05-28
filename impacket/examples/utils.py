@@ -250,7 +250,7 @@ def _init_ldap_connection(target, tls_version, domain, username, password, lmhas
         # Try NTLM bind first without auto_bind to handle fallback
         ldap_session = ldap3.Connection(ldap_server, user=user, password=password, authentication=ldap3.NTLM, auto_bind=False)
         try:
-            if ldap_session.bind():i
+            if ldap_session.bind():
                 print("[+] NTLM bind succeeded.") # Informative message on successful NTLM bind
             else:
                 # Extract and print LDAP bind error code if available
