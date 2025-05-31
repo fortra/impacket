@@ -161,7 +161,7 @@ class AttributeValue(univ.OctetString):
 
 
 class AssertionValue(univ.OctetString):
-    pass
+    encoding = 'utf-8'
 
 
 class MatchingRuleID(LDAPString):
