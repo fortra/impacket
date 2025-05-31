@@ -209,8 +209,25 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
     connection.bound = True
 
     return True
+# Modified by azox: added fallback to SIMPLE bind and LDAP error code printing for better debug
+
+
+LDAP_ERROR_CODES = {
+    '525': 'User not found',
+    '530': 'Not permitted to logon at this time',
+    '531': 'Not permitted to logon from this workstation',
+    '532': 'Password expired',
+    '533': 'Account disabled',
+    '701': 'Account expired',
+    '773': 'User must reset password',
+    '775': 'Account locked'
+}
+
 
 def _init_ldap_connection(target, tls_version, domain, username, password, lmhash, nthash, k, dc_ip, aesKey):
+    from ldap3.core.exceptions import LDAPBindError
+    import re
+
     user = '%s\\%s' % (domain, username)
     connect_to = target
     if dc_ip is not None:
@@ -224,13 +241,37 @@ def _init_ldap_connection(target, tls_version, domain, username, password, lmhas
         port = 389
         tls = None
     ldap_server = ldap3.Server(connect_to, get_info=ldap3.ALL, port=port, use_ssl=use_ssl, tls=tls)
+
     if k:
         ldap_session = ldap3.Connection(ldap_server)
         ldap_session.bind()
         ldap3_kerberos_login(ldap_session, target, username, password, domain, lmhash, nthash, aesKey, kdcHost=dc_ip)
     elif lmhash == '' and nthash == '':
-        ldap_session = ldap3.Connection(ldap_server, user=user, password=password, authentication=ldap3.NTLM, auto_bind=True)
+        # Try NTLM bind first without auto_bind to handle fallback
+        ldap_session = ldap3.Connection(ldap_server, user=user, password=password, authentication=ldap3.NTLM, auto_bind=False)
+        try:
+            if ldap_session.bind():
+                print("[+] NTLM bind succeeded.") # Informative message on successful NTLM bind
+            else:
+                # Extract and print LDAP bind error code if available
+                error_message = ldap_session.result.get('message', '')
+                match = re.search(r'data\s+([0-9a-f]{3})', error_message, re.IGNORECASE)
+                if match:
+                    data_code = match.group(1).lower()
+                    explanation = LDAP_ERROR_CODES.get(data_code, 'Unknown LDAP error code')
+                    print(f"[!] NTLM bind failed with LDAP error code: {data_code} ({explanation})")
+                else:
+                    print("[!] NTLM bind failed with unknown error.")
+
+                # Fallback to SIMPLE bind using UPN format (username@domain)
+                user_upn = f"{username}@{domain}"
+                ldap_session = ldap3.Connection(ldap_server, user=user_upn, password=password, authentication=ldap3.SIMPLE, auto_bind=True)
+                print("[*] SIMPLE bind succeeded.") # Informative message on fallback success
+        except LDAPBindError as e:
+            print(f"[!] LDAP bind failed: {e}")  # General bind failure catch
+            raise
     else:
+        # Bind using NTLM and password hash
         ldap_session = ldap3.Connection(ldap_server, user=user, password=lmhash + ":" + nthash, authentication=ldap3.NTLM, auto_bind=True)
 
     return ldap_server, ldap_session
