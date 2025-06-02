@@ -1,7 +1,7 @@
 from struct import pack
 from Cryptodome.Util.number import long_to_bytes
 from Cryptodome.PublicKey import RSA
-from OpenSSL.crypto import PKey, X509, TYPE_RSA
+from OpenSSL.crypto import PKey, X509, TYPE_RSA, X509Extension
 import OpenSSL
 import base64
 import uuid
@@ -28,13 +28,20 @@ def getTicksNow():
 def getDeviceId():
     return uuid.uuid4().bytes
 
-def createSelfSignedX509Certificate(subject,nBefore,nAfter,kSize=2048):
+def createSelfSignedX509Certificate(subject,nBefore,nAfter,kSize=2048, domain=""):
     key = PKey()
     key.generate_key(TYPE_RSA,kSize)
 
     certificate = X509()
 
     certificate.get_subject().CN = subject
+
+    if domain != "":
+        certificate.set_version(2)
+        upn_extension = f"otherName:1.3.6.1.4.1.311.20.2.3;UTF8:{subject}@{domain}".encode('utf-8')
+        subjectAltName = X509Extension(b"subjectAltName", False, upn_extension)
+        certificate.add_extensions([subjectAltName])
+
     certificate.set_issuer(certificate.get_subject())
     certificate.gmtime_adj_notBefore(nBefore)
     certificate.gmtime_adj_notAfter(nAfter)
