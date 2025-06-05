@@ -44,6 +44,8 @@ import hashlib
 import hmac
 
 from binascii import unhexlify, hexlify, a2b_hex
+from impacket.dcerpc.v5 import epm, nrpc, transport
+from impacket.dcerpc.v5 import rpcrt
 from six import b, ensure_str
 from six.moves import configparser, socketserver
 
@@ -2925,11 +2927,14 @@ class SMB2Commands:
                 ansFlags = (ntlm.NTLMSSP_DROP_SSP_STATIC | 0)
             # Generate the AV_PAIRS
             av_pairs = ntlm.AV_PAIRS()
-            # TODO: Put the proper data from SMBSERVER config
-            av_pairs[ntlm.NTLMSSP_AV_HOSTNAME] = av_pairs[
-                ntlm.NTLMSSP_AV_DNS_HOSTNAME] = smbServer.getServerName().encode('utf-16le')
-            av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME] = av_pairs[
-                ntlm.NTLMSSP_AV_DNS_DOMAINNAME] = smbServer.getServerDomain().encode('utf-16le')
+            # important for signing support, as NetrLogonSamLogonWithFlags checks these!
+            if "." in smbServer.getServerDomain():
+                av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME] = smbServer.getServerDomain().split(".")[0].upper().encode('utf-16le')
+                av_pairs[ntlm.NTLMSSP_AV_DNS_DOMAINNAME] = smbServer.getServerDomain().encode('utf-16le')
+            else:
+                av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME] = av_pairs[ntlm.NTLMSSP_AV_DNS_DOMAINNAME] = smbServer.getServerDomain().upper().encode('utf-16le')
+
+            av_pairs[ntlm.NTLMSSP_AV_HOSTNAME] = av_pairs[ntlm.NTLMSSP_AV_DNS_HOSTNAME] = smbServer.getServerName().upper().encode('utf-16le')
             av_pairs[ntlm.NTLMSSP_AV_TIME] = struct.pack('<q', (
                         116444736000000000 + calendar.timegm(time.gmtime()) * 10000000))
 
@@ -2982,9 +2987,11 @@ class SMB2Commands:
             isGuest = False
             isAnonymus = False
 
+            computerAccountCredentials = smbServer.getComputerAccountCredentials()
+
             # TODO: Check the credentials! Now granting permissions
             # Do we have credentials to check?
-            if len(smbServer.getCredentials()) > 0:
+            if len(smbServer.getCredentials()) > 0 or computerAccountCredentials["username"] != "":
                 identity = authenticateMessage['user_name'].decode('utf-16le').lower()
                 # Do we have this user's credentials?
                 if identity in smbServer.getCredentials():
@@ -3000,6 +3007,15 @@ class SMB2Commands:
                         connData['SignatureEnabled'] = True
                         connData['SigningSessionKey'] = sessionKey
                         connData['SignSequenceNumber'] = 1
+                elif computerAccountCredentials["username"] != "":
+                    # Try to get the session key via NetLogon
+                    netlogon = NetLogon(computerAccountCredentials["dcip"], computerAccountCredentials["username"], computerAccountCredentials["nthash"], computerAccountCredentials["domain"])
+                    netlogon.setupConnection()
+                    sessionKey, errorCode = netlogon.logonUserAndGetSessionKey(authenticateMessage, smbServer.getSMBChallenge())
+
+                    connData['SignatureEnabled'] = True
+                    connData['SigningSessionKey'] = sessionKey
+                    connData['SignSequenceNumber'] = 1
                 else:
                     errorCode = STATUS_LOGON_FAILURE
             else:
@@ -4021,6 +4037,11 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         self.__challenge = ''
         self.__log = None
 
+        self.__computerAccountName = ''
+        self.__computerAccountHash = ''
+        self.__computerAccountDomain = ''
+        self.__domainControllerIP = ''
+
         # Our ConfigParser data
         self.__serverConfig = config_parser
 
@@ -4677,6 +4698,13 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         self.__serverName = self.__serverConfig.get('global', 'server_name')
         self.__serverOS = self.__serverConfig.get('global', 'server_os')
         self.__serverDomain = self.__serverConfig.get('global', 'server_domain')
+
+        if self.__serverConfig.has_option('global', 'computer_account_name'):
+            self.__computerAccountName = self.__serverConfig.get('global', 'computer_account_name')
+            self.__computerAccountHash = self.__serverConfig.get('global', 'computer_account_hash')
+            self.__computerAccountDomain = self.__serverConfig.get('global', 'computer_account_domain')
+            self.__domainControllerIP = self.__serverConfig.get('global', 'dcip')
+
         self.__logFile = self.__serverConfig.get('global', 'log_file')
         if self.__serverConfig.has_option('global', 'challenge'):
             self.__challenge = unhexlify(self.__serverConfig.get('global', 'challenge'))
@@ -4739,6 +4767,20 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
             except:
                 pass
         self.__credentials[name.lower()] = (uid, lmhash, nthash)
+
+    def setComputerAccountCredentials(self, username, hash, domain, dcip):
+        self.__computerAccountName = username
+        self.__computerAccountHash = hash
+        self.__computerAccountDomain = domain
+        self.__domainControllerIP = dcip
+
+    def getComputerAccountCredentials(self):
+        return {
+            "username": self.__computerAccountName,
+            "nthash": self.__computerAccountHash,
+            "domain": self.__computerAccountDomain,
+            "dcip": self.__domainControllerIP
+        }
 
 
 # For windows platforms, opening a directory is not an option, so we set a void FD
@@ -5000,6 +5042,20 @@ class SimpleSMBServer:
     def addCredential(self, name, uid, lmhash, nthash):
         self.__server.addCredential(name, uid, lmhash, nthash)
 
+    def setComputerAccount(self, computer_account_name, computer_account_hash, computer_account_domain, dcip):
+        # needs to be correct for netlogon to allow us to authenticate the user
+        self.__smbConfig.set('global', 'server_name', computer_account_name[:-1]) # assume that the computer account ends with a $
+        self.__smbConfig.set('global', 'server_domain', computer_account_domain)
+
+        self.__smbConfig.set('global', 'computer_account_name', computer_account_name)
+        self.__smbConfig.set('global', 'computer_account_hash', computer_account_hash)
+        self.__smbConfig.set('global', 'computer_account_domain', computer_account_domain)
+        self.__smbConfig.set('global', 'dcip', dcip)
+
+        self.__server.setServerConfig(self.__smbConfig)
+        self.__server.processConfigFile()
+
+
     def setSMB2Support(self, value):
         if value is True:
             self.__smbConfig.set("global", "SMB2Support", "True")
@@ -5021,3 +5077,81 @@ class SimpleSMBServer:
             self.__smbConfig.set("global", "DropSSP", "False")
         self.__server.setServerConfig(self.__smbConfig)
         self.__server.processConfigFile()
+
+# https://gist.github.com/ThePirateWhoSmellsOfSunflowers/f41c334f912ec033d9bbfc7e96308ec6
+class NetLogon:
+    nrpc_uid = nrpc.MSRPC_UUID_NRPC
+    syntax = rpcrt.DCERPC.NDRSyntax
+    authn_level_packet = rpcrt.RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
+
+    def __init__(self, dcip, computer_account_name, computer_account_hash, computer_account_domain, client_challenge=random.randbytes(8), computer_name=None, primary_name=""):
+        self.dcip = dcip
+        self.computer_account_name = computer_account_name
+        if computer_name is not None:
+            self.computer_name = computer_name
+        else:
+            self.computer_name = computer_account_name[:-1] # strip $
+        self.computer_account_hash = unhexlify(computer_account_hash)
+        self.computer_account_domain = computer_account_domain
+        self.client_challenge = client_challenge
+        self.primary_name = primary_name
+        self.authenticator = None
+        self.dce = None
+
+    def setupConnection(self):
+        binding_string_nrpc = epm.hept_map(self.dcip, self.nrpc_uid, dataRepresentation=self.syntax, protocol='ncacn_ip_tcp')
+        rpctransport = transport.DCERPCTransportFactory(binding_string_nrpc)
+        dce = rpctransport.get_dce_rpc()
+        dce.connect()
+        dce.bind(nrpc.MSRPC_UUID_NRPC, transfer_syntax=uuid.bin_to_uuidtup(self.syntax))
+
+        resp = nrpc.hNetrServerReqChallenge(dce, self.primary_name, self.computer_name + '\x00', self.client_challenge)
+        serverchall = resp["ServerChallenge"]
+        sessionKey = nrpc.ComputeSessionKeyStrongKey(None, self.client_challenge, serverchall, self.computer_account_hash)
+        clientcred = nrpc.ComputeNetlogonCredential(self.client_challenge, sessionKey)
+        resp = nrpc.hNetrServerAuthenticate3(dce, self.primary_name + '\x00', self.computer_account_name + '\x00',
+                                            nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,
+                                            self.computer_name + '\x00', clientcred, 0x600FFFFF)
+
+        dce.set_credentials(self.computer_account_name, "THIS_IS_IGNORED_IN_IMPACKET", self.computer_account_domain)
+        dce.set_auth_type(rpcrt.RPC_C_AUTHN_NETLOGON)
+        dce.set_auth_level(self.authn_level_packet)
+
+        resp = dce.bind(nrpc.MSRPC_UUID_NRPC, alter=1, transfer_syntax=uuid.bin_to_uuidtup(self.syntax))
+
+        auth = nrpc.ComputeNetlogonAuthenticator(clientcred, sessionKey)
+
+        dce.set_session_key(sessionKey)
+        resp = nrpc.hNetrLogonGetCapabilities(dce, self.primary_name, self.computer_name, auth)
+        self.authenticator = resp['ReturnAuthenticator']
+        self.dce = dce
+
+    def logonUserAndGetSessionKey(self, authenticateMessage, serverChallenge):
+        request = nrpc.NetrLogonSamLogonWithFlags()
+        request['LogonServer'] = '\x00'
+        request['ComputerName'] = self.computer_name + '\x00'
+        request['ValidationLevel'] = nrpc.NETLOGON_VALIDATION_INFO_CLASS.NetlogonValidationSamInfo4
+
+        request['LogonLevel'] = nrpc.NETLOGON_LOGON_INFO_CLASS.NetlogonNetworkTransitiveInformation
+        request['LogonInformation']['tag'] = nrpc.NETLOGON_LOGON_INFO_CLASS.NetlogonNetworkTransitiveInformation
+        request['LogonInformation']['LogonNetworkTransitive']['Identity']['LogonDomainName'] = authenticateMessage['domain_name'].decode('utf-16le')
+
+        request['LogonInformation']['LogonNetworkTransitive']['Identity']['ParameterControl'] = 0
+        request['LogonInformation']['LogonNetworkTransitive']['Identity']['UserName'] = authenticateMessage['user_name'].decode('utf-16le')
+        request['LogonInformation']['LogonNetworkTransitive']['Identity']['Workstation'] = ''
+
+        request['LogonInformation']['LogonNetworkTransitive']['LmChallenge'] = serverChallenge
+        request['LogonInformation']['LogonNetworkTransitive']['NtChallengeResponse'] = authenticateMessage['ntlm']
+        request['LogonInformation']['LogonNetworkTransitive']['LmChallengeResponse'] = authenticateMessage['lanman']
+
+        request['Authenticator'] = self.authenticator
+        request['ReturnAuthenticator']['Credential'] = b'\x00'*8
+        request['ReturnAuthenticator']['Timestamp'] = 0
+        request['ExtraFlags'] = 0
+
+        resp = self.dce.request(request)
+        #resp.dump()
+
+        signingKey = ntlm.generateEncryptedSessionKey(resp['ValidationInformation']['ValidationSam4']['UserSessionKey'], authenticateMessage['session_key'])
+
+        return signingKey, resp['ErrorCode']
