@@ -762,8 +762,10 @@ class LDAPConnection:
         def replace_escaped_chars(match):
             return chr(int(match.group(1), 16))  # group(1) == "XX" (valid hex)
 
-        escaped_chars = re.compile(r'\\([0-9a-fA-F]{2})')  # Capture any sequence of "\XX" (where XX is a valid hex)
-        return re.sub(escaped_chars, replace_escaped_chars, ldapstr)
+        escaped_chars = re.compile(r'\\([0-9a-fA-F]{2})')
+        if isinstance(ldapstr, bytes):
+            ldapstr = ldapstr.decode('utf-8')
+        return re.sub(escaped_chars, replace_escaped_chars, ldapstr).encode('utf-8')
 
 
 class LDAPFilterSyntaxError(SyntaxError):
