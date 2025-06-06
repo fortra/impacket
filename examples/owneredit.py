@@ -10,7 +10,7 @@
 # for more information.
 #
 # Description:
-#   Python script for handling the msDS-AllowedToActOnBehalfOfOtherIdentity property of a target computer
+#   Python script for reading and modifying the Owner attribute (OwnerSid) of an Active Directory object.
 #
 # Authors:
 #   Charlie BROMBERG (@_nwodtuhs)
