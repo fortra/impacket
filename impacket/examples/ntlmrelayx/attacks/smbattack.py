@@ -56,8 +56,6 @@ class SMBAttack(ProtocolAttack):
             elif self.rpc_attack_mode == "ICPR":
                 self.pipename = r"\cert"
                 self.uuid = icpr.MSRPC_UUID_ICPR
-            elif self.rpc_attack_mode == "RRP":
-                self.pipename
             else:
                 raise(NotImplementedError())
             LOG.info("Creating Transport")
