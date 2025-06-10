@@ -70,6 +70,9 @@ class RPCRelayServer(Thread):
             self.target = self.server.config.target.getTarget()
             if self.target is None:
                 LOG.info("No target left")
+                if self.server.config.keepRelaying:
+                    self.server.config.target.reloadTargets(full_reload=True)
+                    self.target = self.server.config.target.getTarget()
             else:
                 LOG.info("RPCD: Received connection from %s, attacking target %s://%s" % (
                     self.client_address[0], self.target.scheme, self.target.netloc))
