@@ -343,7 +343,7 @@ class RPCRelayServer(Thread):
 
             if challengeMessage != b'':
                 secTrailer = SEC_TRAILER()
-                secTrailer['auth_type'] = ['auth_type']
+                secTrailer['auth_type'] = self.request_sec_trailer['auth_type']
                 # TODO: Downgrading auth_level?
                 secTrailer['auth_level'] = self.request_sec_trailer['auth_level']
                 # TODO: What is this number?
