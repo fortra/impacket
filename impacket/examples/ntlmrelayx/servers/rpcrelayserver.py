@@ -66,7 +66,7 @@ class RPCRelayServer(Thread):
 
             if self.server.config.target is None:
                 # Reflection mode, defaults to SMB at the target, for now
-                self.server.config.target = TargetsProcessor(singleTarget='SMB://%s:445/' % self.clientAddress[0])
+                self.server.config.target = TargetsProcessor(singleTarget='SMB://%s:445/' % self.client_address[0])
             self.target = self.server.config.target.getTarget()
             if self.target is None:
                 LOG.info("No target left")
