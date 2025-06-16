@@ -11,7 +11,8 @@
 #
 # Description:
 #   This script can be used in order to query & modify file timestamps - utilizing pure SMB.
-#   This PoC is using my implementation of the set_info method in the smb.py file.
+#   This is a PoC using my implementation of the `set_info` method in the `smb.py` file.
+#   The script mimics the syntax & logic to both the linux `touch` and `stat` binaries.
 #
 # Author:
 #   Raz Kissos (@covertivy)
@@ -58,7 +59,7 @@ from impacket.smb3 import FILE_BASIC_INFORMATION
 from impacket.smb3structs import SMB2_DIALECT_311, SMB2_FILE_BASIC_INFO
 
 
-FILETIME_READ_ACTION = 'query'
+FILETIME_READ_ACTION = 'stat'
 FILETIME_WRITE_ACTION = 'touch'
 
 
@@ -160,7 +161,7 @@ def main():
     touch_parser.add_argument('-m', '--modify', action='store_true', help='Change the "ChangeTime" of the file / directory.')
     
     touch_parser.add_argument('-r', '--reference', default=None, metavar=('<share>', '<path>'), nargs=2, help='Specify a file / directory to reference and copy the timestamps of (format is <share> <path>).')
-    touch_parser.add_argument('-t', '--timestamp', default=None, metavar="timestamp", help='Specify a timestamp to set for the selected filetimes (format: YYYY-MM-DD_HH:MM:SS.mmmmmm).')
+    touch_parser.add_argument('-t', '--timestamp', default=None, metavar="STAMP", help='Specify a timestamp to set for the selected filetimes (format: YYYY-MM-DD_HH:MM:SS.mmmmmm).')
     
     touch_parser.add_argument('-v', '--validate', action='store_true', help='Query the file after touching to verify the changes.')
     
