@@ -210,6 +210,10 @@ class RPCRelayServer(Thread):
                     # Connection failed
                     if self.target is None:
                         LOG.error('Negotiating NTLM failed, and no target left')
+                        if self.server.config.keepRelaying:
+                            self.server.config.target.reloadTargets(full_reload=True)
+                            self.target = self.server.config.target.getTarget()
+                            self.server.config.target.registerTarget(self.target)
                     else:
                         LOG.error('Negotiating NTLM with %s://%s failed. Skipping to next target',
                                   self.target.scheme, self.target.netloc)
