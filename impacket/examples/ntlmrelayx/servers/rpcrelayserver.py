@@ -67,12 +67,12 @@ class RPCRelayServer(Thread):
             if self.server.config.target is None:
                 # Reflection mode, defaults to SMB at the target, for now
                 self.server.config.target = TargetsProcessor(singleTarget='SMB://%s:445/' % self.client_address[0])
-            self.target = self.server.config.target.getTarget()
+            self.target = self.server.config.target.getTarget(multiRelay=False)
             if self.target is None:
                 LOG.info("No target left")
                 if self.server.config.keepRelaying:
                     self.server.config.target.reloadTargets(full_reload=True)
-                    self.target = self.server.config.target.getTarget()
+                    self.target = self.server.config.target.getTarget(multiRelay=False)
             else:
                 LOG.info("RPCD: Received connection from %s, attacking target %s://%s" % (
                     self.client_address[0], self.target.scheme, self.target.netloc))
@@ -212,11 +212,10 @@ class RPCRelayServer(Thread):
                         LOG.error('Negotiating NTLM failed, and no target left')
                         if self.server.config.keepRelaying:
                             self.server.config.target.reloadTargets(full_reload=True)
-                            self.target = self.server.config.target.getTarget()
+                            self.target = self.server.config.target.getTarget(multiRelay=False)
                             self.server.config.target.registerTarget(self.target)
                     else:
-                        LOG.error('Negotiating NTLM with %s://%s failed. Skipping to next target',
-                                  self.target.scheme, self.target.netloc)
+                        LOG.error('Negotiating NTLM with %s://%s failed.', self.target.scheme, self.target.netloc)
                         self.server.config.target.registerTarget(self.target)
                     return self.send_error(MSRPC_STATUS_CODE_RPC_S_ACCESS_DENIED)
 
