@@ -317,7 +317,7 @@ class RPCRelayServer(Thread):
                     item['Reason'] = MSRPC_BIND_TIME_FEATURE_NEGOTIATION_SECURITY_CONTEXT_MULTIPLEXING_SUPPORTED_BITMASK | MSRPC_BIND_TIME_FEATURE_NEGOTIATION_KEEP_CONNECTION_ON_ORPHAN_SUPPORTED_BITMASK
                     item['TransferSyntax'] = "\x00" * 20
                 else:
-                    if syntax == '71710533-BEBA-4937-8319-B5DBEF9CCC36':
+                    if requestItem['TransferSyntax'] == DCERPC.NDR64Syntax:
                         item['Result'] = MSRPC_CONT_RESULT_PROV_REJECT
                         item['Reason'] = 2
                         item['TransferSyntax'] = ('00000000-0000-0000-0000-000000000000',0.0)
