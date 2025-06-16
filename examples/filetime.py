@@ -152,9 +152,9 @@ def main():
 
     subcommands = parser.add_subparsers(dest="action")
     
-    query_parser = subcommands.add_parser(FILETIME_READ_ACTION, help="Show current file / directory timestamps.")
+    query_parser = subcommands.add_parser(FILETIME_READ_ACTION, description="Show current file / directory timestamps.")
     
-    touch_parser = subcommands.add_parser(FILETIME_WRITE_ACTION, help="Modify file / directory timestamps.")
+    touch_parser = subcommands.add_parser(FILETIME_WRITE_ACTION, description="Modify file / directory timestamps.")
     touch_parser.add_argument('-c', '--create', action='store_true', help='Change the "CreationTime" of the file / directory.')
     touch_parser.add_argument('-a', '--access', action='store_true', help='Change the "LastAccessTime" of the file / directory.')
     touch_parser.add_argument('-w', '--write', action='store_true', help='Change the "LastWriteTime" of the file / directory.')
