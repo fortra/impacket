@@ -56,7 +56,7 @@ from impacket import version, smbserver
 from impacket.dcerpc.v5 import transport, scmr
 from impacket.krb5.keytab import Keytab
 
-OUTPUT_FILENAME = '__output'
+OUTPUT_FILENAME = '__output_' + ''.join([random.choice(string.ascii_letters) for i in range(8)])
 SMBSERVER_DIR   = '__tmp'
 DUMMY_SHARE     = 'TMP'
 CODEC = sys.stdout.encoding
@@ -367,20 +367,13 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     # Init the example's logger theme
-    logger.init(options.ts)
+    logger.init(options.ts, options.debug)
 
     if options.codec is not None:
         CODEC = options.codec
     else:
         if CODEC is None:
             CODEC = 'utf-8'
-
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
 
     domain, username, password, remoteName = parse_target(options.target)
 

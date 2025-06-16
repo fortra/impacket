@@ -117,7 +117,10 @@ class TargetsProcessor:
             # We have data about the username we relayed the connection for,
             # for a target that didn't have username specified.
             # Let's log it
-            newTarget = urlparse('%s://%s@%s%s' % (target.scheme, gotUsername.replace('/','\\'), target.netloc, target.path))
+            if target.scheme.find('http') == 0 and target.query:
+                newTarget = urlparse('%s://%s@%s%s?%s' % (target.scheme, gotUsername.replace('/','\\'), target.netloc, target.path, target.query))
+            else:
+                newTarget = urlparse('%s://%s@%s%s' % (target.scheme, gotUsername.replace('/','\\'), target.netloc, target.path))
             if gotRelay:
                 self.finishedAttacks.append(newTarget)
             else:

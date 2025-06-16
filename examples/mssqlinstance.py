@@ -31,24 +31,26 @@ from impacket import version, tds
 if __name__ == '__main__':
 
     print(version.BANNER)
-    # Init the example's logger theme
-    logger.init()
 
     parser = argparse.ArgumentParser(add_help = True, description = "Asks the remote host for its running MSSQL Instances.")
 
     parser.add_argument('host', action='store', help='target host')
     parser.add_argument('-timeout', action='store', default='5', help='timeout to wait for an answer')
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
 
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
  
     options = parser.parse_args()
+    # Init the example's logger theme
+    logger.init(options.ts, options.debug)
 
     ms_sql = tds.MSSQL(options.host)
     instances = ms_sql.getInstances(int(options.timeout))
     if len(instances) == 0:
-        "No MSSQL Instances found"
+        print("No MSSQL Instances found")
     else:
         for i, instance in enumerate(instances):
             logging.info("Instance %d" % i)

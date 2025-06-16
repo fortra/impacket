@@ -16,7 +16,7 @@
 #   you can send it for cracking.
 #
 #   Original credit for this technique goes to @harmj0y:
-#   https://www.harmj0y.net/blog/activedirectory/roasting-as-reps/
+#   https://blog.harmj0y.net/activedirectory/roasting-as-reps/
 #   Related work by Geoff Janjua:
 #   https://www.exumbraops.com/layerone2016/party
 #
@@ -41,13 +41,12 @@ from pyasn1.type.univ import noValue
 from impacket import version
 from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_DONT_REQUIRE_PREAUTH
 from impacket.examples import logger
-from impacket.examples.utils import parse_credentials
+from impacket.examples.utils import parse_identity, ldap_login
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import AS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, AS_REP, seq_set, seq_set_iter
 from impacket.krb5.kerberosv5 import sendReceive, KerberosError
 from impacket.krb5.types import KerberosTime, Principal
 from impacket.ldap import ldap, ldapasn1
-from impacket.smbconnection import SMBConnection, SessionError
 
 
 class GetUserNoPreAuth:
@@ -95,29 +94,6 @@ class GetUserNoPreAuth:
             self.baseDN += 'dc=%s,' % i
         # Remove last ','
         self.baseDN = self.baseDN[:-1]
-
-    def getMachineName(self, target):
-        try:
-            s = SMBConnection(target, target)
-            s.login('', '')
-        except OSError as e:
-            if str(e).find('timed out') > 0:
-                raise Exception('The connection is timed out. Probably 445/TCP port is closed. Try to specify '
-                                'corresponding NetBIOS name or FQDN as the value of the -dc-host option')
-            else:
-                raise
-        except SessionError as e:
-            if str(e).find('STATUS_NOT_SUPPORTED') > 0:
-                raise Exception('The SMB request is not supported. Probably NTLM is disabled. Try to specify '
-                                'corresponding NetBIOS name or FQDN as the value of the -dc-host option')
-            else:
-                raise
-        except Exception:
-            if s.getServerName() == '':
-                raise Exception('Error while anonymous logging into %s' % target)
-        else:
-            s.logoff()
-        return s.getServerName()
 
     @staticmethod
     def getUnixTime(t):
@@ -234,18 +210,6 @@ class GetUserNoPreAuth:
             self.request_users_file_TGTs()
             return
 
-        if self.__kdcHost is not None:
-            self.__target = self.__kdcHost
-        else:
-            if self.__kdcIP is not None:
-                self.__target = self.__kdcIP
-            else:
-                self.__target = self.__domain
-
-            if self.__doKerberos:
-                logging.info('Getting machine hostname')
-                self.__target = self.getMachineName(self.__target)
-
         # Are we asked not to supply a password?
         if self.__doKerberos is False and self.__no_pass is True:
             # Yes, just ask the TGT and exit
@@ -254,30 +218,18 @@ class GetUserNoPreAuth:
             self.outputTGT(entry, None)
             return
 
-        # Connect to LDAP
         try:
-            ldapConnection = ldap.LDAPConnection('ldap://%s' % self.__target, self.baseDN, self.__kdcIP)
-            if self.__doKerberos is not True:
-                ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
-            else:
-                ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
-                                             self.__aesKey, kdcHost=self.__kdcIP)
+            # Connect to LDAP
+            ldapConnection = ldap_login(self.__target, self.baseDN, self.__kdcIP, self.__kdcHost, self.__doKerberos, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
+            # updating "self.__target" as it may have changed in the ldap_login processing
+            self.__target = ldapConnection._dstHost
         except ldap.LDAPSessionError as e:
-            if str(e).find('strongerAuthRequired') >= 0:
-                # We need to try SSL
-                ldapConnection = ldap.LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcIP)
-                if self.__doKerberos is not True:
-                    ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
-                else:
-                    ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
-                                                 self.__aesKey, kdcHost=self.__kdcIP)
-            else:
+            if str(e).find('strongerAuthRequired') < 0:
                 # Cannot authenticate, we will try to get this users' TGT (hoping it has PreAuth disabled)
                 logging.info('Cannot authenticate %s, getting its TGT' % self.__username)
                 entry = self.getTGT(self.__username)
                 self.outputTGT(entry, None)
                 return
-
 
         # Building the search filter
         searchFilter = "(&(UserAccountControl:1.2.840.113556.1.4.803:=%d)" \
@@ -438,27 +390,13 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     # Init the example's logger theme
-    logger.init(options.ts)
+    logger.init(options.ts, options.debug)
 
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-
-    domain, username, password = parse_credentials(options.target)
+    domain, username, password, _, _, options.k = parse_identity(options.target, options.hashes, options.no_pass, options.aesKey, options.k)
 
     if domain == '':
         logging.critical('Domain should be specified!')
         sys.exit(1)
-
-    if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
-        from getpass import getpass
-        password = getpass("Password:")
-
-    if options.aesKey is not None:
-        options.k = True
 
     if options.k is False and options.no_pass is True and username == '' and options.usersfile is None:
         logging.critical('If the -no-pass option was specified, but Kerberos (-k) is not used, then a username or the -usersfile option should be specified!')
