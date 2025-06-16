@@ -4871,9 +4871,10 @@ class SimpleSMBServer:
     :param string configFile: a file with all the servers' configuration. If no file specified, this class will create the basic parameters needed to run. You will need to add your shares manually tho. See addShare() method
     """
 
-    def __init__(self, listenAddress='0.0.0.0', listenPort=445, configFile=''):
+    def __init__(self, listenAddress='0.0.0.0', listenPort=445, configFile='', smbserverclass=SMBSERVER):
         if configFile != '':
-            self.__server = SMBSERVER((listenAddress, listenPort))
+            #self.__server = SMBSERVER((listenAddress, listenPort))
+            self.__server = smbserverclass((listenAddress, listenPort))
             self.__server.processConfigFile(configFile)
             self.__smbConfig = None
         else:
@@ -4898,7 +4899,7 @@ class SimpleSMBServer:
             self.__smbConfig.set('IPC$', 'read only', 'yes')
             self.__smbConfig.set('IPC$', 'share type', '3')
             self.__smbConfig.set('IPC$', 'path', '')
-            self.__server = SMBSERVER((listenAddress, listenPort), config_parser=self.__smbConfig)
+            self.__server = smbserverclass((listenAddress, listenPort), config_parser=self.__smbConfig)
             self.__server.processConfigFile()
 
         # Now we have to register the MS-SRVS server. This specially important for
@@ -4906,11 +4907,14 @@ class SimpleSMBServer:
         # ask for shares using MS-RAP.
 
         self.__srvsServer = SRVSServer()
-        self.__srvsServer.daemon = True
+        self.__srvsServer.daemon=True
         self.__wkstServer = WKSTServer()
-        self.__wkstServer.daemon = True
+        self.__wkstServer.daemon=True
         self.__server.registerNamedPipe('srvsvc', ('127.0.0.1', self.__srvsServer.getListenPort()))
         self.__server.registerNamedPipe('wkssvc', ('127.0.0.1', self.__wkstServer.getListenPort()))
+
+    def getServer(self):
+        return self.__server
 
     def start(self):
         self.__srvsServer.start()

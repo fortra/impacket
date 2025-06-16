@@ -406,7 +406,7 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     # Init the example's logger theme
-    logger.init(options.ts)
+    logger.init(options.ts, options.debug)
 
     if options.codec is not None:
         CODEC = options.codec
@@ -420,13 +420,6 @@ if __name__ == '__main__':
     if options.silentcommand and options.command == ' ':
         logging.error("-silentcommand switch and interactive shell not supported")
         sys.exit(1)
-
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
 
     if options.com_version is not None:
         try:
