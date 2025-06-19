@@ -160,7 +160,7 @@ class TargetsProcessor:
             # Multirelay feature is disabled, general candidates are attacked just one time
             elif multiRelay == False:
                 for target in self.generalCandidates:
-                    match = [x for x in self.finishedAttacks if x.hostname == target.netloc]
+                    match = [x for x in self.finishedAttacks if x.hostname == target.netloc and x.scheme == target.scheme]
                     if len(match) == 0:
                         self.generalCandidates.remove(target)
                         return target
