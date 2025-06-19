@@ -186,22 +186,25 @@ class RPCRelayServer(Thread):
                 raise Exception('Auth type received not supported (yet): %d' % auth_type)
 
         def negotiate_ntlm_session(self):
-            self.target = self.server.config.target.getTarget(multiRelay=False)
-            if self.target is None and not self.server.config.keepRelaying:
-                LOG.info("No target left")
-                return self.send_error(MSRPC_STATUS_CODE_RPC_S_ACCESS_DENIED)
-            else:
-                if self.target is None and self.server.config.keepRelaying:
-                    LOG.info("No target left: keepRelaying active, reloading targets.")
-                    self.server.config.target.reloadTargets(full_reload=True)
-                    self.target = self.server.config.target.getTarget(multiRelay=False)
-                LOG.info("RPCD: Received connection from %s, attacking target %s://%s" % (
-                    self.client_address[0], self.target.scheme, self.target.netloc))
             token = self.request_header['auth_data']
             messageType = struct.unpack('<L', token[len('NTLMSSP\x00'):len('NTLMSSP\x00') + 4])[0]
+
             if messageType == NTLMSSP_AUTH_NEGOTIATE:
                 negotiateMessage = ntlm.NTLMAuthNegotiate()
                 negotiateMessage.fromString(token)
+
+                self.target = self.server.config.target.getTarget(multiRelay=False)
+                if self.target is None:
+                    if self.server.config.keepRelaying:
+                        LOG.info("No target left: keepRelaying active, reloading targets.")
+                        self.server.config.target.reloadTargets(full_reload=True)
+                        self.target = self.server.config.target.getTarget(multiRelay=False)
+                        LOG.info("RPCD: Received connection from %s, attacking target %s://%s" % (self.client_address[0], self.target.scheme, self.target.netloc))
+                    else:
+                        LOG.info("No target left")
+                        return self.send_error(MSRPC_STATUS_CODE_RPC_S_ACCESS_DENIED)
+                else:
+                    LOG.info("RPCD: Received connection from %s, attacking target %s://%s" % (self.client_address[0], self.target.scheme, self.target.netloc))
 
                 try:
                     self.do_ntlm_negotiate(token)  # Computes the challenge message
@@ -210,12 +213,9 @@ class RPCRelayServer(Thread):
                     return self.bind(self.challengeMessage)
                 except Exception as e:
                     # Connection failed
-                    if self.target is None and not self.server.config.keepRelaying:
+                    if self.target is None:
                         LOG.error('Negotiating NTLM failed, and no target left')
                     else:
-                        if self.target is None and self.server.config.keepRelaying:
-                            self.server.config.target.reloadTargets(full_reload=True)
-                            self.target = self.server.config.target.getTarget(multiRelay=False)
                         LOG.error('Negotiating NTLM with %s://%s failed.', self.target.scheme, self.target.netloc)
                         self.server.config.target.registerTarget(self.target)
                     return self.send_error(MSRPC_STATUS_CODE_RPC_S_ACCESS_DENIED)
