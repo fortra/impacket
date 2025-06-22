@@ -22,7 +22,8 @@
 import sys
 from struct import unpack
 from impacket import LOG
-from ldap3 import Server, Connection, ALL, NTLM, MODIFY_ADD
+from ldap3 import Server, Connection, ALL, NTLM, MODIFY_ADD, Tls
+import ssl
 from ldap3.operation import bind
 try:
     from ldap3.core.results import RESULT_SUCCESS, RESULT_STRONGER_AUTH_REQUIRED
@@ -172,7 +173,8 @@ class LDAPSRelayClient(LDAPRelayClient):
         LDAPRelayClient.__init__(self, serverConfig, target, targetPort, extendedSecurity)
 
     def initConnection(self):
-        self.server = Server("ldaps://%s:%s" % (self.targetHost, self.targetPort), get_info=ALL)
+        tls_config = Tls(ciphers='ALL', version=ssl.PROTOCOL_TLSv1)
+        self.server = Server("ldaps://%s:%s" % (self.targetHost, self.targetPort), get_info=ALL, tls=tls_config)
         self.session = Connection(self.server, user="a", password="b", authentication=NTLM)
         self.session.open(False)
         return True
