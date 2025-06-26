@@ -152,7 +152,6 @@ def main():
         else:
             smbClient.login(username, password, domain, lmhash, nthash)
 
-        # Если указан -check-access, проверяем права и выходим
         if options.check_access:
             if options.check_access.upper() == 'ALL':
                 logging.debug("Listing all shares")
