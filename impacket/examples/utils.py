@@ -18,7 +18,7 @@ import re
 
 
 # Regular expression to parse target information
-target_regex = re.compile(r"(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)")
+target_regex = re.compile(r"(?:(?:([^/@:\\]*)[/\\])?([^@:]*)(?::([^@]*))?@)?(.*)")
 
 
 # Regular expression to parse credentials information
