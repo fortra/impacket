@@ -46,7 +46,7 @@ class MYMSSQL(MSSQL):
         self.connect()
         #This is copied from tds.py
         resp = self.preLogin()
-        if resp["Encryption"] == TDS_ENCRYPT_REQ or resp["Encryption"] == TDS_ENCRYPT_OFF:
+        if resp['Encryption'] == TDS_ENCRYPT_REQ or resp['Encryption'] == TDS_ENCRYPT_OFF:
             LOG.info("Encryption required, switching to TLS")
             # Creates a TLS context
             context = ssl.SSLContext()

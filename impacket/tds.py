@@ -530,18 +530,18 @@ class MSSQL:
         # First we initiate the structure
         prelogin = TDS_PRELOGIN()
         # Then we fill the version of the MSSQL client we use
-        prelogin["Version"] = b"\x08\x00\x01\x55\x00\x00"
+        prelogin['Version'] = b"\x08\x00\x01\x55\x00\x00"
         # We specify we support encryption but don't want it
-        prelogin["Encryption"] = TDS_ENCRYPT_OFF
+        prelogin['Encryption'] = TDS_ENCRYPT_OFF
         # Random threadID because we don't care about this
-        prelogin["ThreadID"] = struct.pack("<L",random.randint(0,65535))
+        prelogin['ThreadID'] = struct.pack('<L',random.randint(0,65535))
         # The instance name
-        prelogin["Instance"] = b"MSSQLServer\x00"
+        prelogin['Instance'] = b'MSSQLServer\x00'
         # We send the prelogin packet, receive the response from the server
         self.sendTDS(TDS_PRE_LOGIN, prelogin.getData(), 0)
         tds = self.recvTDS()
         # And return the result to the Login or KerberosLogin functions for futher parsing
-        return TDS_PRELOGIN(tds["Data"])
+        return TDS_PRELOGIN(tds['Data'])
     
     def encryptPassword(self, password ):
         return bytes(bytearray([((x & 0x0f) << 4) + ((x & 0xf0) >> 4) ^ 0xa5 for x in bytearray(password)]))
@@ -787,7 +787,7 @@ class MSSQL:
         resp = self.preLogin()
         # If the MSSQL Server responds with a TDS_ENCRYPT_REQ or TDS_ENCRYPT_OFF 
         # Then it means we need to setup a TLS context
-        if resp["Encryption"] == TDS_ENCRYPT_REQ or resp["Encryption"] == TDS_ENCRYPT_OFF:
+        if resp['Encryption'] == TDS_ENCRYPT_REQ or resp['Encryption'] == TDS_ENCRYPT_OFF:
             self.set_tls_context()
 
         # That part is used to compute the Version field for the NTLM_NEGOTIATE and NTLM_AUTHENTICATE messages
@@ -913,21 +913,21 @@ class MSSQL:
 
         # Now let's build the AP_REQ
         apReq = AP_REQ()
-        apReq["pvno"] = 5
-        apReq["msg-type"] = int(constants.ApplicationTagNumbers.AP_REQ.value)
+        apReq['pvno'] = 5
+        apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
 
         opts = list()
-        apReq["ap-options"] = constants.encodeFlags(opts)
-        seq_set(apReq, "ticket", ticket.to_asn1)
+        apReq['ap-options'] = constants.encodeFlags(opts)
+        seq_set(apReq, 'ticket', ticket.to_asn1)
 
         authenticator = Authenticator()
-        authenticator["authenticator-vno"] = 5
-        authenticator["crealm"] = domain
-        seq_set(authenticator, "cname", userName.components_to_asn1)
+        authenticator['authenticator-vno'] = 5
+        authenticator['crealm'] = domain
+        seq_set(authenticator, 'cname', userName.components_to_asn1)
         now = datetime.datetime.now(datetime.timezone.utc)
 
-        authenticator["cusec"] = now.microsecond
-        authenticator["ctime"] = KerberosTime.to_asn1(now)
+        authenticator['cusec'] = now.microsecond
+        authenticator['ctime'] = KerberosTime.to_asn1(now)
         authenticator["cksum"] = noValue
         authenticator["cksum"]["cksumtype"] = 0x8003
         
@@ -947,11 +947,11 @@ class MSSQL:
         # (Section 5.5.1)
         encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 11, encodedAuthenticator, None)
 
-        apReq["authenticator"] = noValue
-        apReq["authenticator"]["etype"] = cipher.enctype
-        apReq["authenticator"]["cipher"] = encryptedEncodedAuthenticator
+        apReq['authenticator'] = noValue
+        apReq['authenticator']['etype'] = cipher.enctype
+        apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 
-        blob["MechToken"] = encoder.encode(apReq)
+        blob['MechToken'] = encoder.encode(apReq)
 
         # Seeting the last options for our TDS packet
         # TDS_INTEGRATED_SECURITY_ON enables Windows authentication
@@ -992,7 +992,7 @@ class MSSQL:
 
         # If the MSSQL Server responds with a TDS_ENCRYPT_REQ or TDS_ENCRYPT_OFF 
         # Then it means we need to setup a TLS context
-        if resp["Encryption"] == TDS_ENCRYPT_REQ or resp["Encryption"] == TDS_ENCRYPT_OFF:
+        if resp['Encryption'] == TDS_ENCRYPT_REQ or resp['Encryption'] == TDS_ENCRYPT_OFF:
             self.set_tls_context()
 
         # That part is used to compute the Version field for the NTLM_NEGOTIATE and NTLM_AUTHENTICATE messages
