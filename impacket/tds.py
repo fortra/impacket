@@ -709,7 +709,7 @@ class MSSQL:
     
 
     # This function returns the computed Channel Binding Token based on the tls-unique value
-    def generate_cbt_from_tls_unique(self) -> bytes:
+    def generate_cbt_from_tls_unique(self):
         channel_binding_struct = b""
         initiator_address = b"\x00" * 8
         acceptor_address = b"\x00" * 8
@@ -955,11 +955,11 @@ class MSSQL:
 
         # Seeting the last options for our TDS packet
         # TDS_INTEGRATED_SECURITY_ON enables Windows authentication
-        login["OptionFlags2"] |= TDS_INTEGRATED_SECURITY_ON
+        login['OptionFlags2'] |= TDS_INTEGRATED_SECURITY_ON
         # Include the entire blog's data into the login packet in the SSPI field
-        login["SSPI"] = blob.getData()
+        login['SSPI'] = blob.getData()
         # Sets the length of the packet
-        login["Length"] = len(login.getData())
+        login['Length'] = len(login.getData())
 
         # Send login packet which is containing the Kerberos tickets
         self.sendTDS(TDS_LOGIN7, login.getData())
