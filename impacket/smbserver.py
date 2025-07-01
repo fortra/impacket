@@ -48,12 +48,16 @@ from impacket.dcerpc.v5 import epm, nrpc, transport
 from impacket.dcerpc.v5 import rpcrt
 from six import b, ensure_str
 from six.moves import configparser, socketserver
+from pyasn1.codec.der import encoder, decoder
 
 # For signing
 from impacket import smb, nmb, ntlm, uuid
 from impacket import smb3structs as smb2
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, MechTypes, SPNEGO_NegTokenResp, ASN1_AID, \
     ASN1_SUPPORTED_MECH
+from impacket.krb5.asn1 import AP_REP, Authenticator, EncAPRepPart, EncTicketPart, GSSAPIHeader_KRB5_AP_REQ
+from impacket.krb5 import constants
+from impacket.krb5.crypto import Key, _enctype_table, InvalidChecksum, generate_kerberos_keys
 from impacket.nt_errors import STATUS_NO_MORE_FILES, STATUS_NETWORK_NAME_DELETED, STATUS_INVALID_PARAMETER, \
     STATUS_FILE_CLOSED, STATUS_MORE_PROCESSING_REQUIRED, STATUS_OBJECT_PATH_NOT_FOUND, STATUS_DIRECTORY_NOT_EMPTY, \
     STATUS_FILE_IS_A_DIRECTORY, STATUS_NOT_IMPLEMENTED, STATUS_INVALID_HANDLE, STATUS_OBJECT_NAME_COLLISION, \
@@ -2835,7 +2839,11 @@ class SMB2Commands:
         respSMBCommand['SecurityBufferOffset'] = 0x80
 
         blob = SPNEGO_NegTokenInit()
-        blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
+        supported_mechtypes = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
+        if smbServer.getComputerAccountCredentials()["username"]:
+            # if computer account credentials are provided, we can also use kerberos
+            supported_mechtypes += [TypesMech['MS KRB5 - Microsoft Kerberos 5'], TypesMech['KRB5 - Kerberos 5'], TypesMech['KRB5 - Kerberos 5 - User to User']]
+        blob['MechTypes'] = supported_mechtypes
 
         respSMBCommand['Buffer'] = blob.getData()
         respSMBCommand['SecurityBufferLength'] = len(respSMBCommand['Buffer'])
@@ -2847,53 +2855,81 @@ class SMB2Commands:
         return None, [respPacket], STATUS_SUCCESS
 
     @staticmethod
-    def smb2SessionSetup(connId, smbServer, recvPacket):
-        connData = smbServer.getConnectionData(connId, checkStatus=False)
+    def _kerberos_auth(token, connData, smbServer):
+        blob = decoder.decode(token, asn1Spec=GSSAPIHeader_KRB5_AP_REQ())[0]
+        ap_req = blob['apReq']
+        cipherText = ap_req['ticket']['enc-part']['cipher']
+
+        newCipher = _enctype_table[int(ap_req['ticket']['enc-part']['etype'])]
+
+        computerAccountCredentials = smbServer.getComputerAccountCredentials()
+
+        ekeys = generate_kerberos_keys(rc4=computerAccountCredentials['nthash'], aes=computerAccountCredentials['aes'], password=computerAccountCredentials['password'], user=computerAccountCredentials['username'], domain=computerAccountCredentials['domain'])
+
+        # Select the correct encryption key
+        try:
+            key = ekeys[ap_req['ticket']['enc-part']['etype']]
+        # This raises a KeyError (pun intended) if our key is not found
+        except KeyError:
+            LOG.error('Could not find the correct encryption key! Ticket is encrypted with keytype %d, but keytype(s) %s were supplied',
+                    ap_req['ticket']['enc-part']['etype'],
+                    ', '.join([str(enctype) for enctype in ekeys.keys()]))
+            return None
+
+        # Recover plaintext info from ticket
+        try:
+            plainText = newCipher.decrypt(key, 2, cipherText)
+        except InvalidChecksum:
+            LOG.error('Ciphertext integrity failed. Most likely the account password or AES key is incorrect')
+            return None
+
+        encTicketPart = decoder.decode(plainText, asn1Spec=EncTicketPart())[0]
+        sessionKey = Key(encTicketPart['key']['keytype'], bytes(encTicketPart['key']['keyvalue']))
+        newCipher = _enctype_table[int(ap_req['authenticator']['etype'])]
+
+        encApReqAuthenticator = newCipher.decrypt(sessionKey, 11, ap_req['authenticator']['cipher'])
+        ApRepAuthenticator = decoder.decode(encApReqAuthenticator, asn1Spec=Authenticator())[0]
+        encryption_key = Key(ApRepAuthenticator['subkey']['keytype'], ApRepAuthenticator['subkey']['keyvalue'].asOctets())
+
+        ap_rep = AP_REP()
+        ap_rep['pvno'] = 5
+        ap_rep['msg-type'] = constants.KerberosMessageTypes.KRB_AP_REP.value
+        ap_rep['enc-part']['etype'] = ap_req['authenticator']['etype']
+
+        encAPRep = EncAPRepPart()
+        encAPRep['ctime'] = ApRepAuthenticator['ctime'].prettyPrint()
+        encAPRep['cusec'] = ApRepAuthenticator['cusec'].prettyPrint()
+        # just use the same key
+        encAPRep['subkey']['keyvalue'] = encryption_key.contents
+        encAPRep['subkey']['keytype'] = encryption_key.enctype
+
+        ap_rep['enc-part']['cipher'] = newCipher.encrypt(sessionKey, 12, encoder.encode(encAPRep), None)
+        aprepBytes = encoder.encode(ap_rep)
+
+        accept = SPNEGO_NegTokenResp()
+        accept['SupportedMech'] = TypesMech['MS KRB5 - Microsoft Kerberos 5']
+        # accept-completed
+        accept['NegState'] = b'\x00'
+        accept['ResponseToken'] = aprepBytes
+        acceptBytes = accept.getData()
 
         respSMBCommand = smb2.SMB2SessionSetup_Response()
+        respSMBCommand['SecurityBufferOffset'] = 0x48
+        respSMBCommand['SecurityBufferLength'] = len(acceptBytes)
+        respSMBCommand['Buffer'] = acceptBytes
 
-        sessionSetupData = smb2.SMB2SessionSetup(recvPacket['Data'])
+        connData['SignatureEnabled'] = True
+        connData['SigningSessionKey'] = encryption_key.contents[:16] # MS-SMB2 3.2.5.3.1
+        connData['SignSequenceNumber'] = 1
 
-        connData['Capabilities'] = sessionSetupData['Capabilities']
+        return respSMBCommand, STATUS_SUCCESS
 
-        securityBlob = sessionSetupData['Buffer']
-
-        rawNTLM = False
-        if struct.unpack('B', securityBlob[0:1])[0] == ASN1_AID:
-            # NEGOTIATE packet
-            blob = SPNEGO_NegTokenInit(securityBlob)
-            token = blob['MechToken']
-            if len(blob['MechTypes'][0]) > 0:
-                # Is this GSSAPI NTLM or something else we don't support?
-                mechType = blob['MechTypes'][0]
-                if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
-                    # Nope, do we know it?
-                    if mechType in MechTypes:
-                        mechStr = MechTypes[mechType]
-                    else:
-                        mechStr = hexlify(mechType)
-                    smbServer.log("Unsupported MechType '%s'" % mechStr, logging.DEBUG)
-                    # We don't know the token, we answer back again saying
-                    # we just support NTLM.
-                    # ToDo: Build this into a SPNEGO_NegTokenResp()
-                    respToken = b'\xa1\x15\x30\x13\xa0\x03\x0a\x01\x03\xa1\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
-                    respSMBCommand['SecurityBufferOffset'] = 0x48
-                    respSMBCommand['SecurityBufferLength'] = len(respToken)
-                    respSMBCommand['Buffer'] = respToken
-
-                    return [respSMBCommand], None, STATUS_MORE_PROCESSING_REQUIRED
-        elif struct.unpack('B', securityBlob[0:1])[0] == ASN1_SUPPORTED_MECH:
-            # AUTH packet
-            blob = SPNEGO_NegTokenResp(securityBlob)
-            token = blob['ResponseToken']
-        else:
-            # No GSSAPI stuff, raw NTLMSSP
-            rawNTLM = True
-            token = securityBlob
-
+    @staticmethod
+    def _ntlm_auth(token, connData, smbServer, rawNTLM):
         # Here we only handle NTLMSSP, depending on what stage of the
         # authentication we are, we act on it
         messageType = struct.unpack('<L', token[len('NTLMSSP\x00'):len('NTLMSSP\x00') + 4])[0]
+        respSMBCommand = smb2.SMB2SessionSetup_Response()
 
         if messageType == 0x01:
             # NEGOTIATE_MESSAGE
@@ -3000,8 +3036,8 @@ class SMB2Commands:
                     uid, lmhash, nthash = smbServer.getCredentials()[identity]
 
                     errorCode, sessionKey = computeNTLMv2(identity, lmhash, nthash, smbServer.getSMBChallenge(),
-                                                          authenticateMessage, connData['CHALLENGE_MESSAGE'],
-                                                          connData['NEGOTIATE_MESSAGE'])
+                                                        authenticateMessage, connData['CHALLENGE_MESSAGE'],
+                                                        connData['NEGOTIATE_MESSAGE'])
 
                     if sessionKey is not None:
                         connData['SignatureEnabled'] = True
@@ -3049,7 +3085,7 @@ class SMB2Commands:
                     smbServer.log(ntlm_hash_data['hash_string'])
                     if jtr_dump_path != '':
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
-                                              jtr_dump_path)
+                                            jtr_dump_path)
                 except:
                     smbServer.log("Could not write NTLM Hashes to the specified JTR_Dump_Path %s" % jtr_dump_path)
 
@@ -3077,10 +3113,74 @@ class SMB2Commands:
 
         else:
             raise Exception("Unknown NTLMSSP MessageType %d" % messageType)
-
         respSMBCommand['SecurityBufferOffset'] = 0x48
         respSMBCommand['SecurityBufferLength'] = len(respToken)
         respSMBCommand['Buffer'] = respToken.getData()
+        return respSMBCommand, errorCode
+
+    @staticmethod
+    def generic_negTokenResp():
+        accept = SPNEGO_NegTokenResp()
+        accept['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
+        # request-mic
+        accept['NegState'] = b'\x03'
+        acceptBytes = accept.getData()
+
+        respSMBCommand = smb2.SMB2SessionSetup_Response()
+        respSMBCommand['SecurityBufferOffset'] = 0x48
+        respSMBCommand['SecurityBufferLength'] = len(acceptBytes)
+        respSMBCommand['Buffer'] = acceptBytes
+        return respSMBCommand
+
+    @staticmethod
+    def smb2SessionSetup(connId, smbServer, recvPacket):
+        connData = smbServer.getConnectionData(connId, checkStatus=False)
+
+        sessionSetupData = smb2.SMB2SessionSetup(recvPacket['Data'])
+
+        connData['Capabilities'] = sessionSetupData['Capabilities']
+
+        securityBlob = sessionSetupData['Buffer']
+
+        rawNTLM = False
+        authType = None
+        if struct.unpack('B', securityBlob[0:1])[0] == ASN1_AID:
+            # NEGOTIATE packet
+            blob = SPNEGO_NegTokenInit(securityBlob)
+            token = blob['MechToken']
+            if len(blob['MechTypes'][0]) > 0:
+                # Is this GSSAPI NTLM or something else we don't support?
+                authType = blob['MechTypes'][0]
+                if authType not in [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider'], TypesMech['MS KRB5 - Microsoft Kerberos 5'], TypesMech['KRB5 - Kerberos 5'], TypesMech['KRB5 - Kerberos 5 - User to User']]:
+                    # Nope, do we know it?
+                    if authType in MechTypes:
+                        mechStr = MechTypes[authType]
+                    else:
+                        mechStr = hexlify(authType)
+                    smbServer.log("Unsupported MechType '%s'" % mechStr, logging.DEBUG)
+
+                    return [SMB2Commands.generic_negTokenResp()], None, STATUS_MORE_PROCESSING_REQUIRED
+        elif struct.unpack('B', securityBlob[0:1])[0] == ASN1_SUPPORTED_MECH:
+            # AUTH packet
+            blob = SPNEGO_NegTokenResp(securityBlob)
+            token = blob['ResponseToken']
+            if b'NTLMSSP\x00' in token:
+                authType = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
+            else:
+                authType = TypesMech['MS KRB5 - Microsoft Kerberos 5']
+        elif securityBlob.startswith(b'NTLMSSP\x00'):
+            # No GSSAPI stuff, raw NTLMSSP
+            rawNTLM = True
+            token = securityBlob
+            authType = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
+        else:
+            smbServer.log("Unknown security blob type (not rawNTLMSSP, nor SPNEGO)", logging.ERROR)
+            return [SMB2Commands.generic_negTokenResp()], None, STATUS_MORE_PROCESSING_REQUIRED
+
+        if authType in [TypesMech['MS KRB5 - Microsoft Kerberos 5'], TypesMech['KRB5 - Kerberos 5'], TypesMech['KRB5 - Kerberos 5 - User to User']]:
+            respSMBCommand, errorCode = SMB2Commands._kerberos_auth(token, connData, smbServer)
+        elif authType == TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
+            respSMBCommand, errorCode = SMB2Commands._ntlm_auth(token, connData, smbServer, rawNTLM)
 
         # From now on, the client can ask for other commands
         connData['Authenticated'] = True
@@ -4038,7 +4138,9 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         self.__log = None
 
         self.__computerAccountName = ''
-        self.__computerAccountHash = ''
+        self.__computerAccountNTHash = ''
+        self.__computerAccountAES = ''
+        self.__computerAccountPassword = ''
         self.__computerAccountDomain = ''
         self.__domainControllerIP = ''
 
@@ -4701,7 +4803,9 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
         if self.__serverConfig.has_option('global', 'computer_account_name'):
             self.__computerAccountName = self.__serverConfig.get('global', 'computer_account_name')
-            self.__computerAccountHash = self.__serverConfig.get('global', 'computer_account_hash')
+            self.__computerAccountNTHash = self.__serverConfig.get('global', 'computer_account_hash')
+            self.__computerAccountAES = self.__serverConfig.get('global', 'computer_account_aes')
+            self.__computerAccountPassword = self.__serverConfig.get('global', 'computer_account_password')
             self.__computerAccountDomain = self.__serverConfig.get('global', 'computer_account_domain')
             self.__domainControllerIP = self.__serverConfig.get('global', 'dcip')
 
@@ -4768,16 +4872,20 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
                 pass
         self.__credentials[name.lower()] = (uid, lmhash, nthash)
 
-    def setComputerAccountCredentials(self, username, hash, domain, dcip):
+    def setComputerAccountCredentials(self, username, domain, dcip, nthash="", aes="", password=""):
         self.__computerAccountName = username
-        self.__computerAccountHash = hash
+        self.__computerAccountNTHash = nthash
+        self.__computerAccountAES = aes
+        self.__computerAccountPassword = password
         self.__computerAccountDomain = domain
         self.__domainControllerIP = dcip
 
     def getComputerAccountCredentials(self):
         return {
             "username": self.__computerAccountName,
-            "nthash": self.__computerAccountHash,
+            "nthash": self.__computerAccountNTHash,
+            "aes": self.__computerAccountAES,
+            "password": self.__computerAccountPassword,
             "domain": self.__computerAccountDomain,
             "dcip": self.__domainControllerIP
         }
@@ -5042,13 +5150,15 @@ class SimpleSMBServer:
     def addCredential(self, name, uid, lmhash, nthash):
         self.__server.addCredential(name, uid, lmhash, nthash)
 
-    def setComputerAccount(self, computer_account_name, computer_account_hash, computer_account_domain, dcip):
+    def setComputerAccount(self, computer_account_name, computer_account_hash, computer_account_aes, computer_account_password, computer_account_domain, dcip):
         # needs to be correct for netlogon to allow us to authenticate the user
         self.__smbConfig.set('global', 'server_name', computer_account_name[:-1]) # assume that the computer account ends with a $
         self.__smbConfig.set('global', 'server_domain', computer_account_domain)
 
         self.__smbConfig.set('global', 'computer_account_name', computer_account_name)
-        self.__smbConfig.set('global', 'computer_account_hash', computer_account_hash)
+        self.__smbConfig.set('global', 'computer_account_hash', computer_account_hash or "")
+        self.__smbConfig.set('global', 'computer_account_aes', computer_account_aes or "")
+        self.__smbConfig.set('global', 'computer_account_password', computer_account_password or "")
         self.__smbConfig.set('global', 'computer_account_domain', computer_account_domain)
         self.__smbConfig.set('global', 'dcip', dcip)
 
