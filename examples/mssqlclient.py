@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright Fortra, LLC and its affiliated companies 
+# Copyright Fortra, LLC and its affiliated companies
 #
 # All rights reserved.
 #
@@ -70,7 +70,8 @@ if __name__ == '__main__':
 
     options = parser.parse_args()
     # Init the example's logger theme
-    logger.init(options.ts, options.debug)
+    logger.init()
+
 
     domain, username, password, remoteName = parse_target(options.target)
 
