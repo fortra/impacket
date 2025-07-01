@@ -579,26 +579,26 @@ class MSSQL:
         if (len(data)-8) > self.packetSize:
             remaining = data[self.packetSize-8:]
             tds = TDSPacket()
-            tds["Type"] = packetType
-            tds["Status"] = TDS_STATUS_NORMAL
-            tds["PacketID"] = packetID
-            tds["Data"] = data[:self.packetSize-8]
+            tds['Type'] = packetType
+            tds['Status'] = TDS_STATUS_NORMAL
+            tds['PacketID'] = packetID
+            tds['Data'] = data[:self.packetSize-8]
             self.socketSendall(tds.getData())
 
             while len(remaining) > (self.packetSize-8):
                 packetID += 1
-                tds["PacketID"] = packetID
-                tds["Data"] = remaining[:self.packetSize-8]
+                tds['PacketID'] = packetID
+                tds['Data'] = remaining[:self.packetSize-8]
                 self.socketSendall(tds.getData())
                 remaining = remaining[self.packetSize-8:]
             data = remaining
             packetID+=1
 
         tds = TDSPacket()
-        tds["Type"] = packetType
-        tds["Status"] = TDS_STATUS_EOM
-        tds["PacketID"] = packetID
-        tds["Data"] = data
+        tds['Type'] = packetType
+        tds['Status'] = TDS_STATUS_EOM
+        tds['PacketID'] = packetID
+        tds['Data'] = data
         self.socketSendall(tds.getData())
 
     # This function is a wrapper that is used to dispatch packets to send depending of the TLS context
@@ -645,22 +645,22 @@ class MSSQL:
         if packetSize is None:
             packetSize = self.packetSize
 
-        data = b""
-        while data == b"":
+        data = b''
+        while data == b'':
             data = self.socketRecv(packetSize)
         
         packet = TDSPacket(data)
                 
-        status = packet["Status"]
-        packetLen = packet["Length"]-8
-        while packetLen > len(packet["Data"]):
+        status = packet['Status']
+        packetLen = packet['Length']-8
+        while packetLen > len(packet['Data']):
             data = self.socketRecv(packetSize)
-            packet["Data"] += data
+            packet['Data'] += data
         
         remaining = None
-        if packetLen <  len(packet["Data"]):
-            remaining = packet["Data"][packetLen:]
-            packet["Data"] = packet["Data"][:packetLen]
+        if packetLen <  len(packet['Data']):
+            remaining = packet['Data'][packetLen:]
+            packet['Data'] = packet['Data'][:packetLen]
 
         while status != TDS_STATUS_EOM:
             if remaining is not None:
@@ -668,19 +668,19 @@ class MSSQL:
             else:
                 tmpPacket = TDSPacket(self.socketRecv(packetSize))
 
-            packetLen = tmpPacket["Length"] - 8
-            while packetLen > len(tmpPacket["Data"]):
+            packetLen = tmpPacket['Length'] - 8
+            while packetLen > len(tmpPacket['Data']):
                 data = self.socketRecv(packetSize)
-                tmpPacket["Data"] += data
+                tmpPacket['Data'] += data
 
             remaining = None
-            if packetLen <  len(tmpPacket["Data"]):
-                remaining = tmpPacket["Data"][packetLen:]
-                tmpPacket["Data"] = tmpPacket["Data"][:packetLen]
+            if packetLen <  len(tmpPacket['Data']):
+                remaining = tmpPacket['Data'][packetLen:]
+                tmpPacket['Data'] = tmpPacket['Data'][:packetLen]
 
-            status = tmpPacket["Status"]
-            packet["Data"] += tmpPacket["Data"]
-            packet["Length"] += tmpPacket["Length"] - 8
+            status = tmpPacket['Status']
+            packet['Data'] += tmpPacket['Data']
+            packet['Length'] += tmpPacket['Length'] - 8
             
         return packet
 
@@ -966,12 +966,12 @@ class MSSQL:
 
         # According to the specs, if encryption is not required, we must encrypt just
         # the first Login packet :-o
-        if resp["Encryption"] == TDS_ENCRYPT_OFF:
+        if resp['Encryption'] == TDS_ENCRYPT_OFF:
             self.tlsSocket = None
 
         # We then receive the TDS response from the server and parse its response to see if we are logged in or not
         tds = self.recvTDS()
-        self.replies = self.parseReply(tds["Data"])
+        self.replies = self.parseReply(tds['Data'])
         if TDS_LOGINACK_TOKEN in self.replies:
             return True
         else:

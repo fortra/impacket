@@ -98,48 +98,48 @@ class MYMSSQL(MSSQL):
         #Also partly copied from tds.py
         login = TDS_LOGIN()
 
-        login["HostName"] = ("".join([random.choice(string.ascii_letters) for _ in range(8)])).encode("utf-16le")
-        login["AppName"]  = ("".join([random.choice(string.ascii_letters) for _ in range(8)])).encode("utf-16le")
-        login["ServerName"] = self.server.encode("utf-16le")
-        login["CltIntName"]  = login["AppName"]
-        login["ClientPID"] = random.randint(0, 1024)
-        login["PacketSize"] = self.packetSize
-        login["OptionFlags2"] = TDS_INIT_LANG_FATAL | TDS_ODBC_ON | TDS_INTEGRATED_SECURITY_ON
+        login['HostName'] = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
+        login['AppName']  = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
+        login['ServerName'] = self.server.encode('utf-16le')
+        login['CltIntName']  = login['AppName']
+        login['ClientPID'] = random.randint(0, 1024)
+        login['PacketSize'] = self.packetSize
+        login['OptionFlags2'] = TDS_INIT_LANG_FATAL | TDS_ODBC_ON | TDS_INTEGRATED_SECURITY_ON
 
         # NTLMSSP Negotiate
-        login["SSPI"] = negotiateMessage
-        login["Length"] = len(login.getData())
+        login['SSPI'] = negotiateMessage
+        login['Length'] = len(login.getData())
 
         # Send the NTLMSSP Negotiate
         self.sendTDS(TDS_LOGIN7, login.getData())
 
         # According to the specs, if encryption is not required, we must encrypt just
         # the first Login packet :-o
-        if self.resp["Encryption"] == TDS_ENCRYPT_OFF:
+        if self.resp['Encryption'] == TDS_ENCRYPT_OFF:
             self.tlsSocket = None
 
         tds = self.recvTDS()
-        self.sessionData["NTLM_CHALLENGE"] = tds
+        self.sessionData['NTLM_CHALLENGE'] = tds
 
         challenge = NTLMAuthChallenge()
-        challenge.fromString(tds["Data"][3:])
+        challenge.fromString(tds['Data'][3:])
 
         return challenge
 
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
-        if unpack("B", authenticateMessageBlob[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+        if unpack('B', authenticateMessageBlob[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
             respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
-            token = respToken2["ResponseToken"]
+            token = respToken2['ResponseToken']
         else:
             token = authenticateMessageBlob
 
         self.sendTDS(TDS_SSPI, token)
         tds = self.recvTDS()
-        self.replies = self.parseReply(tds["Data"])
+        self.replies = self.parseReply(tds['Data'])
         if TDS_LOGINACK_TOKEN in self.replies:
             #Once we are here, there is a full connection and we can
             #do whatever the current user has rights to do
-            self.sessionData["AUTH_ANSWER"] = tds
+            self.sessionData['AUTH_ANSWER'] = tds
             return None, STATUS_SUCCESS
         else:
             self.printReplies()
