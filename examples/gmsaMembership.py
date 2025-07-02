@@ -296,6 +296,7 @@ def parse_args():
                        help='IP Address of the domain controller or KDC (Key Distribution Center) for Kerberos. If '
                             'omitted it will use the domain part (FQDN) specified in '
                             'the identity parameter')
+    group.add_argument('-dc-host', action='store', metavar="hostname", help='Hostname of the domain controller or KDC (Key Distribution Center) for Kerberos. If omitted, -dc-ip will be used')
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -316,7 +317,7 @@ def main():
     domain, username, password, lmhash, nthash, args.k = parse_identity(args.identity, args.hashes, args.no_pass, args.aesKey, args.k)
 
     try:
-        ldap_server, ldap_session = init_ldap_session(domain, username, password, lmhash, nthash, args.k, args.dc_ip, args.aesKey, args.use_ldaps)
+        ldap_server, ldap_session = init_ldap_session(domain, username, password, lmhash, nthash, args.k, args.dc_ip, args.dc_host, args.aesKey, args.use_ldaps)
         gmsa = GMSA(ldap_server, ldap_session, args.gmsa_account)
         if args.action == 'read':
             gmsa.read()
