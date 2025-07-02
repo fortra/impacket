@@ -34,6 +34,10 @@ class LdapShell(cmd.Cmd):
     LDAP_MATCHING_RULE_IN_CHAIN = "1.2.840.113556.1.4.1941"
 
     def __init__(self, tcp_shell, domain_dumper, client):
+
+        import readline
+        readline.backend = 'readline'
+
         cmd.Cmd.__init__(self, stdin=tcp_shell.stdin, stdout=tcp_shell.stdout)
 
         if PY2:
