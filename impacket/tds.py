@@ -617,17 +617,23 @@ class MSSQL:
         # First we send the data into the TLS context
         self.tlsSocket.write(data)
         # Then we read the encrypted result from the TLS context
+        i = 0
         while True:
+            i += 1
             try:
                 # We retrieve the encrypted data from the TLS context
                 encrypted = self.out_bio.read(4096)
+                LOG.debug("[tls_send] #%s len(data): %s - len(encrypted): %s", i, len(data), len(encrypted))
                 if not encrypted:
+                    LOG.debug("[tls_send] not encrypted")
                     break 
                 # And we send the data
                 self.socket.sendall(encrypted)
             except ssl.SSLWantReadError:
+                LOG.debug("[tls_send] except ssl.SSLWantReadError")
                 break
             except ssl.SSLWantWriteError:
+                LOG.debug("[tls_send] except ssl.SSLWantWriteError")
                 break
             except ConnectionResetError as e:
                 LOG.error(f"[!] Connection reset when sending data: {e}")
@@ -696,12 +702,15 @@ class MSSQL:
     def tls_recv(self, bufsize):
         encrypted = self.socket.recv(4096)
         if not encrypted:
+            LOG.debug("[tls_recv] not encrypted")
             return b""
 
         self.in_bio.write(encrypted)
         try:
             decrypted = self.tlsSocket.read(bufsize)
+            LOG.debug("[tls_recv] bufsize: %s - len(encrypted): %s - len(decrypted): %s", bufsize, len(encrypted), len(decrypted))
         except ssl.SSLWantReadError:
+            LOG.debug("[tls_recv] except ssl.SSLWantReadError")
             return b""
         return decrypted
 
