@@ -5192,7 +5192,7 @@ class SimpleSMBServer:
 class NetLogon:
     nrpc_uid = nrpc.MSRPC_UUID_NRPC
     syntax = rpcrt.DCERPC.NDRSyntax
-    authn_level_packet = rpcrt.RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
+    authn_level_packet = rpcrt.RPC_C_AUTHN_LEVEL_PKT_PRIVACY # KB5021130
 
     def __init__(self, dcip, computer_account_name, computer_account_hash, computer_account_domain, client_challenge=random.randbytes(8), computer_name=None, primary_name=""):
         self.dcip = dcip
