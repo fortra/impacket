@@ -105,8 +105,7 @@ if __name__ == '__main__':
 
     # If we want clients to be able to connect to us which enforce signing, we need a computer account to properly setup the connection
     # Only works with SMB2
-    # FIXME: Currently only NTLMv2 is supported
-    # FIXME: To keep it simple for now just NT hash is supported
+    # FIXME: For NTLM just NT hash is supported for now
     required_secure_server_options = [options.computeraccountname, options.computeraccountdomain, options.dcip]
     at_least_one_secure_server_options = [options.computeraccounthash, options.computeraccountaes, options.computeraccountpassword]
     if any(required_secure_server_options):
