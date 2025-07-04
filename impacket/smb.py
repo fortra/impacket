@@ -633,7 +633,7 @@ def POSIXtoFT(t):
     
     :param int t: POSIX timestamp - can be retrieved from datetime library.
     
-    :returns int: FILETIME timestamp representing the given POSIX timestamp.
+    :return int: FILETIME timestamp representing the given POSIX timestamp.
     """
     
     t *= 10000000
@@ -647,7 +647,7 @@ def FTtoPOSIX(t):
     
     :param int t: FILETIME timestamp.
     
-    :returns int: POSIX timestamp representing the given FILETIME timestamp.
+    :return int: POSIX timestamp representing the given FILETIME timestamp.
     """
     
     t -= 116444736000000000
@@ -721,7 +721,7 @@ class SMB_DATE:
         """
         Helper method to easily access the data as a struct.
         
-        :returns SMBDateStruct: The structure representation of the object.
+        :return SMBDateStruct: The structure representation of the object.
         """
         
         res = SMBDateStruct()
@@ -735,7 +735,7 @@ class SMB_DATE:
         
         :param bytes data: Packed bytes to be converted to a class object.
         
-        :returns SMB_DATE: The class representation of the packed data bytes.
+        :return SMB_DATE: The class representation of the packed data bytes.
         """
         
         s = SMBDateStruct()
@@ -749,7 +749,7 @@ class SMB_DATE:
         
         :param SMBDateStruct s: The struct object to be converted to a class object.
         
-        :returns SMB_DATE: The class representation of the struct object.
+        :return SMB_DATE: The class representation of the struct object.
         """
         
         return cls(s.y + 1980, s.m, s.d)
@@ -818,7 +818,7 @@ class SMB_TIME:
         """
         Helper method to easily access the data as a struct.
         
-        :returns SMBTimeStruct: The structure representation of the object.
+        :return SMBTimeStruct: The structure representation of the object.
         """
         
         res = SMBTimeStruct()
@@ -832,7 +832,7 @@ class SMB_TIME:
         
         :param bytes data: Packed bytes to be converted to a class object.
         
-        :returns SMB_TIME: The class representation of the packed data bytes.
+        :return SMB_TIME: The class representation of the packed data bytes.
         """
         
         s = SMBTimeStruct()
@@ -846,7 +846,7 @@ class SMB_TIME:
         
         :param SMBTimeStruct s: The struct object to be converted to a class object.
         
-        :returns SMB_TIME: The class representation of the struct object.
+        :return SMB_TIME: The class representation of the struct object.
         """
         
         return cls(s.h, s.m, s.s)
