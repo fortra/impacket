@@ -257,7 +257,7 @@ class EvtRpcExportLog(NDRCALL):
     opnum = 7
     structure = (
         ('Handle', CONTEXT_HANDLE_OPERATION_CONTROL),
-        ('ChannelPath', WSTR),
+        ('ChannelPath', LPWSTR),
         ('Query', WSTR),
         ('BackupPath', WSTR),
         ('Flags', DWORD),
@@ -381,13 +381,13 @@ def hEvtRpcClearLog(dce, handle, path, backupPath=NULL):
     resp = dce.request(request)
     return resp
 
-def hEvtRpcExportLog(dce, handle, channelPath, query, backupPath):
+def hEvtRpcExportLog(dce, handle, channelPath, backupPath, query="*", flags=EvtQueryChannelName):
     request = EvtRpcExportLog()
     request['Handle'] = handle
     request['ChannelPath'] = checkNullString(channelPath)
     request['Query'] = checkNullString(query)
     request['BackupPath'] = checkNullString(backupPath)
-    request['Flags'] = 0
+    request['Flags'] = flags
     resp = dce.request(request)
     return resp
 
