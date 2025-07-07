@@ -94,7 +94,7 @@ def sendReceive(data, host, kdcHost, port=88):
 
     return r
 
-def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True, serverName=None, kerberoast_no_preauth=False):
+def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', desKey='', kdcHost=None, requestPAC=True, serverName=None, kerberoast_no_preauth=False):
 
     # Convert to binary form, just in case we're receiving strings
     if isinstance(lmhash, str):
@@ -110,6 +110,11 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     if isinstance(aesKey, str):
         try:
             aesKey = unhexlify(aesKey)
+        except TypeError:
+            pass
+    if isinstance(desKey, str):
+        try:
+            desKey = unhexlify(desKey)
         except TypeError:
             pass
     if serverName is not None and not isinstance(serverName, Principal):
@@ -163,6 +168,8 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     # Yes.. this shouldn't happen but it's inherited from the past
     if aesKey is None:
         aesKey = b''
+    if desKey is None:
+        desKey = b''
 
     if nthash == b'':
         # This is still confusing. I thought KDC_ERR_ETYPE_NOSUPP was enough, 
@@ -171,7 +178,9 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
         # So, in order to support more than one cypher, I'm setting aes first
         # since most of the systems would accept it. If we're lucky and 
         # KDC_ERR_ETYPE_NOSUPP is returned, we will later try rc4.
-        if aesKey != b'':
+        if desKey != b'':
+            supportedCiphers = (int(constants.EncryptionTypes.des_cbc_md5.value),)
+        elif aesKey != b'':
             if len(aesKey) == 32:
                 supportedCiphers = (int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),)
             else:
@@ -251,11 +260,13 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
     cipher = _enctype_table[enctype]
 
-    # Pass the hash/aes key :P
+    # Pass the hash/aes/des key :P
     if isinstance(nthash, bytes) and nthash != b'':
         key = Key(cipher.enctype, nthash)
     elif aesKey != b'':
         key = Key(cipher.enctype, aesKey)
+    elif desKey != b'':
+        key = Key(cipher.enctype, desKey)
     else:
         key = cipher.string_to_key(password, encryptionTypesData[enctype], None)
 
@@ -323,11 +334,11 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
             tgt = sendReceive(encoder.encode(asReq), domain, kdcHost)
         except Exception as e:
             if str(e).find('KDC_ERR_ETYPE_NOSUPP') >= 0:
-                if lmhash == b'' and nthash == b'' and (aesKey == b'' or aesKey is None):
+                if lmhash == b'' and nthash == b'' and (aesKey == b'' or aesKey is None) and (desKey == b'' or desKey is None):
                     from impacket.ntlm import compute_lmhash, compute_nthash
                     lmhash = compute_lmhash(password)
                     nthash = compute_nthash(password)
-                    return getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey, kdcHost, requestPAC)
+                    return getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey, desKey, kdcHost, requestPAC)
             raise
 
 
@@ -568,7 +579,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
         if TGT is None:
             if TGS is None:
                 try:
-                    tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
+                    tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, '', kdcHost)
                 except KerberosError as e:
                     if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                         # We might face this if the target does not support AES 
