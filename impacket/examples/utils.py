@@ -238,7 +238,7 @@ def _init_ldap_connection(target, tls_version, domain, username, password, lmhas
 def init_ldap_session(domain, username, password, lmhash, nthash, k, dc_ip, dc_host, aesKey, use_ldaps):
     if k:
         if dc_host is not None:
-            target = _get_machine_name(dc_host)
+            target = dc_host
         elif dc_ip is not None:
             target = _get_machine_name(dc_ip)
         else:
