@@ -59,6 +59,15 @@ def checkNullString(string):
 # CONSTANTS
 ################################################################################
 
+# Evt Subscribe Flags
+EvtSubscribeToFutureEvents = 0x00000001
+EvtSubscribeStartAtOldestRecord = 0x00000002
+EvtSubscribeStartAfterBookmark = 0x00000004
+
+EvtSubscribeTolerateQueryErrors = 0x00001000
+EvtSubscribeStrict = 0x00010000
+EvtSubscribePull = 0x10000000
+
 # Evt Path Flags
 EvtQueryChannelName   = 0x00000001
 EvtQueryFilePath      = 0x00000002
@@ -88,6 +97,7 @@ class handle_t(NDRSTRUCT):
     def isNull(self):
         return self['context_handle_uuid'] == b'\x00'*16
 
+CONTEXT_HANDLE_REMOTE_SUBSCRIPTION = handle_t
 
 CONTEXT_HANDLE_LOG_HANDLE = handle_t
 
@@ -170,6 +180,31 @@ class LPBYTE_ARRAY(NDRPOINTER):
 class ULONG_ARRAY(NDRUniVaryingArray):
     item = ULONG
 
+# UniConformant Pointer Array for DWORDs
+class PCDWORD_ARRAY(NDRPOINTER):
+    referent = (
+        ('Data', CDWORD_ARRAY),
+    )
+    def __init__(self, data = None, isNDR64 = False, topLevel = False):
+        NDRPOINTER.__init__(self,data,isNDR64,topLevel)
+
+class PDWORD_ARRAY(PCDWORD_ARRAY):
+    item = DWORD
+
+# UniConformant Pointer Array for BYTEs
+class BYTE_ARRAY_CONFORMANT(NDRUniConformantArray):
+    item = 'c'
+
+class PBYTE_ARRAY_CONFORMANT(NDRPOINTER):
+    referent = (
+        ('Data', BYTE_ARRAY_CONFORMANT),
+    )
+    def __init__(self, data = None, isNDR64 = False, topLevel = False):
+        NDRPOINTER.__init__(self,data,isNDR64,topLevel)
+
+class PBYTE_ARRAY(PBYTE_ARRAY_CONFORMANT):
+    item = 'c'
+
 # 2.3.1 EVENT_DESCRIPTOR
 class EVENT_DESCRIPTOR(NDRSTRUCT):
     structure = (
@@ -211,6 +246,43 @@ class RESULT_SET(NDRSTRUCT):
 ################################################################################
 # RPC CALLS
 ################################################################################
+
+class EvtRpcRegisterRemoteSubscription(NDRCALL):
+    opnum = 0
+    structure = (
+        ('channelPath', LPWSTR),
+        ('query', WSTR),
+        ('bookmarkXml', LPWSTR),
+        ('Flags', DWORD),
+    )
+
+class EvtRpcRegisterRemoteSubscriptionResponse(NDRCALL):
+    structure = (
+        ('Handle', CONTEXT_HANDLE_LOG_QUERY),
+        ('OpControl', CONTEXT_HANDLE_OPERATION_CONTROL),
+        ('QueryChannelInfoSize', DWORD),
+        ('QueryChannelInfo', EvtRpcQueryChannelInfoArray),
+        ('Error', RPC_INFO),
+    )
+
+class EvtRpcRemoteSubscriptionNext(NDRCALL):
+    opnum = 2
+    structure = (
+        ('Handle', CONTEXT_HANDLE_REMOTE_SUBSCRIPTION),
+        ('NumRequestedRecords', DWORD),
+        ('TimeOut', DWORD),
+        ('Flags', DWORD),
+    )
+
+class EvtRpcRemoteSubscriptionNextResponse(NDRCALL):
+    structure = (
+        ('NumActualRecords', DWORD),
+        ('EventDataIndices', PDWORD_ARRAY),
+        ('EventDataSizes', PDWORD_ARRAY),
+        ('ResultBufferSize', DWORD),
+        ('ResultBuffer', PBYTE_ARRAY),
+        ('ErrorCode', ULONG),
+    )
 
 class EvtRpcRegisterControllableOperation(NDRCALL):
     opnum = 4
@@ -344,6 +416,8 @@ class EvtRpcGetChannelListResponse(NDRCALL):
 ################################################################################
 
 OPNUMS = {
+    0   : (EvtRpcRegisterRemoteSubscription, EvtRpcRegisterRemoteSubscriptionResponse),
+    2   : (EvtRpcRemoteSubscriptionNext, EvtRpcRemoteSubscriptionNextResponse),
     4   : (EvtRpcRegisterControllableOperation, EvtRpcRegisterControllableOperationResponse),
     5   : (EvtRpcRegisterLogQuery, EvtRpcRegisterLogQueryResponse),
     6   : (EvtRpcClearLog, EvtRpcClearLogResponse),
@@ -358,6 +432,24 @@ OPNUMS = {
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
+
+def hEvtRpcRegisterRemoteSubscription(dce, channelPath, query, bookmarkXml, flags):
+    request = EvtRpcRegisterRemoteSubscription()
+    request['channelPath'] = checkNullString(channelPath)
+    request['query'] = checkNullString(query)
+    request['bookmarkXml'] = checkNullString(bookmarkXml)
+    request['Flags'] = flags
+    resp = dce.request(request)
+    return resp
+
+def hEvtRpcRemoteSubscriptionNext(dce, handle, numRequestedRecords, timeOut=1000, flags=0):
+    request = EvtRpcRemoteSubscriptionNext()
+    request['Handle'] = handle
+    request['NumRequestedRecords'] = numRequestedRecords
+    request['TimeOut'] = timeOut
+    request['Flags'] = flags
+    resp = dce.request(request)
+    return resp
 
 def hEvtRpcRegisterControllableOperation(dce):
     request = EvtRpcRegisterControllableOperation()
