@@ -42,6 +42,7 @@ class GETTGT:
         self.__lmhash = ''
         self.__nthash = ''
         self.__aesKey = options.aesKey
+        self.__desKey = options.desKey
         self.__options = options
         self.__kdcHost = options.dc_ip
         self.__service = options.service
@@ -64,6 +65,7 @@ class GETTGT:
                                                                 lmhash = unhexlify(self.__lmhash),
                                                                 nthash = unhexlify(self.__nthash),
                                                                 aesKey = self.__aesKey,
+                                                                desKey = self.__desKey,
                                                                 kdcHost = self.__kdcHost,
                                                                 serverName = self.__service)
         self.saveTicket(tgt,oldSessionKey)
@@ -86,6 +88,8 @@ if __name__ == '__main__':
                        'ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
                                                                             '(128 or 256 bits)')
+    group.add_argument('-desKey', action="store", metavar = "hex key", help='DES key to use for Kerberos Authentication '
+                                                                            '(56 bits)')
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
                        'ommited it use the domain part (FQDN) specified in the target parameter')
     group.add_argument('-service', action='store', metavar="SPN", help='Request a Service Ticket directly through an AS-REQ')
@@ -95,7 +99,8 @@ if __name__ == '__main__':
         parser.print_help()
         print("\nExamples: ")
         print("\t./getTGT.py -hashes lm:nt contoso.com/user\n")
-        print("\tit will use the lm:nt hashes for authentication. If you don't specify them, a password will be asked")
+        print("\t./getTGT.py -desKey 1234567890abcdef contoso.com/user\n")
+        print("\tit will use the lm:nt hashes or DES key for authentication. If you don't specify them, a password will be asked")
         sys.exit(1)
     options = parser.parse_args()
 
