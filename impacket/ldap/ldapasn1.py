@@ -137,6 +137,7 @@ class MessageID(univ.Integer):
 
 
 class LDAPString(univ.OctetString):
+    # LDAPString ::= OCTET STRING -- UTF-8 encoded, -- [ISO10646] characters
     encoding = 'utf-8'
 
 
@@ -157,11 +158,13 @@ class AttributeDescription(LDAPString):
 
 
 class AttributeValue(univ.OctetString):
-    pass
+    # AttributeValue ::= OCTET STRING
+    encoding = 'utf-8'
 
 
 class AssertionValue(univ.OctetString):
-    pass
+    # AssertionValue ::= OCTET STRING
+    encoding = 'utf-8'
 
 
 class MatchingRuleID(LDAPString):
