@@ -119,9 +119,11 @@ class FindDelegation:
                        "524288)(msDS-AllowedToDelegateTo=*)(msDS-AllowedToActOnBehalfOfOtherIdentity=*)"
 
         if self.__disabled:
-            searchFilter = searchFilter + ")(UserAccountControl:1.2.840.113556.1.4.803:=2)"
+            searchFilter += ")(UserAccountControl:1.2.840.113556.1.4.803:=2)"
         else:
-            searchFilter = searchFilter + ")(!(UserAccountControl:1.2.840.113556.1.4.803:=2))"
+            searchFilter += ")(!(UserAccountControl:1.2.840.113556.1.4.803:=2))"
+
+        searchFilter += "(!(UserAccountControl:1.2.840.113556.1.4.803:=8192))"  # Isn't a domain controller
 
         if self.__requestUser is not None:
             searchFilter += '(sAMAccountName:=%s))' % self.__requestUser
@@ -187,11 +189,11 @@ class FindDelegation:
                         searchFilter = '(&(|'
                         sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=bytes(attribute['vals'][0]))
                         for ace in sd['Dacl'].aces:
-                            searchFilter = searchFilter + "(objectSid="+ace['Ace']['Sid'].formatCanonical()+")"
+                            searchFilter += "(objectSid="+ace['Ace']['Sid'].formatCanonical()+")"
                         if self.__disabled:
-                            searchFilter = searchFilter + ")(UserAccountControl:1.2.840.113556.1.4.803:=2))"
+                            searchFilter += ")(UserAccountControl:1.2.840.113556.1.4.803:=2))"
                         else:
-                            searchFilter = searchFilter + ")(!(UserAccountControl:1.2.840.113556.1.4.803:=2)))"
+                            searchFilter += ")(!(UserAccountControl:1.2.840.113556.1.4.803:=2)))"
                         
                         delegUserResp = ldapConnection.search(searchFilter=searchFilter,attributes=['sAMAccountName', 'objectCategory'],sizeLimit=999)
                         for item2 in delegUserResp:
