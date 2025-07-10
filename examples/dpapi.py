@@ -164,7 +164,10 @@ class DPAPI:
                     print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
                     return
             elif self.options.key and self.options.sid:
-                key = unhexlify(self.options.key[2:])
+                if self.options.key[:2].upper() == '0X':
+                    key = unhexlify(self.options.key[2:])
+                else:
+                    key = unhexlify(self.options.key)
                 key1, key2 = deriveKeysFromUserkey(self.options.sid, key)
                 decryptedKey = mk.decrypt(key1)
                 if decryptedKey:
