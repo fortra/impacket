@@ -116,7 +116,7 @@ class FindDelegation:
         self.__target = ldapConnection._dstHost
 
         searchFilter = "(&(|(UserAccountControl:1.2.840.113556.1.4.803:=16777216)(UserAccountControl:1.2.840.113556.1.4.803:=" \
-                       "524288)(msDS-AllowedToDelegateTo=*)(msDS-AllowedToActOnBehalfOfOtherIdentity=*))"
+                       "524288)(msDS-AllowedToDelegateTo=*)(msDS-AllowedToActOnBehalfOfOtherIdentity=*)"
 
         if self.__disabled:
             searchFilter = searchFilter + ")(UserAccountControl:1.2.840.113556.1.4.803:=2)"
@@ -176,7 +176,7 @@ class FindDelegation:
                         objectType = str(attribute['vals'][0]).split('=')[1].split(',')[0]
                     elif str(attribute['type']) == 'msDS-AllowedToDelegateTo':
                         if protocolTransition == 0:
-                            delegation = 'Constrained'
+                            delegation = 'Constrained w/o Protocol Transition'
                         for delegRights in attribute['vals']:
                             rightsTo.append(str(delegRights))
              
