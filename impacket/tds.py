@@ -48,6 +48,7 @@ import string
 
 from impacket import ntlm, uuid, LOG
 from impacket.structure import Structure
+from impacket.mssql.version import MSSQL_VERSION
 
 # We need to have a fake Logger to be compatible with the way Impact 
 # prints information. Outside Impact it's just a print. Inside 
@@ -484,6 +485,7 @@ class MSSQL:
         self.lastError = False
         self.tlsSocket = None
         self.__rowsPrinter = rowsPrinter
+        self.mssql_version = ""
 
     # With Kerberos we need to know to which MSSQL instance we are going to connect (to compute the SPN)
     # As such we need to be able to list these instances which is what this code does
@@ -540,8 +542,10 @@ class MSSQL:
         # We send the prelogin packet, receive the response from the server
         self.sendTDS(TDS_PRE_LOGIN, prelogin.getData(), 0)
         tds = self.recvTDS()
+        response = TDS_PRELOGIN(tds['Data'])
+        self.mssql_version = MSSQL_VERSION(response['Version'])
         # And return the result to the Login or KerberosLogin functions for futher parsing
-        return TDS_PRELOGIN(tds['Data'])
+        return response
     
     def encryptPassword(self, password ):
         return bytes(bytearray([((x & 0x0f) << 4) + ((x & 0xf0) >> 4) ^ 0xa5 for x in bytearray(password)]))
@@ -1186,7 +1190,7 @@ class MSSQL:
                     info_logger("INFO(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le')))
 
                 elif key['TokenType'] == TDS_LOGINACK_TOKEN:
-                    info_logger("ACK: Result: %s - %s (%d%d %d%d) " % (key['Interface'], key['ProgName'].decode('utf-16le'), key['MajorVer'], key['MinorVer'], key['BuildNumHi'], key['BuildNumLow']))
+                    info_logger(f"ACK: Result: {key['Interface']} - {self.mssql_version}")
 
                 elif key['TokenType'] == TDS_ENVCHANGE_TOKEN:
                     if key['Type'] in (TDS_ENVCHANGE_DATABASE, TDS_ENVCHANGE_LANGUAGE, TDS_ENVCHANGE_CHARSET, TDS_ENVCHANGE_PACKETSIZE):
