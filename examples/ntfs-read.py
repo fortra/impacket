@@ -34,7 +34,11 @@ import sys
 import logging
 import struct
 import argparse
+
 import cmd
+from impacket.examples.monkeypatches import monkeypatch_readline_backend
+monkeypatch_readline_backend()
+
 import ntpath
 from six import PY2, text_type
 from datetime import datetime

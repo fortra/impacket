@@ -17,7 +17,11 @@
 import re
 import string
 import sys
+
 import cmd
+from impacket.examples.monkeypatches import monkeypatch_readline_backend
+monkeypatch_readline_backend()
+
 import random
 import ldap3
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
