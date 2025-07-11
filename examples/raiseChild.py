@@ -67,7 +67,11 @@ import random
 import string
 import sys
 import os
+
 import cmd
+from impacket.examples.monkeypatches import monkeypatch_readline_backend
+monkeypatch_readline_backend()
+
 import time
 from threading import Thread, Lock
 from binascii import unhexlify, hexlify

@@ -22,7 +22,11 @@ from __future__ import print_function
 from io import BytesIO
 import sys
 import time
+
 import cmd
+from impacket.examples.monkeypatches import monkeypatch_readline_backend
+monkeypatch_readline_backend()
+
 import os
 import ntpath
 

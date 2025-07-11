@@ -36,7 +36,11 @@
 
 from __future__ import division
 from __future__ import print_function
+
 import cmd
+from impacket.examples.monkeypatches import monkeypatch_readline_backend
+monkeypatch_readline_backend()
+
 import logging
 import os
 import random
