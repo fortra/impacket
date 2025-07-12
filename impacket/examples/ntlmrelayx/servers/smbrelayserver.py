@@ -238,12 +238,30 @@ class SMBRelayServer(Thread):
         # SMBRelay
         # Are we ready to relay or should we just do local auth?
         if not self.config.disableMulti and 'relayToHost' not in connData:
-            # Just call the original SessionSetup
-            respCommands, respPackets, errorCode = self.origSmbSessionSetup(connId, smbServer, recvPacket)
-            # We remove the Guest flag
-            if 'SessionFlags' in respCommands[0].fields:
-                respCommands[0]['SessionFlags'] = 0x00
-            return respCommands, respPackets, errorCode
+            # For RPC targets, we need to set up the relay early
+            if hasattr(self, 'target') and self.target and self.target.scheme.upper() == 'RPC':
+                LOG.info("RPC target detected, setting up relay for session setup")
+                try:
+                    # Create the RPC client now for session setup
+                    client = self.init_client(True)  # extendedSecurity=True
+                    connData['SMBClient'] = client
+                    connData['relayToHost'] = True
+                    smbServer.setConnectionData(connId, connData)
+                    LOG.info("RPC client created for session setup relay")
+                except Exception as e:
+                    LOG.error("Failed to create RPC client for session setup: %s" % str(e))
+                    # Fall back to original behavior
+                    respCommands, respPackets, errorCode = self.origSmbSessionSetup(connId, smbServer, recvPacket)
+                    if 'SessionFlags' in respCommands[0].fields:
+                        respCommands[0]['SessionFlags'] = 0x00
+                    return respCommands, respPackets, errorCode
+            else:
+                # Just call the original SessionSetup for non-RPC targets
+                respCommands, respPackets, errorCode = self.origSmbSessionSetup(connId, smbServer, recvPacket)
+                # We remove the Guest flag
+                if 'SessionFlags' in respCommands[0].fields:
+                    respCommands[0]['SessionFlags'] = 0x00
+                return respCommands, respPackets, errorCode
 
         # We have confirmed we want to relay to the target host.
         respSMBCommand = smb3.SMB2SessionSetup_Response()
