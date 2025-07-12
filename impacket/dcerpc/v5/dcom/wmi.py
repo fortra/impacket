@@ -706,7 +706,10 @@ class CLASS_AND_METHODS_PART(Structure):
         if pClassName == 0xffffffff:
             return 'None'
         else:
-            className = ENCODED_STRING(cHeap[pClassName:])['Character']
+            buffer = cHeap[pClassName:]
+            if not buffer:
+                return ''
+            className = ENCODED_STRING(buffer)['Character']
             derivationList = self['ClassPart']['DerivationList']['ClassNameEncoding']
             while len(derivationList) > 0:
                 superClass = ENCODED_STRING(derivationList)['Character']
