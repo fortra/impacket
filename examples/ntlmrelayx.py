@@ -195,7 +195,7 @@ def start_servers(options, threads):
         c.setOutputFile(options.output_file)
         c.setdumpHashes(options.dump_hashes)
         c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid, options.add_dns_record)
-        c.setRPCOptions(options.rpc_mode, options.rpc_use_smb, options.auth_smb, options.hashes_smb, options.rpc_smb_port, options.icpr_ca_name)
+        c.setRPCOptions(options.rpc_mode, options.rpc_use_smb, options.auth_smb, options.hashes_smb, options.rpc_smb_port, options.icpr_ca_name, options.kerberos)
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
         c.setIMAPOptions(options.keyword, options.mailbox, options.all, options.imap_max)
@@ -355,6 +355,7 @@ if __name__ == '__main__':
     rpcoptions.add_argument('-hashes-smb', action='store', required=False, metavar="LMHASH:NTHASH")
     rpcoptions.add_argument('-rpc-smb-port', type=int, choices=[139, 445], default=445, help='Destination port to connect to SMB')
     rpcoptions.add_argument('-icpr-ca-name', action='store', default="", help='Name of the CA for ICPR attack')
+    rpcoptions.add_argument('--kerberos', action='store_true', required=False, help='Use Kerberos authentication for SMB when using -rpc-use-smb')
 
     #MSSQL arguments
     mssqloptions = parser.add_argument_group("MSSQL client options")
@@ -437,6 +438,14 @@ if __name__ == '__main__':
 
     if options.rpc_use_smb and not options.auth_smb:
        logging.error("Set -auth-smb to relay DCE/RPC to SMB pipes")
+       sys.exit(1)
+    
+    if options.kerberos and not options.rpc_use_smb:
+       logging.error("--kerberos can only be used with -rpc-use-smb")
+       sys.exit(1)
+    
+    if options.kerberos and not options.auth_smb:
+       logging.error("--kerberos requires -auth-smb with valid credentials")
        sys.exit(1)
     
     # Ensuring the correct target is set when performing SCCM policies attack

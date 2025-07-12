@@ -790,6 +790,7 @@ class SMBRelayServer(Thread):
         #    # Connection already relayed, let's just answer the request (that will return object not found)
         #    return self.smbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
 
+        LOG.info('SMBD-%s: Starting relay setup for victim %s@%s' % (connId, self.authUser, connData['ClientIP']))
         try:
             if self.config.mode.upper () == 'REFLECTION':
                 self.targetprocessor = TargetsProcessor (singleTarget='SMB://%s:445/' % connData['ClientIP'])
@@ -885,13 +886,19 @@ class SMBRelayServer(Thread):
 
     #Initialize the correct client for the relay target
     def init_client(self,extSec):
+        LOG.info("SMB Relay: init_client called for target scheme: %s" % self.target.scheme.upper())
         if self.target.scheme.upper() in self.config.protocolClients:
+            LOG.info("SMB Relay: Creating %s client for target %s" % (self.target.scheme.upper(), self.target.netloc))
             client = self.config.protocolClients[self.target.scheme.upper()](self.config, self.target, extendedSecurity = extSec)
+            LOG.info("SMB Relay: Client created, calling initConnection()")
             if not client.initConnection():
+                LOG.error("SMB Relay: initConnection() returned False!")
                 raise Exception('Could not initialize connection')
+            LOG.info("SMB Relay: initConnection() succeeded")
         else:
+            LOG.error("SMB Relay: Protocol Client for %s not found!" % self.target.scheme.upper())
+            LOG.error("SMB Relay: Available clients: %s" % list(self.config.protocolClients.keys()))
             raise Exception('Protocol Client for %s not found!' % self.target.scheme)
-
 
         return client
 
