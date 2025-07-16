@@ -50,6 +50,7 @@ class MYMSSQL(MSSQL):
             LOG.info("Encryption required, switching to TLS")
             # Creates a TLS context
             context = ssl.SSLContext()
+            context.set_ciphers('ALL:@SECLEVEL=0')
             
             # Here comes the important part, MSSQL server does not expect a raw TLS socket
             # Instead it expects TDS packets to be sent in which TLS data is embedded
