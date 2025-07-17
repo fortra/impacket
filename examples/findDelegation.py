@@ -123,8 +123,6 @@ class FindDelegation:
         else:
             searchFilter += ")(!(UserAccountControl:1.2.840.113556.1.4.803:=2))"
 
-        searchFilter += "(!(UserAccountControl:1.2.840.113556.1.4.803:=8192))"  # Isn't a domain controller
-
         if self.__requestUser is not None:
             searchFilter += '(sAMAccountName:=%s))' % self.__requestUser
         else:
@@ -203,22 +201,16 @@ class FindDelegation:
                             rbcdObjType.append(str(item2['attributes'][1]['vals'][0]).split('=')[1].split(',')[0])
 							
                         if mustCommit is True:
-                            if int(userAccountControl) & UF_ACCOUNTDISABLE and not self.__disabled:
-                                logging.debug('Bypassing disabled account %s ' % sAMAccountName)
-                            else:
-                                for rights, objType in zip(rbcdRights,rbcdObjType):
-                                    spnExists = checkIfSPNExists(ldapConnection, sAMAccountName, rights)
-                                    answers.append([rights, objType, 'Resource-Based Constrained', sAMAccountName, str(spnExists)])
+                            for rights, objType in zip(rbcdRights,rbcdObjType):
+                                spnExists = checkIfSPNExists(ldapConnection, sAMAccountName, rights)
+                                answers.append([rights, objType, 'Resource-Based Constrained', sAMAccountName, str(spnExists)])
                         
                 #print unconstrained + constrained delegation relationships
                 if delegation in ['Unconstrained', 'Constrained w/o Protocol Transition', 'Constrained w/ Protocol Transition']:
                     if mustCommit is True:
-                            if int(userAccountControl) & UF_ACCOUNTDISABLE and not self.__disabled:
-                                logging.debug('Bypassing disabled account %s ' % sAMAccountName)
-                            else:
-                                for rights in rightsTo:
-                                    spnExists = checkIfSPNExists(ldapConnection, sAMAccountName, rights)
-                                    answers.append([sAMAccountName, objectType, delegation, rights, str(spnExists)])
+                        for rights in rightsTo:
+                            spnExists = checkIfSPNExists(ldapConnection, sAMAccountName, rights)
+                            answers.append([sAMAccountName, objectType, delegation, rights, str(spnExists)])
             except Exception as e:
                 logging.error('Skipping item, cannot process due to error %s' % str(e))
                 pass
