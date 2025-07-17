@@ -201,7 +201,7 @@ def encodeSMBString(flags, text):
 def getFileTime(t):
     t *= 10000000
     t += 116444736000000000
-    return t
+    return int(t)
 
 
 def getUnixTime(t):
@@ -337,7 +337,9 @@ def queryFsInformation(path, filename, level=None, pktFlags=smb.SMB.FLAGS2_UNICO
     fileName = normalize_path(filename)
     pathName = os.path.join(path, fileName)
     fileSize = os.path.getsize(pathName)
-    (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(pathName)
+    stat_result = os.stat(pathName)
+    mtime = stat_result.st_mtime
+    ctime = stat_result.st_ctime
 
     if level is None:
         lastWriteTime = mtime
@@ -452,7 +454,11 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
             LOG.error("Wrong level %d!" % level)
             return searchResult, searchCount, STATUS_NOT_SUPPORTED
 
-        (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(i)
+        stat_result = os.stat(i)
+        size = stat_result.st_size
+        atime = stat_result.st_atime
+        mtime = stat_result.st_mtime
+        ctime = stat_result.st_ctime
         if os.path.isdir(i):
             item['ExtFileAttributes'] = smb.ATTR_DIRECTORY
         else:
@@ -531,7 +537,11 @@ def queryPathInformation(path, filename, level):
             return None, STATUS_OBJECT_PATH_SYNTAX_BAD
 
         if os.path.exists(pathName):
-            (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(pathName)
+            stat_result = os.stat(pathName)
+            size = stat_result.st_size
+            atime = stat_result.st_atime
+            mtime = stat_result.st_mtime
+            ctime = stat_result.st_ctime
             if os.path.isdir(pathName):
                 fileAttributes = smb.ATTR_DIRECTORY
             else:
@@ -2100,7 +2110,11 @@ class SMBCommands:
                 errorCode = STATUS_SUCCESS
                 pathName = connData['OpenedFiles'][queryInformation2['Fid']]['FileName']
                 try:
-                    (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(pathName)
+                    stat_result = os.stat(pathName)
+                    size = stat_result.st_size
+                    atime = stat_result.st_atime
+                    mtime = stat_result.st_mtime
+                    ctime = stat_result.st_ctime
                     respParameters['CreateDate'] = getSMBDate(ctime)
                     respParameters['CreationTime'] = getSMBTime(ctime)
                     respParameters['LastAccessDate'] = getSMBDate(atime)
