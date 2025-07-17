@@ -283,6 +283,26 @@ class SMBTests(RemoteTestCase):
         smb.deleteFile(self.share, self.file)
         smb.disconnectTree(tid)
         smb.logoff()
+    
+    # ToDo: add to tests when merged to master.
+    # def test_setInfo(self):
+    #     import datetime
+    #     smb = self.create_connection()
+    #     smb.login(self.username, self.password, self.domain)
+    #     tid = smb.connectTree(self.share)
+    #     fid = smb.createFile(tid, self.file)
+    #     info_data = smb.SMBSetFileBasicInfo()
+    #     info_data['CreationTime'] = smb.POSIXtoFT(datetime.datetime(2003, 7, 7, 12, 34, 56, 789).timestamp())
+    #     info_data['LastAccessTime'] = smb.POSIXtoFT(datetime.datetime(2003, 7, 7, 12, 34, 56, 789).timestamp())
+    #     info_data['LastWriteTime'] = smb.POSIXtoFT(datetime.datetime(2003, 7, 7, 12, 34, 56, 789).timestamp())
+    #     info_data['ChangeTime'] = smb.POSIXtoFT(datetime.datetime(2003, 7, 7, 12, 34, 56, 789).timestamp())
+    #     info_data['ExtFileAttributes'] = 0
+    #     info_data['Reserved'] = 0
+    #     smb.setInfo(tid, fid, smb.SMB_SET_FILE_BASIC_INFO, info_data)
+    #     smb.closeFile(tid,fid)
+    #     smb.deleteFile(self.share, self.file)
+    #     smb.disconnectTree(tid)
+    #     smb.logoff()
 
     def __is_socket_opened(self, s):
         # We assume that if socket is selectable, it's open; and if it were not, it's closed.
