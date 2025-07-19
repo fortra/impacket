@@ -177,7 +177,7 @@ class MSSQL_VERSION:
             string += " "
             string += MSSQL_VERSION.VERSION_NAME[1][self.major][1][self.minor][1][self.build]
         except KeyError:
-            string += "(unknown)"
+            pass
         finally:
             return string
 
