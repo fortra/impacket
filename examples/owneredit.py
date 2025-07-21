@@ -230,6 +230,7 @@ def parse_args():
     parser = argparse.ArgumentParser(add_help=True, description='Python editor for a principal\'s DACL.')
     parser.add_argument('identity', action='store', help='domain.local/username[:password]')
     parser.add_argument('-use-ldaps', action='store_true', help='Use LDAPS instead of LDAP')
+    parser.add_argument('-use-channel-binding', action='store_true', help='Enable LDAPS Channel Binding')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
@@ -278,7 +279,7 @@ def main():
     domain, username, password, lmhash, nthash, args.k = parse_identity(args.identity, args.hashes, args.no_pass, args.aesKey, args.k)
 
     try:
-        ldap_server, ldap_session = init_ldap_session(domain, username, password, lmhash, nthash, args.k, args.dc_ip, args.dc_host, args.aesKey, args.use_ldaps)
+        ldap_server, ldap_session = init_ldap_session(domain, username, password, lmhash, nthash, args.k, args.dc_ip, args.dc_host, args.aesKey, args.use_ldaps, args.use_channel_binding)
         owneredit = OwnerEdit(ldap_server, ldap_session, args)
         if args.action == 'read':
             owneredit.read()
