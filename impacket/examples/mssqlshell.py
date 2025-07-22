@@ -20,7 +20,11 @@
 #
 
 import os
+
 import cmd
+from impacket.examples.monkeypatches import monkeypatch_readline_backend
+monkeypatch_readline_backend()
+
 import sys
 
 # for "do_upload"

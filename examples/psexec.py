@@ -22,7 +22,11 @@
 import sys
 import os
 import re
+
 import cmd
+from impacket.examples.monkeypatches import monkeypatch_readline_backend
+monkeypatch_readline_backend()
+
 import logging
 from threading import Thread, Lock
 import argparse

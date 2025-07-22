@@ -40,7 +40,11 @@ import sys
 import os
 import random
 import string
+
 import cmd
+from impacket.examples.monkeypatches import monkeypatch_readline_backend
+monkeypatch_readline_backend()
+
 import argparse
 try:
     import ConfigParser
