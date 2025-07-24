@@ -486,6 +486,7 @@ class MSSQL:
         self.tlsSocket = None
         self.__rowsPrinter = rowsPrinter
         self.mssql_version = ""
+        self.require_tls = False
 
     # With Kerberos we need to know to which MSSQL instance we are going to connect (to compute the SPN)
     # As such we need to be able to list these instances which is what this code does
@@ -738,6 +739,7 @@ class MSSQL:
     # And define all variables that will be used both by Login or KerberosLogin 
     def set_tls_context(self):
         LOG.info("Encryption required, switching to TLS")
+        self.require_tls = True
         # Creates a TLS context
         context = ssl.SSLContext()
         
