@@ -458,7 +458,7 @@ if __name__ == '__main__':
     parser.add_argument('-stealth', action='store_true', help='Removes the (servicePrincipalName=*) filter from the LDAP query for added stealth. '
                                                               'May cause huge memory consumption / errors on large domains.')
     parser.add_argument('-usersfile', help='File with user per line to test')
-    parser.add_argument('-machineonly', action='store_true', default=False, help='Queries for machine accounts only')
+    parser.add_argument('-machine-only', action='store_true', default=False, help='Queries for machine accounts only')
 
     parser.add_argument('-request', action='store_true', default=False, help='Requests TGS for users and output them '
                                                                              'in JtR/hashcat format (default False)')
