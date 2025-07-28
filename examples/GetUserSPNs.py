@@ -459,7 +459,7 @@ if __name__ == '__main__':
                                                               'May cause huge memory consumption / errors on large domains.')
     parser.add_argument('-usersfile', help='File with user per line to test')
     parser.add_argument('-machineonly', metavar='machineonly', action='store_true', default=False, help='Queries for machine accounts only')
-    parser.add_argument('-request-machine', metavar='machinename', help='Filters down to one machine to request. Helpful in larger domains. Example: `workstation01$`'
+    parser.add_argument('-request-machine', metavar='machinename', help='Filters down to one machine to request. Helpful in larger domains. Example: `workstation01$`')
 
 
     parser.add_argument('-request', action='store_true', default=False, help='Requests TGS for users and output them '
