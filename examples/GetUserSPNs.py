@@ -248,14 +248,14 @@ class GetUserSPNs:
         filter_not_disabled = "!(userAccountControl:1.2.840.113556.1.4.803:=2)"
 
         if self.__machineOnly is True:
-            print('MACHINE ONLY FLAG DETECTED')
+            logging.debug('-machine-only flag detected')
             searchFilter = "(&"
             searchFilter += "(" + filter_computer + ")"
             searchFilter += "(" + filter_not_disabled + ")"
 
             # not updating to F-string due to other code using old string formatting
             if self.__requestMachine is not None:
-                print(self.__requestMachine)
+                logging.info('Filtering down to specific machine: %s' % self.__requestMachine)
                 searchFilter += '(sAMAccountName:=%s)' % (self.__requestMachine)
 
         # traditional SPN based on person search
