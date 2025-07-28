@@ -91,7 +91,7 @@ class GetUserSPNs:
         self.__saveTGS = cmdLineOptions.save
         self.__requestUser = cmdLineOptions.request_user
         self.__stealth = cmdLineOptions.stealth
-        self.__machineOnly = cmdLineOptions.machine_only
+        self.__machineOnly = cmdLineOptions.machineonly
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
