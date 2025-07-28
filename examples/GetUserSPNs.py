@@ -91,7 +91,7 @@ class GetUserSPNs:
         self.__saveTGS = cmdLineOptions.save
         self.__requestUser = cmdLineOptions.request_user
         self.__stealth = cmdLineOptions.stealth
-        self.__machineOnly = cmdLineOptions.machineonly
+        self.__machineOnly = cmdLineOptions.machine_only
         self.__requestMachine = cmdLineOptions.request_machine
 
         if cmdLineOptions.hashes is not None:
@@ -525,7 +525,7 @@ if __name__ == '__main__':
 
     # auto enable machineonly flag on machinename flag being enabled.
     if options.request_machine is not None:
-        options.machineonly = True
+        options.machine_only = True
 
     try:
         executer = GetUserSPNs(username, password, userDomain, targetDomain, options)
