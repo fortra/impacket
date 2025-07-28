@@ -457,7 +457,7 @@ if __name__ == '__main__':
                                                          ' through the AS')
     parser.add_argument('-stealth', action='store_true', help='Removes the (servicePrincipalName=*) filter from the LDAP query for added stealth. '
                                                               'May cause huge memory consumption / errors on large domains.')
-    parser.add_argument('-machine-only', action='store_true', default=False, help='Queries for machine accounts only, by adjusting `objectCategory=person` to `objectCategory=computer` ')
+    parser.add_argument('-machine-only', action='store_true', default=False, help='Queries for machine accounts only, by adjusting `objectCategory=person` to `objectCategory=computer`. Active Directory may limit results to 1,000 objects (not SPN\'s) by default. LDAP paging is required to retrieve more.')
 
     parser.add_argument('-usersfile', help='File with user per line to test')
 
@@ -466,7 +466,7 @@ if __name__ == '__main__':
     parser.add_argument('-request-user', action='store', metavar='username', help='Requests TGS for the SPN associated '
                                                                                   'to the user specified (just the username, no domain needed)')
 
-    parser.add_argument('-request-machine', metavar='machinename', help='Filters down to one machine to request. Helpful in larger domains. Example: `workstation01$`')
+    parser.add_argument('-request-machine', metavar='machinename', help='Requests TGS for the SPN associated to the machine specified. Example: `workstation01$`')
 
     parser.add_argument('-save', action='store_true', default=False, help='Saves TGS requested to disk. Format is '
                                                                           '<username>.ccache. Auto selects -request')
