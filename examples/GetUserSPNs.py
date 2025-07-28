@@ -92,7 +92,7 @@ class GetUserSPNs:
         self.__requestUser = cmdLineOptions.request_user
         self.__stealth = cmdLineOptions.stealth
         self.__machineOnly = cmdLineOptions.machineonly
-        self.__requestMachine = cmdLineOptions.machinename
+        self.__requestMachine = cmdLineOptions.machine_name
 
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
@@ -459,13 +459,14 @@ if __name__ == '__main__':
                                                               'May cause huge memory consumption / errors on large domains.')
     parser.add_argument('-usersfile', help='File with user per line to test')
     parser.add_argument('-machineonly', action='store_true', default=False, help='Queries for machine accounts only')
-    parser.add_argument('-request-machine', metavar='machinename', help='Filters down to one machine to request. Helpful in larger domains. Example: `workstation01$`')
-
 
     parser.add_argument('-request', action='store_true', default=False, help='Requests TGS for users and output them '
                                                                              'in JtR/hashcat format (default False)')
     parser.add_argument('-request-user', action='store', metavar='username', help='Requests TGS for the SPN associated '
                                                                                   'to the user specified (just the username, no domain needed)')
+
+    parser.add_argument('-request-machine', metavar='machinename', help='Filters down to one machine to request. Helpful in larger domains. Example: `workstation01$`')
+
     parser.add_argument('-save', action='store_true', default=False, help='Saves TGS requested to disk. Format is '
                                                                           '<username>.ccache. Auto selects -request')
     parser.add_argument('-outputfile', action='store',
