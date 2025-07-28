@@ -255,7 +255,7 @@ class GetUserSPNs:
 
             # not updating to F-string due to other code using old string formatting
             if self.__requestMachine is not None:
-                logging.info('Filtering down to specific machine: %s' % self.__requestMachine)
+                logging.debug('Including machine account (%s) in LDAP query filter' % self.__requestMachine)
                 searchFilter += '(sAMAccountName:=%s)' % (self.__requestMachine)
 
         # traditional SPN based on person search
