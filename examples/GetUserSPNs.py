@@ -242,15 +242,19 @@ class GetUserSPNs:
         # Building the search filter
         filter_spn = "servicePrincipalName=*"
         filter_person = "objectCategory=person"
+        filter_computer = "objectCategory=computer"
         filter_not_disabled = "!(userAccountControl:1.2.840.113556.1.4.803:=2)"
 
         if self.__machineOnly is True:
             print('MACHINE ONLY FLAG DETECTED')
+            searchFilter = "(&"
+            searchFilter += "(" + filter_computer + ")"
+            searchFilter += "(" + filter_not_disabled + ")"
 
-
-        searchFilter = "(&"
-        searchFilter += "(" + filter_person + ")"
-        searchFilter += "(" + filter_not_disabled + ")"
+        else:
+            searchFilter = "(&"
+            searchFilter += "(" + filter_person + ")"
+            searchFilter += "(" + filter_not_disabled + ")"
 
         if self.__stealth is True:
             logging.warning('Stealth option may cause huge memory consumption / out-of-memory errors on very large domains.')
