@@ -51,7 +51,7 @@
 #
 from __future__ import division
 from __future__ import print_function
-from __future__ import annotations
+
 import os
 import socket
 from binascii import a2b_hex
@@ -3338,7 +3338,7 @@ class SMB(object):
             # Remove Potential Prefix Padding
             return trans2Response['Data'][-trans2Parameters['TotalDataCount']:]
     
-    def set_file_info(self, tid, fid, fileInfoClass, file_info_data, password = None):
+    def set_file_info(self, tid, fid, fileInfoClass, file_info_data):
         SMBTrans2SetFileInfo_Params = SMBSetFileInformation_Parameters()
         SMBTrans2SetFileInfo_Params["FID"] = fid
         SMBTrans2SetFileInfo_Params["InformationLevel"] = fileInfoClass

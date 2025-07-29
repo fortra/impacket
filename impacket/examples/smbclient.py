@@ -181,7 +181,10 @@ class MiniImpacketShell(cmd.Cmd):
         self.username = None
 
     def do_reconnect(self, line):
-        self.smb.reconnect()
+        if self.smb:
+            self.smb.reconnect()
+        else:
+            LOG.warning("Not reconnecting a closed connection.")
     
     def do_login(self,line):
         if self.smb is None:
