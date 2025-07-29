@@ -48,6 +48,10 @@ from impacket.smb3structs import (
 )
 
 
+ATTRIB_QUERY_ACTION = 'query'
+ATTRIB_SET_ACTION = 'set'
+VALID_ATTRIB_ACTIONS = (ATTRIB_QUERY_ACTION, ATTRIB_SET_ACTION)
+
 # All Knwon File Attributes according to [MS-FSCC] 2.6 File Attributes.
 FILE_ATTRIBUTE_READONLY                 = 0x00000001
 FILE_ATTRIBUTE_HIDDEN                   = 0x00000002
@@ -227,9 +231,9 @@ def main():
 
     subcommands = parser.add_subparsers(dest="action")
     
-    query_parser = subcommands.add_parser("query", help="Query current file / directory attributes.")
+    query_parser = subcommands.add_parser(ATTRIB_QUERY_ACTION, help="Query current file / directory attributes.")
     
-    set_parser = subcommands.add_parser("set", help="Modify file / directory attributes.")    
+    set_parser = subcommands.add_parser(ATTRIB_SET_ACTION, help="Modify file / directory attributes.")    
     set_parser.add_argument('-r', '--readonly', dest='readonly', action='store_true', help="A file or directory that is read-only. For a file, applications can read the file but cannot write to it or delete it. For a directory, applications cannot delete it, but applications can create and delete files from that directory.")
     set_parser.add_argument('-H', '--hidden', dest='hidden', action='store_true', help="A file or directory that is hidden. Files and directories marked with this attribute do not appear in an ordinary directory listing.")
     set_parser.add_argument('-s', '--system', dest='system', action='store_true', help="A file or directory that the operating system uses a part of or uses exclusively.")
@@ -255,6 +259,9 @@ def main():
     else:
         logging.getLogger().setLevel(logging.INFO)
 
+    if options.action not in VALID_ATTRIB_ACTIONS:
+        logging.error("Invalid action '{action}'".format(action=options.action))
+    
     domain, username, password, address = parse_target(options.target)
 
     if options.target_ip is None:

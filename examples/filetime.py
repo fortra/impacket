@@ -61,6 +61,7 @@ from impacket.smb3structs import SMB2_DIALECT_311, SMB2_FILE_BASIC_INFO
 
 FILETIME_READ_ACTION = 'stat'
 FILETIME_WRITE_ACTION = 'touch'
+VALID_FILETIME_ACTIONS = (FILETIME_READ_ACTION, FILETIME_WRITE_ACTION)
 
 
 @dataclass
@@ -178,6 +179,8 @@ def main():
     else:
         logging.getLogger().setLevel(logging.INFO)
     
+    if options.action not in VALID_FILETIME_ACTIONS:
+        logging.error("Invalid action '{action}'".format(action=options.action))    
 
     domain, username, password, address = parse_target(options.target)
 
