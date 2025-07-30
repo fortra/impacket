@@ -68,7 +68,6 @@ import ldap3
 import ssl
 from binascii import unhexlify
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
-from impacket.examples.monkeypatches import monkeypatch_ssl_create_default_context
 
 def _get_machine_name(machine, fqdn=False):
     s = SMBConnection(machine, machine)
@@ -211,15 +210,20 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
 
     return True
 
-def _init_ldap_connection(target, use_ssl, domain, username, password, lmhash, nthash, k, dc_ip, aesKey):
+def _init_ldap_connection(target, tls_version, domain, username, password, lmhash, nthash, k, dc_ip, aesKey):
     user = '%s\\%s' % (domain, username)
     connect_to = target
     if dc_ip is not None:
         connect_to = dc_ip
-
-    port = 636 if use_ssl else 389
-    ldap_server = ldap3.Server(connect_to, get_info=ldap3.ALL, port=port, use_ssl=use_ssl)
-
+    if tls_version is not None:
+        use_ssl = True
+        port = 636
+        tls = ldap3.Tls(validate=ssl.CERT_NONE, version=tls_version)
+    else:
+        use_ssl = False
+        port = 389
+        tls = None
+    ldap_server = ldap3.Server(connect_to, get_info=ldap3.ALL, port=port, use_ssl=use_ssl, tls=tls)
     if k:
         ldap_session = ldap3.Connection(ldap_server)
         ldap_session.bind()
@@ -245,10 +249,13 @@ def init_ldap_session(domain, username, password, lmhash, nthash, k, dc_ip, dc_h
         else:
             target = domain
 
-    if use_ldaps:
-        monkeypatch_ssl_create_default_context()
-
-    return _init_ldap_connection(target, use_ldaps, domain, username, password, lmhash, nthash, k, dc_ip, aesKey)
+    if use_ldaps is True:
+        try:
+            return _init_ldap_connection(target, ssl.PROTOCOL_TLSv1_2, domain, username, password, lmhash, nthash, k, dc_ip, aesKey)
+        except ldap3.core.exceptions.LDAPSocketOpenError:
+            return _init_ldap_connection(target, ssl.PROTOCOL_TLSv1, domain, username, password, lmhash, nthash, k, dc_ip, aesKey)
+    else:
+        return _init_ldap_connection(target, None, domain, username, password, lmhash, nthash, k, dc_ip, aesKey)
 
 # ----------
 

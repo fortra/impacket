@@ -40,11 +40,7 @@
 import argparse
 import sys
 import logging
-
 import cmd
-from impacket.examples.monkeypatches import monkeypatch_readline_backend
-monkeypatch_readline_backend()
-
 try:
     from urllib.request import ProxyHandler, build_opener, Request
 except ImportError:

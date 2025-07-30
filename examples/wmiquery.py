@@ -39,10 +39,7 @@ from impacket.dcerpc.v5.dcomrt import DCOMConnection, COMVERSION
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
 
 if __name__ == '__main__':
-
     import cmd
-    from impacket.examples.monkeypatches import monkeypatch_readline_backend
-    monkeypatch_readline_backend()
 
     class WMIQUERY(cmd.Cmd):
         def __init__(self, iWbemServices):

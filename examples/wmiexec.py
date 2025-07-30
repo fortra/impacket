@@ -28,11 +28,7 @@ from __future__ import division
 from __future__ import print_function
 import sys
 import os
-
 import cmd
-from impacket.examples.monkeypatches import monkeypatch_readline_backend
-monkeypatch_readline_backend()
-
 import argparse
 import time
 import logging

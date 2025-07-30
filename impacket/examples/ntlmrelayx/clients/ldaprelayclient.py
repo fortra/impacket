@@ -35,8 +35,6 @@ from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
 from impacket.ntlm import NTLMAuthChallenge, NTLMSSP_AV_FLAGS, AV_PAIRS, NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_SIGN, NTLMSSP_NEGOTIATE_ALWAYS_SIGN, NTLMAuthChallengeResponse, NTLMSSP_NEGOTIATE_KEY_EXCH, NTLMSSP_NEGOTIATE_VERSION
 from impacket.spnego import SPNEGO_NegTokenResp
 
-from impacket.examples.monkeypatches import monkeypatch_ssl_create_default_context
-
 PROTOCOL_CLIENT_CLASSES = ["LDAPRelayClient", "LDAPSRelayClient"]
 
 class LDAPRelayClientException(Exception):
@@ -171,7 +169,6 @@ class LDAPSRelayClient(LDAPRelayClient):
     MODIFY_ADD = MODIFY_ADD
 
     def __init__(self, serverConfig, target, targetPort = 636, extendedSecurity=True ):
-        monkeypatch_ssl_create_default_context()
         LDAPRelayClient.__init__(self, serverConfig, target, targetPort, extendedSecurity)
 
     def initConnection(self):
