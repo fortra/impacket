@@ -366,7 +366,7 @@ class SMBRelayServer(Thread):
                 client.killConnection()
             else:
                 # We have a session, create a thread and do whatever we want
-                LOG.info("(SMB): Authenticating connection from %s@%s against %s://%s SUCCEED [%s]" % (self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc, client.client_id))
+                LOG.info("(SMB): Authenticating connection from %s@%s against %s://%s SUCCEED" % (self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc))
                 # Log this target as processed for this client
 
                 if not self.config.isADCSAttack:
@@ -661,7 +661,7 @@ class SMBRelayServer(Thread):
                     return None, [packet], errorCode
                 else:
                     # We have a session, create a thread and do whatever we want
-                    LOG.info("(SMB): Authenticating connection from %s@%s against %s://%s SUCCEED [%s]" % (self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc, client.client_id))
+                    LOG.info("(SMB): Authenticating connection from %s@%s against %s://%s SUCCEED" % (self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc))
 
                     # Log this target as processed for this client
                     self.targetprocessor.registerTarget(self.target, True, self.authUser)
@@ -741,7 +741,7 @@ class SMBRelayServer(Thread):
             else:
                 # We have a session, create a thread and do whatever we want
                 self.authUser = ('%s/%s' % (sessionSetupData['PrimaryDomain'], sessionSetupData['Account'])).upper()
-                LOG.info("(SMB): Authenticating connection from %s@%s against %s://%s SUCCEED [%s]" % (self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc, client.client_id))
+                LOG.info("(SMB): Authenticating connection from %s@%s against %s://%s SUCCEED" % (self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc))
 
                 # Log this target as processed for this client
                 self.targetprocessor.registerTarget(self.target, True, self.authUser)

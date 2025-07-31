@@ -240,13 +240,13 @@ class RPCRelayServer(Thread):
 
                     # Relay worked, do whatever we want here...
                     if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                        LOG.info("(RPC): Authenticating connection from %s/%s@%s against %s://%s SUCCEED [%s]" % (
+                        LOG.info("(RPC): Authenticating connection from %s/%s@%s against %s://%s SUCCEED" % (
                             authenticateMessage['domain_name'].decode('utf-16le'), authenticateMessage['user_name'].decode('utf-16le'),
-                            self.client_address[0], self.target.scheme, self.target.netloc, self.client.client_id))
+                            self.client_address[0], self.target.scheme, self.target.netloc))
                     else:
-                        LOG.info("(RPC): Authenticating connection from %s/%s@%s against %s://%s SUCCEED [%s]" % (
+                        LOG.info("(RPC): Authenticating connection from %s/%s@%s against %s://%s SUCCEED" % (
                             authenticateMessage['domain_name'].decode('ascii'), authenticateMessage['user_name'].decode('ascii'),
-                            self.client_address[0], self.target.scheme, self.target.netloc, self.client.client_id))
+                            self.client_address[0], self.target.scheme, self.target.netloc))
 
                     ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
                                                         authenticateMessage['user_name'],

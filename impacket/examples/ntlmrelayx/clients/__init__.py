@@ -16,7 +16,6 @@
 #   Alberto Solino (@agsolino)
 #
 import os, sys, pkg_resources
-from threading import Lock
 from impacket import LOG
 
 PROTOCOL_CLIENTS = {}
@@ -26,8 +25,6 @@ PROTOCOL_CLIENTS = {}
 # writing a plugin for protocol clients:
 # PROTOCOL_CLIENT_CLASS = "<name of the class for the plugin>"
 # PLUGIN_NAME must be the protocol name that will be matched later with the relay targets (e.g. SMB, LDAP, etc)
-client_idx = 0
-lock = Lock()
 class ProtocolClient:
     PLUGIN_NAME = 'PROTOCOL'
     def __init__(self, serverConfig, target, targetPort, extendedSecurity=True):
@@ -43,10 +40,6 @@ class ProtocolClient:
         self.extendedSecurity = extendedSecurity
         self.session = None
         self.sessionData = {}
-        with lock:
-            global client_idx
-            client_idx += 1
-            self.client_id = client_idx
 
     def initConnection(self):
         raise RuntimeError('Virtual Function')
