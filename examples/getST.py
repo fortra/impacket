@@ -31,8 +31,10 @@
 #
 #   The output of this script will be a service ticket for the Administrator user.
 #
-#   Implemented by @fulc2um: you can request a ticket for dMSA account and use it for code execution with privileges of superceded user.
-#   Assume that dMSA account dmsa$ is dMSA account and Administrator is superceded account:
+#   Implemented by @fulc2um: you can request a ticket for dMSA account and use it for code execution with privileges of superseded user.
+#   Microsoft documentation for setting up Delegated Managed Service Accounts (dMSA): 
+#   https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/delegated-managed-service-accounts/delegated-managed-service-accounts-set-up-dmsa
+#   Assume that dMSA account dmsa$ is dMSA account and Administrator is superseded account:
 #         ./getST.py -k -no-pass -impersonate dmsa$ -self -dmsa contoso.com/user
 #
 #   Once you have the ccache file, set it in the KRB5CCNAME variable and use it for fun and profit.
