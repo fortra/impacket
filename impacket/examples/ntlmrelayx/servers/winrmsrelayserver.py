@@ -187,14 +187,17 @@ class WinRMSRelayServer(Thread):
                 else:
                     typeX = autorizationHeader
                 try:
-                    _, blob = typeX.split('NTLM')
+                    try:
+                        _, blob = typeX.split('NTLM')
+                    # Not using NTLM but Negotiate
+                    except ValueError:
+                        _, blob = typeX.split('Negotiate')
                     token = base64.b64decode(blob.strip())
                 except Exception:
                     LOG.debug("Exception:", exc_info=True)
                     self.do_AUTHHEAD(message = b'NTLM', proxy=proxy)
                 else:
                     messageType = struct.unpack('<L',token[len('NTLMSSP\x00'):len('NTLMSSP\x00')+4])[0]
-
             return token, messageType
 
         def do_HEAD(self):
