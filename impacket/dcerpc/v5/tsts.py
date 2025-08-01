@@ -27,7 +27,7 @@
 #
 
 import struct
-from datetime import datetime
+from datetime import datetime, timedelta
 from ldap3.protocol.formatters.formatters import format_sid
 
 from impacket.dcerpc.v5 import transport
@@ -179,7 +179,7 @@ class TS_CHAR(STR):
 class SYSTEM_TIMESTAMP(NDRHYPER):
     def __getitem__(self, key):
         if key == 'Data':
-            return datetime.fromtimestamp(getUnixTime(int(str(self.fields[key]))))
+            return datetime(1601, 1, 1) + timedelta(microseconds=int(str(self.fields[key])) // 10)
         else:
             return NDR.__getitem__(self,key)
 
