@@ -226,6 +226,34 @@ class BADSUCCESSOR:
             
             success = ldapConnection.search(
                 search_base=self.__baseDN,
+                search_filter='(&(objectCategory=computer)(objectClass=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))',
+                search_scope=ldap3.SUBTREE,
+                attributes=['operatingSystem', 'operatingSystemVersion']
+            )
+
+            if not success:
+                logging.error('Failed to search for Domain Controllers: %s' % ldapConnection.result)
+                return False
+
+            prereq_flag = False
+            for entry in ldapConnection.entries:
+                if ('operatingSystem' and 'operatingSystemVersion') not in entry:
+                    logging.error('Could not retrieve operating system information for Domain Controller: %s' % entry.entry_dn)
+                    pass
+                else:
+                    if 'Windows Server 2025' in entry.operatingSystem.value or '26100' in entry.operatingSystemVersion.value:
+                        logging.info('Found Windows Server 2025 Domain Controller: %s' % entry.entry_dn)
+                        prereq_flag = True
+                        break
+            
+            if not prereq_flag:
+                logging.info('No Windows Server 2025 Domain Controllers found. This script requires at least one DC running Windows Server 2025.')
+                logging.info('Resulting list of Identities/OUs will show Identities that have permissions to create objects in OUs.')
+                    
+
+            
+            success = ldapConnection.search(
+                search_base=self.__baseDN,
                 search_filter='(objectClass=organizationalUnit)',
                 search_scope=ldap3.SUBTREE,
                 attributes=['distinguishedName', 'nTSecurityDescriptor'],
