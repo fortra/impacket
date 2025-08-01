@@ -31,7 +31,7 @@ from binascii import unhexlify, hexlify
 
 from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, AS_REP, TGS_REP, \
     EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_set, seq_set_iter, KERB_ERROR_DATA, METHOD_DATA, \
-    ETYPE_INFO2, ETYPE_INFO, AP_REP, EncAPRepPart
+    ETYPE_INFO2, ETYPE_INFO, AP_REP, EncAPRepPart, KERB_SUPERSEDED_BY_USER
 from impacket.krb5.types import KerberosTime, Principal, Ticket
 from impacket.krb5.gssapi import CheckSumField, GSS_C_DCE_STYLE, GSS_C_MUTUAL_FLAG, GSS_C_REPLAY_FLAG, \
     GSS_C_SEQUENCE_FLAG, GSS_C_CONF_FLAG, GSS_C_INTEG_FLAG
@@ -733,7 +733,17 @@ class KerberosError(SessionError):
                     retString += '\nNT ERROR: code: 0x%x - %s - %s' % (nt_error, error_msg_short, error_msg_verbose)
                 else:
                     retString += '\nNT ERROR: unknown error code: 0x%x' % nt_error
-        except:
+            
+            elif self.error == constants.ErrorCodes.KDC_ERR_CLIENT_REVOKED.value:
+                try:
+                    eData, _ = decoder.decode(self.packet['e-data'].asOctets())
+                    octet_string = eData[0][1].asOctets()
+                    superseded, _ = decoder.decode(octet_string, asn1Spec=KERB_SUPERSEDED_BY_USER())
+                    name = superseded['name']['name-string'][0].prettyPrint()
+                    retString += f". Account is superseded by {name}"
+                except Exception:
+                    pass
+        except Exception:
             pass
 
         return retString
