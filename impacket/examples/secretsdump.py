@@ -526,7 +526,7 @@ class RemoteOperations:
         drs = drsuapi.DRS_EXTENSIONS_INT()
         drs['cb'] = len(drs) #- 4
         drs['dwFlags'] = drsuapi.DRS_EXT_GETCHGREQ_V6 | drsuapi.DRS_EXT_GETCHGREPLY_V6 | drsuapi.DRS_EXT_GETCHGREQ_V8 | \
-                         drsuapi.DRS_EXT_STRONG_ENCRYPTION
+                         drsuapi.DRS_EXT_STRONG_ENCRYPTION | drsuapi.DRS_EXT_NONDOMAIN_NCS
         drs['SiteObjGuid'] = drsuapi.NULLGUID
         drs['Pid'] = 0
         drs['dwReplEpoch'] = 0
