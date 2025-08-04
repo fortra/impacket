@@ -1296,6 +1296,28 @@ class MOUNT_POINT_REPARSE_GUID_DATA_STRUCTURE(Structure):
         ("DataBuffer", ":")
     )
 
+class SYMLINK_REPARSE_DATA_STRUCTURE(Structure):
+    structure = (
+        ('ReparseTag', '<L=0xA000000C'),
+        ('ReparseDataLen', '<H=len(self["PathBuffer"]) + 8'),
+        ('Reserved', '<H=0'),
+        ('SubstituteNameOffset', '<H=0'),
+        ('SubstituteNameLength', '<H=0'),
+        ('PrintNameOffset', '<H=0'),
+        ('PrintNameLength', '<H=0'),
+        ('Flags', '<L=0'),
+        ('PathBuffer', ':')
+    )
+
+class SYMLINK_REPARSE_GUID_DATA_STRUCTURE(Structure):
+    structure = (
+        ('ReparseTag', '<L=0xA000000C'),
+        ('ReparseDataLen', '<H=len(self["DataBuffer"])'),
+        ('Reserved', '<H=0'),
+        ('ReparseGuid', '16s=""'),
+        ('DataBuffer', ':')
+    )
+
 class SMB2Ioctl_Response(Structure):
     structure = (
         ('StructureSize','<H=49'),

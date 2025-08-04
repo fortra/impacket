@@ -25,6 +25,7 @@ import time
 import cmd
 import os
 import ntpath
+import shlex
 
 from six import PY2
 from impacket.dcerpc.v5 import samr, transport, srvs
@@ -123,6 +124,8 @@ class MiniImpacketShell(cmd.Cmd):
  cat {filename} - reads the filename from the current path
  mount {target,path} - creates a mount point from {path} to {target} (admin required)
  umount {path} - removes the mount point at {path} without deleting the directory (admin required)
+ create_symlink {target,path} - creates a symlink from {path} to {target}, can be file or dir, path must exist (admin required)
+ remove_symlink {path} - removes the symlink at {path} without deleting the directory (admin required)
  list_snapshots {path} - lists the vss snapshots for the specified path
  info - returns NetrServerInfo main results
  who - returns the sessions currently connected at the target host (admin required)
@@ -663,6 +666,20 @@ class MiniImpacketShell(cmd.Cmd):
         mountPath = ntpath.join(self.pwd, mountpoint)
 
         self.smb.removeMountPoint(self.tid, mountPath)
+
+    def do_create_symlink(self, line):
+        target, path = shlex.split(line)
+        target = target.replace('/','\\')
+        path = path.replace('/','\\')
+        if not path.startswith('\\'):
+            path = ntpath.join(self.pwd, path)
+        self.smb.createSymlink(self.tid, path, target)
+
+    def do_remove_symlink(self, line):
+        path = line.replace('/','\\')
+        if not path.startswith('\\'):
+            path = ntpath.join(self.pwd, path)
+        self.smb.removeSymlink(self.tid, path)
 
     def do_EOF(self, line):
         print('Bye!\n')
