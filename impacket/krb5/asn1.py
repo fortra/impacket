@@ -540,7 +540,7 @@ class PA_S4U_X509_USER(univ.Sequence):
         namedtype.NamedType('user-id', S4UUserID().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0))),
         namedtype.NamedType('checksum', Checksum().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1))))
     
-class PA_DMSA_KEY_PACKAGE(univ.Sequence):
+class KRB_DMSA_KEY_PACKAGE(univ.Sequence):
     componentType = namedtype.NamedTypes(
         _sequence_component("current-keys", 0, univ.SequenceOf(componentType=EncryptionKey())),
         _sequence_optional_component("previous-keys", 1, univ.SequenceOf(componentType=EncryptionKey())),

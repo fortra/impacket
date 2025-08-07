@@ -70,7 +70,7 @@ from impacket.examples import logger
 from impacket.examples.utils import parse_identity
 from impacket.krb5 import constants, types, crypto, ccache
 from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, seq_set, seq_set_iter, PA_FOR_USER_ENC, \
-    Ticket as TicketAsn1, EncTGSRepPart, PA_PAC_OPTIONS, EncTicketPart, S4UUserID, PA_S4U_X509_USER, PA_DMSA_KEY_PACKAGE
+    Ticket as TicketAsn1, EncTGSRepPart, PA_PAC_OPTIONS, EncTicketPart, S4UUserID, PA_S4U_X509_USER, KRB_DMSA_KEY_PACKAGE
 from impacket.krb5.ccache import CCache, Credential
 from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, _AES256CTS, Enctype, string_to_key, _get_checksum_profile, Cksumtype
 from impacket.krb5.constants import TicketFlags, encodeFlags, ApplicationTagNumbers
@@ -575,7 +575,7 @@ class GETST:
                     if padata_type == constants.PreAuthenticationDataTypes.PA_DMSA_KEY_PACKAGE.value:
                         dmsa_key_package = decoder.decode(
                             padata_entry['padata-value'], 
-                            asn1Spec=PA_DMSA_KEY_PACKAGE()
+                            asn1Spec=KRB_DMSA_KEY_PACKAGE()
                         )[0]
                         dmsa_key_package.prettyPrint()
                        
