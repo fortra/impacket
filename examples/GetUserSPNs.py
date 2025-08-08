@@ -463,10 +463,11 @@ if __name__ == '__main__':
 
     parser.add_argument('-request', action='store_true', default=False, help='Requests TGS for users and output them '
                                                                              'in JtR/hashcat format (default False)')
-    parser.add_argument('-request-user', action='store', metavar='username', help='Requests TGS for the SPN associated '
+    exclusive_request_group = parser.add_mutually_exclusive_group()
+    exclusive_request_group.add_argument('-request-user', action='store', metavar='username', help='Requests TGS for the SPN associated '
                                                                                   'to the user specified (just the username, no domain needed)')
 
-    parser.add_argument('-request-machine', metavar='machinename', help='Requests TGS for the SPN associated to the machine specified. Example: `workstation01$`')
+    exclusive_request_group.add_argument('-request-machine', metavar='machinename', help='Requests TGS for the SPN associated to the machine specified. Example: `workstation01$`')
 
     parser.add_argument('-save', action='store_true', default=False, help='Saves TGS requested to disk. Format is '
                                                                           '<username>.ccache. Auto selects -request')
