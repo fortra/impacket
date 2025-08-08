@@ -225,7 +225,7 @@ class BADSUCCESSOR:
                 search_filter='(objectClass=organizationalUnit)',
                 search_scope=ldap3.SUBTREE,
                 attributes=['distinguishedName', 'nTSecurityDescriptor'],
-                controls=ldap3.protocol.microsoft.security_descriptor_control(sdflags=0x15)
+                controls=ldap3.protocol.microsoft.security_descriptor_control(sdflags=0x5)
             )
 
             
