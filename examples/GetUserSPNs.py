@@ -528,7 +528,6 @@ if __name__ == '__main__':
     # auto enable machineonly, and request flag on -request-machine
     if options.request_machine is not None:
         options.machine_only = True
-        options.request = True
 
     try:
         executer = GetUserSPNs(username, password, userDomain, targetDomain, options)
