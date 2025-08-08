@@ -114,7 +114,7 @@ class PreAuthenticationDataTypes(Enum):
     PA_SUPPORTED_ENCTYPES      = 165
     PA_PAC_OPTIONS             = 167
     KERB_SUPERSEDED_BY_USER    = 170
-    PA_DMSA_KEY_PACKAGE        = 171
+    KERB_DMSA_KEY_PACKAGE      = 171
 
 class AddressType(Enum):
     IPv4            = 2

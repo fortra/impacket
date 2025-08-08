@@ -572,7 +572,7 @@ class GETST:
                     padata_type = int(padata_entry['padata-type'])
                     logging.debug('Found encrypted padata type: %d (0x%x)' % (padata_type, padata_type))
                     
-                    if padata_type == constants.PreAuthenticationDataTypes.PA_DMSA_KEY_PACKAGE.value:
+                    if padata_type == constants.PreAuthenticationDataTypes.KERB_DMSA_KEY_PACKAGE.value:
                         dmsa_key_package = decoder.decode(
                             padata_entry['padata-value'], 
                             asn1Spec=KERB_DMSA_KEY_PACKAGE()
