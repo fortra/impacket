@@ -116,10 +116,10 @@ class DumpSecrets:
         self.__resumeFileName = options.resumefile
         self.__canProcessSAMLSA = True
         self.__kdcHost = options.dc_ip
-        self.__remoteSSMethodWMI = options.use_remoteSSMethod
-        self.__remoteSSMethodWMINTDS = options.use_remoteSSMethod_NTDS
-        self.__remoteSSMethodWMIRemoteVolume = options.remoteSS_remote_volume
-        self.__remoteSSMethodWMIDownloadPath = options.remoteSS_local_path
+        self.__remoteSSWMI = options.use_remoteSSWMI
+        self.__remoteSSWMINTDS = options.use_remoteSSWMI_NTDS
+        self.__remoteSSMethodWMIRemoteVolume = options.remoteSSWMI_remote_volume
+        self.__remoteSSMethodWMIDownloadPath = options.remoteSSWMI_local_path
         self.__options = options
 
         if options.hashes is not None:
@@ -178,7 +178,7 @@ class DumpSecrets:
             # Almost like LOCAL but create (and deletes it after finishing) a Shadow Snapshot at target and download SAM, SYSTEM and SECURITY from the SS. No Code Execution.
             # If specified, NTDS will be also downloaded and parsed (no code execution needed, in contrast to vssadmin method). Use it when targeting a DC.
             # Then, parse locally
-            if self.__remoteSSMethodWMI:
+            if self.__remoteSSWMI:
                 self.__isRemote = False
                 self.__useVSSMethod = True
                 try:
@@ -197,11 +197,11 @@ class DumpSecrets:
                                                     self.__ldapConnection)
                 self.__remoteOps.setExecMethod(self.__options.exec_method)
                 sam_path, system_path, security_path, *ntds_path = self.__remoteOps.createSSandDownloadWMI(self.__remoteSSMethodWMIRemoteVolume,
-                                                                                                           self.__remoteSSMethodWMIDownloadPath, self.__remoteSSMethodWMINTDS)
+                                                                                                           self.__remoteSSMethodWMIDownloadPath, self.__remoteSSWMINTDS)
                 self.__samHive = sam_path
                 self.__systemHive = system_path
                 self.__securityHive = security_path
-                self.__ntdsFile == ntds_path[0] if ntds_path else None
+                self.__ntdsFile = ntds_path[0] if ntds_path else None
 
                 localOperations = LocalOperations(self.__systemHive)
                 bootKey = localOperations.getBootKey()
@@ -317,7 +317,7 @@ class DumpSecrets:
 
                 self.__NTDSHashes = NTDSHashes(NTDSFileName, bootKey, isRemote=self.__isRemote, history=self.__history,
                                                noLMHash=self.__noLMHash, remoteOps=self.__remoteOps,
-                                               useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM,
+                                               useVSSMethod=self.__useVSSMethod, remoteSSMethodWMINTDS=self.__remoteSSWMINTDS, justNTLM=self.__justDCNTLM,
                                                pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
                                                outputFileName=self.__outputFileName, justUser=self.__justUser,
                                                skipUser=self.__skipUser, ldapFilter=self.__ldapFilter,
@@ -419,13 +419,13 @@ if __name__ == '__main__':
                         help='Use the Kerb-Key-List method instead of default DRSUAPI')
     parser.add_argument('-exec-method', choices=['smbexec', 'wmiexec', 'mmcexec'], nargs='?', default='smbexec', help='Remote exec '
                         'method to use at target (only when using -use-vss). Default: smbexec')
-    parser.add_argument('-use-remoteSSMethod', action='store_true',
+    parser.add_argument('-use-remoteSSWMI', action='store_true',
                         help='Remotely create Shadow Snapshot via WMI and download SAM, SYSTEM and SECURITY from it, the parse locally')
-    parser.add_argument('-use-remoteSSMethod-NTDS', action='store_true',
+    parser.add_argument('-use-remoteSSWMI-NTDS', action='store_true',
                         help='Dump NTDS.DIT also when using the Remote Shadow Snapshot Method via WMI. Use it with dumping from a DC.')
-    parser.add_argument('-remoteSS-remote-volume', action='store', default='C:\\',
+    parser.add_argument('-remoteSSWMI-remote-volume', action='store', default='C:\\',
                         help='Remote Volume to perform the Shadow Snapshot and download SAM, SYSTEM and SECURITY. It defaults to C:\\')
-    parser.add_argument('-remoteSS-local-path', action='store', default='.',
+    parser.add_argument('-remoteSSWMI-local-path', action='store', default='.',
                         help='Path where download SAM, SYSTEM and SECURITY from Shadow Snapshot. It defaults to current path')
 
     group = parser.add_argument_group('display options')
