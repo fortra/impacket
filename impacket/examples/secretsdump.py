@@ -1282,7 +1282,7 @@ class RemoteOperations:
 
         return remoteFileName
 
-    def createSSandDownload(self, volume, localPath):
+    def createSSandDownload(self, volume, localPath, NTDS=False):
         LOG.info('Creating SS')
         ssID = self.__wmiCreateShadow(volume)
         LOG.info('Getting SMB equivalent PATH to access remotely the SS')
@@ -1294,6 +1294,9 @@ class RemoteOperations:
         paths = [('%s/SAM' % localPath, '%s\\System32\\config\\SAM' % gmtSMBPath),
                  ('%s/SYSTEM' % localPath, '%s\\System32\\config\\SYSTEM' % gmtSMBPath),
                  ('%s/SECURITY' % localPath, '%s\\System32\\config\\SECURITY' % gmtSMBPath)]
+
+        if NTDS:
+            paths.append(('%s/ntds.dit' % localPath, '%s\\Windows\\NTDS\\ntds.dit' % gmtSMBPath))
 
         for p in paths:
             with open(p[0], 'wb') as local_file:
@@ -2734,9 +2737,9 @@ class NTDSHashes:
             else:
                 skipUsers = self.__skipUser.split(',')
         
-        if self.__useVSSMethod is True:
+        if self.__useVSSMethod is True or self.__remoteSSMethodWMINTDS is True:
             if self.__NTDS is None:
-                # No NTDS.dit file provided and were asked to use VSS
+                # No NTDS.dit file provided and were asked to use VSS or Shadow Snapshot Method via WMI
                 return
         else:
             if self.__NTDS is None:
