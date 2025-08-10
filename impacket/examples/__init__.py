@@ -14,6 +14,7 @@ def _insecure_create_default_context(purpose=ssl.Purpose.SERVER_AUTH, *, cafile=
     context = ssl._create_default_context(purpose=purpose, cafile=cafile, capath=capath, cadata=cadata)
     context.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
     context.set_ciphers("ALL:@SECLEVEL=0")
+    context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
     return context
 
