@@ -1282,7 +1282,7 @@ class RemoteOperations:
 
         return remoteFileName
 
-    def createSSandDownload(self, volume, localPath, NTDS=False):
+    def createSSandDownloadWMI(self, volume, localPath, NTDS=False):
         LOG.info('Creating SS')
         ssID = self.__wmiCreateShadow(volume)
         LOG.info('Getting SMB equivalent PATH to access remotely the SS')
@@ -1296,7 +1296,10 @@ class RemoteOperations:
                  ('%s/SECURITY' % localPath, '%s\\System32\\config\\SECURITY' % gmtSMBPath)]
 
         if NTDS:
+            LOG.debug('Adding NTDS Path')
             paths.append(('%s/ntds.dit' % localPath, '%s\\Windows\\NTDS\\ntds.dit' % gmtSMBPath))
+
+        LOG.debug('Paths: ', paths)
 
         for p in paths:
             with open(p[0], 'wb') as local_file:

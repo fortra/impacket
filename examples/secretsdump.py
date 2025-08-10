@@ -196,8 +196,8 @@ class DumpSecrets:
                 self.__remoteOps = RemoteOperations(self.__smbConnection, self.__doKerberos, self.__kdcHost,
                                                     self.__ldapConnection)
                 self.__remoteOps.setExecMethod(self.__options.exec_method)
-                sam_path, system_path, security_path, *ntds_path = self.__remoteOps.createSSandDownload(self.__remoteSSMethodWMIRemoteVolume,
-                                                                                                        self.__remoteSSMethodWMIDownloadPath, self.__remoteSSMethodWMINTDS)
+                sam_path, system_path, security_path, *ntds_path = self.__remoteOps.createSSandDownloadWMI(self.__remoteSSMethodWMIRemoteVolume,
+                                                                                                           self.__remoteSSMethodWMIDownloadPath, self.__remoteSSMethodWMINTDS)
                 self.__samHive = sam_path
                 self.__systemHive = system_path
                 self.__securityHive = security_path
