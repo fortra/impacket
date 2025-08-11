@@ -68,11 +68,6 @@ from impacket.structure import Structure
 # HELPER FUNCTIONS
 ################################################################################
 
-def getFileTime(t):
-    t *= 10000000
-    t += 116444736000000000
-    return t
-
 class RemComMessage(Structure):
     structure = (
         ('Command','4096s=""'),
@@ -462,7 +457,7 @@ class MS14_068:
         # 1) KERB_VALIDATION_INFO
         aTime = timegm(strptime(str(authTime), '%Y%m%d%H%M%SZ'))
 
-        unixTime = getFileTime(aTime)
+        unixTime = smb.POSIXtoFT(aTime)
 
         kerbdata = KERB_VALIDATION_INFO()
 

@@ -73,7 +73,7 @@ from impacket.smb import FILE_OVERWRITE, FILE_OVERWRITE_IF, FILE_WRITE_DATA, FIL
 from impacket.nt_errors import STATUS_USER_SESSION_DELETED, STATUS_SUCCESS, STATUS_ACCESS_DENIED, STATUS_NO_MORE_FILES, \
     STATUS_OBJECT_PATH_NOT_FOUND
 from impacket.smbserver import SRVSServer, decodeSMBString, findFirst2, STATUS_SMB_BAD_TID, encodeSMBString, \
-    getFileTime, queryPathInformation
+    queryPathInformation
 
 
 class KarmaSMBServer(Thread):
@@ -423,10 +423,10 @@ class KarmaSMBServer(Thread):
             infoRecord['EaSize']            = 0
             infoRecord['EndOfFile']         = size
             infoRecord['AllocationSize']    = size
-            infoRecord['CreationTime']      = getFileTime(ctime)
-            infoRecord['LastAccessTime']    = getFileTime(atime)
-            infoRecord['LastWriteTime']     = getFileTime(mtime)
-            infoRecord['LastChangeTime']    = getFileTime(mtime)
+            infoRecord['CreationTime']      = smb.POSIXtoFT(ctime)
+            infoRecord['LastAccessTime']    = smb.POSIXtoFT(atime)
+            infoRecord['LastWriteTime']     = smb.POSIXtoFT(mtime)
+            infoRecord['LastChangeTime']    = smb.POSIXtoFT(mtime)
             infoRecord['ShortName']         = b'\x00'*24
             #infoRecord['FileName']          = os.path.basename(origName).encode('utf-16le')
             infoRecord['FileName']          = origName.encode('utf-16le')

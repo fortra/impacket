@@ -43,7 +43,7 @@ from impacket.smbserver import SMBSERVER, outputToJohnFormat, writeJohnOutputToF
 from impacket.spnego import ASN1_AID, MechTypes, ASN1_SUPPORTED_MECH
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
-from impacket.smbserver import getFileTime, decodeSMBString, encodeSMBString
+from impacket.smbserver import decodeSMBString, encodeSMBString
 from impacket.smb3structs import SMB2Error
 
 def auth_callback(smbServer, connData, domain_name, user_name, host_name):
@@ -212,8 +212,8 @@ class SMBRelayServer(Thread):
         respSMBCommand['MaxTransactSize'] = 65536
         respSMBCommand['MaxReadSize'] = 65536
         respSMBCommand['MaxWriteSize'] = 65536
-        respSMBCommand['SystemTime'] = getFileTime(calendar.timegm(time.gmtime()))
-        respSMBCommand['ServerStartTime'] = getFileTime(calendar.timegm(time.gmtime()))
+        respSMBCommand['SystemTime'] = smb.POSIXtoFT(calendar.timegm(time.gmtime()))
+        respSMBCommand['ServerStartTime'] = smb.POSIXtoFT(calendar.timegm(time.gmtime()))
         respSMBCommand['SecurityBufferOffset'] = 0x80
 
         blob = SPNEGO_NegTokenInit()
