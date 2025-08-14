@@ -23,7 +23,6 @@
 #
 
 from struct import pack, unpack
-import ipaddress
 
 from impacket.examples import logger
 from impacket.examples.utils import parse_target
@@ -364,7 +363,7 @@ if __name__ == '__main__':
 
             return signature, answer
 
-    def check_rdp(host, username, password, domain, hashes = None):
+    def check_rdp(host, username, password, domain, hashes=None, ipv6=False):
 
        if hashes is not None:
            lmhash, nthash = hashes.split(':')
@@ -384,9 +383,16 @@ if __name__ == '__main__':
        tpdu['Code'] = TDPU_CONNECTION_REQUEST
        tpkt['TPDU'] = tpdu.getData()
 
-       host_ip = ipaddress.ip_address(host)
-       s = socket.socket(socket.AF_INET if host_ip.version == 4 else socket.AF_INET6)
-       address = (host, 3389) if host_ip.version == 4 else (host, 3389, 0, int(host_ip.scope_id) if host_ip.scope_id else 0)
+       if ipv6:
+            s = socket.socket(socket.AF_INET6)
+            # scope_id (after %) can be present or not - if not, default: 0
+            host_ipv6_parts = host.split('%')
+            scope_id = int(host_ipv6_parts[1]) if len(host_ipv6_parts) == 2 else 0
+            address = (host, 3389, 0, scope_id)
+       else:
+            s = socket.socket()
+            address = (host, 3389)
+
        s.connect(address)
        s.sendall(tpkt.getData())
        pkt = s.recv(8192)
@@ -555,6 +561,7 @@ if __name__ == '__main__':
                                                                     "host using the RDP protocol.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
+    parser.add_argument('-6','--ipv6', action='store_true', help='Test on IPv6')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
@@ -578,4 +585,4 @@ if __name__ == '__main__':
         from getpass import getpass
         password = getpass("Password:")
 
-    check_rdp(address, username, password, domain, options.hashes)
+    check_rdp(address, username, password, domain, options.hashes, options.ipv6)
