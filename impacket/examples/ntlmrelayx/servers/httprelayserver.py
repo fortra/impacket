@@ -42,9 +42,13 @@ class HTTPRelayServer(Thread):
             self.daemon_threads = True
             if self.config.ipv6:
                 self.address_family = socket.AF_INET6
+                # scope_id (after %) can be present or not - if not, default: 0
+                ip_parts = server_address[0].split('%')
+                scope_id = int(ip_parts[1]) if len(ip_parts) == 2 else 0
+                server_address = server_address + (0, scope_id)
             # Tracks the number of times authentication was prompted for WPAD per client
             self.wpad_counters = {}
-            socketserver.TCPServer.__init__(self,server_address, RequestHandlerClass)
+            socketserver.TCPServer.__init__(self, server_address, RequestHandlerClass)
 
     class HTTPHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self,request, client_address, server):
