@@ -25,7 +25,7 @@
 from struct import pack, unpack
 
 from impacket.examples import logger
-from impacket.examples.utils import parse_target
+from impacket.examples.utils import parse_target, get_socket
 from impacket.structure import Structure
 from impacket.spnego import GSSAPI, ASN1_SEQUENCE, ASN1_OCTET_STRING, asn1decode, asn1encode
 
@@ -383,17 +383,7 @@ if __name__ == '__main__':
        tpdu['Code'] = TDPU_CONNECTION_REQUEST
        tpkt['TPDU'] = tpdu.getData()
 
-       address = (host, 3389)
-       if ipv6:
-            s = socket.socket(socket.AF_INET6)
-            # scope_id (after %) can be present or not - if not, default: 0
-            host_ipv6_parts = host.split('%')
-            scope_id = int(host_ipv6_parts[1]) if len(host_ipv6_parts) == 2 else 0
-            address = address + (0, scope_id)
-       else:
-            s = socket.socket()
-
-       s.connect(address)
+       s = get_socket(host, 3389, ipv6)
        s.sendall(tpkt.getData())
        pkt = s.recv(8192)
        tpkt.fromString(pkt)
