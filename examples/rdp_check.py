@@ -23,6 +23,7 @@
 #
 
 from struct import pack, unpack
+import ipaddress
 
 from impacket.examples import logger
 from impacket.examples.utils import parse_target
@@ -382,9 +383,11 @@ if __name__ == '__main__':
        tpdu['VariablePart'] = rdp_neg.getData()
        tpdu['Code'] = TDPU_CONNECTION_REQUEST
        tpkt['TPDU'] = tpdu.getData()
-   
-       s = socket.socket()
-       s.connect((host,3389))
+
+       host_ip = ipaddress.ip_address(host)
+       s = socket.socket(socket.AF_INET if host_ip.version == 4 else socket.AF_INET6)
+       address = (host, 3389) if host_ip.version == 4 else (host, 3389, 0, int(host_ip.scope_id) if host_ip.scope_id else 0)
+       s.connect(address)
        s.sendall(tpkt.getData())
        pkt = s.recv(8192)
        tpkt.fromString(pkt)
