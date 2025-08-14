@@ -1282,7 +1282,7 @@ class RemoteOperations:
 
         return remoteFileName
 
-    def createSSandDownload(self, volume, localPath):
+    def createSSandDownloadWMI(self, volume, localPath, NTDS=False):
         LOG.info('Creating SS')
         ssID = self.__wmiCreateShadow(volume)
         LOG.info('Getting SMB equivalent PATH to access remotely the SS')
@@ -1295,7 +1295,12 @@ class RemoteOperations:
                  ('%s/SYSTEM' % localPath, '%s\\System32\\config\\SYSTEM' % gmtSMBPath),
                  ('%s/SECURITY' % localPath, '%s\\System32\\config\\SECURITY' % gmtSMBPath)]
 
+        if NTDS:
+            LOG.debug('Adding NTDS Path')
+            paths.append(('%s/ntds.dit' % localPath, '%s\\NTDS\\ntds.dit' % gmtSMBPath))
+
         for p in paths:
+            LOG.debug("Downloading Remote path: %s to -> %s" % (p[1], p[0]))
             with open(p[0], 'wb') as local_file:
                 self.__smbConnection.getFile('ADMIN$', p[1], local_file.write)
 
@@ -2218,7 +2223,7 @@ class NTDSHashes:
         )
 
     def __init__(self, ntdsFile, bootKey, isRemote=False, history=False, noLMHash=True, remoteOps=None,
-                 useVSSMethod=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None,
+                 useVSSMethod=False, remoteSSMethodWMINTDS=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None,
                  justUser=None, skipUser=None,ldapFilter=None, printUserStatus=False,
                  perSecretCallback = lambda secretType, secret : _print_helper(secret),
                  resumeSessionMgr=ResumeSessionMgrInFile):
@@ -2227,6 +2232,7 @@ class NTDSHashes:
         self.__history = history
         self.__noLMHash = noLMHash
         self.__useVSSMethod = useVSSMethod
+        self.__remoteSSMethodWMINTDS = remoteSSMethodWMINTDS
         self.__remoteOps = remoteOps
         self.__pwdLastSet = pwdLastSet
         self.__printUserStatus = printUserStatus
@@ -2369,7 +2375,7 @@ class NTDSHashes:
         # This is based on [MS-SAMR] 2.2.10 Supplemental Credentials Structures
         haveInfo = False
         LOG.debug('Entering NTDSHashes.__decryptSupplementalInfo')
-        if self.__useVSSMethod is True:
+        if self.__useVSSMethod is True or self.__remoteSSMethodWMINTDS is True:
             if record[self.NAME_TO_INTERNAL['supplementalCredentials']] is not None:
                 if len(unhexlify(record[self.NAME_TO_INTERNAL['supplementalCredentials']])) > 24:
                     if record[self.NAME_TO_INTERNAL['userPrincipalName']] is not None:
@@ -2485,7 +2491,7 @@ class NTDSHashes:
 
     def __decryptHash(self, record, prefixTable=None, outputFile=None):
         LOG.debug('Entering NTDSHashes.__decryptHash')
-        if self.__useVSSMethod is True:
+        if self.__useVSSMethod is True or self.__remoteSSMethodWMINTDS is True:
             LOG.debug('Decrypting hash for user: %s' % record[self.NAME_TO_INTERNAL['name']])
 
             sid = SAMR_RPC_SID(unhexlify(record[self.NAME_TO_INTERNAL['objectSid']]))
@@ -2734,9 +2740,9 @@ class NTDSHashes:
             else:
                 skipUsers = self.__skipUser.split(',')
         
-        if self.__useVSSMethod is True:
+        if self.__useVSSMethod is True or self.__remoteSSMethodWMINTDS is True:
             if self.__NTDS is None:
-                # No NTDS.dit file provided and were asked to use VSS
+                # No NTDS.dit file provided and were asked to use VSS or Shadow Snapshot Method via WMI
                 return
         else:
             if self.__NTDS is None:
@@ -2775,7 +2781,7 @@ class NTDSHashes:
                     clearTextOutputFile = openFile(self.__outputFileName+'.ntds.cleartext',mode)
 
             LOG.info('Dumping Domain Credentials (domain\\uid:rid:lmhash:nthash)')
-            if self.__useVSSMethod:
+            if self.__useVSSMethod or self.__remoteSSMethodWMINTDS:
                 # We start getting rows from the table aiming at reaching
                 # the pekList. If we find users records we stored them
                 # in a temp list for later process.
@@ -3007,7 +3013,7 @@ class NTDSHashes:
             LOG.debug("Finished processing and printing user's hashes, now printing supplemental information")
             # Now we'll print the Kerberos keys. So we don't mix things up in the output.
             if len(self.__kerberosKeys) > 0:
-                if self.__useVSSMethod is True:
+                if self.__useVSSMethod is True or self.__remoteSSMethodWMINTDS is True:
                     LOG.info('Kerberos keys from %s ' % self.__NTDS)
                 else:
                     LOG.info('Kerberos keys grabbed')
@@ -3017,7 +3023,7 @@ class NTDSHashes:
 
             # And finally the cleartext pwds
             if len(self.__clearTextPwds) > 0:
-                if self.__useVSSMethod is True:
+                if self.__useVSSMethod is True or self.__remoteSSMethodWMINTDS is True:
                     LOG.info('ClearText password from %s ' % self.__NTDS)
                 else:
                     LOG.info('ClearText passwords grabbed')
