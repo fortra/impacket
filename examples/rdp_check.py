@@ -383,15 +383,15 @@ if __name__ == '__main__':
        tpdu['Code'] = TDPU_CONNECTION_REQUEST
        tpkt['TPDU'] = tpdu.getData()
 
+       address = (host, 3389)
        if ipv6:
             s = socket.socket(socket.AF_INET6)
             # scope_id (after %) can be present or not - if not, default: 0
             host_ipv6_parts = host.split('%')
             scope_id = int(host_ipv6_parts[1]) if len(host_ipv6_parts) == 2 else 0
-            address = (host, 3389, 0, scope_id)
+            address = address + (0, scope_id)
        else:
             s = socket.socket()
-            address = (host, 3389)
 
        s.connect(address)
        s.sendall(tpkt.getData())
