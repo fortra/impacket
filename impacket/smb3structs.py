@@ -538,6 +538,9 @@ class SMB3Packet(SMBPacketBase):
         ('Data',':=""'),
     )
 
+
+class Empty(Structure):
+    pass
 class SMB2Error(Structure):
     structure = (
         ('StructureSize','<H=9'),
