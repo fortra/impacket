@@ -3071,6 +3071,8 @@ class SMB2Commands:
                 respToken = SPNEGO_NegTokenResp()
                 # accept-completed
                 respToken['NegState'] = b'\x00'
+                if rawNTLM: # raw NTLM does not expect a SPNEGO buffer
+                    respToken = smb2.Empty()
                 smbServer.log('User %s\\%s authenticated successfully' % (
                     authenticateMessage['host_name'].decode('utf-16le'),
                     authenticateMessage['user_name'].decode('utf-16le')))
