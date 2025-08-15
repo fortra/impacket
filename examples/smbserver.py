@@ -48,6 +48,9 @@ if __name__ == '__main__':
     parser.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes for the Username, format is LMHASH:NTHASH')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-readonly', action='store_true', help='Only allow reading of files')
+    parser.add_argument('-disablekerberos', action='store_true', help='Do not offer Kerberos authentication')
+    parser.add_argument('-disablentlm', action='store_true', help='Do not offer NTLM authentication')
     parser.add_argument('-ip', '--interface-address', action='store', default='0.0.0.0', help='ip address of listening interface')
     parser.add_argument('-port', action='store', default='445', help='TCP port for listening incoming connections (default 445)')
     parser.add_argument('-smb2support', action='store_true', default=False, help='SMB2 Support (experimental!)')
@@ -76,8 +79,10 @@ if __name__ == '__main__':
         logging.info('Switching output to file %s' % options.outputfile)
         server.setLogFile(options.outputfile)
 
-    server.addShare(options.shareName.upper(), options.sharePath, comment)
+    server.addShare(options.shareName.upper(), options.sharePath, comment, readOnly="yes" if options.readonly else "no")
     server.setSMB2Support(options.smb2support)
+    server.setKerberosSupport(not options.disablekerberos)
+    server.setNTLMSupport(not options.disablentlm)
 
     # If a user was specified, let's add it to the credentials for the SMBServer. If no user is specified, anonymous
     # connections will be allowed
