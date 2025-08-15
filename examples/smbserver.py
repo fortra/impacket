@@ -49,6 +49,10 @@ if __name__ == '__main__':
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-ip', '--interface-address', action='store', default=argparse.SUPPRESS, help='ip address of listening interface ("0.0.0.0" or "::" if omitted)')
+    parser.add_argument('-readonly', action='store_true', help='Only allow reading of files')
+    parser.add_argument('-disablekerberos', action='store_true', help='Do not offer Kerberos authentication')
+    parser.add_argument('-disablentlm', action='store_true', help='Do not offer NTLM authentication')
+    parser.add_argument('-ip', '--interface-address', action='store', default='0.0.0.0', help='ip address of listening interface')
     parser.add_argument('-port', action='store', default='445', help='TCP port for listening incoming connections (default 445)')
     parser.add_argument('-dropssp', action='store_true', default=False, help='Disable NTLM ESS/SSP during negotiation')
     parser.add_argument('-6','--ipv6', action='store_true',help='Listen on IPv6')
@@ -81,9 +85,11 @@ if __name__ == '__main__':
         logging.info('Switching output to file %s' % options.outputfile)
         server.setLogFile(options.outputfile)
 
-    server.addShare(options.shareName.upper(), options.sharePath, comment)
+    server.addShare(options.shareName.upper(), options.sharePath, comment, readOnly="yes" if options.readonly else "no")
     server.setSMB2Support(options.smb2support)
     server.setDropSSP(options.dropssp)
+    server.setKerberosSupport(not options.disablekerberos)
+    server.setNTLMSupport(not options.disablentlm)
 
     # If a user was specified, let's add it to the credentials for the SMBServer. If no user is specified, anonymous
     # connections will be allowed

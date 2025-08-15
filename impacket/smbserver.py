@@ -279,7 +279,7 @@ def isInFileJail(path, file_name):
     return os.path.commonprefix((os.path.realpath(path_name), share_real_path)) == share_real_path
 
 
-def openFile(path, fileName, accessMode, fileAttributes, openMode):
+def openFile(path, fileName, accessMode, fileAttributes, openMode, readOnly):
     fileName = normalize_path(fileName)
     pathName = os.path.join(path, fileName)
     errorCode = 0
@@ -315,6 +315,8 @@ def openFile(path, fileName, accessMode, fileAttributes, openMode):
     try:
         if sys.platform == 'win32':
             mode |= os.O_BINARY
+        if readOnly:
+            mode = os.O_RDONLY
         fid = os.open(pathName, mode)
     except Exception as e:
         LOG.error("openFile: %s,%s" % (pathName, mode), e)
@@ -1500,6 +1502,7 @@ class SMBCommands:
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
+            readOnly = connData['ConnectedShares'][recvPacket['TreeID']]["read only"] == "yes"
             if comClose['FID'] in connData['OpenedFiles']:
                 errorCode = STATUS_SUCCESS
                 fileHandle = connData['OpenedFiles'][comClose['FID']]['FileHandle']
@@ -1514,11 +1517,14 @@ class SMBCommands:
                 else:
                     # Check if the file was marked for removal
                     if connData['OpenedFiles'][comClose['FID']]['DeleteOnClose'] is True:
-                        try:
-                            os.remove(connData['OpenedFiles'][comClose['FID']]['FileName'])
-                        except Exception as e:
-                            smbServer.log("comClose %s" % e, logging.ERROR)
+                        if readOnly:
                             errorCode = STATUS_ACCESS_DENIED
+                        else:
+                            try:
+                                os.remove(connData['OpenedFiles'][comClose['FID']]['FileName'])
+                            except Exception as e:
+                                smbServer.log("comClose %s" % e, logging.ERROR)
+                                errorCode = STATUS_ACCESS_DENIED
                     del (connData['OpenedFiles'][comClose['FID']])
             else:
                 errorCode = STATUS_INVALID_HANDLE
@@ -1550,6 +1556,7 @@ class SMBCommands:
         if recvPacket['Tid'] in connData['ConnectedShares']:
             if comWriteParameters['Fid'] in connData['OpenedFiles']:
                 fileHandle = connData['OpenedFiles'][comWriteParameters['Fid']]['FileHandle']
+                smbServer.log("smbComWrite: Trying to write to file %s" % (fileName), logging.INFO)
                 errorCode = STATUS_SUCCESS
                 try:
                     if fileHandle != PIPE_FILE_DESCRIPTOR:
@@ -1627,18 +1634,21 @@ class SMBCommands:
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
+            readOnly = connData['ConnectedShares'][recvPacket['TreeID']]["read only"] == "yes"
             errorCode = STATUS_SUCCESS
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
             fileName = normalize_path(decodeSMBString(recvPacket['Flags2'], comCreateDirectoryData['DirectoryName']))
             pathName = os.path.join(path, fileName)
 
+            smbServer.log("smbComCreateDirectory: Trying to create directory %s" % (fileName), logging.INFO)
             if not isInFileJail(path, fileName):
                 smbServer.log("Path not in current working directory", logging.ERROR)
                 errorCode = STATUS_OBJECT_PATH_SYNTAX_BAD
 
             elif os.path.exists(pathName):
                 errorCode = STATUS_OBJECT_NAME_COLLISION
-
+            elif readOnly:
+                errorCode = STATUS_ACCESS_DENIED
             else:
                 try:
                     os.mkdir(pathName)
@@ -1670,20 +1680,22 @@ class SMBCommands:
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
+            readOnly = connData['ConnectedShares'][recvPacket['TreeID']]["read only"] == "yes"
             errorCode = STATUS_SUCCESS
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
             oldFileName = normalize_path(decodeSMBString(recvPacket['Flags2'], comRenameData['OldFileName']))
             oldPathName = os.path.join(path, oldFileName)
             newFileName = normalize_path(decodeSMBString(recvPacket['Flags2'], comRenameData['NewFileName']))
             newPathName = os.path.join(path, newFileName)
+            smbServer.log("smbComRename: Trying to rename %s to %s" % (oldFileName, newFileName), logging.INFO)
 
             if not isInFileJail(path, oldFileName) or not isInFileJail(path, newFileName):
                 smbServer.log("Path not in current working directory", logging.ERROR)
                 errorCode = STATUS_OBJECT_PATH_SYNTAX_BAD
-
             elif not os.path.exists(oldPathName):
                 errorCode = STATUS_NO_SUCH_FILE
-
+            elif readOnly:
+                errorCode = STATUS_ACCESS_DENIED
             else:
                 try:
                     os.rename(oldPathName, newPathName)
@@ -1715,9 +1727,11 @@ class SMBCommands:
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
+            readOnly = connData['ConnectedShares'][recvPacket['TreeID']]["read only"] == "yes"
             errorCode = STATUS_SUCCESS
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
             fileName = normalize_path(decodeSMBString(recvPacket['Flags2'], comDeleteData['FileName']))
+            smbServer.log("smbComDelete: Trying to delete %s" % fileName, logging.INFO)
             pathName = os.path.join(path, fileName)
 
             if not isInFileJail(path, fileName):
@@ -1728,11 +1742,14 @@ class SMBCommands:
                 errorCode = STATUS_NO_SUCH_FILE
 
             else:
-                try:
-                    os.remove(pathName)
-                except OSError as e:
-                    smbServer.log("smbComDelete: %s" % e, logging.ERROR)
+                if readOnly:
                     errorCode = STATUS_ACCESS_DENIED
+                else:
+                    try:
+                        os.remove(pathName)
+                    except OSError as e:
+                        smbServer.log("smbComDelete: %s" % e, logging.ERROR)
+                        errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_SMB_BAD_TID
 
@@ -1758,6 +1775,7 @@ class SMBCommands:
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
+            readOnly = connData['ConnectedShares'][recvPacket['TreeID']]["read only"] == "yes"
             errorCode = STATUS_SUCCESS
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
             fileName = normalize_path(decodeSMBString(recvPacket['Flags2'], comDeleteDirectoryData['DirectoryName']))
@@ -1766,10 +1784,10 @@ class SMBCommands:
             if not isInFileJail(path, fileName):
                 smbServer.log("Path not in current working directory", logging.ERROR)
                 errorCode = STATUS_OBJECT_PATH_SYNTAX_BAD
-
             elif not os.path.exists(pathName):
                 errorCode = STATUS_NO_SUCH_FILE
-
+            elif readOnly:
+                errorCode = STATUS_ACCESS_DENIED
             else:
                 try:
                     os.rmdir(pathName)
@@ -1814,6 +1832,9 @@ class SMBCommands:
         if recvPacket['Tid'] in connData['ConnectedShares']:
             if writeAndX['Fid'] in connData['OpenedFiles']:
                 fileHandle = connData['OpenedFiles'][writeAndX['Fid']]['FileHandle']
+                fileName = connData['OpenedFiles'][writeAndX['Fid']]['FileName']
+                smbServer.log("smbComWriteAndX: Trying to write to %s" % (fileName), logging.DEBUG)
+
                 errorCode = STATUS_SUCCESS
                 try:
                     if fileHandle != PIPE_FILE_DESCRIPTOR:
@@ -1827,7 +1848,6 @@ class SMBCommands:
                     else:
                         sock = connData['OpenedFiles'][writeAndX['Fid']]['Socket']
                         sock.send(writeAndXData['Data'])
-
                     respParameters['Count'] = writeAndX['DataLength']
                     respParameters['Available'] = 0xff
                 except Exception as e:
@@ -1862,6 +1882,8 @@ class SMBCommands:
         if recvPacket['Tid'] in connData['ConnectedShares']:
             if comReadParameters['Fid'] in connData['OpenedFiles']:
                 fileHandle = connData['OpenedFiles'][comReadParameters['Fid']]['FileHandle']
+                fileName = connData['OpenedFiles'][comReadParameters['Fid']]['FileName']
+                smbServer.log("smbComRead: Trying to read %s" % (fileName), logging.DEBUG)
                 errorCode = STATUS_SUCCESS
                 try:
                     if fileHandle != PIPE_FILE_DESCRIPTOR:
@@ -1909,6 +1931,8 @@ class SMBCommands:
         if recvPacket['Tid'] in connData['ConnectedShares']:
             if readAndX['Fid'] in connData['OpenedFiles']:
                 fileHandle = connData['OpenedFiles'][readAndX['Fid']]['FileHandle']
+                fileName = connData['OpenedFiles'][readAndX['Fid']]['FileName']
+                smbServer.log("smbComReadAndX: Trying to read %s" % (fileName), logging.DEBUG)
                 errorCode = 0
                 try:
                     if fileHandle != PIPE_FILE_DESCRIPTOR:
@@ -1957,6 +1981,7 @@ class SMBCommands:
         if recvPacket['Tid'] in connData['ConnectedShares']:
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
             fileName = normalize_path(decodeSMBString(recvPacket['Flags2'], queryInformation['FileName']))
+            smbServer.log("smbQueryInformation: Trying to query information for %s" % (fileName), logging.DEBUG)
             if not isInFileJail(path, fileName):
                 smbServer.log("Path not in current working directory", logging.ERROR)
                 errorCode = STATUS_OBJECT_PATH_SYNTAX_BAD
@@ -2145,6 +2170,7 @@ class SMBCommands:
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
+            readOnly = connData['ConnectedShares'][recvPacket['TreeID']]["read only"] == "yes"
             # If we have a rootFid, the path is relative to that fid
             errorCode = STATUS_SUCCESS
             if ntCreateAndXParameters['RootFid'] > 0:
@@ -2205,7 +2231,7 @@ class SMBCommands:
 
                 createOptions = ntCreateAndXParameters['CreateOptions']
                 if mode & os.O_CREAT == os.O_CREAT:
-                    if createOptions & smb.FILE_DIRECTORY_FILE == smb.FILE_DIRECTORY_FILE:
+                    if createOptions & smb.FILE_DIRECTORY_FILE == smb.FILE_DIRECTORY_FILE and not readOnly:
                         try:
                             # Let's create the directory
                             os.mkdir(pathName)
@@ -2213,6 +2239,8 @@ class SMBCommands:
                         except Exception as e:
                             smbServer.log("NTCreateAndX: %s,%s,%s" % (pathName, mode, e), logging.ERROR)
                             errorCode = STATUS_ACCESS_DENIED
+                    elif readOnly:
+                        errorCode = STATUS_ACCESS_DENIED
                 if createOptions & smb.FILE_NON_DIRECTORY_FILE == smb.FILE_NON_DIRECTORY_FILE:
                     # If the file being opened is a directory, the server MUST fail the request with
                     # STATUS_FILE_IS_A_DIRECTORY in the Status field of the SMB Header in the server
@@ -2235,6 +2263,8 @@ class SMBCommands:
                                 sock = socket.socket()
                                 sock.connect(smbServer.getRegisteredNamedPipes()[str(pathName)])
                             else:
+                                if readOnly:
+                                    mode = os.O_RDONLY
                                 fid = os.open(pathName, mode)
                     except Exception as e:
                         smbServer.log("NTCreateAndX: %s,%s,%s" % (pathName, mode, e), logging.ERROR)
@@ -2317,12 +2347,13 @@ class SMBCommands:
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
+            readOnly = connData['ConnectedShares'][recvPacket['TreeID']]["read only"] == "yes"
             openedFile, mode, pathName, errorCode = openFile(path,
                                                              decodeSMBString(recvPacket['Flags2'],
                                                                              openAndXData['FileName']),
                                                              openAndXParameters['DesiredAccess'],
                                                              openAndXParameters['FileAttributes'],
-                                                             openAndXParameters['OpenMode'])
+                                                             openAndXParameters['OpenMode'], readOnly)
         else:
             errorCode = STATUS_SMB_BAD_TID
 
@@ -2839,10 +2870,13 @@ class SMB2Commands:
         respSMBCommand['SecurityBufferOffset'] = 0x80
 
         blob = SPNEGO_NegTokenInit()
-        supported_mechtypes = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
-        if smbServer.getComputerAccountCredentials()["username"]:
+        supported_mechtypes = []
+        if smbServer._SMBSERVER__KerberosSupport and smbServer.getComputerAccountCredentials()["username"]:
             # if computer account credentials are provided, we can also use kerberos
             supported_mechtypes += [TypesMech['MS KRB5 - Microsoft Kerberos 5'], TypesMech['KRB5 - Kerberos 5'], TypesMech['KRB5 - Kerberos 5 - User to User']]
+        if smbServer._SMBSERVER__NTLMSupport:
+            supported_mechtypes += [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
+
         blob['MechTypes'] = supported_mechtypes
 
         respSMBCommand['Buffer'] = blob.getData()
@@ -3027,7 +3061,7 @@ class SMB2Commands:
 
             # TODO: Check the credentials! Now granting permissions
             # Do we have credentials to check?
-            if len(smbServer.getCredentials()) > 0 or computerAccountCredentials["username"] != "":
+            if authenticateMessage['user_name'].decode('utf-16le') != "" and (len(smbServer.getCredentials()) > 0 or computerAccountCredentials["username"] != ""):
                 identity = authenticateMessage['user_name'].decode('utf-16le').lower()
                 # Do we have this user's credentials?
                 if identity in smbServer.getCredentials():
@@ -3153,7 +3187,13 @@ class SMB2Commands:
             if len(blob['MechTypes'][0]) > 0:
                 # Is this GSSAPI NTLM or something else we don't support?
                 authType = blob['MechTypes'][0]
-                if authType not in [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider'], TypesMech['MS KRB5 - Microsoft Kerberos 5'], TypesMech['KRB5 - Kerberos 5'], TypesMech['KRB5 - Kerberos 5 - User to User']]:
+                supported_mechtypes = []
+                if smbServer._SMBSERVER__KerberosSupport and smbServer.getComputerAccountCredentials()["username"]:
+                    # if computer account credentials are provided, we can also use kerberos
+                    supported_mechtypes += [TypesMech['MS KRB5 - Microsoft Kerberos 5'], TypesMech['KRB5 - Kerberos 5'], TypesMech['KRB5 - Kerberos 5 - User to User']]
+                if smbServer._SMBSERVER__NTLMSupport:
+                    supported_mechtypes += [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
+                if authType not in supported_mechtypes:
                     # Nope, do we know it?
                     if authType in MechTypes:
                         mechStr = MechTypes[authType]
@@ -3216,6 +3256,7 @@ class SMB2Commands:
         ## Process here the request, does the share exist?
         path = recvPacket.getData()[treeConnectRequest['PathOffset']:][:treeConnectRequest['PathLength']]
         UNCOrShare = path.decode('utf-16le')
+        smbServer.log("smb2TreeConnect: Trying to connect to %s" % UNCOrShare, logging.INFO)
 
         # Is this a UNC?
         if ntpath.ismount(UNCOrShare):
@@ -3270,6 +3311,7 @@ class SMB2Commands:
         respSMBCommand['Buffer'] = b'\x00'
         # Get the Tid associated
         if recvPacket['TreeID'] in connData['ConnectedShares']:
+            readOnly = connData['ConnectedShares'][recvPacket['TreeID']]["read only"] == "yes"
             # If we have a rootFid, the path is relative to that fid
             errorCode = STATUS_SUCCESS
             if 'path' in connData['ConnectedShares'][recvPacket['TreeID']]:
@@ -3281,6 +3323,7 @@ class SMB2Commands:
             deleteOnClose = False
 
             fileName = normalize_path(ntCreateRequest['Buffer'][:ntCreateRequest['NameLength']].decode('utf-16le'))
+            smbServer.log("smb2Create: Trying to create %s" % fileName, logging.INFO)
 
             if not isInFileJail(path, fileName):
                 LOG.error("Path not in current working directory")
@@ -3325,7 +3368,7 @@ class SMB2Commands:
 
                 createOptions = ntCreateRequest['CreateOptions']
                 if mode & os.O_CREAT == os.O_CREAT:
-                    if createOptions & smb2.FILE_DIRECTORY_FILE == smb2.FILE_DIRECTORY_FILE:
+                    if createOptions & smb2.FILE_DIRECTORY_FILE == smb2.FILE_DIRECTORY_FILE and not readOnly:
                         try:
                             # Let's create the directory
                             os.mkdir(pathName)
@@ -3333,6 +3376,8 @@ class SMB2Commands:
                         except Exception as e:
                             smbServer.log("SMB2_CREATE: %s,%s,%s" % (pathName, mode, e), logging.ERROR)
                             errorCode = STATUS_ACCESS_DENIED
+                    elif readOnly:
+                        errorCode = STATUS_ACCESS_DENIED
                 if createOptions & smb2.FILE_NON_DIRECTORY_FILE == smb2.FILE_NON_DIRECTORY_FILE:
                     # If the file being opened is a directory, the server MUST fail the request with
                     # STATUS_FILE_IS_A_DIRECTORY in the Status field of the SMB Header in the server
@@ -3355,6 +3400,8 @@ class SMB2Commands:
                                 sock = socket.socket()
                                 sock.connect(smbServer.getRegisteredNamedPipes()[ensure_str(pathName)])
                             else:
+                                if readOnly:
+                                    mode = os.O_RDONLY
                                 fid = os.open(pathName, mode)
                     except Exception as e:
                         smbServer.log("SMB2_CREATE: %s,%s,%s" % (pathName, mode, e), logging.ERROR)
@@ -3436,10 +3483,12 @@ class SMB2Commands:
 
         # Get the Tid associated
         if recvPacket['TreeID'] in connData['ConnectedShares']:
+            readOnly = connData['ConnectedShares'][recvPacket['TreeID']]["read only"] == "yes"
             if fileID in connData['OpenedFiles']:
                 errorCode = STATUS_SUCCESS
                 fileHandle = connData['OpenedFiles'][fileID]['FileHandle']
                 pathName = connData['OpenedFiles'][fileID]['FileName']
+                smbServer.log("smb2Close: Trying to close %s" % pathName, logging.INFO)
                 infoRecord = None
                 try:
                     if fileHandle == PIPE_FILE_DESCRIPTOR:
@@ -3454,14 +3503,17 @@ class SMB2Commands:
                 else:
                     # Check if the file was marked for removal
                     if connData['OpenedFiles'][fileID]['DeleteOnClose'] is True:
-                        try:
-                            if os.path.isdir(pathName):
-                                shutil.rmtree(connData['OpenedFiles'][fileID]['FileName'])
-                            else:
-                                os.remove(connData['OpenedFiles'][fileID]['FileName'])
-                        except Exception as e:
-                            smbServer.log("SMB2_CLOSE %s" % e, logging.ERROR)
+                        if readOnly:
                             errorCode = STATUS_ACCESS_DENIED
+                        else:
+                            try:
+                                if os.path.isdir(pathName):
+                                    shutil.rmtree(connData['OpenedFiles'][fileID]['FileName'])
+                                else:
+                                    os.remove(connData['OpenedFiles'][fileID]['FileName'])
+                            except Exception as e:
+                                smbServer.log("SMB2_CLOSE %s" % e, logging.ERROR)
+                                errorCode = STATUS_ACCESS_DENIED
 
                     # Now fill out the response
                     if infoRecord is not None:
@@ -3508,6 +3560,7 @@ class SMB2Commands:
         if recvPacket['TreeID'] in connData['ConnectedShares']:
             if fileID in connData['OpenedFiles']:
                 fileName = connData['OpenedFiles'][fileID]['FileName']
+                smbServer.log("smb2QueryInfo: Trying to query info to %s" % fileName, logging.INFO)
 
                 if queryInfo['InfoType'] == smb2.SMB2_0_INFO_FILE:
                     if queryInfo['FileInfoClass'] == smb2.SMB2_FILE_INTERNAL_INFO:
@@ -3564,8 +3617,10 @@ class SMB2Commands:
         # Get the Tid associated
         if recvPacket['TreeID'] in connData['ConnectedShares']:
             path = connData['ConnectedShares'][recvPacket['TreeID']]['path']
+            readOnly = connData['ConnectedShares'][recvPacket['TreeID']]["read only"] == "yes"
             if fileID in connData['OpenedFiles']:
                 pathName = connData['OpenedFiles'][fileID]['FileName']
+                smbServer.log("smb2SetInfo: Trying to set info to %s" % pathName, logging.INFO)
 
                 if setInfo['InfoType'] == smb2.SMB2_0_INFO_FILE:
                     # The file information is being set
@@ -3609,12 +3664,15 @@ class SMB2Commands:
 
                         if renameInfo['ReplaceIfExists'] == 0 and os.path.exists(newPathName):
                             return [smb2.SMB2Error()], None, STATUS_OBJECT_NAME_COLLISION
-                        try:
-                            os.rename(pathName, newPathName)
-                            connData['OpenedFiles'][fileID]['FileName'] = newPathName
-                        except Exception as e:
-                            smbServer.log("smb2SetInfo: %s" % e, logging.ERROR)
+                        if readOnly:
                             errorCode = STATUS_ACCESS_DENIED
+                        else:
+                            try:
+                                os.rename(pathName, newPathName)
+                                connData['OpenedFiles'][fileID]['FileName'] = newPathName
+                            except Exception as e:
+                                smbServer.log("smb2SetInfo: %s" % e, logging.ERROR)
+                                errorCode = STATUS_ACCESS_DENIED
                     elif informationLevel == smb2.SMB2_FILE_ALLOCATION_INFO:
                         # See https://github.com/samba-team/samba/blob/master/source3/smbd/smb2_trans2.c#LL5201C8-L5201C39
                         smbServer.log("Warning: SMB2_FILE_ALLOCATION_INFO not implemented")
@@ -3667,6 +3725,8 @@ class SMB2Commands:
         if recvPacket['TreeID'] in connData['ConnectedShares']:
             if fileID in connData['OpenedFiles']:
                 fileHandle = connData['OpenedFiles'][fileID]['FileHandle']
+                fileName = connData['OpenedFiles'][fileID]['FileName']
+                smbServer.log("smb2Write: Trying to write to %s" % fileName, logging.INFO)
                 errorCode = STATUS_SUCCESS
                 try:
                     if fileHandle != PIPE_FILE_DESCRIPTOR:
@@ -3714,6 +3774,8 @@ class SMB2Commands:
         if recvPacket['TreeID'] in connData['ConnectedShares']:
             if fileID in connData['OpenedFiles']:
                 fileHandle = connData['OpenedFiles'][fileID]['FileHandle']
+                fileName = connData['OpenedFiles'][fileID]['FileName']
+                smbServer.log("smb2Read: Trying to read %s" % fileName, logging.INFO)
                 errorCode = 0
                 try:
                     if fileHandle != PIPE_FILE_DESCRIPTOR:
@@ -3748,8 +3810,11 @@ class SMB2Commands:
 
         # Get the Tid associated
         if recvPacket['TreeID'] in connData['ConnectedShares']:
-            if flushRequest['FileID'].getData() in connData['OpenedFiles']:
-                fileHandle = connData['OpenedFiles'][flushRequest['FileID'].getData()]['FileHandle']
+            fileID = flushRequest['FileID'].getData()
+            if fileID in connData['OpenedFiles']:
+                fileHandle = connData['OpenedFiles'][fileID]['FileHandle']
+                fileName = connData['OpenedFiles'][fileID]['FileName']
+                smbServer.log("smb2Flush: Trying to flush %s" % fileName, logging.INFO)
                 errorCode = STATUS_SUCCESS
                 try:
                     os.fsync(fileHandle)
@@ -3789,6 +3854,8 @@ class SMB2Commands:
 
         if (fileID in connData['OpenedFiles']) is False:
             return [smb2.SMB2Error()], None, STATUS_FILE_CLOSED
+        fileName = connData['OpenedFiles'][fileID]['FileName']
+        smbServer.log("smb2QueryDirectory: Trying to query directory %s" % fileName, logging.INFO)
 
         # If the open is not an open to a directory, the request MUST be failed
         # with STATUS_INVALID_PARAMETER.
@@ -4100,8 +4167,8 @@ class SMBSERVERHandler(socketserver.BaseRequestHandler):
                             session.send_packet(i)
             except Exception as e:
                 self.__SMB.log("Handle: %s" % e)
-                # import traceback
-                # traceback.print_exc()
+                import traceback
+                traceback.print_exc()
                 break
 
     def finish(self):
@@ -4165,6 +4232,11 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         self.__SMB2Support = False
 
         self.__dropSSP = False
+        # Kerberos Support flag
+        self.__KerberosSupport = True
+
+        # NTLM Support flag
+        self.__NTLMSupport = True
 
         # Allow anonymous logon
         self.__anonymousLogon = True
@@ -4834,6 +4906,15 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
             self.__dropSSP = self.__serverConfig.getboolean("global", "DropSSP")
         else:
             self.__dropSSP = False
+        if self.__serverConfig.has_option("global", "KerberosSupport"):
+            self.__KerberosSupport = self.__serverConfig.getboolean("global", "KerberosSupport")
+        else:
+            self.__KerberosSupport = True
+        
+        if self.__serverConfig.has_option("global", "NTLMSupport"):
+            self.__NTLMSupport = self.__serverConfig.getboolean("global", "NTLMSupport")
+        else:
+            self.__NTLMSupport = True
 
         if self.__serverConfig.has_option("global", "anonymous_logon"):
             self.__anonymousLogon = self.__serverConfig.getboolean("global", "anonymous_logon")
@@ -5176,6 +5257,22 @@ class SimpleSMBServer:
         self.__server.setServerConfig(self.__smbConfig)
         self.__server.processConfigFile()
 
+    def setNTLMSupport(self, value):
+        if value is True:
+            self.__smbConfig.set("global", "NTLMSupport", "True")
+        else:
+            self.__smbConfig.set("global", "NTLMSupport", "False")
+        self.__server.setServerConfig(self.__smbConfig)
+        self.__server.processConfigFile()
+
+    def setKerberosSupport(self, value):
+        if value is True:
+            self.__smbConfig.set("global", "KerberosSupport", "True")
+        else:
+            self.__smbConfig.set("global", "KerberosSupport", "False")
+        self.__server.setServerConfig(self.__smbConfig)
+        self.__server.processConfigFile()
+
     def getAuthCallback(self):
         return self.__server.getAuthCallback()
 
@@ -5267,5 +5364,4 @@ class NetLogon:
         #resp.dump()
 
         signingKey = ntlm.generateEncryptedSessionKey(resp['ValidationInformation']['ValidationSam4']['UserSessionKey'], authenticateMessage['session_key'])
-
         return signingKey, resp['ErrorCode']
