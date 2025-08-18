@@ -1512,7 +1512,7 @@ class SMBCommands:
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
-            readOnly = connData['ConnectedShares'][recvPacket['TreeID']]["read only"] == "yes"
+            readOnly = connData['ConnectedShares'][recvPacket['Tid']]["read only"] == "yes"
             if comClose['FID'] in connData['OpenedFiles']:
                 errorCode = STATUS_SUCCESS
                 fileHandle = connData['OpenedFiles'][comClose['FID']]['FileHandle']
@@ -1645,7 +1645,7 @@ class SMBCommands:
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
-            readOnly = connData['ConnectedShares'][recvPacket['TreeID']]["read only"] == "yes"
+            readOnly = connData['ConnectedShares'][recvPacket['Tid']]["read only"] == "yes"
             errorCode = STATUS_SUCCESS
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
             fileName = normalize_path(decodeSMBString(recvPacket['Flags2'], comCreateDirectoryData['DirectoryName']))
@@ -1691,7 +1691,7 @@ class SMBCommands:
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
-            readOnly = connData['ConnectedShares'][recvPacket['TreeID']]["read only"] == "yes"
+            readOnly = connData['ConnectedShares'][recvPacket['Tid']]["read only"] == "yes"
             errorCode = STATUS_SUCCESS
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
             oldFileName = normalize_path(decodeSMBString(recvPacket['Flags2'], comRenameData['OldFileName']))
@@ -1738,7 +1738,7 @@ class SMBCommands:
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
-            readOnly = connData['ConnectedShares'][recvPacket['TreeID']]["read only"] == "yes"
+            readOnly = connData['ConnectedShares'][recvPacket['Tid']]["read only"] == "yes"
             errorCode = STATUS_SUCCESS
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
             fileName = normalize_path(decodeSMBString(recvPacket['Flags2'], comDeleteData['FileName']))
@@ -1786,7 +1786,7 @@ class SMBCommands:
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
-            readOnly = connData['ConnectedShares'][recvPacket['TreeID']]["read only"] == "yes"
+            readOnly = connData['ConnectedShares'][recvPacket['Tid']]["read only"] == "yes"
             errorCode = STATUS_SUCCESS
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
             fileName = normalize_path(decodeSMBString(recvPacket['Flags2'], comDeleteDirectoryData['DirectoryName']))
@@ -2181,7 +2181,7 @@ class SMBCommands:
 
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
-            readOnly = connData['ConnectedShares'][recvPacket['TreeID']]["read only"] == "yes"
+            readOnly = connData['ConnectedShares'][recvPacket['Tid']]["read only"] == "yes"
             # If we have a rootFid, the path is relative to that fid
             errorCode = STATUS_SUCCESS
             if ntCreateAndXParameters['RootFid'] > 0:
@@ -2358,7 +2358,7 @@ class SMBCommands:
         # Get the Tid associated
         if recvPacket['Tid'] in connData['ConnectedShares']:
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
-            readOnly = connData['ConnectedShares'][recvPacket['TreeID']]["read only"] == "yes"
+            readOnly = connData['ConnectedShares'][recvPacket['Tid']]["read only"] == "yes"
             openedFile, mode, pathName, errorCode = openFile(path,
                                                              decodeSMBString(recvPacket['Flags2'],
                                                                              openAndXData['FileName']),
