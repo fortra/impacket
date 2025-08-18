@@ -4543,7 +4543,7 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         return originalCommand
 
     def log(self, msg, level=logging.INFO, connData=None):
-        if connData:
+        if connData and connData.get('AUTHENTICATE_MESSAGE'):
             domain = connData['AUTHENTICATE_MESSAGE']['domain_name'].decode('utf-16le') or connData['AUTHENTICATE_MESSAGE']['host_name'].decode('utf-16le')
             username = connData['AUTHENTICATE_MESSAGE']['user_name'].decode('utf-16le') or "NULL"
             msg = f"{domain}\\{username}: " + msg
