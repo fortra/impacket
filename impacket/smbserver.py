@@ -768,6 +768,7 @@ class TRANSCommands:
 # Here we implement the transaction2 handlers
 class TRANS2Commands:
     # All these commands return setup, parameters, data, errorCode
+
     @staticmethod
     def setPathInformation(connId, smbServer, recvPacket, parameters, data, maxDataCount=0):
         connData = smbServer.getConnectionData(connId)
@@ -783,7 +784,7 @@ class TRANS2Commands:
             pathName = os.path.join(path, fileName)
 
             if isInFileJail(path, fileName):
-                smbServer.log("Path not in current working directory")
+                smbServer.log("Path not in current working directory", connData=connData)
                 errorCode = STATUS_OBJECT_PATH_SYNTAX_BAD
 
             elif os.path.exists(pathName):
@@ -805,7 +806,7 @@ class TRANS2Commands:
                         os.utime(pathName, (atime, mtime))
                 else:
                     smbServer.log('Unknown level for set path info! 0x%x' % setPathInfoParameters['InformationLevel'],
-                                  logging.ERROR)
+                                  logging.ERROR, connData=connData)
                     # UNSUPPORTED
                     errorCode = STATUS_NOT_SUPPORTED
             else:
@@ -863,7 +864,7 @@ class TRANS2Commands:
                         os.write(fileHandle, b'\x00')
                 else:
                     smbServer.log('Unknown level for set file info! 0x%x' % setFileInfoParameters['InformationLevel'],
-                                  logging.ERROR)
+                                  logging.ERROR, connData=connData)
                     # UNSUPPORTED
                     errorCode = STATUS_NOT_SUPPORTED
             else:
@@ -925,7 +926,7 @@ class TRANS2Commands:
                                                                                    queryPathInfoParameters['FileName']),
                                                              queryPathInfoParameters['InformationLevel'])
             except Exception as e:
-                smbServer.log("queryPathInformation: %s" % e, logging.ERROR)
+                smbServer.log("queryPathInformation: %s" % e, logging.ERROR, connData=connData)
 
             if infoRecord is not None:
                 respParameters = smb.SMBQueryPathInformationResponse_Parameters()
@@ -1120,7 +1121,7 @@ class SMBCommands:
                                                                                 transParameters['MaxDataCount'])
                 except Exception as e:
                     # print 'Transaction: %s' % e,e
-                    smbServer.log('Transaction: (%r,%s)' % (command, e), logging.ERROR)
+                    smbServer.log('Transaction: (%r,%s)' % (command, e), logging.ERROR, connData=connData)
                     errorCode = STATUS_ACCESS_DENIED
                     # raise
 
@@ -1198,7 +1199,7 @@ class SMBCommands:
                     return commands, None, errorCode
 
             else:
-                smbServer.log("Unsupported Transact command %r" % command, logging.ERROR)
+                smbServer.log("Unsupported Transact command %r" % command, logging.ERROR, connData=connData)
                 respParameters = b''
                 respData = b''
                 errorCode = STATUS_NOT_IMPLEMENTED
@@ -1257,7 +1258,7 @@ class SMBCommands:
                                                                                 NTTransData['NT_Trans_Data'],
                                                                                 NTTransParameters['MaxDataCount'])
                 except Exception as e:
-                    smbServer.log('NTTransaction: (0x%x,%s)' % (command, e), logging.ERROR)
+                    smbServer.log('NTTransaction: (0x%x,%s)' % (command, e), logging.ERROR, connData=connData)
                     errorCode = STATUS_ACCESS_DENIED
                     # raise
 
@@ -1336,7 +1337,7 @@ class SMBCommands:
                     return commands, None, errorCode
 
             else:
-                # smbServer.log("Unsupported NTTransact command 0x%x" % command, logging.ERROR)
+                # smbServer.log("Unsupported NTTransact command 0x%x" % command, logging.ERROR, connData=connData)
                 respParameters = b''
                 respData = b''
                 errorCode = STATUS_NOT_IMPLEMENTED
@@ -1394,7 +1395,7 @@ class SMBCommands:
                                                                                 trans2Data['Trans_Data'],
                                                                                 trans2Parameters['MaxDataCount'])
                 except Exception as e:
-                    smbServer.log('Transaction2: (0x%x,%s)' % (command, e), logging.ERROR)
+                    smbServer.log('Transaction2: (0x%x,%s)' % (command, e), logging.ERROR, connData=connData)
                     # import traceback
                     # traceback.print_exc()
                     raise
@@ -1472,7 +1473,7 @@ class SMBCommands:
                     return commands, None, errorCode
 
             else:
-                smbServer.log("Unsupported Transact/2 command 0x%x" % command, logging.ERROR)
+                smbServer.log("Unsupported Transact/2 command 0x%x" % command, logging.ERROR, connData=connData)
                 respParameters = b''
                 respData = b''
                 errorCode = STATUS_NOT_IMPLEMENTED
@@ -1522,7 +1523,7 @@ class SMBCommands:
                     elif fileHandle != VOID_FILE_DESCRIPTOR:
                         os.close(fileHandle)
                 except Exception as e:
-                    smbServer.log("comClose %s" % e, logging.ERROR)
+                    smbServer.log("comClose %s" % e, logging.ERROR, connData=connData)
                     errorCode = STATUS_ACCESS_DENIED
                 else:
                     # Check if the file was marked for removal
@@ -1533,7 +1534,7 @@ class SMBCommands:
                             try:
                                 os.remove(connData['OpenedFiles'][comClose['FID']]['FileName'])
                             except Exception as e:
-                                smbServer.log("comClose %s" % e, logging.ERROR)
+                                smbServer.log("comClose %s" % e, logging.ERROR, connData=connData)
                                 errorCode = STATUS_ACCESS_DENIED
                     del (connData['OpenedFiles'][comClose['FID']])
             else:
@@ -1567,7 +1568,7 @@ class SMBCommands:
             if comWriteParameters['Fid'] in connData['OpenedFiles']:
                 fileHandle = connData['OpenedFiles'][comWriteParameters['Fid']]['FileHandle']
                 fileName = connData['OpenedFiles'][comWriteParameters['Fid']]['FileName']
-                smbServer.log("smbComWrite: Trying to write to file %s" % (fileName), logging.INFO)
+                smbServer.log("smbComWrite: %s" % (fileName), logging.INFO, connData=connData)
                 errorCode = STATUS_SUCCESS
                 try:
                     if fileHandle != PIPE_FILE_DESCRIPTOR:
@@ -1581,7 +1582,7 @@ class SMBCommands:
                         sock.send(comWriteData['Data'])
                     respParameters['Count'] = comWriteParameters['Count']
                 except Exception as e:
-                    smbServer.log('smbComWrite: %s' % e, logging.ERROR)
+                    smbServer.log('smbComWrite: %s' % e, logging.ERROR, connData=connData)
                     errorCode = STATUS_ACCESS_DENIED
             else:
                 errorCode = STATUS_INVALID_HANDLE
@@ -1616,7 +1617,7 @@ class SMBCommands:
                 try:
                     os.fsync(fileHandle)
                 except Exception as e:
-                    smbServer.log("comFlush %s" % e, logging.ERROR)
+                    smbServer.log("comFlush %s" % e, logging.ERROR, connData=connData)
                     errorCode = STATUS_ACCESS_DENIED
             else:
                 errorCode = STATUS_INVALID_HANDLE
@@ -1651,9 +1652,9 @@ class SMBCommands:
             fileName = normalize_path(decodeSMBString(recvPacket['Flags2'], comCreateDirectoryData['DirectoryName']))
             pathName = os.path.join(path, fileName)
 
-            smbServer.log("smbComCreateDirectory: Trying to create directory %s" % (fileName), logging.INFO)
+            smbServer.log("smbComCreateDirectory: %s" % (fileName), logging.INFO, connData=connData)
             if not isInFileJail(path, fileName):
-                smbServer.log("Path not in current working directory", logging.ERROR)
+                smbServer.log("Path not in current working directory", logging.ERROR, connData=connData)
                 errorCode = STATUS_OBJECT_PATH_SYNTAX_BAD
 
             elif os.path.exists(pathName):
@@ -1664,7 +1665,7 @@ class SMBCommands:
                 try:
                     os.mkdir(pathName)
                 except Exception as e:
-                    smbServer.log("smbComCreateDirectory: %s" % e, logging.ERROR)
+                    smbServer.log("smbComCreateDirectory: %s" % e, logging.ERROR, connData=connData)
                     errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_SMB_BAD_TID
@@ -1698,10 +1699,10 @@ class SMBCommands:
             oldPathName = os.path.join(path, oldFileName)
             newFileName = normalize_path(decodeSMBString(recvPacket['Flags2'], comRenameData['NewFileName']))
             newPathName = os.path.join(path, newFileName)
-            smbServer.log("smbComRename: Trying to rename %s to %s" % (oldFileName, newFileName), logging.INFO)
+            smbServer.log("smbComRename: %s to %s" % (oldFileName, newFileName), logging.INFO, connData=connData)
 
             if not isInFileJail(path, oldFileName) or not isInFileJail(path, newFileName):
-                smbServer.log("Path not in current working directory", logging.ERROR)
+                smbServer.log("Path not in current working directory", logging.ERROR, connData=connData)
                 errorCode = STATUS_OBJECT_PATH_SYNTAX_BAD
             elif not os.path.exists(oldPathName):
                 errorCode = STATUS_NO_SUCH_FILE
@@ -1711,7 +1712,7 @@ class SMBCommands:
                 try:
                     os.rename(oldPathName, newPathName)
                 except OSError as e:
-                    smbServer.log("smbComRename: %s" % e, logging.ERROR)
+                    smbServer.log("smbComRename: %s" % e, logging.ERROR, connData=connData)
                     errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_SMB_BAD_TID
@@ -1742,11 +1743,11 @@ class SMBCommands:
             errorCode = STATUS_SUCCESS
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
             fileName = normalize_path(decodeSMBString(recvPacket['Flags2'], comDeleteData['FileName']))
-            smbServer.log("smbComDelete: Trying to delete %s" % fileName, logging.INFO)
+            smbServer.log("smbComDelete: %s" % fileName, logging.INFO, connData=connData)
             pathName = os.path.join(path, fileName)
 
             if not isInFileJail(path, fileName):
-                smbServer.log("Path not in current working directory", logging.ERROR)
+                smbServer.log("Path not in current working directory", logging.ERROR, connData=connData)
                 errorCode = STATUS_OBJECT_PATH_SYNTAX_BAD
 
             elif not os.path.exists(pathName):
@@ -1759,7 +1760,7 @@ class SMBCommands:
                     try:
                         os.remove(pathName)
                     except OSError as e:
-                        smbServer.log("smbComDelete: %s" % e, logging.ERROR)
+                        smbServer.log("smbComDelete: %s" % e, logging.ERROR, connData=connData)
                         errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_SMB_BAD_TID
@@ -1793,7 +1794,7 @@ class SMBCommands:
             pathName = os.path.join(path, fileName)
 
             if not isInFileJail(path, fileName):
-                smbServer.log("Path not in current working directory", logging.ERROR)
+                smbServer.log("Path not in current working directory", logging.ERROR, connData=connData)
                 errorCode = STATUS_OBJECT_PATH_SYNTAX_BAD
             elif not os.path.exists(pathName):
                 errorCode = STATUS_NO_SUCH_FILE
@@ -1803,7 +1804,7 @@ class SMBCommands:
                 try:
                     os.rmdir(pathName)
                 except OSError as e:
-                    smbServer.log("smbComDeleteDirectory: %s" % e, logging.ERROR)
+                    smbServer.log("smbComDeleteDirectory: %s" % e, logging.ERROR, connData=connData)
                     if e.errno == errno.ENOTEMPTY:
                         errorCode = STATUS_DIRECTORY_NOT_EMPTY
                     else:
@@ -1844,7 +1845,7 @@ class SMBCommands:
             if writeAndX['Fid'] in connData['OpenedFiles']:
                 fileHandle = connData['OpenedFiles'][writeAndX['Fid']]['FileHandle']
                 fileName = connData['OpenedFiles'][writeAndX['Fid']]['FileName']
-                smbServer.log("smbComWriteAndX: Trying to write to %s" % (fileName), logging.DEBUG)
+                smbServer.log("smbComWriteAndX: %s" % (fileName), logging.DEBUG, connData=connData)
 
                 errorCode = STATUS_SUCCESS
                 try:
@@ -1862,7 +1863,7 @@ class SMBCommands:
                     respParameters['Count'] = writeAndX['DataLength']
                     respParameters['Available'] = 0xff
                 except Exception as e:
-                    smbServer.log('smbComWriteAndx: %s' % e, logging.ERROR)
+                    smbServer.log('smbComWriteAndx: %s' % e, logging.ERROR, connData=connData)
                     errorCode = STATUS_ACCESS_DENIED
             else:
                 errorCode = STATUS_INVALID_HANDLE
@@ -1894,7 +1895,7 @@ class SMBCommands:
             if comReadParameters['Fid'] in connData['OpenedFiles']:
                 fileHandle = connData['OpenedFiles'][comReadParameters['Fid']]['FileHandle']
                 fileName = connData['OpenedFiles'][comReadParameters['Fid']]['FileName']
-                smbServer.log("smbComRead: Trying to read %s" % (fileName), logging.DEBUG)
+                smbServer.log("smbComRead: %s" % (fileName), logging.DEBUG, connData=connData)
                 errorCode = STATUS_SUCCESS
                 try:
                     if fileHandle != PIPE_FILE_DESCRIPTOR:
@@ -1908,7 +1909,7 @@ class SMBCommands:
                     respData['DataLength'] = len(content)
                     respData['Data'] = content
                 except Exception as e:
-                    smbServer.log('smbComRead: %s ' % e, logging.ERROR)
+                    smbServer.log('smbComRead: %s ' % e, logging.ERROR, connData=connData)
                     errorCode = STATUS_ACCESS_DENIED
             else:
                 errorCode = STATUS_INVALID_HANDLE
@@ -1943,7 +1944,7 @@ class SMBCommands:
             if readAndX['Fid'] in connData['OpenedFiles']:
                 fileHandle = connData['OpenedFiles'][readAndX['Fid']]['FileHandle']
                 fileName = connData['OpenedFiles'][readAndX['Fid']]['FileName']
-                smbServer.log("smbComReadAndX: Trying to read %s" % (fileName), logging.DEBUG)
+                smbServer.log("smbComReadAndX: %s" % (fileName), logging.DEBUG, connData=connData)
                 errorCode = 0
                 try:
                     if fileHandle != PIPE_FILE_DESCRIPTOR:
@@ -1961,7 +1962,7 @@ class SMBCommands:
                     respParameters['DataCount_Hi'] = 0
                     respData = content
                 except Exception as e:
-                    smbServer.log('smbComReadAndX: %s ' % e, logging.ERROR)
+                    smbServer.log('smbComReadAndX: %s ' % e, logging.ERROR, connData=connData)
                     errorCode = STATUS_ACCESS_DENIED
             else:
                 errorCode = STATUS_INVALID_HANDLE
@@ -1992,9 +1993,9 @@ class SMBCommands:
         if recvPacket['Tid'] in connData['ConnectedShares']:
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
             fileName = normalize_path(decodeSMBString(recvPacket['Flags2'], queryInformation['FileName']))
-            smbServer.log("smbQueryInformation: Trying to query information for %s" % (fileName), logging.DEBUG)
+            smbServer.log("smbQueryInformation: %s" % (fileName), logging.DEBUG, connData=connData)
             if not isInFileJail(path, fileName):
-                smbServer.log("Path not in current working directory", logging.ERROR)
+                smbServer.log("Path not in current working directory", logging.ERROR, connData=connData)
                 errorCode = STATUS_OBJECT_PATH_SYNTAX_BAD
 
             else:
@@ -2080,7 +2081,7 @@ class SMBCommands:
 
         if recvPacket['Tid'] in connData['ConnectedShares']:
             smbServer.log("Disconnecting Share(%d:%s)" % (
-            recvPacket['Tid'], connData['ConnectedShares'][recvPacket['Tid']]['shareName']))
+            recvPacket['Tid'], connData['ConnectedShares'][recvPacket['Tid']]['shareName']), connData=connData)
             del (connData['ConnectedShares'][recvPacket['Tid']])
             errorCode = STATUS_SUCCESS
         else:
@@ -2148,7 +2149,7 @@ class SMBCommands:
                         attribs = smb.SMB_FILE_ATTRIBUTE_NORMAL
                     respParameters['FileAttributes'] = attribs
                 except Exception as e:
-                    smbServer.log('smbComQueryInformation2 %s' % e, logging.ERROR)
+                    smbServer.log('smbComQueryInformation2 %s' % e, logging.ERROR, connData=connData)
                     errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_SMB_BAD_TID
@@ -2248,7 +2249,7 @@ class SMBCommands:
                             os.mkdir(pathName)
                             mode = os.O_RDONLY
                         except Exception as e:
-                            smbServer.log("NTCreateAndX: %s,%s,%s" % (pathName, mode, e), logging.ERROR)
+                            smbServer.log("NTCreateAndX: %s,%s,%s" % (pathName, mode, e), logging.ERROR, connData=connData)
                             errorCode = STATUS_ACCESS_DENIED
                     elif readOnly:
                         errorCode = STATUS_ACCESS_DENIED
@@ -2278,7 +2279,7 @@ class SMBCommands:
                                     mode = os.O_RDONLY
                                 fid = os.open(pathName, mode)
                     except Exception as e:
-                        smbServer.log("NTCreateAndX: %s,%s,%s" % (pathName, mode, e), logging.ERROR)
+                        smbServer.log("NTCreateAndX: %s,%s,%s" % (pathName, mode, e), logging.ERROR, connData=connData)
                         # print e
                         fid = 0
                         errorCode = STATUS_ACCESS_DENIED
@@ -2327,7 +2328,7 @@ class SMBCommands:
 
             if errorCode == STATUS_SUCCESS:
                 # Let's store the fid for the connection
-                # smbServer.log('Create file %s, mode:0x%x' % (pathName, mode))
+                # smbServer.log('Create file %s, mode:0x%x' % (pathName, mode), connData=connData)
                 connData['OpenedFiles'][fakefid] = {}
                 connData['OpenedFiles'][fakefid]['FileHandle'] = fid
                 connData['OpenedFiles'][fakefid]['FileName'] = pathName
@@ -2390,7 +2391,7 @@ class SMBCommands:
                 respParameters['Action'] = 0x3
 
             # Let's store the fid for the connection
-            # smbServer.log('Opening file %s' % pathName)
+            # smbServer.log('Opening file %s' % pathName, connData=connData)
             connData['OpenedFiles'][fid] = {}
             connData['OpenedFiles'][fid]['FileHandle'] = openedFile
             connData['OpenedFiles'][fid]['FileName'] = pathName
@@ -2452,9 +2453,9 @@ class SMBCommands:
             connData['ConnectedShares'][tid] = share
             connData['ConnectedShares'][tid]['shareName'] = path
             resp['Tid'] = tid
-            # smbServer.log("Connecting Share(%d:%s)" % (tid,path))
+            # smbServer.log("Connecting Share(%d:%s)" % (tid,path), connData=connData)
         else:
-            smbServer.log("TreeConnectAndX not found %s" % path, logging.ERROR)
+            smbServer.log("TreeConnectAndX not found %s" % path, logging.ERROR, connData=connData)
             errorCode = STATUS_OBJECT_PATH_NOT_FOUND
             resp['ErrorCode'] = errorCode >> 16
             resp['ErrorClass'] = errorCode & 0xff
@@ -2516,7 +2517,7 @@ class SMBCommands:
                             mechStr = MechTypes[mechType]
                         else:
                             mechStr = hexlify(mechType)
-                        smbServer.log("Unsupported MechType '%s'" % mechStr, logging.DEBUG)
+                        smbServer.log("Unsupported MechType '%s'" % mechStr, logging.DEBUG, connData=connData)
                         # We don't know the token, we answer back again saying
                         # we just support NTLM.
                         # ToDo: Build this into a SPNEGO_NegTokenResp()
@@ -2675,7 +2676,7 @@ class SMBCommands:
                 else:
                     respToken = SPNEGO_NegTokenResp()
                     respToken['NegState'] = b'\x02'
-                    smbServer.log("Could not authenticate user!")
+                    smbServer.log("Could not authenticate user!", connData=connData)
                 if smbServer.auth_callback is not None:
                     try:
                         smbServer.auth_callback(
@@ -2722,7 +2723,7 @@ class SMBCommands:
                 if jtr_dump_path != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], jtr_dump_path)
             except:
-                smbServer.log("Could not write NTLM Hashes to the specified JTR_Dump_Path %s" % jtr_dump_path)
+                smbServer.log("Could not write NTLM Hashes to the specified JTR_Dump_Path %s" % jtr_dump_path, connData=connData)
 
         respData['NativeOS'] = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
         respData['NativeLanMan'] = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
@@ -2810,7 +2811,7 @@ class SMBCommands:
 
         except Exception as e:
             # No NTLM throw an error
-            smbServer.log('smbComNegotiate: %s' % e, logging.ERROR)
+            smbServer.log('smbComNegotiate: %s' % e, logging.ERROR, connData=connData)
             respSMBCommand['Data'] = struct.pack('<H', 0xffff)
 
         smbServer.setConnectionData(connId, connData)
@@ -2822,7 +2823,7 @@ class SMBCommands:
     @staticmethod
     def default(connId, smbServer, SMBCommand, recvPacket):
         # By default we return an SMB Packet with error not implemented
-        smbServer.log("Not implemented command: 0x%x" % recvPacket['Command'], logging.DEBUG)
+        smbServer.log("Not implemented command: 0x%x" % recvPacket['Command'], logging.DEBUG, connData=connData)
         packet = smb.NewSMBPacket()
         packet['Flags1'] = smb.SMB.FLAGS1_REPLY
         packet['Flags2'] = smb.SMB.FLAGS2_NT_STATUS
@@ -3208,7 +3209,7 @@ class SMB2Commands:
                         mechStr = MechTypes[authType]
                     else:
                         mechStr = hexlify(authType)
-                    smbServer.log("Unsupported MechType '%s'" % mechStr, logging.DEBUG)
+                    smbServer.log("Unsupported MechType '%s'" % mechStr, logging.DEBUG, connData=connData)
 
                     return [SMB2Commands.generic_negTokenResp()], None, STATUS_MORE_PROCESSING_REQUIRED
         elif struct.unpack('B', securityBlob[0:1])[0] == ASN1_SUPPORTED_MECH:
@@ -3225,7 +3226,7 @@ class SMB2Commands:
             token = securityBlob
             authType = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
         else:
-            smbServer.log("Unknown security blob type (not rawNTLMSSP, nor SPNEGO)", logging.ERROR)
+            smbServer.log("Unknown security blob type (not rawNTLMSSP, nor SPNEGO)", logging.ERROR, connData=connData)
             return [SMB2Commands.generic_negTokenResp()], None, STATUS_MORE_PROCESSING_REQUIRED
 
         if authType in [TypesMech['MS KRB5 - Microsoft Kerberos 5'], TypesMech['KRB5 - Kerberos 5'], TypesMech['KRB5 - Kerberos 5 - User to User']]:
@@ -3265,7 +3266,7 @@ class SMB2Commands:
         ## Process here the request, does the share exist?
         path = recvPacket.getData()[treeConnectRequest['PathOffset']:][:treeConnectRequest['PathLength']]
         UNCOrShare = path.decode('utf-16le')
-        smbServer.log("smb2TreeConnect: Trying to connect to %s" % UNCOrShare, logging.INFO)
+        smbServer.log("smb2TreeConnect: %s" % UNCOrShare, logging.INFO, connData=connData)
 
         # Is this a UNC?
         if ntpath.ismount(UNCOrShare):
@@ -3285,7 +3286,7 @@ class SMB2Commands:
             respPacket['TreeID'] = tid
             smbServer.log("Connecting Share(%d:%s)" % (tid, path))
         else:
-            smbServer.log("SMB2_TREE_CONNECT not found %s" % path, logging.ERROR)
+            smbServer.log("SMB2_TREE_CONNECT not found %s" % path, logging.ERROR, connData=connData)
             errorCode = STATUS_OBJECT_PATH_NOT_FOUND
             respPacket['Status'] = errorCode
         ##
@@ -3332,7 +3333,7 @@ class SMB2Commands:
             deleteOnClose = False
 
             fileName = normalize_path(ntCreateRequest['Buffer'][:ntCreateRequest['NameLength']].decode('utf-16le'))
-            smbServer.log("smb2Create: Trying to create %s" % fileName, logging.INFO)
+            smbServer.log("smb2Create: %s" % fileName, logging.INFO, connData=connData)
 
             if not isInFileJail(path, fileName):
                 LOG.error("Path not in current working directory")
@@ -3383,7 +3384,7 @@ class SMB2Commands:
                             os.mkdir(pathName)
                             mode = os.O_RDONLY
                         except Exception as e:
-                            smbServer.log("SMB2_CREATE: %s,%s,%s" % (pathName, mode, e), logging.ERROR)
+                            smbServer.log("SMB2_CREATE: %s,%s,%s" % (pathName, mode, e), logging.ERROR, connData=connData)
                             errorCode = STATUS_ACCESS_DENIED
                     elif readOnly:
                         errorCode = STATUS_ACCESS_DENIED
@@ -3413,7 +3414,7 @@ class SMB2Commands:
                                     mode = os.O_RDONLY
                                 fid = os.open(pathName, mode)
                     except Exception as e:
-                        smbServer.log("SMB2_CREATE: %s,%s,%s" % (pathName, mode, e), logging.ERROR)
+                        smbServer.log("SMB2_CREATE: %s,%s,%s" % (pathName, mode, e), logging.ERROR, connData=connData)
                         # print e
                         fid = 0
                         errorCode = STATUS_ACCESS_DENIED
@@ -3454,7 +3455,7 @@ class SMB2Commands:
 
             if errorCode == STATUS_SUCCESS:
                 # Let's store the fid for the connection
-                # smbServer.log('Create file %s, mode:0x%x' % (pathName, mode))
+                # smbServer.log('Create file %s, mode:0x%x' % (pathName, mode), connData=connData)
                 connData['OpenedFiles'][fakefid] = {}
                 connData['OpenedFiles'][fakefid]['FileHandle'] = fid
                 connData['OpenedFiles'][fakefid]['FileName'] = pathName
@@ -3497,7 +3498,7 @@ class SMB2Commands:
                 errorCode = STATUS_SUCCESS
                 fileHandle = connData['OpenedFiles'][fileID]['FileHandle']
                 pathName = connData['OpenedFiles'][fileID]['FileName']
-                smbServer.log("smb2Close: Trying to close %s" % pathName, logging.INFO)
+                smbServer.log("smb2Close: %s" % pathName, logging.INFO, connData=connData)
                 infoRecord = None
                 try:
                     if fileHandle == PIPE_FILE_DESCRIPTOR:
@@ -3507,7 +3508,7 @@ class SMB2Commands:
                         infoRecord, errorCode = queryFileInformation(os.path.dirname(pathName), os.path.basename(pathName),
                                                                      smb2.SMB2_FILE_NETWORK_OPEN_INFO)
                 except Exception as e:
-                    smbServer.log("SMB2_CLOSE %s" % e, logging.ERROR)
+                    smbServer.log("SMB2_CLOSE %s" % e, logging.ERROR, connData=connData)
                     errorCode = STATUS_INVALID_HANDLE
                 else:
                     # Check if the file was marked for removal
@@ -3521,7 +3522,7 @@ class SMB2Commands:
                                 else:
                                     os.remove(connData['OpenedFiles'][fileID]['FileName'])
                             except Exception as e:
-                                smbServer.log("SMB2_CLOSE %s" % e, logging.ERROR)
+                                smbServer.log("SMB2_CLOSE %s" % e, logging.ERROR, connData=connData)
                                 errorCode = STATUS_ACCESS_DENIED
 
                     # Now fill out the response
@@ -3569,7 +3570,7 @@ class SMB2Commands:
         if recvPacket['TreeID'] in connData['ConnectedShares']:
             if fileID in connData['OpenedFiles']:
                 fileName = connData['OpenedFiles'][fileID]['FileName']
-                smbServer.log("smb2QueryInfo: Trying to query info to %s" % fileName, logging.INFO)
+                smbServer.log("smb2QueryInfo: %s" % fileName, logging.INFO, connData=connData)
 
                 if queryInfo['InfoType'] == smb2.SMB2_0_INFO_FILE:
                     if queryInfo['FileInfoClass'] == smb2.SMB2_FILE_INTERNAL_INFO:
@@ -3591,7 +3592,7 @@ class SMB2Commands:
                     infoRecord = None
                     errorCode = STATUS_ACCESS_DENIED
                 else:
-                    smbServer.log("queryInfo not supported (%x)" % queryInfo['InfoType'], logging.ERROR)
+                    smbServer.log("queryInfo not supported (%x)" % queryInfo['InfoType'], logging.ERROR, connData=connData)
 
                 if infoRecord is not None:
                     respSMBCommand['OutputBufferLength'] = len(infoRecord)
@@ -3629,7 +3630,7 @@ class SMB2Commands:
             readOnly = connData['ConnectedShares'][recvPacket['TreeID']]["read only"] == "yes"
             if fileID in connData['OpenedFiles']:
                 pathName = connData['OpenedFiles'][fileID]['FileName']
-                smbServer.log("smb2SetInfo: Trying to set info to %s" % pathName, logging.INFO)
+                smbServer.log("smb2SetInfo: %s" % pathName, logging.INFO, connData=connData)
 
                 if setInfo['InfoType'] == smb2.SMB2_0_INFO_FILE:
                     # The file information is being set
@@ -3668,7 +3669,7 @@ class SMB2Commands:
                         newFileName = normalize_path(renameInfo['FileName'].decode('utf-16le'))
                         newPathName = os.path.join(path, newFileName)
                         if not isInFileJail(path, newFileName):
-                            smbServer.log("Path not in current working directory", logging.ERROR)
+                            smbServer.log("Path not in current working directory", logging.ERROR, connData=connData)
                             return [smb2.SMB2Error()], None, STATUS_OBJECT_PATH_SYNTAX_BAD
 
                         if renameInfo['ReplaceIfExists'] == 0 and os.path.exists(newPathName):
@@ -3680,14 +3681,14 @@ class SMB2Commands:
                                 os.rename(pathName, newPathName)
                                 connData['OpenedFiles'][fileID]['FileName'] = newPathName
                             except Exception as e:
-                                smbServer.log("smb2SetInfo: %s" % e, logging.ERROR)
+                                smbServer.log("smb2SetInfo: %s" % e, logging.ERROR, connData=connData)
                                 errorCode = STATUS_ACCESS_DENIED
                     elif informationLevel == smb2.SMB2_FILE_ALLOCATION_INFO:
                         # See https://github.com/samba-team/samba/blob/master/source3/smbd/smb2_trans2.c#LL5201C8-L5201C39
                         smbServer.log("Warning: SMB2_FILE_ALLOCATION_INFO not implemented")
                         errorCode = STATUS_SUCCESS
                     else:
-                        smbServer.log('Unknown level for set file info! 0x%x' % informationLevel, logging.ERROR)
+                        smbServer.log('Unknown level for set file info! 0x%x' % informationLevel, logging.ERROR, connData=connData)
                         # UNSUPPORTED
                         errorCode = STATUS_NOT_SUPPORTED
                 # elif setInfo['InfoType'] == smb2.SMB2_0_INFO_FILESYSTEM:
@@ -3702,7 +3703,7 @@ class SMB2Commands:
                 #    # The underlying object store quota information is being set.
                 #    setInfo = queryFsInformation('/', fileName, queryInfo['FileInfoClass'])
                 else:
-                    smbServer.log("setInfo not supported (%x)" % setInfo['InfoType'], logging.ERROR)
+                    smbServer.log("setInfo not supported (%x)" % setInfo['InfoType'], logging.ERROR, connData=connData)
 
             else:
                 errorCode = STATUS_INVALID_HANDLE
@@ -3735,7 +3736,7 @@ class SMB2Commands:
             if fileID in connData['OpenedFiles']:
                 fileHandle = connData['OpenedFiles'][fileID]['FileHandle']
                 fileName = connData['OpenedFiles'][fileID]['FileName']
-                smbServer.log("smb2Write: Trying to write to %s" % fileName, logging.INFO)
+                smbServer.log("smb2Write: %s" % fileName, logging.INFO, connData=connData)
                 errorCode = STATUS_SUCCESS
                 try:
                     if fileHandle != PIPE_FILE_DESCRIPTOR:
@@ -3751,7 +3752,7 @@ class SMB2Commands:
                     respSMBCommand['Count'] = writeRequest['Length']
                     respSMBCommand['Remaining'] = 0xff
                 except Exception as e:
-                    smbServer.log('SMB2_WRITE: %s' % e, logging.ERROR)
+                    smbServer.log('SMB2_WRITE: %s' % e, logging.ERROR, connData=connData)
                     errorCode = STATUS_ACCESS_DENIED
             else:
                 errorCode = STATUS_INVALID_HANDLE
@@ -3784,7 +3785,7 @@ class SMB2Commands:
             if fileID in connData['OpenedFiles']:
                 fileHandle = connData['OpenedFiles'][fileID]['FileHandle']
                 fileName = connData['OpenedFiles'][fileID]['FileName']
-                smbServer.log("smb2Read: Trying to read %s" % fileName, logging.INFO)
+                smbServer.log("smb2Read: %s" % fileName, logging.INFO, connData=connData)
                 errorCode = 0
                 try:
                     if fileHandle != PIPE_FILE_DESCRIPTOR:
@@ -3800,7 +3801,7 @@ class SMB2Commands:
                     respSMBCommand['DataRemaining'] = 0
                     respSMBCommand['Buffer'] = content
                 except Exception as e:
-                    smbServer.log('SMB2_READ: %s ' % e, logging.ERROR)
+                    smbServer.log('SMB2_READ: %s ' % e, logging.ERROR, connData=connData)
                     errorCode = STATUS_ACCESS_DENIED
             else:
                 errorCode = STATUS_INVALID_HANDLE
@@ -3823,12 +3824,12 @@ class SMB2Commands:
             if fileID in connData['OpenedFiles']:
                 fileHandle = connData['OpenedFiles'][fileID]['FileHandle']
                 fileName = connData['OpenedFiles'][fileID]['FileName']
-                smbServer.log("smb2Flush: Trying to flush %s" % fileName, logging.INFO)
+                smbServer.log("smb2Flush: %s" % fileName, logging.INFO, connData=connData)
                 errorCode = STATUS_SUCCESS
                 try:
                     os.fsync(fileHandle)
                 except Exception as e:
-                    smbServer.log("SMB2_FLUSH %s" % e, logging.ERROR)
+                    smbServer.log("SMB2_FLUSH %s" % e, logging.ERROR, connData=connData)
                     errorCode = STATUS_ACCESS_DENIED
             else:
                 errorCode = STATUS_INVALID_HANDLE
@@ -3864,7 +3865,7 @@ class SMB2Commands:
         if (fileID in connData['OpenedFiles']) is False:
             return [smb2.SMB2Error()], None, STATUS_FILE_CLOSED
         fileName = connData['OpenedFiles'][fileID]['FileName']
-        smbServer.log("smb2QueryDirectory: Trying to query directory %s" % fileName, logging.INFO)
+        smbServer.log("smb2QueryDirectory: %s" % fileName, logging.INFO, connData=connData)
 
         # If the open is not an open to a directory, the request MUST be failed
         # with STATUS_INVALID_PARAMETER.
@@ -4000,7 +4001,7 @@ class SMB2Commands:
         # Get the Tid associated
         if recvPacket['TreeID'] in connData['ConnectedShares']:
             smbServer.log("Disconnecting Share(%d:%s)" % (
-                recvPacket['TreeID'], connData['ConnectedShares'][recvPacket['TreeID']]['shareName']))
+                recvPacket['TreeID'], connData['ConnectedShares'][recvPacket['TreeID']]['shareName']), connData=connData)
             del (connData['ConnectedShares'][recvPacket['TreeID']])
             errorCode = STATUS_SUCCESS
         else:
@@ -4049,7 +4050,7 @@ class SMB2Commands:
             else:
                 respSMBCommand = outputData
         else:
-            smbServer.log("Ioctl not implemented command: 0x%x" % ioctlRequest['CtlCode'], logging.DEBUG)
+            smbServer.log("Ioctl not implemented command: 0x%x" % ioctlRequest['CtlCode'], logging.DEBUG, connData=connData)
             errorCode = STATUS_INVALID_DEVICE_REQUEST
             respSMBCommand = smb2.SMB2Error()
 
@@ -4076,7 +4077,7 @@ class SMB2Commands:
     @staticmethod
     def default(connId, smbServer, recvPacket):
         # By default we return an SMB Packet with error not implemented
-        smbServer.log("Not implemented command: 0x%x" % recvPacket['Command'], logging.DEBUG)
+        smbServer.log("Not implemented command: 0x%x" % recvPacket['Command'], logging.DEBUG, connData=connData)
         return [smb2.SMB2Error()], None, STATUS_NOT_SUPPORTED
 
 
@@ -4102,7 +4103,7 @@ class Ioctls:
                     sock.sendall(ioctlRequest['Buffer'])
                     ioctlResponse = sock.recv(ioctlRequest['MaxOutputResponse'])
             except Exception as e:
-                smbServer.log('fsctlPipeTransceive: %s ' % e, logging.ERROR)
+                smbServer.log('fsctlPipeTransceive: %s ' % e, logging.ERROR, connData=connData)
                 errorCode = STATUS_ACCESS_DENIED
         else:
             errorCode = STATUS_INVALID_DEVICE_REQUEST
@@ -4533,7 +4534,11 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         self.__smb2Commands[smb2Command] = callback
         return originalCommand
 
-    def log(self, msg, level=logging.INFO):
+    def log(self, msg, level=logging.INFO, connData=None):
+        if connData:
+            domain = connData['AUTHENTICATE_MESSAGE']['domain_name'].decode('utf-16le') or connData['AUTHENTICATE_MESSAGE']['host_name'].decode('utf-16le')
+            username = connData['AUTHENTICATE_MESSAGE']['user_name'].decode('utf-16le') or "NULL"
+            msg = f"{domain}\\{username}: " + msg
         self.__log.log(level, msg)
 
     def getServerName(self):
