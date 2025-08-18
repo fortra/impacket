@@ -1556,6 +1556,7 @@ class SMBCommands:
         if recvPacket['Tid'] in connData['ConnectedShares']:
             if comWriteParameters['Fid'] in connData['OpenedFiles']:
                 fileHandle = connData['OpenedFiles'][comWriteParameters['Fid']]['FileHandle']
+                fileName = connData['OpenedFiles'][comWriteParameters['Fid']]['FileName']
                 smbServer.log("smbComWrite: Trying to write to file %s" % (fileName), logging.INFO)
                 errorCode = STATUS_SUCCESS
                 try:
