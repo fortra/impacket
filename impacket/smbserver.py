@@ -2823,7 +2823,7 @@ class SMBCommands:
     @staticmethod
     def default(connId, smbServer, SMBCommand, recvPacket):
         # By default we return an SMB Packet with error not implemented
-        smbServer.log("Not implemented command: 0x%x" % recvPacket['Command'], logging.DEBUG, connData=connData)
+        smbServer.log("Not implemented command: 0x%x" % recvPacket['Command'], logging.DEBUG)
         packet = smb.NewSMBPacket()
         packet['Flags1'] = smb.SMB.FLAGS1_REPLY
         packet['Flags2'] = smb.SMB.FLAGS2_NT_STATUS
@@ -4077,7 +4077,7 @@ class SMB2Commands:
     @staticmethod
     def default(connId, smbServer, recvPacket):
         # By default we return an SMB Packet with error not implemented
-        smbServer.log("Not implemented command: 0x%x" % recvPacket['Command'], logging.DEBUG, connData=connData)
+        smbServer.log("Not implemented command: 0x%x" % recvPacket['Command'], logging.DEBUG)
         return [smb2.SMB2Error()], None, STATUS_NOT_SUPPORTED
 
 
