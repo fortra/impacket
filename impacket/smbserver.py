@@ -3987,7 +3987,14 @@ class SMBSERVERHandler(socketserver.BaseRequestHandler):
 
 class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
     # class SMBSERVER(socketserver.ForkingMixIn, socketserver.TCPServer):
-    def __init__(self, server_address, handler_class=SMBSERVERHandler, config_parser=None):
+    def __init__(self, server_address, handler_class=SMBSERVERHandler, config_parser=None, ipv6=False):
+        if ipv6:
+            self.address_family = socket.AF_INET6
+            # scope_id (after %) can be present or not - if not, default: 0
+            ip_parts = server_address[0].split('%')
+            scope_id = ip_parts[1] if len(ip_parts) == 2 else 0
+            server_address = server_address + (0, scope_id)
+
         socketserver.TCPServer.allow_reuse_address = True
         socketserver.TCPServer.__init__(self, server_address, handler_class)
 
@@ -4871,10 +4878,9 @@ class SimpleSMBServer:
     :param string configFile: a file with all the servers' configuration. If no file specified, this class will create the basic parameters needed to run. You will need to add your shares manually tho. See addShare() method
     """
 
-    def __init__(self, listenAddress='0.0.0.0', listenPort=445, configFile='', smbserverclass=SMBSERVER):
+    def __init__(self, listenAddress='0.0.0.0', listenPort=445, configFile='', smbserverclass=SMBSERVER, ipv6=False):
         if configFile != '':
-            #self.__server = SMBSERVER((listenAddress, listenPort))
-            self.__server = smbserverclass((listenAddress, listenPort))
+            self.__server = smbserverclass((listenAddress, listenPort), ipv6=ipv6)
             self.__server.processConfigFile(configFile)
             self.__smbConfig = None
         else:
@@ -4899,7 +4905,7 @@ class SimpleSMBServer:
             self.__smbConfig.set('IPC$', 'read only', 'yes')
             self.__smbConfig.set('IPC$', 'share type', '3')
             self.__smbConfig.set('IPC$', 'path', '')
-            self.__server = smbserverclass((listenAddress, listenPort), config_parser=self.__smbConfig)
+            self.__server = smbserverclass((listenAddress, listenPort), config_parser=self.__smbConfig, ipv6=ipv6)
             self.__server.processConfigFile()
 
         # Now we have to register the MS-SRVS server. This specially important for
