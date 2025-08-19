@@ -83,9 +83,36 @@ from multiprocessing import Process
 from six import PY2, StringIO, BytesIO, b, assertRaisesRegex, assertCountEqual
 
 from impacket.smb import SMB_DIALECT
-from impacket.smbserver import normalize_path, isInFileJail, SimpleSMBServer
+from impacket.smbserver import normalize_path, isInFileJail, SimpleSMBServer, SMBSERVER
 from impacket.smbconnection import SMBConnection, SessionError, compute_lmhash, compute_nthash
+from threading import Thread
 
+import select
+import socket
+
+class StoppableMixin():
+    def serve_forever(self):
+        self.must_serve = True
+        self.timeout = 0.1
+
+        while self.must_serve:
+            self.handle_request()
+
+    def close_request(self,request):
+        if self.must_serve:
+            request.close()
+
+    def get_request(self):
+        timeout = 0.1
+        while self.must_serve:
+            _read,_,_ = select.select([self.socket],[],[],timeout)
+            
+            if _read and self.must_serve:
+                return self.socket.accept()
+        raise socket.error
+
+class SMBSERVERForTests(StoppableMixin,SMBSERVER):
+    pass
 
 class SMBServerUnitTests(unittest.TestCase):
     """Unit tests for the SMBServer
@@ -214,7 +241,10 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
         self.stop_smbserver()
 
     def get_smbserver(self, add_credential=True, add_share=True):
-        smbserver = SimpleSMBServer(listenAddress=self.address, listenPort=int(self.port))
+        #smbserver = SimpleSMBServerForTests(listenAddress=self.address, listenPort=int(self.port))
+        # smbserver should be run in a host thread and also be able to be terminated in order to run several times
+        # different configurations.
+        smbserver = SimpleSMBServer(listenAddress=self.address, listenPort=int(self.port),smbserverclass=SMBSERVERForTests)
         if add_credential:
             smbserver.addCredential(self.username, 0, self.lmhash, self.nthash)
         if add_share:
@@ -232,7 +262,11 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
         """Starts the SimpleSMBServer process.
         """
         self.server = server
-        self.server_process = Process(target=server.start)
+        #self.server_process = Process(target=server.start)
+        # avoid using Process beacuse of bug in python3.13 https://github.com/python/cpython/issues/134381
+        # TODO: remove these changes once a bugfix gets backported.
+        self.server_process = Thread(target=server.start)
+        self.server_process.daemon = True
         self.server_process.start()
 
     def stop_smbserver(self):
@@ -240,10 +274,13 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
         """
         if self.server:
             self.server.stop()
+            self.server.getServer().must_serve=False
             self.server = None
         if self.server_process:
-            self.server_process.terminate()
+            #self.server_process.terminate()
+            #self.server_process._stop()
             sleep(0.1)
+            self.server_process.join()
             self.server_process = None
 
     def test_smbserver_login_valid(self):

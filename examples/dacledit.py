@@ -29,9 +29,7 @@ import traceback
 import datetime
 
 import ldap3
-import ssl
 import ldapdomaindump
-from binascii import unhexlify
 from enum import Enum
 from ldap3.protocol.formatters.formatters import format_sid
 
@@ -39,11 +37,11 @@ from impacket import version
 from impacket.examples import logger, utils
 from impacket.ldap import ldaptypes
 from impacket.msada_guids import SCHEMA_OBJECTS, EXTENDED_RIGHTS
-from impacket.smbconnection import SMBConnection
-from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 from ldap3.utils.conv import escape_filter_chars
 from ldap3.protocol.microsoft import security_descriptor_control
 from impacket.uuid import string_to_bin, bin_to_string
+
+from impacket.examples.utils import init_ldap_session, parse_identity
 
 OBJECT_TYPES_GUID = {}
 OBJECT_TYPES_GUID.update(SCHEMA_OBJECTS)
@@ -250,6 +248,21 @@ class DACLedit(object):
         cnf.basepath = None
         self.domain_dumper = ldapdomaindump.domainDumper(self.ldap_server, self.ldap_session, cnf)
 
+        if args.mask is not None:
+            if args.mask.startswith("0x"):
+                self.force_mask = int(args.mask, 16)
+            elif args.mask == "readwrite":
+                self.force_mask = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_READ_PROP + \
+                                ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_WRITE_PROP
+            elif args.mask == "write":
+                self.force_mask = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_WRITE_PROP
+            elif args.mask == "self":
+                self.force_mask = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_SELF
+            elif args.mask == "allext":
+                self.force_mask = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CONTROL_ACCESS
+        else:
+            self.force_mask = None
+
         if self.target_sAMAccountName or self.target_SID or self.target_DN:
             # Searching for target account with its security descriptor
             self.search_target_principal_security_descriptor()
@@ -290,10 +303,13 @@ class DACLedit(object):
         if self.rights == "FullControl" and self.rights_guid is None:
             logging.debug("Appending ACE (%s --(FullControl)--> %s)" % (self.principal_SID, format_sid(self.target_SID)))
             self.principal_security_descriptor['Dacl'].aces.append(self.create_ace(SIMPLE_PERMISSIONS.FullControl.value, self.principal_SID, self.ace_type))
+        elif self.rights == "Custom" and self.force_mask is not None:
+            logging.debug("Appending ACE (%s --(Custom)--> %s)" % (self.principal_SID, format_sid(self.target_SID)))
+            self.principal_security_descriptor['Dacl'].aces.append(self.create_ace(self.force_mask, self.principal_SID, self.ace_type))
         else:
             for rights_guid in self.build_guids_for_rights():
                 logging.debug("Appending ACE (%s --(%s)--> %s)" % (self.principal_SID, rights_guid, format_sid(self.target_SID)))
-                self.principal_security_descriptor['Dacl'].aces.append(self.create_object_ace(rights_guid, self.principal_SID, self.ace_type))
+                self.principal_security_descriptor['Dacl'].aces.append(self.create_object_ace(rights_guid, self.principal_SID, self.ace_type, force_mask=self.force_mask))
         # Backups current DACL before add the new one
         self.backup()
         # Effectively push the DACL with the new ACE
@@ -309,9 +325,11 @@ class DACLedit(object):
         # These ACEs will be used as comparison templates
         if self.rights == "FullControl" and self.rights_guid is None:
             compare_aces.append(self.create_ace(SIMPLE_PERMISSIONS.FullControl.value, self.principal_SID, self.ace_type))
+        elif self.rights == "Custom" and self.force_mask is not None:
+            compare_aces.append(self.create_ace(self.force_mask, self.principal_SID, self.ace_type))
         else:
             for rights_guid in self.build_guids_for_rights():
-                compare_aces.append(self.create_object_ace(rights_guid, self.principal_SID, self.ace_type))
+                compare_aces.append(self.create_object_ace(rights_guid, self.principal_SID, self.ace_type, force_mask=self.force_mask))
         new_dacl = []
         i = 0
         dacl_must_be_replaced = False
@@ -472,7 +490,7 @@ class DACLedit(object):
         for PERM in SIMPLE_PERMISSIONS:
             if (fsr & PERM.value) == PERM.value:
                 _perms.append(PERM.name)
-                fsr = fsr & (not PERM.value)
+                fsr = fsr & (~ PERM.value)
         for PERM in ACCESS_MASK:
             if fsr & PERM.value:
                 _perms.append(PERM.name)
@@ -506,7 +524,7 @@ class DACLedit(object):
                 for FLAG in ALLOWED_OBJECT_ACE_MASK_FLAGS:
                     if ace['Ace']['Mask'].hasPriv(FLAG.value):
                         _access_mask_flags.append(FLAG.name)
-                parsed_ace['Access mask'] = ", ".join(_access_mask_flags)
+                parsed_ace['Access mask'] = "%s (0x%x)" % (", ".join(_access_mask_flags), ace['Ace']['Mask']['Mask'])
                 # Extracts the ACE flag values and the trusted SID
                 _object_flags = []
                 for FLAG in OBJECT_ACE_FLAGS:
@@ -658,7 +676,7 @@ class DACLedit(object):
     #   - privguid : the ObjectType (an Extended Right here)
     #   - sid : the principal's SID
     #   - ace_type : the ACE type (allowed or denied)
-    def create_object_ace(self, privguid, sid, ace_type):
+    def create_object_ace(self, privguid, sid, ace_type, force_mask=None):
         nace = ldaptypes.ACE()
         if ace_type == "allowed":
             nace['AceType'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE
@@ -672,9 +690,11 @@ class DACLedit(object):
             nace['AceFlags'] = 0x00
         acedata['Mask'] = ldaptypes.ACCESS_MASK()
         # WriteMembers not an extended right, we need read and write mask on the attribute (https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c79a383c-2b3f-4655-abe7-dcbb7ce0cfbe)
-        if privguid == RIGHTS_GUID.WriteMembers.value:
-            acedata['Mask'][
-                'Mask'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_READ_PROP + ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_WRITE_PROP
+        # force_mask in the case we give the -rights-guid option
+        if force_mask is not None:
+            acedata['Mask']['Mask'] = force_mask
+        elif privguid == RIGHTS_GUID.WriteMembers.value:
+            acedata['Mask']['Mask'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_READ_PROP + ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_WRITE_PROP
         # Other rights in this script are extended rights and need the DS_CONTROL_ACCESS mask
         else:
             acedata['Mask']['Mask'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CONTROL_ACCESS
@@ -705,6 +725,7 @@ def parse_args():
     auth_con.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
     auth_con.add_argument('-aesKey', action="store", metavar="hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
     auth_con.add_argument('-dc-ip', action='store', metavar="ip address", help='IP Address of the domain controller or KDC (Key Distribution Center) for Kerberos. If omitted it will use the domain part (FQDN) specified in the identity parameter')
+    auth_con.add_argument('-dc-host', action='store', metavar="hostname", help='Hostname of the domain controller or KDC (Key Distribution Center) for Kerberos. If omitted, -dc-ip will be used')
 
     principal_parser = parser.add_argument_group("principal", description="Object, controlled by the attacker, to reference in the ACE to create or to filter when printing a DACL")
     principal_parser.add_argument("-principal", dest="principal_sAMAccountName", metavar="NAME", type=str, required=False, help="sAMAccountName")
@@ -720,8 +741,9 @@ def parse_args():
     dacl_parser.add_argument('-action', choices=['read', 'write', 'remove', 'backup', 'restore'], nargs='?', default='read', help='Action to operate on the DACL')
     dacl_parser.add_argument('-file', dest="filename", type=str, help='Filename/path (optional for -action backup, required for -restore))')
     dacl_parser.add_argument('-ace-type', choices=['allowed', 'denied'], nargs='?', default='allowed', help='The ACE Type (access allowed or denied) that must be added or removed (default: allowed)')
-    dacl_parser.add_argument('-rights', choices=['FullControl', 'ResetPassword', 'WriteMembers', 'DCSync'], nargs='?', default='FullControl', help='Rights to write/remove in the target DACL (default: FullControl)')
+    dacl_parser.add_argument('-rights', choices=['FullControl', 'ResetPassword', 'WriteMembers', 'DCSync', 'Custom'], nargs='?', default='FullControl', help='Rights to write/remove in the target DACL (default: FullControl)')
     dacl_parser.add_argument('-rights-guid', type=str, help='Manual GUID representing the right to write/remove')
+    dacl_parser.add_argument('-mask', nargs='?', default=None, help='Force access mask, possible values: readwrite, write, self, allext, 0xXXXXX. Useful with -rights Custom or --rights-guid where the mask is different of read+write.')
     dacl_parser.add_argument('-inheritance', action="store_true", help='Enable the inheritance in the ACE flag with CONTAINER_INHERIT_ACE and OBJECT_INHERIT_ACE. Useful when target is a Container or an OU, '
                                                                        'ACE will be inherited by objects within the container/OU (except objects with adminCount=1)')
 
@@ -732,232 +754,10 @@ def parse_args():
     return parser.parse_args()
 
 
-def parse_identity(args):
-    domain, username, password = utils.parse_credentials(args.identity)
-
-    if domain == '':
-        logging.critical('Domain should be specified!')
-        sys.exit(1)
-
-    if password == '' and username != '' and args.hashes is None and args.no_pass is False and args.aesKey is None:
-        from getpass import getpass
-        logging.info("No credentials supplied, supply password")
-        password = getpass("Password:")
-
-    if args.aesKey is not None:
-        args.k = True
-
-    if args.hashes is not None:
-        lmhash, nthash = args.hashes.split(':')
-    else:
-        lmhash = ''
-        nthash = ''
-
-    return domain, username, password, lmhash, nthash
-
-
-def init_logger(args):
-    # Init the example's logger theme and debug level
-    logger.init(args.ts)
-    if args.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-        logging.getLogger('impacket.smbserver').setLevel(logging.ERROR)
-
-
-def get_machine_name(args, domain):
-    if args.dc_ip is not None:
-        s = SMBConnection(args.dc_ip, args.dc_ip)
-    else:
-        s = SMBConnection(domain, domain)
-    try:
-        s.login('', '')
-    except Exception:
-        if s.getServerName() == '':
-            raise Exception('Error while anonymous logging into %s' % domain)
-    else:
-        s.logoff()
-    return s.getServerName()
-
-
-def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost=None,
-                         TGT=None, TGS=None, useCache=True):
-    from pyasn1.codec.ber import encoder, decoder
-    from pyasn1.type.univ import noValue
-    """
-    logins into the target system explicitly using Kerberos. Hashes are used if RC4_HMAC is supported.
-    :param string user: username
-    :param string password: password for the user
-    :param string domain: domain where the account is valid for (required)
-    :param string lmhash: LMHASH used to authenticate using hashes (password is not used)
-    :param string nthash: NTHASH used to authenticate using hashes (password is not used)
-    :param string aesKey: aes256-cts-hmac-sha1-96 or aes128-cts-hmac-sha1-96 used for Kerberos authentication
-    :param string kdcHost: hostname or IP Address for the KDC. If None, the domain will be used (it needs to resolve tho)
-    :param struct TGT: If there's a TGT available, send the structure here and it will be used
-    :param struct TGS: same for TGS. See smb3.py for the format
-    :param bool useCache: whether or not we should use the ccache for credentials lookup. If TGT or TGS are specified this is False
-    :return: True, raises an Exception if error.
-    """
-
-    if lmhash != '' or nthash != '':
-        if len(lmhash) % 2:
-            lmhash = '0' + lmhash
-        if len(nthash) % 2:
-            nthash = '0' + nthash
-        try:  # just in case they were converted already
-            lmhash = unhexlify(lmhash)
-            nthash = unhexlify(nthash)
-        except TypeError:
-            pass
-
-    # Importing down here so pyasn1 is not required if kerberos is not used.
-    from impacket.krb5.ccache import CCache
-    from impacket.krb5.asn1 import AP_REQ, Authenticator, TGS_REP, seq_set
-    from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
-    from impacket.krb5 import constants
-    from impacket.krb5.types import Principal, KerberosTime, Ticket
-    import datetime
-
-    if TGT is not None or TGS is not None:
-        useCache = False
-
-    target = 'ldap/%s' % target
-    if useCache:
-        domain, user, TGT, TGS = CCache.parseFile(domain, user, target)
-
-    # First of all, we need to get a TGT for the user
-    userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-    if TGT is None:
-        if TGS is None:
-            tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash,
-                                                                    aesKey, kdcHost)
-    else:
-        tgt = TGT['KDC_REP']
-        cipher = TGT['cipher']
-        sessionKey = TGT['sessionKey']
-
-    if TGS is None:
-        serverName = Principal(target, type=constants.PrincipalNameType.NT_SRV_INST.value)
-        tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher,
-                                                                sessionKey)
-    else:
-        tgs = TGS['KDC_REP']
-        cipher = TGS['cipher']
-        sessionKey = TGS['sessionKey']
-
-        # Let's build a NegTokenInit with a Kerberos REQ_AP
-
-    blob = SPNEGO_NegTokenInit()
-
-    # Kerberos
-    blob['MechTypes'] = [TypesMech['MS KRB5 - Microsoft Kerberos 5']]
-
-    # Let's extract the ticket from the TGS
-    tgs = decoder.decode(tgs, asn1Spec=TGS_REP())[0]
-    ticket = Ticket()
-    ticket.from_asn1(tgs['ticket'])
-
-    # Now let's build the AP_REQ
-    apReq = AP_REQ()
-    apReq['pvno'] = 5
-    apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
-
-    opts = []
-    apReq['ap-options'] = constants.encodeFlags(opts)
-    seq_set(apReq, 'ticket', ticket.to_asn1)
-
-    authenticator = Authenticator()
-    authenticator['authenticator-vno'] = 5
-    authenticator['crealm'] = domain
-    seq_set(authenticator, 'cname', userName.components_to_asn1)
-    now = datetime.datetime.now(datetime.timezone.utc)
-
-    authenticator['cusec'] = now.microsecond
-    authenticator['ctime'] = KerberosTime.to_asn1(now)
-
-    encodedAuthenticator = encoder.encode(authenticator)
-
-    # Key Usage 11
-    # AP-REQ Authenticator (includes application authenticator
-    # subkey), encrypted with the application session key
-    # (Section 5.5.1)
-    encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 11, encodedAuthenticator, None)
-
-    apReq['authenticator'] = noValue
-    apReq['authenticator']['etype'] = cipher.enctype
-    apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
-
-    blob['MechToken'] = encoder.encode(apReq)
-
-    request = ldap3.operation.bind.bind_operation(connection.version, ldap3.SASL, user, None, 'GSS-SPNEGO',
-                                                  blob.getData())
-
-    # Done with the Kerberos saga, now let's get into LDAP
-    if connection.closed:  # try to open connection if closed
-        connection.open(read_server_info=False)
-
-    connection.sasl_in_progress = True
-    response = connection.post_send_single_response(connection.send('bindRequest', request, None))
-    connection.sasl_in_progress = False
-    if response[0]['result'] != 0:
-        raise Exception(response)
-
-    connection.bound = True
-
-    return True
-
-
-def init_ldap_connection(target, tls_version, args, domain, username, password, lmhash, nthash):
-    user = '%s\\%s' % (domain, username)
-    connect_to = target
-    if args.dc_ip is not None:
-        connect_to = args.dc_ip
-    if tls_version is not None:
-        use_ssl = True
-        port = 636
-        tls = ldap3.Tls(validate=ssl.CERT_NONE, version=tls_version)
-    else:
-        use_ssl = False
-        port = 389
-        tls = None
-    ldap_server = ldap3.Server(connect_to, get_info=ldap3.ALL, port=port, use_ssl=use_ssl, tls=tls)
-    if args.k:
-        ldap_session = ldap3.Connection(ldap_server)
-        ldap_session.bind()
-        ldap3_kerberos_login(ldap_session, target, username, password, domain, lmhash, nthash, args.aesKey, kdcHost=args.dc_ip)
-    elif args.hashes is not None:
-        ldap_session = ldap3.Connection(ldap_server, user=user, password=lmhash + ":" + nthash, authentication=ldap3.NTLM, auto_bind=True)
-    else:
-        ldap_session = ldap3.Connection(ldap_server, user=user, password=password, authentication=ldap3.NTLM, auto_bind=True)
-
-    return ldap_server, ldap_session
-
-
-def init_ldap_session(args, domain, username, password, lmhash, nthash):
-    if args.k:
-        target = get_machine_name(args, domain)
-    else:
-        if args.dc_ip is not None:
-            target = args.dc_ip
-        else:
-            target = domain
-
-    if args.use_ldaps is True:
-        try:
-            return init_ldap_connection(target, ssl.PROTOCOL_TLSv1_2, args, domain, username, password, lmhash, nthash)
-        except ldap3.core.exceptions.LDAPSocketOpenError:
-            return init_ldap_connection(target, ssl.PROTOCOL_TLSv1, args, domain, username, password, lmhash, nthash)
-    else:
-        return init_ldap_connection(target, None, args, domain, username, password, lmhash, nthash)
-
-
 def main():
     print(version.BANNER)
     args = parse_args()
-    init_logger(args)
+    logger.init(args.ts, args.debug)
 
     if args.action == 'write' and args.principal_sAMAccountName is None and args.principal_SID is None and args.principal_DN is None:
         logging.critical('-principal, -principal-sid, or -principal-dn should be specified when using -action write')
@@ -966,12 +766,10 @@ def main():
     if args.action == "restore" and not args.filename:
         logging.critical('-file is required when using -action restore')
 
-    domain, username, password, lmhash, nthash = parse_identity(args)
-    if len(nthash) > 0 and lmhash == "":
-        lmhash = "aad3b435b51404eeaad3b435b51404ee"
+    domain, username, password, lmhash, nthash, args.k = parse_identity(args.identity, args.hashes, args.no_pass, args.aesKey, args.k)
 
     try:
-        ldap_server, ldap_session = init_ldap_session(args, domain, username, password, lmhash, nthash)
+        ldap_server, ldap_session = init_ldap_session(domain, username, password, lmhash, nthash, args.k, args.dc_ip, args.dc_host, args.aesKey, args.use_ldaps)
         dacledit = DACLedit(ldap_server, ldap_session, args)
         if args.action == 'read':
             dacledit.read()

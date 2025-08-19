@@ -43,14 +43,13 @@ from impacket import version
 from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_TRUSTED_FOR_DELEGATION, \
     UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION
 from impacket.examples import logger
-from impacket.examples.utils import parse_credentials
+from impacket.examples.utils import parse_identity, ldap_login
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import TGS_REP, AS_REP
 from impacket.krb5.ccache import CCache
 from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
 from impacket.krb5.types import Principal
 from impacket.ldap import ldap, ldapasn1
-from impacket.smbconnection import SMBConnection, SessionError
 from impacket.ntlm import compute_lmhash, compute_nthash
 
 
@@ -92,8 +91,13 @@ class GetUserSPNs:
         self.__saveTGS = cmdLineOptions.save
         self.__requestUser = cmdLineOptions.request_user
         self.__stealth = cmdLineOptions.stealth
+        self.__machineOnly = cmdLineOptions.machine_only
+        self.__requestMachine = cmdLineOptions.request_machine
+
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
+
+
 
         # Create the baseDN
         domainParts = self.__targetDomain.split('.')
@@ -109,29 +113,6 @@ class GetUserSPNs:
             logging.warning('KDC IP address and hostname will be ignored because of cross-domain targeting.')
             self.__kdcIP = None
             self.__kdcHost = None
-
-    def getMachineName(self, target):
-        try:
-            s = SMBConnection(target, target)
-            s.login('', '')
-        except OSError as e:
-            if str(e).find('timed out') > 0:
-                raise Exception('The connection is timed out. Probably 445/TCP port is closed. Try to specify '
-                                'corresponding NetBIOS name or FQDN as the value of the -dc-host option')
-            else:
-                raise
-        except SessionError as e:
-            if str(e).find('STATUS_NOT_SUPPORTED') > 0:
-                raise Exception('The SMB request is not supported. Probably NTLM is disabled. Try to specify '
-                                'corresponding NetBIOS name or FQDN as the value of the -dc-host option')
-            else:
-                raise
-        except Exception:
-            if s.getServerName() == '':
-                raise Exception('Error while anonymous logging into %s' % target)
-        else:
-            s.logoff()
-        return "%s.%s" % (s.getServerName(), s.getServerDNSDomainName())
 
     @staticmethod
     def getUnixTime(t):
@@ -255,63 +236,43 @@ class GetUserSPNs:
             self.request_users_file_TGSs()
             return
 
-        if self.__kdcHost is not None and self.__targetDomain == self.__domain:
-            self.__target = self.__kdcHost
-        else:
-            if self.__kdcIP is not None and self.__targetDomain == self.__domain:
-                self.__target = self.__kdcIP
-            else:
-                self.__target = self.__targetDomain
-
-            if self.__doKerberos:
-                logging.info('Getting machine hostname')
-                self.__target = self.getMachineName(self.__target)
-
         # Connect to LDAP
-        try:
-            ldapConnection = ldap.LDAPConnection('ldap://%s' % self.__target, self.baseDN, self.__kdcIP)
-            if self.__doKerberos is not True:
-                ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
-            else:
-                ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash,
-                                             self.__nthash,
-                                             self.__aesKey, kdcHost=self.__kdcIP)
-        except ldap.LDAPSessionError as e:
-            if str(e).find('strongerAuthRequired') >= 0:
-                # We need to try SSL
-                ldapConnection = ldap.LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcIP)
-                if self.__doKerberos is not True:
-                    ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
-                else:
-                    ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash,
-                                                 self.__nthash,
-                                                 self.__aesKey, kdcHost=self.__kdcIP)
-            else:
-                if str(e).find('NTLMAuthNegotiate') >= 0:
-                    logging.critical("NTLM negotiation failed. Probably NTLM is disabled. Try to use Kerberos "
-                                     "authentication instead.")
-                else:
-                    if self.__kdcIP is not None and self.__kdcHost is not None:
-                        logging.critical("If the credentials are valid, check the hostname and IP address of KDC. They "
-                                         "must match exactly each other")
-                raise
+        ldapConnection = ldap_login(self.__target, self.baseDN, self.__kdcIP, self.__kdcHost, self.__doKerberos, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, target_domain=self.__targetDomain, fqdn=True)
+        # updating "self.__target" as it may have changed in the ldap_login processing
+        self.__target = ldapConnection._dstHost
 
         # Building the search filter
         filter_spn = "servicePrincipalName=*"
         filter_person = "objectCategory=person"
+        filter_computer = "objectCategory=computer"
         filter_not_disabled = "!(userAccountControl:1.2.840.113556.1.4.803:=2)"
 
-        searchFilter = "(&"
-        searchFilter += "(" + filter_person + ")"
-        searchFilter += "(" + filter_not_disabled + ")"
+        if self.__machineOnly is True:
+            logging.debug('-machine-only flag detected')
+            searchFilter = "(&"
+            searchFilter += "(" + filter_computer + ")"
+            searchFilter += "(" + filter_not_disabled + ")"
+
+            # not updating to F-string due to other code using old string formatting
+            if self.__requestMachine is not None:
+                logging.debug('Including machine account (%s) in LDAP query filter' % self.__requestMachine)
+                searchFilter += '(sAMAccountName:=%s)' % (self.__requestMachine)
+
+        # traditional SPN based on person search
+        else:
+            searchFilter = "(&"
+            searchFilter += "(" + filter_person + ")"
+            searchFilter += "(" + filter_not_disabled + ")"
+
+            if self.__requestUser is not None:
+                searchFilter += '(sAMAccountName:=%s)' % self.__requestUser
 
         if self.__stealth is True:
             logging.warning('Stealth option may cause huge memory consumption / out-of-memory errors on very large domains.')
         else:
             searchFilter += "(" + filter_spn + ")"
 
-        if self.__requestUser is not None:
-            searchFilter += '(sAMAccountName:=%s)' % self.__requestUser
+
 
         searchFilter += ')'
 
@@ -388,7 +349,7 @@ class GetUserSPNs:
                                              "Delegation"])
             print('\n\n')
 
-            if self.__requestTGS is True or self.__requestUser is not None:
+            if self.__requestTGS is True or self.__requestUser is not None or self.__requestMachine is not None:
                 # Let's get unique user names and a SPN to request a TGS for
                 users = dict((vals[1], vals[0]) for vals in answers)
 
@@ -496,11 +457,18 @@ if __name__ == '__main__':
                                                          ' through the AS')
     parser.add_argument('-stealth', action='store_true', help='Removes the (servicePrincipalName=*) filter from the LDAP query for added stealth. '
                                                               'May cause huge memory consumption / errors on large domains.')
+    parser.add_argument('-machine-only', action='store_true', default=False, help='Queries for machine accounts only, by adjusting `objectCategory=person` to `objectCategory=computer`. Active Directory may limit results to 1,000 objects by default. LDAP paging is required to retrieve more.')
+
     parser.add_argument('-usersfile', help='File with user per line to test')
+
     parser.add_argument('-request', action='store_true', default=False, help='Requests TGS for users and output them '
                                                                              'in JtR/hashcat format (default False)')
-    parser.add_argument('-request-user', action='store', metavar='username', help='Requests TGS for the SPN associated '
+    exclusive_request_group = parser.add_mutually_exclusive_group()
+    exclusive_request_group.add_argument('-request-user', action='store', metavar='username', help='Requests TGS for the SPN associated '
                                                                                   'to the user specified (just the username, no domain needed)')
+
+    exclusive_request_group.add_argument('-request-machine', metavar='machinename', help='Requests TGS for the SPN associated to the machine specified. Example: `workstation01$`')
+
     parser.add_argument('-save', action='store_true', default=False, help='Saves TGS requested to disk. Format is '
                                                                           '<username>.ccache. Auto selects -request')
     parser.add_argument('-outputfile', action='store',
@@ -536,21 +504,14 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     # Init the example's logger theme
-    logger.init(options.ts)
+    logger.init(options.ts, options.debug)
 
     if options.no_preauth and options.usersfile is None:
         logging.error('You have to specify -usersfile when -no-preauth is supplied. Usersfile must contain'
                       ' a list of SPNs and/or sAMAccountNames to Kerberoast.')
         sys.exit(1)
 
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-
-    userDomain, username, password = parse_credentials(options.target)
+    userDomain, username, password, _, _, options.k = parse_identity(options.target, options.hashes, options.no_pass, options.aesKey, options.k)
 
     if userDomain == '':
         logging.critical('userDomain should be specified!')
@@ -561,16 +522,12 @@ if __name__ == '__main__':
     else:
         targetDomain = userDomain
 
-    if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
-        from getpass import getpass
-
-        password = getpass("Password:")
-
-    if options.aesKey is not None:
-        options.k = True
-
     if options.save is True or options.outputfile is not None:
         options.request = True
+
+    # auto enable machineonly, and request flag on -request-machine
+    if options.request_machine is not None:
+        options.machine_only = True
 
     try:
         executer = GetUserSPNs(username, password, userDomain, targetDomain, options)

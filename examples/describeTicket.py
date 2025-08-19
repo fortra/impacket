@@ -769,23 +769,10 @@ def parse_args():
 
     return args
 
-
-def init_logger(args):
-    # Init the example's logger theme and debug level
-    logger.init(args.ts)
-    if args.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-        logging.getLogger('impacket.smbserver').setLevel(logging.ERROR)
-
-
 def main():
     print(version.BANNER)
     args = parse_args()
-    init_logger(args)
+    logger.init(args.ts, args.debug)
 
     try:
         parse_ccache(args)

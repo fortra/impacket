@@ -198,30 +198,14 @@ def encodeSMBString(flags, text):
         return text.encode('ascii')
 
 
-def getFileTime(t):
-    t *= 10000000
-    t += 116444736000000000
-    return t
-
-
-def getUnixTime(t):
-    t -= 116444736000000000
-    t //= 10000000
-    return t
-
-
 def getSMBDate(t):
-    # TODO: Fix this :P
     d = datetime.date.fromtimestamp(t)
-    year = d.year - 1980
-    ret = (year << 8) + (d.month << 4) + d.day
-    return ret
+    return smb.SMB_DATE(d.year, d.month, d.day).pack()
 
 
 def getSMBTime(t):
-    # TODO: Fix this :P
     d = datetime.datetime.fromtimestamp(t)
-    return (d.hour << 8) + (d.minute << 4) + d.second
+    return smb.SMB_TIME(d.hour, d.minute, d.second).pack()
 
 
 def getShares(connId, smbServer):
@@ -363,7 +347,7 @@ def queryFsInformation(path, filename, level=None, pktFlags=smb.SMB.FLAGS2_UNICO
     elif level == smb.SMB_QUERY_FS_VOLUME_INFO or level == smb2.SMB2_FILESYSTEM_VOLUME_INFO:
         data = smb.SMBQueryFsVolumeInfo()
         data['VolumeLabel'] = ''
-        data['VolumeCreationTime'] = getFileTime(ctime)
+        data['VolumeCreationTime'] = smb.POSIXtoFT(ctime)
         return data.getData()
     elif level == smb.SMB_QUERY_FS_SIZE_INFO:
         data = smb.SMBQueryFsSizeInfo()
@@ -465,10 +449,10 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
             item['EaSize'] = 0
             item['EndOfFile'] = size
             item['AllocationSize'] = size
-            item['CreationTime'] = getFileTime(ctime)
-            item['LastAccessTime'] = getFileTime(atime)
-            item['LastWriteTime'] = getFileTime(mtime)
-            item['LastChangeTime'] = getFileTime(mtime)
+            item['CreationTime'] = smb.POSIXtoFT(ctime)
+            item['LastAccessTime'] = smb.POSIXtoFT(atime)
+            item['LastWriteTime'] = smb.POSIXtoFT(mtime)
+            item['LastChangeTime'] = smb.POSIXtoFT(mtime)
             item['ShortName'] = '\x00' * 24
             item['FileName'] = os.path.basename(i).encode(encoding)
             padLen = (8 - (len(item) % 8)) % 8
@@ -476,10 +460,10 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
         elif level in [smb.SMB_FIND_FILE_DIRECTORY_INFO, smb2.SMB2_FILE_DIRECTORY_INFO]:
             item['EndOfFile'] = size
             item['AllocationSize'] = size
-            item['CreationTime'] = getFileTime(ctime)
-            item['LastAccessTime'] = getFileTime(atime)
-            item['LastWriteTime'] = getFileTime(mtime)
-            item['LastChangeTime'] = getFileTime(mtime)
+            item['CreationTime'] = smb.POSIXtoFT(ctime)
+            item['LastAccessTime'] = smb.POSIXtoFT(atime)
+            item['LastWriteTime'] = smb.POSIXtoFT(mtime)
+            item['LastChangeTime'] = smb.POSIXtoFT(mtime)
             item['FileName'] = os.path.basename(i).encode(encoding)
             padLen = (8 - (len(item) % 8)) % 8
             item['NextEntryOffset'] = len(item) + padLen
@@ -488,10 +472,10 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
             item['EaSize'] = 0
             item['EndOfFile'] = size
             item['AllocationSize'] = size
-            item['CreationTime'] = getFileTime(ctime)
-            item['LastAccessTime'] = getFileTime(atime)
-            item['LastWriteTime'] = getFileTime(mtime)
-            item['LastChangeTime'] = getFileTime(mtime)
+            item['CreationTime'] = smb.POSIXtoFT(ctime)
+            item['LastAccessTime'] = smb.POSIXtoFT(atime)
+            item['LastWriteTime'] = smb.POSIXtoFT(mtime)
+            item['LastChangeTime'] = smb.POSIXtoFT(mtime)
             padLen = (8 - (len(item) % 8)) % 8
             item['NextEntryOffset'] = len(item) + padLen
         elif level == smb.SMB_FIND_INFO_STANDARD:
@@ -539,17 +523,17 @@ def queryPathInformation(path, filename, level):
 
             if level == smb.SMB_QUERY_FILE_BASIC_INFO:
                 infoRecord = smb.SMBQueryFileBasicInfo()
-                infoRecord['CreationTime'] = getFileTime(ctime)
-                infoRecord['LastAccessTime'] = getFileTime(atime)
-                infoRecord['LastWriteTime'] = getFileTime(mtime)
-                infoRecord['LastChangeTime'] = getFileTime(mtime)
+                infoRecord['CreationTime'] = smb.POSIXtoFT(ctime)
+                infoRecord['LastAccessTime'] = smb.POSIXtoFT(atime)
+                infoRecord['LastWriteTime'] = smb.POSIXtoFT(mtime)
+                infoRecord['LastChangeTime'] = smb.POSIXtoFT(mtime)
                 infoRecord['ExtFileAttributes'] = fileAttributes
             elif level == smb2.SMB2_FILE_BASIC_INFO:
                 infoRecord = smb2.FILE_BASIC_INFORMATION()
-                infoRecord['CreationTime'] = getFileTime(ctime)
-                infoRecord['LastAccessTime'] = getFileTime(atime)
-                infoRecord['LastWriteTime'] = getFileTime(mtime)
-                infoRecord['ChangeTime'] = getFileTime(mtime)
+                infoRecord['CreationTime'] = smb.POSIXtoFT(ctime)
+                infoRecord['LastAccessTime'] = smb.POSIXtoFT(atime)
+                infoRecord['LastWriteTime'] = smb.POSIXtoFT(mtime)
+                infoRecord['ChangeTime'] = smb.POSIXtoFT(mtime)
                 infoRecord['FileAttributes'] = fileAttributes
             elif level == smb.SMB_QUERY_FILE_STANDARD_INFO:
                 infoRecord = smb.SMBQueryFileStandardInfo()
@@ -570,10 +554,10 @@ def queryPathInformation(path, filename, level):
                     infoRecord['Directory'] = 0
             elif level == smb.SMB_QUERY_FILE_ALL_INFO:
                 infoRecord = smb.SMBQueryFileAllInfo()
-                infoRecord['CreationTime'] = getFileTime(ctime)
-                infoRecord['LastAccessTime'] = getFileTime(atime)
-                infoRecord['LastWriteTime'] = getFileTime(mtime)
-                infoRecord['LastChangeTime'] = getFileTime(mtime)
+                infoRecord['CreationTime'] = smb.POSIXtoFT(ctime)
+                infoRecord['LastAccessTime'] = smb.POSIXtoFT(atime)
+                infoRecord['LastWriteTime'] = smb.POSIXtoFT(mtime)
+                infoRecord['LastChangeTime'] = smb.POSIXtoFT(mtime)
                 infoRecord['ExtFileAttributes'] = fileAttributes
                 infoRecord['AllocationSize'] = size
                 infoRecord['EndOfFile'] = size
@@ -593,10 +577,10 @@ def queryPathInformation(path, filename, level):
                 infoRecord['ModeInformation'] = smb2.FILE_MODE_INFORMATION()
                 infoRecord['AlignmentInformation'] = smb2.FILE_ALIGNMENT_INFORMATION()
                 infoRecord['NameInformation'] = smb2.FILE_NAME_INFORMATION()
-                infoRecord['BasicInformation']['CreationTime'] = getFileTime(ctime)
-                infoRecord['BasicInformation']['LastAccessTime'] = getFileTime(atime)
-                infoRecord['BasicInformation']['LastWriteTime'] = getFileTime(mtime)
-                infoRecord['BasicInformation']['ChangeTime'] = getFileTime(mtime)
+                infoRecord['BasicInformation']['CreationTime'] = smb.POSIXtoFT(ctime)
+                infoRecord['BasicInformation']['LastAccessTime'] = smb.POSIXtoFT(atime)
+                infoRecord['BasicInformation']['LastWriteTime'] = smb.POSIXtoFT(mtime)
+                infoRecord['BasicInformation']['ChangeTime'] = smb.POSIXtoFT(mtime)
                 if os.path.isdir(pathName):
                     infoRecord['BasicInformation']['FileAttributes'] = smb.SMB_FILE_ATTRIBUTE_DIRECTORY
                     infoRecord['StandardInformation']['Directory'] = 1
@@ -618,10 +602,10 @@ def queryPathInformation(path, filename, level):
                 infoRecord['NameInformation']['FileNameLength'] = len(fileName.encode('utf-16le'))
             elif level == smb2.SMB2_FILE_NETWORK_OPEN_INFO:
                 infoRecord = smb.SMBFileNetworkOpenInfo()
-                infoRecord['CreationTime'] = getFileTime(ctime)
-                infoRecord['LastAccessTime'] = getFileTime(atime)
-                infoRecord['LastWriteTime'] = getFileTime(mtime)
-                infoRecord['ChangeTime'] = getFileTime(mtime)
+                infoRecord['CreationTime'] = smb.POSIXtoFT(ctime)
+                infoRecord['LastAccessTime'] = smb.POSIXtoFT(atime)
+                infoRecord['LastWriteTime'] = smb.POSIXtoFT(mtime)
+                infoRecord['ChangeTime'] = smb.POSIXtoFT(mtime)
                 infoRecord['AllocationSize'] = size
                 infoRecord['EndOfFile'] = size
                 infoRecord['FileAttributes'] = fileAttributes
@@ -787,12 +771,12 @@ class TRANS2Commands:
                     if atime == 0:
                         atime = -1
                     else:
-                        atime = getUnixTime(atime)
+                        atime = smb.FTtoPOSIX(atime)
                     mtime = infoRecord['LastWriteTime']
                     if mtime == 0:
                         mtime = -1
                     else:
-                        mtime = getUnixTime(mtime)
+                        mtime = smb.FTtoPOSIX(mtime)
                     if mtime != -1 or atime != -1:
                         os.utime(pathName, (atime, mtime))
                 else:
@@ -840,12 +824,12 @@ class TRANS2Commands:
                     if atime == 0:
                         atime = -1
                     else:
-                        atime = getUnixTime(atime)
+                        atime = smb.FTtoPOSIX(atime)
                     mtime = infoRecord['LastWriteTime']
                     if mtime == 0:
                         mtime = -1
                     else:
-                        mtime = getUnixTime(mtime)
+                        mtime = smb.FTtoPOSIX(mtime)
                     os.utime(fileName, (atime, mtime))
                 elif informationLevel == smb.SMB_SET_FILE_END_OF_FILE_INFO:
                     fileHandle = connData['OpenedFiles'][setFileInfoParameters['FID']]['FileHandle']
@@ -2838,8 +2822,8 @@ class SMB2Commands:
         respSMBCommand['MaxTransactSize'] = 65536
         respSMBCommand['MaxReadSize'] = 65536
         respSMBCommand['MaxWriteSize'] = 65536
-        respSMBCommand['SystemTime'] = getFileTime(calendar.timegm(time.gmtime()))
-        respSMBCommand['ServerStartTime'] = getFileTime(calendar.timegm(time.gmtime()))
+        respSMBCommand['SystemTime'] = smb.POSIXtoFT(calendar.timegm(time.gmtime()))
+        respSMBCommand['ServerStartTime'] = smb.POSIXtoFT(calendar.timegm(time.gmtime()))
         respSMBCommand['SecurityBufferOffset'] = 0x80
 
         blob = SPNEGO_NegTokenInit()
@@ -3475,12 +3459,12 @@ class SMB2Commands:
                         if atime == 0:
                             atime = -1
                         else:
-                            atime = getUnixTime(atime)
+                            atime = smb.FTtoPOSIX(atime)
                         mtime = infoRecord['ChangeTime']
                         if mtime == 0:
                             mtime = -1
                         else:
-                            mtime = getUnixTime(mtime)
+                            mtime = smb.FTtoPOSIX(mtime)
                         if atime > 0 and mtime > 0:
                             os.utime(pathName, (atime, mtime))
                     elif informationLevel == smb2.SMB2_FILE_END_OF_FILE_INFO:
@@ -4358,6 +4342,9 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
     def getJTRdumpPath(self):
         return self.__jtr_dump_path
 
+    def getDumpHashes(self):
+        return self.__dump_hashes
+
     def getAuthCallback(self):
         return self.auth_callback
 
@@ -4674,11 +4661,15 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         if self.__serverConfig.has_option("global", "jtr_dump_path"):
             self.__jtr_dump_path = self.__serverConfig.get("global", "jtr_dump_path")
 
+        if self.__serverConfig.has_option("global", "dump_hashes"):
+            self.__dump_hashes = self.__serverConfig.getboolean("global", "dump_hashes")
+        else:
+            self.__dump_hashes = False
+
         if self.__serverConfig.has_option("global", "SMB2Support"):
             self.__SMB2Support = self.__serverConfig.getboolean("global", "SMB2Support")
         else:
             self.__SMB2Support = False
-
 
         if self.__serverConfig.has_option("global", "anonymous_logon"):
             self.__anonymousLogon = self.__serverConfig.getboolean("global", "anonymous_logon")
@@ -4880,9 +4871,10 @@ class SimpleSMBServer:
     :param string configFile: a file with all the servers' configuration. If no file specified, this class will create the basic parameters needed to run. You will need to add your shares manually tho. See addShare() method
     """
 
-    def __init__(self, listenAddress='0.0.0.0', listenPort=445, configFile=''):
+    def __init__(self, listenAddress='0.0.0.0', listenPort=445, configFile='', smbserverclass=SMBSERVER):
         if configFile != '':
-            self.__server = SMBSERVER((listenAddress, listenPort))
+            #self.__server = SMBSERVER((listenAddress, listenPort))
+            self.__server = smbserverclass((listenAddress, listenPort))
             self.__server.processConfigFile(configFile)
             self.__smbConfig = None
         else:
@@ -4907,7 +4899,7 @@ class SimpleSMBServer:
             self.__smbConfig.set('IPC$', 'read only', 'yes')
             self.__smbConfig.set('IPC$', 'share type', '3')
             self.__smbConfig.set('IPC$', 'path', '')
-            self.__server = SMBSERVER((listenAddress, listenPort), config_parser=self.__smbConfig)
+            self.__server = smbserverclass((listenAddress, listenPort), config_parser=self.__smbConfig)
             self.__server.processConfigFile()
 
         # Now we have to register the MS-SRVS server. This specially important for
@@ -4915,11 +4907,14 @@ class SimpleSMBServer:
         # ask for shares using MS-RAP.
 
         self.__srvsServer = SRVSServer()
-        self.__srvsServer.daemon = True
+        self.__srvsServer.daemon=True
         self.__wkstServer = WKSTServer()
-        self.__wkstServer.daemon = True
+        self.__wkstServer.daemon=True
         self.__server.registerNamedPipe('srvsvc', ('127.0.0.1', self.__srvsServer.getListenPort()))
         self.__server.registerNamedPipe('wkssvc', ('127.0.0.1', self.__wkstServer.getListenPort()))
+
+    def getServer(self):
+        return self.__server
 
     def start(self):
         self.__srvsServer.start()

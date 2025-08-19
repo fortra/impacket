@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright Fortra, LLC and its affiliated companies 
+# Copyright Fortra, LLC and its affiliated companies
 #
 # All rights reserved.
 #
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "This script will launch a SMB Server and add a "
-                                     "share specified as an argument. You need to be root in order to bind to port 445. "
+                                     "share specified as an argument. Usually, you need to be root in order to bind to port 445. "
                                      "For optional authentication, it is possible to specify username and password or the NTLM hash. "
                                      "Example: smbserver.py -comment 'My share' TMP /tmp")
 
@@ -57,14 +57,7 @@ if __name__ == '__main__':
        logging.critical(str(e))
        sys.exit(1)
 
-    logger.init(options.ts)
-
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
+    logger.init(options.ts, options.debug)
 
     if options.comment is None:
         comment = ''
@@ -105,4 +98,8 @@ if __name__ == '__main__':
     server.setSMBChallenge('')
 
     # Rock and roll
-    server.start()
+    try:
+        server.start()
+    except KeyboardInterrupt:
+        print("\nInterrupted, exiting...")
+        sys.exit(130)

@@ -61,7 +61,7 @@ from queue import Queue
 from time import sleep
 
 from impacket.examples import logger
-from impacket.examples.utils import parse_credentials
+from impacket.examples.utils import parse_identity
 from impacket import version
 from impacket.smbconnection import SessionError
 from impacket.dcerpc.v5 import transport, wkst, srvs, samr
@@ -327,11 +327,11 @@ class USERENUM:
                     # Are we filtering users?
                     if self.__filterUsers is not None:
                         if userName in self.__filterUsers:
-                            print("%s: user %s logged from host %s - active: %d, idle: %d" % (
+                            logging.info("%s: user %s logged from host %s - active: %d, idle: %d" % (
                             target, userName, sourceIP, session['sesi10_time'], session['sesi10_idle_time']))
                             printCRLF = True
                     else:
-                        print("%s: user %s logged from host %s - active: %d, idle: %d" % (
+                        logging.info("%s: user %s logged from host %s - active: %d, idle: %d" % (
                         target, userName, sourceIP, session['sesi10_time'], session['sesi10_idle_time']))
                         printCRLF = True
 
@@ -343,10 +343,10 @@ class USERENUM:
                 # Are we filtering users?
                 if self.__filterUsers is not None:
                     if userName in self.__filterUsers:
-                        print("%s: user %s logged off from host %s" % (target, userName, sourceIP))
+                        logging.info("%s: user %s logged off from host %s" % (target, userName, sourceIP))
                         printCRLF=True
                 else:
-                    print("%s: user %s logged off from host %s" % (target, userName, sourceIP))
+                    logging.info("%s: user %s logged off from host %s" % (target, userName, sourceIP))
                     printCRLF=True
                 
         if printCRLF is True:
@@ -409,10 +409,10 @@ class USERENUM:
                 # Are we filtering users?
                 if self.__filterUsers is not None:
                     if userName in self.__filterUsers:
-                        print("%s: user %s\\%s logged in LOCALLY" % (target,logonDomain,userName))
+                        logging.info("%s: user %s\\%s logged in LOCALLY" % (target,logonDomain,userName))
                         printCRLF=True
                 else:
-                    print("%s: user %s\\%s logged in LOCALLY" % (target,logonDomain,userName))
+                    logging.info("%s: user %s\\%s logged in LOCALLY" % (target,logonDomain,userName))
                     printCRLF=True
 
         # Let's see who logged out since last check
@@ -423,10 +423,10 @@ class USERENUM:
                 # Are we filtering users?
                 if self.__filterUsers is not None:
                     if userName in self.__filterUsers:
-                        print("%s: user %s\\%s logged off LOCALLY" % (target,logonDomain,userName))
+                        logging.info("%s: user %s\\%s logged off LOCALLY" % (target,logonDomain,userName))
                         printCRLF=True
                 else:
-                    print("%s: user %s\\%s logged off LOCALLY" % (target,logonDomain,userName))
+                    logging.info("%s: user %s\\%s logged off LOCALLY" % (target,logonDomain,userName))
                     printCRLF=True
                 
         if printCRLF is True:
@@ -479,28 +479,11 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     # Init the example's logger theme
-    logger.init(options.ts)
+    logger.init(options.ts, options.debug)
 
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-
-    domain, username, password = parse_credentials(options.identity)
+    domain, username, password, _, _, options.k = parse_identity(options.identity, options.hashes, options.no_pass, options.aesKey, options.k)
 
     try:
-        if domain is None:
-            domain = ''
-
-        if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
-            from getpass import getpass
-            password = getpass("Password:")
-
-        if options.aesKey is not None:
-            options.k = True
-
         executer = USERENUM(username, password, domain, options.hashes, options.aesKey, options.k, options)
         executer.run()
     except Exception as e:

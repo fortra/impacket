@@ -117,7 +117,10 @@ class TargetsProcessor:
             # We have data about the username we relayed the connection for,
             # for a target that didn't have username specified.
             # Let's log it
-            newTarget = urlparse('%s://%s@%s%s' % (target.scheme, gotUsername.replace('/','\\'), target.netloc, target.path))
+            if target.scheme.find('http') == 0 and target.query:
+                newTarget = urlparse('%s://%s@%s%s?%s' % (target.scheme, gotUsername.replace('/','\\'), target.netloc, target.path, target.query))
+            else:
+                newTarget = urlparse('%s://%s@%s%s' % (target.scheme, gotUsername.replace('/','\\'), target.netloc, target.path))
             if gotRelay:
                 self.finishedAttacks.append(newTarget)
             else:
@@ -157,7 +160,7 @@ class TargetsProcessor:
             # Multirelay feature is disabled, general candidates are attacked just one time
             elif multiRelay == False:
                 for target in self.generalCandidates:
-                    match = [x for x in self.finishedAttacks if x.hostname == target.netloc]
+                    match = [x for x in self.finishedAttacks if x.hostname == target.netloc and x.scheme == target.scheme]
                     if len(match) == 0:
                         self.generalCandidates.remove(target)
                         return target

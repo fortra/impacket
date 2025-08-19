@@ -1809,7 +1809,7 @@ class SMB3:
                         fileInfo = smb.SMBFindFileFullDirectoryInfo(smb.SMB.FLAGS2_UNICODE)
                         fileInfo.fromString(res)
                         files.append(smb.SharedFile(fileInfo['CreationTime'], fileInfo['LastAccessTime'],
-                                                    fileInfo['LastChangeTime'], fileInfo['EndOfFile'],
+                                                    fileInfo['LastWriteTime'], fileInfo['LastChangeTime'], fileInfo['EndOfFile'],
                                                     fileInfo['AllocationSize'], fileInfo['ExtFileAttributes'],
                                                     fileInfo['FileName'].decode('utf-16le'),
                                                     fileInfo['FileName'].decode('utf-16le')))
@@ -1819,9 +1819,6 @@ class SMB3:
                     if (e.get_error_code()) != STATUS_NO_MORE_FILES:
                         raise
                     break
-                except Exception as e:
-                    print(str(e))
-                    raise
         finally:
             if fileId is not None:
                 self.close(treeId, fileId)
@@ -1894,7 +1891,7 @@ class SMB3:
 
         return True
 
-    def retrieveFile(self, shareName, path, callback, mode = FILE_OPEN, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ):
+    def retrieveFile(self, shareName, path, callback, mode = FILE_OPEN, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE):
         createContexts = None
 
         if self.isSnapshotRequest(path):
@@ -1934,7 +1931,7 @@ class SMB3:
                 self.close(treeId, fileId)
             self.disconnectTree(treeId)
 
-    def storeFile(self, shareName, path, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = FILE_SHARE_WRITE):
+    def storeFile(self, shareName, path, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ):
         # ToDo: Handle situations where share is password protected
         path = path.replace('/', '\\')
         path = ntpath.normpath(path)
