@@ -38,7 +38,7 @@ from impacket.krb5 import constants, pac
 from impacket.krb5.asn1 import TGS_REP, EncTicketPart, AD_IF_RELEVANT
 from impacket.krb5.ccache import CCache
 from impacket.krb5.constants import ChecksumTypes
-from impacket.krb5.crypto import Key, _enctype_table, InvalidChecksum, string_to_key
+from impacket.krb5.crypto import Key, _enctype_table, InvalidChecksum, string_to_key, generate_kerberos_keys
 from impacket.ldap.ldaptypes import LDAP_SID
 
 PSID = PRPC_SID
@@ -290,7 +290,7 @@ def parse_ccache(args):
             logging.debug("No kvno in ticket, skipping")
             logging.info("  %-28s: %d" % ("Key version number (kvno)", decodedTicket['ticket']['enc-part']['kvno']))
         logging.debug("Handling Kerberos keys")
-        ekeys = generate_kerberos_keys(args)
+        ekeys = generate_kerberos_keys(args.rc4, args.aes, args.password, args.hex_pass, args.salt, args.user, args.domain)
 
         # copypasta from krbrelayx.py
         # Select the correct encryption key
@@ -629,56 +629,6 @@ def parse_pac(pacType, args):
         buff = buff[len(infoBuffer):]
     return parsed_tuPAC
 
-
-def generate_kerberos_keys(args):
-    # copypasta from krbrelayx.py
-    # Store Kerberos keys
-    keys = {}
-    if args.rc4:
-        keys[int(constants.EncryptionTypes.rc4_hmac.value)] = unhexlify(args.rc4)
-    if args.aes:
-        if len(args.aes) == 64:
-            keys[int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value)] = unhexlify(args.aes)
-        else:
-            keys[int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value)] = unhexlify(args.aes)
-    ekeys = {}
-    for kt, key in keys.items():
-        ekeys[kt] = Key(kt, key)
-
-    allciphers = [
-        int(constants.EncryptionTypes.rc4_hmac.value),
-        int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
-        int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value)
-    ]
-
-    # Calculate Kerberos keys from specified password/salt
-    if args.password or args.hex_pass:
-        if not args.salt and args.user and args.domain: # https://www.thehacker.recipes/ad/movement/kerberos
-            if args.user.endswith('$'):
-                args.salt = "%shost%s.%s" % (args.domain.upper(), args.user.rstrip('$').lower(), args.domain.lower())
-            else:
-                args.salt = "%s%s" % (args.domain.upper(), args.user)
-        for cipher in allciphers:
-            if cipher == 23 and args.hex_pass:
-                # RC4 calculation is done manually for raw passwords
-                md4 = MD4.new()
-                md4.update(unhexlify(args.hex_pass))
-                ekeys[cipher] = Key(cipher, md4.digest())
-                logging.debug('Calculated type %s (%d) Kerberos key: %s' % (constants.EncryptionTypes(cipher).name, cipher, hexlify(ekeys[cipher].contents).decode('utf-8')))
-            elif args.salt:
-                # Do conversion magic for raw passwords
-                if args.hex_pass:
-                    rawsecret = unhexlify(args.hex_pass).decode('utf-16-le', 'replace').encode('utf-8', 'replace')
-                else:
-                    # If not raw, it was specified from the command line, assume it's not UTF-16
-                    rawsecret = args.password
-                ekeys[cipher] = string_to_key(cipher, rawsecret, args.salt)
-                logging.debug('Calculated type %s (%d) Kerberos key: %s' % (constants.EncryptionTypes(cipher).name, cipher, hexlify(ekeys[cipher].contents).decode('utf-8')))
-            else:
-                logging.debug('Cannot calculate type %s (%d) Kerberos key: salt is None: Missing -s/--salt or (-u/--user and -d/--domain)' % (constants.EncryptionTypes(cipher).name, cipher))
-    else:
-        logging.debug('No password (-p/--password or -hp/--hex_pass supplied, skipping Kerberos keys calculation')
-    return ekeys
 
 
 def kerberoast_from_ccache(decodedTGS, spn, username, domain):
