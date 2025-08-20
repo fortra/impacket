@@ -2526,7 +2526,7 @@ class SMBCommands:
                             116444736000000000 + calendar.timegm(time.gmtime()) * 10000000))
 
                 challengeMessage = ntlm.NTLMAuthChallenge()
-                challengeMessage['flags'] = ansFlags
+                challengeMessage['flags'] = (ntlm.NTLMSSP_DROP_SSP_STATIC | 0) if smbServer._SMBSERVER__dropSSP else ansFlags
                 challengeMessage['domain_len'] = len(smbServer.getServerDomain().encode('utf-16le'))
                 challengeMessage['domain_max_len'] = challengeMessage['domain_len']
                 challengeMessage['domain_offset'] = 40 + 16
@@ -2915,6 +2915,8 @@ class SMB2Commands:
 
             ansFlags |= ntlm.NTLMSSP_NEGOTIATE_VERSION | ntlm.NTLMSSP_NEGOTIATE_TARGET_INFO | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_NEGOTIATE_NTLM | ntlm.NTLMSSP_REQUEST_TARGET
 
+            if smbServer._SMBSERVER__dropSSP:
+                ansFlags = (ntlm.NTLMSSP_DROP_SSP_STATIC | 0)
             # Generate the AV_PAIRS
             av_pairs = ntlm.AV_PAIRS()
             # TODO: Put the proper data from SMBSERVER config
@@ -4016,6 +4018,8 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         # SMB2 Support flag = default not active
         self.__SMB2Support = False
 
+        self.__dropSSP = False
+
         # Allow anonymous logon
         self.__anonymousLogon = True
 
@@ -4671,6 +4675,11 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         else:
             self.__SMB2Support = False
 
+        if self.__serverConfig.has_option("global", "DropSSP"):
+            self.__dropSSP = self.__serverConfig.getboolean("global", "DropSSP")
+        else:
+            self.__dropSSP = False
+
         if self.__serverConfig.has_option("global", "anonymous_logon"):
             self.__anonymousLogon = self.__serverConfig.getboolean("global", "anonymous_logon")
         else:
@@ -4984,3 +4993,11 @@ class SimpleSMBServer:
 
     def setAuthCallback(self, callback):
         self.__server.setAuthCallback(callback)
+
+    def setDropSSP(self, value):
+        if value is True:
+            self.__smbConfig.set("global", "DropSSP", "True")
+        else:
+            self.__smbConfig.set("global", "DropSSP", "False")
+        self.__server.setServerConfig(self.__smbConfig)
+        self.__server.processConfigFile()
