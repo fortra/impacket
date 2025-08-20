@@ -83,11 +83,11 @@ if __name__ == '__main__':
         logging.critical('Only a SYSTEM hive or bootkey value can be supplied')
         sys.exit(1)
     
-    if options.password is None and options.hash is None:
+    if options.password is None and options.hashes is None:
         logging.critical('A password or hash argument is required')
         sys.exit(1)
     
-    if options.password is not None and options.hash is not None:
+    if options.password is not None and options.hashes is not None:
         logging.critical('Only a password or hash argument can be supplied')
         sys.exit(1)
     
@@ -99,12 +99,12 @@ if __name__ == '__main__':
     
     hive = SAMHashes(options.sam, bootkey, False)
 
-    if options.hash:
-        if ':' not in options.hash:
+    if options.hashes:
+        if ':' not in options.hashes:
             LMHash = b''
-            NTHash = binascii.unhexlify(options.hash)
+            NTHash = binascii.unhexlify(options.hashes)
         else:
-            LMHash, NTHash = [binascii.unhexlify(hash) for hash in options.hash.split(":")]
+            LMHash, NTHash = [binascii.unhexlify(hash) for hash in options.hashes.split(":")]
     
     if options.password:
         LMHash = b''
