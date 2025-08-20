@@ -5004,14 +5004,6 @@ class SimpleSMBServer:
         self.__server.setServerConfig(self.__smbConfig)
         self.__server.processConfigFile()
 
-    def setDropSSP(self, value):
-        if value is True:
-            self.__smbConfig.set("global", "DropSSP", "True")
-        else:
-            self.__smbConfig.set("global", "DropSSP", "False")
-        self.__server.setServerConfig(self.__smbConfig)
-        self.__server.processConfigFile()
-
     def getAuthCallback(self):
         return self.__server.getAuthCallback()
 
