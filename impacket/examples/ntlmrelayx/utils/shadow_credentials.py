@@ -1,8 +1,6 @@
 from struct import pack
 from Cryptodome.Util.number import long_to_bytes
 from Cryptodome.PublicKey import RSA
-from OpenSSL.crypto import PKey, X509, TYPE_RSA
-import OpenSSL
 import base64
 import uuid
 import datetime
@@ -10,6 +8,13 @@ import time
 import hashlib
 import binascii
 import os
+
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.backends import default_backend
+from Cryptodome.IO import PEM
+from Cryptodome.IO import PKCS12
 
 # code based on:
 # 
@@ -29,8 +34,36 @@ def getDeviceId():
     return uuid.uuid4().bytes
 
 def createSelfSignedX509Certificate(subject,nBefore,nAfter,kSize=2048):
-    key = PKey()
-    key.generate_key(TYPE_RSA,kSize)
+    "generate self signed x509 certificate with pycryptodome library"
+
+    key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=kSize,
+        backend=None  # Use default backend    
+    )
+
+    subject_name = x509.Name([
+        x509.NameAttribute(x509.NameOID.COMMON_NAME, subject),
+    ])
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    
+    cert = x509.CertificateBuilder().subject_name(
+        subject_name
+    ).issuer_name(
+        subject_name
+    ).public_key(
+        key.public_key()
+    ).serial_number(
+        x509.random_serial_number()
+    ).not_valid_before(
+        now - datetime.timedelta(days=1)
+    ).not_valid_after(
+        now + datetime.timedelta(days=3650)  # 10 years
+    ).add_extension(
+        x509.BasicConstraints(ca=True, path_length=None), critical=True,
+    ).sign(key, hashes.SHA256()
+    )
 
     certificate = X509()
 
@@ -41,13 +74,16 @@ def createSelfSignedX509Certificate(subject,nBefore,nAfter,kSize=2048):
     certificate.set_pubkey(key)
 
     certificate.sign(key,HASH_ALGO)
+    pem = certificate.as_pem()
+    pem_public_key = key.as_pem()
+
     return key,certificate
 
 class KeyCredential():
     @staticmethod
-    def raw_public_key(certificate,key):
-        pem_public_key = OpenSSL.crypto.dump_publickey(OpenSSL.crypto.FILETYPE_PEM, key)
-        public_key = RSA.importKey(pem_public_key)
+    def raw_public_key(public_key):
+        #pem_public_key = OpenSSL.crypto.dump_publickey(OpenSSL.crypto.FILETYPE_PEM, key)
+        #public_key = RSA.importKey(pem_public_key)
 
         kSize = pack("<I",public_key.size_in_bits())
         exponent = long_to_bytes(public_key.e)
@@ -60,7 +96,7 @@ class KeyCredential():
         return b'RSA1' + kSize + exponentSize + modulusSize + padding + exponent + modulus
 
     def __init__(self,certificate,key,deviceId,currentTime):
-        self.__publicKey = self.raw_public_key(certificate,key)
+        self.__publicKey = self.raw_public_key(key)
         self.__rawKeyMaterial = (0x3,self.__publicKey)
         self.__usage = (0x4,pack("<B",0x01))
         self.__source = (0x5,pack("<B",0x0))
@@ -81,7 +117,8 @@ class KeyCredential():
         return (0x1,self.__identifier)
 
     def __getKeyHash(self):
-        computed_hash = hashlib.sha256(self.__identifier).digest()
+        #computed_hash = hashlib.sha256(self.__identifier).digest()
+        computed_hash = hashlib.sha256(self.__rawKeyMaterial[1] + self.__usage[1] + self.__creationTime[1]).digest()
         return (0x2,computed_hash)
 
     def dumpBinary(self):
@@ -113,11 +150,19 @@ def exportPFX(certificate,key,path_to_file,password):
         if not os.path.exists(os.path.dirname(path_to_file)):
             os.makedirs(os.path.dirname(path_to_file), exist_ok=True)
 
-    pk = OpenSSL.crypto.PKCS12()
-    pk.set_privatekey(key)
-    pk.set_certificate(certificate)
-    with open(path_to_file+".pfx","wb") as f:
-        f.write(pk.export(passphrase=password))
+    # Export private key in DER format
+    priv_der = key.export_key(format='DER', pkcs=8, passphrase=password)
+
+    # Export certificate in DER format
+    cert_der = certificate.public_bytes(serialization.Encoding.DER)
+
+    # Create PKCS#12 structure
+    pfx = PKCS12.new()
+    pfx.set_privatekey(priv_der, password)
+    pfx.set_certificate(cert_der)
+
+    with open(path_to_file + ".pfx", "wb") as f:
+        f.write(pfx.export())
 
 
 def exportPEM(certificate,key, path_to_files):
@@ -125,10 +170,13 @@ def exportPEM(certificate,key, path_to_files):
         if not os.path.exists(os.path.dirname(path_to_files)):
             os.makedirs(os.path.dirname(path_to_files), exist_ok=True)
 
-        cert = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, certificate)
+        # Export certificate in PEM format using cryptography
+        cert_pem = certificate.public_bytes(serialization.Encoding.PEM)
         with open(path_to_files + "_cert.pem", "wb") as f:
-            f.write(cert)
-        privpem = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, key)
+            f.write(cert_pem)
+
+        # Export private key in PEM format using pycryptodome
+        privpem = key.export_key(format='PEM')
         with open(path_to_files + "_priv.pem", "wb") as f:
             f.write(privpem)
 
