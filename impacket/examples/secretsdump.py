@@ -1339,6 +1339,24 @@ class CryptoCommon:
             plainText += aes256.decrypt(cipherBuffer)
 
         return plainText
+    
+    @staticmethod
+    def encryptAES(key, value, iv=b'\x00'*16):
+        cipherText = b''
+        if iv != b'\x00'*16:
+            aes256 = AES.new(key,AES.MODE_CBC, iv)
+        
+        # Pad input to 16 bytes using PKCS7
+        pad = 16 - (len(value) % 16)
+        value += bytes([pad]*pad)
+        
+        for index in range(0, len(value), 16):
+            if iv == b'\x00'*16:
+                aes256 = AES.new(key,AES.MODE_CBC, iv)
+            plainBuffer = value[index:index+16]
+            cipherText += aes256.encrypt(plainBuffer)
+        
+        return cipherText
 
 
 class OfflineRegistry:
@@ -1373,6 +1391,14 @@ class OfflineRegistry:
         if value is None:
             return
 
+        return value
+    
+    def setValue(self, keyValue, dataValue):
+        value = self.__registryHive.setValue(keyValue, dataValue)
+
+        if value is None:
+            return
+        
         return value
 
     def getClass(self, className):
@@ -1482,6 +1508,31 @@ class SAMHashes(OfflineRegistry):
         decryptedHash = Crypt1.decrypt(key[:8]) + Crypt2.decrypt(key[8:])
 
         return decryptedHash
+    
+    def __encryptHash(self, rid, plaintextHash, salt, constant, newStyle = False):
+        # Section 2.2.11.1.1 Encrypting an NT or LM Hash Value with a Specified Key
+        # plus hashedBootKey stuff (as well)
+        Key1,Key2 = self.__cryptoCommon.deriveKey(rid)
+
+        Crypt1 = DES.new(Key1, DES.MODE_ECB)
+        Crypt2 = DES.new(Key2, DES.MODE_ECB)
+
+        key = Crypt1.encrypt(plaintextHash[:8]) + Crypt2.encrypt(plaintextHash[8:])
+
+        if newStyle is False:
+            rc4Key = self.MD5( self.__hashedBootKey[:0x10] + pack("<L",rid) + constant )
+            rc4 = ARC4.new(rc4Key)
+            encryptedHash = rc4.encrypt(key)
+        else:
+            encryptedHash = self.__cryptoCommon.encryptAES(self.__hashedBootKey[:0x10], key, salt)
+
+        return encryptedHash
+    
+    def __replaceValue(self, obj, offset, value):
+        obj = bytearray(obj)
+        for i, v in enumerate(value):
+            obj[offset + i] = v
+        return bytes(obj)
 
     def dump(self):
         NTPASSWORD = b"NTPASSWORD\0"
@@ -1627,6 +1678,126 @@ class SAMHashes(OfflineRegistry):
 
             if self.__printUserStatus is True:
                 answer = f"{answer} (Enabled={'False' if disabled else 'True'}) (Locked={'True' if locked_out or auto_locked else 'False'}) (Admin={'True' if is_admin else 'False'})"
+
+            self.__itemsFound[rid] = answer
+            self.__perSecretCallback(answer)
+    
+    def edit(self, user, newNTHash, newLMHash=b''):
+        NTPASSWORD = b"NTPASSWORD\0"
+        LMPASSWORD = b"LMPASSWORD\0"
+
+        if self.__samFile is None:
+            # No SAM file provided
+            return
+
+        LOG.info('Editing local SAM hash for user "%s"' % user)
+        self.getHBootKey()
+
+        usersKey = 'SAM\\Domains\\Account\\Users'
+
+        # Enumerate all the RIDs
+        rids = self.enumKey(usersKey)
+        # Remove the Names item
+        try:
+            rids.remove('Names')
+        except:
+            pass
+
+        # Iterate through RIDs
+        for rid in rids:
+            userAccount = USER_ACCOUNT_V(self.getValue(ntpath.join(usersKey,rid,'V'))[1])
+            _rid = rid
+            rid = int(rid,16)
+
+            V = userAccount['Data']
+
+            userName = V[userAccount['NameOffset']:userAccount['NameOffset']+userAccount['NameLength']].decode('utf-16le')
+
+            # Check for requested user
+            if(userName.casefold() == user.casefold()):
+                LOG.debug('Located rid for "%s": %d' % (user, rid))
+            else:
+                continue
+
+            # User has no hash data
+            if userAccount['NTHashLength'] == 0:
+                logging.error('SAM hashes change for user %s failed. The account doesn\'t have hash information.' % userName)
+                return
+            
+            # Retrieve old hashes to parse hash parameters and display values before the change
+            encNTHash = b''
+            if V[userAccount['NTHashOffset']:][2:3] == b'\x01':
+                # Old Style hashes
+                newStyle = False
+                if userAccount['LMHashLength'] == 20:
+                    encLMHash = SAM_HASH(V[userAccount['LMHashOffset']:][:userAccount['LMHashLength']])
+                if userAccount['NTHashLength'] == 20:
+                    encNTHash = SAM_HASH(V[userAccount['NTHashOffset']:][:userAccount['NTHashLength']])
+            else:
+                # New Style hashes
+                newStyle = True
+                if userAccount['LMHashLength'] == 24:
+                    encLMHash = SAM_HASH_AES(V[userAccount['LMHashOffset']:][:userAccount['LMHashLength']])
+                encNTHash = SAM_HASH_AES(V[userAccount['NTHashOffset']:][:userAccount['NTHashLength']])
+
+            LOG.debug('NewStyle hashes is: %s' % newStyle)
+            LOG.debug('LMHashLength: %d - NTHashLength: %d' % (userAccount['LMHashLength'], userAccount['NTHashLength']))
+            if userAccount['LMHashLength'] >= 20:
+                lmHash = self.__decryptHash(rid, encLMHash, LMPASSWORD, newStyle)
+            else:
+                lmHash = b''
+                newLMHash = b''
+
+            if encNTHash != b'':
+                ntHash = self.__decryptHash(rid, encNTHash, NTPASSWORD, newStyle)
+            else:
+                ntHash = b''
+                newNTHash = b''
+            
+            userChanged = False
+            if newLMHash != b'':
+                encLMHash['Hash'] = self.__encryptHash(rid, newLMHash, encLMHash['Salt'], LMPASSWORD, newStyle)
+                if userAccount['LMHashLength'] != len(encLMHash.getData()):
+                    LOG.error('Mistaching LM lengths received.')
+                    LOG.info('User probably has an empty password. Unable to set new LM hash.')
+                    LOG.debug('Received: %d - Expected: %d' % (userAccount['LMHashLength'], len(encLMHash.getData())))
+                    newLMHash = b''
+                    # Missing LM data is unlikely to be a failure scenario, keep going
+                else:
+                    userAccount['Data'] = self.__replaceValue(V, userAccount['LMHashOffset'], encLMHash.getData())
+                    userChanged = True
+            
+            if newNTHash != b'':
+                encNTHash['Hash'] = self.__encryptHash(rid, newNTHash, encNTHash['Salt'], NTPASSWORD, newStyle)
+                if userAccount['NTHashLength'] != len(encNTHash.getData()):
+                    LOG.error("Mistaching NT lengths received!")
+                    LOG.info("User probably has an empty password. Unable to set new NT hash.")
+                    LOG.debug(f"Received: {userAccount['NTHashLength']} - Expected: {len(encNTHash.getData())}")
+                    # Missing NT data *is* a failure scenario, return
+                    return
+                userAccount['Data'] = self.__replaceValue(V, userAccount['NTHashOffset'], encNTHash.getData())
+                userChanged = True
+            
+            if lmHash == b'':
+                lmHash = ntlm.LMOWFv1('','')
+            if ntHash == b'':
+                ntHash = ntlm.NTOWFv1('','')
+            
+            LOG.info("Previous user hash: %s:%d:%s:%s:::" % (userName, rid, hexlify(lmHash).decode('utf-8'), hexlify(ntHash).decode('utf-8')))
+
+            if userChanged:
+                if self.setValue(ntpath.join(usersKey,_rid,'V'), userAccount.getData()) is None:
+                    LOG.error('Failed to write new user hash to SAM hive.')
+                    return
+            else:
+                LOG.info("Unable to change user hash, please ensure the target user already has a password set.")
+            
+            if newLMHash == b'':
+                newLMHash = ntlm.LMOWFv1('', '')
+            if newNTHash == b'':
+                newNTHash = ntlm.NTOWFv1('', '')
+            
+            answer = "%s:%s:%s:%s:::" % (userName, rid, hexlify(newLMHash).decode('utf-8'), hexlify(newNTHash).decode('utf-8'))
 
             self.__itemsFound[rid] = answer
             self.__perSecretCallback(answer)
@@ -2912,7 +3083,7 @@ class NTDSHashes:
                             else:
                                 LOG.warning('DRSCrackNames returned %d items for user %s, skipping' % (
                                             crackedName['pmsgOut']['V1']['pResult']['cItems'], user)
-)
+                                )
                         #userRecord.dump()
                         replyVersion = 'V%d' % userRecord['pdwOutVersion']
                         if userRecord['pmsgOut'][replyVersion]['cNumObjects'] == 0:
