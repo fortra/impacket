@@ -40,9 +40,14 @@ class ProtocolAttack(Thread):
         self.config = config
         self.client = client
         # By default we only use the username and remove the domain
-        self.username = username.split('/')[1]
-        # But we also store the domain for later use
-        self.domain = username.split('/')[0]
+        # We handle both slashes since the username can be in either format
+        if '\\' in username:
+            self.domain, self.username = username.split('\\')
+        elif '/' in username:
+            self.domain, self.username = username.split('/')
+        else:
+            self.domain = ''
+            self.username = username
 
     def run(self):
         raise RuntimeError('Virtual Function')
