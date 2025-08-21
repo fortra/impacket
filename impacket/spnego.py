@@ -322,7 +322,7 @@ class SPNEGO_NegTokenResp:
                     asn1encode(
                     pack('B', ASN1_RESPONSE_TOKEN) +
                     asn1encode(
-                    pack('B', ASN1_OCTET_STRING) + asn1encode(self['ResponseToken']))))
+                    pack('B', ASN1_OCTET_STRING) + asn1encode(self['responseToken']))))
         return ans
 
 class SPNEGO_NegTokenInit(GSSAPI):
