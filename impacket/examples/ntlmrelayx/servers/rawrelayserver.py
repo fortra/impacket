@@ -114,15 +114,15 @@ class RAWRelayServer(Thread):
                     # Relay worked, do whatever we want here...
                     self.request.sendall(struct.pack('h', 1))
                     self.request.sendall(struct.pack('?', True))
-
+                    self.client.setClientId()
                     if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                        LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
+                        LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED [%s]" % (
                             self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
-                            authenticateMessage['user_name'].decode('utf-16le')))
+                            authenticateMessage['user_name'].decode('utf-16le'), self.client.client_id))
                     else:
-                        LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
+                        LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED [%s]" % (
                             self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('ascii'),
-                            authenticateMessage['user_name'].decode('ascii')))
+                            authenticateMessage['user_name'].decode('ascii'), self.client.client_id))
 
                     ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
                                                         authenticateMessage['user_name'],

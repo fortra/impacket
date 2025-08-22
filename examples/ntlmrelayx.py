@@ -112,7 +112,7 @@ class MiniShell(cmd.Cmd):
    - admin : true or false 
         '''
 
-        headers = ["Protocol", "Target", "Username", "AdminStatus", "Port"]
+        headers = ["Protocol", "Target", "Username", "AdminStatus", "Port", "ID"]
         url = "http://{}/ntlmrelayx/api/v1.0/relays".format(self.api_address)
         try:
             proxy_handler = ProxyHandler({})

@@ -366,7 +366,8 @@ class SMBRelayServer(Thread):
                 client.killConnection()
             else:
                 # We have a session, create a thread and do whatever we want
-                LOG.info("Authenticating against %s://%s as %s SUCCEED" % (self.target.scheme, self.target.netloc, self.authUser))
+                self.client.setClientId()
+                LOG.info("Authenticating against %s://%s as %s SUCCEED [%s]" % (self.target.scheme, self.target.netloc, self.authUser, self.client.client_id))
                 # Log this target as processed for this client
 
                 if not self.config.isADCSAttack:
@@ -662,7 +663,8 @@ class SMBRelayServer(Thread):
                     return None, [packet], errorCode
                 else:
                     # We have a session, create a thread and do whatever we want
-                    LOG.info("Authenticating against %s://%s as %s SUCCEED" % (self.target.scheme, self.target.netloc, self.authUser))
+                    self.client.setClientId()
+                    LOG.info("Authenticating against %s://%s as %s SUCCEED [%s]" % (self.target.scheme, self.target.netloc, self.authUser, self.client.client_id))
 
                     # Log this target as processed for this client
                     self.targetprocessor.registerTarget(self.target, True, self.authUser)
@@ -741,8 +743,9 @@ class SMBRelayServer(Thread):
                 return None, [packet], errorCode
             else:
                 # We have a session, create a thread and do whatever we want
+                self.client.setClientId()
                 self.authUser = ('%s/%s' % (sessionSetupData['PrimaryDomain'], sessionSetupData['Account'])).upper()
-                LOG.info("Authenticating against %s://%s as %s SUCCEED" % (self.target.scheme, self.target.netloc, self.authUser))
+                LOG.info("Authenticating against %s://%s as %s SUCCEED [%s]" % (self.target.scheme, self.target.netloc, self.authUser, self.client.client_id))
 
                 # Log this target as processed for this client
                 self.targetprocessor.registerTarget(self.target, True, self.authUser)

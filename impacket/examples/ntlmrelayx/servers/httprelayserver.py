@@ -475,8 +475,9 @@ class HTTPRelayServer(Thread):
                         self.do_AUTHHEAD(b'NTLM', proxy=proxy)
                 else:
                     # Relay worked, do whatever we want here...
-                    LOG.info("HTTPD(%s): Authenticating against %s://%s as %s SUCCEED" % (self.server.server_address[1],
-                        self.target.scheme, self.target.netloc, self.authUser))
+                    self.client.setClientId()
+                    LOG.info("HTTPD(%s): Authenticating against %s://%s as %s SUCCEED [%s]" % (self.server.server_address[1],
+                        self.target.scheme, self.target.netloc, self.authUser, self.client.client_id))
 
                     ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
                                                         authenticateMessage['user_name'],
