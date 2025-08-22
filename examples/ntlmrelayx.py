@@ -135,7 +135,8 @@ class MiniShell(cmd.Cmd):
                     elif(_filter=='admin'):
                         _filter=3
                     else:
-                        logging.info('Expect : target / username / admin = value')                    
+                        logging.info('Expect : target / username / admin = value')
+                        return
                     _items=[]
                     for i in items:
                         if(_value.lower() in i[_filter].lower()):
