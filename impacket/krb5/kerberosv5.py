@@ -374,6 +374,16 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
     except:
         decodedTGT = decoder.decode(tgt, asn1Spec = TGS_REP())[0]
 
+    targetRealm = ''
+    for i, c in enumerate(decodedTGT.components):
+        if i == 5:
+            for j, d in enumerate(c.components):
+                if j == 2:
+                    for k, e in enumerate(d.components):
+                        if k ==1 :
+                            for l, f in enumerate(e.components):
+                                targetRealm = f._value
+
     domain = domain.upper()
     # Extract the ticket from the TGT
     ticket = Ticket()
@@ -435,8 +445,17 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
         opts.append( constants.KDCOptions.renew.value )
 
     reqBody['kdc-options'] = constants.encodeFlags(opts)
-    seq_set(reqBody, 'sname', serverName.components_to_asn1)
-    reqBody['realm'] = domain
+    realmInServerName = ""
+    # check if current ticket is a referral TGT
+    for i, c in enumerate(serverName.components):
+        if i==1:
+            realmInServerName = c.split('.',1)[1].upper()
+    if realmInServerName != targetRealm:
+        referralTGTsName = Principal('krbtgt/%s' % (realmInServerName), type=constants.PrincipalNameType.NT_SRV_INST.value)
+        seq_set(reqBody, 'sname', referralTGTsName.components_to_asn1)
+    else:
+        seq_set(reqBody, 'sname', serverName.components_to_asn1)
+    reqBody['realm'] = targetRealm
 
     now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
 
@@ -453,7 +472,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
 
     message = encoder.encode(tgsReq)
 
-    r = sendReceive(message, domain, kdcHost)
+    r = sendReceive(message, targetRealm, kdcHost)
 
     # Get the session key
 
