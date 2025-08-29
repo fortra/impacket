@@ -26,8 +26,8 @@ PROTOCOL_ATTACK_CLASS = "MSSQLAttack"
 
 class MSSQLAttack(ProtocolAttack):
     PLUGIN_NAMES = ["MSSQL"]
-    def __init__(self, config, MSSQLclient, username):
-        ProtocolAttack.__init__(self, config, MSSQLclient, username)
+    def __init__(self, config, MSSQLclient, username, target=None, relay_client=None):
+        ProtocolAttack.__init__(self, config, MSSQLclient, username, target, relay_client)
         if self.config.interactive:
             # Launch locally listening interactive shell.
             self.tcp_shell = TcpShell()

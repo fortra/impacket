@@ -40,8 +40,8 @@ class SMBAttack(ProtocolAttack):
     shell if the -i option is specified.
     """
     PLUGIN_NAMES = ["SMB"]
-    def __init__(self, config, SMBClient, username):
-        ProtocolAttack.__init__(self, config, SMBClient, username)
+    def __init__(self, config, SMBClient, username, target=None, relay_client=None):
+        ProtocolAttack.__init__(self, config, SMBClient, username, target, relay_client)
         if isinstance(SMBClient, smb.SMB) or isinstance(SMBClient, smb3.SMB3):
             self.__SMBConnection = SMBConnection(existingConnection=SMBClient)
         else:
