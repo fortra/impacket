@@ -27,5 +27,5 @@ class IdentityFilter(logging.Filter):
     def filter(self, record):
         # Will be "" if not set
         identity = _get_identity()
-        record.identity = f"{identity} -> " if identity else ''
+        record.identity = "%s -> " % identity if identity else ''
         return True
