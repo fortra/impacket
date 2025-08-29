@@ -83,7 +83,7 @@ class MiniShell(cmd.Cmd):
 
         # Print header
         print(outputFormat.format(*header))
-        print('  '.join(['-' * itemLen for itemLen in colLen]))
+        print('  '.join(['-' * max(itemLen, 3) for itemLen in colLen]))
 
         # And now the rows
         for row in items:

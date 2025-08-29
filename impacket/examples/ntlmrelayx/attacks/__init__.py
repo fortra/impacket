@@ -36,7 +36,7 @@ PROTOCOL_ATTACKS = {}
 
 def _wrap_run_with_identity(run_func):
     def _wrapped(self, *a, **k):
-        connection_identifier = '%s/%s@%s[%s]' % (self.domain, self.username, self.target.hostname, self.relay_client.client_id)
+        connection_identifier = '%s://%s/%s@%s [%s]' % (self.target.scheme, self.domain, self.username, self.target.hostname, self.relay_client.client_id)
         with identity_context(connection_identifier):
             return run_func(self, *a, **k)
     return _wrapped
