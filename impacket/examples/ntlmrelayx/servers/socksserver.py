@@ -217,7 +217,7 @@ def activeConnectionsWatcher(server):
             server.activeRelays[target][port] = {}
 
         if (userName in server.activeRelays[target][port]) is not True:
-            LOG.info('SOCKS: Adding %s://%s@%s(%s)[%s] to active SOCKS connection. Enjoy' % (scheme, userName, target, port, client.client_id))
+            LOG.info('SOCKS: Adding %s://%s@%s(%s) [%s] to active SOCKS connection. Enjoy' % (scheme, userName, target, port, client.client_id))
             server.activeRelays[target][port][userName] = {}
             # This is the protocolClient. Needed because we need to access the killConnection from time to time.
             # Inside this instance, you have the session attribute pointing to the relayed session.
