@@ -195,7 +195,7 @@ class RAWRelayServer(Thread):
             if self.target.scheme.upper() in self.server.config.attacks:
                 # We have an attack.. go for it
                 clientThread = self.server.config.attacks[self.target.scheme.upper()](self.server.config, self.client.session,
-                                                                               self.authUser)
+                                                                               self.authUser, self.target, self.client)
                 clientThread.start()
             else:
                 LOG.error('No attack configured for %s' % self.target.scheme.upper())

@@ -921,7 +921,7 @@ class SMBRelayServer(Thread):
         # If SOCKS is not enabled, or not supported for this scheme, fall back to "classic" attacks
         if self.target.scheme.upper() in self.config.attacks:
             # We have an attack.. go for it
-            clientThread = self.config.attacks[self.target.scheme.upper()](self.config, client.session, self.authUser)
+            clientThread = self.config.attacks[self.target.scheme.upper()](self.config, client.session, self.authUser, self.target, self.client)
             clientThread.start()
         else:
             LOG.error('No attack configured for %s' % self.target.scheme.upper())

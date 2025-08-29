@@ -21,6 +21,8 @@ import pkg_resources
 from impacket import LOG
 from threading import Thread
 
+from impacket.examples.ntlmrelayx.utils.identity_log import identity_context
+
 PROTOCOL_ATTACKS = {}
 
 # Base class for Protocol Attacks for different protocols (SMB, MSSQL, etc)
@@ -31,9 +33,24 @@ PROTOCOL_ATTACKS = {}
 #     PROTOCOL_ATTACK_CLASSES = ["<name of the class for the plugin>", "<another class>"]
 # These classes must have the attribute PLUGIN_NAMES which is a list of protocol names
 # that will be matched later with the relay targets (e.g. SMB, LDAP, etc)
+
+def _wrap_run_with_identity(run_func):
+    def _wrapped(self, *a, **k):
+        connection_identifier = '%s/%s@%s[%s]' % (self.domain, self.username, self.target.hostname, self.relay_client.client_id)
+        with identity_context(connection_identifier):
+            return run_func(self, *a, **k)
+    return _wrapped
+
 class ProtocolAttack(Thread):
     PLUGIN_NAMES = ['PROTOCOL']
-    def __init__(self, config, client, username):
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # If subclass defines its own run(), wrap it
+        if 'run' in cls.__dict__:
+            cls.run = _wrap_run_with_identity(cls.run)
+
+    def __init__(self, config, client, username, target, relay_client):
         Thread.__init__(self)
         # Set threads as daemon
         self.daemon = True
@@ -43,6 +60,9 @@ class ProtocolAttack(Thread):
         self.username = username.split('/')[1]
         # But we also store the domain for later use
         self.domain = username.split('/')[0]
+        # -- 
+        self.target = target 
+        self.relay_client = relay_client
 
     def run(self):
         raise RuntimeError('Virtual Function')

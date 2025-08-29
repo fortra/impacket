@@ -172,8 +172,8 @@ class ICPRRPCAttack:
 class RPCAttack(ProtocolAttack, TSCHRPCAttack):
     PLUGIN_NAMES = ["RPC"]
 
-    def __init__(self, config, dce, username):
-        ProtocolAttack.__init__(self, config, dce, username)
+    def __init__(self, config, dce, username, target, relay_client):
+        ProtocolAttack.__init__(self, config, dce, username, target, relay_client)
         self.dce = dce
         self.rpctransport = dce.get_rpc_transport()
         self.stringbinding = self.rpctransport.get_stringbinding()

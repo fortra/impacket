@@ -116,10 +116,10 @@ class LDAPAttack(ProtocolAttack):
     GENERIC_EXECUTE         = 0x00020004
     GENERIC_ALL             = 0x000F01FF
 
-    def __init__(self, config, LDAPClient, username):
+    def __init__(self, config, LDAPClient, username, target, relay_client):
         self.computerName = '' if not config.addcomputer else config.addcomputer[0]
         self.computerPassword = '' if not config.addcomputer or len(config.addcomputer) < 2 else config.addcomputer[1]
-        ProtocolAttack.__init__(self, config, LDAPClient, username)
+        ProtocolAttack.__init__(self, config, LDAPClient, username, target, relay_client)
         if self.config.interactive:
             # Launch locally listening interactive shell.
             self.tcp_shell = TcpShell()

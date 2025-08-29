@@ -545,7 +545,7 @@ class HTTPRelayServer(Thread):
             if self.target.scheme.upper() in self.server.config.attacks:
                 # We have an attack.. go for it
                 clientThread = self.server.config.attacks[self.target.scheme.upper()](self.server.config, self.client.session,
-                                                                               self.authUser)
+                                                                               self.authUser, self.target, self.client)
                 clientThread.start()
             else:
                 LOG.error('HTTPD(%s): No attack configured for %s' % (self.server.server_address[1], self.target.scheme.upper()))
