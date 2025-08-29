@@ -3,22 +3,17 @@ import logging
 import threading
 from contextlib import contextmanager
 
-__all__ = ["set_identity", "clear_identity", "identity_context", "IdentityFilter"]
-
 # Thread-local storage for current identity
 _tlocal = threading.local()
 
 def _get_identity():
     return getattr(_tlocal, "identity", None)
 
-def set_identity(identity: str | None):
+def set_identity(identity):
     setattr(_tlocal, "identity", identity)
 
-def clear_identity():
-    setattr(_tlocal, "identity", None)
-
 @contextmanager
-def identity_context(identity: str | None):
+def identity_context(identity):
     prev = _get_identity()
     try:
         set_identity(identity)
@@ -29,8 +24,8 @@ def identity_context(identity: str | None):
 
 class IdentityFilter(logging.Filter):
     """Injects .identity into every LogRecord so %(identity)s works in formatters."""
-    def filter(self, record: logging.LogRecord) -> bool:
-        # Will be "-" if not set
+    def filter(self, record):
+        # Will be "" if not set
         identity = _get_identity()
         record.identity = f"{identity} -> " if identity else ''
         return True
