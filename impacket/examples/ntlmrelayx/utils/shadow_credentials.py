@@ -125,7 +125,6 @@ def toDNWithBinary2String( binaryData, owner ):
     return "B:%d:%s:%s" % (len(binaryData)*2,hexdata,owner)
 
 def exportPFX(certificate,key,path_to_file,password):
-    print(path_to_file)
     if len(os.path.dirname(path_to_file)) != 0:
         if not os.path.exists(os.path.dirname(path_to_file)):
             os.makedirs(os.path.dirname(path_to_file), exist_ok=True)
