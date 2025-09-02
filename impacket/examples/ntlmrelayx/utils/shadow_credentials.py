@@ -131,7 +131,7 @@ def exportPFX(certificate,key,path_to_file,password):
 
     # Export private key and certificate in PKCS#12 format using cryptography
     pfx_data = pkcs12.serialize_key_and_certificates(
-        name=b"shadow",
+        name=b"",
         key=key,
         cert=certificate,
         cas=None,
