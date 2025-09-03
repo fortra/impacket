@@ -330,7 +330,7 @@ def get_address(ip, port, ipv6=False):
     return address
 
 import socket
-def get_socket(ip, port, ipv6=False):
+def get_connected_socket(ip, port, ipv6=False):
     s = socket.socket(socket.AF_INET6 if ipv6 else socket.AF_INET)
     address = get_address(ip, port, ipv6)
     s.connect(address)
