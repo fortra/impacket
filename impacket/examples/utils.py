@@ -325,7 +325,13 @@ def get_address(ip, port, ipv6=False):
     if ipv6:
         # scope_id (after %) can be present or not - if not, default: 0
         ip_parts = ip.split('%')
-        scope_id = int(ip_parts[1]) if len(ip_parts) == 2 else 0
+        scope_id = ip_parts[1] if len(ip_parts) == 2 else 0
+        # convert scope_id to int (expected by s.connect)
+        # if exception, assume the interface name and convert to index
+        try:
+            scope_id = int(scope_id)
+        except ValueError:
+            scope_id = socket.if_nametoindex(scope_id)
         address = address + (0, scope_id)
     return address
 
