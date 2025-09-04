@@ -6,7 +6,7 @@ from base64 import b64encode, b64decode
 from struct import pack, unpack
 from random import randbytes
 from pathlib import Path
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 import xml.etree.ElementTree as ET
 
@@ -471,7 +471,7 @@ class SPNEGOProxyKerberos:
             if self.gss_bindings:
                 checksum['Bnd'] = self.gss_bindings
 
-            now = datetime.now(UTC)
+            now = datetime.now(timezone.utc)
             auth = Authenticator()
             seq_set(auth, 'cname', user.components_to_asn1)
             auth['authenticator-vno']  = 5
