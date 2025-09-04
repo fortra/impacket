@@ -43,6 +43,7 @@ from impacket.nt_errors import STATUS_ACCESS_DENIED, STATUS_SUCCESS
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
 from impacket.spnego import SPNEGO_NegTokenInit, ASN1_AID, SPNEGO_NegTokenResp, TypesMech, MechTypes, \
     ASN1_SUPPORTED_MECH
+from impacket.examples.utils import get_address
 
 
 class WCFRelayServer(Thread):
@@ -50,12 +51,7 @@ class WCFRelayServer(Thread):
         def __init__(self, server_address, request_handler_class, config):
             self.config = config
             self.daemon_threads = True
-            if self.config.ipv6:
-                self.address_family = socket.AF_INET6
-                # scope_id (after %) can be present or not - if not, default: 0
-                ip_parts = server_address[0].split('%')
-                scope_id = int(ip_parts[1]) if len(ip_parts) == 2 else 0
-                server_address = server_address + (0, scope_id)
+            server_address = get_address(server_address[0], server_address[1], self.config.ipv6)
             self.wpad_counters = {}
             socketserver.TCPServer.__init__(self, server_address, request_handler_class)
 
