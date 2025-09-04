@@ -215,7 +215,7 @@ class GetUserNoPreAuth:
             # Yes, just ask the TGT and exit
             logging.info('Getting TGT for %s' % self.__username)
             entry = self.getTGT(self.__username)
-            self.outputTGT(entry, None)
+            self.request_multiple_TGTs([self.__username])
             return
 
         try:
@@ -228,7 +228,7 @@ class GetUserNoPreAuth:
                 # Cannot authenticate, we will try to get this users' TGT (hoping it has PreAuth disabled)
                 logging.info('Cannot authenticate %s, getting its TGT' % self.__username)
                 entry = self.getTGT(self.__username)
-                self.outputTGT(entry, None)
+                self.request_multiple_TGTs([self.__username])   
                 return
 
         # Building the search filter
