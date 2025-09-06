@@ -186,6 +186,11 @@ class HTTPRelayServer(Thread):
                 self.wfile.write(imgFile_data)
 
         def strip_blob(self, proxy):
+            # Get the body of the request if any
+            # Otherwise, successive requests will not beb handled properly
+            # Was added in July 29, 2020 branch e59ff69 and removed during
+            # restructuring March 30, 2022 branch a168273. Needed for 
+            # relaying the request during WSUS relay attacks
             if PY2:
                 if proxy:
                     proxyAuthHeader = self.headers.getheader('Proxy-Authorization')
