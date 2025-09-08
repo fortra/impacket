@@ -83,7 +83,7 @@ class MiniShell(cmd.Cmd):
 
         # Print header
         print(outputFormat.format(*header))
-        print('  '.join(['-' * itemLen for itemLen in colLen]))
+        print('  '.join(['-' * max(itemLen, 3) for itemLen in colLen]))
 
         # And now the rows
         for row in items:
@@ -112,7 +112,7 @@ class MiniShell(cmd.Cmd):
    - admin : true or false 
         '''
 
-        headers = ["Protocol", "Target", "Username", "AdminStatus", "Port"]
+        headers = ["Protocol", "Target", "Username", "AdminStatus", "Port", "ID"]
         url = "http://{}/ntlmrelayx/api/v1.0/relays".format(self.api_address)
         try:
             proxy_handler = ProxyHandler({})
@@ -135,7 +135,8 @@ class MiniShell(cmd.Cmd):
                     elif(_filter=='admin'):
                         _filter=3
                     else:
-                        logging.info('Expect : target / username / admin = value')                    
+                        logging.info('Expect : target / username / admin = value')
+                        return
                     _items=[]
                     for i in items:
                         if(_value.lower() in i[_filter].lower()):
