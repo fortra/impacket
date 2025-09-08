@@ -43,7 +43,8 @@ class WinRMSRelayServer(Thread):
             if self.config.ipv6:
                 self.address_family = socket.AF_INET6
             self.wpad_counters = {}
-
+            
+            socketserver.TCPServer.allow_reuse_address = True
             socketserver.TCPServer.__init__(self, server_address, RequestHandlerClass)
 
             key = crypto.PKey()

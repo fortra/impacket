@@ -41,6 +41,7 @@ class WinRMRelayServer(Thread):
                 self.address_family = socket.AF_INET6
             # Tracks the number of times authentication was prompted for WPAD per client
             self.wpad_counters = {}
+            socketserver.TCPServer.allow_reuse_address = True
             socketserver.TCPServer.__init__(self,server_address, RequestHandlerClass)
 
     class HTTPHandler(http.server.SimpleHTTPRequestHandler):
