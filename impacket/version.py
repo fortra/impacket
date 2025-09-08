@@ -9,13 +9,16 @@
 # for more information.
 #
 
-import pkg_resources
+try:
+    from importlib.metadata import version as get_version, PackageNotFoundError
+except ImportError:
+    from importlib_metadata import version as get_version, PackageNotFoundError
 from impacket import __path__
 
 
 try:
-    version = pkg_resources.get_distribution('impacket').version
-except pkg_resources.DistributionNotFound:
+    version = get_version('impacket')
+except PackageNotFoundError:
     version = "?"
     print("Cannot determine Impacket version. "
           "If running from source you should at least run \"python setup.py egg_info\"")
