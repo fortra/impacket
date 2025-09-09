@@ -17,10 +17,7 @@
 #  Dirk-jan Mollema (@_dirkjan) / Fox-IT (https://www.fox-it.com)
 #
 import os, sys
-try:
-    from importlib.resources import files
-except ImportError:
-    from importlib_resources import files
+from importlib.resources import files
 from impacket import LOG
 from threading import Thread
 

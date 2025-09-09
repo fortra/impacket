@@ -10,10 +10,7 @@
 #
 import os
 import sys
-try:
-    from importlib.resources import files
-except ImportError:
-    from importlib_resources import files
+from importlib.resources import files
 
 SOCKS_RELAYS = set()
 

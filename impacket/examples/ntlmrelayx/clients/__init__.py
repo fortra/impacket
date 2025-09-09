@@ -16,10 +16,7 @@
 #   Alberto Solino (@agsolino)
 #
 import os, sys
-try:
-    from importlib.resources import files
-except ImportError:
-    from importlib_resources import files
+from importlib.resources import files
 from impacket import LOG
 
 PROTOCOL_CLIENTS = {}
