@@ -30,8 +30,6 @@ from impacket import version, tds
 
 
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
     print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "TDS client implementation (SSL supported).")
@@ -41,7 +39,9 @@ if __name__ == '__main__':
     parser.add_argument('-windows-auth', action='store_true', default=False, help='whether or not to use Windows '
                                                                                   'Authentication (default False)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-show', action='store_true', help='show the queries')
+    parser.add_argument('-command', action='extend', nargs='*', help='Commands to execute in the SQL shell. Multiple commands can be passed.')
     parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the SQL shell')
 
     group = parser.add_argument_group('authentication')
@@ -69,13 +69,8 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
-
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
+    # Init the example's logger theme
+    logger.init(options.ts, options.debug)
 
     domain, username, password, remoteName = parse_target(options.target)
 
@@ -107,10 +102,14 @@ if __name__ == '__main__':
         res = False
     if res is True:
         shell = SQLSHELL(ms_sql, options.show)
-        if options.file is None:
-            shell.cmdloop()
-        else:
+        if options.file:
             for line in options.file.readlines():
                 print("SQL> %s" % line, end=' ')
                 shell.onecmd(line)
+        elif options.command:
+            for c in options.command:
+                print("SQL> %s" % c)
+                shell.onecmd(c)
+        else:
+            shell.cmdloop()
     ms_sql.disconnect()
