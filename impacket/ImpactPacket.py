@@ -432,7 +432,7 @@ class Header(PacketBuffer,ProtocolLayer):
         if(len(aBuffer) < hdr_len):         #we must do something like this
             diff = hdr_len - len(aBuffer)
             for i in range(0, diff):
-                aBuffer += '\x00'
+                aBuffer += b'\x00'
         self.set_bytes_from_string(aBuffer[:hdr_len])
 
     def get_header_size(self):

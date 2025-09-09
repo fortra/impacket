@@ -178,7 +178,7 @@ class DhcpPacket(ProtocolPacket, structure.Structure):
             # size = self.calcUnpackSize(format, options[i+1:])
             size = options[i+1]
             # print i, name, format, size
-            value = self.unpack(format, options[i+2:i+2+size])
+            value = self.unpack(format, bytes(options[i+2:i+2+size]))
             answer.append((name, value))
             i += 2+size
 

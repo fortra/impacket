@@ -330,6 +330,7 @@ class NBNodeStatusResponse(NBNSResourceRecord):
         res = pack('!B', self.num_names )
         for i in range(0, self.num_names):
             res += self.entries[i].getData()
+        res += self.statistics.getData() # (RFC 1002) 4.2.18.  NODE STATUS RESPONSE
 
 class NBPositiveNameQueryResponse(NBNSResourceRecord):
     def __init__(self, data = 0):
@@ -511,12 +512,12 @@ class NetBIOS:
     # Creates a NetBIOS instance without specifying any default NetBIOS domain nameserver.
     # All queries will be sent through the servport.
     def __init__(self, servport = NETBIOS_NS_PORT):
-        self.__servport = NETBIOS_NS_PORT
+        self.__servport = servport
         self.__nameserver = None
         self.__broadcastaddr = BROADCAST_ADDR
         self.mac = b'00-00-00-00-00-00'
 
-    def _setup_connection(self, dstaddr, timeout=None):
+    def _setup_connection(self, dstaddr):
         port = rand.randint(10000, 60000)
         af, socktype, proto, _canonname, _sa = socket.getaddrinfo(dstaddr, port, socket.AF_INET, socket.SOCK_DGRAM)[0]
         s = socket.socket(af, socktype, proto)

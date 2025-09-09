@@ -163,6 +163,7 @@ WIN_VERSIONS = {
     22621:"Windows 11",
     22631:"Windows 11",
     25398:"Windows Server 2022",
+    26100:"Windows 11 / Server 2025",
 }
 
 
@@ -797,7 +798,7 @@ class SMB3:
         authenticator['authenticator-vno'] = 5
         authenticator['crealm'] = domain
         seq_set(authenticator, 'cname', userName.components_to_asn1)
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
 
         authenticator['cusec'] = now.microsecond
         authenticator['ctime'] = KerberosTime.to_asn1(now)
@@ -1171,7 +1172,7 @@ class SMB3:
 
         treeConnect = SMB2TreeConnect()
         treeConnect['Buffer']     = path.encode('utf-16le')
-        treeConnect['PathLength'] = len(path)*2
+        treeConnect['PathLength'] = len(treeConnect['Buffer'])
 
         packet = self.SMB_PACKET()
         packet['Command'] = SMB2_TREE_CONNECT
@@ -1284,7 +1285,7 @@ class SMB3:
         smb2Create['CreateDisposition']    = creationDisposition
         smb2Create['CreateOptions']        = creationOptions
 
-        smb2Create['NameLength']           = len(fileName)*2
+        smb2Create['NameLength']           = len(fileName.encode('utf-16le'))
         if fileName != '':
             smb2Create['Buffer']           = fileName.encode('utf-16le')
         else:
@@ -1470,8 +1471,9 @@ class SMB3:
         if maxBufferSize is None:
             maxBufferSize = self._Connection['MaxReadSize']
         queryDirectory['OutputBufferLength'] = maxBufferSize
-        queryDirectory['FileNameLength']     = len(searchString)*2
         queryDirectory['Buffer']             = searchString.encode('utf-16le')
+        queryDirectory['FileNameLength']     = len(queryDirectory['Buffer'])
+        
 
         packet['Data'] = queryDirectory
 
@@ -1718,8 +1720,9 @@ class SMB3:
             renameReq = FILE_RENAME_INFORMATION_TYPE_2()
             renameReq['ReplaceIfExists'] = 1
             renameReq['RootDirectory']   = '\x00'*8
-            renameReq['FileNameLength']  = len(newPath)*2
             renameReq['FileName']        = newPath.encode('utf-16le')
+            renameReq['FileNameLength']  = len(renameReq['FileName'])
+
             self.setInfo(treeId, fileId, renameReq, infoType = SMB2_0_INFO_FILE, fileInfoClass = SMB2_FILE_RENAME_INFO)
         finally:
             if fileId is not None:
@@ -1806,7 +1809,7 @@ class SMB3:
                         fileInfo = smb.SMBFindFileFullDirectoryInfo(smb.SMB.FLAGS2_UNICODE)
                         fileInfo.fromString(res)
                         files.append(smb.SharedFile(fileInfo['CreationTime'], fileInfo['LastAccessTime'],
-                                                    fileInfo['LastChangeTime'], fileInfo['EndOfFile'],
+                                                    fileInfo['LastWriteTime'], fileInfo['LastChangeTime'], fileInfo['EndOfFile'],
                                                     fileInfo['AllocationSize'], fileInfo['ExtFileAttributes'],
                                                     fileInfo['FileName'].decode('utf-16le'),
                                                     fileInfo['FileName'].decode('utf-16le')))
@@ -1816,9 +1819,6 @@ class SMB3:
                     if (e.get_error_code()) != STATUS_NO_MORE_FILES:
                         raise
                     break
-                except Exception as e:
-                    print(str(e))
-                    raise
         finally:
             if fileId is not None:
                 self.close(treeId, fileId)
@@ -1891,7 +1891,7 @@ class SMB3:
 
         return True
 
-    def retrieveFile(self, shareName, path, callback, mode = FILE_OPEN, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ):
+    def retrieveFile(self, shareName, path, callback, mode = FILE_OPEN, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE):
         createContexts = None
 
         if self.isSnapshotRequest(path):
@@ -1931,7 +1931,7 @@ class SMB3:
                 self.close(treeId, fileId)
             self.disconnectTree(treeId)
 
-    def storeFile(self, shareName, path, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = FILE_SHARE_WRITE):
+    def storeFile(self, shareName, path, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ):
         # ToDo: Handle situations where share is password protected
         path = path.replace('/', '\\')
         path = ntpath.normpath(path)
@@ -1964,9 +1964,10 @@ class SMB3:
 
         pipeWait = FSCTL_PIPE_WAIT_STRUCTURE()
         pipeWait['Timeout']          = timeout*100000
-        pipeWait['NameLength']       = len(pipename)*2
-        pipeWait['TimeoutSpecified'] = 1
         pipeWait['Name']             = pipename.encode('utf-16le')
+        pipeWait['NameLength']       = len(pipeWait['Name'] )
+        pipeWait['TimeoutSpecified'] = 1
+
 
         return self.ioctl(treeId, None, FSCTL_PIPE_WAIT,flags=SMB2_0_IOCTL_IS_FSCTL, inputBlob=pipeWait, maxInputResponse = 0, maxOutputResponse=0)
 
