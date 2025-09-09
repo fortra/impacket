@@ -9,10 +9,7 @@
 # for more information.
 #
 
-try:
-    from importlib.metadata import version as get_version, PackageNotFoundError
-except ImportError:
-    from importlib_metadata import version as get_version, PackageNotFoundError
+from importlib.metadata import version as get_version, PackageNotFoundError
 from impacket import __path__
 
 
