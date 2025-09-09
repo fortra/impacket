@@ -15,7 +15,8 @@
 # Author:
 #   Alberto Solino (@agsolino)
 #
-import os, sys, pkg_resources
+import os, sys
+from importlib.resources import files
 from impacket import LOG
 
 PROTOCOL_CLIENTS = {}
@@ -94,7 +95,8 @@ class ProtocolClient:
         # By default, raise exception
         raise RuntimeError('Virtual Function')
 
-for file in pkg_resources.resource_listdir('impacket.examples.ntlmrelayx', 'clients'):
+clients_path = files('impacket.examples.ntlmrelayx').joinpath('clients')
+for file in [f.name for f in clients_path.iterdir() if f.is_file()]:
     if file.find('__') >= 0 or file.endswith('.py') is False:
         continue
     # This seems to be None in some case (py3 only)
