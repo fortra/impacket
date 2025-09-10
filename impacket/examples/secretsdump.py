@@ -1360,10 +1360,10 @@ class CryptoCommon:
 
 
 class OfflineRegistry:
-    def __init__(self, hiveFile = None, isRemote = False, format = "save"):
+    def __init__(self, hiveFile = None, isRemote = False):
         self.__hiveFile = hiveFile
         if self.__hiveFile is not None:
-            self.__registryHive = winregistry.Registry(self.__hiveFile, isRemote, format)
+            self.__registryHive = winregistry.Registry(self.__hiveFile, isRemote)
 
     def enumKey(self, searchKey):
         parentKey = self.__registryHive.findKey(searchKey)
@@ -1415,8 +1415,8 @@ class OfflineRegistry:
             self.__registryHive.close()
 
 class SAMHashes(OfflineRegistry):
-    def __init__(self, samFile, bootKey, isRemote = False, printUserStatus=False, format="save", perSecretCallback = lambda secret: _print_helper(secret)):
-        OfflineRegistry.__init__(self, samFile, isRemote, format)
+    def __init__(self, samFile, bootKey, isRemote = False, printUserStatus=False, perSecretCallback = lambda secret: _print_helper(secret)):
+        OfflineRegistry.__init__(self, samFile, isRemote)
         self.__samFile = samFile
         self.__hashedBootKey = b''
         self.__bootKey = bootKey
@@ -1820,9 +1820,9 @@ class LSASecrets(OfflineRegistry):
         LSA_RAW = 2
         LSA_KERBEROS = 3
 
-    def __init__(self, securityFile, bootKey, remoteOps=None, isRemote=False, history=False, format = "save",
+    def __init__(self, securityFile, bootKey, remoteOps=None, isRemote=False, history=False,
                  perSecretCallback=lambda secretType, secret: _print_helper(secret)):
-        OfflineRegistry.__init__(self, securityFile, isRemote, format)
+        OfflineRegistry.__init__(self, securityFile, isRemote)
         self.__hashedBootKey = b''
         self.__bootKey = bootKey
         self.__LSAKey = b''
