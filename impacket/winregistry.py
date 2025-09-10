@@ -30,6 +30,7 @@ from binascii import unhexlify
 from struct import unpack
 import ntpath
 from six import b
+from abc import ABC, abstractmethod
 
 from impacket import LOG
 from impacket.structure import Structure, hexdump
@@ -162,7 +163,43 @@ StructMappings = {b'nk': REG_NK,
                   b'sk': REG_SK,
                  }
 
-class saveRegistryParser:
+class Registry(ABC):
+    def close(self):
+        if hasattr(self, 'fd'):
+            self.fd.close()
+
+    def __del__(self):
+        self.close()
+
+    @abstractmethod
+    def walk(self, parentKey):
+        pass
+
+    @abstractmethod
+    def findKey(self, key):
+        pass
+
+    @abstractmethod
+    def printValue(self, valueType, valueData):
+        pass
+
+    @abstractmethod
+    def enumKey(self, parentKey):
+        pass
+
+    @abstractmethod
+    def enumValues(self, key):
+        pass
+
+    @abstractmethod
+    def getValue(self, keyValue, valueName=None):
+        pass
+
+    @abstractmethod
+    def getClass(self, className):
+        pass
+
+class saveRegistryParser(Registry):
     def __init__(self, hive, isRemote = False):
         self.__hive = hive
         if isRemote is True:
@@ -178,13 +215,6 @@ class saveRegistryParser:
             LOG.error("Can't find root key!")
         elif self.__regf['MajorVersion'] != 1 and self.__regf['MinorVersion'] > 5:
             LOG.warning("Unsupported version (%d.%d) - things might not work!" % (self.__regf['MajorVersion'], self.__regf['MinorVersion']))
-
-    def close(self):
-        if hasattr(self, 'fd'):
-            self.fd.close()
-
-    def __del__(self):
-        self.close()
 
     def __findRootKey(self):
         self.fd.seek(0,0)
@@ -550,20 +580,13 @@ class RegistryNode:
         self.childKeys = self.childKeys | childKey
 
 
-class exportRegistryParser:
+class exportRegistryParser(Registry):
     def __init__(self, hive):
         self.indent = ''
         self.__hive = hive
-        self.fd = open(hive, encoding='utf-16-le')
+        self.fd = open(hive, encoding='utf-16le')
         self.__buildRegistryTree()
         
-    def close(self):
-        if hasattr(self, 'fd'):
-            self.fd.close()
-
-    def __del__(self):
-        self.close()
-
     def __parseType(self, ValueType):   
         if ValueType == 'hex(0)':
             return REG_NONE
@@ -739,7 +762,7 @@ class exportRegistryParser:
             node = self.__findNode(keyPath)
             ValueType, ValueData = node.data[regValue]
             if ValueType in [REG_SZ]:
-                return ValueType, ValueData.encode("utf-16-le")
+                return ValueType, ValueData.encode("utf-16le")
             else: 
                 return ValueType, unhexlify(ValueData)
         except:
@@ -749,40 +772,37 @@ class exportRegistryParser:
         # Export format does not contain class name
         return None
 
+# Factory function to create the appropriate registry parser
+def get_registry_parser(hive, isRemote=False):
+    """
+    Factory function to instantiate the correct registry parser by auto-detecting the hive format.
+    :param hive: Path to the registry hive file (str) or file-like object
+    :param isRemote: Whether the hive is remote
+    :return: An instance of saveRegistryParser or exportRegistryParser
+    """
 
-class Registry:
-    def __init__(self, hive, isRemote = False, hiveFormat = 'save'):
-        self.indent = ''
-        self.__hiveFormat = hiveFormat
-        if self.__hiveFormat == 'save':
-            self.__registryParser = saveRegistryParser(hive, isRemote)
-        elif self.__hiveFormat == 'export':
-            self.__registryParser = exportRegistryParser(hive)
-        
-    def close(self):
-        if hasattr(self.__registryParser, 'fd'):
-            self.__registryParser.fd.close()
+    # can be called from secretsdump.RemoteFile or from file path
+    is_file_object = hasattr(hive, 'read') and hasattr(hive, 'seek')
 
-    def __del__(self):
-        self.close()
-    
-    def walk(self, parentKey):
-        return self.__registryParser.walk(parentKey)
-            
-    def findKey(self, key):
-        return self.__registryParser.findKey(key)
+    if is_file_object:
+        # secretsdump.RemoteFile 
+        return saveRegistryParser(hive, isRemote)
+    else:
+        # File path (string)
+        with open(hive, 'rb') as fd:
+            data = fd.read(64)
 
-    def printValue(self, valueType, valueData):
-        return self.__registryParser.printValue(valueType, valueData)
+    # Decide which class to instantiate based on format detection
+    if data[:4] == b'regf':
+        # Binary hive format
+        return saveRegistryParser(hive, isRemote)
 
-    def enumKey(self, parentKey):
-        return self.__registryParser.enumKey(parentKey)
+    # Check for export format
+    try:
+        header = data.decode('utf-16le')
+        if 'Windows Registry Editor' in header or 'REGEDIT' in header:
+            return exportRegistryParser(hive)
+    except Exception:
+        pass
 
-    def enumValues(self,key):
-        return self.__registryParser.enumValues(key)
-
-    def getValue(self, keyValue, valueName=None):
-        return self.__registryParser.getValue(keyValue, valueName)
-
-    def getClass(self, className):
-        return self.__registryParser.getClass(className)
+    raise ValueError("Could not determine registry hive format (not a binary hive or export)")
