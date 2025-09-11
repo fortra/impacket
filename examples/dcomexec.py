@@ -58,7 +58,7 @@ from impacket.dcerpc.v5.dcomrt import OBJREF, FLAGS_OBJREF_CUSTOM, OBJREF_CUSTOM
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.examples import logger
 from impacket.examples.utils import parse_target
-from impacket.smbconnection import SMBConnection, SMB_DIALECT, SMB2_DIALECT_002, SMB2_DIALECT_21
+from impacket.smbconnection import SMBConnection, SMB_DIALECT, SMB2_DIALECT_002, SMB2_DIALECT_21, FILE_SHARE_READ
 from impacket.krb5.keytab import Keytab
 
 OUTPUT_FILENAME = '__' + str(time.time())[:5]
@@ -361,7 +361,7 @@ class RemoteShell(cmd.Cmd):
 
         while True:
             try:
-                self.__transferClient.getFile(self._share, self._output, output_callback)
+                self.__transferClient.getFile(self._share, self._output, output_callback, FILE_SHARE_READ)
                 break
             except Exception as e:
                 if str(e).find('STATUS_SHARING_VIOLATION') >=0:

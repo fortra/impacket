@@ -32,6 +32,7 @@ import logging
 
 from impacket.examples import logger
 from impacket import version
+from impacket.smb import FILE_SHARE_READ
 from impacket.dcerpc.v5 import tsch, transport
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_GSS_NEGOTIATE, \
@@ -219,7 +220,7 @@ class TSCH_EXEC:
         while True:
             try:
                 logging.info('Attempting to read ADMIN$\\Temp\\%s' % tmpFileName)
-                smbConnection.getFile('ADMIN$', 'Temp\\%s' % tmpFileName, output_callback)
+                smbConnection.getFile('ADMIN$', 'Temp\\%s' % tmpFileName, output_callback, FILE_SHARE_READ)
                 break
             except Exception as e:
                 if str(e).find('SHARING') > 0:

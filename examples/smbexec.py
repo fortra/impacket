@@ -53,6 +53,7 @@ from base64 import b64encode
 from impacket.examples import logger
 from impacket.examples.utils import parse_target
 from impacket import version, smbserver
+from impacket.smb import FILE_SHARE_READ
 from impacket.dcerpc.v5 import transport, scmr
 from impacket.krb5.keytab import Keytab
 
@@ -268,7 +269,7 @@ class RemoteShell(cmd.Cmd):
             self.__outputBuffer += data
 
         if self.__mode == 'SHARE':
-            self.transferClient.getFile(self.__share, OUTPUT_FILENAME, output_callback)
+            self.transferClient.getFile(self.__share, OUTPUT_FILENAME, output_callback, FILE_SHARE_READ)
             self.transferClient.deleteFile(self.__share, OUTPUT_FILENAME)
         else:
             fd = open(SMBSERVER_DIR + '/' + OUTPUT_FILENAME,'rb')
