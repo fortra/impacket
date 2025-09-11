@@ -1233,7 +1233,13 @@ def hept_lookup(destHost, inquiry_type = RPC_C_EP_ALL_ELTS, objectUUID = NULL, i
         request['entry_handle'] = entry_handle
         request['max_ents'] = 500
 
-        resp = dce.request(request)
+        try:
+            resp = dce.request(request)
+        except DCERPCException as e:
+            # [MS-RPCE]: Section 2.2.1.2.4 specify ept_lookup should return 0x16C9A0D6 when no more entries
+            if e.error_code == 0x16c9a0d6:
+                break
+            raise e
 
         for i in range(resp['num_ents']):
             tmpEntry = {}
@@ -1244,6 +1250,7 @@ def hept_lookup(destHost, inquiry_type = RPC_C_EP_ALL_ELTS, objectUUID = NULL, i
             entries.append(tmpEntry)
 
         entry_handle = resp['entry_handle']
+        # However MSAD implementation seems to never return 0x16C9A0D6 but instead return an empty handle to notify end of elements
         if entry_handle.isNull():
             break
 
