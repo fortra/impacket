@@ -38,7 +38,7 @@ from base64 import b64encode
 from impacket.examples import logger
 from impacket.examples.utils import parse_target
 from impacket import version
-from impacket.smbconnection import SMBConnection, SMB_DIALECT, SMB2_DIALECT_002, SMB2_DIALECT_21
+from impacket.smbconnection import SMBConnection, SMB_DIALECT, SMB2_DIALECT_002, SMB2_DIALECT_21, FILE_SHARE_READ
 from impacket.dcerpc.v5.dcomrt import DCOMConnection, COMVERSION
 from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dtypes import NULL
@@ -269,7 +269,7 @@ class RemoteShell(cmd.Cmd):
 
         while True:
             try:
-                self.__transferClient.getFile(self.__share, self.__output, output_callback)
+                self.__transferClient.getFile(self.__share, self.__output, output_callback, FILE_SHARE_READ)
                 break
             except Exception as e:
                 if str(e).find('STATUS_SHARING_VIOLATION') >= 0:
@@ -281,6 +281,7 @@ class RemoteShell(cmd.Cmd):
                     logging.debug('Connection broken, trying to recreate it')
                     self.__transferClient.reconnect()
                     return self.get_output()
+        
         self.__transferClient.deleteFile(self.__share, self.__output)
 
     def execute_remote(self, data, shell_type='cmd'):

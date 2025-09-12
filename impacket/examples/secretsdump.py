@@ -1169,7 +1169,7 @@ class RemoteOperations:
         tries = 0
         while True:
             try:
-                self.__smbConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
+                self.__smbConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer, FILE_SHARE_READ)
                 break
             except Exception as e:
                 if tries > 30:
