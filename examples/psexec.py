@@ -700,7 +700,6 @@ class RemoteStdOutPipe(Pipes):
                         #     LastDataSent = ''
                     except Exception as e:
                         pass
-# 这段代码就是 “远程 stdout 管道输出的清洗器 + 交互模拟器”。
 
 
 class RemoteStdErrPipe(Pipes):
@@ -710,11 +709,9 @@ class RemoteStdErrPipe(Pipes):
     def run(self):
         self.connectPipe()
 
-        # 建立和远程进程的 stderr 命名管道 的连接。
 
         if PY3:
             __stderrOutputBuffer, __stderrData = b'', b''
-            # __stderrOutputBuffer：用于拼接未完整的一行错误输出。
 
             while True:
                 try:
@@ -724,25 +721,13 @@ class RemoteStdErrPipe(Pipes):
                 else:
                     try:
                         if len(stderr_ans) != 0:
-                            # Append new data to the buffer while there is data to read
-                            __stderrOutputBuffer += stderr_ans
-                            # 无限循环持续读取管道（守护线程模式）。
-                            # readFile(..., 1024)：尝试读取最多 1024 bytes。可能的返回：
-                            # 非空 bytes：新数据
-                            # 空 bytes：可能表示无内容（实现依赖 impacket），但代码只在 len(stderr_ans) != 0 时 append
-                            # readFile 抛异常（如网络问题、文件句柄失效）：except 捕获并 pass —— 循环继续（线程不会崩溃）
-                            # 把非空读取结果追加到 __stderrOutputBuffer。
 
                         if b'\n' in __stderrOutputBuffer:
                             # We have read a line, print buffer if it is not empty
                             lines = __stderrOutputBuffer.split(b"\n")
                             # All lines, we shouldn't have encoding errors
                             __stderrData = b"\n".join(lines[:-1]) + b"\n"
-                            # Remainder data for next iteration
                             __stderrOutputBuffer = lines[-1]
-                            # 如果缓冲中出现 \n 则说明至少有一整行（或多行）可输出。
-                            # lines[:-1] 是所有完整行（最后一项可能为不完整的尾部），通过 b"\n".join(...) + b"\n" 恢复原来的换行格式放入 __stderrData。
-                            # 将最后一个片段（不完整行或空）留回 __stderrOutputBuffer 以便下一次继续拼接。
 
                         if len(__stderrData) != 0:
                             # There is data to print
@@ -756,9 +741,6 @@ class RemoteStdErrPipe(Pipes):
                                               'again with -codec and the corresponding codec')
                                 print(__stderrData.decode(CODEC, errors='replace'))
                                 __stderrData = b""
-                                # 使用 CODEC（来自脚本顶部 CODEC = sys.stdout.encoding 或 -codec 参数覆盖）对 bytes 调用 .decode(CODEC)，得到 str 并写到 sys.stdout。
-                                # sys.stdout.flush() 确保即时输出。
-                                # 成功后把 __stderrData 清空。
                         else:
                             # Don't echo the command that was sent, and clear it up
                             LastDataSent = b""
@@ -768,7 +750,6 @@ class RemoteStdErrPipe(Pipes):
                         #     LastDataSent = ''
                     except Exception as e:
                         pass
-                    # 处理解析/输出过程中的任意异常并忽略，保持线程存活
         else:
             __stderrOutputBuffer, __stderrData = '', ''
 
@@ -852,22 +833,15 @@ class RemoteShell(cmd.Cmd):
 
             import ntpath
             filename = ntpath.basename(src_path)
-            # ntpath 是 Python 提供的 Windows 路径处理模块（即使在 Linux 上也能模拟 Windows 路径规则）。src_path 是远程文件路径，ntpath.basename()会提取最后的文件名
             fh = open(filename,'wb')
-            # 在攻击机本地打开一个文件，写入模式（二进制）。
             logging.info("Downloading %s\\%s" % (self.share, src_path))
-            # 打印日志，提示正在下载哪个共享里的哪个文件。
             self.transferClient.getFile(self.share, src_path, fh.write)
-            # 通过 SMB 协议下载文件。
             fh.close()
-            # 关闭本地文件句柄，保存下载完成的文件。
         except Exception as e:
             logging.critical(str(e))
             pass
-        # 如果下载过程中失败（例如路径错误、权限不足、连接断开），会捕获异常并打印错误信息。
 
         self.send_data('\r\n')
-        # 和 do_shell、do_help 一样，追加换行，保证交互界面整洁。
 
     def do_lput(self, s):
         try:
