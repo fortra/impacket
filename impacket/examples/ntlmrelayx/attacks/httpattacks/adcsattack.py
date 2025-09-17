@@ -20,6 +20,9 @@ import base64
 import os
 from OpenSSL import crypto
 
+from cryptography.hazmat.primitives.serialization import pkcs12
+from cryptography.hazmat.primitives.serialization import NoEncryption
+
 from impacket import LOG
 
 # cache already attacked clients
@@ -110,13 +113,18 @@ class ADCSAttack:
         return crypto.dump_certificate_request(csr_type, req)
 
     @staticmethod
-    def generate_pfx(key, certificate, cert_type = crypto.FILETYPE_PEM):
-        certificate = crypto.load_certificate(cert_type, certificate)
-        p12 = crypto.PKCS12()
-        p12.set_certificate(certificate)
-        p12.set_privatekey(key)
-        return p12.export()
+    def generate_pfx(key, certificate):
 
+        pfx_data = pkcs12.serialize_key_and_certificates(
+            name=b"",
+            key=key,
+            cert=certificate,
+            cas=None,
+            encryption_algorithm=NoEncryption()
+        )
+        
+        return pfx_data
+    
     @staticmethod
     def generate_certattributes(template, altName):
         if altName:
