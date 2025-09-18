@@ -17,7 +17,7 @@
 #  Dirk-jan Mollema (@_dirkjan) / Fox-IT (https://www.fox-it.com)
 #
 import os, sys
-import pkg_resources
+from importlib.resources import files
 from impacket import LOG
 from threading import Thread
 
@@ -70,7 +70,8 @@ class ProtocolAttack(Thread):
     def run(self):
         raise RuntimeError('Virtual Function')
 
-for file in pkg_resources.resource_listdir('impacket.examples.ntlmrelayx', 'attacks'):
+attacks_path = files('impacket.examples.ntlmrelayx').joinpath('attacks')
+for file in [f.name for f in attacks_path.iterdir() if f.is_file()]:
     if file.find('__') >= 0 or file.endswith('.py') is False:
         continue
     # This seems to be None in some case (py3 only)

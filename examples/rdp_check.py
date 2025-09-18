@@ -25,7 +25,7 @@
 from struct import pack, unpack
 
 from impacket.examples import logger
-from impacket.examples.utils import parse_target
+from impacket.examples.utils import parse_target, get_connected_socket
 from impacket.structure import Structure
 from impacket.spnego import GSSAPI, ASN1_SEQUENCE, ASN1_OCTET_STRING, asn1decode, asn1encode
 
@@ -363,7 +363,7 @@ if __name__ == '__main__':
 
             return signature, answer
 
-    def check_rdp(host, username, password, domain, hashes = None):
+    def check_rdp(host, username, password, domain, hashes=None, ipv6=False):
 
        if hashes is not None:
            lmhash, nthash = hashes.split(':')
@@ -382,9 +382,8 @@ if __name__ == '__main__':
        tpdu['VariablePart'] = rdp_neg.getData()
        tpdu['Code'] = TDPU_CONNECTION_REQUEST
        tpkt['TPDU'] = tpdu.getData()
-   
-       s = socket.socket()
-       s.connect((host,3389))
+
+       s = get_connected_socket(host, 3389, ipv6)
        s.sendall(tpkt.getData())
        pkt = s.recv(8192)
        tpkt.fromString(pkt)
@@ -552,6 +551,7 @@ if __name__ == '__main__':
                                                                     "host using the RDP protocol.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
+    parser.add_argument('-6','--ipv6', action='store_true', help='Test on IPv6')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
@@ -575,4 +575,4 @@ if __name__ == '__main__':
         from getpass import getpass
         password = getpass("Password:")
 
-    check_rdp(address, username, password, domain, options.hashes)
+    check_rdp(address, username, password, domain, options.hashes, options.ipv6)
