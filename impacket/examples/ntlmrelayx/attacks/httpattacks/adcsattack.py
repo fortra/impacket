@@ -22,6 +22,10 @@ from OpenSSL import crypto
 
 from cryptography.hazmat.primitives.serialization import pkcs12
 from cryptography.hazmat.primitives.serialization import NoEncryption
+from cryptography.x509 import load_pem_x509_certificate
+from cryptography.hazmat.backends import default_backend
+
+
 
 from impacket import LOG
 
@@ -81,7 +85,7 @@ class ADCSAttack:
         LOG.info("GOT CERTIFICATE! ID %s" % certificate_id)
         certificate = response.read().decode()
 
-        certificate_store = self.generate_pfx(key, certificate)
+        certificate_store = self.generate_pfx(key.to_cryptography_key(), certificate)
         LOG.info("Writing PKCS#12 certificate to %s/%s.pfx" % (self.config.lootdir, self.username))
         try:
             if not os.path.isdir(self.config.lootdir):
@@ -118,7 +122,7 @@ class ADCSAttack:
         pfx_data = pkcs12.serialize_key_and_certificates(
             name=b"",
             key=key,
-            cert=certificate,
+            cert=load_pem_x509_certificate(certificate.encode(), backend=default_backend()),
             cas=None,
             encryption_algorithm=NoEncryption()
         )
