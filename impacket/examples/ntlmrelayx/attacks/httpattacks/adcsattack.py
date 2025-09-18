@@ -22,7 +22,7 @@ from OpenSSL import crypto
 
 from cryptography.hazmat.primitives.serialization import pkcs12
 from cryptography.hazmat.primitives.serialization import NoEncryption
-from cryptography.x509 import load_pem_x509_certificate
+from cryptography.x509 import load_pem_x509_certificate, load_der_x509_certificate
 from cryptography.hazmat.backends import default_backend
 
 
@@ -117,12 +117,17 @@ class ADCSAttack:
         return crypto.dump_certificate_request(csr_type, req)
 
     @staticmethod
-    def generate_pfx(key, certificate):
+    def generate_pfx(key, certificate, cert_type=crypto.FILETYPE_PEM):
+
+        if cert_type == crypto.FILETYPE_PEM:
+            cert=load_pem_x509_certificate(certificate.encode(), backend=default_backend())
+        else: #ASN!/DER
+            cert=load_der_x509_certificate(certificate.encode(), backend=default_backend())
 
         pfx_data = pkcs12.serialize_key_and_certificates(
             name=b"",
             key=key,
-            cert=load_pem_x509_certificate(certificate.encode(), backend=default_backend()),
+            cert=cert,
             cas=None,
             encryption_algorithm=NoEncryption()
         )
