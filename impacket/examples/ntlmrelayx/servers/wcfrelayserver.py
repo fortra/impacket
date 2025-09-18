@@ -51,7 +51,7 @@ class WCFRelayServer(Thread):
         def __init__(self, server_address, request_handler_class, config):
             self.config = config
             self.daemon_threads = True
-            server_address = get_address(server_address[0], server_address[1], self.config.ipv6)
+            self.address_family, server_address = get_address(server_address[0], server_address[1], self.config.ipv6)
             self.wpad_counters = {}
             socketserver.TCPServer.__init__(self, server_address, request_handler_class)
 

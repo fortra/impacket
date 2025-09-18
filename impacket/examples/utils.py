@@ -322,7 +322,9 @@ def parse_identity(credentials, hashes=None, no_pass=False, aesKey=None, k=False
 
 def get_address(ip, port, ipv6=False):
     address = (ip, port)
+    address_family = socket.AF_INET
     if ipv6:
+        address_family = socket.AF_INET6
         # scope_id (after %) can be present or not - if not, default: 0
         ip_parts = ip.split('%')
         scope_id = ip_parts[1] if len(ip_parts) == 2 else 0
@@ -333,11 +335,11 @@ def get_address(ip, port, ipv6=False):
         except ValueError:
             scope_id = socket.if_nametoindex(scope_id)
         address = address + (0, scope_id)
-    return address
+    return address_family, address
 
 import socket
 def get_connected_socket(ip, port, ipv6=False):
     s = socket.socket(socket.AF_INET6 if ipv6 else socket.AF_INET)
-    address = get_address(ip, port, ipv6)
+    _, address = get_address(ip, port, ipv6)
     s.connect(address)
     return s

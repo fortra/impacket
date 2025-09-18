@@ -41,7 +41,7 @@ class HTTPRelayServer(Thread):
         def __init__(self, server_address, RequestHandlerClass, config):
             self.config = config
             self.daemon_threads = True
-            server_address = get_address(server_address[0], server_address[1], self.config.ipv6)
+            self.address_family, server_address = get_address(server_address[0], server_address[1], self.config.ipv6)
             # Tracks the number of times authentication was prompted for WPAD per client
             self.wpad_counters = {}
             socketserver.TCPServer.__init__(self, server_address, RequestHandlerClass)
