@@ -1183,31 +1183,74 @@ class RemoteOperations:
                 else:
                     raise
 
-        lines = self.__answerTMP.split(b'\n')
-        lastShadow = b''
-        lastShadowFor = b''
-        lastShadowId = b''
+        try:
+            raw = self.__answerTMP.decode('utf-8', errors='replace')
+        except Exception:
+            raw = str(self.__answerTMP)
 
-        # Let's find the last one
-        # The string used to search the shadow for drive. Wondering what happens
-        # in other languages
-        SHADOWFOR = b'Volume: ('
-        IDSTART = b'Shadow Copy ID: {'
-        IDLEN=len('3547017b-0ac9-478b-88e6-f9be7e1c11999')
+        LOG.debug('vssadmin raw output:\n%s', raw)
 
-        for line in lines:
-           if line.find(b'GLOBALROOT') > 0:
-               lastShadow = line[line.find(b'\\\\?'):][:-1]
-           elif line.find(SHADOWFOR) > 0:
-               lastShadowFor = line[line.find(SHADOWFOR)+len(SHADOWFOR):][:2]
-           elif line.find(IDSTART) > 0:
-               lastShadowId = line[line.find(IDSTART)+len(IDSTART):][:IDLEN-1]
+        lines = raw.splitlines()
+        lastShadow = ''
+        lastShadowFor = ''
+        lastShadowId = ''
 
-        self.__smbConnection.deleteFile('ADMIN$', 'Temp\\__output')
+        guid_re = re.compile(r'\{[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}\}')
+        vol_re = re.compile(r'\(\s*([A-Za-z]):\s*\)')
+        globalroot_re = re.compile(r'\\\\\?\\GLOBALROOT', re.IGNORECASE)
 
-        LOG.debug('__getLastVSS found last VSS %s on %s with ID of %s' % (lastShadow.decode('utf-8'), lastShadowFor.decode('utf-8'), lastShadowId.decode('utf-8')))
+        indices = [i for i, ln in enumerate(lines) if globalroot_re.search(ln)]
+        if indices:
+            i = indices[-1]
+            # get the exact GLOBALROOT path (line may contain trailing chars)
+            lr = lines[i].strip()
+            m_path = re.search(r'(\\\\\?\\GLOBALROOT[^\r\n]+)', lr, re.IGNORECASE)
+            lastShadow = m_path.group(1).strip() if m_path else lr
 
-        return lastShadow.decode('utf-8'), lastShadowFor.decode('utf-8'), lastShadowId.decode('utf-8')
+            # scan around the GLOBALROOT line (prev 4 lines and next 4 lines)
+            window = []
+            start = max(0, i - 4)
+            end = min(len(lines), i + 5)
+            for j in range(start, end):
+                window.append(lines[j])
+
+            # find GUID near the GLOBALROOT
+            for w in window:
+                mg = guid_re.search(w)
+                if mg:
+                    lastShadowId = mg.group(0).strip('{}')
+                    break
+
+            # find volume letter near the GLOBALROOT
+            for w in window:
+                mv = vol_re.search(w)
+                if mv:
+                    lastShadowFor = mv.group(1) + ':'
+                    break
+
+        # fallbacks if above fails
+        if not lastShadow:
+            m_paths = re.findall(r'(\\\\\?\\GLOBALROOT[^\r\n]+)', raw, re.IGNORECASE)
+            if m_paths:
+                lastShadow = m_paths[-1].strip()
+
+        if not lastShadowId:
+            mg_all = guid_re.findall(raw)
+            if mg_all:
+                lastShadowId = mg_all[-1].strip('{}')
+
+        if not lastShadowFor:
+            mv_all = re.findall(r'\(\s*([A-Za-z]):\s*\)', raw)
+            if mv_all:
+                lastShadowFor = mv_all[-1] + ':'
+
+        try:
+            self.__smbConnection.deleteFile('ADMIN$', 'Temp\\__output')
+        except Exception:
+            pass
+
+        LOG.debug('__getLastVSS found last VSS %s on %s with ID of %s', lastShadow, lastShadowFor, lastShadowId)
+        return lastShadow, lastShadowFor, lastShadowId
 
     def saveNTDS(self):
         LOG.info('Searching for NTDS.dit')
@@ -1240,13 +1283,15 @@ class RemoteOperations:
         LOG.info('Registry says NTDS.dit is at %s. Calling vssadmin to get a copy. This might take some time' % ntdsLocation)
         LOG.info('Using %s method for remote execution' % self.__execMethod)
         # Get the list of remote shadows
+
         shadow, shadowFor, shadowId = self.__getLastVSS(forDrive=ntdsDrive)
-        if shadow == '' or (shadow != '' and shadowFor != ntdsDrive):
+
+        if shadow == '' or (shadowFor and shadowFor != ntdsDrive):
             # No shadow, create one
             self.__executeRemote('%%COMSPEC%% /C vssadmin create shadow /For=%s' % ntdsDrive)
             shadow, shadowFor, shadowId = self.__getLastVSS(forDrive=ntdsDrive)
             shouldRemove = True
-            if shadow == '' or shadowFor != ntdsDrive:
+            if shadow == '':
                 raise Exception('Could not get a VSS')
         else:
             # There was already a shadow, let's not delete this
@@ -1254,13 +1299,24 @@ class RemoteOperations:
 
         # Now copy the ntds.dit to the temp directory
         tmpFileName = ''.join([random.choice(string.ascii_letters) for _ in range(8)]) + '.tmp'
+        try:
+            self.__executeRemote('%%COMSPEC%% /C copy %s%s %%SYSTEMROOT%%\\Temp\\%s' % (shadow, ntdsLocation[2:], tmpFileName))
+        except Exception:
+            if shouldRemove and shadowId:
+                try:
+                    self.__executeRemote('%%COMSPEC%% /C vssadmin delete shadows /shadow="{%s}" /Quiet' % shadowId)
+                except Exception:
+                    pass
+            raise
 
-        self.__executeRemote('%%COMSPEC%% /C copy %s%s %%SYSTEMROOT%%\\Temp\\%s' % (shadow, ntdsLocation[2:], tmpFileName))
-
-        if shouldRemove is True:
-            LOG.debug('Trying to delete shadow copy using command : %%COMSPEC%% /C vssadmin delete shadows /shadow="{%s}" /Quiet' % shadowId)
-            self.__executeRemote('%%COMSPEC%% /C vssadmin delete shadows /shadow="{%s}" /Quiet' % shadowId)
-
+        if shouldRemove is True and shadowId:
+            try:
+                LOG.debug('Trying to delete shadow copy using command : %%COMSPEC%% /C vssadmin delete shadows /shadow="{%s}" /Quiet' % shadowId)
+                self.__executeRemote('%%COMSPEC%% /C vssadmin delete shadows /shadow="{%s}" /Quiet' % shadowId)
+            except Exception:
+                LOG.debug('Failed to delete shadow copy %s' % shadowId)
+        elif shouldRemove is True and not shadowId:
+            LOG.debug('Shadow was created but no ID was parsed; skipping deletion.')
 
         tries = 0
         while True:
@@ -1279,7 +1335,6 @@ class RemoteOperations:
                     pass
 
         remoteFileName = RemoteFile(self.__smbConnection, 'Temp\\%s' % tmpFileName)
-
         return remoteFileName
 
     def createSSandDownload(self, volume, localPath):
