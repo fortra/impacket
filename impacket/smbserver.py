@@ -3991,12 +3991,18 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
     # class SMBSERVER(socketserver.ForkingMixIn, socketserver.TCPServer):
     def __init__(self, server_address, handler_class=SMBSERVERHandler, config_parser=None, ipv6=False):
         # duplicate of https://github.com/fortra/impacket/blob/082dca34a376d13c70b0df6a1d9048ce98fe9498/impacket/examples/utils.py#L323
-        # didn't reuse that same function in order not to make a lcass from the library depend on one from impacket/examples
+        # didn't reuse that same function in order not to make a class from the library depend on one from impacket/examples
         if ipv6:
             self.address_family = socket.AF_INET6
             # scope_id (after %) can be present or not - if not, default: 0
             ip_parts = server_address[0].split('%')
             scope_id = ip_parts[1] if len(ip_parts) == 2 else 0
+            # convert scope_id to int (expected by s.connect)
+            # if exception, assume the interface name and convert to index
+            try:
+                scope_id = int(scope_id)
+            except ValueError:
+                scope_id = socket.if_nametoindex(scope_id)
             server_address = server_address + (0, scope_id)
 
         socketserver.TCPServer.allow_reuse_address = True
