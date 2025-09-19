@@ -121,7 +121,7 @@ class ADCSAttack:
 
         if cert_type == crypto.FILETYPE_PEM:
             cert=load_pem_x509_certificate(certificate.encode(), backend=default_backend())
-        else: #ASN!/DER
+        else: #ASN1/DER
             cert=load_der_x509_certificate(certificate.encode(), backend=default_backend())
 
         pfx_data = pkcs12.serialize_key_and_certificates(
