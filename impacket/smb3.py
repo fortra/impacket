@@ -1891,7 +1891,7 @@ class SMB3:
 
         return True
 
-    def retrieveFile(self, shareName, path, callback, mode = FILE_OPEN, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE):
+    def retrieveFile(self, shareName, path, callback, mode = FILE_OPEN, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ):
         createContexts = None
 
         if self.isSnapshotRequest(path):

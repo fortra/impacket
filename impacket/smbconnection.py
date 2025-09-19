@@ -649,7 +649,7 @@ class SMBConnection:
         except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
     
-    def getFile(self, shareName, pathName, callback, shareAccessMode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+    def getFile(self, shareName, pathName, callback, shareAccessMode = FILE_SHARE_READ,
         mode = FILE_OPEN, offset = 0, password = None):
         """
         Reads a remote file and sends the read data to a callback method.
