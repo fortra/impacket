@@ -28,6 +28,7 @@ from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
 from impacket.nt_errors import ERROR_MESSAGES, STATUS_SUCCESS
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
+from impacket.examples.utils import get_address
 
 
 class RPCRelayServer(Thread):
@@ -35,8 +36,7 @@ class RPCRelayServer(Thread):
         def __init__(self, server_address, RequestHandlerClass, config):
             self.config = config
             self.daemon_threads = True
-            if self.config.ipv6:
-                self.address_family = socket.AF_INET6
+            self.address_family, server_address = get_address(server_address[0], server_address[1], self.config.ipv6)
             socketserver.TCPServer.allow_reuse_address = True
             socketserver.TCPServer.__init__(self, server_address, RequestHandlerClass)
 

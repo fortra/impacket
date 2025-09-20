@@ -106,17 +106,13 @@ class SMBRelayServer(Thread):
         smbConfig.set('IPC$','share type','3')
         smbConfig.set('IPC$','path','')
 
-        # Change address_family to IPv6 if this is configured
-        if self.config.ipv6:
-            SMBSERVER.address_family = socket.AF_INET6
-
         # changed to dereference configuration interfaceIp
         if self.config.listeningPort:
             smbport = self.config.listeningPort
         else:
             smbport = 445
 
-        self.server = SMBSERVER((config.interfaceIp,smbport), config_parser = smbConfig)
+        self.server = SMBSERVER((config.interfaceIp,smbport), config_parser=smbConfig, ipv6=self.config.ipv6)
         if not self.config.disableMulti:
             self.server.setAuthCallback(auth_callback)
         logging.getLogger('impacket.smbserver').setLevel(logging.CRITICAL)

@@ -290,7 +290,7 @@ if __name__ == '__main__':
 
     # Interface address specification
     parser.add_argument('-ip','--interface-ip', action='store', metavar='INTERFACE_IP', help='IP address of interface to '
-                  'bind SMB and HTTP servers',default='')
+                  'bind relay servers ("0.0.0.0" or "::" if omitted)',default=argparse.SUPPRESS)
 
     serversoptions = parser.add_argument_group()
     serversoptions.add_argument('--no-smb-server', action='store_true', help='Disables the SMB server')
@@ -332,7 +332,7 @@ if __name__ == '__main__':
                                                                    'setting the proxy host to the one supplied.')
     parser.add_argument('-wa','--wpad-auth-num', action='store', type=int, default=1, help='Prompt for authentication N times for clients without MS16-077 installed '
                                                                    'before serving a WPAD file. (default=1)')
-    parser.add_argument('-6','--ipv6', action='store_true',help='Listen on both IPv6 and IPv4')
+    parser.add_argument('-6','--ipv6', action='store_true',help='Listen on IPv6')
     parser.add_argument('--remove-mic', action='store_true',help='Remove MIC (exploit CVE-2019-1040)')
     parser.add_argument('--serve-image', action='store',help='local path of the image that will we returned to clients')
     parser.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on '
@@ -533,6 +533,9 @@ if __name__ == '__main__':
         socks_thread.daemon = True
         socks_thread.start()
         threads.add(socks_thread)
+
+    if 'interface_ip' not in options:
+        options.interface_ip = '::' if options.ipv6 else '0.0.0.0'
 
     c = start_servers(options, threads)
 
