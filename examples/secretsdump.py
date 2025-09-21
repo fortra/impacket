@@ -422,7 +422,7 @@ if __name__ == '__main__':
     parser.add_argument('-use-remoteSSWMI', action='store_true',
                         help='Remotely create Shadow Snapshot via WMI and download SAM, SYSTEM and SECURITY from it, the parse locally')
     parser.add_argument('-use-remoteSSWMI-NTDS', action='store_true',
-                        help='Dump NTDS.DIT also when using the Remote Shadow Snapshot Method via WMI. Use it with dumping from a DC.')
+                        help='Dump NTDS.DIT also when using the Remote Shadow Snapshot Method via WMI. Use it with dumping from a DC. IMPORTANT: this flag only works when also using -use-remoteSSWMI')
     parser.add_argument('-remoteSSWMI-remote-volume', action='store', default='C:\\',
                         help='Remote Volume to perform the Shadow Snapshot and download SAM, SYSTEM and SECURITY. It defaults to C:\\')
     parser.add_argument('-remoteSSWMI-local-path', action='store', default='.',
@@ -476,8 +476,8 @@ if __name__ == '__main__':
     domain, username, password, remoteName = parse_target(options.target)
 
     if options.just_dc_user is not None or options.ldapfilter is not None:
-        if options.use_vss is True:
-            logging.error('-just-dc-user switch is not supported in VSS mode')
+        if options.use_vss is True or options.use_remoteSSWMI_NTDS is True:
+            logging.error('-just-dc-user switch is not supported in VSS mode nor WMI VSS mode')
             sys.exit(1)
         elif options.resumefile is not None:
             logging.error('resuming a previous NTDS.DIT dump session not compatible with -just-dc-user switch')
@@ -489,8 +489,12 @@ if __name__ == '__main__':
             # Having this switch on implies not asking for anything else.
             options.just_dc = True
 
-    if options.use_vss is True and options.resumefile is not None:
-        logging.error('resuming a previous NTDS.DIT dump session is not supported in VSS mode')
+    if (options.use_vss is True or options.use_remoteSSWMI_NTDS is True) and options.resumefile is not None:
+        logging.error('resuming a previous NTDS.DIT dump session is not supported in VSS mode nor WMI VSS mode')
+        sys.exit(1)
+
+    if options.use_remoteSSWMI_NTDS is True and options.use_remoteSSWMI is not True:
+        logging.error('-use-remoteSSWMI-NTDS requires -use-remoteSSWMI to be specified')
         sys.exit(1)
 
     if options.use_keylist is True and (options.rodcNo is None or options.rodcKey is None):
