@@ -1368,7 +1368,7 @@ class OfflineRegistry:
     def __init__(self, hiveFile = None, isRemote = False):
         self.__hiveFile = hiveFile
         if self.__hiveFile is not None:
-            self.__registryHive = winregistry.Registry(self.__hiveFile, isRemote)
+            self.__registryHive = winregistry.get_registry_parser(self.__hiveFile, isRemote)
 
     def enumKey(self, searchKey):
         parentKey = self.__registryHive.findKey(searchKey)
@@ -3234,7 +3234,7 @@ class LocalOperations:
         # Local Version whenever we are given the files directly
         bootKey = b''
         tmpKey = b''
-        winreg = winregistry.Registry(self.__systemHive, False)
+        winreg = winregistry.get_registry_parser(self.__systemHive, False)
         # We gotta find out the Current Control Set
         currentControlSet = winreg.getValue('\\Select\\Current')[1]
         currentControlSet = "ControlSet%03d" % currentControlSet
@@ -3258,7 +3258,7 @@ class LocalOperations:
 
     def checkNoLMHashPolicy(self):
         LOG.debug('Checking NoLMHash Policy')
-        winreg = winregistry.Registry(self.__systemHive, False)
+        winreg = winregistry.get_registry_parser(self.__systemHive, False)
         # We gotta find out the Current Control Set
         currentControlSet = winreg.getValue('\\Select\\Current')[1]
         currentControlSet = "ControlSet%03d" % currentControlSet

@@ -399,7 +399,8 @@ if __name__ == '__main__':
                                                        ' (if you want to parse local files)')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
-    parser.add_argument('-system', action='store', help='SYSTEM hive to parse')
+    parser.add_argument('-system', action='store', help='SYSTEM hive to parse'
+                                                        ' (only binary REGF, as .reg text file lacks the metadata to compute the bootkey)')
     parser.add_argument('-bootkey', action='store', help='bootkey for SYSTEM hive')
     parser.add_argument('-security', action='store', help='SECURITY hive to parse')
     parser.add_argument('-sam', action='store', help='SAM hive to parse')
