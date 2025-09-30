@@ -99,8 +99,8 @@ class WinRMSRelayServer(Thread):
             try:
                 http.server.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
             except Exception as e:
-                LOG.debug("Exception:", exc_info=True)
-                LOG.error(str(e))
+                LOG.debug("(WinRMS): Exception:", exc_info=True)
+                LOG.error("(WinRMS): %s" % str(e))
 
         def handle_one_request(self):
             try:
@@ -195,7 +195,7 @@ class WinRMSRelayServer(Thread):
                         _, blob = typeX.split('Negotiate')
                     token = base64.b64decode(blob.strip())
                 except Exception:
-                    LOG.debug("Exception:", exc_info=True)
+                    LOG.debug("(WinRMS): Exception:", exc_info=True)
                     self.do_AUTHHEAD(message = b'NTLM', proxy=proxy)
                 else:
                     messageType = struct.unpack('<L',token[len('NTLMSSP\x00'):len('NTLMSSP\x00')+4])[0]
@@ -333,7 +333,7 @@ class WinRMSRelayServer(Thread):
                 if self.challengeMessage is False:
                     return False
             else:
-                LOG.error('Protocol Client for %s not found!' % self.target.scheme.upper())
+                LOG.error('(WinRMS): Protocol Client for %s not found!' % self.target.scheme.upper())
                 return False
 
             self.do_AUTHHEAD(message = b'NTLM '+base64.b64encode(self.challengeMessage.getData()), proxy=proxy)
@@ -453,7 +453,7 @@ class WinRMSRelayServer(Thread):
                     target = '%s://%s@%s' % (self.target.scheme, self.authUser.replace("/", '\\'), self.target.netloc)
 
                 if not self.do_ntlm_auth(token, authenticateMessage):
-                    LOG.error("Authenticating against %s://%s as %s FAILED" % (self.target.scheme, self.target.netloc,
+                    LOG.error("(WinRMS): Authenticating against %s://%s as %s FAILED" % (self.target.scheme, self.target.netloc,
                                                                                self.authUser))
                     if self.server.config.disableMulti:
                         self.send_not_found()
@@ -491,7 +491,7 @@ class WinRMSRelayServer(Thread):
                                               self.server.config.outputFile)
 
                     if self.server.config.dumpHashes is True:
-                        LOG.info(ntlm_hash_data['hash_string'])
+                        LOG.info("(WinRMS): %s" % ntlm_hash_data['hash_string'])
 
                     self.do_attack()
 

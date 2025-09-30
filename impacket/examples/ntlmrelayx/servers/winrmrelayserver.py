@@ -70,8 +70,8 @@ class WinRMRelayServer(Thread):
             try:
                 http.server.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
             except Exception as e:
-                LOG.debug("Exception:", exc_info=True)
-                LOG.error(str(e))
+                LOG.debug("(WinRM): Exception:", exc_info=True)
+                LOG.error("(WinRM): %s" % str(e))
 
         def handle_one_request(self):
             try:
@@ -167,7 +167,7 @@ class WinRMRelayServer(Thread):
                         _, blob = typeX.split('Negotiate')
                     token = base64.b64decode(blob.strip())
                 except Exception:
-                    LOG.debug("Exception:", exc_info=True)
+                    LOG.debug("(WinRM): Exception:", exc_info=True)
                     self.do_AUTHHEAD(message = b'NTLM', proxy=proxy)
                 else:
                     messageType = struct.unpack('<L',token[len('NTLMSSP\x00'):len('NTLMSSP\x00')+4])[0]
@@ -306,7 +306,7 @@ class WinRMRelayServer(Thread):
                 if self.challengeMessage is False:
                     return False
             else:
-                LOG.error('Protocol Client for %s not found!' % self.target.scheme.upper())
+                LOG.error('(WinRM): Protocol Client for %s not found!' % self.target.scheme.upper())
                 return False
 
             # Calculate auth
@@ -365,7 +365,7 @@ class WinRMRelayServer(Thread):
             elif messageType == 3:
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
-                LOG.info(authenticateMessage)
+                LOG.info("(WinRM): %s" % authenticateMessage)
                 if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
                     self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
                                                 authenticateMessage['user_name'].decode('utf-16le'))).upper()
@@ -430,7 +430,7 @@ class WinRMRelayServer(Thread):
                     target = '%s://%s@%s' % (self.target.scheme, self.authUser.replace("/", '\\'), self.target.netloc)
 
                 if not self.do_ntlm_auth(token, authenticateMessage):
-                    LOG.error("Authenticating against %s://%s as %s FAILED" % (self.target.scheme, self.target.netloc,
+                    LOG.error("(WinRM): Authenticating against %s://%s as %s FAILED" % (self.target.scheme, self.target.netloc,
                                                                                self.authUser))
                     if self.server.config.disableMulti:
                         self.send_not_found()
@@ -467,7 +467,7 @@ class WinRMRelayServer(Thread):
                                               self.server.config.outputFile)
 
                     if self.server.config.dumpHashes is True:
-                        LOG.info(ntlm_hash_data['hash_string'])
+                        LOG.info("(WinRM): %s" % ntlm_hash_data['hash_string'])
 
                     self.do_attack()
 
