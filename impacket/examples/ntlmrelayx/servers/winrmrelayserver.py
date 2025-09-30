@@ -79,14 +79,14 @@ class WinRMRelayServer(Thread):
             except KeyboardInterrupt:
                 raise
             except Exception as e:
-                LOG.debug("WinRM(%s): Exception:" % self.server.server_address[1], exc_info=True)
+                LOG.debug("(WinRM): Exception:", exc_info=True)
 
         def log_message(self, format, *args):
             return
 
         def send_error(self, code, message=None):
             if message.find('RPC_OUT') >=0 or message.find('RPC_IN'):
-                LOG.info('WinRM(%s): send_error path: %s' % (self.server.server_address[1], self.path.lower()))
+                LOG.info('(WinRM): send_error path: %s' % self.path.lower())
                 return self.do_GET()
             return http.server.SimpleHTTPRequestHandler.send_error(self,code,message)
 
@@ -259,7 +259,7 @@ class WinRMRelayServer(Thread):
                 content_length = int(self.headers.get('Content-Length', 0))
                 self.rfile.read(content_length)
             else:
-                LOG.info('WinRM(%s): Client requested path: %s' % (self.server.server_address[1], self.path.lower()))
+                LOG.info('(WinRM): Client requested path: %s' % self.path.lower())
                 self.send_not_found()
                 return
 
@@ -375,13 +375,11 @@ class WinRMRelayServer(Thread):
 
                 self.target = self.server.config.target.getTarget(identity = self.authUser)
                 if self.target is None:
-                    LOG.info("WinRM(%s): Connection from %s@%s controlled, but there are no more targets left!" %
-                        (self.server.server_address[1], self.authUser, self.client_address[0]))
+                    LOG.info("(WinRM): Connection from %s@%s controlled, but there are no more targets left!" % (self.authUser, self.client_address[0]))
                     self.send_not_found()
                     return
 
-                LOG.info("WinRM(%s): Connection from %s@%s controlled, attacking target %s://%s" % (self.server.server_address[1],
-                    self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
+                LOG.info("(WinRM): Connection from %s@%s controlled, attacking target %s://%s" % (self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
 
                 self.relayToHost = True
                 self.do_REDIRECT()
@@ -391,35 +389,29 @@ class WinRMRelayServer(Thread):
                 if self.server.config.disableMulti:
                     self.target = self.server.config.target.getTarget(multiRelay=False)
                     if self.target is None:
-                        LOG.info("WinRM(%s): Connection from %s controlled, but there are no more targets left!" % (
-                            self.server.server_address[1], self.client_address[0]))
+                        LOG.info("(WinRM): Connection from %s controlled, but there are no more targets left!" % self.client_address[0])
                         self.send_not_found()
                         return
 
-                    LOG.info("WinRM(%s): Connection from %s controlled, attacking target %s://%s" % (
-                        self.server.server_address[1], self.client_address[0], self.target.scheme, self.target.netloc))
+                    LOG.info("(WinRM): Connection from %s controlled, attacking target %s://%s" % (self.client_address[0], self.target.scheme, self.target.netloc))
 
                 if not self.do_ntlm_negotiate(token, proxy=proxy):
                     # Connection failed
                     if self.server.config.disableMulti:
-                        LOG.error('WinRM(%s): Negotiating NTLM with %s://%s failed' % (self.server.server_address[1],
-                                  self.target.scheme, self.target.netloc))
+                        LOG.error('(WinRM): Negotiating NTLM with %s://%s failed' % (self.target.scheme, self.target.netloc))
                         self.send_not_found()
                         return
                     else:
-                        LOG.error('WinRM(%s): Negotiating NTLM with %s://%s failed. Skipping to next target' % (
-                            self.server.server_address[1], self.target.scheme, self.target.netloc))
+                        LOG.error('(WinRM): Negotiating NTLM with %s://%s failed. Skipping to next target' % (self.target.scheme, self.target.netloc))
 
                         self.target = self.server.config.target.getTarget(identity=self.authUser)
 
                         if self.target is None:
-                            LOG.info( "WinRM(%s): Connection from %s@%s controlled, but there are no more targets left!" %
-                                (self.server.server_address[1], self.authUser, self.client_address[0]))
+                            LOG.info("(WinRM): Connection from %s@%s controlled, but there are no more targets left!" % (self.authUser, self.client_address[0]))
                             self.send_not_found()
                             return
 
-                        LOG.info("WinRM(%s): Connection from %s@%s controlled, attacking target %s://%s" % (self.server.server_address[1],
-                            self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
+                        LOG.info("(WinRM): Connection from %s@%s controlled, attacking target %s://%s" % (self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
 
                         self.do_REDIRECT()
 
@@ -449,13 +441,11 @@ class WinRMRelayServer(Thread):
                         # No anonymous login, go to next host and avoid triggering a popup
                         self.target = self.server.config.target.getTarget(identity=self.authUser)
                         if self.target is None:
-                            LOG.info("WinRM(%s): Connection from %s@%s controlled, but there are no more targets left!" %
-                                (self.server.server_address[1], self.authUser, self.client_address[0]))
+                            LOG.info("(WinRM): Connection from %s@%s controlled, but there are no more targets left!" % (self.authUser, self.client_address[0]))
                             self.send_not_found()
                             return
 
-                        LOG.info("WinRM(%s): Connection from %s@%s controlled, attacking target %s://%s" % (self.server.server_address[1],
-                            self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
+                        LOG.info("(WinRM): Connection from %s@%s controlled, attacking target %s://%s" % (self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
 
                         self.do_REDIRECT()
                     else:
@@ -463,8 +453,7 @@ class WinRMRelayServer(Thread):
                         self.do_AUTHHEAD(b'Negotiate', proxy=proxy)
                 else:
                     # Relay worked, do whatever we want here...
-                    LOG.info("WinRM(%s): Authenticating against %s://%s as %s SUCCEED" % (self.server.server_address[1],
-                        self.target.scheme, self.target.netloc, self.authUser))
+                    LOG.info("(WinRM): Authenticating against %s://%s as %s SUCCEED" % (self.target.scheme, self.target.netloc, self.authUser))
 
                     ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
                                                         authenticateMessage['user_name'],
@@ -493,8 +482,7 @@ class WinRMRelayServer(Thread):
                         self.target = self.server.config.target.getTarget(identity=self.authUser)
 
                         if self.target is None:
-                            LOG.info("WinRM(%s): Connection from %s@%s controlled, but there are no more targets left!" % (
-                                self.server.server_address[1], self.authUser, self.client_address[0]))
+                            LOG.info("(WinRM): Connection from %s@%s controlled, but there are no more targets left!" % (self.authUser, self.client_address[0]))
 
                             # Return Multi-Status status code to WebDAV servers
                             if self.command == "PROPFIND":
@@ -511,8 +499,7 @@ class WinRMRelayServer(Thread):
                             return
 
                         # We have the next target, let's keep relaying...
-                        LOG.info("WinRM(%s): Connection from %s@%s controlled, attacking target %s://%s" % (self.server.server_address[1],
-                            self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
+                        LOG.info("(WinRM): Connection from %s@%s controlled, attacking target %s://%s" % (self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
                         self.do_REDIRECT()
 
         def do_attack(self):
@@ -530,7 +517,7 @@ class WinRMRelayServer(Thread):
                                                                                self.authUser, self.target, self.client)
                 clientThread.start()
             else:
-                LOG.error('WinRM(%s): No attack configured for %s' % (self.server.server_address[1], self.target.scheme.upper()))
+                LOG.error('(WinRM): No attack configured for %s' % self.target.scheme.upper())
 
     def __init__(self, config):
         Thread.__init__(self)
