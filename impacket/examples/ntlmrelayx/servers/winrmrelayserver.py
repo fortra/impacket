@@ -453,7 +453,8 @@ class WinRMRelayServer(Thread):
                         self.do_AUTHHEAD(b'Negotiate', proxy=proxy)
                 else:
                     # Relay worked, do whatever we want here...
-                    LOG.info("(WinRM): Authenticating against %s://%s as %s SUCCEED" % (self.target.scheme, self.target.netloc, self.authUser))
+                    self.client.setClientId()
+                    LOG.info("(WinRM): Authenticating connection from %s@%s against %s://%s SUCCEED [%s]" % (self.authUser, self.client_address[0], self.target.scheme, self.target.netloc, self.client.client_id))
 
                     ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
                                                         authenticateMessage['user_name'],
