@@ -249,8 +249,8 @@ class WinRMShell(cmd.Cmd):
 class WINRMAttack(ProtocolAttack):
     PLUGIN_NAMES = ["WINRMS"]
 
-    def __init__(self, config, WINRMClient, username):
-        ProtocolAttack.__init__(self, config, WINRMClient, username)
+    def __init__(self, config, WINRMClient, username, target=None, relay_client=None):
+        ProtocolAttack.__init__(self, config, WINRMClient, username, target, relay_client)
         self.tcp_shell = TcpShell()
 
     def run(self):
