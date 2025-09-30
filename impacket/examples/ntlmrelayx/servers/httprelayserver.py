@@ -44,6 +44,7 @@ class HTTPRelayServer(Thread):
             self.address_family, server_address = get_address(server_address[0], server_address[1], self.config.ipv6)
             # Tracks the number of times authentication was prompted for WPAD per client
             self.wpad_counters = {}
+            socketserver.TCPServer.allow_reuse_address = True
             socketserver.TCPServer.__init__(self, server_address, RequestHandlerClass)
 
     class HTTPHandler(http.server.SimpleHTTPRequestHandler):
