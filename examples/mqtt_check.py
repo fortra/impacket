@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -23,6 +24,7 @@
 from __future__ import print_function
 
 import argparse
+import argcomplete
 import logging
 import sys
 
@@ -64,6 +66,8 @@ if __name__ == '__main__':
     parser.add_argument('-port', action='store', default='1883', help='port to connect to (default 1883)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     try:
         options = parser.parse_args()

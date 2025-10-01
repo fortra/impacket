@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -1039,6 +1040,7 @@ class MS14_068:
 
 if __name__ == '__main__':
     import argparse
+    import argcomplete
     import sys
     try:
         import pyasn1
@@ -1092,6 +1094,9 @@ if __name__ == '__main__':
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
+
     if len(sys.argv)==1:
         parser.print_help()
         print("\nExamples: ")
@@ -1101,6 +1106,7 @@ if __name__ == '__main__':
         print("\tif domain.net and/or domain-machine do not resolve, add them")
         print("\tto the hosts file or explicitly specify the domain IP (e.g. 1.1.1.1) and target IP:\n")
         print("\tpython goldenPac.py -dc-ip 1.1.1.1 -target-ip 2.2.2.2 domain.net/normaluser:mypwd@domain-host\n")
+
         print("\tThis will upload the xxx.exe file and execute it as: xxx.exe param1 param2 paramn")
         print("\tpython goldenPac.py -c xxx.exe domain.net/normaluser:mypwd@domain-host param1 param2 paramn\n")
         sys.exit(1)

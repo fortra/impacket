@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -30,6 +31,7 @@ import base64
 import codecs
 import logging
 import argparse
+import argcomplete
 import binascii
 import sys
 from six import PY3
@@ -974,6 +976,8 @@ if __name__ == '__main__':
     dnt_lookup.add_argument('-output-type', choices=['hex', 'base64'], nargs='?', default='hex',
         help='Output format for binary objects')
     dnt_lookup.add_argument('-output-file', action='store', help='Output filename')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv) == 1:
         parser.print_help()

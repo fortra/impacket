@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -29,6 +30,7 @@
 from __future__ import division
 from __future__ import print_function
 import argparse
+import argcomplete
 import datetime
 import logging
 import random
@@ -369,6 +371,8 @@ if __name__ == '__main__':
                                                                               'If ommited, the domain part (FQDN) '
                                                                               'specified in the account parameter will be used')
 
+    argcomplete.autocomplete(parser, always_complete_options=False)
+
     if len(sys.argv)==1:
         parser.print_help()
         print("\nThere are a few modes for using this script")
@@ -383,6 +387,7 @@ if __name__ == '__main__':
         print("\n3. Request TGTs for all users")
         print("\n\tGetNPUsers.py contoso.com/emily:password -request or GetNPUsers.py contoso.com/emily")
         print("\n4. Request TGTs for users in a file")
+
         print("\n\tGetNPUsers.py -no-pass -usersfile users.txt contoso.com/")
         print("\nFor this operation you don\'t need credentials.")
         sys.exit(1)

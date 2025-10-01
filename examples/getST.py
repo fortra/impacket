@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -52,6 +53,7 @@
 from __future__ import division
 from __future__ import print_function
 import argparse
+import argcomplete
 import datetime
 import logging
 import os
@@ -873,9 +875,12 @@ if __name__ == '__main__':
     group.add_argument('-dc-ip', action='store', metavar="ip address", help='IP Address of the domain controller. If '
                                                                             'omitted it use the domain part (FQDN) specified in the target parameter')
 
+    argcomplete.autocomplete(parser, always_complete_options=False)
+
     if len(sys.argv) == 1:
         parser.print_help()
         print("\nExamples: ")
+
         print("\t./getST.py -spn cifs/contoso-dc -hashes lm:nt contoso.com/user\n")
         print("\tit will use the lm:nt hashes for authentication. If you don't specify them, a password will be asked")
         sys.exit(1)

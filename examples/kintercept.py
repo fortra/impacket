@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -29,6 +30,7 @@
 # Example: kintercept.py --request-handler s4u2else:administrator dc-ip-addr
 #
 import struct, socket, argparse, asyncore
+import argcomplete
 from binascii import crc32
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type.univ import noValue
@@ -271,6 +273,9 @@ def parse_args():
     parser.add_argument('--reply-handler', default='', metavar='HANDLER:ARG', help='Example: tgs-rep-user:user')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
+
     return vars(parser.parse_args())
 
 

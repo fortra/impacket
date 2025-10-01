@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -24,6 +25,7 @@ from __future__ import print_function
 import sys
 import logging
 import argparse
+import argcomplete
 
 from impacket.examples import logger
 from impacket import version
@@ -80,6 +82,8 @@ def main():
     # export page
     export_parser = subparsers.add_parser('export', help='dumps the catalog info for the DB')
     export_parser.add_argument('-table', action='store', required=True, help='table to dump')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv)==1:
         parser.print_help()

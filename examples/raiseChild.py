@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -61,6 +62,7 @@
 from __future__ import division
 from __future__ import print_function
 import argparse
+import argcomplete
 import datetime
 import logging
 import random
@@ -1273,6 +1275,8 @@ if __name__ == '__main__':
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
                                                                             '(128 or 256 bits)')
 
+    argcomplete.autocomplete(parser, always_complete_options=False)
+
     if len(sys.argv)==1:
         parser.print_help()
         print("\nExamples: ")
@@ -1286,6 +1290,7 @@ if __name__ == '__main__':
         print("\tpython raiseChild.py -target-exec targetHost childDomainn.net/adminuser\n")
         print("\tThis will perform the attack and then psexec against target-exec as User with RID 1101")
         print("\tpython raiseChild.py -target-exec targetHost -targetRID 1101 childDomainn.net/adminuser\n")
+
         print("\tThis will save the final goldenTicket generated in the ccache target file")
         print("\tpython raiseChild.py -w ccache childDomain.net/adminuser\n")
         sys.exit(1)
