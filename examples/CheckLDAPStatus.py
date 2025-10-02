@@ -57,7 +57,7 @@ class CheckLDAP:
         ldap_url = f"ldaps://{hostname}"
         try:
             ldap_connection = LDAPConnection(url=ldap_url)
-            ldap_connection._LDAPConnection__channel_binding_value = None
+            ldap_connection.channel_binding_value = None
             ldap_connection.login(user=" ", domain=self.domain)
         except LDAPSessionError as e:
             if str(e).find("data 80090346") >= 0:
@@ -65,9 +65,9 @@ class CheckLDAP:
             # Login failed (wrong credentials). test if we get an error with an existing, but wrong CBT -> When supported
             elif str(e).find("data 52e") >= 0:
                 ldap_connection = LDAPConnection(url=ldap_url)
-                new_cbv = bytearray(ldap_connection._LDAPConnection__channel_binding_value)
+                new_cbv = bytearray(ldap_connection.channel_binding_value)
                 new_cbv[15] = (new_cbv[3] + 1) % 256
-                ldap_connection._LDAPConnection__channel_binding_value = bytes(new_cbv)
+                ldap_connection.channel_binding_value = bytes(new_cbv)
                 try:
                     ldap_connection.login(user=" ", domain=self.domain)
                 except LDAPSessionError as e:
