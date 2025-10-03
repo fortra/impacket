@@ -21,9 +21,6 @@
 #   NOTE: Lots of info (mainly the structs) taken from the NTFS-3G project..
 #
 # ToDo:
-#   [] Parse the attributes list attribute. It is unknown what would happen now if
-#      we face a highly fragmented file that will have many attributes that won't fit
-#      in the MFT Record.
 #   [] Support compressed, encrypted and sparse files
 #
 
@@ -304,6 +301,17 @@ class NTFS_DATA_RUN(Structure):
         ('Clusters','<Q=0'),
         ('StartVCN','<Q=0'),
         ('LastVCN','<Q=0'),
+    )
+
+class NTFS_ATTRIBUTE_LIST_ENTRY(Structure):
+    structure = (
+        ('AttributeType', '<L=0'),
+        ('EntryLength', '<H=0'),
+        ('AttributeNameLength', 'B=0'),
+        ('AttributeNameOffset', 'B=0'),
+        ('StartingVCN', '<Q=0'),
+        ('BaseFileRecord', '<Q=0'), 
+        ('AttributeID', '<H=0'),
     )
 
 def getUnixTime(t):
@@ -619,6 +627,43 @@ class IndexEntry:
     def dump(self):
         self.entry.dump()
 
+class AttributeListEntry:
+    def __init__(self, entry_data):
+        self.EntryHeader = NTFS_ATTRIBUTE_LIST_ENTRY(entry_data)
+        self.AttributeType = self.EntryHeader['AttributeType']
+        self.EntryLength = self.EntryHeader['EntryLength']
+        self.StartingVCN = self.EntryHeader['StartingVCN']
+        self.AttributeID = self.EntryHeader['AttributeID']
+        raw_record = self.EntryHeader['BaseFileRecord']
+        self.MftRecordNumber = raw_record & 0x0000FFFFFFFFFFFF
+        self.MftSequenceNumber = (raw_record >> 48) & 0xFFFF
+        self.AttributeName = None
+        name_len = self.EntryHeader['AttributeNameLength']
+        if name_len > 0:
+            name_offset = self.EntryHeader['AttributeNameOffset']
+            name_bytes = entry_data[name_offset : name_offset + (name_len * 2)]
+            self.AttributeName = name_bytes.decode('utf-16le')
+
+class AttributeList:
+    def __init__(self, resident_attribute):
+        self.attribute = resident_attribute
+        self.Entries = []
+        self.parseEntries()
+
+    def parseEntries(self):
+        data = self.attribute.getValue()
+        offset = 0
+        while offset < len(data):
+            entry_data = data[offset:]
+            list_entry = AttributeListEntry(entry_data)
+            self.Entries.append(list_entry)
+            if list_entry.EntryLength == 0:
+                break
+            offset += list_entry.EntryLength
+
+    def getEntries(self):
+        return self.Entries
+
 class INODE:
     def __init__(self, NTFSVolume):
         self.NTFSVolume = NTFSVolume
@@ -703,6 +748,12 @@ class INODE:
                 break
             attr = self.searchAttribute(FILE_NAME, None, True)
 
+        # Parse Attribute list before Index Allocation, because it might be there
+        attr = self.searchAttribute(ATTRIBUTE_LIST, None)
+        if attr is not None:
+            al = AttributeList(attr)
+            self.Attributes[ATTRIBUTE_LIST] = al
+
         # Parse Index Allocation
         attr = self.searchAttribute(INDEX_ALLOCATION, u'$I30')
         if attr is not None:
@@ -750,6 +801,15 @@ class INODE:
                 break
 
             data = data[record.getTotalSize():]
+
+        # Look for attribute on Attribute List
+        if record is None and ATTRIBUTE_LIST in self.Attributes:
+            attr_list = self.Attributes[ATTRIBUTE_LIST]
+
+            for entry in attr_list.getEntries():
+                if entry.AttributeType == attributeType and entry.AttributeName == attributeName:
+                    extension_inode = self.NTFSVolume.getINode(entry.MftRecordNumber)
+                    return extension_inode.searchAttribute(attributeType, attributeName)
 
         return record
 
