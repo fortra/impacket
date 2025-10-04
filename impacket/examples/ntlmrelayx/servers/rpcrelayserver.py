@@ -28,6 +28,7 @@ from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
 from impacket.nt_errors import ERROR_MESSAGES, STATUS_SUCCESS
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
+from impacket.examples.utils import get_address
 
 
 class RPCRelayServer(Thread):
@@ -35,8 +36,7 @@ class RPCRelayServer(Thread):
         def __init__(self, server_address, RequestHandlerClass, config):
             self.config = config
             self.daemon_threads = True
-            if self.config.ipv6:
-                self.address_family = socket.AF_INET6
+            self.address_family, server_address = get_address(server_address[0], server_address[1], self.config.ipv6)
             socketserver.TCPServer.allow_reuse_address = True
             socketserver.TCPServer.__init__(self, server_address, RequestHandlerClass)
 
@@ -237,16 +237,16 @@ class RPCRelayServer(Thread):
 
                 try:
                     self.do_ntlm_auth(token, authenticateMessage)
-
+                    self.client.setClientId()
                     # Relay worked, do whatever we want here...
                     if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                        LOG.info("(RPC): Authenticating connection from %s/%s@%s against %s://%s SUCCEED" % (
+                        LOG.info("(RPC): Authenticating connection from %s/%s@%s against %s://%s SUCCEED [%s]" % (
                             authenticateMessage['domain_name'].decode('utf-16le'), authenticateMessage['user_name'].decode('utf-16le'),
-                            self.client_address[0], self.target.scheme, self.target.netloc))
+                            self.client_address[0], self.target.scheme, self.target.netloc, self.client.client_id))
                     else:
-                        LOG.info("(RPC): Authenticating connection from %s/%s@%s against %s://%s SUCCEED" % (
+                        LOG.info("(RPC): Authenticating connection from %s/%s@%s against %s://%s SUCCEED [%s]" % (
                             authenticateMessage['domain_name'].decode('ascii'), authenticateMessage['user_name'].decode('ascii'),
-                            self.client_address[0], self.target.scheme, self.target.netloc))
+                            self.client_address[0], self.target.scheme, self.target.netloc, self.client.client_id))
 
                     ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
                                                         authenticateMessage['user_name'],
@@ -405,7 +405,9 @@ class RPCRelayServer(Thread):
                 # We have an attack.. go for it
                 clientThread = self.server.config.attacks[self.target.scheme.upper()](self.server.config,
                                                                                       self.client.session,
-                                                                                      self.auth_user)
+                                                                                      self.auth_user,
+                                                                                      self.target,
+                                                                                      self.client)
                 clientThread.start()
             else:
                 LOG.error('(RPC): No attack configured for %s' % self.target.scheme.upper())

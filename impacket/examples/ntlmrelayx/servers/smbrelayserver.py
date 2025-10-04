@@ -106,17 +106,13 @@ class SMBRelayServer(Thread):
         smbConfig.set('IPC$','share type','3')
         smbConfig.set('IPC$','path','')
 
-        # Change address_family to IPv6 if this is configured
-        if self.config.ipv6:
-            SMBSERVER.address_family = socket.AF_INET6
-
         # changed to dereference configuration interfaceIp
         if self.config.listeningPort:
             smbport = self.config.listeningPort
         else:
             smbport = 445
 
-        self.server = SMBSERVER((config.interfaceIp,smbport), config_parser = smbConfig)
+        self.server = SMBSERVER((config.interfaceIp,smbport), config_parser=smbConfig, ipv6=self.config.ipv6)
         if not self.config.disableMulti:
             self.server.setAuthCallback(auth_callback)
         logging.getLogger('impacket.smbserver').setLevel(logging.CRITICAL)
@@ -366,7 +362,8 @@ class SMBRelayServer(Thread):
                 client.killConnection()
             else:
                 # We have a session, create a thread and do whatever we want
-                LOG.info("(SMB): Authenticating connection from %s@%s against %s://%s SUCCEED" % (self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc))
+                client.setClientId()
+                LOG.info("(SMB): Authenticating connection from %s@%s against %s://%s SUCCEED [%s]" % (self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc, client.client_id))
                 # Log this target as processed for this client
 
                 if not self.config.isADCSAttack:
@@ -661,7 +658,8 @@ class SMBRelayServer(Thread):
                     return None, [packet], errorCode
                 else:
                     # We have a session, create a thread and do whatever we want
-                    LOG.info("(SMB): Authenticating connection from %s@%s against %s://%s SUCCEED" % (self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc))
+                    client.setClientId()
+                    LOG.info("(SMB): Authenticating connection from %s@%s against %s://%s SUCCEED [%s]" % (self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc, client.client_id))
 
                     # Log this target as processed for this client
                     self.targetprocessor.registerTarget(self.target, True, self.authUser)
@@ -740,8 +738,9 @@ class SMBRelayServer(Thread):
                 return None, [packet], errorCode
             else:
                 # We have a session, create a thread and do whatever we want
+                client.setClientId()
                 self.authUser = ('%s/%s' % (sessionSetupData['PrimaryDomain'], sessionSetupData['Account'])).upper()
-                LOG.info("(SMB): Authenticating connection from %s@%s against %s://%s SUCCEED" % (self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc))
+                LOG.info("(SMB): Authenticating connection from %s@%s against %s://%s SUCCEED [%s]" % (self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc, client.client_id))
 
                 # Log this target as processed for this client
                 self.targetprocessor.registerTarget(self.target, True, self.authUser)
@@ -917,7 +916,7 @@ class SMBRelayServer(Thread):
         # If SOCKS is not enabled, or not supported for this scheme, fall back to "classic" attacks
         if self.target.scheme.upper() in self.config.attacks:
             # We have an attack.. go for it
-            clientThread = self.config.attacks[self.target.scheme.upper()](self.config, client.session, self.authUser)
+            clientThread = self.config.attacks[self.target.scheme.upper()](self.config, client.session, self.authUser, self.target, client)
             clientThread.start()
         else:
             LOG.error('(SMB): No attack configured for %s' % self.target.scheme.upper())

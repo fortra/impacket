@@ -316,7 +316,7 @@ class ENCODED_VALUE(Structure):
     def getValue(cls, cimType, entry, heap):
         # Let's get the default Values
         pType = cimType & (~(CIM_ARRAY_FLAG|Inherited))
-
+        cimType = cimType & (~Inherited)
         if entry != 0xffffffff:
             heapData = heap[entry:]
             if cimType & CIM_ARRAY_FLAG:
@@ -926,9 +926,10 @@ class OBJECT_BLOCK(Structure):
                         print('\t[%s(%s)]' % (qName, qualifiers[qName]))
                 print("\t%s %s" % (properties[pName]['stype'], properties[pName]['name']), end=' ')
                 if properties[pName]['value'] is not None:
-                    if properties[pName]['type'] == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
+                    cimType = properties[pName]['type'] & (~Inherited)
+                    if cimType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
                         print('= IWbemClassObject\n')
-                    elif properties[pName]['type'] == CIM_TYPE_ENUM.CIM_ARRAY_OBJECT.value:
+                    elif cimType == CIM_TYPE_ENUM.CIM_ARRAY_OBJECT.value:
                         if properties[pName]['value'] == 0:
                             print('= %s\n' % properties[pName]['value'])
                         else:
@@ -2613,7 +2614,8 @@ class IWbemClassObject(IRemUnknown):
     def createProperties(self, properties):
         for property in properties:
             # Do we have an object property?
-            if properties[property]['type'] == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value and properties[property]['value'] != None:
+            cimType = properties[property]['type'] & (~Inherited)
+            if cimType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value and properties[property]['value'] != None:
                 # Yes.. let's create an Object for it too
                 objRef = OBJREF_CUSTOM()
                 objRef['iid'] = self._iid
@@ -2623,7 +2625,7 @@ class IWbemClassObject(IRemUnknown):
                 objRef['pObjectData'] = properties[property]['value']
                 value = IWbemClassObject( INTERFACE(self.get_cinstance(), objRef.getData(), self.get_ipidRemUnknown(),
                       oxid=self.get_oxid(), target=self.get_target()))
-            elif properties[property]['type'] == CIM_TYPE_ENUM.CIM_ARRAY_OBJECT.value:
+            elif cimType == CIM_TYPE_ENUM.CIM_ARRAY_OBJECT.value:
                 if isinstance(properties[property]['value'], list):
                     value = list()
                     for item in properties[property]['value']:

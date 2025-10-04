@@ -34,6 +34,7 @@ from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
 from impacket.nt_errors import STATUS_ACCESS_DENIED, STATUS_SUCCESS
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
+from impacket.examples.utils import get_address
 
 
 class RAWRelayServer(Thread):
@@ -43,9 +44,8 @@ class RAWRelayServer(Thread):
         def __init__(self, server_address, RequestHandlerClass, config):
             self.config = config
             self.daemon_threads = True
-            #if self.config.ipv6:
-            #    self.address_family = socket.AF_INET6
-
+            self.address_family, server_address = get_address(server_address[0], server_address[1], self.config.ipv6)
+            socketserver.TCPServer.allow_reuse_address = True
             socketserver.TCPServer.__init__(self, server_address, RequestHandlerClass)
 
     class RAWHandler(socketserver.BaseRequestHandler):
@@ -114,15 +114,15 @@ class RAWRelayServer(Thread):
                     # Relay worked, do whatever we want here...
                     self.request.sendall(struct.pack('h', 1))
                     self.request.sendall(struct.pack('?', True))
-
+                    self.client.setClientId()
                     if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                        LOG.info("(RAW): Authenticating connection from %s/%s@%s against %s://%s SUCCEED" % (
+                        LOG.info("(RAW): Authenticating connection from %s/%s@%s against %s://%s SUCCEED [%s]" % (
                             authenticateMessage['domain_name'].decode('utf-16le'), authenticateMessage['user_name'].decode('utf-16le'),
-                            self.client_address[0], self.target.scheme, self.target.netloc))
+                            self.client_address[0], self.target.scheme, self.target.netloc, self.client.client_id))
                     else:
-                        LOG.info("(RAW): Authenticating connection from %s/%s@%s against %s://%s SUCCEED" % (
+                        LOG.info("(RAW): Authenticating connection from %s/%s@%s against %s://%s SUCCEED [%s]" % (
                             authenticateMessage['domain_name'].decode('ascii'), authenticateMessage['user_name'].decode('ascii'),
-                            self.client_address[0], self.target.scheme, self.target.netloc))
+                            self.client_address[0], self.target.scheme, self.target.netloc, self.client.client_id))
 
                     ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
                                                         authenticateMessage['user_name'],
@@ -195,7 +195,7 @@ class RAWRelayServer(Thread):
             if self.target.scheme.upper() in self.server.config.attacks:
                 # We have an attack.. go for it
                 clientThread = self.server.config.attacks[self.target.scheme.upper()](self.server.config, self.client.session,
-                                                                               self.authUser)
+                                                                               self.authUser, self.target, self.client)
                 clientThread.start()
             else:
                 LOG.error('(RAW): No attack configured for %s' % self.target.scheme.upper())
