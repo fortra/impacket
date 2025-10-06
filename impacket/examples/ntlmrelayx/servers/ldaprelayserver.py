@@ -195,8 +195,12 @@ class LDAPHandler(Thread):
 
         self.server.target = self.server.targetprocessor.getTarget()
         if self.server.target is None:
-            logging.info('LDAP: No more targets left!')
-            return
+            if self.server.config.keepRelaying:
+                self.server.config.target.reloadTargets(full_reload=True)
+                self.target = self.server.config.target.getTarget()
+            else:
+                logging.info('LDAP: No more targets left!')
+                return
 
         logging.info("LDAP: Relaying credentials for %s to %s://%s" % (username, self.server.target.scheme, self.server.target.netloc))
 
