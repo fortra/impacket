@@ -53,7 +53,7 @@ from threading import Thread
 
 from impacket import version
 from impacket.examples import logger
-from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer, WCFRelayServer, RAWRelayServer, RPCRelayServer
+from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer, WCFRelayServer, RAWRelayServer, RPCRelayServer, WinRMRelayServer, WinRMSRelayServer
 from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig, parse_listening_ports
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, TargetsFileWatcher
 from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS
@@ -83,7 +83,7 @@ class MiniShell(cmd.Cmd):
 
         # Print header
         print(outputFormat.format(*header))
-        print('  '.join(['-' * itemLen for itemLen in colLen]))
+        print('  '.join(['-' * max(itemLen, 3) for itemLen in colLen]))
 
         # And now the rows
         for row in items:
@@ -112,7 +112,7 @@ class MiniShell(cmd.Cmd):
    - admin : true or false 
         '''
 
-        headers = ["Protocol", "Target", "Username", "AdminStatus", "Port"]
+        headers = ["Protocol", "Target", "Username", "AdminStatus", "Port", "ID"]
         url = "http://{}/ntlmrelayx/api/v1.0/relays".format(self.api_address)
         try:
             proxy_handler = ProxyHandler({})
@@ -135,7 +135,8 @@ class MiniShell(cmd.Cmd):
                     elif(_filter=='admin'):
                         _filter=3
                     else:
-                        logging.info('Expect : target / username / admin = value')                    
+                        logging.info('Expect : target / username / admin = value')
+                        return
                     _items=[]
                     for i in items:
                         if(_value.lower() in i[_filter].lower()):
@@ -291,7 +292,7 @@ if __name__ == '__main__':
 
     # Interface address specification
     parser.add_argument('-ip','--interface-ip', action='store', metavar='INTERFACE_IP', help='IP address of interface to '
-                  'bind SMB and HTTP servers',default='')
+                  'bind relay servers ("0.0.0.0" or "::" if omitted)',default=argparse.SUPPRESS)
 
     serversoptions = parser.add_argument_group()
     serversoptions.add_argument('--no-smb-server', action='store_true', help='Disables the SMB server')
@@ -299,7 +300,8 @@ if __name__ == '__main__':
     serversoptions.add_argument('--no-wcf-server', action='store_true', help='Disables the WCF server')
     serversoptions.add_argument('--no-raw-server', action='store_true', help='Disables the RAW server')
     serversoptions.add_argument('--no-rpc-server', action='store_true', help='Disables the RPC server')
-
+    serversoptions.add_argument('--no-winrm-server', action='store_true', help='Disables the WinRM server')
+    
     parser.add_argument('--smb-port', type=int, help='Port to listen on smb server', default=445)
     parser.add_argument('--http-port', help='Port(s) to listen on HTTP server. Can specify multiple ports by separating them with `,`, and ranges with `-`. Ex: `80,8000-8010`', default="80")
     parser.add_argument('--wcf-port', type=int, help='Port to listen on wcf server', default=9389)  # ADWS
@@ -332,7 +334,7 @@ if __name__ == '__main__':
                                                                    'setting the proxy host to the one supplied.')
     parser.add_argument('-wa','--wpad-auth-num', action='store', type=int, default=1, help='Prompt for authentication N times for clients without MS16-077 installed '
                                                                    'before serving a WPAD file. (default=1)')
-    parser.add_argument('-6','--ipv6', action='store_true',help='Listen on both IPv6 and IPv4')
+    parser.add_argument('-6','--ipv6', action='store_true',help='Listen on IPv6')
     parser.add_argument('--remove-mic', action='store_true',help='Remove MIC (exploit CVE-2019-1040)')
     parser.add_argument('--serve-image', action='store',help='local path of the image that will we returned to clients')
     parser.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on '
@@ -511,6 +513,10 @@ if __name__ == '__main__':
 
     if not options.no_raw_server:
         RELAY_SERVERS.append(RAWRelayServer)
+    
+    if not options.no_winrm_server:
+        RELAY_SERVERS.append(WinRMRelayServer)
+        RELAY_SERVERS.append(WinRMSRelayServer)
 
     if not options.no_rpc_server:
         RELAY_SERVERS.append(RPCRelayServer)
@@ -530,6 +536,9 @@ if __name__ == '__main__':
         socks_thread.daemon = True
         socks_thread.start()
         threads.add(socks_thread)
+
+    if 'interface_ip' not in options:
+        options.interface_ip = '::' if options.ipv6 else '0.0.0.0'
 
     c = start_servers(options, threads)
 

