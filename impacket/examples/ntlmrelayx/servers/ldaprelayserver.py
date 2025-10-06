@@ -359,7 +359,9 @@ class LDAPHandler(Thread):
                 return
         
         from impacket.structure import hexdump
-        logging.debug("LDAP: auth_message_data hexdump:\n%s" % hexdump(auth_message_data))
+        logging.debug("LDAP: auth_message_data hexdump:")
+        if logging.getLogger().level == logging.DEBUG:
+            hexdump(auth_message_data)
         
         authenticate_message = ntlm.NTLMAuthChallengeResponse()
         authenticate_message.fromString(auth_message_data)
