@@ -110,8 +110,9 @@ class LDAPHandler(Thread):
                         logging.warning("LDAP server only supports BIND, SEARCH and UNBIND requests, received %s" % decoded_message['protocolOp'].getName())
 
             except Exception:
-                logging.error("Exception in LDAPHandler.run:")
-                logging.error(traceback.format_exc())
+                logging.error("Exception in LDAPHandler.run. Use -debug to view full traceback")
+                if logging.getLogger().level == logging.DEBUG:
+                    logging.error(traceback.format_exc())
                 break
         self.conn.close()
 
