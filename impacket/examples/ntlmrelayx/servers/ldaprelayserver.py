@@ -15,7 +15,8 @@
 #   to other protocols
 #
 # Authors:
-#   Alberto Solino (@agsolino)
+#   Emily Astranova (@emilyastranova)
+#   Roman Karwacik (@romern)
 #
 from __future__ import division
 from __future__ import print_function
