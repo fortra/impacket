@@ -281,7 +281,9 @@ class LDAPHandler(Thread):
             
             mech_token = mech_token[ntlm_start:]
             from impacket.structure import hexdump
-            logging.debug("LDAP: NTLM message from mech_token hexdump:\n%s" % hexdump(mech_token))
+            logging.debug("LDAP: NTLM message from mech_token hexdump:")
+            if logging.getLogger().level == logging.DEBUG:
+                hexdump(mech_token)
 
             if not mech_token.startswith(b'NTLMSSP\x00'):
                 logging.error("Unknown NTLM message type")
