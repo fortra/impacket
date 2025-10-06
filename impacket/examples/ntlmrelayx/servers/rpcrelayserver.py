@@ -28,6 +28,7 @@ from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
 from impacket.nt_errors import ERROR_MESSAGES, STATUS_SUCCESS
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
+from impacket.examples.utils import get_address
 
 
 class RPCRelayServer(Thread):
@@ -35,8 +36,7 @@ class RPCRelayServer(Thread):
         def __init__(self, server_address, RequestHandlerClass, config):
             self.config = config
             self.daemon_threads = True
-            if self.config.ipv6:
-                self.address_family = socket.AF_INET6
+            self.address_family, server_address = get_address(server_address[0], server_address[1], self.config.ipv6)
             socketserver.TCPServer.allow_reuse_address = True
             socketserver.TCPServer.__init__(self, server_address, RequestHandlerClass)
 
@@ -118,27 +118,27 @@ class RPCRelayServer(Thread):
                     data = self.transport.recv()
                     if data is None:
                         # No data: connection closed
-                        LOG.debug('RPC: Connection closed by client')
+                        LOG.debug('(RPC): Connection closed by client')
                         return
                     response = self.handle_single_request(data)
                     # if not response:
                     # Nothing more to say, close connection
                     #    return
                     if response:
-                        LOG.debug('RPC: Sending packet of type %s' % msrpc_message_type[response['type']])
+                        LOG.debug('(RPC): Sending packet of type %s' % msrpc_message_type[response['type']])
                         self.transport.send(response)
             except KeyboardInterrupt:
                 raise
             except ConnectionResetError:
-                LOG.error("Connection reset.")
+                LOG.error("(RPC): Connection reset.")
             except Exception as e:
-                LOG.debug("Exception:", exc_info=True)
-                LOG.error('Exception in RPC request handler: %s' % e)
+                LOG.debug("(RPC): Exception:", exc_info=True)
+                LOG.error('(RPC): Exception in RPC request handler: %s' % e)
 
         def handle_single_request(self, data):
             self.request_header = MSRPCHeader(data)
             req_type = self.request_header['type']
-            LOG.debug('RPC: Received packet of type %s' % msrpc_message_type[req_type])
+            LOG.debug('(RPC): Received packet of type %s' % msrpc_message_type[req_type])
             if req_type in (MSRPC_BIND, MSRPC_ALTERCTX):
                 self.request_pdu_data = MSRPCRelayBind(self.request_header['pduData'])
             elif req_type == MSRPC_AUTH3:
@@ -149,15 +149,15 @@ class RPCRelayServer(Thread):
                 # This is a RPC request, we try to answer it the best we can.
                 return self.transport.processRequest(data)
             else:
-                LOG.error('Packet type received not supported (yet): %a' % msrpc_message_type[req_type])
+                LOG.error('(RPC): Packet type received not supported (yet): %a' % msrpc_message_type[req_type])
                 return self.send_error(MSRPC_STATUS_CODE_NCA_S_UNSUPPORTED_TYPE)
 
             if self.request_header['auth_len'] <= 0:
                 if req_type == MSRPC_BIND:
                     # Let's answer to the bind anyway, maybe a second request with authentication comes later
-                    LOG.debug('Answering to a BIND without authentication')
+                    LOG.debug('(RPC): Answering to a BIND without authentication')
                     return self.transport.processRequest(data)
-                LOG.error('Packet is no BIND and does not contain authentication')
+                LOG.error('(RPC): Packet is no BIND and does not contain authentication')
                 return self.send_error(MSRPC_STATUS_CODE_RPC_S_BINDING_HAS_NO_AUTH)
 
             self.request_sec_trailer = SEC_TRAILER(self.request_header['sec_trailer'])
@@ -165,7 +165,7 @@ class RPCRelayServer(Thread):
             auth_type = self.request_sec_trailer['auth_type']
             if auth_type == RPC_C_AUTHN_NONE:
                 # What should we do here :(
-                LOG.error('Packet contains "None" authentication')
+                LOG.error('(RPC): Packet contains "None" authentication')
                 return self.send_error(MSRPC_STATUS_CODE_RPC_S_BINDING_HAS_NO_AUTH)
             elif auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
                 if req_type == MSRPC_AUTH3:
@@ -196,15 +196,15 @@ class RPCRelayServer(Thread):
                 self.target = self.server.config.target.getTarget(multiRelay=False)
                 if self.target is None:
                     if self.server.config.keepRelaying:
-                        LOG.info("No target left: keepRelaying active, reloading targets.")
+                        LOG.info("(RPC): No target left: keepRelaying active, reloading targets.")
                         self.server.config.target.reloadTargets(full_reload=True)
                         self.target = self.server.config.target.getTarget(multiRelay=False)
-                        LOG.info("RPCD: Received connection from %s, attacking target %s://%s" % (self.client_address[0], self.target.scheme, self.target.netloc))
+                        LOG.info("(RPC): Received connection from %s, attacking target %s://%s" % (self.client_address[0], self.target.scheme, self.target.netloc))
                     else:
-                        LOG.info("No target left")
+                        LOG.info("(RPC): No target left")
                         return self.send_error(MSRPC_STATUS_CODE_RPC_S_ACCESS_DENIED)
                 else:
-                    LOG.info("RPCD: Received connection from %s, attacking target %s://%s" % (self.client_address[0], self.target.scheme, self.target.netloc))
+                    LOG.info("(RPC): Received connection from %s, attacking target %s://%s" % (self.client_address[0], self.target.scheme, self.target.netloc))
 
                 try:
                     self.do_ntlm_negotiate(token)  # Computes the challenge message
@@ -214,9 +214,9 @@ class RPCRelayServer(Thread):
                 except Exception as e:
                     # Connection failed
                     if self.target is None:
-                        LOG.error('Negotiating NTLM failed, and no target left')
+                        LOG.error('(RPC): Negotiating NTLM failed, and no target left')
                     else:
-                        LOG.error('Negotiating NTLM with %s://%s failed.', self.target.scheme, self.target.netloc)
+                        LOG.error('(RPC): Negotiating NTLM with %s://%s failed.', self.target.scheme, self.target.netloc)
                         self.server.config.target.registerTarget(self.target)
                     return self.send_error(MSRPC_STATUS_CODE_RPC_S_ACCESS_DENIED)
 
@@ -230,25 +230,23 @@ class RPCRelayServer(Thread):
                 # Only skip to next if the login actually failed, not if it was just anonymous login
                 if authenticateMessage['user_name'] == b'':
                     # Anonymous login
-                    LOG.error('Empty username ... just waiting')
+                    LOG.error('(RPC): Empty username ... just waiting')
                     return None
                     # LOG.error('Empty username ... answering with %s' % rpc_status_codes[MSRPC_STATUS_CODE_RPC_S_ACCESS_DENIED])
                     # return self.send_error(MSRPC_STATUS_CODE_RPC_S_ACCESS_DENIED)
 
                 try:
                     self.do_ntlm_auth(token, authenticateMessage)
-
+                    self.client.setClientId()
                     # Relay worked, do whatever we want here...
                     if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                        LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
-                            self.target.scheme, self.target.netloc,
-                            authenticateMessage['domain_name'].decode('utf-16le'),
-                            authenticateMessage['user_name'].decode('utf-16le')))
+                        LOG.info("(RPC): Authenticating connection from %s/%s@%s against %s://%s SUCCEED [%s]" % (
+                            authenticateMessage['domain_name'].decode('utf-16le'), authenticateMessage['user_name'].decode('utf-16le'),
+                            self.client_address[0], self.target.scheme, self.target.netloc, self.client.client_id))
                     else:
-                        LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
-                            self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('ascii'),
-                            authenticateMessage['user_name'].decode('ascii')))
-
+                        LOG.info("(RPC): Authenticating connection from %s/%s@%s against %s://%s SUCCEED [%s]" % (
+                            authenticateMessage['domain_name'].decode('ascii'), authenticateMessage['user_name'].decode('ascii'),
+                            self.client_address[0], self.target.scheme, self.target.netloc, self.client.client_id))
 
                     ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
                                                         authenticateMessage['user_name'],
@@ -267,12 +265,12 @@ class RPCRelayServer(Thread):
                     return self.send_error(MSRPC_STATUS_CODE_RPC_S_ACCESS_DENIED)
                 except Exception as e:
                     if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                        LOG.error("Authenticating against %s://%s as %s\\%s FAILED" % (
+                        LOG.error("(RPC): Authenticating against %s://%s as %s\\%s FAILED" % (
                             self.target.scheme, self.target.netloc,
                             authenticateMessage['domain_name'].decode('utf-16le'),
                             authenticateMessage['user_name'].decode('utf-16le')))
                     else:
-                        LOG.error("Authenticating against %s://%s as %s\\%s FAILED" % (
+                        LOG.error("(RPC): Authenticating against %s://%s as %s\\%s FAILED" % (
                             self.target.scheme, self.target.netloc,
                             authenticateMessage['domain_name'].decode('ascii'),
                             authenticateMessage['user_name'].decode('ascii')))
@@ -299,7 +297,7 @@ class RPCRelayServer(Thread):
                     self.challengeMessage['TargetInfoFields_len'] = len(av_pairs.getData())
                     self.challengeMessage['TargetInfoFields_max_len'] = len(av_pairs.getData())
             else:
-                LOG.error('Protocol Client for %s not found!' % self.target.scheme.upper())
+                LOG.error('(RPC): Protocol Client for %s not found!' % self.target.scheme.upper())
                 raise Exception('Protocol Client for %s not found!' % self.target.scheme.upper())
 
         def bind(self, challengeMessage=b''):
@@ -407,10 +405,12 @@ class RPCRelayServer(Thread):
                 # We have an attack.. go for it
                 clientThread = self.server.config.attacks[self.target.scheme.upper()](self.server.config,
                                                                                       self.client.session,
-                                                                                      self.auth_user)
+                                                                                      self.auth_user,
+                                                                                      self.target,
+                                                                                      self.client)
                 clientThread.start()
             else:
-                LOG.error('No attack configured for %s' % self.target.scheme.upper())
+                LOG.error('(RPC): No attack configured for %s' % self.target.scheme.upper())
 
     def __init__(self, config):
         Thread.__init__(self)
