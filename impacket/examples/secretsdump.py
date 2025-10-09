@@ -1420,7 +1420,7 @@ class OfflineRegistry:
             self.__registryHive.close()
 
 class SAMHashes(OfflineRegistry):
-    def __init__(self, samFile, bootKey, isRemote = False, printUserStatus=False, perSecretCallback = lambda secret: _print_helper(secret)):
+    def __init__(self, samFile, bootKey, isRemote=False, history=False, printUserStatus=False, perSecretCallback=lambda secret: _print_helper(secret)):
         OfflineRegistry.__init__(self, samFile, isRemote)
         self.__samFile = samFile
         self.__hashedBootKey = b''
@@ -1429,6 +1429,8 @@ class SAMHashes(OfflineRegistry):
         self.__cryptoCommon = CryptoCommon()
         self.__itemsFound = {}
         self.__perSecretCallback = perSecretCallback
+        self.__history = history
+        self.__historyItems = []
 
     def binary_to_sid(self, binary_data, without_prefix=False):
         if len(binary_data) < 12:
@@ -1532,6 +1534,115 @@ class SAMHashes(OfflineRegistry):
             encryptedHash = self.__cryptoCommon.encryptAES(self.__hashedBootKey[:0x10], key, salt)
 
         return encryptedHash
+
+    def __unwrap_history_block(self, rid_int, block16):
+        key1, key2 = self.__cryptoCommon.deriveKey(rid_int)
+        crypt1 = DES.new(key1, DES.MODE_ECB)
+        crypt2 = DES.new(key2, DES.MODE_ECB)
+        return crypt1.decrypt(block16[:8]) + crypt2.decrypt(block16[8:16])
+
+    def __decrypt_history_entries_aes(self, rid_int, entries):
+        out = []
+        key = self.__hashedBootKey[:0x10]
+        for salt, enc in entries:
+            if not enc or (len(enc) % 16) != 0:
+                continue
+            cipher = AES.new(key, AES.MODE_CBC, iv=salt)
+            plain = cipher.decrypt(enc)
+            for off in range(0, len(plain), 16):
+                block = plain[off:off + 16]
+                if len(block) < 16:
+                    break
+                out.append(self.__unwrap_history_block(rid_int, block))
+        return out
+
+    def __scan_v_for_aes_entries(self, vdata):
+        entries = []
+        length = len(vdata)
+        offset = 0x100 if length > 0x200 else 0
+        while offset + 20 <= length:
+            salt = vdata[offset:offset + 16]
+            data_len = int.from_bytes(vdata[offset + 16:offset + 20], 'little', signed=False)
+            if data_len == 0 or data_len > 0x2000:
+                offset += 4
+                continue
+            data_off = offset + 20
+            if data_off + data_len > length or (data_len % 16) != 0:
+                offset += 4
+                continue
+            enc = vdata[data_off:data_off + data_len]
+            entries.append((salt, enc))
+            offset = data_off + data_len
+            if offset % 4:
+                offset += (4 - (offset % 4))
+        return entries
+
+    def __decode_aes_history_block(self, rid_int, data, offset, length):
+        if offset <= 0 or length <= 0:
+            return []
+        end = offset + length
+        if end > len(data):
+            return []
+
+        blob = data[offset:end]
+        if len(blob) < 24:
+            return []
+
+        try:
+            record = SAM_HASH_AES(blob)
+        except Exception:
+            LOG.debug('Failed to parse SAM_HASH_AES history block at 0x%x (len=%d)', offset, length, exc_info=True)
+            return []
+
+        enc = record['Hash']
+        if not enc:
+            return []
+
+        enc_len = len(enc) - (len(enc) % 16)
+        if enc_len <= 0:
+            return []
+
+        enc = enc[:enc_len]
+        return self.__decrypt_history_entries_aes(rid_int, [(record['Salt'], enc)])
+
+    def __extract_local_history(self, rid_int, new_style, user_account):
+        lm_const = b"LMPASSWORDHISTORY\0"
+        nt_const = b"NTPASSWORDHISTORY\0"
+
+        result = {'lm': [], 'nt': []}
+        meta = user_account['Unknown15']
+        data = user_account['Data']
+
+        lm_offset = int.from_bytes(meta[0:4], 'little', signed=False)
+        lm_length = int.from_bytes(meta[4:8], 'little', signed=False)
+        nt_offset = int.from_bytes(meta[12:16], 'little', signed=False)
+        nt_length = int.from_bytes(meta[16:20], 'little', signed=False)
+
+        if not new_style:
+            LOG.debug('Skipping old-style history for RID %d; RC4/DES path disabled', rid_int)
+            return result
+
+        lm_entries = self.__decode_aes_history_block(rid_int, data, lm_offset, lm_length)
+        nt_entries = self.__decode_aes_history_block(rid_int, data, nt_offset, nt_length)
+
+        if not lm_entries and lm_length:
+            blob = data[lm_offset:lm_offset + lm_length]
+            lm_entries = self.__decrypt_history_entries_aes(rid_int, self.__scan_v_for_aes_entries(blob))
+        if not nt_entries and nt_length:
+            blob = data[nt_offset:nt_offset + nt_length]
+            nt_entries = self.__decrypt_history_entries_aes(rid_int, self.__scan_v_for_aes_entries(blob))
+
+        # Windows stores NT history in the first slot and LM history in the second when
+        # AES ("new style") protection is used, so swap before returning.
+        result['lm'] = nt_entries
+        result['nt'] = lm_entries
+
+        if not result['lm'] and not result['nt'] and lm_length == 0 and nt_length == 0:
+            fallback_entries = self.__scan_v_for_aes_entries(data)
+            if fallback_entries:
+                result['nt'] = self.__decrypt_history_entries_aes(rid_int, fallback_entries)
+
+        return result
     
     def __replaceValue(self, obj, offset, value):
         obj = bytearray(obj)
@@ -1549,6 +1660,7 @@ class SAMHashes(OfflineRegistry):
 
         LOG.info('Dumping local SAM hashes (uid:rid:lmhash:nthash)')
         self.getHBootKey()
+        self.__historyItems = []
 
         usersKey = 'SAM\\Domains\\Account\\Users'
 
@@ -1615,6 +1727,9 @@ class SAMHashes(OfflineRegistry):
             if member.strip()
         ]
 
+        empty_lm_hex = hexlify(ntlm.LMOWFv1('', '')).decode('utf-8')
+        empty_nt_hex = hexlify(ntlm.NTOWFv1('', '')).decode('utf-8')
+
         for rid in rids:
             disabled = locked_out = auto_locked = is_admin = False
 
@@ -1638,7 +1753,8 @@ class SAMHashes(OfflineRegistry):
             auto_locked = bool(grouped_data & 0x0400)
             locked_out = locked
 
-            userAccount = USER_ACCOUNT_V(self.getValue(ntpath.join(usersKey, rid, 'V'))[1])
+            raw_v = self.getValue(ntpath.join(usersKey, rid, 'V'))[1]
+            userAccount = USER_ACCOUNT_V(raw_v)
             rid = int(rid, 16)
 
             V = userAccount['Data']
@@ -1686,6 +1802,30 @@ class SAMHashes(OfflineRegistry):
 
             self.__itemsFound[rid] = answer
             self.__perSecretCallback(answer)
+
+            if self.__history:
+                try:
+                    history = self.__extract_local_history(rid, newStyle, userAccount)
+                    lm_hist = history.get('lm', [])
+                    nt_hist = history.get('nt', [])
+                    while lm_hist and nt_hist and lm_hist[-1] == nt_hist[-1]:
+                        lm_hist.pop()
+                        nt_hist.pop()
+                    LOG.debug('History lengths for %s (RID %d): lm=%d nt=%d', userName, rid,
+                              len(lm_hist), len(nt_hist))
+                    count = max(len(lm_hist), len(nt_hist))
+                    for idx in range(count):
+                        lm_val = lm_hist[idx] if idx < len(lm_hist) else b''
+                        nt_val = nt_hist[idx] if idx < len(nt_hist) else b''
+                        lm_hex = hexlify(lm_val).decode('utf-8') if lm_val else empty_lm_hex
+                        nt_hex = hexlify(nt_val).decode('utf-8') if nt_val else empty_nt_hex
+                        if lm_hex == empty_lm_hex and nt_hex == empty_nt_hex:
+                            continue
+                        history_line = f"{userName}_history{idx}:{rid}:{lm_hex}:{nt_hex}:::"
+                        self.__historyItems.append(history_line)
+                        self.__perSecretCallback(history_line)
+                except Exception as exc:
+                    LOG.debug('SAM history parsing failed for RID %d: %s', rid, exc, exc_info=True)
     
     def edit(self, user, newNTHash, newLMHash=b''):
         NTPASSWORD = b"NTPASSWORD\0"
@@ -1814,6 +1954,8 @@ class SAMHashes(OfflineRegistry):
             fd = openFile(fileName, openFileFunc=openFileFunc)
             for item in items:
                 fd.write(self.__itemsFound[item]+'\n')
+            for line in self.__historyItems:
+                fd.write(line+'\n')
             fd.close()
             return fileName
 
