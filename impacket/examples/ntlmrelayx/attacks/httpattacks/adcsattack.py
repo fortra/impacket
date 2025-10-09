@@ -89,7 +89,7 @@ class ADCSAttack:
         certificate = response.read().decode()
 
         cert_obj = load_pem_x509_certificate(certificate.encode(), backend=default_backend())
-        pfx_filename = self._sanitize_filename(self.username or self._extract_certificate_identity(cert_obj))
+        pfx_filename = self._sanitize_filename(self.username or self._extract_certificate_identity(cert_obj) or "certificate_{0}".format(certificate_id))
         certificate_store = self.generate_pfx(key.to_cryptography_key(), cert_obj)
         output_path = os.path.join(self.config.lootdir, "{}.pfx".format(pfx_filename))
         LOG.info("Writing PKCS#12 certificate to %s" % output_path)
