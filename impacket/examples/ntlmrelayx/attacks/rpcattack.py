@@ -30,7 +30,6 @@ from impacket.dcerpc.v5.icpr import DCERPCSessionError
 from impacket.examples.ntlmrelayx.attacks import ProtocolAttack
 from impacket.examples.ntlmrelayx.attacks.httpattacks.adcsattack import ADCSAttack
 
-
 PROTOCOL_ATTACK_CLASS = "RPCAttack"
 
 # cache already attacked clients
