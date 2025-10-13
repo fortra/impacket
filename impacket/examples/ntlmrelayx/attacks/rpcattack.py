@@ -156,7 +156,7 @@ class ICPRRPCAttack:
 
         ELEVATED.append(self.username)
 
-        certificate_store = ADCSAttack.generate_pfx(key, certificate, crypto.FILETYPE_ASN1)
+        certificate_store = ADCSAttack.generate_pfx(key.to_cryptography_key(), certificate, crypto.FILETYPE_ASN1)
         LOG.info("Writing PKCS#12 certificate to %s/%s.pfx" % (self.config.lootdir, self.username))
         try:
             if not os.path.isdir(self.config.lootdir):
