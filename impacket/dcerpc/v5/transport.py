@@ -380,8 +380,13 @@ class TCPTransport(DCERPCTransport):
     def recv(self, forceRecv = 0, count = 0):
         if count:
             buffer = b''
+            chunk = b''
             while len(buffer) < count:
-               buffer += self.__socket.recv(count-len(buffer))
+                chunk = self.__socket.recv(count-len(buffer))
+                if chunk != b'':
+                    buffer += chunk
+                else:
+                    break
         else:
             buffer = self.__socket.recv(8192)
         return buffer
