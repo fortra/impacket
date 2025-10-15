@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
-# Copyright (c) 2017 @MrAnde7son
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
+#
+# Copyright (c) 2017 @MrAnde7son
 #
 # Copyright and licensing note from kintercept.py:
 #
@@ -34,6 +37,8 @@ from impacket.krb5 import constants
 from impacket.krb5.crypto import Cksumtype
 from impacket.krb5.asn1 import TGS_REQ, TGS_REP, seq_set, PA_FOR_USER_ENC
 from impacket.krb5.types import Principal
+
+from impacket.examples import logger
 
 
 MAX_READ_SIZE = 16000
@@ -264,6 +269,8 @@ def parse_args():
     parser.add_argument('--listen-addr', default='', help='Address to listen on')
     parser.add_argument('--request-handler', default='', metavar='HANDLER:ARG', help='Example: s4u2else:user')
     parser.add_argument('--reply-handler', default='', metavar='HANDLER:ARG', help='Example: tgs-rep-user:user')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     return vars(parser.parse_args())
 
 
@@ -272,6 +279,8 @@ if __name__ == '__main__':
     print(version.BANNER)
 
     args = parse_args()
+
+    logger.init(args.ts, args.debug)
 
     req_factory = rep_factory = InterceptConnFactory()
     if args['request_handler']:

@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -11,7 +13,7 @@
 #
 #   Best way to learn how to use these calls is to grab the protocol standard
 #   so you understand what the call does, and then read the test case located
-#   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
+#   at https://github.com/fortra/impacket/tree/master/tests/SMB_RPC
 #
 #   Some calls have helper functions, which makes it even easier to use.
 #   They are located at the end of this file.
@@ -150,7 +152,7 @@ class NetrJobEnum(NDRCALL):
         ('ServerName',ATSVC_HANDLE),
         ('pEnumContainer', AT_ENUM_CONTAINER),
         ('PreferedMaximumLength', DWORD),
-        ('pResumeHandle', DWORD),
+        ('pResumeHandle', LPDWORD),
     )
 
 class NetrJobEnumResponse(NDRCALL):

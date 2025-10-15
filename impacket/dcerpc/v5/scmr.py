@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2019 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -11,7 +13,7 @@
 #
 #   Best way to learn how to use these calls is to grab the protocol standard
 #   so you understand what the call does, and then read the test case located
-#   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
+#   at https://github.com/fortra/impacket/tree/master/tests/SMB_RPC
 #
 #   Some calls have helper functions, which makes it even easier to use.
 #   They are located at the end of this file.
@@ -178,12 +180,13 @@ SERVICE_STOP_PLANNED   =  0x40000000
 SERVICE_STOP_UNPLANNED =  0x10000000
 
 # SERVICE_TRIGGER triggers
-SERVICE_TRIGGER_TYPE_DEVICE_INTERFACE_ARRIVAL  = 0x00000001
-SERVICE_TRIGGER_TYPE_IP_ADDRESS_AVAILABILITY   = 0x00000002
-SERVICE_TRIGGER_TYPE_DOMAIN_JOIN               = 0x00000003
-SERVICE_TRIGGER_TYPE_FIREWALL_PORT_EVENT       = 0x00000004
-SERVICE_TRIGGER_TYPE_GROUP_POLICY              = 0x00000005
-SERVICE_TRIGGER_TYPE_CUSTOM                    = 0x00000020
+SERVICE_TRIGGER_TYPE_DEVICE_INTERFACE_ARRIVAL  = 1
+SERVICE_TRIGGER_TYPE_IP_ADDRESS_AVAILABILITY   = 2
+SERVICE_TRIGGER_TYPE_DOMAIN_JOIN               = 3
+SERVICE_TRIGGER_TYPE_FIREWALL_PORT_EVENT       = 4
+SERVICE_TRIGGER_TYPE_GROUP_POLICY              = 5
+SERVICE_TRIGGER_TYPE_NETWORK_ENDPOINT          = 6
+SERVICE_TRIGGER_TYPE_CUSTOM                    = 20
 
 # SERVICE_TRIGGER actions
 SERVICE_TRIGGER_ACTION_SERVICE_START = 0x00000001
@@ -200,8 +203,11 @@ NETWORK_MANAGER_LAST_IP_ADDRESS_REMOVAL_GUID    = 'cc4ba62a-162e-4648-847a-b6bdf
 USER_POLICY_PRESENT_GUID                        = '54FB46C8-F089-464C-B1FD-59D1B62C3B50'
 
 # SERVICE_TRIGGER_SPECIFIC_DATA_ITEM dataTypes
-SERVICE_TRIGGER_DATA_TYPE_BINARY = 0x00000001
-SERVICE_TRIGGER_DATA_TYPE_STRING = 0x00000002
+SERVICE_TRIGGER_DATA_TYPE_BINARY      = 0x00000001
+SERVICE_TRIGGER_DATA_TYPE_STRING      = 0x00000002
+SERVICE_TRIGGER_DATA_TYPE_LEVEL       = 0x00000003
+SERVICE_TRIGGER_DATA_TYPE_KEYWORD_ANY = 0x00000004
+SERVICE_TRIGGER_DATA_TYPE_KEYWORD_ALL = 0x00000005
 
 ################################################################################
 # STRUCTURES
@@ -682,7 +688,7 @@ class RSetServiceObjectSecurity(NDRCALL):
     structure = (
         ('hService',SC_RPC_HANDLE),
         ('dwSecurityInformation',SECURITY_INFORMATION),
-        ('lpSecurityDescriptor',LPBYTE),
+        ('lpSecurityDescriptor',BYTE_ARRAY),
         ('cbBufSize',DWORD),
     )
 
@@ -1199,6 +1205,7 @@ def hRSetServiceObjectSecurity(dce, hService, dwSecurityInformation, lpSecurityD
     request = RSetServiceObjectSecurity()
     request['hService'] = hService
     request['dwSecurityInformation'] = dwSecurityInformation
+    request['lpSecurityDescriptor'] = lpSecurityDescriptor
     request['cbBufSize'] = cbBufSize
     return dce.request(request)
 

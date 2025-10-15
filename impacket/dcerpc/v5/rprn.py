@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -11,7 +13,7 @@
 #
 #   Best way to learn how to use these calls is to grab the protocol standard
 #   so you understand what the call does, and then read the test case located
-#   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
+#   at https://github.com/fortra/impacket/tree/master/tests/SMB_RPC
 #
 #   Some calls have helper functions, which makes it even easier to use.
 #   They are located at the end of this file.
@@ -430,6 +432,24 @@ class RpcEnumPrinterDriversResponse(NDRCALL):
        ('ErrorCode', ULONG),
     )
 
+# 3.1.4.4.4 RpcGetPrinterDriverDirectory (Opnum 12)
+class RpcGetPrinterDriverDirectory(NDRCALL):
+   opnum = 12
+   structure = (
+       ('pName', STRING_HANDLE),
+       ('pEnvironment', LPWSTR),
+       ('Level', DWORD),
+       ('pDriverDirectory', PBYTE_ARRAY),
+       ('cbBuf', DWORD)
+   )
+   
+class RpcGetPrinterDriverDirectoryResponse(NDRCALL):
+    structure = (
+       ('pDriverDirectory', PBYTE_ARRAY),
+       ('pcbNeeded', DWORD),
+       ('ErrorCode', ULONG)
+    )
+
 # 3.1.4.4.8 RpcAddPrinterDriverEx (Opnum 89)
 class RpcAddPrinterDriverEx(NDRCALL):
     opnum = 89
@@ -451,6 +471,7 @@ OPNUMS = {
     0  : (RpcEnumPrinters, RpcEnumPrintersResponse),
     1  : (RpcOpenPrinter, RpcOpenPrinterResponse),
     10 : (RpcEnumPrinterDrivers, RpcEnumPrinterDriversResponse),
+    12 : (RpcGetPrinterDriverDirectory, RpcGetPrinterDriverDirectoryResponse),
     29 : (RpcClosePrinter, RpcClosePrinterResponse),
     65 : (RpcRemoteFindFirstPrinterChangeNotificationEx, RpcRemoteFindFirstPrinterChangeNotificationExResponse),
     69 : (RpcOpenPrinterEx, RpcOpenPrinterExResponse),
@@ -675,4 +696,43 @@ def hRpcEnumPrinterDrivers(dce, pName, pEnvironment, Level):
     request['cbBuf']        = bytesNeeded
 
     #return request
+    return dce.request(request)
+
+def hRpcGetPrinterDriverDirectory(dce, pName, pEnvironment, Level):
+    """
+    RpcGetPrinterDriverDirectory retrieves the path of the printer driver directory.
+    Full Documentation: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-rprn/9df11cf4-4098-4852-ad72-d1f75a82bffe
+
+    :param DCERPC_v5 dce: a connected DCE instance.
+    :param pName
+    :param pEnvironment
+    :param Level
+    :param pDriverDirectory
+    :param cbBuf
+    :param pcbNeeded
+
+    :return: raises DCERPCSessionError on error.
+    """
+    # get value for cbBuf
+    request = RpcGetPrinterDriverDirectory()
+    request['pName']            = checkNullString(pName)
+    request['pEnvironment']     = pEnvironment
+    request['Level']            = Level
+    request['pDriverDirectory'] = NULL
+    request['cbBuf']            = 0
+    try:
+        dce.request(request)
+    except DCERPCSessionError as e:
+        if str(e).find('ERROR_INSUFFICIENT_BUFFER') < 0:
+            raise
+        bytesNeeded = e.get_packet()['pcbNeeded']
+    
+    # now do RpcGetPrinterDriverDirectory again
+    request = RpcGetPrinterDriverDirectory()
+    request['pName']            = checkNullString(pName)
+    request['pEnvironment']     = pEnvironment
+    request['Level']            = Level
+    request['pDriverDirectory'] = b'a' * bytesNeeded
+    request['cbBuf']            = bytesNeeded
+    
     return dce.request(request)

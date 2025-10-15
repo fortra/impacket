@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -13,14 +15,9 @@
 # Author:
 #   Aureliano Calvo
 #
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../../..")
-
-
 import unittest
-from impacket import wps
 import array
+from impacket import wps
 
 
 class TestTLVContainer(unittest.TestCase):
@@ -52,5 +49,5 @@ class TestTLVContainer(unittest.TestCase):
         self.assertEqual(b"Sarlanga", tlvc.first(1))
 
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestTLVContainer)
-unittest.main(defaultTest='suite')
+if __name__ == '__main__':
+    unittest.main(verbosity=1)

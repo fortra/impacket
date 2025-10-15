@@ -6,47 +6,28 @@ name: Build and test Impacket
 on: [push, pull_request]
 
 env:
-  NO_REMOTE: true
   DOCKER_TAG: impacket:latests
 
 jobs:
-  test:
-    name: Run unit tests and build wheel
+  lint:
+    name: Check syntax errors and warnings
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        tox-env: [py27, py36, py37, py38]
-        experimental: [false]
-        include:
-          - tox-env: py27
-            python-version: 2.7
-          - tox-env: py36
-            python-version: 3.6
-          - tox-env: py37
-            python-version: 3.7
-          - tox-env: py38
-            python-version: 3.8
-          - tox-env: py39
-            python-version: 3.9
-            experimental: true
-    env:
-      TOXENV: ${{ matrix.tox-env }}
-    continue-on-error: ${{ matrix.experimental }}
+    if:
+      github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
+      github.repository
 
     steps:
       - name: Checkout Impacket
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+      - name: Setup Python 3.8
+        uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: 3.8
 
       - name: Install Python dependencies
         run: |
-          python -m pip install --upgrade pip wheel
-          python -m pip install flake8 tox -r requirements.txt
+          python -m pip install flake8
 
       - name: Check syntax errors
         run: |
@@ -56,9 +37,43 @@ jobs:
         run: |
           flake8 . --count --ignore=E1,E2,E3,E501,W291,W293 --exit-zero --max-complexity=65 --max-line-length=127 --statistics
 
+  test:
+    name: Run unit tests and build wheel
+    needs: lint
+    runs-on: ${{ matrix.os }}
+    if:
+      github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
+      github.repository
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10","3.11","3.12"]
+        experimental: [false]
+        os: [ubuntu-latest]
+        include:
+          - python-version: "3.13-dev"
+            experimental: true
+            os: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+
+    steps:
+      - name: Checkout Impacket
+        uses: actions/checkout@v3
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          python -m pip install tox tox-gh-actions -r requirements.txt -r requirements-test.txt
+
       - name: Run unit tests
         run: |
-          tox
+          tox -- -m 'not remote'
 
       - name: Build wheel artifact
         run: |
@@ -66,11 +81,16 @@ jobs:
 
   docker:
     name: Build docker image
+    needs: lint
     runs-on: ubuntu-latest
+    if:
+      github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
+      github.repository
+
     continue-on-error: true
     steps:
       - name: Checkout Impacket
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Build docker image
         run: |

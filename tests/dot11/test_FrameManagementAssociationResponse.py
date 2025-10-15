@@ -1,20 +1,19 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
+import unittest
+from six import PY2
 from impacket.dot11 import Dot11Types
 from impacket.ImpactDecoder import RadioTapDecoder
-from six import PY2
-import unittest
+
 
 class TestDot11ManagementAssociationResponseFrames(unittest.TestCase):
 
@@ -169,5 +168,6 @@ class TestDot11ManagementAssociationResponseFrames(unittest.TestCase):
             ])
         self.assertEqual(self.management_association_response.get_header_size(), 33+11)
         
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementAssociationResponseFrames)
-unittest.main(defaultTest='suite')
+
+if __name__ == '__main__':
+    unittest.main(verbosity=1)

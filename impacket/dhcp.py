@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2019 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -150,11 +152,11 @@ class DhcpPacket(ProtocolPacket, structure.Structure):
     def packOptions(self, options):
         # options is an array of tuples: ('name',value)
 
-        answer = ''
+        answer = b''
         for name, value in options:
             code,format = self.options[name]
             val = self.pack(format, value)
-            answer += '%c%c%s' % (code, len(val), val)
+            answer += b'%c%c%s' % (code, len(val), val)
 
         return answer
 
@@ -170,12 +172,13 @@ class DhcpPacket(ProtocolPacket, structure.Structure):
         # print '%r' % options
         answer = []
         i = 0
+        options = bytearray(options)
         while i < len(options)-1:
-            name, format = self.getOptionNameAndFormat(ord(options[i]))
+            name, format = self.getOptionNameAndFormat(options[i])
             # size = self.calcUnpackSize(format, options[i+1:])
-            size = ord(options[i+1])
+            size = options[i+1]
             # print i, name, format, size
-            value = self.unpack(format, options[i+2:i+2+size])
+            value = self.unpack(format, bytes(options[i+2:i+2+size]))
             answer.append((name, value))
             i += 2+size
 

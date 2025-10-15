@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -10,18 +12,31 @@
 #   [MS-TDS] & [MC-SQLR] implementation.
 #
 # Author:
-#  Alberto Solino (@agsolino)
+#   Alberto Solino (@agsolino) original writer
+#   Aurélien Chalot (@Defte_) massive rework:
+#       - Implement in memory handshake via native SSL
+#       - Implement Channel Binding via tls-unique
+#       - Code comments for easier reading
 #
 # ToDo:
+#   [ ] Implement TDS 8 which means
+#       - Reimplementing TDS packet's structures 
+#       - Implement a simple TCP/TLS socket
+#       - Implement Channel Binding with tls-exporter (not implemented in ssl yet)
 #   [ ] Add all the tokens left
 #   [ ] parseRow should be rewritten and add support for all the SQL types in a
 #       good way. Right now it just supports a few types.
 #   [ ] printRows is crappy, just an easy way to print the rows. It should be
 #       rewritten to output like a normal SQL client
-#
+
 
 from __future__ import division
 from __future__ import print_function
+
+# Native SSL support for in memory handshake
+import ssl
+# Used to compute the CBT TOKEN
+from hashlib import md5
 import struct
 import socket
 import select
@@ -33,12 +48,7 @@ import string
 
 from impacket import ntlm, uuid, LOG
 from impacket.structure import Structure
-
-try:
-    from OpenSSL import SSL
-except:
-    LOG.critical("pyOpenSSL is not installed, can't continue")
-    raise
+from impacket.mssql.version import MSSQL_VERSION
 
 # We need to have a fake Logger to be compatible with the way Impact 
 # prints information. Outside Impact it's just a print. Inside 
@@ -48,6 +58,8 @@ class DummyPrint:
     def logMessage(self,message):
         if message == '\n':
             print(message)
+        elif message == '\r':
+            print()
         else:
             print(message, end=' ')
 
@@ -457,10 +469,11 @@ class TDS_COLMETADATA(Structure):
     )
 
 class MSSQL:
-    def __init__(self, address, port=1433, rowsPrinter=DummyPrint()):
+    def __init__(self, address, port=1433, remoteName = '', rowsPrinter=DummyPrint()):
         #self.packetSize = 32764
         self.packetSize = 32763
         self.server = address
+        self.remoteName = remoteName
         self.port = port
         self.socket = 0
         self.replies = {}
@@ -472,7 +485,10 @@ class MSSQL:
         self.lastError = False
         self.tlsSocket = None
         self.__rowsPrinter = rowsPrinter
+        self.mssql_version = ""
 
+    # With Kerberos we need to know to which MSSQL instance we are going to connect (to compute the SPN)
+    # As such we need to be able to list these instances which is what this code does
     def getInstances(self, timeout = 5):
         packet = SQLR()
         packet['OpCode'] = SQLR_CLNT_UCAST_EX
@@ -511,18 +527,25 @@ class MSSQL:
         return resp
         
 
+    # This is where we compute the pre login TDS packet
     def preLogin(self):
+        # First we initiate the structure
         prelogin = TDS_PRELOGIN()
+        # Then we fill the version of the MSSQL client we use
         prelogin['Version'] = b"\x08\x00\x01\x55\x00\x00"
-        #prelogin['Encryption'] = TDS_ENCRYPT_NOT_SUP
+        # We specify we support encryption but don't want it
         prelogin['Encryption'] = TDS_ENCRYPT_OFF
+        # Random threadID because we don't care about this
         prelogin['ThreadID'] = struct.pack('<L',random.randint(0,65535))
+        # The instance name
         prelogin['Instance'] = b'MSSQLServer\x00'
-
+        # We send the prelogin packet, receive the response from the server
         self.sendTDS(TDS_PRE_LOGIN, prelogin.getData(), 0)
         tds = self.recvTDS()
-
-        return TDS_PRELOGIN(tds['Data'])
+        response = TDS_PRELOGIN(tds['Data'])
+        self.mssql_version = MSSQL_VERSION(response['Version'])
+        # And return the result to the Login or KerberosLogin functions for futher parsing
+        return response
     
     def encryptPassword(self, password ):
         return bytes(bytearray([((x & 0x0f) << 4) + ((x & 0xf0) >> 4) ^ 0xa5 for x in bytearray(password)]))
@@ -551,14 +574,11 @@ class MSSQL:
     def getPacketSize(self):
         return self.packetSize
     
-    def socketSendall(self,data):
-        if self.tlsSocket is None:
-            return self.socket.sendall(data)
-        else:
-            self.tlsSocket.sendall(data)
-            dd = self.tlsSocket.bio_read(self.packetSize)
-            return self.socket.sendall(dd)
+    #################### SEND DATA #####################################################################
 
+    # This function is the generic sendTDS packet which is used to embed data into a regular TDS packet
+    # Once the TDS packet is computed, it is send to the socketSendall function that will check
+    # whether or not we have to encrypt the packets
     def sendTDS(self, packetType, data, packetID = 1):
         if (len(data)-8) > self.packetSize:
             remaining = data[self.packetSize-8:]
@@ -585,28 +605,56 @@ class MSSQL:
         tds['Data'] = data
         self.socketSendall(tds.getData())
 
-    def socketRecv(self, packetSize):
-        data = self.socket.recv(packetSize)
-        if self.tlsSocket is not None:
-            dd = ''
-            self.tlsSocket.bio_write(data)
-            while True:
-                try:
-                    dd += self.tlsSocket.read(packetSize)
-                except SSL.WantReadError:
-                    data2 = self.socket.recv(packetSize - len(data) )
-                    self.tlsSocket.bio_write(data2)
-                    pass
-                else:
-                    data = dd
-                    break
-        return data
+    # This function is a wrapper that is used to dispatch packets to send depending of the TLS context
+    def socketSendall(self, data):
+        if self.tlsSocket is None:
+            # socket.sendall() is the basic function used to send data over the network
+            return self.socket.sendall(data)
+        else:
+            # tls_send is the one to use when dealing with TLS
+            return self.tls_send(data)
+    
+    # If the socket is tlsSocket (means we have a TLS context) then we need to send the data to the TLS context
+    # Then we'll retrieve the encrypted data from the self.out_bio the in_bio which is encrypted
+    # Finally we call the sendall function to the send the encrypted data
+    def tls_send(self, data):
+        # First we send the data into the TLS context
+        self.tlsSocket.write(data)
+        # Then we read the encrypted result from the TLS context
+        while True:
+            try:
+                # We retrieve the encrypted data from the TLS context
+                encrypted = self.out_bio.read(4096)
+                if not encrypted:
+                    break 
+                # And we send the data
+                self.socket.sendall(encrypted)
+            except ssl.SSLWantReadError:
+                break
+            except ssl.SSLWantWriteError:
+                break
+            except ConnectionResetError as e:
+                LOG.error(f"[!] Connection reset when sending data: {e}")
+                raise
+    
+    #################### SEND DATA #####################################################################
 
+
+    #################### READ DATA #####################################################################
+
+    # This function is the generic recvTDS packet which is used to extract data from a regular TDS packet
+    # Once the TDS packet is extracted, it is send to the socketRecv function that will check
+    # whether or not we have to decrypt the packets
     def recvTDS(self, packetSize = None):
-        # Do reassembly here
         if packetSize is None:
             packetSize = self.packetSize
-        packet = TDSPacket(self.socketRecv(packetSize))
+
+        data = b''
+        while data == b'':
+            data = self.socketRecv(packetSize)
+        
+        packet = TDSPacket(data)
+                
         status = packet['Status']
         packetLen = packet['Length']-8
         while packetLen > len(packet['Data']):
@@ -617,12 +665,6 @@ class MSSQL:
         if packetLen <  len(packet['Data']):
             remaining = packet['Data'][packetLen:]
             packet['Data'] = packet['Data'][:packetLen]
-
-        #print "REMAINING ", 
-        #if remaining is None: 
-        #   print None 
-        #else: 
-        #   print len(remaining)
 
         while status != TDS_STATUS_EOM:
             if remaining is not None:
@@ -644,11 +686,109 @@ class MSSQL:
             packet['Data'] += tmpPacket['Data']
             packet['Length'] += tmpPacket['Length'] - 8
             
-        #print packet['Length']
         return packet
 
-    def kerberosLogin(self, database, username, password='', domain='', hashes=None, aesKey='', kdcHost=None, TGT=None, TGS=None, useCache=True):
+    # This function is a wrapper that is used to dispatch packets to read depending of the TLS context
+    def socketRecv(self, bufsize):
+        if self.tlsSocket is None:
+            return self.socket.recv(bufsize)
+        else:
+            return self.tls_recv(bufsize)
 
+    # If the socket is tlsSocket (means we have a TLS context) then we need to read the date from it
+    # And apss it to the TLS context via the self.in_bio object which is going to decrypt it
+    def tls_recv(self, bufsize):
+        while True:
+            try:
+                # Try to read decrypted data first
+                decrypted = self.tlsSocket.read(bufsize)
+                if decrypted:
+                    return decrypted
+            except ssl.SSLWantReadError:
+                pass  # Means we need more encrypted bytes
+
+            # Read more encrypted bytes from the socket
+            encrypted = self.socket.recv(bufsize)
+            if not encrypted:
+                # Remote closed the connection
+                return b""
+
+            self.in_bio.write(encrypted)
+
+    #################### READ DATA #####################################################################
+    
+
+    # This function returns the computed Channel Binding Token based on the tls-unique value
+    def generate_cbt_from_tls_unique(self):
+        channel_binding_struct = b""
+        initiator_address = b"\x00" * 8
+        acceptor_address = b"\x00" * 8
+        application_data_raw = b"tls-unique:" + self.tls_unique
+        len_application_data = len(application_data_raw).to_bytes(4, byteorder="little", signed=False)
+        application_data = len_application_data
+        application_data += application_data_raw
+        channel_binding_struct += initiator_address
+        channel_binding_struct += acceptor_address
+        channel_binding_struct += application_data
+        cbt_token = md5(channel_binding_struct).digest()
+        LOG.debug(f"Computed tls-unique CBT token: {cbt_token.hex()}")
+        return cbt_token
+    
+    # This function is used to set the TLS context, process the handshak in memory
+    # And define all variables that will be used both by Login or KerberosLogin 
+    def set_tls_context(self):
+        LOG.info("Encryption required, switching to TLS")
+        # Creates a TLS context
+        context = ssl.SSLContext()
+        context.set_ciphers('ALL:@SECLEVEL=0')
+        context.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
+        context.verify_mode = ssl.CERT_NONE
+        
+        # Here comes the important part, MSSQL server does not expect a raw TLS socket
+        # Instead it expects TDS packets to be sent in which TLS data is embedded
+        # Something like TDS_PACKET["Data"] = TLS_ENCRYPTED(data)
+        # To setup such a TLS tunnel inside another program, we need to use a STARTTLS like mechanism
+        # Which relies on MemoryBIO that are used to send data to the TLS context and receive data from it as well
+        # IN_BIO is where we send data to be encrypted and sent to the MSSQL server
+        in_bio = ssl.MemoryBIO()
+        # OUT_BIO is where we read data send by the MSSQL server inside a TDS packet
+        out_bio = ssl.MemoryBIO()
+
+        # Now we can create the TLS object that will be used to manage handshake and data processing
+        tls = context.wrap_bio(in_bio, out_bio)
+
+        # So first let's handshake with the remote MSSQL server
+        while True:
+            try:
+                # This sends the TLS client hello
+                tls.do_handshake()
+            except ssl.SSLWantReadError:
+                # If we get a SSLWantReadError then it means the server received enough data and want to send some to us
+                # So we read the data sent by the server and we send it back to it inside a TDS_PRE_LOGIN packet
+                # That's the actual TLS server hello
+                data = out_bio.read(4096)
+                self.sendTDS(TDS_PRE_LOGIN, data, 0)
+
+                # Now we read data one more time to extract the final TLS message
+                tds_packet = self.recvTDS(4096)
+                tls_data = tds_packet["Data"]
+
+                # And we send that data to the in_bio object to complete the handshake
+                in_bio.write(tls_data)
+            else:
+                break              
+
+        # At this point the TLS context is set up so we just store object inside the MSSQL class
+        # That will be used to encryp/decrpt data and send them to the MSSQL server
+        self.packetSize = 16 * 1024 - 1
+        self.tlsSocket = tls
+        self.in_bio = in_bio
+        self.out_bio = out_bio
+
+        # Finally we retrieve the tls-unique value which is computed from the final TLS handshake message (this is the CBT token)
+        self.tls_unique = tls.get_channel_binding("tls-unique")
+
+    def kerberosLogin(self, database, username, password='', domain='', hashes=None, aesKey='', kdcHost=None, TGT=None, TGS=None, useCache=True):
         if hashes is not None:
             lmhash, nthash = hashes.split(':')
             lmhash = binascii.a2b_hex(lmhash)
@@ -658,37 +798,19 @@ class MSSQL:
             nthash = ''
 
         resp = self.preLogin()
-        # Test this!
+        # If the MSSQL Server responds with a TDS_ENCRYPT_REQ or TDS_ENCRYPT_OFF 
+        # Then it means we need to setup a TLS context
         if resp['Encryption'] == TDS_ENCRYPT_REQ or resp['Encryption'] == TDS_ENCRYPT_OFF:
-            LOG.info("Encryption required, switching to TLS")
+            self.set_tls_context()
 
-            # Switching to TLS now
-            ctx = SSL.Context(SSL.TLSv1_METHOD)
-            ctx.set_cipher_list('RC4, AES256')
-            tls = SSL.Connection(ctx,None)
-            tls.set_connect_state()
-            while True:
-                try:
-                    tls.do_handshake()
-                except SSL.WantReadError:
-                    data = tls.bio_read(4096)
-                    self.sendTDS(TDS_PRE_LOGIN, data,0)
-                    tds = self.recvTDS()
-                    tls.bio_write(tds['Data'])
-                else:
-                    break
-
-            # SSL and TLS limitation: Secure Socket Layer (SSL) and its replacement,
-            # Transport Layer Security(TLS), limit data fragments to 16k in size.
-            self.packetSize = 16*1024-1
-            self.tlsSocket = tls
-
+        # That part is used to compute the Version field for the NTLM_NEGOTIATE and NTLM_AUTHENTICATE messages
+        self.version = ntlm.VERSION()
+        self.version["ProductMajorVersion"], self.version["ProductMinorVersion"], self.version["ProductBuild"] = 10, 0, 20348
 
         login = TDS_LOGIN()
-
         login['HostName'] = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
         login['AppName']  = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
-        login['ServerName'] = self.server.encode('utf-16le')
+        login['ServerName'] = self.remoteName.encode('utf-16le')
         login['CltIntName']  = login['AppName']
         login['ClientPID'] = random.randint(0,1024)
         login['PacketSize'] = self.packetSize
@@ -696,73 +818,34 @@ class MSSQL:
             login['Database'] = database.encode('utf-16le')
         login['OptionFlags2'] = TDS_INIT_LANG_FATAL | TDS_ODBC_ON
 
-        from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
         # Importing down here so pyasn1 is not required if kerberos is not used.
+        from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
+        from impacket.krb5.ccache import CCache
         from impacket.krb5.asn1 import AP_REQ, Authenticator, TGS_REP, seq_set
-        from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, KerberosError
+        from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, KerberosError, CheckSumField
         from impacket.krb5 import constants
         from impacket.krb5.types import Principal, KerberosTime, Ticket
         from pyasn1.codec.der import decoder, encoder
         from pyasn1.type.univ import noValue
-        from impacket.krb5.ccache import CCache
-        import os
-        import datetime
+        from impacket.krb5.gssapi import CheckSumField, GSS_C_REPLAY_FLAG, GSS_C_SEQUENCE_FLAG
 
-        if useCache is True:
-            try:
-                ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-            except:
-                # No cache present
-                pass
-            else:
-                # retrieve domain information from CCache file if needed
-                if domain == '':
-                    domain = ccache.principal.realm['data'].decode('utf-8')
-                    LOG.debug('Domain retrieved from CCache: %s' % domain)
+        if useCache:
+            domain, username, TGT, TGS = CCache.parseFile(domain, username, 'MSSQLSvc/%s:%d' % (self.remoteName, self.port))
 
-                LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
-                principal = 'MSSQLSvc/%s.%s:%d@%s' % (self.server.split('.')[0], domain, self.port, domain.upper())
-                creds = ccache.getCredential(principal)
+            if TGS is None:
+                # search for the port's instance name instead (instance name based SPN)
+                LOG.debug('Searching target\'s instances to look for port number %s' % self.port)
+                instances = self.getInstances()
+                instanceName = None
+                for i in instances:
+                    try:
+                        if int(i['tcp']) == self.port:
+                            instanceName = i['InstanceName']
+                    except Exception as e:
+                        pass
 
-                if creds is not None:
-                    TGS = creds.toTGS(principal)
-                    LOG.debug('Using TGS from cache')
-                else:
-                    # search for the port's instance name instead (instance name based SPN)
-                    LOG.debug('Searching target\'s instances to look for port number %s' % self.port)
-                    instances = self.getInstances()
-                    instanceName = None
-                    for i in instances:
-                        try:
-                            if int(i['tcp']) == self.port:
-                                instanceName = i['InstanceName']
-                        except:
-                            pass
-
-                    if instanceName:
-                        principal = 'MSSQLSvc/%s.%s:%s@%s' % (self.server, domain, instanceName, domain.upper())
-                        creds = ccache.getCredential(principal)
-
-                    if creds is not None:
-                        TGS = creds.toTGS(principal)
-                        LOG.debug('Using TGS from cache')
-                    else:
-                        # Let's try for the TGT and go from there
-                        principal = 'krbtgt/%s@%s' % (domain.upper(),domain.upper())
-                        creds =  ccache.getCredential(principal)
-                        if creds is not None:
-                            TGT = creds.toTGT()
-                            LOG.debug('Using TGT from cache')
-                        else:
-                            LOG.debug("No valid credentials found in cache. ")
-
-                # retrieve user information from CCache file if needed
-                if username == '' and creds is not None:
-                    username = creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')
-                    LOG.debug('Username retrieved from CCache: %s' % username)
-                elif username == '' and len(ccache.principal.components) > 0:
-                    username = ccache.principal.components[0]['data'].decode('utf-8')
-                    LOG.debug('Username retrieved from CCache: %s' % username)
+                if instanceName:
+                    domain, username, TGT, TGS = CCache.parseFile(domain, username, 'MSSQLSvc/%s.%s:%s' % (self.remoteName.split('.')[0], domain, instanceName))
 
         # First of all, we need to get a TGT for the user
         userName = Principal(username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
@@ -803,7 +886,7 @@ class MSSQL:
                 #         FQDN is the fully qualified domain name of the server.
                 #         port is the TCP port number.
                 #         instancename is the name of the SQL Server instance.
-                serverName = Principal('MSSQLSvc/%s.%s:%d' % (self.server.split('.')[0], domain, self.port), type=constants.PrincipalNameType.NT_SRV_INST.value)
+                serverName = Principal('MSSQLSvc/%s.%s:%d' % (self.remoteName.split('.')[0], domain, self.port), type=constants.PrincipalNameType.NT_SRV_INST.value)
                 try:
                     tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
                 except KerberosError as e:
@@ -848,17 +931,27 @@ class MSSQL:
 
         opts = list()
         apReq['ap-options'] = constants.encodeFlags(opts)
-        seq_set(apReq,'ticket', ticket.to_asn1)
+        seq_set(apReq, 'ticket', ticket.to_asn1)
 
         authenticator = Authenticator()
         authenticator['authenticator-vno'] = 5
         authenticator['crealm'] = domain
         seq_set(authenticator, 'cname', userName.components_to_asn1)
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
 
         authenticator['cusec'] = now.microsecond
         authenticator['ctime'] = KerberosTime.to_asn1(now)
-
+        authenticator["cksum"] = noValue
+        authenticator["cksum"]["cksumtype"] = 0x8003
+        
+        # Here we compute the checkField and add the Channel Binding token if using TLS
+        chkField = CheckSumField()
+        chkField["Lgth"] = 16
+        chkField["Flags"] = GSS_C_SEQUENCE_FLAG | GSS_C_REPLAY_FLAG
+        if self.tlsSocket:
+            chkField["Bnd"] = self.generate_cbt_from_tls_unique()
+        authenticator["cksum"]["checksum"] = chkField.getData()
+        authenticator["seq-number"] = 0
         encodedAuthenticator = encoder.encode(authenticator)
 
         # Key Usage 11
@@ -873,12 +966,15 @@ class MSSQL:
 
         blob['MechToken'] = encoder.encode(apReq)
 
+        # Seeting the last options for our TDS packet
+        # TDS_INTEGRATED_SECURITY_ON enables Windows authentication
         login['OptionFlags2'] |= TDS_INTEGRATED_SECURITY_ON
-
+        # Include the entire blog's data into the login packet in the SSPI field
         login['SSPI'] = blob.getData()
+        # Sets the length of the packet
         login['Length'] = len(login.getData())
 
-        # Send the NTLMSSP Negotiate or SQL Auth Packet
+        # Send login packet which is containing the Kerberos tickets
         self.sendTDS(TDS_LOGIN7, login.getData())
 
         # According to the specs, if encryption is not required, we must encrypt just
@@ -886,10 +982,9 @@ class MSSQL:
         if resp['Encryption'] == TDS_ENCRYPT_OFF:
             self.tlsSocket = None
 
+        # We then receive the TDS response from the server and parse its response to see if we are logged in or not
         tds = self.recvTDS()
-
         self.replies = self.parseReply(tds['Data'])
-
         if TDS_LOGINACK_TOKEN in self.replies:
             return True
         else:
@@ -905,56 +1000,51 @@ class MSSQL:
             lmhash = ''
             nthash = ''
 
+        # First things first, we need to anounciate to the MSSQL server sending a TDS_PRELOGIN
         resp = self.preLogin()
-        # Test this!
+
+        # If the MSSQL Server responds with a TDS_ENCRYPT_REQ or TDS_ENCRYPT_OFF 
+        # Then it means we need to setup a TLS context
         if resp['Encryption'] == TDS_ENCRYPT_REQ or resp['Encryption'] == TDS_ENCRYPT_OFF:
-            LOG.info("Encryption required, switching to TLS")
+            self.set_tls_context()
 
-            # Switching to TLS now
-            ctx = SSL.Context(SSL.TLSv1_METHOD)
-            ctx.set_cipher_list('RC4, AES256')
-            tls = SSL.Connection(ctx,None)
-            tls.set_connect_state()
-            while True:
-                try:
-                    tls.do_handshake()
-                except SSL.WantReadError:
-                    data = tls.bio_read(4096)
-                    self.sendTDS(TDS_PRE_LOGIN, data,0)
-                    tds = self.recvTDS()
-                    tls.bio_write(tds['Data'])
-                else:
-                    break
-
-            # SSL and TLS limitation: Secure Socket Layer (SSL) and its replacement, 
-            # Transport Layer Security(TLS), limit data fragments to 16k in size.
-            self.packetSize = 16*1024-1
-            self.tlsSocket = tls 
-
+        # That part is used to compute the Version field for the NTLM_NEGOTIATE and NTLM_AUTHENTICATE messages
+        self.version = ntlm.VERSION()
+        self.version["ProductMajorVersion"], self.version["ProductMinorVersion"], self.version["ProductBuild"] = 10, 0, 20348
 
         login = TDS_LOGIN()
-
         login['HostName'] = (''.join([random.choice(string.ascii_letters) for i in range(8)])).encode('utf-16le')
         login['AppName']  = (''.join([random.choice(string.ascii_letters) for i in range(8)])).encode('utf-16le')
-        login['ServerName'] = self.server.encode('utf-16le')
+        login['ServerName'] = self.remoteName.encode('utf-16le')
         login['CltIntName']  = login['AppName']
         login['ClientPID'] = random.randint(0,1024)
         login['PacketSize'] = self.packetSize
         if database is not None:
             login['Database'] = database.encode('utf-16le')
+
+        # These flags means:
+        # TDS_INIT_LANG_FATAL: if we specify a language (let's say fr) and we want the MSSQL server to serve us french 
+        # But for a reason, it can't, then the connection is closed
+        # TDS_ODBC_ON: specifies that we are a ODBC driver (but we are clearly not)
         login['OptionFlags2'] = TDS_INIT_LANG_FATAL | TDS_ODBC_ON
 
+        # If we rely on Windows Authentication
         if useWindowsAuth is True:
+            # Amongs these fields, the following flag need to be set if we rely on a Windows Authentication (and not local mssql accounts)
             login['OptionFlags2'] |= TDS_INTEGRATED_SECURITY_ON
-            # NTLMSSP Negotiate
-            auth = ntlm.getNTLMSSPType1('','')
+            # We send compute the first NTLM message (NTLMSSP_NEGOTIATE) asking for NTLMv2 
+            # Indeed NTLMv2 doesn't support CBT nor signing
+            auth = ntlm.getNTLMSSPType1('', '', use_ntlmv2=True, version=self.version)
+            # We then fill the TDS_LOGIN["SSPI"] fields with the NTLMSSP_NEGOTIATE packet
             login['SSPI'] = auth.getData()
+
+        # If we rely on local MSSQL authentication (sa account for example)
         else:
             login['UserName'] = username.encode('utf-16le')
             login['Password'] = self.encryptPassword(password.encode('utf-16le'))
             login['SSPI'] = ''
 
-
+        # And finally we fill the Length field and send the TDS packet to initiate NTLM authentication 
         login['Length'] = len(login.getData())
 
         # Send the NTLMSSP Negotiate or SQL Auth Packet
@@ -965,20 +1055,59 @@ class MSSQL:
         if resp['Encryption'] == TDS_ENCRYPT_OFF:
             self.tlsSocket = None
 
+        # We then receive its response which is either
+        # - A NTLMSSP_CHALLENGE packet
+        # - The response for the local authentication from the MSSQL server
         tds = self.recvTDS()
 
-
         if useWindowsAuth is True:
+
+            # Each TDS packet has a header so we extract the NTLMSSP_CHALLENGE from it
             serverChallenge = tds['Data'][3:]
 
-            # Generate the NTLM ChallengeResponse AUTH 
-            type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, serverChallenge, username, password, domain, lmhash, nthash)
+            # We then compute the Channel Binding Token from the tls-unique value retrieved before
+            channel_binding_value = b""
+            if self.tlsSocket:
+                channel_binding_value = self.generate_cbt_from_tls_unique()
 
+            # Generate the NTLM ChallengeResponse AUTH 
+            type3, exportedSessionKey = ntlm.getNTLMSSPType3(
+                auth, 
+                serverChallenge, 
+                username, 
+                password, 
+                domain, 
+                lmhash, 
+                nthash,
+                service="MSSQLSvc",
+                use_ntlmv2=True,
+                channel_binding_value=channel_binding_value,
+                version=self.version
+            )
+
+            # Now we initiate the MIC field with 0's
+            type3["MIC"] = b"\x00" * 16
+
+
+            # And we calculate the final MIC value based on the 3 NTLMSSP packets and the exportedEncryptedSessionKey
+            ntlm_negotiate_data = auth.getData()
+            ntlm_challenge_data =  ntlm.NTLMAuthChallenge(serverChallenge).getData()
+            ntlm_authenticate_data = type3.getData()            
+            newmic = ntlm.hmac_md5(
+                exportedSessionKey, 
+                ntlm_negotiate_data + ntlm_challenge_data + ntlm_authenticate_data
+            )
+            LOG.debug(f"Computed MIC is {newmic.hex()}")
+            type3["MIC"] = newmic
+
+            # Finally we send the ntlmssp_authenticate packet inside a TDS_SSPI packet
             self.sendTDS(TDS_SSPI, type3.getData())
+            # And we receive the final response from the MSSQL server
             tds = self.recvTDS()
 
+        # At this point we have received an authentication response from the server whether it is
+        # via a WindowsAuth or a local MSSQL auth so we just have to parse the response
         self.replies = self.parseReply(tds['Data'])
-
         if TDS_LOGINACK_TOKEN in self.replies:
             return True
         else:
@@ -1018,6 +1147,13 @@ class MSSQL:
                 col['Length'] = 10
                 fmt = '%%%ds'
 
+            col['minLenght'] = 0
+            for row in self.rows:
+                if len(str(row[col['Name']])) > col['minLenght']:
+                   col['minLenght'] = len(str(row[col['Name']]))
+            if col['minLenght'] < col['Length']:
+                col['Length'] = col['minLenght']
+
             if len(col['Name']) > col['Length']:
                 col['Length'] = len(col['Name'])
             elif col['Length'] > self.MAX_COL_LEN:
@@ -1031,11 +1167,10 @@ class MSSQL:
             return
         for col in self.colMeta:
             self.__rowsPrinter.logMessage(col['Format'] % col['Name'] + self.COL_SEPARATOR)
-        self.__rowsPrinter.logMessage('\n')
+        self.__rowsPrinter.logMessage('\r')
         for col in self.colMeta:
             self.__rowsPrinter.logMessage('-'*col['Length'] + self.COL_SEPARATOR)
-        self.__rowsPrinter.logMessage('\n')
-
+        self.__rowsPrinter.logMessage('\r')
 
     def printRows(self):
         if self.lastError is True:
@@ -1045,21 +1180,20 @@ class MSSQL:
         for row in self.rows:
             for col in self.colMeta:
                 self.__rowsPrinter.logMessage(col['Format'] % row[col['Name']] + self.COL_SEPARATOR)
-            self.__rowsPrinter.logMessage('\n')
+            self.__rowsPrinter.logMessage('\r')
 
-    def printReplies(self):
+    def printReplies(self, error_logger=LOG.error, info_logger=LOG.info):
         for keys in list(self.replies.keys()):
             for i, key in enumerate(self.replies[keys]):
                 if key['TokenType'] == TDS_ERROR_TOKEN:
-                    error =  "ERROR(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le'))                                      
-                    self.lastError = SQLErrorException("ERROR: Line %d: %s" % (key['LineNumber'], key['MsgText'].decode('utf-16le')))
-                    LOG.error(error)
+                    self.lastError = SQLErrorException("ERROR(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le')))
+                    error_logger(self.lastError)
 
                 elif key['TokenType'] == TDS_INFO_TOKEN:
-                    LOG.info("INFO(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le')))
+                    info_logger("INFO(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le')))
 
                 elif key['TokenType'] == TDS_LOGINACK_TOKEN:
-                    LOG.info("ACK: Result: %s - %s (%d%d %d%d) " % (key['Interface'], key['ProgName'].decode('utf-16le'), key['MajorVer'], key['MinorVer'], key['BuildNumHi'], key['BuildNumLow']))
+                    info_logger(f"ACK: Result: {key['Interface']} - {self.mssql_version}")
 
                 elif key['TokenType'] == TDS_ENVCHANGE_TOKEN:
                     if key['Type'] in (TDS_ENVCHANGE_DATABASE, TDS_ENVCHANGE_LANGUAGE, TDS_ENVCHANGE_CHARSET, TDS_ENVCHANGE_PACKETSIZE):
@@ -1078,7 +1212,7 @@ class MSSQL:
                             _type = 'PACKETSIZE'
                         else:
                             _type = "%d" % key['Type']                 
-                        LOG.info("ENVCHANGE(%s): Old Value: %s, New Value: %s" % (_type,record['OldValue'].decode('utf-16le'), record['NewValue'].decode('utf-16le')))
+                        info_logger("ENVCHANGE(%s): Old Value: %s, New Value: %s" % (_type,record['OldValue'].decode('utf-16le'), record['NewValue'].decode('utf-16le')))
        
     def parseRow(self,token,tuplemode=False):
         # TODO: This REALLY needs to be improved. Right now we don't support correctly all the data types

@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2019 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -14,6 +16,8 @@
 
 import logging
 import sys
+from impacket import version
+from impacket.examples.ntlmrelayx.utils.identity_log import IdentityFilter
 
 # This module can be used by scripts using the Impacket library 
 # in order to configure the root logger to output events 
@@ -27,7 +31,7 @@ class ImpacketFormatter(logging.Formatter):
   Prefixing logged messages through the custom attribute 'bullet'.
   '''
   def __init__(self):
-      logging.Formatter.__init__(self,'%(bullet)s %(message)s', None)
+      logging.Formatter.__init__(self,'%(bullet)s %(identity)s%(message)s', None)
 
   def format(self, record):
     if record.levelno == logging.INFO:
@@ -46,17 +50,28 @@ class ImpacketFormatterTimeStamp(ImpacketFormatter):
   Prefixing logged messages through the custom attribute 'bullet'.
   '''
   def __init__(self):
-      logging.Formatter.__init__(self,'[%(asctime)-15s] %(bullet)s %(message)s', None)
+      logging.Formatter.__init__(self,'[%(asctime)-15s] %(bullet)s %(identity)s%(message)s', None)
 
   def formatTime(self, record, datefmt=None):
       return ImpacketFormatter.formatTime(self, record, datefmt="%Y-%m-%d %H:%M:%S")
 
-def init(ts=False):
+def init(ts=False, debug=False):
     # We add a StreamHandler and formatter to the root logger
     handler = logging.StreamHandler(sys.stdout)
-    if not ts:
-        handler.setFormatter(ImpacketFormatter())
-    else:
+
+    if ts:
         handler.setFormatter(ImpacketFormatterTimeStamp())
+    else:
+        handler.setFormatter(ImpacketFormatter())
+
+    handler.addFilter(IdentityFilter())
+
     logging.getLogger().addHandler(handler)
-    logging.getLogger().setLevel(logging.INFO)
+
+    if debug is True:
+        logging.getLogger().setLevel(logging.DEBUG)
+        # Print the Library's installation path
+        logging.debug(version.getInstallationPath())
+    else:
+        logging.getLogger().setLevel(logging.INFO)
+        logging.getLogger('impacket.smbserver').setLevel(logging.ERROR)

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -13,12 +15,9 @@
 # Author:
 #   Aureliano Calvo
 #
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../../..")
-
 import unittest
 import impacket.helper as h
+
 
 class TestHelpers(unittest.TestCase):
     
@@ -53,5 +52,5 @@ class TestHelpers(unittest.TestCase):
         self.assertEqual(p.get_packet(), MockPacket(p.get_packet()).get_packet()) # it is the same packet after reprocessing.
         
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestHelpers)
-unittest.main(defaultTest='suite')
+if __name__ == '__main__':
+    unittest.main(verbosity=1)

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -33,10 +35,8 @@ from datetime import datetime
 from impacket import version
 from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE
 from impacket.examples import logger
-from impacket.examples.utils import parse_credentials
+from impacket.examples.utils import parse_identity, ldap_login
 from impacket.ldap import ldap, ldapasn1
-from impacket.smbconnection import SMBConnection
-
 
 class GetADUsers:
     def __init__(self, username, password, domain, cmdLineOptions):
@@ -44,12 +44,14 @@ class GetADUsers:
         self.__username = username
         self.__password = password
         self.__domain = domain
+        self.__target = None
         self.__lmhash = ''
         self.__nthash = ''
         self.__aesKey = cmdLineOptions.aesKey
         self.__doKerberos = cmdLineOptions.k
-        self.__target = None
-        self.__kdcHost = cmdLineOptions.dc_ip
+        #[!] in this script the value of -dc-ip option is self.__kdcIP and the value of -dc-host option is self.__kdcHost
+        self.__kdcIP = cmdLineOptions.dc_ip
+        self.__kdcHost = cmdLineOptions.dc_host
         self.__requestUser = cmdLineOptions.user
         self.__all = cmdLineOptions.all
         if cmdLineOptions.hashes is not None:
@@ -68,22 +70,6 @@ class GetADUsers:
         # Since we won't process all rows at once, this will be fixed lengths
         self.__colLen = [20, 30, 19, 19]
         self.__outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(self.__colLen)])
-
-
-
-    def getMachineName(self):
-        if self.__kdcHost is not None:
-            s = SMBConnection(self.__kdcHost, self.__kdcHost)
-        else:
-            s = SMBConnection(self.__domain, self.__domain)
-        try:
-            s.login('', '')
-        except Exception:
-            if s.getServerName() == '':
-                raise Exception('Error while anonymous logging into %s' % self.__domain)
-        else:
-            s.logoff()
-        return s.getServerName()
 
     @staticmethod
     def getUnixTime(t):
@@ -124,34 +110,10 @@ class GetADUsers:
             pass
 
     def run(self):
-        if self.__doKerberos:
-            self.__target = self.getMachineName()
-        else:
-            if self.__kdcHost is not None:
-                self.__target = self.__kdcHost
-            else:
-                self.__target = self.__domain
-
         # Connect to LDAP
-        try:
-            ldapConnection = ldap.LDAPConnection('ldap://%s'%self.__target, self.baseDN, self.__kdcHost)
-            if self.__doKerberos is not True:
-                ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
-            else:
-                ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
-                                             self.__aesKey, kdcHost=self.__kdcHost)
-        except ldap.LDAPSessionError as e:
-            if str(e).find('strongerAuthRequired') >= 0:
-                # We need to try SSL
-                ldapConnection = ldap.LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcHost)
-                if self.__doKerberos is not True:
-                    ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
-                else:
-                    ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
-                                                 self.__aesKey, kdcHost=self.__kdcHost)
-            else:
-                raise
-
+        ldapConnection = ldap_login(self.__target, self.baseDN, self.__kdcIP, self.__kdcHost, self.__doKerberos, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
+        # updating "self.__target" as it may have changed in the ldap_login processing
+        self.__target = ldapConnection._dstHost
         logging.info('Querying %s for information about domain.' % self.__target)
         # Print header
         print((self.__outputFormat.format(*self.__header)))
@@ -185,7 +147,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(add_help = True, description = "Queries target domain for users data")
 
-    parser.add_argument('target', action='store', help='domain/username[:password]')
+    parser.add_argument('target', action='store', help='domain[/username[:password]]')
     parser.add_argument('-user', action='store', metavar='username', help='Requests data for specific user ')
     parser.add_argument('-all', action='store_true', help='Return all users, including those with no email '
                                                            'addresses and disabled accounts. When used with -user it '
@@ -194,7 +156,6 @@ if __name__ == '__main__':
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
-
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
@@ -203,9 +164,14 @@ if __name__ == '__main__':
                                                        'line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
                                                                             '(128 or 256 bits)')
-    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
+
+    group = parser.add_argument_group('connection')
+    group.add_argument('-dc-ip', action='store', metavar='ip address', help='IP Address of the domain controller. If '
                                                                               'ommited it use the domain part (FQDN) '
                                                                               'specified in the target parameter')
+    group.add_argument('-dc-host', action='store', metavar='hostname', help='Hostname of the domain controller to use. '
+                                                                              'If ommited, the domain part (FQDN) '
+                                                                              'specified in the account parameter will be used')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -214,27 +180,13 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     # Init the example's logger theme
-    logger.init(options.ts)
+    logger.init(options.ts, options.debug)
 
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-
-    domain, username, password = parse_credentials(options.target)
+    domain, username, password, _, _, options.k = parse_identity(options.target, options.hashes, options.no_pass, options.aesKey, options.k)
 
     if domain == '':
         logging.critical('Domain should be specified!')
         sys.exit(1)
-
-    if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
-        from getpass import getpass
-        password = getpass("Password:")
-
-    if options.aesKey is not None:
-        options.k = True
 
     try:
         executer = GetADUsers(username, password, domain, options)
@@ -243,4 +195,4 @@ if __name__ == '__main__':
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
-        print((str(e)))
+        logging.error(str(e))

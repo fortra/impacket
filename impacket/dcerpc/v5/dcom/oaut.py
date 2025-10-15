@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -13,7 +15,7 @@
 #
 #   Best way to learn how to use these calls is to grab the protocol standard
 #   so you understand what the call does, and then read the test case located
-#   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
+#   at https://github.com/fortra/impacket/tree/master/tests/SMB_RPC
 #
 #   Since DCOM is like an OO RPC, instead of helper functions you will see the
 #   classes described in the standards developed.
@@ -1023,7 +1025,7 @@ class ITypeInfo(IRemUnknown2):
     def GetTypeComp(self):
         request = ITypeInfo_GetTypeComp()
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return ITypeComp(INTERFACE(self.get_cinstance(), ''.join(resp['ppTComp']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        return ITypeComp(INTERFACE(self.get_cinstance(), b''.join(resp['ppTComp']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
 
     def GetFuncDesc(self, index):
         request = ITypeInfo_GetFuncDesc()
@@ -1061,7 +1063,7 @@ class IDispatch(IRemUnknown2):
         request['iTInfo'] = 0
         request['lcid'] = 0
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return ITypeInfo(INTERFACE(self.get_cinstance(), ''.join(resp['ppTInfo']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        return ITypeInfo(INTERFACE(self.get_cinstance(), b''.join(resp['ppTInfo']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
 
     def GetIDsOfNames(self, rgszNames, lcid = 0):
         request = IDispatch_GetIDsOfNames()

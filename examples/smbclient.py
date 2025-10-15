@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -29,14 +31,14 @@ from impacket import version
 from impacket.smbconnection import SMBConnection
 
 def main():
-    # Init the example's logger theme
-    logger.init()
     print(version.BANNER)
     parser = argparse.ArgumentParser(add_help = True, description = "SMB client implementation.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
-    parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the mini shell')
+    parser.add_argument('-inputfile', type=argparse.FileType('r'), help='input file with commands to execute in the mini shell')
+    parser.add_argument('-outputfile', action='store', help='Output file to log smbclient actions in')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
 
     group = parser.add_argument_group('authentication')
 
@@ -65,13 +67,8 @@ def main():
         sys.exit(1)
 
     options = parser.parse_args()
-
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
+    # Init the example's logger theme
+    logger.init(options.ts, options.debug)
 
     domain, username, password, address = parse_target(options.target)
 
@@ -101,11 +98,16 @@ def main():
         else:
             smbClient.login(username, password, domain, lmhash, nthash)
 
-        shell = MiniImpacketShell(smbClient)
+        shell = MiniImpacketShell(smbClient, None, options.outputfile)
 
-        if options.file is not None:
-            logging.info("Executing commands from %s" % options.file.name)
-            for line in options.file.readlines():
+        if options.outputfile is not None:
+            f = open(options.outputfile, 'a')
+            f.write('=' * 20 + '\n' + options.target_ip + '\n' + '=' * 20 + '\n')
+            f.close()
+
+        if options.inputfile is not None:
+            logging.info("Executing commands from %s" % options.inputfile.name)
+            for line in options.inputfile.readlines():
                 if line[0] != '#':
                     print("# %s" % line, end=' ')
                     shell.onecmd(line)
@@ -113,6 +115,7 @@ def main():
                     print(line, end=' ')
         else:
             shell.cmdloop()
+
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback

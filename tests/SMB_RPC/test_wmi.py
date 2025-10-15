@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -44,29 +46,33 @@
 from __future__ import division
 from __future__ import print_function
 
-import base64
-import unittest
 import zlib
-
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+import base64
+import pytest
+import unittest
+from tests import RemoteTestCase
 
 from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.dcerpc.v5.dcomrt import DCOMConnection
 
 
-class WMITests(unittest.TestCase):
-    def tes_activation(self):
+@pytest.mark.remote
+class WMITests(RemoteTestCase, unittest.TestCase):
+
+    def setUp(self):
+        super(WMITests, self).setUp()
+        self.set_transport_config()
+
+    @pytest.mark.xfail
+    def test_activation(self):
         dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
-        dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLoginClientID)
+        dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLoginClientID)
         dcom.disconnect()
 
     def test_IWbemLevel1Login_EstablishPosition(self):
         dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
-        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
         resp = iWbemLevel1Login.EstablishPosition()
         print(resp)
@@ -74,7 +80,7 @@ class WMITests(unittest.TestCase):
 
     def test_IWbemLevel1Login_RequestChallenge(self):
         dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
-        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
         try:
             resp = iWbemLevel1Login.RequestChallenge()
@@ -87,7 +93,7 @@ class WMITests(unittest.TestCase):
 
     def test_IWbemLevel1Login_WBEMLogin(self):
         dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
-        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
         try:
             resp = iWbemLevel1Login.WBEMLogin()
@@ -100,44 +106,44 @@ class WMITests(unittest.TestCase):
 
     def test_IWbemLevel1Login_NTLMLogin(self):
         dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
-        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
         resp = iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
         print(resp)
         dcom.disconnect()
 
-    def tes_IWbemServices_OpenNamespace(self):
-        # Not working
+    @pytest.mark.xfail
+    def test_IWbemServices_OpenNamespace(self):
         dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
-        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
-        iWbemServices= iWbemLevel1Login.NTLMLogin('//./ROOT', NULL, NULL)
+        iWbemServices = iWbemLevel1Login.NTLMLogin('//./ROOT', NULL, NULL)
         try:
             resp = iWbemServices.OpenNamespace('__Namespace')
             print(resp)
-        except Exception as e:
+        except Exception:
             dcom.disconnect()
             raise
         dcom.disconnect()
 
     def test_IWbemServices_GetObject(self):
         dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
-        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
         iWbemServices= iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
         iWbemLevel1Login.RemRelease()
 
-        classObject,_ = iWbemServices.GetObject('Win32_Process')
+        classObject, _ = iWbemServices.GetObject('Win32_Process')
        
         dcom.disconnect()
 
     def test_IWbemServices_ExecQuery(self):
         dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
-        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
-        iWbemServices= iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
+        iWbemServices = iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
         #classes = [ 'Win32_Account', 'Win32_UserAccount', 'Win32_Group', 'Win32_SystemAccount', 'Win32_Service']
-        classes = [ 'Win32_Service']
+        classes = ['Win32_Service']
         for classn in classes:
             print("Reading %s " % classn)
             try:
@@ -158,21 +164,21 @@ class WMITests(unittest.TestCase):
         dcom.disconnect()
 
     def test_IWbemServices_ExecMethod(self):
-        dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)        
-        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
-        iWbemServices= iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
+        iWbemServices = iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
 
         #classObject,_ = iWbemServices.GetObject('WinMgmts:Win32_LogicalDisk='C:'')
-        classObject,_ = iWbemServices.GetObject('Win32_Process')
+        classObject, _ = iWbemServices.GetObject('Win32_Process')
         obj = classObject.Create('notepad.exe', 'c:\\', None)
         handle = obj.getProperties()['ProcessId']['value']
         
         iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from Win32_Process where handle = %s' % handle)
-        oooo = iEnumWbemClassObject.Next(0xffffffff,1)[0]
+        oooo = iEnumWbemClassObject.Next(0xffffffff, 1)[0]
         #import time
         #time.sleep(5)
-        owner = oooo.Terminate(1)
+        oooo.Terminate(1)
 
         #iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from Win32_Group where name = "testGroup0"')
         #oooo = iEnumWbemClassObject.Next(0xffffffff,1)[0]
@@ -200,46 +206,9 @@ class WMITests(unittest.TestCase):
 
         dcom.disconnect()
 
-class TCPTransport(WMITests):
-    def setUp(self):
-        WMITests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        self.stringBinding = r'ncacn_ip_tcp:%s' % self.machine
-        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
-        if len(self.hashes) > 0:
-            self.lmhash, self.nthash = self.hashes.split(':')
-        else:
-            self.lmhash = ''
-            self.nthash = ''
 
-class TCPTransport64(WMITests):
-    def setUp(self):
-        WMITests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
-        configFile.read('dcetests.cfg')
-        self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
-        self.serverName = configFile.get('TCPTransport', 'servername')
-        self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        self.stringBinding = r'ncacn_ip_tcp:%s' % self.machine
-        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
-        if len(self.hashes) > 0:
-            self.lmhash, self.nthash = self.hashes.split(':')
-        else:
-            self.lmhash = ''
-            self.nthash = ''
+class WMIOfflineTests(unittest.TestCase):
 
-
-class OfflineTests(unittest.TestCase):
     @staticmethod
     def createIWbemClassObject(b64_compressed_obj_ref):
         obj_ref = zlib.decompress(base64.b64decode(b64_compressed_obj_ref))
@@ -261,7 +230,7 @@ class OfflineTests(unittest.TestCase):
         echo 'Select * from Win32_UTCTime' | wmiquery.py username:password@x.x.x.x -file -
 
         The following lines were added in the impacket.dcerpc.v5.dcomrt.INTERFACE class constructor:
-        https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_22/impacket/dcerpc/v5/dcomrt.py#L1111-L1112
+        https://github.com/fortra/impacket/blob/impacket_0_9_22/impacket/dcerpc/v5/dcomrt.py#L1111-L1112
         if objRef and b'Win32_CurrentTime' in objRef:
             import base64, textwrap, zlib
             print('\n'.join(textwrap.wrap(base64.b64encode(zlib.compress(objRef)), 96)))
@@ -295,7 +264,7 @@ class OfflineTests(unittest.TestCase):
         wmipersist.py username:password@x.x.x.x -debug install -name ASEC -timer 1000 -vbs toexec.vbs
 
         The following lines were added in the impacket.dcerpc.v5.dcom.wmi.IWbemClassObject.SpawnInstance():
-        https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_22/impacket/dcerpc/v5/dcom/wmi.py#L2557
+        https://github.com/fortra/impacket/blob/impacket_0_9_22/impacket/dcerpc/v5/dcom/wmi.py#L2557
         import base64, textwrap, zlib
         print('\n'.join(textwrap.wrap(base64.b64encode(zlib.compress(objRefCustomIn.getData())), 96)))
         """
@@ -304,8 +273,8 @@ class OfflineTests(unittest.TestCase):
         # impacket.dcerpc.v5.dcom.wmi.CLASS_PART.getProperties() (links below). I won't change that code since I
         # don't know the potential splash damage. If you've changed it and found yourself trying to figure out why
         # does this test fail, just delete this comment, remove string quotes, and inline the following variables
-        # https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_22/impacket/dcerpc/v5/dcom/wmi.py#L341-L344
-        # https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_22/impacket/dcerpc/v5/dcom/wmi.py#L568-L569
+        # https://github.com/fortra/impacket/blob/impacket_0_9_22/impacket/dcerpc/v5/dcom/wmi.py#L341-L344
+        # https://github.com/fortra/impacket/blob/impacket_0_9_22/impacket/dcerpc/v5/dcom/wmi.py#L568-L569
         default_creator_sid = '[1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0]'
         false = 'False'
 
@@ -378,13 +347,5 @@ class OfflineTests(unittest.TestCase):
 
 
 # Process command-line arguments.
-if __name__ == '__main__':
-    import sys
-    if len(sys.argv) > 1:
-        testcase = sys.argv[1]
-        suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
-    else:
-        suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
-        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
-        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(OfflineTests))
-    unittest.main(defaultTest='suite')
+if __name__ == "__main__":
+    unittest.main(verbosity=1)
