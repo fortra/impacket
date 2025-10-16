@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -26,6 +27,7 @@ from __future__ import division
 from __future__ import print_function
 import sys
 import argparse
+import argcomplete
 import logging
 import codecs
 
@@ -323,6 +325,8 @@ if __name__ == '__main__':
     group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port",
                        help='Destination port to connect to SMB Server')
  
+    argcomplete.autocomplete(parser, always_complete_options=False)
+
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)

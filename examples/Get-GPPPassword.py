@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -20,6 +21,7 @@
 #
 
 import argparse
+import argcomplete
 import base64
 import xml
 import charset_normalizer
@@ -226,6 +228,8 @@ def parse_args():
     group.add_argument("-dc-ip", action="store", metavar="ip address", help="IP Address of the domain controller. If omitted it will use the domain part (FQDN) specified in the target parameter")
     group.add_argument("-target-ip", action="store", metavar="ip address", help="IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it")
     group.add_argument("-port", choices=["139", "445"], nargs="?", default="445", metavar="destination port", help="Destination port to connect to SMB Server")
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv) == 1:
         parser.print_help()
