@@ -73,6 +73,12 @@ STATUS_SMB_BAD_TID = 0x00050002
 # command (or either TRANSACTION). That's why I'm putting them here
 # TODO: Return NT ERROR Codes
 
+def getFileTime(t):
+    return smb.POSIXtoFT(t)
+
+def getUnixTime(t):
+    return smb.FTtoPOSIX(t)
+
 def computeNTLMv2(identity, lmhash, nthash, serverChallenge, authenticateMessage, ntlmChallenge, type1):
     # Let's calculate the NTLMv2 Response
 
