@@ -5,6 +5,88 @@ Project owner's main page is at www.coresecurity.com.
 Complete list of changes can be found at:
 https://github.com/fortra/impacket/commits/master
 
+## Impacket v0.13.0 (Oct 2025): 
+
+1. Library improvements 
+
+    * Major SMB client/server refactor adds setInfo support, CIFS datetime helpers, and safer default share access to enable remote attribute and timestamp management. (@covertivy) 
+
+    * Introduced per-structure encoding selectors and UTF-8-aware SMB structures so non-Latin resource names round-trip correctly. (@alexisbalbachan) 
+
+    * Strengthened LDAP/Kerberos handling with channel binding plus signing, schema alignment with ldap3, and LDAPS-based LAPS retrieval against Windows Server 2025 DCs. (@zblurx, @alexisbalbachan, @Ibrahim8879) 
+
+    * Improved DCE/RPC coverage with Netlogon authenticator fixes, updated DRS bind flags, expanded EVEN6 decoding, and a new ICPR interface to support relay-aware RPC workflows. (@ThePirateWhoSmellsOfSunflowers, @h3-josh-the-engineer, @NtAlexio2, @rtpt-romankarwacik) 
+
+    * Corrected SMB negotiation edge cases by fixing response padding, Unicode pipe lookups, and keyboard interrupts in SMB servers. (@rtpt-erikgeiser, @Abyss-emmm, @exploide) 
+
+    * SMB Server enhancements to align Impacket's implementation with standard (@jborean93) 
+
+  
+
+2. Authentication & relay tooling 
+
+    * Added WinRMS relay clients/servers. (@Defte_) 
+
+    * Improved IPv6 support, richer logging, and consistent console status reporting, plus an identity log to track compromised principals ( @gabrielg5) 
+
+    * Introduced an RPC relay server with Endpoint Mapper discovery . (@rtpt-romankarwacik) 
+
+    * Delivered SCCM Management/Distribution Point relay attacks. (@q-roland) 
+
+    * Enhanced shadow credentials, SOCKS plugins, and target rotation with better IPv6 awareness and stability. (@anadrianmanrique, @gabrielg5) 
+
+    * Added options to strip SSP from Net-NTLMv1 captures and write relay-captured hashes for cracking workflows. (@TurtleARM, @p0rtL6) 
+
+     
+
+3. Examples improvements 
+
+    * secretsdump.py gained a WMI shadow snapshot path, export hive boot key recovery, safer DRS flags, user-status reporting, and refined NTDS parsing. (@PeterGabaldon, @MaxToffy, @h3-josh-the-engineer, @Markb1337, @snovvcrash) 
+
+    * MSSQL tooling gained channel binding tokens, restored reliable connections, richer linked-server file transfers, and inline command execution. (@Defte_, @rtpt-romankarwacik, @trietend, @kiriknik, @Signum21) 
+
+    * Directory ACL helpers (`dacledit`, `owneredit`, `rbcd`, `ldapshell`) picked up mask selection, safer queries, and consistent `-dc-host` handling. (@dadevel, @shellinvictus, @Fabrizzio53, @ICheer_No0M, @gabrielg5) 
+
+    * SMB operator utilities add reconnect and autocomplete options in smbclient and prevent smbexec from hanging on completion. (@daddycocoaman, @trietend, @Vincent550102) 
+
+    * Remote access helpers such as rdp_check and wmiexec now support IPv6 targets and display created Process IDs for easier triage. (@gabrielg5, @alexisbalbachan) 
+
+  
+
+4. New examples 
+
+    * [attrib.py](examples/attrib.py) manipulates file attributes over SMB to showcase the new setInfo workflow. (@covertivy) 
+
+    * [filetime.py](examples/filetime.py) inspects and updates SMB file timestamps using the refreshed SMBConnection APIs. (@covertivy) 
+
+    * [badsuccessor.py](examples/badsuccessor.py) demonstrates the AD CS “bad successor” attack path. (@fulc2um) 
+
+    * [regsecrets.py](examples/regsecrets.py) extracts LSA secrets from remote registry hives through [MS-RRP]. (@laxaa, @laxa) 
+
+    * [samedit.py](examples/samedit.py) edits local SAM password hashes offline. (@iorpim) 
+
+    * [CheckLDAPStatus.py](examples/CheckLDAPStatus.py) checks LDAP signing status and LDAPS channel binding status. (@zblurx) 
+
+ 
+
+  
+
+5. Project & packaging 
+
+    * Added the `impacket.mssql` namespace, relaxed the pyOpenSSL pin, and declared Python 3.13 support while dropping 3.8. (@anadrianmanrique, @Defte_) 
+
+    * Replaced pkg_resources with importlib.metadata for lightweight version discovery. (@AdrianVollmer) 
+
+  
+
+6. Contributors 
+
+As always, thanks a lot to all these contributors that make this library better every day (up to now):
+   
+@Abyss-emmm, @AdrianVollmer, @NeffIsBack, @NtAlexio2, @rtpt-alexanderneumann, @asareynolds, @dadevel, @TurtleARM, @Defte_, @rtpt-erikgeiser, @Fabrizzio53, @fluffy-kaiju, @gabrielg5, @ICheer_No0M, @exploide, @jborean93, @nitbx, @laxaa, @daddycocoaman, @lucas0817, @Markb1337, @MaxToffy, @Ibrahim8879, @Narmjep, @NuclearFizzler, @iorpim, @CipherCloak, @PeterGabaldon, @b1two, @covertivy, @rtpt-romankarwacik, @ryanq47, @SAERXCIT, @Signum21, @ThePirateWhoSmellsOfSunflowers, @Vincent550102, @anadrianmanrique, @alexisbalbachan, @d0gkiller87, @Ridter, @fulc2um, @gjhami, @h3-josh-the-engineer, @kiriknik, @marcobarlottini, @p0rtL6, @q-roland, @shellinvictus, @trietend, @zblurx. 
+
+ 
+
 ## Impacket v0.12.0 (Sep 2024):
 1. Library improvements
     * Fixed broken hRSetServiceObjectSecurity method (@rkivys)
