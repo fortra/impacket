@@ -22,7 +22,7 @@ from subprocess import *
 PACKAGE_NAME = "impacket"
 
 VER_MAJOR = 0
-VER_MINOR = 13
+VER_MINOR = 14
 VER_MAINT = 0
 VER_PREREL = "dev"
 try:
