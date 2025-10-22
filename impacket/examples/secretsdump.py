@@ -1458,8 +1458,13 @@ class SAMHashes(OfflineRegistry):
         # NT Time is in 100-nanosecond intervals since 1601-01-01 (UTC)
         # The difference between 1601 and 1970 is 11644473600 seconds
         nt_time = int.from_bytes(nt_time, byteorder='little')  # Convert byte string to integer
-        unix_time = (nt_time - 116444736000000000) // 10000000  # Convert to Unix time (seconds)
-        return datetime.utcfromtimestamp(unix_time)
+
+        # datetime on windows can't handle negative timestamps (i.e. before 1970), therefore we must return the 0 time directly
+        if nt_time == 0:
+            return datetime(1601, 1, 1, 0, 0, 0)
+        else:
+            unix_time = (nt_time - 116444736000000000) // 10000000  # Convert to Unix time (seconds)
+            return datetime.utcfromtimestamp(unix_time)
 
     def MD5(self, data):
         md5 = hashlib.new('md5')
