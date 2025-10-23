@@ -87,29 +87,51 @@ if __name__ == '__main__':
     if options.aesKey is not None:
         options.k = True
 
-    ms_sql = tds.MSSQL(options.target_ip, int(options.port), remoteName)
-    ms_sql.connect()
-    try:
-        if options.k is True:
-            res = ms_sql.kerberosLogin(options.db, username, password, domain, options.hashes, options.aesKey,
-                                       kdcHost=options.dc_ip)
+    with tds.MSSQL(
+        address=options.target_ip,
+        port=int(options.port),
+        remoteName=remoteName
+    ) as mssql_instance:
+
+        try:
+            if options.k is True:
+                res = mssql_instance.kerberosLogin(
+                    database=options.db,
+                    username=username,
+                    password=password,
+                    domain=domain,
+                    hashes=options.hashes,
+                    aesKey=options.aesKey,
+                    kdcHost=options.dc_ip,
+                    TGT=None,
+                    TGS=None,
+                    useCache=True
+                )
+            else:
+                res = mssql_instance.login(
+                    database=options.db,
+                    username=username,
+                    password=password,
+                    domain=domain,
+                    hashes=options.hashes,
+                    useWindowsAuth=options.windows_auth
+                )
+        except Exception as exc:
+            logging.debug("Exception:", exc_info=True)
+            logging.error(str(exc))
+            res = False
         else:
-            res = ms_sql.login(options.db, username, password, domain, options.hashes, options.windows_auth)
-        ms_sql.printReplies()
-    except Exception as e:
-        logging.debug("Exception:", exc_info=True)
-        logging.error(str(e))
-        res = False
-    if res is True:
-        shell = SQLSHELL(ms_sql, options.show)
-        if options.file:
-            for line in options.file.readlines():
-                print("SQL> %s" % line, end=' ')
-                shell.onecmd(line)
-        elif options.command:
-            for c in options.command:
-                print("SQL> %s" % c)
-                shell.onecmd(c)
-        else:
-            shell.cmdloop()
-    ms_sql.disconnect()
+            mssql_instance.printReplies()
+        
+        if res is True:
+            shell = SQLSHELL(mssql_instance, options.show)
+            if options.file:
+                for line in options.file.readlines():
+                    print("SQL> %s" % line, end=' ')
+                    shell.onecmd(line)
+            elif options.command:
+                for c in options.command:
+                    print("SQL> %s" % c)
+                    shell.onecmd(c)
+            else:
+                shell.cmdloop()
