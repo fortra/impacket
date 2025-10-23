@@ -200,7 +200,7 @@ class SCCMClientPushAttack:
         private_key = create_private_key()
         certificate = create_certificate(private_key)
         public_key = certificate.public_bytes(serialization.Encoding.DER).hex().upper()
-        print(public_key + "\n")
+        LOG.info(public_key + "\n")
 
         # Writing certs to device info directory for potential future use
         with open(f"{loot_dir}/device/cert.pem", 'wb') as f:
