@@ -1691,6 +1691,9 @@ class MSSQL:
     sql_query = batch
 
     def changeDB(self, db):        
+        
+        
+        
         if db != self.currentDB:
             chdb = 'use %s' % db            
             self.batch(chdb)
@@ -1714,3 +1717,18 @@ class MSSQL:
         if self.lastError:
             raise self.lastError
         return True
+
+    def __enter__(self):
+        """
+        Enter the runtime context related to this object.
+        Establishes the connection.
+        Returns the MSSQL instance itself.
+        """
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """
+        Exit the runtime context and ensure the connection is closed.
+        """
+        self.disconnect()
