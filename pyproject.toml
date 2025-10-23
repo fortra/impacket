@@ -44,10 +44,11 @@ poetry-dynamic-versioning = { version = ">=1.0.0,<2.0.0", extras = ["plugin"] }
 # but you are encouraged to use version = "0.0.0" as a standard placeholder.
 [tool.poetry-dynamic-versioning]
 enable = true
-pattern = "^impacket_(?P<base>\\d+\\.\\d+\\.\\d+)$"
-format = "{base}.post{distance}+{commit}"
 vcs = "git"
+tag-branch = "master"
+pattern = "^impacket_(?P<base>\\d+[._]\\d+[._]\\d+)$"
 style = "pep440"
+bump = false
 
 [project.scripts]
 CheckLDAPStatus = "examples.CheckLDAPStatus:main"
