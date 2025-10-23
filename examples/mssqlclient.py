@@ -87,7 +87,11 @@ if __name__ == '__main__':
     if options.aesKey is not None:
         options.k = True
 
-    with tds.MSSQL(options.target_ip, int(options.port), remoteName) as mssql_instance:
+    with tds.MSSQL(
+        address=options.target_ip,
+        port=int(options.port),
+        remoteName=remoteName
+    ) as mssql_instance:
 
         try:
             if options.k is True:
