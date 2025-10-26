@@ -554,9 +554,10 @@ class MSSQL:
     def encryptPassword(self, password ):
         return bytes(bytearray([((x & 0x0f) << 4) + ((x & 0xf0) >> 4) ^ 0xa5 for x in bytearray(password)]))
 
-    def connect(self):
+    def connect(self, timeout=30):
         af, socktype, proto, canonname, sa = socket.getaddrinfo(self.server, self.port, 0, socket.SOCK_STREAM)[0]
         sock = socket.socket(af, socktype, proto)
+        sock.settimeout(timeout)
         
         try:
             sock.connect(sa)
