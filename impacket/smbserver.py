@@ -2577,28 +2577,13 @@ class SMBCommands:
                     authenticateMessage['domain_name'].decode('utf-16le'),
                     authenticateMessage['user_name'].decode('utf-16le'),
                     authenticateMessage['host_name'].decode('utf-16le')))
-                # Do we have credentials to check?
-                if len(smbServer.getCredentials()) > 0:
-                    identity = authenticateMessage['user_name'].decode('utf-16le').lower()
-                    # Do we have this user's credentials?
-                    if identity in smbServer.getCredentials():
-                        # Process data:
-                        # Let's parse some data and keep it to ourselves in case it is asked
-                        uid, lmhash, nthash = smbServer.getCredentials()[identity]
 
-                        errorCode, sessionKey = computeNTLMv2(identity, lmhash, nthash, smbServer.getSMBChallenge(),
-                                                              authenticateMessage, connData['CHALLENGE_MESSAGE'],
-                                                              connData['NEGOTIATE_MESSAGE'])
+                errorCode, sessionKey, isGuest = smbServer.authenticate(authenticate_message=authenticateMessage, connection_id=connId)
 
-                        if sessionKey is not None:
-                            connData['SignatureEnabled'] = False
-                            connData['SigningSessionKey'] = sessionKey
-                            connData['SignSequenceNumber'] = 1
-                    else:
-                        errorCode = STATUS_LOGON_FAILURE
-                else:
-                    # No credentials provided, let's grant access
-                    errorCode = STATUS_SUCCESS
+                if sessionKey is not None:
+                    connData['SignatureEnabled'] = False
+                    connData['SigningSessionKey'] = sessionKey
+                    connData['SignSequenceNumber'] = 1
 
                 if errorCode == STATUS_SUCCESS:
                     connData['Authenticated'] = True
@@ -2979,40 +2964,13 @@ class SMB2Commands:
                 authenticateMessage['user_name'].decode('utf-16le'),
                 authenticateMessage['host_name'].decode('utf-16le')))
 
-            isGuest = False
-            isAnonymus = False
+            isAnonymus = authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_ANONYMOUS
+            errorCode, sessionKey, isGuest = smbServer.authenticate(authenticate_message=authenticateMessage, connection_id=connId)
 
-            # TODO: Check the credentials! Now granting permissions
-            # Do we have credentials to check?
-            if len(smbServer.getCredentials()) > 0:
-                identity = authenticateMessage['user_name'].decode('utf-16le').lower()
-                # Do we have this user's credentials?
-                if identity in smbServer.getCredentials():
-                    # Process data:
-                    # Let's parse some data and keep it to ourselves in case it is asked
-                    uid, lmhash, nthash = smbServer.getCredentials()[identity]
-
-                    errorCode, sessionKey = computeNTLMv2(identity, lmhash, nthash, smbServer.getSMBChallenge(),
-                                                          authenticateMessage, connData['CHALLENGE_MESSAGE'],
-                                                          connData['NEGOTIATE_MESSAGE'])
-
-                    if sessionKey is not None:
-                        connData['SignatureEnabled'] = True
-                        connData['SigningSessionKey'] = sessionKey
-                        connData['SignSequenceNumber'] = 1
-                else:
-                    errorCode = STATUS_LOGON_FAILURE
-            else:
-                # No credentials provided, let's grant access
-                if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_ANONYMOUS:
-                    isAnonymus = True
-                    if smbServer._SMBSERVER__anonymousLogon == False:
-                        errorCode = STATUS_ACCESS_DENIED
-                    else:
-                        errorCode = STATUS_SUCCESS
-                else:
-                    isGuest = True
-                    errorCode = STATUS_SUCCESS
+            if sessionKey is not None:
+                connData['SignatureEnabled'] = True
+                connData['SigningSessionKey'] = sessionKey
+                connData['SignSequenceNumber'] = 1
 
             if errorCode == STATUS_SUCCESS:
                 connData['Authenticated'] = True
@@ -4739,6 +4697,30 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
             except:
                 pass
         self.__credentials[name.lower()] = (uid, lmhash, nthash)
+
+    def authenticate(self, authenticate_message, connection_id):
+        session_key = None
+        is_guest = False
+        if self.getCredentials():
+            identity = authenticate_message['user_name'].decode('utf-16le').lower()
+            # Do we have this user's credentials?
+            try:
+                _, lmhash, nthash = self.getCredentials()[identity]
+                connection_data = self.getConnectionData(connection_id, checkStatus=False)
+                challenge_message, negotiate_message =  connection_data['CHALLENGE_MESSAGE'], connection_data['NEGOTIATE_MESSAGE']
+                error_code, session_key = computeNTLMv2(identity, lmhash, nthash, self.getSMBChallenge(), authenticate_message, challenge_message, negotiate_message)
+            except KeyError:
+                error_code = STATUS_LOGON_FAILURE
+        else:
+            #No credentials provided, let's grant access
+            if authenticate_message['flags'] & ntlm.NTLMSSP_NEGOTIATE_ANONYMOUS:
+                error_code = STATUS_SUCCESS if self._SMBSERVER__anonymousLogon else STATUS_ACCESS_DENIED
+            else:
+                is_guest = True
+                # TODO: implement similar flag to anonymousLogon
+                error_code = STATUS_SUCCESS
+
+        return error_code, session_key, is_guest
 
 
 # For windows platforms, opening a directory is not an option, so we set a void FD
