@@ -25,6 +25,7 @@
 # estamos en la B
 
 import calendar
+import multiprocessing
 import socket
 import time
 import datetime
@@ -46,6 +47,7 @@ import hmac
 from binascii import unhexlify, hexlify, a2b_hex
 from six import b, ensure_str
 from six.moves import configparser, socketserver
+from tempfile import mkdtemp, mktemp
 
 # For signing
 from impacket import smb, nmb, ntlm, uuid
@@ -5037,3 +5039,117 @@ class SimpleSMBServer:
             self.__smbConfig.set("global", "DropSSP", "False")
         self.__server.setServerConfig(self.__smbConfig)
         self.__server.processConfigFile()
+
+
+class SimpleTempSMBServer(SimpleSMBServer):
+    """ SimpleTempSMBServer SimpleSMBServer but temporary and can be used as contextmanager"""
+
+    temp_directories = []
+
+    def addShare(self, shareName, shareComment='', shareType='0', readOnly='no'):
+        new_temp_directory = mkdtemp(prefix="impacket_smb_")
+        self.temp_directories.append(new_temp_directory)
+        super().addShare(shareName, new_temp_directory, shareComment, shareType, readOnly)
+
+    def add_file(self, sharename, destination_filename, file):
+        share = searchShare(None, sharename.upper(), self.getServer())
+        if share:
+            directory = share.get("path")
+            if os.path.exists(file):
+                shutil.copy(file, os.path.join(directory, destination_filename))
+            else:
+                with open(os.path.join(directory, destination_filename), "wb") as destination:
+                    file = file.encode() if isinstance(file, str) else file
+                    destination.write(file)
+
+    def await_file(self, sharename, filename, timeout=None):
+        """wait for a file to be written to a share
+
+        this is useful when using the server as a contextmanager and we are waiting for another process ie the target to
+        write data back to our attacker share
+        returns
+            string filepath on success
+            None on timeout
+        """
+        share = searchShare(None, sharename.upper(), self.getServer())
+        directory = share.get("path")
+        filepath = os.path.join(directory, filename)
+
+        start = time.time()
+        previous_size = -1
+        while True:
+            if not os.path.exists(filepath):
+                continue
+
+            size = os.stat(filepath).st_size
+            if previous_size != size:
+                previous_size = os.stat(filepath).st_size
+                continue
+            else:
+                return filepath
+
+            if timeout and (time.time() - start) > time:
+                return None
+
+            time.sleep(1)
+
+    def stop(self):
+        try:
+            super().stop()
+        finally:
+            for directory in self.temp_directories:
+                shutil.rmtree(directory, ignore_errors=True)
+
+    def __enter__(self):
+        # avoid using Process beacuse of bug in python3.13 https://github.com/python/cpython/issues/134381
+        # TODO: REMOVE WHEN PROCESS IS FIXED!!
+        #self._server_process = Process(target=self.start)
+        self._server_process = threading.Thread(target=self.start)
+        self._server_process.daemon = True
+        self._server_process.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # avoid using Process beacuse of bug in python3.13 https://github.com/python/cpython/issues/134381
+        # TODO: REMOVE WHEN PROCESS IS FIXED!!
+        #self._server_process.terminate()
+        #self._server_process.join()
+        #self._server_process.close()
+        self.getServer().must_serve = False
+        self.stop()
+        self._server_process.join()
+
+    """This was stolen from tests/SMB_RPC/test_smbserver.py to make the context manager work
+    
+    # avoid using Process beacuse of bug in python3.13 https://github.com/python/cpython/issues/134381
+    
+    """
+    # TODO: REMOVE WHEN PROCESS IS FIXED!!
+
+    class StoppableMixin():
+        # keep this neatly contained
+        import select
+        def serve_forever(self):
+            self.must_serve = True
+            self.timeout = 2
+
+            while self.must_serve:
+                self.handle_request()
+
+        def close_request(self, request):
+            if self.must_serve:
+                request.close()
+
+        def get_request(self):
+            timeout = 0.1
+            while self.must_serve:
+                _read, _, _ = self.select.select([self.socket], [], [], timeout)
+
+                if _read and self.must_serve:
+                    return self.socket.accept()
+            raise socket.error
+
+    def __init__(self, listenAddress='0.0.0.0', listenPort=445, configFile='', smbserverclass=SMBSERVER, ipv6=False):
+        class Mixed(self.StoppableMixin, smbserverclass):
+            pass
+        super().__init__(listenAddress, listenPort, configFile, Mixed, ipv6)

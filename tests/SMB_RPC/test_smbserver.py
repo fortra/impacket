@@ -74,16 +74,19 @@
 #         [ ] smb2Lock
 #         [ ] smb2Cancel
 #
+import os.path
+import time
 import unittest
 from time import sleep
 from os.path import exists, join
 from os import mkdir, rmdir, remove
 from multiprocessing import Process
+import tempfile
 
 from six import PY2, StringIO, BytesIO, b, assertRaisesRegex, assertCountEqual
 
 from impacket.smb import SMB_DIALECT
-from impacket.smbserver import normalize_path, isInFileJail, SimpleSMBServer, SMBSERVER, PromiscuousSMBServer
+from impacket.smbserver import normalize_path, isInFileJail, SimpleSMBServer, SMBSERVER, PromiscuousSMBServer, SimpleTempSMBServer
 from impacket.smbconnection import SMBConnection, SessionError, compute_lmhash, compute_nthash
 from threading import Thread
 
@@ -810,6 +813,23 @@ class PromiscuousSMBServerTests(unittest.TestCase):
         smb_client = SMBConnection("127.0.0.1", "127.0.0.1", sess_port=1445)
         smb_client.login("admin", "admin_password")
         smb_client.close()
+
+class SimpleTempSMBServerTests(unittest.TestCase):
+    def test_add_file(self):
+        with SimpleTempSMBServer("127.0.0.1", 1445) as server, tempfile.NamedTemporaryFile() as test_file:
+            test_file.write(b"this is file content")
+            test_file.seek(0)
+            server.addShare("TEST")
+            server.add_file("TEST", "test_file1", b"this is file content")
+            server.add_file("TEST", "test_file2", test_file.name)
+
+            assert os.path.exists(os.path.join(server.temp_directories[0], "test_file1"))
+            with open(os.path.join(server.temp_directories[0], "test_file1"), "rb") as file:
+                assert file.read() == b"this is file content"
+            assert os.path.exists(os.path.join(server.temp_directories[0], "test_file2"))
+            with open(os.path.join(server.temp_directories[0], "test_file2"), "rb") as file:
+                assert file.read() == b"this is file content"
+
 
 
 if __name__ == "__main__":
