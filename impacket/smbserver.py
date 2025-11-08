@@ -4723,6 +4723,40 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         return error_code, session_key, is_guest
 
 
+class PromiscuousSMBServer(SMBSERVER):
+    ALLOW_ANY = 0
+    ALLOW_BY_NAME = 1
+    CLASSIC_AUTH = -1
+    authentication_method = ALLOW_ANY
+
+    def authenticate(self, authenticate_message, connection_id):
+        # authenticate anyone, anyone who appears in credentials, or "normal" authentication while still doing the proper dance
+        if self.authentication_method == self.CLASSIC_AUTH:
+            return super().authenticate(authenticate_message, connection_id)
+        identity = authenticate_message['user_name'].decode('utf-16le').lower()
+        lmhash, nthash = "", ""
+        connection_data = self.getConnectionData(connection_id, checkStatus=False)
+        challenge_message, negotiate_message = connection_data['CHALLENGE_MESSAGE'], connection_data['NEGOTIATE_MESSAGE']
+        _, session_key = computeNTLMv2(identity, lmhash, nthash, self.getSMBChallenge(), authenticate_message, challenge_message, negotiate_message)
+
+        if self.authentication_method == self.ALLOW_ANY:
+            return STATUS_SUCCESS, session_key, False
+        elif self.authentication_method == self.ALLOW_BY_NAME:
+            error_code = STATUS_SUCCESS if identity in self.getCredentials() else STATUS_LOGON_FAILURE
+            return error_code, session_key, False
+
+        return STATUS_LOGON_FAILURE, session_key, False
+
+    def classic_auth(self):
+        self.authentication_method = self.CLASSIC_AUTH
+
+    def allow_by_name(self):
+        self.authentication_method = self.ALLOW_BY_NAME
+
+    def allow_any(self):
+        self.authentication_method = self.ALLOW_ANY
+
+
 # For windows platforms, opening a directory is not an option, so we set a void FD
 VOID_FILE_DESCRIPTOR = -1
 PIPE_FILE_DESCRIPTOR = -2
