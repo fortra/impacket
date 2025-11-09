@@ -24,8 +24,8 @@
 #     - Validating user lists without triggering account lockouts
 #     - Identifying disabled accounts
 #
-#   Note: This is a reconnaissance technique. Use responsibly and only on authorized targets.
-#
+# Author:
+#   @n3rada
 #
 
 from __future__ import division
