@@ -2087,7 +2087,7 @@ class DCERPCServer(Thread):
         self._listenUUIDS[uuidtup_to_bin(ifaceUUID)] = {}
         self._listenUUIDS[uuidtup_to_bin(ifaceUUID)]['SecondaryAddr'] = secondaryAddr
         self._listenUUIDS[uuidtup_to_bin(ifaceUUID)]['CallBacks'] = callbacks
-        self.log("Callback added for UUID %s V:%s" % ifaceUUID)
+        self.log("Callback added for UUID %s V:%s" % ifaceUUID, level=logging.DEBUG)
 
     def setListenAddress(self,addr):
         self._listenAddress=addr
