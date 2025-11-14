@@ -233,7 +233,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
                 except PyAsn1Error:
                     salt = ''
 
-                encryptionTypesData[etype2['etype']] = b(salt)
+                encryptionTypesData[etype2['etype']] = salt.encode('utf-8')
         elif method['padata-type'] == constants.PreAuthenticationDataTypes.PA_ETYPE_INFO.value:
             etypes = decoder.decode(method['padata-value'], asn1Spec = ETYPE_INFO())[0]
             for etype in etypes:
@@ -245,7 +245,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
                 except PyAsn1Error:
                     salt = ''
 
-                encryptionTypesData[etype['etype']] = b(salt)
+                encryptionTypesData[etype['etype']] = salt.encode('utf-8')
 
     enctype = supportedCiphers[0]
 
