@@ -1618,6 +1618,7 @@ class MSSQL:
             tokenID = struct.unpack('B',tokens[0:1])[0]
             if tokenID == TDS_ERROR_TOKEN:
                 token = TDS_INFO_ERROR(tokens)
+                self.lastError = SQLErrorException("ERROR(%s): Line %d: %s" % (token['ServerName'].decode('utf-16le'), token['LineNumber'], token['MsgText'].decode('utf-16le')))
             elif tokenID == TDS_RETURNSTATUS_TOKEN:
                 token = TDS_RETURNSTATUS(tokens)
             elif tokenID == TDS_INFO_TOKEN:
