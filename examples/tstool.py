@@ -559,9 +559,8 @@ class TSHandler:
 
         try:
             with TSTS.SessEnvPublicRpc(self.__smbConnection, self.__options.target_ip, self.__doKerberos) as sErpc:
-                request = sErpc.hRpcShadow2(self.__options.session, control, perm, 8192)
-                response = TSTS.RpcShadow2Response(request.getData())
-                
+                response = sErpc.hRpcShadow2(self.__options.session, control, perm, 8192)
+
                 if self.__options.debug:
                     LOG.debug(f"Response: {response.getData()}")
 
