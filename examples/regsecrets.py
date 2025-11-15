@@ -123,7 +123,7 @@ class DumpSecrets:
 
             if not self.__nosam:
                 try:
-                    self.__SAMHashes = SAMHashes(bootKey, remoteOps=self.__remoteOps, throttle=self.__throttle)
+                    self.__SAMHashes = SAMHashes(bootKey, remoteOps=self.__remoteOps, history=self.__history, throttle=self.__throttle)
                     self.__SAMHashes.dump()
                     if self.__outputFileName is not None:
                         self.__SAMHashes.export(self.__outputFileName)
