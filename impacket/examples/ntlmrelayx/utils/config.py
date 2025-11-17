@@ -80,6 +80,7 @@ class NTLMRelayxConfig:
 
         # MSSQL options
         self.queries = []
+        self.database = None
 
         # Registered protocol clients
         self.protocolClients = {}
@@ -273,7 +274,10 @@ class NTLMRelayxConfig:
     
     def setSCCMDPOptions(self, sccm_dp_extensions, sccm_dp_files):
         self.SCCMDPExtensions = sccm_dp_extensions
-        self.SCCMDPFiles = sccm_dp_files
+        self.SCCMDPFiles = sccm_dp_files       
+            
+    def setMSSQLDb(self, mssql_db):
+        self.database = mssql_db
 
     def setAltName(self, altName):
         self.altName = altName
