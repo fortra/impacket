@@ -813,8 +813,8 @@ class MSSQL:
         self.version["ProductMajorVersion"], self.version["ProductMinorVersion"], self.version["ProductBuild"] = 10, 0, 20348
 
         login = TDS_LOGIN()
-        login['HostName'] = self._workstation_id.encode('utf-16le')
-        login['AppName']  = self._application_name.encode('utf-16le')
+        login['HostName'] = self.workstation_id.encode('utf-16le')
+        login['AppName']  = self.application_name.encode('utf-16le')
         login['ServerName'] = self.remoteName.encode('utf-16le')
         login['CltIntName']  = login['AppName']
         login['ClientPID'] = random.randint(0,1024)
