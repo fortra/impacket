@@ -2894,74 +2894,92 @@ class SMB2Commands:
 
     @staticmethod
     def _kerberos_auth(token, connData, smbServer):
-        blob = decoder.decode(token, asn1Spec=GSSAPIHeader_KRB5_AP_REQ())[0]
-        ap_req = blob['apReq']
-        cipherText = ap_req['ticket']['enc-part']['cipher']
-
-        newCipher = _enctype_table[int(ap_req['ticket']['enc-part']['etype'])]
-
-        computerAccountCredentials = smbServer.getComputerAccountCredentials()
-
-        ekeys = generate_kerberos_keys(rc4=computerAccountCredentials['nthash'], aes=computerAccountCredentials['aes'], password=computerAccountCredentials['password'], user=computerAccountCredentials['username'], domain=computerAccountCredentials['domain'])
-
-        # Select the correct encryption key
         try:
-            key = ekeys[ap_req['ticket']['enc-part']['etype']]
-        # This raises a KeyError (pun intended) if our key is not found
-        except KeyError:
-            LOG.error('Could not find the correct encryption key! Ticket is encrypted with keytype %d, but keytype(s) %s were supplied',
-                    ap_req['ticket']['enc-part']['etype'],
-                    ', '.join([str(enctype) for enctype in ekeys.keys()]))
-            return None
+            blob = decoder.decode(token, asn1Spec=GSSAPIHeader_KRB5_AP_REQ())[0]
+            ap_req = blob['apReq']
+            cipherText = ap_req['ticket']['enc-part']['cipher']
 
-        # Recover plaintext info from ticket
-        try:
-            plainText = newCipher.decrypt(key, 2, cipherText)
-        except InvalidChecksum:
-            LOG.error('Ciphertext integrity failed. Most likely the account password or AES key is incorrect')
-            return None
+            newCipher = _enctype_table[int(ap_req['ticket']['enc-part']['etype'])]
 
-        encTicketPart = decoder.decode(plainText, asn1Spec=EncTicketPart())[0]
-        sessionKey = Key(encTicketPart['key']['keytype'], bytes(encTicketPart['key']['keyvalue']))
-        newCipher = _enctype_table[int(ap_req['authenticator']['etype'])]
+            computerAccountCredentials = smbServer.getComputerAccountCredentials()
 
-        encApReqAuthenticator = newCipher.decrypt(sessionKey, 11, ap_req['authenticator']['cipher'])
-        ApRepAuthenticator = decoder.decode(encApReqAuthenticator, asn1Spec=Authenticator())[0]
-        encryption_key = Key(ApRepAuthenticator['subkey']['keytype'], ApRepAuthenticator['subkey']['keyvalue'].asOctets())
+            ekeys = generate_kerberos_keys(rc4=computerAccountCredentials['nthash'], aes=computerAccountCredentials['aes'], password=computerAccountCredentials['password'], user=computerAccountCredentials['username'], domain=computerAccountCredentials['domain'])
 
-        ap_rep = AP_REP()
-        ap_rep['pvno'] = 5
-        ap_rep['msg-type'] = constants.KerberosMessageTypes.KRB_AP_REP.value
-        ap_rep['enc-part']['etype'] = ap_req['authenticator']['etype']
+            # Select the correct encryption key
+            try:
+                key = ekeys[ap_req['ticket']['enc-part']['etype']]
+            # This raises a KeyError (pun intended) if our key is not found
+            except KeyError:
+                LOG.error('Could not find the correct encryption key! Ticket is encrypted with keytype %d, but keytype(s) %s were supplied',
+                        ap_req['ticket']['enc-part']['etype'],
+                        ', '.join([str(enctype) for enctype in ekeys.keys()]))
+                return None
 
-        encAPRep = EncAPRepPart()
-        encAPRep['ctime'] = ApRepAuthenticator['ctime'].prettyPrint()
-        encAPRep['cusec'] = ApRepAuthenticator['cusec'].prettyPrint()
-        # just use the same key
-        encAPRep['subkey']['keyvalue'] = encryption_key.contents
-        encAPRep['subkey']['keytype'] = encryption_key.enctype
+            # Recover plaintext info from ticket
+            try:
+                plainText = newCipher.decrypt(key, 2, cipherText)
+            except InvalidChecksum:
+                LOG.error('Ciphertext integrity failed. Most likely the account password or AES key is incorrect')
+                return None
 
-        ap_rep['enc-part']['cipher'] = newCipher.encrypt(sessionKey, 12, encoder.encode(encAPRep), None)
-        aprepBytes = encoder.encode(ap_rep)
+            encTicketPart = decoder.decode(plainText, asn1Spec=EncTicketPart())[0]
+            sessionKey = Key(encTicketPart['key']['keytype'], bytes(encTicketPart['key']['keyvalue']))
+            newCipher = _enctype_table[int(ap_req['authenticator']['etype'])]
 
-        accept = SPNEGO_NegTokenResp()
-        accept['SupportedMech'] = TypesMech['MS KRB5 - Microsoft Kerberos 5']
-        # accept-completed
-        accept['NegState'] = b'\x00'
-        accept['ResponseToken'] = aprepBytes
-        acceptBytes = accept.getData()
+            encApReqAuthenticator = newCipher.decrypt(sessionKey, 11, ap_req['authenticator']['cipher'])
+            ApRepAuthenticator = decoder.decode(encApReqAuthenticator, asn1Spec=Authenticator())[0]
+            connData["user_domain_name"] = ApRepAuthenticator["crealm"].asOctets().decode()
+            connData["user_name"] = ApRepAuthenticator["cname"]["name-string"][0].asOctets().decode()
+            
+            encryption_key = Key(ApRepAuthenticator['subkey']['keytype'], ApRepAuthenticator['subkey']['keyvalue'].asOctets())
 
-        respSMBCommand = smb2.SMB2SessionSetup_Response()
-        respSMBCommand['SecurityBufferOffset'] = 0x48
-        respSMBCommand['SecurityBufferLength'] = len(acceptBytes)
-        respSMBCommand['Buffer'] = acceptBytes
 
-        connData['SignatureEnabled'] = True
-        connData['SigningSessionKey'] = encryption_key.contents[:16] # MS-SMB2 3.2.5.3.1
-        connData['SignSequenceNumber'] = 1
+            ap_rep = AP_REP()
+            ap_rep['pvno'] = 5
+            ap_rep['msg-type'] = constants.KerberosMessageTypes.KRB_AP_REP.value
+            ap_rep['enc-part']['etype'] = ap_req['authenticator']['etype']
 
-        return respSMBCommand, STATUS_SUCCESS
+            encAPRep = EncAPRepPart()
+            encAPRep['ctime'] = ApRepAuthenticator['ctime'].prettyPrint()
+            encAPRep['cusec'] = ApRepAuthenticator['cusec'].prettyPrint()
+            # just use the same key
+            encAPRep['subkey']['keyvalue'] = encryption_key.contents
+            encAPRep['subkey']['keytype'] = encryption_key.enctype
 
+            ap_rep['enc-part']['cipher'] = newCipher.encrypt(sessionKey, 12, encoder.encode(encAPRep), None)
+            aprepBytes = encoder.encode(ap_rep)
+
+            accept = SPNEGO_NegTokenResp()
+            accept['SupportedMech'] = TypesMech['MS KRB5 - Microsoft Kerberos 5']
+            # accept-completed
+            accept['NegState'] = b'\x00'
+            accept['ResponseToken'] = aprepBytes
+            acceptBytes = accept.getData()
+
+            respSMBCommand = smb2.SMB2SessionSetup_Response()
+            respSMBCommand['SecurityBufferOffset'] = 0x48
+            respSMBCommand['SecurityBufferLength'] = len(acceptBytes)
+            respSMBCommand['Buffer'] = acceptBytes
+
+            connData['SignatureEnabled'] = True
+            connData['SigningSessionKey'] = encryption_key.contents[:16] # MS-SMB2 3.2.5.3.1
+            connData['SignSequenceNumber'] = 1
+
+            return respSMBCommand, STATUS_SUCCESS
+        except:
+            #if decryption fails, or the client does not support signing, we will just send an accept-completed to at least try it
+            accept = SPNEGO_NegTokenResp()
+            accept['SupportedMech'] = TypesMech['MS KRB5 - Microsoft Kerberos 5']
+            # accept-completed
+            accept['NegState'] = b'\x00'
+            acceptBytes = accept.getData()
+
+            respSMBCommand = smb2.SMB2SessionSetup_Response()
+            respSMBCommand['SecurityBufferOffset'] = 0x48
+            respSMBCommand['SecurityBufferLength'] = len(acceptBytes)
+            respSMBCommand['Buffer'] = acceptBytes
+            return respSMBCommand, STATUS_SUCCESS
+        
     @staticmethod
     def _ntlm_auth(token, connData, smbServer, rawNTLM):
         # Here we only handle NTLMSSP, depending on what stage of the
