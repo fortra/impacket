@@ -81,6 +81,9 @@ class Structure:
                         For unpacking, it's used to know weather fieldname has to be unpacked or not, i.e. by adding a & field you turn another field (fieldname) in an optional field.
             
     """
+    # REGEX: Positive lookahead to find overlapping NUL-NUL terminators (something like \x00\x00\x00 has 1 overlap)
+    NULL_NULL_TERMINATOR_REGEX = re.compile(b'(?=(\x00\x00))')
+
     commonHdr = ()
     structure = ()
     debug = 0
@@ -539,7 +542,7 @@ class Structure:
         # asciiz specifier
         if format[:1] == 'u':
             # Positive lookahead to find overlapping NUL-NUL terminators (something like \x00\x00\x00 has 1 overlap)
-            matches = re.finditer(b'(?=(\x00\x00))', data)
+            matches = self.NULL_NULL_TERMINATOR_REGEX.finditer(data)
             for a_match in matches:
                 if a_match.start() % 2 == 0:    # \x00\x00 at an even index
                     return a_match.start() + 2
