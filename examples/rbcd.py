@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -20,6 +21,7 @@
 # [ ]: allow users to set a ((-delegate-from-sid or -delegate-from-dn) and -delegate-to-dn) in order to skip ldapdomaindump and explicitely set the SID/DN
 
 import argparse
+import argcomplete
 import logging
 import sys
 import traceback
@@ -294,6 +296,8 @@ def parse_args():
                             'omitted it will use the domain part (FQDN) specified in '
                             'the identity parameter')
     group.add_argument('-dc-host', action='store', metavar="hostname", help='Hostname of the domain controller or KDC (Key Distribution Center) for Kerberos. If omitted, -dc-ip will be used')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv) == 1:
         parser.print_help()

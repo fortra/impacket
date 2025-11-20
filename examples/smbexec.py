@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -42,6 +43,7 @@ import random
 import string
 import cmd
 import argparse
+import argcomplete
 try:
     import ConfigParser
 except ImportError:
@@ -359,6 +361,7 @@ if __name__ == '__main__':
                                                                             '(128 or 256 bits)')
     group.add_argument('-keytab', action="store", help='Read keys for SPN from keytab file')
 
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv)==1:
         parser.print_help()

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -37,6 +38,7 @@ from impacket.ldap import ldap, ldapasn1
 from pyasn1.codec.der import decoder
 from pyasn1_modules import rfc5652
 import argparse
+import argcomplete
 import json
 import logging
 import sys
@@ -276,6 +278,8 @@ if __name__ == '__main__':
     group.add_argument('-ldaps', dest='ldaps_flag', action="store_true", help='Enable LDAPS (LDAP over SSL). '
                                                                                 'Required when querying a Windows Server 2025'
                                                                                 'domain controller with LDAPS enforced.')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv)==1:
         parser.print_help()

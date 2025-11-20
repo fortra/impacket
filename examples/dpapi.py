@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -39,6 +40,7 @@ from __future__ import print_function
 
 import struct
 import argparse
+import argcomplete
 import logging
 import sys
 from six import b
@@ -609,6 +611,8 @@ if __name__ == '__main__':
     credhist.add_argument('-key', action='store', help='Specific key to use for decryption')
     credhist.add_argument('-password', action='store', help='User\'s password')
     credhist.add_argument('-entry', action='store', type=int, help='Entry index in CREDHIST')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     options = parser.parse_args()
     # Init the example's logger theme

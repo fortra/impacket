@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -16,6 +17,7 @@
 #   Charlie BROMBERG (@_nwodtuhs)
 
 import argparse
+import argcomplete
 import logging
 import sys
 import traceback
@@ -255,6 +257,8 @@ def parse_args():
 
     dacl_parser = parser.add_argument_group("dacl editor")
     dacl_parser.add_argument('-action', choices=['read', 'write'], nargs='?', default='read', help='Action to operate on the owner attribute')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv) == 1:
         parser.print_help()
