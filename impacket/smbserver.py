@@ -2651,6 +2651,8 @@ class SMBCommands:
                                                                         'utf-16le')))
                     # Let's store it in the connection data
                     connData['AUTHENTICATE_MESSAGE'] = authenticateMessage
+                    connData["user_domain_name"] = authenticateMessage['domain_name'].decode('utf-16le') if authenticateMessage['domain_name'].decode('utf-16le') != "" else authenticateMessage['host_name'].decode('utf-16le')
+                    connData["user_name"] = authenticateMessage['user_name'].decode('utf-16le')
                     try:
                         jtr_dump_path = smbServer.getJTRdumpPath()
                         ntlm_hash_data = outputToJohnFormat(connData['CHALLENGE_MESSAGE']['challenge'],
@@ -3114,6 +3116,8 @@ class SMB2Commands:
                     authenticateMessage['user_name'].decode('utf-16le')))
                 # Let's store it in the connection data
                 connData['AUTHENTICATE_MESSAGE'] = authenticateMessage
+                connData["user_domain_name"] = authenticateMessage['domain_name'].decode('utf-16le') if authenticateMessage['domain_name'].decode('utf-16le') != "" else authenticateMessage['host_name'].decode('utf-16le')
+                connData["user_name"] = authenticateMessage['user_name'].decode('utf-16le')
                 try:
                     jtr_dump_path = smbServer.getJTRdumpPath()
                     ntlm_hash_data = outputToJohnFormat(connData['CHALLENGE_MESSAGE']['challenge'],
@@ -3276,7 +3280,7 @@ class SMB2Commands:
             connData['ConnectedShares'][tid] = share
             connData['ConnectedShares'][tid]['shareName'] = path
             respPacket['TreeID'] = tid
-            smbServer.log("Connecting Share(%d:%s)" % (tid, path))
+            smbServer.log("Connecting Share(%d:%s)" % (tid, path), connData=connData)
         else:
             smbServer.log("SMB2_TREE_CONNECT not found %s" % path, logging.ERROR, connData=connData)
             errorCode = STATUS_OBJECT_PATH_NOT_FOUND
@@ -4543,9 +4547,9 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         return originalCommand
 
     def log(self, msg, level=logging.INFO, connData=None):
-        if connData and connData.get('AUTHENTICATE_MESSAGE'):
-            domain = connData['AUTHENTICATE_MESSAGE']['domain_name'].decode('utf-16le') or connData['AUTHENTICATE_MESSAGE']['host_name'].decode('utf-16le')
-            username = connData['AUTHENTICATE_MESSAGE']['user_name'].decode('utf-16le') or "NULL"
+        if connData:
+            domain = connData.get('user_domain_name') or "NULL"
+            username = connData.get('user_name') or "NULL"
             msg = f"{domain}\\{username}: " + msg
         self.__log.log(level, msg)
 
