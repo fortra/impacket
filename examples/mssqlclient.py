@@ -44,6 +44,9 @@ if __name__ == '__main__':
     parser.add_argument('-command', action='extend', nargs='*', help='Commands to execute in the SQL shell. Multiple commands can be passed.')
     parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the SQL shell')
 
+    parser.add_argument('--host-name', action='store', default='', help='HostName property to use when connecting to the MSSQLServer')
+    parser.add_argument('--app-name', action='store', default='', help='AppName property to use when connecting to the MSSQLServer')
+
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
@@ -87,7 +90,7 @@ if __name__ == '__main__':
     if options.aesKey is not None:
         options.k = True
 
-    ms_sql = tds.MSSQL(options.target_ip, int(options.port), remoteName)
+    ms_sql = tds.MSSQL(options.target_ip, int(options.port), remoteName, workstation_id=options.host_name, application_name=options.app_name)
     ms_sql.connect()
     try:
         if options.k is True:
