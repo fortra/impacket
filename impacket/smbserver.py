@@ -3064,8 +3064,14 @@ class SMB2Commands:
             computerAccountCredentials = smbServer.getComputerAccountCredentials()
 
             # TODO: Check the credentials! Now granting permissions
+            
+            if not connData['SignatureEnabled']:
+                # In this case we simply approve the connection without checking the credentials or doing netlogon
+                # This is different from an anonymous session, as Windows clients can prevent using guest sessions at all
+                errorCode = STATUS_SUCCESS
             # Do we have credentials to check?
-            if authenticateMessage['user_name'].decode('utf-16le') != "" and (len(smbServer.getCredentials()) > 0 or computerAccountCredentials["username"] != ""):
+            elif authenticateMessage['user_name'].decode('utf-16le') != "" \
+                    and (len(smbServer.getCredentials()) > 0 or computerAccountCredentials["username"] != ""):
                 identity = authenticateMessage['user_name'].decode('utf-16le').lower()
                 # Do we have this user's credentials?
                 if identity in smbServer.getCredentials():
@@ -3093,6 +3099,7 @@ class SMB2Commands:
                 else:
                     errorCode = STATUS_LOGON_FAILURE
             else:
+                connData['SignatureEnabled'] = False
                 # No credentials provided, let's grant access
                 if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_ANONYMOUS:
                     isAnonymus = True
@@ -3181,6 +3188,7 @@ class SMB2Commands:
         sessionSetupData = smb2.SMB2SessionSetup(recvPacket['Data'])
 
         connData['Capabilities'] = sessionSetupData['Capabilities']
+        connData['SignatureEnabled'] = sessionSetupData['SecurityMode'] == smb2.SMB2_NEGOTIATE_SIGNING_REQUIRED
 
         securityBlob = sessionSetupData['Buffer']
 
