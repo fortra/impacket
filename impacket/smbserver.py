@@ -57,7 +57,7 @@ from impacket.nt_errors import STATUS_NO_MORE_FILES, STATUS_NETWORK_NAME_DELETED
     STATUS_FILE_IS_A_DIRECTORY, STATUS_NOT_IMPLEMENTED, STATUS_INVALID_HANDLE, STATUS_OBJECT_NAME_COLLISION, \
     STATUS_NO_SUCH_FILE, STATUS_CANCELLED, STATUS_OBJECT_NAME_NOT_FOUND, STATUS_SUCCESS, STATUS_ACCESS_DENIED, \
     STATUS_NOT_SUPPORTED, STATUS_INVALID_DEVICE_REQUEST, STATUS_FS_DRIVER_REQUIRED, STATUS_INVALID_INFO_CLASS, \
-    STATUS_LOGON_FAILURE, STATUS_OBJECT_PATH_SYNTAX_BAD
+    STATUS_LOGON_FAILURE, STATUS_OBJECT_PATH_SYNTAX_BAD, STATUS_END_OF_FILE
 
 # Setting LOG to current's module name
 LOG = logging.getLogger(__name__)
@@ -3610,6 +3610,8 @@ class SMB2Commands:
                     respSMBCommand['DataLength'] = len(content)
                     respSMBCommand['DataRemaining'] = 0
                     respSMBCommand['Buffer'] = content
+                    if len(content) == 0:
+                        errorCode = STATUS_END_OF_FILE
                 except Exception as e:
                     smbServer.log('SMB2_READ: %s ' % e, logging.ERROR)
                     errorCode = STATUS_ACCESS_DENIED
