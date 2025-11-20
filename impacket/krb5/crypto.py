@@ -767,5 +767,5 @@ def generate_kerberos_keys(rc4=None, aes=None, password=None, hex_pass=None, sal
             else:
                 logging.debug('Cannot calculate type %s (%d) Kerberos key: salt is None: Missing -s/--salt or (-u/--user and -d/--domain)' % (constants.EncryptionTypes(cipher).name, cipher))
     else:
-        logging.debug('No password (-p/--password or -hp/--hex_pass supplied, skipping Kerberos keys calculation')
+        logging.debug('No password supplied, skipping Kerberos keys calculation')
     return ekeys
