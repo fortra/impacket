@@ -125,7 +125,7 @@ class KerberosString(char.GeneralString):
     # TODO marc: I'm not sure how to express this constraint in the API.
     # For now, we will be liberal in what we accept.
     # subtypeSpec = constraint.PermittedAlphabetConstraint(char.IA5String())
-    pass
+    encoding = 'utf-8'
 
 class Realm(KerberosString):
     pass
