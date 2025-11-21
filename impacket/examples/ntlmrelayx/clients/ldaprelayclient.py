@@ -164,6 +164,15 @@ class LDAPRelayClient(ProtocolClient):
             search_scope='BASE',
             attributes=['namingContexts'])
 
+    def login(self, user, password):
+        self.session.user = user
+        self.session.password = password
+        self.session.authentication = 'SIMPLE'
+        if self.session.bind():
+            return None, STATUS_SUCCESS
+        else:
+            return None, STATUS_ACCESS_DENIED
+
 class LDAPSRelayClient(LDAPRelayClient):
     PLUGIN_NAME = "LDAPS"
     MODIFY_ADD = MODIFY_ADD
