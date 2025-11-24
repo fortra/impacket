@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -22,6 +23,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import argparse
+import argcomplete
 import logging
 import random
 import string
@@ -697,6 +699,8 @@ if __name__ == '__main__':
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
     group.add_argument('-dc-host', action='store',metavar = "hostname",  help='Hostname of the domain controller to use. If ommited, the domain part (FQDN) specified in the account parameter will be used')
     group.add_argument('-dc-ip', action='store',metavar = "ip",  help='IP of the domain controller to use. Useful if you can\'t translate the FQDN.')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv)==1:
         parser.print_help()

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies
@@ -53,6 +54,7 @@
 from __future__ import division
 from __future__ import print_function
 import argparse
+import argcomplete
 import codecs
 import logging
 import os
@@ -464,6 +466,8 @@ if __name__ == '__main__':
     group.add_argument('-target-ip', action='store', metavar="ip address",
                        help='IP Address of the target machine. If omitted it will use whatever was specified as target. '
                             'This is useful when target is the NetBIOS name and you cannot resolve it')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv) == 1:
         parser.print_help()
