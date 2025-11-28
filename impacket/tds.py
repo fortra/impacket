@@ -619,7 +619,10 @@ class TDS_SSVARIANT(Structure):
                 value = struct.unpack('<l', data[:4])[0]
                 return value / 10000.0
             elif baseType == TDS_MONEYTYPE:
-                value = struct.unpack('<q', data[:8])[0]
+                # Money: first 4 bytes are the high-order signed dword (little-endian),
+                # next 4 bytes are the low-order unsigned dword (little-endian).
+                high, low = struct.unpack('<lL', data[:8])
+                value = (high << 32) + low
                 return value / 10000.0
 
             # GUID type
