@@ -578,7 +578,7 @@ class TDS_SSVARIANT(Structure):
         try:
             # Types with VARIANT_PROPBYTES = 0 (no properties)
             if baseType == TDS_INT1TYPE:
-                return struct.unpack('<b', data[:1])[0]
+                return struct.unpack('<B', data[:1])[0]
             elif baseType == TDS_INT2TYPE:
                 return struct.unpack('<h', data[:2])[0]
             elif baseType == TDS_INT4TYPE:
