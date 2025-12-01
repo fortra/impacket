@@ -3085,7 +3085,7 @@ class SMB2Commands:
                 # Do we have credentials which *need* to be checked?
 
                 identity = authenticateMessage['user_name'].decode('utf-16le').lower()
-                errorCode = STATUS_ACCESS_DENIED
+                errorCode = STATUS_LOGON_FAILURE
                 # Do we have this user's credentials?
                 if identity in smbServer.getCredentials():
                     # Process data:
