@@ -45,6 +45,7 @@ import binascii
 import math
 import datetime
 import string
+from uuid import uuid4
 
 from impacket import ntlm, uuid, LOG
 from impacket.structure import Structure
@@ -469,7 +470,7 @@ class TDS_COLMETADATA(Structure):
     )
 
 class MSSQL:
-    def __init__(self, address, port=1433, remoteName = '', rowsPrinter=DummyPrint()):
+    def __init__(self, address, port=1433, remoteName = '', workstation_id: str = "", application_name: str = "", rowsPrinter=DummyPrint()):
         #self.packetSize = 32764
         self.packetSize = 32763
         self.server = address
@@ -486,6 +487,9 @@ class MSSQL:
         self.tlsSocket = None
         self.__rowsPrinter = rowsPrinter
         self.mssql_version = ""
+
+        self._workstation_id = workstation_id or f"DESKTOP-{uuid4().hex[:8].upper()}"
+        self._application_name = application_name or "Microsoft SQL Server Management Studio - Query"
 
     # With Kerberos we need to know to which MSSQL instance we are going to connect (to compute the SPN)
     # As such we need to be able to list these instances which is what this code does
@@ -550,9 +554,10 @@ class MSSQL:
     def encryptPassword(self, password ):
         return bytes(bytearray([((x & 0x0f) << 4) + ((x & 0xf0) >> 4) ^ 0xa5 for x in bytearray(password)]))
 
-    def connect(self):
+    def connect(self, timeout=30):
         af, socktype, proto, canonname, sa = socket.getaddrinfo(self.server, self.port, 0, socket.SOCK_STREAM)[0]
         sock = socket.socket(af, socktype, proto)
+        sock.settimeout(timeout)
         
         try:
             sock.connect(sa)
@@ -808,8 +813,8 @@ class MSSQL:
         self.version["ProductMajorVersion"], self.version["ProductMinorVersion"], self.version["ProductBuild"] = 10, 0, 20348
 
         login = TDS_LOGIN()
-        login['HostName'] = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
-        login['AppName']  = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
+        login['HostName'] = self.workstation_id.encode('utf-16le')
+        login['AppName']  = self.application_name.encode('utf-16le')
         login['ServerName'] = self.remoteName.encode('utf-16le')
         login['CltIntName']  = login['AppName']
         login['ClientPID'] = random.randint(0,1024)
@@ -1013,8 +1018,8 @@ class MSSQL:
         self.version["ProductMajorVersion"], self.version["ProductMinorVersion"], self.version["ProductBuild"] = 10, 0, 20348
 
         login = TDS_LOGIN()
-        login['HostName'] = (''.join([random.choice(string.ascii_letters) for i in range(8)])).encode('utf-16le')
-        login['AppName']  = (''.join([random.choice(string.ascii_letters) for i in range(8)])).encode('utf-16le')
+        login['HostName'] = self.workstation_id.encode('utf-16le')
+        login['AppName']  = self.application_name.encode('utf-16le')
         login['ServerName'] = self.remoteName.encode('utf-16le')
         login['CltIntName']  = login['AppName']
         login['ClientPID'] = random.randint(0,1024)
@@ -1715,3 +1720,12 @@ class MSSQL:
         if self.lastError:
             raise self.lastError
         return True
+
+    # Properties
+    @property
+    def workstation_id(self):
+        return self._workstation_id
+
+    @property
+    def application_name(self):
+        return self._application_name

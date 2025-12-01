@@ -11,6 +11,8 @@
 
 from __future__ import division
 from __future__ import print_function
+
+import re
 from struct import pack, unpack, calcsize
 
 import six
@@ -66,7 +68,7 @@ class Structure:
           some additional format specifiers:
             :       just copy the bytes from the field into the output string (input may be string, other structure, or anything responding to __str__()) (for unpacking, all what's left is returned)
             z       same as :, but adds a NUL byte at the end (asciiz) (for unpacking the first NUL byte is used as terminator)  [asciiz string]
-            u       same as z, but adds two NUL bytes at the end (after padding to an even size with NULs). (same for unpacking) [unicode string]
+            u       same as z, but adds two NUL bytes at the end (after padding to an even size with NULs). (same for unpacking) [UTF16-le encoded bytes]
             w       DCE-RPC/NDR string (it's a macro for [  '<L=(len(field)+1)/2','"\\x00\\x00\\x00\\x00','<L=(len(field)+1)/2',':' ]
             ?-field length of field named 'field', formatted as specified with ? ('?' may be '!H' for example). The input value overrides the real length
             ?1*?2   array of elements. Each formatted as '?2', the number of elements in the array is stored as specified by '?1' (?1 is optional, or can also be a constant (number), for unpacking)
@@ -79,6 +81,9 @@ class Structure:
                         For unpacking, it's used to know weather fieldname has to be unpacked or not, i.e. by adding a & field you turn another field (fieldname) in an optional field.
             
     """
+    # REGEX: Positive lookahead to find overlapping NUL-NUL terminators (something like \x00\x00\x00 has 1 overlap)
+    NULL_NULL_TERMINATOR_REGEX = re.compile(b'(?=(\x00\x00))')
+
     commonHdr = ()
     structure = ()
     debug = 0
@@ -536,8 +541,16 @@ class Structure:
 
         # asciiz specifier
         if format[:1] == 'u':
-            l = data.index(self.b('\x00\x00'))
-            return l + (l & 1 and 3 or 2)
+            # Positive lookahead to find overlapping NUL-NUL terminators (something like \x00\x00\x00 has 1 overlap)
+            matches = self.NULL_NULL_TERMINATOR_REGEX.finditer(data)
+            for a_match in matches:
+                if a_match.start() % 2 == 0:    # \x00\x00 at an even index
+                    return a_match.start() + 2
+
+            # NUL-NUL terminator not found
+            hex_data = str(hexlify(data).decode('ascii'))
+            utf16_chunks = [hex_data[i:i + 4] for i in range(0, len(hex_data), 4)]
+            raise ValueError("Can't find NUL-NUL terminator in UTF-16le string '%s'" % ' '.join(utf16_chunks))
 
         # DCE-RPC/NDR string specifier
         if format[:1] == 'w':
