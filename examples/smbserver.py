@@ -113,6 +113,9 @@ if __name__ == '__main__':
     required_secure_server_options = [options.computeraccountname, options.computeraccountdomain, options.dcip]
     at_least_one_secure_server_options = [options.computeraccounthash, options.computeraccountaes, options.computeraccountpassword]
     if any(required_secure_server_options):
+        if options.username:
+            logging.critical("You cannot use account credentials AND computer account credentials at the same time")
+            sys.exit(1)
         if not all(required_secure_server_options):
             logging.critical("All of the following options need to be set for accepting signed connections from arbitrary users in the domain: -computeraccountname, -computeraccountdomain, -dcip")
             sys.exit(1)

@@ -2967,7 +2967,7 @@ class SMB2Commands:
 
             return respSMBCommand, STATUS_SUCCESS
         except:
-            #if decryption fails, or the client does not support signing, we will just send an accept-completed to at least try it
+            # if decryption fails, or the client does not support signing, we will just send an accept-completed to at least try it
             accept = SPNEGO_NegTokenResp()
             accept['SupportedMech'] = TypesMech['MS KRB5 - Microsoft Kerberos 5']
             # accept-completed
@@ -3081,16 +3081,11 @@ class SMB2Commands:
 
             computerAccountCredentials = smbServer.getComputerAccountCredentials()
 
-            # TODO: Check the credentials! Now granting permissions
-            
-            if not connData['SignatureEnabled']:
-                # In this case we simply approve the connection without checking the credentials or doing netlogon
-                # This is different from an anonymous session, as Windows clients can prevent using guest sessions at all
-                errorCode = STATUS_SUCCESS
-            # Do we have credentials to check?
-            elif authenticateMessage['user_name'].decode('utf-16le') != "" \
-                    and (len(smbServer.getCredentials()) > 0 or computerAccountCredentials["username"] != ""):
+            if authenticateMessage['user_name'].decode('utf-16le') != "" and len(smbServer.getCredentials()) > 0:
+                # Do we have credentials which *need* to be checked?
+
                 identity = authenticateMessage['user_name'].decode('utf-16le').lower()
+                errorCode = STATUS_ACCESS_DENIED
                 # Do we have this user's credentials?
                 if identity in smbServer.getCredentials():
                     # Process data:
@@ -3105,18 +3100,19 @@ class SMB2Commands:
                         connData['SignatureEnabled'] = True
                         connData['SigningSessionKey'] = sessionKey
                         connData['SignSequenceNumber'] = 1
-                elif computerAccountCredentials["username"] != "":
-                    # Try to get the session key via NetLogon
-                    netlogon = NetLogon(computerAccountCredentials["dcip"], computerAccountCredentials["username"], computerAccountCredentials["nthash"], computerAccountCredentials["domain"])
-                    netlogon.setupConnection()
-                    sessionKey, errorCode = netlogon.logonUserAndGetSessionKey(authenticateMessage, smbServer.getSMBChallenge())
+            elif computerAccountCredentials["username"] != "":
+                # is a computer account configured for NetLogon?
 
-                    connData['SignatureEnabled'] = True
-                    connData['SigningSessionKey'] = sessionKey
-                    connData['SignSequenceNumber'] = 1
-                else:
-                    errorCode = STATUS_LOGON_FAILURE
+                # Try to get the session key via NetLogon
+                netlogon = NetLogon(computerAccountCredentials["dcip"], computerAccountCredentials["username"], computerAccountCredentials["nthash"], computerAccountCredentials["domain"])
+                netlogon.setupConnection()
+                sessionKey, errorCode = netlogon.logonUserAndGetSessionKey(authenticateMessage, smbServer.getSMBChallenge())
+
+                connData['SignatureEnabled'] = True
+                connData['SigningSessionKey'] = sessionKey
+                connData['SignSequenceNumber'] = 1
             else:
+                # no authentication material configured, just try an anonymous session
                 connData['SignatureEnabled'] = False
                 # No credentials provided, let's grant access
                 if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_ANONYMOUS:
@@ -3206,7 +3202,6 @@ class SMB2Commands:
         sessionSetupData = smb2.SMB2SessionSetup(recvPacket['Data'])
 
         connData['Capabilities'] = sessionSetupData['Capabilities']
-        connData['SignatureEnabled'] = sessionSetupData['SecurityMode'] == smb2.SMB2_NEGOTIATE_SIGNING_REQUIRED
 
         securityBlob = sessionSetupData['Buffer']
 
@@ -3238,19 +3233,21 @@ class SMB2Commands:
             # AUTH packet
             blob = SPNEGO_NegTokenResp(securityBlob)
             token = blob['ResponseToken']
-            if b'NTLMSSP\x00' in token:
+            if b'NTLMSSP\x00' in token and smbServer._SMBSERVER__NTLMSupport:
                 authType = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
-            else:
+            elif smbServer._SMBSERVER__KerberosSupport:
                 authType = TypesMech['MS KRB5 - Microsoft Kerberos 5']
-        elif securityBlob.startswith(b'NTLMSSP\x00'):
+            else:
+                return [SMB2Commands.generic_negTokenResp()], None, STATUS_MORE_PROCESSING_REQUIRED
+        elif securityBlob.startswith(b'NTLMSSP\x00') and smbServer._SMBSERVER__NTLMSupport:
             # No GSSAPI stuff, raw NTLMSSP
             rawNTLM = True
             token = securityBlob
             authType = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
         else:
-            smbServer.log("Unknown security blob type (not rawNTLMSSP, nor SPNEGO)", logging.ERROR, connData=connData)
+            smbServer.log("Unknown or unsupported security blob type", logging.ERROR, connData=connData)
             return [SMB2Commands.generic_negTokenResp()], None, STATUS_MORE_PROCESSING_REQUIRED
-
+        
         if authType in [TypesMech['MS KRB5 - Microsoft Kerberos 5'], TypesMech['KRB5 - Kerberos 5'], TypesMech['KRB5 - Kerberos 5 - User to User']]:
             respSMBCommand, errorCode = SMB2Commands._kerberos_auth(token, connData, smbServer)
         elif authType == TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
