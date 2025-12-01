@@ -21,21 +21,15 @@
 #
 
 import socketserver
-import socket
-import base64
 import random
-import struct
 import string
-import sys
 from threading import Thread
-from six import PY2
 
 from impacket import ntlm, tds, LOG
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
 from impacket.examples.utils import parse_target
 from impacket.nt_errors import STATUS_SUCCESS
 from impacket.ntlm import NTLMAuthChallenge
-from impacket.examples.ntlmrelayx.clients.mssqlrelayclient import MYMSSQL
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 
@@ -103,7 +97,7 @@ class MSSQLRelayServer(Thread):
 
             login['HostName'] = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
             login['AppName']  = self.login['AppName']
-            login['ServerName'] = self.login['ServerName']
+            login['ServerName'] = self.target.hostname.encode('utf-16le')
             login['CltIntName']  = self.login['AppName']
             login['ClientPID'] = random.randint(0, 1024)
             login['PacketSize'] = self.client.session.packetSize
@@ -148,9 +142,21 @@ class MSSQLRelayServer(Thread):
                         LOG.debug("(MSSQL): Receieved TDS pre-login from client")
                         self.client = self.init_client()
                         LOG.debug("(MSSQL): Sending our own TDS pre-login response to client")
-                        self.request.send(b'\x04\x01\x00\x36\x00\x00\x01\x00\x00\x00\x24\x00\x06\x01\x00\x2a\x00\x01'\
-                                           b'\x02\x00\x2b\x00\x01\x03\x00\x2c\x00\x00\x04\x00\x2c\x00\x01\x05\x00\x2d'\
-                                           b'\x00\x00\x06\x00\x2d\x00\x01\xff\x0f\x00\x11\x3a\x00\x00\x02\x00\x00\x00')                        
+                        preloginResponseData = tds.TDS_PRELOGIN()
+                        preloginResponseData["Version"] = b"\x0f\x00\x11\x3a\x00\x00"
+                        # We specify we do not support encryption
+                        preloginResponseData["Encryption"] = tds.TDS_ENCRYPT_NOT_SUP
+                        # InstOpt is 0, we confirm that the client's InstOpt matches the server's instance
+                        preloginResponseData["Instance"] = b"\x00"                        
+                        # ThreadId is empty in the server response
+                        preloginResponseData["ThreadID"] = b""
+                        preloginResponseData["ThreadIDLength"] = 0
+                        
+                        preloginResponse = tds.TDSPacket()
+                        preloginResponse["Type"] = tds.TDS_TABULAR
+                        preloginResponse["Data"] = preloginResponseData.getData()
+                        
+                        self.request.send(preloginResponse.getData())                      
                         
                     elif packet[0] == 0x10:    # Login stage
                     
