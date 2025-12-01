@@ -2913,14 +2913,14 @@ class SMB2Commands:
                 LOG.error('Could not find the correct encryption key! Ticket is encrypted with keytype %d, but keytype(s) %s were supplied',
                         ap_req['ticket']['enc-part']['etype'],
                         ', '.join([str(enctype) for enctype in ekeys.keys()]))
-                return None
+                return None, STATUS_LOGON_FAILURE
 
             # Recover plaintext info from ticket
             try:
                 plainText = newCipher.decrypt(key, 2, cipherText)
             except InvalidChecksum:
                 LOG.error('Ciphertext integrity failed. Most likely the account password or AES key is incorrect')
-                return None
+                return None, STATUS_LOGON_FAILURE
 
             encTicketPart = decoder.decode(plainText, asn1Spec=EncTicketPart())[0]
             sessionKey = Key(encTicketPart['key']['keytype'], bytes(encTicketPart['key']['keyvalue']))
