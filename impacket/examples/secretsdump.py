@@ -761,14 +761,14 @@ class RemoteOperations:
         we have the correct information
         """
         if self.__smbConnection.getServerName() == '':
-            # Todo: figure out an RPC call that gives us the domain FQDN
-            # instead of the NETBIOS name as NetrWkstaGetInfo does
-            return b''
+            host, _ = self.getMachineNameAndDomain()
+            domain = self.__smbConnection.getRemoteName().split(f"{host}.")[1]
         else:
             host = self.__smbConnection.getServerName()
             domain = self.__smbConnection.getServerDNSDomainName()
-            salt = b'%shost%s.%s' % (domain.upper().encode('utf-8'), host.lower().encode('utf-8'), domain.lower().encode('utf-8'))
-            return salt
+        LOG.debug(f"[Secretsdump][getMachineKerberosSalt] Host: {host} / Domain FQDN: {domain}")
+        salt = b'%shost%s.%s' % (domain.upper().encode('utf-8'), host.lower().encode('utf-8'), domain.lower().encode('utf-8'))
+        return salt
 
     def getMachineNameAndDomain(self):
         if self.__smbConnection.getServerName() == '':
