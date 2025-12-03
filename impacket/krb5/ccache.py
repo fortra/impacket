@@ -590,10 +590,12 @@ class CCache:
         except FileNotFoundError as e:
             raise e
 
-    def saveFile(self, fileName):
+    def saveFile(self, fileName, chmod=None):
         f = open(fileName, 'wb+')
         f.write(self.getData())
         f.close()
+        if chmod is not None:
+            os.chmod(fileName, chmod)
 
     @classmethod
     def parseFile(cls, domain='', username='', target=''):
