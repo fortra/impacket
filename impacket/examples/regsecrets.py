@@ -77,7 +77,12 @@ class RemoteOperations:
         """
         if self.__smbConnection.getServerName() == '':
             host, _ = self.getMachineNameAndDomain()
-            domain = self.__smbConnection.getRemoteName().split(f"{host}.")[1]
+            remoteName = self.__smbConnection.getRemoteName()
+            # Check if remoteName is FQDN, otherwise it will likely be the hostname only and we can't build the salt
+            if remoteName.lower().startswith(f"{host.lower()}."):
+                domain = ".".join(remoteName.split(".")[1:])
+            else:
+                return b''
         else:
             host = self.__smbConnection.getServerName()
             domain = self.__smbConnection.getServerDNSDomainName()
