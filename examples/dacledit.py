@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -19,6 +20,7 @@
 #
 
 import argparse
+import argcomplete
 import binascii
 import codecs
 import json
@@ -746,6 +748,8 @@ def parse_args():
     dacl_parser.add_argument('-mask', nargs='?', default=None, help='Force access mask, possible values: readwrite, write, self, allext, 0xXXXXX. Useful with -rights Custom or --rights-guid where the mask is different of read+write.')
     dacl_parser.add_argument('-inheritance', action="store_true", help='Enable the inheritance in the ACE flag with CONTAINER_INHERIT_ACE and OBJECT_INHERIT_ACE. Useful when target is a Container or an OU, '
                                                                        'ACE will be inherited by objects within the container/OU (except objects with adminCount=1)')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv) == 1:
         parser.print_help()

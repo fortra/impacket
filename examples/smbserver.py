@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies
@@ -18,6 +19,7 @@
 
 import sys
 import argparse
+import argcomplete
 import logging
 
 from impacket.examples import logger
@@ -49,9 +51,12 @@ if __name__ == '__main__':
     parser.add_argument('-smb2support', action='store_true', default=False, help='SMB2 Support (experimental!)')
     parser.add_argument('-outputfile', action='store', default=None, help='Output file to log smbserver output messages')
 
+    argcomplete.autocomplete(parser, always_complete_options=False)
+
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
+
 
     try:
        options = parser.parse_args()
