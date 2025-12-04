@@ -137,7 +137,7 @@ class TargetsProcessor:
                     if target.username.upper() == identity.replace('/', '\\'):
                         self.namedCandidates.remove(target)
                         return target
-                    if target.username.find('\\') < 0:
+                    if target.username.find('\\') < 0 and identity.find('/') >= 0:
                         # Username with no domain, let's compare that way
                         if target.username.upper() == identity.split('/')[1]:
                             self.namedCandidates.remove(target)
