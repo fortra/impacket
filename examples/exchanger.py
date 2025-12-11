@@ -922,7 +922,7 @@ if __name__ == '__main__':
 
     list_tables = nspi_attacks.add_parser('list-tables', help='List Address Books')
     list_tables.add_argument('-count', action='store_true', help='Request total number of records in each table')
-    list_tables.add_argument('-basic', action='store_true', help='Authenticate with Basic Auth instead of NTLM')
+    parser.add_argument('-basic', action='store_true', help='Authenticate with Basic Auth instead of NTLM')
 
 
     dump_tables = nspi_attacks.add_parser('dump-tables', formatter_class=SmartFormatter, help='Dump Address Books')
