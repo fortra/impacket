@@ -43,6 +43,8 @@ class ImpacketFormatter(logging.Formatter):
     else:
       record.bullet = '[-]'
 
+    if not hasattr(record, 'identity'): record.identity = ''
+
     return logging.Formatter.format(self, record)
 
 class ImpacketFormatterTimeStamp(ImpacketFormatter):
