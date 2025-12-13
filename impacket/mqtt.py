@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -244,7 +246,8 @@ class MQTTConnection:
         s.connect((self._targetHost, int(self._targetPort)))
 
         if self._isSSL is True:
-            ctx = SSL.Context(SSL.TLSv1_METHOD)
+            ctx = SSL.Context(SSL.TLS_METHOD)
+            ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
             self._socket = SSL.Connection(ctx, s)
             self._socket.set_connect_state()
             self._socket.do_handshake()

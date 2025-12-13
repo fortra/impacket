@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -65,11 +67,6 @@ from impacket.structure import Structure
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
-
-def getFileTime(t):
-    t *= 10000000
-    t += 116444736000000000
-    return t
 
 class RemComMessage(Structure):
     structure = (
@@ -460,7 +457,7 @@ class MS14_068:
         # 1) KERB_VALIDATION_INFO
         aTime = timegm(strptime(str(authTime), '%Y%m%d%H%M%SZ'))
 
-        unixTime = getFileTime(aTime)
+        unixTime = smb.POSIXtoFT(aTime)
 
         kerbdata = KERB_VALIDATION_INFO()
 
@@ -718,7 +715,7 @@ class MS14_068:
         seq_set(reqBody, 'sname', serverName.components_to_asn1)
         reqBody['realm'] = decodedTGT['crealm'].prettyPrint()
 
-        now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
 
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.SystemRandom().getrandbits(31)
@@ -744,7 +741,7 @@ class MS14_068:
 
         seq_set(authenticator, 'cname', clientName.components_to_asn1)
 
-        now = datetime.datetime.utcnow() 
+        now = datetime.datetime.now(datetime.timezone.utc)
         authenticator['cusec'] =  now.microsecond
         authenticator['ctime'] = KerberosTime.to_asn1(now)
 
@@ -1111,20 +1108,13 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     # Init the example's logger theme
-    logger.init(options.ts)
+    logger.init(options.ts, options.debug)
 
     domain, username, password, address = parse_target(options.target)
 
     if domain == '':
         logging.critical('Domain should be specified!')
         sys.exit(1)
-
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
 
     if password == '' and username != '' and options.hashes is None:
         from getpass import getpass

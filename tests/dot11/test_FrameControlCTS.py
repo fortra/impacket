@@ -1,18 +1,17 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
-from impacket.dot11 import Dot11,Dot11Types,Dot11ControlFrameCTS
 import unittest
+from impacket.dot11 import Dot11,Dot11Types,Dot11ControlFrameCTS
+
 
 class TestDot11FrameControlCTS(unittest.TestCase):
 
@@ -58,5 +57,6 @@ class TestDot11FrameControlCTS(unittest.TestCase):
         self.cts.set_ra(ra)
         self.assertEqual(self.cts.get_ra().tolist(), [0x12,0x19,0xe0,0x98,0x04,0x34])
       
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11FrameControlCTS)
-unittest.main(defaultTest='suite')
+
+if __name__ == '__main__':
+    unittest.main(verbosity=1)

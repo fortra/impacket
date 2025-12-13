@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -30,14 +32,13 @@ from impacket.ntlm import NTLMAuthChallengeResponse, NTLMSSP_NEGOTIATE_SIGN
 from impacket.smb import NewSMBPacket, SMBCommand, SMB, SMBExtended_Security_Data, \
     SMBExtended_Security_Parameters, SMBNTLMDialect_Parameters, SMBNTLMDialect_Data, \
     SMBSessionSetupAndX_Extended_Response_Parameters, SMBSessionSetupAndX_Extended_Response_Data, \
-    SMBSessionSetupAndX_Extended_Parameters, SMBSessionSetupAndX_Extended_Data
+    SMBSessionSetupAndX_Extended_Parameters, SMBSessionSetupAndX_Extended_Data, POSIXtoFT
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_AID
 from impacket.smb3 import SMB2Packet, SMB2_FLAGS_SERVER_TO_REDIR, SMB2_NEGOTIATE, SMB2Negotiate_Response, \
     SMB2_SESSION_SETUP, SMB2SessionSetup_Response, SMB2SessionSetup, SMB2_LOGOFF, SMB2Logoff_Response, \
     SMB2_DIALECT_WILDCARD, SMB2_FLAGS_SIGNED, SMB2_SESSION_FLAG_IS_GUEST
 from impacket.spnego import MechTypes, ASN1_SUPPORTED_MECH
 from impacket.smb import SMB_DIALECT
-from impacket.smbserver import getFileTime
 
 # Besides using this base class you need to define one global variable when
 # writing a plugin:
@@ -266,14 +267,14 @@ class SMBSocksRelay(SocksRelay):
                 respSMBCommand['DialectRevision'] = SMB2_DIALECT_WILDCARD
             else:
                 respSMBCommand['DialectRevision'] = self.serverDialect
-                resp['MessageID'] = 1
+                resp['MessageID'] = recvPacket['MessageID']
             respSMBCommand['ServerGuid'] = b(''.join([random.choice(string.ascii_letters) for _ in range(16)]))
             respSMBCommand['Capabilities'] = 0x7
             respSMBCommand['MaxTransactSize'] = 65536
             respSMBCommand['MaxReadSize'] = 65536
             respSMBCommand['MaxWriteSize'] = 65536
-            respSMBCommand['SystemTime'] = getFileTime(calendar.timegm(time.gmtime()))
-            respSMBCommand['ServerStartTime'] = getFileTime(calendar.timegm(time.gmtime()))
+            respSMBCommand['SystemTime'] = POSIXtoFT(calendar.timegm(time.gmtime()))
+            respSMBCommand['ServerStartTime'] = POSIXtoFT(calendar.timegm(time.gmtime()))
             respSMBCommand['SecurityBufferOffset'] = 0x80
 
             blob = SPNEGO_NegTokenInit()

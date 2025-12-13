@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -23,7 +25,7 @@
 from struct import pack, unpack
 
 from impacket.examples import logger
-from impacket.examples.utils import parse_target
+from impacket.examples.utils import parse_target, get_connected_socket
 from impacket.structure import Structure
 from impacket.spnego import GSSAPI, ASN1_SEQUENCE, ASN1_OCTET_STRING, asn1decode, asn1encode
 
@@ -361,7 +363,7 @@ if __name__ == '__main__':
 
             return signature, answer
 
-    def check_rdp(host, username, password, domain, hashes = None):
+    def check_rdp(host, username, password, domain, hashes=None, ipv6=False):
 
        if hashes is not None:
            lmhash, nthash = hashes.split(':')
@@ -380,9 +382,8 @@ if __name__ == '__main__':
        tpdu['VariablePart'] = rdp_neg.getData()
        tpdu['Code'] = TDPU_CONNECTION_REQUEST
        tpkt['TPDU'] = tpdu.getData()
-   
-       s = socket.socket()
-       s.connect((host,3389))
+
+       s = get_connected_socket(host, 3389, ipv6)
        s.sendall(tpkt.getData())
        pkt = s.recv(8192)
        tpkt.fromString(pkt)
@@ -409,8 +410,11 @@ if __name__ == '__main__':
        # a self-signed X.509 certificate.
 
        # Switching to TLS now
-       ctx = SSL.Context(SSL.TLSv1_2_METHOD)
-       ctx.set_cipher_list(b'RC4,AES')
+       ctx = SSL.Context(SSL.TLS_METHOD)
+       ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
+       SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION = 0x00040000
+       ctx.set_options(SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION)
+       ctx.set_options(SSL.OP_DONT_INSERT_EMPTY_FRAGMENTS)
        tls = SSL.Connection(ctx,s)
        tls.set_connect_state()
        tls.do_handshake()
@@ -446,7 +450,6 @@ if __name__ == '__main__':
        buff = tls.recv(4096)
        ts_request.fromString(buff)
 
-   
        # 3. The client encrypts the public key it received from the server (contained 
        # in the X.509 certificate) in the TLS handshake from step 1, by using the 
        # confidentiality support of SPNEGO. The public key that is encrypted is the 
@@ -467,11 +470,9 @@ if __name__ == '__main__':
        # Get server public key
        server_cert =  tls.get_peer_certificate()
        pkey = server_cert.get_pubkey()
-       dump = crypto.dump_privatekey(crypto.FILETYPE_ASN1, pkey)
-
-       # Fix up due to PyOpenSSL lack for exporting public keys
-       dump = dump[7:]
-       dump = b'\x30'+ asn1encode(dump)
+       dump = crypto.dump_publickey(crypto.FILETYPE_ASN1, pkey)
+       # Parsing the key from ASN1 encoded
+       dump = dump[24:]
 
        cipher = SPNEGOCipher(type3['flags'], exportedSessionKey)
        signature, cripted_key = cipher.encrypt(dump)
@@ -544,14 +545,15 @@ if __name__ == '__main__':
        tls.close()
        logging.info("Access Granted")
 
-    # Init the example's logger theme
-    logger.init()
     print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Test whether an account is valid on the target "
                                                                     "host using the RDP protocol.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
+    parser.add_argument('-6','--ipv6', action='store_true', help='Test on IPv6')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
 
@@ -561,6 +563,8 @@ if __name__ == '__main__':
         sys.exit(1)
  
     options = parser.parse_args()
+    # Init the example's logger theme
+    logger.init(options.ts, options.debug)
 
     domain, username, password, address = parse_target(options.target)
 
@@ -571,4 +575,4 @@ if __name__ == '__main__':
         from getpass import getpass
         password = getpass("Password:")
 
-    check_rdp(address, username, password, domain, options.hashes)
+    check_rdp(address, username, password, domain, options.hashes, options.ipv6)

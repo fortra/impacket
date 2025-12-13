@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2019 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -45,6 +47,14 @@ class ServiceInstall:
             self.connection = SMBObject
 
         self.share = ''
+
+    @property
+    def serviceName(self):
+        return self.__service_name
+
+    @property
+    def binaryServiceName(self):
+        return self.__binary_service_name
 
     def getShare(self):
         return self.share

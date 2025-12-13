@@ -1,27 +1,17 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-#Impact test version
-try:
-    from impacket import IP6_Address, IP6, ImpactDecoder, ICMP6
-except:
-    pass
-
-#Standalone test version
-try:
-    import sys
-    sys.path.insert(0,"../..")
-    import IP6_Address, IP6, ImpactDecoder, ICMP6
-except:
-    pass
-
 import unittest
+from impacket import IP6, ImpactDecoder, ICMP6
+
 
 class TestICMP6(unittest.TestCase):
         
@@ -180,5 +170,5 @@ class TestICMP6(unittest.TestCase):
                 self.assertEqual(p.get_mtu(), 1300, self.message_description_list[i] + " - MTU mismatch")
 
 
-suite = unittest.TestLoader().loadTestsFromTestCase(TestICMP6)
-unittest.main(defaultTest='suite')
+if __name__ == '__main__':
+    unittest.main(verbosity=1)

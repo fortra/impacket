@@ -1,11 +1,22 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
+
+import warnings
+from impacket import version
+
+warnings.warn(
+    '\n'+version.DEPRECATION_WARNING_BANNER,
+    DeprecationWarning,
+    stacklevel=2, 
+)
 
 import math
 import array
@@ -15,6 +26,8 @@ from pcapy import lookupdev, open_live
 from impacket.ImpactPacket import UDP, TCPOption, Data, TCP, IP, ICMP, Ethernet
 from impacket.ImpactDecoder import EthDecoder
 from impacket import LOG
+
+
 
 g_nmap1_signature_filename="nmap-os-fingerprints"
 g_nmap2_signature_filename="nmap-os-db"

@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -9,8 +11,14 @@
 
 from __future__ import division
 from __future__ import print_function
+
+import re
 from struct import pack, unpack, calcsize
+
+import six
 from six import b, PY3
+from binascii import hexlify
+
 
 class Structure:
     """ sublcasses can define commonHdr and/or structure.
@@ -60,7 +68,7 @@ class Structure:
           some additional format specifiers:
             :       just copy the bytes from the field into the output string (input may be string, other structure, or anything responding to __str__()) (for unpacking, all what's left is returned)
             z       same as :, but adds a NUL byte at the end (asciiz) (for unpacking the first NUL byte is used as terminator)  [asciiz string]
-            u       same as z, but adds two NUL bytes at the end (after padding to an even size with NULs). (same for unpacking) [unicode string]
+            u       same as z, but adds two NUL bytes at the end (after padding to an even size with NULs). (same for unpacking) [UTF16-le encoded bytes]
             w       DCE-RPC/NDR string (it's a macro for [  '<L=(len(field)+1)/2','"\\x00\\x00\\x00\\x00','<L=(len(field)+1)/2',':' ]
             ?-field length of field named 'field', formatted as specified with ? ('?' may be '!H' for example). The input value overrides the real length
             ?1*?2   array of elements. Each formatted as '?2', the number of elements in the array is stored as specified by '?1' (?1 is optional, or can also be a constant (number), for unpacking)
@@ -73,9 +81,15 @@ class Structure:
                         For unpacking, it's used to know weather fieldname has to be unpacked or not, i.e. by adding a & field you turn another field (fieldname) in an optional field.
             
     """
+    # REGEX: Positive lookahead to find overlapping NUL-NUL terminators (something like \x00\x00\x00 has 1 overlap)
+    NULL_NULL_TERMINATOR_REGEX = re.compile(b'(?=(\x00\x00))')
+
     commonHdr = ()
     structure = ()
     debug = 0
+    # Encoding defaults to latin-1 which already was the de facto encoding for structures and works for most use cases.
+    # Now it can be configured to another encoding if needed.
+    ENCODING = 'latin-1'   # https://github.com/fortra/impacket/pull/1958
 
     def __init__(self, data = None, alignment = 0):
         if not hasattr(self, 'alignment'):
@@ -83,6 +97,9 @@ class Structure:
 
         self.fields    = {}
         self.rawData   = data
+
+        self.b = lambda x: six.ensure_binary(x, encoding=self.ENCODING)
+
         if data is not None:
             self.fromString(data)
         else:
@@ -160,7 +177,7 @@ class Structure:
             data = data[size:]
 
         return self
-        
+
     def __setitem__(self, key, value):
         self.fields[key] = value
         self.data = None        # force recompute
@@ -170,9 +187,9 @@ class Structure:
 
     def __delitem__(self, key):
         del self.fields[key]
-        
+
     def __str__(self):
-        return self.getData()
+        return str(hexlify(self.getData()).decode("ascii"))
 
     def __len__(self):
         # XXX: improve
@@ -193,7 +210,7 @@ class Structure:
 
         # quote specifier
         if format[:1] == "'" or format[:1] == '"':
-            return b(format[1:])
+            return self.b(format[1:])
 
         # code specifier
         two = format.split('=')
@@ -241,26 +258,26 @@ class Structure:
         # "printf" string specifier
         if format[:1] == '%':
             # format string like specifier
-            return b(format % data)
+            return self.b(format % data)
 
         # asciiz specifier
         if format[:1] == 'z':
             if isinstance(data,bytes):
-                return data + b('\0')
-            return bytes(b(data)+b('\0'))
+                return data + self.b('\0')
+            return bytes(self.b(data)+self.b('\0'))
 
         # unicode specifier
         if format[:1] == 'u':
-            return bytes(data+b('\0\0') + (len(data) & 1 and b('\0') or b''))
+            return bytes(data+self.b('\0\0') + (len(data) & 1 and self.b('\0') or b''))
 
         # DCE-RPC/NDR string specifier
         if format[:1] == 'w':
             if len(data) == 0:
-                data = b('\0\0')
+                data = self.b('\0\0')
             elif len(data) % 2:
-                data = b(data) + b('\0')
+                data = self.b(data) + self.b('\0')
             l = pack('<L', len(data)//2)
-            return b''.join([l, l, b('\0\0\0\0'), data])
+            return b''.join([l, l, self.b('\0\0\0\0'), data])
 
         if data is None:
             raise Exception("Trying to pack None")
@@ -275,7 +292,7 @@ class Structure:
             elif isinstance(data, int):
                 return bytes(data)
             elif isinstance(data, bytes) is not True:
-                return bytes(b(data))
+                return bytes(self.b(data))
             else:
                 return data
 
@@ -284,7 +301,7 @@ class Structure:
             if isinstance(data, bytes) or isinstance(data, bytearray):
                 return pack(format, data)
             else:
-                return pack(format, b(data))
+                return pack(format, self.b(data))
 
         # struct like specifier
         return pack(format, data)
@@ -311,7 +328,7 @@ class Structure:
         # quote specifier
         if format[:1] == "'" or format[:1] == '"':
             answer = format[1:]
-            if b(answer) != data:
+            if self.b(answer) != data:
                 raise Exception("Unpacked data doesn't match constant value '%r' should be '%r'" % (data, answer))
             return answer
 
@@ -357,7 +374,7 @@ class Structure:
 
         # asciiz specifier
         if format == 'z':
-            if data[-1:] != b('\x00'):
+            if data[-1:] != self.b('\x00'):
                 raise Exception("%s 'z' field is not NUL terminated: %r" % (field, data))
             if PY3:
                 return data[:-1].decode('latin-1')
@@ -366,7 +383,7 @@ class Structure:
 
         # unicode specifier
         if format == 'u':
-            if data[-2:] != b('\x00\x00'):
+            if data[-2:] != self.b('\x00\x00'):
                 raise Exception("%s 'u' field is not NUL-NUL terminated: %r" % (field, data))
             return data[:-2] # remove trailing NUL
 
@@ -520,12 +537,20 @@ class Structure:
 
         # asciiz specifier
         if format[:1] == 'z':
-            return data.index(b('\x00'))+1
+            return data.index(self.b('\x00'))+1
 
         # asciiz specifier
         if format[:1] == 'u':
-            l = data.index(b('\x00\x00'))
-            return l + (l & 1 and 3 or 2)
+            # Positive lookahead to find overlapping NUL-NUL terminators (something like \x00\x00\x00 has 1 overlap)
+            matches = self.NULL_NULL_TERMINATOR_REGEX.finditer(data)
+            for a_match in matches:
+                if a_match.start() % 2 == 0:    # \x00\x00 at an even index
+                    return a_match.start() + 2
+
+            # NUL-NUL terminator not found
+            hex_data = str(hexlify(data).decode('ascii'))
+            utf16_chunks = [hex_data[i:i + 4] for i in range(0, len(hex_data), 4)]
+            raise ValueError("Can't find NUL-NUL terminator in UTF-16le string '%s'" % ' '.join(utf16_chunks))
 
         # DCE-RPC/NDR string specifier
         if format[:1] == 'w':
@@ -580,7 +605,7 @@ class Structure:
         if format in ['z',':','u']:
             return b''
         if format == 'w':
-            return b('\x00\x00')
+            return self.b('\x00\x00')
 
         return 0
 

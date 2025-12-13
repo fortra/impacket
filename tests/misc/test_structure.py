@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
 from __future__ import print_function
+import six
 import unittest
 from binascii import hexlify
 
@@ -19,7 +22,7 @@ def hexl(b):
     return ' '.join([hexstr[i:i + 8] for i in range(0, len(hexstr), 8)])
 
 
-class _StructureTest(unittest.TestCase):
+class _StructureTest(object):
     # Subclass:
     # - must define theClass
     # - may override alignment
@@ -60,16 +63,8 @@ class _StructureTest(unittest.TestCase):
             # Show result, to aid adding regression check
             print(self.__class__.__name__, hexl(a_str))
 
-    if not hasattr(unittest.TestCase, 'assertRaisesRegex'):
-        if hasattr(unittest.TestCase, 'assertRaisesRegexp'):  # PY2.7, PY3.1
-            assertRaisesRegex = unittest.TestCase.assertRaisesRegexp
-        else:  # PY2.6
-            def assertRaisesRegex(self, ex, rx, *args):
-                # Just ignore the regex
-                return self.assertRaises(ex, *args)
 
-
-class Test_simple(_StructureTest):
+class Test_simple(_StructureTest, unittest.TestCase):
     class theClass(Structure):
         commonHdr = ()
         structure = (
@@ -112,7 +107,7 @@ class Test_fixedLength(Test_simple):
         else:
             print(hexl(a_str))
         # ... so that unpacking will now fail
-        with self.assertRaisesRegex(Exception, r'not NUL terminated'):
+        with six.assertRaisesRegex(self, Exception, r'not NUL terminated'):
             self.create(a_str)
 
     hexData = '00003131 42424242 03341234 12770099 88414141 41686f6c 61006800 6f006c00 61000000 434f4341 0006434f 43413a31 3233343a 45444342 00001006'
@@ -122,8 +117,20 @@ class Test_simple_aligned4(Test_simple):
     alignment = 4
     hexData = '00003131 00000005 03341234 12770099 88414141 41000000 686f6c61 00000000 68006f00 6c006100 00000000 434f4341 00060000 434f4341 3a313233 343a0000 45444342 00001006'
 
+class Test_unicode_with_embedded_null(_StructureTest, unittest.TestCase):
+    class theClass(Structure):
+        structure = (
+            ('utf16', 'u'),
+        )
 
-class Test_nested(_StructureTest):
+    def populate(self, a):
+        # Use a character whose low byte is 0x00 (U+0400) following an ASCII char.
+        # Older calcUnpackSize logic stopped at the odd-offset 0x00 0x00 pair between chars.
+        a['utf16'] = 'A\u0400'.encode('utf_16_le')
+
+    hexData = '41000004 0000'
+
+class Test_nested(_StructureTest, unittest.TestCase):
     class theClass(Structure):
         class _Inner(Structure):
             structure = (('data', 'z'),)
@@ -144,7 +151,7 @@ class Test_nested(_StructureTest):
     hexData = '686f6c61 206d616e 6f6c6100 63686175 206c6f63 6f007856 3412'
 
 
-class Test_Optional(_StructureTest):
+class Test_Optional(_StructureTest, unittest.TestCase):
     class theClass(Structure):
         structure = (
             ('pName', '<L&Name'),
@@ -174,7 +181,7 @@ class Test_Optional_sparse(Test_Optional):
     hexData = '00000000 -------- 04000100 00000200 00000300 00000400 0000'
 
 
-class Test_AsciiZArray(_StructureTest):
+class Test_AsciiZArray(_StructureTest, unittest.TestCase):
     class theClass(Structure):
         structure = (
             ('head', '<L'),
@@ -190,7 +197,7 @@ class Test_AsciiZArray(_StructureTest):
     hexData = '34120000 03686f6c 61006d61 6e6f6c61 00746520 7472616a 6500cdab 0000'
 
 
-class Test_UnpackCode(_StructureTest):
+class Test_UnpackCode(_StructureTest, unittest.TestCase):
     class theClass(Structure):
         structure = (
             ('leni', '<L=len(uno)*2'),
@@ -206,7 +213,7 @@ class Test_UnpackCode(_StructureTest):
     hexData = '18000000 736f7920 756e206c 6f636f21 71756520 68616365 73206669 657261'
 
 
-class Test_AAA(_StructureTest):
+class Test_AAA(_StructureTest, unittest.TestCase):
     class theClass(Structure):
         commonHdr = ()
         structure = (
@@ -232,6 +239,4 @@ class Test_AAA(_StructureTest):
 
 
 if __name__ == "__main__":
-    # Hide base class so that unittest.main() will not try to load it
-    del _StructureTest
     unittest.main(verbosity=1)

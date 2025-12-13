@@ -1,0 +1,21 @@
+[global]
+
+[TCPTransport]
+# NetBIOS Name
+servername =
+# Targets IP
+machine =
+username =
+password =
+# NTLM Hash, you can grab it with secretsdump
+hashes =
+# Kerberos AES 256 Key, you can grab it with secretsdump
+aesKey256 =
+# Kerberos AES 128 Key, you can grab it with secretsdump
+aesKey128 =
+# It must be the domain FQDN
+domain =
+# This need to be a domain joined machine NetBIOS name
+machineuser =
+# Domain joined machine NetBIOS name hashes (grab them with secretsdump)
+machineuserhashes =

@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -40,7 +42,7 @@ class LSALookupSid:
         }
 
     def __init__(self, username='', password='', domain='', port = None,
-                 hashes = None, domain_sids = False, maxRid=4000):
+                 hashes = None, domain_sids = False, use_kerberos = False, maxRid=4000):
 
         self.__username = username
         self.__password = password
@@ -50,6 +52,7 @@ class LSALookupSid:
         self.__lmhash = ''
         self.__nthash = ''
         self.__domain_sids = domain_sids
+        self.__doKerberos = use_kerberos
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
@@ -61,6 +64,7 @@ class LSALookupSid:
         logging.info('StringBinding %s'%stringbinding)
         rpctransport = transport.DCERPCTransportFactory(stringbinding)
         rpctransport.set_dport(self.__port)
+        rpctransport.set_kerberos(self.__doKerberos)
 
         if self.KNOWN_PROTOCOLS[self.__port]['set_host']:
             rpctransport.setRemoteHost(remoteHost)
@@ -153,6 +157,7 @@ if __name__ == '__main__':
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('maxRid', action='store', default = '4000', nargs='?', help='max Rid to check (default 4000)')
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
 
     group = parser.add_argument_group('connection')
@@ -168,7 +173,11 @@ if __name__ == '__main__':
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful when proxying through smbrelayx)')
-
+    group.add_argument('-k', action="store_true", 
+                        help='Use Kerberos authentication. Grabs credentials from ccache file '
+                            '(KRB5CCNAME) based on target parameters. If valid credentials '
+                            'cannot be found, it will use the ones specified in the command '
+                            'line')
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
@@ -176,7 +185,7 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     # Init the example's logger theme
-    logger.init(options.ts)
+    logger.init(options.ts, options.debug)
 
     domain, username, password, remoteName = parse_target(options.target)
 
@@ -190,7 +199,7 @@ if __name__ == '__main__':
     if options.target_ip is None:
         options.target_ip = remoteName
 
-    lookup = LSALookupSid(username, password, domain, int(options.port), options.hashes, options.domain_sids, options.maxRid)
+    lookup = LSALookupSid(username, password, domain, int(options.port), options.hashes, options.domain_sids, options.k, options.maxRid)
     try:
         lookup.dump(remoteName, options.target_ip)
     except:

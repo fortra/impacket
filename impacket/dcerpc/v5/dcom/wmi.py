@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -11,7 +13,7 @@
 #
 #   Best way to learn how to use these calls is to grab the protocol standard
 #   so you understand what the call does, and then read the test case located
-#   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
+#   at https://github.com/fortra/impacket/tree/master/tests/SMB_RPC
 #
 #   Since DCOM is like an OO RPC, instead of helper functions you will see the
 #   classes described in the standards developed.
@@ -25,6 +27,7 @@ from __future__ import print_function
 from struct import unpack, calcsize, pack
 from functools import partial
 import collections
+import collections.abc
 import logging
 import six
 
@@ -43,12 +46,12 @@ from impacket.structure import Structure, hexdump
 
 def format_structure(d, level=0):
     x = ""
-    if isinstance(d, collections.Mapping):
+    if isinstance(d, collections.abc.Mapping):
         lenk = max([len(str(x)) for x in list(d.keys())])
         for k, v in list(d.items()):
             key_text = "\n" + " "*level + " "*(lenk - len(str(k))) + str(k)
             x += key_text + ": " + format_structure(v, level=level+lenk)
-    elif isinstance(d, collections.Iterable) and not isinstance(d, str):
+    elif isinstance(d, collections.abc.Iterable) and not isinstance(d, str):
         for e in d:
             x += "\n" + " "*level + "- " + format_structure(e, level=level+4)
     else:
@@ -313,7 +316,7 @@ class ENCODED_VALUE(Structure):
     def getValue(cls, cimType, entry, heap):
         # Let's get the default Values
         pType = cimType & (~(CIM_ARRAY_FLAG|Inherited))
-
+        cimType = cimType & (~Inherited)
         if entry != 0xffffffff:
             heapData = heap[entry:]
             if cimType & CIM_ARRAY_FLAG:
@@ -923,9 +926,10 @@ class OBJECT_BLOCK(Structure):
                         print('\t[%s(%s)]' % (qName, qualifiers[qName]))
                 print("\t%s %s" % (properties[pName]['stype'], properties[pName]['name']), end=' ')
                 if properties[pName]['value'] is not None:
-                    if properties[pName]['type'] == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
+                    cimType = properties[pName]['type'] & (~Inherited)
+                    if cimType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
                         print('= IWbemClassObject\n')
-                    elif properties[pName]['type'] == CIM_TYPE_ENUM.CIM_ARRAY_OBJECT.value:
+                    elif cimType == CIM_TYPE_ENUM.CIM_ARRAY_OBJECT.value:
                         if properties[pName]['value'] == 0:
                             print('= %s\n' % properties[pName]['value'])
                         else:
@@ -2461,7 +2465,7 @@ class IWbemClassObject(IRemUnknown):
                     ndTable |= self.__ndEntry(i, True, True)
             else:
                 if itemValue == '':
-                    # https://github.com/SecureAuthCorp/impacket/pull/1069#issuecomment-835179409
+                    # https://github.com/fortra/impacket/pull/1069#issuecomment-835179409
                     # Force inherited_default to avoid 'obscure' issue in wmipersist.py
                     ndTable |= self.__ndEntry(i, True, True)
                     valueTable += pack('<L', 0)
@@ -2610,7 +2614,8 @@ class IWbemClassObject(IRemUnknown):
     def createProperties(self, properties):
         for property in properties:
             # Do we have an object property?
-            if properties[property]['type'] == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
+            cimType = properties[property]['type'] & (~Inherited)
+            if cimType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value and properties[property]['value'] != None:
                 # Yes.. let's create an Object for it too
                 objRef = OBJREF_CUSTOM()
                 objRef['iid'] = self._iid
@@ -2620,7 +2625,7 @@ class IWbemClassObject(IRemUnknown):
                 objRef['pObjectData'] = properties[property]['value']
                 value = IWbemClassObject( INTERFACE(self.get_cinstance(), objRef.getData(), self.get_ipidRemUnknown(),
                       oxid=self.get_oxid(), target=self.get_target()))
-            elif properties[property]['type'] == CIM_TYPE_ENUM.CIM_ARRAY_OBJECT.value:
+            elif cimType == CIM_TYPE_ENUM.CIM_ARRAY_OBJECT.value:
                 if isinstance(properties[property]['value'], list):
                     value = list()
                     for item in properties[property]['value']:

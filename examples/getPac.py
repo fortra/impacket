@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -38,7 +40,7 @@ from pyasn1.type.univ import noValue
 from impacket import version
 from impacket.dcerpc.v5.rpcrt import TypeSerialization1
 from impacket.examples import logger
-from impacket.examples.utils import parse_credentials
+from impacket.examples.utils import parse_identity
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, seq_set, seq_set_iter, PA_FOR_USER_ENC, \
     EncTicketPart, AD_IF_RELEVANT, Ticket as TicketAsn1
@@ -146,7 +148,7 @@ class S4U2SELF:
 
         seq_set(authenticator, 'cname', clientName.components_to_asn1)
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         authenticator['cusec'] = now.microsecond
         authenticator['ctime'] = KerberosTime.to_asn1(now)
 
@@ -236,7 +238,7 @@ class S4U2SELF:
         seq_set(reqBody, 'sname', serverName.components_to_asn1)
         reqBody['realm'] = str(decodedTGT['crealm'])
 
-        now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
 
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.getrandbits(31)
@@ -290,7 +292,6 @@ class S4U2SELF:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    logger.init()
     print(version.BANNER)
 
     parser = argparse.ArgumentParser()
@@ -299,6 +300,7 @@ if __name__ == '__main__':
                                                        'for grabbing targetUser\'s PAC')
     parser.add_argument('-targetUser', action='store', required=True, help='the target user to retrieve the PAC of')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
 
     group = parser.add_argument_group('authentication')
 
@@ -308,22 +310,9 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
+    logger.init(options.ts, options.debug)
 
-    domain, username, password = parse_credentials(options.credentials)
-
-    if domain is None:
-        domain = ''
-
-    if password == '' and username != '' and options.hashes is None:
-        from getpass import getpass
-        password = getpass("Password:")
-
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
+    domain, username, password, _, _, _ = parse_identity(options.credentials, options.hashes)
 
     try:
         dumper = S4U2SELF(options.targetUser, username, password, domain, options.hashes)

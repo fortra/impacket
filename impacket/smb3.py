@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -115,6 +117,55 @@ CHANNEL = {
     'Connection' : 0,
 }
 
+# Source:
+# https://en.wikipedia.org/wiki/List_of_Microsoft_Windows_versions
+# https://www.gaijin.at/en/infos/windows-version-numbers
+WIN_VERSIONS = {
+    102:"Windows 3.1",
+    103:"Windows 3.1",
+    153:"Windows 3.2",
+    300:"Windows 3.11",
+    528:"Windows NT 3.1 SP3",
+    807:"Windows NT 3.5",
+    950:"Windows 95",
+    1057:"Windows NT 3.51",
+    1381:"Windows NT 4.0",
+    1998:"Windows 98",
+    2195:"Windows 2000",
+    2222:"Windows 98 Second Edition",
+    2600:"Windows XP",
+    2700:"Windows XP",
+    2710:"Windows XP",
+    3000:"Windows Me",
+    3790:"Windows XP / Server 2003 / Server 2003 R2",
+    6002:"Windows Vista",
+    6003:"Windows Server 2008",
+    7601:"Windows 7 / Server 2008 R2",
+    8400:"Windows Home Server 2011",
+    9200:"Windows 8 / Server 2012",
+    9600:"Windows 8.1 / Server 2012 R2",
+    10240:"Windows 10",
+    10586:"Windows 10",
+    14393:"Windows 10 / Server 2016",
+    15063:"Windows 10",
+    16299:"Windows 10 / Server 2016",
+    17134:"Windows 10 / Server 2016",
+    17763:"Windows 10 / Server 2019",
+    18362:"Windows 10 / Server 2019",
+    18363:"Windows 10 / Server 2019",
+    19041:"Windows 10 / Server 2019",
+    19042:"Windows 10 / Server 2019",
+    19043:"Windows 10",
+    19044:"Windows 10",
+    19045:"Windows 10",
+    20348:"Windows Server 2022",
+    22000:"Windows 11",
+    22621:"Windows 11",
+    22631:"Windows 11",
+    25398:"Windows Server 2022",
+    26100:"Windows 11 / Server 2025",
+}
+
 
 class SessionError(Exception):
     def __init__( self, error = 0, packet=0):
@@ -184,7 +235,11 @@ class SMB3:
             'ClientName'               : '',    #
             #GSSoptions (MutualAuth and Delegate)
             'GSSoptions'               : {},
-            'PreauthIntegrityHashValue': a2b_hex(b'0'*128)
+            # If the client implements the SMB 3.1.1 dialect,
+            # it MUST also implement the following
+            'PreauthIntegrityHashId': 0,
+            'PreauthIntegrityHashValue': a2b_hex(b'0'*128),
+            'CipherId' : 0
         }
 
         self._Session = {
@@ -353,6 +408,28 @@ class SMB3:
 
     def getDialect(self):
         return self._Connection['Dialect']
+
+    def processContextList(self, contextCount, contextList):
+        offset = 0
+        while contextCount > 0:
+            context = SMB2NegotiateContext(contextList[offset:])
+            if context['ContextType'] == SMB2_PREAUTH_INTEGRITY_CAPABILITIES:
+                contextPreAuth = SMB2PreAuthIntegrityCapabilities(context['Data'])
+                self._Connection['PreauthIntegrityHashId'] = struct.unpack('<H', contextPreAuth['HashAlgorithms'])[0]
+            elif context['ContextType'] == SMB2_ENCRYPTION_CAPABILITIES:
+                contextEncryption = SMB2EncryptionCapabilities(context['Data'])
+                cipherId = struct.unpack('<H', contextEncryption['Ciphers'])[0]
+                self._Connection['CipherId'] = cipherId
+                if cipherId != 0:
+                    self._Connection['SupportsEncryption'] = True
+            elif context['ContextType'] == SMB2_COMPRESSION_CAPABILITIES:
+                pass
+            elif context['ContextType'] == SMB2_NETNAME_NEGOTIATE_CONTEXT_ID:
+                pass
+
+            padding = ((8 - (context['DataLength'] % 8)) % 8)
+            offset = 8 + context['DataLength'] + padding
+            contextCount -= 1
 
     def signSMB(self, packet):
         packet['Signature'] = '\x00'*16
@@ -532,12 +609,12 @@ class SMB3:
                     # to the negotiate request as specified in section 2.2.3.1 and initialize
                     # the Ciphers field with the ciphers supported by the client in the order of preference.
 
-                    negotiateContext2 = SMB2NegotiateContext ()
+                    negotiateContext2 = SMB2NegotiateContext()
                     negotiateContext2['ContextType'] = SMB2_ENCRYPTION_CAPABILITIES
 
                     encryptionCapabilities = SMB2EncryptionCapabilities()
                     encryptionCapabilities['CipherCount'] = 1
-                    encryptionCapabilities['Ciphers'] = 1
+                    encryptionCapabilities['Ciphers'] = b'\x01\x00'
 
                     negotiateContext2['Data'] = encryptionCapabilities.getData()
                     negotiateContext2['DataLength'] = len(negotiateContext2['Data'])
@@ -570,12 +647,17 @@ class SMB3:
         self._Connection['ServerGuid']        = negResp['ServerGuid']
         self._Connection['GSSNegotiateToken'] = negResp['Buffer']
         self._Connection['Dialect']           = negResp['DialectRevision']
+
         if (negResp['SecurityMode'] & SMB2_NEGOTIATE_SIGNING_REQUIRED) == SMB2_NEGOTIATE_SIGNING_REQUIRED or \
                 self._Connection['Dialect'] == SMB2_DIALECT_311:
             self._Connection['RequireSigning'] = True
         if self._Connection['Dialect'] == SMB2_DIALECT_311:
             # Always Sign
             self._Connection['RequireSigning'] = True
+            negContextCount = negResp['NegotiateContextCount']
+            # Process the Contexts as specified in section 3.2.5.2
+            if negContextCount > 0:
+                self.processContextList(negContextCount, negResp['NegotiateContextList'])
 
         if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_LEASING) == SMB2_GLOBAL_CAP_LEASING:
             self._Connection['SupportsFileLeasing'] = True
@@ -716,7 +798,7 @@ class SMB3:
         authenticator['authenticator-vno'] = 5
         authenticator['crealm'] = domain
         seq_set(authenticator, 'cname', userName.components_to_asn1)
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
 
         authenticator['cusec'] = now.microsecond
         authenticator['ctime'] = KerberosTime.to_asn1(now)
@@ -915,6 +997,9 @@ class SMB3:
         packet['Command'] = SMB2_SESSION_SETUP
         packet['Data']    = sessionSetup
 
+        # Initiate session preauth hash
+        self._Session['PreauthIntegrityHashValue'] = self._Connection['PreauthIntegrityHashValue']
+
         packetID = self.sendSMB(packet)
         ans = self.recvSMB(packetID)
         if self._Connection['Dialect'] == SMB2_DIALECT_311:
@@ -967,14 +1052,15 @@ class SMB3:
                     version = ntlmChallenge['Version']
 
                     if len(version) >= 4:
-                        self._Session['ServerOS'] = "Windows %d.%d Build %d" % (indexbytes(version,0), indexbytes(version,1), struct.unpack('<H',version[2:4])[0])
+                        if struct.unpack('<H',version[2:4])[0] in WIN_VERSIONS.keys():
+                            self._Session['ServerOS'] = WIN_VERSIONS[struct.unpack('<H',version[2:4])[0]] + " Build %d" % struct.unpack('<H',version[2:4])[0]
+                        else:
+                            self._Session['ServerOS'] = "Windows %d.%d Build %d" % (indexbytes(version,0), indexbytes(version,1), struct.unpack('<H',version[2:4])[0])
                         self._Session["ServerOSMajor"] = indexbytes(version,0)
                         self._Session["ServerOSMinor"] = indexbytes(version,1)
                         self._Session["ServerOSBuild"] = struct.unpack('<H',version[2:4])[0]
 
             type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash)
-
-
 
             respToken2 = SPNEGO_NegTokenResp()
             respToken2['ResponseToken'] = type3.getData()
@@ -1086,7 +1172,7 @@ class SMB3:
 
         treeConnect = SMB2TreeConnect()
         treeConnect['Buffer']     = path.encode('utf-16le')
-        treeConnect['PathLength'] = len(path)*2
+        treeConnect['PathLength'] = len(treeConnect['Buffer'])
 
         packet = self.SMB_PACKET()
         packet['Command'] = SMB2_TREE_CONNECT
@@ -1199,7 +1285,7 @@ class SMB3:
         smb2Create['CreateDisposition']    = creationDisposition
         smb2Create['CreateOptions']        = creationOptions
 
-        smb2Create['NameLength']           = len(fileName)*2
+        smb2Create['NameLength']           = len(fileName.encode('utf-16le'))
         if fileName != '':
             smb2Create['Buffer']           = fileName.encode('utf-16le')
         else:
@@ -1385,8 +1471,9 @@ class SMB3:
         if maxBufferSize is None:
             maxBufferSize = self._Connection['MaxReadSize']
         queryDirectory['OutputBufferLength'] = maxBufferSize
-        queryDirectory['FileNameLength']     = len(searchString)*2
         queryDirectory['Buffer']             = searchString.encode('utf-16le')
+        queryDirectory['FileNameLength']     = len(queryDirectory['Buffer'])
+        
 
         packet['Data'] = queryDirectory
 
@@ -1633,8 +1720,9 @@ class SMB3:
             renameReq = FILE_RENAME_INFORMATION_TYPE_2()
             renameReq['ReplaceIfExists'] = 1
             renameReq['RootDirectory']   = '\x00'*8
-            renameReq['FileNameLength']  = len(newPath)*2
             renameReq['FileName']        = newPath.encode('utf-16le')
+            renameReq['FileNameLength']  = len(renameReq['FileName'])
+
             self.setInfo(treeId, fileId, renameReq, infoType = SMB2_0_INFO_FILE, fileInfoClass = SMB2_FILE_RENAME_INFO)
         finally:
             if fileId is not None:
@@ -1721,7 +1809,7 @@ class SMB3:
                         fileInfo = smb.SMBFindFileFullDirectoryInfo(smb.SMB.FLAGS2_UNICODE)
                         fileInfo.fromString(res)
                         files.append(smb.SharedFile(fileInfo['CreationTime'], fileInfo['LastAccessTime'],
-                                                    fileInfo['LastChangeTime'], fileInfo['EndOfFile'],
+                                                    fileInfo['LastWriteTime'], fileInfo['LastChangeTime'], fileInfo['EndOfFile'],
                                                     fileInfo['AllocationSize'], fileInfo['ExtFileAttributes'],
                                                     fileInfo['FileName'].decode('utf-16le'),
                                                     fileInfo['FileName'].decode('utf-16le')))
@@ -1731,9 +1819,6 @@ class SMB3:
                     if (e.get_error_code()) != STATUS_NO_MORE_FILES:
                         raise
                     break
-                except Exception as e:
-                    print(str(e))
-                    raise
         finally:
             if fileId is not None:
                 self.close(treeId, fileId)
@@ -1846,7 +1931,7 @@ class SMB3:
                 self.close(treeId, fileId)
             self.disconnectTree(treeId)
 
-    def storeFile(self, shareName, path, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = FILE_SHARE_WRITE):
+    def storeFile(self, shareName, path, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ):
         # ToDo: Handle situations where share is password protected
         path = path.replace('/', '\\')
         path = ntpath.normpath(path)
@@ -1879,9 +1964,10 @@ class SMB3:
 
         pipeWait = FSCTL_PIPE_WAIT_STRUCTURE()
         pipeWait['Timeout']          = timeout*100000
-        pipeWait['NameLength']       = len(pipename)*2
-        pipeWait['TimeoutSpecified'] = 1
         pipeWait['Name']             = pipename.encode('utf-16le')
+        pipeWait['NameLength']       = len(pipeWait['Name'] )
+        pipeWait['TimeoutSpecified'] = 1
+
 
         return self.ioctl(treeId, None, FSCTL_PIPE_WAIT,flags=SMB2_0_IOCTL_IS_FSCTL, inputBlob=pipeWait, maxInputResponse = 0, maxOutputResponse=0)
 

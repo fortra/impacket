@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -145,7 +147,7 @@ class PSEXEC:
                 except Exception as e:
                     logging.critical(str(e))
                     sys.exit(1)
-                installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), f)
+                installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), f, self.__serviceName, self.__remoteBinaryName)
 
             if installService.install() is False:
                 return
@@ -284,7 +286,7 @@ class RemoteStdOutPipe(Pipes):
                                 # Append new data to the buffer while there is data to read
                                 __stdoutOutputBuffer += stdout_ans
 
-                        promptRegex = b'([a-zA-Z]:[\\\/])((([a-zA-Z0-9 -\.]*)[\\\/]?)+(([a-zA-Z0-9 -\.]+))?)?>$'
+                        promptRegex = rb'([a-zA-Z]:[\\\/])((([a-zA-Z0-9 -\.]*)[\\\/]?)+(([a-zA-Z0-9 -\.]+))?)?>$'
 
                         endsWithPrompt = bool(re.match(promptRegex, __stdoutOutputBuffer) is not None)
                         if endsWithPrompt == True:
@@ -639,20 +641,13 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     # Init the example's logger theme
-    logger.init(options.ts)
+    logger.init(options.ts, options.debug)
 
     if options.codec is not None:
         CODEC = options.codec
     else:
         if CODEC is None:
             CODEC = 'utf-8'
-
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
 
     domain, username, password, remoteName = parse_target(options.target)
 

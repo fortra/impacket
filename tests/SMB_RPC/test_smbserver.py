@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -81,9 +83,36 @@ from multiprocessing import Process
 from six import PY2, StringIO, BytesIO, b, assertRaisesRegex, assertCountEqual
 
 from impacket.smb import SMB_DIALECT
-from impacket.smbserver import normalize_path, isInFileJail, SimpleSMBServer
+from impacket.smbserver import normalize_path, isInFileJail, SimpleSMBServer, SMBSERVER
 from impacket.smbconnection import SMBConnection, SessionError, compute_lmhash, compute_nthash
+from threading import Thread
 
+import select
+import socket
+
+class StoppableMixin():
+    def serve_forever(self):
+        self.must_serve = True
+        self.timeout = 0.1
+
+        while self.must_serve:
+            self.handle_request()
+
+    def close_request(self,request):
+        if self.must_serve:
+            request.close()
+
+    def get_request(self):
+        timeout = 0.1
+        while self.must_serve:
+            _read,_,_ = select.select([self.socket],[],[],timeout)
+            
+            if _read and self.must_serve:
+                return self.socket.accept()
+        raise socket.error
+
+class SMBSERVERForTests(StoppableMixin,SMBSERVER):
+    pass
 
 class SMBServerUnitTests(unittest.TestCase):
     """Unit tests for the SMBServer
@@ -212,7 +241,10 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
         self.stop_smbserver()
 
     def get_smbserver(self, add_credential=True, add_share=True):
-        smbserver = SimpleSMBServer(listenAddress=self.address, listenPort=int(self.port))
+        #smbserver = SimpleSMBServerForTests(listenAddress=self.address, listenPort=int(self.port))
+        # smbserver should be run in a host thread and also be able to be terminated in order to run several times
+        # different configurations.
+        smbserver = SimpleSMBServer(listenAddress=self.address, listenPort=int(self.port),smbserverclass=SMBSERVERForTests)
         if add_credential:
             smbserver.addCredential(self.username, 0, self.lmhash, self.nthash)
         if add_share:
@@ -230,7 +262,11 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
         """Starts the SimpleSMBServer process.
         """
         self.server = server
-        self.server_process = Process(target=server.start)
+        #self.server_process = Process(target=server.start)
+        # avoid using Process beacuse of bug in python3.13 https://github.com/python/cpython/issues/134381
+        # TODO: remove these changes once a bugfix gets backported.
+        self.server_process = Thread(target=server.start)
+        self.server_process.daemon = True
         self.server_process.start()
 
     def stop_smbserver(self):
@@ -238,10 +274,13 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
         """
         if self.server:
             self.server.stop()
+            self.server.getServer().must_serve=False
             self.server = None
         if self.server_process:
-            self.server_process.terminate()
+            #self.server_process.terminate()
+            #self.server_process._stop()
             sleep(0.1)
+            self.server_process.join()
             self.server_process = None
 
     def test_smbserver_login_valid(self):
@@ -688,10 +727,4 @@ class SimpleSMBServer2FuncTests(SimpleSMBServerFuncTests):
 
 
 if __name__ == "__main__":
-    loader = unittest.TestLoader()
-    suite = unittest.TestSuite()
-    suite.addTests(loader.loadTestsFromTestCase(SMBServerUnitTests))
-    suite.addTests(loader.loadTestsFromTestCase(SimpleSMBServerFuncTests))
-    suite.addTests(loader.loadTestsFromTestCase(SimpleSMBServer2FuncTests))
-    suite.addTests(loader.loadTestsFromTestCase(SimpleSMBServer2FuncTestsClientFallBack))
-    unittest.main(defaultTest='suite')
+    unittest.main(verbosity=1)

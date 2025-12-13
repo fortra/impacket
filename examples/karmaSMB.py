@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -71,7 +73,7 @@ from impacket.smb import FILE_OVERWRITE, FILE_OVERWRITE_IF, FILE_WRITE_DATA, FIL
 from impacket.nt_errors import STATUS_USER_SESSION_DELETED, STATUS_SUCCESS, STATUS_ACCESS_DENIED, STATUS_NO_MORE_FILES, \
     STATUS_OBJECT_PATH_NOT_FOUND
 from impacket.smbserver import SRVSServer, decodeSMBString, findFirst2, STATUS_SMB_BAD_TID, encodeSMBString, \
-    getFileTime, queryPathInformation
+    queryPathInformation
 
 
 class KarmaSMBServer(Thread):
@@ -87,7 +89,7 @@ class KarmaSMBServer(Thread):
         smbConfig.set('global','server_name','server_name')
         smbConfig.set('global','server_os','UNIX')
         smbConfig.set('global','server_domain','WORKGROUP')
-        smbConfig.set('global','log_file','smb.log')
+        smbConfig.set('global','log_file','None')
         smbConfig.set('global','credentials_file','')
 
         # IPC always needed
@@ -421,10 +423,10 @@ class KarmaSMBServer(Thread):
             infoRecord['EaSize']            = 0
             infoRecord['EndOfFile']         = size
             infoRecord['AllocationSize']    = size
-            infoRecord['CreationTime']      = getFileTime(ctime)
-            infoRecord['LastAccessTime']    = getFileTime(atime)
-            infoRecord['LastWriteTime']     = getFileTime(mtime)
-            infoRecord['LastChangeTime']    = getFileTime(mtime)
+            infoRecord['CreationTime']      = smb.POSIXtoFT(ctime)
+            infoRecord['LastAccessTime']    = smb.POSIXtoFT(atime)
+            infoRecord['LastWriteTime']     = smb.POSIXtoFT(mtime)
+            infoRecord['LastChangeTime']    = smb.POSIXtoFT(mtime)
             infoRecord['ShortName']         = b'\x00'*24
             #infoRecord['FileName']          = os.path.basename(origName).encode('utf-16le')
             infoRecord['FileName']          = origName.encode('utf-16le')
@@ -594,8 +596,6 @@ class KarmaSMBServer(Thread):
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    # Init the example's logger theme
-    logger.init()
     print(version.BANNER)
     parser = argparse.ArgumentParser(add_help = False, description = "For every file request received, this module will "
                                                                      "return the pathname contents")
@@ -605,6 +605,8 @@ if __name__ == '__main__':
     parser.add_argument('-config', type=argparse.FileType('r'), metavar = 'pathname', help='config file name to map '
                         'extensions to files to deliver. For those extensions not present, pathname will be delivered')
     parser.add_argument('-smb2support', action='store_true', default=False, help='SMB2 Support (experimental!)')
+    parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
 
     if len(sys.argv)==1:
@@ -616,6 +618,9 @@ if __name__ == '__main__':
     except Exception as e:
        logging.critical(str(e))
        sys.exit(1)
+
+    # Init the example's logger theme
+    logger.init(options.ts, options.debug)
 
     s = KarmaSMBServer(options.smb2support)
     s.setDefaultFile(os.path.normpath(options.fileName))

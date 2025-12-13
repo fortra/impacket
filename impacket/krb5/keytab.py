@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2020 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -289,9 +291,3 @@ class Keytab:
         for i, entry in enumerate(self.entries):
             print(("[%d]" % i))
             print(entry.prettyPrint('\t'))
-
-
-if __name__ == '__main__':
-    import sys
-    keytab = Keytab.loadFile(sys.argv[1])
-    keytab.prettyPrint()

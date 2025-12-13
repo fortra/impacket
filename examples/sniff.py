@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -30,6 +32,7 @@ import sys
 from threading import Thread
 import pcapy
 from pcapy import findalldevs, open_live
+from impacket import version
 
 from impacket.ImpactDecoder import EthDecoder, LinuxSLLDecoder
 
@@ -86,6 +89,7 @@ def getInterface():
     return ifs[idx]
 
 def main(filter):
+    print(version.DEPRECATION_WARNING_BANNER)
     dev = getInterface()
 
     # Open interface for catpuring.

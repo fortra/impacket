@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -36,7 +38,7 @@ def pp(prev, s):
 class CryptoTests(unittest.TestCase):
     def test_subkey(self):
         K = "2b7e151628aed2a6abf7158809cf4f3c"
-        M = "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710"
+        M = "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710"  # noqa
 
         K1, K2 = Generate_Subkey(unhexlify(K))
         self.assertEqual(hex8(K1), 'fbeed618 35713366 7c85e08f 7236a8de')

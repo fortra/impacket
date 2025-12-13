@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -11,7 +13,7 @@
 #
 #   Best way to learn how to use these calls is to grab the protocol standard
 #   so you understand what the call does, and then read the test case located
-#   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
+#   at https://github.com/fortra/impacket/tree/master/tests/SMB_RPC
 #
 #   Some calls have helper functions, which makes it even easier to use.
 #   They are located at the end of this file.
@@ -68,6 +70,34 @@ IID_IRemUnknown               = uuidtup_to_bin(('00000131-0000-0000-C000-0000000
 IID_IRemUnknown2              = uuidtup_to_bin(('00000143-0000-0000-C000-000000000046','0.0'))
 IID_IUnknown                  = uuidtup_to_bin(('00000000-0000-0000-C000-000000000046','0.0'))
 IID_IClassFactory             = uuidtup_to_bin(('00000001-0000-0000-C000-000000000046','0.0'))
+
+# Protocol Identifiers, from [c706] Annex I
+TOWERID_OSI_TP4 = 0x05
+TOWERID_OSI_CLNS = 0x06
+TOWERID_DOD_TCP = 0x0007
+TOWERID_DOD_UDP = 0x08
+TOWERID_DOD_IP = 0x09
+TOWERID_RPC_connectionless = 0x0a
+TOWERID_RPC_connectionoriented = 0x0b
+TOWERID_DNA_Session_Control = 0x02
+TOWERID_DNA_Session_Control_V3 = 0x03
+TOWERID_DNA_NSP_Transport = 0x04
+TOWERID_DNA_Routing = 0x06
+TOWERID_Named_Pipes = 0x10
+TOWERID_NetBIOS_11 = 0x11
+TOWERID_NetBEUI = 0x12
+TOWERID_Netware_SPX = 0x13
+TOWERID_Netware_IPX = 0x14
+TOWERID_Appletalk_Stream = 0x16
+TOWERID_Appletalk_Datagram = 0x17
+TOWERID_Appletalk = 0x18
+TOWERID_NetBIOS_19 = 0x19
+TOWERID_VINES_SPP = 0x1A
+TOWERID_VINES_IPC = 0x1B
+TOWERID_StreetTalk = 0x1C
+TOWERID_Unix_Domain_socket = 0x20
+TOWERID_null = 0x21
+TOWERID_NetBIOS_22 = 0x22
 
 class DCERPCSessionError(DCERPCException):
     def __init__(self, error_string=None, error_code=None, packet=None):
@@ -964,7 +994,7 @@ class DCOMConnection:
     PORTMAPS = {}
 
     def __init__(self, target, username='', password='', domain='', lmhash='', nthash='', aesKey='', TGT=None, TGS=None,
-                 authLevel=RPC_C_AUTHN_LEVEL_PKT_PRIVACY, oxidResolver=False, doKerberos=False, kdcHost=None):
+                 authLevel=RPC_C_AUTHN_LEVEL_PKT_PRIVACY, oxidResolver=False, doKerberos=False, kdcHost=None, remoteHost=None):
         self.__target = target
         self.__userName = username
         self.__password = password
@@ -979,6 +1009,7 @@ class DCOMConnection:
         self.__oxidResolver = oxidResolver
         self.__doKerberos = doKerberos
         self.__kdcHost = kdcHost
+        self.__remoteHost = remoteHost
         self.initConnection()
 
     @classmethod
@@ -1059,6 +1090,10 @@ class DCOMConnection:
         stringBinding = r'ncacn_ip_tcp:%s' % self.__target
         rpctransport = transport.DCERPCTransportFactory(stringBinding)
 
+        if self.__remoteHost:
+            rpctransport.setRemoteHost(self.__remoteHost)
+            rpctransport.setRemoteName(self.__target)
+
         if hasattr(rpctransport, 'set_credentials') and len(self.__userName) >=0:
             # This method exists only for selected protocol sequences.
             rpctransport.set_credentials(self.__userName, self.__password, self.__domain, self.__lmhash, self.__nthash,
@@ -1081,14 +1116,15 @@ class DCOMConnection:
         return DCOMConnection.PORTMAPS[self.__target]
 
     def disconnect(self):
-        if DCOMConnection.PINGTIMER is not None:
+        # https://github.com/fortra/impacket/issues/1039
+        if self.__target in DCOMConnection.PORTMAPS.keys():
             del(DCOMConnection.PORTMAPS[self.__target])
+        if self.__target in DCOMConnection.OID_SET.keys():
             del(DCOMConnection.OID_SET[self.__target])
-            if len(DCOMConnection.PORTMAPS) == 0:
-                # This means there are no more clients using this object, kill it
-                DCOMConnection.PINGTIMER.cancel()
-                DCOMConnection.PINGTIMER.join()
-                DCOMConnection.PINGTIMER = None
+        if DCOMConnection.PINGTIMER and len(DCOMConnection.PORTMAPS) == 0:
+            DCOMConnection.PINGTIMER.cancel()
+            DCOMConnection.PINGTIMER.join()
+            DCOMConnection.PINGTIMER = None
         if self.__target in INTERFACE.CONNECTIONS:
             del(INTERFACE.CONNECTIONS[self.__target][current_thread().name])
         self.__portmap.disconnect()
@@ -1286,6 +1322,11 @@ class INTERFACE:
                     raise Exception('Can\'t find a valid stringBinding to connect')
 
                 dcomInterface = transport.DCERPCTransportFactory(stringBinding)
+
+                if DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().get_kerberos():
+                    dcomInterface.setRemoteHost(DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().getRemoteHost())
+                    dcomInterface.setRemoteName(DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().getRemoteName())
+
                 if hasattr(dcomInterface, 'set_credentials'):
                     # This method exists only for selected protocol sequences.
                     dcomInterface.set_credentials(*DCOMConnection.PORTMAPS[self.__target].get_credentials())
@@ -1584,7 +1625,7 @@ class IActivation:
 
         classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
         return IRemUnknown2(INTERFACE(classInstance, b''.join(resp['ppInterfaceData'][0]['abData']), ipidRemUnknown,
-                                      target=self.__portmap.get_rpc_transport().getRemoteHost()))
+                                      target=self.__portmap.get_rpc_transport().getRemoteName()))
 
 
 # 3.1.2.5.2.2 IRemoteSCMActivator Methods
@@ -1750,7 +1791,7 @@ class IRemoteSCMActivator:
         classInstance.set_auth_level(scmr['remoteReply']['authnHint'])
         classInstance.set_auth_type(self.__portmap.get_auth_type())
         return IRemUnknown2(INTERFACE(classInstance, b''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown,
-                                      target=self.__portmap.get_rpc_transport().getRemoteHost()))
+                                      target=self.__portmap.get_rpc_transport().getRemoteName()))
 
     def RemoteCreateInstance(self, clsId, iid):
         # Only supports one interface at a time
@@ -1914,4 +1955,4 @@ class IRemoteSCMActivator:
         classInstance.set_auth_level(scmr['remoteReply']['authnHint'])
         classInstance.set_auth_type(self.__portmap.get_auth_type())
         return IRemUnknown2(INTERFACE(classInstance, b''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown,
-                                      target=self.__portmap.get_rpc_transport().getRemoteHost()))
+                                      target=self.__portmap.get_rpc_transport().getRemoteName()))

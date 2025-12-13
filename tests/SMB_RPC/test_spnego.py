@@ -1,16 +1,19 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
 import unittest
-
 from impacket import smb
 
+
 class Test(unittest.TestCase):
+
     def setUp(self):
         self.negTokenInit = b'\x60\x28\x06\x06\x2b\x06\x01\x05\x05\x02\xa0\x1e\x30\x1c\xa0\x1a\x30\x18\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x1e\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
 
@@ -27,33 +30,34 @@ class Test(unittest.TestCase):
     def test_negTokenInit(self):
         token = smb.SPNEGO_NegTokenInit()
         token.fromString(self.negTokenInit)
-        self.assertTrue(self.negTokenInit, token.getData())
+        self.assertEqual(self.negTokenInit, token.getData())
 
     def test_negTokenInit2(self):
         token = smb.SPNEGO_NegTokenInit()
         token.fromString(self.negTokenInit2)
-        self.assertTrue(self.negTokenInit2, token.getData())
+        self.assertEqual(self.negTokenInit2, token.getData())
 
     def test_negTokenResp1(self):
         token = smb.SPNEGO_NegTokenResp()
         token.fromString(self.negTokenResp1)
-        self.assertTrue(self.negTokenResp1, token.getData())
+        self.assertEqual(self.negTokenResp1, token.getData())
 
     def test_negTokenResp2(self):
         token = smb.SPNEGO_NegTokenResp()
         token.fromString(self.negTokenResp2)
-        self.assertTrue(self.negTokenResp2, token.getData())
+        self.assertEqual(self.negTokenResp2, token.getData())
 
     def test_negTokenResp3(self):
         token = smb.SPNEGO_NegTokenResp()
         token.fromString(self.negTokenResp3)
-        self.assertTrue(self.negTokenResp3, token.getData())
+        self.assertEqual(self.negTokenResp3, token.getData())
 
     def test_negTokenResp4(self):
         token = smb.SPNEGO_NegTokenResp()
         token['NegState'] = b'\x03'  # request-mic
         token['SupportedMech'] = smb.TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
-        self.assertTrue(self.negTokenResp4, token.getData())
+        self.assertEqual(self.negTokenResp4, token.getData())
+
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(verbosity=1)

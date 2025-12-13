@@ -1,18 +1,17 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
-
-from impacket.dot11 import Dot11, Dot11Types, Dot11DataFrame
 import unittest
+from impacket.dot11 import Dot11, Dot11Types, Dot11DataFrame
+
 
 class TestDot11DataFrames(unittest.TestCase):
 
@@ -105,5 +104,6 @@ class TestDot11DataFrames(unittest.TestCase):
         frame_body=b"\xaa\xaa\x03\x00\x00\x00\x08\x00\x45\x00\x00\x28\x72\x37\x40\x00\x80\x06\x6c\x22\xc0\xa8\x01\x02\xc3\x7a\x97\x51\xd7\xa0\x00\x50\xa5\xa5\xb1\xe0\x12\x1c\xa9\xe1\x50\x10\x4e\x75\x59\x74\x00\x00"
         self.assertEqual(self.data.get_frame_body(), frame_body)
       
-suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11DataFrames)
-unittest.main(defaultTest='suite')
+
+if __name__ == '__main__':
+    unittest.main(verbosity=1)

@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2018 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -135,6 +137,7 @@ class MessageID(univ.Integer):
 
 
 class LDAPString(univ.OctetString):
+    # LDAPString ::= OCTET STRING -- UTF-8 encoded, -- [ISO10646] characters
     encoding = 'utf-8'
 
 
@@ -155,11 +158,13 @@ class AttributeDescription(LDAPString):
 
 
 class AttributeValue(univ.OctetString):
-    pass
+    # AttributeValue ::= OCTET STRING
+    encoding = 'utf-8'
 
 
 class AssertionValue(univ.OctetString):
-    pass
+    # AssertionValue ::= OCTET STRING
+    encoding = 'utf-8'
 
 
 class MatchingRuleID(LDAPString):
