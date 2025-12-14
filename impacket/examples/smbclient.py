@@ -1,6 +1,8 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# SECUREAUTH LABS. Copyright (C) 2021 SecureAuth Corporation. All rights reserved.
+# Copyright Fortra, LLC and its affiliated companies 
+#
+# All rights reserved.
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -29,20 +31,15 @@ from impacket.dcerpc.v5 import samr, transport, srvs
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket import LOG
 from impacket.smbconnection import SMBConnection, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB_DIALECT, SessionError, \
-    FILE_READ_DATA, FILE_SHARE_READ, FILE_SHARE_WRITE
+    FILE_READ_DATA, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_SHARE_DELETE
 from impacket.smb3structs import FILE_DIRECTORY_FILE, FILE_LIST_DIRECTORY
+from impacket.acl import SMBFileACL
 
-import chardet
+import charset_normalizer as chardet
 
-
-# If you wanna have readline like functionality in Windows, install pyreadline
-try:
-  import pyreadline as readline
-except ImportError:
-  import readline
 
 class MiniImpacketShell(cmd.Cmd):
-    def __init__(self, smbClient, tcpShell=None):
+    def __init__(self, smbClient, tcpShell=None, outputfile=None):
         #If the tcpShell parameter is passed (used in ntlmrelayx),
         # all input and output is redirected to a tcp socket
         # instead of to stdin / stdout
@@ -67,12 +64,17 @@ class MiniImpacketShell(cmd.Cmd):
         self.loggedIn = True
         self.last_output = None
         self.completion = []
+        self.outputfile = outputfile
 
     def emptyline(self):
         pass
 
     def precmd(self,line):
         # switch to unicode
+        if self.outputfile is not None:
+            f = open(self.outputfile, 'a')
+            f.write('> ' + line + "\n")
+            f.close()
         if PY2:
             return line.decode('utf-8')
         return line
@@ -100,6 +102,7 @@ class MiniImpacketShell(cmd.Cmd):
     def do_help(self,line):
         print("""
  open {host,port=445} - opens a SMB connection against the target host/port
+ reconnect - reconnect connection, useful for broken pipes & interrupted sessions
  login {domain/username,passwd} - logs into the current SMB connection, no parameters for NULL connection. If no password specified, it'll be prompted
  kerberos_login {domain/username,passwd} - logs into the current SMB connection using Kerberos. If no password specified, it'll be prompted. Use the DNS resolvable domain name
  login_hash {domain/username,lmhash:nthash} - logs into the current SMB connection using the password hashes
@@ -111,6 +114,8 @@ class MiniImpacketShell(cmd.Cmd):
  pwd - shows current remote directory
  password - changes the user password, the new password will be prompted for input
  ls {wildcard} - lists all the files in the current directory
+ lls {dirname} - lists all the files on the local filesystem.
+ tree {filepath} - recursively lists all files in folder and sub folders
  rm {file} - removes the selected file
  mkdir {dirname} - creates the directory under the current path
  rmdir {dirname} - removes the directory under the current path
@@ -123,6 +128,7 @@ class MiniImpacketShell(cmd.Cmd):
  list_snapshots {path} - lists the vss snapshots for the specified path
  info - returns NetrServerInfo main results
  who - returns the sessions currently connected at the target host (admin required)
+ acl {filename,action,permissions,user/group} - displays or modifies file ACLs (actions: grant, revoke, delete). Displays ACLs if only filename provided
  close - closes the current SMB Session
  exit - terminates the server process (and this session)
 
@@ -176,6 +182,12 @@ class MiniImpacketShell(cmd.Cmd):
         self.nthash = None
         self.username = None
 
+    def do_reconnect(self, line):
+        if self.smb:
+            self.smb.reconnect()
+        else:
+            LOG.warning("Not reconnecting a closed connection.")
+    
     def do_login(self,line):
         if self.smb is None:
             LOG.error("No connection open")
@@ -323,8 +335,14 @@ class MiniImpacketShell(cmd.Cmd):
             LOG.error("Not logged in")
             return
         resp = self.smb.listShares()
+        if self.outputfile is not None:
+            f = open(self.outputfile, 'a')
         for i in range(len(resp)):
+            if self.outputfile:
+                f.write(resp[i]['shi1_netname'][:-1] + '\n')
             print(resp[i]['shi1_netname'][:-1])
+        if self.outputfile:
+            f.close()
 
     def do_use(self,line):
         if self.loggedIn is False:
@@ -369,7 +387,11 @@ class MiniImpacketShell(cmd.Cmd):
         if self.loggedIn is False:
             LOG.error("Not logged in")
             return
-        print(self.pwd)
+        print(self.pwd.replace("\\","/"))
+        if self.outputfile is not None:        
+            f = open(self.outputfile, 'a')
+            f.write(self.pwd.replace("\\","/"))
+            f.close()
 
     def do_ls(self, wildcard, display = True):
         if self.loggedIn is False:
@@ -385,13 +407,88 @@ class MiniImpacketShell(cmd.Cmd):
         self.completion = []
         pwd = pwd.replace('/','\\')
         pwd = ntpath.normpath(pwd)
+        if self.outputfile is not None:
+            of = open(self.outputfile, 'a')
         for f in self.smb.listPath(self.share, pwd):
             if display is True:
+                if self.outputfile:
+                    of.write("%crw-rw-rw- %10d  %s %s" % (
+                    'd' if f.is_directory() > 0 else '-', f.get_filesize(), time.ctime(float(f.get_mtime_epoch())),
+                    f.get_longname()) + "\n")
+                
                 print("%crw-rw-rw- %10d  %s %s" % (
                 'd' if f.is_directory() > 0 else '-', f.get_filesize(), time.ctime(float(f.get_mtime_epoch())),
                 f.get_longname()))
             self.completion.append((f.get_longname(), f.is_directory()))
+        if self.outputfile:
+            of.close()
+    
+    def do_lls(self, currentDir):
+        if currentDir == "":
+            currentDir = "./"
+        else:
+            pass
+        for LINE in os.listdir(currentDir):
+            print(LINE)
 
+    def do_listFiles(self, share, ip):
+        retList = []
+        retFiles = []
+        retInt = 0
+        try:                
+            for LINE in self.smb.listPath(self.share, ip):
+                if(LINE.get_longname() == "." or LINE.get_longname() == ".."):
+                    pass
+                else:
+                    retInt = retInt + 1
+                    print(ip.strip("*").replace("//","/") + LINE.get_longname())
+                    if(LINE.is_directory()):
+                        retval = ip.strip("*").replace("//","/") + LINE.get_longname()
+                        retList.append(retval)
+                    else:
+                        retval = ip.strip("*").replace("//","/") + LINE.get_longname()
+                        retFiles.append(retval)
+        except:
+            pass
+        return retList,retFiles,retInt
+
+    def do_tree(self, filepath):
+        folderList = []
+        retList = []
+        totalFilesRead = 0
+        if self.loggedIn is False:
+            LOG.error("Not logged in")
+            return
+        if self.tid is None:
+            LOG.error("No share selected")
+            return
+
+        filepath = filepath.replace("\\", "/")
+        if not filepath.startswith("/"):
+            filepath = self.pwd.replace("\\", "/")  + "/" + filepath
+        if(not filepath.endswith("/*")):
+            filepath = filepath + "/*"
+        filepath = os.path.abspath(filepath).replace("//","/")
+
+        for LINE in self.smb.listPath(self.share, filepath):
+            if(LINE.is_directory()):
+                if(LINE.get_longname() == "." or LINE.get_longname() == ".."):
+                    pass
+                else:
+                    totalFilesRead = totalFilesRead + 1 
+                    folderList.append(filepath.strip("*") + LINE.get_longname())
+            else:
+                print(filepath.strip("*") + LINE.get_longname())
+        for ITEM in folderList:
+            ITEM = ITEM + "/*"
+            try: 
+                retList, retFiles, retInt = self.do_listFiles(self.share,ITEM)
+                for q in retList:
+                    folderList.append(q)
+                totalFilesRead = totalFilesRead + retInt
+            except:
+                pass
+        print("Finished - " + str(totalFilesRead) + " files and folders")
 
     def do_rm(self, filename):
         if self.tid is None:
@@ -471,7 +568,7 @@ class MiniImpacketShell(cmd.Cmd):
                 pathname = ntpath.join(self.pwd, filename)
                 try:
                     LOG.info("Downloading %s" % (filename))
-                    self.smb.getFile(self.share, pathname, fh.write)
+                    self.smb.getFileEx(self.share, pathname, fh.write)
                 except:
                     fh.close()
                     os.remove(filename)
@@ -486,13 +583,16 @@ class MiniImpacketShell(cmd.Cmd):
         fh = open(ntpath.basename(filename),'wb')
         pathname = ntpath.join(self.pwd,filename)
         try:
-            self.smb.getFile(self.share, pathname, fh.write)
+            self.smb.getFileEx(self.share, pathname, fh.write)
         except:
             fh.close()
             os.remove(filename)
             raise
         fh.close()
 
+    def complete_cat(self, text, line, begidx, endidx):
+        return self.complete_get(text, line, begidx, endidx, include=1)
+    
     def do_cat(self, filename):
         if self.tid is None:
             LOG.error("No share selected")
@@ -501,20 +601,31 @@ class MiniImpacketShell(cmd.Cmd):
         fh = BytesIO()
         pathname = ntpath.join(self.pwd,filename)
         try:
-            self.smb.getFile(self.share, pathname, fh.write)
+            self.smb.getFileEx(self.share, pathname, fh.write)
         except:
             raise
         output = fh.getvalue()
         encoding = chardet.detect(output)["encoding"]
         error_msg = "[-] Output cannot be correctly decoded, are you sure the text is readable ?"
+        if self.outputfile is not None:
+            f = open(self.outputfile, 'a')
         if encoding:
             try:
+                if self.outputfile:
+                    f.write(output.decode(encoding) + '\n')
+                    f.close()
                 print(output.decode(encoding))
             except:
+                if self.outputfile:
+                    f.write(error_msg + '\n')
+                    f.close()
                 print(error_msg)
             finally:
                 fh.close()
         else:
+            if self.outputfile:
+                f.write(error_msg + '\n')
+                f.close()
             print(error_msg)
             fh.close()
 
@@ -554,6 +665,7 @@ class MiniImpacketShell(cmd.Cmd):
     def do_umount(self, mountpoint):
         mountpoint = mountpoint.replace('/','\\')
 
+
         # Relative or absolute path?
         if mountpoint.startswith('\\') is not True:
             mountpoint = ntpath.join(self.pwd, mountpoint)
@@ -561,6 +673,55 @@ class MiniImpacketShell(cmd.Cmd):
         mountPath = ntpath.join(self.pwd, mountpoint)
 
         self.smb.removeMountPoint(self.tid, mountPath)
+
+    def do_acl(self, line):
+        if self.tid is None:
+            LOG.error("No share selected")
+            return
+        parts = line.split()
+        if len(parts) == 0:
+            LOG.error("Usage: acl {filename,action,permissions,user/group}")
+            return
+        
+        filename = parts[0].replace('/','\\')
+        # Relative or absolute path?
+        if filename.startswith('\\') is not True:
+            filename = ntpath.join(self.pwd, filename)
+        
+        smb_file_acl = SMBFileACL(smb_connection=self.smb)
+        
+        try:
+            if len(parts) == 1:
+                resp = smb_file_acl.get_permissions(self.share, filename)
+                print(resp)
+            else:
+                action = parts[1].lower()
+                
+                if action not in ['grant', 'revoke', 'delete']:
+                    LOG.error("Action must be 'grant', 'revoke', or 'delete'")
+                    return
+                
+                if len(parts) < 3:
+                    LOG.error("Permissions required. Supported: R (read), W (write), D (delete), X (execute), F (full control)")
+                    return
+                
+                permissions = parts[2]
+                
+                if len(parts) < 4:
+                    LOG.error("User/group name is required")
+                    return
+                
+                user = parts[3]
+                
+                smb_file_acl.set_permissions(self.share, filename, user, permissions, action)
+                if action == 'grant':
+                    print("Successfully granted permissions to %s" % user)
+                elif action == 'revoke':
+                    print("Successfully revoked permissions from %s" % user)
+                else:
+                    print("Successfully deleted permissions for %s" % user)
+        finally:
+            smb_file_acl.close_connection()
 
     def do_EOF(self, line):
         print('Bye!\n')
