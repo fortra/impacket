@@ -128,7 +128,7 @@ class MiniImpacketShell(cmd.Cmd):
  list_snapshots {path} - lists the vss snapshots for the specified path
  info - returns NetrServerInfo main results
  who - returns the sessions currently connected at the target host (admin required)
- acl {filename,action,permissions,user/group} - displays or modifies file ACLs (actions: grant, revoke, delete). Displays ACLs if only filename provided
+ acl {filename,action,permissions,user/group} - displays or modifies file ACLs (actions: grant, revoke). Displays ACLs if only filename provided
  close - closes the current SMB Session
  exit - terminates the server process (and this session)
 
@@ -688,40 +688,41 @@ class MiniImpacketShell(cmd.Cmd):
         if filename.startswith('\\') is not True:
             filename = ntpath.join(self.pwd, filename)
         
-        smb_file_acl = SMBFileACL(smb_connection=self.smb)
-        
+        smb_file_acl = None
+
         try:
             if len(parts) == 1:
+                smb_file_acl = SMBFileACL(smb_connection=self.smb)
                 resp = smb_file_acl.get_permissions(self.share, filename)
                 print(resp)
             else:
                 action = parts[1].lower()
-                
-                if action not in ['grant', 'revoke', 'delete']:
-                    LOG.error("Action must be 'grant', 'revoke', or 'delete'")
+
+                if action not in ['grant', 'revoke']:
+                    LOG.error("Action must be 'grant' or 'revoke'")
                     return
-                
+
                 if len(parts) < 3:
                     LOG.error("Permissions required. Supported: R (read), W (write), D (delete), X (execute), F (full control)")
                     return
-                
+
                 permissions = parts[2]
-                
+
                 if len(parts) < 4:
                     LOG.error("User/group name is required")
                     return
-                
+
                 user = parts[3]
-                
+
+                smb_file_acl = SMBFileACL(smb_connection=self.smb)
                 smb_file_acl.set_permissions(self.share, filename, user, permissions, action)
                 if action == 'grant':
                     print("Successfully granted permissions to %s" % user)
                 elif action == 'revoke':
                     print("Successfully revoked permissions from %s" % user)
-                else:
-                    print("Successfully deleted permissions for %s" % user)
         finally:
-            smb_file_acl.close_connection()
+            if smb_file_acl:
+                smb_file_acl.close_connection()
 
     def do_EOF(self, line):
         print('Bye!\n')

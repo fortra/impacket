@@ -94,7 +94,7 @@ def main():
     options = parser.parse_args()
 
     # Init the example's logger theme
-    logger.init(options.ts, options.debug)
+    logger.init(True)
 
     if options.debug:
         logging.getLogger('impacket').setLevel(logging.DEBUG)
