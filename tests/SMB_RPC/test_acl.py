@@ -124,6 +124,34 @@ class TestSMBFileACL(unittest.TestCase):
         result_ntuser = FileNTUser(result[sec["OffsetToDACL"]:])
         original_ntuser = FileNTUser(sec_blob[sec["OffsetToDACL"]:])
         self.assertEqual(result_ntuser['NumACEs'], original_ntuser['NumACEs'] + 1)
+        def test_set_permissions_closes_file_on_permission_resolution_error(self):
+            """Ensure set_permissions closes file handles if permission resolution fails"""
+            acl_manager = self.get_mock_smb_file_acl()
+
+            # Simulate opening file; ensure close_file is called on error
+            acl_manager.open_file = MagicMock(return_value=(1, 2))
+            acl_manager.close_file = MagicMock()
+
+            with patch.object(acl_manager, 'permissions_to_ace', side_effect=Exception('name resolution failed')):
+                with self.assertRaises(Exception):
+                    acl_manager.set_permissions('SHARE', 'file.txt', 'NonExistentUser', 'R', 'grant')
+
+            acl_manager.close_file.assert_called_once()
+
+        def test_get_permissions_closes_file_on_query_error(self):
+            """Ensure get_permissions closes file handles if querying file info fails"""
+            acl_manager = self.get_mock_smb_file_acl()
+
+            acl_manager.open_file = MagicMock(return_value=(1, 2))
+            acl_manager.close_file = MagicMock()
+
+            # Make queryInfo raise
+            acl_manager.connection._SMBConnection.queryInfo = MagicMock(side_effect=Exception('query failed'))
+
+            with self.assertRaises(Exception):
+                acl_manager.get_permissions('SHARE', 'file.txt')
+
+            acl_manager.close_file.assert_called_once()
 
     def test_insert_permission_grant_existing_ace(self):
         """Test granting additional permissions to existing ACE (OR operation)"""

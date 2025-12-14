@@ -477,21 +477,23 @@ class SMBFileACL:
         # set the file and tree handles for the given file
         self.open_file(share_name=share_name, file_name=file_name)
 
-        # query the file security information
-        result = self.connection._SMBConnection.queryInfo(
-            self.tid,
-            self.fid,
-            fileInfoClass=0,
-            infoType=3,
-            additionalInformation=0x00000017,
-        )
-        sec = FileSecInformation(result)
+        try:
+            # query the file security information
+            result = self.connection._SMBConnection.queryInfo(
+                self.tid,
+                self.fid,
+                fileInfoClass=0,
+                infoType=3,
+                additionalInformation=0x00000017,
+            )
+            sec = FileSecInformation(result)
 
-        # get security attributes
-        security_attributes = self.get_security_attributes(sec)
-        self.close_file()
-
-        return security_attributes
+            # get security attributes
+            security_attributes = self.get_security_attributes(sec)
+            return security_attributes
+        finally:
+            # ensure file handles are always closed, even on error
+            self.close_file()
 
     @staticmethod
     def insert_permission(sec, permission):
@@ -589,30 +591,31 @@ class SMBFileACL:
         # open file descriptor
         self.tid, self.fid = self.open_file(share_name, file_name)
 
-        # permissions_to_ace function returns the new ACE to add
-        permission = self.permissions_to_ace(user, permissions, action)
+        try:
+            # permissions_to_ace function returns the new ACE to add
+            permission = self.permissions_to_ace(user, permissions, action)
 
-        result = self.connection._SMBConnection.queryInfo(
-            self.tid,
-            self.fid,
-            fileInfoClass=0,
-            infoType=3,
-            additionalInformation=0x00000017,
-        )
+            result = self.connection._SMBConnection.queryInfo(
+                self.tid,
+                self.fid,
+                fileInfoClass=0,
+                infoType=3,
+                additionalInformation=0x00000017,
+            )
 
-        sec = FileSecInformation(result)
-        security_descriptor = self.insert_permission(sec=sec, permission=permission)
+            sec = FileSecInformation(result)
+            security_descriptor = self.insert_permission(sec=sec, permission=permission)
 
-        result = self.connection._SMBConnection.setInfo(
-            self.tid,
-            self.fid,
-            fileInfoClass=0,
-            infoType=3,
-            additionalInformation=0x04,
-            inputBlob=security_descriptor,
-        )
+            result = self.connection._SMBConnection.setInfo(
+                self.tid,
+                self.fid,
+                fileInfoClass=0,
+                infoType=3,
+                additionalInformation=0x04,
+                inputBlob=security_descriptor,
+            )
 
-        # disconnect from server
-        self.close_file()
-
-        return result
+            return result
+        finally:
+            # ensure file handles are always closed, even if permission resolution fails
+            self.close_file()
