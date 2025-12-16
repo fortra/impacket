@@ -32,6 +32,7 @@ from impacket.nt_errors import STATUS_SUCCESS
 from impacket.ntlm import NTLMAuthChallenge
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
+from impacket.examples.utils import get_address
 
 class MSSQLRelayServer(Thread):
 
