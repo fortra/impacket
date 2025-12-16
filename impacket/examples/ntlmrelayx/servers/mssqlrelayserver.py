@@ -192,14 +192,16 @@ class MSSQLRelayServer(Thread):
                             self.client.sendNegotiate = self.sendNegotiate
                                 
                         self.challengeMessage = self.client.sendNegotiate(negotiateMessage)
-                        
-                        TDSLen = len(self.challengeMessage)+11
-                        TDSLenHex = TDSLen.to_bytes(2, byteorder='big')
-                        challengeLen = len(self.challengeMessage)
-                        challengeLenHex = challengeLen.to_bytes(2, byteorder='little')
                         challenge = bytes.fromhex(str(self.challengeMessage))
-                        TDSResponsePacket=b'\x04\x01' + TDSLenHex+ b'\x00\x00\x00\x00\xed' + challengeLenHex + challenge
-                        self.request.send(TDSResponsePacket)
+
+                        tds_response = tds.TDSPacket()
+                        tds_response['Type'] = tds.TDS_TABULAR
+                        tds_response['Status'] = tds.TDS_STATUS_EOM
+                        tds_response['PacketID'] = 0
+                        # TDS_SSPI token + little-endian length + payload
+                        tds_response['Data'] = struct.pack('<BH', tds.TDS_SSPI_TOKEN, len(challenge)) + challenge
+
+                        self.request.send(tds_response.getData())
                         
                     elif packet[0] == 0x11:    # NTLM authentication
                         LOG.debug("(MSSQL): Sending our own error response to the client")
