@@ -199,7 +199,37 @@ class MSSQLRelayServer(Thread):
                         TDSResponsePacket=b'\x04\x01' + TDSLenHex+ b'\x00\x00\x00\x00\xed' + challengeLenHex + challenge
                         self.request.send(TDSResponsePacket)
                         
-                    elif packet[0] == 0x11:    # NTLM authentication                        
+                    elif packet[0] == 0x11:    # NTLM authentication
+                        LOG.debug("(MSSQL): Sending our own error response to the client")
+                        responseData = tds.TDS_INFO_ERROR()
+                        msg = "Login failed for user ''.".encode('utf-16le')
+                        server = "MSSQLSERVER".encode('utf-16le')
+                        proc = b""
+                        responseData['TokenType'] = tds.TDS_ERROR_TOKEN   
+                        responseData['Number'] = 18456                    # Login failed
+                        responseData['State'] = 1
+                        responseData['Class'] = 14
+                        responseData['MsgText'] = msg
+                        responseData['MsgTextLen'] = len(msg) // 2
+                        responseData['ServerName'] = server                       
+                        responseData['ServerNameLen'] = len(server) // 2
+                        responseData['ProcName'] = proc
+                        responseData['ProcNameLen'] = len(proc) // 2
+                        responseData['LineNumber'] = 1
+                        
+                        responseData['Length'] = 16 + len(msg) + len(server) + len(proc)
+                        
+                        doneData = tds.TDS_DONE()
+                        doneData['TokenType'] = tds.TDS_DONE_TOKEN
+                        doneData['Status'] = 0x02 # TDS_DONE_ERROR 
+                        doneData['CurCmd'] = 0
+                        doneData['DoneRowCount'] = 0
+                        
+                        responsePacket = tds.TDSPacket()
+                        responsePacket["Type"] = tds.TDS_TABULAR
+                        responsePacket["Data"] = responseData.getData() + doneData.getData()
+                                                
+                        self.request.send(responsePacket.getData())
                         authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                         authenticateMessage.fromString(packet[8:])
                         LOG.debug("(MSSQL): Relaying authentication to server")
