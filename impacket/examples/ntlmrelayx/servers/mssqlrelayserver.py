@@ -23,6 +23,7 @@
 import socketserver
 import random
 import string
+import struct
 from threading import Thread
 
 from impacket import ntlm, tds, LOG
@@ -203,7 +204,7 @@ class MSSQLRelayServer(Thread):
 
                         self.request.send(tds_response.getData())
                         
-                    elif packet[0] == 0x11:    # NTLM authentication
+                    elif packet[0] == tds.TDS_SSPI:    # NTLM authentication
                         LOG.debug("(MSSQL): Sending our own error response to the client")
                         responseData = tds.TDS_INFO_ERROR()
                         msg = "Login failed for user ''.".encode('utf-16le')
