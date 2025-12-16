@@ -167,17 +167,17 @@ class MSSQLRelayServer(Thread):
                         loginData.fromString(packet[8:])
                         LOG.info("(MSSQL): Client login request:")
                         if loginData["HostName"]:
-                            LOG.info("(MSSQL): Hostname    : %s" % loginData["HostName"].decode("utf-8"))
+                            LOG.debug("(MSSQL): Hostname    : %s" % loginData["HostName"].decode("utf-8"))
                         if loginData["ServerName"]:
-                            LOG.info("(MSSQL): Server Name : %s" % loginData["ServerName"].decode("utf-8"))
+                            LOG.debug("(MSSQL): Server Name : %s" % loginData["ServerName"].decode("utf-8"))
                         if loginData["CltIntName"]:
-                            LOG.info("(MSSQL): Client Name : %s" % loginData["CltIntName"].decode("utf-8")) 
+                            LOG.debug("(MSSQL): Client Name : %s" % loginData["CltIntName"].decode("utf-8")) 
                         if loginData["AppName"]:
-                            LOG.info("(MSSQL): App Name    : %s" % loginData["AppName"].decode("utf-8"))                                               
+                            LOG.debug("(MSSQL): App Name    : %s" % loginData["AppName"].decode("utf-8"))                                               
                         if loginData["Database"]:
-                            LOG.info("(MSSQL): Database    : %s" % loginData["Database"].decode("utf-8"))
+                            LOG.debug("(MSSQL): Database    : %s" % loginData["Database"].decode("utf-8"))
                         if loginData["UserName"]:
-                            LOG.info("(MSSQL): Username    : %s" % loginData["UserName"].decode("utf-8"))
+                            LOG.debug("(MSSQL): Username    : %s" % loginData["UserName"].decode("utf-8"))
                         if loginData["Password"]:
                             password = self.decryptPassword(loginData["Password"])
                             LOG.info("(MSSQL): Password    : %s" % password.decode("utf-8"))
