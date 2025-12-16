@@ -160,7 +160,7 @@ class MSSQLRelayServer(Thread):
                         
                         self.request.send(preloginResponse.getData())                      
                         
-                    elif packet[0] == 0x10:    # Login stage
+                    elif packet[0] == tds.TDS_LOGIN7:    # Login stage
                     
                         LOG.debug("(MSSQL): Parsing the client's login request")
                         loginData = tds.TDS_LOGIN()
