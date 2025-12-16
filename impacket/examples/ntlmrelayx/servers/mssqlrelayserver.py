@@ -139,7 +139,7 @@ class MSSQLRelayServer(Thread):
                     if not packet:
                         break
                     
-                    if packet[0] == 0x12:         # Pre-login stage
+                    if packet[0] == tds.TDS_PRE_LOGIN:         # Pre-login stage
                     
                         LOG.debug("(MSSQL): Receieved TDS pre-login from client")
                         self.client = self.init_client()
