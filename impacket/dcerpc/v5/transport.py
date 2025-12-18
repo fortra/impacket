@@ -386,7 +386,7 @@ class TCPTransport(DCERPCTransport):
                 if chunk != b'':
                     buffer += chunk
                 else:
-                    break
+                    raise DCERPCException("Connection closed by remote host")
         else:
             buffer = self.__socket.recv(8192)
         return buffer
