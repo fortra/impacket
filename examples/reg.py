@@ -562,7 +562,7 @@ if __name__ == '__main__':
                                    'keyName must include a valid root key. Valid root keys for the local computer are: HKLM,'
                                    ' HKU, HKCU, HKCR.')
     add_parser.add_argument('-v', action='store', metavar="VALUENAME", required=False, help='Specifies the registry '
-                           'value name that is to be set. Set to "" to write the (Defualt) value')
+                           'value name that is to be set. Set to "" to write the (Default) value')
     add_parser.add_argument('-vt', action='store', metavar="VALUETYPE", required=False, help='Specifies the registry '
                            'type name that is to be set. Default is REG_SZ. Valid types are: REG_NONE, REG_SZ, REG_EXPAND_SZ, '
                            'REG_BINARY, REG_DWORD, REG_DWORD_BIG_ENDIAN, REG_LINK, REG_MULTI_SZ, REG_QWORD',
