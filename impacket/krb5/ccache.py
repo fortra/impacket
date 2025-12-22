@@ -426,6 +426,7 @@ class CCache:
             for c in self.credentials:
                 # Let's search for any TGT/TGS that matches the server w/o the SPN's service type/port, returns
                 # the first one
+                # If server has no '/' we assume it's a ST from S4U2Self without a service type
                 if c['server'].prettyPrint().find(b'/') >=0:
                     # Let's take the port out for comparison
                     cachedSPN = (c['server'].prettyPrint().upper().split(b'/')[1].split(b'@')[0].split(b':')[0] + b'@' + c['server'].prettyPrint().upper().split(b'/')[1].split(b'@')[1])
@@ -434,6 +435,13 @@ class CCache:
                     if cachedSPN == b(searchSPN):
                         LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper().decode('utf-8'))
                         return c
+                    else:
+                        # Should be of form 'hostname$@REALM'
+                        cachedSPN = (c['server'].prettyPrint().upper().split(b'@')[0].split(b':')[0] + b'@' + c['server'].prettyPrint().upper().split(b'@')[1])
+                        searchSPN = f"{server.upper().split('/')[1].split('@')[0].split(':')[0].split('.')[0]}$@{server.upper().split('/')[1].split('@')[1]}"
+                        if cachedSPN == b(searchSPN):
+                            LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper().decode('utf-8'))
+                            return c
 
         return None
 
