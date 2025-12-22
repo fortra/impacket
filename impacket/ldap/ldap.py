@@ -610,12 +610,12 @@ class LDAPConnection:
 
                 # prepare changed values. Integer values need to be converted to string
                 vals = []
-                for op in ops:
-                    if isinstance(op[1], list):
-                        vals.extend([str(val) if isinstance(val, int) else val for val in op[1]])
-                    else:
-                        vals.append(str(op[1]) if isinstance(op[1], int) else op[1])
+                if isinstance(op[1], list):
+                    vals.extend([str(val) if isinstance(val, int) else val for val in op[1]])
+                else:
+                    vals.append(str(op[1]) if isinstance(op[1], int) else op[1])
                 modifyRequest['changes'][idx]['modification']['vals'].setComponents(*vals)
+                idx += 1
 
         response = self.sendReceive(modifyRequest, controls)[0]['protocolOp']
         if response['modifyResponse']['resultCode'] != ResultCode('success'):
@@ -624,6 +624,7 @@ class LDAPConnection:
                 errorString=f"Error in modifyRequest -> {response['modifyResponse']['resultCode'].prettyPrint()}: {response['modifyResponse']['diagnosticMessage']}"
             )
         return True
+
     def modify_dn(self, dn, newrdn, deleteoldrdn=True, newSuperior=None, controls=None):
         """
         Modify the Distinguished Name of an entry in the LDAP directory.
