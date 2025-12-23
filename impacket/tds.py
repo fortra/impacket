@@ -1494,7 +1494,7 @@ class MSSQL:
         useWindowsAuth=False,
         cbt_fake_value=None
     ):
-        print(cbt_fake_value)
+
         if hashes is not None:
             lmhash, nthash = hashes.split(":")
             lmhash = binascii.a2b_hex(lmhash)
