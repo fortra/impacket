@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -37,6 +38,7 @@
 import os
 import sys
 import argparse
+import argcomplete
 import logging
 import struct
 import socket
@@ -643,6 +645,8 @@ if __name__ == '__main__':
                     help='Destination port to connect to SMB/RPC Server')
     parser.add_argument('-protocol', choices=['SMB', 'RPC'], nargs='?', metavar="protocol",
                         help='Protocol to use (SMB or RPC). Default is SMB, port 135 uses RPC normally.')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv) == 1:
         parser.print_help()

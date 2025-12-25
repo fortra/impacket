@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -48,6 +49,7 @@
 from __future__ import division
 from __future__ import print_function
 import argparse
+import argcomplete
 import datetime
 import logging
 import random
@@ -1143,6 +1145,8 @@ if __name__ == '__main__':
                                                              ' for querying the ST and extracting the PAC, which will be'
                                                              ' included in the new ticket')
 
+    argcomplete.autocomplete(parser, always_complete_options=False)
+
     if len(sys.argv)==1:
         parser.print_help()
         print("\nExamples: ")
@@ -1155,6 +1159,7 @@ if __name__ == '__main__':
               "<your domain FQDN> -request -user <a valid domain user> -password <valid domain user's password> baduser\n")
         print("\twill first authenticate against the KDC (using -user/-password) and get a TGT that will be used")
         print("\tas template for customization. Whatever encryption algorithms used on that ticket will be honored,")
+
         print("\thence you might need to specify both -nthash and -aesKey data. Ticket will be generated for 'baduser'")
         print("\tand saved as baduser.ccache")
         sys.exit(1)
