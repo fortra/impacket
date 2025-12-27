@@ -53,7 +53,7 @@ from threading import Thread
 
 from impacket import version
 from impacket.examples import logger
-from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer, WCFRelayServer, RAWRelayServer, RPCRelayServer, WinRMRelayServer, WinRMSRelayServer
+from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer, WCFRelayServer, RAWRelayServer, RPCRelayServer, LDAPRelayServer, WinRMRelayServer, WinRMSRelayServer
 from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig, parse_listening_ports
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, TargetsFileWatcher
 from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS
@@ -247,6 +247,8 @@ def start_servers(options, threads):
             c.setListeningPort(options.raw_port)
         elif server is RPCRelayServer:
             c.setListeningPort(options.rpc_port)
+        elif server is LDAPRelayServer:
+            c.setListeningPort(options.ldap_port)
 
         s = server(c)
         s.start()
@@ -299,6 +301,7 @@ if __name__ == '__main__':
     serversoptions.add_argument('--no-wcf-server', action='store_true', help='Disables the WCF server')
     serversoptions.add_argument('--no-raw-server', action='store_true', help='Disables the RAW server')
     serversoptions.add_argument('--no-rpc-server', action='store_true', help='Disables the RPC server')
+    serversoptions.add_argument('--no-ldap-server', action='store_true', help='Disables the LDAP server')
     serversoptions.add_argument('--no-winrm-server', action='store_true', help='Disables the WinRM server')
     
     parser.add_argument('--smb-port', type=int, help='Port to listen on smb server', default=445)
@@ -306,6 +309,7 @@ if __name__ == '__main__':
     parser.add_argument('--wcf-port', type=int, help='Port to listen on wcf server', default=9389)  # ADWS
     parser.add_argument('--raw-port', type=int, help='Port to listen on raw server', default=6666)
     parser.add_argument('--rpc-port', type=int, help='Port to listen on rpc server', default=135)
+    parser.add_argument('--ldap-port', type=int, help='Port to listen on ldap server', default=389)
 
     parser.add_argument('--no-multirelay', action="store_true", required=False, help='If set, disable multi-host relay (SMB and HTTP servers)')
     parser.add_argument('--keep-relaying', action="store_true", required=False, help='If set, keeps relaying to a target even after a successful connection on it')
@@ -518,6 +522,9 @@ if __name__ == '__main__':
 
     if not options.no_rpc_server:
         RELAY_SERVERS.append(RPCRelayServer)
+
+    if not options.no_ldap_server:
+        RELAY_SERVERS.append(LDAPRelayServer)
 
     if targetSystem is not None and options.w:
         watchthread = TargetsFileWatcher(targetSystem)
