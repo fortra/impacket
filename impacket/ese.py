@@ -29,13 +29,7 @@
 from __future__ import division
 from __future__ import print_function
 from impacket import LOG
-try:
-    from collections import OrderedDict
-except:
-    try:
-        from ordereddict.ordereddict import OrderedDict
-    except:
-        from ordereddict import OrderedDict
+from collections import OrderedDict
 from impacket.structure import Structure, hexdump
 from struct import unpack
 from binascii import hexlify
