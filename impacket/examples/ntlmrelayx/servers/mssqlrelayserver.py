@@ -166,7 +166,7 @@ class MSSQLRelayServer(Thread):
                         LOG.debug("(MSSQL): Parsing the client's login request")
                         loginData = tds.TDS_LOGIN()
                         loginData.fromString(packet[8:])
-                        LOG.info("(MSSQL): Client login request:")
+                        LOG.debug("(MSSQL): Client login request:")
                         if loginData["HostName"]:
                             LOG.debug("(MSSQL): Hostname    : %s" % loginData["HostName"].decode("utf-8"))
                         if loginData["ServerName"]:
