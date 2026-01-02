@@ -53,7 +53,7 @@ from threading import Thread
 
 from impacket import version
 from impacket.examples import logger
-from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer, WCFRelayServer, RAWRelayServer, RPCRelayServer, WinRMRelayServer, WinRMSRelayServer
+from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer, WCFRelayServer, RAWRelayServer, RPCRelayServer, WinRMRelayServer, WinRMSRelayServer, MSSQLRelayServer
 from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig, parse_listening_ports
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, TargetsFileWatcher
 from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS
@@ -247,6 +247,10 @@ def start_servers(options, threads):
             c.setListeningPort(options.raw_port)
         elif server is RPCRelayServer:
             c.setListeningPort(options.rpc_port)
+        elif server is MSSQLRelayServer:
+            c.setListeningPort(options.mssql_port)
+            if options.mssql_db:
+                c.setMSSQLDb(options.mssql_db)
 
         s = server(c)
         s.start()
@@ -300,12 +304,14 @@ if __name__ == '__main__':
     serversoptions.add_argument('--no-raw-server', action='store_true', help='Disables the RAW server')
     serversoptions.add_argument('--no-rpc-server', action='store_true', help='Disables the RPC server')
     serversoptions.add_argument('--no-winrm-server', action='store_true', help='Disables the WinRM server')
+    serversoptions.add_argument('--no-mssql-server', action='store_true', help='Disables the MSSQL server')
     
     parser.add_argument('--smb-port', type=int, help='Port to listen on smb server', default=445)
     parser.add_argument('--http-port', help='Port(s) to listen on HTTP server. Can specify multiple ports by separating them with `,`, and ranges with `-`. Ex: `80,8000-8010`', default="80")
     parser.add_argument('--wcf-port', type=int, help='Port to listen on wcf server', default=9389)  # ADWS
     parser.add_argument('--raw-port', type=int, help='Port to listen on raw server', default=6666)
     parser.add_argument('--rpc-port', type=int, help='Port to listen on rpc server', default=135)
+    parser.add_argument('--mssql-port', type=int, help='Port to listen on mssql server', default=1433)
 
     parser.add_argument('--no-multirelay', action="store_true", required=False, help='If set, disable multi-host relay (SMB and HTTP servers)')
     parser.add_argument('--keep-relaying', action="store_true", required=False, help='If set, keeps relaying to a target even after a successful connection on it')
@@ -339,6 +345,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on '
                         'target system (for SMB and RPC). If not specified for SMB, hashes will be dumped (secretsdump.py must be'
                         ' in the same directory). For RPC no output will be provided.')
+    parser.add_argument('--mssql-db', action='store', required = False, help='Database for MSSQL relay')
 
     #SMB arguments
     smboptions = parser.add_argument_group("SMB client options")
@@ -518,6 +525,9 @@ if __name__ == '__main__':
 
     if not options.no_rpc_server:
         RELAY_SERVERS.append(RPCRelayServer)
+        
+    if not options.no_mssql_server:
+        RELAY_SERVERS.append(MSSQLRelayServer)
 
     if targetSystem is not None and options.w:
         watchthread = TargetsFileWatcher(targetSystem)
