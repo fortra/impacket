@@ -14,7 +14,7 @@
 #   This is the RDP server which relays the NTLMSSP messages to other protocols.
 #
 # Author:
-#  Giovanni A. (@azoxlpf)²
+#  Giovanni A. (@azoxlpf)
 
 from __future__ import division
 from __future__ import print_function
