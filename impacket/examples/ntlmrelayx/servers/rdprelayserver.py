@@ -111,7 +111,6 @@ class RDPRelayServer(Thread):
         LOG.info("Setting up RDP Server on port %s" % rdp_port)
 
     def run(self):
-        LOG.info("RDP Relay Server started on %s:%s" % (self.config.interfaceIp, self.server.getsockname()[1]))
         while True:
             try:
                 client_socket, client_address = self.server.accept()
@@ -319,8 +318,6 @@ class RDPRelayServer(Thread):
                                 self.authUser, client_address[0], self.target.scheme, self.target.netloc, relay_client.client_id
                             ))
                             self.targetprocessor.registerTarget(self.target, True, self.authUser)
-
-                            # Execute attack
                             self.do_attack(relay_client)
                         else:
                             LOG.error("(RDP): Authenticating against %s://%s as %s FAILED" % (
