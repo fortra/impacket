@@ -1,0 +1,128 @@
+[build-system]
+requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
+
+[project]
+name = "impacket"
+dynamic = [ "version" ]
+description = "Network protocols Constructors and Dissectors"
+readme = "README.md"
+license = {text = "GPL-3.0-or-later"}
+authors = [
+    { name = "SecureAuth Corporation" },
+    { name = "Fortra" }
+]
+maintainers = [{ name = "Fortra" }]
+homepage = "https://www.coresecurity.com"
+keywords = ["network", "protocols", "dissectors"]
+classifiers = [
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.9"
+]
+dependencies = [
+    "pyasn1>=0.2.3",
+    "pyasn1_modules",
+    "pycryptodomex",
+    "pyOpenSSL",
+    "six",
+    "ldap3>=2.5,!=2.5.2,!=2.5.0,!=2.6",
+    "ldapdomaindump>=0.9.0",
+    "flask>=1.0",
+    "charset_normalizer"
+]
+
+[tool.poetry]
+version = "0.0.0"
+
+[tool.poetry.requires-plugins]
+poetry-dynamic-versioning = { version = ">=1.0.0,<2.0.0", extras = ["plugin"] }
+
+# Poetry still requires the tool.poetry.version field to be present in pyproject.toml,
+# but you are encouraged to use version = "0.0.0" as a standard placeholder.
+[tool.poetry-dynamic-versioning]
+enable = true
+vcs = "git"
+tag-branch = "master"
+pattern = "^impacket_(?P<base>\\d+[._]\\d+[._]\\d+)$"
+style = "pep440"
+bump = false
+
+[project.scripts]
+CheckLDAPStatus = "examples.CheckLDAPStatus:main"
+DumpNTLMInfo = "examples.DumpNTLMInfo:main"
+Get-GPPPassword = "examples.Get-GPPPassword:main"
+GetADComputers = "examples.GetADComputers:main"
+GetADUsers = "examples.GetADUsers:main"
+GetLAPSPassword = "examples.GetLAPSPassword:main"
+GetLoggedOn = "examples.GetLoggedOn:main"
+GetNPUsers = "examples.GetNPUsers:main"
+GetUserSPNs = "examples.GetUserSPNs:main"
+SystemDPAPIdump = "examples.SystemDPAPIdump:main"
+addcomputer = "examples.addcomputer:main"
+atexec = "examples.atexec:main"
+attrib = "examples.attrib:main"
+badsuccessor = "examples.badsuccessor:main"
+changepasswd = "examples.changepasswd:main"
+dacledit = "examples.dacledit:main"
+dcomexec = "examples.dcomexec:main"
+describeTicket = "examples.describeTicket:main"
+dpapi = "examples.dpapi:main"
+dpapidump = "examples.dpapidump:main"
+esentutl = "examples.esentutl:main"
+exchanger = "examples.exchanger:main"
+filetime = "examples.filetime:main"
+findDelegation = "examples.findDelegation:main"
+getArch = "examples.getArch:main"
+getPac = "examples.getPac:main"
+getST = "examples.getST:main"
+getTGT = "examples.getTGT:main"
+goldenPac = "examples.goldenPac:main"
+karmaSMB = "examples.karmaSMB:main"
+keylistattack = "examples.keylistattack:main"
+kintercept = "examples.kintercept:main"
+lookupname = "examples.lookupname:main"
+lookupsid = "examples.lookupsid:main"
+machineAccountQuota = "examples.machineAccountQuota:main"
+machine_role = "examples.machine_role:main"
+mimikatz = "examples.mimikatz:main"
+mqtt_check = "examples.mqtt_check:main"
+mssqlclient = "examples.mssqlclient:main"
+mssqlinstance = "examples.mssqlinstance:main"
+net = "examples.net:main"
+netview = "examples.netview:main"
+ntfs-read = "examples.ntfs-read:main"
+ntlmrelayx = "examples.ntlmrelayx:main"
+owneredit = "examples.owneredit:main"
+ping = "examples.ping:main"
+ping6 = "examples.ping6:main"
+psexec = "examples.psexec:main"
+raiseChild = "examples.raiseChild:main"
+rbcd = "examples.rbcd:main"
+rdp_check = "examples.rdp_check:main"
+reg = "examples.reg:main"
+registry-read = "examples.registry-read:main"
+regsecrets = "examples.regsecrets:main"
+renameMachine = "examples.renameMachine:main"
+rpcdump = "examples.rpcdump:main"
+rpcmap = "examples.rpcmap:main"
+sambaPipe = "examples.sambaPipe:main"
+samedit = "examples.samedit:main"
+samrdump = "examples.samrdump:main"
+secretsdump = "examples.secretsdump:main"
+services = "examples.services:main"
+smbclient = "examples.smbclient:main"
+smbexec = "examples.smbexec:main"
+smbserver = "examples.smbserver:main"
+sniff = "examples.sniff:main"
+sniffer = "examples.sniffer:main"
+split = "examples.split:main"
+tgssub = "examples.tgssub:main"
+ticketConverter = "examples.ticketConverter:main"
+ticketer = "examples.ticketer:main"
+tstool = "examples.tstool:main"
+wmiexec = "examples.wmiexec:main"
+wmipersist = "examples.wmipersist:main"
+wmiquery = "examples.wmiquery:main"
