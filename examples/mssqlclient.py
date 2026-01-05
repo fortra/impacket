@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -20,6 +21,7 @@
 #
 
 import argparse
+import argcomplete
 import sys
 import logging
 
@@ -66,6 +68,8 @@ if __name__ == '__main__':
                             'This is useful when target is the NetBIOS name and you cannot resolve it')
     group.add_argument('-port', action='store', default='1433', help='target MSSQL port (default 1433)')
 
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv)==1:
         parser.print_help()
