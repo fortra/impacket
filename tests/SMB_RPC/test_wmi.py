@@ -16,6 +16,8 @@
 #   IWbemServices::OpenNamespace
 #   IWbemServices::ExecQuery
 #   IWbemServices::GetObject
+#   IWbemServices::PutClass
+#   IWbemServices::DeleteClass
 #
 #   Since DCOM is more high level, I'll always use the helper classes
 #
@@ -23,9 +25,7 @@
 #   IWbemServices::CancelAsyncCall
 #   IWbemServices::QueryObjectSink
 #   IWbemServices::GetObjectAsync
-#   IWbemServices::PutClass
 #   IWbemServices::PutClassAsync
-#   IWbemServices::DeleteClass
 #   IWbemServices::DeleteClassAsync
 #   IWbemServices::CreateClassEnum
 #   IWbemServices::CreateClassEnumAsync
@@ -203,6 +203,25 @@ class WMITests(RemoteTestCase, unittest.TestCase):
         #classObject,_ = iWbemServices.GetObject('Win32_Service')
         #obj = classObject.Create('BETOSERVICE', 'Beto Service', 'c:\\beto', 16, 0, 'Manual', 0, None, None, None, None, None)
         #print obj.getProperties()
+
+        dcom.disconnect()
+
+    def test_IWbemServices_PutClass(self):
+        dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
+        iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
+        iWbemServices = iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
+
+        className = "DummyClass"
+        attrName = "Country"
+        attrValue = "USA"
+        dummyClass, _ = iWbemServices.GetObject('')
+        dummyClass.setClassName(className)
+        dummyClass.addNewAttribute(attrName, wmi.CIM_TYPE_ENUM.CIM_TYPE_STRING, attrValue)
+
+        _ = iWbemServices.PutClass(dummyClass.marshalMe(), wmi.WBEM_FLAG_CREATE_ONLY)
+        _ = iWbemServices.GetObject(className)
+        _ = iWbemServices.DeleteClass(className)
 
         dcom.disconnect()
 
