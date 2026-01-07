@@ -2855,7 +2855,7 @@ class IWbemClassObject(IRemUnknown):
 
                 inParams = OBJECT_BLOCK()
                 inParams.structure += OBJECT_BLOCK.instanceType
-                inParams['ObjectFlags'] = CIM_CLASS
+                inParams['ObjectFlags'] = CIM_INSTANCE
                 inParams['Decoration'] = b''
 
                 instanceType = INSTANCE_TYPE()
