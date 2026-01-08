@@ -606,7 +606,7 @@ class SAMHashes():
                         self.__historyItems.append(history_line)
                         self.__perSecretCallback(history_line)
                 except Exception as exc:
-                    LOG.debug('SAM history parsing failed for RID %d: %s', rid, exc, exc_info=True)
+                    LOG.error('SAM history parsing failed for RID %d: %s', rid, exc, exc_info=True)
 
     def export(self, baseFileName, openFileFunc = None):
         if len(self.__itemsFound) > 0:
