@@ -1547,6 +1547,8 @@ class SAMHashes(OfflineRegistry):
         for salt, enc in entries:
             if not enc or (len(enc) % 16) != 0:
                 continue
+            if not salt or len(salt) != 16:
+                continue
             cipher = AES.new(key, AES.MODE_CBC, iv=salt)
             plain = cipher.decrypt(enc)
             for off in range(0, len(plain), 16):
