@@ -435,13 +435,13 @@ class CCache:
                     if cachedSPN == b(searchSPN):
                         LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper().decode('utf-8'))
                         return c
-                    else:
-                        # Should be of form 'hostname$@REALM'
-                        cachedSPN = (c['server'].prettyPrint().upper().split(b'@')[0].split(b':')[0] + b'@' + c['server'].prettyPrint().upper().split(b'@')[1])
-                        searchSPN = f"{server.upper().split('/')[1].split('@')[0].split(':')[0].split('.')[0]}$@{server.upper().split('/')[1].split('@')[1]}"
-                        if cachedSPN == b(searchSPN):
-                            LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper().decode('utf-8'))
-                            return c
+                else:
+                    # Should be of form 'hostname$@REALM'
+                    cachedSPN = (c['server'].prettyPrint().upper().split(b'@')[0].split(b':')[0] + b'@' + c['server'].prettyPrint().upper().split(b'@')[1])
+                    searchSPN = f"{server.upper().split('/')[1].split('@')[0].split(':')[0].split('.')[0]}$@{server.upper().split('/')[1].split('@')[1]}"
+                    if cachedSPN == b(searchSPN):
+                        LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper().decode('utf-8'))
+                        return c
 
         return None
 
