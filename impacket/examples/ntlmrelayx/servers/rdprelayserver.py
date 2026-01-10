@@ -23,7 +23,7 @@ import select
 import socket
 import struct
 import time
-from threading import Thread
+from threading import Thread, Lock
 
 from OpenSSL import SSL
 
@@ -102,6 +102,9 @@ class RDPRelayServer(Thread):
         self.targetprocessor = self.config.target
         self.target = None
         self.authUser = None
+        self.active_clients = set()
+        self.client_timestamps = {}
+        self.active_clients_lock = Lock()
 
         rdp_port = self.config.listeningPort if self.config.listeningPort else 3389
 
@@ -126,8 +129,19 @@ class RDPRelayServer(Thread):
         return data.find(b"NTLMSSP\x00")
 
     def handle_client(self, client_socket, client_address):
+        client_ip = client_address[0]
+        
+        with self.active_clients_lock:
+            if client_ip in self.active_clients or (time.time() - self.client_timestamps.get(client_ip, 0)) < 2:
+                try:
+                    client_socket.close()
+                except Exception:
+                    pass
+                return
+            self.active_clients.add(client_ip)
+        
         try:
-            LOG.info("(RDP): New connection from %s:%s" % (client_address[0], client_address[1]))
+            LOG.info("(RDP): New connection from %s:%s" % (client_ip, client_address[1]))
             client_socket.settimeout(30)
 
             # Receive initial connection request
@@ -145,11 +159,25 @@ class RDPRelayServer(Thread):
             except Exception:
                 return
 
-            cr_tpdu = self.CR_TPDU(tpdu['VariablePart'])
+            variable_part = tpdu['VariablePart']
+            cr_tpdu = self.CR_TPDU(variable_part)
+            
+            if cr_tpdu['Type'] == 67 and b"Cookie:" in variable_part:
+                cookie_start = variable_part.index(b"Cookie:")
+                try:
+                    cookie_end = variable_part.index(b"\r\n", cookie_start) + 2
+                except ValueError:
+                    try:
+                        cookie_end = variable_part.index(b"\n", cookie_start) + 1
+                    except ValueError:
+                        cookie_end = len(variable_part)
+                variable_part = variable_part[:cookie_start] + variable_part[cookie_end:]
+                cr_tpdu = self.CR_TPDU(variable_part)
+            
             if cr_tpdu['Type'] != self.TYPE_RDP_NEG_REQ:
                 return
-
-            rdp_neg = self.RDP_NEG_REQ(tpdu['VariablePart'])
+            
+            rdp_neg = self.RDP_NEG_REQ(variable_part)
             if not (rdp_neg['requestedProtocols'] & self.PROTOCOL_HYBRID):
                 LOG.warning("(RDP): Client doesn't support PROTOCOL_HYBRID (NLA)")
                 return
@@ -165,6 +193,9 @@ class RDPRelayServer(Thread):
         except Exception as e:
             LOG.error("(RDP): Exception in handle_client: %s" % str(e))
         finally:
+            with self.active_clients_lock:
+                self.active_clients.discard(client_ip)
+                self.client_timestamps[client_ip] = time.time()
             try:
                 client_socket.close()
             except Exception:
