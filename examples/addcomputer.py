@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -39,6 +40,7 @@ from impacket.examples.utils import init_ldap_session, ldap3_kerberos_login
 
 import ldap3
 import argparse
+import argcomplete
 import logging
 import sys
 import string
@@ -416,6 +418,7 @@ if __name__ == '__main__':
                                                                       'Useful if you can\'t translate the FQDN.'
                                                                       'specified in the account parameter will be used')
 
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv)==1:
         parser.print_help()

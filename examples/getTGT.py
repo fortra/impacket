@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -22,6 +23,7 @@
 from __future__ import division
 from __future__ import print_function
 import argparse
+import argcomplete
 import logging
 import sys
 from binascii import unhexlify
@@ -91,12 +93,16 @@ if __name__ == '__main__':
     group.add_argument('-service', action='store', metavar="SPN", help='Request a Service Ticket directly through an AS-REQ')
     group.add_argument('-principalType', nargs="?", type=lambda value: constants.PrincipalNameType[value.upper()] if value.upper() in constants.PrincipalNameType.__members__ else None,  action='store', default=constants.PrincipalNameType.NT_PRINCIPAL, help='PrincipalType of the token, can be one of  NT_UNKNOWN, NT_PRINCIPAL, NT_SRV_INST, NT_SRV_HST, NT_SRV_XHST, NT_UID, NT_SMTP_NAME, NT_ENTERPRISE, NT_WELLKNOWN, NT_SRV_HST_DOMAIN, NT_MS_PRINCIPAL, NT_MS_PRINCIPAL_AND_ID, NT_ENT_PRINCIPAL_AND_ID; default is NT_PRINCIPAL, ')
 
+    argcomplete.autocomplete(parser, always_complete_options=False)
+
     if len(sys.argv)==1:
         parser.print_help()
         print("\nExamples: ")
         print("\t./getTGT.py -hashes lm:nt contoso.com/user\n")
         print("\tit will use the lm:nt hashes for authentication. If you don't specify them, a password will be asked")
+
         sys.exit(1)
+
     options = parser.parse_args()
 
     # Init the example's logger theme

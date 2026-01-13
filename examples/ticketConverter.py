@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -28,6 +29,7 @@
 #
 
 import argparse
+import argcomplete
 import struct
 
 from impacket import version
@@ -38,6 +40,9 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('input_file', help="File in kirbi (KRB-CRED) or ccache format")
     parser.add_argument('output_file', help="Output file")
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
+
     return parser.parse_args()
 
 

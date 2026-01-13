@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -21,6 +22,7 @@ from __future__ import print_function
 from __future__ import annotations
 import sys
 import argparse
+import argcomplete
 import logging
 import ntpath
 from dataclasses import dataclass
@@ -246,6 +248,8 @@ def main():
     set_parser.add_argument('-p', '--pinned', dest='pinned', action='store_true', help="This attribute indicates user intent that the file or directory should be kept fully present locally even when not being actively accessed. This attribute is for use with hierarchical storage management software.")
     set_parser.add_argument('-u', '--unpinned', dest='unpinned', action='store_true', help="This attribute indicates that the file or directory should not be kept fully present locally except when being actively accessed. This attribute is for use with hierarchical storage management software.")
     
+    argcomplete.autocomplete(parser, always_complete_options=False)
+
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)

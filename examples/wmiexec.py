@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -30,6 +31,7 @@ import sys
 import os
 import cmd
 import argparse
+import argcomplete
 import time
 import logging
 import ntpath
@@ -398,6 +400,8 @@ if __name__ == '__main__':
     group.add_argument('-A', action="store", metavar="authfile", help="smbclient/mount.cifs-style authentication file. "
                                                                       "See smbclient man page's -A option.")
     group.add_argument('-keytab', action="store", help='Read keys for SPN from keytab file')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv) == 1:
         parser.print_help()

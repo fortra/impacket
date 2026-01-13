@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -25,6 +26,7 @@ from __future__ import print_function
 import sys
 import logging
 import argparse
+import argcomplete
 
 from impacket.http import AUTH_NTLM
 from impacket.examples import logger
@@ -185,6 +187,9 @@ if __name__ == '__main__':
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
+
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)

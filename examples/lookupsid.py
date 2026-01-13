@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -24,6 +25,7 @@ from __future__ import print_function
 import sys
 import logging
 import argparse
+import argcomplete
 import codecs
 
 from impacket.examples import logger
@@ -178,6 +180,9 @@ if __name__ == '__main__':
                             '(KRB5CCNAME) based on target parameters. If valid credentials '
                             'cannot be found, it will use the ones specified in the command '
                             'line')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
+
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)

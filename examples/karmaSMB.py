@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -58,6 +59,7 @@ from __future__ import print_function
 import sys
 import os
 import argparse
+import argcomplete
 import logging
 import ntpath
 try:
@@ -608,10 +610,12 @@ if __name__ == '__main__':
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
+
 
     try:
        options = parser.parse_args()

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -26,6 +27,7 @@ import cmd
 import logging
 from threading import Thread, Lock
 import argparse
+import argcomplete
 import random
 import string
 import time
@@ -633,6 +635,8 @@ if __name__ == '__main__':
                                                                                 ' used to trigger the payload')
     group.add_argument('-remote-binary-name', action='store', metavar="remote_binary_name", default = None, help='This will '
                                                             'be the name of the executable uploaded on the target')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv)==1:
         parser.print_help()

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -26,6 +27,7 @@ from __future__ import print_function
 import string
 import sys
 import argparse
+import argcomplete
 import time
 import random
 import logging
@@ -270,6 +272,8 @@ if __name__ == '__main__':
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. '
                                          'If omitted it will use the domain part (FQDN) specified in the target parameter')
     group.add_argument('-keytab', action="store", help='Read keys for SPN from keytab file')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv)==1:
         parser.print_help()

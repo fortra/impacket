@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -21,6 +22,7 @@ import logging
 import sys
 import traceback
 import argparse
+import argcomplete
 import datetime
 import base64
 from typing import Sequence
@@ -751,6 +753,7 @@ def parse_args():
                                   'The information is encrypted using the AS reply key. Attack primitive known as UnPAC-the-Hash. (https://www.thehacker.recipes/ad/movement/kerberos/unpac-the-hash)'
     credential_info.add_argument('--asrep-key', action="store", metavar="HEXKEY", help='AS reply key for PAC Credentials decryption')
 
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv) == 1:
         parser.print_help()

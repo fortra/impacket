@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# PYTHON_ARGCOMPLETE_OK
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -23,6 +24,7 @@ from __future__ import division
 from __future__ import print_function
 import sys
 import argparse
+import argcomplete
 import ntpath
 from binascii import unhexlify, hexlify
 
@@ -147,6 +149,8 @@ def main():
     # A walk command
     walk_parser = subparsers.add_parser('walk', help='walks the registry from the name node down')
     walk_parser.add_argument('-name', action='store', required=True, help='registry class name to start walking down from')
+
+    argcomplete.autocomplete(parser, always_complete_options=False)
 
     if len(sys.argv)==1:
         parser.print_help()
