@@ -30,6 +30,7 @@ import collections
 import collections.abc
 import logging
 import six
+from collections import OrderedDict
 
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER, NDRUniConformantVaryingArray, NDRUNION, \
     NDRENUM
@@ -57,13 +58,6 @@ def format_structure(d, level=0):
     else:
         x = str(d)
     return x
-try:
-    from collections import OrderedDict
-except:
-    try:
-        from ordereddict.ordereddict import OrderedDict
-    except:
-        from ordereddict import OrderedDict
 
 class DCERPCSessionError(DCERPCException):
     def __init__(self, error_string=None, error_code=None, packet=None):
