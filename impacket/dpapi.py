@@ -584,13 +584,6 @@ class DPAPI_BLOB(Structure):
 
     )
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # if we've been given too much data, strip our rawData field
-        # so it matches with the interpreted data length.
-        if len(self.rawData) > len(self):
-            self.rawData = self.rawData[0:len(self)]
-
     def dump(self):
         print("[BLOB]")
         print("Version          : %8x (%d)" % (self['Version'], self['Version']))
