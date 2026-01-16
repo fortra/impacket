@@ -13,6 +13,7 @@ from struct import pack, unpack, calcsize
 from six import b, PY3
 from binascii import hexlify
 
+
 class Structure:
     """ sublcasses can define commonHdr and/or structure.
         each of them is an tuple of either two: (fieldName, format) or three: (fieldName, ':', class) fields.
