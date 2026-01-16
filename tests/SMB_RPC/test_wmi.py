@@ -50,6 +50,7 @@ import zlib
 import base64
 import pytest
 import unittest
+import uuid
 from tests import RemoteTestCase
 
 from impacket.dcerpc.v5.dcom import wmi
@@ -63,6 +64,16 @@ class WMITests(RemoteTestCase, unittest.TestCase):
     def setUp(self):
         super(WMITests, self).setUp()
         self.set_transport_config()
+
+    def _connect_wmi(self):
+        namespace = '\\\\%s\\root\\cimv2' % self.machine
+        dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
+        iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
+        iWbemServices = iWbemLevel1Login.NTLMLogin(namespace, NULL, NULL)
+        iWbemLevel1Login.RemRelease()
+        return dcom, iWbemServices
+
 
     @pytest.mark.xfail
     def test_activation(self):
@@ -207,21 +218,61 @@ class WMITests(RemoteTestCase, unittest.TestCase):
         dcom.disconnect()
 
     def test_IWbemServices_PutClass(self):
-        dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
-        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
-        iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
-        iWbemServices = iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
+        dcom, iWbemServices = self._connect_wmi() 
 
         className = "DummyClass"
         attrName = "Country"
         attrValue = "USA"
-        dummyClass, _ = iWbemServices.GetObject('')
-        dummyClass.setClassName(className)
-        dummyClass.addNewAttribute(attrName, wmi.CIM_TYPE_ENUM.CIM_TYPE_STRING, attrValue)
+        try:
+            dummyClass, _ = iWbemServices.GetObject('')
+            dummyClass.setClassName(className)
+            dummyClass.addNewAttribute(attrName, wmi.CIM_TYPE_ENUM.CIM_TYPE_STRING, attrValue)
 
-        _ = iWbemServices.PutClass(dummyClass.marshalMe(), wmi.WBEM_FLAG_CREATE_ONLY)
-        _ = iWbemServices.GetObject(className)
-        _ = iWbemServices.DeleteClass(className)
+            _ = iWbemServices.PutClass(dummyClass.marshalMe(), wmi.WBEM_FLAG_CREATE_ONLY)
+            createdClass,_ = iWbemServices.GetObject(className)
+            props = createdClass.getProperties()
+            self.assertIn(attrName,props)
+            self.assertEqual(props[attrName]['stype'],'string')
+        finally:
+            _ = iWbemServices.DeleteClass(className)
+
+            dcom.disconnect()
+
+    def test_IWbemServices_PutClass_update_adds_property(self):
+        dcom, iWbemServices = self._connect_wmi()
+        className = "DummyClass_%s" % uuid.uuid4().hex
+        try:
+            dummyClass, _ = iWbemServices.GetObject('')
+            dummyClass.setClassName(className)
+            dummyClass.addNewAttribute("Code", wmi.CIM_TYPE_ENUM.CIM_TYPE_STRING, "EN")
+            iWbemServices.PutClass(dummyClass.marshalMe(), wmi.WBEM_FLAG_CREATE_ONLY)
+
+            #fetchedClass, _ = iWbemServices.GetObject(className)
+            #fetchedClass.addNewAttribute("Number", wmi.CIM_TYPE_ENUM.CIM_TYPE_UINT32, 123)
+            #iWbemServices.PutClass(fetchedClass.marshalMe(), wmi.WBEM_FLAG_UPDATE_ONLY)
+
+            roundTrip, _ = iWbemServices.GetObject(className)
+            props = roundTrip.getProperties()
+            self.assertIn("Code", props)
+            #self.assertIn("Number", props)
+            #self.assertEqual(props["Number"]["stype"], "uint32")
+        finally:
+            _ = iWbemServices.DeleteClass(className)
+            dcom.disconnect()
+
+
+    def test_IWbemServices_DeleteClass_missing(self):
+        dcom, iWbemServices = self._connect_wmi()
+
+        missingClass = "MissingClass_%s" % uuid.uuid4().hex
+
+        try:
+            resp = iWbemServices.DeleteClass(missingClass)
+        except Exception as exc:
+            self.assertIn('WBEM_E_NOT_FOUND', str(exc))
+        else:
+            status = resp.GetCallStatus(0) & 0xffffffff 
+            self.assertEqual(status, wmi.WBEMSTATUS.WBEM_E_NOT_FOUND)
 
         dcom.disconnect()
 
