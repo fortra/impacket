@@ -12,7 +12,7 @@ from __future__ import print_function
 from struct import pack, unpack, calcsize
 from six import b, PY3
 from binascii import hexlify
-
+import warnings
 
 class Structure:
     """ sublcasses can define commonHdr and/or structure.
@@ -161,6 +161,14 @@ class Structure:
                 size += self.alignment - (size % self.alignment)
             data = data[size:]
 
+        original_len = len(self.rawData)
+        unpacked_len = len(self)
+        if original_len != unpacked_len:
+            warnings.warn(
+                "Length of data (%d) does not match unpacked structure length (%d)"
+                % (original_len, unpacked_len),
+                RuntimeWarning
+            )
         return self
 
     def __setitem__(self, key, value):
