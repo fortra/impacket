@@ -1233,7 +1233,7 @@ class RAISECHILD:
             from impacket.krb5.ccache import CCache
             ccache = CCache()
             ccache.fromTGT(parentTGT['KDC_REP'], parentTGT['oldSessionKey'], parentTGT['sessionKey'])
-            ccache.saveFile(self.__writeTGT)
+            ccache.saveFile(self.__writeTGT, chmod=0o600)
 
         # 8) If target was specified, a PSEXEC shell is launched
         if self.__target is not None:
