@@ -4262,7 +4262,7 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
         self.__dropSSP = False
         # Kerberos Support flag
-        self.__KerberosSupport = True
+        self.__KerberosSupport = False
 
         # NTLM Support flag
         self.__NTLMSupport = True
@@ -4942,7 +4942,7 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         if self.__serverConfig.has_option("global", "KerberosSupport"):
             self.__KerberosSupport = self.__serverConfig.getboolean("global", "KerberosSupport")
         else:
-            self.__KerberosSupport = True
+            self.__KerberosSupport = False
         
         if self.__serverConfig.has_option("global", "NTLMSupport"):
             self.__NTLMSupport = self.__serverConfig.getboolean("global", "NTLMSupport")
