@@ -43,7 +43,7 @@ if __name__ == '__main__':
     parser.add_argument('-computeraccounthash', action="store", help='computer account NT hash to authenticate arbitrary clients with signing via NetLogon/Kerberos')
     parser.add_argument('-computeraccountaes', action="store", help='computer account AES key to authenticate arbitrary clients with signing via NetLogon/Kerberos')
     parser.add_argument('-computeraccountpassword', action="store", help='computer account NT hash to authenticate arbitrary clients with signing via NetLogon/Kerberos')
-    parser.add_argument('-computeraccountdomain', action="store", help='DC IP/hostname to authenticate arbitrary clients with signing via NetLogon/Kerberos')
+    parser.add_argument('-computeraccountdomain', action="store", help='computer account domain to authenticate arbitrary clients with signing via NetLogon/Kerberos')
     parser.add_argument('-dc-ip', action="store", help='IP of domain controller to authenticate arbitrary clients with signing via NetLogon/Kerberos')
     parser.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes for the Username, format is LMHASH:NTHASH')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
