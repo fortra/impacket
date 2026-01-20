@@ -44,7 +44,7 @@ if __name__ == '__main__':
     parser.add_argument('-computeraccountaes', action="store", help='computer account AES key to authenticate arbitrary clients with signing via NetLogon/Kerberos')
     parser.add_argument('-computeraccountpassword', action="store", help='computer account NT hash to authenticate arbitrary clients with signing via NetLogon/Kerberos')
     parser.add_argument('-computeraccountdomain', action="store", help='DC IP/hostname to authenticate arbitrary clients with signing via NetLogon/Kerberos')
-    parser.add_argument('-dcip', action="store", help='IP of domain controller to authenticate arbitrary clients with signing via NetLogon/Kerberos')
+    parser.add_argument('-dc-ip', action="store", help='IP of domain controller to authenticate arbitrary clients with signing via NetLogon/Kerberos')
     parser.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes for the Username, format is LMHASH:NTHASH')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
@@ -110,19 +110,19 @@ if __name__ == '__main__':
 
     # If we want clients to be able to connect to us which enforce signing, we need a computer account to properly setup the connection
     # Only works with SMB2
-    required_secure_server_options = [options.computeraccountname, options.computeraccountdomain, options.dcip]
+    required_secure_server_options = [options.computeraccountname, options.computeraccountdomain, options.dc_ip]
     at_least_one_secure_server_options = [options.computeraccounthash, options.computeraccountaes, options.computeraccountpassword]
     if any(required_secure_server_options):
         if options.username:
             logging.critical("You cannot use account credentials AND computer account credentials at the same time")
             sys.exit(1)
         if not all(required_secure_server_options):
-            logging.critical("All of the following options need to be set for accepting signed connections from arbitrary users in the domain: -computeraccountname, -computeraccountdomain, -dcip")
+            logging.critical("All of the following options need to be set for accepting signed connections from arbitrary users in the domain: -computeraccountname, -computeraccountdomain, -dc-ip")
             sys.exit(1)
         if not any(at_least_one_secure_server_options):
             logging.critical("At least one of the following options need to be set for accepting signed connections from arbitrary users in the domain: -computeraccounthash, -computeraccountaes, -computeraccountpassword")
             sys.exit(1)
-        server.setComputerAccount(options.computeraccountname, options.computeraccounthash, options.computeraccountaes, options.computeraccountpassword, options.computeraccountdomain, options.dcip)
+        server.setComputerAccount(options.computeraccountname, options.computeraccounthash, options.computeraccountaes, options.computeraccountpassword, options.computeraccountdomain, options.dc_ip)
 
     # Here you can set a custom SMB challenge in hex format
     # If empty defaults to '4141414141414141'
