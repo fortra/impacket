@@ -2875,10 +2875,10 @@ class SMB2Commands:
 
         blob = SPNEGO_NegTokenInit()
         supported_mechtypes = []
-        if smbServer._SMBSERVER__KerberosSupport and smbServer.getComputerAccountCredentials()["username"]:
+        if smbServer.getKerberosSupport() and smbServer.getComputerAccountCredentials()["username"]:
             # if computer account credentials are provided, we can also use kerberos
             supported_mechtypes += [TypesMech['MS KRB5 - Microsoft Kerberos 5'], TypesMech['KRB5 - Kerberos 5'], TypesMech['KRB5 - Kerberos 5 - User to User']]
-        if smbServer._SMBSERVER__NTLMSupport:
+        if smbServer.getNTLMSupport():
             supported_mechtypes += [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
 
         blob['MechTypes'] = supported_mechtypes
@@ -3215,10 +3215,10 @@ class SMB2Commands:
                 # Is this GSSAPI NTLM or something else we don't support?
                 authType = blob['MechTypes'][0]
                 supported_mechtypes = []
-                if smbServer._SMBSERVER__KerberosSupport and smbServer.getComputerAccountCredentials()["username"]:
+                if smbServer.getKerberosSupport() and smbServer.getComputerAccountCredentials()["username"]:
                     # if computer account credentials are provided, we can also use kerberos
                     supported_mechtypes += [TypesMech['MS KRB5 - Microsoft Kerberos 5'], TypesMech['KRB5 - Kerberos 5'], TypesMech['KRB5 - Kerberos 5 - User to User']]
-                if smbServer._SMBSERVER__NTLMSupport:
+                if smbServer.getNTLMSupport():
                     supported_mechtypes += [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
                 if authType not in supported_mechtypes:
                     # Nope, do we know it?
@@ -3233,13 +3233,13 @@ class SMB2Commands:
             # AUTH packet
             blob = SPNEGO_NegTokenResp(securityBlob)
             token = blob['ResponseToken']
-            if b'NTLMSSP\x00' in token and smbServer._SMBSERVER__NTLMSupport:
+            if b'NTLMSSP\x00' in token and smbServer.getNTLMSupport():
                 authType = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
-            elif smbServer._SMBSERVER__KerberosSupport:
+            elif smbServer.getKerberosSupport():
                 authType = TypesMech['MS KRB5 - Microsoft Kerberos 5']
             else:
                 return [SMB2Commands.generic_negTokenResp()], None, STATUS_MORE_PROCESSING_REQUIRED
-        elif securityBlob.startswith(b'NTLMSSP\x00') and smbServer._SMBSERVER__NTLMSupport:
+        elif securityBlob.startswith(b'NTLMSSP\x00') and smbServer.getNTLMSupport():
             # No GSSAPI stuff, raw NTLMSSP
             rawNTLM = True
             token = securityBlob
@@ -4605,6 +4605,12 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
     def setAuthCallback(self, callback):
         self.auth_callback = callback
+
+    def getKerberosSupport(self):
+        return self.__KerberosSupport
+
+    def getNTLMSupport(self):
+        return self.__NTLMSupport
 
     def verify_request(self, request, client_address):
         # TODO: Control here the max amount of processes we want to launch
