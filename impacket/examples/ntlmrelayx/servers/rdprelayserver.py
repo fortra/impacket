@@ -225,7 +225,7 @@ class RDPRelayServer(Thread):
                     client_socket.settimeout(5)
                     client_tls.do_handshake()
                     handshake_complete = True
-                    LOG.info("(RDP): TLS established with client")
+                    LOG.debug("(RDP): TLS established with client")
                 except SSL.WantReadError:
                     ready = select.select([client_socket], [], [], 5)
                     if not ready[0]:
@@ -273,7 +273,7 @@ class RDPRelayServer(Thread):
                 if message_type == 1:  # NEGOTIATE
                     negotiate_message = ntlm.NTLMAuthNegotiate()
                     negotiate_message.fromString(ntlm_token)
-                    LOG.info("(RDP): Received NTLMSSP NEGOTIATE from %s" % client_address[0])
+                    LOG.debug("(RDP): Received NTLMSSP NEGOTIATE from %s" % client_address[0])
 
                     self.target = self.targetprocessor.getTarget(multiRelay=False)
                     if self.target is None:
@@ -284,7 +284,7 @@ class RDPRelayServer(Thread):
                             LOG.info("(RDP): Connection from %s controlled, but there are no more targets left!" % client_address[0])
                             break
 
-                    LOG.info("(RDP): Relaying to %s://%s" % (self.target.scheme, self.target.netloc))
+                    LOG.debug("(RDP): Relaying to %s://%s" % (self.target.scheme, self.target.netloc))
 
                     if self.target.scheme.upper() not in self.config.protocolClients:
                         LOG.error("(RDP): No protocol client for %s" % self.target.scheme.upper())
@@ -303,7 +303,7 @@ class RDPRelayServer(Thread):
                         break
 
                     challenge = challenge_message['challenge']
-                    LOG.info("(RDP): Got CHALLENGE from target %s" % self.target.netloc)
+                    LOG.debug("(RDP): Got CHALLENGE from target %s" % self.target.netloc)
 
                     # Remove target NetBIOS field from the NTLMSSP_CHALLENGE
                     if self.config.remove_target:
@@ -322,7 +322,7 @@ class RDPRelayServer(Thread):
                     authenticate_message.fromString(ntlm_token)
                     self.authUser = authenticate_message.getUserString()
 
-                    LOG.info("(RDP): Received NTLMSSP AUTHENTICATE from %s@%s" % (self.authUser, client_address[0]))
+                    LOG.debug("(RDP): Received NTLMSSP AUTHENTICATE from %s@%s" % (self.authUser, client_address[0]))
 
 
                     if challenge and self.config.outputFile:
@@ -359,7 +359,7 @@ class RDPRelayServer(Thread):
                     break
 
         except Exception as e:
-            LOG.debug("(RDP): Exception in handle_credssp: %s" % str(e))
+            LOG.error("(RDP): Exception in handle_credssp: %s" % str(e))
         finally:
             if client_tls:
                 try:
