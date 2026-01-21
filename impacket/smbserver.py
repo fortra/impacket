@@ -25,6 +25,7 @@
 # estamos en la B
 
 import calendar
+import multiprocessing
 import socket
 import time
 import datetime
@@ -46,6 +47,7 @@ import hmac
 from binascii import unhexlify, hexlify, a2b_hex
 from six import b, ensure_str
 from six.moves import configparser, socketserver
+from tempfile import mkdtemp, mktemp
 
 # For signing
 from impacket import smb, nmb, ntlm, uuid
@@ -2577,28 +2579,13 @@ class SMBCommands:
                     authenticateMessage['domain_name'].decode('utf-16le'),
                     authenticateMessage['user_name'].decode('utf-16le'),
                     authenticateMessage['host_name'].decode('utf-16le')))
-                # Do we have credentials to check?
-                if len(smbServer.getCredentials()) > 0:
-                    identity = authenticateMessage['user_name'].decode('utf-16le').lower()
-                    # Do we have this user's credentials?
-                    if identity in smbServer.getCredentials():
-                        # Process data:
-                        # Let's parse some data and keep it to ourselves in case it is asked
-                        uid, lmhash, nthash = smbServer.getCredentials()[identity]
 
-                        errorCode, sessionKey = computeNTLMv2(identity, lmhash, nthash, smbServer.getSMBChallenge(),
-                                                              authenticateMessage, connData['CHALLENGE_MESSAGE'],
-                                                              connData['NEGOTIATE_MESSAGE'])
+                errorCode, sessionKey, isGuest = smbServer.authenticate(authenticate_message=authenticateMessage, connection_id=connId)
 
-                        if sessionKey is not None:
-                            connData['SignatureEnabled'] = False
-                            connData['SigningSessionKey'] = sessionKey
-                            connData['SignSequenceNumber'] = 1
-                    else:
-                        errorCode = STATUS_LOGON_FAILURE
-                else:
-                    # No credentials provided, let's grant access
-                    errorCode = STATUS_SUCCESS
+                if sessionKey is not None:
+                    connData['SignatureEnabled'] = False
+                    connData['SigningSessionKey'] = sessionKey
+                    connData['SignSequenceNumber'] = 1
 
                 if errorCode == STATUS_SUCCESS:
                     connData['Authenticated'] = True
@@ -2979,40 +2966,13 @@ class SMB2Commands:
                 authenticateMessage['user_name'].decode('utf-16le'),
                 authenticateMessage['host_name'].decode('utf-16le')))
 
-            isGuest = False
-            isAnonymus = False
+            isAnonymus = authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_ANONYMOUS
+            errorCode, sessionKey, isGuest = smbServer.authenticate(authenticate_message=authenticateMessage, connection_id=connId)
 
-            # TODO: Check the credentials! Now granting permissions
-            # Do we have credentials to check?
-            if len(smbServer.getCredentials()) > 0:
-                identity = authenticateMessage['user_name'].decode('utf-16le').lower()
-                # Do we have this user's credentials?
-                if identity in smbServer.getCredentials():
-                    # Process data:
-                    # Let's parse some data and keep it to ourselves in case it is asked
-                    uid, lmhash, nthash = smbServer.getCredentials()[identity]
-
-                    errorCode, sessionKey = computeNTLMv2(identity, lmhash, nthash, smbServer.getSMBChallenge(),
-                                                          authenticateMessage, connData['CHALLENGE_MESSAGE'],
-                                                          connData['NEGOTIATE_MESSAGE'])
-
-                    if sessionKey is not None:
-                        connData['SignatureEnabled'] = True
-                        connData['SigningSessionKey'] = sessionKey
-                        connData['SignSequenceNumber'] = 1
-                else:
-                    errorCode = STATUS_LOGON_FAILURE
-            else:
-                # No credentials provided, let's grant access
-                if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_ANONYMOUS:
-                    isAnonymus = True
-                    if smbServer._SMBSERVER__anonymousLogon == False:
-                        errorCode = STATUS_ACCESS_DENIED
-                    else:
-                        errorCode = STATUS_SUCCESS
-                else:
-                    isGuest = True
-                    errorCode = STATUS_SUCCESS
+            if sessionKey is not None:
+                connData['SignatureEnabled'] = True
+                connData['SigningSessionKey'] = sessionKey
+                connData['SignSequenceNumber'] = 1
 
             if errorCode == STATUS_SUCCESS:
                 connData['Authenticated'] = True
@@ -4742,6 +4702,64 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
                 pass
         self.__credentials[name.lower()] = (uid, lmhash, nthash)
 
+    def authenticate(self, authenticate_message, connection_id):
+        session_key = None
+        is_guest = False
+        if self.getCredentials():
+            identity = authenticate_message['user_name'].decode('utf-16le').lower()
+            # Do we have this user's credentials?
+            try:
+                _, lmhash, nthash = self.getCredentials()[identity]
+                connection_data = self.getConnectionData(connection_id, checkStatus=False)
+                challenge_message, negotiate_message =  connection_data['CHALLENGE_MESSAGE'], connection_data['NEGOTIATE_MESSAGE']
+                error_code, session_key = computeNTLMv2(identity, lmhash, nthash, self.getSMBChallenge(), authenticate_message, challenge_message, negotiate_message)
+            except KeyError:
+                error_code = STATUS_LOGON_FAILURE
+        else:
+            #No credentials provided, let's grant access
+            if authenticate_message['flags'] & ntlm.NTLMSSP_NEGOTIATE_ANONYMOUS:
+                error_code = STATUS_SUCCESS if self._SMBSERVER__anonymousLogon else STATUS_ACCESS_DENIED
+            else:
+                is_guest = True
+                # TODO: implement similar flag to anonymousLogon
+                error_code = STATUS_SUCCESS
+
+        return error_code, session_key, is_guest
+
+
+class PromiscuousSMBServer(SMBSERVER):
+    ALLOW_ANY = 0
+    ALLOW_BY_NAME = 1
+    CLASSIC_AUTH = -1
+    authentication_method = ALLOW_ANY
+
+    def authenticate(self, authenticate_message, connection_id):
+        # authenticate anyone, anyone who appears in credentials, or "normal" authentication while still doing the proper dance
+        if self.authentication_method == self.CLASSIC_AUTH:
+            return super().authenticate(authenticate_message, connection_id)
+        identity = authenticate_message['user_name'].decode('utf-16le').lower()
+        lmhash, nthash = "", ""
+        connection_data = self.getConnectionData(connection_id, checkStatus=False)
+        challenge_message, negotiate_message = connection_data['CHALLENGE_MESSAGE'], connection_data['NEGOTIATE_MESSAGE']
+        _, session_key = computeNTLMv2(identity, lmhash, nthash, self.getSMBChallenge(), authenticate_message, challenge_message, negotiate_message)
+
+        if self.authentication_method == self.ALLOW_ANY:
+            return STATUS_SUCCESS, session_key, False
+        elif self.authentication_method == self.ALLOW_BY_NAME:
+            error_code = STATUS_SUCCESS if identity in self.getCredentials() else STATUS_LOGON_FAILURE
+            return error_code, session_key, False
+
+        return STATUS_LOGON_FAILURE, session_key, False
+
+    def classic_auth(self):
+        self.authentication_method = self.CLASSIC_AUTH
+
+    def allow_by_name(self):
+        self.authentication_method = self.ALLOW_BY_NAME
+
+    def allow_any(self):
+        self.authentication_method = self.ALLOW_ANY
+
 
 # For windows platforms, opening a directory is not an option, so we set a void FD
 VOID_FILE_DESCRIPTOR = -1
@@ -5023,3 +5041,117 @@ class SimpleSMBServer:
             self.__smbConfig.set("global", "DropSSP", "False")
         self.__server.setServerConfig(self.__smbConfig)
         self.__server.processConfigFile()
+
+
+class SimpleTempSMBServer(SimpleSMBServer):
+    """ SimpleTempSMBServer SimpleSMBServer but temporary and can be used as contextmanager"""
+
+    temp_directories = []
+
+    def addShare(self, shareName, shareComment='', shareType='0', readOnly='no'):
+        new_temp_directory = mkdtemp(prefix="impacket_smb_")
+        self.temp_directories.append(new_temp_directory)
+        super().addShare(shareName, new_temp_directory, shareComment, shareType, readOnly)
+
+    def add_file(self, sharename, destination_filename, file):
+        share = searchShare(None, sharename.upper(), self.getServer())
+        if share:
+            directory = share.get("path")
+            if os.path.exists(file):
+                shutil.copy(file, os.path.join(directory, destination_filename))
+            else:
+                with open(os.path.join(directory, destination_filename), "wb") as destination:
+                    file = file.encode() if isinstance(file, str) else file
+                    destination.write(file)
+
+    def await_file(self, sharename, filename, timeout=None):
+        """wait for a file to be written to a share
+
+        this is useful when using the server as a contextmanager and we are waiting for another process ie the target to
+        write data back to our attacker share
+        returns
+            string filepath on success
+            None on timeout
+        """
+        share = searchShare(None, sharename.upper(), self.getServer())
+        directory = share.get("path")
+        filepath = os.path.join(directory, filename)
+
+        start = time.time()
+        previous_size = -1
+        while True:
+            if not os.path.exists(filepath):
+                continue
+
+            size = os.stat(filepath).st_size
+            if previous_size != size:
+                previous_size = os.stat(filepath).st_size
+                continue
+            else:
+                return filepath
+
+            if timeout and (time.time() - start) > time:
+                return None
+
+            time.sleep(1)
+
+    def stop(self):
+        try:
+            super().stop()
+        finally:
+            for directory in self.temp_directories:
+                shutil.rmtree(directory, ignore_errors=True)
+
+    def __enter__(self):
+        # avoid using Process beacuse of bug in python3.13 https://github.com/python/cpython/issues/134381
+        # TODO: REMOVE WHEN PROCESS IS FIXED!!
+        #self._server_process = Process(target=self.start)
+        self._server_process = threading.Thread(target=self.start)
+        self._server_process.daemon = True
+        self._server_process.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # avoid using Process beacuse of bug in python3.13 https://github.com/python/cpython/issues/134381
+        # TODO: REMOVE WHEN PROCESS IS FIXED!!
+        #self._server_process.terminate()
+        #self._server_process.join()
+        #self._server_process.close()
+        self.getServer().must_serve = False
+        self.stop()
+        self._server_process.join()
+
+    """This was stolen from tests/SMB_RPC/test_smbserver.py to make the context manager work
+    
+    # avoid using Process beacuse of bug in python3.13 https://github.com/python/cpython/issues/134381
+    
+    """
+    # TODO: REMOVE WHEN PROCESS IS FIXED!!
+
+    class StoppableMixin():
+        # keep this neatly contained
+        import select
+        def serve_forever(self):
+            self.must_serve = True
+            self.timeout = 2
+
+            while self.must_serve:
+                self.handle_request()
+
+        def close_request(self, request):
+            if self.must_serve:
+                request.close()
+
+        def get_request(self):
+            timeout = 0.1
+            while self.must_serve:
+                _read, _, _ = self.select.select([self.socket], [], [], timeout)
+
+                if _read and self.must_serve:
+                    return self.socket.accept()
+            raise socket.error
+
+    def __init__(self, listenAddress='0.0.0.0', listenPort=445, configFile='', smbserverclass=SMBSERVER, ipv6=False):
+        class Mixed(self.StoppableMixin, smbserverclass):
+            pass
+        super().__init__(listenAddress, listenPort, configFile, Mixed, ipv6)
