@@ -151,7 +151,6 @@ class TargetsProcessor:
                     tmpTarget = '%s://%s@%s' % (target.scheme, identity.replace('/', '\\'), target.netloc + target.path)
                     match = [x for x in self.finishedAttacks if x.geturl().upper() == tmpTarget.upper()]
                     fail_match = [x for x in self.failedAttacks if x.geturl().upper() == tmpTarget.upper()]
-                    print(self.failedAttacks)
                     if len(match) == 0 and len(fail_match) == 0:
                         self.generalCandidates.remove(target)
                         return target

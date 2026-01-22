@@ -24,7 +24,7 @@ import socket
 import socketserver
 import struct
 import time
-from threading import Thread, Lock
+from threading import Thread
 
 from OpenSSL import SSL
 
@@ -93,9 +93,6 @@ class RDPRelayServer(Thread):
         def __init__(self, server_address, RequestHandlerClass, config):
             self.config = config
             self.daemon_threads = True
-            self.active_clients = set()
-            self.client_timestamps = {}
-            self.active_clients_lock = Lock()
             self.address_family, server_address = get_address(server_address[0], server_address[1], self.config.ipv6)
             socketserver.TCPServer.allow_reuse_address = True
             socketserver.TCPServer.__init__(self, server_address, RequestHandlerClass)
@@ -117,11 +114,6 @@ class RDPRelayServer(Thread):
             client_socket = self.request
             client_address = self.client_address
             client_ip = client_address[0]
-
-            with self.server.active_clients_lock:
-                if client_ip in self.server.active_clients or (time.time() - self.server.client_timestamps.get(client_ip, 0)) < 2:
-                    return
-                self.server.active_clients.add(client_ip)
 
             try:
                 LOG.info("(RDP): New connection from %s:%s" % (client_ip, client_address[1]))
@@ -175,10 +167,6 @@ class RDPRelayServer(Thread):
                 pass
             except Exception as e:
                 LOG.error("(RDP): Exception in handle: %s" % str(e))
-            finally:
-                with self.server.active_clients_lock:
-                    self.server.active_clients.discard(client_ip)
-                    self.server.client_timestamps[client_ip] = time.time()
 
         @staticmethod
         def find_ntlmssp_in_data(data):
