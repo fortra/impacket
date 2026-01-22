@@ -632,6 +632,9 @@ class INODE:
         self.LastDataChangeTime = None
         self.FileName = None
         self.FileSize = 0
+        # Debug counters for directory listings
+        self._walk_root_count = 0
+        self._walk_subnode_count = 0
 
     def isDirectory(self):
         return self.FileAttributes & FILE_ATTR_I30_INDEX_PRESENT
@@ -833,13 +836,25 @@ class INODE:
     def walk(self):
         logging.debug("Inside Walk... ")
         files = []
+        self._walk_root_count = 0
+        self._walk_subnode_count = 0
         if INDEX_ROOT in self.Attributes:
             ir = self.Attributes[INDEX_ROOT]
 
             if ir.getType() & FILE_NAME:
                 for ie in ir.IndexEntries:
                     if ie.isSubNode():
-                        files += self.walkSubNodes(ie.getVCN())
+                        logging.debug("walk: INDEX_ROOT entry points to subnode VCN %d", ie.getVCN())
+                        sub_files = self.walkSubNodes(ie.getVCN())
+                        self._walk_subnode_count += len(sub_files)
+                        files += sub_files
+                    else:
+                        if len(ie.getKey()) > 0 and ie.getINodeNumber() > 16:
+                            fn = NTFS_FILE_NAME_ATTR(ie.getKey())
+                            if fn['FileNameType'] != FILE_NAME_DOS:
+                                logging.debug("walk: INDEX_ROOT inline entry %s", fn['FileName'].decode('utf-16le'))
+                                self._walk_root_count += 1
+                                files.append(fn)
                 return files
         else:
             return None
@@ -1063,7 +1078,7 @@ class MiniShell(cmd.Cmd):
         if res is None:
             logging.error("Directory not found")
             self.pwd = oldpwd
-            return 
+            return
         if res.isDirectory() == 0:
             logging.error("Not a directory!")
             self.pwd = oldpwd
@@ -1097,6 +1112,14 @@ class MiniShell(cmd.Cmd):
 
     def do_ls(self, line, display = True):
         entries = self.currentINode.walk()
+        total = 0 if entries is None else len(entries)
+        logging.debug(
+            "ls summary for %s: total=%d index_root=%d index_allocation=%d",
+            self.pwd,
+            total,
+            self.currentINode._walk_root_count,
+            self.currentINode._walk_subnode_count,
+        )
         self.completion = []
         for entry in entries:
             inode = INODE(self.volume)
