@@ -278,7 +278,7 @@ class DumpSecrets:
                                 SAMFileName = self.__remoteOps.saveSAM()
                             else:
                                 SAMFileName = self.__samHive
-                            self.__SAMHashes = SAMHashes(SAMFileName, bootKey, isRemote=self.__isRemote, printUserStatus=self.__printUserStatus)
+                            self.__SAMHashes = SAMHashes(SAMFileName, bootKey, isRemote=self.__isRemote,history=self.__history, printUserStatus=self.__printUserStatus)
                             self.__SAMHashes.dump()
                             if self.__outputFileName is not None:
                                 self.__SAMHashes.export(self.__outputFileName)
@@ -446,7 +446,7 @@ if __name__ == '__main__':
                        help='Shows pwdLastSet attribute for each NTDS.DIT account. Doesn\'t apply to -outputfile data')
     group.add_argument('-user-status', action='store_true', default=False,
                        help='Display whether or not the user is disabled')
-    group.add_argument('-history', action='store_true', help='Dump password history, and LSA secrets OldVal')
+    group.add_argument('-history', action='store_true', help='Dump password history (NTDS and SAM hashes), and LSA secrets OldVal')
 
     group = parser.add_argument_group('authentication')
     group.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
