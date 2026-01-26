@@ -113,6 +113,11 @@ class NTLMRelayxConfig:
         self.isSCCMDPAttack = False
         self.SCCMDPExtensions = None
         self.SCCMDPFiles = None
+        self.isSCCMClientPushAttack = False
+        self.SCCMClientPushDeviceName = None 
+        self.SCCMClientPushSite = None
+        self.SCCMClientPushIP = None
+        self.SCCMClientPushSleep = None
 
     def setSMBChallenge(self, value):
         self.SMBServerChallenge = value
@@ -278,6 +283,15 @@ class NTLMRelayxConfig:
             
     def setMSSQLDb(self, mssql_db):
         self.database = mssql_db
+
+    def setIsSCCMClientPushAttack(self, isSCCMClientPushAttack):
+        self.isSCCMClientPushAttack = isSCCMClientPushAttack    
+
+    def setSCCMClientPushOptions(self, sccm_clientpush_devicename, sccm_clientpush_site, sccm_clientpush_ip, sccm_clientpush_sleep):
+        self.SCCMClientPushDeviceName = sccm_clientpush_devicename 
+        self.SCCMClientPushSite = sccm_clientpush_site
+        self.SCCMClientPushIP = sccm_clientpush_ip
+        self.SCCMClientPushSleep = sccm_clientpush_sleep
 
     def setAltName(self, altName):
         self.altName = altName
