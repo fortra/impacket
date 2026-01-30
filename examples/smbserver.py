@@ -39,10 +39,19 @@ if __name__ == '__main__':
     parser.add_argument('-comment', action='store', help='share\'s comment to display when asked for shares')
     parser.add_argument('-username', action="store", help='Username to authenticate clients')
     parser.add_argument('-password', action="store", help='Password for the Username')
+    parser.add_argument('-computeraccountname', action="store", help='computer account name to authenticate arbitrary clients with signing via NetLogon/Kerberos')
+    parser.add_argument('-computeraccounthash', action="store", help='computer account NT hash to authenticate arbitrary clients with signing via NetLogon/Kerberos')
+    parser.add_argument('-computeraccountaes', action="store", help='computer account AES key to authenticate arbitrary clients with signing via NetLogon/Kerberos')
+    parser.add_argument('-computeraccountpassword', action="store", help='computer account NT hash to authenticate arbitrary clients with signing via NetLogon/Kerberos')
+    parser.add_argument('-computeraccountdomain', action="store", help='computer account domain to authenticate arbitrary clients with signing via NetLogon/Kerberos')
+    parser.add_argument('-dc-ip', action="store", help='IP of domain controller to authenticate arbitrary clients with signing via NetLogon/Kerberos')
     parser.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes for the Username, format is LMHASH:NTHASH')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-ip', '--interface-address', action='store', default=argparse.SUPPRESS, help='ip address of listening interface ("0.0.0.0" or "::" if omitted)')
+    parser.add_argument('-readonly', action='store_true', help='Only allow reading of files')
+    parser.add_argument('-disablekerberos', action='store_true', help='Do not offer Kerberos authentication')
+    parser.add_argument('-disablentlm', action='store_true', help='Do not offer NTLM authentication')
     parser.add_argument('-port', action='store', default='445', help='TCP port for listening incoming connections (default 445)')
     parser.add_argument('-dropssp', action='store_true', default=False, help='Disable NTLM ESS/SSP during negotiation')
     parser.add_argument('-6','--ipv6', action='store_true',help='Listen on IPv6')
@@ -75,9 +84,11 @@ if __name__ == '__main__':
         logging.info('Switching output to file %s' % options.outputfile)
         server.setLogFile(options.outputfile)
 
-    server.addShare(options.shareName.upper(), options.sharePath, comment)
+    server.addShare(options.shareName.upper(), options.sharePath, comment, readOnly="yes" if options.readonly else "no")
     server.setSMB2Support(options.smb2support)
     server.setDropSSP(options.dropssp)
+    server.setKerberosSupport(not options.disablekerberos)
+    server.setNTLMSupport(not options.disablentlm)
 
     # If a user was specified, let's add it to the credentials for the SMBServer. If no user is specified, anonymous
     # connections will be allowed
@@ -96,6 +107,22 @@ if __name__ == '__main__':
             lmhash, nthash = options.hashes.split(':')
 
         server.addCredential(options.username, 0, lmhash, nthash)
+
+    # If we want clients to be able to connect to us which enforce signing, we need a computer account to properly setup the connection
+    # Only works with SMB2
+    required_secure_server_options = [options.computeraccountname, options.computeraccountdomain, options.dc_ip]
+    at_least_one_secure_server_options = [options.computeraccounthash, options.computeraccountaes, options.computeraccountpassword]
+    if any(required_secure_server_options):
+        if options.username:
+            logging.critical("You cannot use account credentials AND computer account credentials at the same time")
+            sys.exit(1)
+        if not all(required_secure_server_options):
+            logging.critical("All of the following options need to be set for accepting signed connections from arbitrary users in the domain: -computeraccountname, -computeraccountdomain, -dc-ip")
+            sys.exit(1)
+        if not any(at_least_one_secure_server_options):
+            logging.critical("At least one of the following options need to be set for accepting signed connections from arbitrary users in the domain: -computeraccounthash, -computeraccountaes, -computeraccountpassword")
+            sys.exit(1)
+        server.setComputerAccount(options.computeraccountname, options.computeraccounthash, options.computeraccountaes, options.computeraccountpassword, options.computeraccountdomain, options.dc_ip)
 
     # Here you can set a custom SMB challenge in hex format
     # If empty defaults to '4141414141414141'
