@@ -74,16 +74,19 @@
 #         [ ] smb2Lock
 #         [ ] smb2Cancel
 #
+import os.path
+import time
 import unittest
 from time import sleep
 from os.path import exists, join
 from os import mkdir, rmdir, remove
 from multiprocessing import Process
+import tempfile
 
 from six import PY2, StringIO, BytesIO, b, assertRaisesRegex, assertCountEqual
 
 from impacket.smb import SMB_DIALECT
-from impacket.smbserver import normalize_path, isInFileJail, SimpleSMBServer, SMBSERVER
+from impacket.smbserver import normalize_path, isInFileJail, SimpleSMBServer, SMBSERVER, PromiscuousSMBServer, SimpleTempSMBServer
 from impacket.smbconnection import SMBConnection, SessionError, compute_lmhash, compute_nthash
 from threading import Thread
 
@@ -724,6 +727,109 @@ class SimpleSMBServer2FuncTests(SimpleSMBServerFuncTests):
             client.deleteDirectory(self.share_name, "unexistent")
 
         client.close()
+
+
+class PromiscuousSMBSERVERForTests(StoppableMixin,PromiscuousSMBServer):
+    pass
+
+
+class PromiscuousSMBServerTests(unittest.TestCase):
+    """This only tests the custom authentication implementation"""
+
+    def get_smbserver(self):
+        username = "admin"
+        password = "admin_password"
+        lmhash = compute_lmhash(password)
+        nthash = compute_nthash(password)
+        self.server =  SimpleSMBServer(listenAddress="127.0.0.1", listenPort=1445,smbserverclass=PromiscuousSMBSERVERForTests)
+        self.server.addCredential(username, 0, lmhash, nthash)
+        self.server_process = Thread(target=self.server.start)
+        self.server_process.daemon = True
+        self.server_process.start()
+
+
+    def stop_smbserver(self):
+        """Stops the SimpleSMBServer process and wait for insider threads to join.
+        """
+        if self.server:
+            self.server.stop()
+            self.server.getServer().must_serve = False
+            self.server = None
+        if self.server_process:
+            # self.server_process.terminate()
+            # self.server_process._stop()
+            sleep(0.1)
+            self.server_process.join()
+            self.server_process = None
+
+
+    def tearDown(self):
+        self.stop_smbserver()
+
+    def test_authentication_any(self):
+        self.get_smbserver()
+        self.server.getServer().allow_any()
+        assert self.server.getServer().authentication_method == self.server.getServer().ALLOW_ANY
+
+        smb_client = SMBConnection("127.0.0.1", "127.0.0.1", sess_port=1445)
+        smb_client.login("admin", "not_admin_password")
+
+        smb_client.close()
+
+    def test_authentication_username(self):
+        self.get_smbserver()
+        self.server.getServer().allow_by_name()
+        assert self.server.getServer().authentication_method == self.server.getServer().ALLOW_BY_NAME
+
+        smb_client = SMBConnection("127.0.0.1", "127.0.0.1", sess_port=1445)
+        smb_client.login("admin", "not_admin_password")
+        smb_client.close()
+
+        smb_client = SMBConnection("127.0.0.1", "127.0.0.1", sess_port=1445)
+        with assertRaisesRegex(self, SessionError, "STATUS_LOGON_FAILURE"):
+            smb_client.login("not_admin", "not_admin_password")
+        smb_client.close()
+
+    def test_authentication_classic(self):
+        self.get_smbserver()
+        self.server.getServer().classic_auth()
+        assert self.server.getServer().authentication_method == self.server.getServer().CLASSIC_AUTH
+
+        smb_client = SMBConnection("127.0.0.1", "127.0.0.1", sess_port=1445)
+        with assertRaisesRegex(self, SessionError, "STATUS_LOGON_FAILURE"):
+            smb_client.login("admin", "not_admin_password")
+        smb_client.close()
+
+        smb_client = SMBConnection("127.0.0.1", "127.0.0.1", sess_port=1445)
+        with assertRaisesRegex(self, SessionError, "STATUS_LOGON_FAILURE"):
+            smb_client.login("not_admin", "not_admin_password")
+        smb_client.close()
+
+        smb_client = SMBConnection("127.0.0.1", "127.0.0.1", sess_port=1445)
+        with assertRaisesRegex(self, SessionError, "STATUS_LOGON_FAILURE"):
+            smb_client.login("not_admin", "admin_password")
+        smb_client.close()
+
+        smb_client = SMBConnection("127.0.0.1", "127.0.0.1", sess_port=1445)
+        smb_client.login("admin", "admin_password")
+        smb_client.close()
+
+class SimpleTempSMBServerTests(unittest.TestCase):
+    def test_add_file(self):
+        with SimpleTempSMBServer("127.0.0.1", 1445) as server, tempfile.NamedTemporaryFile() as test_file:
+            test_file.write(b"this is file content")
+            test_file.seek(0)
+            server.addShare("TEST")
+            server.add_file("TEST", "test_file1", b"this is file content")
+            server.add_file("TEST", "test_file2", test_file.name)
+
+            assert os.path.exists(os.path.join(server.temp_directories[0], "test_file1"))
+            with open(os.path.join(server.temp_directories[0], "test_file1"), "rb") as file:
+                assert file.read() == b"this is file content"
+            assert os.path.exists(os.path.join(server.temp_directories[0], "test_file2"))
+            with open(os.path.join(server.temp_directories[0], "test_file2"), "rb") as file:
+                assert file.read() == b"this is file content"
+
 
 
 if __name__ == "__main__":
