@@ -20,8 +20,7 @@ from impacket.structure import Structure
 from impacket.dcerpc.v5 import lsad, lsat
 from impacket.dcerpc.v5.transport import SMBTransport
 from impacket.smbconnection import SMBConnection
-from impacket.smb3structs import GENERIC_ALL
-from impacket.smb3structs import FileSecInformation
+from impacket.smb3structs import FileSecInformation, FILE_OPEN_REPARSE_POINT, ENERIC_ALL, READ_CONTROL
 
 import struct
 
@@ -302,7 +301,7 @@ class SMBFileACL:
         if self.tid:
             self.connection.disconnectTree(self.tid)
 
-    def open_file(self, share_name, file_name):
+    def open_file(self, share_name, file_name, desired_access=READ_CONTROL):
         """
         Open the given file in the specified share
         @param share_name: share to connect to
@@ -311,7 +310,7 @@ class SMBFileACL:
         """
         self.tid = self.connection.connectTree(share_name)
         self.fid = self.connection.openFile(
-            self.tid, file_name, desiredAccess=GENERIC_ALL
+            self.tid, file_name, desiredAccess=desired_access, creationOption=FILE_OPEN_REPARSE_POINT
         )
         return self.tid, self.fid
 
@@ -589,7 +588,7 @@ class SMBFileACL:
         @return: bool. whether the operation succeeded or not
         """
         # open file descriptor
-        self.tid, self.fid = self.open_file(share_name, file_name)
+        self.tid, self.fid = self.open_file(share_name, file_name, GENERIC_ALL)
 
         try:
             # permissions_to_ace function returns the new ACE to add
