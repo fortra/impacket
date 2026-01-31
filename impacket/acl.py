@@ -21,7 +21,7 @@ from impacket.dcerpc.v5 import lsad, lsat
 from impacket.dcerpc.v5.transport import SMBTransport
 from impacket.smbconnection import SMBConnection
 from impacket.smb3structs import GENERIC_ALL
-from impacket.smb3structs import FileSecInformation
+from impacket.smb3structs import FileSecInformation, FILE_OPEN_REPARSE_POINT
 
 import struct
 
@@ -311,7 +311,7 @@ class SMBFileACL:
         """
         self.tid = self.connection.connectTree(share_name)
         self.fid = self.connection.openFile(
-            self.tid, file_name, desiredAccess=GENERIC_ALL
+            self.tid, file_name, desiredAccess=GENERIC_ALL, creationOption=FILE_OPEN_REPARSE_POINT
         )
         return self.tid, self.fid
 
