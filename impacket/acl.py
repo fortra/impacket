@@ -20,7 +20,7 @@ from impacket.structure import Structure
 from impacket.dcerpc.v5 import lsad, lsat
 from impacket.dcerpc.v5.transport import SMBTransport
 from impacket.smbconnection import SMBConnection
-from impacket.smb3structs import FileSecInformation, FILE_OPEN_REPARSE_POINT, ENERIC_ALL, READ_CONTROL
+from impacket.smb3structs import FileSecInformation, FILE_OPEN_REPARSE_POINT, GENERIC_ALL, READ_CONTROL
 
 import struct
 
