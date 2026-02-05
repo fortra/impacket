@@ -3142,7 +3142,8 @@ class NTDSHashes:
                         if record is None:
                             break
                         try:
-                            if record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES and record[self.NAME_TO_INTERNAL['instanceType']] & 4:    # "The object is writable on this directory"
+                            #if record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES and record[self.NAME_TO_INTERNAL['instanceType']] & 4:    # "The object is writable on this directory"
+                            if record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES:
                                 self.__decryptHash(record, outputFile=hashesOutputFile)
                                 if self.__justNTLM is False:
                                     self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
