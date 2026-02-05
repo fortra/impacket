@@ -32,7 +32,17 @@ except ImportError:
 
 from impacket.examples.ntlmrelayx.clients import ProtocolClient
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
-from impacket.ntlm import NTLMAuthChallenge, NTLMSSP_AV_FLAGS, AV_PAIRS, NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_SIGN, NTLMSSP_NEGOTIATE_ALWAYS_SIGN, NTLMAuthChallengeResponse, NTLMSSP_NEGOTIATE_KEY_EXCH, NTLMSSP_NEGOTIATE_VERSION
+from impacket.ntlm import (
+    NTLMAuthChallenge,
+    NTLMSSP_AV_FLAGS,
+    AV_PAIRS,
+    NTLMAuthNegotiate,
+    NTLMSSP_NEGOTIATE_SIGN,
+    NTLMSSP_NEGOTIATE_SEAL,
+    NTLMSSP_NEGOTIATE_ALWAYS_SIGN,
+    NTLMAuthChallengeResponse,
+    NTLMSSP_NEGOTIATE_KEY_EXCH,
+    NTLMSSP_NEGOTIATE_VERSION)
 from impacket.spnego import SPNEGO_NegTokenResp
 
 PROTOCOL_CLIENT_CLASSES = ["LDAPRelayClient", "LDAPSRelayClient"]
@@ -127,6 +137,8 @@ class LDAPRelayClient(ProtocolClient):
                 authMessage['flags'] ^= NTLMSSP_NEGOTIATE_KEY_EXCH
             if authMessage['flags'] & NTLMSSP_NEGOTIATE_VERSION == NTLMSSP_NEGOTIATE_VERSION:
                 authMessage['flags'] ^= NTLMSSP_NEGOTIATE_VERSION
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_SEAL == NTLMSSP_NEGOTIATE_SEAL:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_SEAL
             authMessage['MIC'] = b''
             authMessage['MICLen'] = 0
             authMessage['Version'] = b''
