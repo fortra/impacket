@@ -227,7 +227,7 @@ class GetUserSPNs:
             ccache = CCache()
             try:
                 ccache.fromTGS(ticket, oldSessionKey, sessionKey)
-                ccache.saveFile('%s.ccache' % username)
+                ccache.saveFile('%s.ccache' % username, chmod=0o600)
             except Exception as e:
                 logging.error(str(e))
 
