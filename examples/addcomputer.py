@@ -31,20 +31,16 @@ from __future__ import unicode_literals
 
 from impacket import version
 from impacket.examples import logger
-from impacket.examples.utils import parse_identity
+from impacket.examples.utils import parse_identity, ldap_login
 from impacket.dcerpc.v5 import samr, epm, transport
-from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
+from impacket.ldap import ldap
 
-from impacket.examples.utils import init_ldap_session, ldap3_kerberos_login
-
-import ldap3
 import argparse
 import logging
 import sys
 import string
 import random
-import ssl
-from binascii import unhexlify
+import re
 
 
 class ADDCOMPUTER:
@@ -147,34 +143,21 @@ class ADDCOMPUTER:
         self.doSAMRAdd(rpctransport)
 
     def run_ldaps(self):
+        ldapConn = None
         try:
-            ldapServer, ldapConn = init_ldap_session(self.__domain, self.__username, self.__password, self.__lmhash, self.__nthash, self.__doKerberos, self.__targetIp, self.__target, self.__aesKey, True)
-
+            ldapConn = ldap_login(self.__target, self.__baseDN, self.__targetIp, self.__kdcHost, self.__doKerberos,
+                                  self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
+                                  self.__aesKey, ldaps_flag=True)
+            self.__target = ldapConn._dstHost
             if self.__noAdd or self.__delete:
-                if not self.LDAPComputerExists(ldapConn, self.__computerName):
+                computer_dn = self.LDAPGetComputerDN(ldapConn, self.__computerName)
+                if computer_dn is None:
                     raise Exception("Account %s not found in %s!" % (self.__computerName, self.__baseDN))
 
-                computer = self.LDAPGetComputer(ldapConn, self.__computerName)
-
                 if self.__delete:
-                    res = ldapConn.delete(computer.entry_dn)
-                    message = "delete"
+                    self._ldap_delete_computer(ldapConn, computer_dn)
                 else:
-                    res = ldapConn.modify(computer.entry_dn, {'unicodePwd': [(ldap3.MODIFY_REPLACE, ['"{}"'.format(self.__computerPassword).encode('utf-16-le')])]})
-                    message = "set password for"
-
-
-                if not res:
-                    if ldapConn.result['result'] == ldap3.core.results.RESULT_INSUFFICIENT_ACCESS_RIGHTS:
-                        raise Exception("User %s doesn't have right to %s %s!" % (self.__username, message, self.__computerName))
-                    else:
-                        raise Exception(str(ldapConn.result))
-                else:
-                    if self.__noAdd:
-                        logging.info("Succesfully set password of %s to %s." % (self.__computerName, self.__computerPassword))
-                    else:
-                        logging.info("Succesfully deleted %s." % self.__computerName)
-
+                    self._ldap_set_password(ldapConn, computer_dn)
             else:
                 if self.__computerName is not None:
                     if self.LDAPComputerExists(ldapConn, self.__computerName):
@@ -201,38 +184,89 @@ class ADDCOMPUTER:
                     'userAccountControl': 0x1000,
                     'servicePrincipalName': spns,
                     'sAMAccountName': self.__computerName,
-                    'unicodePwd': ('"%s"' % self.__computerPassword).encode('utf-16-le')
+                    'unicodePwd': self._format_unicode_pwd(self.__computerPassword)
                 }
 
-                res = ldapConn.add(computerDn, ['top','person','organizationalPerson','user','computer'], ucd)
-                if not res:
-                    if ldapConn.result['result'] == ldap3.core.results.RESULT_UNWILLING_TO_PERFORM:
-                        error_code = int(ldapConn.result['message'].split(':')[0].strip(), 16)
-                        if error_code == 0x216D:
-                            raise Exception("User %s machine quota exceeded!" % self.__username)
-                        else:
-                            raise Exception(str(ldapConn.result))
-                    elif ldapConn.result['result'] == ldap3.core.results.RESULT_INSUFFICIENT_ACCESS_RIGHTS:
-                        raise Exception("User %s doesn't have right to create a machine account!" % self.__username)
-                    else:
-                        raise Exception(str(ldapConn.result))
-                else:
-                    logging.info("Successfully added machine account %s with password %s." % (self.__computerName, self.__computerPassword))
+                self._ldap_add_computer(ldapConn, computerDn, ucd)
         except Exception as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
 
             logging.critical(str(e))
-
+        finally:
+            if ldapConn is not None:
+                ldapConn.close()
 
     def LDAPComputerExists(self, connection, computerName):
-        connection.search(self.__baseDN, '(sAMAccountName=%s)' % computerName)
-        return len(connection.entries) ==1
+        try:
+            return self.LDAPGetComputerDN(connection, computerName) is not None
+        except ldap.LDAPSessionError as e:
+            raise Exception(e.getErrorString())
 
-    def LDAPGetComputer(self, connection, computerName):
-        connection.search(self.__baseDN, '(sAMAccountName=%s)' % computerName)
-        return connection.entries[0]
+    def LDAPGetComputerDN(self, connection, computerName):
+        try:
+            answers = connection.search(searchFilter='(sAMAccountName=%s)' % computerName,
+                                        attributes=['sAMAccountName'])
+        except ldap.LDAPSearchError as e:
+            raise Exception(e.getErrorString())
+
+        if len(answers) == 0:
+            return None
+
+        return str(answers[0]['objectName'])
+
+    @staticmethod
+    def _format_unicode_pwd(password):
+        return ('"%s"' % password).encode('utf-16-le')
+
+    @staticmethod
+    def _extract_error_code(message):
+        match = re.search(r'([0-9a-fA-F]{8})', message)
+        if match:
+            return int(match.group(1), 16)
+        return None
+
+    def _handle_ldap_error(self, action, exception):
+        message = exception.getErrorString() if hasattr(exception, 'getErrorString') else str(exception)
+        error_code = self._extract_error_code(message)
+
+        if 'insufficientAccessRights' in message:
+            raise Exception("User %s doesn't have right to %s %s!" % (self.__username, action, self.__computerName))
+
+        if 'unwillingToPerform' in message and error_code == 0x216D:
+            raise Exception("User %s machine quota exceeded!" % self.__username)
+
+        raise Exception(message)
+
+    def _ldap_set_password(self, connection, computer_dn):
+        try:
+            connection.modify(computer_dn, {
+                'unicodePwd': [(ldap.MODIFY_REPLACE, [self._format_unicode_pwd(self.__computerPassword)])]
+            })
+            logging.info("Successfully set password of %s to %s." % (self.__computerName, self.__computerPassword))
+        except ldap.LDAPSessionError as e:
+            self._handle_ldap_error("set password for", e)
+
+    def _ldap_delete_computer(self, connection, computer_dn):
+        try:
+            connection.delete(computer_dn)
+            logging.info("Successfully deleted %s." % self.__computerName)
+        except ldap.LDAPSessionError as e:
+            self._handle_ldap_error("delete", e)
+
+    def _ldap_add_computer(self, connection, computer_dn, attributes):
+        try:
+            connection.add(computer_dn, ['top','person','organizationalPerson','user','computer'], attributes)
+            logging.info("Successfully added machine account %s with password %s." % (self.__computerName, self.__computerPassword))
+        except ldap.LDAPSessionError as e:
+            if 'unwillingToPerform' in e.getErrorString():
+                error_code = self._extract_error_code(e.getErrorString())
+                if error_code == 0x216D:
+                    raise Exception("User %s machine quota exceeded!" % self.__username)
+            if 'insufficientAccessRights' in e.getErrorString():
+                raise Exception("User %s doesn't have right to create a machine account!" % self.__username)
+            raise Exception(e.getErrorString())
 
     def generateComputerName(self):
         return 'DESKTOP-' + (''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8)) + '$')
