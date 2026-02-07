@@ -449,8 +449,9 @@ class SMBFileACL:
 
         while len(ntace):
             face = FileNTACE(ntace)  # set new FileNTACE
-            sid = ACL_SID(face["SID"])  # get the DACL SID
             ntace = ntace[face["Size"]:]  # slice the buffer
+            if face["SID"] == b'': continue
+            sid = ACL_SID(face["SID"])  # get the DACL SID
             security_attributes.dacls[sid] = face
 
         # Resolve all DACL SIDs to names
