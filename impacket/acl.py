@@ -219,7 +219,7 @@ class SecurityAttributes:
         return (
             "Owner:\t{}\n"
             "Group:\t{}\n"
-            "ACLs:\t"
+            "ACLs:\n\t"
             "{}".format(self.owner, self.group,
                         "\n\t".join([str( self.readable_dacls[sid] ) for sid in self.readable_dacls])))
 

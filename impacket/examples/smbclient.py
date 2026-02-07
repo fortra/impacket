@@ -128,7 +128,7 @@ class MiniImpacketShell(cmd.Cmd):
  list_snapshots {path} - lists the vss snapshots for the specified path
  info - returns NetrServerInfo main results
  who - returns the sessions currently connected at the target host (admin required)
- acl {filename,action,permissions,user/group} - displays or modifies file ACLs (actions: grant, revoke, supported permissions : R/W/D/X/F)
+ acl {filename,action,permissions,user/group} - displays or modifies file ACLs
  close - closes the current SMB Session
  exit - terminates the server process (and this session)
 
@@ -680,7 +680,8 @@ class MiniImpacketShell(cmd.Cmd):
             return
         parts = line.split()
         if len(parts) == 0:
-            LOG.error("Usage: acl {filename,action,permissions,user/group}")
+            LOG.error("Usage: acl {filename,action,permissions,user/group} actions: grant/revoke, "
+                      "supported permissions : R/W/D/X/F")
             return
         
         filename = parts[0].replace('/','\\')
