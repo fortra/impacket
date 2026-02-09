@@ -570,7 +570,7 @@ class LDAPConnection:
         for key, value in attributes.items():
             addRequest['attributes'][index]['type'] = key
             if isinstance(value, list):
-                addRequest['attributes'][index]['vals'].setComponents(str(val) if isinstance(val, int) else val for val in value)
+                addRequest['attributes'][index]['vals'].setComponents(*(str(val) if isinstance(val, int) else val for val in value))
             else:
                 addRequest['attributes'][index]['vals'].setComponents(str(value) if isinstance(value, int) else value)
             index += 1
