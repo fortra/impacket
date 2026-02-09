@@ -27,6 +27,7 @@
 #   - https://github.com/rvazarkar/KrbCredExport
 #
 
+import os
 import argparse
 import base64
 import struct
@@ -52,7 +53,7 @@ def main():
     args = parse_args()
 
     if args.base64:
-        decoded_file = tempfile.NamedTemporaryFile(mode='w+b')
+        decoded_file = tempfile.NamedTemporaryFile(mode='w+b', delete=False)
         print('[*] base64 decoding ticket')
         decoded_file.write(base64_decode_with_unwrap(args.input_file))
         decoded_file.flush()
@@ -69,6 +70,14 @@ def main():
         print('[+] done')
     else:
         print('[X] unknown file format')
+    
+    # Cleanup manually to avoid issues with Windows delete permissions
+    if args.base64:
+        try:
+            decoded_file.close()
+            os.unlink(decoded_file.name)
+        except PermissionError:
+            print('[!] Failed to clean temporary files due to PermissionError')
 
 
 def is_kirbi_file(filename):
