@@ -966,6 +966,41 @@ class SMBConnection:
 
         self.closeFile(tid, fid)
 
+    def getDFSReferral(self, path):
+        """
+        Sends a FSCTL_DFS_GET_REFERRALS IOCTL to resolve a DFS path.
+
+        :param str path: The DFS path to resolve (e.g. \\\\server\\share\\link).
+
+        :return: A list of referral entries (dicts) with target_server, target_share, target_path, etc.
+        :raise SessionError: If encountered an error.
+        """
+        if self.getDialect() == smb.SMB_DIALECT:
+            raise SessionError(error=nt_errors.STATUS_NOT_SUPPORTED)
+
+        ipc_tid = self.connectTree('IPC$')
+        try:
+            request = smb3structs.REQ_GET_DFS_REFERRAL()
+            request['MaxReferralLevel'] = 3
+            request['RequestFileName'] = path.encode('utf-16le') + b'\x00\x00'
+
+            referral_data = self._SMBConnection.ioctl(
+                ipc_tid,
+                fileId=None,
+                ctlCode=smb3structs.FSCTL_DFS_GET_REFERRALS,
+                flags=smb3structs.SMB2_0_IOCTL_IS_FSCTL,
+                inputBlob=request.getData(),
+                maxInputResponse=0,
+                maxOutputResponse=4280,
+            )
+            LOG.debug("DFS referral raw response (%d bytes): %s" % (len(referral_data), referral_data.hex()))
+            referrals, path_consumed = smb3structs.parse_dfs_referral(referral_data)
+            return referrals
+        except (smb.SessionError, smb3.SessionError) as e:
+            raise SessionError(e.get_error_code(), e.get_error_packet())
+        finally:
+            self.disconnectTree(ipc_tid)
+
     def rename(self, shareName, oldPath, newPath):
         """
         Renames a file/directory.

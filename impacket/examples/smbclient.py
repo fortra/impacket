@@ -33,12 +33,13 @@ from impacket import LOG
 from impacket.smbconnection import SMBConnection, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB_DIALECT, SessionError, \
     FILE_READ_DATA, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_SHARE_DELETE
 from impacket.smb3structs import FILE_DIRECTORY_FILE, FILE_LIST_DIRECTORY
+from impacket.nt_errors import STATUS_PATH_NOT_COVERED
 
 import charset_normalizer as chardet
 
 
 class MiniImpacketShell(cmd.Cmd):
-    def __init__(self, smbClient, tcpShell=None, outputfile=None):
+    def __init__(self, smbClient, tcpShell=None, outputfile=None, dfs_auto_follow=False):
         #If the tcpShell parameter is passed (used in ntlmrelayx),
         # all input and output is redirected to a tcp socket
         # instead of to stdin / stdout
@@ -64,6 +65,18 @@ class MiniImpacketShell(cmd.Cmd):
         self.last_output = None
         self.completion = []
         self.outputfile = outputfile
+        self.use_kerberos = smbClient.getSMBServer().getKerberos() if hasattr(smbClient.getSMBServer(), 'getKerberos') else False
+        self.kdcHost = getattr(smbClient, '_kdcHost', None)
+        # DFS support
+        self.dfs_auto_follow = dfs_auto_follow
+        self.dfs_connections = {}
+        self.dfs_referral_cache = {}
+        self.dfs_context_stack = []  # Stack of {smb, tid, share, pwd, dfs_target_info}
+        self.dfs_target_info = None
+
+    @property
+    def is_dfs_context(self):
+        return len(self.dfs_context_stack) > 0
 
     def emptyline(self):
         pass
@@ -127,7 +140,10 @@ class MiniImpacketShell(cmd.Cmd):
  list_snapshots {path} - lists the vss snapshots for the specified path
  info - returns NetrServerInfo main results
  who - returns the sessions currently connected at the target host (admin required)
+ dfs_info {path} - shows DFS referral info for the specified path (or current directory), shows all targets
+ dfs_mode {on|off} - toggle DFS auto-follow mode (creates new SMB connections to DFS targets, disabled by default for OPSEC)
  close - closes the current SMB Session
+ NOTE: DFS support includes nested DFS links (arbitrary depth), multi-target failover, and connection health checks.
  exit - terminates the server process (and this session)
 
 """)
@@ -284,6 +300,7 @@ class MiniImpacketShell(cmd.Cmd):
         if self.smb is None:
             LOG.error("No connection open")
             return
+        self._reset_dfs_state()
         self.smb.logoff()
         del self.smb
         self.share = None
@@ -346,6 +363,7 @@ class MiniImpacketShell(cmd.Cmd):
         if self.loggedIn is False:
             LOG.error("Not logged in")
             return
+        self._reset_dfs_state()
         self.share = line
         self.tid = self.smb.connectTree(line)
         self.pwd = '\\'
@@ -358,19 +376,66 @@ class MiniImpacketShell(cmd.Cmd):
         if self.tid is None:
             LOG.error("No share selected")
             return
-        p = line.replace('/','\\')
+        if not line or not line.strip():
+            return
+
+        p = line.replace('/', '\\')
         oldpwd = self.pwd
-        if p[0] == '\\':
-           self.pwd = line
+
+        # DFS boundary detection — must happen BEFORE normpath which clips above-root paths
+        if self.is_dfs_context:
+            resolved, escaped, remaining = self._resolve_path_with_dfs_boundary(line)
+            if escaped:
+                self._restore_original_connection()
+                # If there are remaining forward components, navigate them in parent context
+                if remaining:
+                    self.do_cd('\\'.join(remaining))
+                return
+            self.pwd = resolved
         else:
-           self.pwd = ntpath.join(self.pwd, line)
-        self.pwd = ntpath.normpath(self.pwd)
+            # Non-DFS: standard path resolution
+            if p[0] == '\\':
+                self.pwd = line
+            else:
+                self.pwd = ntpath.join(self.pwd, line)
+            self.pwd = ntpath.normpath(self.pwd)
+
         # Let's try to open the directory to see if it's valid
         try:
             fid = self.smb.openFile(self.tid, self.pwd, creationOption = FILE_DIRECTORY_FILE, desiredAccess = FILE_READ_DATA |
                                    FILE_LIST_DIRECTORY, shareMode = FILE_SHARE_READ | FILE_SHARE_WRITE )
             self.smb.closeFile(self.tid,fid)
-        except SessionError:
+        except SessionError as e:
+            if e.getErrorCode() == STATUS_PATH_NOT_COVERED:
+                # DFS link detected
+                if not self.dfs_auto_follow:
+                    # OPSEC: don't create new connections, just show referral info
+                    self.pwd = oldpwd
+                    try:
+                        smb_conn, share = self._get_dfs_root_context()
+                        dfs_path_full = '\\\\%s\\%s\\%s' % (smb_conn.getRemoteHost(), share, ntpath.normpath(ntpath.join(oldpwd, line)).lstrip('\\'))
+                        referrals = smb_conn.getDFSReferral(dfs_path_full)
+                        if referrals:
+                            LOG.warning("DFS link detected but auto-follow is disabled (OPSEC)")
+                            print("  DFS Path: %s" % dfs_path_full)
+                            print("  Targets:")
+                            for i, ref in enumerate(referrals):
+                                print("    [%d] %s (%s)" % (i, ref['network_address'],
+                                      "Root" if ref['server_type'] == 1 else "Link"))
+                            print("  Use 'dfs_mode on' or restart with '-dfs-follow' to enable auto-follow")
+                        else:
+                            LOG.warning("DFS link detected but no referrals returned. Auto-follow is disabled (OPSEC)")
+                    except Exception as dfs_err:
+                        LOG.warning("DFS link detected but auto-follow is disabled (OPSEC). Referral lookup failed: %s" % str(dfs_err))
+                    return
+                # Auto-follow enabled - resolve and follow
+                try:
+                    self._follow_dfs_link(self.pwd)
+                    return
+                except Exception as dfs_error:
+                    self.pwd = oldpwd
+                    LOG.error("DFS resolution failed: %s" % str(dfs_error))
+                    return
             self.pwd = oldpwd
             raise
 
@@ -380,16 +445,6 @@ class MiniImpacketShell(cmd.Cmd):
            print(os.getcwd())
         else:
            os.chdir(s)
-
-    def do_pwd(self,line):
-        if self.loggedIn is False:
-            LOG.error("Not logged in")
-            return
-        print(self.pwd.replace("\\","/"))
-        if self.outputfile is not None:        
-            f = open(self.outputfile, 'a')
-            f.write(self.pwd.replace("\\","/"))
-            f.close()
 
     def do_ls(self, wildcard, display = True):
         if self.loggedIn is False:
@@ -407,16 +462,20 @@ class MiniImpacketShell(cmd.Cmd):
         pwd = ntpath.normpath(pwd)
         if self.outputfile is not None:
             of = open(self.outputfile, 'a')
+        is_dfs = self._is_dfs_share()
         for f in self.smb.listPath(self.share, pwd):
             if display is True:
+                dfs_marker = ''
+                if is_dfs and f.is_directory() and f.is_reparse_point() and f.get_longname() not in ('.', '..'):
+                    dfs_marker = ' [DFS]'
                 if self.outputfile:
-                    of.write("%crw-rw-rw- %10d  %s %s" % (
+                    of.write("%crw-rw-rw- %10d  %s %s%s" % (
                     'd' if f.is_directory() > 0 else '-', f.get_filesize(), time.ctime(float(f.get_mtime_epoch())),
-                    f.get_longname()) + "\n")
-                
-                print("%crw-rw-rw- %10d  %s %s" % (
+                    f.get_longname(), dfs_marker) + "\n")
+
+                print("%crw-rw-rw- %10d  %s %s%s" % (
                 'd' if f.is_directory() > 0 else '-', f.get_filesize(), time.ctime(float(f.get_mtime_epoch())),
-                f.get_longname()))
+                f.get_longname(), dfs_marker))
             self.completion.append((f.get_longname(), f.is_directory()))
         if self.outputfile:
             of.close()
@@ -670,6 +729,283 @@ class MiniImpacketShell(cmd.Cmd):
         mountPath = ntpath.join(self.pwd, mountpoint)
 
         self.smb.removeMountPoint(self.tid, mountPath)
+
+    def _is_dfs_share(self):
+        """Check if the current share has DFS capability."""
+        if self.tid is None or self.smb is None:
+            return False
+        try:
+            smb_inner = self.smb.getSMBServer()
+            if hasattr(smb_inner, '_Session') and self.tid in smb_inner._Session.get('TreeConnectTable', {}):
+                return smb_inner._Session['TreeConnectTable'][self.tid].get('IsDfsShare', False)
+        except Exception:
+            pass
+        return False
+
+    def _resolve_path_with_dfs_boundary(self, line):
+        """Resolve a relative path, detecting if it crosses the DFS root boundary.
+
+        Returns:
+            (resolved_path, escaped, remaining_parts_after_escape)
+            - resolved_path: the normalized path within DFS target (only valid if escaped=False)
+            - escaped: True if the path attempts to go above '\\' (DFS target root)
+            - remaining_parts_after_escape: path components remaining after the escape
+              (to be interpreted on the parent context)
+        """
+        p = line.replace('/', '\\')
+
+        if not p or p == '.':
+            return self.pwd, False, []
+
+        if p.startswith('\\'):
+            # Absolute path — stays within current DFS target context
+            return ntpath.normpath(p), False, []
+
+        # Relative path — walk components to detect boundary crossing
+        current_parts = [x for x in self.pwd.split('\\') if x]
+        path_parts = [x for x in p.split('\\') if x]
+
+        for i, part in enumerate(path_parts):
+            if part == '..':
+                if current_parts:
+                    current_parts.pop()
+                else:
+                    # Trying to go above root — boundary crossed
+                    remaining = path_parts[i + 1:]
+                    return None, True, remaining
+            elif part != '.':
+                current_parts.append(part)
+
+        resolved = '\\' + '\\'.join(current_parts) if current_parts else '\\'
+        return resolved, False, []
+
+    def _get_dfs_root_context(self):
+        """Return (smb_conn, share) for the DFS namespace root."""
+        if self.dfs_context_stack:
+            root = self.dfs_context_stack[0]
+            return root['smb'], root['share']
+        return self.smb, self.share
+
+    def _build_dfs_path(self, path=''):
+        """Build a full DFS UNC path for the current location."""
+        smb_conn, share = self._get_dfs_root_context()
+        server = smb_conn.getRemoteHost()
+        if path:
+            return '\\\\%s\\%s\\%s' % (server, share, path.lstrip('\\'))
+        else:
+            return '\\\\%s\\%s' % (server, share)
+
+    def _reset_dfs_state(self):
+        """Reset DFS state when switching shares or logging off."""
+        if self.dfs_context_stack:
+            # Restore to the very first (root) connection
+            root = self.dfs_context_stack[0]
+            self.smb = root['smb']
+            self.tid = root['tid']
+            self.share = root['share']
+        self.dfs_context_stack = []
+        self.dfs_target_info = None
+        self.dfs_referral_cache = {}
+        # Close cached DFS connections
+        for key, conn in self.dfs_connections.items():
+            try:
+                conn.logoff()
+            except Exception:
+                pass
+        self.dfs_connections = {}
+
+    def _restore_original_connection(self):
+        """Restore previous connection when navigating out of a DFS link (pop from stack)."""
+        if not self.dfs_context_stack:
+            return
+        prev = self.dfs_context_stack.pop()
+        LOG.info("Leaving DFS link, returning to \\\\%s\\%s" % (
+            prev['smb'].getRemoteHost(), prev['share']))
+        self.smb = prev['smb']
+        self.tid = prev['tid']
+        self.share = prev['share']
+        self.pwd = prev['pwd']
+        self.dfs_target_info = prev.get('dfs_target_info')
+
+    def _follow_dfs_link(self, path):
+        """Resolve a DFS link and switch to the target connection.
+        Supports nested DFS (stack-based), multi-target failover, and connection health checks."""
+        # Build full DFS UNC path — try current server first (for nested DFS),
+        # fall back to root namespace server
+        dfs_path = '\\\\%s\\%s\\%s' % (self.smb.getRemoteHost(), self.share, path.lstrip('\\'))
+
+        # Check cache first
+        if dfs_path in self.dfs_referral_cache:
+            referrals = self.dfs_referral_cache[dfs_path]
+        else:
+            LOG.info("Resolving DFS path: %s" % dfs_path)
+            try:
+                referrals = self.smb.getDFSReferral(dfs_path)
+            except Exception:
+                # Fall back to root namespace server for nested DFS
+                if self.dfs_context_stack:
+                    root_smb, root_share = self._get_dfs_root_context()
+                    dfs_path = '\\\\%s\\%s\\%s' % (root_smb.getRemoteHost(), root_share, path.lstrip('\\'))
+                    LOG.info("Retrying DFS referral via root: %s" % dfs_path)
+                    referrals = root_smb.getDFSReferral(dfs_path)
+                else:
+                    raise
+            self.dfs_referral_cache[dfs_path] = referrals
+
+        if not referrals:
+            raise Exception("No DFS referrals returned for path: %s" % dfs_path)
+
+        # Multi-target failover: try all referral targets in order
+        last_error = None
+        save_pwd = ntpath.dirname(self.pwd) if self.pwd != '\\' else '\\'
+
+        for ref in referrals:
+            target_server = ref['target_server']
+            target_share = ref['target_share']
+            target_path = ref.get('target_path', '')
+
+            if not target_server or not target_share:
+                continue
+
+            LOG.info("DFS target: \\\\%s\\%s%s" % (target_server, target_share,
+                     ('\\' + target_path) if target_path else ''))
+
+            try:
+                # Get or create connection to target server
+                conn_key = target_server.lower()
+                target_smb = self.dfs_connections.get(conn_key)
+
+                # Health check: if cached connection exists, try connectTree
+                # If it fails, discard and recreate
+                target_tid = None
+                if target_smb is not None:
+                    try:
+                        target_tid = target_smb.connectTree(target_share)
+                    except Exception:
+                        LOG.debug("Cached DFS connection to %s is dead, reconnecting" % target_server)
+                        try:
+                            target_smb.logoff()
+                        except Exception:
+                            pass
+                        del self.dfs_connections[conn_key]
+                        target_smb = None
+
+                if target_smb is None:
+                    target_smb = SMBConnection(target_server, target_server, sess_port=445)
+                    if self.use_kerberos:
+                        target_smb.kerberosLogin(self.username, self.password, self.domain,
+                                                 self.lmhash, self.nthash, self.aesKey,
+                                                 kdcHost=self.kdcHost, TGT=self.TGT, TGS=None)
+                    else:
+                        target_smb.login(self.username, self.password, self.domain,
+                                         self.lmhash, self.nthash)
+                    self.dfs_connections[conn_key] = target_smb
+                    target_tid = target_smb.connectTree(target_share)
+
+                # Push current state AFTER successful connectTree (so stack is not corrupted on error)
+                self.dfs_context_stack.append({
+                    'smb': self.smb,
+                    'tid': self.tid,
+                    'share': self.share,
+                    'pwd': save_pwd,
+                    'dfs_target_info': self.dfs_target_info,
+                })
+
+                # Switch to DFS target
+                self.smb = target_smb
+                self.tid = target_tid
+                self.share = target_share
+                self.pwd = '\\' + target_path if target_path else '\\'
+                self.dfs_target_info = ref
+                return  # Success
+
+            except Exception as e:
+                LOG.warning("DFS target \\\\%s\\%s failed: %s, trying next..." % (
+                    target_server, target_share, str(e)))
+                last_error = e
+                continue
+
+        raise Exception("All DFS targets failed for path: %s. Last error: %s" % (
+            dfs_path, str(last_error)))
+
+    def do_dfs_info(self, line):
+        if self.loggedIn is False:
+            LOG.error("Not logged in")
+            return
+        if self.tid is None:
+            LOG.error("No share selected")
+            return
+
+        # Build DFS path — use root namespace context
+        smb_conn, share = self._get_dfs_root_context()
+
+        if line:
+            p = line.replace('/', '\\')
+            if not p.startswith('\\'):
+                p = ntpath.join(self.pwd, p)
+            p = ntpath.normpath(p)
+        else:
+            p = self.pwd
+
+        dfs_path = '\\\\%s\\%s\\%s' % (smb_conn.getRemoteHost(), share, p.lstrip('\\'))
+
+        try:
+            referrals = smb_conn.getDFSReferral(dfs_path)
+        except SessionError as e:
+            LOG.error("Failed to get DFS referral: %s" % str(e))
+            return
+
+        if not referrals:
+            print("No DFS referrals found for: %s" % dfs_path)
+            return
+
+        print("DFS Path: %s" % dfs_path)
+        print("Referrals:")
+        for i, ref in enumerate(referrals):
+            server_type = "Root" if ref['server_type'] == 1 else "Link"
+            print("  [%d] Type: %s" % (i, server_type))
+            print("      Target: %s" % ref['network_address'])
+            if ref['target_path']:
+                print("      Path: %s" % ref['target_path'])
+            print("      TTL: %d seconds" % ref['ttl'])
+
+    def do_dfs_mode(self, line):
+        """Toggle or display DFS auto-follow mode. Usage: dfs_mode [on|off]"""
+        line = line.strip().lower()
+        if line == '':
+            status = 'ON' if self.dfs_auto_follow else 'OFF'
+            print("DFS auto-follow is currently %s" % status)
+            if not self.dfs_auto_follow:
+                print("  Use 'dfs_mode on' to enable automatic DFS link following (creates new SMB connections)")
+                print("  Or use '-dfs-follow' CLI argument at startup")
+        elif line in ('on', '1', 'true', 'enable'):
+            self.dfs_auto_follow = True
+            LOG.info("DFS auto-follow enabled - cd into DFS links will create new SMB connections")
+        elif line in ('off', '0', 'false', 'disable'):
+            self.dfs_auto_follow = False
+            LOG.info("DFS auto-follow disabled - cd into DFS links will show referral info only")
+        else:
+            LOG.error("Usage: dfs_mode [on|off]")
+
+    def do_pwd(self, line):
+        if self.loggedIn is False:
+            LOG.error("Not logged in")
+            return
+        if self.is_dfs_context and self.dfs_target_info:
+            root = self.dfs_context_stack[0]
+            print("\\\\%s\\%s (DFS [depth=%d] -> \\\\%s\\%s%s)" % (
+                root['smb'].getRemoteHost(),
+                root['share'],
+                len(self.dfs_context_stack),
+                self.smb.getRemoteHost(),
+                self.share,
+                self.pwd.replace("\\", "/")))
+        else:
+            print(self.pwd.replace("\\","/"))
+        if self.outputfile is not None:
+            f = open(self.outputfile, 'a')
+            f.write(self.pwd.replace("\\","/"))
+            f.close()
 
     def do_EOF(self, line):
         print('Bye!\n')
