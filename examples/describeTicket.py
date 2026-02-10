@@ -38,7 +38,7 @@ from impacket.krb5 import constants, pac
 from impacket.krb5.asn1 import TGS_REP, EncTicketPart, AD_IF_RELEVANT
 from impacket.krb5.ccache import CCache
 from impacket.krb5.constants import ChecksumTypes
-from impacket.krb5.crypto import Key, _enctype_table, InvalidChecksum, string_to_key, generate_kerberos_keys
+from impacket.krb5.crypto import Key, _enctype_table, InvalidChecksum, generate_kerberos_keys
 from impacket.ldap.ldaptypes import LDAP_SID
 
 PSID = PRPC_SID
@@ -254,6 +254,8 @@ def parse_ccache(args):
             if ((creds['tktflags'] >> (31 - k.value)) & 1) == 1:
                 flags.append(constants.TicketFlags(k.value).name)
         logging.info("%-30s: (0x%x) %s" % ("Flags", creds['tktflags'], ", ".join(flags)))
+        etype = decodedTicket['ticket']['enc-part']['etype']
+        etype_enc = constants.EncryptionTypes(etype).name
         keyType = constants.EncryptionTypes(creds["key"]["keytype"]).name
         logging.info("%-30s: %s" % ("KeyType", keyType))
         logging.info("%-30s: %s" % ("Base64(key)", base64.b64encode(creds["key"]["keyvalue"]).decode("utf-8")))
@@ -263,11 +265,11 @@ def parse_ccache(args):
             kerberoast_hash = None
             # code adapted from Rubeus's DisplayTicket() (https://github.com/GhostPack/Rubeus/blob/3620814cd2c5f05e87cddd50211197bd932fec51/Rubeus/lib/LSA.cs)
             # if this isn't a TGT, try to display a Kerberoastable hash
-            if keyType != "rc4_hmac"  and keyType != "aes256_cts_hmac_sha1_96":
+            if etype_enc != "rc4_hmac"  and etype_enc != "aes256_cts_hmac_sha1_96":
                 # can only display rc4_hmac ad it doesn't have a salt. DES/AES keys require the user/domain as a salt, and we don't have
                 # the user account name that backs the requested SPN for the ticket, no no dice :(
                 logging.debug("Service ticket uses encryption key type %s, unable to extract hash and salt" % keyType)
-            elif keyType == "rc4_hmac":
+            elif etype_enc == "rc4_hmac":
                 kerberoast_hash = kerberoast_from_ccache(decodedTGS = decodedTicket, spn = spn, username = args.user, domain = args.domain)
             elif args.user:
                 if args.user.endswith("$"):
@@ -282,7 +284,6 @@ def parse_ccache(args):
 
         logging.info("%-30s:" % "Decoding unencrypted data in credential[%d]['ticket']" % cred_number)
         spn = "/".join(list([str(sname_component) for sname_component in decodedTicket['ticket']['sname']['name-string']]))
-        etype = decodedTicket['ticket']['enc-part']['etype']
         logging.info("  %-28s: %s" % ("Service Name", spn))
         logging.info("  %-28s: %s" % ("Service Realm", decodedTicket['ticket']['realm']))
         logging.info("  %-28s: %s (etype %d)" % ("Encryption type", constants.EncryptionTypes(etype).name, etype))
@@ -295,7 +296,7 @@ def parse_ccache(args):
         # copypasta from krbrelayx.py
         # Select the correct encryption key
         try:
-            logging.debug('Ticket is encrypted with %s (etype %d)' % (constants.EncryptionTypes(etype).name, etype))
+            logging.debug('Ticket is encrypted with %s (etype %d)' % (etype_enc, etype))
             key = ekeys[etype]
             logging.debug('Using corresponding key: %s' % hexlify(key.contents).decode('utf-8'))
         # This raises a KeyError (pun intended) if our key is not found
@@ -309,7 +310,7 @@ def parse_ccache(args):
                 logging.error('Could not find the correct encryption key! Ticket is encrypted with %s (etype %d), but no keys/creds were supplied',
                               constants.EncryptionTypes(etype).name,
                               etype)
-            return None
+            continue
 
         # todo : decodedTicket['ticket']['enc-part'] is handled. Handle decodedTicket['enc-part']?
         # Recover plaintext info from ticket
@@ -322,7 +323,7 @@ def parse_ccache(args):
             if args.salt:
                 logging.info('Make sure the salt/username/domain are set and with the proper values. In case of a computer account, append a "$" to the name.')
                 logging.debug('Remember: the encrypted-part of the ticket is secured with one of the target service\'s Kerberos keys. The target service is the one who owns the \'Service Name\' SPN printed above')
-            return
+            continue
 
         logging.debug('Ticket successfully decrypted')
         encTicketPart = decoder.decode(plainText, asn1Spec=EncTicketPart())[0]
