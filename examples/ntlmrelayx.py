@@ -289,6 +289,7 @@ if __name__ == '__main__':
                                   "to the client')")
     parser.add_argument('-tf', action='store', metavar = 'TARGETSFILE', help='File that contains targets by hostname or '
                                                                              'full URL, one per line')
+    parser.add_argument('-re', '--regex', action='store_true', help='Enable the use of regex in the targets file (only valid with -tf)')
     parser.add_argument('-w', action='store_true', help='Watch the target file for changes and update target list '
                                                         'automatically (only valid with -tf)')
     parser.add_argument('-i','--interactive', action='store_true',help='Launch an smbclient, LDAP console or SQL shell instead'
@@ -496,7 +497,7 @@ if __name__ == '__main__':
                 logging.info("To add a machine account through SMB only the Domain Controller must be specified as target")
                 sys.exit(1)
             logging.info("Running in relay mode to hosts in targetfile")
-            targetSystem = TargetsProcessor(targetListFile=options.tf, protocolClients=PROTOCOL_CLIENTS, randomize=options.random)
+            targetSystem = TargetsProcessor(targetListFile=options.tf, protocolClients=PROTOCOL_CLIENTS, randomize=options.random, regex=options.regex)
             mode = 'RELAY'
         else:
             logging.info("Running in reflection mode")
