@@ -27,8 +27,11 @@
 #   - https://github.com/rvazarkar/KrbCredExport
 #
 
+import os
 import argparse
+import base64
 import struct
+import tempfile
 
 from impacket import version
 from impacket.krb5.ccache import CCache
@@ -38,6 +41,9 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('input_file', help="File in kirbi (KRB-CRED) or ccache format")
     parser.add_argument('output_file', help="Output file")
+    parser.add_argument(
+        '-b', '--base64', action='store_true', help="Decode input ticket from base64 with unwrap support"
+    )
     return parser.parse_args()
 
 
@@ -46,16 +52,32 @@ def main():
 
     args = parse_args()
 
-    if is_kirbi_file(args.input_file):
+    if args.base64:
+        decoded_file = tempfile.NamedTemporaryFile(mode='w+b', delete=False)
+        print('[*] base64 decoding ticket')
+        decoded_file.write(base64_decode_with_unwrap(args.input_file))
+        decoded_file.flush()
+    
+    input_file = decoded_file.name if args.base64 else args.input_file
+
+    if is_kirbi_file(input_file):
         print('[*] converting kirbi to ccache...')
-        convert_kirbi_to_ccache(args.input_file, args.output_file)
+        convert_kirbi_to_ccache(input_file, args.output_file)
         print('[+] done')
-    elif is_ccache_file(args.input_file):
+    elif is_ccache_file(input_file):
         print('[*] converting ccache to kirbi...')
-        convert_ccache_to_kirbi(args.input_file, args.output_file)
+        convert_ccache_to_kirbi(input_file, args.output_file)
         print('[+] done')
     else:
         print('[X] unknown file format')
+    
+    # Cleanup manually to avoid issues with Windows delete permissions
+    if args.base64:
+        try:
+            decoded_file.close()
+            os.unlink(decoded_file.name)
+        except PermissionError:
+            print('[!] Failed to clean temporary files due to PermissionError')
 
 
 def is_kirbi_file(filename):
@@ -79,6 +101,13 @@ def convert_ccache_to_kirbi(input_filename, output_filename):
     ccache = CCache.loadFile(input_filename)
     ccache.saveKirbiFile(output_filename)
 
+
+def base64_decode_with_unwrap(input_filename):
+    with open(input_filename, 'r', encoding='latin-1') as f:
+        data = ''.join(f.read().strip().splitlines())
+        data = base64.b64decode(data.encode('latin-1'))
+
+    return data
 
 if __name__ == '__main__':
     main()

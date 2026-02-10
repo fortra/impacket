@@ -154,7 +154,9 @@ class SMBRelayServer(Thread):
                     self.target = self.targetprocessor.getTarget(multiRelay=False)
                 else:
                     LOG.info('(SMB): Connection from %s controlled, but there are no more targets left!' % connData['ClientIP'])
-                    return [SMB2Error()], None, STATUS_BAD_NETWORK_NAME
+                    respPacket['Status'] = STATUS_BAD_NETWORK_NAME
+                    respPacket['Data'] = SMB2Error()
+                    return None, [respPacket], STATUS_BAD_NETWORK_NAME
 
             LOG.info("(SMB): Received connection from %s, attacking target %s://%s" % (connData['ClientIP'], self.target.scheme, self.target.netloc))
 
