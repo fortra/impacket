@@ -38,9 +38,10 @@ from impacket.smb3structs import FILE_ATTRIBUTE_NORMAL, FILE_SYNCHRONOUS_IO_NONA
 ## Access Mask.
 from impacket.smb import FILE_READ_DATA , FILE_WRITE_DATA, GENERIC_READ, GENERIC_WRITE, GENERIC_ALL, READ_CONTROL, \
                          FILE_READ_ATTRIBUTES, FILE_READ_EA, SYNCHRONIZE
-
 ## Share Access Modes.
 from impacket.smb import FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_SHARE_DELETE
+
+from impacket.smb3structs import SMB2_0_IOCTL_IS_FSCTL, FSCTL_DELETE_REPARSE_POINT, FSCTL_SET_REPARSE_POINT, SYMLINK_REPARSE_DATA_STRUCTURE, SYMLINK_REPARSE_GUID_DATA_STRUCTURE
 
 
 class SMBConnection:
@@ -965,6 +966,52 @@ class SMBConnection:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
         self.closeFile(tid, fid)
+
+    def createSymlink(self, tid, path, target):
+        """
+        creates a symlink from path to target
+
+        :param int tid: tree id of current connection
+        :param string path: file or directory where symlink is created (must already exist)
+        :param string target: file or directory where symlink will point to (can be inexistent)
+
+        :raise SessionError: if error
+        """
+
+        substitute_name = f'\\??\\{target}'.encode('utf-16le')
+        print_name = target.encode('utf-16le')
+        reparse_data = SYMLINK_REPARSE_DATA_STRUCTURE()
+        reparse_data['PathBuffer'] = print_name + substitute_name
+        reparse_data['ReparseDataLen'] = len(print_name + substitute_name) + 12
+        reparse_data['SubstituteNameOffset'] = len(print_name)
+        reparse_data['SubstituteNameLength'] = len(substitute_name)
+        reparse_data['PrintNameOffset'] = 0
+        reparse_data['PrintNameLength'] = len(print_name)
+
+        fid = self.openFile(tid, path, GENERIC_READ|GENERIC_WRITE, creationOption=FILE_OPEN_REPARSE_POINT)
+        try:
+            self._SMBConnection.ioctl(tid, fid, FSCTL_SET_REPARSE_POINT, flags=SMB2_0_IOCTL_IS_FSCTL, inputBlob=reparse_data)
+        finally:
+            self.closeFile(tid, fid)
+
+    def removeSymlink(self, tid, path):
+        """
+        removes a symlink without deleting the underlying file or directory
+
+        :param int tid: tree id of current connection
+        :param string path: path to symlink
+
+        :raise SessionError: if error
+        """
+
+        reparse_data = SYMLINK_REPARSE_GUID_DATA_STRUCTURE()
+        reparse_data['DataBuffer'] = b''
+
+        fid = self.openFile(tid, path, GENERIC_READ|GENERIC_WRITE, creationOption=FILE_OPEN_REPARSE_POINT)
+        try:
+            self._SMBConnection.ioctl(tid, fid, FSCTL_DELETE_REPARSE_POINT, flags=SMB2_0_IOCTL_IS_FSCTL, inputBlob=reparse_data)
+        finally:
+            self.closeFile(tid, fid)
 
     def rename(self, shareName, oldPath, newPath):
         """
