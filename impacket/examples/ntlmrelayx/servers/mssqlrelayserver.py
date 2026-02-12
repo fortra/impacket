@@ -24,6 +24,11 @@ import socketserver
 import random
 import string
 import struct
+import socket
+import ssl
+import os
+import tempfile
+import datetime
 from threading import Thread
 
 from impacket import ntlm, tds, LOG
@@ -45,6 +50,53 @@ class MSSQLRelayServer(Thread):
             self.address_family, server_address = get_address(server_address[0], server_address[1], self.config.ipv6)
             socketserver.TCPServer.allow_reuse_address = True
             socketserver.TCPServer.__init__(self, server_address, RequestHandlerClass)
+            self.ssl_context = self._create_ssl_context()
+
+        @staticmethod
+        def _create_ssl_context():
+            """Create an SSL context with a self-signed certificate for TDS 8.0 support."""
+            from cryptography import x509
+            from cryptography.x509.oid import NameOID
+            from cryptography.hazmat.primitives import hashes, serialization
+            from cryptography.hazmat.primitives.asymmetric import rsa
+
+            key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+            subject = issuer = x509.Name([
+                x509.NameAttribute(NameOID.COMMON_NAME, u"MSSQLSERVER"),
+            ])
+            now = datetime.datetime.now(datetime.timezone.utc)
+            cert = (
+                x509.CertificateBuilder()
+                .subject_name(subject)
+                .issuer_name(issuer)
+                .public_key(key.public_key())
+                .serial_number(x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=365))
+                .sign(key, hashes.SHA256())
+            )
+
+            cert_pem = cert.public_bytes(serialization.Encoding.PEM)
+            key_pem = key.private_bytes(
+                serialization.Encoding.PEM,
+                serialization.PrivateFormat.TraditionalOpenSSL,
+                serialization.NoEncryption()
+            )
+
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ctx.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
+            ctx.set_ciphers('ALL:@SECLEVEL=0')
+            ctx.set_alpn_protocols(["tds/8.0"])
+
+            with tempfile.NamedTemporaryFile(mode='wb', suffix='.pem', delete=False) as f:
+                f.write(cert_pem + key_pem)
+                tmpfile = f.name
+            try:
+                ctx.load_cert_chain(tmpfile)
+            finally:
+                os.unlink(tmpfile)
+
+            return ctx
 
     class MSSQLHandler(socketserver.BaseRequestHandler):
 
@@ -165,33 +217,55 @@ class MSSQLRelayServer(Thread):
             
             return          
           
-        def handle(self):            
+        def handle(self):
             try:
+                # Detect TDS 8.0 (TLS from start) by peeking at the first byte
+                first_byte = self.request.recv(1, socket.MSG_PEEK)
+                if not first_byte:
+                    return
+
+                self.tds8_mode = False
+                if first_byte[0] == 0x16:  # TLS handshake record
+                    LOG.debug("(MSSQL): Detected TDS 8.0 (TLS) connection from %s" % self.client_address)
+                    self.tds8_mode = True
+                    try:
+                        self.request = self.server.ssl_context.wrap_socket(
+                            self.request, server_side=True
+                        )
+                    except ssl.SSLError as e:
+                        LOG.error("(MSSQL): TLS handshake failed: %s" % e)
+                        return
+                    LOG.debug("(MSSQL): TDS 8.0 TLS handshake completed")
+
                 while True:
                     # Receive packet from the client
                     packet = self.request.recv(65535)
                     if not packet:
                         break
-                    
+
                     if packet[0] == tds.TDS_PRE_LOGIN:         # Pre-login stage
-                    
+
                         LOG.debug("(MSSQL): Receieved TDS pre-login from client")
                         self.client = self.init_client()
                         LOG.debug("(MSSQL): Sending our own TDS pre-login response to client")
                         preloginResponseData = tds.TDS_PRELOGIN()
                         preloginResponseData["Version"] = b"\x0f\x00\x11\x3a\x00\x00"
-                        # We specify we do not support encryption
-                        preloginResponseData["Encryption"] = tds.TDS_ENCRYPT_NOT_SUP
+                        if self.tds8_mode:
+                            # TDS 8.0: already inside TLS, indicate strict encryption
+                            preloginResponseData["Encryption"] = tds.TDS_ENCRYPT_STRICT
+                        else:
+                            # TDS 7.x: we do not support encryption
+                            preloginResponseData["Encryption"] = tds.TDS_ENCRYPT_NOT_SUP
                         # InstOpt is 0, we confirm that the client's InstOpt matches the server's instance
-                        preloginResponseData["Instance"] = b"\x00"                        
+                        preloginResponseData["Instance"] = b"\x00"
                         # ThreadId is empty in the server response
                         preloginResponseData["ThreadID"] = b""
                         preloginResponseData["ThreadIDLength"] = 0
-                        
+
                         preloginResponse = tds.TDSPacket()
                         preloginResponse["Type"] = tds.TDS_TABULAR
                         preloginResponse["Data"] = preloginResponseData.getData()
-                        
+
                         self.request.send(preloginResponse.getData())                      
                         
                     elif packet[0] == tds.TDS_LOGIN7:    # Login stage
