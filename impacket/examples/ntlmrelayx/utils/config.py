@@ -191,7 +191,7 @@ class NTLMRelayxConfig:
     def setRandomTargets(self, randomtargets):
         self.randomtargets = randomtargets
 
-    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser, addcomputer, delegateaccess, dumplaps, dumpgmsa, dumpadcs, sid, adddnsrecord):
+    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser, addcomputer, delegateaccess, dumplaps, dumpgmsa, dumpadcs, sid, adddnsrecord, usesaslgssapi=False):
         self.dumpdomain = dumpdomain
         self.addda = addda
         self.aclattack = aclattack
@@ -204,6 +204,7 @@ class NTLMRelayxConfig:
         self.dumpadcs = dumpadcs
         self.sid = sid
         self.adddnsrecord = adddnsrecord
+        self.usesaslgssapi = usesaslgssapi
 
     def setMSSQLOptions(self, queries):
         self.queries = queries
@@ -281,6 +282,9 @@ class NTLMRelayxConfig:
 
     def setAltName(self, altName):
         self.altName = altName
+
+    def setUseSaslGssapi(self, usesaslgssapi):
+        self.usesaslgssapi = usesaslgssapi
 
 def parse_listening_ports(value):
     ports = set()
