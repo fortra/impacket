@@ -210,7 +210,7 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
 
     return True
 
-def _init_ldap_connection(target, use_ssl, domain, username, password, lmhash, nthash, k, dc_ip, aesKey):
+def _init_ldap_connection(target, use_ssl, domain, username, password, lmhash, nthash, k, dc_ip, aesKey, use_channel_binding):
     user = '%s\\%s' % (domain, username)
     connect_to = target
     if dc_ip is not None:
@@ -218,19 +218,26 @@ def _init_ldap_connection(target, use_ssl, domain, username, password, lmhash, n
 
     port = 636 if use_ssl else 389
     ldap_server = ldap3.Server(connect_to, get_info=ldap3.ALL, port=port, use_ssl=use_ssl)
+    channel_binding = dict()
+    if use_channel_binding:
+        if not hasattr(ldap3, 'TLS_CHANNEL_BINDING'):
+            raise RuntimeError('To use LDAP channel binding, install the dev branch of ldap3: pip3 install git+https://github.com/cannatag/ldap3@dev')
+        if k:
+            raise RuntimeError('Channel binding is not yet implemented for Kerberos')
+        channel_binding = dict(channel_binding=ldap3.TLS_CHANNEL_BINDING)
 
     if k:
-        ldap_session = ldap3.Connection(ldap_server)
+        ldap_session = ldap3.Connection(ldap_server, **channel_binding)
         ldap_session.bind()
         ldap3_kerberos_login(ldap_session, target, username, password, domain, lmhash, nthash, aesKey, kdcHost=dc_ip)
     elif lmhash == '' and nthash == '':
-        ldap_session = ldap3.Connection(ldap_server, user=user, password=password, authentication=ldap3.NTLM, auto_bind=True)
+        ldap_session = ldap3.Connection(ldap_server, user=user, password=password, authentication=ldap3.NTLM, auto_bind=True, **channel_binding)
     else:
-        ldap_session = ldap3.Connection(ldap_server, user=user, password=lmhash + ":" + nthash, authentication=ldap3.NTLM, auto_bind=True)
+        ldap_session = ldap3.Connection(ldap_server, user=user, password=lmhash + ":" + nthash, authentication=ldap3.NTLM, auto_bind=True, **channel_binding)
 
     return ldap_server, ldap_session
 
-def init_ldap_session(domain, username, password, lmhash, nthash, k, dc_ip, dc_host, aesKey, use_ldaps):
+def init_ldap_session(domain, username, password, lmhash, nthash, k, dc_ip, dc_host, aesKey, use_ldaps, use_channel_binding=False):
     if k:
         if dc_host is not None:
             target = dc_host
@@ -244,7 +251,7 @@ def init_ldap_session(domain, username, password, lmhash, nthash, k, dc_ip, dc_h
         else:
             target = domain
 
-    return _init_ldap_connection(target, use_ldaps, domain, username, password, lmhash, nthash, k, dc_ip, aesKey)
+    return _init_ldap_connection(target, use_ldaps, domain, username, password, lmhash, nthash, k, dc_ip, aesKey, use_channel_binding)
 
 # ----------
 
