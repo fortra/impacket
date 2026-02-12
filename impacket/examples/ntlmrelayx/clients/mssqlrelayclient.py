@@ -64,24 +64,7 @@ class MYMSSQL(MSSQL):
     def initConnection(self):
         LOG.debug("(MSSQL) Initiating MSSQL connection to %s:%d" % (self.server, self.port))
 
-        # Try TDS 8.0 first (TLS from the start)
-        # This handles Force Strict Encryption servers
-        try:
-            LOG.debug("(MSSQL) Attempting TDS 8.0 connection first")
-            self.connect()
-            self._setup_tds8()
-            resp = self.preLogin()
-            LOG.debug("(MSSQL) TDS 8.0 successful, Encryption=%d" % resp['Encryption'])
-            self.resp = resp
-            return True
-        except Exception as e:
-            LOG.debug("(MSSQL) TDS 8.0 failed (%s: %s), trying plain TDS" % (type(e).__name__, e))
-            try:
-                self.disconnect()
-            except:
-                pass
-
-        # Fall back to plain TDS with encryption negotiation
+        # Start with plain TDS and negotiate encryption
         self.connect()
         LOG.debug("(MSSQL) TCP connection established")
 
@@ -93,28 +76,38 @@ class MYMSSQL(MSSQL):
         prelogin["Instance"] = b"MSSQLServer\x00"
 
         LOG.debug("(MSSQL) Sending preLogin packet (ENCRYPT_OFF)")
-        self.sendTDS(TDS_PRE_LOGIN, prelogin.getData(), 0)
-        LOG.debug("(MSSQL) Waiting for preLogin response...")
-        tds = self.recvTDS()
-        resp = TDS_PRELOGIN(tds["Data"])
-        self.mssql_version = MSSQL_VERSION(resp["Version"])
-        LOG.debug("(MSSQL) Received preLogin response, Encryption=%d" % resp['Encryption'])
+        try:
+            self.sendTDS(TDS_PRE_LOGIN, prelogin.getData(), 0)
+            LOG.debug("(MSSQL) Waiting for preLogin response...")
+            tds = self.recvTDS()
+            resp = TDS_PRELOGIN(tds["Data"])
+            self.mssql_version = MSSQL_VERSION(resp["Version"])
+            LOG.debug("(MSSQL) Received preLogin response, Encryption=%d" % resp['Encryption'])
+        except Exception as e:
+            # Plain TDS prelogin failed — server likely requires TDS 8.0 from the start
+            LOG.debug("(MSSQL) Plain TDS prelogin failed (%s: %s), trying TDS 8.0" % (type(e).__name__, e))
+            try:
+                self.disconnect()
+            except:
+                pass
+            self.connect()
+            self._setup_tds8()
+            resp = self.preLogin()
+            LOG.debug("(MSSQL) TDS 8.0 preLogin successful, Encryption=%d" % resp['Encryption'])
+            self.resp = resp
+            return True
 
         # Handle server encryption response
         if resp['Encryption'] == TDS_ENCRYPT_STRICT:
-            # Server requires TDS 8.0 strict encryption
+            # Server requires TDS 8.0 strict encryption — reconnect with TLS
             LOG.info("(MSSQL) Server requires TDS 8.0 (ENCRYPT_STRICT), reconnecting with TLS")
             self.disconnect()
-            LOG.debug("(MSSQL) Reconnecting for TDS 8.0")
             self.connect()
-            LOG.debug("(MSSQL) Calling _setup_tds8()")
             self._setup_tds8()
-            LOG.debug("(MSSQL) Sending preLogin over TDS 8.0")
             resp = self.preLogin()
             LOG.debug("(MSSQL) TDS 8.0 preLogin successful")
         elif resp['Encryption'] in (TDS_ENCRYPT_REQ, TDS_ENCRYPT_ON):
             # Server requires encryption, use STARTTLS (TLS inside TDS packets via MemoryBIO)
-            # The STARTTLS handshake happens as part of the preLogin exchange
             LOG.info("(MSSQL) Encryption required, switching to TLS (STARTTLS)")
             context = ssl.SSLContext()
             context.set_ciphers('ALL:@SECLEVEL=0')
@@ -131,7 +124,6 @@ class MYMSSQL(MSSQL):
                 try:
                     tls.do_handshake()
                 except ssl.SSLWantReadError:
-                    # TLS context needs more data from server
                     data = out_bio.read(4096)
                     LOG.debug("(MSSQL) Sending TLS handshake data (%d bytes)" % len(data))
                     self.sendTDS(TDS_PRE_LOGIN, data, 0)
@@ -140,7 +132,6 @@ class MYMSSQL(MSSQL):
                     LOG.debug("(MSSQL) Received TLS handshake data (%d bytes)" % len(tls_data))
                     in_bio.write(tls_data)
                 else:
-                    # Handshake complete
                     LOG.debug("(MSSQL) STARTTLS handshake complete")
                     break
 
