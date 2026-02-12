@@ -48,34 +48,34 @@ class MYMSSQL(MSSQL):
 
     def _setup_tds8(self):
         """Wrap the TCP socket in TLS for TDS 8.0 strict encryption."""
-        LOG.debug("[TDS8] Setting up TDS 8.0 strict encryption")
+        LOG.debug("(TDS8) Setting up TDS 8.0 strict encryption")
         context = ssl.SSLContext()
         context.set_ciphers('ALL:@SECLEVEL=0')
         context.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
         context.set_alpn_protocols(["tds/8.0"])
-        LOG.debug("[TDS8] Wrapping socket with TLS (server: %s)" % self.server)
+        LOG.debug("(TDS8) Wrapping socket with TLS (server: %s)" % self.server)
         self.socket = context.wrap_socket(self.socket, server_hostname=self.server)
         self.tds8 = True
         self.packetSize = 16 * 1024 - 1
-        LOG.info("[TDS8] TDS 8.0 TLS connection established")
+        LOG.info("(TDS8) TDS 8.0 TLS connection established")
 
     def initConnection(self):
-        LOG.debug("[MSSQL] Initiating MSSQL connection to %s:%d" % (self.server, self.port))
+        LOG.debug("(MSSQL) Initiating MSSQL connection to %s:%d" % (self.server, self.port))
 
         # Try TDS 8.0 first (TLS from the start)
         # This handles Force Strict Encryption servers
         try:
-            LOG.debug("[MSSQL] Attempting TDS 8.0 connection first")
+            LOG.debug("(MSSQL) Attempting TDS 8.0 connection first")
             self.connect()
             self._setup_tds8()
             resp = self.preLogin()
-            LOG.debug("[MSSQL] TDS 8.0 successful, Encryption=%d" % resp['Encryption'])
+            LOG.debug("(MSSQL) TDS 8.0 successful, Encryption=%d" % resp['Encryption'])
             self.resp = resp
             return True
         except Exception as e:
-            LOG.debug("[MSSQL] TDS 8.0 failed (%s: %s), trying plain TDS" % (type(e).__name__, e))
+            LOG.debug("(MSSQL) TDS 8.0 failed (%s: %s), trying plain TDS" % (type(e).__name__, e))
             try:
                 self.disconnect()
             except:
@@ -83,7 +83,7 @@ class MYMSSQL(MSSQL):
 
         # Fall back to plain TDS with encryption negotiation
         self.connect()
-        LOG.debug("[MSSQL] TCP connection established")
+        LOG.debug("(MSSQL) TCP connection established")
 
         # Send initial preLogin with ENCRYPT_OFF (support encryption but don't require it)
         prelogin = TDS_PRELOGIN()
@@ -92,30 +92,30 @@ class MYMSSQL(MSSQL):
         prelogin["ThreadID"] = struct.pack("<L", random.randint(0, 65535))
         prelogin["Instance"] = b"MSSQLServer\x00"
 
-        LOG.debug("[MSSQL] Sending preLogin packet (ENCRYPT_OFF)")
+        LOG.debug("(MSSQL) Sending preLogin packet (ENCRYPT_OFF)")
         self.sendTDS(TDS_PRE_LOGIN, prelogin.getData(), 0)
-        LOG.debug("[MSSQL] Waiting for preLogin response...")
+        LOG.debug("(MSSQL) Waiting for preLogin response...")
         tds = self.recvTDS()
         resp = TDS_PRELOGIN(tds["Data"])
         self.mssql_version = MSSQL_VERSION(resp["Version"])
-        LOG.debug("[MSSQL] Received preLogin response, Encryption=%d" % resp['Encryption'])
+        LOG.debug("(MSSQL) Received preLogin response, Encryption=%d" % resp['Encryption'])
 
         # Handle server encryption response
         if resp['Encryption'] == TDS_ENCRYPT_STRICT:
             # Server requires TDS 8.0 strict encryption
-            LOG.info("[MSSQL] Server requires TDS 8.0 (ENCRYPT_STRICT), reconnecting with TLS")
+            LOG.info("(MSSQL) Server requires TDS 8.0 (ENCRYPT_STRICT), reconnecting with TLS")
             self.disconnect()
-            LOG.debug("[MSSQL] Reconnecting for TDS 8.0")
+            LOG.debug("(MSSQL) Reconnecting for TDS 8.0")
             self.connect()
-            LOG.debug("[MSSQL] Calling _setup_tds8()")
+            LOG.debug("(MSSQL) Calling _setup_tds8()")
             self._setup_tds8()
-            LOG.debug("[MSSQL] Sending preLogin over TDS 8.0")
+            LOG.debug("(MSSQL) Sending preLogin over TDS 8.0")
             resp = self.preLogin()
-            LOG.debug("[MSSQL] TDS 8.0 preLogin successful")
+            LOG.debug("(MSSQL) TDS 8.0 preLogin successful")
         elif resp['Encryption'] in (TDS_ENCRYPT_REQ, TDS_ENCRYPT_ON):
             # Server requires encryption, use STARTTLS (TLS inside TDS packets via MemoryBIO)
             # The STARTTLS handshake happens as part of the preLogin exchange
-            LOG.info("[MSSQL] Encryption required, switching to TLS (STARTTLS)")
+            LOG.info("(MSSQL) Encryption required, switching to TLS (STARTTLS)")
             context = ssl.SSLContext()
             context.set_ciphers('ALL:@SECLEVEL=0')
             context.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
@@ -126,22 +126,22 @@ class MYMSSQL(MSSQL):
             tls = context.wrap_bio(in_bio, out_bio)
 
             # Perform TLS handshake, exchanging TLS data in preLogin packets
-            LOG.debug("[MSSQL] Starting STARTTLS handshake")
+            LOG.debug("(MSSQL) Starting STARTTLS handshake")
             while True:
                 try:
                     tls.do_handshake()
                 except ssl.SSLWantReadError:
                     # TLS context needs more data from server
                     data = out_bio.read(4096)
-                    LOG.debug("[MSSQL] Sending TLS handshake data (%d bytes)" % len(data))
+                    LOG.debug("(MSSQL) Sending TLS handshake data (%d bytes)" % len(data))
                     self.sendTDS(TDS_PRE_LOGIN, data, 0)
                     tds_packet = self.recvTDS(4096)
                     tls_data = tds_packet["Data"]
-                    LOG.debug("[MSSQL] Received TLS handshake data (%d bytes)" % len(tls_data))
+                    LOG.debug("(MSSQL) Received TLS handshake data (%d bytes)" % len(tls_data))
                     in_bio.write(tls_data)
                 else:
                     # Handshake complete
-                    LOG.debug("[MSSQL] STARTTLS handshake complete")
+                    LOG.debug("(MSSQL) STARTTLS handshake complete")
                     break
 
             self.packetSize = 16 * 1024 - 1
@@ -149,7 +149,7 @@ class MYMSSQL(MSSQL):
             self.in_bio = in_bio
             self.out_bio = out_bio
 
-        LOG.debug("[MSSQL] initConnection() complete")
+        LOG.debug("(MSSQL) initConnection() complete")
         self.resp = resp
         return True
 
@@ -170,7 +170,7 @@ class MYMSSQL(MSSQL):
         login['Length'] = len(login.getData())
 
         # Send the NTLMSSP Negotiate
-        LOG.debug("[MSSQL] sendNegotiate: TDS8=%s, PacketSize=%d, Encryption=%d, tlsSocket=%s" %
+        LOG.debug("(MSSQL) sendNegotiate: TDS8=%s, PacketSize=%d, Encryption=%d, tlsSocket=%s" %
                   (self.tds8, self.packetSize, self.resp['Encryption'], self.tlsSocket is not None))
         self.sendTDS(TDS_LOGIN7, login.getData())
 
@@ -178,7 +178,7 @@ class MYMSSQL(MSSQL):
         # the first Login packet :-o
         # In TDS 8.0 mode, the socket is already TLS-wrapped, so we don't use tlsSocket
         if not self.tds8 and self.resp['Encryption'] == TDS_ENCRYPT_OFF:
-            LOG.debug("[MSSQL] Disabling tlsSocket after first login packet")
+            LOG.debug("(MSSQL) Disabling tlsSocket after first login packet")
             self.tlsSocket = None
 
         tds = self.recvTDS()
@@ -196,33 +196,33 @@ class MYMSSQL(MSSQL):
         else:
             token = authenticateMessageBlob
 
-        LOG.debug("[MSSQL] sendAuth: TDS8=%s, tlsSocket=%s" % (self.tds8, self.tlsSocket is not None))
+        LOG.debug("(MSSQL) sendAuth: TDS8=%s, tlsSocket=%s" % (self.tds8, self.tlsSocket is not None))
         self.sendTDS(TDS_SSPI, token)
         tds = self.recvTDS()
-        LOG.debug("[MSSQL] sendAuth: received %d bytes" % len(tds['Data']))
+        LOG.debug("(MSSQL) sendAuth: received %d bytes" % len(tds['Data']))
         self.replies = self.parseReply(tds['Data'])
         if TDS_LOGINACK_TOKEN in self.replies:
             #Once we are here, there is a full connection and we can
             #do whatever the current user has rights to do
             self.sessionData['AUTH_ANSWER'] = tds
-            LOG.debug("[MSSQL] Authentication successful")
+            LOG.debug("(MSSQL) Authentication successful")
             return None, STATUS_SUCCESS
         else:
-            LOG.debug("[MSSQL] Authentication failed")
+            LOG.debug("(MSSQL) Authentication failed")
             self.printReplies()
             return None, STATUS_ACCESS_DENIED
 
     def sendTDS(self, packetType, data, packetID=1):
-        LOG.debug("[MSSQL] sendTDS: type=0x%02x, size=%d, TDS8=%s, tlsSocket=%s" %
+        LOG.debug("(MSSQL) sendTDS: type=0x%02x, size=%d, TDS8=%s, tlsSocket=%s" %
                   (packetType, len(data), self.tds8, self.tlsSocket is not None))
         return super().sendTDS(packetType, data, packetID)
 
     def recvTDS(self, packetSize=None):
-        LOG.debug("[MSSQL] recvTDS: TDS8=%s, tlsSocket=%s" % (self.tds8, self.tlsSocket is not None))
+        LOG.debug("(MSSQL) recvTDS: TDS8=%s, tlsSocket=%s" % (self.tds8, self.tlsSocket is not None))
         result = super().recvTDS(packetSize)
-        LOG.debug("[MSSQL] recvTDS: received type=0x%02x, size=%d" % (result['Type'], len(result['Data'])))
+        LOG.debug("(MSSQL) recvTDS: received type=0x%02x, size=%d" % (result['Type'], len(result['Data'])))
         if len(result['Data']) > 0:
-            LOG.debug("[MSSQL] recvTDS: first 16 bytes: %s" % result['Data'][:16].hex())
+            LOG.debug("(MSSQL) recvTDS: first 16 bytes: %s" % result['Data'][:16].hex())
         return result
 
     def sql_query(self, cmd, tuplemode=False, wait=True):
@@ -231,7 +231,7 @@ class MYMSSQL(MSSQL):
 
     def batch(self, cmd, tuplemode=False, wait=True):
         """Override batch to add ALL_HEADERS for TDS 8.0"""
-        LOG.debug("[MSSQL] batch() called: TDS8=%s, cmd='%s'" % (self.tds8, cmd[:50]))
+        LOG.debug("(MSSQL) batch() called: TDS8=%s, cmd='%s'" % (self.tds8, cmd[:50]))
         if self.tds8:
             # TDS 8.0 requires ALL_HEADERS section before SQL text
             # Minimal ALL_HEADERS with transaction descriptor
@@ -253,7 +253,7 @@ class MYMSSQL(MSSQL):
             sql_text = (cmd + "\r\n").encode("utf-16le")
             packet_data = all_headers + sql_text
 
-            LOG.debug("[MSSQL] Sending SQL_BATCH with ALL_HEADERS (%d bytes total)" % len(packet_data))
+            LOG.debug("(MSSQL) Sending SQL_BATCH with ALL_HEADERS (%d bytes total)" % len(packet_data))
             self.sendTDS(TDS_SQL_BATCH, packet_data)
 
             if wait:
@@ -282,11 +282,11 @@ class MSSQLRelayClient(ProtocolClient):
         self.machineHashes = None
 
     def initConnection(self):
-        LOG.debug("[MSSQLRelayClient] initConnection() called for %s:%d" % (self.targetHost, self.targetPort))
+        LOG.debug("(MSSQLRelayClient) initConnection() called for %s:%d" % (self.targetHost, self.targetPort))
         self.session = MYMSSQL(self.targetHost, self.targetPort)
-        LOG.debug("[MSSQLRelayClient] MYMSSQL instance created, calling session.initConnection()")
+        LOG.debug("(MSSQLRelayClient) MYMSSQL instance created, calling session.initConnection()")
         self.session.initConnection()
-        LOG.debug("[MSSQLRelayClient] initConnection() complete")
+        LOG.debug("(MSSQLRelayClient) initConnection() complete")
         return True
 
     def keepAlive(self):
@@ -307,7 +307,7 @@ class MSSQLRelayClient(ProtocolClient):
 
     # Delegate methods used by MSSQLAttack
     def sql_query(self, query):
-        LOG.debug("[MSSQLRelayClient] sql_query() delegating to session.batch()")
+        LOG.debug("(MSSQLRelayClient) sql_query() delegating to session.batch()")
         return self.session.batch(query)
 
     def printReplies(self):
