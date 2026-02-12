@@ -109,32 +109,52 @@ class MYMSSQL(MSSQL):
         elif resp['Encryption'] in (TDS_ENCRYPT_REQ, TDS_ENCRYPT_ON):
             # Server requires encryption, use STARTTLS (TLS inside TDS packets via MemoryBIO)
             LOG.info("(MSSQL) Encryption required, switching to TLS (STARTTLS)")
+            # Creates a TLS context
             context = ssl.SSLContext()
             context.set_ciphers('ALL:@SECLEVEL=0')
             context.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
             context.verify_mode = ssl.CERT_NONE
 
+            # Here comes the important part, MSSQL server does not expect a raw TLS socket
+            # Instead it expects TDS packets to be sent in which TLS data is embedded
+            # Something like TDS_PACKET["Data"] = TLS_ENCRYPTED(data)
+            # To setup such a TLS tunnel inside another program, we need to use a STARTTLS like mechanism
+            # Which relies on MemoryBIO that are used to send data to the TLS context and receive data from it as well
+            # IN_BIO is where we send data to be encrypted and sent to the MSSQL server
             in_bio = ssl.MemoryBIO()
+            # OUT_BIO is where we read data sent by the MSSQL server inside a TDS packet
             out_bio = ssl.MemoryBIO()
+
+            # Now we can create the TLS object that will be used to manage handshake and data processing
             tls = context.wrap_bio(in_bio, out_bio)
 
-            # Perform TLS handshake, exchanging TLS data in preLogin packets
+            # So first let's handshake with the remote MSSQL server
             LOG.debug("(MSSQL) Starting STARTTLS handshake")
             while True:
                 try:
+                    # This sends the TLS client hello
                     tls.do_handshake()
                 except ssl.SSLWantReadError:
+                    # If we get a SSLWantReadError then it means the server received enough data and want to send some to us
+                    # So we read the data sent by the server and we send it back to it inside a TDS_PRE_LOGIN packet
+                    # That's the actual TLS server hello
                     data = out_bio.read(4096)
                     LOG.debug("(MSSQL) Sending TLS handshake data (%d bytes)" % len(data))
                     self.sendTDS(TDS_PRE_LOGIN, data, 0)
+
+                    # Now we read data one more time to extract the final TLS message
                     tds_packet = self.recvTDS(4096)
                     tls_data = tds_packet["Data"]
+
+                    # And we send that data to the in_bio object to complete the handshake
                     LOG.debug("(MSSQL) Received TLS handshake data (%d bytes)" % len(tls_data))
                     in_bio.write(tls_data)
                 else:
                     LOG.debug("(MSSQL) STARTTLS handshake complete")
                     break
 
+            # At this point the TLS context is set up so we just store object inside the MSSQL class
+            # That will be used to encrypt/decrypt data and send them to the MSSQL server
             self.packetSize = 16 * 1024 - 1
             self.tlsSocket = tls
             self.in_bio = in_bio
