@@ -278,52 +278,6 @@ class LDAPSocksRelay(SocksRelay):
                         except Exception as e:
                             LOG.error(f"[EXCEPTION]: {str(e)}")
                             return False
-                        '''
-                        username = chall_response['user_name'].decode('utf-16le')
-                        domain = chall_response['domain_name'].decode('utf-16le')
-                        self.username = f'{domain}/{username}'
-
-                        # Checking for the two formats the domain can have (taken from both HTTP and SMB socks plugins)
-                        if f'{domain}/{username}'.upper() in self.activeRelays:
-                            self.username = f'{domain}/{username}'.upper()
-                        elif f'{domain.split(".", 1)[0]}/{username}'.upper() in self.activeRelays:
-                            self.username = f'{domain.split(".", 1)[0]}/{username}'.upper()
-                        else:
-                            # Username not in active relays
-                            LOG.error('LDAP: No session for %s@%s(%s) available' % (
-                                username, self.targetHost, self.targetPort))
-                            return False
-
-                        if self.activeRelays[self.username]['inUse'] is True:
-                            LOG.error('LDAP: Connection for %s@%s(%s) is being used at the moment!' % (
-                                self.username, self.targetHost, self.targetPort))
-                            return False
-                        else:
-                            LOG.info('LDAP: Proxying client session for %s@%s(%s)' % (
-                                self.username, self.targetHost, self.targetPort))
-                            self.activeRelays[self.username]['inUse'] = True
-                            self.session = self.activeRelays[self.username]['protocolClient'].session.socket
-
-                        # Load negotiate message
-                        bindresponse = BindResponse()
-                        bindresponse['resultCode'] = ResultCode('saslBindInProgress')
-                        bindresponse['matchedDN'] = LDAPDN('')
-                        bindresponse['diagnosticMessage'] = LDAPString('')
-                       # bindresponse['serverSaslCreds'] = 
-
-                        SPNEGO_wrapped_negotiateMessage = SPNEGO_NegTokenInit()
-                        SPNEGO_wrapped_negotiateMessage['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
-                        SPNEGO_wrapped_negotiateMessage['MechToken'] = self.negotiateMessage
-
-                        bindRequest = BindRequest()
-                        bindRequest['version'] = 3
-                        bindRequest["name"] = b""
-                        bindRequest['authentication'] = msg_component['authentication']
-                        bindRequest['authentication']['sasl']['mechanism'] = 'GSS-SPNEGO'
-                        bindRequest['authentication']['sasl']['credentials'] = SPNEGO_wrapped_negotiateMessage.getData()
-
-                        #req = self.
-                        '''
                     else:
                         LOG.error('LDAP: Received an unknown LDAP binding request, cannot continue')
                         return False
