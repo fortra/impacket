@@ -783,7 +783,7 @@ class SMBRelayServer(Thread):
         self.authUser = authenticateMessage.getUserString()
 
         if self.config.disableMulti:
-            return self.smbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
+            return self.origsmbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
         # Uncommenting this will stop at the first connection relayed and won't relaying until all targets
         # are processed. There might be a use case for this
         #if 'relayToHost' in connData:
