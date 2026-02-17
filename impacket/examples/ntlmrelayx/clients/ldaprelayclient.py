@@ -51,6 +51,14 @@ class LDAPRelayClient(ProtocolClient):
         self.authenticateMessageBlob = None
         self.server = None
 
+    def getServerInfoUnauth(self):
+        with Connection(self.server, authentication='ANONYMOUS') as conn:
+            conn.search(search_base='',
+                        search_filter='(objectClass=*)',
+                        search_scope='BASE',
+                        attributes=['*'])
+            self.sessionData['LDAP_INFO'] = conn.entries[0]
+
     def killConnection(self):
         if self.session is not None:
             self.session.socket.close()
@@ -59,6 +67,7 @@ class LDAPRelayClient(ProtocolClient):
     def initConnection(self):
         self.server = Server("ldap://%s:%s" % (self.targetHost, self.targetPort), get_info=ALL)
         self.session = Connection(self.server, user="a", password="b", authentication=NTLM)
+        self.getServerInfoUnauth()
         self.session.open(False)
         return True
 
@@ -163,7 +172,7 @@ class LDAPRelayClient(ProtocolClient):
             search_filter='(objectClass=*)',
             search_scope='BASE',
             attributes=['namingContexts'])
-
+    
 class LDAPSRelayClient(LDAPRelayClient):
     PLUGIN_NAME = "LDAPS"
     MODIFY_ADD = MODIFY_ADD

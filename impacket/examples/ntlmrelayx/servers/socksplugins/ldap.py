@@ -6,7 +6,7 @@ from pyasn1.type import univ
 from impacket import LOG, ntlm
 from impacket.examples.ntlmrelayx.servers.socksserver import SocksRelay
 from impacket.ldap.ldap import LDAPSessionError, BindRequest
-from impacket.ldap.ldapasn1 import KNOWN_NOTIFICATIONS, LDAPDN, NOTIFICATION_DISCONNECT, BindRequest, BindResponse, SearchRequest, SearchResultEntry, SearchResultDone, LDAPMessage, LDAPString, ResultCode, PartialAttributeList, PartialAttribute, AttributeValue, UnbindRequest, ExtendedRequest
+from impacket.ldap.ldapasn1 import KNOWN_NOTIFICATIONS, LDAPDN, NOTIFICATION_DISCONNECT, BindRequest, BindResponse, SearchRequest, SearchResultEntry, SearchResultDone, LDAPMessage, LDAPString, ResultCode, PartialAttributeList, PartialAttribute, AttributeValue, UnbindRequest, ExtendedRequest, Scope
 from impacket.ntlm import NTLMSSP_NEGOTIATE_SIGN, NTLMSSP_NEGOTIATE_SEAL
 from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, TypesMech
 
@@ -199,7 +199,7 @@ class LDAPSocksRelay(SocksRelay):
 
                                 # Building first SPNEGO_NegTokenResp
                                 SPNEGO_NegTokenResp_first = SPNEGO_NegTokenResp()
-                                SPNEGO_NegTokenResp_first['NegState'] = b'\x01'
+                                SPNEGO_NegTokenResp_first['NegState'] = b'\x01' # accept-incomplete
                                 SPNEGO_NegTokenResp_first['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
                                 SPNEGO_NegTokenResp_first['ResponseToken'] = challengeMessage.getData()
 
@@ -229,7 +229,7 @@ class LDAPSocksRelay(SocksRelay):
 
                                 # Checking for the two formats the domain can have (taken from both HTTP and SMB socks plugins)
                                 if username == '':
-                                    LOG.info('LDAP: Passing blank authentication')
+                                    LOG.debug('LDAP: Passing blank authentication')
 
                                     # Pass blank authentication through
                                     bindresponse = BindResponse()
@@ -261,7 +261,7 @@ class LDAPSocksRelay(SocksRelay):
 
                                 # Building first SPNEGO_NegTokenResp
                                 SPNEGO_NEG_TOKEN_RESP_response = SPNEGO_NegTokenResp()
-                                SPNEGO_NEG_TOKEN_RESP_response['NegState'] = b'\x00'
+                                SPNEGO_NEG_TOKEN_RESP_response['NegState'] = b'\x00' # complete
 
                                  # Building the first LDAP bind response message
                                 bindresponse = BindResponse()
@@ -322,6 +322,22 @@ class LDAPSocksRelay(SocksRelay):
                             attribs.getComponentByName('vals').setComponentByPosition(0, AttributeValue('NTLM'))
 
                             response['attributes'].append(attribs)
+                        elif msg_component['scope'] == Scope('baseObject') and msg_component['baseObject'] == LDAPDN(''):
+                            # Initial Unauth searchRequest
+                            LOG.debug('LDAP: Client requested server information')
+                            response = SearchResultEntry()
+                            response['objectName'] = LDAPDN('')
+                            response['attributes'] = PartialAttributeList()
+
+                            # Get all requested attributes
+                            for attribute in msg_component['attributes']:
+                                reqAttrStr = attribute.asOctets().decode('utf-8')
+                                attrVal = self.sessionData['LDAP_INFO'][reqAttrStr]
+                                partialAttr = PartialAttribute()
+                                partialAttr.setComponentByName('type', attribute)
+                                partialAttr.setComponentByName('vals', univ.SetOf(componentType=AttributeValue()))
+                                partialAttr.getComponentByName('vals').setComponentByPosition(0, AttributeValue(str(attrVal).encode('utf-8')))
+                                response['attributes'].append(partialAttr)
                         else:
                             # Any other message triggers the closing of client connection
                             return False
