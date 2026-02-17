@@ -766,8 +766,8 @@ class SMBRelayServer(Thread):
                 # Now continue with the server
             #############################################################
 
-        respData['NativeOS']     = smbServer.getServerOS()
-        respData['NativeLanMan'] = smbServer.getServerOS()
+        #respData['NativeOS']     = smbServer.getServerOS()
+        #respData['NativeLanMan'] = smbServer.getServerOS()
         respSMBCommand['Parameters'] = respParameters
         respSMBCommand['Data']       = respData
 
