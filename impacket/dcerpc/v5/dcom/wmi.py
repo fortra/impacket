@@ -85,8 +85,12 @@ WBEM_FLAVOR_ORIGIN_PROPAGATED              = 0x20
 WBEM_FLAVOR_ORIGIN_SYSTEM                  = 0x40
 WBEM_FLAVOR_AMENDED                        = 0x80
 
+
 # 2.2.6 ObjectFlags
 OBJECT_FLAGS = 'B=0'
+CIM_CLASS      = 0x01
+CIM_INSTANCE   = 0x02
+CIM_DECORATION = 0x04
 
 #2.2.77 Signature
 SIGNATURE = '<L=0x12345678'
@@ -119,6 +123,20 @@ DICTIONARY_REFERENCE = {
     8 : 'cimwin32',
     9 : 'DWORD',
    10 : 'CIMTYPE',
+}
+
+DICTIONARY_REFERENCE_TO_VALUE = {
+    '"'       : 0 ,
+    'key'     : 1 ,
+    'NADA'    : 2 ,
+    'read'    : 3 ,
+    'write'   : 4 ,
+    'volatile': 5 ,
+    'provider': 6 ,
+    'dynamic' : 7 ,
+    'cimwin32': 8 ,
+    'DWORD'   : 9 ,
+    'CIMTYPE' : 10,
 }
 
 class ENCODED_STRING(Structure):
@@ -696,7 +714,10 @@ class CLASS_AND_METHODS_PART(Structure):
         if pClassName == 0xffffffff:
             return 'None'
         else:
-            className = ENCODED_STRING(cHeap[pClassName:])['Character']
+            buffer = cHeap[pClassName:]
+            if not buffer:
+                return ''
+            className = ENCODED_STRING(buffer)['Character']
             derivationList = self['ClassPart']['DerivationList']['ClassNameEncoding']
             while len(derivationList) > 0:
                 superClass = ENCODED_STRING(derivationList)['Character']
@@ -894,7 +915,7 @@ class OBJECT_BLOCK(Structure):
             self.data = None
 
     def isInstance(self):
-        if self['ObjectFlags'] & 0x01:
+        if self['ObjectFlags'] & CIM_CLASS:
             return False
         return True
 
@@ -979,7 +1000,7 @@ class OBJECT_BLOCK(Structure):
         return classDict
 
     def parseObject(self):
-        if (self['ObjectFlags'] & 0x01) == 0:
+        if (self['ObjectFlags'] & CIM_CLASS) == 0:
             # instance
             ctCurrent = self['InstanceType']['CurrentClass']
             currentName = ctCurrent.getClassName()
@@ -1000,7 +1021,7 @@ class OBJECT_BLOCK(Structure):
 
     def printInformation(self):
         # First off, do we have a class?
-        if (self['ObjectFlags'] & 0x01) == 0:
+        if (self['ObjectFlags'] & CIM_CLASS) == 0:
             # instance
             ctCurrent = self['InstanceType']['CurrentClass']
             currentName = ctCurrent.getClassName()
@@ -2325,13 +2346,28 @@ class IWbemClassObject(IRemUnknown):
         objRef = OBJREF_CUSTOM(objRef)
         self.encodingUnit = ENCODING_UNIT(objRef['pObjectData'])
         self.parseObject()
-        if self.encodingUnit['ObjectBlock'].isInstance() is False:
+        if not self.encodingUnit['ObjectBlock'].isInstance():
+            self.__new_class_name = None
+            self.__new_attributes = []
             self.createMethods(self.getClassName(), self.getMethods())
         else:
             self.createProperties(self.getProperties())
 
+    def setClassName(self, value):
+        if not self.encodingUnit['ObjectBlock'].isInstance():
+            self.__new_class_name = value
+        else:
+            raise Exception("Cannot set class name for an instance object.")
+
+    def addNewAttribute(self, name, type, default_value=None):
+        if not self.encodingUnit['ObjectBlock'].isInstance():
+            self.__new_attributes.append((name, type, default_value))
+            setattr(self, name, default_value)
+        else:
+            raise Exception("Cannot add new attribute to an instance object.")
+
     def __getattr__(self, attr):
-        if attr.startswith('__') is not True:
+        if not attr.startswith('__'):
             properties = self.getProperties()
             # Let's see if there's a key property so we can ExecMethod
             keyProperty = None
@@ -2369,7 +2405,7 @@ class IWbemClassObject(IRemUnknown):
         return self.encodingUnit['ObjectBlock']
 
     def getClassName(self):
-        if self.encodingUnit['ObjectBlock'].isInstance() is False:
+        if not self.encodingUnit['ObjectBlock'].isInstance():
             return self.encodingUnit['ObjectBlock']['ClassType']['CurrentClass'].getClassName().split(' ')[0]
         else:
             return self.encodingUnit['ObjectBlock']['InstanceType']['CurrentClass'].getClassName().split(' ')[0]
@@ -2392,111 +2428,274 @@ class IWbemClassObject(IRemUnknown):
         # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-wmio/ed436785-40fc-425e-ad3d-f9200eb1a122
         return (bool(null_default) << 1 | bool(inherited_default)) << (2 * index)
 
+    def __createCimTypeQualifierSet(self, heap, propertyInfo):
+        propertyInfo['PropertyQualifierSet'] = b''
+
+        qualifierSet = QUALIFIER_SET()
+        qualifier = QUALIFIER()
+        qualifier['QualifierName'] = DICTIONARY_REFERENCE_TO_VALUE['CIMTYPE'] | 0x80000000
+        qualifier['QualifierFlavor'] = 0 #WBEM_FLAVOR_FLAG_PROPAGATE_O_INSTANCE | WBEM_FLAVOR_FLAG_PROPAGATE_O_DERIVED_CLASS
+        qualifier['QualifierType'] = CIM_TYPE_ENUM.CIM_TYPE_STRING.value
+        qualifier.structure = (('QualifierValue', CIM_TYPES_REF[qualifier['QualifierType'] & (~CIM_ARRAY_FLAG)]),)
+
+        qualifierSet['Qualifier'] = qualifier.getData() # for EncodingLength calculation
+        qualifierSet['EncodingLength'] = len(qualifierSet.getData())
+
+        # now we set real value for QualifierValue
+        qualifier['QualifierValue'] = len(heap) + len(propertyInfo) + len(qualifierSet.getData())
+
+        # set the final qualifier to QUALIFIER_SET
+        qualifierSet['Qualifier'] = qualifier.getData()
+
+        cimTypeString = ENCODED_STRING()
+        cimTypeString['Character'] = CIM_TYPE_TO_NAME[propertyInfo['PropertyType']]
+        return (qualifierSet, cimTypeString)
+
     def marshalMe(self):
-        # So, in theory, we have the OBJCUSTOM built, but 
-        # we need to update the values
-        # That's what we'll do
 
-        instanceHeap = b''
-        valueTable = b''
-        ndTable = 0
-        parametersClass = ENCODED_STRING()
-        parametersClass['Character'] = self.getClassName()
-        instanceHeap += parametersClass.getData()
-        curHeapPtr = len(instanceHeap)
-        properties = self.getProperties()
-        for i, propName in enumerate(properties):
-            propRecord = properties[propName]
-            itemValue = getattr(self, propName)
-            propIsInherited = propRecord['inherited']
-            print("PropName %r, Value: %r" % (propName,itemValue))
+        if self.encodingUnit['ObjectBlock'].isInstance():
 
-            pType = propRecord['type'] & (~(CIM_ARRAY_FLAG|Inherited)) 
-            if propRecord['type'] & CIM_ARRAY_FLAG:
-                # Not yet ready
-                packStr = HEAPREF[:-2]
+            # So, in theory, we have the OBJCUSTOM built, but 
+            # we need to update the values
+            # That's what we'll do
+
+            instanceHeap = b''
+            valueTable = b''
+            ndTable = 0
+            parametersClass = ENCODED_STRING()
+            parametersClass['Character'] = self.getClassName()
+            instanceHeap += parametersClass.getData()
+            curHeapPtr = len(instanceHeap)
+            properties = self.getProperties()
+            for i, propName in enumerate(properties):
+                propRecord = properties[propName]
+                itemValue = getattr(self, propName)
+                propIsInherited = propRecord['inherited']
+                print("PropName %r, Value: %r" % (propName,itemValue))
+
+                pType = propRecord['type'] & (~(CIM_ARRAY_FLAG|Inherited))
+                if propRecord['type'] & CIM_ARRAY_FLAG:
+                    # Not yet ready
+                    packStr = HEAPREF[:-2]
+                else:
+                    packStr = CIM_TYPES_REF[pType][:-2]
+
+                if propRecord['type'] & CIM_ARRAY_FLAG:
+                    if itemValue is None:
+                        ndTable |= self.__ndEntry(i, True, propIsInherited)
+                        valueTable += pack(packStr, 0)
+                    else:
+                        valueTable += pack('<L', curHeapPtr)
+                        arraySize = pack(HEAPREF[:-2], len(itemValue))
+                        packStrArray =  CIM_TYPES_REF[pType][:-2]
+                        arrayItems = b''
+                        for j in range(len(itemValue)):
+                            arrayItems += pack(packStrArray, itemValue[j])
+                        instanceHeap += arraySize + arrayItems
+                        curHeapPtr = len(instanceHeap)
+                elif pType in (CIM_TYPE_ENUM.CIM_TYPE_UINT8.value, CIM_TYPE_ENUM.CIM_TYPE_UINT16.value,
+                            CIM_TYPE_ENUM.CIM_TYPE_UINT32.value, CIM_TYPE_ENUM.CIM_TYPE_UINT64.value):
+                    if itemValue is None:
+                        ndTable |= self.__ndEntry(i, True, propIsInherited)
+                        valueTable += pack(packStr, 0)
+                    else:
+                        valueTable += pack(packStr, int(itemValue))
+                elif pType in (CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value,):
+                    if itemValue is None:
+                        ndTable |= self.__ndEntry(i, True, propIsInherited)
+                        valueTable += pack(packStr, False)
+                    else:
+                        valueTable += pack(packStr, bool(itemValue))
+                elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
+                                CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
+                    if itemValue is None:
+                        ndTable |= self.__ndEntry(i, True, propIsInherited)
+                        valueTable += pack(packStr, -1)
+                    else:
+                        valueTable += pack(packStr, itemValue)
+                elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
+                    # For now we just pack None and set the inherited_default
+                    # flag, just in case a parent class defines this for us
+                    valueTable += NULL.getData()
+                    if itemValue is None:
+                        ndTable |= self.__ndEntry(i, True, True)
+                else:
+                    if itemValue == '':
+                        # https://github.com/fortra/impacket/pull/1069#issuecomment-835179409
+                        # Force inherited_default to avoid 'obscure' issue in wmipersist.py
+                        ndTable |= self.__ndEntry(i, True, True)
+                        valueTable += NULL.getData()
+                    else:
+                        strIn = ENCODED_STRING()
+                        strIn['Character'] = itemValue
+                        valueTable += pack('<L', curHeapPtr)
+                        instanceHeap += strIn.getData()
+                        curHeapPtr = len(instanceHeap)
+
+            ndTableLen = (len(properties) - 1) // 4 + 1
+            packedNdTable = b''
+            for i in range(ndTableLen):
+                packedNdTable += pack('B', ndTable & 0xff)
+                ndTable >>=  8
+
+            # Now let's update the structure
+            objRef = self.get_objRef()
+            objRef = OBJREF_CUSTOM(objRef)
+            encodingUnit = ENCODING_UNIT(objRef['pObjectData'])
+
+            currentClass = encodingUnit['ObjectBlock']['InstanceType']['CurrentClass']
+            encodingUnit['ObjectBlock']['InstanceType']['CurrentClass'] = b''
+
+            encodingUnit['ObjectBlock']['InstanceType']['NdTable_ValueTable'] = packedNdTable + valueTable
+            encodingUnit['ObjectBlock']['InstanceType']['InstanceHeap']['HeapLength'] = len(instanceHeap) | 0x80000000
+            encodingUnit['ObjectBlock']['InstanceType']['InstanceHeap']['HeapItem'] = instanceHeap
+
+            encodingUnit['ObjectBlock']['InstanceType']['EncodingLength'] = len(encodingUnit['ObjectBlock']['InstanceType'])
+            encodingUnit['ObjectBlock']['InstanceType']['CurrentClass'] = currentClass
+
+            encodingUnit['ObjectEncodingLength'] = len(encodingUnit['ObjectBlock'])
+            objRef['pObjectData'] = encodingUnit
+
+        else:
+
+            objUnit = self.getObject()
+            classPart = objUnit['ClassType']['CurrentClass']['ClassPart']
+            cHeap = classPart['ClassHeap']['HeapItem']
+
+            ### determine class name
+            if self.__new_class_name:
+                classPart['ClassHeader']['ClassNameRef'] = len(cHeap)
+                className = ENCODED_STRING()
+                className['Character'] = self.__new_class_name
+                cHeap += className.getData()
+
+            ### preserve existing properties
+            existingPropCount = classPart['PropertyLookupTable']['PropertyCount']
+            if existingPropCount > 0:
+                existingNdTableLen = (existingPropCount - 1) // 4 + 1
             else:
-                packStr = CIM_TYPES_REF[pType][:-2]
+                existingNdTableLen = 0
+            existingNdTableBytes = classPart['NdTable_ValueTable'][:existingNdTableLen]
+            existingValueTable = classPart['NdTable_ValueTable'][existingNdTableLen:]
 
-            if propRecord['type'] & CIM_ARRAY_FLAG:
-                if itemValue is None:
-                    ndTable |= self.__ndEntry(i, True, propIsInherited)
-                    valueTable += pack(packStr, 0)
+            # Reconstruct existing ndTable as integer
+            ndTable = 0
+            for j in range(len(existingNdTableBytes)):
+                ndTable |= existingNdTableBytes[j] << (8 * j)
+
+            valueTable = existingValueTable
+
+            ### add new properties
+            classPart['PropertyLookupTable']['PropertyCount'] += len(self.__new_attributes)
+
+            sorted_attrs = sorted(self.__new_attributes, key=lambda x:x[0])
+            for i, attr in enumerate(sorted_attrs):
+                attribute_name, attribute_type, attribute_default_value = attr
+                propIndex = existingPropCount + i
+
+                # property name
+                classPart['PropertyLookupTable']['PropertyLookup'] += pack(PROPERTY_NAME_REF[:-2], len(cHeap))
+                attrName = ENCODED_STRING()
+                attrName['Character'] = attribute_name
+                cHeap += attrName.getData()
+
+                # property info
+                classPart['PropertyLookupTable']['PropertyLookup'] += pack(PROPERTY_INFO_REF[:-2], len(cHeap))
+                propertyInfo = PROPERTY_INFO()
+                propertyInfo['PropertyType'] = attribute_type.value
+                propertyInfo['DeclarationOrder'] = propIndex
+                propertyInfo['ValueTableOffset'] = len(valueTable)
+                propertyInfo['ClassOfOrigin'] = 0 # TODO
+                qualifierSet, cimType = self.__createCimTypeQualifierSet(cHeap, propertyInfo)
+                propertyInfo['PropertyQualifierSet'] = qualifierSet
+                cHeap += propertyInfo.getData()
+                cHeap += cimType.getData()
+
+                curHeapPtr = len(cHeap)
+
+                # property value
+                pType = attribute_type.value & (~(CIM_ARRAY_FLAG|Inherited))
+                itemValue = attribute_default_value
+                propIsInherited = attribute_type.value & Inherited
+                if attribute_type.value & CIM_ARRAY_FLAG:
+                    # Not yet ready
+                    packStr = HEAPREF[:-2]
                 else:
-                    valueTable += pack('<L', curHeapPtr)
-                    arraySize = pack(HEAPREF[:-2], len(itemValue))
-                    packStrArray =  CIM_TYPES_REF[pType][:-2]
-                    arrayItems = b''
-                    for j in range(len(itemValue)):
-                        arrayItems += pack(packStrArray, itemValue[j])
-                    instanceHeap += arraySize + arrayItems
-                    curHeapPtr = len(instanceHeap)
-            elif pType in (CIM_TYPE_ENUM.CIM_TYPE_UINT8.value, CIM_TYPE_ENUM.CIM_TYPE_UINT16.value,
-                           CIM_TYPE_ENUM.CIM_TYPE_UINT32.value, CIM_TYPE_ENUM.CIM_TYPE_UINT64.value):
-                if itemValue is None:
-                    ndTable |= self.__ndEntry(i, True, propIsInherited)
-                    valueTable += pack(packStr, 0)
+                    packStr = CIM_TYPES_REF[pType][:-2]
+
+                if attribute_type.value & CIM_ARRAY_FLAG:
+                    if itemValue is None:
+                        ndTable |= self.__ndEntry(propIndex, True, propIsInherited)
+                        valueTable += pack(packStr, 0)
+                    else:
+                        valueTable += pack('<L', curHeapPtr)
+                        arraySize = pack(HEAPREF[:-2], len(itemValue))
+                        packStrArray =  CIM_TYPES_REF[pType][:-2]
+                        arrayItems = b''
+                        for j in range(len(itemValue)):
+                            arrayItems += pack(packStrArray, itemValue[j])
+                        cHeap += arraySize + arrayItems
+                        curHeapPtr = len(cHeap)
+                elif pType in (CIM_TYPE_ENUM.CIM_TYPE_UINT8.value, CIM_TYPE_ENUM.CIM_TYPE_UINT16.value,
+                            CIM_TYPE_ENUM.CIM_TYPE_UINT32.value, CIM_TYPE_ENUM.CIM_TYPE_UINT64.value):
+                    if itemValue is None:
+                        ndTable |= self.__ndEntry(propIndex, True, propIsInherited)
+                        valueTable += pack(packStr, 0)
+                    else:
+                        valueTable += pack(packStr, int(itemValue))
+                elif pType in (CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value,):
+                    if itemValue is None:
+                        ndTable |= self.__ndEntry(propIndex, True, propIsInherited)
+                        valueTable += pack(packStr, False)
+                    else:
+                        valueTable += pack(packStr, bool(itemValue))
+                elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
+                                CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
+                    if itemValue is None:
+                        ndTable |= self.__ndEntry(propIndex, True, propIsInherited)
+                        valueTable += pack(packStr, -1)
+                    else:
+                        valueTable += pack(packStr, itemValue)
+                elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
+                    # For now we just pack None and set the inherited_default
+                    # flag, just in case a parent class defines this for us
+                    valueTable += NULL.getData()
+                    if itemValue is None:
+                        ndTable |= self.__ndEntry(propIndex, True, True)
                 else:
-                    valueTable += pack(packStr, int(itemValue))
-            elif pType in (CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value,):
-                if itemValue is None:
-                    ndTable |= self.__ndEntry(i, True, propIsInherited)
-                    valueTable += pack(packStr, False)
-                else:
-                    valueTable += pack(packStr, bool(itemValue))
-            elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
-                               CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
-                if itemValue is None:
-                    ndTable |= self.__ndEntry(i, True, propIsInherited)
-                    valueTable += pack(packStr, -1)
-                else:
-                    valueTable += pack(packStr, itemValue)
-            elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
-                # For now we just pack None and set the inherited_default
-                # flag, just in case a parent class defines this for us
-                valueTable += b'\x00'*4
-                if itemValue is None:
-                    ndTable |= self.__ndEntry(i, True, True)
-            else:
-                if itemValue == '':
-                    # https://github.com/fortra/impacket/pull/1069#issuecomment-835179409
-                    # Force inherited_default to avoid 'obscure' issue in wmipersist.py
-                    ndTable |= self.__ndEntry(i, True, True)
-                    valueTable += pack('<L', 0)
-                else:
+                    if itemValue == None:
+                        itemValue = ''
                     strIn = ENCODED_STRING()
                     strIn['Character'] = itemValue
                     valueTable += pack('<L', curHeapPtr)
-                    instanceHeap += strIn.getData()
-                    curHeapPtr = len(instanceHeap)
+                    cHeap += strIn.getData()
+                    curHeapPtr = len(cHeap)
 
-        ndTableLen = (len(properties) - 1) // 4 + 1
-        packedNdTable = b''
-        for i in range(ndTableLen):
-            packedNdTable += pack('B', ndTable & 0xff)
-            ndTable >>=  8
+            classPart['ClassHeap']['HeapLength'] = len(cHeap) | 0x80000000
+            classPart['ClassHeap']['HeapItem'] = cHeap
 
-        # Now let's update the structure
-        objRef = self.get_objRef()
-        objRef = OBJREF_CUSTOM(objRef)
-        encodingUnit = ENCODING_UNIT(objRef['pObjectData'])
+            totalPropCount = classPart['PropertyLookupTable']['PropertyCount']
+            ndTableLen = (totalPropCount - 1) // 4 + 1 if totalPropCount > 0 else 0
+            packedNdTable = b''
+            for i in range(ndTableLen):
+                packedNdTable += pack('B', ndTable & 0xff)
+                ndTable >>=  8
 
-        currentClass = encodingUnit['ObjectBlock']['InstanceType']['CurrentClass']
-        encodingUnit['ObjectBlock']['InstanceType']['CurrentClass'] = b''
+            classPart['ClassHeader']['NdTableValueTableLength'] = len(packedNdTable + valueTable)
+            classPart['NdTable_ValueTable'] = packedNdTable + valueTable
+            # classPart['_NdTable_ValueTable'] = len(classPart['NdTable_ValueTable'])
 
-        encodingUnit['ObjectBlock']['InstanceType']['NdTable_ValueTable'] = packedNdTable + valueTable
-        encodingUnit['ObjectBlock']['InstanceType']['InstanceHeap']['HeapLength'] = len(instanceHeap) | 0x80000000
-        encodingUnit['ObjectBlock']['InstanceType']['InstanceHeap']['HeapItem'] = instanceHeap
+            classPart['ClassHeader']['EncodingLength'] = len(classPart)
+            objUnit['ClassType']['CurrentClass']['ClassPart'] = classPart
 
-        encodingUnit['ObjectBlock']['InstanceType']['EncodingLength'] = len(encodingUnit['ObjectBlock']['InstanceType'])
-        encodingUnit['ObjectBlock']['InstanceType']['CurrentClass'] = currentClass
+            self.encodingUnit['ObjectEncodingLength'] = len(objUnit)
+            # self.encodingUnit['_ObjectBlock'] = len(objUnit)
+            self.encodingUnit['ObjectBlock'] = objUnit
+            # self.encodingUnit.dump()
 
-        encodingUnit['ObjectEncodingLength'] = len(encodingUnit['ObjectBlock'])
-
-        #encodingUnit.dump()
-        #ENCODING_UNIT(str(encodingUnit)).dump()
-
-        objRef['pObjectData'] = encodingUnit
+            objRef = self.get_objRef()
+            objRef = OBJREF_CUSTOM(objRef)
+            objRef['pObjectData'] = self.encodingUnit
 
         return objRef
 
@@ -2511,7 +2710,7 @@ class IWbemClassObject(IRemUnknown):
             instanceData = OBJECT_BLOCK()
             instanceData.structure += OBJECT_BLOCK.decoration
             instanceData.structure += OBJECT_BLOCK.instanceType
-            instanceData['ObjectFlags'] = 6
+            instanceData['ObjectFlags'] = CIM_INSTANCE | CIM_DECORATION
             instanceData['Decoration'] = self.encodingUnit['ObjectBlock']['Decoration'].getData()
 
             instanceType = INSTANCE_TYPE()
@@ -2549,7 +2748,7 @@ class IWbemClassObject(IRemUnknown):
                 elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
                     # For now we just pack None and set the inherited_default
                     # flag, just in case a parent class defines this for us
-                    valueTable += b'\x00'*4
+                    valueTable += NULL.getData()
                     ndTable |= self.__ndEntry(i, True, True)
                 else:
                     strIn = ENCODED_STRING()
@@ -2660,7 +2859,7 @@ class IWbemClassObject(IRemUnknown):
 
                 inParams = OBJECT_BLOCK()
                 inParams.structure += OBJECT_BLOCK.instanceType
-                inParams['ObjectFlags'] = 2
+                inParams['ObjectFlags'] = CIM_INSTANCE
                 inParams['Decoration'] = b''
 
                 instanceType = INSTANCE_TYPE()
@@ -2805,7 +3004,7 @@ class IWbemClassObject(IRemUnknown):
 
             outParams = OBJECT_BLOCK()
             outParams.structure += OBJECT_BLOCK.instanceType
-            outParams['ObjectFlags'] = 2
+            outParams['ObjectFlags'] = CIM_CLASS
             outParams['Decoration'] = b''
 
             instanceType = INSTANCE_TYPE()
@@ -3028,16 +3227,25 @@ class IWbemServices(IRemUnknown):
 
     def PutClass(self, pObject, lFlags=0, pCtx=NULL):
         request = IWbemServices_PutClass()
-        request['pObject'] = pObject
+        if pObject is NULL:
+            request['pObject'] = pObject
+        else:
+            request['pObject']['ulCntData'] = len(pObject)
+            request['pObject']['abData'] = list(pObject.getData())
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        resp.dump()
-        return resp
+        return IWbemCallResult(
+            INTERFACE(self.get_cinstance(), b''.join(resp['ppCallResult']['abData']), self.get_ipidRemUnknown(),
+                      target=self.get_target()))
 
     def PutClassAsync(self, pObject, lFlags=0, pCtx=NULL):
         request = IWbemServices_PutClassAsync()
-        request['pObject'] = pObject
+        if pObject is NULL:
+            request['pObject'] = pObject
+        else:
+            request['pObject']['ulCntData'] = len(pObject)
+            request['pObject']['abData'] = list(pObject.getData())
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
@@ -3050,8 +3258,9 @@ class IWbemServices(IRemUnknown):
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        resp.dump()
-        return resp
+        return IWbemCallResult(
+            INTERFACE(self.get_cinstance(), b''.join(resp['ppCallResult']['abData']), self.get_ipidRemUnknown(),
+                      target=self.get_target()))
 
     def DeleteClassAsync(self, strClass, lFlags=0, pCtx=NULL):
         request = IWbemServices_DeleteClassAsync()
@@ -3143,7 +3352,6 @@ class IWbemServices(IRemUnknown):
         resp.dump()
         return resp
 
-    #def ExecQuery(self, strQuery, lFlags=WBEM_QUERY_FLAG_TYPE.WBEM_FLAG_PROTOTYPE, pCtx=NULL):
     def ExecQuery(self, strQuery, lFlags=0, pCtx=NULL):
         request = IWbemServices_ExecQuery()
         request['strQueryLanguage']['asData'] = checkNullString('WQL')
@@ -3186,7 +3394,7 @@ class IWbemServices(IRemUnknown):
         resp.dump()
         return resp
 
-    def ExecMethod(self, strObjectPath, strMethodName, lFlags=0, pCtx=NULL, pInParams=NULL, ppOutParams = NULL):
+    def ExecMethod(self, strObjectPath, strMethodName, lFlags=0, pCtx=NULL, pInParams=NULL, ppOutParams=NULL):
         request = IWbemServices_ExecMethod()
         request['strObjectPath']['asData'] = checkNullString(strObjectPath)
         request['strMethodName']['asData'] = checkNullString(strMethodName)
