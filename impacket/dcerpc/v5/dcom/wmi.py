@@ -2568,25 +2568,35 @@ class IWbemClassObject(IRemUnknown):
             cHeap = classPart['ClassHeap']['HeapItem']
 
             ### determine class name
-            classPart['ClassHeader']['ClassNameRef'] = 0
             if self.__new_class_name:
+                classPart['ClassHeader']['ClassNameRef'] = len(cHeap)
                 className = ENCODED_STRING()
                 className['Character'] = self.__new_class_name
                 cHeap += className.getData()
+
+            ### preserve existing properties
+            existingPropCount = classPart['PropertyLookupTable']['PropertyCount']
+            if existingPropCount > 0:
+                existingNdTableLen = (existingPropCount - 1) // 4 + 1
             else:
-                className = ENCODED_STRING()
-                className['Character'] = self.getClassName()
-                cHeap += className.getData()
+                existingNdTableLen = 0
+            existingNdTableBytes = classPart['NdTable_ValueTable'][:existingNdTableLen]
+            existingValueTable = classPart['NdTable_ValueTable'][existingNdTableLen:]
 
-            ### create properties
-            classPart['PropertyLookupTable']['PropertyCount'] += len(self.__new_attributes)
-
-            valueTable = b''
+            # Reconstruct existing ndTable as integer
             ndTable = 0
+            for j in range(len(existingNdTableBytes)):
+                ndTable |= existingNdTableBytes[j] << (8 * j)
+
+            valueTable = existingValueTable
+
+            ### add new properties
+            classPart['PropertyLookupTable']['PropertyCount'] += len(self.__new_attributes)
 
             sorted_attrs = sorted(self.__new_attributes, key=lambda x:x[0])
             for i, attr in enumerate(sorted_attrs):
                 attribute_name, attribute_type, attribute_default_value = attr
+                propIndex = existingPropCount + i
 
                 # property name
                 classPart['PropertyLookupTable']['PropertyLookup'] += pack(PROPERTY_NAME_REF[:-2], len(cHeap))
@@ -2598,7 +2608,7 @@ class IWbemClassObject(IRemUnknown):
                 classPart['PropertyLookupTable']['PropertyLookup'] += pack(PROPERTY_INFO_REF[:-2], len(cHeap))
                 propertyInfo = PROPERTY_INFO()
                 propertyInfo['PropertyType'] = attribute_type.value
-                propertyInfo['DeclarationOrder'] = i
+                propertyInfo['DeclarationOrder'] = propIndex
                 propertyInfo['ValueTableOffset'] = len(valueTable)
                 propertyInfo['ClassOfOrigin'] = 0 # TODO
                 qualifierSet, cimType = self.__createCimTypeQualifierSet(cHeap, propertyInfo)
@@ -2620,7 +2630,7 @@ class IWbemClassObject(IRemUnknown):
 
                 if attribute_type.value & CIM_ARRAY_FLAG:
                     if itemValue is None:
-                        ndTable |= self.__ndEntry(i, True, propIsInherited)
+                        ndTable |= self.__ndEntry(propIndex, True, propIsInherited)
                         valueTable += pack(packStr, 0)
                     else:
                         valueTable += pack('<L', curHeapPtr)
@@ -2634,20 +2644,20 @@ class IWbemClassObject(IRemUnknown):
                 elif pType in (CIM_TYPE_ENUM.CIM_TYPE_UINT8.value, CIM_TYPE_ENUM.CIM_TYPE_UINT16.value,
                             CIM_TYPE_ENUM.CIM_TYPE_UINT32.value, CIM_TYPE_ENUM.CIM_TYPE_UINT64.value):
                     if itemValue is None:
-                        ndTable |= self.__ndEntry(i, True, propIsInherited)
+                        ndTable |= self.__ndEntry(propIndex, True, propIsInherited)
                         valueTable += pack(packStr, 0)
                     else:
                         valueTable += pack(packStr, int(itemValue))
                 elif pType in (CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value,):
                     if itemValue is None:
-                        ndTable |= self.__ndEntry(i, True, propIsInherited)
+                        ndTable |= self.__ndEntry(propIndex, True, propIsInherited)
                         valueTable += pack(packStr, False)
                     else:
                         valueTable += pack(packStr, bool(itemValue))
                 elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
                                 CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                     if itemValue is None:
-                        ndTable |= self.__ndEntry(i, True, propIsInherited)
+                        ndTable |= self.__ndEntry(propIndex, True, propIsInherited)
                         valueTable += pack(packStr, -1)
                     else:
                         valueTable += pack(packStr, itemValue)
@@ -2656,7 +2666,7 @@ class IWbemClassObject(IRemUnknown):
                     # flag, just in case a parent class defines this for us
                     valueTable += NULL.getData()
                     if itemValue is None:
-                        ndTable |= self.__ndEntry(i, True, True)
+                        ndTable |= self.__ndEntry(propIndex, True, True)
                 else:
                     if itemValue == None:
                         itemValue = ''
@@ -2666,13 +2676,11 @@ class IWbemClassObject(IRemUnknown):
                     cHeap += strIn.getData()
                     curHeapPtr = len(cHeap)
 
-                # classPart['PropertyLookupTable']['_PropertyLookup'] = len(classPart['PropertyLookupTable']['PropertyLookup'])
-
             classPart['ClassHeap']['HeapLength'] = len(cHeap) | 0x80000000
             classPart['ClassHeap']['HeapItem'] = cHeap
-            # classPart['ClassHeap']['_HeapItem'] = len(classPart['ClassHeap']['HeapItem'])
 
-            ndTableLen = (classPart['PropertyLookupTable']['PropertyCount'] - 1) // 4 + 1
+            totalPropCount = classPart['PropertyLookupTable']['PropertyCount']
+            ndTableLen = (totalPropCount - 1) // 4 + 1 if totalPropCount > 0 else 0
             packedNdTable = b''
             for i in range(ndTableLen):
                 packedNdTable += pack('B', ndTable & 0xff)
