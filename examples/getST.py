@@ -170,7 +170,7 @@ class GETST:
                 service = "%s/%s@%s" % (service_class, service_hostname, service_realm)
             self.__saveFileName += "@" + service.replace("/", "_")
         logging.info('Saving ticket in %s' % (self.__saveFileName + '.ccache'))
-        ccache.saveFile(self.__saveFileName + '.ccache')
+        ccache.saveFile(self.__saveFileName + '.ccache', chmod=0o600)
 
     def doS4U2ProxyWithAdditionalTicket(self, tgt, cipher, oldSessionKey, sessionKey, nthash, aesKey, kdcHost, additional_ticket_path):
         if not os.path.isfile(additional_ticket_path):

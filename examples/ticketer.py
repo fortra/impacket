@@ -1092,7 +1092,7 @@ class TICKETER:
             ccache.fromTGT(ticket, sessionKey, sessionKey)
         else:
             ccache.fromTGS(ticket, sessionKey, sessionKey)
-        ccache.saveFile(self.__target.replace('/','.') + '.ccache')
+        ccache.saveFile(self.__target.replace('/','.') + '.ccache', chmod=0o600)
 
     def run(self):
         ticket, adIfRelevant = self.createBasicTicket()
