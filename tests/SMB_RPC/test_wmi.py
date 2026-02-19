@@ -247,15 +247,15 @@ class WMITests(RemoteTestCase, unittest.TestCase):
             dummyClass.addNewAttribute("Code", wmi.CIM_TYPE_ENUM.CIM_TYPE_STRING, "EN")
             iWbemServices.PutClass(dummyClass.marshalMe(), wmi.WBEM_FLAG_CREATE_ONLY)
 
-            #fetchedClass, _ = iWbemServices.GetObject(className)
-            #fetchedClass.addNewAttribute("Number", wmi.CIM_TYPE_ENUM.CIM_TYPE_UINT32, 123)
-            #iWbemServices.PutClass(fetchedClass.marshalMe(), wmi.WBEM_FLAG_UPDATE_ONLY)
+            fetchedClass, _ = iWbemServices.GetObject(className)
+            fetchedClass.addNewAttribute("Number", wmi.CIM_TYPE_ENUM.CIM_TYPE_UINT32, 123)
+            iWbemServices.PutClass(fetchedClass.marshalMe(), wmi.WBEM_FLAG_UPDATE_ONLY)
 
             roundTrip, _ = iWbemServices.GetObject(className)
             props = roundTrip.getProperties()
             self.assertIn("Code", props)
-            #self.assertIn("Number", props)
-            #self.assertEqual(props["Number"]["stype"], "uint32")
+            self.assertIn("Number", props)
+            self.assertEqual(props["Number"]["stype"], "uint32")
         finally:
             _ = iWbemServices.DeleteClass(className)
             dcom.disconnect()
