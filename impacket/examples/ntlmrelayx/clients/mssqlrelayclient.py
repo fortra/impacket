@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright Fortra, LLC and its affiliated companies 
+# Copyright Fortra, LLC and its affiliated companies
 #
 # All rights reserved.
 #
@@ -22,14 +22,15 @@
 #
 
 import ssl
+import struct
 import random
 import string
-from struct import unpack
 
 from impacket import LOG
 from impacket.examples.ntlmrelayx.clients import ProtocolClient
-from impacket.tds import MSSQL, DummyPrint, TDS_ENCRYPT_REQ, TDS_ENCRYPT_OFF, TDS_PRE_LOGIN, TDS_LOGIN, TDS_INIT_LANG_FATAL, \
-    TDS_ODBC_ON, TDS_INTEGRATED_SECURITY_ON, TDS_LOGIN7, TDS_SSPI, TDS_LOGINACK_TOKEN
+from impacket.tds import MSSQL, DummyPrint, TDS_ENCRYPT_REQ, TDS_ENCRYPT_OFF, TDS_ENCRYPT_ON, TDS_ENCRYPT_NOT_SUP, \
+    TDS_ENCRYPT_STRICT, TDS_PRE_LOGIN, TDS_LOGIN, TDS_INIT_LANG_FATAL, TDS_ODBC_ON, \
+    TDS_INTEGRATED_SECURITY_ON, TDS_LOGIN7, TDS_SSPI, TDS_LOGINACK_TOKEN
 from impacket.ntlm import NTLMAuthChallenge
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
 from impacket.spnego import SPNEGO_NegTokenResp
@@ -38,22 +39,86 @@ PROTOCOL_CLIENT_CLASS = "MSSQLRelayClient"
 
 class MYMSSQL(MSSQL):
     def __init__(self, address, port=1433, rowsPrinter=DummyPrint()):
-        MSSQL.__init__(self,address, port, rowsPrinter)
+        MSSQL.__init__(self, address, port, rowsPrinter)
         self.resp = None
         self.sessionData = {}
+        self.tds8 = False
+
+    def socketRecv(self, bufsize):
+        """Override to detect closed connections instead of looping forever in recvTDS.
+
+        The base class recvTDS has a `while data == b""` loop. If the server closes
+        the connection (e.g. Force Strict Encryption rejects plain TDS), socket.recv()
+        returns b"" immediately and the loop spins forever. This override raises
+        ConnectionError so the caller can fall back to TDS 8.0.
+        """
+        if self.tlsSocket is None:
+            data = self.socket.recv(bufsize)
+            if not data:
+                raise ConnectionError("Server closed connection")
+            return data
+        else:
+            return self.tls_recv(bufsize)
+
+    def _setup_tds8(self):
+        """Wrap the TCP socket in TLS for TDS 8.0 strict encryption."""
+        LOG.debug("(TDS8) Setting up TDS 8.0 strict encryption")
+        context = ssl.SSLContext()
+        context.set_ciphers('ALL:@SECLEVEL=0')
+        context.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        context.set_alpn_protocols(["tds/8.0"])
+        self.socket = context.wrap_socket(self.socket, server_hostname=self.server)
+        self.tds8 = True
+        self.packetSize = 16 * 1024 - 1
+        LOG.info("(TDS8) TDS 8.0 TLS connection established")
 
     def initConnection(self):
-        self.connect()
         #This is copied from tds.py
-        resp = self.preLogin()
-        if resp['Encryption'] == TDS_ENCRYPT_REQ or resp['Encryption'] == TDS_ENCRYPT_OFF:
-            LOG.info("Encryption required, switching to TLS")
+        self.connect()
+
+        # Use a short timeout for the initial preLogin — if the server requires
+        # TDS 8.0 (Force Strict Encryption = Yes), it will silently close the
+        # connection or never respond to a plain TDS preLogin.
+        original_timeout = self.socket.gettimeout()
+        self.socket.settimeout(5)
+
+        try:
+            resp = self.preLogin()
+            self.socket.settimeout(original_timeout)
+        except Exception as e:
+            # Plain TDS preLogin failed — server likely requires TDS 8.0
+            LOG.debug("(MSSQL) Plain TDS preLogin failed (%s: %s), trying TDS 8.0" % (type(e).__name__, e))
+            try:
+                self.disconnect()
+            except Exception:
+                pass
+            self.connect()
+            self._setup_tds8()
+            resp = self.preLogin()
+            self.resp = resp
+            return True
+
+        # Handle server encryption response
+        if resp['Encryption'] == TDS_ENCRYPT_STRICT:
+            # Server requires TDS 8.0 strict encryption — reconnect with TLS
+            LOG.info("(MSSQL) Server requires TDS 8.0 (ENCRYPT_STRICT), reconnecting with TLS")
+            self.disconnect()
+            self.connect()
+            self._setup_tds8()
+            resp = self.preLogin()
+        elif resp['Encryption'] in (TDS_ENCRYPT_REQ, TDS_ENCRYPT_ON, TDS_ENCRYPT_OFF):
+            # TDS spec requires TLS for the login exchange even with ENCRYPT_OFF.
+            # With ENCRYPT_OFF, TLS is dropped after the first login packet (handled in sendNegotiate).
+            # With ENCRYPT_REQ/ENCRYPT_ON, TLS stays active for the entire session.
+            LOG.info("(MSSQL) Encryption required, switching to TLS")
             # Creates a TLS context
             context = ssl.SSLContext()
             context.set_ciphers('ALL:@SECLEVEL=0')
             context.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
             context.verify_mode = ssl.CERT_NONE
-            
+
             # Here comes the important part, MSSQL server does not expect a raw TLS socket
             # Instead it expects TDS packets to be sent in which TLS data is embedded
             # Something like TDS_PACKET["Data"] = TLS_ENCRYPTED(data)
@@ -61,7 +126,7 @@ class MYMSSQL(MSSQL):
             # Which relies on MemoryBIO that are used to send data to the TLS context and receive data from it as well
             # IN_BIO is where we send data to be encrypted and sent to the MSSQL server
             in_bio = ssl.MemoryBIO()
-            # OUT_BIO is where we read data send by the MSSQL server inside a TDS packet
+            # OUT_BIO is where we read data sent by the MSSQL server inside a TDS packet
             out_bio = ssl.MemoryBIO()
 
             # Now we can create the TLS object that will be used to manage handshake and data processing
@@ -70,7 +135,6 @@ class MYMSSQL(MSSQL):
             # So first let's handshake with the remote MSSQL server
             while True:
                 try:
-                    # This sends the TLS client hello
                     tls.do_handshake()
                 except ssl.SSLWantReadError:
                     # If we get a SSLWantReadError then it means the server received enough data and want to send some to us
@@ -86,18 +150,19 @@ class MYMSSQL(MSSQL):
                     # And we send that data to the in_bio object to complete the handshake
                     in_bio.write(tls_data)
                 else:
-                    break              
+                    break
 
             # At this point the TLS context is set up so we just store object inside the MSSQL class
-            # That will be used to encryp/decrpt data and send them to the MSSQL server
+            # That will be used to encrypt/decrypt data and send them to the MSSQL server
             self.packetSize = 16 * 1024 - 1
             self.tlsSocket = tls
             self.in_bio = in_bio
             self.out_bio = out_bio
-            self.resp = resp
+
+        self.resp = resp
         return True
 
-    def sendNegotiate(self,negotiateMessage):
+    def sendNegotiate(self, negotiateMessage):
         #Also partly copied from tds.py
         login = TDS_LOGIN()
 
@@ -118,7 +183,8 @@ class MYMSSQL(MSSQL):
 
         # According to the specs, if encryption is not required, we must encrypt just
         # the first Login packet :-o
-        if self.resp['Encryption'] == TDS_ENCRYPT_OFF:
+        # In TDS 8.0 mode, the socket is already TLS-wrapped, so we don't touch tlsSocket
+        if not self.tds8 and self.resp['Encryption'] == TDS_ENCRYPT_OFF:
             self.tlsSocket = None
 
         tds = self.recvTDS()
@@ -130,7 +196,7 @@ class MYMSSQL(MSSQL):
         return challenge
 
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
-        if unpack('B', authenticateMessageBlob[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+        if struct.unpack('B', authenticateMessageBlob[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
             respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
             token = respToken2['ResponseToken']
         else:
@@ -147,6 +213,39 @@ class MYMSSQL(MSSQL):
         else:
             self.printReplies()
             return None, STATUS_ACCESS_DENIED
+
+    def sql_query(self, cmd, tuplemode=False, wait=True):
+        return self.batch(cmd, tuplemode, wait)
+
+    def batch(self, cmd, tuplemode=False, wait=True):
+        """Override batch to add ALL_HEADERS for TDS 8.0."""
+        if self.tds8:
+            from impacket.tds import TDS_SQL_BATCH
+
+            self.rows = []
+            self.colMeta = []
+            self.lastError = False
+
+            # ALL_HEADERS with transaction descriptor (required by TDS 8.0)
+            all_headers = struct.pack('<I', 22)   # Total length of ALL_HEADERS
+            all_headers += struct.pack('<I', 18)  # Length of this header
+            all_headers += struct.pack('<H', 2)   # Header type: Transaction Descriptor
+            all_headers += struct.pack('<Q', 0)   # Transaction descriptor (no transaction)
+            all_headers += struct.pack('<I', 1)   # Outstanding request count
+
+            sql_text = (cmd + "\r\n").encode("utf-16le")
+            packet_data = all_headers + sql_text
+
+            self.sendTDS(TDS_SQL_BATCH, packet_data)
+
+            if wait:
+                tds = self.recvTDS()
+                self.replies = self.parseReply(tds["Data"], tuplemode)
+                return self.rows
+            else:
+                return True
+        else:
+            return super().batch(cmd, tuplemode, wait)
 
     def close(self):
         return self.disconnect()
@@ -183,3 +282,13 @@ class MSSQLRelayClient(ProtocolClient):
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
         self.sessionData = self.session.sessionData
         return self.session.sendAuth(authenticateMessageBlob, serverChallenge)
+
+    # Delegate methods used by MSSQLAttack
+    def sql_query(self, query):
+        return self.session.batch(query)
+
+    def printReplies(self):
+        return self.session.printReplies()
+
+    def printRows(self):
+        return self.session.printRows()
