@@ -184,5 +184,6 @@ class LDAPSRelayClient(LDAPRelayClient):
     def initConnection(self):
         self.server = Server("ldaps://%s:%s" % (self.targetHost, self.targetPort), get_info=ALL)
         self.session = Connection(self.server, user="a", password="b", authentication=NTLM)
+        self.performRootDSEQuery()
         self.session.open(False)
         return True
