@@ -38,6 +38,8 @@ from impacket.dcerpc.v5.lsad import PLSA_FOREST_TRUST_INFORMATION
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.structure import Structure
 from impacket import ntlm, crypto, LOG
+from datetime import datetime
+import time
 import hmac
 import hashlib
 try:
@@ -2915,3 +2917,13 @@ def hNetrServerGetTrustInfo(dce, trustedDcName, accountName, secureChannelType, 
     request['ComputerName'] = checkNullString(computerName)
     request['Authenticator'] = authenticator
     return dce.request(request)
+
+def ComputeNetlogonAuthenticator(Credential, SessionKey):
+    Authenticator = NETLOGON_AUTHENTICATOR()
+    start_date = "01/01/1970 00:00:00"
+    actual_date = datetime.strptime(start_date, "%d/%m/%Y %H:%M:%S")
+    seconds = time.mktime(actual_date.timetuple())
+    CredentialAuthenticator = ComputeNetlogonCredentialAES(Credential, SessionKey)
+    Authenticator['Credential'] = CredentialAuthenticator
+    Authenticator['Timestamp'] = seconds
+    return Authenticator 
