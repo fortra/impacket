@@ -23,40 +23,30 @@ class TestDot11ManagementBeaconFrames(unittest.TestCase):
         self.rawframe=b'\x00\x00\x20\x00\x67\x08\x04\x00\x54\xc6\xb8\x24\x00\x00\x00\x00\x22\x0c\xda\xa0\x02\x00\x00\x00\x40\x01\x00\x00\x3c\x14\x24\x11\x80\x00\x00\x00\xff\xff\xff\xff\xff\xff\x06\x03\x7f\x07\xa0\x16\x06\x03\x7f\x07\xa0\x16\xb0\x77\x3a\x40\xcb\x26\x00\x00\x00\x00\x64\x00\x01\x05\x00\x0a\x66\x72\x65\x65\x62\x73\x64\x2d\x61\x70\x01\x08\x8c\x12\x98\x24\xb0\x48\x60\x6c\x03\x01\x24\x05\x04\x00\x01\x00\x00\x07\x2a\x55\x53\x20\x24\x01\x11\x28\x01\x11\x2c\x01\x11\x30\x01\x11\x34\x01\x17\x38\x01\x17\x3c\x01\x17\x40\x01\x17\x95\x01\x1e\x99\x01\x1e\x9d\x01\x1e\xa1\x01\x1e\xa5\x01\x1e\x20\x01\x00\xdd\x18\x00\x50\xf2\x02\x01\x01\x00\x00\x03\xa4\x00\x00\x27\xa4\x00\x00\x42\x43\x5e\x00\x62\x32\x2f\x00'
         self.radiotap_decoder = RadioTapDecoder()
         radiotap=self.radiotap_decoder.decode(self.rawframe)
+        self.dot11=radiotap.child()
+        self.management_base=self.dot11.child()
+        self.management_beacon=self.management_base.child()
+
+    def test_setups(self):
+        radiotap = self.radiotap_decoder.decode(self.rawframe)
 
         if PY2:
             self.assertEqual(str(radiotap.__class__), "impacket.dot11.RadioTap")
+            self.assertEqual(str(self.dot11.__class__), "impacket.dot11.Dot11")
+            self.assertEqual(str(self.management_base.__class__), "impacket.dot11.Dot11ManagementFrame")
+            self.assertEqual(str(self.management_beacon.__class__),
+                             "impacket.dot11.Dot11ManagementBeacon")
         else:
             self.assertEqual(str(radiotap.__class__), "<class 'impacket.dot11.RadioTap'>")
-
-        self.dot11=radiotap.child()
-        if PY2:
-            self.assertEqual(str(self.dot11.__class__), "impacket.dot11.Dot11")
-        else:
             self.assertEqual(str(self.dot11.__class__), "<class 'impacket.dot11.Dot11'>")
-
-        type = self.dot11.get_type()
-        self.assertEqual(type,Dot11Types.DOT11_TYPE_MANAGEMENT)
-        
-        subtype = self.dot11.get_subtype()
-        self.assertEqual(subtype,Dot11Types.DOT11_SUBTYPE_MANAGEMENT_BEACON)
-        
-        typesubtype = self.dot11.get_type_n_subtype()
-        self.assertEqual(typesubtype,Dot11Types.DOT11_TYPE_MANAGEMENT_SUBTYPE_BEACON)
-        
-        self.management_base=self.dot11.child()
-        if PY2:
-            self.assertEqual(str(self.management_base.__class__), "impacket.dot11.Dot11ManagementFrame")
-        else:
             self.assertEqual(str(self.management_base.__class__), "<class 'impacket.dot11.Dot11ManagementFrame'>")
-        
-        self.management_beacon=self.management_base.child()
-        if PY2:
-            self.assertEqual(str(self.management_beacon.__class__), "impacket.dot11.Dot11ManagementBeacon")
-        else:
-            self.assertEqual(str(self.management_beacon.__class__), "<class 'impacket.dot11.Dot11ManagementBeacon'>")
-            
-        
+            self.assertEqual(str(self.management_beacon.__class__),
+                             "<class 'impacket.dot11.Dot11ManagementBeacon'>")
+
+        self.assertEqual(self.dot11.get_type(), Dot11Types.DOT11_TYPE_MANAGEMENT)
+        self.assertEqual(self.dot11.get_subtype(), Dot11Types.DOT11_SUBTYPE_MANAGEMENT_BEACON)
+        self.assertEqual(self.dot11.get_type_n_subtype(), Dot11Types.DOT11_TYPE_MANAGEMENT_SUBTYPE_BEACON)
+
     def test_01(self):
         'Test Header and Tail Size field'
         self.assertEqual(self.management_base.get_header_size(), 22)
