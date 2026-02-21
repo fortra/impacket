@@ -61,7 +61,7 @@ class LDAPSocksRelay(SocksRelay):
                     elif 'simple' in msg_component['authentication']:
                         LOG.debug('LDAP: Got simple bind request')
 
-                        # Parse domain/username
+                        # Parse authenticating user
                         upn = str(msg_component['name'].asOctets().decode('utf-8'))
                         if upn.count('@') == 1: # user@domain.com
                             username, domain = upn.split('@')
@@ -84,7 +84,7 @@ class LDAPSocksRelay(SocksRelay):
                         
                         self.username = f'{domain}/{username}'
 
-                        # Check if requested domain/username exists as proxiable
+                        # Check if authenticating user has proxy session
                         if not self.check_proxy_sessions(domain, username):
                             return False
 
@@ -115,12 +115,12 @@ class LDAPSocksRelay(SocksRelay):
                         chall_response = ntlm.NTLMAuthChallengeResponse()
                         chall_response.fromString(msg_component['authentication']['sicilyResponse'].asOctets())
 
-                        # Parse domain/username
+                        # Parse authenticating user
                         username = chall_response['user_name'].decode('utf-16le')
                         domain = chall_response['domain_name'].decode('utf-16le')
                         self.username = f'{domain}/{username}'
 
-                        # Check if requested domain/username exists as proxiable
+                        # Check if authenticating user has proxy session
                         if not self.check_proxy_sessions(domain, username):
                             return False
                         
@@ -142,7 +142,7 @@ class LDAPSocksRelay(SocksRelay):
 
                         if saslCredentials[0] == 0x60: # SPNEGO_NEG_TOKEN_INIT
                             LOG.debug('LDAP: Got SASL bind request')
-                            
+
                             # Build NTLM challenge
                             bindresponse = self.build_NTLM_challenge(isSicily=False)
 
@@ -153,7 +153,7 @@ class LDAPSocksRelay(SocksRelay):
                             # Load negotiate message
                             SPNEGO_NEG_TOKEN_RESP_wrapper = SPNEGO_NegTokenResp(saslCredentials)
 
-                            # Parse domain/username
+                            # Parse authenticating user
                             chall_response = ntlm.NTLMAuthChallengeResponse()
                             chall_response.fromString(SPNEGO_NEG_TOKEN_RESP_wrapper['ResponseToken'])
 
@@ -175,7 +175,7 @@ class LDAPSocksRelay(SocksRelay):
                                 self.send_ldap_msg(bindresponse, message['messageID'])
                                 return False
 
-                            # Check if requested domain/username exists as proxiable
+                            # Check if authenticating user has proxy session
                             if not self.check_proxy_sessions(domain, username):
                                 return False
                             
