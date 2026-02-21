@@ -172,7 +172,7 @@ class LDAPRelayClient(ProtocolClient):
             search_filter='(objectClass=*)',
             search_scope='BASE',
             attributes=['namingContexts'])
-    
+
 class LDAPSRelayClient(LDAPRelayClient):
     PLUGIN_NAME = "LDAPS"
     MODIFY_ADD = MODIFY_ADD
