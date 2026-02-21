@@ -1049,7 +1049,7 @@ class TICKETER:
         cipherText = cipher.encrypt(key, 2, encodedEncTicketPart, None)
 
         kdcRep['ticket']['enc-part']['cipher'] = cipherText
-        kdcRep['ticket']['enc-part']['kvno'] = 2
+        kdcRep['ticket']['enc-part']['kvno'] = self.__options.kvno
 
         # Lastly.. we have to encrypt the kdcRep['enc-part'] part
         # with a key we chose. It actually doesn't really matter since nobody uses it (could it be trash?)
@@ -1112,8 +1112,9 @@ if __name__ == '__main__':
     parser.add_argument('-request', action='store_true', default=False, help='Requests ticket to domain and clones it '
                         'changing only the supplied information. It requires specifying -user')
     parser.add_argument('-domain', action='store', required=True, help='the fully qualified domain name (e.g. contoso.com)')
-    parser.add_argument('-domain-sid', action='store', required=True, help='Domain SID of the target domain the ticker will be '
+    parser.add_argument('-domain-sid', action='store', required=False, help='Domain SID of the target domain the ticker will be '
                                                             'generated for')
+    parser.add_argument('-kvno', action='store', required=False, help='kvno of the signing key (for MIT Kerberos V only)', type=int)
     parser.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key used for signing the ticket '
                                                                              '(128 or 256 bits)')
     parser.add_argument('-nthash', action="store", help='NT hash used for signing the ticket')
@@ -1167,6 +1168,17 @@ if __name__ == '__main__':
     if options.domain is None:
         logging.critical('Domain should be specified!')
         sys.exit(1)
+
+    if options.domain_sid is None and options.kvno is None:
+        logging.critical('Domain SID (for Microsoft) or kvno (for MIT) must be specified')
+        sys.exit(1)
+    if options.domain_sid is None:
+        # From https://docs.microsoft.com/en-us/windows/security/identity-protection/access-control/security-identifiers
+        options.domain_sid = 'S-1-5-21-1004336348-1177238915-682003330'
+    if options.kvno is None:
+        # kvno is ignored by Microsoft's implementation
+        # https://docs.microsoft.com/en-us/archive/blogs/openspecification/to-kvno-or-not-to-kvno-what-is-the-version
+        options.kvno = 2
 
     if options.aesKey is None and options.nthash is None and options.keytab is None:
         logging.error('You have to specify either aesKey, or nthash, or keytab')
