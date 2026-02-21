@@ -239,8 +239,8 @@ class LDAPSocksRelay(SocksRelay):
 
                             response['attributes'].append(attribs)
                         elif msg_component['scope'] == Scope('baseObject') and msg_component['baseObject'] == LDAPDN(''):
-                            # Initial Unauth searchRequest
-                            LOG.debug('LDAP: Client requested server information')
+                            # RootDSE Query
+                            LOG.debug('LDAP: Client performed RootDSE query')
                             response = SearchResultEntry()
                             response['objectName'] = LDAPDN('')
                             response['attributes'] = PartialAttributeList()

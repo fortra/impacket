@@ -51,8 +51,9 @@ class LDAPRelayClient(ProtocolClient):
         self.authenticateMessageBlob = None
         self.server = None
 
-    def getServerInfoUnauth(self):
+    def performRootDSEQuery(self):
         with Connection(self.server, authentication='ANONYMOUS') as conn:
+            LOG.debug('LDAP: Performing RootDSE query')
             conn.search(search_base='',
                         search_filter='(objectClass=*)',
                         search_scope='BASE',
@@ -67,7 +68,7 @@ class LDAPRelayClient(ProtocolClient):
     def initConnection(self):
         self.server = Server("ldap://%s:%s" % (self.targetHost, self.targetPort), get_info=ALL)
         self.session = Connection(self.server, user="a", password="b", authentication=NTLM)
-        self.getServerInfoUnauth()
+        self.performRootDSEQuery()
         self.session.open(False)
         return True
 
