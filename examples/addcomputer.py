@@ -364,10 +364,7 @@ class ADDCOMPUTER:
         elif self.__method == 'LDAPS':
             self.run_ldaps()
 
-# Process command-line arguments.
-if __name__ == '__main__':
-    print(version.BANNER)
-
+def parse_args():
     parser = argparse.ArgumentParser(add_help = True, description = "Adds a computer account to domain")
 
     if sys.version_info.major == 2 and sys.version_info.minor == 7 and sys.version_info.micro < 16: #workaround for https://bugs.python.org/issue11874
@@ -421,8 +418,14 @@ if __name__ == '__main__':
         parser.print_help()
         sys.exit(1)
 
-    options = parser.parse_args()
+    return parser.parse_args()
 
+
+# Process command-line arguments.
+if __name__ == '__main__':
+    print(version.BANNER)
+
+    options = parse_args()
     logger.init(options.ts, options.debug)
     
     domain, username, password, _, _, options.k = parse_identity(options.account, options.hashes, options.no_pass, options.aesKey, options.k)
