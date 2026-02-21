@@ -61,12 +61,11 @@ class LDAPSocksRelay(SocksRelay):
                     elif 'simple' in msg_component['authentication']:
                         LOG.debug('LDAP: Got simple bind request')
 
-                        # Parsing authentication method
+                        # Parse domain/username
                         upn = str(msg_component['name'].asOctets().decode('utf-8'))
-                        if '@' in upn:
-                            username = upn.split('@')[0]
-                            domain = upn.split('@')[1]
-                        elif 'DC=' in upn:
+                        if upn.count('@') == 1: # user@domain.com
+                            username, domain = upn.split('@')
+                        elif 'DC=' in upn.upper(): # CN=user,CN=Users,DC=domain,DC=com
                             username = None
                             dcs = []
                             parts = [p.strip() for p in upn.split(',')]
@@ -77,33 +76,19 @@ class LDAPSocksRelay(SocksRelay):
                                 elif k.upper() == 'DC':
                                     dcs.append(v)
                             domain = '.'.join(dcs)
+                        elif upn.count('/') == 1: # domain.com/user
+                            domain, username = upn.split('/')
                         else:
                             username = upn
                             domain = ''
                         
                         self.username = f'{domain}/{username}'
 
-                        # Checking for the two formats the domain can have (taken from both HTTP and SMB socks plugins)
-                        if f'{domain}/{username}'.upper() in self.activeRelays:
-                            self.username = f'{domain}/{username}'.upper()
-                        elif f'{domain.split(".", 1)[0]}/{username}'.upper() in self.activeRelays:
-                            self.username = f'{domain.split(".", 1)[0]}/{username}'.upper()
-                        else:
-                            # Username not in active relays
-                            LOG.error('LDAP: No session for %s@%s(%s) available' % (
-                                username, self.targetHost, self.targetPort))
+                        # Check if requested domain/username exists as proxiable
+                        if not self.check_proxy_sessions(domain, username):
                             return False
 
-                        if self.activeRelays[self.username]['inUse'] is True:
-                            LOG.error('LDAP: Connection for %s@%s(%s) is being used at the moment!' % (
-                                self.username, self.targetHost, self.targetPort))
-                            return False
-                        else:
-                            LOG.info('LDAP: Proxying client session for %s@%s(%s)' % (
-                                self.username, self.targetHost, self.targetPort))
-                            self.activeRelays[self.username]['inUse'] = True
-                            self.session = self.activeRelays[self.username]['protocolClient'].session.socket
-
+                        # Building successful LDAP bind response
                         bindresponse = BindResponse()
                         bindresponse['resultCode'] = ResultCode('success')
                         bindresponse['matchedDN'] = LDAPDN('')
@@ -115,24 +100,10 @@ class LDAPSocksRelay(SocksRelay):
                     
                     elif 'sicilyNegotiate' in msg_component['authentication']:
                         # Requested NTLM authentication
+                        LOG.debug('LDAP: Got Sicily bind request')
 
-                        LOG.debug('LDAP: Got NTLM bind request')
-
-                        # Load negotiate message
-                        negotiateMessage = ntlm.NTLMAuthNegotiate()
-                        negotiateMessage.fromString(msg_component['authentication']['sicilyNegotiate'].asOctets())
-
-                        # Reuse the challenge message from the real authentication with the server
-                        challengeMessage = self.sessionData['CHALLENGE_MESSAGE']
-                        # We still remove the annoying flags
-                        challengeMessage['flags'] &= ~(NTLMSSP_NEGOTIATE_SIGN)
-                        challengeMessage['flags'] &= ~(NTLMSSP_NEGOTIATE_SEAL)
-
-                        # Building the LDAP bind response message
-                        bindresponse = BindResponse()
-                        bindresponse['resultCode'] = ResultCode('success')
-                        bindresponse['matchedDN'] = LDAPDN(challengeMessage.getData())
-                        bindresponse['diagnosticMessage'] = LDAPString('')
+                        # Build NTLM challenge
+                        bindresponse = self.build_NTLM_challenge(isSicily=True)
 
                         # Sending the response
                         self.send_ldap_msg(bindresponse, message['messageID'])
@@ -144,30 +115,14 @@ class LDAPSocksRelay(SocksRelay):
                         chall_response = ntlm.NTLMAuthChallengeResponse()
                         chall_response.fromString(msg_component['authentication']['sicilyResponse'].asOctets())
 
+                        # Parse domain/username
                         username = chall_response['user_name'].decode('utf-16le')
                         domain = chall_response['domain_name'].decode('utf-16le')
                         self.username = f'{domain}/{username}'
 
-                        # Checking for the two formats the domain can have (taken from both HTTP and SMB socks plugins)
-                        if f'{domain}/{username}'.upper() in self.activeRelays:
-                            self.username = f'{domain}/{username}'.upper()
-                        elif f'{domain.split(".", 1)[0]}/{username}'.upper() in self.activeRelays:
-                            self.username = f'{domain.split(".", 1)[0]}/{username}'.upper()
-                        else:
-                            # Username not in active relays
-                            LOG.error('LDAP: No session for %s@%s(%s) available' % (
-                                username, self.targetHost, self.targetPort))
+                        # Check if requested domain/username exists as proxiable
+                        if not self.check_proxy_sessions(domain, username):
                             return False
-
-                        if self.activeRelays[self.username]['inUse'] is True:
-                            LOG.error('LDAP: Connection for %s@%s(%s) is being used at the moment!' % (
-                                self.username, self.targetHost, self.targetPort))
-                            return False
-                        else:
-                            LOG.info('LDAP: Proxying client session for %s@%s(%s)' % (
-                                self.username, self.targetHost, self.targetPort))
-                            self.activeRelays[self.username]['inUse'] = True
-                            self.session = self.activeRelays[self.username]['protocolClient'].session.socket
                         
                         # Building successful LDAP bind response
                         bindresponse = BindResponse()
@@ -184,100 +139,61 @@ class LDAPSocksRelay(SocksRelay):
 
                         # Parsing authentication method
                         saslCredentials = msg_component['authentication']['sasl']['credentials'].asOctets()
-                        try:
-                            if saslCredentials[0] == 0x60: # SPNEGO_NEG_TOKEN_INIT
-                                # Load negotiate message
-                                SPNEGO_NEG_TOKEN_INIT_wrapper = SPNEGO_NegTokenInit(saslCredentials)
-                                negotiateMessage = ntlm.NTLMAuthNegotiate()
-                                negotiateMessage.fromString(SPNEGO_NEG_TOKEN_INIT_wrapper['MechToken'])
 
-                                # Reuse the challenge message from the real authentication with the server
-                                challengeMessage = self.sessionData['CHALLENGE_MESSAGE']
-                                # We still remove the annoying flags
-                                challengeMessage['flags'] &= ~(NTLMSSP_NEGOTIATE_SIGN)
-                                challengeMessage['flags'] &= ~(NTLMSSP_NEGOTIATE_SEAL)
+                        if saslCredentials[0] == 0x60: # SPNEGO_NEG_TOKEN_INIT
+                            LOG.debug('LDAP: Got SASL bind request')
+                            
+                            # Build NTLM challenge
+                            bindresponse = self.build_NTLM_challenge(isSicily=False)
 
-                                # Building first SPNEGO_NegTokenResp
-                                SPNEGO_NegTokenResp_first = SPNEGO_NegTokenResp()
-                                SPNEGO_NegTokenResp_first['NegState'] = b'\x01' # accept-incomplete
-                                SPNEGO_NegTokenResp_first['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
-                                SPNEGO_NegTokenResp_first['ResponseToken'] = challengeMessage.getData()
+                            # Sending the first response
+                            self.send_ldap_msg(bindresponse, message['messageID'])
 
-                                 # Building the first LDAP bind response message
-                                bindresponse = BindResponse()
-                                bindresponse['resultCode'] = ResultCode('saslBindInProgress')
-                                bindresponse['matchedDN'] = LDAPDN('')
-                                bindresponse['diagnosticMessage'] = LDAPString('')
-                                bindresponse['serverSaslCreds'] = SPNEGO_NegTokenResp_first.getData()
+                        else: # SPNEGO_NEG_TOKEN_RESP
+                            # Load negotiate message
+                            SPNEGO_NEG_TOKEN_RESP_wrapper = SPNEGO_NegTokenResp(saslCredentials)
 
-                                # Sending the first response
-                                self.send_ldap_msg(bindresponse, message['messageID'])
+                            # Parse domain/username
+                            chall_response = ntlm.NTLMAuthChallengeResponse()
+                            chall_response.fromString(SPNEGO_NEG_TOKEN_RESP_wrapper['ResponseToken'])
 
-                            elif saslCredentials[0] == 0xa0: # SPNEGO_NEG_TOKEN_TARG
-                                pass
-                            elif saslCredentials[0] == 0xa1: # SPNEGO_NEG_TOKEN_RESP
-                                # Load negotiate message
-                                SPNEGO_NEG_TOKEN_RESP_wrapper = SPNEGO_NegTokenResp(saslCredentials)
+                            username = chall_response['user_name'].decode('utf-16le')
+                            domain = chall_response['domain_name'].decode('utf-16le')
+                            self.username = f'{domain}/{username}'
 
-                                # Parsing authentication method
-                                chall_response = ntlm.NTLMAuthChallengeResponse()
-                                chall_response.fromString(SPNEGO_NEG_TOKEN_RESP_wrapper['ResponseToken'])
+                            # Check for blank authentication
+                            if username == '':
+                                LOG.debug('LDAP: Passing blank authentication')
 
-                                username = chall_response['user_name'].decode('utf-16le')
-                                domain = chall_response['domain_name'].decode('utf-16le')
-                                self.username = f'{domain}/{username}'
-
-                                # Checking for the two formats the domain can have (taken from both HTTP and SMB socks plugins)
-                                if username == '':
-                                    LOG.debug('LDAP: Passing blank authentication')
-
-                                    # Pass blank authentication through
-                                    bindresponse = BindResponse()
-                                    bindresponse['resultCode'] = ResultCode('success')
-                                    bindresponse['matchedDN'] = LDAPDN('')
-                                    bindresponse['diagnosticMessage'] = LDAPString('')
-
-                                    self.send_ldap_msg(bindresponse, message['messageID'])
-                                    return False
-                                elif f'{domain}/{username}'.upper() in self.activeRelays:
-                                    self.username = f'{domain}/{username}'.upper()
-                                elif f'{domain.split(".", 1)[0]}/{username}'.upper() in self.activeRelays:
-                                    self.username = f'{domain.split(".", 1)[0]}/{username}'.upper()
-                                else:
-                                    # Username not in active relays
-                                    LOG.error('LDAP: No session for %s@%s(%s) available' % (
-                                        username, self.targetHost, self.targetPort))
-                                    return False
-
-                                if self.activeRelays[self.username]['inUse'] is True:
-                                    LOG.error('LDAP: Connection for %s@%s(%s) is being used at the moment!' % (
-                                        self.username, self.targetHost, self.targetPort))
-                                    return False
-                                else:
-                                    LOG.info('LDAP: Proxying client session for %s@%s(%s)' % (
-                                        self.username, self.targetHost, self.targetPort))
-                                    self.activeRelays[self.username]['inUse'] = True
-                                    self.session = self.activeRelays[self.username]['protocolClient'].session.socket
-
-                                # Building first SPNEGO_NegTokenResp
-                                SPNEGO_NEG_TOKEN_RESP_response = SPNEGO_NegTokenResp()
-                                SPNEGO_NEG_TOKEN_RESP_response['NegState'] = b'\x00' # complete
-
-                                 # Building the first LDAP bind response message
+                                # Building successful LDAP bind response
                                 bindresponse = BindResponse()
                                 bindresponse['resultCode'] = ResultCode('success')
                                 bindresponse['matchedDN'] = LDAPDN('')
                                 bindresponse['diagnosticMessage'] = LDAPString('')
-                                bindresponse['serverSaslCreds'] = SPNEGO_NEG_TOKEN_RESP_response.getData()
 
-                                # Sending the first response
+                                # Sending successful response
                                 self.send_ldap_msg(bindresponse, message['messageID'])
-                            else:
-                                LOG.error(f'Unknown SPNEGO Token type: {str(saslCredentials[0].hex())}')
                                 return False
-                        except Exception as e:
-                            LOG.error(f"[EXCEPTION]: {str(e)}")
-                            return False
+
+                            # Check if requested domain/username exists as proxiable
+                            if not self.check_proxy_sessions(domain, username):
+                                return False
+                            
+                            # Building SPNEGO_NegTokenResp
+                            SPNEGO_NEG_TOKEN_RESP_response = SPNEGO_NegTokenResp()
+                            SPNEGO_NEG_TOKEN_RESP_response['NegState'] = b'\x00' # complete
+
+                            # Building successful LDAP bind response
+                            bindresponse = BindResponse()
+                            bindresponse['resultCode'] = ResultCode('success')
+                            bindresponse['matchedDN'] = LDAPDN('')
+                            bindresponse['diagnosticMessage'] = LDAPString('')
+                            bindresponse['serverSaslCreds'] = SPNEGO_NEG_TOKEN_RESP_response.getData()
+
+                            # Sending successful response
+                            self.send_ldap_msg(bindresponse, message['messageID'])
+
+                            return True
                     else:
                         LOG.error('LDAP: Received an unknown LDAP binding request, cannot continue')
                         return False
@@ -329,7 +245,7 @@ class LDAPSocksRelay(SocksRelay):
                             response['objectName'] = LDAPDN('')
                             response['attributes'] = PartialAttributeList()
 
-                            # Get all requested attributes
+                            # Return all requested attributes
                             for attribute in msg_component['attributes']:
                                 reqAttrStr = attribute.asOctets().decode('utf-8')
                                 attrVal = self.sessionData['LDAP_INFO'][reqAttrStr]
@@ -482,3 +398,51 @@ class LDAPSocksRelay(SocksRelay):
             pass
 
         return True
+
+    def build_NTLM_challenge(self, isSicily):
+        # Reuse the challenge message from the real authentication with the server
+        challengeMessage = self.sessionData['CHALLENGE_MESSAGE']
+        # We still remove the annoying flags
+        challengeMessage['flags'] &= ~(NTLMSSP_NEGOTIATE_SIGN)
+        challengeMessage['flags'] &= ~(NTLMSSP_NEGOTIATE_SEAL)
+        
+        # Building the LDAP bind response message
+        bindresponse = BindResponse()
+        bindresponse['resultCode'] = ResultCode('success')
+        bindresponse['diagnosticMessage'] = LDAPString('')
+
+        if isSicily:
+            bindresponse['matchedDN'] = LDAPDN(challengeMessage.getData())
+        else:
+            # Building SPNEGO_NegTokenTarg for SASL NTLM challenge
+            SPNEGO_NegTokenResp_first = SPNEGO_NegTokenResp()
+            SPNEGO_NegTokenResp_first['NegState'] = b'\x01' # accept-incomplete
+            SPNEGO_NegTokenResp_first['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
+            SPNEGO_NegTokenResp_first['ResponseToken'] = challengeMessage.getData()
+            bindresponse['matchedDN'] = LDAPDN('')
+            bindresponse['resultCode'] = ResultCode('saslBindInProgress')
+            bindresponse['serverSaslCreds'] = SPNEGO_NegTokenResp_first.getData()
+
+        return bindresponse
+
+    def check_proxy_sessions(self, domain, username):
+        # Checking for the two formats the domain can have (taken from both HTTP and SMB socks plugins)
+        if f'{domain}/{username}'.upper() in self.activeRelays:
+            self.username = f'{domain}/{username}'.upper()
+        elif f'{domain.split(".", 1)[0]}/{username}'.upper() in self.activeRelays:
+            self.username = f'{domain.split(".", 1)[0]}/{username}'.upper()
+        else:
+            # Username not in active relays
+            LOG.error('LDAP: No session for %s@%s(%s) available' % (
+                username, self.targetHost, self.targetPort))
+            return False
+        if self.activeRelays[self.username]['inUse'] is True:
+            LOG.error('LDAP: Connection for %s@%s(%s) is being used at the moment!' % (
+                self.username, self.targetHost, self.targetPort))
+            return False
+        else:
+            LOG.info('LDAP: Proxying client session for %s@%s(%s)' % (
+                self.username, self.targetHost, self.targetPort))
+            self.activeRelays[self.username]['inUse'] = True
+            self.session = self.activeRelays[self.username]['protocolClient'].session.socket
+            return True
