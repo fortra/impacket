@@ -25,6 +25,7 @@ import time
 import cmd
 import os
 import ntpath
+import glob
 
 from six import PY2
 from impacket.dcerpc.v5 import samr, transport, srvs
@@ -122,6 +123,7 @@ class MiniImpacketShell(cmd.Cmd):
  put {filename} - uploads the filename into the current path
  get {filename} - downloads the filename from the current path
  mget {mask} - downloads all files from the current directory matching the provided mask
+ mput {mask} - uploads all files matching the provided mask to the current directory
  cat {filename} - reads the filename from the current path
  mount {target,path} - creates a mount point from {path} to {target} (admin required)
  umount {path} - removes the mount point at {path} without deleting the directory (admin required)
@@ -513,6 +515,32 @@ class MiniImpacketShell(cmd.Cmd):
         p = ntpath.join(self.pwd, path)
         pathname = p.replace('/','\\')
         self.smb.deleteDirectory(self.share, pathname)
+
+    def do_mput(self, mask):
+        self.completion = list()
+
+        if mask == '':
+            LOG.error("A mask must be provided")
+            return
+
+        if self.tid is None:
+            LOG.error("No share selected")
+            return
+        
+        if os.path.isdir(mask):
+            self.completion = os.listdir(mask)
+            for index, filename in enumerate(self.completion):
+                self.completion[index] = os.path.join(mask, filename)
+        else:
+            self.completion = glob.glob(mask, recursive=False)
+
+        if len(self.completion) == 0:
+            LOG.error("No files found matching the provided mask")
+            return
+
+        for filename in self.completion:
+            LOG.info("Uploading %s" % (filename))
+            self.do_put(filename)
 
     def do_put(self, pathname):
         if self.tid is None:
