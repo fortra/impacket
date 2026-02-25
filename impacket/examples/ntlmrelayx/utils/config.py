@@ -62,6 +62,7 @@ class NTLMRelayxConfig:
         self.enumLocalAdmins = False
         self.SMBServerChallenge = None
         self.rpc_attack = None
+        self.regSecrets = False
 
         # RPC options
         self.rpc_mode = None
@@ -150,6 +151,9 @@ class NTLMRelayxConfig:
 
     def setCommand(self, command):
         self.command = command
+        
+    def setRegSecrets(self, regSecrets):
+        self.regSecrets = regSecrets
 
     def setEnumLocalAdmins(self, enumLocalAdmins):
         self.enumLocalAdmins = enumLocalAdmins
