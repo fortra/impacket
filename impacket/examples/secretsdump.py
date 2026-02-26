@@ -2716,10 +2716,16 @@ class NTDSHashes:
                         plainText = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])],
                                                                    cipherText['EncryptedHash'][4:],
                                                                    cipherText['KeyMaterial'])
-                        haveInfo = True
                     else:
                         plainText = self.__removeRC4Layer(cipherText)
-                        haveInfo = True
+                    # 6f is the length of the empty USER_PROPERTIES struct per MS-SAMR 2.2.10.1
+                    # "PropertyCount (2 bytes): The number of USER_PROPERTY elements in the UserProperties field.
+                    # When there are zero USER_PROPERTY elements in the UserProperties field, this field MUST be
+                    # omitted; the resultant USER_PROPERTIES structure has a constant size of 0x6F bytes."
+                    # We add one because we expect to have this PropertyCount and 4 again representing the minimal size
+                    # of an empty UserProperty struct
+                    # This discards additional cases where user properties do not match MS-SAMR structure ...
+                    haveInfo = len(plainText) > 0x6f + 2 + 4
         else:
             domain = None
             userName = None
