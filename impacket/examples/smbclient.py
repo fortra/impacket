@@ -122,6 +122,7 @@ class MiniImpacketShell(cmd.Cmd):
  put {filename} - uploads the filename into the current path
  get {filename} - downloads the filename from the current path
  mget {mask} - downloads all files from the current directory matching the provided mask
+ rget {mask} - recursively downloads all files from the current directory and subdirectories matching the provided mask
  cat {filename} - reads the filename from the current path
  mount {target,path} - creates a mount point from {path} to {target} (admin required)
  umount {path} - removes the mount point at {path} without deleting the directory (admin required)
@@ -574,6 +575,69 @@ class MiniImpacketShell(cmd.Cmd):
                     os.remove(filename)
                     raise
                 fh.close()
+
+    def do_rget(self, mask):
+        if mask == '':
+            mask = '*'
+        if self.tid is None:
+            LOG.error("No share selected")
+            return
+        if self.loggedIn is False:
+            LOG.error("Not logged in")
+            return
+        
+        folderList = [self.pwd]
+        
+        for ITEM in folderList:
+            old_pwd = self.pwd
+            self.pwd = ITEM
+            
+            try:
+                self.do_ls('*', display=False)
+                
+                for file_tuple in self.completion:
+                    filename = file_tuple[0]
+                    is_directory = file_tuple[1]
+                    
+                    if filename in ['.', '..']:
+                        continue
+                    
+                    if is_directory:
+                        folderList.append(ntpath.join(ITEM, filename))
+                
+                self.do_ls(mask, display=False)
+                
+                for file_tuple in self.completion:
+                    filename = file_tuple[0]
+                    is_directory = file_tuple[1]
+                    
+                    if filename in ['.', '..'] or is_directory:
+                        continue
+                    
+                    filename = filename.replace('/', '\\')
+                    normalized_item = ITEM.replace("\\", "/")
+                    normalized_pwd = old_pwd.replace("\\", "/")
+                    local_path = normalized_item.replace(normalized_pwd, "").strip("/")
+                    local_file = os.path.join(local_path, ntpath.basename(filename)) if local_path else ntpath.basename(filename)
+                    local_dir = os.path.dirname(local_file)
+                    
+                    if local_dir and not os.path.exists(local_dir):
+                        os.makedirs(local_dir)
+                    
+                    fh = open(local_file, 'wb')
+                    pathname = ntpath.join(ITEM, filename)
+                    try:
+                        LOG.info("Downloading %s" % local_file)
+                        self.smb.getFileEx(self.share, pathname, fh.write)
+                    except:
+                        fh.close()
+                        os.remove(local_file)
+                        raise
+                    fh.close()
+            except:
+                pass
+            
+            self.pwd = old_pwd
 
     def do_get(self, filename):
         if self.tid is None:
