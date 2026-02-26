@@ -38,7 +38,6 @@ from impacket.ntlm import (
     AV_PAIRS,
     NTLMAuthNegotiate,
     NTLMSSP_NEGOTIATE_SIGN,
-    NTLMSSP_NEGOTIATE_SEAL,
     NTLMSSP_NEGOTIATE_ALWAYS_SIGN,
     NTLMAuthChallengeResponse,
     NTLMSSP_NEGOTIATE_KEY_EXCH,
@@ -137,8 +136,6 @@ class LDAPRelayClient(ProtocolClient):
                 authMessage['flags'] ^= NTLMSSP_NEGOTIATE_KEY_EXCH
             if authMessage['flags'] & NTLMSSP_NEGOTIATE_VERSION == NTLMSSP_NEGOTIATE_VERSION:
                 authMessage['flags'] ^= NTLMSSP_NEGOTIATE_VERSION
-            if authMessage['flags'] & NTLMSSP_NEGOTIATE_SEAL == NTLMSSP_NEGOTIATE_SEAL:
-                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_SEAL
             authMessage['MIC'] = b''
             authMessage['MICLen'] = 0
             authMessage['Version'] = b''
