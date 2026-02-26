@@ -537,7 +537,10 @@ class Structure:
 
         # asciiz specifier
         if format[:1] == 'z':
-            return data.index(self.b('\x00'))+1
+            try:
+                return data.index(self.b('\x00'))+1
+            except ValueError:
+                raise ValueError("Can't find NUL terminator in field '%s'" % field)
 
         # asciiz specifier
         if format[:1] == 'u':
@@ -550,7 +553,7 @@ class Structure:
             # NUL-NUL terminator not found
             hex_data = str(hexlify(data).decode('ascii'))
             utf16_chunks = [hex_data[i:i + 4] for i in range(0, len(hex_data), 4)]
-            raise ValueError("Can't find NUL-NUL terminator in UTF-16le string '%s'" % ' '.join(utf16_chunks))
+            raise ValueError("Can't find NUL-NUL terminator in UTF-16le field '%s': '%s'" % (field, ' '.join(utf16_chunks)))
 
         # DCE-RPC/NDR string specifier
         if format[:1] == 'w':
