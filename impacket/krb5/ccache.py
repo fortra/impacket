@@ -626,15 +626,20 @@ class CCache:
             LOG.debug('Domain retrieved from CCache: %s' % domain)
 
         creds = None
+        targetRealm = domain
         if target != '':
-            principal = '%s@%s' % (target.upper(), domain.upper())
+            targetRealm = target.replace(target.split('.')[0]+'.', '')
+            principal = '%s@%s' % (target.upper(), targetRealm.upper())
             creds = ccache.getCredential(principal)
 
         TGT = None
         TGS = None
         if creds is None:
-            principal = 'krbtgt/%s@%s' % (domain.upper(), domain.upper())
+            principal = 'krbtgt/%s@%s' % (targetRealm.upper(), domain.upper())
             creds = ccache.getCredential(principal)
+            if creds is None:
+                principal = 'krbtgt/%s@%s' % (domain.upper(), domain.upper())
+                creds = ccache.getCredential(principal)
             if creds is not None:
                 LOG.debug('Using TGT from cache')
                 TGT = creds.toTGT()
