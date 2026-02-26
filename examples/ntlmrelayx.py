@@ -206,7 +206,7 @@ def start_servers(options, threads):
         c.setSMBChallenge(options.ntlmchallenge)
         c.setSMBRPCAttack(options.rpc_attack)
         c.setInterfaceIp(options.interface_ip)
-        c.setExploitOptions(options.remove_mic, options.remove_target)
+        c.setExploitOptions(options.remove_mic, options.remove_target, options.remove_sign_seal)
         c.setWebDAVOptions(options.serve_image)
         c.setIsADCSAttack(options.adcs)
         c.setADCSOptions(options.template)
@@ -345,6 +345,7 @@ if __name__ == '__main__':
                                                                    'before serving a WPAD file. (default=1)')
     parser.add_argument('-6','--ipv6', action='store_true',help='Listen on IPv6')
     parser.add_argument('--remove-mic', action='store_true',help='Remove MIC (exploit CVE-2019-1040)')
+    parser.add_argument('--remove-sign-seal', action='store_true', help='Remove SIGN/SEAL-related NTLM negotiate flags (exploit CVE-2025-33073)')
     parser.add_argument('--serve-image', action='store',help='local path of the image that will we returned to clients')
     parser.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on '
                         'target system (for SMB and RPC). If not specified for SMB, hashes will be dumped (secretsdump.py must be'
