@@ -220,6 +220,11 @@ def start_servers(options, threads):
         
         c.setAltName(options.altname)
 
+        #https optioons
+        c.https = options.https
+        c.certfile = options.certfile
+        c.keyfile = options.keyfile
+
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
             c.setMode('REDIRECT')
@@ -384,6 +389,12 @@ if __name__ == '__main__':
     httpoptions.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
     httpoptions.add_argument('-remove-target', action='store_true', default=False,
                             help='Try to remove the target in the challenge message (in case CVE-2019-1019 patch is not installed)')
+    httpoptions.add_argument('--https', action='store_true',
+                            help='Enable TLS (HTTPS) on the HTTP relay server')
+    httpoptions.add_argument('--certfile', action='store', metavar='FILE',
+                            help='Path to server certificate (PEM format) for HTTPS')
+    httpoptions.add_argument('--keyfile', action='store', metavar='FILE',
+                            help='Path to private key (PEM format) for HTTPS')
 
     #LDAP options
     ldapoptions = parser.add_argument_group("LDAP client options")
