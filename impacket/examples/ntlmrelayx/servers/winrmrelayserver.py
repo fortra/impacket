@@ -242,6 +242,16 @@ class WinRMRelayServer(Thread):
             return self.do_GETPOST()
 
         def do_POST(self):
+            wsmanidentify = self.headers.get('WSMANIDENTIFY') # Test-WSMan without error
+            if wsmanidentify == 'unauthenticated':
+                LOG.info("HTTP: WS-Management request, sending 200 OK")
+                self.send_response(200)
+                self.send_header('WWW-Authenticate', 'Negotiate')
+                self.send_header('Content-type', 'text/html')
+                self.send_header('Content-Length','0')
+                self.send_header('Connection','keep-alive')
+                self.end_headers()
+                return
             return self.do_GETPOST()
 
         def do_CONNECT(self):
@@ -310,7 +320,7 @@ class WinRMRelayServer(Thread):
                 return False
 
             # Calculate auth
-            self.do_AUTHHEAD(message = b'NTLM '+base64.b64encode(self.challengeMessage.getData()), proxy=proxy)
+            self.do_AUTHHEAD(message = b'Negotiate '+base64.b64encode(self.challengeMessage.getData()), proxy=proxy)
             return True
 
         def do_ntlm_auth(self,token,authenticateMessage):
