@@ -38,6 +38,7 @@ import ntpath
 import random
 import string
 import struct
+import os
 from six import indexbytes, b
 from binascii import a2b_hex
 from contextlib import contextmanager
@@ -50,6 +51,7 @@ from impacket.nt_errors import STATUS_SUCCESS, STATUS_MORE_PROCESSING_REQUIRED, 
     STATUS_NO_MORE_FILES, STATUS_PENDING, STATUS_NOT_IMPLEMENTED, ERROR_MESSAGES
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_OID, asn1encode, ASN1_AID
 from impacket.krb5.gssapi import KRB5_AP_REQ
+from impacket.krb5.ccache import CCache
 
 
 # For signing
@@ -690,7 +692,7 @@ class SMB3:
             self.__TGT,
             self.__TGS)
 
-    def kerberosLogin(self, user, password, domain = '', lmhash = '', nthash = '', aesKey='', kdcHost = '', TGT=None, TGS=None, mutualAuth=False):
+    def kerberosLogin(self, user, password, domain = '', lmhash = '', nthash = '', aesKey='', kdcHost = '', TGT=None, TGS=None, mutualAuth=False, update_ccache=True):
         # If TGT or TGS are specified, they are in the form of:
         # TGS['KDC_REP'] = the response from the server
         # TGS['cipher'] = the cipher used
@@ -762,6 +764,10 @@ class SMB3:
         if TGS is None:
             serverName = Principal('cifs/%s' % (self._Connection['ServerName']), type=constants.PrincipalNameType.NT_SRV_INST.value)
             tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
+            if update_ccache and os.getenv('KRB5CCNAME'):
+                ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
+                ccache.fromTGS(tgs, oldSessionKey, sessionKey)
+                ccache.saveFile(os.getenv('KRB5CCNAME'), chmod=0o600)
         else:
             tgs = TGS['KDC_REP']
             cipher = TGS['cipher']
