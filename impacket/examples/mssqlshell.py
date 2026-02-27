@@ -69,6 +69,8 @@ class SQLSHELL(cmd.Cmd):
     xp_dirtree {path}          - executes xp_dirtree on the path
     sp_start_job {cmd}         - executes cmd using the sql server agent (blind)
     use_link {link}            - linked server to use (set use_link localhost to go back to local or use_link .. to get back one step)
+    enable_rpc {link}          - enable RPC Out for a linked server
+    disable_rpc {link}         - disable RPC Out for a linked server
     ! {cmd}                    - executes a local shell cmd
     upload {from} {to}         - uploads file {from} to the SQLServer host {to}
     download {from} {to}       - downloads file from the SQLServer host {from} to {to}
@@ -295,6 +297,30 @@ class SQLSHELL(cmd.Cmd):
         self.sql_query("EXEC sp_helplinkedsrvlogin")
         self.print_replies()
         self.sql.printRows()
+
+    def do_enable_rpc(self, s):
+        """Enable RPC Out for a linked server to allow executing stored procedures remotely."""
+        if not s:
+            print("[-] Usage: enable_rpc <linked_server>")
+            return
+        try:
+            self.sql_query("EXEC sp_serveroption @server='%s', @optname='rpc out', @optvalue='true'" % s)
+            self.print_replies()
+            self.sql.printRows()
+        except:
+            pass
+
+    def do_disable_rpc(self, s):
+        """Disable RPC Out for a linked server."""
+        if not s:
+            print("[-] Usage: disable_rpc <linked_server>")
+            return
+        try:
+            self.sql_query("EXEC sp_serveroption @server='%s', @optname='rpc out', @optvalue='false'" % s)
+            self.print_replies()
+            self.sql.printRows()
+        except:
+            pass
 
     def do_enum_users(self, line):
         self.sql_query("EXEC sp_helpuser")
