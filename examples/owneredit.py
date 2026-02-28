@@ -256,6 +256,12 @@ def parse_args():
     dacl_parser = parser.add_argument_group("dacl editor")
     dacl_parser.add_argument('-action', choices=['read', 'write'], nargs='?', default='read', help='Action to operate on the owner attribute')
 
+    group = parser.add_argument_group('SOCKS Proxy Options')
+    group.add_argument('-socks', action='store_true', default=False,
+                        help='Use a SOCKS proxy for the connection')
+    group.add_argument('-socks-address', default='127.0.0.1', help='SOCKS5 server address')
+    group.add_argument('-socks-port', default=1080, type=int, help='SOCKS5 server port')
+
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
@@ -267,6 +273,15 @@ def main():
     print(version.BANNER)
     args = parse_args()
     logger.init(args.ts, args.debug)
+
+    # Relay connections through a socks proxy
+    if (args.socks):
+        logging.info('Relaying connections through SOCKS proxy (%s:%s)', args.socks_address, args.socks_port)
+        import socket
+        import socks
+
+        socks.set_default_proxy(socks.SOCKS5, args.socks_address, args.socks_port)
+        socket.socket = socks.socksocket
 
     if args.action == 'write' and args.new_owner_sAMAccountName is None and args.new_owner_SID is None and args.new_owner_DN is None:
         logging.critical('-owner, -owner-sid, or -owner-dn should be specified when using -action write')
