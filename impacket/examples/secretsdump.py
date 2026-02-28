@@ -2227,8 +2227,23 @@ class LSASecrets(OfflineRegistry):
             # compute MD4 of the secret.. yes.. that is the nthash? :-o
             md4 = MD4.new()
             md4.update(secretItem)
+            machine = None
+            domain = None
             if hasattr(self.__remoteOps, 'getMachineNameAndDomain'):
                 machine, domain = self.__remoteOps.getMachineNameAndDomain()
+            if not machine or not domain:
+                # Offline mode: try to get domain/machine from SECURITY hive
+                salt = self.__getMachineKerberosSaltOffline()
+                if salt != b'':
+                    # Parse salt format: {REALM}host{hostname.fqdn}
+                    salt_str = salt.decode('utf-8')
+                    host_idx = salt_str.find('host')
+                    if host_idx > 0:
+                        realm = salt_str[:host_idx]
+                        fqdn = salt_str[host_idx + 4:]
+                        domain = realm.split('.')[0] if '.' in realm else realm
+                        machine = fqdn.split('.')[0].upper() if '.' in fqdn else fqdn.upper()
+            if machine and domain:
                 printname = "%s\\%s$" % (domain, machine)
                 secret = "%s\\%s$:%s:%s:::" % (domain, machine, hexlify(ntlm.LMOWFv1('','')).decode('utf-8'),
                                                hexlify(md4.digest()).decode('utf-8'))
@@ -2279,37 +2294,68 @@ class LSASecrets(OfflineRegistry):
                 hexdump(secretItem)
             self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA_RAW, printableSecret)
 
+    def __getMachineKerberosSaltOffline(self):
+        """Compute Kerberos salt from SECURITY hive Policy values (offline mode).
+        Reads PolDnDDN (domain FQDN) and PolAcDmN (machine name) which are stored
+        as LSA_UNICODE_STRING structures."""
+        try:
+            dnDdnValue = self.getValue('\\Policy\\PolDnDDN\\default')
+            acDmNValue = self.getValue('\\Policy\\PolAcDmN\\default')
+            if dnDdnValue is None or acDmNValue is None:
+                return b''
+
+            # LSA_UNICODE_STRING: USHORT Length, USHORT MaxLength, ULONG Padding, then UTF-16LE data
+            def decode_lsa_unicode(raw):
+                if len(raw) < 8:
+                    return ''
+                length = unpack('<H', raw[:2])[0]
+                return raw[8:8 + length].decode('utf-16-le').rstrip('\x00')
+
+            domain = decode_lsa_unicode(dnDdnValue[1])
+            machine = decode_lsa_unicode(acDmNValue[1])
+            if not domain or not machine:
+                return b''
+
+            host = machine.lower().rstrip('$')
+            salt = b'%shost%s.%s' % (domain.upper().encode('utf-8'), host.encode('utf-8'), domain.lower().encode('utf-8'))
+            return salt
+        except Exception:
+            LOG.debug('Exception computing offline Kerberos salt', exc_info=True)
+            return b''
+
     def __printMachineKerberos(self, rawsecret, machinename):
         # Attempt to create Kerberos keys from machine account (if possible)
+        salt = b''
         if hasattr(self.__remoteOps, 'getMachineKerberosSalt'):
             salt = self.__remoteOps.getMachineKerberosSalt()
-            if salt == b'':
-                return False
-            else:
-                allciphers = [
-                    int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
-                    int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value),
-                    int(constants.EncryptionTypes.des_cbc_md5.value)
-                ]
-                # Ok, so the machine account password is in raw UTF-16, BUT can contain any amount
-                # of invalid unicode characters.
-                # This took me (Dirk-jan) way too long to figure out, but apparently Microsoft
-                # implicitly replaces those when converting utf-16 to utf-8.
-                # When we use the same method we get the valid password -> key mapping :)
-                rawsecret = rawsecret.decode('utf-16-le', 'replace').encode('utf-8', 'replace')
-                for etype in allciphers:
-                    try:
-                        key = string_to_key(etype, rawsecret, salt, None)
-                    except Exception:
-                        LOG.debug('Exception', exc_info=True)
-                        raise
-                    typename = NTDSHashes.KERBEROS_TYPE[etype]
-                    secret = "%s:%s:%s" % (machinename, typename, hexlify(key.contents).decode('utf-8'))
-                    self.__secretItems.append(secret)
-                    self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA_KERBEROS, secret)
-                return True
-        else:
+        if salt == b'':
+            # Offline mode: derive salt from SECURITY hive registry values
+            salt = self.__getMachineKerberosSaltOffline()
+        if salt == b'':
             return False
+
+        allciphers = [
+            int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
+            int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value),
+            int(constants.EncryptionTypes.des_cbc_md5.value)
+        ]
+        # Ok, so the machine account password is in raw UTF-16, BUT can contain any amount
+        # of invalid unicode characters.
+        # This took me (Dirk-jan) way too long to figure out, but apparently Microsoft
+        # implicitly replaces those when converting utf-16 to utf-8.
+        # When we use the same method we get the valid password -> key mapping :)
+        rawsecret = rawsecret.decode('utf-16-le', 'replace').encode('utf-8', 'replace')
+        for etype in allciphers:
+            try:
+                key = string_to_key(etype, rawsecret, salt, None)
+            except Exception:
+                LOG.debug('Exception', exc_info=True)
+                raise
+            typename = NTDSHashes.KERBEROS_TYPE[etype]
+            secret = "%s:%s:%s" % (machinename, typename, hexlify(key.contents).decode('utf-8'))
+            self.__secretItems.append(secret)
+            self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA_KERBEROS, secret)
+        return True
 
     def dumpSecrets(self):
         if self.__securityFile is None:
