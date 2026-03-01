@@ -966,10 +966,7 @@ class IP(Header):
 
 
     def fragment_by_list(self, aList):
-        if self.child():
-            proto = self.child().protocol
-        else:
-            proto = 0
+        proto = self.child().protocol if (self.child() and self.child().protocol is not None) else self.get_ip_p()
 
         child_data = self.get_data_as_string()
         if not child_data:
