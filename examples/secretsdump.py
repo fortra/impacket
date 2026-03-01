@@ -293,7 +293,8 @@ class DumpSecrets:
                                 SECURITYFileName = self.__securityHive
 
                             self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps,
-                                                           isRemote=self.__isRemote, history=self.__history)
+                                                           isRemote=self.__isRemote, history=self.__history,
+                                                           systemHive=self.__systemHive)
                             self.__LSASecrets.dumpCachedHashes()
                             if self.__outputFileName is not None:
                                 self.__LSASecrets.exportCached(self.__outputFileName)

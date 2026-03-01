@@ -1980,7 +1980,8 @@ class LSASecrets(OfflineRegistry):
         LSA_KERBEROS = 3
 
     def __init__(self, securityFile, bootKey, remoteOps=None, isRemote=False, history=False,
-                 perSecretCallback=lambda secretType, secret: _print_helper(secret)):
+                 perSecretCallback=lambda secretType, secret: _print_helper(secret),
+                 systemHive=None):
         OfflineRegistry.__init__(self, securityFile, isRemote)
         self.__hashedBootKey = b''
         self.__bootKey = bootKey
@@ -1994,6 +1995,7 @@ class LSASecrets(OfflineRegistry):
         self.__secretItems = []
         self.__perSecretCallback = perSecretCallback
         self.__history = history
+        self.__systemHive = systemHive
 
     def MD5(self, data):
         md5 = hashlib.new('md5')
@@ -2090,6 +2092,22 @@ class LSASecrets(OfflineRegistry):
         else:
             return data
 
+    def getServiceUser(self, svcName):
+        LOG.debug(f'Retrieving {svcName}\'s user')
+        winreg = winregistry.get_registry_parser(self.__systemHive, False)
+        user = '(Unknown User)'
+        try:
+            currentControlSet = winreg.getValue('\\Select\\Current')[1]
+            currentControlSet = "ControlSet%03d" % currentControlSet
+
+            user = winreg.getValue('\\%s\\Services\\%s\\ObjectName' % (currentControlSet, svcName))
+            if user is not None:
+                user = user[1].decode('utf-16-le').rstrip('\x00')
+        except:
+            pass
+
+        return user
+
     def dumpCachedHashes(self):
         if self.__securityFile is None:
             # No SECURITY file provided
@@ -2182,7 +2200,9 @@ class LSASecrets(OfflineRegistry):
             else:
                 # We have to get the account the service
                 # runs under
-                if hasattr(self.__remoteOps, 'getServiceAccount'):
+                if self.__systemHive:
+                    secret = self.getServiceUser(name[4:]) + ':'
+                elif hasattr(self.__remoteOps, 'getServiceAccount'):
                     account = self.__remoteOps.getServiceAccount(name[4:])
                     if account is None:
                         secret = self.UNKNOWN_USER + ':'
