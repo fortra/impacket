@@ -156,6 +156,7 @@ class LDAPRelayClient(ProtocolClient):
                 authMessage['flags'] ^= NTLMSSP_NEGOTIATE_ALWAYS_SIGN
             if authMessage['flags'] & NTLMSSP_NEGOTIATE_SEAL == NTLMSSP_NEGOTIATE_SEAL:
                 authMessage['flags'] ^= NTLMSSP_NEGOTIATE_SEAL
+            token = authMessage.getData()
 
         with self.session.connection_lock:
             self.authenticateMessageBlob = token
