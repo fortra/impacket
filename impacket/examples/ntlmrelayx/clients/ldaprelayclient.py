@@ -143,13 +143,19 @@ class LDAPRelayClient(ProtocolClient):
                 authMessage['flags'] ^= NTLMSSP_NEGOTIATE_KEY_EXCH
             if authMessage['flags'] & NTLMSSP_NEGOTIATE_VERSION == NTLMSSP_NEGOTIATE_VERSION:
                 authMessage['flags'] ^= NTLMSSP_NEGOTIATE_VERSION
-            if authMessage['flags'] & NTLMSSP_NEGOTIATE_SEAL == NTLMSSP_NEGOTIATE_SEAL:
-                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_SEAL
             authMessage['MIC'] = b''
             authMessage['MICLen'] = 0
             authMessage['Version'] = b''
             authMessage['VersionLen'] = 0
             token = authMessage.getData()
+
+        if self.serverConfig.remove_sign_seal:
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_SIGN == NTLMSSP_NEGOTIATE_SIGN:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_SIGN
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_ALWAYS_SIGN == NTLMSSP_NEGOTIATE_ALWAYS_SIGN:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_ALWAYS_SIGN
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_SEAL == NTLMSSP_NEGOTIATE_SEAL:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_SEAL
 
         with self.session.connection_lock:
             self.authenticateMessageBlob = token
