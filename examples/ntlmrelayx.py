@@ -185,6 +185,7 @@ def start_servers(options, threads):
         c.setTargets(targetSystem)
         c.setExeFile(options.e)
         c.setCommand(options.c)
+        c.setRegSecrets(options.regsecrets)
         c.setEnumLocalAdmins(options.enum_local_admins)
         c.setAddComputerSMB(options.add_computer)
         c.setDisableMulti(options.no_multirelay)
@@ -358,6 +359,7 @@ if __name__ == '__main__':
                                      'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
     smboptions.add_argument('--rpc-attack', action='store', choices=[None, "TSCH", "ICPR"], required=False, default=None, help='Select the attack to perform over RPC over named pipes.')
+    smboptions.add_argument('--regsecrets', action='store_true', required=False, help='Do SAM dump with regsecrets instead of secretsdump.')
     
     #RPC arguments
     rpcoptions = parser.add_argument_group("RPC client options")
@@ -451,6 +453,10 @@ if __name__ == '__main__':
     if options.rpc_use_smb and not options.auth_smb:
        logging.error("Set -auth-smb to relay DCE/RPC to SMB pipes")
        sys.exit(1)
+       
+    if options.regsecrets and options.c:
+       logging.error("SAM dump with regsecrets is not compatible with executing a command")
+       sys.exit(1) 
     
     # Ensuring the correct target is set when performing SCCM policies attack
     if options.sccm_policies is True and not options.target.rstrip('/').endswith("/ccm_system_windowsauth/request"):
