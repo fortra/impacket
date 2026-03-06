@@ -304,6 +304,14 @@ class NTLMTests(unittest.TestCase):
         #raise
         print("\n")
 
+    def test_av_pairs_container_protocol(self):
+        av_pairs = ntlm.AV_PAIRS()
+        av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME] = self.domain.encode('utf-16le')
+
+        self.assertTrue(av_pairs.__contains__(ntlm.NTLMSSP_AV_DOMAINNAME))
+        self.assertFalse(av_pairs.__contains__(ntlm.NTLMSSP_AV_DNS_DOMAINNAME))
+        self.assertEqual(list(av_pairs.__iter__()), [ntlm.NTLMSSP_AV_DOMAINNAME])
+
     def __pack_and_parse(self, message, expected):
         data = message.getData()
         hexdump(data)
