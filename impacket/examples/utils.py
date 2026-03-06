@@ -210,20 +210,15 @@ def ldap3_kerberos_login(connection, target, user, password, domain='', lmhash='
 
     return True
 
-def _init_ldap_connection(target, tls_version, domain, username, password, lmhash, nthash, k, dc_ip, aesKey):
+def _init_ldap_connection(target, use_ssl, domain, username, password, lmhash, nthash, k, dc_ip, aesKey):
     user = '%s\\%s' % (domain, username)
     connect_to = target
     if dc_ip is not None:
         connect_to = dc_ip
-    if tls_version is not None:
-        use_ssl = True
-        port = 636
-        tls = ldap3.Tls(validate=ssl.CERT_NONE, version=tls_version)
-    else:
-        use_ssl = False
-        port = 389
-        tls = None
-    ldap_server = ldap3.Server(connect_to, get_info=ldap3.ALL, port=port, use_ssl=use_ssl, tls=tls)
+
+    port = 636 if use_ssl else 389
+    ldap_server = ldap3.Server(connect_to, get_info=ldap3.ALL, port=port, use_ssl=use_ssl)
+
     if k:
         ldap_session = ldap3.Connection(ldap_server)
         ldap_session.bind()
@@ -238,7 +233,7 @@ def _init_ldap_connection(target, tls_version, domain, username, password, lmhas
 def init_ldap_session(domain, username, password, lmhash, nthash, k, dc_ip, dc_host, aesKey, use_ldaps):
     if k:
         if dc_host is not None:
-            target = _get_machine_name(dc_host)
+            target = dc_host
         elif dc_ip is not None:
             target = _get_machine_name(dc_ip)
         else:
@@ -249,13 +244,7 @@ def init_ldap_session(domain, username, password, lmhash, nthash, k, dc_ip, dc_h
         else:
             target = domain
 
-    if use_ldaps is True:
-        try:
-            return _init_ldap_connection(target, ssl.PROTOCOL_TLSv1_2, domain, username, password, lmhash, nthash, k, dc_ip, aesKey)
-        except ldap3.core.exceptions.LDAPSocketOpenError:
-            return _init_ldap_connection(target, ssl.PROTOCOL_TLSv1, domain, username, password, lmhash, nthash, k, dc_ip, aesKey)
-    else:
-        return _init_ldap_connection(target, None, domain, username, password, lmhash, nthash, k, dc_ip, aesKey)
+    return _init_ldap_connection(target, use_ldaps, domain, username, password, lmhash, nthash, k, dc_ip, aesKey)
 
 # ----------
 
@@ -328,3 +317,29 @@ def parse_identity(credentials, hashes=None, no_pass=False, aesKey=None, k=False
             lmhash = EMPTY_LM_HASH
 
     return domain, username, password, lmhash, nthash, k
+
+# ----------
+
+def get_address(ip, port, ipv6=False):
+    address = (ip, port)
+    address_family = socket.AF_INET
+    if ipv6:
+        address_family = socket.AF_INET6
+        # scope_id (after %) can be present or not - if not, default: 0
+        ip_parts = ip.split('%')
+        scope_id = ip_parts[1] if len(ip_parts) == 2 else 0
+        # convert scope_id to int (expected by s.connect)
+        # if exception, assume the interface name and convert to index
+        try:
+            scope_id = int(scope_id)
+        except ValueError:
+            scope_id = socket.if_nametoindex(scope_id)
+        address = address + (0, scope_id)
+    return address_family, address
+
+import socket
+def get_connected_socket(ip, port, ipv6=False):
+    s = socket.socket(socket.AF_INET6 if ipv6 else socket.AF_INET)
+    _, address = get_address(ip, port, ipv6)
+    s.connect(address)
+    return s

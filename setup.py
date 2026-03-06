@@ -22,7 +22,7 @@ from subprocess import *
 PACKAGE_NAME = "impacket"
 
 VER_MAJOR = 0
-VER_MINOR = 13
+VER_MINOR = 14
 VER_MAINT = 0
 VER_PREREL = "dev"
 try:
@@ -64,23 +64,23 @@ setup(
     long_description_content_type="text/markdown",
     platforms=["Unix", "Windows"],
     packages=['impacket', 'impacket.dcerpc', 'impacket.examples', 'impacket.dcerpc.v5', 'impacket.dcerpc.v5.dcom',
-              'impacket.krb5', 'impacket.ldap', 'impacket.examples.ntlmrelayx',
+              'impacket.krb5', 'impacket.ldap', 'impacket.examples.ntlmrelayx', 'impacket.mssql',
               'impacket.examples.ntlmrelayx.clients', 'impacket.examples.ntlmrelayx.servers',
               'impacket.examples.ntlmrelayx.servers.socksplugins', 'impacket.examples.ntlmrelayx.utils',
               'impacket.examples.ntlmrelayx.attacks', 'impacket.examples.ntlmrelayx.attacks.httpattacks'],
     scripts=glob.glob(os.path.join('examples', '*.py')),
     data_files=data_files,
 
-    install_requires=['pyasn1>=0.2.3', 'pyasn1_modules', 'pycryptodomex', 'pyOpenSSL==24.0.0', 'six', 'ldap3>=2.5,!=2.5.2,!=2.5.0,!=2.6',
-                      'ldapdomaindump>=0.9.0', 'flask>=1.0', 'setuptools', 'charset_normalizer'],
+    install_requires=['pyasn1>=0.2.3', 'pyasn1_modules', 'pycryptodomex', 'pyOpenSSL', 'six', 'ldap3>=2.5,!=2.5.2,!=2.5.0,!=2.6',
+                      'ldapdomaindump>=0.9.0', 'flask>=1.0', 'charset_normalizer'],
     extras_require={':sys_platform=="win32"': ['pyreadline3'],
                     },
     classifiers=[
+        "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9"
 
     ]
 )

@@ -31,8 +31,9 @@ from impacket.dcerpc.v5 import samr, transport, srvs
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket import LOG
 from impacket.smbconnection import SMBConnection, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB_DIALECT, SessionError, \
-    FILE_READ_DATA, FILE_SHARE_READ, FILE_SHARE_WRITE
+    FILE_READ_DATA, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_SHARE_DELETE
 from impacket.smb3structs import FILE_DIRECTORY_FILE, FILE_LIST_DIRECTORY
+from impacket.acl import SMBFileACL
 
 import charset_normalizer as chardet
 
@@ -101,6 +102,7 @@ class MiniImpacketShell(cmd.Cmd):
     def do_help(self,line):
         print("""
  open {host,port=445} - opens a SMB connection against the target host/port
+ reconnect - reconnect connection, useful for broken pipes & interrupted sessions
  login {domain/username,passwd} - logs into the current SMB connection, no parameters for NULL connection. If no password specified, it'll be prompted
  kerberos_login {domain/username,passwd} - logs into the current SMB connection using Kerberos. If no password specified, it'll be prompted. Use the DNS resolvable domain name
  login_hash {domain/username,lmhash:nthash} - logs into the current SMB connection using the password hashes
@@ -126,6 +128,7 @@ class MiniImpacketShell(cmd.Cmd):
  list_snapshots {path} - lists the vss snapshots for the specified path
  info - returns NetrServerInfo main results
  who - returns the sessions currently connected at the target host (admin required)
+ acl {filename,action,permissions,user/group} - displays or modifies file ACLs
  close - closes the current SMB Session
  exit - terminates the server process (and this session)
 
@@ -179,6 +182,12 @@ class MiniImpacketShell(cmd.Cmd):
         self.nthash = None
         self.username = None
 
+    def do_reconnect(self, line):
+        if self.smb:
+            self.smb.reconnect()
+        else:
+            LOG.warning("Not reconnecting a closed connection.")
+    
     def do_login(self,line):
         if self.smb is None:
             LOG.error("No connection open")
@@ -559,7 +568,7 @@ class MiniImpacketShell(cmd.Cmd):
                 pathname = ntpath.join(self.pwd, filename)
                 try:
                     LOG.info("Downloading %s" % (filename))
-                    self.smb.getFile(self.share, pathname, fh.write)
+                    self.smb.getFileEx(self.share, pathname, fh.write)
                 except:
                     fh.close()
                     os.remove(filename)
@@ -574,7 +583,7 @@ class MiniImpacketShell(cmd.Cmd):
         fh = open(ntpath.basename(filename),'wb')
         pathname = ntpath.join(self.pwd,filename)
         try:
-            self.smb.getFile(self.share, pathname, fh.write)
+            self.smb.getFileEx(self.share, pathname, fh.write)
         except:
             fh.close()
             os.remove(filename)
@@ -592,7 +601,7 @@ class MiniImpacketShell(cmd.Cmd):
         fh = BytesIO()
         pathname = ntpath.join(self.pwd,filename)
         try:
-            self.smb.getFile(self.share, pathname, fh.write)
+            self.smb.getFileEx(self.share, pathname, fh.write)
         except:
             raise
         output = fh.getvalue()
@@ -656,6 +665,7 @@ class MiniImpacketShell(cmd.Cmd):
     def do_umount(self, mountpoint):
         mountpoint = mountpoint.replace('/','\\')
 
+
         # Relative or absolute path?
         if mountpoint.startswith('\\') is not True:
             mountpoint = ntpath.join(self.pwd, mountpoint)
@@ -663,6 +673,57 @@ class MiniImpacketShell(cmd.Cmd):
         mountPath = ntpath.join(self.pwd, mountpoint)
 
         self.smb.removeMountPoint(self.tid, mountPath)
+
+    def do_acl(self, line):
+        if self.tid is None:
+            LOG.error("No share selected")
+            return
+        parts = line.split()
+        if len(parts) == 0:
+            LOG.error("Usage: acl {filename,action,permissions,user/group} actions: grant/revoke, "
+                      "supported permissions : R/W/D/X/F")
+            return
+        
+        filename = parts[0].replace('/','\\')
+        # Relative or absolute path?
+        if filename.startswith('\\') is not True:
+            filename = ntpath.join(self.pwd, filename)
+        
+        smb_file_acl = None
+
+        try:
+            if len(parts) == 1:
+                smb_file_acl = SMBFileACL(smb_connection=self.smb)
+                resp = smb_file_acl.get_permissions(self.share, filename)
+                print(resp)
+            else:
+                action = parts[1].lower()
+
+                if action not in ['grant', 'revoke']:
+                    LOG.error("Action must be 'grant' or 'revoke'")
+                    return
+
+                if len(parts) < 3:
+                    LOG.error("Permissions required. Supported: R (read), W (write), D (delete), X (execute), F (full control)")
+                    return
+
+                permissions = parts[2]
+
+                if len(parts) < 4:
+                    LOG.error("User/group name is required")
+                    return
+
+                user = parts[3]
+
+                smb_file_acl = SMBFileACL(smb_connection=self.smb)
+                smb_file_acl.set_permissions(self.share, filename, user, permissions, action)
+                if action == 'grant':
+                    print("Successfully granted permissions to %s" % user)
+                elif action == 'revoke':
+                    print("Successfully revoked permissions from %s" % user)
+        finally:
+            if smb_file_acl:
+                smb_file_acl.close_connection()
 
     def do_EOF(self, line):
         print('Bye!\n')

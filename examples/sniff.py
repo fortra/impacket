@@ -32,6 +32,7 @@ import sys
 from threading import Thread
 import pcapy
 from pcapy import findalldevs, open_live
+from impacket import version
 
 from impacket.ImpactDecoder import EthDecoder, LinuxSLLDecoder
 
@@ -88,6 +89,7 @@ def getInterface():
     return ifs[idx]
 
 def main(filter):
+    print(version.DEPRECATION_WARNING_BANNER)
     dev = getInterface()
 
     # Open interface for catpuring.

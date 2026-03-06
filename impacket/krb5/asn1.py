@@ -125,7 +125,7 @@ class KerberosString(char.GeneralString):
     # TODO marc: I'm not sure how to express this constraint in the API.
     # For now, we will be liberal in what we accept.
     # subtypeSpec = constraint.PermittedAlphabetConstraint(char.IA5String())
-    pass
+    encoding = 'utf-8'
 
 class Realm(KerberosString):
     pass
@@ -334,6 +334,15 @@ class AP_REQ(univ.Sequence):
         _sequence_component('authenticator', 4, EncryptedData())
         )
 
+class GSSAPIHeader_KRB5_AP_REQ(univ.Sequence):
+    tagSet = univ.Sequence.tagSet.tagImplicitly(tag.Tag(tag.tagClassApplication, tag.tagFormatConstructed, 0))
+    componentType = namedtype.NamedTypes(
+        namedtype.NamedType('tokenOid', univ.ObjectIdentifier()),
+        # Actualy this is a constant 0x0001, but this decodes as an asn1 boolean
+        namedtype.NamedType('krb5_ap_req', univ.Boolean()),
+        namedtype.NamedType('apReq', AP_REQ()),
+    )
+
 class AP_REP(univ.Sequence):
     tagSet = _application_tag(constants.ApplicationTagNumbers.AP_REP.value)
     componentType = namedtype.NamedTypes(
@@ -519,3 +528,32 @@ class KERB_KEY_LIST_REQ(univ.SequenceOf):
 
 class KERB_KEY_LIST_REP(univ.SequenceOf):
     componentType = EncryptionKey()
+
+class KERB_SUPERSEDED_BY_USER(univ.Sequence):
+    componentType = namedtype.NamedTypes(
+        _sequence_component('name', 0, PrincipalName()),
+        _sequence_optional_component('userRealm', 1, Realm()),
+    )
+
+class S4UUserID(univ.Sequence):
+    componentType = namedtype.NamedTypes(
+        _sequence_component('nonce', 0,  UInt32()),
+        _sequence_component('cname', 1, PrincipalName()),
+        _sequence_optional_component('crealm', 2, Realm()),
+        _sequence_optional_component('subject-certificate', 3, univ.OctetString()),
+        _sequence_optional_component('options', 4, KerberosFlags())
+    )
+
+class PA_S4U_X509_USER(univ.Sequence):
+    componentType = namedtype.NamedTypes(
+        namedtype.NamedType('user-id', S4UUserID().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 0))),
+        namedtype.NamedType('checksum', Checksum().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 1))))
+    
+class KERB_DMSA_KEY_PACKAGE(univ.Sequence):
+    componentType = namedtype.NamedTypes(
+        _sequence_component("current-keys", 0, univ.SequenceOf(componentType=EncryptionKey())),
+        _sequence_optional_component("previous-keys", 1, univ.SequenceOf(componentType=EncryptionKey())),
+        _sequence_component("effective-time", 2, KerberosTime()),
+        _sequence_optional_component("reserved", 3, univ.OctetString()),
+        _sequence_component("expiration-time", 4, KerberosTime())
+        )

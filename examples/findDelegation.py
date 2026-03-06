@@ -89,6 +89,8 @@ class FindDelegation:
         #[!] in this script the value of -dc-ip option is self.__kdcIP and the value of -dc-host option is self.__kdcHost
         self.__kdcIP = cmdLineOptions.dc_ip
         self.__kdcHost = cmdLineOptions.dc_host
+        self.__requestUser = cmdLineOptions.user
+        self.__disabled = cmdLineOptions.disabled
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
@@ -114,8 +116,17 @@ class FindDelegation:
         self.__target = ldapConnection._dstHost
 
         searchFilter = "(&(|(UserAccountControl:1.2.840.113556.1.4.803:=16777216)(UserAccountControl:1.2.840.113556.1.4.803:=" \
-                       "524288)(msDS-AllowedToDelegateTo=*)(msDS-AllowedToActOnBehalfOfOtherIdentity=*))" \
-                       "(!(UserAccountControl:1.2.840.113556.1.4.803:=2))(!(UserAccountControl:1.2.840.113556.1.4.803:=8192)))"
+                       "524288)(msDS-AllowedToDelegateTo=*)(msDS-AllowedToActOnBehalfOfOtherIdentity=*)"
+
+        if self.__disabled:
+            searchFilter += ")(UserAccountControl:1.2.840.113556.1.4.803:=2)"
+        else:
+            searchFilter += ")(!(UserAccountControl:1.2.840.113556.1.4.803:=2))"
+
+        if self.__requestUser is not None:
+            searchFilter += '(sAMAccountName:=%s))' % self.__requestUser
+        else:
+            searchFilter += ')'
 
         try:
             resp = ldapConnection.search(searchFilter=searchFilter,
@@ -165,7 +176,7 @@ class FindDelegation:
                         objectType = str(attribute['vals'][0]).split('=')[1].split(',')[0]
                     elif str(attribute['type']) == 'msDS-AllowedToDelegateTo':
                         if protocolTransition == 0:
-                            delegation = 'Constrained'
+                            delegation = 'Constrained w/o Protocol Transition'
                         for delegRights in attribute['vals']:
                             rightsTo.append(str(delegRights))
              
@@ -176,8 +187,12 @@ class FindDelegation:
                         searchFilter = '(&(|'
                         sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=bytes(attribute['vals'][0]))
                         for ace in sd['Dacl'].aces:
-                            searchFilter = searchFilter + "(objectSid="+ace['Ace']['Sid'].formatCanonical()+")"
-                        searchFilter = searchFilter + ")(!(UserAccountControl:1.2.840.113556.1.4.803:=2)))"
+                            searchFilter += "(objectSid="+ace['Ace']['Sid'].formatCanonical()+")"
+                        if self.__disabled:
+                            searchFilter += ")(UserAccountControl:1.2.840.113556.1.4.803:=2))"
+                        else:
+                            searchFilter += ")(!(UserAccountControl:1.2.840.113556.1.4.803:=2)))"
+                        
                         delegUserResp = ldapConnection.search(searchFilter=searchFilter,attributes=['sAMAccountName', 'objectCategory'],sizeLimit=999)
                         for item2 in delegUserResp:
                             if isinstance(item2, ldapasn1.SearchResultEntry) is not True:
@@ -186,22 +201,16 @@ class FindDelegation:
                             rbcdObjType.append(str(item2['attributes'][1]['vals'][0]).split('=')[1].split(',')[0])
 							
                         if mustCommit is True:
-                            if int(userAccountControl) & UF_ACCOUNTDISABLE:
-                                logging.debug('Bypassing disabled account %s ' % sAMAccountName)
-                            else:
-                                for rights, objType in zip(rbcdRights,rbcdObjType):
-                                    spnExists = checkIfSPNExists(ldapConnection, sAMAccountName, rights)
-                                    answers.append([rights, objType, 'Resource-Based Constrained', sAMAccountName, str(spnExists)])
+                            for rights, objType in zip(rbcdRights,rbcdObjType):
+                                spnExists = checkIfSPNExists(ldapConnection, sAMAccountName, rights)
+                                answers.append([rights, objType, 'Resource-Based Constrained', sAMAccountName, str(spnExists)])
                         
                 #print unconstrained + constrained delegation relationships
-                if delegation in ['Unconstrained', 'Constrained', 'Constrained w/ Protocol Transition']:
+                if delegation in ['Unconstrained', 'Constrained w/o Protocol Transition', 'Constrained w/ Protocol Transition']:
                     if mustCommit is True:
-                            if int(userAccountControl) & UF_ACCOUNTDISABLE:
-                                logging.debug('Bypassing disabled account %s ' % sAMAccountName)
-                            else:
-                                for rights in rightsTo:
-                                    spnExists = checkIfSPNExists(ldapConnection, sAMAccountName, rights)
-                                    answers.append([sAMAccountName, objectType, delegation, rights, str(spnExists)])
+                        for rights in rightsTo:
+                            spnExists = checkIfSPNExists(ldapConnection, sAMAccountName, rights)
+                            answers.append([sAMAccountName, objectType, delegation, rights, str(spnExists)])
             except Exception as e:
                 logging.error('Skipping item, cannot process due to error %s' % str(e))
                 pass
@@ -226,6 +235,8 @@ if __name__ == '__main__':
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
+    parser.add_argument('-user', action='store', help='Requests data for specific user')
+    parser.add_argument('-disabled', action='store_true', help='Query disabled users too')
     group = parser.add_argument_group('authentication')
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')

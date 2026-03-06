@@ -28,6 +28,7 @@ import struct
 import socket
 from binascii import unhexlify
 import random
+import six
 
 from pyasn1.codec.ber import encoder, decoder
 from pyasn1.error import SubstrateUnderrunError
@@ -36,7 +37,7 @@ from pyasn1.type.univ import noValue
 from impacket import LOG
 from impacket.ldap.ldapasn1 import Filter, Control, SimplePagedResultsControl, ResultCode, Scope, DerefAliases, Operation, \
     KNOWN_CONTROLS, CONTROL_PAGEDRESULTS, NOTIFICATION_DISCONNECT, KNOWN_NOTIFICATIONS, BindRequest, SearchRequest, \
-    SearchResultDone, LDAPMessage
+    SearchResultDone, LDAPMessage, AddRequest, ModifyRequest, ModifyDNRequest, DelRequest
 from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3, VERSION, hmac_md5, NTLMAuthChallenge
 from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, SPNEGOCipher, TypesMech
 
@@ -67,6 +68,11 @@ RE_ATTRIBUTE = re.compile(r'^%s$' % ATTRIBUTE, re.I)
 RE_EX_ATTRIBUTE_1 = re.compile(r'^%s%s?%s?$' % (ATTRIBUTE, DN, MATCHING_RULE), re.I)
 RE_EX_ATTRIBUTE_2 = re.compile(r'^(){0}%s?%s$' % (DN, MATCHING_RULE), re.I)
 
+# LDAP modify operations
+MODIFY_ADD = 0
+MODIFY_DELETE = 1
+MODIFY_REPLACE = 2
+MODIFY_INCREMENT = 3
 
 class LDAPConnection:
     def __init__(self, url, baseDN='', dstIp=None, signing=True):
@@ -105,6 +111,7 @@ class LDAPConnection:
             raise LDAPSessionError(errorString="Unknown URL prefix: '%s'" % url)
 
         self.__binded = False
+        self.channel_binding_value = None
 
         ### SASL Auth LDAP Signing arguments
         self.sequenceNumber = 0
@@ -142,26 +149,25 @@ class LDAPConnection:
             self._socket.connect(sa)
             self._socket.do_handshake()
 
-    def generateChannelBindingValue(self):
-        # From: https://github.com/ly4k/ldap3/commit/87f5760e5a68c2f91eac8ba375f4ea3928e2b9e0#diff-c782b790cfa0a948362bf47d72df8ddd6daac12e5757afd9d371d89385b27ef6R1383
-        from hashlib import md5
-        # Ugly but effective, to get the digest of the X509 DER in bytes
-        peer_cert_digest_str = self._socket.get_peer_certificate().digest('sha256').decode()
-        peer_cert_digest_bytes = bytes.fromhex(peer_cert_digest_str.replace(':', ''))
-    
-        channel_binding_struct = b''
-        initiator_address = b'\x00'*8
-        acceptor_address = b'\x00'*8
+            # From: https://github.com/ly4k/ldap3/commit/87f5760e5a68c2f91eac8ba375f4ea3928e2b9e0#diff-c782b790cfa0a948362bf47d72df8ddd6daac12e5757afd9d371d89385b27ef6R1383
+            from hashlib import md5
+            # Ugly but effective, to get the digest of the X509 DER in bytes
+            peer_cert_digest_str = self._socket.get_peer_certificate().digest('sha256').decode()
+            peer_cert_digest_bytes = bytes.fromhex(peer_cert_digest_str.replace(':', ''))
+        
+            channel_binding_struct = b''
+            initiator_address = b'\x00'*8
+            acceptor_address = b'\x00'*8
 
-        # https://datatracker.ietf.org/doc/html/rfc5929#section-4
-        application_data_raw = b'tls-server-end-point:' + peer_cert_digest_bytes
-        len_application_data = len(application_data_raw).to_bytes(4, byteorder='little', signed = False)
-        application_data = len_application_data
-        application_data += application_data_raw
-        channel_binding_struct += initiator_address
-        channel_binding_struct += acceptor_address
-        channel_binding_struct += application_data
-        return md5(channel_binding_struct).digest()
+            # https://datatracker.ietf.org/doc/html/rfc5929#section-4
+            application_data_raw = b'tls-server-end-point:' + peer_cert_digest_bytes
+            len_application_data = len(application_data_raw).to_bytes(4, byteorder='little', signed = False)
+            application_data = len_application_data
+            application_data += application_data_raw
+            channel_binding_struct += initiator_address
+            channel_binding_struct += acceptor_address
+            channel_binding_struct += application_data
+            self.channel_binding_value = md5(channel_binding_struct).digest()
 
     def kerberosLogin(self, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost=None, TGT=None,
                       TGS=None, useCache=True):
@@ -269,8 +275,8 @@ class LDAPConnection:
 
         # If TLS is used, setup channel binding
         
-        if self._SSL:
-            chkField['Bnd'] = self.generateChannelBindingValue()
+        if self._SSL and self.channel_binding_value is not None:
+            chkField['Bnd'] = self.channel_binding_value
         if self.__signing:
             chkField['Flags'] |= GSS_C_CONF_FLAG
             chkField['Flags'] |= GSS_C_INTEG_FLAG
@@ -373,8 +379,8 @@ class LDAPConnection:
 
             # If TLS is used, setup channel binding
             channel_binding_value = b''
-            if self._SSL:
-                channel_binding_value = self.generateChannelBindingValue()
+            if self._SSL and self.channel_binding_value is not None:
+                channel_binding_value = self.channel_binding_value
 
             # NTLM Auth
             type3, exportedSessionKey = getNTLMSSPType3(negotiate, bytes(type2), user, password, domain, lmhash, nthash, channel_binding_value=channel_binding_value)
@@ -419,8 +425,8 @@ class LDAPConnection:
             
             # channel binding
             channel_binding_value = b''
-            if self._SSL:
-                channel_binding_value = self.generateChannelBindingValue()
+            if self._SSL and self.channel_binding_value is not None:
+                channel_binding_value = self.channel_binding_value
             
             # NTLM Auth
             type3, exportedSessionKey = getNTLMSSPType3(negotiate, type2, user, password, domain, lmhash, nthash, service='ldap', version=self.version, use_ntlmv2=True, channel_binding_value=channel_binding_value)
@@ -474,8 +480,13 @@ class LDAPConnection:
             raise(f"Decryption not implemented for {self.__auth_type} protocol")
         return data
 
+    #  searchFilter expects a string (not bytes), otherwise it will raise an exception
     def search(self, searchBase=None, scope=None, derefAliases=None, sizeLimit=0, timeLimit=0, typesOnly=False,
                searchFilter='(objectClass=*)', attributes=None, searchControls=None, perRecordCallback=None):
+
+        if not isinstance(searchFilter, six.text_type):
+            raise LDAPFilterInvalidException("searchFilter must be %s, got %s" % (six.text_type, type(searchFilter)))
+
         if searchBase is None:
             searchBase = self._baseDN
         if scope is None:
@@ -539,6 +550,126 @@ class LDAPConnection:
                             # handle different controls here
                             pass
         return done
+
+    def add(self, dn, objectClass, attributes=None, controls=None):
+        """
+        Add an entry to the LDAP directory.
+
+        :param dn: Distinguished Name of the entry to add
+        :param objectClass: Tuple or list of object classes for the entry
+        :param attributes: Dictionary of attributes for the entry
+        :param controls: LDAP controls to include in the request
+        :return: True if the entry was added successfully, else raises LDAPSessionError
+        """
+        addRequest = AddRequest()
+        addRequest['entry'] = dn
+        addRequest['attributes'][0]['type'] = 'objectClass'
+        addRequest['attributes'][0]['vals'].setComponents(*objectClass)
+
+        index = 1
+        for key, value in attributes.items():
+            addRequest['attributes'][index]['type'] = key
+            if isinstance(value, list):
+                addRequest['attributes'][index]['vals'].setComponents(*(str(val) if isinstance(val, int) else val for val in value))
+            else:
+                addRequest['attributes'][index]['vals'].setComponents(str(value) if isinstance(value, int) else value)
+            index += 1
+
+        response = self.sendReceive(addRequest, controls)[0]['protocolOp']
+        if response['addResponse']['resultCode'] != ResultCode('success'):
+            raise LDAPSessionError(
+                error=int(response['addResponse']['resultCode']),
+                errorString=f"Error in addRequest -> {response['addResponse']['resultCode'].prettyPrint()}: {response['addResponse']['diagnosticMessage']}"
+            )
+        return True
+
+    def modify(self, dn, modifications, controls=None):
+        """
+        Modify an entry in the LDAP directory.
+        RFC 4511 Section 4.6
+
+        :param dn: Distinguished Name of the entry to modify
+        :param modifications: Dictionary of modifications of form {attribute: [(operation, values), ...]}.
+                Operation: 0 - add, 1 - delete, 2 - replace, 3 - increment.
+                Values: single value or list of values.
+        :param controls: LDAP controls to include in the request
+        :return: True if the entry was modified successfully, else raises LDAPSessionError
+        """
+        modifyRequest = ModifyRequest()
+        modifyRequest['object'] = dn
+
+        # idx keeps track of the current change index
+        idx = 0
+        for attr, ops in modifications.items():
+            for op in ops:
+                # op should be a tuple (operation, values)
+                if op[0] not in [MODIFY_ADD, MODIFY_DELETE, MODIFY_REPLACE, MODIFY_INCREMENT]:
+                    raise LDAPSessionError(errorString=f"Invalid modification operation '{op[0]}' for attribute '{attr}'")
+                modifyRequest['changes'][idx]['operation'] = op[0]  # operation code
+                modifyRequest['changes'][idx]['modification']['type'] = attr
+
+                # prepare changed values. Integer values need to be converted to string
+                vals = []
+                if isinstance(op[1], list):
+                    vals.extend([str(val) if isinstance(val, int) else val for val in op[1]])
+                else:
+                    vals.append(str(op[1]) if isinstance(op[1], int) else op[1])
+                modifyRequest['changes'][idx]['modification']['vals'].setComponents(*vals)
+                idx += 1
+
+        response = self.sendReceive(modifyRequest, controls)[0]['protocolOp']
+        if response['modifyResponse']['resultCode'] != ResultCode('success'):
+            raise LDAPSessionError(
+                error=int(response['modifyResponse']['resultCode']),
+                errorString=f"Error in modifyRequest -> {response['modifyResponse']['resultCode'].prettyPrint()}: {response['modifyResponse']['diagnosticMessage']}"
+            )
+        return True
+
+    def modify_dn(self, dn, newrdn, deleteoldrdn=True, newSuperior=None, controls=None):
+        """
+        Modify the Distinguished Name of an entry in the LDAP directory.
+        RFC 4511 Section 4.9
+
+        :param dn: Current Distinguished Name of the entry
+        :param newrdn: New Relative Distinguished Name for the entry
+        :param deleteoldrdn: Whether to delete the old RDN from the entry
+        :param newSuperior: New superior DN if moving the entry to a different container
+        :param controls: LDAP controls to include in the request
+        :return: True if the DN was modified successfully, else raises LDAPSessionError
+        """
+        modifyDNRequest = ModifyDNRequest()
+        modifyDNRequest['entry'] = dn
+        modifyDNRequest['newrdn'] = newrdn
+        modifyDNRequest['deleteoldrdn'] = deleteoldrdn
+        if newSuperior is not None:
+            modifyDNRequest['newSuperior'] = newSuperior
+
+        response = self.sendReceive(modifyDNRequest, controls)[0]['protocolOp']
+        if response['modDNResponse']['resultCode'] != ResultCode('success'):
+            raise LDAPSessionError(
+                error=int(response['modDNResponse']['resultCode']),
+                errorString=f"Error in modifyDNRequest -> {response['modDNResponse']['resultCode'].prettyPrint()}: {response['modDNResponse']['diagnosticMessage']}"
+            )
+        return True
+
+    def delete(self, dn, controls=None):
+        """
+        Delete an entry from the LDAP directory.
+        RFC 4511 Section 4.8
+
+        :param dn: Distinguished Name of the entry to delete
+        :param controls: LDAP controls to include in the request
+        :return: True if the entry was deleted successfully, else raises LDAPSessionError
+        """
+        deleteRequest = DelRequest(dn)
+
+        response = self.sendReceive(deleteRequest, controls)[0]['protocolOp']
+        if response['delResponse']['resultCode'] != ResultCode('success'):
+            raise LDAPSessionError(
+                error=int(response['delResponse']['resultCode']),
+                errorString=f"Error in deleteRequest -> {response['delResponse']['resultCode'].prettyPrint()}: {response['delResponse']['diagnosticMessage']}"
+            )
+        return True
 
     def close(self):
         if self._socket is not None:
@@ -615,10 +746,6 @@ class LDAPConnection:
         return self.recv()
 
     def _parseFilter(self, filterStr):
-        try:
-            filterStr = filterStr.decode()
-        except AttributeError:
-            pass
         filterList = list(reversed(filterStr))
         searchFilter = self._consumeCompositeFilter(filterList)
         if filterList:  # we have not consumed the whole filter string

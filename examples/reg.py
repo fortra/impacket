@@ -186,7 +186,7 @@ class RegHandler:
             if self.__action == 'QUERY':
                 self.query(dce, self.__options.keyName)
             elif self.__action == 'ADD':
-                self.add(dce, self.__options.keyName)
+                self.add(dce, self.__options.keyName, self.__options.persistent)
             elif self.__action == 'DELETE':
                 self.delete(dce, self.__options.keyName)
             elif self.__action == 'SAVE':
@@ -256,8 +256,9 @@ class RegHandler:
                     # ans5 = rrp.hBaseRegGetVersion(rpc, ans2['phkResult'])
                     # ans3 = rrp.hBaseRegEnumKey(rpc, ans2['phkResult'], 0)
 
-    def add(self, dce, keyName):
+    def add(self, dce, keyName, persistent):
         hRootKey, subKey = self.__strip_root_key(dce, keyName)
+
 
         # READ_CONTROL | rrp.KEY_SET_VALUE | rrp.KEY_CREATE_SUB_KEY should be equal to KEY_WRITE (0x20006)
         if self.__options.v is None: # Try to create subkey
@@ -269,10 +270,19 @@ class RegHandler:
 
             # Should I use ans2?
 
+            # Convert persistant flag into the relevant dwOption.
+            # dwOption 0 = Persistent
+            # dwOption 1 = Volatile
+            dwOption = 0x00000001
+            if persistent is True:
+                dwOption = 0x00000000
+            else:
+                print('[!] The created key is volatile and will not remain after a reboot. ')
+
             ans3 = rrp.hBaseRegCreateKey(
-                dce, hRootKey, subKeyCreate,
-                samDesired=READ_CONTROL | rrp.KEY_SET_VALUE | rrp.KEY_CREATE_SUB_KEY
-            )
+                dce, hRootKey, subKeyCreate, dwOptions=dwOption,
+                samDesired=READ_CONTROL | rrp.KEY_SET_VALUE | rrp.KEY_CREATE_SUB_KEY)
+
             if ans3['ErrorCode'] == 0:
                 print('Successfully set subkey %s' % (
                     keyName
@@ -562,7 +572,7 @@ if __name__ == '__main__':
                                    'keyName must include a valid root key. Valid root keys for the local computer are: HKLM,'
                                    ' HKU, HKCU, HKCR.')
     add_parser.add_argument('-v', action='store', metavar="VALUENAME", required=False, help='Specifies the registry '
-                           'value name that is to be set. Set to "" to write the (Defualt) value')
+                           'value name that is to be set. Set to "" to write the (Default) value')
     add_parser.add_argument('-vt', action='store', metavar="VALUETYPE", required=False, help='Specifies the registry '
                            'type name that is to be set. Default is REG_SZ. Valid types are: REG_NONE, REG_SZ, REG_EXPAND_SZ, '
                            'REG_BINARY, REG_DWORD, REG_DWORD_BIG_ENDIAN, REG_LINK, REG_MULTI_SZ, REG_QWORD',
@@ -570,6 +580,8 @@ if __name__ == '__main__':
     add_parser.add_argument('-vd', action='append', metavar="VALUEDATA", required=False, help='Specifies the registry '
                            'value data that is to be set. In case of adding a REG_MULTI_SZ value, set this option once for each '
                            'line you want to add.', default=[])
+    add_parser.add_argument('--persistent', action='store_true', required=False, help='Specify that the created key is intended to be persistent '
+                            'through reboot. Default is volatile key creation')
 
     # An delete command
     delete_parser = subparsers.add_parser('delete', help='Deletes a subkey or entries from the registry')

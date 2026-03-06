@@ -259,6 +259,9 @@ class NSPIAttacks(Exchanger):
         # consistency check at target level 6.0, as specified in [MS-RPCE].
         self.__dce.set_credentials(self._username, self._password, self._domain,
                                    self._lmhash, self._nthash)
+        if options.basic:
+            self._rpctransport.set_auth_type(AUTH_BASIC)
+
         self.__dce.set_auth_level(6)
 
         self.__dce.connect()
@@ -919,6 +922,7 @@ if __name__ == '__main__':
 
     list_tables = nspi_attacks.add_parser('list-tables', help='List Address Books')
     list_tables.add_argument('-count', action='store_true', help='Request total number of records in each table')
+    parser.add_argument('-basic', action='store_true', help='Authenticate with Basic Auth instead of NTLM')
 
 
     dump_tables = nspi_attacks.add_parser('dump-tables', formatter_class=SmartFormatter, help='Dump Address Books')

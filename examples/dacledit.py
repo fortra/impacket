@@ -248,6 +248,21 @@ class DACLedit(object):
         cnf.basepath = None
         self.domain_dumper = ldapdomaindump.domainDumper(self.ldap_server, self.ldap_session, cnf)
 
+        if args.mask is not None:
+            if args.mask.startswith("0x"):
+                self.force_mask = int(args.mask, 16)
+            elif args.mask == "readwrite":
+                self.force_mask = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_READ_PROP + \
+                                ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_WRITE_PROP
+            elif args.mask == "write":
+                self.force_mask = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_WRITE_PROP
+            elif args.mask == "self":
+                self.force_mask = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_SELF
+            elif args.mask == "allext":
+                self.force_mask = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CONTROL_ACCESS
+        else:
+            self.force_mask = None
+
         if self.target_sAMAccountName or self.target_SID or self.target_DN:
             # Searching for target account with its security descriptor
             self.search_target_principal_security_descriptor()
@@ -263,7 +278,7 @@ class DACLedit(object):
                 self.ldap_session.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(_lookedup_principal), attributes=['objectSid'])
             elif self.principal_DN is not None:
                 _lookedup_principal = self.principal_DN
-                self.ldap_session.search(self.domain_dumper.root, '(distinguishedName=%s)' % _lookedup_principal, attributes=['objectSid'])
+                self.ldap_session.search(_lookedup_principal, '(distinguishedName=%s)' % _lookedup_principal, attributes=['objectSid'])
             try:
                 self.principal_SID = format_sid(self.ldap_session.entries[0]['objectSid'].raw_values[0])
                 logging.debug("Found principal SID: %s" % self.principal_SID)
@@ -288,10 +303,13 @@ class DACLedit(object):
         if self.rights == "FullControl" and self.rights_guid is None:
             logging.debug("Appending ACE (%s --(FullControl)--> %s)" % (self.principal_SID, format_sid(self.target_SID)))
             self.principal_security_descriptor['Dacl'].aces.append(self.create_ace(SIMPLE_PERMISSIONS.FullControl.value, self.principal_SID, self.ace_type))
+        elif self.rights == "Custom" and self.force_mask is not None:
+            logging.debug("Appending ACE (%s --(Custom)--> %s)" % (self.principal_SID, format_sid(self.target_SID)))
+            self.principal_security_descriptor['Dacl'].aces.append(self.create_ace(self.force_mask, self.principal_SID, self.ace_type))
         else:
             for rights_guid in self.build_guids_for_rights():
                 logging.debug("Appending ACE (%s --(%s)--> %s)" % (self.principal_SID, rights_guid, format_sid(self.target_SID)))
-                self.principal_security_descriptor['Dacl'].aces.append(self.create_object_ace(rights_guid, self.principal_SID, self.ace_type))
+                self.principal_security_descriptor['Dacl'].aces.append(self.create_object_ace(rights_guid, self.principal_SID, self.ace_type, force_mask=self.force_mask))
         # Backups current DACL before add the new one
         self.backup()
         # Effectively push the DACL with the new ACE
@@ -307,9 +325,11 @@ class DACLedit(object):
         # These ACEs will be used as comparison templates
         if self.rights == "FullControl" and self.rights_guid is None:
             compare_aces.append(self.create_ace(SIMPLE_PERMISSIONS.FullControl.value, self.principal_SID, self.ace_type))
+        elif self.rights == "Custom" and self.force_mask is not None:
+            compare_aces.append(self.create_ace(self.force_mask, self.principal_SID, self.ace_type))
         else:
             for rights_guid in self.build_guids_for_rights():
-                compare_aces.append(self.create_object_ace(rights_guid, self.principal_SID, self.ace_type))
+                compare_aces.append(self.create_object_ace(rights_guid, self.principal_SID, self.ace_type, force_mask=self.force_mask))
         new_dacl = []
         i = 0
         dacl_must_be_replaced = False
@@ -408,7 +428,7 @@ class DACLedit(object):
             self.ldap_session.search(self.domain_dumper.root, '(objectSid=%s)' % _lookedup_principal, attributes=['nTSecurityDescriptor'], controls=controls)
         elif self.target_DN is not None:
             _lookedup_principal = self.target_DN
-            self.ldap_session.search(self.domain_dumper.root, '(distinguishedName=%s)' % _lookedup_principal, attributes=['nTSecurityDescriptor'], controls=controls)
+            self.ldap_session.search(_lookedup_principal, '(distinguishedName=%s)' % _lookedup_principal, attributes=['nTSecurityDescriptor'], controls=controls)
         try:
             self.target_principal = self.ldap_session.entries[0]
             logging.debug('Target principal found in LDAP (%s)' % _lookedup_principal)
@@ -470,7 +490,7 @@ class DACLedit(object):
         for PERM in SIMPLE_PERMISSIONS:
             if (fsr & PERM.value) == PERM.value:
                 _perms.append(PERM.name)
-                fsr = fsr & (not PERM.value)
+                fsr = fsr & (~ PERM.value)
         for PERM in ACCESS_MASK:
             if fsr & PERM.value:
                 _perms.append(PERM.name)
@@ -504,7 +524,7 @@ class DACLedit(object):
                 for FLAG in ALLOWED_OBJECT_ACE_MASK_FLAGS:
                     if ace['Ace']['Mask'].hasPriv(FLAG.value):
                         _access_mask_flags.append(FLAG.name)
-                parsed_ace['Access mask'] = ", ".join(_access_mask_flags)
+                parsed_ace['Access mask'] = "%s (0x%x)" % (", ".join(_access_mask_flags), ace['Ace']['Mask']['Mask'])
                 # Extracts the ACE flag values and the trusted SID
                 _object_flags = []
                 for FLAG in OBJECT_ACE_FLAGS:
@@ -552,7 +572,7 @@ class DACLedit(object):
                 self.ldap_session.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(_lookedup_principal), attributes=['objectSid'])
             elif self.principal_DN is not None:
                 _lookedup_principal = self.principal_DN
-                self.ldap_session.search(self.domain_dumper.root, '(distinguishedName=%s)' % _lookedup_principal, attributes=['objectSid'])
+                self.ldap_session.search(_lookedup_principal, '(distinguishedName=%s)' % _lookedup_principal, attributes=['objectSid'])
             try:
                 self.principal_SID = format_sid(self.ldap_session.entries[0]['objectSid'].raw_values[0])
             except IndexError:
@@ -656,7 +676,7 @@ class DACLedit(object):
     #   - privguid : the ObjectType (an Extended Right here)
     #   - sid : the principal's SID
     #   - ace_type : the ACE type (allowed or denied)
-    def create_object_ace(self, privguid, sid, ace_type):
+    def create_object_ace(self, privguid, sid, ace_type, force_mask=None):
         nace = ldaptypes.ACE()
         if ace_type == "allowed":
             nace['AceType'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE
@@ -670,9 +690,11 @@ class DACLedit(object):
             nace['AceFlags'] = 0x00
         acedata['Mask'] = ldaptypes.ACCESS_MASK()
         # WriteMembers not an extended right, we need read and write mask on the attribute (https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c79a383c-2b3f-4655-abe7-dcbb7ce0cfbe)
-        if privguid == RIGHTS_GUID.WriteMembers.value:
-            acedata['Mask'][
-                'Mask'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_READ_PROP + ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_WRITE_PROP
+        # force_mask in the case we give the -rights-guid option
+        if force_mask is not None:
+            acedata['Mask']['Mask'] = force_mask
+        elif privguid == RIGHTS_GUID.WriteMembers.value:
+            acedata['Mask']['Mask'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_READ_PROP + ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_WRITE_PROP
         # Other rights in this script are extended rights and need the DS_CONTROL_ACCESS mask
         else:
             acedata['Mask']['Mask'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CONTROL_ACCESS
@@ -719,8 +741,9 @@ def parse_args():
     dacl_parser.add_argument('-action', choices=['read', 'write', 'remove', 'backup', 'restore'], nargs='?', default='read', help='Action to operate on the DACL')
     dacl_parser.add_argument('-file', dest="filename", type=str, help='Filename/path (optional for -action backup, required for -restore))')
     dacl_parser.add_argument('-ace-type', choices=['allowed', 'denied'], nargs='?', default='allowed', help='The ACE Type (access allowed or denied) that must be added or removed (default: allowed)')
-    dacl_parser.add_argument('-rights', choices=['FullControl', 'ResetPassword', 'WriteMembers', 'DCSync'], nargs='?', default='FullControl', help='Rights to write/remove in the target DACL (default: FullControl)')
+    dacl_parser.add_argument('-rights', choices=['FullControl', 'ResetPassword', 'WriteMembers', 'DCSync', 'Custom'], nargs='?', default='FullControl', help='Rights to write/remove in the target DACL (default: FullControl)')
     dacl_parser.add_argument('-rights-guid', type=str, help='Manual GUID representing the right to write/remove')
+    dacl_parser.add_argument('-mask', nargs='?', default=None, help='Force access mask, possible values: readwrite, write, self, allext, 0xXXXXX. Useful with -rights Custom or --rights-guid where the mask is different of read+write.')
     dacl_parser.add_argument('-inheritance', action="store_true", help='Enable the inheritance in the ACE flag with CONTAINER_INHERIT_ACE and OBJECT_INHERIT_ACE. Useful when target is a Container or an OU, '
                                                                        'ACE will be inherited by objects within the container/OU (except objects with adminCount=1)')
 

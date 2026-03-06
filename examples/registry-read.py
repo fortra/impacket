@@ -156,7 +156,7 @@ def main():
     # Init the example's logger theme
     logger.init(options.ts, options.debug)
 
-    reg = winregistry.Registry(options.hive)
+    reg = winregistry.get_registry_parser(options.hive)
 
     if options.action.upper() == 'ENUM_KEY':
         print("[%s]" % options.name)

@@ -10,11 +10,12 @@
 #
 import os
 import sys
-import pkg_resources
+from importlib.resources import files
 
 SOCKS_RELAYS = set()
 
-for file in pkg_resources.resource_listdir('impacket.examples.ntlmrelayx.servers', 'socksplugins'):
+socksplugins_path = files('impacket.examples.ntlmrelayx.servers').joinpath('socksplugins')
+for file in [f.name for f in socksplugins_path.iterdir() if f.is_file()]:
     if file.find('__') >= 0 or file.endswith('.py') is False:
         continue
     # This seems to be None in some case (py3 only)

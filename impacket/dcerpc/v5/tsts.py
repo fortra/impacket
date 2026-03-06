@@ -27,7 +27,7 @@
 #
 
 import struct
-from datetime import datetime
+from datetime import datetime, timedelta
 from ldap3.protocol.formatters.formatters import format_sid
 
 from impacket.dcerpc.v5 import transport
@@ -50,6 +50,7 @@ TermSrvNotification_UUID = uuidtup_to_bin(('11899a43-2b68-4a76-92e3-a3d6ad8c26ce
 TermSrvEnumeration_UUID  = uuidtup_to_bin(('88143fd0-c28d-4b2b-8fef-8d882f6a9390','1.0'))
 RCMPublic_UUID           = uuidtup_to_bin(('bde95fdf-eee0-45de-9e12-e5a61cd0d4fe','1.0'))
 RcmListener_UUID         = uuidtup_to_bin(('497d95a6-2d27-4bf5-9bbd-a6046957133c','1.0'))
+SessEnvPublicRpc_UUID    = uuidtup_to_bin(('1257b580-ce2f-4109-82d6-a9459d0bf6bc','1.0'))
 LegacyAPI_UUID           = uuidtup_to_bin(('5ca4a760-ebb1-11cf-8611-00a0245420ed','1.0'))
 
 AUDIODRIVENAME_LENGTH                = 9
@@ -179,7 +180,7 @@ class TS_CHAR(STR):
 class SYSTEM_TIMESTAMP(NDRHYPER):
     def __getitem__(self, key):
         if key == 'Data':
-            return datetime.fromtimestamp(getUnixTime(int(str(self.fields[key]))))
+            return datetime(1601, 1, 1) + timedelta(microseconds=int(str(self.fields[key])) // 10)
         else:
             return NDR.__getitem__(self,key)
 
@@ -1896,6 +1897,24 @@ class RpcGetRemoteAddress(NDRCALL):
 class RpcGetRemoteAddressResponse(NDRCALL):
     structure = (
         ('pRemoteAddress', RCM_REMOTEADDRESS),
+        ('ErrorCode', ULONG),
+    )
+
+
+# 3.5.4.1.6 RpcShadow2 (Opnum 0)
+class RpcShadow2(NDRCALL):
+    opnum = 0
+    structure = (
+        ('TargetSessionId', ULONG),
+        ('eRequestControl', SHADOW_CONTROL_REQUEST),
+        ('eRequestPermission', SHADOW_PERMISSION_REQUEST),
+        ('cchInvitation', ULONG),
+    )
+
+class RpcShadow2Response(NDRCALL):
+    structure = (
+        ('pePermission', SHADOW_REQUEST_RESPONSE),
+        ('pszInvitation', WSTR),
         ('ErrorCode', ULONG),
     )
 
@@ -3663,6 +3682,14 @@ def hRpcWinStationOpenSessionDirectory(dce, hServer, pszServerName):
     request['pszServerName'] = pszServerName
     return dce.request(request, checkError=False)
 
+# 3.10.4.1.1 RpcShadow2 (Opnum 0)
+def hRpcShadow2(dce, TargetSessionId, eRequestControl, eRequestPermission, cchInvitation = 8192):
+        request = RpcShadow2()
+        request['TargetSessionId'] = TargetSessionId
+        request['eRequestControl'] = eRequestControl
+        request['eRequestPermission'] = eRequestPermission
+        request['cchInvitation'] = cchInvitation
+        return dce.request(request, checkError=False)
 
 ################################################################################
 # Initialization Classes and Helper classes
@@ -3772,6 +3799,17 @@ class RcmListener(TSTSEndpoint):
     hRpcStopListener  = hRpcStopListener
     hRpcStartListener = hRpcStartListener
     hRpcIsListening   = hRpcIsListening
+
+class SessEnvPublicRpc(TSTSEndpoint):
+    def __init__(self, smb, target_ip, kerberos):
+        super().__init__(smb, target_ip,
+                            stringbinding = r'ncacn_np:{}[\pipe\SessEnvPublicRpc]',
+                            endpoint = SessEnvPublicRpc_UUID,
+                            kerberos = kerberos
+        )
+
+    hRpcShadow2       = hRpcShadow2
+
 
 class LegacyAPI(TSTSEndpoint):
     def __init__(self, smb, target_ip, kerberos):

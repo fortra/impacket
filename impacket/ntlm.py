@@ -148,6 +148,9 @@ NTLMSSP_NEGOTIATE_OEM_DOMAIN_SUPPLIED      = 0x00001000
 # If set, the connection SHOULD be anonymous
 NTLMSSP_NEGOTIATE_ANONYMOUS                = 0x00000800
 
+# Flags used by Responder to drop SSP (little endian)
+NTLMSSP_DROP_SSP_STATIC                    = 0xe2818215
+
 # If set, LM authentication is not allowed and only NT authentication is used.
 NTLMSSP_NEGOTIATE_NT_ONLY                  = 0x00000400
 

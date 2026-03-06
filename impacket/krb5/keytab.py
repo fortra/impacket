@@ -291,9 +291,3 @@ class Keytab:
         for i, entry in enumerate(self.entries):
             print(("[%d]" % i))
             print(entry.prettyPrint('\t'))
-
-
-if __name__ == '__main__':
-    import sys
-    keytab = Keytab.loadFile(sys.argv[1])
-    keytab.prettyPrint()

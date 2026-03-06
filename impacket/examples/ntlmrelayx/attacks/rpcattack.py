@@ -20,6 +20,8 @@ import string
 import random
 
 from OpenSSL import crypto
+from cryptography.x509 import load_der_x509_certificate
+from cryptography.hazmat.backends import default_backend
 
 from impacket import LOG
 from impacket.dcerpc.v5 import tsch, icpr
@@ -156,24 +158,30 @@ class ICPRRPCAttack:
 
         ELEVATED.append(self.username)
 
-        certificate_store = ADCSAttack.generate_pfx(key, certificate, crypto.FILETYPE_ASN1)
-        LOG.info("Writing PKCS#12 certificate to %s/%s.pfx" % (self.config.lootdir, self.username))
+        cert_obj = load_der_x509_certificate(certificate, backend=default_backend())
+        pfx_filename = ADCSAttack._sanitize_filename(self.username or ADCSAttack._extract_certificate_identity(cert_obj) or "certificate")
+        certificate_store = ADCSAttack.generate_pfx(key.to_cryptography_key(), cert_obj)
+        output_path = os.path.join(self.config.lootdir, "{}.pfx".format(pfx_filename))
+        LOG.info("Writing PKCS#12 certificate to %s" % output_path)
         try:
             if not os.path.isdir(self.config.lootdir):
                 os.mkdir(self.config.lootdir)
-            with open("%s/%s.pfx" % (self.config.lootdir, self.username), 'wb') as f:
+            with open(output_path, 'wb') as f:
                 f.write(certificate_store)
             LOG.info("Certificate successfully written to file")
         except Exception as e:
             LOG.info("Unable to write certificate to file, printing B64 of certificate to console instead")
-            LOG.info("Base64-encoded PKCS#12 certificate of user %s: \n%s" % (self.username, base64.b64encode(certificate_store).decode()))
+            LOG.info("Base64-encoded PKCS#12 certificate (%s): \n%s" % (pfx_filename, base64.b64encode(certificate_store).decode()))
             pass
+
+        if self.config.altName:
+            LOG.info("This certificate can also be used for user : {}".format(self.config.altName))
 
 class RPCAttack(ProtocolAttack, TSCHRPCAttack):
     PLUGIN_NAMES = ["RPC"]
 
-    def __init__(self, config, dce, username):
-        ProtocolAttack.__init__(self, config, dce, username)
+    def __init__(self, config, dce, username, target=None, relay_client=None):
+        ProtocolAttack.__init__(self, config, dce, username, target, relay_client)
         self.dce = dce
         self.rpctransport = dce.get_rpc_transport()
         self.stringbinding = self.rpctransport.get_stringbinding()

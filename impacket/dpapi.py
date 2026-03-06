@@ -651,7 +651,7 @@ class DPAPI_BLOB(Structure):
         # Now check the signature
 
         # ToDo Fix this, it's just ugly, more testing so we can remove one
-        toSign = (self.rawData[20:][:len(self.rawData)-20-len(self['Sign'])-4])
+        toSign = (self.rawData[20:len(self)-len(self['Sign'])-4])
 
         # Calculate the different HMACKeys
         keyHash2 = keyHash + b"\x00"*ALGORITHMS_DATA[self['HashAlgo']][1].block_size

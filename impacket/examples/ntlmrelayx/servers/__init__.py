@@ -13,3 +13,7 @@ from impacket.examples.ntlmrelayx.servers.smbrelayserver import SMBRelayServer
 from impacket.examples.ntlmrelayx.servers.wcfrelayserver import WCFRelayServer
 from impacket.examples.ntlmrelayx.servers.rawrelayserver import RAWRelayServer
 from impacket.examples.ntlmrelayx.servers.rpcrelayserver import RPCRelayServer
+from impacket.examples.ntlmrelayx.servers.winrmrelayserver import WinRMRelayServer
+from impacket.examples.ntlmrelayx.servers.winrmsrelayserver import WinRMSRelayServer
+from impacket.examples.ntlmrelayx.servers.rdprelayserver import RDPRelayServer
+from impacket.examples.ntlmrelayx.servers.mssqlrelayserver import MSSQLRelayServer
