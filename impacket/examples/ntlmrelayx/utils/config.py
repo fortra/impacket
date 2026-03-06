@@ -45,6 +45,7 @@ class NTLMRelayxConfig:
         self.encoding = None
         self.ipv6 = False
         self.remove_mic = False
+        self.remove_sign_seal = False
         self.disableMulti = False
         self.keepRelaying = False
 
@@ -240,9 +241,10 @@ class NTLMRelayxConfig:
         self.wpad_host = wpad_host
         self.wpad_auth_num = wpad_auth_num
 
-    def setExploitOptions(self, remove_mic, remove_target):
+    def setExploitOptions(self, remove_mic, remove_target, remove_sign_seal=False):
         self.remove_mic = remove_mic
         self.remove_target = remove_target
+        self.remove_sign_seal = remove_sign_seal
 
     def setWebDAVOptions(self, serve_image):
         self.serve_image = serve_image
