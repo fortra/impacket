@@ -278,8 +278,7 @@ class SMBSocksRelay(SocksRelay):
             respSMBCommand['SecurityBufferOffset'] = 0x80
 
             blob = SPNEGO_NegTokenInit()
-            blob['MechTypes'] = [TypesMech['NEGOEX - SPNEGO Extended Negotiation Security Mechanism'],
-                                 TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
+            blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
 
             respSMBCommand['Buffer'] = blob.getData()
             respSMBCommand['SecurityBufferLength'] = len(respSMBCommand['Buffer'])
