@@ -308,9 +308,9 @@ class NTLMTests(unittest.TestCase):
         av_pairs = ntlm.AV_PAIRS()
         av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME] = self.domain.encode('utf-16le')
 
-        self.assertTrue(av_pairs.__contains__(ntlm.NTLMSSP_AV_DOMAINNAME))
-        self.assertFalse(av_pairs.__contains__(ntlm.NTLMSSP_AV_DNS_DOMAINNAME))
-        self.assertEqual(list(av_pairs.__iter__()), [ntlm.NTLMSSP_AV_DOMAINNAME])
+        self.assertIn(ntlm.NTLMSSP_AV_DOMAINNAME,av_pairs)
+        self.assertNotIn(ntlm.NTLMSSP_AV_DNS_DOMAINNAME,av_pairs)
+        self.assertEqual(list(av_pairs), [ntlm.NTLMSSP_AV_DOMAINNAME])
 
     def __pack_and_parse(self, message, expected):
         data = message.getData()
