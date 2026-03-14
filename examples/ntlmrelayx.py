@@ -195,7 +195,7 @@ def start_servers(options, threads):
         c.setLootdir(options.lootdir)
         c.setOutputFile(options.output_file)
         c.setdumpHashes(options.dump_hashes)
-        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid, options.add_dns_record)
+        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid, options.add_dns_record, options.kerberoast, options.asreproast)
         c.setRPCOptions(options.rpc_mode, options.rpc_use_smb, options.auth_smb, options.hashes_smb, options.rpc_smb_port, options.icpr_ca_name)
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
@@ -398,6 +398,8 @@ if __name__ == '__main__':
     ldapoptions.add_argument('--dump-laps', action='store_true', required=False, help='Attempt to dump any LAPS passwords readable by the user')
     ldapoptions.add_argument('--dump-gmsa', action='store_true', required=False, help='Attempt to dump any gMSA passwords readable by the user')
     ldapoptions.add_argument('--dump-adcs', action='store_true', required=False, help='Attempt to dump ADCS enrollment services and certificate templates info')
+    ldapoptions.add_argument('--kerberoast', action='store_true', required=False, help='Enumerate kerberoastable accounts via LDAP and request TGS tickets (hashcat format)')
+    ldapoptions.add_argument('--asreproast', action='store_true', required=False, help='Enumerate AS-REP roastable accounts via LDAP and request AS-REP hashes (hashcat format)')
     ldapoptions.add_argument('--add-dns-record', nargs=2, action='store', metavar=('NAME', 'IPADDR'), required=False, help='Add the <NAME> record to DNS via LDAP pointing to <IPADDR>')
 
     #Common options for SMB and LDAP

