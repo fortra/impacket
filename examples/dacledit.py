@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies 
@@ -239,9 +239,10 @@ class DACLedit(object):
         self.rights = args.rights
         self.rights_guid = args.rights_guid
         self.filename = args.filename
-        self.inheritance = args.inheritance
-        if self.inheritance:
-            logging.info("NB: objects with adminCount=1 will no inherit ACEs from their parent container/OU")
+        self.object_inherit = args.object_inherit
+        self.container_inherit = args.container_inherit
+        if self.object_inherit or self.container_inherit:
+            logging.info("NB: objects with adminCount=1 will not inherit ACEs from their parent container/OU")
 
         logging.debug('Initializing domainDumper()')
         cnf = ldapdomaindump.domainDumpConfig()
@@ -657,10 +658,12 @@ class DACLedit(object):
         else:
             nace['AceType'] = ldaptypes.ACCESS_DENIED_ACE.ACE_TYPE
             acedata = ldaptypes.ACCESS_DENIED_ACE()
-        if self.inheritance:
-            nace['AceFlags'] = ldaptypes.ACE.OBJECT_INHERIT_ACE + ldaptypes.ACE.CONTAINER_INHERIT_ACE
-        else:
-            nace['AceFlags'] = 0x00
+        ace_flags = 0x00
+        if self.object_inherit:
+            ace_flags |= ldaptypes.ACE.OBJECT_INHERIT_ACE
+        if self.container_inherit:
+            ace_flags |= ldaptypes.ACE.CONTAINER_INHERIT_ACE
+        nace['AceFlags'] = ace_flags
         acedata['Mask'] = ldaptypes.ACCESS_MASK()
         acedata['Mask']['Mask'] = access_mask
         acedata['Sid'] = ldaptypes.LDAP_SID()
@@ -684,10 +687,12 @@ class DACLedit(object):
         else:
             nace['AceType'] = ldaptypes.ACCESS_DENIED_OBJECT_ACE.ACE_TYPE
             acedata = ldaptypes.ACCESS_DENIED_OBJECT_ACE()           
-        if self.inheritance:
-            nace['AceFlags'] = ldaptypes.ACE.OBJECT_INHERIT_ACE + ldaptypes.ACE.CONTAINER_INHERIT_ACE
-        else:
-            nace['AceFlags'] = 0x00
+        ace_flags = 0x00
+        if self.object_inherit:
+            ace_flags |= ldaptypes.ACE.OBJECT_INHERIT_ACE
+        if self.container_inherit:
+            ace_flags |= ldaptypes.ACE.CONTAINER_INHERIT_ACE
+        nace['AceFlags'] = ace_flags
         acedata['Mask'] = ldaptypes.ACCESS_MASK()
         # WriteMembers not an extended right, we need read and write mask on the attribute (https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c79a383c-2b3f-4655-abe7-dcbb7ce0cfbe)
         # force_mask in the case we give the -rights-guid option
@@ -744,8 +749,8 @@ def parse_args():
     dacl_parser.add_argument('-rights', choices=['FullControl', 'ResetPassword', 'WriteMembers', 'DCSync', 'Custom'], nargs='?', default='FullControl', help='Rights to write/remove in the target DACL (default: FullControl)')
     dacl_parser.add_argument('-rights-guid', type=str, help='Manual GUID representing the right to write/remove')
     dacl_parser.add_argument('-mask', nargs='?', default=None, help='Force access mask, possible values: readwrite, write, self, allext, 0xXXXXX. Useful with -rights Custom or --rights-guid where the mask is different of read+write.')
-    dacl_parser.add_argument('-inheritance', action="store_true", help='Enable the inheritance in the ACE flag with CONTAINER_INHERIT_ACE and OBJECT_INHERIT_ACE. Useful when target is a Container or an OU, '
-                                                                       'ACE will be inherited by objects within the container/OU (except objects with adminCount=1)')
+    dacl_parser.add_argument('-object-inherit', action="store_true", help='Set OBJECT_INHERIT_ACE flag: ACE is inherited by non-container child objects (except objects with adminCount=1)')
+    dacl_parser.add_argument('-container-inherit', action="store_true", help='Set CONTAINER_INHERIT_ACE flag: ACE is inherited by child container objects such as OUs (except objects with adminCount=1)')
 
     if len(sys.argv) == 1:
         parser.print_help()
