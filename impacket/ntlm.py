@@ -238,7 +238,7 @@ class AV_PAIRS:
         del self.fields[key]
 
     def __len__(self):
-        return len(self.getData())
+        return len(self.fields)
 
     def __str__(self):
         return len(self.getData())
