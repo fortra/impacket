@@ -731,7 +731,7 @@ class LinuxSLL(Header):
         "Sets the sender's address field to addr. Addr must be at most 8-byte long."
         addr = array.array('B', addr[:8])
         if len(addr) < 8:
-            addr.extend(b'\0' * (8 - len(addr)))
+            addr.extend(array.array('B', b'\0' * (8 - len(addr))))
         self.get_bytes()[6:14] = addr
 
     def get_addr(self):
