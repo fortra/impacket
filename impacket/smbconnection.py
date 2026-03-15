@@ -282,7 +282,7 @@ class SMBConnection:
                                            Only available for SMBv1.
 
         :return: None
-        :raise SessionError: If encountered an error.
+        :raise SessionError: If encountered an error (e.g. authentication failure, or invalid/truncated server response).
         """
         self._ntlmFallback = ntlmFallback
         try:
