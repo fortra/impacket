@@ -889,6 +889,7 @@ class MSSQL:
         self.MAX_COL_LEN = 255
         self.lastError = False
         self.tlsSocket = None
+        self.tls_unique = None
         self.tds8 = False
         self.__rowsPrinter = rowsPrinter
         self.mssql_version = ""
@@ -1219,13 +1220,64 @@ class MSSQL:
         context = ssl.SSLContext()
         context.set_ciphers('ALL:@SECLEVEL=0')
         context.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
+        # Cap at TLS 1.2: EPA channel binding requires tls-unique, which TLS 1.3
+        # removed (RFC 8446), SQL Server's SChannel does not appear to accept
+        # tls-server-end-point as a substitute for EPA, and SQL Server 2022 
+        # requires TLS 1.2 to be enabled in SChannel
+        context.maximum_version = ssl.TLSVersion.TLSv1_2
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
         context.set_alpn_protocols(["tds/8.0"])
         self.socket = context.wrap_socket(self.socket, server_hostname=self.server)
         self.tds8 = True
         self.packetSize = 16 * 1024 - 1
+        # Retrieve tls-unique for EPA channel binding
+        self.tls_unique = self.socket.get_channel_binding("tls-unique")
+        if self.tls_unique:
+            LOG.debug("(TDS8) tls-unique: %s" % self.tls_unique.hex())
+        else:
+            LOG.warning("(TDS8) No tls-unique available — EPA will fail if required")
         LOG.info("(TDS8) TDS 8.0 TLS connection established")
+
+    def _negotiate_encryption(self):
+        """Perform preLogin exchange and set up encryption.
+
+        Handles all encryption modes including TDS 8.0 strict encryption
+        where the server drops the connection on a plain PRELOGIN.
+
+        Returns the preLogin response dict.
+        """
+        # Use a short timeout — if the server requires TDS 8.0
+        # (Force Strict Encryption = Yes), it will silently close the
+        # connection or never respond to a plain TDS preLogin.
+        original_timeout = self.socket.gettimeout()
+        self.socket.settimeout(5)
+
+        try:
+            resp = self.preLogin()
+            self.socket.settimeout(original_timeout)
+        except Exception as e:
+            # Plain TDS preLogin failed — server likely requires TDS 8.0
+            LOG.debug("Plain TDS preLogin failed (%s: %s), trying TDS 8.0" % (type(e).__name__, e))
+            try:
+                self.disconnect()
+            except Exception:
+                pass
+            self.connect()
+            self._setup_tds8()
+            return self.preLogin()
+
+        # Handle server encryption response
+        if resp["Encryption"] == TDS_ENCRYPT_STRICT:
+            LOG.info("Server requires TDS 8.0 (ENCRYPT_STRICT), reconnecting with TLS")
+            self.disconnect()
+            self.connect()
+            self._setup_tds8()
+            return self.preLogin()
+        elif resp["Encryption"] in (TDS_ENCRYPT_REQ, TDS_ENCRYPT_ON, TDS_ENCRYPT_OFF):
+            self.set_tls_context()
+
+        return resp
 
     def kerberosLogin(
         self,
@@ -1248,21 +1300,7 @@ class MSSQL:
             lmhash = ""
             nthash = ""
 
-        resp = self.preLogin()
-        # If the server requires TDS 8.0 strict encryption, reconnect with TLS at the transport level
-        if resp["Encryption"] == TDS_ENCRYPT_STRICT:
-            LOG.info("Server requires TDS 8.0 (ENCRYPT_STRICT), reconnecting with TLS")
-            self.disconnect()
-            self.connect()
-            self._setup_tds8()
-            resp = self.preLogin()
-        # If the MSSQL Server responds with a TDS_ENCRYPT_REQ or TDS_ENCRYPT_OFF
-        # Then it means we need to setup a TLS context
-        elif (
-            resp["Encryption"] == TDS_ENCRYPT_REQ
-            or resp["Encryption"] == TDS_ENCRYPT_OFF
-        ):
-            self.set_tls_context()
+        resp = self._negotiate_encryption()
 
         # That part is used to compute the Version field for the NTLM_NEGOTIATE and NTLM_AUTHENTICATE messages
         self.version = ntlm.VERSION()
@@ -1462,7 +1500,7 @@ class MSSQL:
         chkField = CheckSumField()
         chkField["Lgth"] = 16
         chkField["Flags"] = GSS_C_SEQUENCE_FLAG | GSS_C_REPLAY_FLAG
-        if self.tlsSocket:
+        if self.tls_unique:
             chkField["Bnd"] = self.generate_cbt_from_tls_unique()
         authenticator["cksum"]["checksum"] = chkField.getData()
         authenticator["seq-number"] = 0
@@ -1524,23 +1562,7 @@ class MSSQL:
             lmhash = ""
             nthash = ""
 
-        # First things first, we need to anounciate to the MSSQL server sending a TDS_PRELOGIN
-        resp = self.preLogin()
-
-        # If the server requires TDS 8.0 strict encryption, reconnect with TLS at the transport level
-        if resp["Encryption"] == TDS_ENCRYPT_STRICT:
-            LOG.info("Server requires TDS 8.0 (ENCRYPT_STRICT), reconnecting with TLS")
-            self.disconnect()
-            self.connect()
-            self._setup_tds8()
-            resp = self.preLogin()
-        # If the MSSQL Server responds with a TDS_ENCRYPT_REQ or TDS_ENCRYPT_OFF
-        # Then it means we need to setup a TLS context
-        elif (
-            resp["Encryption"] == TDS_ENCRYPT_REQ
-            or resp["Encryption"] == TDS_ENCRYPT_OFF
-        ):
-            self.set_tls_context()
+        resp = self._negotiate_encryption()
 
         # That part is used to compute the Version field for the NTLM_NEGOTIATE and NTLM_AUTHENTICATE messages
         self.version = ntlm.VERSION()
@@ -1605,7 +1627,7 @@ class MSSQL:
 
             # We then compute the Channel Binding Token from the tls-unique value retrieved before
             channel_binding_value = b""
-            if self.tlsSocket:
+            if self.tls_unique:
                 channel_binding_value = self.generate_cbt_from_tls_unique()
 
             # Generate the NTLM ChallengeResponse AUTH
