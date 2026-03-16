@@ -25,10 +25,9 @@ import struct
 import random
 import string
 
-from impacket import LOG
 from impacket.examples.ntlmrelayx.clients import ProtocolClient
-from impacket.tds import MSSQL, DummyPrint, TDS_ENCRYPT_OFF, TDS_ENCRYPT_REQ, TDS_ENCRYPT_ON, \
-    TDS_ENCRYPT_STRICT, TDS_LOGIN, TDS_INIT_LANG_FATAL, TDS_ODBC_ON, \
+from impacket.tds import MSSQL, DummyPrint, TDS_ENCRYPT_OFF, \
+    TDS_LOGIN, TDS_INIT_LANG_FATAL, TDS_ODBC_ON, \
     TDS_INTEGRATED_SECURITY_ON, TDS_LOGIN7, TDS_SSPI, TDS_LOGINACK_TOKEN
 from impacket.ntlm import NTLMAuthChallenge
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
@@ -44,45 +43,7 @@ class MYMSSQL(MSSQL):
 
     def initConnection(self):
         self.connect()
-
-        # Use a short timeout for the initial preLogin — if the server requires
-        # TDS 8.0 (Force Strict Encryption = Yes), it will silently close the
-        # connection or never respond to a plain TDS preLogin.
-        original_timeout = self.socket.gettimeout()
-        self.socket.settimeout(5)
-
-        try:
-            resp = self.preLogin()
-            self.socket.settimeout(original_timeout)
-        except Exception as e:
-            # Plain TDS preLogin failed — server likely requires TDS 8.0
-            LOG.debug("(MSSQL) Plain TDS preLogin failed (%s: %s), trying TDS 8.0" % (type(e).__name__, e))
-            try:
-                self.disconnect()
-            except Exception:
-                pass
-            self.connect()
-            self._setup_tds8()
-            resp = self.preLogin()
-            self.resp = resp
-            return True
-
-        # Handle server encryption response
-        if resp['Encryption'] == TDS_ENCRYPT_STRICT:
-            # Server requires TDS 8.0 strict encryption — reconnect with TLS
-            LOG.info("(MSSQL) Server requires TDS 8.0 (ENCRYPT_STRICT), reconnecting with TLS")
-            self.disconnect()
-            self.connect()
-            self._setup_tds8()
-            resp = self.preLogin()
-        elif resp['Encryption'] in (TDS_ENCRYPT_REQ, TDS_ENCRYPT_ON, TDS_ENCRYPT_OFF):
-            # TDS spec requires TLS for the login exchange even with ENCRYPT_OFF.
-            # With ENCRYPT_OFF, TLS is dropped after the first login packet (handled in sendNegotiate).
-            # With ENCRYPT_REQ/ENCRYPT_ON, TLS stays active for the entire session.
-            LOG.info("(MSSQL) Encryption required, switching to TLS")
-            self.set_tls_context()
-
-        self.resp = resp
+        self.resp = self._negotiate_encryption()
         return True
 
     def sendNegotiate(self, negotiateMessage):
