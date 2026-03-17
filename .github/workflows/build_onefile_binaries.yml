@@ -1,0 +1,376 @@
+name: Build Onefile Binaries
+
+on:
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: "Space-separated examples/*.py names to build. Empty means all supported targets."
+        required: false
+        default: ""
+      include_legacy_kintercept:
+        description: "Also build kintercept.py with Python 3.8"
+        required: false
+        default: "true"
+  push:
+    tags:
+      - "onefile-v*"
+
+permissions:
+  contents: read
+
+env:
+  MAIN_PYTHON: "3.11"
+  LEGACY_PYTHON: "3.8"
+  MAIN_EXCLUDES: "sniff.py split.py kintercept.py"
+  LEGACY_TARGET: "kintercept.py"
+
+jobs:
+  windows-main:
+    name: Windows onefile EXE (Python 3.11)
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.MAIN_PYTHON }}
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r requirements.txt
+          python -m pip install . pyinstaller dnspython
+
+      - name: Build and verify Windows EXEs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path artifacts\windows, build-logs\windows\build, build-logs\windows\verify, build-pyinstaller\windows, build-pyinstaller\specs\windows | Out-Null
+
+          $excluded = @('sniff.py', 'split.py', 'kintercept.py')
+          $requested = '${{ github.event.inputs.targets }}'.Trim()
+          if ($requested) {
+            $targets = $requested -split '\s+' | Where-Object { $_ -and ($_ -notin $excluded) }
+          } else {
+            $targets = Get-ChildItem examples -File -Filter *.py |
+              ForEach-Object { $_.Name } |
+              Where-Object { $_ -notin $excluded } |
+              Sort-Object
+          }
+
+          if (-not $targets) {
+            throw 'No Windows main targets were selected.'
+          }
+
+          foreach ($script in $targets) {
+            $name = [System.IO.Path]::GetFileNameWithoutExtension($script)
+            $buildLog = "build-logs/windows/build/$name.log"
+            $verifyLog = "build-logs/windows/verify/$name.log"
+
+            $args = @(
+              '--noconfirm',
+              '--clean',
+              '--onefile',
+              '--console',
+              '--name', $name,
+              '--distpath', 'artifacts/windows',
+              '--workpath', "build-pyinstaller/windows/$name",
+              '--specpath', 'build-pyinstaller/specs/windows',
+              '--copy-metadata', 'impacket'
+            )
+
+            if ($script -eq 'ntlmrelayx.py') {
+              $args += @('--collect-submodules', 'impacket.examples.ntlmrelayx')
+            }
+
+            & python -m PyInstaller @args "examples/$script" *>&1 | Tee-Object -FilePath $buildLog
+            if ($LASTEXITCODE -ne 0) {
+              throw "PyInstaller failed for $script"
+            }
+
+            $exePath = "artifacts/windows/$name.exe"
+            if (-not (Test-Path $exePath)) {
+              throw "Expected output not found: $exePath"
+            }
+
+            & $exePath --help *>&1 | Tee-Object -FilePath $verifyLog
+            $helpText = Get-Content $verifyLog -Raw
+            if ($helpText -notmatch 'usage:|options:|optional arguments') {
+              throw "Help verification failed for $script"
+            }
+          }
+
+      - name: Upload Windows EXEs
+        uses: actions/upload-artifact@v4
+        with:
+          name: impacket-onefile-windows-py311
+          path: |
+            artifacts/windows
+            build-logs/windows
+          if-no-files-found: error
+
+  windows-legacy-kintercept:
+    name: Windows onefile EXE (kintercept, Python 3.8)
+    runs-on: windows-2022
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.include_legacy_kintercept == 'true' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.LEGACY_PYTHON }}
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r requirements.txt
+          python -m pip install . pyinstaller dnspython
+
+      - name: Build and verify kintercept.exe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path artifacts\windows-legacy, build-logs\windows-legacy\build, build-logs\windows-legacy\verify, build-pyinstaller\windows-legacy, build-pyinstaller\specs\windows-legacy | Out-Null
+
+          $name = 'kintercept'
+          $buildLog = "build-logs/windows-legacy/build/$name.log"
+          $verifyLog = "build-logs/windows-legacy/verify/$name.log"
+
+          & python -m PyInstaller `
+            --noconfirm `
+            --clean `
+            --onefile `
+            --console `
+            --name $name `
+            --distpath artifacts/windows-legacy `
+            --workpath build-pyinstaller/windows-legacy/$name `
+            --specpath build-pyinstaller/specs/windows-legacy `
+            --copy-metadata impacket `
+            examples/kintercept.py *>&1 | Tee-Object -FilePath $buildLog
+
+          if ($LASTEXITCODE -ne 0) {
+            throw 'PyInstaller failed for kintercept.py'
+          }
+
+          $exePath = "artifacts/windows-legacy/$name.exe"
+          & $exePath --help *>&1 | Tee-Object -FilePath $verifyLog
+          $helpText = Get-Content $verifyLog -Raw
+          if ($helpText -notmatch 'usage:|options:|optional arguments') {
+            throw 'Help verification failed for kintercept.py'
+          }
+
+      - name: Upload Windows legacy EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: impacket-onefile-windows-kintercept-py38
+          path: |
+            artifacts/windows-legacy
+            build-logs/windows-legacy
+          if-no-files-found: error
+
+  linux-main:
+    name: Linux onefile ELF (Python 3.11)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.MAIN_PYTHON }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y patchelf
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r requirements.txt
+          python -m pip install . pyinstaller dnspython staticx
+
+      - name: Build and verify Linux ELF binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p artifacts/linux/raw artifacts/linux/final
+          mkdir -p build-logs/linux/build build-logs/linux/verify build-logs/linux/wrap
+          mkdir -p build-pyinstaller/linux build-pyinstaller/specs/linux
+
+          requested="${{ github.event.inputs.targets }}"
+          excluded=("sniff.py" "split.py" "kintercept.py")
+
+          if [[ -n "${requested// }" ]]; then
+            read -r -a requested_targets <<< "${requested}"
+            targets=()
+            for script in "${requested_targets[@]}"; do
+              skip="false"
+              for excluded_script in "${excluded[@]}"; do
+                if [[ "$script" == "$excluded_script" ]]; then
+                  skip="true"
+                  break
+                fi
+              done
+              if [[ "$skip" == "false" ]]; then
+                targets+=("$script")
+              fi
+            done
+          else
+            mapfile -t targets < <(find examples -maxdepth 1 -type f -name '*.py' -printf '%f\n' | sort)
+            filtered=()
+            for script in "${targets[@]}"; do
+              skip="false"
+              for excluded_script in "${excluded[@]}"; do
+                if [[ "$script" == "$excluded_script" ]]; then
+                  skip="true"
+                  break
+                fi
+              done
+              if [[ "$skip" == "false" ]]; then
+                filtered+=("$script")
+              fi
+            done
+            targets=("${filtered[@]}")
+          fi
+
+          if [[ "${#targets[@]}" -eq 0 ]]; then
+            echo "No Linux main targets were selected." >&2
+            exit 1
+          fi
+
+          for script in "${targets[@]}"; do
+            name="${script%.py}"
+            build_log="build-logs/linux/build/${name}.log"
+            verify_log="build-logs/linux/verify/${name}.log"
+            wrap_log="build-logs/linux/wrap/${name}.log"
+
+            args=(
+              --noconfirm
+              --clean
+              --onefile
+              --console
+              --name "${name}"
+              --distpath artifacts/linux/raw
+              --workpath "build-pyinstaller/linux/${name}"
+              --specpath build-pyinstaller/specs/linux
+              --copy-metadata impacket
+            )
+
+            if [[ "${script}" == "ntlmrelayx.py" ]]; then
+              args+=(--collect-submodules impacket.examples.ntlmrelayx)
+            fi
+
+            python -m PyInstaller "${args[@]}" "examples/${script}" 2>&1 | tee "${build_log}"
+            raw_path="artifacts/linux/raw/${name}"
+            final_path="artifacts/linux/final/${name}"
+
+            if staticx --strip "${raw_path}" "${final_path}" >"${wrap_log}" 2>&1; then
+              chmod +x "${final_path}"
+            else
+              cp "${raw_path}" "${final_path}"
+              chmod +x "${final_path}"
+            fi
+
+            "${final_path}" --help 2>&1 | tee "${verify_log}"
+            if ! grep -Eiq 'usage:|options:|optional arguments' "${verify_log}"; then
+              echo "Help verification failed for ${script}" >&2
+              exit 1
+            fi
+          done
+
+      - name: Upload Linux ELF artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: impacket-onefile-linux-py311
+          path: |
+            artifacts/linux/final
+            build-logs/linux
+          if-no-files-found: error
+
+  linux-legacy-kintercept:
+    name: Linux onefile ELF (kintercept, Python 3.8)
+    runs-on: ubuntu-22.04
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.include_legacy_kintercept == 'true' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.LEGACY_PYTHON }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y patchelf
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r requirements.txt
+          python -m pip install . pyinstaller dnspython staticx
+
+      - name: Build and verify legacy kintercept ELF
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p artifacts/linux-legacy/raw artifacts/linux-legacy/final
+          mkdir -p build-logs/linux-legacy/build build-logs/linux-legacy/verify build-logs/linux-legacy/wrap
+          mkdir -p build-pyinstaller/linux-legacy build-pyinstaller/specs/linux-legacy
+
+          name="kintercept"
+          build_log="build-logs/linux-legacy/build/${name}.log"
+          verify_log="build-logs/linux-legacy/verify/${name}.log"
+          wrap_log="build-logs/linux-legacy/wrap/${name}.log"
+
+          python -m PyInstaller \
+            --noconfirm \
+            --clean \
+            --onefile \
+            --console \
+            --name "${name}" \
+            --distpath artifacts/linux-legacy/raw \
+            --workpath "build-pyinstaller/linux-legacy/${name}" \
+            --specpath build-pyinstaller/specs/linux-legacy \
+            --copy-metadata impacket \
+            examples/kintercept.py 2>&1 | tee "${build_log}"
+
+          raw_path="artifacts/linux-legacy/raw/${name}"
+          final_path="artifacts/linux-legacy/final/${name}"
+
+          if staticx --strip "${raw_path}" "${final_path}" >"${wrap_log}" 2>&1; then
+            chmod +x "${final_path}"
+          else
+            cp "${raw_path}" "${final_path}"
+            chmod +x "${final_path}"
+          fi
+
+          "${final_path}" --help 2>&1 | tee "${verify_log}"
+          if ! grep -Eiq 'usage:|options:|optional arguments' "${verify_log}"; then
+            echo "Help verification failed for kintercept.py" >&2
+            exit 1
+          fi
+
+      - name: Upload Linux legacy ELF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: impacket-onefile-linux-kintercept-py38
+          path: |
+            artifacts/linux-legacy/final
+            build-logs/linux-legacy
+          if-no-files-found: error
