@@ -314,20 +314,20 @@ class TSHandler:
         options = self.__options
         with TSTS.LegacyAPI(self.__smbConnection, options.target_ip, self.__doKerberos) as legacy:
             handle = legacy.hRpcWinStationOpenServer()
-            r = legacy.hRpcWinStationGetAllProcesses(handle)
-            if not len(r):
+            process_entry_list = legacy.hRpcWinStationGetAllProcesses(handle)
+            if not len(process_entry_list):
                 return None
 
             self.sids = {}
-            for procInfo in r:
-                sid = procInfo['pSid']
+            for process_entry in process_entry_list:
+                sid = process_entry.getSid()
                 if sid[:2] == 'S-' and sid not in self.sids:
                     self.sids[sid] = sid
             
             self.lookupSids()
 
-            maxImageNameLen = max([len(i['ImageName']) for i in r])
-            maxSidLen = max([len(i['pSid']) for i in r])
+            maxImageNameLen = max([len(process_entry.getProcessInfo()['ImageNameSize'].getValue()) for process_entry in process_entry_list])
+            maxSidLen = max([len(process_entry.getSid()) for process_entry in process_entry_list])
             if options.verbose:
                 self.get_session_list()
                 self.enumerate_sessions_config()
@@ -365,35 +365,37 @@ class TSHandler:
                                                         )+'\n'
                      )
 
-                for procInfo in r:
-                    sessId = procInfo['SessionId']
+                for process_entry in process_entry_list:
+                    process_info = process_entry.getProcessInfo()
+                    sessId = process_info['SessionId']
                     fullUserName = ''
                     if len(self.sessions[sessId]['Domain']):
                         fullUserName += self.sessions[sessId]['Domain'] + '\\'
                     if len(self.sessions[sessId]['Username']):
                         fullUserName += self.sessions[sessId]['Username']
                     row = template.replace('{workingset: <12}','{workingset: >10,} K').format(
-                                          imagename   = procInfo['ImageName'],
-                                          pid         = procInfo['UniqueProcessId'],
+                                          imagename   = process_info['ImageNameSize'].getValue(),
+                                          pid         = process_info['UniqueProcessId'],
                                           sessionName = self.sessions[sessId]['SessionName'],
-                                          sessid      = procInfo['SessionId'],
+                                          sessid      = process_info['SessionId'],
                                           sessstate   = self.sessions[sessId]['state'].replace('Disconnected','Disc'),
-                                          sid         = self.sidToUser(procInfo['pSid']),
+                                          sid         = self.sidToUser(process_entry.getSid()),
                                           sessionuser = fullUserName,
-                                          workingset  = procInfo['WorkingSetSize']//1000
+                                          workingset  = process_info['WorkingSetSize']//1000
                                          )
                     print(row)
             else:
                 template = '{: <%d} {: <8} {: <11} {: <%d} {: >12}' % (maxImageNameLen, maxSidLen)
                 print(template.format('Image Name', 'PID', 'Session#', 'SID', 'Mem Usage'))
                 print(template.replace(': ',':=').format('','','','','')+'\n')
-                for procInfo in r:
+                for process_entry in process_entry_list:
+                    process_info = process_entry.getProcessInfo()
                     row = template.format(
-                                procInfo['ImageName'],
-                                procInfo['UniqueProcessId'],
-                                procInfo['SessionId'],
-                                self.sidToUser(procInfo['pSid']),
-                                '{:,} K'.format(procInfo['WorkingSetSize']//1000),
+                                process_info['ImageNameSize'].getValue(),
+                                process_info['UniqueProcessId'],
+                                process_info['SessionId'],
+                                self.sidToUser(process_entry.getSid()),
+                                '{:,} K'.format(process_info['WorkingSetSize']//1000),
                             )
                     print(row)
 
@@ -410,7 +412,8 @@ class TSHandler:
                 if not len(r):
                     LOG.error('Could not get process list')
                     return
-                pidList = [i['UniqueProcessId'] for i in r if i['ImageName'].lower() == options.name.lower()]
+                pidList = [i.getProcessInfo()['UniqueProcessId'] for i in r
+                           if i.getProcessInfo()['ImageNameSize'].getValue().lower() == options.name.lower()]
                 if not len(pidList):
                     LOG.error('Could not find %r in process list' % options.name)
                     return
