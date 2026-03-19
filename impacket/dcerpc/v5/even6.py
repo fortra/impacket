@@ -185,8 +185,6 @@ class PCDWORD_ARRAY(NDRPOINTER):
     referent = (
         ('Data', CDWORD_ARRAY),
     )
-    def __init__(self, data = None, isNDR64 = False, topLevel = False):
-        NDRPOINTER.__init__(self,data,isNDR64,topLevel)
 
 class PDWORD_ARRAY(PCDWORD_ARRAY):
     item = DWORD
@@ -199,8 +197,6 @@ class PBYTE_ARRAY_CONFORMANT(NDRPOINTER):
     referent = (
         ('Data', BYTE_ARRAY_CONFORMANT),
     )
-    def __init__(self, data = None, isNDR64 = False, topLevel = False):
-        NDRPOINTER.__init__(self,data,isNDR64,topLevel)
 
 class PBYTE_ARRAY(PBYTE_ARRAY_CONFORMANT):
     item = 'c'
