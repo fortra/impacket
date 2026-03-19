@@ -187,7 +187,7 @@ class PCDWORD_ARRAY(NDRPOINTER):
     )
 
 class PDWORD_ARRAY(PCDWORD_ARRAY):
-    item = DWORD
+    pass
 
 # UniConformant Pointer Array for BYTEs
 class BYTE_ARRAY_CONFORMANT(NDRUniConformantArray):
@@ -199,7 +199,7 @@ class PBYTE_ARRAY_CONFORMANT(NDRPOINTER):
     )
 
 class PBYTE_ARRAY(PBYTE_ARRAY_CONFORMANT):
-    item = 'c'
+    pass
 
 # 2.3.1 EVENT_DESCRIPTOR
 class EVENT_DESCRIPTOR(NDRSTRUCT):
