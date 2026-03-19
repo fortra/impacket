@@ -254,7 +254,7 @@ class EvtRpcRegisterRemoteSubscription(NDRCALL):
 
 class EvtRpcRegisterRemoteSubscriptionResponse(NDRCALL):
     structure = (
-        ('Handle', CONTEXT_HANDLE_LOG_QUERY),
+        ('Handle', CONTEXT_HANDLE_REMOTE_SUBSCRIPTION),
         ('OpControl', CONTEXT_HANDLE_OPERATION_CONTROL),
         ('QueryChannelInfoSize', DWORD),
         ('QueryChannelInfo', EvtRpcQueryChannelInfoArray),
