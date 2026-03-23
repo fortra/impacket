@@ -2298,11 +2298,17 @@ class MSSQL:
             raise self.lastError
         return True
 
-    # Properties
-    @property
-    def workstation_id(self):
-        return self._workstation_id
+    def __enter__(self):
+        """
+        Enter the runtime context related to this object.
+        Establishes the connection.
+        Returns the MSSQL instance itself.
+        """
+        self.connect()
+        return self
 
-    @property
-    def application_name(self):
-        return self._application_name
+    def __exit__(self, exc_type, exc_value, traceback):
+        """
+        Exit the runtime context and ensure the connection is closed.
+        """
+        self.disconnect()
