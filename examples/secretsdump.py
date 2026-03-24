@@ -427,7 +427,7 @@ if __name__ == '__main__':
     parser.add_argument('-remoteSSWMI-remote-volume', action='store', default='C:\\',
                         help='Remote Volume to perform the Shadow Snapshot and download SAM, SYSTEM and SECURITY. It defaults to C:\\')
     parser.add_argument('-remoteSSWMI-local-path', action='store', default='.',
-                        help='Path where download SAM, SYSTEM and SECURITY from Shadow Snapshot. It defaults to current path')
+                        help='Local path to download SAM, SYSTEM and SECURITY from Shadow Snapshot. It defaults to current path')
 
     group = parser.add_argument_group('display options')
     group.add_argument('-just-dc-user', action='store', metavar='USERNAME',
