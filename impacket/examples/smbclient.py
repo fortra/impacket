@@ -814,18 +814,33 @@ class MiniImpacketShell(cmd.Cmd):
                 pass
         self.dfs_connections = {}
 
-    def _restore_original_connection(self):
-        """Restore previous connection when navigating out of a DFS link (pop from stack)."""
-        if not self.dfs_context_stack:
-            return
+    def _push_dfs_context(self, pwd):
+        """Save the current connection state onto the DFS context stack."""
+        self.dfs_context_stack.append({
+            'smb': self.smb,
+            'tid': self.tid,
+            'share': self.share,
+            'pwd': pwd,
+            'dfs_target_info': self.dfs_target_info,
+        })
+
+    def _pop_dfs_context(self):
+        """Pop and restore the most recent DFS connection state from the stack."""
         prev = self.dfs_context_stack.pop()
-        LOG.info("Leaving DFS link, returning to \\\\%s\\%s" % (
-            prev['smb'].getRemoteHost(), prev['share']))
         self.smb = prev['smb']
         self.tid = prev['tid']
         self.share = prev['share']
         self.pwd = prev['pwd']
         self.dfs_target_info = prev.get('dfs_target_info')
+
+    def _restore_original_connection(self):
+        """Restore previous connection when navigating out of a DFS link (pop from stack)."""
+        if not self.dfs_context_stack:
+            return
+        smb, share = self.smb.getRemoteHost(), self.share
+        self._pop_dfs_context()
+        LOG.info("Leaving DFS link \\\\%s\\%s, returning to \\\\%s\\%s" % (
+            smb, share, self.smb.getRemoteHost(), self.share))
 
     def _follow_dfs_link(self, path):
         """Resolve a DFS link and switch to the target connection.
@@ -902,14 +917,36 @@ class MiniImpacketShell(cmd.Cmd):
                     self.dfs_connections[conn_key] = target_smb
                     target_tid = target_smb.connectTree(target_share)
 
+                if target_path:
+                    try:
+                        probe_fid = target_smb.openFile(target_tid, '\\' + target_path,
+                                                        creationOption=FILE_DIRECTORY_FILE,
+                                                        desiredAccess=FILE_READ_DATA | FILE_LIST_DIRECTORY,
+                                                        shareMode=FILE_SHARE_READ | FILE_SHARE_WRITE)
+                        target_smb.closeFile(target_tid, probe_fid)
+                    except SessionError as e:
+                        if e.getErrorCode() != STATUS_PATH_NOT_COVERED:
+                            raise
+                        # Nested DFS link — push state, switch, and recurse
+                        base_depth = len(self.dfs_context_stack)
+                        self._push_dfs_context(save_pwd)
+                        self.smb = target_smb
+                        self.tid = target_tid
+                        self.share = target_share
+                        self.pwd = '\\' + target_path
+                        self.dfs_target_info = ref
+                        try:
+                            self._follow_dfs_link(self.pwd)
+                            if len(self.dfs_context_stack) > base_depth + 1:
+                                self.dfs_context_stack = self.dfs_context_stack[:base_depth + 1]
+                            return
+                        except Exception:
+                            while len(self.dfs_context_stack) > base_depth:
+                                self._pop_dfs_context()
+                            raise
+
                 # Push current state AFTER successful connectTree (so stack is not corrupted on error)
-                self.dfs_context_stack.append({
-                    'smb': self.smb,
-                    'tid': self.tid,
-                    'share': self.share,
-                    'pwd': save_pwd,
-                    'dfs_target_info': self.dfs_target_info,
-                })
+                self._push_dfs_context(save_pwd)
 
                 # Switch to DFS target
                 self.smb = target_smb
