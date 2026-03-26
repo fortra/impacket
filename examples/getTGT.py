@@ -54,7 +54,7 @@ class GETTGT:
         ccache = CCache()
 
         ccache.fromTGT(ticket, sessionKey, sessionKey)
-        ccache.saveFile(self.__user + '.ccache')
+        ccache.saveFile(self.__user + '.ccache', chmod=0o600)
 
     def run(self):
         userName = Principal(self.__user, type=options.principalType.value)
