@@ -330,17 +330,45 @@ class MiniImpacketShell(cmd.Cmd):
             session['sesi10_cname'][:-1], session['sesi10_username'][:-1], session['sesi10_time'],
             session['sesi10_idle_time']))
 
+    def _resolve_share_type(self, type_int):
+        attributes = []
+        if type_int & srvs.STYPE_SPECIAL:
+            attributes.append("SPECIAL")
+            type_int ^= srvs.STYPE_SPECIAL
+        if type_int & srvs.STYPE_TEMPORARY:
+            attributes.append("TEMP")
+            type_int ^= srvs.STYPE_TEMPORARY
+        type_str = "UNKNOWN"
+        if type_int == srvs.STYPE_DISKTREE:
+            type_str = "DISK"
+        elif type_int == srvs.STYPE_PRINTQ:
+            type_str = "PRINT"
+        elif type_int == srvs.STYPE_DEVICE:
+            type_str = "DEVICE"
+        elif type_int == srvs.STYPE_IPC:
+            type_str = "IPC"
+        if attributes:
+            return f"{type_str} ({','.join(attributes)})"
+        return type_str
+
     def do_shares(self, line):
         if self.loggedIn is False:
             LOG.error("Not logged in")
             return
         resp = self.smb.listShares()
+        fmt = "{:<25} {:<15} {}"
+        print(fmt.format("Share Name", "Type", "Comment"))
+        print("-" * 70)
         if self.outputfile is not None:
             f = open(self.outputfile, 'a')
         for i in range(len(resp)):
+            share_name = resp[i]['shi1_netname'][:-1]
+            share_remark = resp[i]['shi1_remark'][:-1]
+            share_type_int = resp[i]['shi1_type']
+            share_type = self._resolve_share_type(share_type_int)
             if self.outputfile:
-                f.write(resp[i]['shi1_netname'][:-1] + '\n')
-            print(resp[i]['shi1_netname'][:-1])
+                f.write(f"{share_name}|{share_type}|{share_remark}\n")
+            print(fmt.format(share_name, share_type, share_remark))
         if self.outputfile:
             f.close()
 
