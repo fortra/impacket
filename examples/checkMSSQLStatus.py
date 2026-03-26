@@ -92,7 +92,7 @@ class MSQLCBTCheck:
         print("\n[*] Second try: invalid Channel Binding Token (cbt='')")
         try:
             conn = self._new_conn()
-            second_ok = self._login(conn, cbt='')
+            second_ok = self._login(conn, cbt=b'')
             conn.disconnect()
         except Exception as e:
             logging.debug(f"Second try exception: {e}")
@@ -100,7 +100,7 @@ class MSQLCBTCheck:
         print(f" Result: {'Success' if second_ok else 'Failure'}")
 
         if first_ok and second_ok:
-            print("\n[+] The two authentications succedded. Channel Binding not required (CBT not enforced).")
+            print("\n[+] The two authentications succeded. Channel Binding not required (CBT not enforced).")
         elif first_ok and not second_ok:
             print("\n[!] First authentication succeded, second failed. Channel Binding required (CBT enforced).")
         elif not first_ok and not second_ok:
@@ -112,7 +112,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=True)
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-port', default=1433, help='Port MSSQL (default: 1433)')
-    parser.add_argument('-db', default=None, help='MSSQL database instance (default: None)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output', dest='timestamp')
 
