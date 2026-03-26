@@ -137,6 +137,7 @@ TDS_ENCRYPT_OFF = 0
 TDS_ENCRYPT_ON = 1
 TDS_ENCRYPT_NOT_SUP = 2
 TDS_ENCRYPT_REQ = 3
+TDS_ENCRYPT_STRICT = 8
 
 # Option 2 Flags
 TDS_INTEGRATED_SECURITY_ON = 0x80
@@ -888,6 +889,8 @@ class MSSQL:
         self.MAX_COL_LEN = 255
         self.lastError = False
         self.tlsSocket = None
+        self.tls_unique = None
+        self.tds8 = False
         self.__rowsPrinter = rowsPrinter
         self.mssql_version = ""
 
@@ -1110,7 +1113,10 @@ class MSSQL:
     # This function is a wrapper that is used to dispatch packets to read depending of the TLS context
     def socketRecv(self, bufsize):
         if self.tlsSocket is None:
-            return self.socket.recv(bufsize)
+            data = self.socket.recv(bufsize)
+            if not data:
+                raise ConnectionError("Server closed connection")
+            return data
         else:
             return self.tls_recv(bufsize)
 
@@ -1208,6 +1214,71 @@ class MSSQL:
         # Finally we retrieve the tls-unique value which is computed from the final TLS handshake message (this is the CBT token)
         self.tls_unique = tls.get_channel_binding("tls-unique")
 
+    def _setup_tds8(self):
+        """Wrap the TCP socket in TLS for TDS 8.0 strict encryption."""
+        LOG.debug("(TDS8) Setting up TDS 8.0 strict encryption")
+        context = ssl.SSLContext()
+        context.set_ciphers('ALL:@SECLEVEL=0')
+        context.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
+        # Cap at TLS 1.2: EPA channel binding requires tls-unique, which TLS 1.3
+        # removed (RFC 8446), SQL Server's SChannel does not appear to accept
+        # tls-server-end-point as a substitute for EPA, and SQL Server 2022 
+        # requires TLS 1.2 to be enabled in SChannel
+        context.maximum_version = ssl.TLSVersion.TLSv1_2
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        context.set_alpn_protocols(["tds/8.0"])
+        self.socket = context.wrap_socket(self.socket, server_hostname=self.server)
+        self.tds8 = True
+        self.packetSize = 16 * 1024 - 1
+        # Retrieve tls-unique for EPA channel binding
+        self.tls_unique = self.socket.get_channel_binding("tls-unique")
+        if self.tls_unique:
+            LOG.debug("(TDS8) tls-unique: %s" % self.tls_unique.hex())
+        else:
+            LOG.warning("(TDS8) No tls-unique available — EPA will fail if required")
+        LOG.info("(TDS8) TDS 8.0 TLS connection established")
+
+    def _negotiate_encryption(self):
+        """Perform preLogin exchange and set up encryption.
+
+        Handles all encryption modes including TDS 8.0 strict encryption
+        where the server drops the connection on a plain PRELOGIN.
+
+        Returns the preLogin response dict.
+        """
+        # Use a short timeout — if the server requires TDS 8.0
+        # (Force Strict Encryption = Yes), it will silently close the
+        # connection or never respond to a plain TDS preLogin.
+        original_timeout = self.socket.gettimeout()
+        self.socket.settimeout(5)
+
+        try:
+            resp = self.preLogin()
+            self.socket.settimeout(original_timeout)
+        except Exception as e:
+            # Plain TDS preLogin failed — server likely requires TDS 8.0
+            LOG.debug("Plain TDS preLogin failed (%s: %s), trying TDS 8.0" % (type(e).__name__, e))
+            try:
+                self.disconnect()
+            except Exception:
+                pass
+            self.connect()
+            self._setup_tds8()
+            return self.preLogin()
+
+        # Handle server encryption response
+        if resp["Encryption"] == TDS_ENCRYPT_STRICT:
+            LOG.info("Server requires TDS 8.0 (ENCRYPT_STRICT), reconnecting with TLS")
+            self.disconnect()
+            self.connect()
+            self._setup_tds8()
+            return self.preLogin()
+        elif resp["Encryption"] in (TDS_ENCRYPT_REQ, TDS_ENCRYPT_ON, TDS_ENCRYPT_OFF):
+            self.set_tls_context()
+
+        return resp
+
     def kerberosLogin(
         self,
         database,
@@ -1229,14 +1300,7 @@ class MSSQL:
             lmhash = ""
             nthash = ""
 
-        resp = self.preLogin()
-        # If the MSSQL Server responds with a TDS_ENCRYPT_REQ or TDS_ENCRYPT_OFF
-        # Then it means we need to setup a TLS context
-        if (
-            resp["Encryption"] == TDS_ENCRYPT_REQ
-            or resp["Encryption"] == TDS_ENCRYPT_OFF
-        ):
-            self.set_tls_context()
+        resp = self._negotiate_encryption()
 
         # That part is used to compute the Version field for the NTLM_NEGOTIATE and NTLM_AUTHENTICATE messages
         self.version = ntlm.VERSION()
@@ -1436,7 +1500,7 @@ class MSSQL:
         chkField = CheckSumField()
         chkField["Lgth"] = 16
         chkField["Flags"] = GSS_C_SEQUENCE_FLAG | GSS_C_REPLAY_FLAG
-        if self.tlsSocket:
+        if self.tls_unique:
             chkField["Bnd"] = self.generate_cbt_from_tls_unique()
         authenticator["cksum"]["checksum"] = chkField.getData()
         authenticator["seq-number"] = 0
@@ -1469,7 +1533,7 @@ class MSSQL:
 
         # According to the specs, if encryption is not required, we must encrypt just
         # the first Login packet :-o
-        if resp["Encryption"] == TDS_ENCRYPT_OFF:
+        if not self.tds8 and resp["Encryption"] == TDS_ENCRYPT_OFF:
             self.tlsSocket = None
 
         # We then receive the TDS response from the server and parse its response to see if we are logged in or not
@@ -1498,16 +1562,7 @@ class MSSQL:
             lmhash = ""
             nthash = ""
 
-        # First things first, we need to anounciate to the MSSQL server sending a TDS_PRELOGIN
-        resp = self.preLogin()
-
-        # If the MSSQL Server responds with a TDS_ENCRYPT_REQ or TDS_ENCRYPT_OFF
-        # Then it means we need to setup a TLS context
-        if (
-            resp["Encryption"] == TDS_ENCRYPT_REQ
-            or resp["Encryption"] == TDS_ENCRYPT_OFF
-        ):
-            self.set_tls_context()
+        resp = self._negotiate_encryption()
 
         # That part is used to compute the Version field for the NTLM_NEGOTIATE and NTLM_AUTHENTICATE messages
         self.version = ntlm.VERSION()
@@ -1557,7 +1612,7 @@ class MSSQL:
 
         # According to the specs, if encryption is not required, we must encrypt just
         # the first Login packet :-o
-        if resp["Encryption"] == TDS_ENCRYPT_OFF:
+        if not self.tds8 and resp["Encryption"] == TDS_ENCRYPT_OFF:
             self.tlsSocket = None
 
         # We then receive its response which is either
@@ -1572,7 +1627,7 @@ class MSSQL:
 
             # We then compute the Channel Binding Token from the tls-unique value retrieved before
             channel_binding_value = b""
-            if self.tlsSocket:
+            if self.tls_unique:
                 channel_binding_value = self.generate_cbt_from_tls_unique()
 
             # Generate the NTLM ChallengeResponse AUTH
@@ -2249,12 +2304,25 @@ class MSSQL:
 
         return replies
 
+    def _build_batch_data(self, cmd):
+        """Build SQL_BATCH packet data, prepending ALL_HEADERS for TDS 8.0."""
+        sql_text = (cmd + "\r\n").encode("utf-16le")
+        if self.tds8:
+            # ALL_HEADERS with transaction descriptor (required by TDS 8.0)
+            all_headers = struct.pack('<I', 22)   # Total length of ALL_HEADERS
+            all_headers += struct.pack('<I', 18)  # Length of this header
+            all_headers += struct.pack('<H', 2)   # Header type: Transaction Descriptor
+            all_headers += struct.pack('<Q', 0)   # Transaction descriptor (no transaction)
+            all_headers += struct.pack('<I', 1)   # Outstanding request count
+            return all_headers + sql_text
+        return sql_text
+
     def batch(self, cmd, tuplemode=False, wait=True):
         # First of all we clear the rows, colMeta and lastError
         self.rows = []
         self.colMeta = []
         self.lastError = False
-        self.sendTDS(TDS_SQL_BATCH, (cmd + "\r\n").encode("utf-16le"))
+        self.sendTDS(TDS_SQL_BATCH, self._build_batch_data(cmd))
         if wait:
             tds = self.recvTDS()
             self.replies = self.parseReply(tds["Data"], tuplemode)
@@ -2267,7 +2335,7 @@ class MSSQL:
         self.rows = []
         self.colMeta = []
         self.lastError = False
-        self.sendTDS(TDS_SQL_BATCH, (cmd + "\r\n").encode("utf-16le"))
+        self.sendTDS(TDS_SQL_BATCH, self._build_batch_data(cmd))
         # self.recvTDS()
 
     # Handy alias
