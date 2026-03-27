@@ -1084,9 +1084,14 @@ class TICKETER:
         return encoder.encode(kdcRep), cipher, sessionKey
 
     def saveTicket(self, ticket, sessionKey):
-        logging.info('Saving ticket in %s' % (self.__target.replace('/', '.') + '.ccache'))
+        logging.info('Saving/Updating ticket in %s' % (self.__target.replace('/', '.') + '.ccache'))
         from impacket.krb5.ccache import CCache
-        ccache = CCache()
+        from os import getenv, path
+        krb5 = getenv('KRB5CCNAME')
+        if krb5 and path.isfile(krb5):
+            ccache = CCache.loadFile(krb5)
+        else:
+            ccache = CCache()
 
         if self.__server == self.__domain:
             ccache.fromTGT(ticket, sessionKey, sessionKey)
