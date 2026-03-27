@@ -104,22 +104,7 @@ class SCMRTests(DCERPCTests):
     def changeServiceAndQuery2(self, dce, info, changeDone):
         serviceHandle = info['hService']
         dwInfoLevel = info['Info']['Union']['tag']
-        cbBuffSize = 0
-        request = scmr.RQueryServiceConfig2W()
-        request['hService'] = serviceHandle
-        request['dwInfoLevel'] = dwInfoLevel
-        request['cbBufSize'] = cbBuffSize
-        try:
-            resp = dce.request(request)
-        except scmr.DCERPCSessionError as e:
-            if str(e).find('ERROR_INSUFFICIENT_BUFFER') <= 0:
-                raise
-            else: 
-                resp = e.get_packet()
-
-        request['cbBufSize'] = resp['pcbBytesNeeded'] 
-        resp = dce.request(request)
-        arrayData = b''.join(resp['lpBuffer'])
+        arrayData = self.query_service_config2(dce, serviceHandle, dwInfoLevel)
         if dwInfoLevel == 1:
            self.assertEqual(arrayData[4:].decode('utf-16le'), changeDone)
         elif dwInfoLevel == 2:
@@ -136,6 +121,38 @@ class SCMRTests(DCERPCTests):
            self.assertEqual(arrayData[4:].decode('utf-16le'), changeDone)
         elif dwInfoLevel == 7:
            self.assertEqual(unpack('<L', arrayData)[0], changeDone)
+
+    def query_service_config2(self, dce, serviceHandle, dwInfoLevel):
+        cbBuffSize = 0
+        request = scmr.RQueryServiceConfig2W()
+        request['hService'] = serviceHandle
+        request['dwInfoLevel'] = dwInfoLevel
+        request['cbBufSize'] = cbBuffSize
+        try:
+            resp = dce.request(request)
+        except scmr.DCERPCSessionError as e:
+            if str(e).find('ERROR_INSUFFICIENT_BUFFER') <= 0:
+                raise
+            else: 
+                resp = e.get_packet()
+
+        request['cbBufSize'] = resp['pcbBytesNeeded'] 
+        resp = dce.request(request)
+        return b''.join(resp['lpBuffer'])
+
+    def query_failure_actions(self, dce, serviceHandle):
+        arrayData = self.query_service_config2(dce, serviceHandle, 2)
+        _, reboot_offset, _, cActions, actions_offset = unpack('<LLLLL', arrayData[:20])
+        actions = []
+        for index in range(cActions):
+            start = actions_offset + (index * 8)
+            actions.append(unpack('<LL', arrayData[start:start + 8]))
+
+        return {
+            'rebootMsg': arrayData[reboot_offset:].decode('utf-16le').split('\x00', 1)[0] + '\x00',
+            'cActions': cActions,
+            'actions': actions,
+        }
 
     def open_or_create_service(self, dce, scHandle, service_name, display_name, binary_path_name):
 
@@ -257,6 +274,38 @@ class SCMRTests(DCERPCTests):
         scmr.hRCloseServiceHandle(dce, scHandle)
         if error:
             self.fail()
+
+    def test_RChangeServiceConfig2W_failure_actions(self):
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
+        newHandle = self.open_or_create_service(dce, scHandle, 'TESTSVC\x00', 'DisplayName\x00', 'binaryPath\x00')
+        try:
+            request = scmr.RChangeServiceConfig2W()
+            request['hService'] = newHandle
+            request['Info']['dwInfoLevel'] = 2
+            request['Info']['Union']['tag'] = 2
+            request['Info']['Union']['psfa']['lpRebootMsg'] = 'rebootMsg\00'
+            request['Info']['Union']['psfa']['lpCommand'] = 'lpCommand\00'
+
+            action = scmr.SC_ACTION()
+            action['Type'] = scmr.SC_ACTION_RUN_COMMAND
+            action['Delay'] = 60000
+            actions = scmr.SC_ACTIONS()
+            actions['Data'].append(action)
+
+            request['Info']['Union']['psfa']['cActions'] = 1
+            request['Info']['Union']['psfa']['lpsaActions'] = actions
+            resp = dce.request(request)
+            resp.dump()
+
+            self.changeServiceAndQuery2(dce, request, request['Info']['Union']['psfa']['lpRebootMsg'])
+            failure_actions = self.query_failure_actions(dce, newHandle)
+            self.assertEqual(failure_actions['cActions'], 1)
+            self.assertEqual(failure_actions['actions'], [(scmr.SC_ACTION_RUN_COMMAND, 60000)])
+        finally:
+            scmr.hRDeleteService(dce, newHandle)
+            scmr.hRCloseServiceHandle(dce, newHandle)
+            scmr.hRCloseServiceHandle(dce, scHandle)
     
     def test_REnumServicesStatusExW(self):
         dce, rpc_transport = self.connect()
