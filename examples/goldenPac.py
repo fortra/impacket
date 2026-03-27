@@ -237,7 +237,6 @@ class Pipes(Thread):
     def connectPipe(self):
         try:
             lock.acquire()
-            global dialect
             self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(),
                                         sess_port=self.port, preferredDialect=dialect)
             user, passwd, domain, lm, nt, aesKey, TGT, TGS = self.credentials
