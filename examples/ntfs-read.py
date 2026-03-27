@@ -1227,6 +1227,10 @@ class NTFS:
 
 class MiniShell(cmd.Cmd):
     def __init__(self, volume):
+
+        import readline
+        readline.backend = 'readline'
+
         cmd.Cmd.__init__(self)
         self.volumePath = volume
         self.volume = NTFS(volume)
