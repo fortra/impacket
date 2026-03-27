@@ -446,10 +446,10 @@ class ESENT_PAGE:
         if data is not None:
             self.record = ESENT_PAGE_HEADER(self.__DBHeader['Version'], self.__DBHeader['FileFormatRevision'], self.__DBHeader['PageSize'], data)
             self.tagCount = self.record['FirstAvailablePageTag']
-            if self.__DBHeader['FileFormatRevision'] >= 0x11 and self.__DBHeader['PageSize'] > 8192:
-                # TODO: The upper 4 bits may encode how many leading tags are reserved on large pages.
-                    # Logical node counts should be derived from the effective reserved-tag count
-                    # instead of assuming only tag 0 is reserved, the logical node count should be tagCount - tagReserved.
+            if self.__DBHeader['Version'] == 0x620 and self.__DBHeader['FileFormatRevision'] >= 0x11 and self.__DBHeader['PageSize'] > 8192:
+                # TODO: If samples with effective tagReserved > 1 appear, logical node
+                # iteration should be derived from the reserved-tag count instead of
+                # assuming only tag 0 is reserved.
                 self.tagReserved = (self.record['FirstAvailablePageTag'] >> FIRST_AVAILABLE_PAGE_TAG_RESERVED_SHIFT) or 1
                 self.tagCount = self.record['FirstAvailablePageTag'] & FIRST_AVAILABLE_PAGE_TAG_MASK
 
