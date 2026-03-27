@@ -293,7 +293,9 @@ class SCMRTests(DCERPCTests):
             actions = scmr.SC_ACTIONS()
             actions['Data'].append(action)
 
-            request['Info']['Union']['psfa']['cActions'] = 1
+            # Intentionally set an incorrect cActions value to exercise
+            # automatic synchronization with the pointed actions array.
+            request['Info']['Union']['psfa']['cActions'] = 0
             request['Info']['Union']['psfa']['lpsaActions'] = actions
             resp = dce.request(request)
             resp.dump()
