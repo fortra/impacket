@@ -81,6 +81,7 @@ class GetUserSPNs:
         self.__nthash = ''
         self.__no_preauth = cmdLineOptions.no_preauth
         self.__outputFileName = cmdLineOptions.outputfile
+        self.__noRC4 = cmdLineOptions.no_rc4
         self.__usersFile = cmdLineOptions.usersfile
         self.__aesKey = cmdLineOptions.aesKey
         self.__doKerberos = cmdLineOptions.k
@@ -134,6 +135,9 @@ class GetUserSPNs:
         # If no clear text password is provided, we just go with the defaults.
         if self.__password != '' and (self.__lmhash == '' and self.__nthash == ''):
             try:
+                if (self.__noRC4):
+                    raise
+
                 tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, '', self.__domain,
                                                                         compute_lmhash(self.__password),
                                                                         compute_nthash(self.__password), self.__aesKey,
@@ -473,6 +477,7 @@ if __name__ == '__main__':
                                                                           '<username>.ccache. Auto selects -request')
     parser.add_argument('-outputfile', action='store',
                         help='Output filename to write ciphers in JtR/hashcat format. Auto selects -request')
+    parser.add_argument('-no-rc4', action='store_true', default=False, help='Does not force RC4-HMAC for the TGT')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output.')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
