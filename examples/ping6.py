@@ -28,6 +28,7 @@
 #   ImpactDecoder
 #
 
+import argparse
 import select
 import socket
 import time
@@ -37,12 +38,29 @@ from impacket import ImpactDecoder, IP6, ICMP6, version
 
 print(version.BANNER)
 
-if len(sys.argv) < 3:
-    print("Use: %s <src ip> <dst ip>" % sys.argv[0])
-    sys.exit(1)
+parser = argparse.ArgumentParser(add_help=True, description='Simple ICMP6 ping.')
+parser.add_argument('src', help='Source IP')
+parser.add_argument('dst', help='Destination IP')
 
-src = sys.argv[1]
-dst = sys.argv[2]
+group = parser.add_argument_group('SOCKS Proxy Options')
+group.add_argument('-socks', action='store_true', default=False,
+                    help='Use a SOCKS proxy for the connection')
+group.add_argument('-socks-address', default='127.0.0.1', help='SOCKS5 server address')
+group.add_argument('-socks-port', default=1080, type=int, help='SOCKS5 server port')
+
+options = parser.parse_args()
+
+# Relay connections through a socks proxy
+if (options.socks):
+    print('Relaying connections through SOCKS proxy (%s:%s)', options.socks_address, options.socks_port)
+    import socket
+    import socks
+
+    socks.set_default_proxy(socks.SOCKS5, options.socks_address, options.socks_port)
+    socket.socket = socks.socksocket
+
+src = options.src
+dst = options.dst
 
 # Create a new IP packet and set its source and destination addresses.
 

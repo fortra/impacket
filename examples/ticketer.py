@@ -1143,6 +1143,12 @@ if __name__ == '__main__':
                                                              ' for querying the ST and extracting the PAC, which will be'
                                                              ' included in the new ticket')
 
+    group = parser.add_argument_group('SOCKS Proxy Options')
+    group.add_argument('-socks', action='store_true', default=False,
+                        help='Use a SOCKS proxy for the connection')
+    group.add_argument('-socks-address', default='127.0.0.1', help='SOCKS5 server address')
+    group.add_argument('-socks-port', default=1080, type=int, help='SOCKS5 server port')
+
     if len(sys.argv)==1:
         parser.print_help()
         print("\nExamples: ")
@@ -1179,6 +1185,15 @@ if __name__ == '__main__':
     if options.request is True and options.user is None:
         logging.error('-request parameter needs -user to be specified')
         sys.exit(1)
+
+    # Relay connections through a socks proxy
+    if (options.socks):
+        logging.info('Relaying connections through SOCKS proxy (%s:%s)', options.socks_address, options.socks_port)
+        import socket
+        import socks
+
+        socks.set_default_proxy(socks.SOCKS5, options.socks_address, options.socks_port)
+        socket.socket = socks.socksocket
 
     if options.request is True and options.hashes is None and options.password is None:
         from getpass import getpass
