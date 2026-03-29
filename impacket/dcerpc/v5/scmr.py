@@ -360,8 +360,10 @@ class SERVICE_FAILURE_ACTIONSW(NDRSTRUCT):
     )
 
     # Keep cActions synchronized with the pointed SC_ACTION array at marshal time.
-    def getData(self, soFar = 0):
-        if self['lpsaActions'] != 0:
+    def getData(self, soFar=0):
+        if self['lpsaActions'] == 0:
+            self['cActions'] = 0
+        else:
             self['cActions'] = len(self['lpsaActions'])
         return NDR.getData(self, soFar)
 
