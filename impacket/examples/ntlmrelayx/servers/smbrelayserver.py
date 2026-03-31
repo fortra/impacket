@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright Fortra, LLC and its affiliated companies 
+# Copyright Fortra, LLC and its affiliated companies
 #
 # All rights reserved.
 #
@@ -95,7 +95,7 @@ class SMBRelayServer(Thread):
             smbConfig.set("global", "dump_hashes", "True")
         else:
             smbConfig.set("global", "dump_hashes", "False")
-        
+
         if self.config.SMBServerChallenge is not None:
             smbConfig.set('global', 'challenge', self.config.SMBServerChallenge)
 
@@ -296,17 +296,25 @@ class SMBRelayServer(Thread):
             # Let's store it in the connection data
             connData['NEGOTIATE_MESSAGE'] = negotiateMessage
 
+            client = connData.get('SMBClient')
+            if client is None:
+                LOG.error("(SMB): No relay client initialized for target %s://%s" % (self.target.scheme, self.target.netloc))
+                respSMBCommand['SecurityBufferOffset'] = 0x48
+                respSMBCommand['SecurityBufferLength'] = 0
+                respSMBCommand['Buffer'] = b''
+                smbServer.setConnectionData(connId, connData)
+                return [respSMBCommand], None, STATUS_ACCESS_DENIED
+
             #############################################################
             # SMBRelay: Ok.. So we got a NEGOTIATE_MESSAGE from a client.
             # Let's send it to the target server and send the answer back to the client.
-            client = connData['SMBClient']
             try:
                 challengeMessage = self.do_ntlm_negotiate(client, token)
+                if not challengeMessage:
+                    raise Exception('No challenge message returned from %s://%s' % (self.target.scheme, self.target.netloc))
             except Exception as e:
-                LOG.debug("(SMB): Exception:", exc_info=True)
-                # Log this target as processed for this client
+                LOG.error("(SMB): NTLM negotiate failed: %s" % str(e))
                 self.targetprocessor.registerTarget(self.target, False, self.authUser)
-                # Raise exception again to pass it on to the SMB server
                 raise
 
              #############################################################
@@ -590,16 +598,34 @@ class SMBRelayServer(Thread):
                 # Let's store it in the connection data
                 connData['NEGOTIATE_MESSAGE'] = negotiateMessage
 
+                client = connData.get('SMBClient')
+                if client is None:
+                    packet = smb.NewSMBPacket()
+                    packet['Flags1'] = smb.SMB.FLAGS1_REPLY | smb.SMB.FLAGS1_PATHCASELESS
+                    packet['Flags2'] = smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_EXTENDED_SECURITY
+                    packet['Command'] = recvPacket['Command']
+                    packet['Pid'] = recvPacket['Pid']
+                    packet['Tid'] = recvPacket['Tid']
+                    packet['Mid'] = recvPacket['Mid']
+                    packet['Uid'] = recvPacket['Uid']
+                    packet['Data'] = b'\x00\x00\x00'
+                    packet['ErrorCode'] = STATUS_ACCESS_DENIED >> 16
+                    packet['ErrorClass'] = STATUS_ACCESS_DENIED & 0xff
+
+                    LOG.error("(SMB): No relay client initialized for target %s://%s" % (self.target.scheme, self.target.netloc))
+                    smbServer.setConnectionData(connId, connData)
+                    return None, [packet], STATUS_ACCESS_DENIED
+
                 #############################################################
                 # SMBRelay: Ok.. So we got a NEGOTIATE_MESSAGE from a client.
                 # Let's send it to the target server and send the answer back to the client.
-                client = connData['SMBClient']
                 try:
                     challengeMessage = self.do_ntlm_negotiate(client,token)
-                except Exception:
-                    # Log this target as processed for this client
+                    if not challengeMessage:
+                        raise Exception('No challenge message returned from %s://%s' % (self.target.scheme, self.target.netloc))
+                except Exception as e:
+                    LOG.error("(SMB): NTLM negotiate failed: %s" % str(e))
                     self.targetprocessor.registerTarget(self.target, False, self.authUser)
-                    # Raise exception again to pass it on to the SMB server
                     raise
 
                 #############################################################
