@@ -471,7 +471,11 @@ class DPAPI:
                 decrypted = blob.decrypt(key, entropy)
                 if decrypted is not None:
                     print('Successfully decrypted data')
-                    hexdump(decrypted)
+                    if self.options.outfile is not None:
+                        with open(self.options.outfile, 'wb') as f:
+                            f.write(decrypted)
+                    else:
+                        hexdump(decrypted)
                     return
             else:
                 # Just print the data
@@ -602,6 +606,7 @@ if __name__ == '__main__':
     unprotect.add_argument('-key', action='store', required=False, help='Key used for decryption')
     unprotect.add_argument('-entropy', action='store', default=None, required=False, help='String with extra entropy needed for decryption')
     unprotect.add_argument('-entropy-file', action='store', default=None, required=False, help='File with binary entropy contents (overwrites -entropy)')
+    unprotect.add_argument('-outfile', action='store', default=None, required=False, help='File to write decrypted data to (if not specified, it will be printed as hexdump)')
 
     # A CREDHIST command
     credhist = subparsers.add_parser('credhist', help='CREDHIST related functions')
