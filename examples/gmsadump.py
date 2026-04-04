@@ -363,14 +363,15 @@ class GetGMSAPasswords:
             self.__lmhash,
             self.__nthash,
             self.__aesKey,
+            ldaps_flag=self.__useLdaps,
         )
         # ldap_login may rewrite the target host during negotiation
         self.__target = self.__ldapConn._dstHost
 
+        
         #Optionally upgrade to TLS
         if self.__useLdaps:
             try:
-                self.__ldapConn.start_tls()
                 self.__tlsActive = True
                 logging.info('STARTTLS negotiated — msDS-ManagedPassword will be retrieved.')
             except Exception as exc:
