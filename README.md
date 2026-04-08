@@ -76,12 +76,29 @@ In order to grab the latest stable release run:
 
     python3 -m pipx install impacket
 
+If you want only the library without the optional example scripts, install the
+core package instead:
+
+    python3 -m pip install impacket-core
+
+If you already have `impacket-core` installed and want to add the optional
+examples later, install:
+
+    python3 -m pip install impacket-examples
+
 If you want to play with the unreleased changes, download the development 
 version from the [master branch](https://github.com/fortra/impacket/tree/master),
 extract the package, and execute the following command from the
 directory where Impacket has been unpacked:
 
     python3 -m pipx install .
+
+Maintainers can build the three distribution artifacts from the repository
+root with:
+
+    python3 -m build
+    python3 -m build packaging/impacket-core
+    python3 -m build packaging/impacket-examples
 
 ### Docker Support
 

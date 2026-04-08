@@ -1,0 +1,69 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "impacket"
+dynamic = ["version"]
+description = "Network protocols Constructors and Dissectors"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+authors = [{ name = "SecureAuth Corporation" }]
+maintainers = [{ name = "Fortra" }]
+classifiers = [
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.9",
+]
+dependencies = [
+  "pyasn1>=0.2.3",
+  "pyasn1_modules",
+  "pycryptodomex",
+  "six",
+  "ldap3>=2.5,!=2.5.2,!=2.5.0,!=2.6",
+  "pyOpenSSL",
+  "ldapdomaindump>=0.9.0",
+  "flask>=1.0",
+  "charset_normalizer",
+  "pyreadline3; sys_platform == 'win32'",
+]
+
+[project.urls]
+Homepage = "https://www.coresecurity.com"
+Repository = "https://github.com/fortra/impacket"
+
+[tool.hatch.version]
+path = "impacket/__init__.py"
+
+[tool.hatch.build]
+exclude = [
+  "/build/**",
+  "/dist/**",
+  "/node_modules/**",
+  "**/__pycache__/**",
+  "**/*.py[cod]",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/ChangeLog.md",
+  "/LICENSE",
+  "/README.md",
+  "/SECURITY.md",
+  "/TESTING.md",
+  "/doc",
+  "/examples",
+  "/impacket",
+  "/requirements.txt",
+  "/tests",
+  "/tox.ini",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["impacket"]
+
+[tool.hatch.build.targets.wheel.shared-scripts]
+"examples" = "/"

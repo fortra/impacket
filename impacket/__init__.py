@@ -26,5 +26,7 @@ except ImportError:
 # with the logger output. By default it is forwarded to the 
 # upstream logger
 
+__version__ = "0.14.0.dev0"
+
 LOG = logging.getLogger(__name__)
 LOG.addHandler(NullHandler())

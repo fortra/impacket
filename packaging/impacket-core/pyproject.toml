@@ -1,0 +1,95 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "impacket-core"
+version = "0.14.0.dev0"
+description = "Network protocols Constructors and Dissectors (core library)"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+authors = [{ name = "SecureAuth Corporation" }]
+maintainers = [{ name = "Fortra" }]
+classifiers = [
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.9",
+]
+dependencies = [
+  "pyasn1>=0.2.3",
+  "pyasn1_modules",
+  "pycryptodomex",
+  "six",
+  "ldap3>=2.5,!=2.5.2,!=2.5.0,!=2.6",
+]
+
+[project.urls]
+Homepage = "https://www.coresecurity.com"
+Repository = "https://github.com/fortra/impacket"
+
+[tool.hatch.build]
+exclude = [
+  "**/__pycache__/**",
+  "**/*.py[cod]",
+]
+
+[tool.hatch.build.targets.sdist.force-include]
+"../../impacket/__init__.py" = "src/impacket/__init__.py"
+"../../impacket/acl.py" = "src/impacket/acl.py"
+"../../impacket/cdp.py" = "src/impacket/cdp.py"
+"../../impacket/crypto.py" = "src/impacket/crypto.py"
+"../../impacket/dhcp.py" = "src/impacket/dhcp.py"
+"../../impacket/dns.py" = "src/impacket/dns.py"
+"../../impacket/dot11.py" = "src/impacket/dot11.py"
+"../../impacket/Dot11Crypto.py" = "src/impacket/Dot11Crypto.py"
+"../../impacket/Dot11KeyManager.py" = "src/impacket/Dot11KeyManager.py"
+"../../impacket/dpapi.py" = "src/impacket/dpapi.py"
+"../../impacket/dpapi_ng.py" = "src/impacket/dpapi_ng.py"
+"../../impacket/eap.py" = "src/impacket/eap.py"
+"../../impacket/ese.py" = "src/impacket/ese.py"
+"../../impacket/helper.py" = "src/impacket/helper.py"
+"../../impacket/hresult_errors.py" = "src/impacket/hresult_errors.py"
+"../../impacket/http.py" = "src/impacket/http.py"
+"../../impacket/ICMP6.py" = "src/impacket/ICMP6.py"
+"../../impacket/ImpactDecoder.py" = "src/impacket/ImpactDecoder.py"
+"../../impacket/ImpactPacket.py" = "src/impacket/ImpactPacket.py"
+"../../impacket/IP6.py" = "src/impacket/IP6.py"
+"../../impacket/IP6_Address.py" = "src/impacket/IP6_Address.py"
+"../../impacket/IP6_Extension_Headers.py" = "src/impacket/IP6_Extension_Headers.py"
+"../../impacket/mapi_constants.py" = "src/impacket/mapi_constants.py"
+"../../impacket/mqtt.py" = "src/impacket/mqtt.py"
+"../../impacket/msada_guids.py" = "src/impacket/msada_guids.py"
+"../../impacket/NDP.py" = "src/impacket/NDP.py"
+"../../impacket/nmb.py" = "src/impacket/nmb.py"
+"../../impacket/nt_errors.py" = "src/impacket/nt_errors.py"
+"../../impacket/ntlm.py" = "src/impacket/ntlm.py"
+"../../impacket/pcap_linktypes.py" = "src/impacket/pcap_linktypes.py"
+"../../impacket/pcapfile.py" = "src/impacket/pcapfile.py"
+"../../impacket/smb.py" = "src/impacket/smb.py"
+"../../impacket/smb3.py" = "src/impacket/smb3.py"
+"../../impacket/smb3structs.py" = "src/impacket/smb3structs.py"
+"../../impacket/smbconnection.py" = "src/impacket/smbconnection.py"
+"../../impacket/smbserver.py" = "src/impacket/smbserver.py"
+"../../impacket/spnego.py" = "src/impacket/spnego.py"
+"../../impacket/structure.py" = "src/impacket/structure.py"
+"../../impacket/system_errors.py" = "src/impacket/system_errors.py"
+"../../impacket/tds.py" = "src/impacket/tds.py"
+"../../impacket/uuid.py" = "src/impacket/uuid.py"
+"../../impacket/version.py" = "src/impacket/version.py"
+"../../impacket/winregistry.py" = "src/impacket/winregistry.py"
+"../../impacket/wps.py" = "src/impacket/wps.py"
+"../../impacket/dcerpc" = "src/impacket/dcerpc"
+"../../impacket/krb5" = "src/impacket/krb5"
+"../../impacket/ldap" = "src/impacket/ldap"
+"../../impacket/mssql" = "src/impacket/mssql"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/impacket"]
+exclude = [
+  "src/impacket/examples/**",
+  "**/__pycache__/**",
+  "**/*.py[cod]",
+]

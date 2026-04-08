@@ -1,0 +1,59 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "impacket-examples"
+version = "0.14.0.dev0"
+description = "Optional example scripts for the Impacket protocol library"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+authors = [{ name = "SecureAuth Corporation" }]
+maintainers = [{ name = "Fortra" }]
+classifiers = [
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.9",
+]
+dependencies = [
+  "impacket-core==0.14.0.dev0",
+  "pyOpenSSL",
+  "ldapdomaindump>=0.9.0",
+  "flask>=1.0",
+  "charset_normalizer",
+  "pyreadline3; sys_platform == 'win32'",
+]
+
+[project.urls]
+Homepage = "https://www.coresecurity.com"
+Repository = "https://github.com/fortra/impacket"
+
+[tool.hatch.build]
+exclude = [
+  "**/__pycache__/**",
+  "**/*.py[cod]",
+]
+
+[tool.hatch.build.targets.sdist.force-include]
+"../../impacket/__init__.py" = "src/impacket/__init__.py"
+"../../impacket/examples" = "src/impacket/examples"
+"../../examples" = "example-scripts"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/impacket"]
+only-include = ["src/impacket"]
+exclude = [
+  "src/impacket/*.py",
+  "src/impacket/dcerpc/**",
+  "src/impacket/krb5/**",
+  "src/impacket/ldap/**",
+  "src/impacket/mssql/**",
+  "**/__pycache__/**",
+  "**/*.py[cod]",
+]
+
+[tool.hatch.build.targets.wheel.shared-scripts]
+"example-scripts" = "/"

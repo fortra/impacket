@@ -9,16 +9,23 @@
 # for more information.
 #
 
-from importlib.metadata import version as get_version, PackageNotFoundError
-from impacket import __path__
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as get_version
+
+from impacket import __path__, __version__
 
 
-try:
-    version = get_version('impacket')
-except PackageNotFoundError:
-    version = "?"
-    print("Cannot determine Impacket version. "
-          "If running from source you should at least run \"python setup.py egg_info\"")
+def _load_distribution_version():
+    for distribution_name in ('impacket', 'impacket-core', 'impacket-examples'):
+        try:
+            return get_version(distribution_name)
+        except PackageNotFoundError:
+            continue
+
+    return __version__
+
+
+version = _load_distribution_version()
 BANNER = "Impacket v{} - Copyright Fortra, LLC and its affiliated companies \n".format(version)
 DEPRECATION_WARNING_BANNER = "".join(("===============================================================================\n",
                           "  Warning: This functionality will be deprecated in the next Impacket version  \n", 
