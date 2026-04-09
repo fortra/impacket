@@ -94,12 +94,6 @@ directory where Impacket has been unpacked:
     python3 -m pip install packaging/impacket-core
     python3 -m pip install .
 
-Maintainers can build the two distribution artifacts from the repository
-root with:
-
-    python3 -m build
-    python3 -m build packaging/impacket-core
-
 ### Docker Support
 
 Build Impacket's image:
