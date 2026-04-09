@@ -84,21 +84,21 @@ core package instead:
 If you already have `impacket-core` installed and want to add the optional
 examples later, install:
 
-    python3 -m pip install impacket-examples
+    python3 -m pip install impacket
 
 If you want to play with the unreleased changes, download the development 
 version from the [master branch](https://github.com/fortra/impacket/tree/master),
 extract the package, and execute the following command from the
 directory where Impacket has been unpacked:
 
-    python3 -m pipx install .
+    python3 -m pip install packaging/impacket-core
+    python3 -m pip install .
 
-Maintainers can build the three distribution artifacts from the repository
+Maintainers can build the two distribution artifacts from the repository
 root with:
 
     python3 -m build
     python3 -m build packaging/impacket-core
-    python3 -m build packaging/impacket-examples
 
 ### Docker Support
 

@@ -11,12 +11,21 @@
 
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as get_version
+from pathlib import Path
 
 from impacket import __path__, __version__
 
 
+def _is_source_checkout():
+    project_root = Path(__path__[0]).resolve().parent
+    return (project_root / "pyproject.toml").is_file() and (project_root / "tests").is_dir()
+
+
 def _load_distribution_version():
-    for distribution_name in ('impacket', 'impacket-core', 'impacket-examples'):
+    if _is_source_checkout():
+        return __version__
+
+    for distribution_name in ('impacket', 'impacket-core'):
         try:
             return get_version(distribution_name)
         except PackageNotFoundError:

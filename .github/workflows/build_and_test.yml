@@ -79,7 +79,6 @@ jobs:
         run: |
           python -m build
           python -m build packaging/impacket-core
-          python -m build packaging/impacket-examples
 
   docker:
     name: Build docker image

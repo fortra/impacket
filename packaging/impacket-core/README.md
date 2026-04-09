@@ -23,7 +23,7 @@ python3 -m pip install impacket
 To add the optional example scripts on top of the core package:
 
 ```bash
-python3 -m pip install impacket-examples
+python3 -m pip install impacket
 ```
 
 ## Project

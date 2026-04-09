@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "impacket"
 dynamic = ["version"]
-description = "Network protocols Constructors and Dissectors"
+description = "Network protocols Constructors and Dissectors with examples"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.9"
@@ -19,12 +19,7 @@ classifiers = [
   "Programming Language :: Python :: 3.9",
 ]
 dependencies = [
-  "pyasn1>=0.2.3",
-  "pyasn1_modules",
-  "pycryptodomex",
-  "six",
-  "ldap3>=2.5,!=2.5.2,!=2.5.0,!=2.6",
-  "pyOpenSSL",
+  "impacket-core==0.14.0.dev0",
   "ldapdomaindump>=0.9.0",
   "flask>=1.0",
   "charset_normalizer",
@@ -63,7 +58,11 @@ include = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["impacket"]
+only-include = ["impacket/examples"]
+exclude = [
+  "**/__pycache__/**",
+  "**/*.py[cod]",
+]
 
 [tool.hatch.build.targets.wheel.shared-scripts]
 "examples" = "/"
