@@ -132,28 +132,21 @@ class GetGMSAPasswords:
         self.__kdcHost      = cmdLineOptions.dc_host
         self.__useLdaps     = cmdLineOptions.use_ldaps
         self.__enumOnly     = cmdLineOptions.enum_only
-        # either a specific gMSA name (wildcards allowed) or a
-        # raw LDAP filter string supplied by the operator
-        self.__gmsaName     = cmdLineOptions.gmsa        #you can use 'svcWeb$' or 'svc*'
+        self.__gmsaName     = cmdLineOptions.gmsa        #you can use 'svcWeb$' or 'svc*' or svcweb as will append $ if not present
         self.__gmsaFilter   = cmdLineOptions.gmsa_filter # raw LDAP addon
-
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
-
         # Build the LDAP base DN from the domain FQDN
         self.baseDN = ','.join('dc=%s' % part for part in self.__domain.split('.'))
-
         # Live connection reference — needed for secondary SID-resolution lookups
         self.__ldapConn = None
-
-        # Tracks whether the channel is confidential (LDAPS, or NTLM session security ENCRYPT)
-        # The DC will only return msDS-ManagedPassword over a confidential channel.
         self.__tlsActive = False
+        self.__discovered_sid_cache = {}
 
     
     # Static helpers that claud said would be more useful than the inline processing I previously had.
     #Apperntly it means others who find similar situations can just copy paste the static helpers and call them instead of reimplement
-    #Credit goes to claud, thanks legend.
+    #Credit goes to AI for these.
 
     @staticmethod
     def _attr_value(item_attributes, attr_type):
@@ -199,7 +192,6 @@ class GetGMSAPasswords:
             <DOMAIN_UPPER>host<sam_no_dollar_lower>.<domain_lower>
         """
         password = password_bytes.decode('utf-16-le', errors='replace').encode('utf-8')
-        #Kinda concenerd this one is not right but I have seen no evidence to suggest why this shouldnt work
         salt = '{}host{}.{}'.format(
             domain.upper(),
             sam.rstrip('$').lower(),
@@ -213,6 +205,8 @@ class GetGMSAPasswords:
 
 
     def _resolve_sid(self, sid_canonical):
+        if sid_canonical in self.__discovered_sid_cache: #prevents unneccesary ldap look ups if we already have the identity details
+            return self.__discovered_sid_cache[sid_canonical]
         
         results = []
 
@@ -235,9 +229,13 @@ class GetGMSAPasswords:
                     self._attr_value(attrs, 'cn')
                 )
                 if resolved:
-                    return '{} ({})'.format(resolved, sid_canonical)
-        except Exception as exc:
-            logging.debug('SID resolution error for %s: %s', sid_canonical, exc)
+                    formated_resolved_name = '{} ({})'.format(resolved, sid_canonical)
+                    self.__discovered_sid_cache[sid_canonical] = formated_resolved_name #store the SID alongside the asscociated object attributes
+                    return formated_resolved_name
+                
+        except ldap.LDAPSearchError as e:
+            logging.debug('SID resolution error for %s: %s', sid_canonical, e)
+            self.__discovered_sid_cache[sid_canonical] = sid_canonical
 
         return sid_canonical
 
@@ -282,7 +280,14 @@ class GetGMSAPasswords:
 
             print('\n[*] Account:    {}'.format(sam))
             if principals:
-                print('    Readable by: {}'.format(', '.join(principals)))
+                print('    [*]Readable by:')
+                for p in principals:
+                    print(f'      - {p}')
+
+                #check to see if the caller's username is explicitly in the parsed principals
+                """ current_running_user = self.__username.lower()
+                if any(current_running_user == p.split(' (')[0].split('\\')[-1].lower() for p in principals):
+                    print('    [+] Your current user, {} is allowed to read this gMSAs password'.format(self.__username)) """
             else:
                 print('    Readable by: (no principals resolved)')
 
@@ -311,14 +316,14 @@ class GetGMSAPasswords:
                     print('    {}::::{}'.format(sam, prev_nt))
                     print('    {}:aes256-cts-hmac-sha1-96:{}'.format(sam, prev256))
                     print('    {}:aes128-cts-hmac-sha1-96:{}'.format(sam, prev128))
-            else:
+            
+            elif not self.__enumOnly:
                 if self.__tlsActive:
-                    print('    [-] msDS-ManagedPassword not returned '
+                    print('[*] msDS-ManagedPassword not returned '
                           '(this account may not be authorised to read it)')
                 else:
                     print('    [-] msDS-ManagedPassword requires a confidential channel '
                           '(use -use-ldaps, or ensure NTLM session security is active)')
-
         except Exception as exc:
             logging.debug('Exception in processGMSAEntry()', exc_info=True)
             logging.error('Skipping item, cannot process due to error %s', str(exc))
@@ -375,7 +380,7 @@ class GetGMSAPasswords:
         
         try:
             self.__ldapConn = self.ldap_auth()
-        except Exception as e:
+        except ldap.LDAPSessionError as e:
             logging.error('Authentication failed: %s', e)
             sys.exit(1)
 
@@ -457,11 +462,8 @@ if __name__ == '__main__':
         logging.critical('Domain should be specified!')
         sys.exit(1)
 
-    try:
-        executer = GetGMSAPasswords(username, password, domain, options)
-        executer.run()
-    except Exception:
-        if logging.getLogger().level == logging.DEBUG:
-            import traceback
-            traceback.print_exc()
-        logging.error('Error')
+    
+    executer = GetGMSAPasswords(username, password, domain, options)
+    executer.run()
+    
+        
