@@ -32,7 +32,7 @@ from impacket import version
 from impacket.examples import logger
 from impacket.examples.utils import parse_identity, parse_target, init_ldap_session
 from impacket.ldap import ldaptypes
-
+import uuid #needed for proper GUID conversion
 
 class BADSUCCESSOR:
     def __init__(self, username, password, domain, lmhash, nthash, cmdLineOptions):
@@ -281,7 +281,7 @@ class BADSUCCESSOR:
                     dacl = sd['Dacl']
                     if dacl and hasattr(dacl, 'aces') and dacl.aces:
                         for ace in dacl.aces:
-                            #Ensure we parse and process standard ACE and Object Specific ACE
+                            #Fix 1, Ensure we parse and process standard ACE and Object Specific ACE
                             allowed_types = [
                                 ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE,
                                 ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE
@@ -294,11 +294,13 @@ class BADSUCCESSOR:
                             has_relevant_right = any(mask & right_value for right_value in relevant_rights.values())
                             if not has_relevant_right:
                                 continue
+                            #Fix two: The guid conversion was wrong and one actually reads the bytes correctly and converts them to real GUIDs for processing later
+                            ace_data = ace['Ace']
+                            object_type = ace_data['ObjectType']
                             
-                            # Check object type (must match relevant object types)
-                            object_type = getattr(ace['Ace'], 'ObjectType', None)
                             if object_type:
-                                object_guid = str(object_type).lower()
+                                object_guid = str(uuid.UUID(bytes_le=object_type)).lower()
+                                logging.debug(object_guid)
                                 if object_guid not in relevant_object_types:
                                     continue
                                 
