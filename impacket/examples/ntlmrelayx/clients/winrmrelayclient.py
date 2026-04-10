@@ -13,6 +13,7 @@ from impacket.examples.ntlmrelayx.clients import ProtocolClient
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
 from impacket.ntlm import NTLMAuthChallenge, NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_SIGN, NTLMSSP_NEGOTIATE_ALWAYS_SIGN
 from impacket.spnego import SPNEGO_NegTokenResp
+from impacket.winrm import SOAP_CONTENT_TYPE, build_winrs_create_request, envelope_to_bytes
 
 PROTOCOL_CLIENT_CLASSES = ["WinRMSRelayClient"]
 
@@ -59,7 +60,7 @@ class WinRMSRelayClient(ProtocolClient):
 
         headers = {
             "Content-Length": len(self.basic_xml_data),
-            "Content-Type": "application/soap+xml;charset=UTF-8"
+            "Content-Type": SOAP_CONTENT_TYPE
         }
         self.session.request("POST", self.path, headers=headers, body=self.basic_xml_data)
         res = self.session.getresponse()
@@ -87,7 +88,7 @@ class WinRMSRelayClient(ProtocolClient):
         negotiate = base64.b64encode(negotiateMessage).decode("ascii")
         headers = {
             "Authorization": f"{self.authenticationMethod} {negotiate}",
-            "Content-Type": "application/soap+xml;charset=UTF-8",
+            "Content-Type": SOAP_CONTENT_TYPE,
             "Content-Length": len(self.basic_xml_data)
         }
         self.session.request("POST", self.path, headers=headers, body=self.basic_xml_data)
@@ -114,7 +115,7 @@ class WinRMSRelayClient(ProtocolClient):
         auth = base64.b64encode(token).decode("ascii")
         headers = {
             "Authorization": f"{self.authenticationMethod} {auth}",
-            "Content-Type": "application/soap+xml;charset=UTF-8",
+            "Content-Type": SOAP_CONTENT_TYPE,
             "Content-Length": len(self.basic_xml_data)
         }
         self.session.request("POST", self.path, headers=headers, body=self.basic_xml_data)
@@ -138,42 +139,11 @@ class WinRMSRelayClient(ProtocolClient):
         pass
 
     def keepAlive(self):
-        heartbeat_xml = '''
-        <?xml version="1.0" encoding="utf-8"?>
-        <env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope"
-                      xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing"
-                      xmlns:w="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
-                      xmlns:p="http://schemas.microsoft.com/wbem/wsman/1/wsman.xsd"
-                      xmlns:rsp="http://schemas.microsoft.com/wbem/wsman/1/windows/shell">
-          <env:Header>
-            <a:To>http://windows-host:5986/wsman</a:To>
-            <a:ReplyTo>
-              <a:Address mustUnderstand="true">http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</a:Address>
-            </a:ReplyTo>
-            <a:MessageID>uuid:2a8ac24f-00f0-4a87-860c-bf58d33a1e0a</a:MessageID>
-            <a:Action mustUnderstand="true">http://schemas.xmlsoap.org/ws/2004/09/transfer/Create</a:Action>
-            <w:ResourceURI mustUnderstand="true">http://schemas.microsoft.com/wbem/wsman/1/windows/shell/cmd</w:ResourceURI>
-            <w:OperationTimeout>PT20S</w:OperationTimeout>
-            <w:MaxEnvelopeSize mustUnderstand="true">153600</w:MaxEnvelopeSize>
-            <w:OptionSet>
-              <w:Option Name="WINRS_NOPROFILE">FALSE</w:Option>
-              <w:Option Name="WINRS_CODEPAGE">437</w:Option>
-            </w:OptionSet>
-            <w:Locale xml:lang="en-US"/>
-            <p:DataLocale xml:lang="en-US"/>
-          </env:Header>
-          <env:Body>
-            <rsp:Shell>
-              <rsp:InputStreams>stdin</rsp:InputStreams>
-              <rsp:OutputStreams>stdout stderr</rsp:OutputStreams>
-            </rsp:Shell>
-          </env:Body>
-        </env:Envelope>
-        '''
+        heartbeat_xml = envelope_to_bytes(build_winrs_create_request(timeout=20))
 
         headers = {
-            "Content-Length": len(heartbeat_xml),
-            "Content-Type": "application/soap+xml;charset=UTF-8"
+            "Content-Length": str(len(heartbeat_xml)),
+            "Content-Type": SOAP_CONTENT_TYPE,
         }
 
         self.session.request("POST", self.path, headers=headers, body=heartbeat_xml)
