@@ -281,8 +281,12 @@ class BADSUCCESSOR:
                     dacl = sd['Dacl']
                     if dacl and hasattr(dacl, 'aces') and dacl.aces:
                         for ace in dacl.aces:
-                            # Only process ALLOW ACEs
-                            if ace['AceType'] != ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE:
+                            #Ensure we parse and process standard ACE and Object Specific ACE
+                            allowed_types = [
+                                ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE,
+                                ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE
+                            ]
+                            if ace['AceType'] not in allowed_types:
                                 continue
                                 
                             # Check if ACE has relevant rights
