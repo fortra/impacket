@@ -9,9 +9,10 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Description:
-#   WinRM helpers and WinRS client support.
-#
+# Description: Executes commands through WinRM/WinRS.
+# Originaly writen by @Ozelis
+# Reviewed by @gabrielg5 and @Defte
+
 
 import base64
 import logging

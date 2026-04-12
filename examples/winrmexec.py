@@ -9,9 +9,10 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Description:
-#   Executes commands through WinRM/WinRS.
-#
+# Description: Executes commands through WinRM/WinRS.
+# Originaly writen by @Ozelis
+# Reviewed by @gabrielg5 and @Defte
+
 
 import argparse
 import base64
