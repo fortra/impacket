@@ -13,12 +13,11 @@
 # Originaly writen by @Ozelis
 # Reviewed by @gabrielg5 and @Defte
 
-
-import argparse
-import base64
 import cmd
-import logging
 import sys
+import base64
+import logging
+import argparse
 from ipaddress import ip_address
 from urllib.parse import urlparse
 

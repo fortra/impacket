@@ -14,19 +14,19 @@
 # Reviewed by @gabrielg5 and @Defte
 
 
-import base64
-import logging
 import os
 import re
 import ssl
 import uuid
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from http.client import HTTPConnection, HTTPSConnection
+import base64
+import logging
+from typing import List, Tuple
 from struct import pack, unpack
-from typing import Iterable, List, Optional, Sequence, Tuple
+from dataclasses import dataclass
 from urllib.parse import urlparse
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
+from http.client import HTTPConnection, HTTPSConnection
 
 from Cryptodome.Cipher import ARC4
 from Cryptodome.Hash import HMAC, MD5, SHA256
@@ -54,7 +54,6 @@ from impacket.krb5.gssapi import (
 from impacket.krb5.kerberosv5 import getKerberosTGS, getKerberosTGT, SessionError
 from impacket.krb5.types import KerberosTime, Principal, Ticket
 from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, TypesMech
-
 
 SOAP_CONTENT_TYPE = 'application/soap+xml;charset=UTF-8'
 MULTIPART_BOUNDARY = 'Encrypted Boundary'
