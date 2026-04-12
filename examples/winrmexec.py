@@ -103,7 +103,7 @@ class RemoteShell(cmd.Cmd):
         self._shell_type = shell_type
         self._codec = codec
         self.intro = '[!] Launching semi-interactive shell - Careful what you execute'
-        self.prompt = 'PS> ' if shell_type == 'powershell' else 'CMD> '
+        self.prompt = 'PS > ' if shell_type == 'powershell' else 'CMD > '
 
     def cmdloop(self, intro=None):
         while True:
