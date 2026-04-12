@@ -47,13 +47,13 @@ CODEC = sys.stdout.encoding
 
 def _parse_hashes(hashes):
     if not hashes:
-        return '', ''
+        return b'', b''
 
     if ':' in hashes:
         lmhash, nthash = hashes.split(':', 1)
-        return lmhash, nthash
+        return bytes.fromhex(lmhash) if lmhash else b'', bytes.fromhex(nthash) if nthash else b''
 
-    return '', hashes
+    return b'', bytes.fromhex(hashes)
 
 
 def _is_ip_address(value):
