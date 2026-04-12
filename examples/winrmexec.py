@@ -251,8 +251,8 @@ def create_transport(options):
             )
         except SessionError as e:
             if "KDC_ERR_S_PRINCIPAL_UNKNOWN" in str(e):
-                logging.error("KDC_ERR_S_PRINCIPAL_UNKNOWN: domain names specified in ticket and in target do not match.")
-                exit()
+                raise WinRMTransportError("KDC_ERR_S_PRINCIPAL_UNKNOWN: domain names specified in ticket and in target do not match.")
+            raise WinRMTransportError(str(e))
 
         if options.credssp:
             if not kerberos_credentials.password:
