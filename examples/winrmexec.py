@@ -25,6 +25,8 @@ from impacket import version
 from impacket.examples import logger
 from impacket.examples.utils import parse_target
 from impacket.krb5.keytab import Keytab
+from impacket.krb5.kerberosv5 import SessionError
+
 from impacket.winrm import (
     BasicTransport,
     ClientCertificateTransport,
@@ -162,9 +164,7 @@ class RemoteShell(cmd.Cmd):
         try:
             text = data.decode(self._codec)
         except UnicodeDecodeError:
-            logging.error(
-                'Decoding error detected, run chcp.com at the target and retry with -codec if output looks wrong'
-            )
+            logging.error('Decoding error detected, run chcp.com at the target and retry with -codec if output looks wrong')
             text = data.decode(self._codec, errors='replace')
 
         if stream_name == 'stderr':
@@ -236,17 +236,23 @@ def create_transport(options):
             spn = options.spn
 
         kdc_host = options.dc_ip or None
-        kerberos_credentials = get_kerberos_credential(
-            spn,
-            domain=domain,
-            username=username,
-            password=password,
-            lmhash=lmhash,
-            nthash=nthash,
-            aes_key=options.aesKey,
-            kdc_host=kdc_host,
-            use_cache=True,
-        )
+        
+        try:
+            kerberos_credentials = get_kerberos_credential(
+                spn,
+                domain=domain,
+                username=username,
+                password=password,
+                lmhash=lmhash,
+                nthash=nthash,
+                aes_key=options.aesKey,
+                kdc_host=kdc_host,
+                use_cache=True,
+            )
+        except SessionError as e:
+            if "KDC_ERR_S_PRINCIPAL_UNKNOWN" in str(e):
+                logging.error("KDC_ERR_S_PRINCIPAL_UNKNOWN: domain names specified in ticket and in target do not match.")
+                exit()
 
         if options.credssp:
             if not kerberos_credentials.password:
@@ -272,10 +278,7 @@ def create_transport(options):
 
 
 def build_arg_parser():
-    parser = argparse.ArgumentParser(
-        add_help=True,
-        description='Executes commands through WinRM/WinRS.',
-    )
+    parser = argparse.ArgumentParser(add_help=True, description='Executes commands through WinRM/WinRS.')
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('command', nargs='*', default=' ', help='command to execute at the target. If empty it will launch a semi-interactive shell')
