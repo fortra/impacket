@@ -50,7 +50,7 @@ from impacket.krb5.gssapi import (
     GSS_C_SEQUENCE_FLAG,
     MechIndepToken,
 )
-from impacket.krb5.kerberosv5 import getKerberosTGS, getKerberosTGT
+from impacket.krb5.kerberosv5 import getKerberosTGS, getKerberosTGT, SessionError
 from impacket.krb5.types import KerberosTime, Principal, Ticket
 from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, TypesMech
 
@@ -1087,7 +1087,13 @@ def get_kerberos_credential(
     if tgt is None:
         tgt, cipher, _, tgt_session_key = getKerberosTGT(user, password, domain, lmhash, nthash, aes_key, kdc_host)
 
-    tgs, cipher, _, tgs_key = getKerberosTGS(service, domain, kdc_host, tgt, cipher, tgt_session_key)
+    try:
+        tgs, cipher, _, tgs_key = getKerberosTGS(service, domain, kdc_host, tgt, cipher, tgt_session_key)
+    except SessionError as e:
+        if "KDC_ERR_S_PRINCIPAL_UNKNOWN" in str(e):
+            logging.error("KDC_ERR_S_PRINCIPAL_UNKNOWN: domain names specified in TGS and in target do not match.")
+            exit()
+
     ticket.from_asn1(decoder.decode(tgs, asn1Spec=TGS_REP())[0]['ticket'])
     return KerberosCredential(domain, username, ticket, tgs_key, password=password)
 
