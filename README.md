@@ -73,6 +73,7 @@ Documentation
 
 Setup
 =====
+> :link: For full installation instructions including using docker, virtual environments, dependency details, upgrading impacket, and troubleshooting, see the [Installation Guide](https://mintlify.wiki/fortra/impacket/installation).
 
 ### Quick start
 
