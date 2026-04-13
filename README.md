@@ -41,6 +41,7 @@ Table of Contents
 =================
 
 * [Getting Impacket](#getting-impacket)
+* [Documentation](#documentation)
 * [Setup](#setup)
 * [Testing](#testing)
 * [Licensing](#licensing)
@@ -64,6 +65,11 @@ Getting Impacket
 
   [![Python versions](https://img.shields.io/badge/python-3.9%20|%203.10%20|%203.11%20|%203.12%20|%203.13-blue.svg)](https://github.com/fortra/impacket/tree/master)
 
+Documentation
+=============
+
+* [Introduction & Overview](https://mintlify.wiki/fortra/impacket/introduction) — Covers Impacket's architecture, supported protocols, authentication mechanisms, and examples/tools and advanced topics
+* [API Reference](https://mintlify.wiki/fortra/impacket/api/smb) — Full class and method documentation for core modules, DCE/RPC, Kerberos authentication handling, LDAP and utilities.
 
 Setup
 =====
