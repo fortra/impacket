@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "impacket",
+# ]
+# ///
+
 # Impacket - Collection of Python classes for working with network protocols.
 #
 # Copyright Fortra, LLC and its affiliated companies
@@ -14,17 +21,21 @@
 #   Accounts (gMSAs) and dumps their managed password as NT hash, AES-128, and AES-256 kerberos keys.
 #   Can be used to only enumerate, using the -enum flag. Additionally you can use -gmsa to specify a specific object
 #   or using wildcard.
+#   
+#   There are many differences between this and the original gMSADumper, including the ability to chose to enum all or a specific gmsa, use impackets
+#   logic for cred extraction, using impackets ldap implementation to get the managedblob over LDAP instead of only LDAPS, and being able to selectively
+#   choose which gmsa objects credintial you want. 
 #
 #
 #
 # Author:
 #   Abdul Mhanni And Alexander Chin-Lenn
 #
-# Inspired by / based on the following(Note we heavily took from these from actual content to formating style etc):
+# Inspired by / based on the following:
 #   Alberto Solino (@agsolino) - GetAdUsers
 #   Fowz Masood - GetADComputers
 #   micahvandeusen - gMSADumper (https://github.com/micahvandeusen/gMSADumper)
-#
+# 
 # References:
 #   MS-ADTS 2.2.18  MSDS-MANAGEDPASSWORD_BLOB
 #   https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/
@@ -37,15 +48,13 @@ from __future__ import unicode_literals
 import argparse
 import logging
 import sys
+
 from binascii import hexlify
-
-from Cryptodome.Hash import MD4
-
 from impacket import version
 from impacket.examples import logger
 from impacket.examples.utils import parse_identity
 from impacket.krb5 import constants
-from impacket.krb5.crypto import string_to_key
+from impacket.krb5.crypto import string_to_key, generate_kerberos_keys
 from impacket.ldap import ldap, ldapasn1
 from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR
 from impacket.structure import Structure
@@ -129,9 +138,7 @@ class GetGMSAPasswords:
         self.__kdcHost = cmdLineOptions.dc_host
         self.__useLdaps = cmdLineOptions.use_ldaps
         self.__enumOnly = cmdLineOptions.enum_only
-        self.__gmsaName = (
-            cmdLineOptions.gmsa
-        )  # you can use 'svcWeb$' or 'svc*' or svcweb as will append $ if not present
+        self.__gmsaName = cmdLineOptions.gmsa # you can use 'svcWeb$' or 'svc*' or svcweb as will append $ if not present
         self.__gmsaFilter = cmdLineOptions.gmsa_filter  # raw LDAP addon
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(":")
@@ -142,9 +149,8 @@ class GetGMSAPasswords:
         self.__tlsActive = False
         self.__discovered_sid_cache = {}
 
-    # Static helpers that claud said would be more useful than the inline processing I previously had.
-    # Apperntly it means others who find similar situations can just copy paste the static helpers and call them instead of reimplement
-    # Credit goes to AI for these.
+    # Static helpers to replace inline processing with static helpers that other scripts can pull from
+    # Credit goes to AI for these. Claud Sonnet 4.6 was used
 
     @staticmethod
     def _attr_value(item_attributes, attr_type):
@@ -175,42 +181,23 @@ class GetGMSAPasswords:
         return None
 
     @staticmethod
-    def _nt_hash(password_bytes):
-        # password_bytes is already UTF-16LE encoded I believe so nothing more is needed
-        md4 = MD4.new()
-        md4.update(password_bytes)
-        return hexlify(md4.digest()).decode("ascii")
-
-    @staticmethod
-    def _kerberos_keys(sam, domain, password_bytes):
+    def _extract_credintials_from_blob(password_bytes, sam, domain):
         """
-        Derive AES-128 and AES-256 kerberos long term. their format is:
+        Derive NT hash and AES Kerberos keys from raw UTF-16LE password bytes
+        from an msDS-ManagedPassword blob. Uses impackets impacket.krb5.crypto generate_kerberos_keys()
 
-            <DOMAIN_UPPER>host<sam_no_dollar_lower>.<domain_lower>
+        Returns (nt, aes256, aes128).
         """
-        password = password_bytes.decode("utf-16-le", errors="replace").encode("utf-8")
-        salt = "{}host{}.{}".format(
-            domain.upper(),
-            sam.rstrip("$").lower(),
-            domain.lower(),
+        ekeys = generate_kerberos_keys(
+            hex_pass=hexlify(password_bytes).decode("ascii"), user=sam, domain=domain
         )
-
-        aes128 = string_to_key(
-            constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value, password, salt
-        )
-        aes256 = string_to_key(
-            constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value, password, salt
-        )
-
-        return (
-            hexlify(aes128.contents).decode("ascii"),
-            hexlify(aes256.contents).decode("ascii"),
-        )
+        nt = hexlify(ekeys[int(constants.EncryptionTypes.rc4_hmac.value)].contents).decode("ascii")
+        aes256 = hexlify(ekeys[int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value)].contents).decode("ascii")
+        aes128 = hexlify(ekeys[int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value)].contents).decode("ascii")
+        return nt, aes256, aes128
 
     def _resolve_sid(self, sid_canonical):
-        if (
-            sid_canonical in self.__discovered_sid_cache
-        ):  # prevents unneccesary ldap look ups if we already have the identity details
+        if (sid_canonical in self.__discovered_sid_cache):  # prevents unneccesary ldap look ups if we already have the identity details
             return self.__discovered_sid_cache[sid_canonical]
 
         results = []
@@ -235,13 +222,12 @@ class GetGMSAPasswords:
                 )
                 if resolved:
                     formated_resolved_name = "{} ({})".format(resolved, sid_canonical)
-                    self.__discovered_sid_cache[sid_canonical] = (
-                        formated_resolved_name  # store the SID alongside the asscociated object attributes
-                    )
+                    self.__discovered_sid_cache[sid_canonical] = formated_resolved_name  # store the SID alongside the asscociated object attributes
                     return formated_resolved_name
 
         except ldap.LDAPSearchError as e:
             logging.debug("SID resolution error for %s: %s", sid_canonical, e)
+            #if the sid resolution failed, we want to store the problematic sid anyways so we dont keep looking it up
             self.__discovered_sid_cache[sid_canonical] = sid_canonical
 
         return sid_canonical
@@ -289,38 +275,32 @@ class GetGMSAPasswords:
                 print("    [*]Readable by:")
                 for p in principals:
                     print(f"      - {p}")
-
-                # check to see if the caller's username is explicitly in the parsed principals
-                """ current_running_user = self.__username.lower()
-                if any(current_running_user == p.split(' (')[0].split('\\')[-1].lower() for p in principals):
-                    print('    [+] Your current user, {} is allowed to read this gMSAs password'.format(self.__username)) """
             else:
                 print("    Readable by: (no principals resolved)")
 
             # the target Managed password
-            pw_raw = self._attr_raw(attrs, "msDS-ManagedPassword")
-            if pw_raw:
+            passw_raw = self._attr_raw(attrs, "msDS-ManagedPassword")
+            if passw_raw:
                 blob = MSDS_MANAGEDPASSWORD_BLOB()
-                blob.fromString(pw_raw)
+                blob.fromString(passw_raw)
 
                 # Strip the trailing UTF-16LE null terminator (2 bytes)
-                current_pw = blob["CurrentPassword"][:-2]
-                nt = self._nt_hash(current_pw)
-                aes128, aes256 = self._kerberos_keys(sam, self.__domain, current_pw)
+                current_passw = blob["CurrentPassword"][:-2]
+                nthash, aes128_keys, aes256_keys = self._extract_credintials_from_blob(current_passw, sam, self.__domain)
 
-                print("    {}::::{}".format(sam, nt))
-                print("    {}:aes256-cts-hmac-sha1-96:{}".format(sam, aes256))
-                print("    {}:aes128-cts-hmac-sha1-96:{}".format(sam, aes128))
+                print("    {}::::{}".format(sam, nthash))
+                print("    {}:aes256-cts-hmac-sha1-96:{}".format(sam, aes128_keys))
+                print("    {}:aes128-cts-hmac-sha1-96:{}".format(sam, aes256_keys))
 
                 # Previous password (if the DC has cycled it at least once)
                 if blob["PreviousPassword"]:
-                    prev_pw = blob["PreviousPassword"][:-2]
-                    prev_nt = self._nt_hash(prev_pw)
-                    prev128, prev256 = self._kerberos_keys(sam, self.__domain, prev_pw)
+                    previous_passw = blob["PreviousPassword"][:-2]
+                    previous_nthash, previous_aes128, previous_aes256 = self._extract_credintials_from_blob(previous_passw, sam, self.__domain)
+                    
                     print("\n    [Previous Password]")
-                    print("    {}::::{}".format(sam, prev_nt))
-                    print("    {}:aes256-cts-hmac-sha1-96:{}".format(sam, prev256))
-                    print("    {}:aes128-cts-hmac-sha1-96:{}".format(sam, prev128))
+                    print("    {}::::{}".format(sam, previous_nthash))
+                    print("    {}:aes256-cts-hmac-sha1-96:{}".format(sam, previous_aes128))
+                    print("    {}:aes128-cts-hmac-sha1-96:{}".format(sam, previous_aes256))
 
             elif not self.__enumOnly:
                 if self.__tlsActive:
@@ -355,8 +335,16 @@ class GetGMSAPasswords:
 
     def ldap_auth(self):
 
-        target = self.__kdcIP or self.__kdcHost or self.__domain
-        self.__target = target
+        if self.__doKerberos:
+            target = self.__kdcHost or self.__domain
+        if not self.__kdcHost:
+            logging.debug(
+                "[!] No -dc-host provided for Kerberos auth. Using domain FQDN '%s' "
+                "for SPN construction. If this fails with KDC_ERR_S_PRINCIPAL_UNKNOWN, "
+                "add -dc-host <DC_FQDN>.", self.__domain
+            )
+        else:
+            target = self.__kdcIP or self.__kdcHost or self.__domain
 
         scheme = "ldaps" if self.__useLdaps else "ldap"
         url = "{}://{}".format(scheme, target)
