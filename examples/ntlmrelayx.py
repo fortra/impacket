@@ -195,7 +195,7 @@ def start_servers(options, threads):
         c.setLootdir(options.lootdir)
         c.setOutputFile(options.output_file)
         c.setdumpHashes(options.dump_hashes)
-        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid, options.add_dns_record)
+        c.setLDAPOptions(options.adwsdomaindump, options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid, options.add_dns_record)
         c.setRPCOptions(options.rpc_mode, options.rpc_use_smb, options.auth_smb, options.hashes_smb, options.rpc_smb_port, options.icpr_ca_name)
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
@@ -388,6 +388,7 @@ if __name__ == '__main__':
 
     #LDAP options
     ldapoptions = parser.add_argument_group("LDAP client options")
+    ldapoptions.add_argument('--adwsdomaindump', action='store_true', required=False, help='Instead of using ldapdomaindump use adwsdomaindump for better OPSEC')
     ldapoptions.add_argument('--no-dump', action='store_false', required=False, help='Do not attempt to dump LDAP information')
     ldapoptions.add_argument('--no-da', action='store_false', required=False, help='Do not attempt to add a Domain Admin')
     ldapoptions.add_argument('--no-acl', action='store_false', required=False, help='Disable ACL attacks')
