@@ -1813,6 +1813,9 @@ class SAMHashes(OfflineRegistry):
             if self.__pwdLastSet:
                 if userAccountF['PasswordLastSetTimeStamp'] is not None:
                     pwdLastSet = self.nt_time_to_datetime(userAccountF['PasswordLastSetTimeStamp'])
+                    # No datetime set, set value to 'never' to be consistent with NTDS parsing and output
+                    if pwdLastSet == datetime(1601, 1, 1, 0, 0, 0):
+                        pwdLastSet = 'never'
                 else:
                     pwdLastSet = 'N/A'
                 answer = f"{answer} (pwdLastSet={pwdLastSet})"
