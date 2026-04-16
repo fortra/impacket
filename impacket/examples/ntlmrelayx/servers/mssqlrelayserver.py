@@ -107,6 +107,7 @@ class MSSQLRelayServer(Thread):
             self.client = None
             self.authUser = None
             self.client_address = None
+            self.tds8_mode = False
             
             self.target = self.server.config.target.getTarget()
             if self.target is None:
@@ -203,9 +204,12 @@ class MSSQLRelayServer(Thread):
                         
             responseData['Length'] = 16 + len(msg) + len(server) + len(proc)
                         
-            doneData = tds.TDS_DONE()
+            if self.tds8_mode:
+                doneData = tds.TDS_DONE72()
+            else:
+                doneData = tds.TDS_DONE()
             doneData['TokenType'] = tds.TDS_DONE_TOKEN
-            doneData['Status'] = 0x02 # TDS_DONE_ERROR 
+            doneData['Status'] = 0x02 # TDS_DONE_ERROR
             doneData['CurCmd'] = 0
             doneData['DoneRowCount'] = 0
                         

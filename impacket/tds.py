@@ -460,6 +460,15 @@ class TDS_DONEINPROC(Structure):
     )
 
 
+class TDS_DONEINPROC72(Structure):
+    structure = (
+        ("TokenType", "<B"),
+        ("Status", "<H"),
+        ("CurCmd", "<H"),
+        ("DoneRowCount", "<Q"),
+    )
+
+
 class TDS_ORDER(Structure):
     structure = (
         ("TokenType", "<B"),
@@ -493,6 +502,15 @@ class TDS_DONE(Structure):
         ("Status", "<H"),
         ("CurCmd", "<H"),
         ("DoneRowCount", "<L"),
+    )
+
+
+class TDS_DONE72(Structure):
+    structure = (
+        ("TokenType", "<B"),
+        ("Status", "<H"),
+        ("CurCmd", "<H"),
+        ("DoneRowCount", "<Q"),
     )
 
 
@@ -891,6 +909,8 @@ class MSSQL:
         self.tlsSocket = None
         self.tls_unique = None
         self.tds8 = False
+        self.in_bio = None
+        self.out_bio = None
         self.__rowsPrinter = rowsPrinter
         self.mssql_version = ""
 
@@ -970,7 +990,25 @@ class MSSQL:
             )
         )
 
+    def _reset_tls_state(self):
+        self.tlsSocket = None
+        self.tls_unique = None
+        self.tds8 = False
+        self.in_bio = None
+        self.out_bio = None
+
+    def _has_active_tls_channel_binding(self):
+        return self.tls_unique is not None and (
+            self.tds8 or self.tlsSocket is not None
+        )
+
+    def _parse_done_token(self, tokens, inproc=False):
+        if self.tds8:
+            return TDS_DONEINPROC72(tokens) if inproc else TDS_DONE72(tokens)
+        return TDS_DONEINPROC(tokens) if inproc else TDS_DONE(tokens)
+
     def connect(self, timeout=30):
+        self._reset_tls_state()
         af, socktype, proto, canonname, sa = socket.getaddrinfo(
             self.server, self.port, 0, socket.SOCK_STREAM
         )[0]
@@ -988,8 +1026,12 @@ class MSSQL:
         return sock
 
     def disconnect(self):
-        if self.socket:
-            return self.socket.close()
+        try:
+            if self.socket:
+                return self.socket.close()
+        finally:
+            self.socket = 0
+            self._reset_tls_state()
 
     def setPacketSize(self, packetSize):
         self.packetSize = packetSize
@@ -1500,7 +1542,7 @@ class MSSQL:
         chkField = CheckSumField()
         chkField["Lgth"] = 16
         chkField["Flags"] = GSS_C_SEQUENCE_FLAG | GSS_C_REPLAY_FLAG
-        if self.tls_unique:
+        if self._has_active_tls_channel_binding():
             chkField["Bnd"] = self.generate_cbt_from_tls_unique()
         authenticator["cksum"]["checksum"] = chkField.getData()
         authenticator["seq-number"] = 0
@@ -1627,7 +1669,7 @@ class MSSQL:
 
             # We then compute the Channel Binding Token from the tls-unique value retrieved before
             channel_binding_value = b""
-            if self.tls_unique:
+            if self._has_active_tls_channel_binding():
                 channel_binding_value = self.generate_cbt_from_tls_unique()
 
             # Generate the NTLM ChallengeResponse AUTH
@@ -2275,7 +2317,7 @@ class MSSQL:
                     self.currentDB = record["NewValue"].decode("utf-16le")
 
             elif (tokenID == TDS_DONEINPROC_TOKEN) | (tokenID == TDS_DONEPROC_TOKEN):
-                token = TDS_DONEINPROC(tokens)
+                token = self._parse_done_token(tokens, inproc=True)
             elif tokenID == TDS_ORDER_TOKEN:
                 token = TDS_ORDER(tokens)
             elif tokenID == TDS_ROW_TOKEN:
@@ -2289,7 +2331,7 @@ class MSSQL:
                 tokenLen = self.parseColMetaData(token)
                 token["Data"] = token["Data"][:tokenLen]
             elif tokenID == TDS_DONE_TOKEN:
-                token = TDS_DONE(tokens)
+                token = self._parse_done_token(tokens)
             else:
                 LOG.error("Unknown Token %x" % tokenID)
                 return replies
