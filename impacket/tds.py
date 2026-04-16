@@ -1333,6 +1333,7 @@ class MSSQL:
         TGT=None,
         TGS=None,
         useCache=True,
+        cbt_fake_value=None
     ):
         if hashes is not None:
             lmhash, nthash = hashes.split(":")
@@ -1543,7 +1544,10 @@ class MSSQL:
         chkField["Lgth"] = 16
         chkField["Flags"] = GSS_C_SEQUENCE_FLAG | GSS_C_REPLAY_FLAG
         if self._has_active_tls_channel_binding():
-            chkField["Bnd"] = self.generate_cbt_from_tls_unique()
+            if cbt_fake_value is not None:
+                chkField["Bnd"] = cbt_fake_value
+            else:
+                chkField["Bnd"] = self.generate_cbt_from_tls_unique()
         authenticator["cksum"]["checksum"] = chkField.getData()
         authenticator["seq-number"] = 0
         encodedAuthenticator = encoder.encode(authenticator)
@@ -1594,6 +1598,7 @@ class MSSQL:
         domain="",
         hashes=None,
         useWindowsAuth=False,
+        cbt_fake_value=None
     ):
 
         if hashes is not None:
@@ -1670,7 +1675,10 @@ class MSSQL:
             # We then compute the Channel Binding Token from the tls-unique value retrieved before
             channel_binding_value = b""
             if self._has_active_tls_channel_binding():
-                channel_binding_value = self.generate_cbt_from_tls_unique()
+                if cbt_fake_value is not None:
+                    channel_binding_value = cbt_fake_value
+                else:
+                    channel_binding_value = self.generate_cbt_from_tls_unique()
 
             # Generate the NTLM ChallengeResponse AUTH
             type3, exportedSessionKey = ntlm.getNTLMSSPType3(
