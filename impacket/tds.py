@@ -139,6 +139,14 @@ TDS_ENCRYPT_NOT_SUP = 2
 TDS_ENCRYPT_REQ = 3
 TDS_ENCRYPT_STRICT = 8
 
+# Negotiated protocol versions as reported by LOGINACK.
+TDS_VERSION_71 = 0x71000001
+TDS_VERSION_72 = 0x72090002
+TDS_VERSION_73A = 0x730A0003
+TDS_VERSION_73B = 0x730B0003
+TDS_VERSION_74 = 0x74000004
+TDS_VERSION_80 = 0x08000000
+
 # Option 2 Flags
 TDS_INTEGRATED_SECURITY_ON = 0x80
 TDS_INIT_LANG_FATAL = 0x01
@@ -911,6 +919,7 @@ class MSSQL:
         self.tds8 = False
         self.in_bio = None
         self.out_bio = None
+        self.done_rowcount_bytes = 4
         self.__rowsPrinter = rowsPrinter
         self.mssql_version = ""
 
@@ -996,16 +1005,31 @@ class MSSQL:
         self.tds8 = False
         self.in_bio = None
         self.out_bio = None
+        self.done_rowcount_bytes = 4
 
     def _has_active_tls_channel_binding(self):
         return self.tls_unique is not None and (
             self.tds8 or self.tlsSocket is not None
         )
 
+    def _set_done_rowcount_bytes_from_tds_version(self, tds_version):
+        if tds_version in (
+            TDS_VERSION_72,
+            TDS_VERSION_73A,
+            TDS_VERSION_73B,
+            TDS_VERSION_74,
+            TDS_VERSION_80,
+        ):
+            self.done_rowcount_bytes = 8
+        else:
+            self.done_rowcount_bytes = 4
+
     def _parse_done_token(self, tokens, inproc=False):
-        if self.tds8:
-            return TDS_DONEINPROC72(tokens) if inproc else TDS_DONE72(tokens)
-        return TDS_DONEINPROC(tokens) if inproc else TDS_DONE(tokens)
+        wide_parser = TDS_DONEINPROC72 if inproc else TDS_DONE72
+        narrow_parser = TDS_DONEINPROC if inproc else TDS_DONE
+        if self.done_rowcount_bytes == 8:
+            return wide_parser(tokens)
+        return narrow_parser(tokens)
 
     def connect(self, timeout=30):
         self._reset_tls_state()
@@ -2315,6 +2339,7 @@ class MSSQL:
                 token = TDS_INFO_ERROR(tokens)
             elif tokenID == TDS_LOGINACK_TOKEN:
                 token = TDS_LOGIN_ACK(tokens)
+                self._set_done_rowcount_bytes_from_tds_version(token["TDSVersion"])
             elif tokenID == TDS_ENVCHANGE_TOKEN:
                 token = TDS_ENVCHANGE(tokens)
                 if token["Type"] is TDS_ENVCHANGE_PACKETSIZE:
