@@ -148,6 +148,44 @@ class MSSQLRelayServer(Thread):
 
         def getLoginTDSVersion(self):
             return self.login["TDSVersion"]
+
+        def _recv_exact(self, size):
+            data = b""
+            while len(data) < size:
+                chunk = self.request.recv(size - len(data))
+                if not chunk:
+                    if len(data) == 0:
+                        return b""
+                    raise ConnectionError("Client closed connection mid-packet")
+                data += chunk
+            return data
+
+        def _recv_tds_packet(self):
+            header = self._recv_exact(8)
+            if not header:
+                return None
+
+            packet = tds.TDSPacket(header)
+            data_len = packet["Length"] - 8
+            packet["Data"] = self._recv_exact(data_len) if data_len > 0 else b""
+            status = packet["Status"]
+
+            while status != tds.TDS_STATUS_EOM:
+                next_header = self._recv_exact(8)
+                if not next_header:
+                    raise ConnectionError("Client closed connection mid-message")
+
+                next_packet = tds.TDSPacket(next_header)
+                next_data_len = next_packet["Length"] - 8
+                next_packet["Data"] = (
+                    self._recv_exact(next_data_len) if next_data_len > 0 else b""
+                )
+
+                packet["Data"] += next_packet["Data"]
+                packet["Length"] += next_packet["Length"] - 8
+                status = next_packet["Status"]
+
+            return packet
             
         def sendNegotiate(self,negotiateMessage):
             # Changed from the version in mssqlrelayclient.py to use the same parameters as 
@@ -253,12 +291,13 @@ class MSSQLRelayServer(Thread):
                     LOG.debug("(MSSQL): TDS 8.0 TLS handshake completed")
 
                 while True:
-                    # Receive packet from the client
-                    packet = self.request.recv(65535)
-                    if not packet:
+                    # Reassemble complete TDS messages; TLS recv() boundaries do not
+                    # necessarily match TDS packet boundaries.
+                    packet = self._recv_tds_packet()
+                    if packet is None:
                         break
 
-                    if packet[0] == tds.TDS_PRE_LOGIN:         # Pre-login stage
+                    if packet["Type"] == tds.TDS_PRE_LOGIN:         # Pre-login stage
 
                         LOG.debug("(MSSQL): Receieved TDS pre-login from client")
                         self.client = self.init_client()
@@ -283,11 +322,11 @@ class MSSQLRelayServer(Thread):
 
                         self.request.send(preloginResponse.getData())                      
                         
-                    elif packet[0] == tds.TDS_LOGIN7:    # Login stage
+                    elif packet["Type"] == tds.TDS_LOGIN7:    # Login stage
                     
                         LOG.debug("(MSSQL): Parsing the client's login request")
                         loginData = tds.TDS_LOGIN()
-                        loginData.fromString(packet[8:])
+                        loginData.fromString(packet["Data"])
                         LOG.debug("(MSSQL): Client login request:")
                         if loginData["HostName"]:
                             LOG.debug("(MSSQL): Hostname    : %s" % loginData["HostName"].decode("utf-8"))
@@ -328,15 +367,15 @@ class MSSQLRelayServer(Thread):
 
                         self.request.send(tds_response.getData())
                         
-                    elif packet[0] == tds.TDS_SSPI:    # NTLM authentication
+                    elif packet["Type"] == tds.TDS_SSPI:    # NTLM authentication
                         LOG.debug("(MSSQL): Sending our own error response to the client")
                         self.sendLoginFailed()
                         
                         authenticateMessage = ntlm.NTLMAuthChallengeResponse()
-                        authenticateMessage.fromString(packet[8:])
+                        authenticateMessage.fromString(packet["Data"])
                         LOG.debug("(MSSQL): Relaying authentication to server")
                         
-                        if not STATUS_SUCCESS in self.client.sendAuth(packet[8:]):
+                        if not STATUS_SUCCESS in self.client.sendAuth(packet["Data"]):
                             if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
                                 LOG.error("(MSSQL): Authenticating against %s://%s as %s/%s FAILED" % (
                                     self.target.scheme, self.target.netloc,
