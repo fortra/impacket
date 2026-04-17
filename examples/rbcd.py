@@ -26,9 +26,12 @@ import traceback
 
 from impacket import version
 from impacket.examples import logger, utils
-from impacket.ldap import ldap, ldapasn1, ldaptypes
+from impacket.ldap import ldap, ldaptypes
+from impacket.ldap.ldap import escape_filter_chars, get_entry_dn, get_entry_value
 
-from impacket.examples.utils import ldap_login, parse_identity
+from impacket.examples.utils import (ldap_login, parse_identity,
+                                      as_bytes, as_string, as_sid_string,
+                                      search_entries, log_ldap_error)
 
 def create_empty_sd():
     sd = ldaptypes.SR_SECURITY_DESCRIPTOR()
@@ -77,85 +80,6 @@ class RBCD(object):
         self.SID_delegate_from = None
         self.DN_delegate_to = None
 
-    @staticmethod
-    def escape_filter_chars(value):
-        escaped = value.replace('\\', '\\5c')
-        escaped = escaped.replace('*', '\\2a')
-        escaped = escaped.replace('(', '\\28')
-        escaped = escaped.replace(')', '\\29')
-        escaped = escaped.replace('\x00', '\\00')
-        return escaped
-
-    @staticmethod
-    def _entry_dn(entry):
-        return str(entry['objectName'])
-
-    @staticmethod
-    def _get_entry_values(entry, attribute_name):
-        for attribute in entry['attributes']:
-            if str(attribute['type']).lower() == attribute_name.lower():
-                return list(attribute['vals'])
-        return []
-
-    @classmethod
-    def _get_entry_value(cls, entry, attribute_name):
-        values = cls._get_entry_values(entry, attribute_name)
-        return values[0] if values else None
-
-    @staticmethod
-    def _as_bytes(value):
-        if value is None:
-            return None
-        if hasattr(value, 'asOctets'):
-            return value.asOctets()
-        if isinstance(value, bytes):
-            return value
-        return bytes(value)
-
-    @classmethod
-    def _as_string(cls, value):
-        if value is None:
-            return None
-        if isinstance(value, bytes):
-            return value.decode('utf-8')
-        if hasattr(value, 'asOctets'):
-            try:
-                return value.asOctets().decode('utf-8')
-            except UnicodeDecodeError:
-                return str(value)
-        return str(value)
-
-    @classmethod
-    def _as_sid_string(cls, value):
-        if value is None:
-            return None
-        if isinstance(value, str) and value.startswith('S-'):
-            return value
-        sid_bytes = cls._as_bytes(value)
-        if sid_bytes is None:
-            return None
-        return ldaptypes.LDAP_SID(data=sid_bytes).formatCanonical()
-
-    @classmethod
-    def _search_entries(cls, ldap_session, search_filter, search_base=None, search_scope=None, attributes=None, search_controls=None):
-        response = ldap_session.search(
-            searchBase=search_base,
-            searchFilter=search_filter,
-            scope=search_scope,
-            attributes=attributes,
-            searchControls=search_controls,
-        )
-        return [item for item in response if isinstance(item, ldapasn1.SearchResultEntry)]
-
-    @staticmethod
-    def _log_ldap_error(prefix, error):
-        if error.getErrorCode() == 50:
-            logging.error('%s, the server reports insufficient rights: %s', prefix, error.getErrorString())
-        elif error.getErrorCode() == 19:
-            logging.error('%s, the server reports a constrained violation: %s', prefix, error.getErrorString())
-        else:
-            logging.error('%s: %s', prefix, error.getErrorString())
-
     def read(self):
         # Get target computer DN
         result = self.get_user_info(self.delegate_to)
@@ -194,13 +118,13 @@ class RBCD(object):
             sd['Dacl'].aces.append(create_allow_ace(self.SID_delegate_from))
             try:
                 self.ldap_session.modify(
-                    self._entry_dn(targetuser),
+                    get_entry_dn(targetuser),
                     {'msDS-AllowedToActOnBehalfOfOtherIdentity': [(ldap.MODIFY_REPLACE, [sd.getData()])]},
                 )
                 logging.info('Delegation rights modified successfully!')
                 logging.info('%s can now impersonate users on %s via S4U2Proxy', self.delegate_from, self.delegate_to)
             except ldap.LDAPSessionError as error:
-                self._log_ldap_error('Could not modify object', error)
+                log_ldap_error('Could not modify object', error)
         else:
             logging.info('%s can already impersonate users on %s via S4U2Proxy', self.delegate_from, self.delegate_to)
             logging.info('Not modifying the delegation rights.')
@@ -232,12 +156,12 @@ class RBCD(object):
         sd['Dacl'].aces = [ace for ace in sd['Dacl'].aces if self.SID_delegate_from != ace['Ace']['Sid'].formatCanonical()]
         try:
             self.ldap_session.modify(
-                self._entry_dn(targetuser),
+                get_entry_dn(targetuser),
                 {'msDS-AllowedToActOnBehalfOfOtherIdentity': [(ldap.MODIFY_REPLACE, [sd.getData()])]},
             )
             logging.info('Delegation rights modified successfully!')
         except ldap.LDAPSessionError as error:
-            self._log_ldap_error('Could not modify object', error)
+            log_ldap_error('Could not modify object', error)
         # Get list of allowed to act
         self.get_allowed_to_act()
         return
@@ -255,22 +179,22 @@ class RBCD(object):
 
         try:
             self.ldap_session.modify(
-                self._entry_dn(targetuser),
+                get_entry_dn(targetuser),
                 {'msDS-AllowedToActOnBehalfOfOtherIdentity': [(ldap.MODIFY_REPLACE, [])]},
             )
             logging.info('Delegation rights flushed successfully!')
         except ldap.LDAPSessionError as error:
-            self._log_ldap_error('Could not modify object', error)
+            log_ldap_error('Could not modify object', error)
         # Get list of allowed to act
         self.get_allowed_to_act()
         return
 
     def get_allowed_to_act(self):
         # Get target's msDS-AllowedToActOnBehalfOfOtherIdentity attribute
-        entries = self._search_entries(
+        entries = search_entries(
             self.ldap_session,
             '(objectClass=*)',
-            search_base=self.DN_delegate_to,
+            self.DN_delegate_to,
             search_scope=self.LDAP_SCOPE_BASE,
             attributes=['SAMAccountName', 'objectSid', 'msDS-AllowedToActOnBehalfOfOtherIdentity'],
         )
@@ -280,7 +204,7 @@ class RBCD(object):
             return
 
         try:
-            raw_sd = self._as_bytes(self._get_entry_value(targetuser, 'msDS-AllowedToActOnBehalfOfOtherIdentity'))
+            raw_sd = as_bytes(get_entry_value(targetuser, 'msDS-AllowedToActOnBehalfOfOtherIdentity'))
             sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=raw_sd)
             if len(sd['Dacl'].aces) > 0:
                 logging.info('Accounts allowed to act on behalf of other identity:')
@@ -299,30 +223,30 @@ class RBCD(object):
         return sd, targetuser
 
     def get_user_info(self, samname):
-        entries = self._search_entries(
+        entries = search_entries(
             self.ldap_session,
-            '(sAMAccountName=%s)' % self.escape_filter_chars(samname),
-            search_base=self.base_dn,
+            '(sAMAccountName=%s)' % escape_filter_chars(samname),
+            self.base_dn,
             attributes=['objectSid'],
         )
         try:
-            dn = self._entry_dn(entries[0])
-            sid = self._as_sid_string(self._get_entry_value(entries[0], 'objectSid'))
+            dn = get_entry_dn(entries[0])
+            sid = as_sid_string(get_entry_value(entries[0], 'objectSid'))
             return dn, sid
         except (IndexError, TypeError):
             logging.error('User not found in LDAP: %s' % samname)
             return False
 
     def get_sid_info(self, sid):
-        entries = self._search_entries(
+        entries = search_entries(
             self.ldap_session,
-            '(objectSid=%s)' % self.escape_filter_chars(sid),
-            search_base=self.base_dn,
+            '(objectSid=%s)' % escape_filter_chars(sid),
+            self.base_dn,
             attributes=['samaccountname'],
         )
         try:
-            dn = self._entry_dn(entries[0])
-            samname = self._as_string(self._get_entry_value(entries[0], 'samaccountname'))
+            dn = get_entry_dn(entries[0])
+            samname = as_string(get_entry_value(entries[0], 'samaccountname'))
             return dn, samname
         except (IndexError, TypeError):
             logging.error('SID not found in LDAP: %s' % sid)

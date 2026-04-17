@@ -23,8 +23,11 @@ import traceback
 from impacket import version
 from impacket.examples import logger, utils
 from impacket.ldap import ldap, ldapasn1, ldaptypes
+from impacket.ldap.ldap import escape_filter_chars, get_entry_dn, get_entry_value
 
-from impacket.examples.utils import ldap_login, parse_identity
+from impacket.examples.utils import (ldap_login, parse_identity,
+                                      as_bytes, as_string, as_sid_string,
+                                      search_entries, log_ldap_error)
 
 
 # Universal SIDs
@@ -125,7 +128,7 @@ class OwnerEdit(object):
             # Searching for target account with its security descriptor
             self.search_target_principal_security_descriptor()
             # Extract security descriptor data
-            self.target_principal_raw_security_descriptor = self._as_bytes(self._get_entry_value(self.target_principal, 'nTSecurityDescriptor'))
+            self.target_principal_raw_security_descriptor = as_bytes(get_entry_value(self.target_principal, 'nTSecurityDescriptor'))
             self.target_principal_security_descriptor = ldaptypes.SR_SECURITY_DESCRIPTOR(data=self.target_principal_raw_security_descriptor)
 
         # Searching for the owner SID if any owner argument was given and new_owner_SID wasn't
@@ -133,102 +136,24 @@ class OwnerEdit(object):
             _lookedup_owner = ""
             if self.new_owner_sAMAccountName is not None:
                 _lookedup_owner = self.new_owner_sAMAccountName
-                entries = self._search_entries('(sAMAccountName=%s)' % self.escape_filter_chars(_lookedup_owner), attributes=['objectSid'])
+                entries = search_entries(self.ldap_session, '(sAMAccountName=%s)' % escape_filter_chars(_lookedup_owner), self.base_dn, attributes=['objectSid'])
             elif self.new_owner_DN is not None:
                 _lookedup_owner = self.new_owner_DN
-                entries = self._search_entries('(distinguishedName=%s)' % self.escape_filter_chars(_lookedup_owner), attributes=['objectSid'])
+                entries = search_entries(self.ldap_session, '(distinguishedName=%s)' % escape_filter_chars(_lookedup_owner), self.base_dn, attributes=['objectSid'])
             try:
-                self.new_owner_SID = self._as_sid_string(self._get_entry_value(entries[0], 'objectSid'))
+                self.new_owner_SID = as_sid_string(get_entry_value(entries[0], 'objectSid'))
                 logging.debug("Found new owner SID: %s" % self.new_owner_SID)
             except IndexError:
                 logging.error('New owner SID not found in LDAP (%s)' % _lookedup_owner)
                 exit(1)
-
-    @staticmethod
-    def escape_filter_chars(value):
-        escaped = value.replace('\\', '\\5c')
-        escaped = escaped.replace('*', '\\2a')
-        escaped = escaped.replace('(', '\\28')
-        escaped = escaped.replace(')', '\\29')
-        escaped = escaped.replace('\x00', '\\00')
-        return escaped
-
-    @staticmethod
-    def _entry_dn(entry):
-        return str(entry['objectName'])
-
-    @staticmethod
-    def _get_entry_values(entry, attribute_name):
-        for attribute in entry['attributes']:
-            if str(attribute['type']).lower() == attribute_name.lower():
-                return list(attribute['vals'])
-        return []
-
-    @classmethod
-    def _get_entry_value(cls, entry, attribute_name):
-        values = cls._get_entry_values(entry, attribute_name)
-        return values[0] if values else None
-
-    @staticmethod
-    def _as_bytes(value):
-        if value is None:
-            return None
-        if hasattr(value, 'asOctets'):
-            return value.asOctets()
-        if isinstance(value, bytes):
-            return value
-        return bytes(value)
-
-    @classmethod
-    def _as_string(cls, value):
-        if value is None:
-            return None
-        if isinstance(value, bytes):
-            return value.decode('utf-8')
-        if hasattr(value, 'asOctets'):
-            try:
-                return value.asOctets().decode('utf-8')
-            except UnicodeDecodeError:
-                return str(value)
-        return str(value)
-
-    @classmethod
-    def _as_sid_string(cls, value):
-        if value is None:
-            return None
-        if isinstance(value, str) and value.startswith('S-'):
-            return value
-        sid_bytes = cls._as_bytes(value)
-        if sid_bytes is None:
-            return None
-        return ldaptypes.LDAP_SID(data=sid_bytes).formatCanonical()
-
-    def _search_entries(self, search_filter, search_base=None, search_scope=None, attributes=None, search_controls=None):
-        response = self.ldap_session.search(
-            searchBase=search_base if search_base is not None else self.base_dn,
-            searchFilter=search_filter,
-            scope=search_scope,
-            attributes=attributes,
-            searchControls=search_controls,
-        )
-        return [item for item in response if isinstance(item, ldapasn1.SearchResultEntry)]
-
-    @staticmethod
-    def _log_ldap_error(prefix, error):
-        if error.getErrorCode() == 50:
-            logging.error('%s, the server reports insufficient rights: %s', prefix, error.getErrorString())
-        elif error.getErrorCode() == 19:
-            logging.error('%s, the server reports a constrained violation: %s', prefix, error.getErrorString())
-        else:
-            logging.error('%s: %s', prefix, error.getErrorString())
 
     def read(self):
         current_owner_SID = self.target_principal_security_descriptor['OwnerSid'].formatCanonical()
         logging.info("Current owner information below")
         logging.info("- SID: %s" % current_owner_SID)
         logging.info("- sAMAccountName: %s" % self.resolveSID(current_owner_SID))
-        current_owner_entries = self._search_entries('(objectSid=%s)' % current_owner_SID, attributes=['distinguishedName'])
-        current_owner_distinguished_name = self._as_string(self._get_entry_value(current_owner_entries[0], 'distinguishedName'))
+        current_owner_entries = search_entries(self.ldap_session, '(objectSid=%s)' % current_owner_SID, self.base_dn, attributes=['distinguishedName'])
+        current_owner_distinguished_name = as_string(get_entry_value(current_owner_entries[0], 'distinguishedName'))
         logging.info("- distinguishedName: %s" % current_owner_distinguished_name)
 
     def write(self):
@@ -241,27 +166,27 @@ class OwnerEdit(object):
 
         try:
             self.ldap_session.modify(
-                self._entry_dn(self.target_principal),
+                get_entry_dn(self.target_principal),
                 {'nTSecurityDescriptor': [(ldap.MODIFY_REPLACE, [
                     self.target_principal_security_descriptor.getData()
                 ])]},
                 controls=self.owner_sd_controls)
             logging.info('OwnerSid modified successfully!')
         except ldap.LDAPSessionError as error:
-            self._log_ldap_error('Could not modify object', error)
+            log_ldap_error('Could not modify object', error)
 
     # Attempts to retrieve the Security Descriptor of the specified target
     def search_target_principal_security_descriptor(self):
         _lookedup_principal = ""
         if self.target_sAMAccountName is not None:
             _lookedup_principal = self.target_sAMAccountName
-            entries = self._search_entries('(sAMAccountName=%s)' % self.escape_filter_chars(_lookedup_principal), attributes=['nTSecurityDescriptor'], search_controls=self.owner_sd_controls)
+            entries = search_entries(self.ldap_session, '(sAMAccountName=%s)' % escape_filter_chars(_lookedup_principal), self.base_dn, attributes=['nTSecurityDescriptor'], search_controls=self.owner_sd_controls)
         elif self.target_SID is not None:
             _lookedup_principal = self.target_SID
-            entries = self._search_entries('(objectSid=%s)' % _lookedup_principal, attributes=['nTSecurityDescriptor'], search_controls=self.owner_sd_controls)
+            entries = search_entries(self.ldap_session, '(objectSid=%s)' % _lookedup_principal, self.base_dn, attributes=['nTSecurityDescriptor'], search_controls=self.owner_sd_controls)
         elif self.target_DN is not None:
             _lookedup_principal = self.target_DN
-            entries = self._search_entries('(distinguishedName=%s)' % self.escape_filter_chars(_lookedup_principal), attributes=['nTSecurityDescriptor'], search_controls=self.owner_sd_controls)
+            entries = search_entries(self.ldap_session, '(distinguishedName=%s)' % escape_filter_chars(_lookedup_principal), self.base_dn, attributes=['nTSecurityDescriptor'], search_controls=self.owner_sd_controls)
         try:
             self.target_principal = entries[0]
             logging.debug('Target principal found in LDAP (%s)' % _lookedup_principal)
@@ -276,9 +201,9 @@ class OwnerEdit(object):
             return WELL_KNOWN_SIDS[sid]
         # Tries to resolve the SID from the LDAP domain dump
         else:
-            entries = self._search_entries('(objectSid=%s)' % sid, attributes=['samaccountname'])
+            entries = search_entries(self.ldap_session, '(objectSid=%s)' % sid, self.base_dn, attributes=['samaccountname'])
             try:
-                samname = self._as_string(self._get_entry_value(entries[0], 'samaccountname'))
+                samname = as_string(get_entry_value(entries[0], 'samaccountname'))
                 return samname
             except IndexError:
                 logging.debug('SID not found in LDAP: %s' % sid)
