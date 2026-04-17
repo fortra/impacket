@@ -139,6 +139,16 @@ TDS_ENCRYPT_NOT_SUP = 2
 TDS_ENCRYPT_REQ = 3
 TDS_ENCRYPT_STRICT = 8
 
+# Versions sent in LOGIN7.
+TDS_LOGIN7_VERSION_70 = 0x00000070
+TDS_LOGIN7_VERSION_71 = 0x00000071
+TDS_LOGIN7_VERSION_71REV1 = 0x01000071
+TDS_LOGIN7_VERSION_72 = 0x02000972
+TDS_LOGIN7_VERSION_73A = 0x03000A73
+TDS_LOGIN7_VERSION_73B = 0x03000B73
+TDS_LOGIN7_VERSION_74 = 0x04000074
+TDS_LOGIN7_VERSION_80 = 0x08000000
+
 # Negotiated protocol versions as reported by LOGINACK.
 TDS_VERSION_71 = 0x71000001
 TDS_VERSION_72 = 0x72090002
@@ -146,6 +156,16 @@ TDS_VERSION_73A = 0x730A0003
 TDS_VERSION_73B = 0x730B0003
 TDS_VERSION_74 = 0x74000004
 TDS_VERSION_80 = 0x08000000
+
+TDS_LEGACY_LOGIN7_VERSIONS = (
+    TDS_LOGIN7_VERSION_70,
+    TDS_LOGIN7_VERSION_71,
+    TDS_LOGIN7_VERSION_71REV1,
+)
+
+
+def login7_uses_72_plus_token_layout(tds_version):
+    return tds_version not in TDS_LEGACY_LOGIN7_VERSIONS
 
 # Option 2 Flags
 TDS_INTEGRATED_SECURITY_ON = 0x80
@@ -162,6 +182,7 @@ TDS_DONEPROC_TOKEN = 0xFE
 TDS_DONEINPROC_TOKEN = 0xFF
 TDS_ENVCHANGE_TOKEN = 0xE3
 TDS_ERROR_TOKEN = 0xAA
+TDS_FEATUREEXTACK_TOKEN = 0xAE
 TDS_INFO_TOKEN = 0xAB
 TDS_LOGINACK_TOKEN = 0xAD
 TDS_NBCROW_TOKEN = 0xD2
@@ -172,6 +193,12 @@ TDS_RETURNVALUE_TOKEN = 0xAC
 TDS_ROW_TOKEN = 0xD1
 TDS_SSPI_TOKEN = 0xED
 TDS_TABNAME_TOKEN = 0xA4
+
+# FeatureExt / FeatureExtAck feature IDs
+TDS_FEATURE_EXT_FEDAUTH = 0x02
+TDS_FEATURE_EXT_UTF8_SUPPORT = 0x0A
+TDS_FEATURE_EXT_TERMINATOR = 0xFF
+TDS_FEATURE_EXT_UTF8_SUPPORT_ENABLED = b"\x01"
 
 # ENVCHANGE Types
 TDS_ENVCHANGE_DATABASE = 1
@@ -301,37 +328,71 @@ class TDS_LOGIN(Structure):
         ("AppNameLength", '<H=len(self["AppName"])//2'),
         ("ServerNameOffset", "<H"),
         ("ServerNameLength", '<H=len(self["ServerName"])//2'),
-        ("UnusedOffset", "<H=0"),
-        ("UnusedLength", "<H=0"),
+        ("ExtensionOffset", "<H=0"),
+        ("ExtensionLength", "<H=0"),
         ("CltIntNameOffset", "<H"),
         ("CltIntNameLength", '<H=len(self["CltIntName"])//2'),
         ("LanguageOffset", "<H=0"),
-        ("LanguageLength", "<H=0"),
+        ("LanguageLength", '<H=len(self["Language"])//2'),
         ("DatabaseOffset", "<H=0"),
         ("DatabaseLength", '<H=len(self["Database"])//2'),
         ("ClientID", '6s=b"\x01\x02\x03\x04\x05\x06"'),
         ("SSPIOffset", "<H"),
-        ("SSPILength", '<H=len(self["SSPI"])'),
+        ("SSPILength", '<H=min(len(self["SSPI"]), 0xFFFF)'),
         ("AtchDBFileOffset", "<H"),
         ("AtchDBFileLength", '<H=len(self["AtchDBFile"])//2'),
+        ("ChangePasswordOffset", "<H=0"),
+        ("ChangePasswordLength", '<H=len(self["ChangePassword"])//2'),
+        ("SSPILongLength", "<L=0"),
         ("HostName", ":"),
         ("UserName", ":"),
         ("Password", ":"),
         ("AppName", ":"),
         ("ServerName", ":"),
+        ("ExtensionOffsetData", ":"),
         ("CltIntName", ":"),
+        ("Language", ":"),
         ("Database", ":"),
         ("SSPI", ":"),
         ("AtchDBFile", ":"),
+        ("ChangePassword", ":"),
+        ("FeatureExtData", ":"),
     )
 
     def __init__(self, data=None):
         Structure.__init__(self, data)
         if data is None:
+            self["HostName"] = b""
             self["UserName"] = ""
             self["Password"] = ""
+            self["AppName"] = b""
+            self["ServerName"] = b""
+            self["CltIntName"] = b""
+            self["SSPI"] = b""
+            self["OptionFlags3"] = 0
+            self["Language"] = ""
             self["Database"] = ""
             self["AtchDBFile"] = ""
+            self["ChangePassword"] = ""
+            self["ExtensionOffsetData"] = b""
+            self["FeatureExtData"] = b""
+
+    def _uses_74_plus_layout(self):
+        return self["TDSVersion"] >= TDS_LOGIN7_VERSION_74
+
+    def _pack_feature_ext(self, feature_id, payload):
+        return struct.pack("<BL", feature_id, len(payload)) + payload
+
+    def _build_feature_ext(self):
+        # Minimal 7.4+ FeatureExt payload:
+        # UTF8_SUPPORT, one-byte "enabled" payload, then the terminator.
+        return (
+            self._pack_feature_ext(
+                TDS_FEATURE_EXT_UTF8_SUPPORT,
+                TDS_FEATURE_EXT_UTF8_SUPPORT_ENABLED,
+            )
+            + bytes([TDS_FEATURE_EXT_TERMINATOR])
+        )
 
     def fromString(self, data):
         Structure.fromString(self, data)
@@ -363,21 +424,42 @@ class TDS_LOGIN(Structure):
                 : self["CltIntNameLength"] * 2
             ]
 
+        if self["LanguageLength"] > 0:
+            self["Language"] = data[self["LanguageOffset"] :][
+                : self["LanguageLength"] * 2
+            ]
+
         if self["DatabaseLength"] > 0:
             self["Database"] = data[self["DatabaseOffset"] :][
                 : self["DatabaseLength"] * 2
             ]
 
         if self["SSPILength"] > 0:
-            self["SSPI"] = data[self["SSPIOffset"] :][: self["SSPILength"] * 2]
+            sspi_len = self["SSPILongLength"] or self["SSPILength"]
+            self["SSPI"] = data[self["SSPIOffset"] :][: sspi_len]
 
         if self["AtchDBFileLength"] > 0:
             self["AtchDBFile"] = data[self["AtchDBFileOffset"] :][
                 : self["AtchDBFileLength"] * 2
             ]
 
+        if self["ChangePasswordLength"] > 0:
+            self["ChangePassword"] = data[self["ChangePasswordOffset"] :][
+                : self["ChangePasswordLength"] * 2
+            ]
+
+        if self["ExtensionLength"] >= 4 and self["ExtensionOffset"] + 4 <= len(data):
+            self["ExtensionOffsetData"] = data[
+                self["ExtensionOffset"] : self["ExtensionOffset"] + 4
+            ]
+            feature_ext_offset = struct.unpack("<L", self["ExtensionOffsetData"])[0]
+            if feature_ext_offset < len(data):
+                self["FeatureExtData"] = data[feature_ext_offset:]
+
     def getData(self):
-        index = 36 + 50
+        uses_74_plus_layout = self._uses_74_plus_layout()
+        # Fixed LOGIN7 header size before any variable-length payload begins.
+        index = 94
         self["HostNameOffset"] = index
 
         index += len(self["HostName"])
@@ -397,12 +479,47 @@ class TDS_LOGIN(Structure):
         index += len(self["Password"])
 
         self["AppNameOffset"] = index
-        self["ServerNameOffset"] = self["AppNameOffset"] + len(self["AppName"])
-        self["CltIntNameOffset"] = self["ServerNameOffset"] + len(self["ServerName"])
-        self["LanguageOffset"] = self["CltIntNameOffset"] + len(self["CltIntName"])
-        self["DatabaseOffset"] = self["LanguageOffset"]
-        self["SSPIOffset"] = self["DatabaseOffset"] + len(self["Database"])
-        self["AtchDBFileOffset"] = self["SSPIOffset"] + len(self["SSPI"])
+        index = self["AppNameOffset"] + len(self["AppName"])
+        self["ServerNameOffset"] = index
+        index += len(self["ServerName"])
+
+        if uses_74_plus_layout:
+            self["OptionFlags3"] = self.fields.get("OptionFlags3", 0) | 0x08 | 0x10
+            self["FeatureExtData"] = self._build_feature_ext()
+            self["ExtensionOffset"] = index
+            self["ExtensionLength"] = 4
+            index += 4
+        else:
+            self["FeatureExtData"] = b""
+            self["ExtensionOffsetData"] = b""
+            self["ExtensionOffset"] = 0
+            self["ExtensionLength"] = 0
+            self["OptionFlags3"] = self.fields.get("OptionFlags3", 0) & ~0x10
+
+        self["CltIntNameOffset"] = index
+        index += len(self["CltIntName"])
+
+        self["LanguageOffset"] = index
+        index += len(self["Language"])
+
+        self["DatabaseOffset"] = index
+        index += len(self["Database"])
+
+        self["SSPIOffset"] = index
+        index += len(self["SSPI"])
+
+        self["AtchDBFileOffset"] = index
+        index += len(self["AtchDBFile"])
+
+        self["ChangePasswordOffset"] = index
+        index += len(self["ChangePassword"])
+
+        if uses_74_plus_layout:
+            self["ExtensionOffsetData"] = struct.pack("<L", index)
+        else:
+            self["ExtensionOffsetData"] = b""
+
+        self["SSPILongLength"] = len(self["SSPI"]) if len(self["SSPI"]) > 0xFFFF else 0
         return Structure.getData(self)
 
 
@@ -411,7 +528,7 @@ class TDS_LOGIN_ACK(Structure):
         ("TokenType", "<B"),
         ("Length", "<H"),
         ("Interface", "<B"),
-        ("TDSVersion", "<L"),
+        ("TDSVersion", ">L"),
         ("ProgNameLen", "<B"),
         ("_ProgNameLen", "_-ProgName", 'self["ProgNameLen"]*2'),
         ("ProgName", ":"),
@@ -420,6 +537,82 @@ class TDS_LOGIN_ACK(Structure):
         ("BuildNumHi", "<B"),
         ("BuildNumLow", "<B"),
     )
+
+
+class TDS_FEATUREEXTACK(Structure):
+    structure = ()
+
+    def __init__(self, data=None):
+        Structure.__init__(self)
+        self["TokenType"] = TDS_FEATUREEXTACK_TOKEN
+        self["Features"] = []
+        self["FeatureAckData"] = {}
+        self["FedAuth"] = None
+        self["FedAuthNonce"] = None
+        self["FedAuthSignature"] = None
+        self["UTF8Support"] = None
+
+        if data is not None:
+            self.fromString(data)
+
+    def fromString(self, data):
+        if len(data) < 1:
+            raise Exception("Truncated FEATUREEXTACK token")
+
+        token_type = struct.unpack("<B", data[:1])[0]
+        if token_type != TDS_FEATUREEXTACK_TOKEN:
+            raise Exception("Invalid FEATUREEXTACK token type 0x%x" % token_type)
+
+        offset = 1
+        features = []
+        feature_ack_data = {}
+        self["FedAuth"] = None
+        self["FedAuthNonce"] = None
+        self["FedAuthSignature"] = None
+        self["UTF8Support"] = None
+
+        # FEATUREEXTACK is a sequence of [feature id, uint32 length, payload]
+        # entries terminated by 0xFF.
+        while True:
+            if offset >= len(data):
+                raise Exception("Unterminated FEATUREEXTACK token")
+
+            feature_id = struct.unpack("<B", data[offset : offset + 1])[0]
+            offset += 1
+
+            if feature_id == TDS_FEATURE_EXT_TERMINATOR:
+                break
+
+            if offset + 4 > len(data):
+                raise Exception("Truncated FEATUREEXTACK length")
+
+            feature_len = struct.unpack("<L", data[offset : offset + 4])[0]
+            offset += 4
+
+            if offset + feature_len > len(data):
+                raise Exception("Truncated FEATUREEXTACK payload")
+
+            feature_data = data[offset : offset + feature_len]
+            offset += feature_len
+
+            features.append((feature_id, feature_data))
+            feature_ack_data[feature_id] = feature_data
+
+            if feature_id == TDS_FEATURE_EXT_FEDAUTH:
+                self["FedAuth"] = feature_data
+                if feature_len >= 32:
+                    self["FedAuthNonce"] = feature_data[:32]
+                if feature_len >= 64:
+                    self["FedAuthSignature"] = feature_data[32:64]
+            elif feature_id == TDS_FEATURE_EXT_UTF8_SUPPORT and feature_len > 0:
+                self["UTF8Support"] = feature_data[0] != 0
+
+        self["TokenType"] = token_type
+        self["Features"] = features
+        self["FeatureAckData"] = feature_ack_data
+        self.data = data[:offset]
+        self.rawData = data[:offset]
+        return self
 
 
 class TDS_RETURNSTATUS(Structure):
@@ -446,6 +639,26 @@ class TDS_INFO_ERROR(Structure):
         ("_ProcNameLen", "_-ProcName", 'self["ProcNameLen"]*2'),
         ("ProcName", ":"),
         ("LineNumber", "<H"),
+    )
+
+
+class TDS_INFO_ERROR72(Structure):
+    structure = (
+        ("TokenType", "<B"),
+        ("Length", "<H"),
+        ("Number", "<L"),
+        ("State", "<B"),
+        ("Class", "<B"),
+        ("MsgTextLen", "<H"),
+        ("_MsgTextLen", "_-MsgText", 'self["MsgTextLen"]*2'),
+        ("MsgText", ":"),
+        ("ServerNameLen", "<B"),
+        ("_ServerNameLen", "_-ServerName", 'self["ServerNameLen"]*2'),
+        ("ServerName", ":"),
+        ("ProcNameLen", "<B"),
+        ("_ProcNameLen", "_-ProcName", 'self["ProcNameLen"]*2'),
+        ("ProcName", ":"),
+        ("LineNumber", "<L"),
     )
 
 
@@ -919,7 +1132,7 @@ class MSSQL:
         self.tds8 = False
         self.in_bio = None
         self.out_bio = None
-        self.done_rowcount_bytes = 4
+        self.login_tds_version = TDS_LOGIN7_VERSION_71
         self.__rowsPrinter = rowsPrinter
         self.mssql_version = ""
 
@@ -1005,31 +1218,36 @@ class MSSQL:
         self.tds8 = False
         self.in_bio = None
         self.out_bio = None
-        self.done_rowcount_bytes = 4
+        self.login_tds_version = TDS_LOGIN7_VERSION_71
 
     def _has_active_tls_channel_binding(self):
         return self.tls_unique is not None and (
             self.tds8 or self.tlsSocket is not None
         )
 
-    def _set_done_rowcount_bytes_from_tds_version(self, tds_version):
-        if tds_version in (
-            TDS_VERSION_72,
-            TDS_VERSION_73A,
-            TDS_VERSION_73B,
-            TDS_VERSION_74,
-            TDS_VERSION_80,
-        ):
-            self.done_rowcount_bytes = 8
-        else:
-            self.done_rowcount_bytes = 4
+    def _get_default_login7_tds_version(self):
+        # TDS 8.0 is negotiated by the TLS handshake, but the LOGIN7 payload still
+        # needs to use the modern 7.4-era layout and extensions.
+        return TDS_LOGIN7_VERSION_74 if self.tds8 else TDS_LOGIN7_VERSION_71
+
+    def _set_session_login7_tds_version(self, tds_version):
+        self.login_tds_version = tds_version
+
+    def _uses_72_plus_token_layout(self):
+        return login7_uses_72_plus_token_layout(self.login_tds_version)
+
+    def _parse_info_error_token(self, tokens):
+        parser = TDS_INFO_ERROR72 if self._uses_72_plus_token_layout() else TDS_INFO_ERROR
+        return parser(tokens)
 
     def _parse_done_token(self, tokens, inproc=False):
-        wide_parser = TDS_DONEINPROC72 if inproc else TDS_DONE72
-        narrow_parser = TDS_DONEINPROC if inproc else TDS_DONE
-        if self.done_rowcount_bytes == 8:
-            return wide_parser(tokens)
-        return narrow_parser(tokens)
+        # Once the session is using a coherent LOGIN7 version, DONE rowcount width
+        # follows that negotiated login version directly.
+        if self._uses_72_plus_token_layout():
+            parser = TDS_DONEINPROC72 if inproc else TDS_DONE72
+        else:
+            parser = TDS_DONEINPROC if inproc else TDS_DONE
+        return parser(tokens)
 
     def connect(self, timeout=30):
         self._reset_tls_state()
@@ -1378,6 +1596,8 @@ class MSSQL:
         ) = (10, 0, 20348)
 
         login = TDS_LOGIN()
+        login["TDSVersion"] = self._get_default_login7_tds_version()
+        self._set_session_login7_tds_version(login["TDSVersion"])
         login["HostName"] = self.workstation_id.encode("utf-16le")
         login["AppName"] = self.application_name.encode("utf-16le")
         login["ServerName"] = self.remoteName.encode("utf-16le")
@@ -1597,9 +1817,10 @@ class MSSQL:
         login["SSPI"] = blob.getData()
         # Sets the length of the packet
         login["Length"] = len(login.getData())
+        login_data = login.getData()
 
         # Send login packet which is containing the Kerberos tickets
-        self.sendTDS(TDS_LOGIN7, login.getData())
+        self.sendTDS(TDS_LOGIN7, login_data)
 
         # According to the specs, if encryption is not required, we must encrypt just
         # the first Login packet :-o
@@ -1644,6 +1865,8 @@ class MSSQL:
         ) = (10, 0, 20348)
 
         login = TDS_LOGIN()
+        login["TDSVersion"] = self._get_default_login7_tds_version()
+        self._set_session_login7_tds_version(login["TDSVersion"])
         login["HostName"] = self.workstation_id.encode("utf-16le")
         login["AppName"] = self.application_name.encode("utf-16le")
         login["ServerName"] = self.remoteName.encode("utf-16le")
@@ -1677,9 +1900,10 @@ class MSSQL:
 
         # And finally we fill the Length field and send the TDS packet to initiate NTLM authentication
         login["Length"] = len(login.getData())
+        login_data = login.getData()
 
         # Send the NTLMSSP Negotiate or SQL Auth Packet
-        self.sendTDS(TDS_LOGIN7, login.getData())
+        self.sendTDS(TDS_LOGIN7, login_data)
 
         # According to the specs, if encryption is not required, we must encrypt just
         # the first Login packet :-o
@@ -2209,8 +2433,9 @@ class MSSQL:
         data = token["Data"]
         for i in range(count):
             column = {}
-            userType = struct.unpack("<H", data[: struct.calcsize("<H")])[0]
-            data = data[struct.calcsize("<H") :]
+            userTypeFormat = "<L" if self._uses_72_plus_token_layout() else "<H"
+            userType = struct.unpack(userTypeFormat, data[: struct.calcsize(userTypeFormat)])[0]
+            data = data[struct.calcsize(userTypeFormat) :]
             flags = struct.unpack("<H", data[: struct.calcsize("<H")])[0]
             data = data[struct.calcsize("<H") :]
             colType = struct.unpack("<B", data[: struct.calcsize("<B")])[0]
@@ -2316,15 +2541,12 @@ class MSSQL:
 
         return origDataLen - len(data)
 
-    def parseReply(self, tokens, tuplemode=False):
-        if len(tokens) == 0:
-            return False
-
+    def _parse_reply_tokens(self, tokens, tuplemode=False, log_unknown=True):
         replies = {}
         while len(tokens) > 0:
             tokenID = struct.unpack("B", tokens[0:1])[0]
             if tokenID == TDS_ERROR_TOKEN:
-                token = TDS_INFO_ERROR(tokens)
+                token = self._parse_info_error_token(tokens)
                 self.lastError = SQLErrorException(
                     "ERROR(%s): Line %d: %s"
                     % (
@@ -2336,10 +2558,11 @@ class MSSQL:
             elif tokenID == TDS_RETURNSTATUS_TOKEN:
                 token = TDS_RETURNSTATUS(tokens)
             elif tokenID == TDS_INFO_TOKEN:
-                token = TDS_INFO_ERROR(tokens)
+                token = self._parse_info_error_token(tokens)
+            elif tokenID == TDS_FEATUREEXTACK_TOKEN:
+                token = TDS_FEATUREEXTACK(tokens)
             elif tokenID == TDS_LOGINACK_TOKEN:
                 token = TDS_LOGIN_ACK(tokens)
-                self._set_done_rowcount_bytes_from_tds_version(token["TDSVersion"])
             elif tokenID == TDS_ENVCHANGE_TOKEN:
                 token = TDS_ENVCHANGE(tokens)
                 if token["Type"] is TDS_ENVCHANGE_PACKETSIZE:
@@ -2366,8 +2589,9 @@ class MSSQL:
             elif tokenID == TDS_DONE_TOKEN:
                 token = self._parse_done_token(tokens)
             else:
-                LOG.error("Unknown Token %x" % tokenID)
-                return replies
+                if log_unknown:
+                    LOG.error("Unknown Token %x" % tokenID)
+                return replies, False
 
             if (tokenID in replies) is not True:
                 replies[tokenID] = list()
@@ -2377,6 +2601,13 @@ class MSSQL:
             # print "TYPE 0x%x, LEN: %d" %(tokenID, len(token))
             # print repr(tokens[:10])
 
+        return replies, True
+
+    def parseReply(self, tokens, tuplemode=False):
+        if len(tokens) == 0:
+            return False
+
+        replies, _ = self._parse_reply_tokens(tokens, tuplemode)
         return replies
 
     def _build_batch_data(self, cmd):

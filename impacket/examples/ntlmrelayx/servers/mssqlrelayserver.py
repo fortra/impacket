@@ -145,11 +145,20 @@ class MSSQLRelayServer(Thread):
             
         def decryptPassword(self, password):
             return bytes((((x ^ 0xA5) & 0x0F) << 4) | (((x ^ 0xA5) & 0xF0) >> 4) for x in bytearray(password))
+
+        def getLoginTDSVersion(self):
+            return self.login["TDSVersion"]
             
         def sendNegotiate(self,negotiateMessage):
             # Changed from the version in mssqlrelayclient.py to use the same parameters as 
             # the original request and change the database
             login = tds.TDS_LOGIN()
+            if self.client.session.tds8:
+                login_tds_version = tds.TDS_LOGIN7_VERSION_74
+            else:
+                login_tds_version = self.getLoginTDSVersion()
+            login['TDSVersion'] = login_tds_version
+            self.client.session._set_session_login7_tds_version(login_tds_version)
 
             login['HostName'] = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
             login['AppName']  = self.login['AppName']
@@ -186,7 +195,13 @@ class MSSQLRelayServer(Thread):
             return challenge
             
         def sendLoginFailed(self):
-            responseData = tds.TDS_INFO_ERROR()
+            login_tds_version = self.getLoginTDSVersion()
+            if tds.login7_uses_72_plus_token_layout(login_tds_version):
+                responseData = tds.TDS_INFO_ERROR72()
+                doneData = tds.TDS_DONE72()
+            else:
+                responseData = tds.TDS_INFO_ERROR()
+                doneData = tds.TDS_DONE()
             msg = "Login failed for user ''.".encode('utf-16le')
             server = "MSSQLSERVER".encode('utf-16le')
             proc = b""
@@ -201,13 +216,8 @@ class MSSQLRelayServer(Thread):
             responseData['ProcName'] = proc
             responseData['ProcNameLen'] = len(proc) // 2
             responseData['LineNumber'] = 1
-                        
-            responseData['Length'] = 16 + len(msg) + len(server) + len(proc)
-                        
-            if self.tds8_mode:
-                doneData = tds.TDS_DONE72()
-            else:
-                doneData = tds.TDS_DONE()
+            responseData['Length'] = len(responseData.getData()) - 3
+
             doneData['TokenType'] = tds.TDS_DONE_TOKEN
             doneData['Status'] = 0x02 # TDS_DONE_ERROR
             doneData['CurCmd'] = 0
@@ -294,13 +304,13 @@ class MSSQLRelayServer(Thread):
                             password = self.decryptPassword(loginData["Password"])
                             LOG.info("(MSSQL): Password    : %s" % password.decode("utf-8"))
                             LOG.info("(MSSQL): Password is not empty. Relay is not required.")
+                        self.login = loginData
                         if not loginData["SSPI"]:
                             LOG.error("(MSSQL): NTLMSSP_NEGOTIATE not found in login message")
                             LOG.debug("(MSSQL): Sending our own error response to the client")
                             self.sendLoginFailed()
                             break                        
                         negotiateMessage = loginData["SSPI"]
-                        self.login = loginData
                         # For MSSQL, we change the database and target server name
                         if (self.target.scheme.upper() == "MSSQL"):
                             self.client.sendNegotiate = self.sendNegotiate

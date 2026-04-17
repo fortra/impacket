@@ -48,6 +48,8 @@ class MYMSSQL(MSSQL):
 
     def sendNegotiate(self, negotiateMessage):
         login = TDS_LOGIN()
+        login['TDSVersion'] = self._get_default_login7_tds_version()
+        self._set_session_login7_tds_version(login['TDSVersion'])
 
         login['HostName'] = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
         login['AppName']  = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
