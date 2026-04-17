@@ -183,7 +183,8 @@ class MSSQLRelayServer(Thread):
 
             # According to the specs, if encryption is not required, we must encrypt just
             # the first Login packet :-o
-            if self.client.session.resp['Encryption'] == tds.TDS_ENCRYPT_OFF:
+            # In TDS 8.0 mode, the socket is already TLS-wrapped, so we don't touch tlsSocket
+            if not self.client.session.tds8 and self.client.session.resp['Encryption'] == tds.TDS_ENCRYPT_OFF:
                 self.client.session.tlsSocket = None
 
             tds_response = self.client.session.recvTDS()
