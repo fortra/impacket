@@ -248,8 +248,72 @@ def init_ldap_session(domain, username, password, lmhash, nthash, k, dc_ip, dc_h
 
 # ----------
 
-from impacket.ldap import ldap
+from impacket.ldap import ldap, ldapasn1
+from impacket.ldap.ldaptypes import LDAP_SID
 import logging
+
+
+def as_bytes(value):
+    """Coerce an LDAP attribute value to bytes."""
+    if value is None:
+        return None
+    if hasattr(value, 'asOctets'):
+        return value.asOctets()
+    if isinstance(value, bytes):
+        return value
+    return bytes(value)
+
+
+def as_string(value):
+    """Coerce an LDAP attribute value to a UTF-8 string."""
+    if value is None:
+        return None
+    if isinstance(value, bytes):
+        return value.decode('utf-8')
+    if hasattr(value, 'asOctets'):
+        raw = value.asOctets()
+        try:
+            return raw.decode('utf-8')
+        except UnicodeDecodeError:
+            return raw.decode('latin-1')
+    return str(value)
+
+
+def as_sid_string(value):
+    """Coerce an LDAP attribute value to a canonical SID string (e.g. S-1-5-...)."""
+    if value is None:
+        return None
+    if isinstance(value, str) and value.startswith('S-'):
+        return value
+    sid_bytes = as_bytes(value)
+    if sid_bytes is None:
+        return None
+    return LDAP_SID(data=sid_bytes).formatCanonical()
+
+
+def search_entries(ldap_session, search_filter, search_base, search_scope=None,
+                   attributes=None, search_controls=None):
+    """Run an LDAP search and return only SearchResultEntry items."""
+    response = ldap_session.search(
+        searchBase=search_base,
+        searchFilter=search_filter,
+        scope=search_scope,
+        attributes=attributes,
+        searchControls=search_controls,
+    )
+    return [item for item in response if isinstance(item, ldapasn1.SearchResultEntry)]
+
+
+def log_ldap_error(prefix, error):
+    """Log an LDAPSessionError with a human-readable prefix."""
+    if error.getErrorCode() == 50:
+        logging.error('%s, the server reports insufficient rights: %s', prefix, error.getErrorString())
+    elif error.getErrorCode() == 19:
+        logging.error('%s, the server reports a constrained violation: %s', prefix, error.getErrorString())
+    else:
+        logging.error('%s: %s', prefix, error.getErrorString())
+
+
 def ldap_login(target, base_dn, kdc_ip, kdc_host, do_kerberos, username, password, domain, lmhash, nthash, aeskey, ldaps_flag=False, target_domain=None, fqdn=False):
     if kdc_host is not None and (target_domain is None or domain == target_domain):
         target = kdc_host
