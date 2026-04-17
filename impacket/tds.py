@@ -384,15 +384,7 @@ class TDS_LOGIN(Structure):
         return struct.pack("<BL", feature_id, len(payload)) + payload
 
     def _build_feature_ext(self):
-        # Minimal 7.4+ FeatureExt payload:
-        # UTF8_SUPPORT, one-byte "enabled" payload, then the terminator.
-        return (
-            self._pack_feature_ext(
-                TDS_FEATURE_EXT_UTF8_SUPPORT,
-                TDS_FEATURE_EXT_UTF8_SUPPORT_ENABLED,
-            )
-            + bytes([TDS_FEATURE_EXT_TERMINATOR])
-        )
+        return b""
 
     def fromString(self, data):
         Structure.fromString(self, data)
@@ -458,6 +450,8 @@ class TDS_LOGIN(Structure):
 
     def getData(self):
         uses_74_plus_layout = self._uses_74_plus_layout()
+        feature_ext_data = self._build_feature_ext() if uses_74_plus_layout else b""
+        has_feature_ext = bool(feature_ext_data)
         # Fixed LOGIN7 header size before any variable-length payload begins.
         index = 94
         self["HostNameOffset"] = index
@@ -484,11 +478,13 @@ class TDS_LOGIN(Structure):
         index += len(self["ServerName"])
 
         if uses_74_plus_layout:
-            self["OptionFlags3"] = self.fields.get("OptionFlags3", 0) | 0x08 | 0x10
-            self["FeatureExtData"] = self._build_feature_ext()
-            self["ExtensionOffset"] = index
-            self["ExtensionLength"] = 4
-            index += 4
+            self["OptionFlags3"] = self.fields.get("OptionFlags3", 0) | 0x08
+            self["FeatureExtData"] = feature_ext_data
+            self["ExtensionOffset"] = index if has_feature_ext else 0
+            self["ExtensionLength"] = 4 if has_feature_ext else 0
+            if has_feature_ext:
+                self["OptionFlags3"] |= 0x10
+                index += 4
         else:
             self["FeatureExtData"] = b""
             self["ExtensionOffsetData"] = b""
@@ -514,7 +510,7 @@ class TDS_LOGIN(Structure):
         self["ChangePasswordOffset"] = index
         index += len(self["ChangePassword"])
 
-        if uses_74_plus_layout:
+        if has_feature_ext:
             self["ExtensionOffsetData"] = struct.pack("<L", index)
         else:
             self["ExtensionOffsetData"] = b""
