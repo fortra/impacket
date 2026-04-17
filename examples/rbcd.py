@@ -23,16 +23,12 @@ import argparse
 import logging
 import sys
 import traceback
-import ldap3
-import ldapdomaindump
-from ldap3.protocol.formatters.formatters import format_sid
 
 from impacket import version
 from impacket.examples import logger, utils
-from impacket.ldap import ldaptypes
-from ldap3.utils.conv import escape_filter_chars
+from impacket.ldap import ldap, ldapasn1, ldaptypes
 
-from impacket.examples.utils import init_ldap_session, parse_identity
+from impacket.examples.utils import ldap_login, parse_identity
 
 def create_empty_sd():
     sd = ldaptypes.SR_SECURITY_DESCRIPTOR()
@@ -70,18 +66,95 @@ def create_allow_ace(sid):
 class RBCD(object):
     """docstring for setrbcd"""
 
-    def __init__(self, ldap_server, ldap_session, delegate_to):
+    LDAP_SCOPE_BASE = ldap.Scope('baseObject')
+
+    def __init__(self, ldap_session, base_dn, delegate_to):
         super(RBCD, self).__init__()
-        self.ldap_server = ldap_server
         self.ldap_session = ldap_session
+        self.base_dn = base_dn
         self.delegate_from = None
         self.delegate_to = delegate_to
         self.SID_delegate_from = None
         self.DN_delegate_to = None
-        logging.debug('Initializing domainDumper()')
-        cnf = ldapdomaindump.domainDumpConfig()
-        cnf.basepath = None
-        self.domain_dumper = ldapdomaindump.domainDumper(self.ldap_server, self.ldap_session, cnf)
+
+    @staticmethod
+    def escape_filter_chars(value):
+        escaped = value.replace('\\', '\\5c')
+        escaped = escaped.replace('*', '\\2a')
+        escaped = escaped.replace('(', '\\28')
+        escaped = escaped.replace(')', '\\29')
+        escaped = escaped.replace('\x00', '\\00')
+        return escaped
+
+    @staticmethod
+    def _entry_dn(entry):
+        return str(entry['objectName'])
+
+    @staticmethod
+    def _get_entry_values(entry, attribute_name):
+        for attribute in entry['attributes']:
+            if str(attribute['type']).lower() == attribute_name.lower():
+                return list(attribute['vals'])
+        return []
+
+    @classmethod
+    def _get_entry_value(cls, entry, attribute_name):
+        values = cls._get_entry_values(entry, attribute_name)
+        return values[0] if values else None
+
+    @staticmethod
+    def _as_bytes(value):
+        if value is None:
+            return None
+        if hasattr(value, 'asOctets'):
+            return value.asOctets()
+        if isinstance(value, bytes):
+            return value
+        return bytes(value)
+
+    @classmethod
+    def _as_string(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, bytes):
+            return value.decode('utf-8')
+        if hasattr(value, 'asOctets'):
+            try:
+                return value.asOctets().decode('utf-8')
+            except UnicodeDecodeError:
+                return str(value)
+        return str(value)
+
+    @classmethod
+    def _as_sid_string(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, str) and value.startswith('S-'):
+            return value
+        sid_bytes = cls._as_bytes(value)
+        if sid_bytes is None:
+            return None
+        return ldaptypes.LDAP_SID(data=sid_bytes).formatCanonical()
+
+    @classmethod
+    def _search_entries(cls, ldap_session, search_filter, search_base=None, search_scope=None, attributes=None, search_controls=None):
+        response = ldap_session.search(
+            searchBase=search_base,
+            searchFilter=search_filter,
+            scope=search_scope,
+            attributes=attributes,
+            searchControls=search_controls,
+        )
+        return [item for item in response if isinstance(item, ldapasn1.SearchResultEntry)]
+
+    @staticmethod
+    def _log_ldap_error(prefix, error):
+        if error.getErrorCode() == 50:
+            logging.error('%s, the server reports insufficient rights: %s', prefix, error.getErrorString())
+        elif error.getErrorCode() == 19:
+            logging.error('%s, the server reports a constrained violation: %s', prefix, error.getErrorString())
+        else:
+            logging.error('%s: %s', prefix, error.getErrorString())
 
     def read(self):
         # Get target computer DN
@@ -119,21 +192,15 @@ class RBCD(object):
         # writing only if SID not already in list
         if self.SID_delegate_from not in [ ace['Ace']['Sid'].formatCanonical() for ace in sd['Dacl'].aces ]:
             sd['Dacl'].aces.append(create_allow_ace(self.SID_delegate_from))
-            self.ldap_session.modify(targetuser['dn'],
-                                     {'msDS-AllowedToActOnBehalfOfOtherIdentity': [ldap3.MODIFY_REPLACE,
-                                                                                   [sd.getData()]]})
-            if self.ldap_session.result['result'] == 0:
+            try:
+                self.ldap_session.modify(
+                    self._entry_dn(targetuser),
+                    {'msDS-AllowedToActOnBehalfOfOtherIdentity': [(ldap.MODIFY_REPLACE, [sd.getData()])]},
+                )
                 logging.info('Delegation rights modified successfully!')
                 logging.info('%s can now impersonate users on %s via S4U2Proxy', self.delegate_from, self.delegate_to)
-            else:
-                if self.ldap_session.result['result'] == 50:
-                    logging.error('Could not modify object, the server reports insufficient rights: %s',
-                                  self.ldap_session.result['message'])
-                elif self.ldap_session.result['result'] == 19:
-                    logging.error('Could not modify object, the server reports a constrained violation: %s',
-                                  self.ldap_session.result['message'])
-                else:
-                    logging.error('The server returned an error: %s', self.ldap_session.result['message'])
+            except ldap.LDAPSessionError as error:
+                self._log_ldap_error('Could not modify object', error)
         else:
             logging.info('%s can already impersonate users on %s via S4U2Proxy', self.delegate_from, self.delegate_to)
             logging.info('Not modifying the delegation rights.')
@@ -163,20 +230,14 @@ class RBCD(object):
 
         # Remove the entries where SID match the given -delegate-from
         sd['Dacl'].aces = [ace for ace in sd['Dacl'].aces if self.SID_delegate_from != ace['Ace']['Sid'].formatCanonical()]
-        self.ldap_session.modify(targetuser['dn'],
-                                 {'msDS-AllowedToActOnBehalfOfOtherIdentity': [ldap3.MODIFY_REPLACE, [sd.getData()]]})
-
-        if self.ldap_session.result['result'] == 0:
+        try:
+            self.ldap_session.modify(
+                self._entry_dn(targetuser),
+                {'msDS-AllowedToActOnBehalfOfOtherIdentity': [(ldap.MODIFY_REPLACE, [sd.getData()])]},
+            )
             logging.info('Delegation rights modified successfully!')
-        else:
-            if self.ldap_session.result['result'] == 50:
-                logging.error('Could not modify object, the server reports insufficient rights: %s',
-                              self.ldap_session.result['message'])
-            elif self.ldap_session.result['result'] == 19:
-                logging.error('Could not modify object, the server reports a constrained violation: %s',
-                              self.ldap_session.result['message'])
-            else:
-                logging.error('The server returned an error: %s', self.ldap_session.result['message'])
+        except ldap.LDAPSessionError as error:
+            self._log_ldap_error('Could not modify object', error)
         # Get list of allowed to act
         self.get_allowed_to_act()
         return
@@ -192,38 +253,35 @@ class RBCD(object):
         # Get list of allowed to act
         sd, targetuser = self.get_allowed_to_act()
 
-        self.ldap_session.modify(targetuser['dn'], {'msDS-AllowedToActOnBehalfOfOtherIdentity': [ldap3.MODIFY_REPLACE, []]})
-        if self.ldap_session.result['result'] == 0:
+        try:
+            self.ldap_session.modify(
+                self._entry_dn(targetuser),
+                {'msDS-AllowedToActOnBehalfOfOtherIdentity': [(ldap.MODIFY_REPLACE, [])]},
+            )
             logging.info('Delegation rights flushed successfully!')
-        else:
-            if self.ldap_session.result['result'] == 50:
-                logging.error('Could not modify object, the server reports insufficient rights: %s',
-                              self.ldap_session.result['message'])
-            elif self.ldap_session.result['result'] == 19:
-                logging.error('Could not modify object, the server reports a constrained violation: %s',
-                              self.ldap_session.result['message'])
-            else:
-                logging.error('The server returned an error: %s', self.ldap_session.result['message'])
+        except ldap.LDAPSessionError as error:
+            self._log_ldap_error('Could not modify object', error)
         # Get list of allowed to act
         self.get_allowed_to_act()
         return
 
     def get_allowed_to_act(self):
         # Get target's msDS-AllowedToActOnBehalfOfOtherIdentity attribute
-        self.ldap_session.search(self.DN_delegate_to, '(objectClass=*)', search_scope=ldap3.BASE,
-                                 attributes=['SAMAccountName', 'objectSid', 'msDS-AllowedToActOnBehalfOfOtherIdentity'])
-        targetuser = None
-        for entry in self.ldap_session.response:
-            if entry['type'] != 'searchResEntry':
-                continue
-            targetuser = entry
+        entries = self._search_entries(
+            self.ldap_session,
+            '(objectClass=*)',
+            search_base=self.DN_delegate_to,
+            search_scope=self.LDAP_SCOPE_BASE,
+            attributes=['SAMAccountName', 'objectSid', 'msDS-AllowedToActOnBehalfOfOtherIdentity'],
+        )
+        targetuser = entries[0] if entries else None
         if not targetuser:
             logging.error('Could not query target user properties')
             return
 
         try:
-            sd = ldaptypes.SR_SECURITY_DESCRIPTOR(
-                data=targetuser['raw_attributes']['msDS-AllowedToActOnBehalfOfOtherIdentity'][0])
+            raw_sd = self._as_bytes(self._get_entry_value(targetuser, 'msDS-AllowedToActOnBehalfOfOtherIdentity'))
+            sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=raw_sd)
             if len(sd['Dacl'].aces) > 0:
                 logging.info('Accounts allowed to act on behalf of other identity:')
                 for ace in sd['Dacl'].aces:
@@ -241,22 +299,32 @@ class RBCD(object):
         return sd, targetuser
 
     def get_user_info(self, samname):
-        self.ldap_session.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(samname), attributes=['objectSid'])
+        entries = self._search_entries(
+            self.ldap_session,
+            '(sAMAccountName=%s)' % self.escape_filter_chars(samname),
+            search_base=self.base_dn,
+            attributes=['objectSid'],
+        )
         try:
-            dn = self.ldap_session.entries[0].entry_dn
-            sid = format_sid(self.ldap_session.entries[0]['objectSid'].raw_values[0])
+            dn = self._entry_dn(entries[0])
+            sid = self._as_sid_string(self._get_entry_value(entries[0], 'objectSid'))
             return dn, sid
-        except IndexError:
+        except (IndexError, TypeError):
             logging.error('User not found in LDAP: %s' % samname)
             return False
 
     def get_sid_info(self, sid):
-        self.ldap_session.search(self.domain_dumper.root, '(objectSid=%s)' % escape_filter_chars(sid), attributes=['samaccountname'])
+        entries = self._search_entries(
+            self.ldap_session,
+            '(objectSid=%s)' % self.escape_filter_chars(sid),
+            search_base=self.base_dn,
+            attributes=['samaccountname'],
+        )
         try:
-            dn = self.ldap_session.entries[0].entry_dn
-            samname = self.ldap_session.entries[0]['samaccountname']
+            dn = self._entry_dn(entries[0])
+            samname = self._as_string(self._get_entry_value(entries[0], 'samaccountname'))
             return dn, samname
-        except IndexError:
+        except (IndexError, TypeError):
             logging.error('SID not found in LDAP: %s' % sid)
             return False
 
@@ -314,8 +382,10 @@ def main():
     domain, username, password, lmhash, nthash, args.k = parse_identity(args.identity, args.hashes, args.no_pass, args.aesKey, args.k)
 
     try:
-        ldap_server, ldap_session = init_ldap_session(domain, username, password, lmhash, nthash, args.k, args.dc_ip, args.dc_host, args.aesKey, args.use_ldaps)
-        rbcd = RBCD(ldap_server, ldap_session, args.delegate_to)
+        base_dn = ','.join('dc=%s' % part for part in domain.split('.'))
+        target = args.dc_host if args.dc_host is not None else domain
+        ldap_session = ldap_login(target, base_dn, args.dc_ip, args.dc_host, args.k, username, password, domain, lmhash, nthash, args.aesKey, ldaps_flag=args.use_ldaps)
+        rbcd = RBCD(ldap_session, base_dn, args.delegate_to)
         if args.action == 'read':
             rbcd.read()
         elif args.action == 'write':
