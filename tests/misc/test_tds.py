@@ -17,6 +17,18 @@ from impacket import tds
 
 
 class TDSTests(unittest.TestCase):
+    def test_prelogin_packs_four_byte_threadid(self):
+        token = tds.TDS_PRELOGIN()
+        token["Version"] = b"\x0f\x00\x11\x3a\x00\x00"
+        token["Encryption"] = tds.TDS_ENCRYPT_NOT_SUP
+        token["Instance"] = b"\x00"
+        token["ThreadID"] = struct.pack("<L", 1)
+
+        data = token.getData()
+
+        self.assertEqual(struct.unpack_from(">H", data, 18)[0], 4)
+        self.assertEqual(data[-4:], struct.pack("<L", 1))
+
     def test_info_error_length_is_computed_for_legacy_layout(self):
         token = tds.TDS_INFO_ERROR()
         token["TokenType"] = tds.TDS_ERROR_TOKEN

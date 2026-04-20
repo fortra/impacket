@@ -311,9 +311,8 @@ class MSSQLRelayServer(Thread):
                             preloginResponseData["Encryption"] = tds.TDS_ENCRYPT_NOT_SUP
                         # InstOpt is 0, we confirm that the client's InstOpt matches the server's instance
                         preloginResponseData["Instance"] = b"\x00"
-                        # ThreadId is empty in the server response
-                        preloginResponseData["ThreadID"] = b""
-                        preloginResponseData["ThreadIDLength"] = 0
+                        # Use a regular 4-byte THREADID for compatibility with Microsoft clients.
+                        preloginResponseData["ThreadID"] = struct.pack("<L", random.randint(0, 65535))
 
                         preloginResponse = tds.TDSPacket()
                         preloginResponse["Type"] = tds.TDS_TABULAR
