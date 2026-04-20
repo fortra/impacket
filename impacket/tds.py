@@ -1140,6 +1140,7 @@ class MSSQL:
         self.tds8 = False
         self.in_bio = None
         self.out_bio = None
+        self._recv_buffer = b""
         self.login_tds_version = TDS_LOGIN7_VERSION_71
         self.__rowsPrinter = rowsPrinter
         self.mssql_version = ""
@@ -1226,6 +1227,7 @@ class MSSQL:
         self.tds8 = False
         self.in_bio = None
         self.out_bio = None
+        self._recv_buffer = b""
         self.login_tds_version = TDS_LOGIN7_VERSION_71
 
     def _has_active_tls_channel_binding(self):
@@ -1363,43 +1365,35 @@ class MSSQL:
         if packetSize is None:
             packetSize = self.packetSize
 
-        data = b""
-        while data == b"":
-            data = self.socketRecv(packetSize)
-
-        packet = TDSPacket(data)
-
+        packet = self._recv_tds_packet(packetSize)
         status = packet["Status"]
-        packetLen = packet["Length"] - 8
-        while packetLen > len(packet["Data"]):
-            data = self.socketRecv(packetSize)
-            packet["Data"] += data
-
-        remaining = None
-        if packetLen < len(packet["Data"]):
-            remaining = packet["Data"][packetLen:]
-            packet["Data"] = packet["Data"][:packetLen]
-
         while status != TDS_STATUS_EOM:
-            if remaining is not None:
-                tmpPacket = TDSPacket(remaining)
-            else:
-                tmpPacket = TDSPacket(self.socketRecv(packetSize))
-
-            packetLen = tmpPacket["Length"] - 8
-            while packetLen > len(tmpPacket["Data"]):
-                data = self.socketRecv(packetSize)
-                tmpPacket["Data"] += data
-
-            remaining = None
-            if packetLen < len(tmpPacket["Data"]):
-                remaining = tmpPacket["Data"][packetLen:]
-                tmpPacket["Data"] = tmpPacket["Data"][:packetLen]
-
+            tmpPacket = self._recv_tds_packet(packetSize)
             status = tmpPacket["Status"]
             packet["Data"] += tmpPacket["Data"]
             packet["Length"] += tmpPacket["Length"] - 8
 
+        return packet
+
+    def _recv_chunk(self, packetSize):
+        data = self.socketRecv(packetSize)
+        if not data:
+            raise ConnectionError("Server closed connection")
+        return data
+
+    def _recv_exact(self, length, packetSize):
+        while len(self._recv_buffer) < length:
+            self._recv_buffer += self._recv_chunk(packetSize)
+
+        data = self._recv_buffer[:length]
+        self._recv_buffer = self._recv_buffer[length:]
+        return data
+
+    def _recv_tds_packet(self, packetSize):
+        header = self._recv_exact(8, packetSize)
+        packet = TDSPacket(header)
+        packetLen = packet["Length"] - 8
+        packet["Data"] = self._recv_exact(packetLen, packetSize)
         return packet
 
     # This function is a wrapper that is used to dispatch packets to read depending of the TLS context

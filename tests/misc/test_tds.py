@@ -20,6 +20,14 @@ from impacket.examples.ntlmrelayx.servers.socksplugins.mssql import MSSQLSocksRe
 
 
 class TDSTests(unittest.TestCase):
+    @staticmethod
+    def _build_tds_packet(packet_type, data, status=tds.TDS_STATUS_EOM):
+        packet = tds.TDSPacket()
+        packet["Type"] = packet_type
+        packet["Status"] = status
+        packet["Data"] = data
+        return packet.getData()
+
     def test_prelogin_packs_four_byte_threadid(self):
         token = tds.TDS_PRELOGIN()
         token["Version"] = b"\x0f\x00\x11\x3a\x00\x00"
@@ -132,8 +140,44 @@ class TDSTests(unittest.TestCase):
 
         self.assertIs(client._wrap_sql_batch_data(sql_text), sql_text)
 
+    def test_recv_tds_reassembles_partial_tls_reads(self):
+        client = tds.MSSQL("server")
+        packet = self._build_tds_packet(tds.TDS_PRE_LOGIN, b"partial-header")
+        client.socket = mock.Mock()
+        client.socket.recv = mock.Mock(
+            side_effect=[packet[:3], packet[3:6], packet[6:10], packet[10:]]
+        )
+
+        response = client.recvTDS(packetSize=4096)
+
+        self.assertEqual(response["Type"], tds.TDS_PRE_LOGIN)
+        self.assertEqual(response["Data"], b"partial-header")
+
+    def test_recv_tds_preserves_buffered_bytes_for_next_packet(self):
+        client = tds.MSSQL("server")
+        first = self._build_tds_packet(tds.TDS_PRE_LOGIN, b"first")
+        second = self._build_tds_packet(tds.TDS_TABULAR, b"second")
+        client.socket = mock.Mock()
+        client.socket.recv = mock.Mock(side_effect=[first + second[:6], second[6:]])
+
+        first_response = client.recvTDS(packetSize=4096)
+        second_response = client.recvTDS(packetSize=4096)
+
+        self.assertEqual(first_response["Type"], tds.TDS_PRE_LOGIN)
+        self.assertEqual(first_response["Data"], b"first")
+        self.assertEqual(second_response["Type"], tds.TDS_TABULAR)
+        self.assertEqual(second_response["Data"], b"second")
+
 
 class MSSQLSocksRelayTests(unittest.TestCase):
+    @staticmethod
+    def _build_tds_packet(packet_type, data, status=tds.TDS_STATUS_EOM):
+        packet = tds.TDSPacket()
+        packet["Type"] = packet_type
+        packet["Status"] = status
+        packet["Data"] = data
+        return packet.getData()
+
     @staticmethod
     def _build_relay(session_tds8=False):
         session = mock.Mock()
@@ -194,6 +238,19 @@ class MSSQLSocksRelayTests(unittest.TestCase):
 
         relay.client_tds8 = True
         self.assertFalse(relay._should_wrap_sql_batch_for_backend())
+
+    def test_recv_tds_reassembles_partial_tls_reads_from_local_client(self):
+        relay = self._build_relay(session_tds8=True)
+        relay.client_tds8 = True
+        packet = self._build_tds_packet(tds.TDS_PRE_LOGIN, b"client-partial")
+        relay.socksSocket.recv = mock.Mock(
+            side_effect=[packet[:2], packet[2:7], packet[7:9], packet[9:]]
+        )
+
+        response = relay.recvTDS(packetSize=4096)
+
+        self.assertEqual(response["Type"], tds.TDS_PRE_LOGIN)
+        self.assertEqual(response["Data"], b"client-partial")
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

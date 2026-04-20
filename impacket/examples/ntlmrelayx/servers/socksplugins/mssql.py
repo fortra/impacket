@@ -51,6 +51,7 @@ class MSSQLSocksRelay(SocksRelay):
         self.packetSize = 32763
         self.session = None
         self.client_tds8 = False
+        self._recv_buffer = b''
 
     @staticmethod
     def getProtocolPort():
@@ -267,46 +268,37 @@ class MSSQLSocksRelay(SocksRelay):
         return data
 
     def recvTDS(self, packetSize=None):
-        # Do reassembly here
         if packetSize is None:
             packetSize = self.packetSize
-        packet_data = self.socketRecv(packetSize)
-        if not packet_data:
-            raise EOFError('MSSQL SOCKS client closed connection')
-        packet = TDSPacket(packet_data)
+        packet = self._recv_tds_packet(packetSize)
         status = packet['Status']
-        packetLen = packet['Length'] - 8
-        while packetLen > len(packet['Data']):
-            data = self.socketRecv(packetSize)
-            packet['Data'] += data
-
-        remaining = None
-        if packetLen < len(packet['Data']):
-            remaining = packet['Data'][packetLen:]
-            packet['Data'] = packet['Data'][:packetLen]
 
         while status != TDS_STATUS_EOM:
-            if remaining is not None:
-                tmpPacket = TDSPacket(remaining)
-            else:
-                packet_data = self.socketRecv(packetSize)
-                if not packet_data:
-                    raise EOFError('MSSQL SOCKS client closed connection')
-                tmpPacket = TDSPacket(packet_data)
-
-            packetLen = tmpPacket['Length'] - 8
-            while packetLen > len(tmpPacket['Data']):
-                data = self.socketRecv(packetSize)
-                tmpPacket['Data'] += data
-
-            remaining = None
-            if packetLen < len(tmpPacket['Data']):
-                remaining = tmpPacket['Data'][packetLen:]
-                tmpPacket['Data'] = tmpPacket['Data'][:packetLen]
-
+            tmpPacket = self._recv_tds_packet(packetSize)
             status = tmpPacket['Status']
             packet['Data'] += tmpPacket['Data']
             packet['Length'] += tmpPacket['Length'] - 8
 
         # print packet['Length']
+        return packet
+
+    def _recv_chunk(self, packetSize):
+        data = self.socketRecv(packetSize)
+        if not data:
+            raise EOFError('MSSQL SOCKS client closed connection')
+        return data
+
+    def _recv_exact(self, length, packetSize):
+        while len(self._recv_buffer) < length:
+            self._recv_buffer += self._recv_chunk(packetSize)
+
+        data = self._recv_buffer[:length]
+        self._recv_buffer = self._recv_buffer[length:]
+        return data
+
+    def _recv_tds_packet(self, packetSize):
+        header = self._recv_exact(8, packetSize)
+        packet = TDSPacket(header)
+        packetLen = packet['Length'] - 8
+        packet['Data'] = self._recv_exact(packetLen, packetSize)
         return packet
