@@ -65,6 +65,15 @@ class TDSTests(unittest.TestCase):
 
         self.assertEqual(struct.unpack_from("<H", data, 1)[0], len(data) - 3)
 
+    def test_login_uses_default_tds_version_when_serializing(self):
+        login = tds.TDS_LOGIN()
+
+        data = login.getData()
+
+        self.assertEqual(
+            struct.unpack_from(">L", data, 4)[0], tds.TDS_LOGIN7_VERSION_71
+        )
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

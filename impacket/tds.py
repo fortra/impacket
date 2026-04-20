@@ -369,6 +369,7 @@ class TDS_LOGIN(Structure):
             self["ServerName"] = b""
             self["CltIntName"] = b""
             self["SSPI"] = b""
+            self["OptionFlags2"] = 0
             self["OptionFlags3"] = 0
             self["Language"] = ""
             self["Database"] = ""
@@ -378,7 +379,10 @@ class TDS_LOGIN(Structure):
             self["FeatureExtData"] = b""
 
     def _uses_74_plus_layout(self):
-        return self["TDSVersion"] >= TDS_LOGIN7_VERSION_74
+        # Structure.getData() applies the declared LOGIN7 default later, so
+        # serializer-side layout checks must tolerate an unset TDSVersion.
+        tds_version = self.fields.get("TDSVersion", TDS_LOGIN7_VERSION_71)
+        return tds_version >= TDS_LOGIN7_VERSION_74
 
     def _pack_feature_ext(self, feature_id, payload):
         return struct.pack("<BL", feature_id, len(payload)) + payload
