@@ -308,6 +308,44 @@ class SCMRTests(DCERPCTests):
             scmr.hRDeleteService(dce, newHandle)
             scmr.hRCloseServiceHandle(dce, newHandle)
             scmr.hRCloseServiceHandle(dce, scHandle)
+
+    def test_RChangeServiceConfig2W_failure_actions_omitted_list_preserves_existing_actions(self):
+        dce, rpc_transport = self.connect()
+        scHandle = self.get_service_handle(dce)
+        newHandle = self.open_or_create_service(dce, scHandle, 'TESTSVC\x00', 'DisplayName\x00', 'binaryPath\x00')
+        try:
+            request = scmr.RChangeServiceConfig2W()
+            request['hService'] = newHandle
+            request['Info']['dwInfoLevel'] = 2
+            request['Info']['Union']['tag'] = 2
+            request['Info']['Union']['psfa']['lpRebootMsg'] = 'rebootMsg\00'
+            request['Info']['Union']['psfa']['lpCommand'] = 'lpCommand\00'
+
+            action = scmr.SC_ACTION()
+            action['Type'] = scmr.SC_ACTION_RUN_COMMAND
+            action['Delay'] = 60000
+            actions = scmr.SC_ACTIONS()
+            actions['Data'].append(action)
+
+            request['Info']['Union']['psfa']['lpsaActions'] = actions
+            dce.request(request)
+
+            update_request = scmr.RChangeServiceConfig2W()
+            update_request['hService'] = newHandle
+            update_request['Info']['dwInfoLevel'] = 2
+            update_request['Info']['Union']['tag'] = 2
+            update_request['Info']['Union']['psfa']['lpRebootMsg'] = 'updatedMsg\00'
+            update_request['Info']['Union']['psfa']['lpCommand'] = 'updatedCommand\00'
+            dce.request(update_request)
+
+            failure_actions = self.query_failure_actions(dce, newHandle)
+            self.assertEqual(failure_actions['rebootMsg'], 'updatedMsg\00')
+            self.assertEqual(failure_actions['cActions'], 1)
+            self.assertEqual(failure_actions['actions'], [(scmr.SC_ACTION_RUN_COMMAND, 60000)])
+        finally:
+            scmr.hRDeleteService(dce, newHandle)
+            scmr.hRCloseServiceHandle(dce, newHandle)
+            scmr.hRCloseServiceHandle(dce, scHandle)
     
     def test_REnumServicesStatusExW(self):
         dce, rpc_transport = self.connect()
