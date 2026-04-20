@@ -359,6 +359,17 @@ class SERVICE_FAILURE_ACTIONSW(NDRSTRUCT):
         ('lpsaActions', SC_ACTIONS) , 
     )
 
+    def __init__(self, data=None, isNDR64=False):
+        NDRSTRUCT.__init__(self, data, isNDR64=isNDR64)
+        if data is None:
+            self['lpsaActions'] = NULL
+
+    def __setitem__(self, key, value):
+        if key == 'lpsaActions' and isinstance(value, SC_ACTIONS):
+            self.fields[key] = value
+            return
+        return NDRSTRUCT.__setitem__(self, key, value)
+
     # Keep cActions synchronized with the pointed SC_ACTION array at marshal time.
     def getData(self, soFar=0):
         if self['lpsaActions'] == 0:
