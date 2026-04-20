@@ -621,7 +621,7 @@ class TDS_RETURNSTATUS(Structure):
 class TDS_INFO_ERROR(Structure):
     structure = (
         ("TokenType", "<B"),
-        ("Length", "<H"),
+        ("Length", '<H=12+len(self["MsgText"])+len(self["ServerName"])+len(self["ProcName"])'),
         ("Number", "<L"),
         ("State", "<B"),
         ("Class", "<B"),
@@ -641,7 +641,7 @@ class TDS_INFO_ERROR(Structure):
 class TDS_INFO_ERROR72(Structure):
     structure = (
         ("TokenType", "<B"),
-        ("Length", "<H"),
+        ("Length", '<H=14+len(self["MsgText"])+len(self["ServerName"])+len(self["ProcName"])'),
         ("Number", "<L"),
         ("State", "<B"),
         ("Class", "<B"),

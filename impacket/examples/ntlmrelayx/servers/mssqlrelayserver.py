@@ -255,7 +255,6 @@ class MSSQLRelayServer(Thread):
             responseData['ProcName'] = proc
             responseData['ProcNameLen'] = len(proc) // 2
             responseData['LineNumber'] = 1
-            responseData['Length'] = len(responseData.getData()) - 3
 
             doneData['TokenType'] = tds.TDS_DONE_TOKEN
             doneData['Status'] = 0x02 # TDS_DONE_ERROR
