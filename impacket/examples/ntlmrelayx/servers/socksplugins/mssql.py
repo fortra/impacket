@@ -17,13 +17,18 @@
 #   Alberto Solino (@agsolino)
 #
 
+import os
+import socket
 import struct
 import random
+import ssl
+import tempfile
 
 from impacket import LOG
 from impacket.examples.ntlmrelayx.servers.socksserver import SocksRelay
+from impacket.examples.ntlmrelayx.utils.ssl import generateImpacketCert
 from impacket.tds import TDSPacket, TDS_STATUS_NORMAL, TDS_STATUS_EOM, TDS_PRE_LOGIN, TDS_ENCRYPT_NOT_SUP, TDS_TABULAR, \
-    TDS_LOGIN, TDS_LOGIN7, TDS_PRELOGIN, TDS_INTEGRATED_SECURITY_ON
+    TDS_LOGIN, TDS_LOGIN7, TDS_PRELOGIN, TDS_INTEGRATED_SECURITY_ON, TDS_SQL_BATCH, TDS_ENCRYPT_STRICT
 from impacket.ntlm import NTLMAuthChallengeResponse
 try:
     from OpenSSL import SSL
@@ -45,6 +50,7 @@ class MSSQLSocksRelay(SocksRelay):
         self.tlsSocket = None
         self.packetSize = 32763
         self.session = None
+        self.client_tds8 = False
 
     @staticmethod
     def getProtocolPort():
@@ -53,7 +59,46 @@ class MSSQLSocksRelay(SocksRelay):
     def initConnection(self):
         pass
 
+    def _backend_requires_tds8(self):
+        for user, relay in self.activeRelays.items():
+            if user in ('data', 'scheme'):
+                continue
+            session = getattr(relay.get('protocolClient'), 'session', None)
+            if getattr(session, 'tds8', False):
+                return True
+        return False
+
+    def _get_prelogin_encryption(self):
+        if self.client_tds8 or self._backend_requires_tds8():
+            return TDS_ENCRYPT_STRICT
+        return TDS_ENCRYPT_NOT_SUP
+
+    def _wrap_client_connection_for_tds8(self):
+        cert_path = os.path.join(tempfile.gettempdir(), 'impacket-mssql-socks.pem')
+        if not os.path.exists(cert_path):
+            generateImpacketCert(cert_path)
+
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
+        context.set_ciphers('ALL:@SECLEVEL=0')
+        context.set_alpn_protocols(['tds/8.0'])
+        context.load_cert_chain(cert_path)
+        self.socksSocket = context.wrap_socket(self.socksSocket, server_side=True)
+        self.client_tds8 = True
+
+    def _maybe_switch_client_to_tds8(self):
+        if not self._backend_requires_tds8():
+            return
+
+        first_byte = self.socksSocket.recv(1, socket.MSG_PEEK)
+        if first_byte and first_byte[:1] == b'\x16':
+            self._wrap_client_connection_for_tds8()
+
+    def _should_wrap_sql_batch_for_backend(self):
+        return getattr(self.session, 'tds8', False) and not self.client_tds8
+
     def skipAuthentication(self):
+        self._maybe_switch_client_to_tds8()
 
         # 1. First packet should be a TDS_PRELOGIN()
         tds = self.recvTDS()
@@ -64,12 +109,15 @@ class MSSQLSocksRelay(SocksRelay):
 
         prelogin = TDS_PRELOGIN()
         prelogin['Version'] = b"\x08\x00\x01\x55\x00\x00"
-        prelogin['Encryption'] = TDS_ENCRYPT_NOT_SUP
+        prelogin['Encryption'] = self._get_prelogin_encryption()
         prelogin['ThreadID'] = struct.pack('<L',random.randint(0,65535))
         prelogin['Instance'] = b'\x00'
 
         # Answering who we are
         self.sendTDS(TDS_TABULAR, prelogin.getData(), 0)
+
+        if prelogin['Encryption'] == TDS_ENCRYPT_STRICT and not self.client_tds8:
+            return False
 
         # 2. Packet should be a TDS_LOGIN
         tds = self.recvTDS()
@@ -124,6 +172,7 @@ class MSSQLSocksRelay(SocksRelay):
             else:
                 LOG.info('MSSQL: Proxying client session for %s@%s(%s)' % (
                     self.username, self.targetHost, self.targetPort))
+                self.sessionData = self.activeRelays[self.username].get('data', self.sessionData)
                 self.session = self.activeRelays[self.username]['protocolClient'].session
         else:
             LOG.error('MSSQL: No session for %s@%s(%s) available' % (
@@ -147,12 +196,19 @@ class MSSQLSocksRelay(SocksRelay):
             while True:
                 # 1. Get Data from client
                 tds = self.recvTDS()
+                packet_data = tds['Data']
+                if tds['Type'] == TDS_SQL_BATCH and self._should_wrap_sql_batch_for_backend():
+                    # Legacy local clients do not add TDS 8.0 ALL_HEADERS themselves,
+                    # so strict backend sessions still need the header injected here.
+                    packet_data = self.session._wrap_sql_batch_data(packet_data)
                 # 2. Send it to the relayed session
-                self.session.sendTDS(tds['Type'], tds['Data'], 0)
+                self.session.sendTDS(tds['Type'], packet_data, 0)
                 # 3. Get the target's answer
                 tds = self.session.recvTDS()
                 # 4. Send it back to the client
                 self.sendTDS(tds['Type'], tds['Data'], 0)
+        except EOFError:
+            pass
         except Exception:
             # Probably an error here
             LOG.debug('Exception:', exc_info=True)
@@ -214,7 +270,10 @@ class MSSQLSocksRelay(SocksRelay):
         # Do reassembly here
         if packetSize is None:
             packetSize = self.packetSize
-        packet = TDSPacket(self.socketRecv(packetSize))
+        packet_data = self.socketRecv(packetSize)
+        if not packet_data:
+            raise EOFError('MSSQL SOCKS client closed connection')
+        packet = TDSPacket(packet_data)
         status = packet['Status']
         packetLen = packet['Length'] - 8
         while packetLen > len(packet['Data']):
@@ -230,7 +289,10 @@ class MSSQLSocksRelay(SocksRelay):
             if remaining is not None:
                 tmpPacket = TDSPacket(remaining)
             else:
-                tmpPacket = TDSPacket(self.socketRecv(packetSize))
+                packet_data = self.socketRecv(packetSize)
+                if not packet_data:
+                    raise EOFError('MSSQL SOCKS client closed connection')
+                tmpPacket = TDSPacket(packet_data)
 
             packetLen = tmpPacket['Length'] - 8
             while packetLen > len(tmpPacket['Data']):

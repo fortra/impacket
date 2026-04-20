@@ -140,6 +140,13 @@ TDS_ENCRYPT_NOT_SUP = 2
 TDS_ENCRYPT_REQ = 3
 TDS_ENCRYPT_STRICT = 8
 
+# TDS 8.0 SQL_BATCH ALL_HEADERS layout
+TDS_ALL_HEADERS_TRANSACTION_DESCRIPTOR_LENGTH = 4 + 2 + 8 + 4
+TDS_ALL_HEADERS_LENGTH = 4 + TDS_ALL_HEADERS_TRANSACTION_DESCRIPTOR_LENGTH
+TDS_HEADER_TYPE_TRANSACTION_DESCRIPTOR = 2
+TDS_TRAN_DESCRIPTOR_NO_TRANSACTION = 0
+TDS_OUTSTANDING_REQUEST_COUNT = 1
+
 # Versions sent in LOGIN7.
 TDS_LOGIN7_VERSION_70 = 0x00000070
 TDS_LOGIN7_VERSION_71 = 0x00000071
@@ -2622,18 +2629,25 @@ class MSSQL:
         replies, _ = self._parse_reply_tokens(tokens, tuplemode)
         return replies
 
+    def _build_tds8_sql_batch_headers(self):
+        # ALL_HEADERS with transaction descriptor (required by TDS 8.0)
+        all_headers = struct.pack("<I", TDS_ALL_HEADERS_LENGTH)
+        all_headers += struct.pack("<I", TDS_ALL_HEADERS_TRANSACTION_DESCRIPTOR_LENGTH)
+        all_headers += struct.pack("<H", TDS_HEADER_TYPE_TRANSACTION_DESCRIPTOR)
+        all_headers += struct.pack("<Q", TDS_TRAN_DESCRIPTOR_NO_TRANSACTION)
+        all_headers += struct.pack("<I", TDS_OUTSTANDING_REQUEST_COUNT)
+        return all_headers
+
+    def _wrap_sql_batch_data(self, sql_text):
+        """Prepend TDS 8.0 ALL_HEADERS to an already-encoded SQL_BATCH body."""
+        if self.tds8:
+            return self._build_tds8_sql_batch_headers() + sql_text
+        return sql_text
+
     def _build_batch_data(self, cmd):
         """Build SQL_BATCH packet data, prepending ALL_HEADERS for TDS 8.0."""
         sql_text = (cmd + "\r\n").encode("utf-16le")
-        if self.tds8:
-            # ALL_HEADERS with transaction descriptor (required by TDS 8.0)
-            all_headers = struct.pack('<I', 22)   # Total length of ALL_HEADERS
-            all_headers += struct.pack('<I', 18)  # Length of this header
-            all_headers += struct.pack('<H', 2)   # Header type: Transaction Descriptor
-            all_headers += struct.pack('<Q', 0)   # Transaction descriptor (no transaction)
-            all_headers += struct.pack('<I', 1)   # Outstanding request count
-            return all_headers + sql_text
-        return sql_text
+        return self._wrap_sql_batch_data(sql_text)
 
     def batch(self, cmd, tuplemode=False, wait=True):
         # First of all we clear the rows, colMeta and lastError

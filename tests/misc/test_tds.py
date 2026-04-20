@@ -16,6 +16,7 @@ import unittest
 from unittest import mock
 
 from impacket import tds
+from impacket.examples.ntlmrelayx.servers.socksplugins.mssql import MSSQLSocksRelay
 
 
 class TDSTests(unittest.TestCase):
@@ -111,6 +112,88 @@ class TDSTests(unittest.TestCase):
         client._setup_tds8.assert_called_once_with()
         client.set_tls_context.assert_not_called()
 
+    def test_wrap_sql_batch_data_adds_headers_for_tds8_sessions(self):
+        client = tds.MSSQL("server")
+        client.tds8 = True
+        sql_text = "SELECT 1\r\n".encode("utf-16le")
+
+        data = client._wrap_sql_batch_data(sql_text)
+
+        self.assertEqual(data[:4], struct.pack("<I", 22))
+        self.assertEqual(data[4:8], struct.pack("<I", 18))
+        self.assertEqual(data[8:10], struct.pack("<H", 2))
+        self.assertEqual(data[10:18], struct.pack("<Q", 0))
+        self.assertEqual(data[18:22], struct.pack("<I", 1))
+        self.assertEqual(data[22:], sql_text)
+
+    def test_wrap_sql_batch_data_preserves_legacy_sessions(self):
+        client = tds.MSSQL("server")
+        sql_text = "SELECT 1\r\n".encode("utf-16le")
+
+        self.assertIs(client._wrap_sql_batch_data(sql_text), sql_text)
+
+
+class MSSQLSocksRelayTests(unittest.TestCase):
+    @staticmethod
+    def _build_relay(session_tds8=False):
+        session = mock.Mock()
+        session.tds8 = session_tds8
+        protocol_client = mock.Mock()
+        protocol_client.session = session
+        active_relays = {
+            "data": {},
+            "scheme": "MSSQL",
+            "DOMAIN/USER": {
+                "protocolClient": protocol_client,
+                "inUse": False,
+                "data": {},
+            },
+        }
+        relay = MSSQLSocksRelay(
+            "server", 1433, mock.Mock(spec=socket.socket), active_relays
+        )
+        relay.session = session
+        return relay
+
+    def test_get_prelogin_encryption_is_strict_for_tds8_backends(self):
+        relay = self._build_relay(session_tds8=True)
+
+        self.assertEqual(relay._get_prelogin_encryption(), tds.TDS_ENCRYPT_STRICT)
+
+    def test_maybe_switch_client_to_tds8_wraps_tls_first_client(self):
+        relay = self._build_relay(session_tds8=True)
+        relay.socksSocket.recv.return_value = b"\x16"
+        relay._wrap_client_connection_for_tds8 = mock.Mock(
+            side_effect=lambda: setattr(relay, "client_tds8", True)
+        )
+
+        relay._maybe_switch_client_to_tds8()
+
+        relay._wrap_client_connection_for_tds8.assert_called_once_with()
+        self.assertTrue(relay.client_tds8)
+
+    def test_skip_authentication_advertises_strict_before_tls_reconnect(self):
+        relay = self._build_relay(session_tds8=True)
+        relay.socksSocket.recv.return_value = b"\x12"
+        relay.recvTDS = mock.Mock(return_value={"Type": tds.TDS_PRE_LOGIN, "Data": b""})
+        relay.sendTDS = mock.Mock()
+
+        result = relay.skipAuthentication()
+
+        self.assertFalse(result)
+        args = relay.sendTDS.call_args[0]
+        self.assertEqual(args[0], tds.TDS_TABULAR)
+        response = tds.TDS_PRELOGIN(args[1])
+        self.assertEqual(response["Encryption"], tds.TDS_ENCRYPT_STRICT)
+
+    def test_sql_batch_wrap_only_applies_to_legacy_local_clients(self):
+        relay = self._build_relay(session_tds8=True)
+
+        relay.client_tds8 = False
+        self.assertTrue(relay._should_wrap_sql_batch_for_backend())
+
+        relay.client_tds8 = True
+        self.assertFalse(relay._should_wrap_sql_batch_for_backend())
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

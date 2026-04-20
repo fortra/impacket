@@ -406,6 +406,7 @@ class SocksRequestHandler(socketserver.BaseRequestHandler):
             LOG.debug('Handler for port %s found %s' % (self.targetPort, self.__socksServer.socksPlugins[scheme]))
             relay = self.__socksServer.socksPlugins[scheme](self.targetHost, self.targetPort, self.__connSocket,
                                   self.__socksServer.activeRelays[self.targetHost][self.targetPort])
+            session_completed = False
 
             try:
                 relay.initConnection()
@@ -432,6 +433,7 @@ class SocksRequestHandler(socketserver.BaseRequestHandler):
                 self.__socksServer.activeRelays[self.targetHost][self.targetPort][relay.username]['inUse'] = True
 
                 relay.tunnelConnection()
+                session_completed = True
             except Exception as e:
                 LOG.debug("Exception:", exc_info=True)
                 LOG.debug('SOCKS: %s' % str(e))
@@ -445,10 +447,15 @@ class SocksRequestHandler(socketserver.BaseRequestHandler):
                     self.sendReplyError(replyField.CONNECTION_REFUSED)
                     return
                 pass
+            finally:
+                # Freeing up this connection
+                if relay.username is not None:
+                    port_relays = self.__socksServer.activeRelays.get(self.targetHost, {}).get(self.targetPort, {})
+                    if relay.username in port_relays:
+                        port_relays[relay.username]['inUse'] = False
 
-            # Freeing up this connection
-            if relay.username is not None:
-                self.__socksServer.activeRelays[self.targetHost][self.targetPort][relay.username]['inUse'] = False
+            if session_completed:
+                return
         else:
             LOG.error('SOCKS: I don\'t have a handler for this port')
 
