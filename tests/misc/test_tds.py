@@ -11,7 +11,9 @@
 #
 
 import struct
+import socket
 import unittest
+from unittest import mock
 
 from impacket import tds
 
@@ -73,6 +75,41 @@ class TDSTests(unittest.TestCase):
         self.assertEqual(
             struct.unpack_from(">L", data, 4)[0], tds.TDS_LOGIN7_VERSION_71
         )
+
+    def test_negotiate_encryption_does_not_retry_tds8_on_timeout(self):
+        client = tds.MSSQL("server")
+        client.preLogin = mock.Mock(side_effect=socket.timeout("timed out"))
+        client.disconnect = mock.Mock()
+        client.connect = mock.Mock()
+        client._setup_tds8 = mock.Mock()
+        client.set_tls_context = mock.Mock()
+
+        with self.assertRaises(socket.timeout):
+            client._negotiate_encryption()
+
+        client.disconnect.assert_not_called()
+        client.connect.assert_not_called()
+        client._setup_tds8.assert_not_called()
+        client.set_tls_context.assert_not_called()
+
+    def test_negotiate_encryption_retries_tds8_on_connection_close(self):
+        client = tds.MSSQL("server")
+        response = {"Encryption": tds.TDS_ENCRYPT_OFF}
+        client.preLogin = mock.Mock(
+            side_effect=[ConnectionError("Server closed connection"), response]
+        )
+        client.disconnect = mock.Mock()
+        client.connect = mock.Mock()
+        client._setup_tds8 = mock.Mock()
+        client.set_tls_context = mock.Mock()
+
+        result = client._negotiate_encryption()
+
+        self.assertIs(result, response)
+        client.disconnect.assert_called_once_with()
+        client.connect.assert_called_once_with()
+        client._setup_tds8.assert_called_once_with()
+        client.set_tls_context.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -43,6 +43,7 @@ import socket
 import select
 import random
 import binascii
+import errno
 import math
 import datetime
 from decimal import Decimal, getcontext
@@ -1523,26 +1524,37 @@ class MSSQL:
             LOG.warning("(TDS8) No tls-unique available — EPA will fail if required")
         LOG.info("(TDS8) TDS 8.0 TLS connection established")
 
+    @staticmethod
+    def _should_retry_prelogin_as_tds8(exc):
+        if isinstance(
+            exc,
+            (ConnectionError, ConnectionResetError, ConnectionAbortedError, BrokenPipeError),
+        ):
+            return True
+
+        if isinstance(exc, OSError):
+            return exc.errno in (errno.ECONNRESET, errno.ECONNABORTED, errno.EPIPE)
+
+        return False
+
     def _negotiate_encryption(self):
         """Perform preLogin exchange and set up encryption.
 
         Handles all encryption modes including TDS 8.0 strict encryption
-        where the server drops the connection on a plain PRELOGIN.
+        where the server closes or resets the connection on a plain PRELOGIN.
 
         Returns the preLogin response dict.
         """
-        # Use a short timeout — if the server requires TDS 8.0
-        # (Force Strict Encryption = Yes), it will silently close the
-        # connection or never respond to a plain TDS preLogin.
-        original_timeout = self.socket.gettimeout()
-        self.socket.settimeout(5)
-
         try:
             resp = self.preLogin()
-            self.socket.settimeout(original_timeout)
         except Exception as e:
-            # Plain TDS preLogin failed — server likely requires TDS 8.0
-            LOG.debug("Plain TDS preLogin failed (%s: %s), trying TDS 8.0" % (type(e).__name__, e))
+            if not self._should_retry_prelogin_as_tds8(e):
+                raise
+
+            LOG.debug(
+                "Plain TDS preLogin failed (%s: %s), trying TDS 8.0"
+                % (type(e).__name__, e)
+            )
             try:
                 self.disconnect()
             except Exception:
