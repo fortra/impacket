@@ -28,7 +28,6 @@
 
 import struct
 from datetime import datetime, timedelta
-from ldap3.protocol.formatters.formatters import format_sid
 
 from impacket.dcerpc.v5 import transport
 from impacket.uuid import uuidtup_to_bin, bin_to_string, string_to_bin
@@ -36,7 +35,7 @@ from impacket.dcerpc.v5.ndr import NDR, NDRCALL, NDRSTRUCT, NDRENUM, NDRUNION, N
     NDRPOINTER, NDRUniConformantVaryingArray, UNKNOWNDATA
 from impacket.dcerpc.v5.dtypes import NULL, BOOL, BOOLEAN, STR, WSTR, LPWSTR, WIDESTR, \
     LONG, UINT, ULONG, PULONG, LPDWORD, LARGE_INTEGER, DWORD, NDRHYPER, USHORT, UCHAR, PCHAR, BYTE, PBYTE, \
-    UUID, GUID
+    UUID, GUID, SID as BINARY_SID
 from impacket import system_errors
 from impacket.dcerpc.v5.enum import Enum
 from impacket.dcerpc.v5.rpcrt import DCERPCException, RPC_C_AUTHN_GSS_NEGOTIATE, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
@@ -345,6 +344,12 @@ def getUnixTime(t):
 
 def enum2value(enum, key):
     return enum.enumItems._value2member_map_[key]._name_
+
+
+def binary_sid_to_string(rawSid):
+    if not rawSid:
+        return ''
+    return BINARY_SID(data=rawSid).formatCanonical()
     
 class SID(TS_CHAR):
     def known_sid(self, sid):
@@ -367,9 +372,10 @@ class SID(TS_CHAR):
         elif sid in knownSids:
             return knownSids[sid]
         return sid
+
     def __getitem__(self, key):
         if key == 'Data':
-            sid = format_sid(self.fields[key])
+            sid = binary_sid_to_string(self.fields[key])
             if not len(sid):
                 return ''
             return self.known_sid(sid)
@@ -1377,10 +1383,10 @@ class TS_ALL_PROCESSES_INFO(NDRSTRUCT):
         return self.fields['pTsProcessInfo'].fields['Data']
 
     def getSid(self):
-        rawSid = self.fields['pSid']['Data'] if self.fields['pSid'].fields['ReferentID'] else b''
+        rawSid = b''.join(self.fields['pSid']['Data']) if self.fields['pSid'].fields['ReferentID'] else b''
         if not rawSid:
             return ''
-        return SID().known_sid(format_sid(rawSid))
+        return SID().known_sid(binary_sid_to_string(rawSid))
  
 class TS_ALL_PROCESSES_INFO_ARRAY(NDRUniConformantArray):
     item = TS_ALL_PROCESSES_INFO
@@ -3604,7 +3610,7 @@ def hRpcWinStationGetProcessSid(dce, hServer, dwUniqueProcessId, ProcessStartTim
         request['dwSidSize'] = sizeNeeded
         resp = dce.request(request, checkError=False)
     if resp['ErrorCode']:
-        return format_sid(resp['pProcessUserSid'])
+        return binary_sid_to_string(resp['pProcessUserSid'])
 
 #NOT_IMPLEMENTED 3.7.4.1.24 RpcWinStationGetTermSrvCountersValue (Opnum 45)
 
