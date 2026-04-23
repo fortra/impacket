@@ -326,7 +326,7 @@ class TSHandler:
             
             self.lookupSids()
 
-            maxImageNameLen = max([len(process_entry.getProcessInfo()['ImageNameSize'].getValue()) for process_entry in process_entry_list])
+            maxImageNameLen = max([len(process_entry.getProcessInfo()['ImageName'].getValue()) for process_entry in process_entry_list])
             maxSidLen = max([len(process_entry.getSid()) for process_entry in process_entry_list])
             if options.verbose:
                 self.get_session_list()
@@ -374,7 +374,7 @@ class TSHandler:
                     if len(self.sessions[sessId]['Username']):
                         fullUserName += self.sessions[sessId]['Username']
                     row = template.replace('{workingset: <12}','{workingset: >10,} K').format(
-                                          imagename   = process_info['ImageNameSize'].getValue(),
+                                          imagename   = process_info['ImageName'].getValue(),
                                           pid         = process_info['UniqueProcessId'],
                                           sessionName = self.sessions[sessId]['SessionName'],
                                           sessid      = process_info['SessionId'],
@@ -391,7 +391,7 @@ class TSHandler:
                 for process_entry in process_entry_list:
                     process_info = process_entry.getProcessInfo()
                     row = template.format(
-                                process_info['ImageNameSize'].getValue(),
+                                process_info['ImageName'].getValue(),
                                 process_info['UniqueProcessId'],
                                 process_info['SessionId'],
                                 self.sidToUser(process_entry.getSid()),
@@ -413,7 +413,7 @@ class TSHandler:
                     LOG.error('Could not get process list')
                     return
                 pidList = [i.getProcessInfo()['UniqueProcessId'] for i in r
-                           if i.getProcessInfo()['ImageNameSize'].getValue().lower() == options.name.lower()]
+                           if i.getProcessInfo()['ImageName'].getValue().lower() == options.name.lower()]
                 if not len(pidList):
                     LOG.error('Could not find %r in process list' % options.name)
                     return

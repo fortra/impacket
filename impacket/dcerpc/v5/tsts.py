@@ -1344,7 +1344,7 @@ class TS_SYS_PROCESS_INFORMATION(NDRSTRUCT):
          ('CreateTime', LARGE_INTEGER),
          ('UserTime', LARGE_INTEGER),
          ('KernelTime', LARGE_INTEGER),
-         ('ImageNameSize', TS_UNICODE_STRING),
+         ('ImageName', TS_UNICODE_STRING),
          ('BasePriority', LONG),
          ('UniqueProcessId', DWORD),
          ('InheritedFromUniqueProcessId', DWORD),
