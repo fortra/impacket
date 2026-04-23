@@ -69,6 +69,16 @@ class TestESENTLargePageTags(unittest.TestCase):
         with self.assertRaisesRegex(Exception, r'unknown tag'):
             page.getTag(page.tagCount)
 
+    def test_iter_data_tags_skips_all_reserved_large_page_tags(self):
+        page, payloads = self._build_page(0x200c)
+
+        self.assertEqual(page.tagReserved, 2)
+        self.assertEqual(page.firstDataTag, 2)
+        self.assertEqual(list(page.iterDataTagNums()), list(range(2, page.tagCount)))
+
+        iterated_payloads = [page.getTag(tag_num)[1] for tag_num in page.iterDataTagNums()]
+        self.assertEqual(iterated_payloads, payloads[page.firstDataTag:])
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=1)

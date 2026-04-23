@@ -443,15 +443,17 @@ class ESENT_PAGE:
         self.record = None
         self.tagCount = 0
         self.tagReserved = 1
+        self.firstDataTag = 1
         if data is not None:
             self.record = ESENT_PAGE_HEADER(self.__DBHeader['Version'], self.__DBHeader['FileFormatRevision'], self.__DBHeader['PageSize'], data)
             self.tagCount = self.record['FirstAvailablePageTag']
             if self.__DBHeader['Version'] == 0x620 and self.__DBHeader['FileFormatRevision'] >= 0x11 and self.__DBHeader['PageSize'] > 8192:
-                # TODO: If samples with effective tagReserved > 1 appear, logical node
-                # iteration should be derived from the reserved-tag count instead of
-                # assuming only tag 0 is reserved.
                 self.tagReserved = (self.record['FirstAvailablePageTag'] >> FIRST_AVAILABLE_PAGE_TAG_RESERVED_SHIFT) or 1
                 self.tagCount = self.record['FirstAvailablePageTag'] & FIRST_AVAILABLE_PAGE_TAG_MASK
+            self.firstDataTag = min(self.tagReserved, self.tagCount)
+
+    def iterDataTagNums(self):
+        return range(self.firstDataTag, self.tagCount)
 
     def printFlags(self):
         flags = self.record['PageFlags']
@@ -524,7 +526,7 @@ class ESENT_PAGE:
                 leafHeader.dump()
 
         # Print the leaf/branch tags
-        for tagNum in range(1,self.tagCount):
+        for tagNum in self.iterDataTagNums():
             flags, data = self.getTag(tagNum)
             if self.record['PageFlags'] & FLAGS_LEAF == 0:
                 # Branch page
@@ -672,7 +674,7 @@ class ESENT_DB:
 
     def parsePage(self, page):
         # Print the leaf/branch tags
-        for tagNum in range(1,page.tagCount):
+        for tagNum in page.iterDataTagNums():
             flags, data = page.getTag(tagNum)
             if page.record['PageFlags'] & FLAGS_LEAF > 0:
                 # Leaf page
@@ -692,7 +694,7 @@ class ESENT_DB:
         page = self.getPage(pageNum)
         self.parsePage(page)
 
-        for i in range(1, page.tagCount):
+        for i in page.iterDataTagNums():
             flags, data = page.getTag(i)
             if page.record['PageFlags'] & FLAGS_LEAF == 0:
                 # Branch page
@@ -735,10 +737,10 @@ class ESENT_DB:
             done = False
             while done is False:
                 page = self.getPage(pageNum)
-                if page.tagCount <= 1:
+                if page.tagCount <= page.firstDataTag:
                     # There are no records
                     done = True
-                for i in range(1, page.tagCount):
+                for i in page.iterDataTagNums():
                     flags, data = page.getTag(i)
                     if page.record['PageFlags'] & FLAGS_LEAF == 0:
                         # Branch page, move on to the next page
@@ -753,7 +755,7 @@ class ESENT_DB:
             cursor['TableData'] = self.__tables[tableName]
             cursor['FatherDataPageNumber'] = catalogEntry['FatherDataPageNumber']
             cursor['CurrentPageData'] = page
-            cursor['CurrentTag']  = 0
+            cursor['CurrentTag']  = page.firstDataTag - 1
             return cursor
         else:
             return None
@@ -795,7 +797,7 @@ class ESENT_DB:
                 return None
             else:
                 cursor['CurrentPageData'] = self.getPage(page.record['NextPageNumber'])
-                cursor['CurrentTag'] = 0
+                cursor['CurrentTag'] = cursor['CurrentPageData'].firstDataTag - 1
                 return self.getNextRow(cursor, filter_tables = filter_tables)
         else:
             return self.__tagToRecord(cursor, tag['EntryData'], filter_tables = filter_tables)
