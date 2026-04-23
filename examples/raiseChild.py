@@ -1061,6 +1061,10 @@ class RAISECHILD:
         return None
 
     @staticmethod
+    def _get_preferred_aes_key(creds):
+        return creds.get('aes256Key') or creds.get('aes128Key')
+
+    @staticmethod
     def _same_rc4_creds(leftCreds, rightCreds):
         return leftCreds['lmhash'] == rightCreds['lmhash'] and leftCreds['nthash'] == rightCreds['nthash']
 
@@ -1186,6 +1190,7 @@ class RAISECHILD:
         targetCreds['nthash'] = credentials['nthash']
         targetCreds['aes128Key'] = credentials.get('aes128Key')
         targetCreds['aes256Key'] = credentials.get('aes256Key')
+        targetCreds['aesKey'] = self._get_preferred_aes_key(credentials)
         targetCreds['TGT'] =  None
         targetCreds['TGS'] =  None
         return targetCreds, TGT, TGS
@@ -1216,7 +1221,7 @@ class RAISECHILD:
             from impacket.smbconnection import SMBConnection
             s = SMBConnection('*SMBSERVER', self.__target)
             s.kerberosLogin(targetCreds['username'], '', targetCreds['domain'], targetCreds['lmhash'],
-                            targetCreds['nthash'], useCache=False)
+                            targetCreds['nthash'], targetCreds['aesKey'], useCache=False)
 
             if self.__command != 'None':
                 executer = PSEXEC(self.__command, targetCreds['username'], targetCreds['domain'], s, None, None)
