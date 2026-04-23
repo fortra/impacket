@@ -73,7 +73,7 @@ from impacket.krb5.constants import ApplicationTagNumbers, PreAuthenticationData
     PrincipalNameType, ProtocolVersionNumber, TicketFlags, encodeFlags, ChecksumTypes, AuthorizationDataType, \
     KERB_NON_KERB_CKSUM_SALT
 from impacket.krb5.keytab import Keytab
-from impacket.krb5.crypto import Key, _enctype_table
+from impacket.krb5.crypto import Key, _enctype_table, get_kerberos_key_for_enctype
 from impacket.krb5.crypto import Enctype
 from impacket.krb5.pac import KERB_SID_AND_ATTRIBUTES, PAC_SIGNATURE_DATA, PAC_LOGON_INFO, \
     PAC_CLIENT_INFO_TYPE, PAC_SERVER_CHECKSUM, PAC_PRIVSVR_CHECKSUM, PKERB_SID_AND_ATTRIBUTES_ARRAY, \
@@ -894,14 +894,11 @@ class TICKETER:
         encodedEncTicketPart = encoder.encode(encTicketPart)
 
         cipher = _enctype_table[kdcRep['ticket']['enc-part']['etype']]
-        if cipher.enctype == EncryptionTypes.aes256_cts_hmac_sha1_96.value:
-            key = Key(cipher.enctype, unhexlify(self.__options.aesKey))
-        elif cipher.enctype == EncryptionTypes.aes128_cts_hmac_sha1_96.value:
-            key = Key(cipher.enctype, unhexlify(self.__options.aesKey))
-        elif cipher.enctype == EncryptionTypes.rc4_hmac.value:
-            key = Key(cipher.enctype, unhexlify(self.__options.nthash))
-        else:
-            raise Exception('Unsupported enctype 0x%x' % cipher.enctype)
+        key = get_kerberos_key_for_enctype(
+            cipher.enctype,
+            nt_hash=self.__options.nthash,
+            generic_aes_key=self.__options.aesKey,
+        )
 
         # Key Usage 2
         # AS-REP Ticket and TGS-REP Ticket (includes TGS session
