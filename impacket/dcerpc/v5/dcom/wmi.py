@@ -2359,9 +2359,9 @@ class IWbemClassObject(IRemUnknown):
         else:
             raise Exception("Cannot set class name for an instance object.")
 
-    def addNewAttribute(self, name, type, default_value=None):
+    def addNewAttribute(self, name, type, default_value=None, qualifiers=None):
         if not self.encodingUnit['ObjectBlock'].isInstance():
-            self.__new_attributes.append((name, type, default_value))
+            self.__new_attributes.append((name, type, default_value, qualifiers or []))
             setattr(self, name, default_value)
         else:
             raise Exception("Cannot add new attribute to an instance object.")
@@ -2428,24 +2428,38 @@ class IWbemClassObject(IRemUnknown):
         # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-wmio/ed436785-40fc-425e-ad3d-f9200eb1a122
         return (bool(null_default) << 1 | bool(inherited_default)) << (2 * index)
 
-    def __createCimTypeQualifierSet(self, heap, propertyInfo):
+    def __createCimTypeQualifierSet(self, heap, propertyInfo, qualifiers=None):
         propertyInfo['PropertyQualifierSet'] = b''
 
+        # CIMTYPE qualifier (mandatory)
         qualifierSet = QUALIFIER_SET()
-        qualifier = QUALIFIER()
-        qualifier['QualifierName'] = DICTIONARY_REFERENCE_TO_VALUE['CIMTYPE'] | 0x80000000
-        qualifier['QualifierFlavor'] = 0 #WBEM_FLAVOR_FLAG_PROPAGATE_O_INSTANCE | WBEM_FLAVOR_FLAG_PROPAGATE_O_DERIVED_CLASS
-        qualifier['QualifierType'] = CIM_TYPE_ENUM.CIM_TYPE_STRING.value
-        qualifier.structure = (('QualifierValue', CIM_TYPES_REF[qualifier['QualifierType'] & (~CIM_ARRAY_FLAG)]),)
+        cimtype_qual = QUALIFIER()
+        cimtype_qual['QualifierName'] = DICTIONARY_REFERENCE_TO_VALUE['CIMTYPE'] | 0x80000000
+        cimtype_qual['QualifierFlavor'] = 0 #WBEM_FLAVOR_FLAG_PROPAGATE_O_INSTANCE | WBEM_FLAVOR_FLAG_PROPAGATE_O_DERIVED_CLASS
+        cimtype_qual['QualifierType'] = CIM_TYPE_ENUM.CIM_TYPE_STRING.value
+        cimtype_qual.structure = (
+            ('QualifierValue', CIM_TYPES_REF[cimtype_qual['QualifierType'] & (~CIM_ARRAY_FLAG)]),
+        )
 
-        qualifierSet['Qualifier'] = qualifier.getData() # for EncodingLength calculation
+        # Extra qualifiers
+        extra_data = b''
+        for qname in (qualifiers or []):
+            q = QUALIFIER()
+            q['QualifierName'] = DICTIONARY_REFERENCE_TO_VALUE[qname] | 0x80000000
+            q['QualifierFlavor'] = 0
+            q['QualifierType'] = CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value
+            q.structure = (
+                ('QualifierValue', CIM_TYPES_REF[CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value & (~CIM_ARRAY_FLAG)]),
+            )
+            q['QualifierValue'] = 0xFFFF
+            extra_data += q.getData()
+
+        # Assemble QUALIFIER_SET
+        qualifierSet['Qualifier'] = cimtype_qual.getData() + extra_data
         qualifierSet['EncodingLength'] = len(qualifierSet.getData())
 
-        # now we set real value for QualifierValue
-        qualifier['QualifierValue'] = len(heap) + len(propertyInfo) + len(qualifierSet.getData())
-
-        # set the final qualifier to QUALIFIER_SET
-        qualifierSet['Qualifier'] = qualifier.getData()
+        cimtype_qual['QualifierValue'] = len(heap) + len(propertyInfo) + len(qualifierSet.getData())
+        qualifierSet['Qualifier'] = cimtype_qual.getData() + extra_data
 
         cimTypeString = ENCODED_STRING()
         cimTypeString['Character'] = CIM_TYPE_TO_NAME[propertyInfo['PropertyType']]
@@ -2590,7 +2604,7 @@ class IWbemClassObject(IRemUnknown):
 
             sorted_attrs = sorted(self.__new_attributes, key=lambda x:x[0])
             for i, attr in enumerate(sorted_attrs):
-                attribute_name, attribute_type, attribute_default_value = attr
+                attribute_name, attribute_type, attribute_default_value, attribute_qualifiers = attr
                 propIndex = existingPropCount + i
 
                 # property name
@@ -2606,7 +2620,7 @@ class IWbemClassObject(IRemUnknown):
                 propertyInfo['DeclarationOrder'] = propIndex
                 propertyInfo['ValueTableOffset'] = len(valueTable)
                 propertyInfo['ClassOfOrigin'] = 0 # TODO
-                qualifierSet, cimType = self.__createCimTypeQualifierSet(cHeap, propertyInfo)
+                qualifierSet, cimType = self.__createCimTypeQualifierSet(cHeap, propertyInfo, attribute_qualifiers)
                 propertyInfo['PropertyQualifierSet'] = qualifierSet
                 cHeap += propertyInfo.getData()
                 cHeap += cimType.getData()
