@@ -58,10 +58,10 @@ class WinRMSRelayClient(ProtocolClient):
             LOG.warning('The client requested signing, relaying to WinRMS might not work!')
 
         # WinRMS relay only works with NTLMv1 (no Channel Binding support).
-        # NTLMv2 clients send CBT tokens that cannot be stripped, so relay will fail
+        # NTLMv2 clients send CBT tokens that cannot be stripped, so relay may fail
         # unless CbtHardeningLevel=None, NTLMv1 is enabled/downgraded, or MITM on WinRM.
         # See: https://sensepost.com/blog/2025/is-tls-more-secure-the-winrms-case./
-        LOG.warning('WinRMS relay requires NTLMv1. NTLMv2 clients send Channel Binding tokens that will cause relay to fail')
+        LOG.warning('WinRMS relay requires NTLMv1. NTLMv2 clients send Channel Binding tokens that may cause relay to fail')
 
         headers = {
             "Content-Length": len(self.basic_xml_data),
@@ -121,16 +121,14 @@ class WinRMSRelayClient(ProtocolClient):
         else:
             token = authenticateMessageBlob
 
-        # Detect NTLMv2 and abort: WinRMS relay only works with NTLMv1.
+        # Detect NTLM version for logging purposes only.
         # NTLMv1 NT response is exactly 24 bytes; NTLMv2 is longer.
         try:
             authMsg = NTLMAuthChallengeResponse()
             authMsg.fromString(token)
             ntlm_response_len = authMsg['ntlm_len']
             if ntlm_response_len > 24:
-                LOG.error('NTLMv2 detected (NT response %d bytes). WinRMS relay requires NTLMv1. '
-                          'Relay will fail due to Channel Binding. Aborting.' % ntlm_response_len)
-                return None, STATUS_ACCESS_DENIED
+                LOG.info('NTLMv2 detected (NT response %d bytes). WinRMS relay may fail due to Channel Binding.' % ntlm_response_len)
             else:
                 LOG.info('NTLMv1 detected (NT response %d bytes). WinRMS relay should work' % ntlm_response_len)
         except Exception:
