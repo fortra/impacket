@@ -1425,7 +1425,7 @@ class OfflineRegistry:
             self.__registryHive.close()
 
 class SAMHashes(OfflineRegistry):
-    def __init__(self, samFile, bootKey, isRemote=False, history=False, printUserStatus=False, perSecretCallback=lambda secret: _print_helper(secret)):
+    def __init__(self, samFile, bootKey, isRemote=False, history=False, printUserStatus=False, perSecretCallback=lambda secret: _print_helper(secret), pwdLastSet=False):
         OfflineRegistry.__init__(self, samFile, isRemote)
         self.__samFile = samFile
         self.__hashedBootKey = b''
@@ -1436,6 +1436,7 @@ class SAMHashes(OfflineRegistry):
         self.__perSecretCallback = perSecretCallback
         self.__history = history
         self.__historyItems = []
+        self.__pwdLastSet = pwdLastSet
 
     def binary_to_sid(self, binary_data, without_prefix=False):
         if len(binary_data) < 12:
@@ -1809,6 +1810,15 @@ class SAMHashes(OfflineRegistry):
 
             answer =  "%s:%d:%s:%s:::" % (userName, rid, hexlify(lmHash).decode('utf-8'), hexlify(ntHash).decode('utf-8'))
 
+            if self.__pwdLastSet:
+                if userAccountF['PasswordLastSetTimeStamp'] is not None:
+                    pwdLastSet = self.nt_time_to_datetime(userAccountF['PasswordLastSetTimeStamp'])
+                    # No datetime set, set value to 'never' to be consistent with NTDS parsing and output
+                    if pwdLastSet == datetime(1601, 1, 1, 0, 0, 0):
+                        pwdLastSet = 'never'
+                else:
+                    pwdLastSet = 'N/A'
+                answer = f"{answer} (pwdLastSet={pwdLastSet})"
             if self.__printUserStatus is True:
                 answer = f"{answer} (Enabled={'False' if disabled else 'True'}) (Locked={'True' if locked_out or auto_locked else 'False'}) (Admin={'True' if is_admin else 'False'})"
 
