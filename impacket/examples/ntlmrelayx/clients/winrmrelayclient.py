@@ -57,12 +57,6 @@ class WinRMSRelayClient(ProtocolClient):
         if negoMessage['flags'] & NTLMSSP_NEGOTIATE_SIGN:
             LOG.warning('The client requested signing, relaying to WinRMS might not work!')
 
-        # WinRMS relay only works with NTLMv1 (no Channel Binding support).
-        # NTLMv2 clients send CBT tokens that cannot be stripped, so relay may fail
-        # unless CbtHardeningLevel=None, NTLMv1 is enabled/downgraded, or MITM on WinRM.
-        # See: https://sensepost.com/blog/2025/is-tls-more-secure-the-winrms-case./
-        LOG.warning('WinRMS relay requires NTLMv1. NTLMv2 clients send Channel Binding tokens that may cause relay to fail')
-
         headers = {
             "Content-Length": len(self.basic_xml_data),
             "Content-Type": "application/soap+xml;charset=UTF-8"
