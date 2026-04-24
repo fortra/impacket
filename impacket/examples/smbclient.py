@@ -583,45 +583,46 @@ class MiniImpacketShell(cmd.Cmd):
         if self.loggedIn is False:
             LOG.error("Not logged in")
             return
-        
-        folderList = [self.pwd]
-        
+
+        root_pwd = self.pwd
+        folderList = [root_pwd]
+
         for ITEM in folderList:
-            old_pwd = self.pwd
             self.pwd = ITEM
-            
+
             try:
                 self.do_ls('*', display=False)
-                
+
                 for file_tuple in self.completion:
                     filename = file_tuple[0]
                     is_directory = file_tuple[1]
-                    
+
                     if filename in ['.', '..']:
                         continue
-                    
+
                     if is_directory:
                         folderList.append(ntpath.join(ITEM, filename))
-                
+
                 self.do_ls(mask, display=False)
-                
+
                 for file_tuple in self.completion:
                     filename = file_tuple[0]
                     is_directory = file_tuple[1]
-                    
+
                     if filename in ['.', '..'] or is_directory:
                         continue
-                    
+
                     filename = filename.replace('/', '\\')
-                    normalized_item = ITEM.replace("\\", "/")
-                    normalized_pwd = old_pwd.replace("\\", "/")
-                    local_path = normalized_item.replace(normalized_pwd, "").strip("/")
+                    local_path = ntpath.relpath(ITEM, root_pwd)
+                    if local_path == '.':
+                        local_path = ''
+                    local_path = local_path.replace('\\', os.sep)
                     local_file = os.path.join(local_path, ntpath.basename(filename)) if local_path else ntpath.basename(filename)
                     local_dir = os.path.dirname(local_file)
-                    
+
                     if local_dir and not os.path.exists(local_dir):
                         os.makedirs(local_dir)
-                    
+
                     fh = open(local_file, 'wb')
                     pathname = ntpath.join(ITEM, filename)
                     try:
@@ -632,10 +633,8 @@ class MiniImpacketShell(cmd.Cmd):
                         os.remove(local_file)
                         raise
                     fh.close()
-            except:
-                pass
-            
-            self.pwd = old_pwd
+            finally:
+                self.pwd = root_pwd
 
     def do_get(self, filename):
         if self.tid is None:
