@@ -126,13 +126,12 @@ class WinRMSRelayClient(ProtocolClient):
         try:
             authMsg = NTLMAuthChallengeResponse()
             authMsg.fromString(token)
-            ntlm_response_len = authMsg['ntlm_len']
-            if ntlm_response_len > 24:
-                LOG.info('NTLMv2 detected (NT response %d bytes). WinRMS relay may fail due to Channel Binding.' % ntlm_response_len)
-            else:
-                LOG.info('NTLMv1 detected (NT response %d bytes). WinRMS relay should work' % ntlm_response_len)
+            nt_response = auth_msg['ntlm']
+            # enough min length and NTLMv2 blob
+            if len(nt_response) >= 48 and nt_response[16:20] == b'\x01\x01\x00\x00':
+                LOG.debug('NTLMv2 detected (NT response %d bytes). WinRMS relay may fail due to Channel Binding.' % len(nt_response))
         except Exception:
-            LOG.debug('Could not parse NTLM authenticate message to detect version, proceeding anyway')
+            pass
 
         auth = base64.b64encode(token).decode("ascii")
         headers = {
