@@ -2471,7 +2471,8 @@ class IWbemClassObject(IRemUnknown):
                 propRecord = properties[propName]
                 itemValue = getattr(self, propName)
                 propIsInherited = propRecord['inherited']
-                print("PropName %r, Value: %r" % (propName,itemValue))
+                if logging.getLogger().level == logging.DEBUG:
+                    LOG.debug(f"PropName {propName!r}, Value: {itemValue!r}")
 
                 pType = propRecord['type'] & (~(CIM_ARRAY_FLAG|Inherited))
                 if propRecord['type'] & CIM_ARRAY_FLAG:
