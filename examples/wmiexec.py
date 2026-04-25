@@ -399,6 +399,12 @@ if __name__ == '__main__':
                                                                       "See smbclient man page's -A option.")
     group.add_argument('-keytab', action="store", help='Read keys for SPN from keytab file')
 
+    group = parser.add_argument_group('SOCKS Proxy Options')
+    group.add_argument('-socks', action='store_true', default=False,
+                        help='Use a SOCKS proxy for the connection')
+    group.add_argument('-socks-address', default='127.0.0.1', help='SOCKS5 server address')
+    group.add_argument('-socks-port', default=1080, type=int, help='SOCKS5 server port')
+
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
@@ -407,6 +413,15 @@ if __name__ == '__main__':
 
     # Init the example's logger theme
     logger.init(options.ts, options.debug)
+
+    # Relay connections through a socks proxy
+    if (options.socks):
+        logging.info('Relaying connections through SOCKS proxy (%s:%s)', options.socks_address, options.socks_port)
+        import socket
+        import socks
+
+        socks.set_default_proxy(socks.SOCKS5, options.socks_address, options.socks_port)
+        socket.socket = socks.socksocket
 
     if options.codec is not None:
         CODEC = options.codec
