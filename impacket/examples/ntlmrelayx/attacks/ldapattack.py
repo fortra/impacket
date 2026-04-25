@@ -909,14 +909,37 @@ class LDAPAttack(ProtocolAttack):
         #print self.client.entries
         global dumpedDomain
         global dumpedAdcs
-        # Set up a default config
-        domainDumpConfig = ldapdomaindump.domainDumpConfig()
 
-        # Change the output directory to configured rootdir
-        domainDumpConfig.basepath = self.config.lootdir
+        if self.config.adwsdomaindump:
+            try:
+                import adwsdomaindump
+                from ldap3.abstract.entry import Entry
+                def entry_get(self, attr, default=None):
+                    try:
+                        return self[attr].value
+                    except:
+                        return default
 
-        # Create new dumper object
-        domainDumper = ldapdomaindump.domainDumper(self.client.server, self.client, domainDumpConfig)
+                Entry.get = entry_get
+
+                domainDumpConfig = adwsdomaindump.domainDumpConfig()
+                domainDumpConfig.basepath = self.config.lootdir
+                domainDumper = adwsdomaindump.domainDumper(self.client.server, self.client, domainDumpConfig)
+
+            except ModuleNotFoundError:
+                LOG.error('adwsdomaindump not installed, falling back to ldapdomaindump')
+                domainDumpConfig = ldapdomaindump.domainDumpConfig()
+                domainDumpConfig.basepath = self.config.lootdir
+                domainDumper = ldapdomaindump.domainDumper(self.client.server, self.client, domainDumpConfig)
+        else:
+            # Set up a default config
+            domainDumpConfig = ldapdomaindump.domainDumpConfig()
+
+            # Change the output directory to configured rootdir
+            domainDumpConfig.basepath = self.config.lootdir
+
+            # Create new dumper object
+            domainDumper = ldapdomaindump.domainDumper(self.client.server, self.client, domainDumpConfig)
 
         if self.config.interactive:
             if self.tcp_shell is not None:
