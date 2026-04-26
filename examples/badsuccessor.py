@@ -296,7 +296,7 @@ class BADSUCCESSOR:
                                 continue
                             #Fix two: The guid conversion was wrong and one actually reads the bytes correctly and converts them to real GUIDs for processing later
                             ace_data = ace['Ace']
-                            object_type = ace_data['ObjectType']
+                            object_type = ace_data['ObjectType'] if ace['AceType'] == ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE else None
                             
                             if object_type:
                                 object_guid = str(uuid.UUID(bytes_le=object_type)).lower()
