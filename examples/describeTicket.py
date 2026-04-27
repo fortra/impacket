@@ -220,10 +220,9 @@ MsBuiltInGroups = {
 def parse_ccache(args):
     ccache = CCache.loadFile(args.ticket)
 
-    cred_number = 0
     logging.info('Number of credentials in cache: %d' % len(ccache.credentials))
 
-    for creds in ccache.credentials:
+    for cred_number, creds in enumerate(ccache.credentials):
         logging.info('Parsing credential[%d]:' % cred_number)
 
         rawTicket = creds.toTGS()
@@ -268,7 +267,7 @@ def parse_ccache(args):
             if etype_enc != "rc4_hmac"  and etype_enc != "aes256_cts_hmac_sha1_96":
                 # can only display rc4_hmac ad it doesn't have a salt. DES/AES keys require the user/domain as a salt, and we don't have
                 # the user account name that backs the requested SPN for the ticket, no no dice :(
-                logging.debug("Service ticket uses encryption key type %s, unable to extract hash and salt" % keyType)
+                logging.debug("Service ticket uses encryption key type %s, unable to extract hash and salt" % etype_enc)
             elif etype_enc == "rc4_hmac":
                 kerberoast_hash = kerberoast_from_ccache(decodedTGS = decodedTicket, spn = spn, username = args.user, domain = args.domain)
             elif args.user:
@@ -351,8 +350,6 @@ def parse_ccache(args):
                         logging.info("    %-26s:" % attribute)
                 else:
                     logging.info("    %-26s: %s" % (attribute, value))
-
-        cred_number += 1
 
 
 def parse_pac(pacType, args):
