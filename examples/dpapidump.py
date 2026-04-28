@@ -172,10 +172,11 @@ class DumpCreds:
                 logging.info("Querying SCCM configuration via WMI")
                 for namespace in namespaces:
                     for query in queries:
-                        logging.info(f'WMI namsepace {namespace} query \'{query}\'')
-                        dcom = DCOMConnection(self.__remoteHost, self.__username, self.__password, self.__domain, self.__lmhash,
+                        logging.info(f'WMI namespace {namespace} query \'{query}\'')
+                        dcom = DCOMConnection(self.__remoteName, self.__username, self.__password, self.__domain, self.__lmhash,
                                                         self.__nthash, self.__aesKey, oxidResolver=True,
-                                                            doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
+                                                            doKerberos=self.__doKerberos, kdcHost=self.__kdcHost,
+                                                            remoteHost=self.__remoteHost)
 
                         iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
                         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
@@ -184,10 +185,11 @@ class DumpCreds:
                         except DCERPCSessionError as e:
                             # error code for WBEM_E_INVALID_NAMESPACE
                             # https://learn.microsoft.com/fr-fr/troubleshoot/windows-client/windows-security/mbam-client-fails-event-id-4-0x8004100e
-                            if e.error_code == 0x8004100e:
-                                logging.info(f'Invalid WMI namespace {namespace}')
                             iWbemLevel1Login.RemRelease()
                             dcom.disconnect()
+                            if e.error_code != 0x8004100e:
+                                raise
+                            logging.info(f'Invalid WMI namespace {namespace}')
                             break
                         if self.__options.rpc_auth_level == 'privacy':
                             iWbemServices.get_dce_rpc().set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
@@ -414,7 +416,7 @@ if __name__ == '__main__':
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
-    parser.add_argument('-com-version', action='store', metavar = "MAJOR_VERSION:MINOR_VERSION", help='DCOM version, '
+    parser.add_argument('-com-version', action='store', metavar = "MAJOR_VERSION.MINOR_VERSION", help='DCOM version, '
                         'format is MAJOR_VERSION:MINOR_VERSION e.g. 5.7')
     parser.add_argument('-bootkey', action='store', help='bootkey for SYSTEM hive')
     parser.add_argument('-throttle', action='store', help='Throttle in seconds between operations', default=0, type=int)
