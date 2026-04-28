@@ -318,9 +318,12 @@ class DumpSecrets:
 
                 if NTDSFileName is not None:
                     try:
-                        localDomainSid = NTDSHashes.getLocalDomainSid(NTDSFileName, isRemote=self.__isRemote)
+                        if self.__isRemote is True:
+                            localDomainSid = self.__remoteOps.getDomainSid()
+                        else:
+                            localDomainSid = NTDSHashes.getLocalDomainSid(NTDSFileName)
                     except Exception as e:
-                        logging.debug('Failed to resolve local domain SID from the pekList row: %s', e)
+                        logging.debug('Failed to resolve local domain SID: %s', e)
 
                 self.__NTDSHashes = NTDSHashes(NTDSFileName, bootKey, isRemote=self.__isRemote, history=self.__history,
                                                noLMHash=self.__noLMHash, remoteOps=self.__remoteOps,
