@@ -1,7 +1,28 @@
 <img width="2043" height="571" alt="Impacket_light" src="https://github.com/user-attachments/assets/14aed700-0c6e-4865-ac53-686b91874f50" />
 
-Impacket
+Impacket-exe
 ========
+
+Windows Branch
+-----------------------
+
+This branch contains modifications to make impacket examples work on Windows as
+well as adding a helpful installer to build examples into standalone binaries.
+
+**To build a tool into an executable:**
+> You may have to disable Windows AV
+
+Download `impacket-installer.ps1` and run the script as administrator in Powershell.
+
+```
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+impacket-exe-installer.ps1 --help
+```
+
+> Use Ctrl+Pause/Break to exit scripts.
+
+Original README
+---
 
 [![Latest Version](https://img.shields.io/pypi/v/impacket.svg)](https://pypi.python.org/pypi/impacket/)
 [![Build and test Impacket](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml)
