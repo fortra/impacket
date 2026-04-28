@@ -97,6 +97,7 @@ class TICKETER:
         self.__options = options
         self.__tgt = None
         self.__tgt_session_key = None
+        self.__requested_ticket_times = None
         if options.spn:
             spn = options.spn.split('/')
             self.__service = spn[0]
@@ -122,6 +123,28 @@ class TICKETER:
     @staticmethod
     def getBlockLength(data_length):
         return (data_length + 7) // 8 * 8
+
+    def _extract_reply_ticket_times(self, kdcRep, replyKey):
+        cipher = _enctype_table[int(kdcRep['enc-part']['etype'])]
+        # Decrypt the KDC reply enc-part with the Kerberos-defined usage:
+        # 3 = AS-REP reply key usage, 8 = TGS-REP reply key usage.
+        keyUsage = 8
+        encKDCRepPartSpec = EncTGSRepPart()
+        if self.__domain == self.__server:
+            keyUsage = 3
+            encKDCRepPartSpec = EncASRepPart()
+        plainText = cipher.decrypt(replyKey, keyUsage, kdcRep['enc-part']['cipher'])
+        encKDCRepPart = decoder.decode(plainText, asn1Spec=encKDCRepPartSpec)[0]
+
+        starttime = encKDCRepPart['starttime'] if encKDCRepPart['starttime'].hasValue() else encKDCRepPart['authtime']
+        renewTill = encKDCRepPart['renew-till'] if encKDCRepPart['renew-till'].hasValue() else encKDCRepPart['endtime']
+
+        return {
+            'authtime': encKDCRepPart['authtime'].clone(),
+            'starttime': starttime.clone(),
+            'endtime': encKDCRepPart['endtime'].clone(),
+            'renew-till': renewTill.clone(),
+        }
 
     def loadKeysFromKeytab(self, filename):
         keytab = Keytab.loadFile(filename)
@@ -347,6 +370,7 @@ class TICKETER:
                 tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, self.__domain, None, tgt, cipher,
                                                                         sessionKey)
                 kdcRep = decoder.decode(tgs, asn1Spec=TGS_REP())[0]
+            self.__requested_ticket_times = self._extract_reply_ticket_times(kdcRep, oldSessionKey)
 
             # Let's check we have all the necessary data based on the ciphers used. Boring checks
             ticketCipher = int(kdcRep['ticket']['enc-part']['etype'])
@@ -715,11 +739,17 @@ class TICKETER:
             encTicketPart['transited'] = noValue
             encTicketPart['transited']['tr-type'] = 0
             encTicketPart['transited']['contents'] = ''
-            encTicketPart['authtime'] = KerberosTime.to_asn1(datetime.datetime.now(datetime.timezone.utc))
-            encTicketPart['starttime'] = KerberosTime.to_asn1(datetime.datetime.now(datetime.timezone.utc))
-            # Let's extend the ticket's validity a lil bit
-            encTicketPart['endtime'] = KerberosTime.to_asn1(ticketDuration)
-            encTicketPart['renew-till'] = KerberosTime.to_asn1(ticketDuration)
+            if self.__options.request and self.__requested_ticket_times is not None:
+                encTicketPart['authtime'] = self.__requested_ticket_times['authtime'].clone()
+                encTicketPart['starttime'] = self.__requested_ticket_times['starttime'].clone()
+                encTicketPart['endtime'] = self.__requested_ticket_times['endtime'].clone()
+                encTicketPart['renew-till'] = self.__requested_ticket_times['renew-till'].clone()
+            else:
+                encTicketPart['authtime'] = KerberosTime.to_asn1(datetime.datetime.now(datetime.timezone.utc))
+                encTicketPart['starttime'] = KerberosTime.to_asn1(datetime.datetime.now(datetime.timezone.utc))
+                # Let's extend the ticket's validity a lil bit
+                encTicketPart['endtime'] = KerberosTime.to_asn1(ticketDuration)
+                encTicketPart['renew-till'] = KerberosTime.to_asn1(ticketDuration)
             encTicketPart['authorization-data'] = noValue
             encTicketPart['authorization-data'][0] = noValue
             encTicketPart['authorization-data'][0]['ad-type'] = AuthorizationDataType.AD_IF_RELEVANT.value
