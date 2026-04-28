@@ -14,16 +14,22 @@
 #
 import datetime
 import unittest
+from unittest import mock
 from types import SimpleNamespace
 
 from examples.ticketer import TICKETER
-from impacket.krb5.asn1 import EncTicketPart
+from pyasn1.codec.der import encoder
+from pyasn1.type.univ import noValue
+
+from impacket.krb5.asn1 import EncASRepPart, EncTGSRepPart, EncTicketPart
+from impacket.krb5.constants import EncryptionTypes, PrincipalNameType, TicketFlags, encodeFlags
 from impacket.krb5.types import KerberosTime
 
 
 class TicketerTests(unittest.TestCase):
-    def build_options(self):
-        return SimpleNamespace(
+    @staticmethod
+    def build_options(**overrides):
+        options = SimpleNamespace(
             spn=None,
             keytab=None,
             request=False,
@@ -38,7 +44,120 @@ class TicketerTests(unittest.TestCase):
             duration='87600',
             domain_sid='S-1-5-21-1-2-3',
             impersonate=None,
+            user='administrator',
+            dc_ip='10.0.0.1',
         )
+        for key, value in overrides.items():
+            setattr(options, key, value)
+        return options
+
+    @staticmethod
+    def build_encoded_reply_part(replyPartSpec):
+        authtime = datetime.datetime(2026, 4, 28, 23, 25, 32, tzinfo=datetime.timezone.utc)
+        starttime = datetime.datetime(2026, 4, 28, 23, 25, 32, tzinfo=datetime.timezone.utc)
+        endtime = datetime.datetime(2026, 4, 29, 9, 25, 32, tzinfo=datetime.timezone.utc)
+        renewTill = datetime.datetime(2026, 4, 29, 23, 25, 4, tzinfo=datetime.timezone.utc)
+
+        part = replyPartSpec()
+        part['key'] = noValue
+        part['key']['keytype'] = EncryptionTypes.aes256_cts_hmac_sha1_96.value
+        part['key']['keyvalue'] = b'A' * 32
+        part['last-req'] = noValue
+        part['last-req'][0] = noValue
+        part['last-req'][0]['lr-type'] = 0
+        part['last-req'][0]['lr-value'] = KerberosTime.to_asn1(authtime)
+        part['nonce'] = 123456789
+        part['key-expiration'] = KerberosTime.to_asn1(endtime)
+        part['flags'] = encodeFlags([TicketFlags.forwardable.value, TicketFlags.renewable.value])
+        part['authtime'] = KerberosTime.to_asn1(authtime)
+        part['starttime'] = KerberosTime.to_asn1(starttime)
+        part['endtime'] = KerberosTime.to_asn1(endtime)
+        part['renew-till'] = KerberosTime.to_asn1(renewTill)
+        part['srealm'] = 'A.LOCAL'
+        part['sname'] = noValue
+        part['sname']['name-type'] = PrincipalNameType.NT_SRV_INST.value
+        part['sname']['name-string'] = noValue
+        part['sname']['name-string'][0] = 'krbtgt'
+        part['sname']['name-string'][1] = 'A.LOCAL'
+
+        return encoder.encode(part)
+
+    def test_extract_reply_ticket_times_as_rep(self):
+        class FakeCipher:
+            def __init__(self, plaintext):
+                self.plaintext = plaintext
+                self.calls = []
+
+            def decrypt(self, replyKey, keyUsage, cipherText):
+                self.calls.append((replyKey, keyUsage, cipherText))
+                return self.plaintext
+
+        options = self.build_options()
+        ticketer = TICKETER('baduser', 'Password123!', 'a.local', options)
+        fakeCipher = FakeCipher(self.build_encoded_reply_part(EncASRepPart))
+
+        with mock.patch.dict(
+            'examples.ticketer._enctype_table',
+            {EncryptionTypes.aes256_cts_hmac_sha1_96.value: fakeCipher},
+            clear=False,
+        ):
+            extracted = ticketer._extract_reply_ticket_times(
+                {'enc-part': {'etype': EncryptionTypes.aes256_cts_hmac_sha1_96.value, 'cipher': b'ciphertext'}},
+                b'reply-key',
+            )
+
+        self.assertEqual(fakeCipher.calls, [(b'reply-key', 3, b'ciphertext')])
+        self.assertEqual(str(extracted['authtime']), '20260428232532Z')
+        self.assertEqual(str(extracted['starttime']), '20260428232532Z')
+        self.assertEqual(str(extracted['endtime']), '20260429092532Z')
+        self.assertEqual(str(extracted['renew-till']), '20260429232504Z')
+
+    def test_extract_reply_ticket_times_tgs_rep(self):
+        class FakeCipher:
+            def __init__(self, plaintext):
+                self.plaintext = plaintext
+                self.calls = []
+
+            def decrypt(self, replyKey, keyUsage, cipherText):
+                self.calls.append((replyKey, keyUsage, cipherText))
+                return self.plaintext
+
+        options = self.build_options(spn='cifs/fileserver.a.local')
+        ticketer = TICKETER('baduser', 'Password123!', 'a.local', options)
+        fakeCipher = FakeCipher(self.build_encoded_reply_part(EncTGSRepPart))
+
+        with mock.patch.dict(
+            'examples.ticketer._enctype_table',
+            {EncryptionTypes.aes256_cts_hmac_sha1_96.value: fakeCipher},
+            clear=False,
+        ):
+            extracted = ticketer._extract_reply_ticket_times(
+                {'enc-part': {'etype': EncryptionTypes.aes256_cts_hmac_sha1_96.value, 'cipher': b'ciphertext'}},
+                b'reply-key',
+            )
+
+        self.assertEqual(fakeCipher.calls, [(b'reply-key', 8, b'ciphertext')])
+        self.assertEqual(str(extracted['authtime']), '20260428232532Z')
+        self.assertEqual(str(extracted['starttime']), '20260428232532Z')
+        self.assertEqual(str(extracted['endtime']), '20260429092532Z')
+        self.assertEqual(str(extracted['renew-till']), '20260429232504Z')
+
+    def test_createBasicTicket_request_stores_requested_ticket_times(self):
+        templateOptions = self.build_options()
+        templateTicketer = TICKETER('templateuser', 'Password123!', 'a.local', templateOptions)
+        templateReply, _ = templateTicketer.createBasicTicket()
+
+        options = self.build_options(request=True)
+        ticketer = TICKETER('baduser', 'Password123!', 'a.local', options)
+        expectedTimes = {'marker': 'times'}
+
+        with mock.patch('examples.ticketer.getKerberosTGT', return_value=(b'tgt-bytes', object(), b'reply-key', b'session-key')):
+            with mock.patch('examples.ticketer.decoder.decode', return_value=[templateReply]):
+                with mock.patch.object(TICKETER, '_extract_reply_ticket_times', return_value=expectedTimes) as extractMock:
+                    ticketer.createBasicTicket()
+
+        extractMock.assert_called_once()
+        self.assertIs(ticketer._TICKETER__requested_ticket_times, expectedTimes)
 
     def test_customizeTicket_request_reuses_requested_lifetime(self):
         options = self.build_options()
