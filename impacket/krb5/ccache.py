@@ -125,6 +125,7 @@ class Principal:
             ('name_type','!L=0'),
             ('num_components','!L=0'),
         )
+
     def __init__(self, data=None):
         self.components = []
         self.realm = None
@@ -689,12 +690,13 @@ class CCache:
 
         # Loop through all ticket-info entries
         for i, krbCredInfo in enumerate(encKrbCredPart["ticket-info"]):
+            tmpPrincipal = types.Principal()
+            tmpPrincipal.from_asn1(krbCredInfo, "prealm", "pname")
+            principal = Principal()
+            principal.fromPrincipal(tmpPrincipal)
             # Set the ccache principal from the first entry
             if i == 0:
-                tmpPrincipal = types.Principal()
-                tmpPrincipal.from_asn1(krbCredInfo, "prealm", "pname")
-                self.principal = Principal()
-                self.principal.fromPrincipal(tmpPrincipal)
+                self.principal = principal
 
             credential = Credential()
             server = types.Principal()
@@ -702,7 +704,7 @@ class CCache:
             tmpServer = Principal()
             tmpServer.fromPrincipal(server)
 
-            credential["client"] = self.principal
+            credential["client"] = principal
             credential["server"] = tmpServer
             credential["is_skey"] = 0
 
@@ -756,14 +758,14 @@ class CCache:
             krbCredInfo["key"]["keytype"] = credential["key"]["keytype"]
             krbCredInfo["key"]["keyvalue"] = credential["key"]["keyvalue"]
 
-            krbCredInfo["prealm"] = principal.realm.fields["data"]
+            krbCredInfo["prealm"] = credential['client'].realm.fields["data"]
 
             krbCredInfo["pname"] = noValue
-            krbCredInfo["pname"]["name-type"] = principal.header["name_type"]
+            krbCredInfo["pname"]["name-type"] = credential['client'].header["name_type"]
             seq_set_iter(
                 krbCredInfo["pname"],
                 "name-string",
-                tuple(c.fields["data"] for c in principal.components),
+                tuple(c.fields["data"] for c in credential['client'].components),
             )
 
             # Force the 32 bit representation to avoid any precision loss due to ASN1 conversion
@@ -821,7 +823,6 @@ class CCache:
         header['taglen'] = 8
         header['tagdata'] = b'\xff\xff\xff\xff\x00\x00\x00\x00'
         self.headers.append(header)
-
 
 
 if __name__ == '__main__':
