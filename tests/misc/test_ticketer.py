@@ -52,7 +52,7 @@ class TicketerTests(unittest.TestCase):
         return options
 
     @staticmethod
-    def build_encoded_reply_part(replyPartSpec):
+    def build_encoded_reply_part(replyPartSpec, include_starttime=True, include_renew_till=True):
         authtime = datetime.datetime(2026, 4, 28, 23, 25, 32, tzinfo=datetime.timezone.utc)
         starttime = datetime.datetime(2026, 4, 28, 23, 25, 32, tzinfo=datetime.timezone.utc)
         endtime = datetime.datetime(2026, 4, 29, 9, 25, 32, tzinfo=datetime.timezone.utc)
@@ -70,9 +70,11 @@ class TicketerTests(unittest.TestCase):
         part['key-expiration'] = KerberosTime.to_asn1(endtime)
         part['flags'] = encodeFlags([TicketFlags.forwardable.value, TicketFlags.renewable.value])
         part['authtime'] = KerberosTime.to_asn1(authtime)
-        part['starttime'] = KerberosTime.to_asn1(starttime)
+        if include_starttime:
+            part['starttime'] = KerberosTime.to_asn1(starttime)
         part['endtime'] = KerberosTime.to_asn1(endtime)
-        part['renew-till'] = KerberosTime.to_asn1(renewTill)
+        if include_renew_till:
+            part['renew-till'] = KerberosTime.to_asn1(renewTill)
         part['srealm'] = 'A.LOCAL'
         part['sname'] = noValue
         part['sname']['name-type'] = PrincipalNameType.NT_SRV_INST.value
@@ -83,6 +85,8 @@ class TicketerTests(unittest.TestCase):
         return encoder.encode(part)
 
     def test_extract_reply_ticket_times_as_rep(self):
+        # Covers helper decryption/decoding for requested TGTs and verifies
+        # the AS-REP reply key usage. Reuse behavior is covered separately below.
         class FakeCipher:
             def __init__(self, plaintext):
                 self.plaintext = plaintext
@@ -113,6 +117,8 @@ class TicketerTests(unittest.TestCase):
         self.assertEqual(str(extracted['renew-till']), '20260429232504Z')
 
     def test_extract_reply_ticket_times_tgs_rep(self):
+        # Covers helper decryption/decoding for requested service tickets and
+        # verifies the TGS-REP reply key usage.
         class FakeCipher:
             def __init__(self, plaintext):
                 self.plaintext = plaintext
@@ -142,7 +148,43 @@ class TicketerTests(unittest.TestCase):
         self.assertEqual(str(extracted['endtime']), '20260429092532Z')
         self.assertEqual(str(extracted['renew-till']), '20260429232504Z')
 
+    def test_extract_reply_ticket_times_missing_optional_fields_uses_fallbacks(self):
+        # Covers the helper fallback behavior when the KDC omits optional
+        # starttime or renew-till values.
+        class FakeCipher:
+            def __init__(self, plaintext):
+                self.plaintext = plaintext
+
+            def decrypt(self, replyKey, keyUsage, cipherText):
+                return self.plaintext
+
+        options = self.build_options()
+        ticketer = TICKETER('baduser', 'Password123!', 'a.local', options)
+        fakeCipher = FakeCipher(self.build_encoded_reply_part(
+            EncASRepPart,
+            include_starttime=False,
+            include_renew_till=False,
+        ))
+
+        with mock.patch.dict(
+            'examples.ticketer._enctype_table',
+            {EncryptionTypes.aes256_cts_hmac_sha1_96.value: fakeCipher},
+            clear=False,
+        ):
+            extracted = ticketer._extract_reply_ticket_times(
+                {'enc-part': {'etype': EncryptionTypes.aes256_cts_hmac_sha1_96.value, 'cipher': b'ciphertext'}},
+                b'reply-key',
+            )
+
+        self.assertEqual(str(extracted['authtime']), '20260428232532Z')
+        self.assertEqual(str(extracted['starttime']), '20260428232532Z')
+        self.assertEqual(str(extracted['endtime']), '20260429092532Z')
+        self.assertEqual(str(extracted['renew-till']), '20260429092532Z')
+
     def test_createBasicTicket_request_stores_requested_ticket_times(self):
+        # Covers createBasicTicket() wiring only: the extraction helper is
+        # mocked here because its parsing behavior is verified by the helper
+        # tests above.
         templateOptions = self.build_options()
         templateTicketer = TICKETER('templateuser', 'Password123!', 'a.local', templateOptions)
         templateReply, _ = templateTicketer.createBasicTicket()
@@ -160,6 +202,9 @@ class TicketerTests(unittest.TestCase):
         self.assertIs(ticketer._TICKETER__requested_ticket_times, expectedTimes)
 
     def test_customizeTicket_request_reuses_requested_lifetime(self):
+        # Covers customizeTicket() consuming already-extracted lifetime values.
+        # This test intentionally seeds the cached values directly; extraction
+        # and request wiring are covered by the dedicated tests above.
         options = self.build_options()
         ticketer = TICKETER('baduser', 'Password123!', 'a.local', options)
 
@@ -189,6 +234,8 @@ class TicketerTests(unittest.TestCase):
         self.assertEqual(str(encTicketPart['starttime']), '20260428232532Z')
         self.assertEqual(str(encTicketPart['endtime']), '20260429092532Z')
         self.assertEqual(str(encTicketPart['renew-till']), '20260429232504Z')
+        self.assertEqual(str(encRepPart['authtime']), '20260428232532Z')
+        self.assertEqual(str(encRepPart['starttime']), '20260428232532Z')
         self.assertEqual(str(encRepPart['endtime']), '20260429092532Z')
         self.assertEqual(str(encRepPart['renew-till']), '20260429232504Z')
 
