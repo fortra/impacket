@@ -73,10 +73,10 @@ from impacket.krb5.constants import ApplicationTagNumbers, PreAuthenticationData
     PrincipalNameType, ProtocolVersionNumber, TicketFlags, encodeFlags, ChecksumTypes, AuthorizationDataType, \
     KERB_NON_KERB_CKSUM_SALT
 from impacket.krb5.keytab import Keytab
-from impacket.krb5.crypto import Key, _enctype_table
-from impacket.krb5.crypto import _checksum_table, Enctype
-from impacket.krb5.pac import KERB_SID_AND_ATTRIBUTES, PAC_SIGNATURE_DATA, PAC_INFO_BUFFER, PAC_LOGON_INFO, \
-    PAC_CLIENT_INFO_TYPE, PAC_SERVER_CHECKSUM, PAC_PRIVSVR_CHECKSUM, PACTYPE, PKERB_SID_AND_ATTRIBUTES_ARRAY, \
+from impacket.krb5.crypto import Key, _enctype_table, get_kerberos_key_for_enctype
+from impacket.krb5.crypto import Enctype
+from impacket.krb5.pac import KERB_SID_AND_ATTRIBUTES, PAC_SIGNATURE_DATA, PAC_LOGON_INFO, \
+    PAC_CLIENT_INFO_TYPE, PAC_SERVER_CHECKSUM, PAC_PRIVSVR_CHECKSUM, PKERB_SID_AND_ATTRIBUTES_ARRAY, \
     VALIDATION_INFO, PAC_CLIENT_INFO, KERB_VALIDATION_INFO, UPN_DNS_INFO_FULL, PAC_REQUESTOR_INFO, PAC_UPN_DNS_INFO, PAC_ATTRIBUTES_INFO, PAC_REQUESTOR, \
     PAC_ATTRIBUTE_INFO
 from impacket.krb5.types import KerberosTime, Principal
@@ -118,11 +118,11 @@ class TICKETER:
 
     @staticmethod
     def getPadLength(data_length):
-        return ((data_length + 7) // 8 * 8) - data_length
+        return pac.get_pad_length(data_length)
 
     @staticmethod
     def getBlockLength(data_length):
-        return (data_length + 7) // 8 * 8
+        return pac.get_block_length(data_length)
 
     def _extract_reply_ticket_times(self, kdcRep, replyKey):
         cipher = _enctype_table[int(kdcRep['enc-part']['etype'])]
@@ -899,152 +899,14 @@ class TICKETER:
     def signEncryptTicket(self, kdcRep, encASorTGSRepPart, encTicketPart, pacInfos):
         logging.info('Signing/Encrypting final ticket')
 
-        # Basic PAC count
-        pac_count = 4
+        bufferOrder = [PAC_LOGON_INFO, PAC_CLIENT_INFO_TYPE]
+        for optionalType in (PAC_UPN_DNS_INFO, PAC_ATTRIBUTES_INFO, PAC_REQUESTOR_INFO):
+            if optionalType in pacInfos:
+                bufferOrder.append(optionalType)
+        bufferOrder.extend([PAC_SERVER_CHECKSUM, PAC_PRIVSVR_CHECKSUM])
 
-        # We changed everything we needed to make us special. Now let's repack and calculate checksums
-        validationInfoBlob = pacInfos[PAC_LOGON_INFO]
-        validationInfoAlignment = b'\x00' * self.getPadLength(len(validationInfoBlob))
-
-        pacClientInfoBlob = pacInfos[PAC_CLIENT_INFO_TYPE]
-        pacClientInfoAlignment = b'\x00' * self.getPadLength(len(pacClientInfoBlob))
-
-        pacUpnDnsInfoBlob = None
-        pacUpnDnsInfoAlignment = None
-        if PAC_UPN_DNS_INFO in pacInfos:
-            pac_count += 1
-            pacUpnDnsInfoBlob = pacInfos[PAC_UPN_DNS_INFO]
-            pacUpnDnsInfoAlignment = b'\x00' * self.getPadLength(len(pacUpnDnsInfoBlob))
-
-        pacAttributesInfoBlob = None
-        pacAttributesInfoAlignment = None
-        if PAC_ATTRIBUTES_INFO in pacInfos:
-            pac_count += 1
-            pacAttributesInfoBlob = pacInfos[PAC_ATTRIBUTES_INFO]
-            pacAttributesInfoAlignment = b'\x00' * self.getPadLength(len(pacAttributesInfoBlob))
-
-        pacRequestorInfoBlob = None
-        pacRequestorInfoAlignment = None
-        if PAC_REQUESTOR_INFO in pacInfos:
-            pac_count += 1
-            pacRequestorInfoBlob = pacInfos[PAC_REQUESTOR_INFO]
-            pacRequestorInfoAlignment = b'\x00' * self.getPadLength(len(pacRequestorInfoBlob))
-
-        serverChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_SERVER_CHECKSUM])
-        serverChecksumBlob = pacInfos[PAC_SERVER_CHECKSUM]
-        serverChecksumAlignment = b'\x00' * self.getPadLength(len(serverChecksumBlob))
-
-        privSvrChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_PRIVSVR_CHECKSUM])
-        privSvrChecksumBlob = pacInfos[PAC_PRIVSVR_CHECKSUM]
-        privSvrChecksumAlignment = b'\x00' * self.getPadLength(len(privSvrChecksumBlob))
-
-        # The offset are set from the beginning of the PAC_TYPE
-        # [MS-PAC] 2.4 PAC_INFO_BUFFER
-        offsetData = 8 + len(PAC_INFO_BUFFER().getData()) * pac_count
-
-        # Let's build the PAC_INFO_BUFFER for each one of the elements
-        validationInfoIB = PAC_INFO_BUFFER()
-        validationInfoIB['ulType'] = PAC_LOGON_INFO
-        validationInfoIB['cbBufferSize'] = len(validationInfoBlob)
-        validationInfoIB['Offset'] = offsetData
-        offsetData = self.getBlockLength(offsetData + validationInfoIB['cbBufferSize'])
-
-        pacClientInfoIB = PAC_INFO_BUFFER()
-        pacClientInfoIB['ulType'] = PAC_CLIENT_INFO_TYPE
-        pacClientInfoIB['cbBufferSize'] = len(pacClientInfoBlob)
-        pacClientInfoIB['Offset'] = offsetData
-        offsetData = self.getBlockLength(offsetData + pacClientInfoIB['cbBufferSize'])
-
-        pacUpnDnsInfoIB = None
-        if pacUpnDnsInfoBlob is not None:
-            pacUpnDnsInfoIB = PAC_INFO_BUFFER()
-            pacUpnDnsInfoIB['ulType'] = PAC_UPN_DNS_INFO
-            pacUpnDnsInfoIB['cbBufferSize'] = len(pacUpnDnsInfoBlob)
-            pacUpnDnsInfoIB['Offset'] = offsetData
-            offsetData = self.getBlockLength(offsetData + pacUpnDnsInfoIB['cbBufferSize'])
-
-        pacAttributesInfoIB = None
-        if pacAttributesInfoBlob is not None:
-            pacAttributesInfoIB = PAC_INFO_BUFFER()
-            pacAttributesInfoIB['ulType'] = PAC_ATTRIBUTES_INFO
-            pacAttributesInfoIB['cbBufferSize'] = len(pacAttributesInfoBlob)
-            pacAttributesInfoIB['Offset'] = offsetData
-            offsetData = self.getBlockLength(offsetData + pacAttributesInfoIB['cbBufferSize'])
-
-        pacRequestorInfoIB = None
-        if pacRequestorInfoBlob is not None:
-            pacRequestorInfoIB = PAC_INFO_BUFFER()
-            pacRequestorInfoIB['ulType'] = PAC_REQUESTOR_INFO
-            pacRequestorInfoIB['cbBufferSize'] = len(pacRequestorInfoBlob)
-            pacRequestorInfoIB['Offset'] = offsetData
-            offsetData = self.getBlockLength(offsetData + pacRequestorInfoIB['cbBufferSize'])
-
-        serverChecksumIB = PAC_INFO_BUFFER()
-        serverChecksumIB['ulType'] = PAC_SERVER_CHECKSUM
-        serverChecksumIB['cbBufferSize'] = len(serverChecksumBlob)
-        serverChecksumIB['Offset'] = offsetData
-        offsetData = self.getBlockLength(offsetData + serverChecksumIB['cbBufferSize'])
-
-        privSvrChecksumIB = PAC_INFO_BUFFER()
-        privSvrChecksumIB['ulType'] = PAC_PRIVSVR_CHECKSUM
-        privSvrChecksumIB['cbBufferSize'] = len(privSvrChecksumBlob)
-        privSvrChecksumIB['Offset'] = offsetData
-        # offsetData = self.getBlockLength(offsetData+privSvrChecksumIB['cbBufferSize'])
-
-        # Building the PAC_TYPE as specified in [MS-PAC]
-        buffers = validationInfoIB.getData() + pacClientInfoIB.getData()
-        if pacUpnDnsInfoIB is not None:
-            buffers += pacUpnDnsInfoIB.getData()
-        if pacAttributesInfoIB is not None:
-            buffers += pacAttributesInfoIB.getData()
-        if pacRequestorInfoIB is not None:
-            buffers += pacRequestorInfoIB.getData()
-
-        buffers += serverChecksumIB.getData() + privSvrChecksumIB.getData() + validationInfoBlob + \
-            validationInfoAlignment + pacInfos[PAC_CLIENT_INFO_TYPE] + pacClientInfoAlignment
-        if pacUpnDnsInfoIB is not None:
-            buffers += pacUpnDnsInfoBlob + pacUpnDnsInfoAlignment
-        if pacAttributesInfoIB is not None:
-            buffers += pacAttributesInfoBlob + pacAttributesInfoAlignment
-        if pacRequestorInfoIB is not None:
-            buffers += pacRequestorInfoBlob + pacRequestorInfoAlignment
-
-        buffersTail = serverChecksumBlob + serverChecksumAlignment + privSvrChecksum.getData() + privSvrChecksumAlignment
-
-        pacType = PACTYPE()
-        pacType['cBuffers'] = pac_count
-        pacType['Version'] = 0
-        pacType['Buffers'] = buffers + buffersTail
-
-        blobToChecksum = pacType.getData()
-
-        checkSumFunctionServer = _checksum_table[serverChecksum['SignatureType']]
-        if serverChecksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes256.value:
-            keyServer = Key(Enctype.AES256, unhexlify(self.__options.aesKey))
-        elif serverChecksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes128.value:
-            keyServer = Key(Enctype.AES128, unhexlify(self.__options.aesKey))
-        elif serverChecksum['SignatureType'] == ChecksumTypes.hmac_md5.value:
-            keyServer = Key(Enctype.RC4, unhexlify(self.__options.nthash))
-        else:
-            raise Exception('Invalid Server checksum type 0x%x' % serverChecksum['SignatureType'])
-
-        checkSumFunctionPriv = _checksum_table[privSvrChecksum['SignatureType']]
-        if privSvrChecksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes256.value:
-            keyPriv = Key(Enctype.AES256, unhexlify(self.__options.aesKey))
-        elif privSvrChecksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes128.value:
-            keyPriv = Key(Enctype.AES128, unhexlify(self.__options.aesKey))
-        elif privSvrChecksum['SignatureType'] == ChecksumTypes.hmac_md5.value:
-            keyPriv = Key(Enctype.RC4, unhexlify(self.__options.nthash))
-        else:
-            raise Exception('Invalid Priv checksum type 0x%x' % serverChecksum['SignatureType'])
-
-        serverChecksum['Signature'] = checkSumFunctionServer.checksum(keyServer, KERB_NON_KERB_CKSUM_SALT, blobToChecksum)
-        logging.info('\tPAC_SERVER_CHECKSUM')
-        privSvrChecksum['Signature'] = checkSumFunctionPriv.checksum(keyPriv, KERB_NON_KERB_CKSUM_SALT, serverChecksum['Signature'])
-        logging.info('\tPAC_PRIVSVR_CHECKSUM')
-
-        buffersTail = serverChecksum.getData() + serverChecksumAlignment + privSvrChecksum.getData() + privSvrChecksumAlignment
-        pacType['Buffers'] = buffers + buffersTail
+        pacType = pac.sign_pac(pacInfos, aes_key=self.__options.aesKey, nt_hash=self.__options.nthash,
+                               buffer_order=bufferOrder, checksum_salt=KERB_NON_KERB_CKSUM_SALT)
 
         authorizationData = AuthorizationData()
         authorizationData[0] = noValue
@@ -1062,14 +924,11 @@ class TICKETER:
         encodedEncTicketPart = encoder.encode(encTicketPart)
 
         cipher = _enctype_table[kdcRep['ticket']['enc-part']['etype']]
-        if cipher.enctype == EncryptionTypes.aes256_cts_hmac_sha1_96.value:
-            key = Key(cipher.enctype, unhexlify(self.__options.aesKey))
-        elif cipher.enctype == EncryptionTypes.aes128_cts_hmac_sha1_96.value:
-            key = Key(cipher.enctype, unhexlify(self.__options.aesKey))
-        elif cipher.enctype == EncryptionTypes.rc4_hmac.value:
-            key = Key(cipher.enctype, unhexlify(self.__options.nthash))
-        else:
-            raise Exception('Unsupported enctype 0x%x' % cipher.enctype)
+        key = get_kerberos_key_for_enctype(
+            cipher.enctype,
+            nt_hash=self.__options.nthash,
+            generic_aes_key=self.__options.aesKey,
+        )
 
         # Key Usage 2
         # AS-REP Ticket and TGS-REP Ticket (includes TGS session
