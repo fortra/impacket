@@ -368,7 +368,7 @@ class DumpCreds:
                 decrypted = self.decryptBlob(secret[secret_type])
                 if decrypted:
                     decrypted = decrypted.decode('utf-16le').rstrip('\x0d\x0a\x00\x0a')
-                    print(f'[Task_Sequence] {decrypted}')
+                    logging.info(f'[Task_Sequence] {decrypted}')
 
             elif secret_type == 'Collection Variable':
                 col_variable = secret[secret_type]
