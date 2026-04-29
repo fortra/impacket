@@ -56,7 +56,7 @@ import os
 import socket
 from binascii import a2b_hex
 import datetime
-from struct import pack, unpack, pack_into
+from struct import pack, unpack, pack_into, error as StructError
 from ctypes import BigEndianStructure, c_uint32
 from contextlib import contextmanager
 from pyasn1.type.univ import noValue
@@ -2970,7 +2970,7 @@ class SMB(object):
                 self._dialects_data['ChallengeLength'] = self._dialects_parameters['ChallengeLength']
                 try:
                     self._dialects_data.fromString(sessionResponse['Data'])
-                except ValueError as e:
+                except (ValueError, StructError) as e:
                     LOG.debug("Negotiate response parsing failed: %s", e)
                     raise SessionError("Connection failed: invalid or truncated server response", 0x000D, 0xC000, 1, None)
                 if self._dialects_parameters['Capabilities'] & SMB.CAP_EXTENDED_SECURITY:
@@ -2978,7 +2978,7 @@ class SMB(object):
                     self._dialects_parameters = SMBExtended_Security_Parameters(sessionResponse['Parameters'])
                     try:
                         self._dialects_data = SMBExtended_Security_Data(sessionResponse['Data'])
-                    except ValueError as e:
+                    except (ValueError, StructError) as e:
                         LOG.debug("Negotiate extended security response parsing failed: %s", e)
                         raise SessionError("Connection failed: invalid or truncated server response", 0x000D, 0xC000, 1, None)
                     # Let's setup some variable for later use
@@ -3590,7 +3590,7 @@ class SMB(object):
             sessionData['SecurityBlobLength'] = sessionParameters['SecurityBlobLength']
             try:
                 sessionData.fromString(sessionResponse['Data'])
-            except ValueError as e:
+            except (ValueError, StructError) as e:
                 LOG.debug("Session setup response parsing failed: %s", e)
                 raise SessionError("Authentication failed: invalid or truncated server response", 0x006D, 0xC000, 1, None)
 
@@ -3667,7 +3667,7 @@ class SMB(object):
             sessionData['SecurityBlobLength'] = sessionParameters['SecurityBlobLength']
             try:
                 sessionData.fromString(sessionResponse['Data'])
-            except ValueError as e:
+            except (ValueError, StructError) as e:
                 LOG.debug("Session setup response parsing failed: %s", e)
                 raise SessionError("Authentication failed: invalid or truncated server response", 0x006D, 0xC000, 1, None)
             respToken = SPNEGO_NegTokenResp(sessionData['SecurityBlob'])

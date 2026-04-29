@@ -12,6 +12,7 @@ import os
 import errno
 import socket
 import select
+import struct
 
 try:
     import pytest
@@ -387,8 +388,8 @@ class Test_Issue2099_SessionError_On_Truncated_Response(unittest.TestCase):
     """
 
     def test_login_raises_session_error_when_session_response_parsing_fails(self):
-        # When sessionData.fromString(sessionResponse['Data']) raises ValueError (e.g. no NUL in NativeOS),
-        # login_extended should catch it and raise SessionError so users see auth failure, not ValueError.
+        # When sessionData.fromString(sessionResponse['Data']) raises parse errors (e.g. ValueError/struct.error),
+        # login_extended should catch it and raise SessionError so users see auth failure, not raw parse errors.
         from impacket.smb import (
             NewSMBPacket,
             SMBCommand,
@@ -449,18 +450,26 @@ class Test_Issue2099_SessionError_On_Truncated_Response(unittest.TestCase):
         ])
         mock_sess.send_packet = Mock()
 
-        def fromString_raises(*args, **kwargs):
-            raise ValueError("Can't find NUL terminator in field 'NativeOS'")
+        parse_exceptions = [
+            ValueError("Can't find NUL terminator in field 'NativeOS'"),
+            struct.error("unpack requires a buffer of 2 bytes"),
+        ]
+        for parse_exc in parse_exceptions:
+            with self.subTest(parse_exception=type(parse_exc).__name__):
+                mock_sess.recv_packet = Mock(side_effect=[
+                    RecvResponse(neg_bytes),
+                    RecvResponse(session_setup_bytes),
+                ])
 
-        with patch('impacket.nmb.NetBIOSTCPSession', return_value=mock_sess), \
-             patch.object(SMBSessionSetupAndX_Extended_Response_Data, 'fromString', side_effect=fromString_raises):
-            # Session setup response parsing raises; SMB.__init__ may call login('','') which
-            # triggers recv then fromString. Raised type is smb.SessionError (from init) or
-            # smbconnection.SessionError (from conn.login after init).
-            with self.assertRaises((SessionError, smb.SessionError)) as ctx:
-                conn = SMBConnection('127.0.0.1', '127.0.0.1')
-                conn.login('user', 'pass')
-            self.assertIsNotNone(getattr(ctx.exception, 'error', None) or getattr(ctx.exception, 'error_code', None))
+                with patch('impacket.nmb.NetBIOSTCPSession', return_value=mock_sess), \
+                     patch.object(SMBSessionSetupAndX_Extended_Response_Data, 'fromString', side_effect=parse_exc):
+                    # Session setup response parsing raises; SMB.__init__ may call login('','') which
+                    # triggers recv then fromString. Raised type is smb.SessionError (from init) or
+                    # smbconnection.SessionError (from conn.login after init).
+                    with self.assertRaises((SessionError, smb.SessionError)) as ctx:
+                        conn = SMBConnection('127.0.0.1', '127.0.0.1')
+                        conn.login('user', 'pass')
+                    self.assertIsNotNone(getattr(ctx.exception, 'error', None) or getattr(ctx.exception, 'error_code', None))
 
 
 if __name__ == "__main__":

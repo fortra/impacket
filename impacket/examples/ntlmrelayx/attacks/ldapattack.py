@@ -196,7 +196,7 @@ class LDAPAttack(ProtocolAttack):
         Add a new user. Parent is preferably CN=Users,DC=Domain,DC=local, but can
         also be an OU or other container where we have write privileges
         """
-        global alreadyEscalated  # noqa: F824
+        global alreadyEscalated
         if alreadyEscalated:
             LOG.error('New user already added. Refusing to add another')
             return
@@ -342,6 +342,7 @@ class LDAPAttack(ProtocolAttack):
         return
 
     def delegateAttack(self, usersam, targetsam, domainDumper, sid):
+        global delegatePerformed
         if targetsam in delegatePerformed:
             LOG.info('Delegate attack already performed for this computer, skipping')
             return
