@@ -362,7 +362,7 @@ class DumpCreds:
                     username_decrypted = username_decrypted.decode('utf-16le')
                 if password_decrypted:
                     password_decrypted = password_decrypted.decode('utf-16le')
-                print(f'[NAA Credentials] {username_decrypted}:{password_decrypted}')
+                logging.info(f'[NAA Credentials] {username_decrypted}:{password_decrypted}')
 
             elif secret_type == 'TS_Sequence':
                 decrypted = self.decryptBlob(secret[secret_type])
