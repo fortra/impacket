@@ -376,7 +376,7 @@ class DumpCreds:
                 value = self.decryptBlob(col_variable[name])
                 if value:
                     value = value.decode('utf-16le')
-                print(f'[Colletion Variable] {name}:{value}')
+                logging.info(f'[Collection Variable] {name}:{value}')
         for k, v in self.raw_credentials.items():
             cred = CredentialFile(v)
             blob = DPAPI_BLOB(cred['Data'])
