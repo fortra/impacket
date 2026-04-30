@@ -744,14 +744,20 @@ class RAISECHILD:
 
         if plainText:
             try:
-                userProperties = samr.USER_PROPERTIES(plainText)
+                _, propertyCount, propertiesData = samr.unpack_user_properties(plainText)
             except:
                 # On some old w2k3 there might be user properties that don't
                 # match [MS-SAMR] structure, discarding them
                 return
-            propertiesData = userProperties['UserProperties']
-            for propertyCount in range(userProperties['PropertyCount']):
-                userProperty = samr.USER_PROPERTY(propertiesData)
+            for _ in range(propertyCount):
+                try:
+                    userProperty = samr.USER_PROPERTY(propertiesData)
+                except Exception:
+                    logging.debug(
+                        'Malformed supplemental credential property, discarding the remaining data',
+                        exc_info=True,
+                    )
+                    return
                 propertiesData = propertiesData[len(userProperty):]
                 if userProperty['PropertyName'].decode('utf-16le') == 'Primary:Kerberos-Newer-Keys':
                     propertyValueBuffer = unhexlify(userProperty['PropertyValue'])

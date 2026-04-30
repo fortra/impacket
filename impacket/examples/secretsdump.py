@@ -2822,14 +2822,21 @@ class NTDSHashes:
 
         if haveInfo is True:
             try:
-                userProperties = samr.USER_PROPERTIES(plainText)
+                _, propertyCount, propertiesData = samr.unpack_user_properties(plainText)
             except:
                 # On some old w2k3 there might be user properties that don't
                 # match [MS-SAMR] structure, discarding them
                 return
-            propertiesData = userProperties['UserProperties']
-            for propertyCount in range(userProperties['PropertyCount']):
-                userProperty = samr.USER_PROPERTY(propertiesData)
+            for _ in range(propertyCount):
+                try:
+                    userProperty = samr.USER_PROPERTY(propertiesData)
+                except Exception:
+                    LOG.debug(
+                        'Malformed supplemental credential property for %s, discarding the remaining data',
+                        userName,
+                        exc_info=True,
+                    )
+                    return
                 propertiesData = propertiesData[len(userProperty):]
                 # For now, we will only process Newer Kerberos Keys and CLEARTEXT
                 if userProperty['PropertyName'].decode('utf-16le') == 'Primary:Kerberos-Newer-Keys':
