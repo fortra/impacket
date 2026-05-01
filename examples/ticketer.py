@@ -1016,7 +1016,7 @@ if __name__ == '__main__':
     parser.add_argument('-old-pac', action='store_true', help='Use the old PAC structure to create your ticket (exclude '
                                                               'PAC_ATTRIBUTES_INFO and PAC_REQUESTOR')
     parser.add_argument('-duration', action="store", default = '87600', help='Amount of hours till the ticket expires '
-                                                                             '(default = 24*365*10)')
+parser.add_argument('-duration', action="store", default = '87600', help='Amount of hours till the ticket expires (default = 24*365*10). Ignored with -request, which preserves the KDC-issued lifetime')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
