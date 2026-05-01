@@ -40,6 +40,7 @@ from impacket.ldap.ldapasn1 import Filter, Control, SimplePagedResultsControl, R
     SearchResultDone, LDAPMessage, AddRequest, ModifyRequest, ModifyDNRequest, DelRequest
 from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3, VERSION, hmac_md5, NTLMAuthChallenge
 from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, SPNEGOCipher, TypesMech
+from impacket.tls import tls_server_end_point_channel_binding_from_digest
 
 try:
     import OpenSSL
@@ -149,25 +150,10 @@ class LDAPConnection:
             self._socket.connect(sa)
             self._socket.do_handshake()
 
-            # From: https://github.com/ly4k/ldap3/commit/87f5760e5a68c2f91eac8ba375f4ea3928e2b9e0#diff-c782b790cfa0a948362bf47d72df8ddd6daac12e5757afd9d371d89385b27ef6R1383
-            from hashlib import md5
             # Ugly but effective, to get the digest of the X509 DER in bytes
             peer_cert_digest_str = self._socket.get_peer_certificate().digest('sha256').decode()
             peer_cert_digest_bytes = bytes.fromhex(peer_cert_digest_str.replace(':', ''))
-        
-            channel_binding_struct = b''
-            initiator_address = b'\x00'*8
-            acceptor_address = b'\x00'*8
-
-            # https://datatracker.ietf.org/doc/html/rfc5929#section-4
-            application_data_raw = b'tls-server-end-point:' + peer_cert_digest_bytes
-            len_application_data = len(application_data_raw).to_bytes(4, byteorder='little', signed = False)
-            application_data = len_application_data
-            application_data += application_data_raw
-            channel_binding_struct += initiator_address
-            channel_binding_struct += acceptor_address
-            channel_binding_struct += application_data
-            self.channel_binding_value = md5(channel_binding_struct).digest()
+            self.channel_binding_value = tls_server_end_point_channel_binding_from_digest(peer_cert_digest_bytes)
 
     def kerberosLogin(self, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost=None, TGT=None,
                       TGS=None, useCache=True):
