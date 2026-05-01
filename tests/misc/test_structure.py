@@ -213,6 +213,23 @@ class Test_UnpackCode(_StructureTest, unittest.TestCase):
     hexData = '18000000 736f7920 756e206c 6f636f21 71756520 68616365 73206669 657261'
 
 
+class Test_AsciiZ_calcUnpackSize_missing_terminator(unittest.TestCase):
+    # Regression test for impacket #2099. When a Structure containing a 'z'
+    # (asciiz) field is unpacked from data that has no NUL byte at all,
+    # calcUnpackSize used to surface a bare 'ValueError: subsection not found'
+    # from str.index(), which is opaque for callers (e.g. SMBConnection.login
+    # parsing a truncated session response). Should raise a descriptive
+    # ValueError naming the field type.
+    class theClass(Structure):
+        structure = (
+            ('z1', 'z'),
+        )
+
+    def test_missing_nul_terminator(self):
+        with six.assertRaisesRegex(self, ValueError, r"'z' field is not NUL terminated"):
+            self.theClass(b'no terminator here')
+
+
 class Test_AAA(_StructureTest, unittest.TestCase):
     class theClass(Structure):
         commonHdr = ()

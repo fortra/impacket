@@ -537,7 +537,10 @@ class Structure:
 
         # asciiz specifier
         if format[:1] == 'z':
-            return data.index(self.b('\x00'))+1
+            try:
+                return data.index(self.b('\x00'))+1
+            except ValueError:
+                raise ValueError("'z' field is not NUL terminated: %r" % data)
 
         # asciiz specifier
         if format[:1] == 'u':
