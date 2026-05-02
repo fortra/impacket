@@ -18,6 +18,8 @@
 #  Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #
 from impacket.examples.utils import parse_credentials
+from pathlib import Path
+from impacket import LOG
 
 
 class NTLMRelayxConfig:
@@ -95,6 +97,14 @@ class NTLMRelayxConfig:
 
         # WebDAV options
         self.serve_image = False
+
+        # Mail (SMTP, IMAP, POP3) options
+        self.smtp_server_cert: str | None = None
+        self.smtp_server_key: str | None = None
+        self.imap_server_cert: str | None = None
+        self.imap_server_key: str | None = None
+        self.pop3_server_cert: str | None = None
+        self.pop3_server_key: str | None = None
 
         # AD CS attack options
         self.isADCSAttack = False
@@ -283,6 +293,55 @@ class NTLMRelayxConfig:
 
     def setAltName(self, altName):
         self.altName = altName
+    
+    def set_smtp_server_cert(self, smtp_server_path: Path):
+        try:
+            with open(smtp_server_path, 'rb') as f:
+                self.smtp_server_cert = f.read().strip()
+        except FileNotFoundError:
+            LOG.error("(SMTP) Certificate file not found")
+            exit(1)
+    
+    def set_smtp_server_key(self, smtp_server_key_path: Path):
+        try:
+            with open(smtp_server_key_path, 'rb') as f:
+                self.smtp_server_key = f.read().strip()
+        except FileNotFoundError:
+            LOG.error("(SMTP) Private key file not found")
+            exit(1)
+    
+    def set_imap_server_cert(self, imap_server_path: Path):
+        try:
+            with open(imap_server_path, 'rb') as f:
+                self.imap_server_cert = f.read().strip()
+        except FileNotFoundError:
+            LOG.error("(IMAP) Certificate file not found")
+            exit(1)
+    
+    def set_imap_server_key(self, imap_server_key_path: Path):
+        try:
+            with open(imap_server_key_path, 'rb') as f:
+                self.imap_server_key = f.read().strip()
+        except FileNotFoundError:
+            LOG.error("(IMAP) Private key file not found")
+            exit(1)
+    
+    def set_pop3_server_cert(self, pop3_server_path: Path):
+        try:
+            with open(pop3_server_path, 'rb') as f:
+                self.pop3_server_cert = f.read().strip()
+        except FileNotFoundError:
+            LOG.error("(POP3) Certificate file not found")
+            exit(1)
+    
+    def set_pop3_server_key(self, pop3_server_key_path: Path):
+        try:
+            with open(pop3_server_key_path, 'rb') as f:
+                self.pop3_server_key = f.read().strip()
+        except FileNotFoundError:
+            LOG.error("(POP3) Private key file not found")
+            exit(1)
+
 
 def parse_listening_ports(value):
     ports = set()
