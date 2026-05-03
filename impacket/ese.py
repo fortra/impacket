@@ -567,12 +567,26 @@ class ESENT_PAGE:
         tag = tags[-4:]
 
         if self.__DBHeader['Version'] == 0x620 and self.__DBHeader['FileFormatRevision'] >= 17 and self.__DBHeader['PageSize'] > 8192:
+            # Large page format (16KB / 32KB): page tag flags are stored in the
+            # upper 3 bits of the first 16-bit value of the entry data itself,
+            # not in the tag entry. Tag entries use full 15-bit fields.
             valueSize = unpack('<H', tag[:2])[0] & 0x7fff
             valueOffset = unpack('<H',tag[2:])[0] & 0x7fff
             tmpData = bytearray(self.data[baseOffset+valueOffset:][:valueSize])
-            pageFlags = tmpData[1] >> 5
-            tmpData[1] = tmpData[1:2][0] & 0x1f
-            tmpData = bytes(tmpData)
+            if valueSize >= 2:
+                # Extract page tag flags from the upper 3 bits of the first
+                # 16-bit little-endian value in the entry data (byte index 1
+                # holds the high byte of that 16-bit word).
+                pageFlags = tmpData[1] >> 5
+                tmpData[1] = tmpData[1] & 0x1f
+                tmpData = bytes(tmpData)
+            elif valueSize == 1:
+                pageFlags = 0
+                tmpData = bytes(tmpData)
+            else:
+                # Empty entry (e.g. leaf/branch page header with no common key)
+                pageFlags = 0
+                tmpData = b''
             tagData = tmpData
         else:
             valueSize = unpack('<H', tag[:2])[0] & 0x1fff
