@@ -495,8 +495,34 @@ class RemoteOperations:
         self.__domainName = domain
 
     def __connectDrds(self):
-        stringBinding = epm.hept_map(self.__smbConnection.getRemoteHost(), drsuapi.MSRPC_UUID_DRSUAPI,
-                                     protocol='ncacn_ip_tcp')
+        remote_host = self.__smbConnection.getRemoteHost()
+        try:
+            stringBinding = epm.hept_map(remote_host, drsuapi.MSRPC_UUID_DRSUAPI,
+                                         protocol='ncacn_ip_tcp')
+        except DCERPCException as e:
+            # RestrictRemoteClients = 2 (and similar policies): unauthenticated clients cannot
+            # talk to the TCP Endpoint Mapper (135). Resolve the DRSUAPI port via authenticated
+            # SMB to \\pipe\\epmapper, same pattern as examples/mimikatz.py.
+            if 'rpc_s_access_denied' not in str(e).lower():
+                raise
+            LOG.info('Endpoint Mapper (TCP/135) denied anonymous access; using authenticated epmapper pipe')
+            epm_rpc = transport.DCERPCTransportFactory(r'ncacn_np:445[\pipe\epmapper]')
+            epm_rpc.set_smb_connection(self.__smbConnection)
+            if hasattr(epm_rpc, 'set_credentials'):
+                epm_rpc.set_credentials(*(self.__smbConnection.getCredentials()))
+                epm_rpc.set_kerberos(self.__doKerberos, self.__kdcHost)
+            epm_rpc.setRemoteHost(self.__smbConnection.getRemoteHost())
+            epm_rpc.setRemoteName(self.__smbConnection.getRemoteName())
+            epm_dce = epm_rpc.get_dce_rpc()
+            epm_dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
+            if self.__doKerberos:
+                epm_dce.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
+            epm_dce.connect()
+            try:
+                stringBinding = epm.hept_map(remote_host, drsuapi.MSRPC_UUID_DRSUAPI,
+                                             protocol='ncacn_ip_tcp', dce=epm_dce)
+            finally:
+                epm_dce.disconnect()
         rpc = transport.DCERPCTransportFactory(stringBinding)
         rpc.setRemoteHost(self.__smbConnection.getRemoteHost())
         rpc.setRemoteName(self.__smbConnection.getRemoteName())
