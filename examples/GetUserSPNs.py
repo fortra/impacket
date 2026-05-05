@@ -133,11 +133,8 @@ class GetUserSPNs:
         # password to ntlm hashes (that will force to use RC4 for the TGT). If that doesn't work, we use the
         # cleartext password.
         # If no clear text password is provided, we just go with the defaults.
-        if self.__password != '' and (self.__lmhash == '' and self.__nthash == ''):
+        if self.__password != '' and (self.__lmhash == '' and self.__nthash == '') and not self.__noRC4:
             try:
-                if (self.__noRC4):
-                    raise
-
                 tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, '', self.__domain,
                                                                         compute_lmhash(self.__password),
                                                                         compute_nthash(self.__password), self.__aesKey,
