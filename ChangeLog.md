@@ -5,6 +5,12 @@ Project owner's main page is at www.coresecurity.com.
 Complete list of changes can be found at:
 https://github.com/fortra/impacket/commits/master
 
+## Impacket (unreleased)
+
+1. Library improvements
+
+    * SMB: When session setup or negotiate response parsing fails (e.g. truncated server response), raise SessionError with a clear auth/connection failure instead of an unhandled ValueError; log the parsing reason at debug. Structure layer now raises a descriptive ValueError for missing NUL in asciiz fields. (Fixes #2099)
+
 ## Impacket v0.13.0 (Oct 2025): 
 
 1. Library improvements 

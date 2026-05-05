@@ -213,6 +213,41 @@ class Test_UnpackCode(_StructureTest, unittest.TestCase):
     hexData = '18000000 736f7920 756e206c 6f636f21 71756520 68616365 73206669 657261'
 
 
+class Test_asciiz_no_nul_raises_clear_error(unittest.TestCase):
+    """Regression test for #2099: asciiz field with no NUL raises descriptive ValueError.
+
+    Local test (no remote target). Runs with pytest -m 'not remote'.
+    """
+    def test_asciiz_missing_nul_raises_value_error_with_field_name(self):
+        from impacket.structure import Structure
+        class WithAsciiz(Structure):
+            structure = (('name', 'z'),)
+        with six.assertRaisesRegex(self, ValueError, r"NUL terminator"):
+            WithAsciiz(b'NoNULhere')
+        with self.assertRaises(ValueError) as ctx:
+            WithAsciiz(b'Truncated')
+        self.assertIn('name', str(ctx.exception),
+                      "Exception message should include the field name")
+
+    def test_session_like_structure_truncated_asciiz_raises_clear_error(self):
+        """Regression for #2099: structure with length-prefixed blob then asciiz (like SMB NativeOS) raises clear ValueError when no NUL."""
+        from impacket.structure import Structure
+        # Mimics SMB session response: length-prefixed blob then asciiz (NativeOS). Set Len=0 so blob consumes 0 bytes.
+        class SessionLike(Structure):
+            structure = (
+                ('Len', '_-Blob', 'self["Len"]'),
+                ('Blob', ':'),
+                ('NativeOS', 'z=""'),
+            )
+        inst = SessionLike()
+        inst['Len'] = 0
+        with self.assertRaises(ValueError) as ctx:
+            inst.fromString(b'TruncatedOrMalformed')
+        msg = str(ctx.exception)
+        self.assertIn('NUL', msg, "Message should mention missing NUL terminator")
+        self.assertIn('NativeOS', msg, "Message should identify the field (NativeOS)")
+
+
 class Test_AAA(_StructureTest, unittest.TestCase):
     class theClass(Structure):
         commonHdr = ()
