@@ -175,6 +175,7 @@ class DumpSecrets:
 
     def dump(self):
         try:
+            localDomainSid = None
             # Almost like LOCAL but create (and deletes it after finishing) a Shadow Snapshot at target and download SAM, SYSTEM and SECURITY from the SS. No Code Execution.
             # If specified, NTDS will be also downloaded and parsed (no code execution needed, in contrast to vssadmin method). Use it when targeting a DC.
             # Then, parse locally
@@ -315,13 +316,22 @@ class DumpSecrets:
                 else:
                     NTDSFileName = self.__ntdsFile
 
+                if NTDSFileName is not None:
+                    try:
+                        if self.__isRemote is True:
+                            localDomainSid = self.__remoteOps.getDomainSid()
+                        else:
+                            localDomainSid = NTDSHashes.getLocalDomainSid(NTDSFileName)
+                    except Exception as e:
+                        logging.debug('Failed to resolve local domain SID: %s', e)
+
                 self.__NTDSHashes = NTDSHashes(NTDSFileName, bootKey, isRemote=self.__isRemote, history=self.__history,
                                                noLMHash=self.__noLMHash, remoteOps=self.__remoteOps,
                                                useVSSMethod=self.__useVSSMethod, remoteSSMethodWMINTDS=self.__remoteSSWMINTDS, justNTLM=self.__justDCNTLM,
                                                pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
                                                outputFileName=self.__outputFileName, justUser=self.__justUser,
                                                skipUser=self.__skipUser, ldapFilter=self.__ldapFilter,
-                                               printUserStatus=self.__printUserStatus)
+                                               printUserStatus=self.__printUserStatus, localDomainSid=localDomainSid)
                 try:
                     self.__NTDSHashes.dump()
                 except Exception as e:

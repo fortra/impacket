@@ -70,6 +70,7 @@ from impacket import system_errors
 from impacket import winregistry, ntlm
 from impacket.ldap.ldap import SimplePagedResultsControl, LDAPSearchError
 from impacket.ldap.ldapasn1 import SearchResultEntry
+from impacket.ldap.ldaptypes import LDAP_SID
 from impacket.dcerpc.v5 import transport, rrp, scmr, wkst, samr, epm, drsuapi
 from impacket.dcerpc.v5.dtypes import NULL, SID
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, DCERPCException, RPC_C_AUTHN_GSS_NEGOTIATE
@@ -2606,7 +2607,7 @@ class NTDSHashes:
 
     def __init__(self, ntdsFile, bootKey, isRemote=False, history=False, noLMHash=True, remoteOps=None,
                  useVSSMethod=False, remoteSSMethodWMINTDS=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None,
-                 justUser=None, skipUser=None,ldapFilter=None, printUserStatus=False,
+                 justUser=None, skipUser=None, ldapFilter=None, printUserStatus=False, localDomainSid=None,
                  perSecretCallback = lambda secretType, secret : _print_helper(secret),
                  resumeSessionMgr=ResumeSessionMgrInFile):
         self.__bootKey = bootKey
@@ -2618,6 +2619,7 @@ class NTDSHashes:
         self.__remoteOps = remoteOps
         self.__pwdLastSet = pwdLastSet
         self.__printUserStatus = printUserStatus
+        self.__localDomainSid = localDomainSid
         if self.__NTDS is not None:
             self.__ESEDB = ESENT_DB(ntdsFile, isRemote = isRemote)
             self.__cursor = self.__ESEDB.openTable('datatable')
@@ -2650,9 +2652,92 @@ class NTDSHashes:
             self.NAME_TO_INTERNAL['userAccountControl'] : 1,
             self.NAME_TO_INTERNAL['supplementalCredentials'] : 1,
             self.NAME_TO_INTERNAL['pekList'] : 1,
-            self.NAME_TO_INTERNAL['instanceType'] : 1,
 
         }
+
+    @classmethod
+    def __getOfflineDatatableSidComponents(cls, objectSid, minimumSubAuthorityCount, context):
+        try:
+            sid = LDAP_SID(data=unhexlify(objectSid))
+            canonicalSid = sid.formatCanonical().split('-')
+        except Exception as e:
+            LOG.debug('Failed to parse %s while normalizing an offline datatable SID: %s', context, e)
+            return None
+
+        # TODO: Offline datatable objectSid values in our samples only reconcile the
+        # domain root/pekList row with account rows when the final subauthority is
+        # interpreted as big-endian. Keep this mixed decoding limited to offline
+        # datatable SID normalization for NTDS row filtering until the on-disk
+        # encoding/parsing mismatch is better understood.
+        if sid['SubAuthorityCount'] < minimumSubAuthorityCount:
+            LOG.debug('Ignoring unexpected %s without the expected domain SID shape: %s', context,
+                      sid.formatCanonical())
+            return None
+
+        subAuthorities = sid['SubAuthority']
+        canonicalSid[-1] = str(unpack('>L', subAuthorities[-4:])[0])
+        return canonicalSid
+
+    @classmethod
+    def __getAccountDomainSid(cls, objectSid):
+        sidComponents = cls.__getOfflineDatatableSidComponents(objectSid, 5, 'account objectSid')
+        if sidComponents is None:
+            return None
+        return '-'.join(sidComponents[:-1])
+
+    @classmethod
+    def __getPekListDomainSid(cls, objectSid):
+        sidComponents = cls.__getOfflineDatatableSidComponents(objectSid, 4, 'pekList objectSid')
+        if sidComponents is None:
+            return None
+        return '-'.join(sidComponents)
+
+    @classmethod
+    def getLocalDomainSid(cls, ntdsFile, isRemote=False):
+        if ntdsFile is None:
+            return None
+
+        eseDB = ESENT_DB(ntdsFile, isRemote=isRemote)
+        try:
+            cursor = eseDB.openTable('datatable')
+            filter_tables = {
+                cls.NAME_TO_INTERNAL['objectSid']: 1,
+                cls.NAME_TO_INTERNAL['pekList']: 1,
+            }
+
+            while True:
+                try:
+                    record = eseDB.getNextRow(cursor, filter_tables=filter_tables)
+                except Exception:
+                    LOG.error('Error while calling getNextRow() for local domain SID resolution, trying the next one')
+                    continue
+
+                if record is None:
+                    return None
+
+                if record[cls.NAME_TO_INTERNAL['pekList']] is None:
+                    continue
+
+                objectSid = record[cls.NAME_TO_INTERNAL['objectSid']]
+                if objectSid is None:
+                    return None
+
+                return cls.__getPekListDomainSid(objectSid)
+        finally:
+            eseDB.close()
+
+    def __isLocalDomainAccount(self, record):
+        if record[self.NAME_TO_INTERNAL['sAMAccountType']] not in self.ACCOUNT_TYPES:
+            return False
+
+        if self.__localDomainSid is None:
+            return True
+
+        objectSid = record[self.NAME_TO_INTERNAL['objectSid']]
+        if objectSid is None:
+            return False
+
+        return self.__getAccountDomainSid(objectSid) == self.__localDomainSid
 
     def getResumeSessionFile(self):
         return self.__resumeSession.getFileName()
@@ -2672,7 +2757,7 @@ class NTDSHashes:
             elif record[self.NAME_TO_INTERNAL['pekList']] is not None:
                 peklist =  unhexlify(record[self.NAME_TO_INTERNAL['pekList']])
                 break
-            elif record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES and record[self.NAME_TO_INTERNAL['instanceType']] & 4:    # "The object is writable on this directory":
+            elif self.__isLocalDomainAccount(record):
                 # Okey.. we found some users, but we're not yet ready to process them.
                 # Let's just store them in a temp list
                 self.__tmpUsers.append(record)
@@ -3206,7 +3291,7 @@ class NTDSHashes:
                         if record is None:
                             break
                         try:
-                            if record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES and record[self.NAME_TO_INTERNAL['instanceType']] & 4:    # "The object is writable on this directory"
+                            if self.__isLocalDomainAccount(record):
                                 self.__decryptHash(record, outputFile=hashesOutputFile)
                                 if self.__justNTLM is False:
                                     self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
@@ -3448,14 +3533,17 @@ class LocalOperations:
     def __init__(self, systemHive):
         self.__systemHive = systemHive
 
+    def __getCurrentControlSet(self, winreg):
+        currentControlSet = winreg.getValue('\\Select\\Current')[1]
+        return "ControlSet%03d" % currentControlSet
+
     def getBootKey(self):
         # Local Version whenever we are given the files directly
         bootKey = b''
         tmpKey = b''
         winreg = winregistry.get_registry_parser(self.__systemHive, False)
         # We gotta find out the Current Control Set
-        currentControlSet = winreg.getValue('\\Select\\Current')[1]
-        currentControlSet = "ControlSet%03d" % currentControlSet
+        currentControlSet = self.__getCurrentControlSet(winreg)
         for key in ['JD', 'Skew1', 'GBG', 'Data']:
             LOG.debug('Retrieving class info for %s' % key)
             ans = winreg.getClass('\\%s\\Control\\Lsa\\%s' % (currentControlSet, key))
@@ -3478,8 +3566,7 @@ class LocalOperations:
         LOG.debug('Checking NoLMHash Policy')
         winreg = winregistry.get_registry_parser(self.__systemHive, False)
         # We gotta find out the Current Control Set
-        currentControlSet = winreg.getValue('\\Select\\Current')[1]
-        currentControlSet = "ControlSet%03d" % currentControlSet
+        currentControlSet = self.__getCurrentControlSet(winreg)
 
         # noLmHash = winreg.getValue('\\%s\\Control\\Lsa\\NoLmHash' % currentControlSet)[1]
         noLmHash = winreg.getValue('\\%s\\Control\\Lsa\\NoLmHash' % currentControlSet)
@@ -3493,7 +3580,6 @@ class LocalOperations:
             return False
         LOG.debug('LMHashes are NOT being stored')
         return True
-
 
 class KeyListSecrets:
     def __init__(self, domainName, kdc, kvno, rodcKey, remoteOps=None):
