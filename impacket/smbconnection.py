@@ -872,7 +872,7 @@ class SMBConnection:
         """
 
         # Verify we're under SMB2+ session
-        if self.getDialect() not in [SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30]:
+        if self.getDialect() not in [SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30, SMB2_DIALECT_311]:
             raise SessionError(error = nt_errors.STATUS_NOT_SUPPORTED)
 
         fid = self.openFile(tid, path, FILE_READ_DATA | FILE_READ_EA | FILE_READ_ATTRIBUTES | READ_CONTROL | SYNCHRONIZE,
