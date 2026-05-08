@@ -2485,6 +2485,9 @@ class ResumeSessionMgrInFile(object):
 
 
 class NTDSHashes:
+    class MissingPekIndex(Exception):
+        pass
+
     class SECRET_TYPE:
         NTDS = 0
         NTDS_CLEARTEXT = 1
@@ -2808,14 +2811,22 @@ class NTDSHashes:
     def __removeRC4Layer(self, cryptedHash):
         md5 = hashlib.new('md5')
         # PEK index can be found on header of each ciphered blob (pos 8-10)
-        pekIndex = hexlify(cryptedHash['Header'])
-        md5.update(self.__PEK[int(pekIndex[8:10])])
+        md5.update(self.__getPekFromHeader(cryptedHash['Header']))
         md5.update(cryptedHash['KeyMaterial'])
         tmpKey = md5.digest()
         rc4 = ARC4.new(tmpKey)
         plainText = rc4.encrypt(cryptedHash['EncryptedHash'])
 
         return plainText
+
+    def __getPekFromHeader(self, header):
+        # PEK index can be found on header of each ciphered blob (pos 8-10).
+        pekIndex = int(hexlify(header)[8:10], 16)
+        if pekIndex >= len(self.__PEK):
+            raise self.MissingPekIndex('Encrypted secret references PEK index %d, but only %d PEK entries are available' %
+                                       (pekIndex, len(self.__PEK)))
+
+        return self.__PEK[pekIndex]
 
     def __removeDESLayer(self, cryptedHash, rid):
         Key1,Key2 = self.__cryptoCommon.deriveKey(int(rid))
@@ -2853,8 +2864,7 @@ class NTDSHashes:
 
                     if cipherText['Header'][:4] == b'\x13\x00\x00\x00':
                         # Win2016 TP4 decryption is different
-                        pekIndex = hexlify(cipherText['Header'])
-                        plainText = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])],
+                        plainText = self.__cryptoCommon.decryptAES(self.__getPekFromHeader(cipherText['Header']),
                                                                    cipherText['EncryptedHash'][4:],
                                                                    cipherText['KeyMaterial'])
                         haveInfo = True
@@ -2968,8 +2978,7 @@ class NTDSHashes:
                 if encryptedLMHash['Header'][:4] == b'\x13\x00\x00\x00':
                     # Win2016 TP4 decryption is different
                     encryptedLMHash = self.CRYPTED_HASHW16(unhexlify(record[self.NAME_TO_INTERNAL['dBCSPwd']]))
-                    pekIndex = hexlify(encryptedLMHash['Header'])
-                    tmpLMHash = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])],
+                    tmpLMHash = self.__cryptoCommon.decryptAES(self.__getPekFromHeader(encryptedLMHash['Header']),
                                                                encryptedLMHash['EncryptedHash'][:16],
                                                                encryptedLMHash['KeyMaterial'])
                 else:
@@ -2983,8 +2992,7 @@ class NTDSHashes:
                 if encryptedNTHash['Header'][:4] == b'\x13\x00\x00\x00':
                     # Win2016 TP4 decryption is different
                     encryptedNTHash = self.CRYPTED_HASHW16(unhexlify(record[self.NAME_TO_INTERNAL['unicodePwd']]))
-                    pekIndex = hexlify(encryptedNTHash['Header'])
-                    tmpNTHash = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])],
+                    tmpNTHash = self.__cryptoCommon.decryptAES(self.__getPekFromHeader(encryptedNTHash['Header']),
                                                                encryptedNTHash['EncryptedHash'][:16],
                                                                encryptedNTHash['KeyMaterial'])
                 else:
@@ -3042,8 +3050,7 @@ class NTDSHashes:
                         # Win2016 TP4 decryption is different
                         encryptedNTHistory = self.CRYPTED_HASHW16(
                             unhexlify(record[self.NAME_TO_INTERNAL['ntPwdHistory']]))
-                        pekIndex = hexlify(encryptedNTHistory['Header'])
-                        tmpNTHistory = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])],
+                        tmpNTHistory = self.__cryptoCommon.decryptAES(self.__getPekFromHeader(encryptedNTHistory['Header']),
                                                                       encryptedNTHistory['EncryptedHash'],
                                                                       encryptedNTHistory['KeyMaterial'])
                     else:
@@ -3261,6 +3268,13 @@ class NTDSHashes:
                             if self.__justNTLM is False:
                                 self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
                         except Exception as e:
+                            if isinstance(e, self.MissingPekIndex):
+                                try:
+                                    LOG.warning("Skipping row for user %s: %s" %
+                                                (record[self.NAME_TO_INTERNAL['name']], e))
+                                except:
+                                    LOG.warning("Skipping row: %s" % e)
+                                continue
                             LOG.debug('Exception', exc_info=True)
                             try:
                                 LOG.error(
@@ -3288,6 +3302,13 @@ class NTDSHashes:
                                 if self.__justNTLM is False:
                                     self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
                         except Exception as e:
+                            if isinstance(e, self.MissingPekIndex):
+                                try:
+                                    LOG.warning("Skipping row for user %s: %s" %
+                                                (record[self.NAME_TO_INTERNAL['name']], e))
+                                except:
+                                    LOG.warning("Skipping row: %s" % e)
+                                continue
                             LOG.debug('Exception', exc_info=True)
                             try:
                                 LOG.error(
