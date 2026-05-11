@@ -872,6 +872,7 @@ class MSSQL:
         remoteName="",
         workstation_id: str = "",
         application_name: str = "",
+        client_interface_name: str = "",
         rowsPrinter=DummyPrint(),
     ):
         # self.packetSize = 32764
@@ -895,6 +896,7 @@ class MSSQL:
         self._application_name = (
             application_name or "Microsoft SQL Server Management Studio - Query"
         )
+        self._client_interface_name = client_interface_name
 
     # With Kerberos we need to know to which MSSQL instance we are going to connect (to compute the SPN)
     # As such we need to be able to list these instances which is what this code does
@@ -1220,7 +1222,7 @@ class MSSQL:
         TGT=None,
         TGS=None,
         useCache=True,
-        cbt_fake_value=None
+        cbt_fake_value=None,
     ):
         if hashes is not None:
             lmhash, nthash = hashes.split(":")
@@ -1251,7 +1253,7 @@ class MSSQL:
         login["HostName"] = self.workstation_id.encode("utf-16le")
         login["AppName"] = self.application_name.encode("utf-16le")
         login["ServerName"] = self.remoteName.encode("utf-16le")
-        login["CltIntName"] = login["AppName"]
+        login["CltIntName"] = self.client_interface_name.encode("utf-16le")
         login["ClientPID"] = random.randint(0, 1024)
         login["PacketSize"] = self.packetSize
         if database is not None:
@@ -1492,7 +1494,7 @@ class MSSQL:
         domain="",
         hashes=None,
         useWindowsAuth=False,
-        cbt_fake_value=None
+        cbt_fake_value=None,
     ):
 
         if hashes is not None:
@@ -1526,7 +1528,7 @@ class MSSQL:
         login["HostName"] = self.workstation_id.encode("utf-16le")
         login["AppName"] = self.application_name.encode("utf-16le")
         login["ServerName"] = self.remoteName.encode("utf-16le")
-        login["CltIntName"] = login["AppName"]
+        login["CltIntName"] = self.client_interface_name.encode("utf-16le")
         login["ClientPID"] = random.randint(0, 1024)
         login["PacketSize"] = self.packetSize
         if database is not None:
@@ -2315,3 +2317,6 @@ class MSSQL:
     def application_name(self):
         return self._application_name
 
+    @property
+    def client_interface_name(self):
+        return self._client_interface_name or self._application_name
