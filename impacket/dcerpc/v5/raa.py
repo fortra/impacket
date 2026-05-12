@@ -434,7 +434,9 @@ def hAuthzrFreeContext(dce, contextHandle):
 def hAuthzrInitializeContextFromSid(dce, sid, flags=AUTHZ_COMPUTE_PRIVILEGES):
     request = AuthzrInitializeContextFromSid()
     request['Flags'] = flags
-    request['Sid'] = sid
+    sid_object = RPC_SID()
+    sid_object.fromCanonical(sid)
+    request['Sid'] = sid_object
     request['pExpirationTime'] = NULL
     request['Identifier']['LowPart'] = 0
     request['Identifier']['HighPart'] = 0
