@@ -36,18 +36,6 @@ MSRPC_UUID_RAA = uuidtup_to_bin(('0b1c2170-5732-4e0e-8cd3-d9b16f3b84d7', '0.0'))
 RAA_OBJECT_UUID_DEFAULT = '9a81c2bd-a525-471d-a4ed-49907c0b23da'
 RAA_OBJECT_UUID_NO_SCOPED_POLICY = '5fc860e0-6f6e-4fc2-83cd-46324f25e90b'
 
-class DCERPCSessionError(DCERPCException):
-    def __init__(self, error_string=None, error_code=None, packet=None):
-        DCERPCException.__init__(self, error_string, error_code, packet)
-
-    def __str__( self ):
-        key = self.error_code
-        if key in system_errors.ERROR_MESSAGES:
-            error_msg_short = system_errors.ERROR_MESSAGES[key][0]
-            error_msg_verbose = system_errors.ERROR_MESSAGES[key][1]
-            return 'RAA SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
-        else:
-            return 'RAA SessionError: unknown error code: 0x%x' % self.error_code
 
 ################################################################################
 # CONSTANTS
@@ -62,7 +50,8 @@ AUTHZ_SECURITY_ATTRIBUTE_VALUE_CASE_SENSITIVE = 0x00000002
 # 2.2.3.6 AUTHZR_SECURITY_ATTRIBUTE_V1_VALUE ValueType
 AUTHZ_SECURITY_ATTRIBUTE_TYPE_INT64  = 0x0001
 AUTHZ_SECURITY_ATTRIBUTE_TYPE_UINT64 = 0x0002
-AUTHZ_SECURITY_ATTRIBUTE_TYPE_STRING = 0x0003
+AUTHZ_SECURITY_ATTRIBUTE_TYPE_STRING = 0x0003 #this is AUTHZR_SECURITY_ATTRIBUTE_STRING_VALUE structure, as
+#specified in section 2.2.3.4 of MS-RAA
 AUTHZ_SECURITY_ATTRIBUTE_TYPE_BOOLEAN = 0x0006
 
 ################################################################################
@@ -503,3 +492,16 @@ def hAuthzrModifySids(dce, contextHandle, sidClass, sidOperations, sids=NULL):
         request['pSidOperations'].append(op)
     request['pSids'] = sids
     return dce.request(request)
+
+class DCERPCSessionError(DCERPCException):
+    def __init__(self, error_string=None, error_code=None, packet=None):
+        DCERPCException.__init__(self, error_string, error_code, packet)
+
+    def __str__( self ):
+        key = self.error_code
+        if key in system_errors.ERROR_MESSAGES:
+            error_msg_short = system_errors.ERROR_MESSAGES[key][0]
+            error_msg_verbose = system_errors.ERROR_MESSAGES[key][1]
+            return 'RAA SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
+        else:
+            return 'RAA SessionError: unknown error code: 0x%x' % self.error_code
