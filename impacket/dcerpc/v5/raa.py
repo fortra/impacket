@@ -27,7 +27,7 @@ from impacket.dcerpc.v5.dtypes import DWORD, ULONG, USHORT, LONG64, ULONGLONG, L
 from impacket.dcerpc.v5.enum import Enum
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket import system_errors
-from impacket.uuid import uuidtup_to_bin
+from impacket.uuid import uuidtup_to_bin, string_to_bin
 
 MSRPC_UUID_RAA = uuidtup_to_bin(('0b1c2170-5732-4e0e-8cd3-d9b16f3b84d7', '0.0'))
 
@@ -36,6 +36,9 @@ MSRPC_UUID_RAA = uuidtup_to_bin(('0b1c2170-5732-4e0e-8cd3-d9b16f3b84d7', '0.0'))
 RAA_OBJECT_UUID_DEFAULT = '9a81c2bd-a525-471d-a4ed-49907c0b23da'
 RAA_OBJECT_UUID_NO_SCOPED_POLICY = '5fc860e0-6f6e-4fc2-83cd-46324f25e90b'
 
+# mixed-endian per DCE RFC4122 
+RAA_OBJECT_UUID_DEFAULT_BIN          = string_to_bin(RAA_OBJECT_UUID_DEFAULT)
+RAA_OBJECT_UUID_NO_SCOPED_POLICY_BIN = string_to_bin(RAA_OBJECT_UUID_NO_SCOPED_POLICY)
 
 ################################################################################
 # CONSTANTS
@@ -182,11 +185,79 @@ class PAUTHZR_TOKEN_USER(NDRPOINTER):
     )
 
 # 2.2.3.9 AUTHZR_TOKEN_GROUPS
+#
+# IDL:
+#   typedef struct _AUTHZR_TOKEN_GROUPS {
+#       DWORD GroupCount;
+#       [size_is(GroupCount)] AUTHZR_SID_AND_ATTRIBUTES Groups[];
+#   }
+#
+# impacket's NDRSTRUCT+NDRUniConformantArray pattern auto-emits and auto-parses that MaxCount.
+# So we override fromString/getData to match the observed wire format when testing the module
+# We still need NDRConstructedType behavior for referent walking, so we
+# inherit NDRSTRUCT but bypass its conformant-array MaxCount logic.
 class AUTHZR_TOKEN_GROUPS(NDRSTRUCT):
     structure = (
         ('GroupCount', DWORD),
-        ('Groups', AUTHZR_SID_AND_ATTRIBUTES_ARRAY),
+        # 'Groups' isnt declared as NDRUniConformantArray
+        # as that would make NDRSTRUCT.fromString try to use the maxcount which may not be there
     )
+
+    def __init__(self, data=None, isNDR64=False):
+        NDRSTRUCT.__init__(self, None, isNDR64=isNDR64)
+        # Groups is a Python list of AUTHZR_SID_AND_ATTRIBUTES instances
+        self.fields['Groups'] = []
+        if data is not None:
+            self.fromString(data)
+
+    def __getitem__(self, key):
+        if key == 'Groups':
+            return self.fields['Groups']
+        return NDRSTRUCT.__getitem__(self, key)
+
+    def __setitem__(self, key, value):
+        if key == 'Groups':
+            self.fields['Groups'] = list(value)
+            return
+        return NDRSTRUCT.__setitem__(self, key, value)
+
+    def fromString(self, data, offset=0):
+        offset0 = offset
+        # Read GroupCount
+        gc_size = self.unpack('GroupCount', DWORD, data, offset)
+        offset += gc_size
+        n = self['GroupCount']
+        # Read n inline AUTHZR_SID_AND_ATTRIBUTES bodies. Each is:
+        #   [DWORD Sid_ref_id] [DWORD Attributes]
+        self.fields['Groups'] = []
+        for _ in range(n):
+            entry = AUTHZR_SID_AND_ATTRIBUTES(isNDR64=self._isNDR64)
+            consumed = entry.fromString(data, offset)
+            offset += consumed
+            self.fields['Groups'].append(entry)
+        return offset - offset0
+
+    def fromStringReferents(self, data, offset=0):
+        offset0 = offset
+        # Walk each entry's referents (the RPC_SID pointed to by Sid)
+        for entry in self.fields['Groups']:
+            offset += entry.fromStringReferents(data, offset)
+        return offset - offset0
+
+    def getData(self, soFar=0):
+        # Match the server's layout: GroupCount, then inline bodies (no
+        # hoisted MaxCount).
+        self['GroupCount'] = len(self.fields['Groups'])
+        data = self.pack('GroupCount', DWORD, soFar)
+        for entry in self.fields['Groups']:
+            data += entry.getData(soFar + len(data))
+        return data
+
+    def getDataReferents(self, soFar=0):
+        data = b''
+        for entry in self.fields['Groups']:
+            data += entry.getDataReferents(soFar + len(data))
+        return data
 
 class PAUTHZR_TOKEN_GROUPS(NDRPOINTER):
     referent = (
@@ -415,30 +486,31 @@ OPNUMS = {
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
-def hAuthzrFreeContext(dce, contextHandle):
+def hAuthzrFreeContext(dce, contextHandle, objectUuid=RAA_OBJECT_UUID_DEFAULT_BIN):
     request = AuthzrFreeContext()
     request['ContextHandle'] = contextHandle
-    return dce.request(request)
+    return dce.request(request, uuid=objectUuid)
 
-def hAuthzrInitializeContextFromSid(dce, sid, flags=AUTHZ_COMPUTE_PRIVILEGES):
+def hAuthzrInitializeContextFromSid(dce, sid, flags=AUTHZ_COMPUTE_PRIVILEGES, objectUuid=RAA_OBJECT_UUID_DEFAULT_BIN):
     request = AuthzrInitializeContextFromSid()
     request['Flags'] = flags
     sid_object = RPC_SID()
     sid_object.fromCanonical(sid)
     request['Sid'] = sid_object
     request['pExpirationTime'] = NULL
-    request['Identifier']['LowPart'] = 0
-    request['Identifier']['HighPart'] = 0
-    return dce.request(request)
+    request['Identifier']['LowPart'] = 0xdead
+    request['Identifier']['HighPart'] = 0xbeef
+    #spec example uses {0xdead,0xbeef} but note luid is treated as opaque tag 
+    return dce.request(request, uuid=objectUuid)
 
-def hAuthzrInitializeCompoundContext(dce, userContextHandle, deviceContextHandle):
+def hAuthzrInitializeCompoundContext(dce, userContextHandle, deviceContextHandle, objectUuid=RAA_OBJECT_UUID_DEFAULT_BIN):
     request = AuthzrInitializeCompoundContext()
     request['UserContextHandle'] = userContextHandle
     request['DeviceContextHandle'] = deviceContextHandle
-    return dce.request(request)
+    return dce.request(request, uuid=objectUuid)
 
 def hAuthzrAccessCheck(dce, contextHandle, securityDescriptor, desiredAccess,
-                      principalSelfSid=NULL, objectTypeList=(), resultListLength=1, flags=0):
+                      principalSelfSid=NULL, objectTypeList=(), resultListLength=1, flags=0, objectUuid=RAA_OBJECT_UUID_DEFAULT_BIN):
     request = AuthzrAccessCheck()
     request['ContextHandle'] = contextHandle
     request['Flags'] = flags
@@ -465,15 +537,15 @@ def hAuthzrAccessCheck(dce, contextHandle, securityDescriptor, desiredAccess,
     request['pReply']['ResultListLength'] = resultListLength
     request['pReply']['GrantedAccessMask'] = [0] * resultListLength
     request['pReply']['Error'] = [0] * resultListLength
-    return dce.request(request)
+    return dce.request(request, uuid=objectUuid)
 
-def hAuthzGetInformationFromContext(dce, contextHandle, infoClass):
+def hAuthzGetInformationFromContext(dce, contextHandle, infoClass, objectUuid=RAA_OBJECT_UUID_DEFAULT_BIN):
     request = AuthzGetInformationFromContext()
     request['ContextHandle'] = contextHandle
     request['InfoClass'] = infoClass
-    return dce.request(request)
+    return dce.request(request, uuid=objectUuid)
 
-def hAuthzrModifyClaims(dce, contextHandle, claimClass, claimOperations, claims=NULL):
+def hAuthzrModifyClaims(dce, contextHandle, claimClass, claimOperations, claims=NULL, objectUuid=RAA_OBJECT_UUID_DEFAULT_BIN):
     request = AuthzrModifyClaims()
     request['ContextHandle'] = contextHandle
     request['ClaimClass'] = claimClass
@@ -481,9 +553,9 @@ def hAuthzrModifyClaims(dce, contextHandle, claimClass, claimOperations, claims=
     for op in claimOperations:
         request['pClaimOperations'].append(op)
     request['pClaims'] = claims
-    return dce.request(request)
+    return dce.request(request, uuid=objectUuid)
 
-def hAuthzrModifySids(dce, contextHandle, sidClass, sidOperations, sids=NULL):
+def hAuthzrModifySids(dce, contextHandle, sidClass, sidOperations, sids=NULL, objectUuid=RAA_OBJECT_UUID_DEFAULT_BIN):
     request = AuthzrModifySids()
     request['ContextHandle'] = contextHandle
     request['SidClass'] = sidClass
@@ -491,7 +563,7 @@ def hAuthzrModifySids(dce, contextHandle, sidClass, sidOperations, sids=NULL):
     for op in sidOperations:
         request['pSidOperations'].append(op)
     request['pSids'] = sids
-    return dce.request(request)
+    return dce.request(request, uuid=objectUuid)
 
 class DCERPCSessionError(DCERPCException):
     def __init__(self, error_string=None, error_code=None, packet=None):
