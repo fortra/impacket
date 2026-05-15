@@ -33,11 +33,13 @@
 from __future__ import division
 from __future__ import print_function
 
+import os
 import socket
 import ntpath
 import random
 import string
 import struct
+import uuid as builtin_uuid
 from six import indexbytes, b
 from binascii import a2b_hex
 from contextlib import contextmanager
@@ -194,7 +196,7 @@ class SMB3:
         self.RequireMessageSigning = False    #
         self.ConnectionTable = {}
         self.GlobalFileTable = {}
-        self.ClientGuid = ''.join([random.choice(string.ascii_letters) for i in range(16)])
+        self.ClientGuid = builtin_uuid.uuid4().bytes
         # Only for SMB 3.0
         self.EncryptionAlgorithmList = ['AES-CCM']
         self.MaxDialect = []
@@ -294,6 +296,8 @@ class SMB3:
         self.__aesKey   = ''
         self.__TGT      = None
         self.__TGS      = None
+
+        self.__smbEncrypt = False
 
         if sess_port == 445 and remote_name == '*SMBSERVER':
            self._Connection['ServerName'] = remote_host
@@ -416,6 +420,8 @@ class SMB3:
             if context['ContextType'] == SMB2_PREAUTH_INTEGRITY_CAPABILITIES:
                 contextPreAuth = SMB2PreAuthIntegrityCapabilities(context['Data'])
                 self._Connection['PreauthIntegrityHashId'] = struct.unpack('<H', contextPreAuth['HashAlgorithms'])[0]
+            elif context['ContextType'] == SMB2_ENCRYPTION_CAPABILITIES and self.__smbEncrypt == False:
+                pass
             elif context['ContextType'] == SMB2_ENCRYPTION_CAPABILITIES:
                 contextEncryption = SMB2EncryptionCapabilities(context['Data'])
                 cipherId = struct.unpack('<H', contextEncryption['Ciphers'])[0]
@@ -557,6 +563,9 @@ class SMB3:
             self._Connection['OutstandingResponses'][packet['MessageID']] = packet
             return self.recvSMB(packetID)
 
+    def align8(self, length):
+        return (8 - (length % 8)) % 8
+    
     def negotiateSession(self, preferredDialect = None, negSessionResponse = None):
         # Let's store some data for later use
         self._Connection['ClientSecurityMode'] = SMB2_NEGOTIATE_SIGNING_ENABLED
@@ -579,6 +588,15 @@ class SMB3:
             negSession = SMB2Negotiate()
 
             negSession['SecurityMode'] = self._Connection['ClientSecurityMode']
+            self._Connection['Capabilities'] = (
+                SMB2_GLOBAL_CAP_DFS |
+                SMB2_GLOBAL_CAP_LEASING |
+                SMB2_GLOBAL_CAP_LARGE_MTU |
+                SMB2_GLOBAL_CAP_MULTI_CHANNEL |
+                SMB2_GLOBAL_CAP_PERSISTENT_HANDLES |
+                SMB2_GLOBAL_CAP_DIRECTORY_LEASING |
+                SMB2_GLOBAL_CAP_ENCRYPTION
+            )
             negSession['Capabilities'] = self._Connection['Capabilities']
             negSession['ClientGuid'] = self.ClientGuid
             if preferredDialect is not None:
@@ -595,7 +613,7 @@ class SMB3:
                 # Calculate offset if all dialects or preferred dialect
                 # Note that this assumes 5 dialects are offered
                 if len(negSession['Dialects']) > 1:
-                    contextData['NegotiateContextOffset'] = 64 + 38 + 10
+                    contextData['NegotiateContextOffset'] = 64 + 38 + (len(negSession['Dialects']) * 2)
                 else :
                     contextData['NegotiateContextOffset'] = 64 + 38 + 2
                 contextData['NegotiateContextCount'] = 0
@@ -607,14 +625,12 @@ class SMB3:
                 preAuthIntegrityCapabilities = SMB2PreAuthIntegrityCapabilities()
                 preAuthIntegrityCapabilities['HashAlgorithmCount'] = 1
                 preAuthIntegrityCapabilities['SaltLength'] = 32
-                preAuthIntegrityCapabilities['HashAlgorithms'] = b'\x01\x00'
-                preAuthIntegrityCapabilities['Salt'] = ''.join([rand.choice(string.ascii_letters) for _ in
-                                                                    range(preAuthIntegrityCapabilities['SaltLength'])])
+                preAuthIntegrityCapabilities['HashAlgorithms'] = b'\x01\x00' # SHA-512 (0x0001)
+                preAuthIntegrityCapabilities['Salt'] = os.urandom(32)
 
                 negotiateContext['Data'] = preAuthIntegrityCapabilities.getData()
                 negotiateContext['DataLength'] = len(negotiateContext['Data'])
                 contextData['NegotiateContextCount'] += 1
-                pad = b'\xFF' * ((8 - (negotiateContext['DataLength'] % 8)) % 8)
 
                 # Add an SMB2_NEGOTIATE_CONTEXT with ContextType as SMB2_ENCRYPTION_CAPABILITIES
                 # to the negotiate request as specified in section 2.2.3.1 and initialize
@@ -624,21 +640,62 @@ class SMB3:
                 negotiateContext2['ContextType'] = SMB2_ENCRYPTION_CAPABILITIES
 
                 encryptionCapabilities = SMB2EncryptionCapabilities()
-                encryptionCapabilities['CipherCount'] = 1
-                encryptionCapabilities['Ciphers'] = b'\x01\x00'
+                encryptionCapabilities['CipherCount'] = 2
+                encryptionCapabilities['Ciphers'] = (
+                    b'\x01\x00' +       # AES-128-CCM 0x0001
+                    b'\x02\x00'         # AES-128-GCM 0x0002
+                )
 
                 negotiateContext2['Data'] = encryptionCapabilities.getData()
                 negotiateContext2['DataLength'] = len(negotiateContext2['Data'])
                 contextData['NegotiateContextCount'] += 1
 
+                negotiateContext3 = SMB2NegotiateContext()
+                negotiateContext3['ContextType'] = SMB2_COMPRESSION_CAPABILITIES
+                
+                compressionCapabilities = SMB2CompressionCapabilities()
+                compressionCapabilities['Flags'] = SMB2_COMPRESSION_CAPABILITIES_FLAG_CHAINED
+                compressionCapabilities['Padding'] = b'\x00\x00'
+                compressionCapabilities['CompressionAlgorithmCount'] = 4
+                compressionCapabilities['CompressionAlgorithms'] = (
+                    b'\x04\x00' +  # LZNT1
+                    b'\x02\x00' +  # LZ77
+                    b'\x03\x00' +  # LZ77+Huffman
+                    b'\x01\x00'    # Pattern_V1
+                )
+                
+                negotiateContext3['Data'] = compressionCapabilities.getData()
+                negotiateContext3['DataLength'] = len(negotiateContext3['Data'])
+                contextData['NegotiateContextCount'] += 1
+                
+                negotiateContext4 = SMB2NegotiateContext()
+                negotiateContext4['ContextType'] = SMB2_NETNAME_NEGOTIATE_CONTEXT_ID
+                
+                networknegotiatecontextid = SMB2NetNameNegotiateContextID()
+                networknegotiatecontextid['NetName'] = self._Connection['ServerIP'].encode('utf-16-le')
+                
+                negotiateContext4['Data'] = networknegotiatecontextid.getData()
+                negotiateContext4['DataLength'] = len(negotiateContext4['Data'])
+                contextData['NegotiateContextCount'] += 1
+
                 negSession['ClientStartTime'] = contextData.getData()
                 negSession['Padding'] = b'\xFF\xFF'
-                # Subsequent negotiate contexts MUST appear at the first 8-byte aligned offset following the
-                # previous negotiate context.
-                negSession['NegotiateContextList'] = negotiateContext.getData() + pad + negotiateContext2.getData()
+                contexts_list = []
+                for ctx in [negotiateContext, negotiateContext2, negotiateContext3, negotiateContext4]:
+                    data = ctx.getData()
+                    contexts_list.append(data)
+                    # Subsequent negotiate contexts MUST appear at the first 8-byte aligned offset following the
+                    # previous negotiate context.
+                    pad = b'\x00' * self.align8(len(data))
+                    contexts_list.append(pad)
+
+                if contexts_list[-1] == b'\x00' * self.align8(len(contexts_list[-2])):
+                    contexts_list.pop()
+                
+                negSession['NegotiateContextList'] = b''.join(contexts_list)
 
                 # Do you want to enforce encryption? Uncomment here:
-                #self._Connection['SupportsEncryption'] = True
+                # self._Connection['SupportsEncryption'] = True
             packet['Data'] = negSession
 
             packetID = self.sendSMB(packet)
@@ -1266,15 +1323,16 @@ class SMB3:
 
         if self._Connection['Dialect'] >= SMB2_DIALECT_30 and self._Connection['SupportsDirectoryLeasing'] is True:
            # Is this file NOT on the root directory?
-           if len(fileName.split('\\')) > 2:
-               parentDir = ntpath.dirname(pathName)
-           if parentDir in self.GlobalFileTable:
-               raise Exception("Don't know what to do now! :-o")
-           else:
-               parentEntry = copy.deepcopy(FILE)
-               parentEntry['LeaseKey']   = uuid.generate()
-               parentEntry['LeaseState'] = SMB2_LEASE_NONE
-               self.GlobalFileTable[parentDir] = parentEntry
+            if len(fileName.split('\\')) > 2:
+                parentDir = ntpath.dirname(pathName)
+                if parentDir in self.GlobalFileTable:
+                    pass
+                    #raise Exception("Don't know what to do now! :-o")
+                else:
+                    parentEntry = copy.deepcopy(FILE)
+                    parentEntry['LeaseKey']   = uuid.generate()
+                    parentEntry['LeaseState'] = SMB2_LEASE_NONE
+                    self.GlobalFileTable[parentDir] = parentEntry
 
         packet = self.SMB_PACKET()
         packet['Command'] = SMB2_CREATE
