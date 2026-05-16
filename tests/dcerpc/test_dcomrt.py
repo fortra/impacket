@@ -77,11 +77,17 @@ class DCOMTests(DCERPCTests):
         scm.RemoteActivation(comev.CLSID_EventSystem, comev.IID_IEventSystem)
 
     def test_RemoteGetClassObject(self):
-        dce, rpctransport = self.connect()
         IID_IClassFactory = uuidtup_to_bin(('00000001-0000-0000-C000-000000000046', '0.0'))
-        scm = dcomrt.IRemoteSCMActivator(dce)
-        iInterface = scm.RemoteGetClassObject(comev.CLSID_EventSystem, IID_IClassFactory)
-        iInterface.RemRelease()
+        dcom = dcomrt.DCOMConnection(
+            self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash,
+            authLevel=self.authn_level
+        )
+        try:
+            scm = dcomrt.IRemoteSCMActivator(dcom.get_dce_rpc())
+            iInterface = scm.RemoteGetClassObject(comev.CLSID_EventSystem, IID_IClassFactory)
+            iInterface.RemRelease()
+        finally:
+            dcom.disconnect()
 
     def test_RemoteCreateInstance(self):
         dce, rpctransport = self.connect()
