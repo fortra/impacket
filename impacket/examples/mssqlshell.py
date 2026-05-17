@@ -112,11 +112,11 @@ class SQLSHELL(cmd.Cmd):
             self.print_replies()
 
     def do_exec_as_login(self, s):
-        exec_as = "execute as login='%s';" % s
+        exec_as = "execute as login='%s';" % s.replace("'", "''")
         self.execute_as(exec_as)
 
     def do_exec_as_user(self, s):
-        exec_as = "execute as user='%s';" % s
+        exec_as = "execute as user='%s';" % s.replace("'", "''")
         self.execute_as(exec_as)
 
     def do_use_link(self, s):
@@ -236,7 +236,7 @@ class SQLSHELL(cmd.Cmd):
 
     def do_xp_dirtree(self, s):
         try:
-            self.sql_query("exec master.sys.xp_dirtree '%s',1,1" % s)
+            self.sql_query("exec master.sys.xp_dirtree '%s',1,1" % s.replace("'", "''"))
             self.print_replies()
             self.sql.printRows()
         except:
@@ -244,7 +244,7 @@ class SQLSHELL(cmd.Cmd):
 
     def do_xp_cmdshell(self, s):
         try:
-            self.sql_query("exec master..xp_cmdshell '%s'" % s)
+            self.sql_query("exec master..xp_cmdshell '%s'" % s.replace("'", "''"))
             self.print_replies()
             self.sql.colMeta[0]['TypeData'] = 80*2
             self.sql.printRows()
@@ -260,7 +260,7 @@ class SQLSHELL(cmd.Cmd):
                                 "EXEC msdb..sp_add_jobstep @job_name=@job,@step_id=1,@step_name='Defragmentation',"
                                 "@subsystem='CMDEXEC',@command='%s',@on_success_action=1;"
                                 "EXEC msdb..sp_add_jobserver @job_name=@job;"
-                                "EXEC msdb..sp_start_job @job_name=@job;" % s)
+                                "EXEC msdb..sp_start_job @job_name=@job;" % s.replace("'", "''"))
             self.print_replies()
             self.sql.printRows()
         except:
