@@ -5,6 +5,68 @@ Project owner's main page is at www.coresecurity.com.
 Complete list of changes can be found at:
 https://github.com/fortra/impacket/commits/master
 
+## Impacket v0.13.1 (May 2026):
+
+1. Library improvements
+
+    * SMB: Improved server and relay behavior with SMB server signing support, optional read-only shares, Kerberos/NTLM authentication controls, graceful SMB relay packet handling, SMBv1 relay fixes, SMB 3.1.1 negotiation fixes, and clearer errors for truncated SMB responses. (Fixes [#2099](https://github.com/fortra/impacket/issues/2099), [#2085](https://github.com/fortra/impacket/issues/2085), [#2111](https://github.com/fortra/impacket/issues/2111), [#2114](https://github.com/fortra/impacket/issues/2114), [#2129](https://github.com/fortra/impacket/issues/2129))
+    * Kerberos: Fixed S4U2Self service ticket parsing, non-ASCII authentication encoding, LSA Kerberos key decryption, GSSAPI BER length parsing, ccache/kirbi conversion edge cases, and PAC preservation/signing helpers used by ticket tooling. ([#2087](https://github.com/fortra/impacket/issues/2087), [#2068](https://github.com/fortra/impacket/issues/2068), [#2088](https://github.com/fortra/impacket/issues/2088), [#2130](https://github.com/fortra/impacket/issues/2130), [#2159](https://github.com/fortra/impacket/issues/2159), [#2164](https://github.com/fortra/impacket/issues/2164))
+    * MSSQL/TDS: Added TDS 8.0 support for Force Strict Encryption targets, EPA channel binding handling, TDS_SSVARIANT parsing, stricter TLS-backed packet handling, workstation/application name support, and more reliable SQL reply error tracking. ([#2074](https://github.com/fortra/impacket/issues/2074), [#2075](https://github.com/fortra/impacket/issues/2075), [#2082](https://github.com/fortra/impacket/issues/2082), [#2098](https://github.com/fortra/impacket/issues/2098), [#2122](https://github.com/fortra/impacket/issues/2122))
+    * DCE/RPC and WMI: Added WMI PutClass/DeleteClass support, Remote Event Log subscription calls, Remote Desktop Services process parsing fixes, SCMR failure action marshaling fixes, and safer TCP transport handling on empty receives. ([#1803](https://github.com/fortra/impacket/issues/1803), [#2061](https://github.com/fortra/impacket/issues/2061), [#2046](https://github.com/fortra/impacket/issues/2046), [#2152](https://github.com/fortra/impacket/issues/2152), [#2155](https://github.com/fortra/impacket/issues/2155))
+    * Directory and data parsing: Added LDAP CRUD helpers, improved LDAP attribute handling, fixed large-page ESE tag parsing for Windows Server 2025 NTDS.dit files, improved NTFS sparse and INDEX_ROOT reads, fixed DPAPI_BLOB parsing with oversized input, and corrected high-codepoint unicode structure sizing. ([#1764](https://github.com/fortra/impacket/issues/1764), [#1995](https://github.com/fortra/impacket/issues/1995), [#2097](https://github.com/fortra/impacket/issues/2097), [#2106](https://github.com/fortra/impacket/issues/2106), [#2112](https://github.com/fortra/impacket/issues/2112), [#2158](https://github.com/fortra/impacket/issues/2158))
+    * Added a reusable ACL helper module and expanded regression coverage for ACLs, NTFS, TDS, Kerberos, ESE, SCMR, WMI, SMB, and packet parsing. ([#1240](https://github.com/fortra/impacket/issues/1240))
+
+2. Examples improvements
+
+    * [ntlmrelayx.py](examples/ntlmrelayx.py):
+        * Added MSSQL and RDP relay servers, strict MSSQL relay support, TLS-backed TDS frame reassembly, NTLM sign/seal removal paths for CVE-2025-33073-related relay workflows, and `--remove-mic` handling. ([#2083](https://github.com/fortra/impacket/issues/2083), [#2101](https://github.com/fortra/impacket/issues/2101), [#2122](https://github.com/fortra/impacket/issues/2122), [#2133](https://github.com/fortra/impacket/issues/2133))
+        * Improved WinRM relay error handling and NTLMv2 detection, fixed WinRM NTLM relay behavior, made SMB relay negotiation more conservative by avoiding unsupported NEGOEX advertisement, and added multibyte AD CS template name support. ([#2089](https://github.com/fortra/impacket/issues/2089), [#2111](https://github.com/fortra/impacket/issues/2111), [#2127](https://github.com/fortra/impacket/issues/2127), [#2163](https://github.com/fortra/impacket/issues/2163))
+        * Added shadow credentials commands to the interactive LDAP shell and updated KeyCreds handling for the January 2026 Windows changes. ([#1402](https://github.com/fortra/impacket/issues/1402), [#2109](https://github.com/fortra/impacket/issues/2109))
+    * [secretsdump.py](examples/secretsdump.py):
+        * Added SAM history parsing, improved offline machine account and Kerberos key recovery, fixed negative timestamps on Windows, added SAM password timestamp output, and filtered offline NTDS rows by local domain SID. ([#2059](https://github.com/fortra/impacket/issues/2059), [#2069](https://github.com/fortra/impacket/issues/2069), [#2135](https://github.com/fortra/impacket/issues/2135), [#2142](https://github.com/fortra/impacket/issues/2142), [#2178](https://github.com/fortra/impacket/issues/2178))
+    * [regsecrets.py](examples/regsecrets.py):
+        * Added SAM history parsing. ([#2059](https://github.com/fortra/impacket/issues/2059))
+    * [ticketer.py](examples/ticketer.py):
+        * Improved ccache handling and preserved KDC-issued lifetimes for diamond tickets. ([#2159](https://github.com/fortra/impacket/issues/2159), [#2181](https://github.com/fortra/impacket/issues/2181))
+    * [ticketConverter.py](examples/ticketConverter.py):
+        * Improved kirbi/ccache conversion, preserved ticket flags, converted all TGS entries, and added base64 output support. ([#2104](https://github.com/fortra/impacket/issues/2104), [#2159](https://github.com/fortra/impacket/issues/2159))
+    * [describeTicket.py](examples/describeTicket.py):
+        * Fixed credential indexing after skipped decrypts and improved Kerberoast debug output. ([#2117](https://github.com/fortra/impacket/issues/2117))
+    * [raiseChild.py](examples/raiseChild.py):
+        * Preserved PAC buffers, added AES support for modern Windows environments, and improved ticket retry behavior. ([#2164](https://github.com/fortra/impacket/issues/2164))
+    * [smbclient.py](examples/smbclient.py):
+        * Added ACL management support, recursive `rget`, and richer share listing output with type and comments. ([#1240](https://github.com/fortra/impacket/issues/1240), [#2110](https://github.com/fortra/impacket/issues/2110), [#2156](https://github.com/fortra/impacket/issues/2156))
+    * [mssqlclient.py](examples/mssqlclient.py):
+        * Added workstation/application name options, linked-server RPC enable/disable commands, custom CBT support, and better MSSQL shell behavior. ([#2074](https://github.com/fortra/impacket/issues/2074), [#2098](https://github.com/fortra/impacket/issues/2098), [#2134](https://github.com/fortra/impacket/issues/2134))
+    * [ntfs-read.py](examples/ntfs-read.py):
+        * Improved INDEX_ROOT file listing, sparse file support, error handling, and read correctness. ([#2106](https://github.com/fortra/impacket/issues/2106))
+    * [tstool.py](examples/tstool.py):
+        * Added Remote Desktop Shadowing support. ([#2064](https://github.com/fortra/impacket/issues/2064))
+    * [badsuccessor.py](examples/badsuccessor.py):
+        * Fixed ACE filtering and ObjectType GUID parsing that could cause false negatives when searching OUs. ([#2170](https://github.com/fortra/impacket/issues/2170))
+    * [GetUserSPNs.py](examples/GetUserSPNs.py):
+        * Added an option to avoid forcing RC4-HMAC when requesting a TGT. ([#2141](https://github.com/fortra/impacket/issues/2141))
+    * [owneredit.py](examples/owneredit.py):
+        * Improved distinguished name lookup behavior. ([#2162](https://github.com/fortra/impacket/issues/2162))
+    * [exchanger.py](examples/exchanger.py):
+        * Added Basic Authentication support. ([#2077](https://github.com/fortra/impacket/issues/2077))
+    * [reg.py](examples/reg.py):
+        * Added support for persistent registry key creation. ([#2113](https://github.com/fortra/impacket/issues/2113))
+
+3. New examples
+
+    * [dpapidump.py](examples/dpapidump.py) dumps DPAPI-related secrets. ([#1917](https://github.com/fortra/impacket/issues/1917))
+    * [checkMSSQLStatus.py](examples/checkMSSQLStatus.py) checks MSSQL status and CBT behavior. ([#2098](https://github.com/fortra/impacket/issues/2098))
+
+4. Project & packaging
+
+    * Removed the run-time dependency on setuptools. ([#2102](https://github.com/fortra/impacket/issues/2102))
+    * Removed remaining Python 2 compatibility code from WMI and ESE modules. ([#1804](https://github.com/fortra/impacket/issues/1804))
+
+As always, thanks a lot to all these contributors that make this library better every day:
+
+@0xpaperman, @7own, @aconite33, @aelmosalamy, @alexisbalbachan, @anadrianmanrique, @AndreySolod, @azoxlpf, @bash-c, @blankshiro, @chand-ashok, @cjwatson, @Coontzy1, @Croumi, @CSpanias, @ctjf, @Dfte, @DidierA, @epotseluevskaya, @fulc2um, @gabrielg5, @gaffner, @herbenderbler, @i-am-not-an-ai, @john57, @laxaa, @laxa, @masterDeus, @Mayyhem, @n3rada, @NeffIsBack, @omry99, @plur1bu5, @Q2Flc2FySec, @Romern, @r3seh, @rtpt-romankarwacik, @sbuck1, @ThatTotallyRealMyth, @TheFlamingCrab, @tomik92, @Tw1sm.
+
 ## Impacket v0.13.0 (Oct 2025): 
 
 1. Library improvements 

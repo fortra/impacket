@@ -505,7 +505,7 @@ class Structure:
         # code specifier
         two = format.split('=')
         if len(two) >= 2:
-            return self.calcUnpackSize(two[0], data)
+            return self.calcUnpackSize(two[0], data, field)
 
         # length specifier
         two = format.split('-')
@@ -537,7 +537,10 @@ class Structure:
 
         # asciiz specifier
         if format[:1] == 'z':
-            return data.index(self.b('\x00'))+1
+            try:
+                return data.index(self.b('\x00'))+1
+            except ValueError:
+                raise ValueError("Can't find NUL terminator in field '%s'" % (field or 'unknown'))
 
         # asciiz specifier
         if format[:1] == 'u':

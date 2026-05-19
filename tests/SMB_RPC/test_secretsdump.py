@@ -10,10 +10,12 @@
 #
 import os
 import logging
+import struct
 import pytest
 import unittest
 from tests import RemoteTestCase
 
+from impacket.dcerpc.v5 import samr
 from impacket.examples.secretsdump import LocalOperations, RemoteOperations, SAMHashes, LSASecrets, NTDSHashes
 from impacket.smbconnection import SMBConnection
 
@@ -257,6 +259,124 @@ class Options(object):
     target_ip=''
     use_vss=False
     user_status=False
+
+
+class NTDSHashesUnitTests(unittest.TestCase):
+
+    def test_header_only_supplemental_credentials_are_ignored(self):
+        header_only_properties = (
+            b'\x00\x00\x00\x00'
+            b'\x62\x00\x00\x00'
+            b'\x00\x00'
+            b'\x00\x00'
+            + (b'\x20\x00' * 48)
+            + b'\x50\x00\x00\x01'
+        )
+
+        user_properties, property_count, properties_data = samr.unpack_user_properties(header_only_properties)
+
+        self.assertEqual(98, user_properties['Length'])
+        self.assertEqual(0, property_count)
+        self.assertEqual(b'', properties_data)
+        self.assertEqual(b'\x00', user_properties['Reserved5'])
+
+        ntds = object.__new__(NTDSHashes)
+        ntds._NTDSHashes__useVSSMethod = True
+        ntds._NTDSHashes__remoteSSMethodWMINTDS = False
+        ntds._NTDSHashes__kerberosKeys = {}
+        ntds._NTDSHashes__clearTextPwds = {}
+        ntds._NTDSHashes__perSecretCallback = lambda *args, **kwargs: None
+        ntds._NTDSHashes__removeRC4Layer = lambda cipherText: header_only_properties
+
+        record = {
+            NTDSHashes.NAME_TO_INTERNAL['supplementalCredentials']: b'00' * 32,
+            NTDSHashes.NAME_TO_INTERNAL['userPrincipalName']: None,
+            NTDSHashes.NAME_TO_INTERNAL['sAMAccountName']: 'Administrator',
+        }
+
+        ntds._NTDSHashes__decryptSupplementalInfo(record)
+
+        self.assertEqual({}, ntds._NTDSHashes__kerberosKeys)
+        self.assertEqual({}, ntds._NTDSHashes__clearTextPwds)
+
+    def test_unpack_user_properties_excludes_reserved5_and_padding(self):
+        property_data = (
+            b'\x04\x00'
+            b'\x02\x00'
+            b'\x00\x00'
+            b'A\x00B\x00'
+            b'ff'
+        )
+        user_properties_blob = (
+            b'\x00\x00\x00\x00'
+            + (100 + len(property_data)).to_bytes(4, 'little')
+            + b'\x00\x00'
+            + b'\x00\x00'
+            + (b'\x20\x00' * 48)
+            + b'\x50\x00'
+            + b'\x01\x00'
+            + property_data
+            + b'\x00'
+            + b'\x03\x03\x03'
+        )
+
+        user_properties, property_count, properties_data = samr.unpack_user_properties(user_properties_blob)
+        user_property = samr.USER_PROPERTY(properties_data)
+
+        self.assertEqual(1, property_count)
+        self.assertEqual(112, user_properties['Length'])
+        self.assertEqual(b'\x00', user_properties['Reserved5'])
+        self.assertEqual(property_data, properties_data)
+        self.assertEqual('AB', user_property['PropertyName'].decode('utf-16le'))
+        self.assertEqual(b'ff', user_property['PropertyValue'])
+
+    def test_unpack_user_properties_requires_reserved5_for_header_only_blob(self):
+        header_only_properties = (
+            b'\x00\x00\x00\x00'
+            b'\x62\x00\x00\x00'
+            b'\x00\x00'
+            b'\x00\x00'
+            + (b'\x20\x00' * 48)
+            + b'\x50\x00'
+        )
+
+        with self.assertRaisesRegex(struct.error, 'missing Reserved5'):
+            samr.unpack_user_properties(header_only_properties)
+
+    def test_unpack_user_properties_requires_reserved5_for_property_blob(self):
+        property_data = (
+            b'\x04\x00'
+            b'\x02\x00'
+            b'\x00\x00'
+            b'A\x00B\x00'
+            b'ff'
+        )
+        user_properties_blob = (
+            b'\x00\x00\x00\x00'
+            + (100 + len(property_data)).to_bytes(4, 'little')
+            + b'\x00\x00'
+            + b'\x00\x00'
+            + (b'\x20\x00' * 48)
+            + b'\x50\x00'
+            + b'\x01\x00'
+            + property_data
+        )
+
+        with self.assertRaisesRegex(struct.error, 'missing Reserved5'):
+            samr.unpack_user_properties(user_properties_blob)
+
+    def test_unpack_user_properties_rejects_length_shorter_than_fixed_header(self):
+        invalid_header = (
+            b'\x00\x00\x00\x00'
+            b'\x61\x00\x00\x00'
+            b'\x00\x00'
+            b'\x00\x00'
+            + (b'\x20\x00' * 48)
+            + b'\x50\x00\x00'
+        )
+
+        with self.assertRaisesRegex(struct.error, 'length shorter than the fixed header'):
+            samr.unpack_user_properties(invalid_header)
 
 
 class SecretsDumpTests(RemoteTestCase):

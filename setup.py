@@ -53,7 +53,7 @@ def read(fname):
 
 setup(
     name=PACKAGE_NAME,
-    #version="{}.{}.{}".format (VER_MAJOR, VER_MINOR, VER_MAINT),
+    # version="{}.{}.{}".format (VER_MAJOR, VER_MINOR, VER_MAINT),
     version="{}.{}.{}.{}{}".format(VER_MAJOR, VER_MINOR, VER_MAINT,VER_PREREL,VER_LOCAL),
     description="Network protocols Constructors and Dissectors",
     url="https://www.coresecurity.com",
@@ -81,6 +81,5 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.9"
-
     ]
 )

@@ -28,15 +28,14 @@
 
 import struct
 from datetime import datetime, timedelta
-from ldap3.protocol.formatters.formatters import format_sid
 
 from impacket.dcerpc.v5 import transport
 from impacket.uuid import uuidtup_to_bin, bin_to_string, string_to_bin
 from impacket.dcerpc.v5.ndr import NDR, NDRCALL, NDRSTRUCT, NDRENUM, NDRUNION, NDRUniConformantArray, \
     NDRPOINTER, NDRUniConformantVaryingArray, UNKNOWNDATA
-from impacket.dcerpc.v5.dtypes import NULL, BOOL, BOOLEAN, STR, WSTR, LPWSTR, WIDESTR, RPC_UNICODE_STRING, \
+from impacket.dcerpc.v5.dtypes import NULL, BOOL, BOOLEAN, STR, WSTR, LPWSTR, WIDESTR, \
     LONG, UINT, ULONG, PULONG, LPDWORD, LARGE_INTEGER, DWORD, NDRHYPER, USHORT, UCHAR, PCHAR, BYTE, PBYTE, \
-    UUID, GUID
+    UUID, GUID, SID as BINARY_SID
 from impacket import system_errors
 from impacket.dcerpc.v5.enum import Enum
 from impacket.dcerpc.v5.rpcrt import DCERPCException, RPC_C_AUTHN_GSS_NEGOTIATE, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
@@ -203,6 +202,18 @@ class TS_UNICODE_STRING(NDRSTRUCT):
         ('MaximumLength', USHORT),
         ('Buffer', LPWSTR),
     )
+    def getValue(self):
+        # [MS-TSTS] 2.2.2.15.1.1 TS_UNICODE_STRING / [MS-DTYP] RPC_UNICODE_STRING:
+        # a null PWSTR means there is no string buffer to decode, so expose ''.
+        if self.fields['Buffer'].fields['ReferentID'] == 0:
+            return ''
+        rawBuffer = self.fields['Buffer'].fields['Data'].fields['Data']
+        value = rawBuffer[:self['Length']].decode('utf-16le')
+        # Some servers appear to count the terminating UTF-16 NUL inside Length
+        # even though UNICODE_STRING semantics say the logical value excludes it.
+        if value.endswith('\x00'):
+            return value[:-1]
+        return value
 
 class TS_LPCHAR(NDRPOINTER):
     referent = (
@@ -257,6 +268,7 @@ class LPUCHAR_ARRAY(NDRPOINTER):
     referent = (
         ('Data', UCHAR_ARRAY),
     )
+
 class WCHAR_ARRAY_32(WIDESTR_STRIPPED):
     length = 32
 class WCHAR_ARRAY_256(WIDESTR_STRIPPED):
@@ -332,6 +344,12 @@ def getUnixTime(t):
 
 def enum2value(enum, key):
     return enum.enumItems._value2member_map_[key]._name_
+
+
+def binary_sid_to_string(rawSid):
+    if not rawSid:
+        return ''
+    return BINARY_SID(data=rawSid).formatCanonical()
     
 class SID(TS_CHAR):
     def known_sid(self, sid):
@@ -354,9 +372,10 @@ class SID(TS_CHAR):
         elif sid in knownSids:
             return knownSids[sid]
         return sid
+
     def __getitem__(self, key):
         if key == 'Data':
-            sid = format_sid(self.fields[key])
+            sid = binary_sid_to_string(self.fields[key])
             if not len(sid):
                 return ''
             return self.known_sid(sid)
@@ -1314,6 +1333,7 @@ class pResult_ENUM(NDRENUM):
 
 
 # 2.2.2.15.1 TS_SYS_PROCESS_INFORMATION
+# https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-tsts/96702c7d-6f5f-4965-8f29-5fdbea73278e
 class TS_SYS_PROCESS_INFORMATION(NDRSTRUCT):
     structure = (
          ('NextEntryOffset', ULONG),
@@ -1324,7 +1344,7 @@ class TS_SYS_PROCESS_INFORMATION(NDRSTRUCT):
          ('CreateTime', LARGE_INTEGER),
          ('UserTime', LARGE_INTEGER),
          ('KernelTime', LARGE_INTEGER),
-         ('ImageNameSize', RPC_UNICODE_STRING), 
+         ('ImageName', TS_UNICODE_STRING),
          ('BasePriority', LONG),
          ('UniqueProcessId', DWORD),
          ('InheritedFromUniqueProcessId', DWORD),
@@ -1343,8 +1363,6 @@ class TS_SYS_PROCESS_INFORMATION(NDRSTRUCT):
          ('PagefileUsage', ULONG), #SIZE_T
          ('PeakPagefileUsage', ULONG), #SIZE_T
          ('PrivatePageCount', ULONG), #SIZE_T
-         ('ImageName', WSTR_STRIPPED), # THIS SHOULD NOT BE HERE
-         ('pSid', SID), # THIS SHOULD NOT BE HERE
     )
 
 
@@ -1354,15 +1372,24 @@ class PTS_SYS_PROCESS_INFORMATION(NDRPOINTER):
     )
 
 # 2.2.2.15 TS_ALL_PROCESSES_INFO
+# https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-tsts/8f5564a6-1b5e-4381-afc4-4acf7ad39d6d
 class TS_ALL_PROCESSES_INFO(NDRSTRUCT):
     structure = (
-        ('pTsProcessInfo', TS_SYS_PROCESS_INFORMATION),
+        ('pTsProcessInfo', PTS_SYS_PROCESS_INFORMATION),
         ('SizeOfSid', DWORD),
-        ('pSid', TS_CHAR),
+        ('pSid', LPUCHAR_ARRAY),
     )
+    def getProcessInfo(self):
+        return self.fields['pTsProcessInfo'].fields['Data']
+
+    def getSid(self):
+        rawSid = b''.join(self.fields['pSid']['Data']) if self.fields['pSid'].fields['ReferentID'] else b''
+        if not rawSid:
+            return ''
+        return SID().known_sid(binary_sid_to_string(rawSid))
  
-class TS_ALL_PROCESSES_INFO_ARRAY(NDRUniConformantVaryingArray):
-    item = TS_SYS_PROCESS_INFORMATION
+class TS_ALL_PROCESSES_INFO_ARRAY(NDRUniConformantArray):
+    item = TS_ALL_PROCESSES_INFO
 
 class PTS_ALL_PROCESSES_INFO(NDRPOINTER):
     referent = (
@@ -2717,6 +2744,7 @@ class RpcWinStationNtsdDebugResponse(NDRCALL):
         ('ErrorCode', BOOLEAN),
     )
 # 3.7.4.1.22 RpcWinStationGetAllProcesses (Opnum 43)
+# https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-tsts/6f43f9e4-2d80-4c5c-bc0b-7f653b1d7c02
 class RpcWinStationGetAllProcesses(NDRCALL):
     opnum = 43
     structure = (
@@ -2729,7 +2757,8 @@ class RpcWinStationGetAllProcessesResponse(NDRCALL):
     structure = (
         ('pResult', pResult_ENUM),
         ('pNumberOfProcesses', BOUNDED_ULONG),
-        ('buffer',':'),
+        ('ppTsAllProcessesInfo', PTS_ALL_PROCESSES_INFO),
+        ('ErrorCode', BOOLEAN),
     )
 # 3.7.4.1.23 RpcWinStationGetProcessSid (Opnum 44)
 class RpcWinStationGetProcessSid(NDRCALL):
@@ -3556,54 +3585,16 @@ def hRpcWinStationTerminateProcess(dce, hServer, ProcessId, ExitCode = 0):
 
 # 3.7.4.1.22 RpcWinStationGetAllProcesses (Opnum 43)
 def hRpcWinStationGetAllProcesses(dce, hServer):
-    # i'm giving up constructing legitimate structures for this method
-    # Going to parse raw response:
-    # 1. Skip ndrpointers
-    # 2. Create TS_SYS_PROCESS_INFORMATION structure one by one
-    # Tested and seems to work well on WIN11, WIN10, WIN2012R2, WIN7
     request = RpcWinStationGetAllProcesses()
     request['hServer'] = hServer
     request['Level'] = 0
     request['pNumberOfProcesses'] = 0x8000
     resp = dce.request(request, checkError=False)
-    data = resp.getData()
-    bResult = bool(data[-1])
-    if not bResult:
+    if not resp['ErrorCode']:
         raise DCERPCSessionError(error_code=resp['pResult'])
-    data = data[:-1]
-    procs = []
     if not resp['pNumberOfProcesses']:
-        return procs
-    offset = 0
-    arrayOffset = 0
-    while 1:
-        offset = data.find(b'\x02\x00')
-        if offset > 12:
-            break
-        data = data[offset+2:]
-        arrayOffset = arrayOffset + offset + 2
-    procInfo = ''
-    while len(data)>1:
-        if len(data[len(procInfo):]) < 16:
-            break
-        # I think there some alignment problems...
-        # in the structure, second DWORD is thread count, i'm looking for the second DWORD
-        # in order to align the data correctly
-        # There is no proper errors handling!
-        b,c,d,e = struct.unpack('<LLLL',data[len(procInfo):len(procInfo)+16])
-        if b:
-            data = data[len(procInfo)-4:]
-        elif c:
-            data = data[len(procInfo):]
-        elif d:
-            data = data[len(procInfo)+4:]
-        elif e:
-            data = data[len(procInfo)+8:]
-            
-        procInfo = TS_SYS_PROCESS_INFORMATION()
-        procInfo.fromString(data)
-        procs.append(procInfo)
-    return procs
+        return []
+    return resp['ppTsAllProcessesInfo']
 
 # 3.7.4.1.23 RpcWinStationGetProcessSid (Opnum 44)
 def hRpcWinStationGetProcessSid(dce, hServer, dwUniqueProcessId, ProcessStartTime):
@@ -3619,7 +3610,7 @@ def hRpcWinStationGetProcessSid(dce, hServer, dwUniqueProcessId, ProcessStartTim
         request['dwSidSize'] = sizeNeeded
         resp = dce.request(request, checkError=False)
     if resp['ErrorCode']:
-        return format_sid(resp['pProcessUserSid'])
+        return binary_sid_to_string(resp['pProcessUserSid'])
 
 #NOT_IMPLEMENTED 3.7.4.1.24 RpcWinStationGetTermSrvCountersValue (Opnum 45)
 

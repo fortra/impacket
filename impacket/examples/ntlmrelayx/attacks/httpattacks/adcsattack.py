@@ -19,6 +19,7 @@ import re
 import base64
 import os
 from OpenSSL import crypto
+import urllib.parse
 
 from cryptography import x509
 from cryptography.hazmat.primitives.serialization import pkcs12
@@ -49,6 +50,14 @@ class ADCSAttack:
         current_template = self.config.template
         if current_template is None:
             current_template = "Machine" if self.username.endswith("$") else "User"
+
+        # Template name might be UTF-8
+        original_template = current_template
+        current_template = urllib.parse.quote(current_template)
+        if current_template == original_template:
+            LOG.info('Using template name: %s' % current_template)
+        else:
+            LOG.info('Using template name: %s (%s)' % (current_template, original_template))
 
         csr = self.generate_csr(key, self.username, self.config.altName)
         csr = csr.decode().replace("\n", "").replace("+", "%2b").replace(" ", "+")
