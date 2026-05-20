@@ -1150,7 +1150,7 @@ class MSSQL:
         self._application_name = (
             application_name or "Microsoft SQL Server Management Studio - Query"
         )
-        self._client_interface_name = client_interface_name
+        self._client_interface_name = (client_interface_name or "Framework Microsoft SqlClient Data Provider for SQL Server")
 
     # With Kerberos we need to know to which MSSQL instance we are going to connect (to compute the SPN)
     # As such we need to be able to list these instances which is what this code does
