@@ -2705,4 +2705,4 @@ class MSSQL:
 
     @property
     def client_interface_name(self):
-        return self._client_interface_name or self._application_name
+        return self._client_interface_name
