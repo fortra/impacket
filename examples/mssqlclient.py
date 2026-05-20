@@ -46,6 +46,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--host-name', action='store', default='', help='HostName property to use when connecting to the MSSQLServer')
     parser.add_argument('--app-name', action='store', default='', help='AppName property to use when connecting to the MSSQLServer')
+    parser.add_argument('--client-interface-name', action='store', default='', help='CltIntName property to use when connecting to the MSSQLServer')
 
     group = parser.add_argument_group('authentication')
 
@@ -90,7 +91,7 @@ if __name__ == '__main__':
     if options.aesKey is not None:
         options.k = True
 
-    ms_sql = tds.MSSQL(options.target_ip, int(options.port), remoteName, workstation_id=options.host_name, application_name=options.app_name)
+    ms_sql = tds.MSSQL(options.target_ip, int(options.port), remoteName, workstation_id=options.host_name, application_name=options.app_name, client_interface_name=options.client_interface_name)
     ms_sql.connect()
     try:
         if options.k is True:
