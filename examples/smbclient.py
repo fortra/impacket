@@ -21,14 +21,67 @@
 
 from __future__ import division
 from __future__ import print_function
+import io
 import sys
 import logging
 import argparse
+import random
 from impacket.examples import logger
 from impacket.examples.utils import parse_target
 from impacket.examples.smbclient import MiniImpacketShell
 from impacket import version
 from impacket.smbconnection import SMBConnection
+
+
+def list_shares(smbClient):
+    try:
+        shares = smbClient.listShares()
+        return [
+            share['shi1_netname'][:-1].strip() for share in shares
+        ]
+    except Exception as e:
+        logging.error("Failed to list shares: %s" % str(e))
+        return []
+
+
+def check_share_permissions(smbClient, share_name, no_write_check=False):
+    result = {"share": share_name, "READ": None, "WRITE": None, "DELETE": None}
+
+    try:
+        # Read access test
+        logging.debug("Trying to connect to '%s'" % share_name)
+        smbClient.connectTree(share_name)
+        result["READ"] = True
+
+        if not no_write_check:
+            try:
+                # Write access test
+                test_file = ".tmp%d" % random.randint(0, 0xFFFFFFFF)
+                logging.debug("Trying to create a test file '%s'" % test_file)
+                smbClient.putFile(share_name, test_file, io.BytesIO(b'TESTDATA').read)
+                result["WRITE"] = True
+                logging.debug("Successfully created a test file '%s'" % test_file)
+
+                try:
+                    # Delete access test
+                    logging.debug("Trying to delete the test file '%s'" % test_file)
+                    smbClient.deleteFile(share_name, test_file)
+                    result["DELETE"] = True
+                    logging.debug("Successfully deleted the test file '%s'" % test_file)
+                except Exception as e:
+                    result["DELETE"] = False
+                    logging.debug("Failed to perform delete check for share '%s': %s" % (share_name, str(e)))
+                    logging.error("Failed to delete test file '%s'" % test_file)
+
+            except Exception as e:
+                result["WRITE"] = False
+                logging.debug("Failed to perform write check for share '%s': %s" % (share_name, str(e)))
+
+    except Exception as e:
+        result["READ"] = False
+        logging.debug("Failed to access share '%s': %s" % (share_name, str(e)))
+
+    return result
 
 def main():
     print(version.BANNER)
@@ -39,6 +92,8 @@ def main():
     parser.add_argument('-outputfile', action='store', help='Output file to log smbclient actions in')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
+    parser.add_argument('-check-access', nargs='?', const='ALL', metavar='SHARE[,SHARE...]', help='Check permissions for specified shares (use ALL for all shares)')
+    parser.add_argument('-no-write-check', action='store_true', help='Skip write/delete permission checks')
 
     group = parser.add_argument_group('authentication')
 
@@ -67,7 +122,6 @@ def main():
         sys.exit(1)
 
     options = parser.parse_args()
-    # Init the example's logger theme
     logger.init(options.ts, options.debug)
 
     domain, username, password, address = parse_target(options.target)
@@ -97,6 +151,30 @@ def main():
             smbClient.kerberosLogin(username, password, domain, lmhash, nthash, options.aesKey, options.dc_ip )
         else:
             smbClient.login(username, password, domain, lmhash, nthash)
+
+        if options.check_access:
+            if options.check_access.upper() == 'ALL':
+                logging.debug("Listing all shares")
+                shares = list_shares(smbClient)
+            else:
+                shares = [share.strip() for share in options.check_access.split(',')]
+
+            logging.debug("Shares to check: %s" % ','.join(shares))
+
+            for share_name in shares:
+                access = check_share_permissions(smbClient, share_name, options.no_write_check)
+                logging.info(
+                    "Share '%s' (%s)" % (
+                        share_name,
+                        ", ".join(
+                            "%s: %s" % (key, value)
+                            for key, value in access.items()
+                            if key != 'share' and value is not None
+                        )
+                    )
+                )
+
+            sys.exit(0)
 
         shell = MiniImpacketShell(smbClient, None, options.outputfile)
 
