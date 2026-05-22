@@ -45,6 +45,8 @@ class ADCSAttack:
         
         if self.config.enumTemplates:
             templates = self.enum_templates()
+            if templates is None:
+                return
             # Print the parsed results
             for entry in templates:
                 try:
