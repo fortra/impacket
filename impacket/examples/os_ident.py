@@ -9,6 +9,15 @@
 # for more information.
 #
 
+import warnings
+from impacket import version
+
+warnings.warn(
+    '\n'+version.DEPRECATION_WARNING_BANNER,
+    DeprecationWarning,
+    stacklevel=2, 
+)
+
 import math
 import array
 from six.moves import xrange, reduce
@@ -17,6 +26,8 @@ from pcapy import lookupdev, open_live
 from impacket.ImpactPacket import UDP, TCPOption, Data, TCP, IP, ICMP, Ethernet
 from impacket.ImpactDecoder import EthDecoder
 from impacket import LOG
+
+
 
 g_nmap1_signature_filename="nmap-os-fingerprints"
 g_nmap2_signature_filename="nmap-os-db"

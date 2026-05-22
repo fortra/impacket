@@ -33,6 +33,7 @@ from impacket import LOG
 from impacket.smbconnection import SMBConnection, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB_DIALECT, SessionError, \
     FILE_READ_DATA, FILE_SHARE_READ, FILE_SHARE_WRITE, FILE_SHARE_DELETE
 from impacket.smb3structs import FILE_DIRECTORY_FILE, FILE_LIST_DIRECTORY
+from impacket.acl import SMBFileACL
 
 import charset_normalizer as chardet
 
@@ -121,12 +122,14 @@ class MiniImpacketShell(cmd.Cmd):
  put {filename} - uploads the filename into the current path
  get {filename} - downloads the filename from the current path
  mget {mask} - downloads all files from the current directory matching the provided mask
+ rget {mask} - recursively downloads all files from the current directory and subdirectories matching the provided mask
  cat {filename} - reads the filename from the current path
  mount {target,path} - creates a mount point from {path} to {target} (admin required)
  umount {path} - removes the mount point at {path} without deleting the directory (admin required)
  list_snapshots {path} - lists the vss snapshots for the specified path
  info - returns NetrServerInfo main results
  who - returns the sessions currently connected at the target host (admin required)
+ acl {filename,action,permissions,user/group} - displays or modifies file ACLs
  close - closes the current SMB Session
  exit - terminates the server process (and this session)
 
@@ -328,17 +331,45 @@ class MiniImpacketShell(cmd.Cmd):
             session['sesi10_cname'][:-1], session['sesi10_username'][:-1], session['sesi10_time'],
             session['sesi10_idle_time']))
 
+    def _resolve_share_type(self, type_int):
+        attributes = []
+        if type_int & srvs.STYPE_SPECIAL:
+            attributes.append("SPECIAL")
+            type_int ^= srvs.STYPE_SPECIAL
+        if type_int & srvs.STYPE_TEMPORARY:
+            attributes.append("TEMP")
+            type_int ^= srvs.STYPE_TEMPORARY
+        type_str = "UNKNOWN"
+        if type_int == srvs.STYPE_DISKTREE:
+            type_str = "DISK"
+        elif type_int == srvs.STYPE_PRINTQ:
+            type_str = "PRINT"
+        elif type_int == srvs.STYPE_DEVICE:
+            type_str = "DEVICE"
+        elif type_int == srvs.STYPE_IPC:
+            type_str = "IPC"
+        if attributes:
+            return f"{type_str} ({','.join(attributes)})"
+        return type_str
+
     def do_shares(self, line):
         if self.loggedIn is False:
             LOG.error("Not logged in")
             return
         resp = self.smb.listShares()
+        fmt = "{:<25} {:<15} {}"
+        print(fmt.format("Share Name", "Type", "Comment"))
+        print("-" * 70)
         if self.outputfile is not None:
             f = open(self.outputfile, 'a')
         for i in range(len(resp)):
+            share_name = resp[i]['shi1_netname'][:-1]
+            share_remark = resp[i]['shi1_remark'][:-1]
+            share_type_int = resp[i]['shi1_type']
+            share_type = self._resolve_share_type(share_type_int)
             if self.outputfile:
-                f.write(resp[i]['shi1_netname'][:-1] + '\n')
-            print(resp[i]['shi1_netname'][:-1])
+                f.write(f"{share_name}|{share_type}|{share_remark}\n")
+            print(fmt.format(share_name, share_type, share_remark))
         if self.outputfile:
             f.close()
 
@@ -573,6 +604,68 @@ class MiniImpacketShell(cmd.Cmd):
                     raise
                 fh.close()
 
+    def do_rget(self, mask):
+        if mask == '':
+            mask = '*'
+        if self.tid is None:
+            LOG.error("No share selected")
+            return
+        if self.loggedIn is False:
+            LOG.error("Not logged in")
+            return
+
+        root_pwd = self.pwd
+        folderList = [root_pwd]
+
+        for ITEM in folderList:
+            self.pwd = ITEM
+
+            try:
+                self.do_ls('*', display=False)
+
+                for file_tuple in self.completion:
+                    filename = file_tuple[0]
+                    is_directory = file_tuple[1]
+
+                    if filename in ['.', '..']:
+                        continue
+
+                    if is_directory:
+                        folderList.append(ntpath.join(ITEM, filename))
+
+                self.do_ls(mask, display=False)
+
+                for file_tuple in self.completion:
+                    filename = file_tuple[0]
+                    is_directory = file_tuple[1]
+
+                    if filename in ['.', '..'] or is_directory:
+                        continue
+
+                    filename = filename.replace('/', '\\')
+                    local_path = ntpath.relpath(ITEM, root_pwd)
+                    if local_path == '.':
+                        local_path = ''
+                    local_path = local_path.replace('\\', os.sep)
+                    local_file = os.path.join(local_path, ntpath.basename(filename)) if local_path else ntpath.basename(filename)
+                    local_dir = os.path.dirname(local_file)
+
+                    if local_dir and not os.path.exists(local_dir):
+                        os.makedirs(local_dir)
+
+                    fh = open(local_file, 'wb')
+                    pathname = ntpath.join(ITEM, filename)
+                    try:
+                        LOG.info("Downloading %s" % local_file)
+                        self.smb.getFileEx(self.share, pathname, fh.write)
+                    except:
+                        fh.close()
+                        os.remove(local_file)
+                        raise
+                    fh.close()
+            finally:
+                self.pwd = root_pwd
+
     def do_get(self, filename):
         if self.tid is None:
             LOG.error("No share selected")
@@ -663,6 +756,7 @@ class MiniImpacketShell(cmd.Cmd):
     def do_umount(self, mountpoint):
         mountpoint = mountpoint.replace('/','\\')
 
+
         # Relative or absolute path?
         if mountpoint.startswith('\\') is not True:
             mountpoint = ntpath.join(self.pwd, mountpoint)
@@ -670,6 +764,57 @@ class MiniImpacketShell(cmd.Cmd):
         mountPath = ntpath.join(self.pwd, mountpoint)
 
         self.smb.removeMountPoint(self.tid, mountPath)
+
+    def do_acl(self, line):
+        if self.tid is None:
+            LOG.error("No share selected")
+            return
+        parts = line.split()
+        if len(parts) == 0:
+            LOG.error("Usage: acl {filename,action,permissions,user/group} actions: grant/revoke, "
+                      "supported permissions : R/W/D/X/F")
+            return
+        
+        filename = parts[0].replace('/','\\')
+        # Relative or absolute path?
+        if filename.startswith('\\') is not True:
+            filename = ntpath.join(self.pwd, filename)
+        
+        smb_file_acl = None
+
+        try:
+            if len(parts) == 1:
+                smb_file_acl = SMBFileACL(smb_connection=self.smb)
+                resp = smb_file_acl.get_permissions(self.share, filename)
+                print(resp)
+            else:
+                action = parts[1].lower()
+
+                if action not in ['grant', 'revoke']:
+                    LOG.error("Action must be 'grant' or 'revoke'")
+                    return
+
+                if len(parts) < 3:
+                    LOG.error("Permissions required. Supported: R (read), W (write), D (delete), X (execute), F (full control)")
+                    return
+
+                permissions = parts[2]
+
+                if len(parts) < 4:
+                    LOG.error("User/group name is required")
+                    return
+
+                user = parts[3]
+
+                smb_file_acl = SMBFileACL(smb_connection=self.smb)
+                smb_file_acl.set_permissions(self.share, filename, user, permissions, action)
+                if action == 'grant':
+                    print("Successfully granted permissions to %s" % user)
+                elif action == 'revoke':
+                    print("Successfully revoked permissions from %s" % user)
+        finally:
+            if smb_file_acl:
+                smb_file_acl.close_connection()
 
     def do_EOF(self, line):
         print('Bye!\n')

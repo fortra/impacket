@@ -123,7 +123,7 @@ class DumpSecrets:
 
             if not self.__nosam:
                 try:
-                    self.__SAMHashes = SAMHashes(bootKey, remoteOps=self.__remoteOps, throttle=self.__throttle)
+                    self.__SAMHashes = SAMHashes(bootKey, remoteOps=self.__remoteOps, history=self.__history, throttle=self.__throttle)
                     self.__SAMHashes.dump()
                     if self.__outputFileName is not None:
                         self.__SAMHashes.export(self.__outputFileName)
@@ -193,7 +193,7 @@ if __name__ == '__main__':
                         help='base output filename. Extensions will be added for sam, secrets and cached')
 
     group = parser.add_argument_group('display options')
-    group.add_argument('-history', action='store_true', help='Dump password history, and LSA secrets OldVal')
+    group.add_argument('-history', action='store_true', help='Dump password history (NTDS and SAM hashes), and LSA secrets OldVal')
 
     group = parser.add_argument_group('authentication')
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')

@@ -339,15 +339,16 @@ class SC_ACTION(NDRSTRUCT):
         ('Delay', DWORD) , 
     )
 
-class SC_ACTIONS(NDRSTRUCT):
-    structure = (
-       ('Data', NDRUniConformantArray),
+# https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-scmr/58032b71-1e5c-4f2e-8545-34b0f2e8c6ad
+# https://learn.microsoft.com/en-us/windows/win32/api/winsvc/ns-winsvc-sc_action
+class SC_ACTION_ARRAY(NDRUniConformantArray):
+    item = SC_ACTION
+
+# Helper for the [size_is(cActions)] SC_ACTION* field.
+class SC_ACTIONS(NDRPOINTER):
+    referent = (
+        ('Data', SC_ACTION_ARRAY),
     )
-    def __init__(self, data = None, isNDR64 = False):
-        NDR.__init__(self,None,isNDR64)
-        self.fields['Data'].item = SC_ACTION
-        if data is not None:
-            self.fromString(data)
 
 class SERVICE_FAILURE_ACTIONSW(NDRSTRUCT):
     structure = (
@@ -357,6 +358,25 @@ class SERVICE_FAILURE_ACTIONSW(NDRSTRUCT):
         ('cActions', DWORD) , 
         ('lpsaActions', SC_ACTIONS) , 
     )
+
+    def __init__(self, data=None, isNDR64=False):
+        NDRSTRUCT.__init__(self, data, isNDR64=isNDR64)
+        if data is None:
+            self['lpsaActions'] = NULL
+
+    def __setitem__(self, key, value):
+        if key == 'lpsaActions' and isinstance(value, SC_ACTIONS):
+            self.fields[key] = value
+            return
+        return NDRSTRUCT.__setitem__(self, key, value)
+
+    # Keep cActions synchronized with the pointed SC_ACTION array at marshal time.
+    def getData(self, soFar=0):
+        if self['lpsaActions'] == 0:
+            self['cActions'] = 0
+        else:
+            self['cActions'] = len(self['lpsaActions'])
+        return NDR.getData(self, soFar)
 
 class LPSERVICE_FAILURE_ACTIONSW(NDRPOINTER):
     referent = (

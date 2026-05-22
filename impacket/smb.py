@@ -56,7 +56,7 @@ import os
 import socket
 from binascii import a2b_hex
 import datetime
-from struct import pack, unpack, pack_into
+from struct import pack, unpack, pack_into, error as StructError
 from ctypes import BigEndianStructure, c_uint32
 from contextlib import contextmanager
 from pyasn1.type.univ import noValue
@@ -2968,11 +2968,19 @@ class SMB(object):
                 self._dialects_parameters = SMBNTLMDialect_Parameters(sessionResponse['Parameters'])
                 self._dialects_data = SMBNTLMDialect_Data()
                 self._dialects_data['ChallengeLength'] = self._dialects_parameters['ChallengeLength']
-                self._dialects_data.fromString(sessionResponse['Data'])
+                try:
+                    self._dialects_data.fromString(sessionResponse['Data'])
+                except (ValueError, StructError) as e:
+                    LOG.debug("Negotiate response parsing failed: %s", e)
+                    raise SessionError("Connection failed: invalid or truncated server response", 0x000D, 0xC000, 1, None)
                 if self._dialects_parameters['Capabilities'] & SMB.CAP_EXTENDED_SECURITY:
                     # Whether we choose it or it is enforced by the server, we go for extended security
                     self._dialects_parameters = SMBExtended_Security_Parameters(sessionResponse['Parameters'])
-                    self._dialects_data = SMBExtended_Security_Data(sessionResponse['Data'])
+                    try:
+                        self._dialects_data = SMBExtended_Security_Data(sessionResponse['Data'])
+                    except (ValueError, StructError) as e:
+                        LOG.debug("Negotiate extended security response parsing failed: %s", e)
+                        raise SessionError("Connection failed: invalid or truncated server response", 0x000D, 0xC000, 1, None)
                     # Let's setup some variable for later use
                     if self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SIGNATURES_REQUIRED:
                          self._SignatureRequired = True
@@ -3580,7 +3588,11 @@ class SMB(object):
             sessionParameters = SMBSessionSetupAndX_Extended_Response_Parameters(sessionResponse['Parameters'])
             sessionData       = SMBSessionSetupAndX_Extended_Response_Data(flags = smb['Flags2'])
             sessionData['SecurityBlobLength'] = sessionParameters['SecurityBlobLength']
-            sessionData.fromString(sessionResponse['Data'])
+            try:
+                sessionData.fromString(sessionResponse['Data'])
+            except (ValueError, StructError) as e:
+                LOG.debug("Session setup response parsing failed: %s", e)
+                raise SessionError("Authentication failed: invalid or truncated server response", 0x006D, 0xC000, 1, None)
 
             self._action = sessionParameters['Action']
             # If smb sign required, let's enable it for the rest of the connection
@@ -3653,7 +3665,11 @@ class SMB(object):
             sessionParameters = SMBSessionSetupAndX_Extended_Response_Parameters(sessionResponse['Parameters'])
             sessionData       = SMBSessionSetupAndX_Extended_Response_Data(flags = smb['Flags2'])
             sessionData['SecurityBlobLength'] = sessionParameters['SecurityBlobLength']
-            sessionData.fromString(sessionResponse['Data'])
+            try:
+                sessionData.fromString(sessionResponse['Data'])
+            except (ValueError, StructError) as e:
+                LOG.debug("Session setup response parsing failed: %s", e)
+                raise SessionError("Authentication failed: invalid or truncated server response", 0x006D, 0xC000, 1, None)
             respToken = SPNEGO_NegTokenResp(sessionData['SecurityBlob'])
 
             # Let's parse some data and keep it to ourselves in case it is asked

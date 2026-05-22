@@ -21,6 +21,7 @@
 #   tslogoff: Signs-out a Remote Desktop Services session
 #   shutdown: Remote shutdown
 #   msg:      Send a message to Remote Desktop Services session (MSGBOX)
+#   shadow:   Shadow a Remote Desktop Services session
 #
 # Author:
 #   Alexander Korznikov (@nopernik)
@@ -33,6 +34,8 @@ import argparse
 import codecs
 import logging
 import sys
+from xml.etree.ElementTree import tostring
+import xml.etree.ElementTree as ET
 from struct import unpack
 
 from impacket import version
@@ -45,6 +48,11 @@ from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_GSS_NEGOTIATE, RPC_C_AUTHN_LEVE
 from impacket.dcerpc.v5.dtypes import MAXIMUM_ALLOWED
 
 from impacket.dcerpc.v5 import tsts as TSTS
+from impacket.dcerpc.v5.tsts import (
+    SHADOW_CONTROL_REQUEST, 
+    SHADOW_PERMISSION_REQUEST, 
+    SHADOW_REQUEST_RESPONSE
+)
 import traceback
 
 
@@ -306,20 +314,20 @@ class TSHandler:
         options = self.__options
         with TSTS.LegacyAPI(self.__smbConnection, options.target_ip, self.__doKerberos) as legacy:
             handle = legacy.hRpcWinStationOpenServer()
-            r = legacy.hRpcWinStationGetAllProcesses(handle)
-            if not len(r):
+            process_entry_list = legacy.hRpcWinStationGetAllProcesses(handle)
+            if not len(process_entry_list):
                 return None
 
             self.sids = {}
-            for procInfo in r:
-                sid = procInfo['pSid']
+            for process_entry in process_entry_list:
+                sid = process_entry.getSid()
                 if sid[:2] == 'S-' and sid not in self.sids:
                     self.sids[sid] = sid
             
             self.lookupSids()
 
-            maxImageNameLen = max([len(i['ImageName']) for i in r])
-            maxSidLen = max([len(i['pSid']) for i in r])
+            maxImageNameLen = max([len(process_entry.getProcessInfo()['ImageName'].getValue()) for process_entry in process_entry_list])
+            maxSidLen = max([len(process_entry.getSid()) for process_entry in process_entry_list])
             if options.verbose:
                 self.get_session_list()
                 self.enumerate_sessions_config()
@@ -357,35 +365,37 @@ class TSHandler:
                                                         )+'\n'
                      )
 
-                for procInfo in r:
-                    sessId = procInfo['SessionId']
+                for process_entry in process_entry_list:
+                    process_info = process_entry.getProcessInfo()
+                    sessId = process_info['SessionId']
                     fullUserName = ''
                     if len(self.sessions[sessId]['Domain']):
                         fullUserName += self.sessions[sessId]['Domain'] + '\\'
                     if len(self.sessions[sessId]['Username']):
                         fullUserName += self.sessions[sessId]['Username']
                     row = template.replace('{workingset: <12}','{workingset: >10,} K').format(
-                                          imagename   = procInfo['ImageName'],
-                                          pid         = procInfo['UniqueProcessId'],
+                                          imagename   = process_info['ImageName'].getValue(),
+                                          pid         = process_info['UniqueProcessId'],
                                           sessionName = self.sessions[sessId]['SessionName'],
-                                          sessid      = procInfo['SessionId'],
+                                          sessid      = process_info['SessionId'],
                                           sessstate   = self.sessions[sessId]['state'].replace('Disconnected','Disc'),
-                                          sid         = self.sidToUser(procInfo['pSid']),
+                                          sid         = self.sidToUser(process_entry.getSid()),
                                           sessionuser = fullUserName,
-                                          workingset  = procInfo['WorkingSetSize']//1000
+                                          workingset  = process_info['WorkingSetSize']//1000
                                          )
                     print(row)
             else:
                 template = '{: <%d} {: <8} {: <11} {: <%d} {: >12}' % (maxImageNameLen, maxSidLen)
                 print(template.format('Image Name', 'PID', 'Session#', 'SID', 'Mem Usage'))
                 print(template.replace(': ',':=').format('','','','','')+'\n')
-                for procInfo in r:
+                for process_entry in process_entry_list:
+                    process_info = process_entry.getProcessInfo()
                     row = template.format(
-                                procInfo['ImageName'],
-                                procInfo['UniqueProcessId'],
-                                procInfo['SessionId'],
-                                self.sidToUser(procInfo['pSid']),
-                                '{:,} K'.format(procInfo['WorkingSetSize']//1000),
+                                process_info['ImageName'].getValue(),
+                                process_info['UniqueProcessId'],
+                                process_info['SessionId'],
+                                self.sidToUser(process_entry.getSid()),
+                                '{:,} K'.format(process_info['WorkingSetSize']//1000),
                             )
                     print(row)
 
@@ -402,7 +412,8 @@ class TSHandler:
                 if not len(r):
                     LOG.error('Could not get process list')
                     return
-                pidList = [i['UniqueProcessId'] for i in r if i['ImageName'].lower() == options.name.lower()]
+                pidList = [i.getProcessInfo()['UniqueProcessId'] for i in r
+                           if i.getProcessInfo()['ImageName'].getValue().lower() == options.name.lower()]
                 if not len(pidList):
                     LOG.error('Could not find %r in process list' % options.name)
                     return
@@ -533,6 +544,81 @@ class TSHandler:
                     LOG.error('Could not find SessionID: %d' % options.session)
                 else:
                     LOG.error(str(e))
+
+    def do_shadow(self):
+        """
+        Request a Remote Connection String to shadow a Remote Desktop Services session.
+        Author: Ilya Yatsenko (@fulc2um)
+        """
+        control = (SHADOW_CONTROL_REQUEST.enumItems.SHADOW_CONTROL_REQUEST_TAKECONTROL 
+                  if self.__options.control 
+                  else SHADOW_CONTROL_REQUEST.enumItems.SHADOW_CONTROL_REQUEST_VIEW)
+        
+        perm = (SHADOW_PERMISSION_REQUEST.enumItems.SHADOW_PERMISSION_REQUEST_REQUESTPERMISSION 
+               if self.__options.prompt 
+               else SHADOW_PERMISSION_REQUEST.enumItems.SHADOW_PERMISSION_REQUEST_SILENT)
+
+        LOG.info(f"Calling RpcShadow2 (SessionId={self.__options.session}, Control={self.__options.control}, Permission={self.__options.prompt})")
+
+        try:
+            with TSTS.SessEnvPublicRpc(self.__smbConnection, self.__options.target_ip, self.__doKerberos) as sErpc:
+                response = sErpc.hRpcShadow2(self.__options.session, control, perm, 8192)
+
+                if self.__options.debug:
+                    LOG.debug(f"Response: {response.getData()}")
+
+                permission = response['pePermission']
+                invitation = response['pszInvitation']
+
+        except DCERPCException as e:
+            LOG.error(f"RPC Exception: {e}")
+            return
+
+        if permission is not None:
+            try:
+                desc = TSTS.enum2value(SHADOW_REQUEST_RESPONSE, permission)
+            except (KeyError, AttributeError):
+                desc = "Unknown"
+            LOG.info(f"Permission: {permission} ({desc})")
+
+        if permission == SHADOW_REQUEST_RESPONSE.enumItems.SHADOW_REQUEST_RESPONSE_ALLOW.value:
+            LOG.info("RpcShadow2 call succeeded!")
+            
+            if not invitation:
+                LOG.error("RpcShadow2 failed: No invitation received")
+                sys.exit(1)
+
+            LOG.info(f"Invitation received ({len(invitation)} characters)")
+            
+            try:
+                invitation = invitation.rstrip('\x00\r\n').strip()
+                
+                invitation = ET.fromstring(invitation)
+            except ET.ParseError:
+                if invitation.startswith('<') and not invitation.endswith('>'):
+                    if '</E>' in invitation:
+                        end_pos = invitation.rfind('</E>') + 4
+                        invitation = invitation[:end_pos]
+                        try:
+                            invitation = ET.fromstring(invitation)
+                        except ET.ParseError:
+                            invitation = None
+                    else:
+                        invitation = None
+                else:
+                    invitation = None
+            
+            if invitation:
+                invitation = tostring(invitation, encoding='utf-8', method='xml').decode('utf-8')
+                LOG.info("Invitation is well-formed XML")
+                with open(self.__options.file, 'w', encoding='utf-8') as f:
+                    f.write(invitation)
+                    LOG.info(f"Saved to {self.__options.file} file")
+            else:
+                LOG.error("Invitation does not appear to be well-formed XML")
+        else:
+            LOG.error("RpcShadow2 failed: Permission denied")
+            sys.exit(1)
     
 
 if __name__ == '__main__':
@@ -592,6 +678,12 @@ if __name__ == '__main__':
     msg_parser.add_argument('-session', action='store', metavar="SessionID", type=int, required=True, help='Receiver SessionId')
     msg_parser.add_argument('-title', action='store', metavar="'Your Title'", type=str, required=False, help='Title of the MessageBox [Optional]')
     msg_parser.add_argument('-message', action='store', metavar="'Your Message'", type=str, required=True, help='Contents of the MessageBox')
+
+    shadow_parser = subparsers.add_parser('shadow', help='Shadow a Remote Desktop Services session.')
+    shadow_parser.add_argument('-session', action='store', metavar="SessionID", type=int, required=True, help='SessionId to shadow')
+    shadow_parser.add_argument('-control', action='store_true', help='Request control of the session (default is view only)')
+    shadow_parser.add_argument('-prompt', action='store_true', help='Request user permission (default is silent)')
+    shadow_parser.add_argument('-file', type=str, help='Save invitation to file', default='invite.msrcIncident')
 
     # Authentication options
     group = parser.add_argument_group('authentication')

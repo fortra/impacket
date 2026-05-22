@@ -1,3 +1,5 @@
+<img alt="Impacket_light" src="https://github.com/user-attachments/assets/14aed700-0c6e-4865-ac53-686b91874f50" />
+
 Impacket
 ========
 
@@ -50,7 +52,7 @@ Getting Impacket
 
 ### Latest version
 
-* Impacket v0.12.0
+* Impacket v0.13.1
 
   [![Python versions](https://img.shields.io/pypi/pyversions/impacket.svg)](https://pypi.python.org/pypi/impacket/)
 
@@ -58,7 +60,7 @@ Getting Impacket
 
 ### Development version
 
-* Impacket v0.13.0-dev (**[master branch](https://github.com/fortra/impacket/tree/master)**)
+* Impacket v0.14.0-dev (**[master branch](https://github.com/fortra/impacket/tree/master)**)
 
   [![Python versions](https://img.shields.io/badge/python-3.9%20|%203.10%20|%203.11%20|%203.12%20|%203.13-blue.svg)](https://github.com/fortra/impacket/tree/master)
 

@@ -29,6 +29,7 @@ from __future__ import print_function
 import sys
 import pcapy
 from pcapy import open_offline
+from impacket import version
 
 from impacket.ImpactDecoder import EthDecoder, LinuxSLLDecoder
 
@@ -140,6 +141,7 @@ def main(filename):
 
 # Process command-line arguments.
 if __name__ == '__main__':
+    print(version.DEPRECATION_WARNING_BANNER)
     if len(sys.argv) <= 1:
         print("Usage: %s <filename>" % sys.argv[0])
         sys.exit(1)

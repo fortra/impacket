@@ -175,6 +175,7 @@ class DumpSecrets:
 
     def dump(self):
         try:
+            localDomainSid = None
             # Almost like LOCAL but create (and deletes it after finishing) a Shadow Snapshot at target and download SAM, SYSTEM and SECURITY from the SS. No Code Execution.
             # If specified, NTDS will be also downloaded and parsed (no code execution needed, in contrast to vssadmin method). Use it when targeting a DC.
             # Then, parse locally
@@ -278,7 +279,7 @@ class DumpSecrets:
                                 SAMFileName = self.__remoteOps.saveSAM()
                             else:
                                 SAMFileName = self.__samHive
-                            self.__SAMHashes = SAMHashes(SAMFileName, bootKey, isRemote=self.__isRemote, printUserStatus=self.__printUserStatus)
+                            self.__SAMHashes = SAMHashes(SAMFileName, bootKey, isRemote=self.__isRemote,history=self.__history, printUserStatus=self.__printUserStatus, pwdLastSet=self.__pwdLastSet)
                             self.__SAMHashes.dump()
                             if self.__outputFileName is not None:
                                 self.__SAMHashes.export(self.__outputFileName)
@@ -315,13 +316,22 @@ class DumpSecrets:
                 else:
                     NTDSFileName = self.__ntdsFile
 
+                if NTDSFileName is not None:
+                    try:
+                        if self.__isRemote is True:
+                            localDomainSid = self.__remoteOps.getDomainSid()
+                        else:
+                            localDomainSid = NTDSHashes.getLocalDomainSid(NTDSFileName)
+                    except Exception as e:
+                        logging.debug('Failed to resolve local domain SID: %s', e)
+
                 self.__NTDSHashes = NTDSHashes(NTDSFileName, bootKey, isRemote=self.__isRemote, history=self.__history,
                                                noLMHash=self.__noLMHash, remoteOps=self.__remoteOps,
                                                useVSSMethod=self.__useVSSMethod, remoteSSMethodWMINTDS=self.__remoteSSWMINTDS, justNTLM=self.__justDCNTLM,
                                                pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
                                                outputFileName=self.__outputFileName, justUser=self.__justUser,
                                                skipUser=self.__skipUser, ldapFilter=self.__ldapFilter,
-                                               printUserStatus=self.__printUserStatus)
+                                               printUserStatus=self.__printUserStatus, localDomainSid=localDomainSid)
                 try:
                     self.__NTDSHashes.dump()
                 except Exception as e:
@@ -427,7 +437,7 @@ if __name__ == '__main__':
     parser.add_argument('-remoteSSWMI-remote-volume', action='store', default='C:\\',
                         help='Remote Volume to perform the Shadow Snapshot and download SAM, SYSTEM and SECURITY. It defaults to C:\\')
     parser.add_argument('-remoteSSWMI-local-path', action='store', default='.',
-                        help='Path where download SAM, SYSTEM and SECURITY from Shadow Snapshot. It defaults to current path')
+                        help='Local path to download SAM, SYSTEM and SECURITY from Shadow Snapshot. It defaults to current path')
 
     group = parser.add_argument_group('display options')
     group.add_argument('-just-dc-user', action='store', metavar='USERNAME',
@@ -446,7 +456,7 @@ if __name__ == '__main__':
                        help='Shows pwdLastSet attribute for each NTDS.DIT account. Doesn\'t apply to -outputfile data')
     group.add_argument('-user-status', action='store_true', default=False,
                        help='Display whether or not the user is disabled')
-    group.add_argument('-history', action='store_true', help='Dump password history, and LSA secrets OldVal')
+    group.add_argument('-history', action='store_true', help='Dump password history (NTDS and SAM hashes), and LSA secrets OldVal')
 
     group = parser.add_argument_group('authentication')
     group.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
