@@ -49,11 +49,17 @@ class RAATests(DCERPCTests):
         super(DCERPCTests, self).setUp()
         self.set_transport_config(machine_account=self.machine_account)
 
-        entries = epm.hept_lookup(self.machine, ifId=raa.MSRPC_UUID_RAA)
+        entries = epm.hept_lookup(
+            self.machine,
+            inquiry_type=epm.RPC_C_EP_MATCH_BY_IF,
+            ifId=raa.MSRPC_UUID_RAA
+        )
         port = None
         for entry in entries:
+            if entry['tower']['Floors'][0]['InterfaceUUID'] != raa.MSRPC_UUID_RAA[:16]:
+                continue
             for floor in entry['tower']['Floors'][3:]:
-                if floor['ProtocolData'] == b'\x07':  # ncacn_ip_tcp port floor
+                if 'ProtocolData' in floor.fields and floor['ProtocolData'] == bytes([epm.FLOOR_TCPPORT_IDENTIFIER]):
                     port = unpack('!H', floor['RelatedData'])[0]
                     break
             if port is not None:
