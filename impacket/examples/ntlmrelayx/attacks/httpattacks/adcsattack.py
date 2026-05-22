@@ -61,7 +61,7 @@ class ADCSAttack:
                     LOG.debug(f'    - EXTOID: {entry["EXTOID"]}')
                     LOG.debug(f'    - EXTMAJ: {entry["EXTMAJ"]}')
                     LOG.debug(f'    - EXTFMIN: {entry["EXTFMIN"]}')
-                    LOG.debug(f'    - EXTFMIN: {entry["EXTMIN"]}')
+                    LOG.debug(f'    - EXTMIN: {entry["EXTMIN"]}')
                     LOG.debug(f'    - FRIENDLYNAME: {entry["FRIENDLYNAME"]}')
                 except KeyError:
                     LOG.info(f'  - {entry}')
@@ -169,7 +169,6 @@ class ADCSAttack:
         enum_headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.60 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-            "Accept-Encoding": "gzip, deflate, br",
             "Accept-Language": "en-US,en;q=0.9",
             "Connection": "keep-alive"
         }
@@ -196,7 +195,13 @@ class ADCSAttack:
         self.client.request("GET", "/certsrv/certrqxt.asp", headers=enum_headers)
         response = self.client.getresponse()
         content = response.read()
+        if response.status != 200:
+            LOG.error("Error enumerating certificate templates! HTTP %d" % response.status)
+            return None
         option_lines = re.findall(r"<Option Value.*?>", content.decode())
+        if len(option_lines) == 0:
+            LOG.warning("No certificate template entries found in /certsrv/certrqxt.asp")
+            return None
 
         parsed_results = []
         for line in option_lines:
