@@ -10,13 +10,13 @@
 #
 # Description:
 #   [MS-RAA] Remote Authorization API Protocol Interface implementation.
-#   Client side only.
+#   Only the client side segment of the protocol has been implemented
 #   MS-RAA is pretty neat as it allows us to preform pretty good enumeration to ask the question of what our permissions are
 #   and what they can be if we added ourselves to a group or container. Its a rather easy protocol to implement since
 #   all we have to do is define mostly structures using the spec and base that off what impacket had implemented in other similar protocols
 #
-#   Helper functions start with "h"<name of the call>. I hopefully will be developing appropriate
-#   test cases for them very soon.
+#   Helper functions start with "h"<name of the call>.
+#   Test cases have been added and are found in tests/dcerpc/test_raa.py.
 #   Author : Abdul Mhanni
 
 from struct import pack, unpack_from
