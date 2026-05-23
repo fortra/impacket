@@ -22,40 +22,38 @@ class TestDot11ManagementProbeResponseFrames(unittest.TestCase):
         #
         self.rawProbeResponseframe=b'\x00\x00\x18\x00\x2e\x48\x00\x00\x00\x02\x85\x09\xa0\x00\xb0\x01\x00\x00\x00\x00\x00\x00\x00\x00\x50\x00\x3a\x01\x00\x21\xfe\x39\x3f\x77\x00\x1b\x11\x32\x66\x23\x00\x1b\x11\x32\x66\x23\x20\x73\x7f\xa0\x22\xf8\x3f\x01\x00\x00\x64\x00\x11\x04\x00\x07\x66\x72\x65\x65\x62\x73\x64\x01\x08\x82\x84\x8b\x96\x24\x30\x48\x6c\x03\x01\x06\x2a\x01\x04\x2f\x01\x04\x32\x04\x0c\x12\x18\x60\xdd\x75\x00\x50\xf2\x04\x10\x4a\x00\x01\x10\x10\x44\x00\x01\x02\x10\x41\x00\x01\x00\x10\x3b\x00\x01\x03\x10\x47\x00\x10\x11\x4e\xf7\x46\xa9\xc6\xfb\x1d\x70\x1b\x00\x1b\x11\x32\x66\x23\x10\x21\x00\x06\x44\x2d\x4c\x69\x6e\x6b\x10\x23\x00\x07\x44\x49\x52\x2d\x33\x32\x30\x10\x24\x00\x07\x44\x49\x52\x2d\x33\x32\x30\x10\x42\x00\x08\x30\x30\x30\x30\x30\x30\x30\x30\x10\x54\x00\x08\x00\x06\x00\x50\xf2\x04\x00\x01\x10\x11\x00\x07\x44\x49\x52\x2d\x33\x32\x30\x10\x08\x00\x02\x00\x8e\xdd\x05\x00\x50\xf2\x05\x00\xdd\x09\x00\x10\x18\x02\x01\xf0\x00\x00\x00\xdd\x18\x00\x50\xf2\x01\x01\x00\x00\x50\xf2\x02\x01\x00\x00\x50\xf2\x02\x01\x00\x00\x50\xf2\x02\x00\x00'
         self.radiotap_decoder = RadioTapDecoder()
-        radiotap=self.radiotap_decoder.decode(self.rawProbeResponseframe)
+        radiotap = self.radiotap_decoder.decode(self.rawProbeResponseframe)
+
+        self.dot11 = radiotap.child()
+        self.management_base = self.dot11.child()
+        self.management_probe_request = self.management_base.child()
 
         if PY2:
             self.assertEqual(str(radiotap.__class__), "impacket.dot11.RadioTap")
         else:
             self.assertEqual(str(radiotap.__class__), "<class 'impacket.dot11.RadioTap'>")
 
-        self.dot11=radiotap.child()
-        if PY2:
-            self.assertEqual(str(self.dot11.__class__), "impacket.dot11.Dot11")
-        else:
-            self.assertEqual(str(self.dot11.__class__), "<class 'impacket.dot11.Dot11'>")
+        self.dot11 = radiotap.child()
+        self.management_base = self.dot11.child()
+        self.management_probe_response = self.management_base.child()
 
-        type = self.dot11.get_type()
-        self.assertEqual(type,Dot11Types.DOT11_TYPE_MANAGEMENT)
-        
-        subtype = self.dot11.get_subtype()
-        self.assertEqual(subtype,Dot11Types.DOT11_SUBTYPE_MANAGEMENT_PROBE_RESPONSE)
-        
-        typesubtype = self.dot11.get_type_n_subtype()
-        self.assertEqual(typesubtype,Dot11Types.DOT11_TYPE_MANAGEMENT_SUBTYPE_PROBE_RESPONSE)
-        
-        self.management_base=self.dot11.child()
+    def test_setups(self):
+        radiotap = self.radiotap_decoder.decode(self.rawProbeResponseframe)
+
         if PY2:
+            self.assertEqual(str(radiotap.__class__), "impacket.dot11.RadioTap")
+            self.assertEqual(str(self.dot11.__class__), "impacket.dot11.Dot11")
             self.assertEqual(str(self.management_base.__class__), "impacket.dot11.Dot11ManagementFrame")
-        else:
-            self.assertEqual(str(self.management_base.__class__), "<class 'impacket.dot11.Dot11ManagementFrame'>")
-        
-        self.management_probe_response=self.management_base.child()
-        if PY2:
             self.assertEqual(str(self.management_probe_response.__class__), "impacket.dot11.Dot11ManagementProbeResponse")
         else:
+            self.assertEqual(str(radiotap.__class__), "<class 'impacket.dot11.RadioTap'>")
+            self.assertEqual(str(self.dot11.__class__), "<class 'impacket.dot11.Dot11'>")
+            self.assertEqual(str(self.management_base.__class__), "<class 'impacket.dot11.Dot11ManagementFrame'>")
             self.assertEqual(str(self.management_probe_response.__class__), "<class 'impacket.dot11.Dot11ManagementProbeResponse'>")
-            
+
+        self.assertEqual(self.dot11.get_type(), Dot11Types.DOT11_TYPE_MANAGEMENT)
+        self.assertEqual(self.dot11.get_subtype(), Dot11Types.DOT11_SUBTYPE_MANAGEMENT_PROBE_RESPONSE)
+        self.assertEqual(self.dot11.get_type_n_subtype(), Dot11Types.DOT11_TYPE_MANAGEMENT_SUBTYPE_PROBE_RESPONSE)
         
     def test_01(self):
         'Test Header and Tail Size field'
