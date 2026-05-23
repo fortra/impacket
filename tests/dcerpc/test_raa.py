@@ -26,7 +26,7 @@ import unittest
 
 from tests.dcerpc import DCERPCTests
 
-from impacket.dcerpc.v5 import raa, epm
+from impacket.dcerpc.v5 import raa, epm, lsat, lsad, transport
 from impacket.dcerpc.v5.dtypes import NULL, MAXIMUM_ALLOWED, READ_CONTROL
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR, ACE, ACCESS_ALLOWED_ACE, ACL, \
@@ -38,9 +38,38 @@ class RAATests(DCERPCTests):
     protocol = "ncacn_ip_tcp"
     authn = True
     authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+    account_sid = None
 
-    # Well-known SID for BUILTIN\Administrators. Always resolves on any Windows target
-    WELL_KNOWN_SID = 'S-1-5-32-544'
+    def get_account_sid(self):
+        if RAATests.account_sid is not None:
+            return RAATests.account_sid
+
+        stringBinding = r'ncacn_np:%s[\PIPE\lsarpc]' % self.machine
+        rpctransport = transport.DCERPCTransportFactory(stringBinding)
+        rpctransport.set_credentials(self.username, self.password, self.domain, self.lmhash, self.nthash)
+
+        dce = rpctransport.get_dce_rpc()
+        dce.connect()
+        try:
+            dce.bind(lsat.MSRPC_UUID_LSAT)
+            policyHandle = lsad.hLsarOpenPolicy2(
+                dce,
+                MAXIMUM_ALLOWED | lsat.POLICY_LOOKUP_NAMES
+            )['PolicyHandle']
+            resp = lsat.hLsarLookupNames(dce, policyHandle, (self.username,))
+        finally:
+            dce.disconnect()
+
+        if resp['MappedCount'] < 1:
+            self.skipTest("Could not resolve SID for %s" % self.username)
+
+        sid = resp['TranslatedSids']['Sids'][0]
+        if sid['DomainIndex'] < 0:
+            self.skipTest("Could not resolve domain SID for %s" % self.username)
+
+        domain = resp['ReferencedDomains']['Domains'][sid['DomainIndex']]
+        RAATests.account_sid = "%s-%d" % (domain['Sid'].formatCanonical(), sid['RelativeId'])
+        return RAATests.account_sid
 
     def setUp(self):
         # MS-RAA registers itself in EPM under a non-nil object UUID
@@ -48,6 +77,7 @@ class RAATests(DCERPCTests):
         from struct import unpack
         super(DCERPCTests, self).setUp()
         self.set_transport_config(machine_account=self.machine_account)
+        self.account_sid = self.get_account_sid()
 
         entries = epm.hept_lookup(
             self.machine,
@@ -109,10 +139,10 @@ class RAATests(DCERPCTests):
 
         request = raa.AuthzrInitializeContextFromSid()
         request['Flags'] = raa.AUTHZ_COMPUTE_PRIVILEGES
-        request['Sid'].fromCanonical(self.WELL_KNOWN_SID)
+        request['Sid'].fromCanonical(self.account_sid)
         request['pExpirationTime'] = NULL
-        request['Identifier']['LowPart'] = 0xdead
-        request['Identifier']['HighPart'] = 0xbeef
+        request['Identifier']['LowPart'] = 0
+        request['Identifier']['HighPart'] = 0
         resp = dce.request(request, uuid=raa.RAA_OBJECT_UUID_DEFAULT_BIN)
         resp.dump()
 
@@ -123,14 +153,14 @@ class RAATests(DCERPCTests):
 
     def test_hAuthzrInitializeContextFromSid(self):
         dce, rpctransport = self.connect()
-        resp = raa.hAuthzrInitializeContextFromSid(dce, self.WELL_KNOWN_SID)
+        resp = raa.hAuthzrInitializeContextFromSid(dce, self.account_sid)
         resp.dump()
         raa.hAuthzrFreeContext(dce, resp['ContextHandle'])
 
     def test_AuthzrInitializeCompoundContext(self):
         dce, rpctransport = self.connect()
-        userCtx = raa.hAuthzrInitializeContextFromSid(dce, self.WELL_KNOWN_SID)
-        deviceCtx = raa.hAuthzrInitializeContextFromSid(dce, self.WELL_KNOWN_SID)
+        userCtx = raa.hAuthzrInitializeContextFromSid(dce, self.account_sid)
+        deviceCtx = raa.hAuthzrInitializeContextFromSid(dce, self.account_sid)
 
         request = raa.AuthzrInitializeCompoundContext()
         request['UserContextHandle'] = userCtx['ContextHandle']
@@ -144,8 +174,8 @@ class RAATests(DCERPCTests):
 
     def test_hAuthzrInitializeCompoundContext(self):
         dce, rpctransport = self.connect()
-        userCtx = raa.hAuthzrInitializeContextFromSid(dce, self.WELL_KNOWN_SID)
-        deviceCtx = raa.hAuthzrInitializeContextFromSid(dce, self.WELL_KNOWN_SID)
+        userCtx = raa.hAuthzrInitializeContextFromSid(dce, self.account_sid)
+        deviceCtx = raa.hAuthzrInitializeContextFromSid(dce, self.account_sid)
 
         resp = raa.hAuthzrInitializeCompoundContext(dce, userCtx['ContextHandle'],
                                                    deviceCtx['ContextHandle'])
@@ -157,9 +187,9 @@ class RAATests(DCERPCTests):
 
     def test_AuthzrAccessCheck(self):
         dce, rpctransport = self.connect()
-        ctx = raa.hAuthzrInitializeContextFromSid(dce, self.WELL_KNOWN_SID)
+        ctx = raa.hAuthzrInitializeContextFromSid(dce, self.account_sid)
 
-        sd = self.build_security_descriptor(self.WELL_KNOWN_SID)
+        sd = self.build_security_descriptor(self.account_sid)
 
         request = raa.AuthzrAccessCheck()
         request['ContextHandle'] = ctx['ContextHandle']
@@ -183,9 +213,9 @@ class RAATests(DCERPCTests):
 
     def test_hAuthzrAccessCheck(self):
         dce, rpctransport = self.connect()
-        ctx = raa.hAuthzrInitializeContextFromSid(dce, self.WELL_KNOWN_SID)
+        ctx = raa.hAuthzrInitializeContextFromSid(dce, self.account_sid)
 
-        sd = self.build_security_descriptor(self.WELL_KNOWN_SID)
+        sd = self.build_security_descriptor(self.account_sid)
         resp = raa.hAuthzrAccessCheck(dce, ctx['ContextHandle'], sd, READ_CONTROL)
         resp.dump()
 
@@ -193,7 +223,7 @@ class RAATests(DCERPCTests):
 
     def test_AuthzGetInformationFromContext_UserSid(self):
         dce, rpctransport = self.connect()
-        ctx = raa.hAuthzrInitializeContextFromSid(dce, self.WELL_KNOWN_SID)
+        ctx = raa.hAuthzrInitializeContextFromSid(dce, self.account_sid)
 
         request = raa.AuthzGetInformationFromContext()
         request['ContextHandle'] = ctx['ContextHandle']
@@ -205,7 +235,7 @@ class RAATests(DCERPCTests):
 
     def test_hAuthzGetInformationFromContext_UserSid(self):
         dce, rpctransport = self.connect()
-        ctx = raa.hAuthzrInitializeContextFromSid(dce, self.WELL_KNOWN_SID)
+        ctx = raa.hAuthzrInitializeContextFromSid(dce, self.account_sid)
 
         resp = raa.hAuthzGetInformationFromContext(dce, ctx['ContextHandle'],
             raa.AUTHZ_CONTEXT_INFORMATION_CLASS.AuthzContextInfoUserSid)
@@ -215,13 +245,45 @@ class RAATests(DCERPCTests):
 
     def test_hAuthzGetInformationFromContext_GroupsSids(self):
         dce, rpctransport = self.connect()
-        ctx = raa.hAuthzrInitializeContextFromSid(dce, self.WELL_KNOWN_SID)
+        ctx = raa.hAuthzrInitializeContextFromSid(dce, self.account_sid)
 
         resp = raa.hAuthzGetInformationFromContext(dce, ctx['ContextHandle'],
             raa.AUTHZ_CONTEXT_INFORMATION_CLASS.AuthzContextInfoGroupsSids)
         resp.dump()
 
         raa.hAuthzrFreeContext(dce, ctx['ContextHandle'])
+
+    def test_hAuthzrModifyClaims_reaches_server(self):
+        dce, rpctransport = self.connect()
+        ctx = raa.hAuthzrInitializeContextFromSid(dce, self.account_sid)
+
+        try:
+            with self.assertRaises(raa.DCERPCSessionError):
+                raa.hAuthzrModifyClaims(
+                    dce,
+                    ctx['ContextHandle'],
+                    raa.AUTHZ_CONTEXT_INFORMATION_CLASS.AuthzContextInfoUserClaims,
+                    [raa.AUTHZ_SECURITY_ATTRIBUTE_OPERATION.AUTHZ_SECURITY_ATTRIBUTE_OPERATION_NONE],
+                    NULL
+                )
+        finally:
+            raa.hAuthzrFreeContext(dce, ctx['ContextHandle'])
+
+    def test_hAuthzrModifySids_reaches_server(self):
+        dce, rpctransport = self.connect()
+        ctx = raa.hAuthzrInitializeContextFromSid(dce, self.account_sid)
+
+        try:
+            with self.assertRaises(raa.DCERPCSessionError):
+                raa.hAuthzrModifySids(
+                    dce,
+                    ctx['ContextHandle'],
+                    raa.AUTHZ_CONTEXT_INFORMATION_CLASS.AuthzContextInfoGroupsSids,
+                    [raa.AUTHZ_SID_OPERATION.AUTHZ_SID_OPERATION_NONE],
+                    NULL
+                )
+        finally:
+            raa.hAuthzrFreeContext(dce, ctx['ContextHandle'])
 
 
 @pytest.mark.remote

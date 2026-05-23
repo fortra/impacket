@@ -19,6 +19,8 @@
 #   test cases for them very soon.
 #   Author : Abdul Mhanni
 
+from struct import pack, unpack_from
+
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRUNION, NDRENUM, NDRPOINTER, \
     NDRUniConformantArray
 from impacket.dcerpc.v5.dtypes import DWORD, ULONG, USHORT, LONG64, ULONGLONG, LPWSTR, \
@@ -94,7 +96,7 @@ class AUTHZ_SID_OPERATION(NDRENUM):
 # 2.2.1.1 AUTHZR_HANDLE
 class AUTHZR_HANDLE(NDRSTRUCT):
     structure = (
-        ('Data', '20s=""'),
+        ('Data', '20s=b""'),
     )
     def getAlignment(self):
         return 1
@@ -184,28 +186,13 @@ class PAUTHZR_TOKEN_USER(NDRPOINTER):
         ('Data', AUTHZR_TOKEN_USER),
     )
 
-# 2.2.3.9 AUTHZR_TOKEN_GROUPS
-#
-# IDL:
-#   typedef struct _AUTHZR_TOKEN_GROUPS {
-#       DWORD GroupCount;
-#       [size_is(GroupCount)] AUTHZR_SID_AND_ATTRIBUTES Groups[];
-#   }
-#
-# impacket's NDRSTRUCT+NDRUniConformantArray pattern auto-emits and auto-parses that MaxCount.
-# So we override fromString/getData to match the observed wire format when testing the module
-# We still need NDRConstructedType behavior for referent walking, so we
-# inherit NDRSTRUCT but bypass its conformant-array MaxCount logic.
 class AUTHZR_TOKEN_GROUPS(NDRSTRUCT):
     structure = (
         ('GroupCount', DWORD),
-        # 'Groups' isnt declared as NDRUniConformantArray
-        # as that would make NDRSTRUCT.fromString try to use the maxcount which may not be there
     )
 
     def __init__(self, data=None, isNDR64=False):
         NDRSTRUCT.__init__(self, None, isNDR64=isNDR64)
-        # Groups is a Python list of AUTHZR_SID_AND_ATTRIBUTES instances
         self.fields['Groups'] = []
         if data is not None:
             self.fromString(data)
@@ -223,32 +210,55 @@ class AUTHZR_TOKEN_GROUPS(NDRSTRUCT):
 
     def fromString(self, data, offset=0):
         offset0 = offset
-        # Read GroupCount
-        gc_size = self.unpack('GroupCount', DWORD, data, offset)
-        offset += gc_size
-        n = self['GroupCount']
-        # Read n inline AUTHZR_SID_AND_ATTRIBUTES bodies. Each is:
-        #   [DWORD Sid_ref_id] [DWORD Attributes]
+
+        # Windows emits the conformant-array max count for NDR64 here, but
+        # omits it in observed NDR32 replies.
+        if self._isNDR64:
+            offset += (8 - (offset % 8)) % 8
+            maxCount = unpack_from('<Q', data, offset)[0]
+            offset += 8
+        else:
+            maxCount = None
+
+        offset += self.unpack('GroupCount', DWORD, data, offset)
+        arrayCount = maxCount if maxCount is not None else self['GroupCount']
+
+        entry = AUTHZR_SID_AND_ATTRIBUTES(isNDR64=self._isNDR64)
+        entryAlignment = entry.getAlignment()
+        if entryAlignment > 0:
+            offset += (entryAlignment - (offset % entryAlignment)) % entryAlignment
+
         self.fields['Groups'] = []
-        for _ in range(n):
+        for _ in range(arrayCount):
             entry = AUTHZR_SID_AND_ATTRIBUTES(isNDR64=self._isNDR64)
-            consumed = entry.fromString(data, offset)
-            offset += consumed
+            offset += entry.fromString(data, offset)
             self.fields['Groups'].append(entry)
+
         return offset - offset0
 
     def fromStringReferents(self, data, offset=0):
         offset0 = offset
-        # Walk each entry's referents (the RPC_SID pointed to by Sid)
         for entry in self.fields['Groups']:
             offset += entry.fromStringReferents(data, offset)
         return offset - offset0
 
     def getData(self, soFar=0):
-        # Match the server's layout: GroupCount, then inline bodies (no
-        # hoisted MaxCount).
         self['GroupCount'] = len(self.fields['Groups'])
-        data = self.pack('GroupCount', DWORD, soFar)
+        data = b''
+
+        if self._isNDR64:
+            pad = (8 - (soFar % 8)) % 8
+            data += b'\xee' * pad
+            data += pack('<Q', self['GroupCount'])
+
+        data += self.pack('GroupCount', DWORD, soFar + len(data))
+
+        entry = AUTHZR_SID_AND_ATTRIBUTES(isNDR64=self._isNDR64)
+        entryAlignment = entry.getAlignment()
+        if entryAlignment > 0:
+            pad = (entryAlignment - ((soFar + len(data)) % entryAlignment)) % entryAlignment
+            data += b'\xab' * pad
+
         for entry in self.fields['Groups']:
             data += entry.getData(soFar + len(data))
         return data
@@ -498,9 +508,8 @@ def hAuthzrInitializeContextFromSid(dce, sid, flags=AUTHZ_COMPUTE_PRIVILEGES, ob
     sid_object.fromCanonical(sid)
     request['Sid'] = sid_object
     request['pExpirationTime'] = NULL
-    request['Identifier']['LowPart'] = 0xdead
-    request['Identifier']['HighPart'] = 0xbeef
-    #spec example uses {0xdead,0xbeef} but note luid is treated as opaque tag 
+    request['Identifier']['LowPart'] = 0
+    request['Identifier']['HighPart'] = 0
     return dce.request(request, uuid=objectUuid)
 
 def hAuthzrInitializeCompoundContext(dce, userContextHandle, deviceContextHandle, objectUuid=RAA_OBJECT_UUID_DEFAULT_BIN):
@@ -545,13 +554,21 @@ def hAuthzGetInformationFromContext(dce, contextHandle, infoClass, objectUuid=RA
     request['InfoClass'] = infoClass
     return dce.request(request, uuid=objectUuid)
 
+def _enum_operation(enumClass, operation):
+    if isinstance(operation, enumClass):
+        return operation
+
+    enumOperation = enumClass()
+    enumOperation['Data'] = operation
+    return enumOperation
+
 def hAuthzrModifyClaims(dce, contextHandle, claimClass, claimOperations, claims=NULL, objectUuid=RAA_OBJECT_UUID_DEFAULT_BIN):
     request = AuthzrModifyClaims()
     request['ContextHandle'] = contextHandle
     request['ClaimClass'] = claimClass
     request['OperationCount'] = len(claimOperations)
     for op in claimOperations:
-        request['pClaimOperations'].append(op)
+        request['pClaimOperations'].append(_enum_operation(AUTHZ_SECURITY_ATTRIBUTE_OPERATION, op))
     request['pClaims'] = claims
     return dce.request(request, uuid=objectUuid)
 
@@ -561,7 +578,7 @@ def hAuthzrModifySids(dce, contextHandle, sidClass, sidOperations, sids=NULL, ob
     request['SidClass'] = sidClass
     request['OperationCount'] = len(sidOperations)
     for op in sidOperations:
-        request['pSidOperations'].append(op)
+        request['pSidOperations'].append(_enum_operation(AUTHZ_SID_OPERATION, op))
     request['pSids'] = sids
     return dce.request(request, uuid=objectUuid)
 
