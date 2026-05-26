@@ -14,8 +14,6 @@
 #   (h)AuthzrInitializeCompoundContext
 #   (h)AuthzrAccessCheck
 #   (h)AuthzGetInformationFromContext
-#
-# Not yet:
 #   (h)AuthzrModifyClaims
 #   (h)AuthzrModifySids
 #
@@ -49,6 +47,7 @@ class RAATests(DCERPCTests):
         rpctransport.set_credentials(self.username, self.password, self.domain, self.lmhash, self.nthash)
 
         dce = rpctransport.get_dce_rpc()
+        policyHandle = None
         dce.connect()
         try:
             dce.bind(lsat.MSRPC_UUID_LSAT)
@@ -58,6 +57,8 @@ class RAATests(DCERPCTests):
             )['PolicyHandle']
             resp = lsat.hLsarLookupNames(dce, policyHandle, (self.username,))
         finally:
+            if policyHandle is not None:
+                lsad.hLsarClose(dce, policyHandle)
             dce.disconnect()
 
         if resp['MappedCount'] < 1:
@@ -73,7 +74,7 @@ class RAATests(DCERPCTests):
 
     def setUp(self):
         # MS-RAA registers itself in EPM under a non-nil object UUID
-        # (see [MS-RAA] section 2.1). 
+        # (see [MS-RAA] section 2.1).
         from struct import unpack
         super(DCERPCTests, self).setUp()
         self.set_transport_config(machine_account=self.machine_account)
