@@ -18,20 +18,12 @@
 # 
 #
 # References:
-#   [MS-NEGOEX]           - SPNEGO Extended Negotiation Security Mechanism
-#                           (v20240423)
-#   [IETFDRAFT-NEGOEX-04] - draft-zhu-negoex-04 (January 2011)
-#   [RFC3961]             - Encryption and Checksum Specifications for
-#                           Kerberos 5 (used by the VERIFY message)
+#   [MS-NEGOEX] - SPNEGO Extended Negotiation Security Mechanism
+#   [IETFDRAFT-NEGOEX-04] - draft-zhu-negoex-04
 #
 # Author:
 # Abdul Mhanni
-
-from __future__ import division
-from __future__ import print_function
-
 from enum import IntEnum
-import os
 import uuid
 
 from impacket import LOG
@@ -107,21 +99,6 @@ def _normalizeGuid(value):
         return uuid.UUID(value)
     raise NegoExError('Invalid GUID value: %r' % value)
 
-
-def _normalizeGuidBytes(value):
-    return _normalizeGuid(value).bytes_le
-
-
-def _asBytes(value, name):
-    if value is None:
-        return b''
-    if isinstance(value, bytes):
-        return value
-    if isinstance(value, str):
-        return value.encode('utf-8')
-    raise NegoExError('%s must be bytes or str, got %r' % (name, type(value)))
-
-
 def _checkHeader(header, expectedHeaderLen, actualLen, name):
     cbHeader = header['cbHeaderLength']
     cbMessage = header['cbMessageLength']
@@ -153,13 +130,6 @@ def _slice(data, offset, length, name, minimumOffset=0):
     if offset > len(data) or length > len(data) - offset:
         raise NegoExParseError('%s extends beyond message' % name, offset=offset, field=name)
     return data[offset:offset + length]
-
-
-def _sliceVector(data, offset, count, itemSize, name, minimumOffset=0):
-    if count == 0:
-        return b''
-    return _slice(data, offset, count * itemSize, name, minimumOffset)
-
 
 def _messageHeader(messageType, seqNum, conversationId, headerLen, messageLen):
     """Helper function to create a MESSAGE_HEADER struct. This is repeated across message types
@@ -253,36 +223,12 @@ class AlertPulse(Structure):
         ('Reason', '<I=1'),
     )
 
-
-def _parseAlertPulse(body):
-    if len(body) < 8:
-        raise NegoExParseError('Truncated ALERT_PULSE body', field='AlertValue')
-    pulse = AlertPulse(body[:8])
-    if pulse['cbHeaderLength'] != 8:
-        raise NegoExParseError('Invalid ALERT_PULSE.cbHeaderLength: %d' % pulse['cbHeaderLength'], field='AlertPulse.cbHeaderLength')
-    return pulse['Reason']
-
-
 # table for type-specific alert body parsers. To support a new
 # AlertType, add a constant above and an entry here that returns the
 # decoded value; Alert.AlertReason will be populated automatically.
 _ALERT_BODY_PARSERS = {
     ALERT_TYPE_PULSE: _parseAlertPulse,
 }
-
-
-def _decodeAlertBody(alert):
-    parser = _ALERT_BODY_PARSERS.get(alert['AlertType'])
-    if parser is None:
-        # Unknown alert type. Spec doesn't mandate failure; leave AlertValue
-        # raw and let the consumer inspect it if they care.
-        LOG.debug('NEGOEX: unknown ALERT type 0x%x, leaving body raw' % alert['AlertType'])
-        return
-    try:
-        alert.AlertReason = parser(alert.AlertValue)
-    except NegoExParseError as e:
-        LOG.debug('NEGOEX: failed to decode ALERT body: %s' % e)
-
 
 class AuthSchemeVector(Structure):
     # [MS-NEGOEX] 2.2.5.2.2
@@ -328,10 +274,10 @@ class NegoMessage(Structure):
             raise NegoExParseError('Unsupported NEGOEX protocol version: %r' % self['ProtocolVersion'])
             #spec specifies we should fail if we encounter a different version.
 
-        authBlob = _sliceVector(data, self['AuthSchemes']['ArrayOffset'],self['AuthSchemes']['Count'], AUTH_SCHEME_SIZE, 'AuthSchemes',NEGO_HEADER_SIZE)
+        authBlob = _slice(data, self['AuthSchemes']['ArrayOffset'],self['AuthSchemes']['Count'], AUTH_SCHEME_SIZE, 'AuthSchemes',NEGO_HEADER_SIZE)
         self._authSchemes = [uuid.UUID(bytes_le=authBlob[i:i + AUTH_SCHEME_SIZE]) for i in range(0, len(authBlob), AUTH_SCHEME_SIZE)]
 
-        extBlob = _sliceVector(
+        extBlob = _slice(
             data,
             self['Extensions']['ArrayOffset'],
             self['Extensions']['Count'],
@@ -415,8 +361,7 @@ class AlertMessage(Structure):
         ('ErrorCode', '<I=0'),
         ('AlertArrayOffset', '<I=0'),
         ('AlertCount', '<H=0'),
-        # ALERT_VECTOR is 4+2 bytes per spec; the 2-byte pad here is the
-        # ULONG-alignment Windows applies before the payload starts.
+        # ALERT_VECTOR is 4+2 bytes per spec
         ('AlertPad', '2s=""'),
         ('Payload', ':'),
     )
@@ -432,7 +377,7 @@ class AlertMessage(Structure):
         if self['Header']['MessageType'] != MESSAGE_TYPE.ALERT:
             raise NegoExParseError('Invalid ALERT_MESSAGE type: %r' % self['Header']['MessageType'])
 
-        alertBlob = _sliceVector(
+        alertBlob = _slice(
             data,
             self['AlertArrayOffset'],
             self['AlertCount'],
