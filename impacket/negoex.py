@@ -11,24 +11,25 @@
 # Description:
 #   NEGOEX: SPNEGO Extended Negotiation Security Mechanism, is provided to
 #   allow SPNEGO to negotiate authentication mechanisms that require more
-#   complex exchanges than the simple OID exchange SPNEGO and to address
-#   some of SPNEGO's limitations around use of OID as a pure method of selection of authentication mechanisisms.
-#   Additionally, NEGOEX provides a new type of exchange, in the form of metadata tokens that provide additional
-#   information about each of the proposed/exchanged authentication mechanisims. 
-# 
+#   complex exchanges than the simple OID exchange SPNEGO supports, and to
+#   address some of SPNEGO's limitations around use of OID as a pure method
+#   of selection of authentication mechanisms. Additionally, NEGOEX provides
+#   a new type of exchange, in the form of metadata tokens that provide
+#   additional information about each of the proposed/exchanged authentication
+#   mechanisms.
 #
 # References:
 #   [MS-NEGOEX] - SPNEGO Extended Negotiation Security Mechanism
 #   [IETFDRAFT-NEGOEX-04] - draft-zhu-negoex-04
 #
 # Author:
-# Abdul Mhanni
+#   Abdul Mhanni
+#
 from enum import IntEnum
 import uuid
 
 from impacket import LOG
 from impacket.structure import Structure
-from impacket.krb5.crypto import Key, make_checksum
 
 
 # [MS-NEGOEX] 2.2.3 MESSAGE_SIGNATURE: little-endian "NEGOEXTS" (0x535458454f47454e)
@@ -37,18 +38,16 @@ MESSAGE_SIGNATURE = b'NEGOEXTS'
 # OID for NEGOEX inside SPNEGO (1.3.6.1.4.1.311.2.2.30).
 NEGOEX_OID = b'\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x1e'
 
-# [MS-NEGOEX] 2.2.3 / draft-zhu-negoex-04 
+# [MS-NEGOEX] 2.2.3 / draft-zhu-negoex-04
 CHECKSUM_SCHEME_RFC3961 = 1
 NEGOEX_PROTOCOL_VERSION = 0
 
-# [MS-NEGOEX] 2.2.3 - Alert types and reason codes. Only one alert type
-# (ALERT_TYPE_PULSE) and one reason (ALERT_VERIFY_NO_KEY) are currently
-# defined by the spec. To extend, add a new ALERT_TYPE_* constant here and
-# add a corresponding entry to _ALERT_BODY_PARSERS below.
+# [MS-NEGOEX] 2.2.3 - Alert type and reason code. Only one alert type
+# (ALERT_TYPE_PULSE) and one reason (ALERT_VERIFY_NO_KEY) are defined.
 ALERT_TYPE_PULSE = 1
 ALERT_VERIFY_NO_KEY = 1
 
-# draft-zhu-negoex-04 §7.7 - RFC 3961 key usage numbers used when computing
+# draft-zhu-negoex-04 7.7 - RFC 3961 key usage numbers used when computing
 # the VERIFY checksum. 23 when signed by the initiator, 25 when signed by
 # the acceptor.
 NEGOEX_KEYUSAGE_INITIATOR = 23
@@ -61,11 +60,9 @@ VERIFY_HEADER_SIZE = 80
 ALERT_HEADER_SIZE = 68
 CHECKSUM_HEADER_SIZE = 20
 
-AUTH_SCHEME_SIZE = 16   ##AUTH_SCHEME is a GUID (16 bytes). [MS-NEGOEX] 2.2.2, [MS-DTYP] 2.3.4.2.
-
+AUTH_SCHEME_SIZE = 16   # AUTH_SCHEME is a GUID (16 bytes). [MS-NEGOEX] 2.2.2, [MS-DTYP] 2.3.4.2
 EXTENSION_SIZE = 12     # [MS-NEGOEX] 2.2.5.1.4
-
-ALERT_SIZE = 12 
+ALERT_SIZE = 12
 
 
 class MESSAGE_TYPE(IntEnum):
@@ -80,7 +77,7 @@ class MESSAGE_TYPE(IntEnum):
     ALERT = 7
 
 
-# Message types that in the EXCHANGE_MESSAGE.
+# Message types carried in an EXCHANGE_MESSAGE.
 EXCHANGE_MESSAGE_TYPES = (
     MESSAGE_TYPE.INITIATOR_META_DATA,
     MESSAGE_TYPE.ACCEPTOR_META_DATA,
@@ -88,16 +85,6 @@ EXCHANGE_MESSAGE_TYPES = (
     MESSAGE_TYPE.AP_REQUEST,
 )
 
-# Internal helpers
-
-def _normalizeGuid(value):
-    if isinstance(value, uuid.UUID):
-        return value
-    if isinstance(value, bytes) and len(value) == 16:
-        return uuid.UUID(bytes_le=value)
-    if isinstance(value, str):
-        return uuid.UUID(value)
-    raise NegoExError('Invalid GUID value: %r' % value)
 
 def _checkHeader(header, expectedHeaderLen, actualLen, name):
     cbHeader = header['cbHeaderLength']
@@ -120,29 +107,15 @@ def _checkHeader(header, expectedHeaderLen, actualLen, name):
         )
 
 
-def _slice(data, offset, length, name, minimumOffset=0):
-    if length == 0:
-        return b''
-    if offset == 0:
-        raise NegoExParseError('%s has length but zero offset' % name, field=name)
-    if offset < minimumOffset:
-        raise NegoExParseError('%s offset is before payload' % name, offset=offset, field=name)
-    if offset > len(data) or length > len(data) - offset:
-        raise NegoExParseError('%s extends beyond message' % name, offset=offset, field=name)
-    return data[offset:offset + length]
-
 def _messageHeader(messageType, seqNum, conversationId, headerLen, messageLen):
-    """Helper function to create a MESSAGE_HEADER struct. This is repeated across message types
-    and so to ensure consistency we create a single helper for it. """
     header = MessageHeader()
     header['Signature'] = MESSAGE_SIGNATURE
     header['MessageType'] = messageType
     header['SequenceNum'] = seqNum
     header['cbHeaderLength'] = headerLen
     header['cbMessageLength'] = messageLen
-    header['ConversationId'] = _normalizeGuidBytes(conversationId)
+    header['ConversationId'] = conversationId.bytes_le
     return header
-
 
 
 class MessageHeader(Structure):
@@ -188,18 +161,15 @@ class Extension(Structure):
         Structure.__init__(self, data)
 
     def isCritical(self):
-        # [MS-NEGOEX] 2.2.5.1.4: "All negative extension types (the highest
-        # bit is set to 1) are critical."
+        # [MS-NEGOEX] 2.2.5.1.4: all negative extension types (highest bit set)
+        # are critical and must be rejected if unknown.
         return (self['ExtensionType'] & 0x80000000) != 0
-       
 
     def isKnown(self):
-        #As of now, neither IETF draft-zhu-o4 nor ms-negoex define any extension types in specific.
-        #We should however have a way to track known ones because we need to ensure IF we get a "critical" extension we dont know we need to reject
-        return NotImplemented
+        return
 
 class Alert(Structure):
-    
+    # [MS-NEGOEX] 2.2.5.1.2
     structure = (
         ('AlertType', '<I=1'),
         ('ByteArrayOffset', '<I=0'),
@@ -207,28 +177,17 @@ class Alert(Structure):
     )
 
     def __init__(self, data=None):
-        # Raw, unparsed alert body. Always present.
         self.AlertValue = b''
-        # Type-specific decoded body, populated by _decodeAlertBody when the
-        # AlertType is one we recognise. None means either the body has not
-        # been decoded yet or the AlertType is unknown.
-        self.AlertReason = None
         Structure.__init__(self, data)
 
 
 class AlertPulse(Structure):
-    
+    # [MS-NEGOEX] 2.2.5.1.2.1
     structure = (
         ('cbHeaderLength', '<I=8'),
         ('Reason', '<I=1'),
     )
 
-# table for type-specific alert body parsers. To support a new
-# AlertType, add a constant above and an entry here that returns the
-# decoded value; Alert.AlertReason will be populated automatically.
-_ALERT_BODY_PARSERS = {
-    ALERT_TYPE_PULSE: _parseAlertPulse,
-}
 
 class AuthSchemeVector(Structure):
     # [MS-NEGOEX] 2.2.5.2.2
@@ -272,23 +231,24 @@ class NegoMessage(Structure):
             raise NegoExParseError('Invalid NEGO_MESSAGE type: %r' % self['Header']['MessageType'])
         if self['ProtocolVersion'] != NEGOEX_PROTOCOL_VERSION:
             raise NegoExParseError('Unsupported NEGOEX protocol version: %r' % self['ProtocolVersion'])
-            #spec specifies we should fail if we encounter a different version.
 
-        authBlob = _slice(data, self['AuthSchemes']['ArrayOffset'],self['AuthSchemes']['Count'], AUTH_SCHEME_SIZE, 'AuthSchemes',NEGO_HEADER_SIZE)
+        offset = self['AuthSchemes']['ArrayOffset']
+        length = self['AuthSchemes']['Count'] * AUTH_SCHEME_SIZE
+        authBlob = data[offset:offset + length]
+        if len(authBlob) != length:
+            raise NegoExParseError('AuthSchemes extends beyond message', offset=offset, field='AuthSchemes')
         self._authSchemes = [uuid.UUID(bytes_le=authBlob[i:i + AUTH_SCHEME_SIZE]) for i in range(0, len(authBlob), AUTH_SCHEME_SIZE)]
 
-        extBlob = _slice(
-            data,
-            self['Extensions']['ArrayOffset'],
-            self['Extensions']['Count'],
-            EXTENSION_SIZE,
-            'Extensions',
-            NEGO_HEADER_SIZE,
-        )
+        offset = self['Extensions']['ArrayOffset']
+        length = self['Extensions']['Count'] * EXTENSION_SIZE
+        extBlob = data[offset:offset + length]
+        if len(extBlob) != length:
+            raise NegoExParseError('Extensions extends beyond message', offset=offset, field='Extensions')
         self._extensions = []
         for i in range(0, len(extBlob), EXTENSION_SIZE):
             ext = Extension(extBlob[i:i + EXTENSION_SIZE])
-            ext.ExtensionValue = _slice(data, ext['ByteArrayOffset'], ext['ByteArrayLength'], 'ExtensionValue', NEGO_HEADER_SIZE)
+            valueOffset = ext['ByteArrayOffset']
+            ext.ExtensionValue = data[valueOffset:valueOffset + ext['ByteArrayLength']]
             self._extensions.append(ext)
 
     def getAuthSchemeList(self):
@@ -319,16 +279,17 @@ class ExchangeMessage(Structure):
         if msgType not in EXCHANGE_MESSAGE_TYPES:
             raise NegoExParseError('Invalid EXCHANGE_MESSAGE type: %r' % self['Header']['MessageType'])
 
-        self['Exchange'] = _slice(data, self['ExchangeOffset'], self['ExchangeLength'], 'Exchange', EXCHANGE_HEADER_SIZE)
+        offset = self['ExchangeOffset']
+        self['Exchange'] = data[offset:offset + self['ExchangeLength']]
 
 
 class VerifyMessage(Structure):
-    # [MS-NEGOEX] 2.2.6.5 
+    # [MS-NEGOEX] 2.2.6.5
     structure = (
         ('Header', ':', MessageHeader),
         ('AuthScheme', '16s=""'),
         ('CHeader', ':', Checksum),
-        # 4-byte alignment pad, see VERIFY_HEADER_SIZE comment above.
+        # 4-byte alignment pad, see VERIFY_HEADER_SIZE.
         ('Pad', '4s=""'),
         ('ChecksumValue', ':'),
     )
@@ -344,13 +305,8 @@ class VerifyMessage(Structure):
         if self['CHeader']['ChecksumScheme'] != CHECKSUM_SCHEME_RFC3961:
             raise NegoExParseError('Unsupported CHECKSUM scheme', field='CHeader.ChecksumScheme')
 
-        self['ChecksumValue'] = _slice(
-            data,
-            self['CHeader']['ChecksumOffset'],
-            self['CHeader']['ChecksumLength'],
-            'ChecksumValue',
-            VERIFY_HEADER_SIZE,
-        )
+        offset = self['CHeader']['ChecksumOffset']
+        self['ChecksumValue'] = data[offset:offset + self['CHeader']['ChecksumLength']]
 
 
 class AlertMessage(Structure):
@@ -361,7 +317,6 @@ class AlertMessage(Structure):
         ('ErrorCode', '<I=0'),
         ('AlertArrayOffset', '<I=0'),
         ('AlertCount', '<H=0'),
-        # ALERT_VECTOR is 4+2 bytes per spec
         ('AlertPad', '2s=""'),
         ('Payload', ':'),
     )
@@ -377,22 +332,16 @@ class AlertMessage(Structure):
         if self['Header']['MessageType'] != MESSAGE_TYPE.ALERT:
             raise NegoExParseError('Invalid ALERT_MESSAGE type: %r' % self['Header']['MessageType'])
 
-        alertBlob = _slice(
-            data,
-            self['AlertArrayOffset'],
-            self['AlertCount'],
-            ALERT_SIZE,
-            'Alerts',
-            ALERT_HEADER_SIZE,
-        )
+        offset = self['AlertArrayOffset']
+        length = self['AlertCount'] * ALERT_SIZE
+        alertBlob = data[offset:offset + length]
+        if len(alertBlob) != length:
+            raise NegoExParseError('Alerts extends beyond message', offset=offset, field='Alerts')
         self._alerts = []
         for i in range(0, len(alertBlob), ALERT_SIZE):
             alert = Alert(alertBlob[i:i + ALERT_SIZE])
-            alert.AlertValue = _slice(data, alert['ByteArrayOffset'], alert['ByteArrayLength'], 'AlertValue', ALERT_HEADER_SIZE)
-            # Decode the body when the AlertType is one we recognise. The
-            # decoded value lands on alert.AlertReason; the raw bytes stay
-            # on alert.AlertValue either way so consumers always have both.
-            _decodeAlertBody(alert)
+            valueOffset = alert['ByteArrayOffset']
+            alert.AlertValue = data[valueOffset:valueOffset + alert['ByteArrayLength']]
             self._alerts.append(alert)
 
     def getAlertList(self):
@@ -402,17 +351,16 @@ class AlertMessage(Structure):
 class ParsedMessage(object):
     """One element of the list returned by parseNegoExToken.
 
-    message_type is always set to the raw integer from the wire.
-    message is the parsed Structure, or None if the type was unknown.
-    raw_data is the exact bytes for that message (including header), used
-    by NegoExContext when computing VERIFY checksums."""
+    message_type is the raw integer from the wire. message is the parsed
+    Structure, or None if the type was unknown. raw_data is the exact bytes
+    for that message (including header), used when computing VERIFY checksums.
+    """
 
     def __init__(self, messageType, message, offset, rawData):
         self.message_type = messageType
         self.message = message
         self.offset = offset
         self.raw_data = rawData
-
 
 
 def parseNegoExToken(data):
@@ -464,40 +412,33 @@ def parseNegoExToken(data):
     return messages
 
 
-
 class NegoExContext(object):
-    """Drives a NEGOEX negotiation as either initiator or acceptor.
-    """
+    """Drives a NEGOEX negotiation as either initiator or acceptor."""
 
     def __init__(self, isInitiator=True):
-        #Since mostly impacket is used for pentesting, safe to assume the person running will be iniator
         self.isInitiator = isInitiator
-        #16-byte conversation ID, generated by the initiator and echoed by the acceptor in all messages. [MS-NEGOEX] 2.2.3 
+        # 16-byte conversation ID, generated by the initiator and echoed by
+        # the acceptor in all messages. [MS-NEGOEX] 2.2.3
         self.conversationId = None
-        #The scheme selected for use for the exchange.
+        # The scheme selected for the exchange.
         self.selectedScheme = None
         self._seqNum = 0
-        #The schemes that have been registered by the runner to be offered to the acceptor
+        # Schemes registered by the caller to offer to the acceptor, and the
+        # order in which they are offered.
         self._authSchemes = {}
-        #The order in which the exchange will decide which scheme will end up being selected.
         self._authSchemeOrder = []
-        #Schemes that are mutually supported by the iniator and acceptor
+        # Schemes mutually supported by initiator and acceptor.
         self._mutualSchemes = []
-        #Used to track all messages sent and recieved during the whole exchaange for use in the VERIFY msg checkum creation
+        # All messages sent and received, for the VERIFY checksum computation.
         self._messageHistory = []
-        #flag to track if the current executor sent a VERIFY message
         self._verifySent = False
-        #Flag to track if we were sent a verfiy message by the peer.
         self._verifyReceived = False
 
-  
-
     def registerAuthScheme(self, scheme):
-        schemeId = _normalizeGuid(scheme.getAuthSchemeId())
+        schemeId = scheme.getAuthSchemeId()
         self._authSchemes[schemeId] = scheme
         self._authSchemeOrder.append(schemeId)
 
-    
 
 class NegoExError(Exception):
     pass
@@ -519,7 +460,4 @@ class NegoExChecksumError(NegoExError):
     def __init__(self, expected, actual):
         self.expected = expected
         self.actual = actual
-        NegoExError.__init__(
-            self,
-            'NEGOEX VERIFY checksum mismatch: expected %s, got %s' % (expected.hex(), actual.hex()),
-        )
+        NegoExError.__init__(self, 'NEGOEX VERIFY checksum mismatch: expected %s, got %s' % (expected.hex(), actual.hex()),)
