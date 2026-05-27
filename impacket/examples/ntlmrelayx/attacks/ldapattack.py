@@ -675,42 +675,9 @@ class LDAPAttack(ProtocolAttack):
         )
 
         pre2k_candidates = []
+        existing_sams = set()
 
-        if success:
-            for entry in self.client.response:
-                if entry['type'] != 'searchResEntry':
-                    continue
-                try:
-                    sam = entry['attributes']['sAMAccountName']
-                    uac = entry['attributes']['userAccountControl']
-                    pwd_last_set = entry['attributes']['pwdLastSet']
-                    when_created = entry['attributes']['whenCreated']
-                    dn = entry['attributes']['distinguishedName']
-                    os_name = entry['attributes'].get('operatingSystem', 'N/A')
-
-                    pre2k_candidates.append({
-                        'sAMAccountName': sam,
-                        'distinguishedName': dn,
-                        'userAccountControl': uac,
-                        'pwdLastSet': str(pwd_last_set),
-                        'whenCreated': str(when_created),
-                        'operatingSystem': os_name,
-                        'predictedPassword': sam.rstrip('$').lower(),
-                    })
-                except (KeyError, IndexError):
-                    continue
-
-        # Also search for computer accounts where password was never changed (pwdLastSet == 0)
-        search_filter2 = '(&(objectCategory=computer)(pwdLastSet=0)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))'
-        success2 = self.client.search(
-            domainDumper.root,
-            search_filter2,
-            search_scope=ldap3.SUBTREE,
-            attributes=attributes
-        )
-
-        if success2:
-            existing_sams = {c['sAMAccountName'] for c in pre2k_candidates}
+        def addPre2kCandidates():
             for entry in self.client.response:
                 if entry['type'] != 'searchResEntry':
                     continue
@@ -733,8 +700,24 @@ class LDAPAttack(ProtocolAttack):
                         'operatingSystem': os_name,
                         'predictedPassword': sam.rstrip('$').lower(),
                     })
+                    existing_sams.add(sam)
                 except (KeyError, IndexError):
                     continue
+
+        if success:
+            addPre2kCandidates()
+
+        # Also search for computer accounts where password was never changed (pwdLastSet == 0)
+        search_filter2 = '(&(objectCategory=computer)(pwdLastSet=0)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))'
+        success2 = self.client.search(
+            domainDumper.root,
+            search_filter2,
+            search_scope=ldap3.SUBTREE,
+            attributes=attributes
+        )
+
+        if success2:
+            addPre2kCandidates()
 
         if not pre2k_candidates:
             LOG.info("No Pre-Windows 2000 vulnerable computer accounts found")
