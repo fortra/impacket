@@ -412,6 +412,49 @@ def parseNegoExToken(data):
     return messages
 
 
+def createNegoMessage(messageType, seqNum, conversationId, authSchemes, extensions=None):
+"""This function is used to create a Nego message, in which its result can be one of two types. 
+The function returns a message object to the caller."""
+    if messageType not in (MESSAGE_TYPE.INITIATOR_NEGO, MESSAGE_TYPE.ACCEPTOR_NEGO):
+        raise NegoExError('Invalid message type for NEGO_MESSAGE: %r' % messageType)
+
+    authParts = [uuid.UUID(bytes_le=scheme) for scheme in authSchemes]
+    authentication_scheme_count = len(authParts)
+    authPayload = b''.join(authParts)
+    authOffset = NEGO_HEADER_SIZE if authCount else 0
+
+    extensions = extensions or []
+    extensions_count = len(extensions)
+    extOffset = NEGO_HEADER_SIZE + len(authPayload) if extCount else 0
+    extHeaders = b''
+    extValues = b''
+
+    if  extensions_count:
+        valueBase = extOffset +  extensions_count * EXTENSION_SIZE
+        for extType, extValue in extensions:
+            #extValue = convertasBytes(extValue, 'extension value')
+            ext = Extension()
+            ext['ExtensionType'] = extType
+            ext['ByteArrayOffset'] = valueBase + len(extValues) if extValue else 0
+            ext['ByteArrayLength'] = len(extValue)
+            extHeaders += ext.getData()
+            extValues += extValue
+
+    payload = authPayload + extHeaders + extValues
+
+    msg = NegoMessage()
+    msg['Header'] = _messageHeader(messageType, seqNum, conversationId, NEGO_HEADER_SIZE, NEGO_HEADER_SIZE + len(payload))
+    msg['Random'] = os.urandom(32)
+    msg['ProtocolVersion'] = NEGOEX_PROTOCOL_VERSION
+    msg['AuthSchemes'] = AuthSchemeVector()
+    msg['AuthSchemes']['ArrayOffset'] = authOffset
+    msg['AuthSchemes']['Count'] = authentication_scheme_count
+    msg['Extensions'] = ExtensionVector()
+    msg['Extensions']['ArrayOffset'] = extOffset
+    msg['Extensions']['Count'] = extensions_count
+    msg['Payload'] = payload
+    return msg.getData()
+
 class NegoExContext(object):
     """Drives a NEGOEX negotiation as either initiator or acceptor."""
 
