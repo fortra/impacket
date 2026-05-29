@@ -394,7 +394,7 @@ def parseNegoExToken(data):
             messages.append(ParsedMessage(rawType, None, offset, msgData))
             offset += msgLength
             continue
-
+        #this is super ugly but since impacket supports python v 3.9 then theres no match/case support : ( 
         if msgType in (MESSAGE_TYPE.INITIATOR_NEGO, MESSAGE_TYPE.ACCEPTOR_NEGO):
             message = NegoMessage(msgData)
         elif msgType in EXCHANGE_MESSAGE_TYPES:
@@ -455,8 +455,26 @@ The function returns a message object to the caller."""
     msg['Payload'] = payload
     return msg.getData()
 
+
+def createExchangeMessage(messageType, seqNum, conversationId, authScheme, exchangeData):
+    if messageType not in EXCHANGE_MESSAGE_TYPES:
+        raise NegoExError('Invalid message type for EXCHANGE_MESSAGE: %r' % messageType)
+
+    exchangeData = _asBytes(exchangeData, 'exchangeData')
+    exchangeLen = len(exchangeData)
+
+    msg = ExchangeMessage()
+    msg['Header'] = _messageHeader(messageType, seqNum, conversationId, EXCHANGE_HEADER_SIZE, EXCHANGE_HEADER_SIZE + exchangeLen)
+    msg['AuthScheme'] = uuid.UUID(bytes_le=authScheme)
+    msg['ExchangeOffset'] = EXCHANGE_HEADER_SIZE if exchangeLen else 0
+    msg['ExchangeLength'] = exchangeLen
+    msg['Exchange'] = exchangeData
+    return msg.getData()
+
+
 class NegoExContext(object):
-    """Drives a NEGOEX negotiation as either initiator or acceptor."""
+    """Facilitates a NEGOEX negotiation as either initiator or acceptor. For now the protocol only implements
+    from the initiators prespective"""
 
     def __init__(self, isInitiator=True):
         self.isInitiator = isInitiator
