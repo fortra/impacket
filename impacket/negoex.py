@@ -115,7 +115,7 @@ def _asBytes(value, name):
         return value
     if isinstance(value, str):
         return value.encode('utf-8')
-    raise NegoExError('%s must be bytes or str, got %r' % (name, type(value)))
+    raise NegoExError(f'{name} must be bytes or str, got {type(value)}')
 
 
 def _checkHeader(header, expectedHeaderLen, actualLen, name):
@@ -124,18 +124,18 @@ def _checkHeader(header, expectedHeaderLen, actualLen, name):
 
     if cbHeader != expectedHeaderLen:
         raise NegoExParseError(
-            '%s.cbHeaderLength expected %d, got %d' % (name, expectedHeaderLen, cbHeader),
-            field='%s.cbHeaderLength' % name,
+            f'{name}.cbHeaderLength expected {expectedHeaderLen}, got {cbHeader}',
+            field=f'{name}.cbHeaderLength',
         )
     if cbMessage < cbHeader:
         raise NegoExParseError(
-            '%s.cbMessageLength smaller than cbHeaderLength' % name,
-            field='%s.cbMessageLength' % name,
+            f'{name}.cbMessageLength smaller than cbHeaderLength',
+            field=f'{name}.cbMessageLength',
         )
     if cbMessage != actualLen:
         raise NegoExParseError(
-            '%s.cbMessageLength = %d but slice is %d bytes' % (name, cbMessage, actualLen),
-            field='%s.cbMessageLength' % name,
+            f'{name}.cbMessageLength = {cbMessage} but slice is {actualLen} bytes',
+            field=f'{name}.cbMessageLength',
         )
 
 
@@ -428,7 +428,7 @@ def parseNegoExToken(data):
         try:
             msgType = MESSAGE_TYPE(rawType)
         except ValueError:
-            LOG.warning('Unknown NEGOEX MessageType: %r' % rawType)
+            LOG.warning(f'Unknown NEGOEX MessageType: {rawType}')
             messages.append(ParsedMessage(rawType, None, offset, msgData))
             offset += msgLength
             continue
@@ -442,7 +442,7 @@ def parseNegoExToken(data):
         elif msgType == MESSAGE_TYPE.ALERT:
             message = AlertMessage(msgData)
         else:
-            raise NegoExParseError('Unhandled NEGOEX MessageType: %r' % rawType, offset=offset)
+            raise NegoExParseError(f'Unhandled NEGOEX MessageType: {rawType}', offset=offset)
 
         messages.append(ParsedMessage(msgType, message, offset, msgData))
         offset += msgLength
@@ -496,7 +496,7 @@ def createNegoMessage(messageType, seqNum, conversationId, authSchemes, extensio
 #Section 2.2.6.4 of MS-NEGOEX
 def createExchangeMessage(messageType, seqNum, conversationId, authScheme, exchangeData):
     if messageType not in EXCHANGE_MESSAGE_TYPES:
-        raise NegoExError('Invalid message type for EXCHANGE_MESSAGE: %r' % messageType)
+        raise NegoExError(f'Invalid message type for EXCHANGE_MESSAGE: {messageType}')
 
     exchangeData = _asBytes(exchangeData, 'exchangeData')
     exchangeLen = len(exchangeData)
@@ -568,4 +568,4 @@ class NegoExChecksumError(NegoExError):
     def __init__(self, expected, actual):
         self.expected = expected
         self.actual = actual
-        NegoExError.__init__(self, 'NEGOEX VERIFY checksum mismatch: expected %s, got %s' % (expected.hex(), actual.hex()),)
+        NegoExError.__init__(self, f"NEGOEX VERIFY checksum mismatch: expected {expected.hex()}, got {actual.hex()}")
