@@ -269,9 +269,9 @@ class NegoMessage(Structure):
         _checkHeader(self['Header'], NEGO_HEADER_SIZE, len(data), 'NegoMessage.Header')
 
         if self['Header']['MessageType'] not in (MESSAGE_TYPE.INITIATOR_NEGO, MESSAGE_TYPE.ACCEPTOR_NEGO):
-            raise NegoExParseError('Invalid NEGO_MESSAGE type: %r' % self['Header']['MessageType'])
+            raise NegoExParseError(f'Invalid NEGO_MESSAGE type: {self["Header"]["MessageType"]}')
         if self['ProtocolVersion'] != NEGOEX_PROTOCOL_VERSION:
-            raise NegoExParseError('Unsupported NEGOEX protocol version: %r' % self['ProtocolVersion'])
+            raise NegoExParseError(f'Unsupported NEGOEX protocol version: {self["ProtocolVersion"]}')
 
         offset = self['AuthSchemes']['ArrayOffset']
         length = self['AuthSchemes']['Count'] * AUTH_SCHEME_SIZE
@@ -316,9 +316,9 @@ class ExchangeMessage(Structure):
         try:
             msgType = MESSAGE_TYPE(self['Header']['MessageType'])
         except ValueError:
-            raise NegoExParseError('Invalid EXCHANGE_MESSAGE type: %r' % self['Header']['MessageType'])
+            raise NegoExParseError(f'Invalid EXCHANGE_MESSAGE type: {self["Header"]["MessageType"]}')
         if msgType not in EXCHANGE_MESSAGE_TYPES:
-            raise NegoExParseError('Invalid EXCHANGE_MESSAGE type: %r' % self['Header']['MessageType'])
+            raise NegoExParseError(f'Invalid EXCHANGE_MESSAGE type: {self["Header"]["MessageType"]}')
 
         offset = self['ExchangeOffset']
         self['Exchange'] = data[offset:offset + self['ExchangeLength']]
@@ -345,7 +345,7 @@ class VerifyMessage(Structure):
         _checkHeader(self['Header'], VERIFY_HEADER_SIZE, len(data), 'VerifyMessage.Header')
 
         if self['Header']['MessageType'] != MESSAGE_TYPE.VERIFY:
-            raise NegoExParseError('Invalid VERIFY_MESSAGE type: %r' % self['Header']['MessageType'])
+            raise NegoExParseError(f'Invalid VERIFY_MESSAGE type: {self["Header"]["MessageType"]}')
         if self['CHeader']['cbHeaderLength'] != CHECKSUM_HEADER_SIZE:
             raise NegoExParseError('Invalid CHECKSUM header length', field='CHeader.cbHeaderLength')
         if self['CHeader']['ChecksumScheme'] != CHECKSUM_SCHEME_RFC3961:
