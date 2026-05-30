@@ -449,7 +449,7 @@ def parseNegoExToken(data):
 
     return messages
 
-
+#Section 2.2.6.3 of MS-NEGOEX
 def createNegoMessage(messageType, seqNum, conversationId, authSchemes, extensions=None):
     """Create a NEGO message and return its message object."""
     if messageType not in (MESSAGE_TYPE.INITIATOR_NEGO, MESSAGE_TYPE.ACCEPTOR_NEGO):
@@ -493,7 +493,7 @@ def createNegoMessage(messageType, seqNum, conversationId, authSchemes, extensio
     msg['Payload'] = payload
     return msg.getData()
 
-
+#Section 2.2.6.4 of MS-NEGOEX
 def createExchangeMessage(messageType, seqNum, conversationId, authScheme, exchangeData):
     if messageType not in EXCHANGE_MESSAGE_TYPES:
         raise NegoExError('Invalid message type for EXCHANGE_MESSAGE: %r' % messageType)
@@ -509,6 +509,44 @@ def createExchangeMessage(messageType, seqNum, conversationId, authScheme, excha
     msg['Exchange'] = exchangeData
     return msg.getData()
 
+#Section 2.2.6.5 of MS-NEGOEX
+def createVerifyMessage(seqNum, conversationId, authScheme, checksumValue, checksumType):
+    checksumValue = _asBytes(checksumValue, 'checksumValue')
+
+    msg = VerifyMessage()
+    msg['Header'] = _messageHeader(MESSAGE_TYPE.VERIFY, seqNum, conversationId, VERIFY_HEADER_SIZE,VERIFY_HEADER_SIZE + len(checksumValue))
+    msg['AuthScheme'] = _normalizeGuidBytes(authScheme)
+    msg['CHeader'] = Checksum()
+    msg['CHeader']['cbHeaderLength'] = CHECKSUM_HEADER_SIZE
+    msg['CHeader']['ChecksumScheme'] = CHECKSUM_SCHEME_RFC3961
+    msg['CHeader']['ChecksumType'] = checksumType
+    msg['CHeader']['ChecksumOffset'] = VERIFY_HEADER_SIZE if checksumValue else 0
+    msg['CHeader']['ChecksumLength'] = len(checksumValue)
+    msg['Pad'] = b'\x00' * 4
+    msg['ChecksumValue'] = checksumValue
+    return msg.getData()
+
+#Section 2.2.6.6 of MS-NEGOEX
+def createAlertMessage(seqNum, conversationId, authScheme, errorCode=0, reason=ALERT_VERIFY_NO_KEY):
+    pulse = AlertPulse()
+    pulse['Reason'] = reason
+    pulseData = pulse.getData()
+
+    alert = Alert()
+    alert['AlertType'] = ALERT_TYPE_PULSE
+    alert['ByteArrayOffset'] = ALERT_HEADER_SIZE + ALERT_SIZE  
+    alert['ByteArrayLength'] = len(pulseData)
+
+    payload = alert.getData() + pulseData
+
+    msg = AlertMessage()
+    msg['Header'] = _messageHeader(MESSAGE_TYPE.ALERT, seqNum, conversationId, ALERT_HEADER_SIZE, ALERT_HEADER_SIZE + len(payload))
+    msg['AuthScheme'] = _normalizeGuidBytes(authScheme)
+    msg['ErrorCode'] = errorCode
+    msg['AlertArrayOffset'] = ALERT_HEADER_SIZE
+    msg['AlertCount'] = 1
+    msg['Payload'] = payload
+    return msg.getData()
 
 class NegoExError(Exception):
     pass
