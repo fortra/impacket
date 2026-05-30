@@ -119,9 +119,15 @@ def _asBytes(value, name):
 
 
 def _checkHeader(header, expectedHeaderLen, actualLen, name):
+    signature = header['Signature']
     cbHeader = header['cbHeaderLength']
     cbMessage = header['cbMessageLength']
 
+    if signature != MESSAGE_SIGNATURE:
+        raise NegoExParseError(
+            f'{name}.Signature invalid: {signature!r}',
+            field=f'{name}.Signature',
+        )
     if cbHeader != expectedHeaderLen:
         raise NegoExParseError(
             f'{name}.cbHeaderLength expected {expectedHeaderLen}, got {cbHeader}',
