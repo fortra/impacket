@@ -27,6 +27,7 @@
 #
 from enum import IntEnum
 import uuid
+import os
 
 from impacket import LOG
 from impacket.structure import Structure
@@ -84,6 +85,29 @@ EXCHANGE_MESSAGE_TYPES = (
     MESSAGE_TYPE.CHALLENGE,
     MESSAGE_TYPE.AP_REQUEST,
 )
+
+def _normalizeGuid(value):
+    if isinstance(value, uuid.UUID):
+        return value
+    if isinstance(value, bytes) and len(value) == 16:
+        return uuid.UUID(bytes_le=value)
+    if isinstance(value, str):
+        return uuid.UUID(value)
+    raise NegoExError('Invalid GUID value: %r' % value)
+
+
+def _normalizeGuidBytes(value):
+    return _normalizeGuid(value).bytes_le
+
+
+def _asBytes(value, name):
+    if value is None:
+        return b''
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, str):
+        return value.encode('utf-8')
+    raise NegoExError('%s must be bytes or str, got %r' % (name, type(value)))
 
 
 def _checkHeader(header, expectedHeaderLen, actualLen, name):
@@ -237,7 +261,7 @@ class NegoMessage(Structure):
         authBlob = data[offset:offset + length]
         if len(authBlob) != length:
             raise NegoExParseError('AuthSchemes extends beyond message', offset=offset, field='AuthSchemes')
-        self._authSchemes = [uuid.UUID(bytes_le=authBlob[i:i + AUTH_SCHEME_SIZE]) for i in range(0, len(authBlob), AUTH_SCHEME_SIZE)]
+        self._authSchemes = [_normalizeGuidBytes(authBlob[i:i + AUTH_SCHEME_SIZE]) for i in range(0, len(authBlob), AUTH_SCHEME_SIZE)]
 
         offset = self['Extensions']['ArrayOffset']
         length = self['Extensions']['Count'] * EXTENSION_SIZE
@@ -413,26 +437,26 @@ def parseNegoExToken(data):
 
 
 def createNegoMessage(messageType, seqNum, conversationId, authSchemes, extensions=None):
-"""This function is used to create a Nego message, in which its result can be one of two types. 
-The function returns a message object to the caller."""
+    """Create a NEGO message and return its message object."""
     if messageType not in (MESSAGE_TYPE.INITIATOR_NEGO, MESSAGE_TYPE.ACCEPTOR_NEGO):
         raise NegoExError('Invalid message type for NEGO_MESSAGE: %r' % messageType)
 
-    authParts = [uuid.UUID(bytes_le=scheme) for scheme in authSchemes]
+    authParts = [_normalizeGuidBytes(scheme) for scheme in authSchemes]
     authentication_scheme_count = len(authParts)
     authPayload = b''.join(authParts)
-    authOffset = NEGO_HEADER_SIZE if authCount else 0
+    authOffset = NEGO_HEADER_SIZE if authentication_scheme_count else 0
 
     extensions = extensions or []
     extensions_count = len(extensions)
-    extOffset = NEGO_HEADER_SIZE + len(authPayload) if extCount else 0
+    extOffset = NEGO_HEADER_SIZE + len(authPayload) if extensions_count else 0
     extHeaders = b''
     extValues = b''
 
-    if  extensions_count:
-        valueBase = extOffset +  extensions_count * EXTENSION_SIZE
+    if extensions_count:
+        valueBase = extOffset + extensions_count * EXTENSION_SIZE
         for extType, extValue in extensions:
-            #extValue = convertasBytes(extValue, 'extension value')
+            # extValue should be bytes
+            extValue = _asBytes(extValue, 'extension value')
             ext = Extension()
             ext['ExtensionType'] = extType
             ext['ByteArrayOffset'] = valueBase + len(extValues) if extValue else 0
@@ -465,7 +489,7 @@ def createExchangeMessage(messageType, seqNum, conversationId, authScheme, excha
 
     msg = ExchangeMessage()
     msg['Header'] = _messageHeader(messageType, seqNum, conversationId, EXCHANGE_HEADER_SIZE, EXCHANGE_HEADER_SIZE + exchangeLen)
-    msg['AuthScheme'] = uuid.UUID(bytes_le=authScheme)
+    msg['AuthScheme'] = _normalizeGuidBytes(authScheme)
     msg['ExchangeOffset'] = EXCHANGE_HEADER_SIZE if exchangeLen else 0
     msg['ExchangeLength'] = exchangeLen
     msg['Exchange'] = exchangeData
