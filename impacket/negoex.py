@@ -316,7 +316,12 @@ class ExchangeMessage(Structure):
 
         offset = self['ExchangeOffset']
         self['Exchange'] = data[offset:offset + self['ExchangeLength']]
+    
+    def getAuthScheme(self):
+        return _normalizeGuidBytes(self['AuthScheme'])
 
+    def getExchangeData(self):
+        return self['Exchange']
 
 class VerifyMessage(Structure):
     # [MS-NEGOEX] 2.2.6.5
@@ -342,7 +347,9 @@ class VerifyMessage(Structure):
 
         offset = self['CHeader']['ChecksumOffset']
         self['ChecksumValue'] = data[offset:offset + self['CHeader']['ChecksumLength']]
-
+    
+    def getChecksumValue(self):
+        return self['ChecksumValue']
 
 class AlertMessage(Structure):
     # [MS-NEGOEX] 2.2.6.6
@@ -399,7 +406,13 @@ class ParsedMessage(object):
         self.message = message
         self.offset = offset
         self.raw_data = rawData
-
+    
+    def getRawData(self):
+        return self.raw_data
+    
+    def getMessageType(self):
+        return self.message_type
+    
 
 def parseNegoExToken(data):
     """Split a concatenated NEGOEX token into its component messages.
