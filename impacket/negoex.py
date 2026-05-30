@@ -65,6 +65,9 @@ AUTH_SCHEME_SIZE = 16   # AUTH_SCHEME is a GUID (16 bytes). [MS-NEGOEX] 2.2.2, [
 EXTENSION_SIZE = 12     # [MS-NEGOEX] 2.2.5.1.4
 ALERT_SIZE = 12
 
+################################################################################
+# CONSTANTS
+################################################################################
 
 class MESSAGE_TYPE(IntEnum):
     # [MS-NEGOEX] 2.2.6.1
@@ -86,6 +89,9 @@ EXCHANGE_MESSAGE_TYPES = (
     MESSAGE_TYPE.AP_REQUEST,
 )
 
+################################################################################
+# INTERNAL HELPER THINGIES
+################################################################################
 def _normalizeGuid(value):
     if isinstance(value, uuid.UUID):
         return value
@@ -141,6 +147,9 @@ def _messageHeader(messageType, seqNum, conversationId, headerLen, messageLen):
     header['ConversationId'] = conversationId.bytes_le
     return header
 
+################################################################################
+# STRUCTURES
+################################################################################
 
 class MessageHeader(Structure):
     # [MS-NEGOEX] 2.2.6.2
@@ -371,6 +380,9 @@ class AlertMessage(Structure):
     def getAlertList(self):
         return self._alerts
 
+################################################################################
+# NEGOEX TOKEN PARSING AND MESSAGE CREATION FUNCTIONS
+################################################################################
 
 class ParsedMessage(object):
     """One element of the list returned by parseNegoExToken.
