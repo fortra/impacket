@@ -237,11 +237,10 @@ def main():
 
     print(f"[*] Running: {args.query}")
     rows = mssql.batch(args.query)
-    mssql.printReplies()
 
     if rows:
         for row in rows:
-            print(row)
+            print(row[""])
     else:
         print("(no rows)")
 
