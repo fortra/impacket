@@ -93,6 +93,7 @@ class DumpSecrets:
         self.__NTDSHashes = None
         self.__LSASecrets = None
         self.__KeyListSecrets = None
+        self.__trustKeys = options.trust_keys
         self.__rodc = options.rodcNo
         self.__systemHive = options.system
         self.__bootkey = options.bootkey
@@ -331,7 +332,8 @@ class DumpSecrets:
                                                pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
                                                outputFileName=self.__outputFileName, justUser=self.__justUser,
                                                skipUser=self.__skipUser, ldapFilter=self.__ldapFilter,
-                                               printUserStatus=self.__printUserStatus, localDomainSid=localDomainSid)
+                                               printUserStatus=self.__printUserStatus, localDomainSid=localDomainSid,
+                                               trustKeys=self.__trustKeys, domainFQDN=self.__domain)
                 try:
                     self.__NTDSHashes.dump()
                 except Exception as e:
@@ -450,6 +452,9 @@ if __name__ == '__main__':
                        help='Extract only NTDS.DIT data (NTLM hashes and Kerberos keys)')
     group.add_argument('-just-dc-ntlm', action='store_true', default=False,
                        help='Extract only NTDS.DIT data (NTLM hashes only)')
+    group.add_argument('-trust-keys', action='store_true', default=False,
+                       help='Dump trusted domain object (TDO) secrets and derive the inter-realm '
+                            'Kerberos keys (AES + RC4) for each trust direction')
     group.add_argument('-skip-user', action='store', help='Do NOT extract NTDS.DIT data for the user specified. '
                        'Can provide comma-separated list of users to skip, or text file with one user per line')
     group.add_argument('-pwd-last-set', action='store_true', default=False,
