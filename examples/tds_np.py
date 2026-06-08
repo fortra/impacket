@@ -1,39 +1,19 @@
 #!/usr/bin/env python3
-"""
-tds_named_pipe.py - MSSQL Named Pipe transport for impacket's tds.py
-
-Key fix:
-    The server may close the SMB pipe immediately if the wrong initial
-    handshake is used (PRELOGIN vs direct LOGIN7).
-
-    Therefore:
-        - each handshake attempt must use a fresh SMB pipe
-        - no reuse of broken transport
-"""
-
 import sys
-import struct
-import argparse
 import random
+import argparse
 
 from impacket.tds import (
     MSSQL,
-    TDS_PRELOGIN,
     TDS_LOGIN,
     TDS_LOGIN7,
-    TDS_PRE_LOGIN,
     TDS_LOGINACK_TOKEN,
     TDS_LOGIN7_VERSION_71,
     TDS_INIT_LANG_FATAL,
     TDS_ODBC_ON,
-    TDS_ENCRYPT_OFF,
-    TDS_ENCRYPT_ON,
-    TDS_ENCRYPT_REQ,
-    TDS_ENCRYPT_STRICT,
 )
 from impacket.smbconnection import SMBConnection
 from impacket import LOG
-from impacket.mssql.version import MSSQL_VERSION
 
 
 # ============================================================
@@ -41,7 +21,6 @@ from impacket.mssql.version import MSSQL_VERSION
 # ============================================================
 
 class NamedPipeTransport:
-    MSSQL_PIPE = "sql\\query"
 
     def __init__(self, address, pipe_name=None):
         self.address = address
@@ -151,7 +130,7 @@ class MSSQLNamedPipe(MSSQL):
             self._transport = None
             self.socket = 0
             self._reset_tls_state()
-
+            
     # --------------------------------------------------------
     # LOGIN builder
     # --------------------------------------------------------
@@ -219,7 +198,7 @@ def main():
     parser.add_argument("username")
     parser.add_argument("password")
     parser.add_argument("domain")
-    parser.add_argument("--pipe", default=NamedPipeTransport.MSSQL_PIPE)
+    parser.add_argument("--pipe", default="sql\\query")
     parser.add_argument("--query", default="SELECT @@VERSION")
     parser.add_argument("--database", default="master")
     parser.add_argument("--kerberos", action="store_true")
