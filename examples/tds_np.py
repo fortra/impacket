@@ -1,33 +1,47 @@
 #!/usr/bin/env python3
 """
-tds_named_pipe.py - MSSQL Named Pipe transport patch for impacket's tds.py
+tds_named_pipe.py - MSSQL Named Pipe transport for impacket's tds.py
 
-Usage:
-    python tds_named_pipe.py <target> <username> <password> <domain>
+Key fix:
+    The server may close the SMB pipe immediately if the wrong initial
+    handshake is used (PRELOGIN vs direct LOGIN7).
 
-Example:
-    python tds_named_pipe.py 192.168.1.10 Administrator Password123 CORP
-    python tds_named_pipe.py 192.168.1.10 Administrator '' CORP --hashes :aabbcc...
+    Therefore:
+        - each handshake attempt must use a fresh SMB pipe
+        - no reuse of broken transport
 """
 
+import ssl
 import sys
+import struct
 import argparse
 import random
+
 from impacket.tds import (
-    MSSQL, TDS_LOGIN, TDS_LOGIN7, TDS_LOGINACK_TOKEN,
-    TDS_LOGIN7_VERSION_71, TDS_INIT_LANG_FATAL, TDS_ODBC_ON,
+    MSSQL,
+    TDS_PRELOGIN,
+    TDS_LOGIN,
+    TDS_LOGIN7,
+    TDS_PRE_LOGIN,
+    TDS_LOGINACK_TOKEN,
+    TDS_LOGIN7_VERSION_71,
+    TDS_INIT_LANG_FATAL,
+    TDS_ODBC_ON,
+    TDS_ENCRYPT_OFF,
+    TDS_ENCRYPT_ON,
+    TDS_ENCRYPT_REQ,
+    TDS_ENCRYPT_STRICT,
 )
 from impacket.smbconnection import SMBConnection
 from impacket import LOG
+from impacket.mssql.version import MSSQL_VERSION
 
+
+# ============================================================
+# SMB Named Pipe Transport
+# ============================================================
 
 class NamedPipeTransport:
-    """
-    Transport layer for MSSQL over Named Pipes via SMB.
-    Duck-typed to replace self.socket in MSSQL.
-    Auth (NTLM/Kerberos) happens at SMB level, before any TDS exchange.
-    """
-
     MSSQL_PIPE = "sql\\query"
 
     def __init__(self, address, pipe_name=None):
@@ -36,7 +50,7 @@ class NamedPipeTransport:
         self._smb = None
         self._tid = None
         self._fid = None
-        self._recv_buffer = b""
+        self._recv_buf = b""
 
     def connect(self, timeout=30):
         self._smb = SMBConnection(self.address, self.address, timeout=timeout)
@@ -58,191 +72,265 @@ class NamedPipeTransport:
         self._fid = self._smb.openFile(
             self._tid,
             self.pipe_name,
-            desiredAccess=0x0012019F,  # GENERIC_READ | GENERIC_WRITE
+            desiredAccess=0x0012019F,
         )
 
     def sendall(self, data):
         self._smb.writeFile(self._tid, self._fid, data)
 
     def recv(self, bufsize):
-        if self._recv_buffer:
-            chunk = self._recv_buffer[:bufsize]
-            self._recv_buffer = self._recv_buffer[bufsize:]
+        if self._recv_buf:
+            chunk = self._recv_buf[:bufsize]
+            self._recv_buf = self._recv_buf[bufsize:]
             return chunk
+
         data = self._smb.readFile(self._tid, self._fid, bytesToRead=bufsize)
+        if not data:
+            return b""
+
         if len(data) > bufsize:
-            self._recv_buffer = data[bufsize:]
+            self._recv_buf = data[bufsize:]
             return data[:bufsize]
+
         return data
 
+    def settimeout(self, timeout):
+        pass
+
     def close(self):
-        if self._smb:
-            try:
-                if self._fid:
-                    self._smb.closeFile(self._tid, self._fid)
-                if self._tid:
-                    self._smb.disconnectTree(self._tid)
+        try:
+            if self._fid:
+                self._smb.closeFile(self._tid, self._fid)
+            if self._tid:
+                self._smb.disconnectTree(self._tid)
+            if self._smb:
                 self._smb.logoff()
                 self._smb.close()
-            except Exception as e:
-                LOG.debug(f"NamedPipeTransport.close() error: {e}")
-            finally:
-                self._fid = None
-                self._tid = None
-                self._smb = None
+        except Exception as e:
+            LOG.debug(f"close error: {e}")
+        finally:
+            self._fid = None
+            self._tid = None
+            self._smb = None
 
+
+# ============================================================
+# MSSQL Named Pipe Client
+# ============================================================
 
 class MSSQLNamedPipe(MSSQL):
-    """
-    MSSQL subclass with Named Pipe transport support.
-    Overrides connect/disconnect/socketSendall/socketRecv.
-
-    Key difference vs TCP:
-        - Auth is done at SMB level (NTLM/Kerberos) before TDS
-        - preLogin() is skipped entirely: SQL Server accepts a direct TDS_LOGIN7
-          on named pipe without the preLogin handshake
-        - login()/kerberosLogin() must NOT re-authenticate via SSPI
-          -> we send a TDS_LOGIN7 with empty SSPI and no Windows auth flag
-        - No TLS negotiation: confidentiality is handled by SMB signing/encryption
-    """
 
     def __init__(self, address, pipe_name=None, **kwargs):
         super().__init__(address, **kwargs)
         self._pipe_name = pipe_name or NamedPipeTransport.MSSQL_PIPE
-        self._named_pipe_transport = None
+        self._transport = None
 
-    def connect_named_pipe(self, username, password, domain,
-                           lmhash="", nthash="", timeout=30):
-        """
-        Connect and authenticate via Named Pipe (NTLM).
-        Must be called instead of connect() for named pipe mode.
-        """
-        self._reset_tls_state()
+    # --------------------------------------------------------
+    # IMPORTANT: always rebuild transport per attempt
+    # --------------------------------------------------------
+
+    def _create_transport(self, username, password, domain,
+                          lmhash="", nthash="", kerberos=False,
+                          timeout=30):
+
         transport = NamedPipeTransport(self.server, self._pipe_name)
         transport.connect(timeout)
-        transport.authenticate_ntlm(username, password, domain, lmhash, nthash)
-        self._named_pipe_transport = transport
-        self.socket = transport
-        LOG.info(f"Named pipe connected: \\\\{self.server}\\pipe\\{self._pipe_name}")
 
-    def connect_named_pipe_kerberos(self, username, password, domain,
-                                     lmhash="", nthash="", aesKey="",
-                                     kdcHost=None, TGT=None, TGS=None,
-                                     useCache=True, timeout=30):
-        """
-        Connect and authenticate via Named Pipe (Kerberos).
-        """
-        self._reset_tls_state()
-        transport = NamedPipeTransport(self.server, self._pipe_name)
-        transport.connect(timeout)
-        transport.authenticate_kerberos(username, password, domain,
-                                         lmhash, nthash, aesKey,
-                                         kdcHost, TGT, TGS, useCache)
-        self._named_pipe_transport = transport
+        if kerberos:
+            transport.authenticate_kerberos(
+                username, password, domain,
+                lmhash, nthash, "", None, None, None, True
+            )
+        else:
+            transport.authenticate_ntlm(username, password, domain, lmhash, nthash)
+
+        self._transport = transport
         self.socket = transport
-        LOG.info(f"Named pipe connected (Kerberos): \\\\{self.server}\\pipe\\{self._pipe_name}")
+
+    # --------------------------------------------------------
+    # connection override
+    # --------------------------------------------------------
+
+    def connect(self, timeout=30):
+        pass
 
     def disconnect(self):
         try:
-            if self._named_pipe_transport:
-                self._named_pipe_transport.close()
-            elif self.socket:
-                self.socket.close()
+            if self._transport:
+                self._transport.close()
         finally:
+            self._transport = None
             self.socket = 0
-            self._named_pipe_transport = None
             self._reset_tls_state()
 
+    # --------------------------------------------------------
+    # IO dispatch
+    # --------------------------------------------------------
+
     def socketSendall(self, data):
-        if self._named_pipe_transport:
-            return self._named_pipe_transport.sendall(data)
-        return super().socketSendall(data)
+        if self.tlsSocket is None:
+            return self.socket.sendall(data)
+        return self.tls_send(data)
 
     def socketRecv(self, bufsize):
-        if self._named_pipe_transport:
-            data = self._named_pipe_transport.recv(bufsize)
+        if self.tlsSocket is None:
+            data = self.socket.recv(bufsize)
             if not data:
-                raise ConnectionError("Named pipe: server closed connection")
+                raise ConnectionError("Named pipe closed")
             return data
-        return super().socketRecv(bufsize)
+        return self.tls_recv(bufsize)
 
-    def login_named_pipe(self, database=None):
-        """
-        TDS login for named pipe connections.
-        Auth is already done at SMB level so we skip preLogin entirely
-        and send a minimal TDS_LOGIN7 without SSPI and without Windows auth flag.
-        """
+    # --------------------------------------------------------
+    # PRELOGIN
+    # --------------------------------------------------------
+
+    def preLogin(self):
+        prelogin = TDS_PRELOGIN()
+        prelogin["Version"] = b"\x08\x00\x01\x55\x00\x00"
+        prelogin["Encryption"] = TDS_ENCRYPT_OFF
+        prelogin["ThreadID"] = struct.pack("<L", random.randint(0, 65535))
+        prelogin["Instance"] = b"MSSQLServer\x00"
+
+        self.sendTDS(TDS_PRE_LOGIN, prelogin.getData(), 0)
+
+        tds = self.recvTDS()
+        resp = TDS_PRELOGIN(tds["Data"])
+
+        self.mssql_version = MSSQL_VERSION(resp["Version"])
+        return resp
+
+    def _negotiate_encryption(self):
+        resp = self.preLogin()
+
+        if resp["Encryption"] == TDS_ENCRYPT_STRICT:
+            raise NotImplementedError("ENCRYPT_STRICT not supported")
+
+        if resp["Encryption"] in (TDS_ENCRYPT_REQ, TDS_ENCRYPT_ON):
+            self.set_tls_context()
+
+        return resp
+
+    # --------------------------------------------------------
+    # LOGIN builder
+    # --------------------------------------------------------
+
+    def _send_login(self, database=None):
+
         login = TDS_LOGIN()
         login["TDSVersion"] = TDS_LOGIN7_VERSION_71
         self._set_session_login7_tds_version(TDS_LOGIN7_VERSION_71)
+
         login["HostName"] = self.workstation_id.encode("utf-16le")
         login["AppName"] = self.application_name.encode("utf-16le")
         login["ServerName"] = self.remoteName.encode("utf-16le")
         login["CltIntName"] = self.client_interface_name.encode("utf-16le")
+
         login["ClientPID"] = random.randint(0, 1024)
         login["PacketSize"] = self.packetSize
-        if database:
-            login["Database"] = database.encode("utf-16le")
+
         login["OptionFlags2"] = TDS_INIT_LANG_FATAL | TDS_ODBC_ON
+
         login["SSPI"] = b""
         login["UserName"] = b""
         login["Password"] = b""
+
+        if database:
+            login["Database"] = database.encode("utf-16le")
+
         login["Length"] = len(login.getData())
 
         self.sendTDS(TDS_LOGIN7, login.getData())
+
         tds = self.recvTDS()
         self.replies = self.parseReply(tds["Data"])
 
-        if TDS_LOGINACK_TOKEN in self.replies:
-            return True
-        return False
+        return TDS_LOGINACK_TOKEN in self.replies
 
+    # legacy login
+    def _login_legacy(self, database=None):
+
+        return self._send_login(database)
+
+    # --------------------------------------------------------
+    # CRITICAL FIX: handshake with full pipe rebuild
+    # --------------------------------------------------------
+
+    def login_named_pipe(self, username, password, domain,
+                         lmhash="", nthash="", database=None,
+                         kerberos=False):
+
+        # -------------------------
+        # Attempt 1: PRELOGIN
+        # -------------------------
+
+        try:
+            self._create_transport(username, password, domain,
+                                   lmhash, nthash, kerberos)
+
+            self._negotiate_encryption()
+            return self._send_login(database)
+
+        except Exception as e:
+            LOG.debug(f"PRELOGIN failed -> retry legacy: {e}")
+
+        # IMPORTANT: FULL RESET
+        self.disconnect()
+
+        # -------------------------
+        # Attempt 2: LEGACY LOGIN
+        # -------------------------
+
+        try:
+            self._create_transport(username, password, domain,
+                                   lmhash, nthash, kerberos)
+
+            return self._login_legacy(database)
+
+        except Exception as e:
+            LOG.debug(f"Legacy login failed: {e}")
+            raise ConnectionError("Both handshake modes failed")
+
+
+# ============================================================
+# CLI
+# ============================================================
 
 def main():
-    parser = argparse.ArgumentParser(description="MSSQL Named Pipe test client")
-    parser.add_argument("target", help="Target IP or hostname")
-    parser.add_argument("username", help="Username")
-    parser.add_argument("password", help="Password")
-    parser.add_argument("domain", help="Domain")
-    parser.add_argument("--hashes", help="LM:NT hashes", default="")
-    parser.add_argument("--pipe", help="Pipe name", default=NamedPipeTransport.MSSQL_PIPE)
-    parser.add_argument("--query", help="SQL query to run", default="SELECT @@VERSION")
-    parser.add_argument("--database", help="Database", default="master")
-    args = parser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("target")
+    parser.add_argument("username")
+    parser.add_argument("password")
+    parser.add_argument("domain")
+    parser.add_argument("--pipe", default=NamedPipeTransport.MSSQL_PIPE)
+    parser.add_argument("--query", default="SELECT @@VERSION")
+    parser.add_argument("--database", default="master")
+    parser.add_argument("--kerberos", action="store_true")
 
-    lmhash = ""
-    nthash = ""
-    if args.hashes:
-        lmhash, nthash = args.hashes.split(":")
+    args = parser.parse_args()
 
     mssql = MSSQLNamedPipe(args.target, pipe_name=args.pipe, remoteName=args.target)
 
-    print(f"[*] Connecting to \\\\{args.target}\\pipe\\{args.pipe}")
-    mssql.connect_named_pipe(
-        username=args.username,
-        password=args.password,
-        domain=args.domain,
-        lmhash=lmhash,
-        nthash=nthash,
+    print(f"[*] Connecting \\\\{args.target}\\pipe\\{args.pipe}")
+
+    ok = mssql.login_named_pipe(
+        args.username,
+        args.password,
+        args.domain,
+        database=args.database,
+        kerberos=args.kerberos
     )
 
-    print("[*] Sending TDS login...")
-    if mssql.login_named_pipe(database=args.database):
-        print("[+] Authenticated via named pipe")
-    else:
-        print("[-] TDS login failed")
+    if not ok:
+        print("[-] login failed")
         mssql.printReplies()
         mssql.disconnect()
         sys.exit(1)
 
-    print(f"[*] Running: {args.query}")
-    rows = mssql.batch(args.query)
+    print("[+] authenticated via named pipe")
 
-    if rows:
-        for row in rows:
-            print(row[""])
-    else:
-        print("(no rows)")
+    rows = mssql.batch(args.query)
+    for r in rows or []:
+        print(r)
 
     mssql.disconnect()
 
