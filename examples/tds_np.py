@@ -11,7 +11,6 @@ Key fix:
         - no reuse of broken transport
 """
 
-import ssl
 import sys
 import struct
 import argparse
@@ -59,12 +58,8 @@ class NamedPipeTransport:
         self._smb.login(username, password, domain, lmhash, nthash)
         self._open_pipe()
 
-    def authenticate_kerberos(self, username, password, domain,
-                               lmhash="", nthash="", aesKey="",
-                               kdcHost=None, TGT=None, TGS=None, useCache=True):
-        self._smb.kerberosLogin(username, password, domain,
-                                lmhash, nthash, aesKey,
-                                kdcHost, TGT, TGS, useCache)
+    def authenticate_kerberos(self, username, password, domain, lmhash="", nthash="", aesKey="", kdcHost=None, TGT=None, TGS=None, useCache=True):
+        self._smb.kerberosLogin(username, password, domain, lmhash, nthash, aesKey, kdcHost, TGT, TGS, useCache)
         self._open_pipe()
 
     def _open_pipe(self):
@@ -129,18 +124,12 @@ class MSSQLNamedPipe(MSSQL):
     # IMPORTANT: always rebuild transport per attempt
     # --------------------------------------------------------
 
-    def _create_transport(self, username, password, domain,
-                          lmhash="", nthash="", kerberos=False,
-                          timeout=30):
-
+    def _create_transport(self, username, password, domain, lmhash="", nthash="", kerberos=False, timeout=30):
         transport = NamedPipeTransport(self.server, self._pipe_name)
         transport.connect(timeout)
 
         if kerberos:
-            transport.authenticate_kerberos(
-                username, password, domain,
-                lmhash, nthash, "", None, None, None, True
-            )
+            transport.authenticate_kerberos( username, password, domain, lmhash, nthash, "", None, None, None, True )
         else:
             transport.authenticate_ntlm(username, password, domain, lmhash, nthash)
 
@@ -255,45 +244,30 @@ class MSSQLNamedPipe(MSSQL):
     # CRITICAL FIX: handshake with full pipe rebuild
     # --------------------------------------------------------
 
-    def login_named_pipe(self, username, password, domain,
-                         lmhash="", nthash="", database=None,
-                         kerberos=False):
+    def login_named_pipe(self, username, password, domain, lmhash="", nthash="", database=None, kerberos=False):
 
         # -------------------------
         # Attempt 1: PRELOGIN
         # -------------------------
-
         try:
-            self._create_transport(username, password, domain,
-                                   lmhash, nthash, kerberos)
-
+            self._create_transport(username, password, domain, lmhash, nthash, kerberos) 
             self._negotiate_encryption()
             return self._send_login(database)
-
         except Exception as e:
-            LOG.debug(f"PRELOGIN failed -> retry legacy: {e}")
-
-        # IMPORTANT: FULL RESET
+            print(f"PRELOGIN failed -> retry legacy: {e}")
         self.disconnect()
 
         # -------------------------
         # Attempt 2: LEGACY LOGIN
         # -------------------------
-
         try:
-            self._create_transport(username, password, domain,
-                                   lmhash, nthash, kerberos)
-
+            self._create_transport(username, password, domain, lmhash, nthash, kerberos)
             return self._login_legacy(database)
 
         except Exception as e:
-            LOG.debug(f"Legacy login failed: {e}")
+            print(f"Legacy login failed: {e}")
             raise ConnectionError("Both handshake modes failed")
 
-
-# ============================================================
-# CLI
-# ============================================================
 
 def main():
     parser = argparse.ArgumentParser()
@@ -305,20 +279,11 @@ def main():
     parser.add_argument("--query", default="SELECT @@VERSION")
     parser.add_argument("--database", default="master")
     parser.add_argument("--kerberos", action="store_true")
-
     args = parser.parse_args()
 
     mssql = MSSQLNamedPipe(args.target, pipe_name=args.pipe, remoteName=args.target)
-
     print(f"[*] Connecting \\\\{args.target}\\pipe\\{args.pipe}")
-
-    ok = mssql.login_named_pipe(
-        args.username,
-        args.password,
-        args.domain,
-        database=args.database,
-        kerberos=args.kerberos
-    )
+    ok = mssql.login_named_pipe(args.username, args.password, args.domain, database=args.database, kerberos=args.kerberos)
 
     if not ok:
         print("[-] login failed")
@@ -327,7 +292,6 @@ def main():
         sys.exit(1)
 
     print("[+] authenticated via named pipe")
-
     rows = mssql.batch(args.query)
     for r in rows or []:
         print(r)
