@@ -1084,9 +1084,9 @@ class LDAPAttack(ProtocolAttack):
             LOG.info("Attempting to dump user info attributes")
             success = self.client.search(
                 domainDumper.root,
-                '(&(objectClass=user)(objectCategory=person)(info=*))',
+                '(&(info=*)(|(objectCategory=person)(objectCategory=group)))',
                 search_scope=ldap3.SUBTREE,
-                attributes=['sAMAccountName', 'distinguishedName', 'info']
+                attributes=['sAMAccountName', 'memberOf', 'info']
             )
             if success:
                 entries = [e for e in self.client.response
@@ -1098,17 +1098,17 @@ class LDAPAttack(ProtocolAttack):
 
                     # .grep — tab-separated, newlines in values collapsed to spaces
                     with open(base + '.grep', 'w', encoding='utf-8') as f:
-                        f.write('sAMAccountName\tdistinguishedName\tinfo\n')
+                        f.write('sAMAccountName\tmemberOf\tinfo\n')
                         for e in entries:
                             sam  = e['attributes']['sAMAccountName'] or ''
-                            dn   = e['attributes']['distinguishedName'] or ''
+                            dn   = e['attributes']['memberOf'] or ''
                             info = (e['attributes']['info'] or '').replace('\n', ' ').replace('\r', '')
                             f.write('%s\t%s\t%s\n' % (sam, dn, info))
 
                     # .json — array of dicts
                     with open(base + '.json', 'w', encoding='utf-8') as f:
                         out = [{'sAMAccountName': e['attributes']['sAMAccountName'],
-                                'distinguishedName': e['attributes']['distinguishedName'],
+                                'memberOf': e['attributes']['memberOf'],
                                 'info': e['attributes']['info']}
                                for e in entries]
                         json.dump(out, f, indent=2, default=str)
@@ -1127,12 +1127,12 @@ class LDAPAttack(ProtocolAttack):
                                 '</style></head><body>\n'
                                 '<table><thead>'
                                 '<tr><td colspan="3"><b>Domain users - info attribute</b></td></tr>'
-                                '<tr><th>sAMAccountName</th><th>distinguishedName</th><th>info</th></tr>'
+                                '<tr><th>sAMAccountName</th><th>memberOf</th><th>info</th></tr>'
                                 '</thead><tbody>\n')
                         for e in entries:
                             f.write('<tr><td>%s</td><td>%s</td><td>%s</td></tr>\n' % (
                                 _he(e['attributes']['sAMAccountName']),
-                                _he(e['attributes']['distinguishedName']),
+                                _he(e['attributes']['memberOf']),
                                 _he(e['attributes']['info'])))
                         f.write('</tbody></table></body></html>\n')
 
