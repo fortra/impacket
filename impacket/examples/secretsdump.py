@@ -2646,6 +2646,9 @@ class NTDSHashes:
         'supplementalCredentials':b'ATTk589949',
         'pwdLastSet':b'ATTq589920',
         'instanceType':b'ATTj131073',
+        'trustPartner':b'ATTm589957',
+        'trustAuthIncoming':b'ATTk589953',
+        'trustAuthOutgoing':b'ATTk589959',
     }
 
     NAME_TO_ATTRTYP = {
@@ -3340,6 +3343,64 @@ class NTDSHashes:
 
         LOG.debug('Leaving NTDSHashes.__decryptHash')
 
+    def __decryptTrustAuthBlob(self, hexValue):
+        # trustAuth* are secret octet attributes encrypted with the PEK, like supplementalCredentials.
+        blob = unhexlify(hexValue)
+        if len(blob) <= 24:
+            return None
+        cipherText = self.CRYPTED_BLOB(blob)
+        if cipherText['Header'][:4] == b'\x13\x00\x00\x00':
+            plainText = self.__cryptoCommon.decryptAES(self.__getPekFromHeader(cipherText['Header']),
+                                                       cipherText['EncryptedHash'][4:], cipherText['KeyMaterial'])
+        else:
+            plainText = self.__removeRC4Layer(cipherText)
+        return plainText
+
+    def __dumpTrustKeysOffline(self):
+        # Offline (VSS / local .dit) trusted domain key dump. Scans the datatable for
+        # trustedDomain objects and derives the inter-realm Kerberos keys from trustAuth*.
+        if self.__domainFQDN is None:
+            LOG.error('Cannot derive trust keys offline without the local domain FQDN (-trust-keys needs it)')
+            return
+        LOG.info('Searching NTDS.dit for trusted domain objects')
+        cursor = self.__ESEDB.openTable('datatable')
+        filterTables = {
+            self.NAME_TO_INTERNAL['trustPartner']: 1,
+            self.NAME_TO_INTERNAL['trustAuthIncoming']: 1,
+            self.NAME_TO_INTERNAL['trustAuthOutgoing']: 1,
+        }
+        count = 0
+        while True:
+            try:
+                record = self.__ESEDB.getNextRow(cursor, filter_tables=filterTables)
+            except Exception:
+                LOG.error('Error while calling getNextRow() for trust scan, trying the next one')
+                continue
+            if record is None:
+                break
+            partner = record[self.NAME_TO_INTERNAL['trustPartner']]
+            if partner is None:
+                continue
+            for col, isIncoming in ((self.NAME_TO_INTERNAL['trustAuthIncoming'], True),
+                                    (self.NAME_TO_INTERNAL['trustAuthOutgoing'], False)):
+                value = record[col]
+                if value is None:
+                    continue
+                try:
+                    plainText = self.__decryptTrustAuthBlob(value)
+                    if plainText is None:
+                        continue
+                    rawSecret = _parse_trust_auth_info(plainText)[0]
+                    if not rawSecret:
+                        continue
+                except Exception:
+                    LOG.debug('Exception', exc_info=True)
+                    continue
+                for line in _format_trust_secrets(partner, rawSecret, self.__domainFQDN, isIncoming):
+                    self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
+                    count += 1
+        LOG.info('Dumped keys for trusted domain object(s) (%d secret line(s))' % count)
+
     def __dumpTrustKeysOnline(self):
         # Online (DRSUAPI) trusted domain key dump. Discovery is over LSARPC, then each
         # trustedDomain object is replicated and its trustAuth* attributes are decrypted.
@@ -3540,6 +3601,13 @@ class NTDSHashes:
                                 LOG.error("Error while processing row!")
                                 LOG.error(str(e))
                                 pass
+
+                    if self.__trustKeys:
+                        try:
+                            self.__dumpTrustKeysOffline()
+                        except Exception as e:
+                            LOG.debug('Exception', exc_info=True)
+                            LOG.error('Trusted domain key dump failed: %s' % str(e))
             else:
                 LOG.info('Using the DRSUAPI method to get NTDS.DIT secrets')
                 status = STATUS_MORE_ENTRIES
