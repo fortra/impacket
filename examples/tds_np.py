@@ -153,82 +153,26 @@ class MSSQLNamedPipe(MSSQL):
             self._reset_tls_state()
 
     # --------------------------------------------------------
-    # IO dispatch
-    # --------------------------------------------------------
-
-    def socketSendall(self, data):
-        if self.tlsSocket is None:
-            return self.socket.sendall(data)
-        return self.tls_send(data)
-
-    def socketRecv(self, bufsize):
-        if self.tlsSocket is None:
-            data = self.socket.recv(bufsize)
-            if not data:
-                raise ConnectionError("Named pipe closed")
-            return data
-        return self.tls_recv(bufsize)
-
-    # --------------------------------------------------------
-    # PRELOGIN
-    # --------------------------------------------------------
-
-    def preLogin(self):
-        prelogin = TDS_PRELOGIN()
-        prelogin["Version"] = b"\x08\x00\x01\x55\x00\x00"
-        prelogin["Encryption"] = TDS_ENCRYPT_OFF
-        prelogin["ThreadID"] = struct.pack("<L", random.randint(0, 65535))
-        prelogin["Instance"] = b"MSSQLServer\x00"
-
-        self.sendTDS(TDS_PRE_LOGIN, prelogin.getData(), 0)
-
-        tds = self.recvTDS()
-        resp = TDS_PRELOGIN(tds["Data"])
-
-        self.mssql_version = MSSQL_VERSION(resp["Version"])
-        return resp
-
-    def _negotiate_encryption(self):
-        resp = self.preLogin()
-
-        print(resp["Encryption"] )
-        if resp["Encryption"] == TDS_ENCRYPT_STRICT:
-            raise NotImplementedError("ENCRYPT_STRICT not supported")
-
-        if resp["Encryption"] in (TDS_ENCRYPT_REQ, TDS_ENCRYPT_ON):
-            self.set_tls_context()
-
-        return resp
-
-    # --------------------------------------------------------
     # LOGIN builder
     # --------------------------------------------------------
 
     def _send_login(self, database=None):
-
         login = TDS_LOGIN()
         login["TDSVersion"] = TDS_LOGIN7_VERSION_71
         self._set_session_login7_tds_version(TDS_LOGIN7_VERSION_71)
-
         login["HostName"] = self.workstation_id.encode("utf-16le")
         login["AppName"] = self.application_name.encode("utf-16le")
         login["ServerName"] = self.remoteName.encode("utf-16le")
         login["CltIntName"] = self.client_interface_name.encode("utf-16le")
-
         login["ClientPID"] = random.randint(0, 1024)
         login["PacketSize"] = self.packetSize
-
         login["OptionFlags2"] = TDS_INIT_LANG_FATAL | TDS_ODBC_ON
-
         login["SSPI"] = b""
         login["UserName"] = b""
         login["Password"] = b""
-
         if database:
             login["Database"] = database.encode("utf-16le")
-
         login["Length"] = len(login.getData())
-
         self.sendTDS(TDS_LOGIN7, login.getData())
 
         tds = self.recvTDS()
@@ -238,7 +182,6 @@ class MSSQLNamedPipe(MSSQL):
 
     # legacy login
     def _login_legacy(self, database=None):
-
         return self._send_login(database)
 
     # --------------------------------------------------------
@@ -294,8 +237,8 @@ def main():
 
     print("[+] authenticated via named pipe")
     rows = mssql.batch(args.query)
-    for r in rows or []:
-        print(r)
+    for row in rows or []:
+        print(row[""])
 
     mssql.disconnect()
 
