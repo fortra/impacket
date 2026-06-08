@@ -191,6 +191,7 @@ class MSSQLNamedPipe(MSSQL):
     def _negotiate_encryption(self):
         resp = self.preLogin()
 
+        print(resp["Encryption"] )
         if resp["Encryption"] == TDS_ENCRYPT_STRICT:
             raise NotImplementedError("ENCRYPT_STRICT not supported")
 
@@ -266,7 +267,7 @@ class MSSQLNamedPipe(MSSQL):
 
         except Exception as e:
             print(f"Legacy login failed: {e}")
-            raise ConnectionError("Both handshake modes failed")
+            raise ConnectionError("Instance is probably exposed with force strict encryption enabled.")
 
 
 def main():
