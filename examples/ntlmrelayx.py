@@ -213,7 +213,7 @@ def start_servers(options, threads):
         c.setEnumTemplates(options.enum_templates)
         c.setIsShadowCredentialsAttack(options.shadow_credentials)
         c.setShadowCredentialsOptions(options.shadow_target, options.pfx_password, options.export_type,
-                                      options.cert_outfile_path)
+                                      options.cert_outfile_path, options.add, options.clear)
         c.setIsSCCMPoliciesAttack(options.sccm_policies)
         c.setIsSCCMDPAttack(options.sccm_dp)
         c.setSCCMPoliciesOptions(options.sccm_policies_clientname, options.sccm_policies_sleep)
@@ -433,6 +433,8 @@ if __name__ == '__main__':
     shadowcredentials.add_argument('--export-type', action='store', required=False, choices=["PEM", "PFX"], type=lambda choice: choice.upper(), default="PFX",
                                    help='choose to export cert+private key in PEM or PFX (i.e. #PKCS12) (default: PFX))')
     shadowcredentials.add_argument('--cert-outfile-path', action='store', required=False, help='filename to store the generated self-signed PEM or PFX certificate and key')
+    shadowcredentials.add_argument('--add', action='store_true', required=False, help='add KeyCredential to msDS-KeyCredentialLink (default attack behavior)')
+    shadowcredentials.add_argument('--clear', action='store_true', required=False, help='clear all KeyCredentials from msDS-KeyCredentialLink')
 
     # SCCM policies options
     sccmpoliciesoptions = parser.add_argument_group("SCCM Policies attack options")

