@@ -2604,9 +2604,12 @@ def _derive_trust_kerberos_keys(rawSecret, domain, partner, isIncoming):
     return out
 
 
-def _format_trust_secrets(partner, rawSecret, domain, isIncoming):
+def _format_trust_secrets(partner, rawSecret, domain, isIncoming, previous=False):
     # Returns the output lines for one trust key (RC4 + AES256 + AES128).
+    # previous=True labels the trustAuthInfo PreviousValue (the trust's old password).
     direction = 'Incoming' if isIncoming else 'Outgoing'
+    if previous:
+        direction += ', previous'
     ntHash = hexlify(MD4.new(rawSecret).digest()).decode('utf-8')
     lines = ['%s (%s):rc4_hmac:%s' % (partner, direction, ntHash)]
     for typename, keyHex in _derive_trust_kerberos_keys(rawSecret, domain, partner, isIncoming):
@@ -3390,15 +3393,19 @@ class NTDSHashes:
                     plainText = self.__decryptTrustAuthBlob(value)
                     if plainText is None:
                         continue
-                    rawSecret = _parse_trust_auth_info(plainText)[0]
-                    if not rawSecret:
+                    currentSecret, previousSecret = _parse_trust_auth_info(plainText)
+                    if not currentSecret:
                         continue
                 except Exception:
                     LOG.debug('Exception', exc_info=True)
                     continue
-                for line in _format_trust_secrets(partner, rawSecret, self.__domainFQDN, isIncoming):
+                for line in _format_trust_secrets(partner, currentSecret, self.__domainFQDN, isIncoming):
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
                     count += 1
+                if previousSecret:
+                    for line in _format_trust_secrets(partner, previousSecret, self.__domainFQDN, isIncoming, previous=True):
+                        self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
+                        count += 1
         LOG.info('Dumped keys for trusted domain object(s) (%d secret line(s))' % count)
 
     def __dumpTrustKeysOnline(self):
@@ -3465,21 +3472,26 @@ class NTDSHashes:
             if attId == lookup['trustAuthIncoming'] and attr['AttrVal']['valCount'] > 0:
                 try:
                     enc = b''.join(attr['AttrVal']['pAVal'][0]['pVal'])
-                    incoming = _parse_trust_auth_info(drsuapi.DecryptAttributeValue(drsr, enc))[0]
+                    incoming = _parse_trust_auth_info(drsuapi.DecryptAttributeValue(drsr, enc))
                 except Exception:
                     incoming = None
             elif attId == lookup['trustAuthOutgoing'] and attr['AttrVal']['valCount'] > 0:
                 try:
                     enc = b''.join(attr['AttrVal']['pAVal'][0]['pVal'])
-                    outgoing = _parse_trust_auth_info(drsuapi.DecryptAttributeValue(drsr, enc))[0]
+                    outgoing = _parse_trust_auth_info(drsuapi.DecryptAttributeValue(drsr, enc))
                 except Exception:
                     outgoing = None
 
-        for raw, isIncoming in ((incoming, True), (outgoing, False)):
-            if not raw:
+        for parsed, isIncoming in ((incoming, True), (outgoing, False)):
+            if not parsed:
                 continue
-            for line in _format_trust_secrets(partner, raw, domain, isIncoming):
-                self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
+            currentSecret, previousSecret = parsed
+            if currentSecret:
+                for line in _format_trust_secrets(partner, currentSecret, domain, isIncoming):
+                    self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
+            if previousSecret:
+                for line in _format_trust_secrets(partner, previousSecret, domain, isIncoming, previous=True):
+                    self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
 
     def dump(self):
         hashesOutputFile = None
