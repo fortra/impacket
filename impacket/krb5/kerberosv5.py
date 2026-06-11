@@ -36,7 +36,7 @@ from impacket.krb5.types import KerberosTime, Principal, Ticket
 from impacket.krb5.gssapi import CheckSumField, GSS_C_DCE_STYLE, GSS_C_MUTUAL_FLAG, GSS_C_REPLAY_FLAG, \
     GSS_C_SEQUENCE_FLAG, GSS_C_CONF_FLAG, GSS_C_INTEG_FLAG
 from impacket.krb5 import constants
-from impacket.krb5.crypto import Key, _enctype_table, InvalidChecksum
+from impacket.krb5.crypto import Key, _enctype_table, _get_checksum_profile, Cksumtype, InvalidChecksum
 from impacket.smbconnection import SessionError
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_OID, asn1encode, ASN1_AID
 from impacket.krb5.gssapi import KRB5_AP_REQ
@@ -366,7 +366,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
     return tgt, cipher, key, sessionKey
 
-def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew = False):
+def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew = False, do_checksum=False):
 
     # Decode the TGT
     try:
@@ -378,6 +378,36 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
     # Extract the ticket from the TGT
     ticket = Ticket()
     ticket.from_asn1(decodedTGT['ticket'])
+
+    tgsReq = TGS_REQ()
+
+    reqBody = seq_set(tgsReq, 'req-body')
+
+    opts = list()
+    opts.append( constants.KDCOptions.forwardable.value )
+    opts.append( constants.KDCOptions.renewable.value )
+    opts.append( constants.KDCOptions.renewable_ok.value )
+    opts.append( constants.KDCOptions.canonicalize.value )
+
+    if renew == True:
+        opts.append( constants.KDCOptions.renew.value )
+
+    reqBody['kdc-options'] = constants.encodeFlags(opts)
+    seq_set(reqBody, 'sname', serverName.components_to_asn1)
+    reqBody['realm'] = domain
+
+    now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
+
+    reqBody['till'] = KerberosTime.to_asn1(now)
+    reqBody['nonce'] = rand.getrandbits(31)
+    seq_set_iter(reqBody, 'etype',
+                    (
+                        int(constants.EncryptionTypes.rc4_hmac.value),
+                        int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
+                        int(constants.EncryptionTypes.des_cbc_md5.value),
+                        int(cipher.enctype)
+                    )
+            )
 
     apReq = AP_REQ()
     apReq['pvno'] = 5
@@ -400,6 +430,18 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
     authenticator['cusec'] =  now.microsecond
     authenticator['ctime'] = KerberosTime.to_asn1(now)
 
+    if do_checksum:
+        # Remove asn1 tag 
+        encodedReqBody = encoder.encode(reqBody)[2:]
+        
+        # Key Usage 6
+        checksum_profile = _get_checksum_profile(Cksumtype.SHA1_AES256)
+        checkSum = checksum_profile.checksum( sessionKey, 6, encodedReqBody)
+
+        authenticator['cksum'] = noValue
+        authenticator['cksum']['cksumtype'] = int(Cksumtype.SHA1_AES256)
+        authenticator['cksum']['checksum'] = checkSum
+
     encodedAuthenticator = encoder.encode(authenticator)
 
     # Key Usage 7
@@ -414,8 +456,6 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
 
     encodedApReq = encoder.encode(apReq)
 
-    tgsReq = TGS_REQ()
-
     tgsReq['pvno'] =  5
     tgsReq['msg-type'] = int(constants.ApplicationTagNumbers.TGS_REQ.value)
     tgsReq['padata'] = noValue
@@ -423,37 +463,16 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
     tgsReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_TGS_REQ.value)
     tgsReq['padata'][0]['padata-value'] = encodedApReq
 
-    reqBody = seq_set(tgsReq, 'req-body')
-
-    opts = list()
-    opts.append( constants.KDCOptions.forwardable.value )
-    opts.append( constants.KDCOptions.renewable.value )
-    opts.append( constants.KDCOptions.renewable_ok.value )
-    opts.append( constants.KDCOptions.canonicalize.value )
-
-    if renew == True:
-        opts.append( constants.KDCOptions.renew.value )
-
-    reqBody['kdc-options'] = constants.encodeFlags(opts)
-    seq_set(reqBody, 'sname', serverName.components_to_asn1)
-    reqBody['realm'] = domain
-
-    now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
-
-    reqBody['till'] = KerberosTime.to_asn1(now)
-    reqBody['nonce'] = rand.getrandbits(31)
-    seq_set_iter(reqBody, 'etype',
-                      (
-                          int(constants.EncryptionTypes.rc4_hmac.value),
-                          int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
-                          int(constants.EncryptionTypes.des_cbc_md5.value),
-                          int(cipher.enctype)
-                       )
-                )
-
     message = encoder.encode(tgsReq)
 
-    r = sendReceive(message, domain, kdcHost)
+    try:
+        r = sendReceive(message, domain, kdcHost)
+    except Exception as error:
+        if not do_checksum and str(error).find('KRB_AP_ERR_INAPP_CKSUM') >= 0:
+            LOG.debug('Got KRB_AP_ERR_INAPP_CKSUM, trying with checksum')
+            return getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew, do_checksum=True)
+        else:
+            raise error
 
     # Get the session key
 
