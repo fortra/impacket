@@ -627,7 +627,31 @@ class NegoExContext(object):
         negoBytes = createNegoMessage(MESSAGE_TYPE.INITIATOR_NEGO, self._nextSeq(), self.conversationId, self._authSchemeOrder)
         self._messageHistory.append(negoBytes)
         return negoBytes
- 
+    
+    def createContextToken(self, exchangeData, includeVerify=False):
+        #this builds the EXCHANGE_MESSAGE for non-initial turns during the negoex exchange.
+        if self.selectedScheme is None:
+            raise NegoExError('No NEGOEX mechanism selected')
+
+        msgType = MESSAGE_TYPE.AP_REQUEST if self.isInitiator else MESSAGE_TYPE.CHALLENGE
+        tokenParts = []
+
+        if exchangeData:
+            exchangeBytes = createExchangeMessage(msgType, self._nextSeq(), self.conversationId, self.selectedScheme, exchangeData)
+            tokenParts.append(exchangeBytes)
+            self._messageHistory.append(exchangeBytes)
+
+        if includeVerify:
+            verifyBytes = self._createVerify()
+            if verifyBytes:
+                tokenParts.append(verifyBytes)
+                # _createVerify computes its checksum from
+                # _messageHistory before the VERIFY is appended, so we
+                # only append after the checksum is sealed. Check comments below for more
+                self._messageHistory.append(verifyBytes)
+
+        return b''.join(tokenParts)
+    
     # [MS-NEGOEX] 3.1.5.6
     def processToken(self, data):
         """Process an incoming NEGOEX token using parseNegoExToken().
@@ -674,6 +698,7 @@ class NegoExContext(object):
  
         return exchangePayload
     
+    
     def _processVerify(self, verifyMsg):
         """Validate an incoming VERIFY_MESSAGE checksum"""
 
@@ -698,30 +723,7 @@ class NegoExContext(object):
  
         self._verifyReceived = True
     
-    def createContextToken(self, exchangeData, includeVerify=False):
-        #this builds the EXCHANGE_MESSAGE for non-initial turns during the negoex exchange.
-        if self.selectedScheme is None:
-            raise NegoExError('No NEGOEX mechanism selected')
 
-        msgType = MESSAGE_TYPE.AP_REQUEST if self.isInitiator else MESSAGE_TYPE.CHALLENGE
-        tokenParts = []
-
-        if exchangeData:
-            exchangeBytes = createExchangeMessage(msgType, self._nextSeq(), self.conversationId, self.selectedScheme, exchangeData)
-            tokenParts.append(exchangeBytes)
-            self._messageHistory.append(exchangeBytes)
-
-        if includeVerify:
-            verifyBytes = self._createVerify()
-            if verifyBytes:
-                tokenParts.append(verifyBytes)
-                # _createVerify computes its checksum from
-                # _messageHistory before the VERIFY is appended, so we
-                # only append after the checksum is sealed. Check comments below for more
-                self._messageHistory.append(verifyBytes)
-
-        return b''.join(tokenParts)
-    
     def _createVerify(self):
         if self._verifySent or self.selectedScheme is None:
             return None
