@@ -1719,8 +1719,7 @@ class MSSQL:
                         key["LineNumber"],
                         msg_text,
                     )
-                    # Context-switch messages are protocol noise, log at debug
-                    if msg_text.startswith("Changed database context to"):
+                    if key["Number"] == 5701:
                         debug_logger(log_msg)
                     else:
                         info_logger(log_msg)
