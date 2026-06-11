@@ -753,6 +753,11 @@ class NegoExContext(object):
         self._seqNum += 1
         return seq
     
+    def isComplete(self):
+        """True when both sides have exchanged VERIFY messages."""
+        return self._verifySent and self._verifyReceived
+    
+    
 class NegoExError(Exception):
     pass
 
