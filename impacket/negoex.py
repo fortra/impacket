@@ -662,7 +662,7 @@ class NegoExContext(object):
             elif pm.message_type == MESSAGE_TYPE.ALERT:
                 self._processAlert(pm.message)
  
-            # META_DATA messages (INITIATOR/ACCEPTOR) are recorded in history
+            # META_DATA messages are recorded in history
             # for checksum purposes but otherwise ignored
             # Since this is impacket, we only offer one scheme
             # so there is nothing to negotiate based on metadata.
