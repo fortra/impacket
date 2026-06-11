@@ -102,7 +102,7 @@ def _normalizeGuid(value):
         return uuid.UUID(bytes_le=value)
     if isinstance(value, str):
         return uuid.UUID(value)
-    raise NegoExError('Invalid GUID value: %r' % value)
+    raise NegoExError(f'Invalid GUID value: {value!r}')
 
 
 def _normalizeGuidBytes(value):
@@ -613,7 +613,91 @@ class NegoExContext(object):
         self._authSchemes[schemeId] = scheme
         self._authSchemeOrder.append(schemeId)
 
+    def createInitialToken(self):
+        """Build the INITIATOR_NEGO token with our single auth scheme. We dont really care about extensions or metadata since I expect like with SPENGO
+        that impacket consumers will only initate one authentication scheme at a time. Like you never see someone offering ntlm and kerberos and krb u 2 u in mechlist in spengo."""
+        if not self._authSchemeOrder:
+            raise NegoExError('No auth schemes registered')
+ 
+        if self.conversationId is None:
+            self.conversationId = _normalizeGuid(os.urandom(16))
+ 
+        self.selectedScheme = self._authSchemeOrder[0]
+ 
+        negoBytes = createNegoMessage(MESSAGE_TYPE.INITIATOR_NEGO, self._nextSeq(), self.conversationId, self._authSchemeOrder)
+        self._messageHistory.append(negoBytes)
+        return negoBytes
+ 
+    # [MS-NEGOEX] 3.1.5.6
+    def processToken(self, data):
+        """Process an incoming NEGOEX token using parseNegoExToken().
+ 
+       Returns the exchange payload bytes for the caller to pass to their
+        auth scheme, or None if no exchange data was present.
+        """
+        #NOTE: This function fails the exchange if the peer doesnt send or pick our authentication scheme 
+        messages = parseNegoExToken(data)
+        exchangePayload = None
+        pendingVerify = []
+ 
+        for pm in messages:
+            # Defer VERIFY so its checksum is validated against all prior messages
+            if pm.message_type == MESSAGE_TYPE.VERIFY:
+                pendingVerify.append(pm)
+                continue
+ 
+            self._messageHistory.append(pm.raw_data)
+ 
+            if pm.message is None:
+                continue
+ 
+            if pm.message_type in (MESSAGE_TYPE.ACCEPTOR_NEGO, MESSAGE_TYPE.INITIATOR_NEGO):
+                peerSchemes = [_normalizeGuid(s) for s in pm.message.getAuthSchemeList()]
+                if self.selectedScheme not in peerSchemes:
+                    raise NegoExError(f'Auth scheme {self.selectedScheme} was not accepted by peer')
+ 
+            elif pm.message_type in (MESSAGE_TYPE.CHALLENGE, MESSAGE_TYPE.AP_REQUEST):
+                exchangePayload = pm.message.getExchangeData()
+ 
+            elif pm.message_type == MESSAGE_TYPE.ALERT:
+                self._processAlert(pm.message)
+ 
+            # META_DATA messages (INITIATOR/ACCEPTOR) are recorded in history
+            # for checksum purposes but otherwise ignored
+            # Since this is impacket, we only offer one scheme
+            # so there is nothing to negotiate based on metadata.
+ 
+        # Now validate any VERIFY messages against the complete history
+        for pm in pendingVerify:
+            self._processVerify(pm.message)
+            self._messageHistory.append(pm.raw_data)
+ 
+        return exchangePayload
+    
+    def _processVerify(self, verifyMsg):
+        """Validate an incoming VERIFY_MESSAGE checksum"""
 
+        scheme = self._authSchemes.get(self.selectedScheme)
+        if scheme is None:
+            raise NegoExError('No auth scheme available for VERIFY validation')
+ 
+        keyInfo = scheme.getVerifyKey()
+        if keyInfo is None:
+            raise NegoExError('Auth scheme has no verify key for VERIFY validation')
+ 
+        keyBytes, enctype, checksumType = keyInfo
+ 
+        keyUsage = NEGOEX_KEYUSAGE_ACCEPTOR if self.isInitiator else NEGOEX_KEYUSAGE_INITIATOR
+ 
+        checksumInput = b''.join(self._messageHistory)
+        expectedChecksum = make_checksum(checksumType, Key(enctype, keyBytes), keyUsage, checksumInput)
+        actualChecksum = verifyMsg.getChecksumValue()
+ 
+        if expectedChecksum != actualChecksum:
+            raise NegoExChecksumError(expectedChecksum, actualChecksum)
+ 
+        self._verifyReceived = True
+    
     def createContextToken(self, exchangeData, includeVerify=False):
         #this builds the EXCHANGE_MESSAGE for non-initial turns during the negoex exchange.
         if self.selectedScheme is None:
@@ -632,8 +716,8 @@ class NegoExContext(object):
             if verifyBytes:
                 tokenParts.append(verifyBytes)
                 # _createVerify computes its checksum from
-                # _messageHistory BEFORE the VERIFY is appended, so we
-                # only append after the checksum is sealed.
+                # _messageHistory before the VERIFY is appended, so we
+                # only append after the checksum is sealed. Check comments below for more
                 self._messageHistory.append(verifyBytes)
 
         return b''.join(tokenParts)
@@ -654,7 +738,7 @@ class NegoExContext(object):
         #We are only a initator so not sure how useful this part is
         keyUsage = NEGOEX_KEYUSAGE_INITIATOR if self.isInitiator else NEGOEX_KEYUSAGE_ACCEPTOR
 
-        # Snapshot the history BEFORE producing the VERIFY. The caller
+        # Snapshot the history before producing the VERIFY messaage. Since caller
         # (createContextToken) is responsible for appending the resulting
         # bytes to _messageHistory, after this function returns.
         checksumInput = b''.join(self._messageHistory)
@@ -679,9 +763,9 @@ class NegoExParseError(NegoExError):
         self.field = field
         parts = [message]
         if field is not None:
-            parts.append('field=%s' % field)
+            parts.append(f'field={field}')
         if offset is not None:
-            parts.append('offset=0x%x' % offset)
+            parts.append(f'offset=0x{offset:x}')
         Exception.__init__(self, ' | '.join(parts))
 
 
