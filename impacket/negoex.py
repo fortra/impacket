@@ -613,9 +613,11 @@ class NegoExContext(object):
         self._authSchemes[schemeId] = scheme
         self._authSchemeOrder.append(schemeId)
 
-    def createInitialToken(self):
+    def createInitialToken(self, optimisticToken=None):
         """Build the INITIATOR_NEGO token with our single auth scheme. We dont really care about extensions or metadata since I expect like with SPENGO
-        that impacket consumers will only initate one authentication scheme at a time. Like you never see someone offering ntlm and kerberos and krb u 2 u in mechlist in spengo."""
+        that impacket consumers will only initate one authentication scheme at a time. Like you never see someone offering ntlm and kerberos and krb u 2 u in mechlist in spengo.
+        If the caller sends in an optimsitic token, which is defined in MS-NEGOEX §3.1.5.4 and §1.3 then you can avoid a round trip : )"""
+        
         if not self._authSchemeOrder:
             raise NegoExError('No auth schemes registered')
  
@@ -626,7 +628,14 @@ class NegoExContext(object):
  
         negoBytes = createNegoMessage(MESSAGE_TYPE.INITIATOR_NEGO, self._nextSeq(), self.conversationId, self._authSchemeOrder)
         self._messageHistory.append(negoBytes)
-        return negoBytes
+        
+        if optimisticToken is None:
+            return negoBytes
+
+        apBytes = createExchangeMessage(MESSAGE_TYPE.AP_REQUEST, self._nextSeq(), self.conversationId, self.selectedScheme, optimisticToken)
+        self._messageHistory.append(apBytes)
+        
+        return negoBytes + apBytes
     
     def createContextToken(self, exchangeData, includeVerify=False):
         #this builds the EXCHANGE_MESSAGE for non-initial turns during the negoex exchange.
