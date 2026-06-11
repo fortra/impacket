@@ -2056,7 +2056,9 @@ class MSSQL:
                 )
             self.__rowsPrinter.logMessage("\r")
 
-    def printReplies(self, error_logger=LOG.error, info_logger=LOG.info):
+    def printReplies(
+        self, error_logger=LOG.error, info_logger=LOG.info, debug_logger=LOG.debug
+    ):
         for keys in list(self.replies.keys()):
             for i, key in enumerate(self.replies[keys]):
                 if key["TokenType"] == TDS_ERROR_TOKEN:
@@ -2071,14 +2073,16 @@ class MSSQL:
                     error_logger(self.lastError)
 
                 elif key["TokenType"] == TDS_INFO_TOKEN:
-                    info_logger(
-                        "INFO(%s): Line %d: %s"
-                        % (
-                            key["ServerName"].decode("utf-16le"),
-                            key["LineNumber"],
-                            key["MsgText"].decode("utf-16le"),
-                        )
+                    msg_text = key["MsgText"].decode("utf-16le")
+                    log_msg = "INFO(%s): Line %d: %s" % (
+                        key["ServerName"].decode("utf-16le"),
+                        key["LineNumber"],
+                        msg_text,
                     )
+                    if key["Number"] == 5701:
+                        debug_logger(log_msg)
+                    else:
+                        info_logger(log_msg)
 
                 elif key["TokenType"] == TDS_LOGINACK_TOKEN:
                     info_logger(
