@@ -380,7 +380,6 @@ class NegoExTests(unittest.TestCase):
 
         self.assertEqual(challenge_payload, result)
         self.assertEqual(MS_EXAMPLE_AUTH_SCHEME, ctx.selectedScheme)
-        self.assertEqual([MS_EXAMPLE_AUTH_SCHEME], ctx.selectedScheme)
 
         self.assertEqual(3, ctx._seqNum)
         self.assertEqual(
