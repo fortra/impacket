@@ -694,7 +694,7 @@ class NegoExContext(object):
  
             elif pm.message_type == MESSAGE_TYPE.ALERT:
                 self._processAlert(pm.message)
- 
+            self._seqNum = self._seqNum + 1
             # META_DATA messages are recorded in history
             # for checksum purposes but otherwise ignored
             # Since this is impacket, we only offer one scheme
@@ -704,6 +704,7 @@ class NegoExContext(object):
         for pm in pendingVerify:
             self._processVerify(pm.message)
             self._messageHistory.append(pm.raw_data)
+            self._seqNum = self._seqNum + 1
  
         return exchangePayload
     
