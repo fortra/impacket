@@ -1268,13 +1268,13 @@ class SMB3:
            # Is this file NOT on the root directory?
            if len(fileName.split('\\')) > 2:
                parentDir = ntpath.dirname(pathName)
-           if parentDir in self.GlobalFileTable:
-               raise Exception("Don't know what to do now! :-o")
-           else:
-               parentEntry = copy.deepcopy(FILE)
-               parentEntry['LeaseKey']   = uuid.generate()
-               parentEntry['LeaseState'] = SMB2_LEASE_NONE
-               self.GlobalFileTable[parentDir] = parentEntry
+               if parentDir in self.GlobalFileTable:
+                   raise Exception("Don't know what to do now! :-o")
+               else:
+                   parentEntry = copy.deepcopy(FILE)
+                   parentEntry['LeaseKey']   = uuid.generate()
+                   parentEntry['LeaseState'] = SMB2_LEASE_NONE
+                   self.GlobalFileTable[parentDir] = parentEntry
 
         packet = self.SMB_PACKET()
         packet['Command'] = SMB2_CREATE
