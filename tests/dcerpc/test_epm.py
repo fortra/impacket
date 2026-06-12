@@ -14,6 +14,7 @@
 #
 from __future__ import division
 from __future__ import print_function
+import ast
 import socket
 import pytest
 import unittest
@@ -119,6 +120,27 @@ class EPMTestsTCPTransport(EPMTests, unittest.TestCase):
 class EPMTestsTCPTransport64(EPMTests, unittest.TestCase):
     string_binding = r"ncacn_ip_tcp:{0.machine}[135]"
     transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR64
+
+
+class EPMKnownProtocolsTests(unittest.TestCase):
+    def test_known_protocols_has_no_duplicate_keys(self):
+        # KNOWN_PROTOCOLS is a dict literal keyed by interface UUID. Python
+        # silently collapses duplicate keys, so the same UUID listed twice
+        # makes one entry shadow the other and yields a wrong lookup. Parse
+        # the source and assert every key is unique (see issue #2126).
+        with open(epm.__file__) as f:
+            tree = ast.parse(f.read())
+
+        keys = None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict) \
+                    and any(isinstance(t, ast.Name) and t.id == "KNOWN_PROTOCOLS" for t in node.targets):
+                keys = [k.value for k in node.value.keys if isinstance(k, ast.Constant)]
+                break
+
+        self.assertIsNotNone(keys, "KNOWN_PROTOCOLS dict literal not found")
+        duplicates = sorted(k for k in set(keys) if keys.count(k) > 1)
+        self.assertEqual(duplicates, [], "Duplicate keys in KNOWN_PROTOCOLS: %s" % duplicates)
 
 
 # Process command-line arguments.
