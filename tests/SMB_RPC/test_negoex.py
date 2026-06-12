@@ -26,6 +26,7 @@ from impacket.negoex import (
     AlertMessage,
     ExchangeMessage,
     MessageHeader,
+    NegoExContext,
     NegoExParseError,
     NegoMessage,
     VerifyMessage,
@@ -35,6 +36,27 @@ from impacket.negoex import (
     createVerifyMessage,
     parseNegoExToken,
 )
+
+MS_EXAMPLE_INITIATOR_NEGO = bytes.fromhex(
+    '4e45474f4558545300000000000000006000000070000000'
+    '3691b812168cbad4f67c3b24f06935c7f11e9e4567892283'
+    '8ae1f2232fdbdb12dcbe229f8c3f58694de60a4f5a828ef4'
+    '000000000000000060000000010000000000000000000000'
+    '5c33530deaf90d4db2ec4ae3786ec308'
+)
+
+MS_EXAMPLE_AUTH_SCHEME = uuid.UUID(bytes_le=MS_EXAMPLE_INITIATOR_NEGO[96:112])
+
+
+class NegoExTestAuthScheme(object):
+    def __init__(self, schemeId):
+        self._schemeId = schemeId
+
+    def getAuthSchemeId(self):
+        return self._schemeId
+
+    def getVerifyKey(self):
+        return None
 
 
 class NegoExTests(unittest.TestCase):
@@ -302,6 +324,91 @@ class NegoExTests(unittest.TestCase):
         self.assertEqual(self.conversation_id.bytes_le, nego_data[24:40])
         self.assertEqual(self.auth_scheme.bytes_le, nego_data[NEGO_HEADER_SIZE:NEGO_HEADER_SIZE + 16])
         self.assertEqual(self.auth_scheme.bytes_le, exchange_data[40:56])
+    
+    def test_state_machine_initial_token_uses_ms_example_auth_scheme(self):
+        ctx = NegoExContext()
+        ctx.registerAuthScheme(NegoExTestAuthScheme(MS_EXAMPLE_AUTH_SCHEME))
+
+        data = ctx.createInitialToken()
+
+        parsed = parseNegoExToken(data)
+        self.assertEqual(1, len(parsed))
+        self.assertEqual(data, parsed[0].raw_data)
+
+        msg = parsed[0].message
+        header = msg['Header']
+
+        self.assertEqual(MESSAGE_TYPE.INITIATOR_NEGO, parsed[0].message_type)
+        self.assertEqual(MESSAGE_TYPE.INITIATOR_NEGO, header['MessageType'])
+        self.assertEqual(0, header['SequenceNum'])
+        self.assertEqual(NEGO_HEADER_SIZE, header['cbHeaderLength'])
+        self.assertEqual(len(data), header['cbMessageLength'])
+        self.assertEqual(ctx.conversationId.bytes_le, header['ConversationId'])
+
+        self.assertEqual(NEGOEX_PROTOCOL_VERSION, msg['ProtocolVersion'])
+        self.assertEqual([MS_EXAMPLE_AUTH_SCHEME.bytes_le], msg.getAuthSchemeList())
+        self.assertEqual(0, len(msg.getExtensionList()))
+
+        self.assertEqual(MS_EXAMPLE_AUTH_SCHEME, ctx.selectedScheme)
+        self.assertEqual(1, ctx._seqNum)
+        self.assertEqual([data], ctx._messageHistory)
+
+    def test_state_machine_processes_ms_style_acceptor_response_and_continues(self):
+        ctx = NegoExContext()
+        ctx.registerAuthScheme(NegoExTestAuthScheme(MS_EXAMPLE_AUTH_SCHEME))
+
+        initiator_nego = ctx.createInitialToken()
+
+        acceptor_nego = createNegoMessage(
+            MESSAGE_TYPE.ACCEPTOR_NEGO,
+            1,
+            ctx.conversationId,
+            [MS_EXAMPLE_AUTH_SCHEME],
+            extensions=[],
+        )
+
+        challenge_payload = b'opaque-challenge'
+        challenge = createExchangeMessage(
+            MESSAGE_TYPE.CHALLENGE,
+            2,
+            ctx.conversationId,
+            MS_EXAMPLE_AUTH_SCHEME,
+            challenge_payload,
+        )
+
+        result = ctx.processToken(acceptor_nego + challenge)
+
+        self.assertEqual(challenge_payload, result)
+        self.assertEqual(MS_EXAMPLE_AUTH_SCHEME, ctx.selectedScheme)
+        self.assertEqual([MS_EXAMPLE_AUTH_SCHEME], ctx._mutualSchemes)
+
+        self.assertEqual(3, ctx._seqNum)
+        self.assertEqual(
+            [initiator_nego, acceptor_nego, challenge],
+            ctx._messageHistory,
+        )
+
+        ap_request_payload = b'opaque-ap-request'
+        ap_request = ctx.createContextToken(ap_request_payload)
+
+        parsed = parseNegoExToken(ap_request)
+        self.assertEqual(1, len(parsed))
+        self.assertEqual(MESSAGE_TYPE.AP_REQUEST, parsed[0].message_type)
+
+        msg = parsed[0].message
+        header = msg['Header']
+
+        self.assertEqual(MESSAGE_TYPE.AP_REQUEST, header['MessageType'])
+        self.assertEqual(3, header['SequenceNum'])
+        self.assertEqual(ctx.conversationId.bytes_le, header['ConversationId'])
+        self.assertEqual(MS_EXAMPLE_AUTH_SCHEME.bytes_le, msg.getAuthScheme())
+        self.assertEqual(ap_request_payload, msg.getExchangeData())
+
+        self.assertEqual(4, ctx._seqNum)
+        self.assertEqual(
+            [initiator_nego, acceptor_nego, challenge, ap_request],
+            ctx._messageHistory,
+        )
 
 
 if __name__ == '__main__':
