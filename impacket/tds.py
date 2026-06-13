@@ -819,10 +819,10 @@ class TDS_SSVARIANT(Structure):
         Parse the sql_variant data and extract the base type, properties, and value.
 
         Returns:
-            Parsed value in its appropriate Python type, or 'NULL' if empty
+            Parsed value in its appropriate Python type, or None if empty
         """
         if self["TotalLength"] == 0:
-            return "NULL"
+            return None
 
         data = self["Data"]
 
@@ -955,7 +955,7 @@ class TDS_SSVARIANT(Structure):
                 # date: 3-byte unsigned integer (days since year 1)
                 # VARIANT_PROPBYTES = 0
                 if len(data) < 3:
-                    return "NULL"
+                    return None
                 dateValue = struct.unpack("<L", data[:3] + b"\x00")[0]
                 return datetime.date.fromordinal(dateValue)
 
@@ -992,7 +992,7 @@ class TDS_SSVARIANT(Structure):
                 timeBytes = 3 if scale <= 2 else (4 if scale <= 4 else 5)
 
                 if len(data) < timeBytes + 3:
-                    return "NULL"
+                    return None
 
                 # Parse time part
                 if timeBytes == 3:
@@ -1033,7 +1033,7 @@ class TDS_SSVARIANT(Structure):
                 timeBytes = 3 if scale <= 2 else (4 if scale <= 4 else 5)
 
                 if len(data) < timeBytes + 5:
-                    return "NULL"
+                    return None
 
                 # Parse time part
                 if timeBytes == 3:
@@ -1083,7 +1083,7 @@ class TDS_SSVARIANT(Structure):
                 scale = properties[1] if len(properties) > 1 else 0
 
                 if len(data) == 0:
-                    return "NULL"
+                    return None
 
                 # First byte is sign (1 = positive, 0 = negative)
                 sign = 1 if data[0] == 1 else -1
@@ -1120,6 +1120,7 @@ class MSSQL:
         remoteName="",
         workstation_id: str = "",
         application_name: str = "",
+        client_interface_name: str = "",
         rowsPrinter=DummyPrint(),
     ):
         # self.packetSize = 32764
@@ -1149,6 +1150,7 @@ class MSSQL:
         self._application_name = (
             application_name or "Microsoft SQL Server Management Studio - Query"
         )
+        self._client_interface_name = (client_interface_name or "Framework Microsoft SqlClient Data Provider for SQL Server")
 
     # With Kerberos we need to know to which MSSQL instance we are going to connect (to compute the SPN)
     # As such we need to be able to list these instances which is what this code does
@@ -1588,7 +1590,7 @@ class MSSQL:
         TGT=None,
         TGS=None,
         useCache=True,
-        cbt_fake_value=None
+        cbt_fake_value=None,
     ):
         if hashes is not None:
             lmhash, nthash = hashes.split(":")
@@ -1614,7 +1616,7 @@ class MSSQL:
         login["HostName"] = self.workstation_id.encode("utf-16le")
         login["AppName"] = self.application_name.encode("utf-16le")
         login["ServerName"] = self.remoteName.encode("utf-16le")
-        login["CltIntName"] = login["AppName"]
+        login["CltIntName"] = self.client_interface_name.encode("utf-16le")
         login["ClientPID"] = random.randint(0, 1024)
         login["PacketSize"] = self.packetSize
         if database is not None:
@@ -1856,7 +1858,7 @@ class MSSQL:
         domain="",
         hashes=None,
         useWindowsAuth=False,
-        cbt_fake_value=None
+        cbt_fake_value=None,
     ):
 
         if hashes is not None:
@@ -1883,7 +1885,7 @@ class MSSQL:
         login["HostName"] = self.workstation_id.encode("utf-16le")
         login["AppName"] = self.application_name.encode("utf-16le")
         login["ServerName"] = self.remoteName.encode("utf-16le")
-        login["CltIntName"] = login["AppName"]
+        login["CltIntName"] = self.client_interface_name.encode("utf-16le")
         login["ClientPID"] = random.randint(0, 1024)
         login["PacketSize"] = self.packetSize
         if database is not None:
@@ -2018,8 +2020,9 @@ class MSSQL:
 
             col["minLenght"] = 0
             for row in self.rows:
-                if len(str(row[col["Name"]])) > col["minLenght"]:
-                    col["minLenght"] = len(str(row[col["Name"]]))
+                display = "NULL" if row[col["Name"]] is None else str(row[col["Name"]])
+                if len(display) > col["minLenght"]:
+                    col["minLenght"] = len(display)
             if col["minLenght"] < col["Length"]:
                 col["Length"] = col["minLenght"]
 
@@ -2049,12 +2052,16 @@ class MSSQL:
         self.printColumnsHeader()
         for row in self.rows:
             for col in self.colMeta:
+                value = row[col["Name"]]
+                display = "NULL" if value is None else value
                 self.__rowsPrinter.logMessage(
-                    col["Format"] % row[col["Name"]] + self.COL_SEPARATOR
+                    col["Format"] % display + self.COL_SEPARATOR
                 )
             self.__rowsPrinter.logMessage("\r")
 
-    def printReplies(self, error_logger=LOG.error, info_logger=LOG.info):
+    def printReplies(
+        self, error_logger=LOG.error, info_logger=LOG.info, debug_logger=LOG.debug
+    ):
         for keys in list(self.replies.keys()):
             for i, key in enumerate(self.replies[keys]):
                 if key["TokenType"] == TDS_ERROR_TOKEN:
@@ -2069,14 +2076,16 @@ class MSSQL:
                     error_logger(self.lastError)
 
                 elif key["TokenType"] == TDS_INFO_TOKEN:
-                    info_logger(
-                        "INFO(%s): Line %d: %s"
-                        % (
-                            key["ServerName"].decode("utf-16le"),
-                            key["LineNumber"],
-                            key["MsgText"].decode("utf-16le"),
-                        )
+                    msg_text = key["MsgText"].decode("utf-16le")
+                    log_msg = "INFO(%s): Line %d: %s" % (
+                        key["ServerName"].decode("utf-16le"),
+                        key["LineNumber"],
+                        msg_text,
                     )
+                    if key["Number"] == 5701:
+                        debug_logger(log_msg)
+                    else:
+                        info_logger(log_msg)
 
                 elif key["TokenType"] == TDS_LOGINACK_TOKEN:
                     info_logger(
@@ -2134,7 +2143,7 @@ class MSSQL:
                     value = data[:charLen].decode("utf-16le")
                     data = data[charLen:]
                 else:
-                    value = "NULL"
+                    value = None
 
             elif _type == TDS_BIGVARCHRTYPE:
                 charLen = struct.unpack("<H", data[:2])[0]
@@ -2151,7 +2160,7 @@ class MSSQL:
                     except UnicodeDecodeError:
                         value = raw.decode("utf-8", errors="replace")
                 else:
-                    value = "NULL"
+                    value = None
 
             elif _type == TDS_GUIDTYPE:
                 uuidLen = ord(data[0:1])
@@ -2161,13 +2170,13 @@ class MSSQL:
                     value = uuid.bin_to_string(uu)
                     data = data[uuidLen:]
                 else:
-                    value = "NULL"
+                    value = None
 
             elif (_type == TDS_NTEXTTYPE) | (_type == TDS_IMAGETYPE):
                 # Skip the pointer data
                 charLen = ord(data[0:1])
                 if charLen == 0:
-                    value = "NULL"
+                    value = None
                     data = data[1:]
                 else:
                     data = data[1 + charLen + 8 :]
@@ -2180,13 +2189,13 @@ class MSSQL:
                             value = binascii.b2a_hex(data[:charLen])
                         data = data[charLen:]
                     else:
-                        value = "NULL"
+                        value = None
 
             elif _type == TDS_TEXTTYPE:
                 # Skip the pointer data
                 charLen = ord(data[0:1])
                 if charLen == 0:
-                    value = "NULL"
+                    value = None
                     data = data[1:]
                 else:
                     data = data[1 + charLen + 8 :]
@@ -2196,7 +2205,7 @@ class MSSQL:
                         value = data[:charLen]
                         data = data[charLen:]
                     else:
-                        value = "NULL"
+                        value = None
 
             elif (_type == TDS_BIGVARBINTYPE) | (_type == TDS_BIGBINARYTYPE):
                 charLen = struct.unpack("<H", data[: struct.calcsize("<H")])[0]
@@ -2205,14 +2214,14 @@ class MSSQL:
                     value = binascii.b2a_hex(data[:charLen])
                     data = data[charLen:]
                 else:
-                    value = "NULL"
+                    value = None
 
             elif (
                 (_type == TDS_DATETIM4TYPE)
                 | (_type == TDS_DATETIMNTYPE)
                 | (_type == TDS_DATETIMETYPE)
             ):
-                value = ""
+                value = None
                 if _type == TDS_DATETIMNTYPE:
                     # For DATETIMNTYPE, the only valid lengths are 0x04 and 0x08, which map to smalldatetime and
                     # datetime SQL data _types respectively.
@@ -2220,8 +2229,6 @@ class MSSQL:
                         _type = TDS_DATETIM4TYPE
                     elif ord(data[0:1]) == 8:
                         _type = TDS_DATETIMETYPE
-                    else:
-                        value = "NULL"
                     data = data[1:]
                 if _type == TDS_DATETIMETYPE:
                     # datetime is represented in the following sequence:
@@ -2237,6 +2244,19 @@ class MSSQL:
                         baseDate = datetime.date(1900, 1, 1)
                     timeValue = struct.unpack("<L", data[:4])[0]
                     data = data[4:]
+                    dateValue = datetime.date.fromordinal(
+                        baseDate.toordinal() + dateValue
+                    )
+                    hours, mod = divmod(timeValue // 300, 60 * 60)
+                    minutes, second = divmod(mod, 60)
+                    value = datetime.datetime(
+                        dateValue.year,
+                        dateValue.month,
+                        dateValue.day,
+                        hours,
+                        minutes,
+                        second,
+                    )
                 elif _type == TDS_DATETIM4TYPE:
                     # Small datetime
                     # 2.2.5.5.1.8
@@ -2250,19 +2270,17 @@ class MSSQL:
                     timeValue = struct.unpack("<H", data[: struct.calcsize("<H")])[0]
                     data = data[struct.calcsize("<H") :]
                     baseDate = datetime.date(1900, 1, 1)
-                if value != "NULL":
                     dateValue = datetime.date.fromordinal(
                         baseDate.toordinal() + dateValue
                     )
-                    hours, mod = divmod(timeValue // 300, 60 * 60)
-                    minutes, second = divmod(mod, 60)
+                    hours, minutes = divmod(timeValue, 60)
                     value = datetime.datetime(
                         dateValue.year,
                         dateValue.month,
                         dateValue.day,
                         hours,
                         minutes,
-                        second,
+                        0,
                     )
 
             elif _type == TDS_INT4TYPE:
@@ -2291,7 +2309,7 @@ class MSSQL:
                     value = struct.unpack(fmt, data[:valueSize])[0]
                     data = data[valueSize:]
                 else:
-                    value = "NULL"
+                    value = None
 
             elif _type == TDS_MONEYNTYPE:
                 valueSize = ord(data[:1])
@@ -2309,7 +2327,7 @@ class MSSQL:
                     value = Decimal(raw) / Decimal(10000)
                     data = data[valueSize:]
                 else:
-                    value = "NULL"
+                    value = None
 
             elif _type == TDS_BIGCHARTYPE:
                 # print "BIGC"
@@ -2349,7 +2367,7 @@ class MSSQL:
                     value = datetime.date.fromordinal(dateValue)
                     data = data[valueSize:]
                 else:
-                    value = "NULL"
+                    value = None
 
             elif (_type == TDS_BITTYPE) | (_type == TDS_INT1TYPE):
                 # print "BITTYPE"
@@ -2361,7 +2379,7 @@ class MSSQL:
                 data = data[1:]
 
                 if valueLen == 0:
-                    value = "NULL"
+                    value = None
                 else:
                     raw = data[:valueLen]
                     data = data[valueLen:]
@@ -2390,7 +2408,7 @@ class MSSQL:
                     else:
                         value = data[:valueSize]
                 else:
-                    value = "NULL"
+                    value = None
                 data = data[valueSize:]
 
             elif _type == TDS_INTNTYPE:
@@ -2412,7 +2430,7 @@ class MSSQL:
                     value = struct.unpack(fmt, data[:valueSize])[0]
                     data = data[valueSize:]
                 else:
-                    value = "NULL"
+                    value = None
             elif _type == TDS_SSVARIANTTYPE:
                 totalLength = struct.unpack("<L", data[:4])[0]
 
@@ -2700,3 +2718,7 @@ class MSSQL:
     @property
     def application_name(self):
         return self._application_name
+
+    @property
+    def client_interface_name(self):
+        return self._client_interface_name

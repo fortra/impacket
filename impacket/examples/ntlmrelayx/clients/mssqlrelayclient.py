@@ -37,7 +37,7 @@ PROTOCOL_CLIENT_CLASS = "MSSQLRelayClient"
 
 class MYMSSQL(MSSQL):
     def __init__(self, address, port=1433, rowsPrinter=DummyPrint()):
-        MSSQL.__init__(self, address, port, rowsPrinter)
+        MSSQL.__init__(self, address, port=port, rowsPrinter=rowsPrinter)
         self.resp = None
         self.sessionData = {}
 
