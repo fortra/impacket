@@ -2747,12 +2747,14 @@ class NTDSHashes:
     def __init__(self, ntdsFile, bootKey, isRemote=False, history=False, noLMHash=True, remoteOps=None,
                  useVSSMethod=False, remoteSSMethodWMINTDS=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None,
                  justUser=None, skipUser=None, ldapFilter=None, printUserStatus=False, localDomainSid=None,
-                 trustKeys=False, domainFQDN=None,
+                 trustKeys=False, domainFQDN=None, justTrustKeys=False,
                  perSecretCallback = lambda secretType, secret : _print_helper(secret),
                  resumeSessionMgr=ResumeSessionMgrInFile):
         self.__bootKey = bootKey
         self.__NTDS = ntdsFile
-        self.__trustKeys = trustKeys
+        # -just-trust-keys implies -trust-keys, but skips the account enumeration entirely.
+        self.__justTrustKeys = justTrustKeys
+        self.__trustKeys = trustKeys or justTrustKeys
         self.__domainFQDN = domainFQDN
         self.__history = history
         self.__noLMHash = noLMHash
@@ -3452,6 +3454,10 @@ class NTDSHashes:
         tdoGuid = result['rItems'][0]['pName'][:-1].strip('{}')
 
         record = self.__remoteOps.DRSGetTrustedDomain(tdoGuid)
+        # DRSGetTrustedDomain/DRSCrackNames connect the DRS handle lazily. Re-fetch it here so
+        # DecryptAttributeValue gets a live handle even when the account enumeration was skipped
+        # (-just-trust-keys), where getDrsr() returned None before the first DRS call.
+        drsr = self.__remoteOps.getDrsr()
         reply = 'V%d' % record['pdwOutVersion']
         if record['pmsgOut'][reply]['cNumObjects'] == 0:
             LOG.error('No object replicated for %s' % partner)
@@ -3547,16 +3553,18 @@ class NTDSHashes:
                     keysOutputFile = openFile(self.__outputFileName+'.ntds.kerberos',mode)
                     clearTextOutputFile = openFile(self.__outputFileName+'.ntds.cleartext',mode)
 
-            LOG.info('Dumping Domain Credentials (domain\\uid:rid:lmhash:nthash)')
+            if not self.__justTrustKeys:
+                LOG.info('Dumping Domain Credentials (domain\\uid:rid:lmhash:nthash)')
             if self.__useVSSMethod or self.__remoteSSMethodWMINTDS:
                 # We start getting rows from the table aiming at reaching
                 # the pekList. If we find users records we stored them
                 # in a temp list for later process.
                 self.__getPek()
                 if self.__PEK is not None:
-                    LOG.info('Reading and decrypting hashes from %s ' % self.__NTDS)
+                    if not self.__justTrustKeys:
+                        LOG.info('Reading and decrypting hashes from %s ' % self.__NTDS)
                     # First of all, if we have users already cached, let's decrypt their hashes
-                    for record in self.__tmpUsers:
+                    for record in ([] if self.__justTrustKeys else self.__tmpUsers):
                         try:
                             self.__decryptHash(record, outputFile=hashesOutputFile)
                             if self.__justNTLM is False:
@@ -3581,7 +3589,7 @@ class NTDSHashes:
                                 pass
 
                     # Now let's keep moving through the NTDS file and decrypting what we find
-                    while True:
+                    while not self.__justTrustKeys:
                         try:
                             record = self.__ESEDB.getNextRow(self.__cursor, filter_tables=self.__filter_tables_usersecret)
                         except:
@@ -3620,7 +3628,7 @@ class NTDSHashes:
                         except Exception as e:
                             LOG.debug('Exception', exc_info=True)
                             LOG.error('Trusted domain key dump failed: %s' % str(e))
-            else:
+            elif not self.__justTrustKeys:
                 LOG.info('Using the DRSUAPI method to get NTDS.DIT secrets')
                 status = STATUS_MORE_ENTRIES
                 enumerationContext = 0
