@@ -26,25 +26,26 @@ from impacket.structure import Structure
 SMB2_PACKET_SIZE     = 64
 
 # SMB Commands
-SMB2_NEGOTIATE       = 0x0000 #
-SMB2_SESSION_SETUP   = 0x0001 #
-SMB2_LOGOFF          = 0x0002 #
-SMB2_TREE_CONNECT    = 0x0003 #
-SMB2_TREE_DISCONNECT = 0x0004 #
-SMB2_CREATE          = 0x0005 #
-SMB2_CLOSE           = 0x0006 #
-SMB2_FLUSH           = 0x0007 #
-SMB2_READ            = 0x0008 #
-SMB2_WRITE           = 0x0009 #
-SMB2_LOCK            = 0x000A #
-SMB2_IOCTL           = 0x000B #
-SMB2_CANCEL          = 0x000C #
-SMB2_ECHO            = 0x000D #
-SMB2_QUERY_DIRECTORY = 0x000E #
-SMB2_CHANGE_NOTIFY   = 0x000F
-SMB2_QUERY_INFO      = 0x0010 #
-SMB2_SET_INFO        = 0x0011
-SMB2_OPLOCK_BREAK    = 0x0012
+SMB2_NEGOTIATE                     = 0x0000
+SMB2_SESSION_SETUP                 = 0x0001
+SMB2_LOGOFF                        = 0x0002
+SMB2_TREE_CONNECT                  = 0x0003
+SMB2_TREE_DISCONNECT               = 0x0004
+SMB2_CREATE                        = 0x0005
+SMB2_CLOSE                         = 0x0006
+SMB2_FLUSH                         = 0x0007
+SMB2_READ                          = 0x0008
+SMB2_WRITE                         = 0x0009
+SMB2_LOCK                          = 0x000A
+SMB2_IOCTL                         = 0x000B
+SMB2_CANCEL                        = 0x000C
+SMB2_ECHO                          = 0x000D
+SMB2_QUERY_DIRECTORY               = 0x000E
+SMB2_CHANGE_NOTIFY                 = 0x000F
+SMB2_QUERY_INFO                    = 0x0010
+SMB2_SET_INFO                      = 0x0011
+SMB2_OPLOCK_BREAK                  = 0x0012
+SMB2_SERVER_TO_CLIENT_NOTIFICATION = 0x0013
 
 # SMB Flags
 SMB2_FLAGS_SERVER_TO_REDIR    = 0x00000001
@@ -88,6 +89,7 @@ SMB2_GLOBAL_CAP_MULTI_CHANNEL      = 0x08
 SMB2_GLOBAL_CAP_PERSISTENT_HANDLES = 0x10
 SMB2_GLOBAL_CAP_DIRECTORY_LEASING  = 0x20
 SMB2_GLOBAL_CAP_ENCRYPTION         = 0x40
+SMB2_GLOBAL_CAP_NOTIFICATIONS      = 0x80
 
 # Dialects
 SMB2_DIALECT_002      = 0x0202
@@ -451,6 +453,10 @@ SL_INDEX_SPECIFIED      = 0x00000004
 # TRANSFORM_HEADER
 SMB2_ENCRYPTION_AES128_CCM = 0x0001
 SMB2_ENCRYPTION_AES128_GCM = 0x0002
+
+# SMB_NOTIFICATION_ID
+SmbNotifySessionClosed = 0x00000000
+
 
 
 # STRUCtures
@@ -1592,4 +1598,19 @@ class FileSecInformation(Structure):
         ('OffsetToGroup','<I=0'),
         ('OffsetToSACL','<I=0'),
         ('OffsetToDACL','<I=0'),
+    )
+
+
+# SMB2_SERVER_TO_CLIENT_NOTIFICATION
+class SMB2_SERVER_TO_CLIENT_NOTIFICATION(Structure):
+    structure = (
+        ('StructureSize','<H=12'),
+        ('Reserved','<H=0'),
+        ('NotificationType','<I=0'),
+        ('Notification',':'),
+    )
+
+class SMB2_NOTIFY_SESSION_CLOSED(Structure):
+    structure = (
+        ('Reserved','<I=0'),
     )
