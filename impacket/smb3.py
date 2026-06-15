@@ -745,8 +745,7 @@ class SMB3:
         if TGT is None:
             if TGS is None:
                 tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
-                # Persist the TGT we just obtained so callers can reuse it through getCredentials()
-                self.__TGT = {'KDC_REP': tgt, 'cipher': cipher, 'sessionKey': sessionKey}
+                TGT = {'KDC_REP': tgt, 'cipher': cipher, 'sessionKey': sessionKey}
         else:
             tgt = TGT['KDC_REP']
             cipher = TGT['cipher']
@@ -771,8 +770,7 @@ class SMB3:
         if TGS is None:
             serverName = Principal('cifs/%s' % (self._Connection['ServerName']), type=constants.PrincipalNameType.NT_SRV_INST.value)
             tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
-            # Persist the ST we just obtained so callers can reuse it through getCredentials()
-            self.__TGS = {'KDC_REP': tgs, 'cipher': cipher, 'sessionKey': sessionKey}
+            TGS = {'KDC_REP': tgs, 'cipher': cipher, 'sessionKey': sessionKey}
         else:
             tgs = TGS['KDC_REP']
             cipher = TGS['cipher']
@@ -938,6 +936,11 @@ class SMB3:
                                                                              b"ServerOut\x00", 128)
 
             self._Session['CalculatePreAuthHash'] = False
+
+            # Persist the TGT/ST so callers can reuse them through getCredentials()
+            self.__TGT = TGT
+            self.__TGS = TGS
+
             return True
         else:
             # We clean the stuff we used in case we want to authenticate again
