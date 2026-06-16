@@ -354,18 +354,18 @@ class NegoExTests(unittest.TestCase):
         self.assertEqual([data], ctx._messageHistory)
 
     def test_acceptor_selects_scheme_from_initiator_nego(self):
-    ctx = NegoExContext(isInitiator=False)
-    ctx.registerAuthScheme(NegoExTestAuthScheme(self.auth_scheme))
-    token = createNegoMessage(
-        MESSAGE_TYPE.INITIATOR_NEGO,
-        0,
-        self.conversation_id,
-        [self.auth_scheme],
-        extensions=[],
-    )
-    self.assertIsNone(ctx.processToken(token))
-    self.assertEqual(self.auth_scheme, ctx.selectedScheme)
-    self.assertEqual(self.conversation_id, ctx.conversationId)
+        ctx = NegoExContext(isInitiator=False)
+        ctx.registerAuthScheme(NegoExTestAuthScheme(self.auth_scheme))
+        token = createNegoMessage(
+            MESSAGE_TYPE.INITIATOR_NEGO,
+            0,
+            self.conversation_id,
+            [self.auth_scheme],
+            extensions=[],
+        )
+        self.assertIsNone(ctx.processToken(token))
+        self.assertEqual(self.auth_scheme, ctx.selectedScheme)
+        self.assertEqual(self.conversation_id, ctx.conversationId)
 
 def test_alert_is_handled_without_attribute_error(self):
     ctx = NegoExContext()
