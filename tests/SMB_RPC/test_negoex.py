@@ -353,6 +353,58 @@ class NegoExTests(unittest.TestCase):
         self.assertEqual(1, ctx._seqNum)
         self.assertEqual([data], ctx._messageHistory)
 
+    def test_acceptor_selects_scheme_from_initiator_nego(self):
+    ctx = NegoExContext(isInitiator=False)
+    ctx.registerAuthScheme(NegoExTestAuthScheme(self.auth_scheme))
+    token = createNegoMessage(
+        MESSAGE_TYPE.INITIATOR_NEGO,
+        0,
+        self.conversation_id,
+        [self.auth_scheme],
+        extensions=[],
+    )
+    self.assertIsNone(ctx.processToken(token))
+    self.assertEqual(self.auth_scheme, ctx.selectedScheme)
+    self.assertEqual(self.conversation_id, ctx.conversationId)
+
+def test_alert_is_handled_without_attribute_error(self):
+    ctx = NegoExContext()
+    ctx.registerAuthScheme(NegoExTestAuthScheme(self.auth_scheme))
+    ctx.createInitialToken()
+    alert = createAlertMessage(1, ctx.conversationId, self.auth_scheme)
+    # Should process cleanly without raising any issues based on current defintions
+    self.assertIsNone(ctx.processToken(alert))
+
+def test_rejects_exchange_for_non_selected_auth_scheme(self):
+    other_scheme = uuid.UUID('11111111-2222-3333-4444-555555555555')
+    ctx = NegoExContext()
+    ctx.registerAuthScheme(NegoExTestAuthScheme(self.auth_scheme))
+    ctx.createInitialToken()
+    challenge = createExchangeMessage(
+        MESSAGE_TYPE.CHALLENGE,
+        1,
+        ctx.conversationId,
+        other_scheme,
+        b'bad',
+    )
+    with self.assertRaises(NegoExError):
+        ctx.processToken(challenge)
+
+def test_rejects_message_with_wrong_conversation_id(self):
+    wrong_conversation_id = uuid.UUID('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee')
+    ctx = NegoExContext()
+    ctx.registerAuthScheme(NegoExTestAuthScheme(self.auth_scheme))
+    ctx.createInitialToken()
+    challenge = createExchangeMessage(
+        MESSAGE_TYPE.CHALLENGE,
+        1,
+        wrong_conversation_id,
+        self.auth_scheme,
+        b'bad',
+    )
+    with self.assertRaises(NegoExError):
+        ctx.processToken(challenge)
+
     def test_state_machine_processes_ms_style_acceptor_response_and_continues(self):
         ctx = NegoExContext()
         ctx.registerAuthScheme(NegoExTestAuthScheme(MS_EXAMPLE_AUTH_SCHEME))
