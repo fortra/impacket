@@ -16,6 +16,7 @@ import uuid
 from impacket.negoex import (
     ALERT_HEADER_SIZE,
     AUTH_SCHEME_PKU2U,
+    NegoExError,
     EXCHANGE_HEADER_SIZE,
     HEADER_SIZE,
     MESSAGE_TYPE,
