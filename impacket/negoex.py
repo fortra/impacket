@@ -769,6 +769,11 @@ class NegoExContext(object):
         """True when both sides have exchanged VERIFY messages."""
         return self._verifySent and self._verifyReceived
     
+    def _processAlert(self, pm.message):
+        """We do not really need to do anything for now. The currently defined alert does not require anything for us to do
+        unless new alert types/variants are defined in the future, this function may have to be revisited. As of now, 
+        you do nothing different and continue the negotiation regardless"""
+        LOG.debug('NEGOEX ALERT_MESSAGE received')
     
 class NegoExError(Exception):
     pass
