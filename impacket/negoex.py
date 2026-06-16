@@ -685,9 +685,7 @@ class NegoExContext(object):
                 continue
  
             if pm.message_type in (MESSAGE_TYPE.ACCEPTOR_NEGO, MESSAGE_TYPE.INITIATOR_NEGO):
-                peerSchemes = [_normalizeGuid(s) for s in pm.message.getAuthSchemeList()]
-                if self.selectedScheme not in peerSchemes:
-                    raise NegoExError(f'Auth scheme {self.selectedScheme} was not accepted by peer')
+                self._processNego(pm.message_type, pm.message)
  
             elif pm.message_type in (MESSAGE_TYPE.CHALLENGE, MESSAGE_TYPE.AP_REQUEST):
                 exchangePayload = pm.message.getExchangeData()
@@ -708,7 +706,40 @@ class NegoExContext(object):
  
         return exchangePayload
     
-    
+    def _processNego(self, messageType, negoMsg):
+        """Process an incoming NEGO_MESSAGE, validating ConversationId and
+        computing the mutually supported auth scheme set."""
+        peerConversationId = _normalizeGuid(negoMsg['Header']['ConversationId'])
+        if self.conversationId is None:
+            self.conversationId = peerConversationId
+        elif self.conversationId != peerConversationId:
+            raise NegoExError('NEGOEX ConversationId mismatch')
+
+        peerSchemes = [_normalizeGuid(s) for s in negoMsg.getAuthSchemeList()]
+
+        if messageType == MESSAGE_TYPE.INITIATOR_NEGO:
+            if self.isInitiator:
+                raise NegoExError('Initiator received unexpected INITIATOR_NEGO')
+
+            self._mutualSchemes = [
+                schemeId for schemeId in self._authSchemeOrder
+                if schemeId in peerSchemes
+            ]
+            if not self._mutualSchemes:
+                raise NegoExError('No mutually supported NEGOEX auth scheme')
+
+            self.selectedScheme = self._mutualSchemes[0]
+            return
+
+        if messageType == MESSAGE_TYPE.ACCEPTOR_NEGO:
+            if not self.isInitiator:
+                raise NegoExError('Acceptor received unexpected ACCEPTOR_NEGO')
+            if self.selectedScheme not in peerSchemes:
+                raise NegoExError(f'Auth scheme {self.selectedScheme} was not accepted by peer')
+            return
+
+        raise NegoExError(f'Unexpected NEGOEX negotiation message type: {messageType}')
+
     def _processVerify(self, verifyMsg):
         """Validate an incoming VERIFY_MESSAGE checksum"""
 
@@ -769,7 +800,7 @@ class NegoExContext(object):
         """True when both sides have exchanged VERIFY messages."""
         return self._verifySent and self._verifyReceived
     
-    def _processAlert(self, pm.message):
+    def _processAlert(self, parsedMsg):
         """We do not really need to do anything for now. The currently defined alert does not require anything for us to do
         unless new alert types/variants are defined in the future, this function may have to be revisited. As of now, 
         you do nothing different and continue the negotiation regardless"""
