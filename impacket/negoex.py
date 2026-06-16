@@ -678,7 +678,7 @@ class NegoExContext(object):
             if pm.message_type == MESSAGE_TYPE.VERIFY:
                 pendingVerify.append(pm)
                 continue
- 
+            self._validateConversationId(pm.message)
             self._messageHistory.append(pm.raw_data)
  
             if pm.message is None:
@@ -688,6 +688,9 @@ class NegoExContext(object):
                 self._processNego(pm.message_type, pm.message)
  
             elif pm.message_type in (MESSAGE_TYPE.CHALLENGE, MESSAGE_TYPE.AP_REQUEST):
+                peerScheme = _normalizeGuid(pm.message.getAuthScheme())
+                if self.selectedScheme and peerScheme != self.selectedScheme:
+                    raise NegoExError('Exchange AuthScheme mismatch: expected {self.selectedScheme}, got {peerScheme}')
                 exchangePayload = pm.message.getExchangeData()
  
             elif pm.message_type == MESSAGE_TYPE.ALERT:
@@ -740,6 +743,14 @@ class NegoExContext(object):
 
         raise NegoExError(f'Unexpected NEGOEX negotiation message type: {messageType}')
 
+    def _validateConversationId(self, msg):
+        """Verify the ConversationId in any incoming message matches our context."""
+        peerConvId = _normalizeGuid(msg['Header']['ConversationId'])
+        if self.conversationId is None:
+            self.conversationId = peerConvId
+        elif self.conversationId != peerConvId:
+            raise NegoExError(f'ConversationId mismatch: expected {self.conversationId}, got {peerConvId}')
+            
     def _processVerify(self, verifyMsg):
         """Validate an incoming VERIFY_MESSAGE checksum"""
 
