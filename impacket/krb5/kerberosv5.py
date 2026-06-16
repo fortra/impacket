@@ -29,7 +29,7 @@ from pyasn1.type.useful import GeneralizedTime
 from six import b
 from binascii import unhexlify, hexlify
 
-from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, AS_REP, TGS_REP, \
+from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KDC_REQ_BODY, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, AS_REP, TGS_REP, \
     EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_set, seq_set_iter, KERB_ERROR_DATA, METHOD_DATA, \
     ETYPE_INFO2, ETYPE_INFO, AP_REP, EncAPRepPart, KERB_SUPERSEDED_BY_USER
 from impacket.krb5.types import KerberosTime, Principal, Ticket
@@ -381,8 +381,8 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
 
     tgsReq = TGS_REQ()
 
-    reqBody = seq_set(tgsReq, 'req-body')
-
+    reqBody = KDC_REQ_BODY()
+    
     opts = list()
     opts.append( constants.KDCOptions.forwardable.value )
     opts.append( constants.KDCOptions.renewable.value )
@@ -408,6 +408,10 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
                         int(cipher.enctype)
                     )
             )
+    
+    reqBody_tagged = seq_set(tgsReq, 'req-body')
+    for attr in reqBody:
+        reqBody_tagged[attr] = reqBody[attr]
 
     apReq = AP_REQ()
     apReq['pvno'] = 5
@@ -431,9 +435,8 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
     authenticator['ctime'] = KerberosTime.to_asn1(now)
 
     if do_checksum:
-        # Remove asn1 tag 
-        encodedReqBody = encoder.encode(reqBody)[2:]
-        
+        encodedReqBody = encoder.encode(reqBody)
+
         # Key Usage 6
         checksum_profile = _get_checksum_profile(Cksumtype.SHA1_AES256)
         checkSum = checksum_profile.checksum( sessionKey, 6, encodedReqBody)
