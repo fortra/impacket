@@ -92,6 +92,7 @@ ATTR_READONLY                    = 0x001
 ATTR_TEMPORARY                   = 0x100
 ATTR_DIRECTORY                   = 0x010
 ATTR_SYSTEM                      = 0x004
+ATTR_REPARSE_POINT               = 0x400
 
 # Service Type
 SERVICE_DISK                     = 'A:'
@@ -952,6 +953,9 @@ class SharedFile:
 
     def is_system(self):
         return self.__attribs & ATTR_SYSTEM
+
+    def is_reparse_point(self):
+        return self.__attribs & ATTR_REPARSE_POINT
 
     def get_shortname(self):
         return self.__shortname
