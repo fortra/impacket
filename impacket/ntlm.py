@@ -228,6 +228,12 @@ class AV_PAIRS:
            return self.fields[key]
         return None
 
+    def __contains__(self, key):
+        return key in self.fields
+
+    def __iter__(self):
+        return iter(self.fields)
+
     def __delitem__(self, key):
         del self.fields[key]
 

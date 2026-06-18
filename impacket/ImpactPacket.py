@@ -713,7 +713,7 @@ class LinuxSLL(Header):
 
     def set_arphdr(self, value):
         "Sets the ARPHDR value for the link layer device type"
-        self.set_word(2, type)
+        self.set_word(2, value)
 
     def get_arphdr(self):
         "Returns the ARPHDR value for the link layer device type"
@@ -729,8 +729,9 @@ class LinuxSLL(Header):
 
     def set_addr(self, addr):
         "Sets the sender's address field to addr. Addr must be at most 8-byte long."
-        if (len(addr) < 8):
-            addr += b'\0' * (8 - len(addr))
+        addr = array.array('B', addr[:8])
+        if len(addr) < 8:
+            addr.extend(b'\0' * (8 - len(addr)))
         self.get_bytes()[6:14] = addr
 
     def get_addr(self):
@@ -966,10 +967,10 @@ class IP(Header):
 
 
     def fragment_by_list(self, aList):
-        if self.child():
+        if self.child() and self.child().protocol is not None:
             proto = self.child().protocol
         else:
-            proto = 0
+            proto = self.get_ip_p()
 
         child_data = self.get_data_as_string()
         if not child_data:
@@ -1025,7 +1026,10 @@ class IP(Header):
 
 
     def fragment_by_size(self, aSize):
-        data_len = len(self.get_data_as_string())
+        data = self.get_data_as_string()
+        if not data:
+            return [self]
+        data_len = len(data)
         num_frags = data_len // aSize
 
         if data_len % aSize:

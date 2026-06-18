@@ -45,6 +45,7 @@ from __future__ import print_function
 
 import pytest
 import unittest
+import uuid
 from tests.dcerpc import DCERPCTests
 
 from impacket.dcerpc.v5 import tsch, atsvc, sasec
@@ -295,6 +296,18 @@ class TSCHTests(DCERPCTests):
     string_binding = r"ncacn_np:{0.machine}[\PIPE\atsvc]"
     authn = True
     authn_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+    tsch_missing_path_errors = (0x80070002, 0x80070003)
+
+    def get_tsch_test_path(self):
+        return '\\ImpacketTest_%s' % uuid.uuid4().hex
+
+    def delete_tsch_test_path(self, dce, path):
+        try:
+            resp = tsch.hSchRpcDelete(dce, path)
+            resp.dump()
+        except tsch.DCERPCSessionError as e:
+            if e.get_error_code() not in self.tsch_missing_path_errors:
+                raise
 
     def test_SchRpcHighestVersion(self):
         dce, rpc_transport = self.connect()
@@ -381,43 +394,46 @@ class TSCHTests(DCERPCTests):
 
     def test_SchRpcCreateFolder_SchRpcEnumFolders_SchRpcDelete(self):
         dce, rpc_transport = self.connect()
+        path = self.get_tsch_test_path()
 
         request = tsch.SchRpcCreateFolder()
-        request['path'] = '\\Beto\x00'
+        request['path'] = path + '\x00'
         request['sddl'] = NULL
         request['flags'] = 0
         resp = dce.request(request)
         resp.dump()
 
-        request = tsch.SchRpcEnumFolders()
-        request['path'] = '\\\x00'
-        request['flags'] = tsch.TASK_ENUM_HIDDEN
-        request['startIndex'] = 0
-        request['cRequested'] = 10
         try:
+            request = tsch.SchRpcEnumFolders()
+            request['path'] = '\\\x00'
+            request['flags'] = tsch.TASK_ENUM_HIDDEN
+            request['startIndex'] = 0
+            request['cRequested'] = 10
             resp = dce.request(request)
             resp.dump()
         except tsch.DCERPCSessionError as e:
             print(e)
             pass
-
-        request = tsch.SchRpcDelete()
-        request['path'] = '\\Beto\x00'
-        request['flags'] = 0
-        resp = dce.request(request)
-        resp.dump()
+        finally:
+            request = tsch.SchRpcDelete()
+            request['path'] = path + '\x00'
+            request['flags'] = 0
+            resp = dce.request(request)
+            resp.dump()
 
     def test_hSchRpcCreateFolder_hSchRpcEnumFolders_hSchRpcDelete(self):
         dce, rpc_transport = self.connect()
+        path = self.get_tsch_test_path()
 
-        resp = tsch.hSchRpcCreateFolder(dce, '\\Beto')
+        resp = tsch.hSchRpcCreateFolder(dce, path)
         resp.dump()
 
-        resp = tsch.hSchRpcEnumFolders(dce, '\\')
-        resp.dump()
-
-        resp = tsch.hSchRpcDelete(dce, '\\Beto')
-        resp.dump()
+        try:
+            resp = tsch.hSchRpcEnumFolders(dce, '\\')
+            resp.dump()
+        finally:
+            resp = tsch.hSchRpcDelete(dce, path)
+            resp.dump()
 
     def test_SchRpcEnumTasks(self):
         dce, rpc_transport = self.connect()
@@ -818,39 +834,45 @@ class TSCHTests(DCERPCTests):
 
     def test_SchRpcRename(self):
         dce, rpc_transport = self.connect()
-        resp = tsch.hSchRpcCreateFolder(dce, '\\Beto')
+        path = self.get_tsch_test_path()
+        new_path = self.get_tsch_test_path()
+
+        resp = tsch.hSchRpcCreateFolder(dce, path)
         resp.dump()
 
-        request = tsch.SchRpcRename()
-        request['path'] = '\\Beto\x00'
-        request['newName'] = '\\Anita\x00'
-        request['flags'] = 0
         try:
+            request = tsch.SchRpcRename()
+            request['path'] = path + '\x00'
+            request['newName'] = new_path + '\x00'
+            request['flags'] = 0
             resp = dce.request(request)
             resp.dump()
         except tsch.DCERPCSessionError as e:
             if str(e).find('E_NOTIMPL') <= 0:
                 raise
             pass
-
-        resp = tsch.hSchRpcDelete(dce, '\\Beto')
-        resp.dump()
+        finally:
+            self.delete_tsch_test_path(dce, path)
+            self.delete_tsch_test_path(dce, new_path)
 
     def test_hSchRpcRename(self):
         dce, rpc_transport = self.connect()
-        resp = tsch.hSchRpcCreateFolder(dce, '\\Beto')
+        path = self.get_tsch_test_path()
+        new_path = self.get_tsch_test_path()
+
+        resp = tsch.hSchRpcCreateFolder(dce, path)
         resp.dump()
 
         try:
-            resp = tsch.hSchRpcRename(dce, '\\Beto', '\\Anita')
+            resp = tsch.hSchRpcRename(dce, path, new_path)
             resp.dump()
         except tsch.DCERPCSessionError as e:
             if str(e).find('E_NOTIMPL') <= 0:
                 raise
             pass
-
-        resp = tsch.hSchRpcDelete(dce, '\\Beto')
-        resp.dump()
+        finally:
+            self.delete_tsch_test_path(dce, path)
+            self.delete_tsch_test_path(dce, new_path)
 
     def test_SchRpcScheduledRuntimes(self):
         dce, rpc_transport = self.connect()

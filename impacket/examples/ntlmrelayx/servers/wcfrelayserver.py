@@ -154,8 +154,7 @@ class WCFRelayServer(Thread):
                     if len(blob['MechTypes'][0]) > 0:
                         # Is this GSSAPI NTLM or something else we don't support?
                         mechType = blob['MechTypes'][0]
-                        if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider'] and \
-                                mechType != TypesMech['NEGOEX - SPNEGO Extended Negotiation Security Mechanism']:
+                        if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
                             # Nope, do we know it?
                             if mechType in MechTypes:
                                 mechStr = MechTypes[mechType]

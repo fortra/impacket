@@ -426,6 +426,8 @@ class SAMHashes():
         for salt, enc in entries:
             if not enc or (len(enc) % 16) != 0:
                 continue
+            if not salt or len(salt) != 16:
+                continue
             cipher = AES.new(key, AES.MODE_CBC, iv=salt)
             plain = cipher.decrypt(enc)
             for off in range(0, len(plain), 16):
@@ -611,7 +613,7 @@ class SAMHashes():
                         self.__historyItems.append(history_line)
                         self.__perSecretCallback(history_line)
                 except Exception as exc:
-                    LOG.debug('SAM history parsing failed for RID %d: %s', rid, exc, exc_info=True)
+                    LOG.error('SAM history parsing failed for RID %d: %s', rid, exc, exc_info=True)
 
     def export(self, baseFileName, openFileFunc = None):
         if len(self.__itemsFound) > 0:

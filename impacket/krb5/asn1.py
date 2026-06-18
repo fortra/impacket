@@ -334,6 +334,15 @@ class AP_REQ(univ.Sequence):
         _sequence_component('authenticator', 4, EncryptedData())
         )
 
+class GSSAPIHeader_KRB5_AP_REQ(univ.Sequence):
+    tagSet = univ.Sequence.tagSet.tagImplicitly(tag.Tag(tag.tagClassApplication, tag.tagFormatConstructed, 0))
+    componentType = namedtype.NamedTypes(
+        namedtype.NamedType('tokenOid', univ.ObjectIdentifier()),
+        # Actualy this is a constant 0x0001, but this decodes as an asn1 boolean
+        namedtype.NamedType('krb5_ap_req', univ.Boolean()),
+        namedtype.NamedType('apReq', AP_REQ()),
+    )
+
 class AP_REP(univ.Sequence):
     tagSet = _application_tag(constants.ApplicationTagNumbers.AP_REP.value)
     componentType = namedtype.NamedTypes(

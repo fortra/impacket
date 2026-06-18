@@ -87,7 +87,7 @@ class MechIndepToken():
     @staticmethod
     def get_length(data):
         if data[0] < 128:
-            return data[0], data
+            return data[0], data[1:]
         else:
             bytes_count = data[0] - 128
             return int.from_bytes(data[1:1+bytes_count], byteorder='big', signed=False), data[1+bytes_count:]

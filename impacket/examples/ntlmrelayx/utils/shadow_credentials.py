@@ -20,6 +20,7 @@ from cryptography.hazmat.backends import default_backend
 from Cryptodome.IO import PEM
 from cryptography.hazmat.primitives.serialization import pkcs12
 
+
 def getTicksNow():
     # https://learn.microsoft.com/en-us/dotnet/api/system.datetime.ticks?view=net-5.0#system-datetime-ticks
     dt_now = datetime.datetime.now(datetime.timezone.utc)
@@ -82,8 +83,7 @@ class KeyCredential():
         self.__usage = (0x4,pack("<B",0x01))
         self.__source = (0x5,pack("<B",0x0))
         self.__deviceId = (0x6,deviceId)
-        self.__customKeyInfo = (0x7,pack("<BB",0x1,0x0))
-        self.__lastLogonTime = (0x8,pack("<Q",currentTime))
+        self.__customKeyInfo = (0x7,pack("<BB",0x1,0x2))
         self.__creationTime = (0x9,pack("<Q",currentTime))
 
         self.__version = 0x200
@@ -109,7 +109,6 @@ class KeyCredential():
                             self.__source,
                             self.__deviceId,
                             self.__customKeyInfo,
-                            self.__lastLogonTime,
                             self.__creationTime,
                          ])
 

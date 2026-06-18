@@ -1,4 +1,4 @@
-<img width="2043" height="571" alt="Impacket_light" src="https://github.com/user-attachments/assets/14aed700-0c6e-4865-ac53-686b91874f50" />
+<img alt="Impacket_light" src="https://github.com/user-attachments/assets/14aed700-0c6e-4865-ac53-686b91874f50" />
 
 Impacket
 ========
@@ -52,7 +52,7 @@ Getting Impacket
 
 ### Latest version
 
-* Impacket v0.13.0
+* Impacket v0.13.1
 
   [![Python versions](https://img.shields.io/pypi/pyversions/impacket.svg)](https://pypi.python.org/pypi/impacket/)
 

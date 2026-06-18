@@ -38,7 +38,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-from binascii import unhexlify
+from binascii import hexlify, unhexlify
 from functools import reduce
 from os import urandom
 # XXX current status:
@@ -61,7 +61,8 @@ from Cryptodome.Hash import HMAC, MD4, MD5, SHA
 from Cryptodome.Protocol.KDF import PBKDF2
 from Cryptodome.Util.number import GCD as gcd
 from six import b, PY3, indexbytes, binary_type
-
+from impacket.krb5 import constants
+import logging
 
 def get_random_bytes(lenBytes):
     # We don't really need super strong randomness here to use PyCrypto.Random
@@ -703,6 +704,50 @@ def verify_checksum(cksumtype, key, keyusage, text, cksum):
     c.verify(key, keyusage, text, cksum)
 
 
+def get_hex_key_length(key):
+    if not key:
+        return None
+    return len(unhexlify(key))
+
+
+def get_matching_aes_key(enctype, generic_aes_key=None, aes128_key=None, aes256_key=None):
+    if enctype == Enctype.AES256:
+        if aes256_key:
+            return aes256_key
+        if get_hex_key_length(generic_aes_key) == 32:
+            return generic_aes_key
+        return None
+
+    if enctype == Enctype.AES128:
+        if aes128_key:
+            return aes128_key
+        if get_hex_key_length(generic_aes_key) == 16:
+            return generic_aes_key
+        return None
+
+    return None
+
+
+def get_kerberos_key_for_enctype(enctype, nt_hash=None, generic_aes_key=None, aes128_key=None, aes256_key=None):
+    if enctype in (Enctype.AES256, Enctype.AES128):
+        matching_aes_key = get_matching_aes_key(
+            enctype,
+            generic_aes_key=generic_aes_key,
+            aes128_key=aes128_key,
+            aes256_key=aes256_key,
+        )
+        if matching_aes_key is None:
+            raise ValueError('Missing AES key for enctype 0x%x' % enctype)
+        return Key(enctype, unhexlify(matching_aes_key))
+
+    if enctype == Enctype.RC4:
+        if not nt_hash:
+            raise ValueError('Missing NT hash for enctype 0x%x' % enctype)
+        return Key(enctype, unhexlify(nt_hash))
+
+    raise ValueError('Unsupported enctype 0x%x' % enctype)
+
+
 def cf2(enctype, key1, key2, pepper1, pepper2):
     # Combine two keys and two pepper strings to produce a result key
     # of type enctype, using the RFC 6113 KRB-FX-CF2 function.
@@ -718,3 +763,53 @@ def cf2(enctype, key1, key2, pepper1, pepper2):
     e = _get_enctype_profile(enctype)
     return e.random_to_key(_xorbytes(bytearray(prfplus(key1, pepper1, e.seedsize)),
                                      bytearray(prfplus(key2, pepper2, e.seedsize))))
+
+def generate_kerberos_keys(rc4=None, aes=None, password=None, hex_pass=None, salt=None, user=None, domain=None):
+    # copypasta from krbrelayx.py
+    # Store Kerberos keys
+    keys = {}
+    if rc4:
+        keys[int(constants.EncryptionTypes.rc4_hmac.value)] = unhexlify(rc4)
+    if aes:
+        if len(aes) == 64:
+            keys[int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value)] = unhexlify(aes)
+        else:
+            keys[int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value)] = unhexlify(aes)
+    ekeys = {}
+    for kt, key in keys.items():
+        ekeys[kt] = Key(kt, key)
+
+    allciphers = [
+        int(constants.EncryptionTypes.rc4_hmac.value),
+        int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
+        int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value)
+    ]
+
+    # Calculate Kerberos keys from specified password/salt
+    if password or hex_pass:
+        if not salt and user and domain: # https://www.thehacker.recipes/ad/movement/kerberos
+            if user.endswith('$'):
+                salt = "%shost%s.%s" % (domain.upper(), user.rstrip('$').lower(), domain.lower())
+            else:
+                salt = "%s%s" % (domain.upper(), user)
+        for cipher in allciphers:
+            if cipher == 23 and hex_pass:
+                # RC4 calculation is done manually for raw passwords
+                md4 = MD4.new()
+                md4.update(unhexlify(hex_pass))
+                ekeys[cipher] = Key(cipher, md4.digest())
+                logging.debug('Calculated type %s (%d) Kerberos key: %s' % (constants.EncryptionTypes(cipher).name, cipher, hexlify(ekeys[cipher].contents).decode('utf-8')))
+            elif salt:
+                # Do conversion magic for raw passwords
+                if hex_pass:
+                    rawsecret = unhexlify(hex_pass).decode('utf-16-le', 'replace').encode('utf-8', 'replace')
+                else:
+                    # If not raw, it was specified from the command line, assume it's not UTF-16
+                    rawsecret = password
+                ekeys[cipher] = string_to_key(cipher, rawsecret, salt)
+                logging.debug('Calculated type %s (%d) Kerberos key: %s' % (constants.EncryptionTypes(cipher).name, cipher, hexlify(ekeys[cipher].contents).decode('utf-8')))
+            else:
+                logging.debug('Cannot calculate type %s (%d) Kerberos key: salt is None: Missing -s/--salt or (-u/--user and -d/--domain)' % (constants.EncryptionTypes(cipher).name, cipher))
+    else:
+        logging.debug('No password supplied, skipping Kerberos keys calculation')
+    return ekeys

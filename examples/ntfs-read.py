@@ -21,10 +21,7 @@
 #   NOTE: Lots of info (mainly the structs) taken from the NTFS-3G project..
 #
 # ToDo:
-#   [] Parse the attributes list attribute. It is unknown what would happen now if
-#      we face a highly fragmented file that will have many attributes that won't fit
-#      in the MFT Record.
-#   [] Support compressed, encrypted and sparse files
+#   [] Support compressed, encrypted files
 #
 
 from __future__ import division
@@ -306,6 +303,17 @@ class NTFS_DATA_RUN(Structure):
         ('LastVCN','<Q=0'),
     )
 
+class NTFS_ATTRIBUTE_LIST_ENTRY(Structure):
+    structure = (
+        ('AttributeType', '<L=0'),
+        ('EntryLength', '<H=0'),
+        ('AttributeNameLength', 'B=0'),
+        ('AttributeNameOffset', 'B=0'),
+        ('StartingVCN', '<Q=0'),
+        ('BaseFileRecord', '<Q=0'),
+        ('AttributeID', '<H=0'),
+    )
+
 def getUnixTime(t):
     t -= 116444736000000000
     t //= 10000000
@@ -365,65 +373,82 @@ class AttributeNonResident(Attribute):
     def __init__(self, iNode, data):
         logging.debug("Inside AttributeNonResident: iNode: %s" % iNode.INodeNumber)
         Attribute.__init__(self,iNode,data)
+        self._raw_attr_data = data
         self.NonResidentHeader = NTFS_ATTRIBUTE_RECORD_NON_RESIDENT(data[len(self.AttributeHeader):])
         self.AttrValue = data[self.NonResidentHeader['DataRunsOffset']:][:self.NonResidentHeader['AllocatedSize']]
         self.DataRuns = []
         self.ClusterSize = 0
+        # Effective sizes for OS-like reads; default to on-disk header values.
+        self.data_size = self.NonResidentHeader['DataSize']
+        self.initialized_size = self.NonResidentHeader['InitializedSize']
         self.parseDataRuns()
 
     def dump(self):
         return self.NonResidentHeader.dump()
 
     def getDataSize(self):
-        return self.NonResidentHeader['InitializedSize']
+        return self.data_size
 
     def getValue(self):
         return None
 
     def parseDataRuns(self):
-        value = self.AttrValue
-        if value is not None:
-            VCN = 0
-            LCN = 0
-            LCNOffset = 0
-            while value[0:1] != b'\x00':
-                LCN += LCNOffset
-                dr = NTFS_DATA_RUN()
+        """Parse data run descriptors from the attribute value."""
+        data = self.AttrValue
+        if data is None:
+            return
 
-                size = struct.unpack('B',(value[0:1]))[0]
+        vcn = 0
+        prevLcn = 0  # LCN is delta-encoded, track previous
 
-                value = value[1:]
+        while data and data[0:1] != b'\x00':
+            if len(data) < 1:
+                break
 
-                lengthBytes = size & 0x0F
-                offsetBytes = size >> 4
+            header = data[0]
+            data = data[1:]
 
-                length = value[:lengthBytes]
-                length = struct.unpack('<Q', value[:lengthBytes]+b'\x00'*(8-len(length)))[0]
-                value = value[lengthBytes:]
+            lengthBytes = header & 0x0F
+            offsetBytes = header >> 4
 
-                fillWith = b'\x00'
-                if struct.unpack('B',value[offsetBytes-1:offsetBytes])[0] & 0x80:
-                    fillWith = b'\xff'
-                LCNOffset = value[:offsetBytes]+fillWith*(8-len(value[:offsetBytes]))
-                LCNOffset = struct.unpack('<q',LCNOffset)[0]
+            # Parse cluster count (length)
+            if len(data) < lengthBytes:
+                break
+            clusterCount = struct.unpack('<Q', data[:lengthBytes].ljust(8, b'\x00'))[0]
+            data = data[lengthBytes:]
 
-                value = value[offsetBytes:]
+            dr = NTFS_DATA_RUN()
+            dr['Clusters'] = clusterCount
+            dr['StartVCN'] = vcn
+            dr['LastVCN'] = vcn + clusterCount - 1
 
-                dr['LCN'] = LCN+LCNOffset
-                dr['Clusters'] = length
-                dr['StartVCN'] = VCN
-                dr['LastVCN'] = VCN + length -1
-
-                VCN += length
-                self.DataRuns.append(dr)
-
-                if len(value) == 0:
+            if offsetBytes == 0:
+                # Sparse run - no physical location
+                dr['LCN'] = -1
+                logging.debug("Sparse run: VCN %d-%d, clusters %d", dr['StartVCN'], dr['LastVCN'], clusterCount)
+            else:
+                # Parse LCN offset (signed, delta from previous)
+                if len(data) < offsetBytes:
                     break
+                offsetData = data[:offsetBytes]
+                # Sign extend
+                if offsetData[-1] & 0x80:
+                    offsetData = offsetData.ljust(8, b'\xff')
+                else:
+                    offsetData = offsetData.ljust(8, b'\x00')
+                lcnDelta = struct.unpack('<q', offsetData)[0]
+                data = data[offsetBytes:]
+
+                prevLcn += lcnDelta
+                dr['LCN'] = prevLcn
+
+            self.DataRuns.append(dr)
+            vcn += clusterCount
 
     def readClusters(self, clusters, lcn):
         logging.debug("Inside ReadClusters: clusters:%d, lcn:%d" % (clusters,lcn))
         if lcn == -1:
-            return '\x00'*clusters*self.ClusterSize
+            return b'\x00'*clusters*self.ClusterSize
         self.NTFSVolume.volumeFD.seek(lcn*self.ClusterSize,0)
         buf = self.NTFSVolume.volumeFD.read(clusters*self.ClusterSize)
         while len(buf) < clusters*self.ClusterSize:
@@ -435,83 +460,192 @@ class AttributeNonResident(Attribute):
         return buf
 
     def readVCN(self, vcn, numOfClusters):
-        logging.debug("Inside ReadVCN: vcn: %d, numOfClusters: %d" % (vcn,numOfClusters))
+        """Read clusters starting at VCN, spanning multiple data runs if needed."""
+        logging.debug("Inside ReadVCN: vcn: %d, numOfClusters: %d" % (vcn, numOfClusters))
         buf = b''
         clustersLeft = numOfClusters
+
         for dr in self.DataRuns:
-            if (vcn >= dr['StartVCN']) and (vcn <= dr['LastVCN']):
+            if clustersLeft <= 0:
+                break
+            # Skip data runs before our target VCN
+            if vcn > dr['LastVCN']:
+                continue
+            # Stop if we've passed all relevant data runs
+            if vcn < dr['StartVCN']:
+                break
 
-                vcnsToRead = dr['LastVCN'] - vcn + 1
+            # Calculate how many clusters to read from this data run
+            clustersInRun = dr['LastVCN'] - vcn + 1
+            clustersToRead = min(clustersLeft, clustersInRun)
 
-                # Are we requesting to read more data outside this DataRun?
-                if numOfClusters > vcnsToRead:
-                    # Yes
-                    clustersToRead = vcnsToRead
-                else:
-                    clustersToRead = numOfClusters
+            # For sparse runs, LCN is -1; readClusters handles this
+            if dr['LCN'] == -1:
+                lcn = -1
+            else:
+                lcn = dr['LCN'] + (vcn - dr['StartVCN'])
 
-                tmpBuf = self.readClusters(clustersToRead,dr['LCN']+(vcn-dr['StartVCN']))
-                if tmpBuf is not None:
-                    buf += tmpBuf
-                    clustersLeft -= clustersToRead
-                    vcn += clustersToRead
-                else:
-                    break
-                if clustersLeft == 0:
-                    break
+            tmpBuf = self.readClusters(clustersToRead, lcn)
+            if tmpBuf is None:
+                break
+            buf += tmpBuf
+            clustersLeft -= clustersToRead
+            vcn += clustersToRead
+
         return buf
 
-    def read(self,offset,length):
-        logging.debug("Inside Read: offset: %d, length: %d" %(offset,length))
+    def read(self, offset, length):
+        """Read bytes from non-resident attribute, respecting data_size and initialized_size."""
+        logging.debug("Inside Read: offset: %d, length: %d" % (offset, length))
+
+        # Clamp read to data_size (EOF)
+        if offset >= self.data_size:
+            return b''
+        length = min(length, self.data_size - offset)
+
+        self.ClusterSize = self.NTFSVolume.BPB['BytesPerSector'] * self.NTFSVolume.BPB['SectorsPerCluster']
 
         buf = b''
-        curLength = length
-        self.ClusterSize = self.NTFSVolume.BPB['BytesPerSector']*self.NTFSVolume.BPB['SectorsPerCluster']
+        curOffset = offset
+        bytesLeft = length
 
-        # Given the offset, let's calculate what VCN should be the first one to read
-        vcnToStart = offset // self.ClusterSize
-        #vcnOffset  = self.ClusterSize - (offset % self.ClusterSize)
+        while bytesLeft > 0:
+            vcn = curOffset // self.ClusterSize
+            vcnOffset = curOffset % self.ClusterSize
 
-        # Do we have to read partial VCNs?
-        if offset % self.ClusterSize:
-            # Read the whole VCN
-            bufTemp = self.readVCN(vcnToStart, 1)
-            if bufTemp == b'':
-                # Something went wrong
-                return None
-            buf = bufTemp[offset % self.ClusterSize:]
-            curLength -= len(buf)
-            vcnToStart += 1
-
-        # Finished?
-        if curLength <= 0:
-            return buf[:length]
-
-        # First partial cluster read.. now let's keep reading full clusters
-        # Data left to be read is bigger than a Cluster?
-        if curLength // self.ClusterSize:
-            # Yep.. so let's read full clusters
-            bufTemp = self.readVCN(vcnToStart, curLength // self.ClusterSize)
-            if bufTemp == b'':
-                # Something went wrong
-                return None
-            if len(bufTemp) > curLength:
-                # Too much data read, taking something off
-                buf = buf + bufTemp[:curLength]
+            # Calculate clusters needed for remaining bytes
+            bytesInFirstCluster = self.ClusterSize - vcnOffset
+            if bytesLeft <= bytesInFirstCluster:
+                clustersToRead = 1
             else:
-                buf = buf + bufTemp
-            vcnToStart += curLength // self.ClusterSize
-            curLength -= len(bufTemp)
+                clustersToRead = 1 + ((bytesLeft - bytesInFirstCluster + self.ClusterSize - 1) // self.ClusterSize)
 
-        # Is there anything else left to be read in the last cluster?
-        if curLength > 0:
-            bufTemp = self.readVCN(vcnToStart, 1)
-            buf = buf + bufTemp[:curLength]
+            clusterData = self.readVCN(vcn, clustersToRead)
+            if not clusterData:
+                break
 
-        if buf == b'':
+            # Extract the portion we need
+            chunk = clusterData[vcnOffset:vcnOffset + bytesLeft]
+            buf += chunk
+            curOffset += len(chunk)
+            bytesLeft -= len(chunk)
+
+            if len(chunk) == 0:
+                break
+
+        if not buf:
             return None
+
+        # Zero-fill beyond InitializedSize (OS behavior for uninitialized data)
+        if self.initialized_size < offset + len(buf):
+            validBytes = max(0, self.initialized_size - offset)
+            buf = buf[:validBytes] + (b'\x00' * (len(buf) - validBytes))
+
+        return buf
+
+class NonResidentDataAttribute(AttributeNonResident):
+    @classmethod
+    def _shift_runs(cls, attr, start_vcn):
+        if start_vcn <= 0:
+            return
+        for dr in attr.DataRuns:
+            dr['StartVCN'] += start_vcn
+            dr['LastVCN'] += start_vcn
+
+    @classmethod
+    def _base_sizes(cls, attr):
+        return attr.NonResidentHeader['DataSize'], attr.NonResidentHeader['InitializedSize']
+
+    @classmethod
+    def _ensure_base(cls, collected, base_attr, base_data_size, base_initialized_size):
+        if base_attr is not None:
+            return base_attr, base_data_size, base_initialized_size
+        _, base_attr = collected[0]
+        base_data_size, base_initialized_size = cls._base_sizes(base_attr)
+        return base_attr, base_data_size, base_initialized_size
+
+    @classmethod
+    def _collect_extents(cls, iNode, matches, attribute_name):
+        """Collect $DATA attributes from extent records, identifying the base extent."""
+        collected = []
+        base_attr = None
+        base_data_size = None
+        base_initialized_size = None
+
+        for entry in matches:
+            extension_inode = iNode.NTFSVolume.getINode(entry.MftRecordNumber)
+            attr = extension_inode.searchAttribute(DATA, attribute_name)
+            if attr is None:
+                continue
+            collected.append((entry, attr))
+            # Base extent has StartingVCN == 0 and contains authoritative sizes
+            if entry.StartingVCN == 0:
+                base_attr = attr
+                if isinstance(attr, AttributeNonResident):
+                    base_data_size, base_initialized_size = cls._base_sizes(attr)
+
+        return collected, base_attr, base_data_size, base_initialized_size
+
+    def __init__(self, iNode, entries, attribute_name=None):
+        """
+        Build a unified $DATA stream from multiple attribute list entries.
+
+        Args:
+            iNode: Owning inode for volume access
+            entries: AttributeListEntry items for the target $DATA stream
+            attribute_name: Stream name (None for default $DATA)
+        """
+        matches = list(entries)
+        if not matches:
+            raise ValueError('No $DATA extents found')
+
+        # Sort extents by StartingVCN to define logical order
+        matches.sort(key=lambda e: e.StartingVCN)
+
+        # Collect attributes and find base extent (StartingVCN == 0)
+        collected, base_attr, base_data_size, base_initialized_size = self._collect_extents(
+            iNode, matches, attribute_name,
+        )
+
+        if not collected:
+            raise ValueError('No usable $DATA extents found')
+
+        # Ensure we have valid base sizes
+        base_attr, base_data_size, base_initialized_size = self._ensure_base(
+            collected, base_attr, base_data_size, base_initialized_size,
+        )
+
+        # Initialize from base extent
+        super(NonResidentDataAttribute, self).__init__(iNode, base_attr._raw_attr_data)
+
+        if len(collected) == 1:
+            # Single extent - apply VCN offset if needed
+            entry, _ = collected[0]
+            self._shift_runs(self, entry.StartingVCN)
         else:
-            return buf
+            # Multi-extent - merge all runs with proper VCN offsets
+            self._merge_extents_from_collected(collected, base_data_size, base_initialized_size)
+
+    def _merge_extents_from_collected(self, collected, data_size, init_size):
+        """Merge data runs from multiple extents into unified stream."""
+        merged_runs = []
+        for entry, attr in collected:
+            if not isinstance(attr, AttributeNonResident):
+                continue
+            for dr in attr.DataRuns:
+                new_dr = NTFS_DATA_RUN()
+                new_dr['LCN'] = dr['LCN']
+                new_dr['Clusters'] = dr['Clusters']
+                # Apply VCN offset from attribute list entry
+                new_dr['StartVCN'] = dr['StartVCN'] + entry.StartingVCN
+                new_dr['LastVCN'] = dr['LastVCN'] + entry.StartingVCN
+                merged_runs.append(new_dr)
+
+        merged_runs.sort(key=lambda dr: dr['StartVCN'])
+        self.DataRuns = merged_runs
+        self.data_size = data_size
+        self.initialized_size = init_size
+
 
 class AttributeStandardInfo:
     def __init__(self, attribute):
@@ -619,6 +753,56 @@ class IndexEntry:
     def dump(self):
         self.entry.dump()
 
+class AttributeListEntry:
+    def __init__(self, entry_data):
+        self.EntryHeader = NTFS_ATTRIBUTE_LIST_ENTRY(entry_data)
+        self.AttributeType = self.EntryHeader['AttributeType']
+        self.EntryLength = self.EntryHeader['EntryLength']
+        self.StartingVCN = self.EntryHeader['StartingVCN']
+        self.AttributeID = self.EntryHeader['AttributeID']
+        raw_record = self.EntryHeader['BaseFileRecord']
+        self.MftRecordNumber = raw_record & 0x0000FFFFFFFFFFFF
+        self.MftSequenceNumber = (raw_record >> 48) & 0xFFFF
+        self.AttributeName = None
+        name_len = self.EntryHeader['AttributeNameLength']
+        if name_len > 0:
+            name_offset = self.EntryHeader['AttributeNameOffset']
+            name_bytes = entry_data[name_offset : name_offset + (name_len * 2)]
+            self.AttributeName = name_bytes.decode('utf-16le')
+
+class AttributeList:
+    """Parses ATTRIBUTE_LIST attribute (can be resident or non-resident)."""
+
+    def __init__(self, attribute):
+        self.attribute = attribute
+        self.Entries = []
+        self._parseEntries()
+
+    def _parseEntries(self):
+        """Parse attribute list entries from raw data."""
+        # getValue() works for resident, read() for non-resident
+        if hasattr(self.attribute, 'getValue') and self.attribute.getValue() is not None:
+            data = self.attribute.getValue()
+        else:
+            data = self.attribute.read(0, self.attribute.getDataSize())
+
+        if not data:
+            return
+
+        offset = 0
+        while offset < len(data):
+            entry_data = data[offset:]
+            if len(entry_data) < 26:  # Minimum entry size
+                break
+            list_entry = AttributeListEntry(entry_data)
+            if list_entry.EntryLength == 0:
+                break
+            self.Entries.append(list_entry)
+            offset += list_entry.EntryLength
+
+    def getEntries(self):
+        return self.Entries
+
 class INODE:
     def __init__(self, NTFSVolume):
         self.NTFSVolume = NTFSVolume
@@ -632,6 +816,9 @@ class INODE:
         self.LastDataChangeTime = None
         self.FileName = None
         self.FileSize = 0
+        # Debug counters for directory listings
+        self._walk_root_count = 0
+        self._walk_subnode_count = 0
 
     def isDirectory(self):
         return self.FileAttributes & FILE_ATTR_I30_INDEX_PRESENT
@@ -703,6 +890,12 @@ class INODE:
                 break
             attr = self.searchAttribute(FILE_NAME, None, True)
 
+        # Parse Attribute list before Index Allocation, because it might be there
+        attr = self.searchAttribute(ATTRIBUTE_LIST, None)
+        if attr is not None:
+            al = AttributeList(attr)
+            self.Attributes[ATTRIBUTE_LIST] = al
+
         # Parse Index Allocation
         attr = self.searchAttribute(INDEX_ALLOCATION, u'$I30')
         if attr is not None:
@@ -750,6 +943,25 @@ class INODE:
                 break
 
             data = data[record.getTotalSize():]
+
+        # Look for attribute on Attribute List
+        if record is None and ATTRIBUTE_LIST in self.Attributes:
+            attr_list = self.Attributes[ATTRIBUTE_LIST]
+
+            if attributeType == DATA:
+                entries = [
+                    entry for entry in attr_list.getEntries()
+                    if entry.AttributeType == DATA and entry.AttributeName == attributeName
+                ]
+                try:
+                    return NonResidentDataAttribute(self, entries, attributeName)
+                except ValueError:
+                    return None
+
+            for entry in attr_list.getEntries():
+                if entry.AttributeType == attributeType and entry.AttributeName == attributeName:
+                    extension_inode = self.NTFSVolume.getINode(entry.MftRecordNumber)
+                    return extension_inode.searchAttribute(attributeType, attributeName)
 
         return record
 
@@ -833,13 +1045,25 @@ class INODE:
     def walk(self):
         logging.debug("Inside Walk... ")
         files = []
+        self._walk_root_count = 0
+        self._walk_subnode_count = 0
         if INDEX_ROOT in self.Attributes:
             ir = self.Attributes[INDEX_ROOT]
 
             if ir.getType() & FILE_NAME:
                 for ie in ir.IndexEntries:
                     if ie.isSubNode():
-                        files += self.walkSubNodes(ie.getVCN())
+                        logging.debug("walk: INDEX_ROOT entry points to subnode VCN %d", ie.getVCN())
+                        sub_files = self.walkSubNodes(ie.getVCN())
+                        self._walk_subnode_count += len(sub_files)
+                        files += sub_files
+                    else:
+                        if len(ie.getKey()) > 0 and ie.getINodeNumber() > 16:
+                            fn = NTFS_FILE_NAME_ATTR(ie.getKey())
+                            if fn['FileNameType'] != FILE_NAME_DOS:
+                                logging.debug("walk: INDEX_ROOT inline entry %s", fn['FileName'].decode('utf-16le'))
+                                self._walk_root_count += 1
+                                files.append(fn)
                 return files
         else:
             return None
@@ -967,26 +1191,36 @@ class NTFS:
         logging.debug("Trying to fetch inode %d" % iNodeNum)
 
         newINode = INODE(self)
-
         recordLen = self.RecordSize
 
-        # Let's calculate where in disk this iNode should be
+        # Read MFT record from disk or through fragmented $MFT
         if self.MFTINode and iNodeNum > FIXED_MFTS:
-            # Fragmented $MFT
-            attr = self.MFTINode.searchAttribute(DATA,None)
-            record = attr.read(iNodeNum*self.RecordSize, self.RecordSize)
+            # Fragmented $MFT - read through MFT's $DATA attribute
+            attr = self.MFTINode.searchAttribute(DATA, None)
+            if attr is None:
+                logging.error("Cannot find MFT $DATA attribute for inode %d" % iNodeNum)
+                return newINode
+            record = attr.read(iNodeNum * self.RecordSize, self.RecordSize)
         else:
             diskPosition = self.__MFTStart + iNodeNum * self.RecordSize
-            self.volumeFD.seek(diskPosition,0)
+            self.volumeFD.seek(diskPosition, 0)
             record = self.volumeFD.read(recordLen)
             while len(record) < recordLen:
-                record += self.volumeFD.read(recordLen-len(record))
+                record += self.volumeFD.read(recordLen - len(record))
+
+        if not record or len(record) < recordLen:
+            logging.error("Failed to read MFT record for inode %d" % iNodeNum)
+            return newINode
 
         mftRecord = NTFS_MFT_RECORD(record)
 
-        record = newINode.PerformFixUp(mftRecord, record, self.RecordSize//self.SectorSize)
+        record = newINode.PerformFixUp(mftRecord, record, self.RecordSize // self.SectorSize)
+        if record is None:
+            logging.error("FixUp failed for inode %d" % iNodeNum)
+            return newINode
+
         newINode.INodeNumber = iNodeNum
-        newINode.AttributesRaw = record[mftRecord['AttributesOffset']-recordLen:]
+        newINode.AttributesRaw = record[mftRecord['AttributesOffset'] - recordLen:]
         newINode.parseAttributes()
 
         return newINode
@@ -1063,7 +1297,7 @@ class MiniShell(cmd.Cmd):
         if res is None:
             logging.error("Directory not found")
             self.pwd = oldpwd
-            return 
+            return
         if res.isDirectory() == 0:
             logging.error("Not a directory!")
             self.pwd = oldpwd
@@ -1095,8 +1329,17 @@ class MiniShell(cmd.Cmd):
     def do_pwd(self,line):
         print(self.pwd)
 
-    def do_ls(self, line, display = True):
+    def do_ls(self, line, display=True):
         entries = self.currentINode.walk()
+        if entries is None:
+            entries = []
+        logging.debug(
+            "ls summary for %s: total=%d index_root=%d index_allocation=%d",
+            self.pwd,
+            len(entries),
+            self.currentINode._walk_root_count,
+            self.currentINode._walk_subnode_count,
+        )
         self.completion = []
         for entry in entries:
             inode = INODE(self.volume)
@@ -1107,7 +1350,7 @@ class MiniShell(cmd.Cmd):
             if display is True:
                 inode.displayName()
             self.completion.append((inode.FileName,inode.isDirectory()))
-            
+
     def complete_cd(self, text, line, begidx, endidx):
         return self.complete_get(text, line, begidx, endidx, include = 2)
 
@@ -1140,9 +1383,11 @@ class MiniShell(cmd.Cmd):
     def do_hexdump(self,line):
         return self.do_cat(line,command = hexdump)
 
-    def do_cat(self, line, command = sys.stdout.write):
-        pathName = line.replace('/','\\')
-        pathName = ntpath.normpath(ntpath.join(self.pwd,pathName))
+    def do_cat(self, line, command=None):
+        if command is None:
+            command = getattr(sys.stdout, 'buffer', sys.stdout).write
+        pathName = line.replace('/', '\\')
+        pathName = ntpath.normpath(ntpath.join(self.pwd, pathName))
         res = self.findPathName(pathName)
         if res is None:
             logging.error("Not found!")
@@ -1150,20 +1395,34 @@ class MiniShell(cmd.Cmd):
         if res.isDirectory() > 0:
             logging.error("It's a directory!")
             return
-        if res.isCompressed() or res.isEncrypted() or res.isSparse():
-            logging.error('Cannot handle compressed/encrypted/sparse files! :(')
+        if res.isCompressed() or res.isEncrypted():
+            logging.error('Cannot handle compressed/encrypted files! :(')
             return
+
         stream = res.getStream(None)
-        chunks = 4096*10
-        written = 0
-        for i in range(stream.getDataSize()//chunks):
-            buf = stream.read(i*chunks, chunks)
-            written += len(buf)
-            command(buf)
-        if stream.getDataSize() % chunks:
-            buf = stream.read(written, stream.getDataSize() % chunks)
-            command(buf.decode('latin-1'))
-        logging.info("%d bytes read" % stream.getDataSize())
+        if stream is None:
+            logging.error("Cannot read file stream!")
+            return
+
+        dataSize = stream.getDataSize()
+        if dataSize == 0:
+            logging.info("0 bytes read (empty file)")
+            return
+
+        chunkSize = 4096 * 10
+        offset = 0
+        while offset < dataSize:
+            toRead = min(chunkSize, dataSize - offset)
+            buf = stream.read(offset, toRead)
+            if not buf:
+                break
+            try:
+                command(buf)
+            except (BrokenPipeError, OSError):
+                return
+            offset += len(buf)
+
+        logging.info("%d bytes read" % offset)
 
     def do_get(self, line):
         pathName = line.replace('/','\\')

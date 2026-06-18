@@ -11,7 +11,7 @@ from struct import unpack
 from impacket import LOG
 from impacket.examples.ntlmrelayx.clients import ProtocolClient
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
-from impacket.ntlm import NTLMAuthChallenge, NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_SIGN, NTLMSSP_NEGOTIATE_ALWAYS_SIGN
+from impacket.ntlm import NTLMAuthChallenge, NTLMAuthNegotiate, NTLMAuthChallengeResponse, NTLMSSP_NEGOTIATE_SIGN, NTLMSSP_NEGOTIATE_ALWAYS_SIGN
 from impacket.spnego import SPNEGO_NegTokenResp
 
 PROTOCOL_CLIENT_CLASSES = ["WinRMSRelayClient"]
@@ -61,9 +61,13 @@ class WinRMSRelayClient(ProtocolClient):
             "Content-Length": len(self.basic_xml_data),
             "Content-Type": "application/soap+xml;charset=UTF-8"
         }
-        self.session.request("POST", self.path, headers=headers, body=self.basic_xml_data)
-        res = self.session.getresponse()
-        res.read()
+        try:
+            self.session.request("POST", self.path, headers=headers, body=self.basic_xml_data)
+            res = self.session.getresponse()
+            res.read()
+        except Exception as e:
+            LOG.error("Connection to %s:%s failed: %s" % (self.targetHost, self.targetPort, str(e)))
+            return False
 
         if res.status != 401:
             LOG.info(f"Status code returned: {res.status}. Authentication does not seem required for URL")
@@ -110,6 +114,18 @@ class WinRMSRelayClient(ProtocolClient):
             token = respToken2["ResponseToken"]
         else:
             token = authenticateMessageBlob
+
+        # Detect NTLM version for logging purposes only.
+        # NTLMv1 NT response is exactly 24 bytes; NTLMv2 is longer.
+        try:
+            authMsg = NTLMAuthChallengeResponse()
+            authMsg.fromString(token)
+            nt_response = authMsg['ntlm']
+            # enough min length and NTLMv2 blob
+            if len(nt_response) >= 48 and nt_response[16:20] == b'\x01\x01\x00\x00':
+                LOG.debug('NTLMv2 detected (NT response %d bytes). WinRMS relay may fail due to Channel Binding.' % len(nt_response))
+        except Exception:
+            pass
 
         auth = base64.b64encode(token).decode("ascii")
         headers = {

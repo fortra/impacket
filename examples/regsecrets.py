@@ -193,7 +193,7 @@ if __name__ == '__main__':
                         help='base output filename. Extensions will be added for sam, secrets and cached')
 
     group = parser.add_argument_group('display options')
-    group.add_argument('-history', action='store_true', help='Dump password history, and LSA secrets OldVal')
+    group.add_argument('-history', action='store_true', help='Dump password history (NTDS and SAM hashes), and LSA secrets OldVal')
 
     group = parser.add_argument_group('authentication')
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')

