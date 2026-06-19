@@ -3671,6 +3671,8 @@ class SMB(object):
                 LOG.debug("Session setup response parsing failed: %s", e)
                 raise SessionError("Authentication failed: invalid or truncated server response", 0x006D, 0xC000, 1, None)
             respToken = SPNEGO_NegTokenResp(sessionData['SecurityBlob'])
+            if respToken.isNegoExSelected():
+                raise NotImplementedError('NEGOEX / PKU2U authentication is not implemented yet')
 
             # Let's parse some data and keep it to ourselves in case it is asked
             ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])
