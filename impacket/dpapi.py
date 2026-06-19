@@ -634,7 +634,12 @@ class DPAPI_BLOB(Structure):
         return derivedKey
 
     def decrypt(self, key, entropy = None):
-        keyHash = SHA1.new(key).digest()
+        if len(key) == 20:
+            # Key has already been hashed
+            keyHash = key
+        else:
+            keyHash = SHA1.new(key).digest()
+        
         sessionKey = HMAC.new(keyHash, self['Salt'], ALGORITHMS_DATA[self['HashAlgo']][1])
         if entropy is not None:
             sessionKey.update(entropy)
