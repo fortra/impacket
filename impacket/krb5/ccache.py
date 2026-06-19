@@ -509,7 +509,8 @@ class CCache:
 
         credential['time'] = Times()
         credential['time']['authtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['authtime']))
-        credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['starttime']))
+        if encASRepPart['starttime'].hasValue():
+            credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['starttime']))
         credential['time']['endtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['endtime']))
         # After KB4586793 for CVE-2020-17049 this timestamp may be omitted
         if encASRepPart['renew-till'].hasValue():
@@ -570,7 +571,8 @@ class CCache:
 
         credential['time'] = Times()
         credential['time']['authtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['authtime']))
-        credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['starttime']))
+        if encTGSRepPart['starttime'].hasValue():
+            credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['starttime']))
         credential['time']['endtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['endtime']))
         # After KB4586793 for CVE-2020-17049 this timestamp may be omitted
         if encTGSRepPart['renew-till'].hasValue():
@@ -714,13 +716,15 @@ class CCache:
             credential["key"]["keylen"] = len(credential["key"]["keyvalue"])
 
             credential["time"] = Times()
-
-            credential["time"]["authtime"] = self.toTimeStamp(
-                types.KerberosTime.from_asn1(krbCredInfo["starttime"])
-            )
-            credential["time"]["starttime"] = self.toTimeStamp(
-                types.KerberosTime.from_asn1(krbCredInfo["starttime"])
-            )
+            
+            if krbCredInfo["authtime"].hasValue():
+                credential["time"]["authtime"] = self.toTimeStamp(
+                    types.KerberosTime.from_asn1(krbCredInfo["authtime"])
+                )
+            if krbCredInfo["starttime"].hasValue():
+                credential["time"]["starttime"] = self.toTimeStamp(
+                    types.KerberosTime.from_asn1(krbCredInfo["starttime"])
+                )
             credential["time"]["endtime"] = self.toTimeStamp(
                 types.KerberosTime.from_asn1(krbCredInfo["endtime"])
             )
@@ -771,9 +775,10 @@ class CCache:
             # Force the 32 bit representation to avoid any precision loss due to ASN1 conversion
             krbCredInfo["flags"] = f"{int(credential['tktflags']):032b}"
 
-            krbCredInfo["starttime"] = KerberosTime.to_asn1(
-                datetime.fromtimestamp(credential["time"]["starttime"], tz=timezone.utc)
-            )
+            if credential["time"].get("starttime"):
+                krbCredInfo["starttime"] = KerberosTime.to_asn1(
+                    datetime.fromtimestamp(credential["time"]["starttime"], tz=timezone.utc)
+                )
             krbCredInfo["endtime"] = KerberosTime.to_asn1(
                 datetime.fromtimestamp(credential["time"]["endtime"], tz=timezone.utc)
             )
