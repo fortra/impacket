@@ -44,6 +44,7 @@ from impacket.examples import logger
 from impacket.examples.utils import parse_target
 from impacket.system_errors import ERROR_NO_MORE_ITEMS
 from impacket.structure import hexdump
+from impacket.winregistry import format_multi_sz
 from impacket.smbconnection import SMBConnection, SessionError
 from impacket.dcerpc.v5.dtypes import READ_CONTROL
 
@@ -235,11 +236,11 @@ class RegHandler:
         if self.__options.v:
             print(keyName)
             value = rrp.hBaseRegQueryValue(dce, ans2['phkResult'], self.__options.v)
-            print('\t' + self.__options.v + '\t' + self.__regValues.get(value[0], 'KEY_NOT_FOUND') + '\t', str(value[1]))
+            self.__print_query_value(self.__options.v, value[0], value[1])
         elif self.__options.ve:
             print(keyName)
             value = rrp.hBaseRegQueryValue(dce, ans2['phkResult'], '')
-            print('\t' + '(Default)' + '\t' + self.__regValues.get(value[0], 'KEY_NOT_FOUND') + '\t', str(value[1]))
+            self.__print_query_value('(Default)', value[0], value[1])
         elif self.__options.s:
             self.__print_all_subkeys_and_entries(dce, subKey + '\\', ans2['phkResult'], 0)
         else:
@@ -306,7 +307,7 @@ class RegHandler:
             if dwType == rrp.REG_MULTI_SZ:
                 vd = '\0'.join(self.__options.vd)
                 valueData = vd + 2 * '\0' # REG_MULTI_SZ ends with 2 null-bytes
-                valueDataToPrint = vd.replace('\0', '\n\t\t')
+                valueDataToPrint = format_multi_sz(valueData, separator='\n\t\t')
             else:
                 vd = self.__options.vd[0] if len(self.__options.vd) > 0 else ''
                 if dwType in (
@@ -471,7 +472,10 @@ class RegHandler:
                 lp_type = ans4['lpType']
                 lp_data = b''.join(ans4['lpData'])
                 print('\t' + lp_value_name + '\t' + self.__regValues.get(lp_type, 'KEY_NOT_FOUND') + '\t', end=' ')
-                self.__parse_lp_data(lp_type, lp_data)
+                separator = '\n\t%s\t%s\t ' % (
+                    ' ' * len(lp_value_name), ' ' * len(self.__regValues.get(lp_type, 'KEY_NOT_FOUND'))
+                )
+                self.__parse_lp_data(lp_type, lp_data, separator)
                 i += 1
             except rrp.DCERPCSessionError as e:
                 if e.get_error_code() == ERROR_NO_MORE_ITEMS:
@@ -502,7 +506,21 @@ class RegHandler:
                 raise
 
     @staticmethod
-    def __parse_lp_data(valueType, valueData):
+    def __format_query_value(valueType, valueData, multiSzSeparator):
+        if valueType == rrp.REG_MULTI_SZ:
+            return format_multi_sz(valueData, separator=multiSzSeparator)
+        return str(valueData)
+
+    def __print_query_value(self, valueName, valueType, valueData):
+        valueTypeName = self.__regValues.get(valueType, 'KEY_NOT_FOUND')
+        # REG_MULTI_SZ values continue on later lines. Keep the existing tabular
+        # query output by replacing the value name/type columns with spaces.
+        separator = '\n\t%s\t%s\t ' % (' ' * len(valueName), ' ' * len(valueTypeName))
+        print('\t' + valueName + '\t' + valueTypeName + '\t',
+              self.__format_query_value(valueType, valueData, separator))
+
+    @staticmethod
+    def __parse_lp_data(valueType, valueData, multiSzSeparator='\n\t\t'):
         try:
             if valueType == rrp.REG_SZ or valueType == rrp.REG_EXPAND_SZ:
                 if type(valueData) is int:
@@ -526,7 +544,7 @@ class RegHandler:
                 except:
                     print(" NULL")
             elif valueType == rrp.REG_MULTI_SZ:
-                print("%s" % (valueData.decode('utf-16le')[:-2]))
+                print("%s" % format_multi_sz(valueData, separator=multiSzSeparator))
             else:
                 print("Unknown Type 0x%x!" % valueType)
                 hexdump(valueData)
