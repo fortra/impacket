@@ -37,7 +37,7 @@ from pyasn1.type.univ import noValue
 from impacket import LOG
 from impacket.ldap.ldapasn1 import Filter, Control, SimplePagedResultsControl, ResultCode, Scope, DerefAliases, Operation, \
     KNOWN_CONTROLS, CONTROL_PAGEDRESULTS, NOTIFICATION_DISCONNECT, KNOWN_NOTIFICATIONS, BindRequest, SearchRequest, \
-    SearchResultDone, LDAPMessage, AddRequest, ModifyRequest, ModifyDNRequest, DelRequest
+    SearchResultDone, LDAPMessage, AddRequest, ModifyRequest, ModifyDNRequest, DelRequest, ExtendedRequest
 from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3, VERSION, hmac_md5, NTLMAuthChallenge
 from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, SPNEGOCipher, TypesMech
 
@@ -75,13 +75,15 @@ MODIFY_REPLACE = 2
 MODIFY_INCREMENT = 3
 
 class LDAPConnection:
-    def __init__(self, url, baseDN='', dstIp=None, signing=True):
+    def __init__(self, url, baseDN='', dstIp=None, signing=True, certfile=None, keyfile=None):
         """
         LDAPConnection class
 
         :param string url:
         :param string baseDN:
         :param string dstIp:
+        :param string certfile: PEM client certificate file used for Schannel authentication over LDAPS
+        :param string keyfile: PEM private key file matching certfile
 
         :return: a LDAP instance, if not raises a LDAPSessionError exception
         """
@@ -113,6 +115,10 @@ class LDAPConnection:
         self.__binded = False
         self.channel_binding_value = None
 
+        # Schannel client certificate, presented during the TLS handshake (LDAPS or StartTLS)
+        self._certfile = certfile
+        self._keyfile = keyfile
+
         ### SASL Auth LDAP Signing arguments
         self.sequenceNumber = 0
         
@@ -141,33 +147,64 @@ class LDAPConnection:
             self._socket.connect(sa)
         else:
             # Switching to TLS now
-            ctx = SSL.Context(SSL.TLS_METHOD)
-            ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
-            SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION = 0x00040000
-            ctx.set_options(SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION)
+            ctx = self.build_tls_context()
             self._socket = SSL.Connection(ctx, self._socket)
             self._socket.connect(sa)
             self._socket.do_handshake()
+            self.compute_channel_binding()
 
-            # From: https://github.com/ly4k/ldap3/commit/87f5760e5a68c2f91eac8ba375f4ea3928e2b9e0#diff-c782b790cfa0a948362bf47d72df8ddd6daac12e5757afd9d371d89385b27ef6R1383
-            from hashlib import md5
-            # Ugly but effective, to get the digest of the X509 DER in bytes
-            peer_cert_digest_str = self._socket.get_peer_certificate().digest('sha256').decode()
-            peer_cert_digest_bytes = bytes.fromhex(peer_cert_digest_str.replace(':', ''))
-        
-            channel_binding_struct = b''
-            initiator_address = b'\x00'*8
-            acceptor_address = b'\x00'*8
+    def build_tls_context(self):
+        ctx = SSL.Context(SSL.TLS_METHOD)
+        ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
+        SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION = 0x00040000
+        ctx.set_options(SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION)
+        if self._certfile is not None and self._keyfile is not None:
+            ctx.use_certificate_file(self._certfile)
+            ctx.use_privatekey_file(self._keyfile)
+        return ctx
 
-            # https://datatracker.ietf.org/doc/html/rfc5929#section-4
-            application_data_raw = b'tls-server-end-point:' + peer_cert_digest_bytes
-            len_application_data = len(application_data_raw).to_bytes(4, byteorder='little', signed = False)
-            application_data = len_application_data
-            application_data += application_data_raw
-            channel_binding_struct += initiator_address
-            channel_binding_struct += acceptor_address
-            channel_binding_struct += application_data
-            self.channel_binding_value = md5(channel_binding_struct).digest()
+    def compute_channel_binding(self):
+        """Compute the LDAP channel binding token from the negotiated TLS server certificate."""
+        # From: https://github.com/ly4k/ldap3/commit/87f5760e5a68c2f91eac8ba375f4ea3928e2b9e0#diff-c782b790cfa0a948362bf47d72df8ddd6daac12e5757afd9d371d89385b27ef6R138
+        from hashlib import md5
+        # Ugly but effective, to get the digest of the X509 DER in bytes
+        peer_cert_digest_str = self._socket.get_peer_certificate().digest('sha256').decode()
+        peer_cert_digest_bytes = bytes.fromhex(peer_cert_digest_str.replace(':', ''))
+
+        channel_binding_struct = b''
+        initiator_address = b'\x00'*8
+        acceptor_address = b'\x00'*8
+
+        # https://datatracker.ietf.org/doc/html/rfc5929#section-4
+        application_data_raw = b'tls-server-end-point:' + peer_cert_digest_bytes
+        len_application_data = len(application_data_raw).to_bytes(4, byteorder='little', signed = False)
+        application_data = len_application_data
+        application_data += application_data_raw
+        channel_binding_struct += initiator_address
+        channel_binding_struct += acceptor_address
+        channel_binding_struct += application_data
+        self.channel_binding_value = md5(channel_binding_struct).digest()
+
+    def startTLS(self):
+        """Upgrade a plaintext LDAP connection (ldap://) to TLS using the StartTLS extended operation."""
+        if self._SSL:
+            return
+
+        request = ExtendedRequest()
+        request['requestName'] = '1.3.6.1.4.1.1466.20037'  # StartTLS OID
+        response = self.sendReceive(request)[0]['protocolOp']
+        if response['extendedResp']['resultCode'] != ResultCode('success'):
+            raise LDAPSessionError(
+                errorString='Error in StartTLS request -> %s: %s' % (response['extendedResp']['resultCode'].prettyPrint(),
+                                                                     response['extendedResp']['diagnosticMessage'])
+            )
+
+        ctx = self.build_tls_context()
+        self._socket = SSL.Connection(ctx, self._socket)
+        self._socket.set_connect_state()
+        self._socket.do_handshake()
+        self._SSL = True
+        self.compute_channel_binding()
 
     def kerberosLogin(self, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost=None, TGT=None,
                       TGS=None, useCache=True):
@@ -442,6 +479,17 @@ class LDAPConnection:
                 blob['mechListMIC'] = self.__spnego_cipher_blob.sign(b'0\x0c\x06\n+\x06\x01\x04\x01\x827\x02\x02\n', 0, reset_cipher=True).getData()
             bindRequest['authentication']['sasl']['mechanism'] = 'GSS-SPNEGO'
             bindRequest['authentication']['sasl']['credentials'] = blob.getData()
+            response = self.sendReceive(bindRequest)[0]['protocolOp']
+        elif authenticationChoice == 'external':
+            self.__signing = False
+            if self._SSL:
+                self.__auth_type = authenticationChoice
+                self.__binded = True
+                return True
+            # Over a plaintext LDAP connection we upgrade to TLS via StartTLS, then bind with SASL EXTERNAL.
+            self.startTLS()
+            bindRequest['name'] = ''
+            bindRequest['authentication']['sasl']['mechanism'] = 'EXTERNAL'
             response = self.sendReceive(bindRequest)[0]['protocolOp']
         else:
             raise LDAPSessionError(errorString="Unknown authenticationChoice: '%s'" % authenticationChoice)
