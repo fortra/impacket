@@ -197,6 +197,10 @@ class SVCCTL:
         elif self.__action == 'CHANGE':
             logging.info("Changing service config for %s" % self.__options.name)
             if self.__options.start_type is not None:
+                if self.__options.delayed_start and not self.__options.start_type == scmr.SERVICE_AUTO_START:
+                    logging.error("Delayed start can only be used with auto start type")
+                    return
+
                 start_type = int(self.__options.start_type)
             else:
                 start_type = scmr.SERVICE_NO_CHANGE
@@ -236,6 +240,15 @@ class SVCCTL:
             #resp = scmr.hRChangeServiceConfigW(rpc, serviceHandle,  display, path, service_type, start_type, start_name, password)
             scmr.hRChangeServiceConfigW(rpc, serviceHandle, service_type, start_type, scmr.SERVICE_ERROR_IGNORE, path,
                                         NULL, NULL, NULL, 0, start_name, password, 0, display)
+
+            if self.__options.delayed_start:
+                request = scmr.RChangeServiceConfig2W()
+                request['hService'] = serviceHandle
+                request['Info']['dwInfoLevel'] = 3
+                request['Info']['Union']['tag'] = 3
+                request['Info']['Union']['psda']['fDelayedAutostart'] = 1
+                dce.request(request)
+
             scmr.hRCloseServiceHandle(rpc, serviceHandle)
         else:
             logging.error("Unknown action %s" % self.__action)
@@ -298,6 +311,7 @@ if __name__ == '__main__':
     create_parser.add_argument('-path', action='store', required=False, help='binary path')
     create_parser.add_argument('-service_type', action='store', required=False, help='service type')
     create_parser.add_argument('-start_type', action='store', required=False, help='service start type')
+    create_parser.add_argument('-delayed_start', action='store_true', required=False, help='delayed start')
     create_parser.add_argument('-start_name', action='store', required=False, help='string that specifies the name of '
                                'the account under which the service should run')
     create_parser.add_argument('-password', action='store', required=False, help='string that contains the password of '
