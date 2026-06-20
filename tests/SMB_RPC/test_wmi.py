@@ -226,7 +226,7 @@ class WMITests(RemoteTestCase, unittest.TestCase):
         try:
             dummyClass, _ = iWbemServices.GetObject('')
             dummyClass.setClassName(className)
-            dummyClass.addNewAttribute(attrName, wmi.CIM_TYPE_ENUM.CIM_TYPE_STRING, attrValue)
+            dummyClass.addNewAttribute(attrName, wmi.CIM_TYPE_ENUM.CIM_TYPE_STRING, attrValue, qualifiers=["key", "read", "write"])
 
             _ = iWbemServices.PutClass(dummyClass.marshalMe(), wmi.WBEM_FLAG_CREATE_ONLY)
             createdClass,_ = iWbemServices.GetObject(className)
@@ -244,11 +244,11 @@ class WMITests(RemoteTestCase, unittest.TestCase):
         try:
             dummyClass, _ = iWbemServices.GetObject('')
             dummyClass.setClassName(className)
-            dummyClass.addNewAttribute("Code", wmi.CIM_TYPE_ENUM.CIM_TYPE_STRING, "EN")
+            dummyClass.addNewAttribute("Code", wmi.CIM_TYPE_ENUM.CIM_TYPE_STRING, "EN", qualifiers=["key", "read", "write"])
             iWbemServices.PutClass(dummyClass.marshalMe(), wmi.WBEM_FLAG_CREATE_ONLY)
 
             fetchedClass, _ = iWbemServices.GetObject(className)
-            fetchedClass.addNewAttribute("Number", wmi.CIM_TYPE_ENUM.CIM_TYPE_UINT32, 123)
+            fetchedClass.addNewAttribute("Number", wmi.CIM_TYPE_ENUM.CIM_TYPE_UINT32, 123, qualifiers=["read", "write"])
             iWbemServices.PutClass(fetchedClass.marshalMe(), wmi.WBEM_FLAG_UPDATE_ONLY)
 
             roundTrip, _ = iWbemServices.GetObject(className)
