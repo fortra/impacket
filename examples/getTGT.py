@@ -91,6 +91,12 @@ if __name__ == '__main__':
     group.add_argument('-service', action='store', metavar="SPN", help='Request a Service Ticket directly through an AS-REQ')
     group.add_argument('-principalType', nargs="?", type=lambda value: constants.PrincipalNameType[value.upper()] if value.upper() in constants.PrincipalNameType.__members__ else None,  action='store', default=constants.PrincipalNameType.NT_PRINCIPAL, help='PrincipalType of the token, can be one of  NT_UNKNOWN, NT_PRINCIPAL, NT_SRV_INST, NT_SRV_HST, NT_SRV_XHST, NT_UID, NT_SMTP_NAME, NT_ENTERPRISE, NT_WELLKNOWN, NT_SRV_HST_DOMAIN, NT_MS_PRINCIPAL, NT_MS_PRINCIPAL_AND_ID, NT_ENT_PRINCIPAL_AND_ID; default is NT_PRINCIPAL, ')
 
+    group = parser.add_argument_group('SOCKS Proxy Options')
+    group.add_argument('-socks', action='store_true', default=False,
+                        help='Use a SOCKS proxy for the connection')
+    group.add_argument('-socks-address', default='127.0.0.1', help='SOCKS5 server address')
+    group.add_argument('-socks-port', default=1080, type=int, help='SOCKS5 server port')
+
     if len(sys.argv)==1:
         parser.print_help()
         print("\nExamples: ")
@@ -101,6 +107,15 @@ if __name__ == '__main__':
 
     # Init the example's logger theme
     logger.init(options.ts, options.debug)
+
+    # Relay connections through a socks proxy
+    if (options.socks):
+        logging.info('Relaying connections through SOCKS proxy (%s:%s)', options.socks_address, options.socks_port)
+        import socket
+        import socks
+
+        socks.set_default_proxy(socks.SOCKS5, options.socks_address, options.socks_port)
+        socket.socket = socks.socksocket
 
     domain, username, password, _, _, options.k = parse_identity(options.identity, options.hashes, options.no_pass, options.aesKey, options.k)
     
