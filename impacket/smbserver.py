@@ -2497,6 +2497,9 @@ class SMBCommands:
             if struct.unpack('B', sessionSetupData['SecurityBlob'][0:1])[0] == ASN1_AID:
                 # NEGOTIATE packet
                 blob = SPNEGO_NegTokenInit(sessionSetupData['SecurityBlob'])
+                #Check if NEGOEX was offered by the client for now, as we havent implemented/supported yet
+                if blob.isNegoExOffered():
+                    smbServer.log("NEGOEX was offered by the client but NEGOEX/PKU2U is not supported yet", logging.DEBUG, connData=connData)
                 token = blob['MechToken']
                 if len(blob['MechTypes'][0]) > 0:
                     # Is this GSSAPI NTLM or something else we don't support?
@@ -3210,6 +3213,9 @@ class SMB2Commands:
         if struct.unpack('B', securityBlob[0:1])[0] == ASN1_AID:
             # NEGOTIATE packet
             blob = SPNEGO_NegTokenInit(securityBlob)
+            #Check if NEGOEX was offered by the client for now, as we havent implemented/supported yet
+            if blob.isNegoExOffered():
+                smbServer.log("NEGOEX was offered by the client but NEGOEX/PKU2U is not supported yet", logging.DEBUG, connData=connData)
             token = blob['MechToken']
             if len(blob['MechTypes'][0]) > 0:
                 # Is this GSSAPI NTLM or something else we don't support?
