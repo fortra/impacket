@@ -52,6 +52,7 @@ __all__ = [
     'LDAPConnection', 'LDAPFilterSyntaxError', 'LDAPFilterInvalidException', 'LDAPSessionError', 'LDAPSearchError',
     'Control', 'SimplePagedResultsControl', 'ResultCode', 'Scope', 'DerefAliases', 'Operation',
     'CONTROL_PAGEDRESULTS', 'KNOWN_CONTROLS', 'NOTIFICATION_DISCONNECT', 'KNOWN_NOTIFICATIONS',
+    'escape_filter_chars', 'get_entry_dn', 'get_entry_values', 'get_entry_value',
 ]
 
 # https://tools.ietf.org/search/rfc4515#section-3
@@ -73,6 +74,35 @@ MODIFY_ADD = 0
 MODIFY_DELETE = 1
 MODIFY_REPLACE = 2
 MODIFY_INCREMENT = 3
+
+
+def escape_filter_chars(value):
+    """Escape special characters in an LDAP filter value per RFC 4515."""
+    escaped = value.replace('\\', '\\5c')
+    escaped = escaped.replace('*', '\\2a')
+    escaped = escaped.replace('(', '\\28')
+    escaped = escaped.replace(')', '\\29')
+    escaped = escaped.replace('\x00', '\\00')
+    return escaped
+
+
+def get_entry_dn(entry):
+    """Return the DN of a SearchResultEntry."""
+    return str(entry['objectName'])
+
+
+def get_entry_values(entry, attribute_name):
+    """Return the list of raw values for the named attribute in a SearchResultEntry."""
+    for attribute in entry['attributes']:
+        if str(attribute['type']).lower() == attribute_name.lower():
+            return list(attribute['vals'])
+    return []
+
+
+def get_entry_value(entry, attribute_name):
+    """Return the first value for the named attribute, or None."""
+    values = get_entry_values(entry, attribute_name)
+    return values[0] if values else None
 
 class LDAPConnection:
     def __init__(self, url, baseDN='', dstIp=None, signing=True):
