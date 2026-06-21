@@ -1019,6 +1019,8 @@ class SMB3:
             self._Session['Connection']      = self._NetBIOSSession.get_socket()
             sessionSetupResponse = SMB2SessionSetup_Response(ans['Data'])
             respToken = SPNEGO_NegTokenResp(sessionSetupResponse['Buffer'])
+            if respToken.isNegoExSelected():
+                raise NotImplementedError('NEGOEX / PKU2U authentication is not implemented yet')
 
             # Let's parse some data and keep it to ourselves in case it is asked
             ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])

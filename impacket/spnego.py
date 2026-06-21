@@ -21,6 +21,7 @@ from struct import pack, unpack, calcsize
 
 from impacket import ntlm
 from Cryptodome.Cipher import ARC4
+from impacket.negoex import parseNegoExToken
 
 ############### GSS Stuff ################
 GSS_API_SPNEGO_UUID              = b'\x2b\x06\x01\x05\x05\x02'
@@ -340,6 +341,12 @@ class SPNEGO_NegTokenResp:
             return self['ResponseToken']
         return None
     
+    def getNegoExMessages(self, strict=False):
+        token = self.getNegoExToken()
+        if not token:
+            return []
+        return parseNegoExToken(token)
+    
 
 class SPNEGO_NegTokenInit(GSSAPI):
     # https://tools.ietf.org/html/rfc4178#page-8
@@ -446,6 +453,11 @@ class SPNEGO_NegTokenInit(GSSAPI):
         if self.isNegoExOffered() and 'MechToken' in self.fields:
             return self['MechToken']
         return None
+    def getNegoExMessages(self, strict=False):
+        token = self.getNegoExToken()
+        if not token:
+            return []
+        return parseNegoExToken(token)
 
 class SPNEGOCipher:
     def __init__(self, flags, randomSessionKey):
