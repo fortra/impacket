@@ -219,11 +219,7 @@ def start_servers(options, threads):
         c.setSCCMDPOptions(options.sccm_dp_extensions, options.sccm_dp_files)
         
         c.setAltName(options.altname)
-
-        #https optioons
-        c.https = options.https
-        c.certfile = options.certfile
-        c.keyfile = options.keyfile
+        c.setHTTPS(options.https, options.certfile, options.keyfile)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
@@ -447,6 +443,9 @@ if __name__ == '__main__':
     except Exception as e:
        logging.error(str(e))
        sys.exit(1)
+
+    if options.https and (not options.certfile or not options.keyfile):
+        parser.error('--https requires --certfile and --keyfile')
 
     if options.rpc_use_smb and not options.auth_smb:
        logging.error("Set -auth-smb to relay DCE/RPC to SMB pipes")

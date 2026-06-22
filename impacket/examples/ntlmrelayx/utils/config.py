@@ -47,6 +47,9 @@ class NTLMRelayxConfig:
         self.remove_mic = False
         self.disableMulti = False
         self.keepRelaying = False
+        self.https = False
+        self.certfile = None
+        self.keyfile = None
 
         self.command = None
 
@@ -242,6 +245,11 @@ class NTLMRelayxConfig:
     def setExploitOptions(self, remove_mic, remove_target):
         self.remove_mic = remove_mic
         self.remove_target = remove_target
+
+    def setHTTPS(self, https, certfile, keyfile):
+        self.https = https
+        self.certfile = certfile
+        self.keyfile = keyfile
 
     def setWebDAVOptions(self, serve_image):
         self.serve_image = serve_image
