@@ -23,6 +23,7 @@ import socketserver
 import socket
 import base64
 import random
+import ssl
 import struct
 import string
 from threading import Thread
@@ -46,6 +47,28 @@ class HTTPRelayServer(Thread):
             self.wpad_counters = {}
             socketserver.TCPServer.allow_reuse_address = True
             socketserver.TCPServer.__init__(self, server_address, RequestHandlerClass)
+
+            if self.config.https:
+                self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                self.context.load_cert_chain(certfile=self.config.certfile, keyfile=self.config.keyfile)
+
+        def get_request(self):
+            sock, addr = socketserver.TCPServer.get_request(self)
+            if self.config.https:
+                try:
+                    ssock = self.context.wrap_socket(sock, server_side=True)
+                    LOG.debug("(HTTP): TLS handshake from %s:%s succeeded (protocol=%s, cipher=%s)",
+                              addr[0], addr[1], ssock.version(), ssock.cipher())
+                    return ssock, addr
+                except ssl.SSLError as e:
+                    if "EOF" in str(e):
+                        LOG.warning("(HTTP): TLS handshake from %s:%s aborted early (likely client rejected cert)",
+                                    addr[0], addr[1])
+                    else:
+                        LOG.error("(HTTP): TLS handshake from %s:%s failed: %s", addr[0], addr[1], e)
+                    sock.close()
+                    raise
+            return sock, addr
 
     class HTTPHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self,request, client_address, server):
@@ -137,6 +160,8 @@ class HTTPRelayServer(Thread):
                 self.wfile.write(imgFile_data)
 
         def strip_blob(self, proxy):
+            # Get the body of the request if any
+            # Otherwise, successive requests will not be handled properly
             if PY2:
                 if proxy:
                     proxyAuthHeader = self.headers.getheader('Proxy-Authorization')
@@ -249,6 +274,13 @@ class HTTPRelayServer(Thread):
             return
 
         def do_GET(self):
+            contentLength = self.headers.get("Content-Length")
+            if contentLength is not None:
+                try:
+                    self.rfile.read(int(contentLength))
+                except Exception:
+                    pass
+
             if self.server.config.mode == 'REDIRECT':
                 self.do_SMBREDIRECT()
                 return
