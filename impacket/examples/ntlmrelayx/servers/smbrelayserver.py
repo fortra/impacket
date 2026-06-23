@@ -36,7 +36,7 @@ import ntpath
 
 from binascii import hexlify, unhexlify
 from six import b
-from impacket import smb, ntlm, LOG, smb3
+from impacket import smb, ntlm, LOG, smb3, wintime
 from impacket.nt_errors import STATUS_MORE_PROCESSING_REQUIRED, STATUS_ACCESS_DENIED, STATUS_SUCCESS, STATUS_NETWORK_SESSION_EXPIRED, STATUS_BAD_NETWORK_NAME
 from impacket.spnego import SPNEGO_NegTokenResp, SPNEGO_NegTokenInit, TypesMech
 from impacket.smbserver import SMBSERVER, outputToJohnFormat, writeJohnOutputToFile
@@ -210,8 +210,8 @@ class SMBRelayServer(Thread):
         respSMBCommand['MaxTransactSize'] = 65536
         respSMBCommand['MaxReadSize'] = 65536
         respSMBCommand['MaxWriteSize'] = 65536
-        respSMBCommand['SystemTime'] = smb.POSIXtoFT(calendar.timegm(time.gmtime()))
-        respSMBCommand['ServerStartTime'] = smb.POSIXtoFT(calendar.timegm(time.gmtime()))
+        respSMBCommand['SystemTime'] = wintime.posix_to_filetime(calendar.timegm(time.gmtime()))
+        respSMBCommand['ServerStartTime'] = wintime.posix_to_filetime(calendar.timegm(time.gmtime()))
         respSMBCommand['SecurityBufferOffset'] = 0x80
 
         blob = SPNEGO_NegTokenInit()

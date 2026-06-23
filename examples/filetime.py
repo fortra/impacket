@@ -53,8 +53,8 @@ from impacket.smb3structs import (
 
 import argparse
 import datetime
-from impacket import smbconnection
-from impacket.smb import SMB_DIALECT, FILE_READ_DATA, FILE_WRITE_DATA, FILE_WRITE_ATTRIBUTES, SMB_SET_FILE_BASIC_INFO, POSIXtoFT, FTtoPOSIX, SMBSetFileBasicInfo
+from impacket import smbconnection, wintime
+from impacket.smb import SMB_DIALECT, FILE_READ_DATA, FILE_WRITE_DATA, FILE_WRITE_ATTRIBUTES, SMB_SET_FILE_BASIC_INFO, SMBSetFileBasicInfo
 from impacket.smb3 import FILE_BASIC_INFORMATION
 from impacket.smb3structs import SMB2_DIALECT_311, SMB2_FILE_BASIC_INFO
 
@@ -78,10 +78,10 @@ LastAccessTime: {last_access_time}
 LastWriteTime: {last_write_time}
 ChangeTime: {change_time}
 """.format(
-        creation_time="N/A" if self.creation_time is None else datetime.datetime.fromtimestamp(FTtoPOSIX(self.creation_time)).isoformat(),
-        last_access_time="N/A" if self.last_access_time is None else datetime.datetime.fromtimestamp(FTtoPOSIX(self.last_access_time)).isoformat(),
-        last_write_time="N/A" if self.last_write_time is None else datetime.datetime.fromtimestamp(FTtoPOSIX(self.last_write_time)).isoformat(),
-        change_time="N/A" if self.change_time is None else datetime.datetime.fromtimestamp(FTtoPOSIX(self.change_time)).isoformat(),
+        creation_time="N/A" if self.creation_time is None else datetime.datetime.fromtimestamp(wintime.filetime_to_posix(self.creation_time)).isoformat(),
+        last_access_time="N/A" if self.last_access_time is None else datetime.datetime.fromtimestamp(wintime.filetime_to_posix(self.last_access_time)).isoformat(),
+        last_write_time="N/A" if self.last_write_time is None else datetime.datetime.fromtimestamp(wintime.filetime_to_posix(self.last_write_time)).isoformat(),
+        change_time="N/A" if self.change_time is None else datetime.datetime.fromtimestamp(wintime.filetime_to_posix(self.change_time)).isoformat(),
     )
 
 def filetime_query(connection: smbconnection.SMBConnection, tid: int, fid: int) -> FileTimes:
@@ -251,10 +251,10 @@ def main():
             elif options.timestamp:
                 logging.debug(f"Got TimeStamp: '{options.timestamp}'!")
                 new_filetimes = FileTimes(
-                    POSIXtoFT(touch_timestamp.timestamp()),
-                    POSIXtoFT(touch_timestamp.timestamp()),
-                    POSIXtoFT(touch_timestamp.timestamp()),
-                    POSIXtoFT(touch_timestamp.timestamp()),
+                    wintime.posix_to_filetime(touch_timestamp.timestamp()),
+                    wintime.posix_to_filetime(touch_timestamp.timestamp()),
+                    wintime.posix_to_filetime(touch_timestamp.timestamp()),
+                    wintime.posix_to_filetime(touch_timestamp.timestamp()),
                 )
             
             # Keep only desired filetime changes.

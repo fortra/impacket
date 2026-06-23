@@ -40,7 +40,7 @@ from Cryptodome.PublicKey import RSA
 from Cryptodome.Util.number import bytes_to_long
 from six import PY3
 
-from impacket.ese import getUnixTime
+from impacket import wintime
 from impacket.structure import Structure, hexdump
 from impacket.uuid import bin_to_string
 from impacket.dcerpc.v5.enum import Enum
@@ -779,7 +779,7 @@ class VAULT_VCRD(Structure):
     def dump(self):
         print("[VCRD]")
         print("SchemaGuid  : %s" % bin_to_string(self['SchemaGuid']))
-        print("LastWritten : %s" % (datetime.fromtimestamp(getUnixTime(self['LastWritten']), tz=timezone.utc)))
+        print("LastWritten : %s" % (datetime.fromtimestamp(wintime.filetime_to_posix(self['LastWritten']), tz=timezone.utc)))
         print("FriendlyName: %s" % (self['FriendlyName'].decode('utf-16le')))
         print()
         for i,entry in enumerate(self.mapEntries):
@@ -1077,7 +1077,7 @@ class CREDENTIAL_BLOB(Structure):
 
     def dump(self):
         print("[CREDENTIAL]")
-        print("LastWritten : %s" % (datetime.fromtimestamp(getUnixTime(self['LastWritten']), tz=timezone.utc)))
+        print("LastWritten : %s" % (datetime.fromtimestamp(wintime.filetime_to_posix(self['LastWritten']), tz=timezone.utc)))
         print("Flags       : 0x%.8x (%s)" % (self['Flags'], getFlags(CREDENTIAL_FLAGS, self['Flags'])))
         print("Persist     : 0x%.8x (%s)" % (self['Persist'], CREDENTIAL_PERSIST(self['Persist']).name))
         print("Type        : 0x%.8x (%s)" % (self['Type'], CREDENTIAL_TYPE(self['Type']).name))

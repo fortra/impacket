@@ -46,6 +46,7 @@ from binascii import unhexlify
 from threading import Thread, Lock
 from six import PY3
 
+from impacket import wintime
 from impacket.dcerpc.v5 import epm
 from impacket.dcerpc.v5.drsuapi import MSRPC_UUID_DRSUAPI, hDRSDomainControllerInfo, DRSBind, NTDSAPI_CLIENT_GUID, \
     DRS_EXTENSIONS_INT, DRS_EXT_GETCHGREQ_V6, DRS_EXT_GETCHGREPLY_V6, DRS_EXT_GETCHGREQ_V8, DRS_EXT_STRONG_ENCRYPTION, \
@@ -457,7 +458,7 @@ class MS14_068:
         # 1) KERB_VALIDATION_INFO
         aTime = timegm(strptime(str(authTime), '%Y%m%d%H%M%SZ'))
 
-        unixTime = smb.POSIXtoFT(aTime)
+        unixTime = wintime.posix_to_filetime(aTime)
 
         kerbdata = KERB_VALIDATION_INFO()
 
