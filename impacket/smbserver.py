@@ -50,8 +50,10 @@ from six import b, ensure_str
 from six.moves import configparser, socketserver
 from pyasn1.codec.der import encoder, decoder
 
-# For signing
-from impacket import smb, nmb, ntlm, uuid
+# For signing and session encryption
+from Cryptodome.Cipher import AES
+from Cryptodome.Hash import SHA512
+from impacket import smb, nmb, ntlm, uuid, crypto
 from impacket import smb3structs as smb2
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, MechTypes, SPNEGO_NegTokenResp, ASN1_AID, \
     ASN1_SUPPORTED_MECH
@@ -71,6 +73,79 @@ LOG = logging.getLogger(__name__)
 # These ones not defined in nt_errors
 STATUS_SMB_BAD_UID = 0x005B0002
 STATUS_SMB_BAD_TID = 0x00050002
+
+_SUPPORTED_DIALECTS = (smb2.SMB2_DIALECT_311, smb2.SMB2_DIALECT_21, smb2.SMB2_DIALECT_002)
+_PREAUTH_HASH_ZERO = b'\x00' * 64
+
+
+def _preauth_hash_update(current: bytes, data: bytes) -> bytes:
+    """SHA-512(current || data), one step of the SMB 3.1.1 pre-auth integrity hash chain.
+
+    MS-SMB2 §3.3.5.4 (negotiate) and §3.3.5.5.3 (session setup) describe how the server
+    iteratively hashes request and response bytes into the connection/session pre-auth value:
+    https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/b39f253e-4963-40df-8dff-2f9040ebbeb1
+    """
+    h = SHA512.new()
+    h.update(current)
+    h.update(data)
+    return h.digest()
+
+
+def _build_smb311_preauth_context() -> bytes:
+    """Build a serialised SMB2_PREAUTH_INTEGRITY_CAPABILITIES negotiate context (SHA-512, no salt).
+
+    MS-SMB2 §2.2.3.1.1, SMB2_PREAUTH_INTEGRITY_CAPABILITIES structure definition:
+    https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/5a07bd66-4734-4af8-abcf-5a44ff7ee0e5
+    """
+    preauth = smb2.SMB2PreAuthIntegrityCapabilities()
+    preauth['HashAlgorithmCount'] = 1
+    preauth['SaltLength'] = 0
+    preauth['HashAlgorithms'] = struct.pack('<H', 0x0001)
+    preauth['Salt'] = b''
+    ctx = smb2.SMB2NegotiateContext()
+    ctx['ContextType'] = smb2.SMB2_PREAUTH_INTEGRITY_CAPABILITIES
+    ctx_data = preauth.getData()
+    ctx['DataLength'] = len(ctx_data)
+    ctx['Reserved'] = 0
+    ctx['Data'] = ctx_data
+    return ctx.getData()
+
+
+def _parse_negotiate_contexts(data: bytes) -> dict:
+    """Parse a raw NegotiateContextList, returning {ContextType: data_bytes}.
+
+    MS-SMB2 §2.2.3.1, SMB2_NEGOTIATE_CONTEXT:
+    https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/15332256-522e-4a53-8a7d-2a87be5f8470
+    """
+    contexts = {}
+    offset = 0
+    while offset + 4 <= len(data):
+        ctx_type = struct.unpack_from('<H', data, offset)[0]
+        data_len = struct.unpack_from('<H', data, offset + 2)[0]
+        if offset + 8 + data_len > len(data):
+            break
+        contexts[ctx_type] = data[offset + 8: offset + 8 + data_len]
+        total = 8 + data_len
+        offset += (total + 7) & ~7
+    return contexts
+
+
+def _build_smb311_encrypt_context(cipher_id: int) -> bytes:
+    """Build a serialised SMB2_ENCRYPTION_CAPABILITIES negotiate context for the given cipher.
+
+    MS-SMB2 §2.2.3.1.2, SMB2_ENCRYPTION_CAPABILITIES:
+    https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/16693be7-2b27-4d3b-804b-f605bde5bcdd
+    """
+    enc = smb2.SMB2EncryptionCapabilities()
+    enc['CipherCount'] = 1
+    enc['Ciphers'] = struct.pack('<H', cipher_id)
+    ctx = smb2.SMB2NegotiateContext()
+    ctx['ContextType'] = smb2.SMB2_ENCRYPTION_CAPABILITIES
+    ctx_data = enc.getData()
+    ctx['DataLength'] = len(ctx_data)
+    ctx['Reserved'] = 0
+    ctx['Data'] = ctx_data
+    return ctx.getData()
 
 
 # Utility functions
@@ -2834,7 +2909,7 @@ class SMBCommands:
 
 class SMB2Commands:
     @staticmethod
-    def smb2Negotiate(connId, smbServer, recvPacket, isSMB1=False):
+    def smbNegotiate(connId, smbServer, recvPacket, isSMB1=False):
         connData = smbServer.getConnectionData(connId, checkStatus=False)
 
         respPacket = smb2.SMB2Packet()
@@ -2857,13 +2932,21 @@ class SMB2Commands:
             SMBCommand = smb.SMBCommand(recvPacket['Data'][0])
 
             dialects = SMBCommand['Data'].split(b'\x02')
-            if b'SMB 2.002\x00' in dialects or b'SMB 2.???\x00' in dialects:
+            if b'SMB 2.???\x00' in dialects:
+                respSMBCommand['DialectRevision'] = smb2.SMB2_DIALECT_WILDCARD
+                connData['Dialect'] = smb2.SMB2_DIALECT_WILDCARD
+            elif b'SMB 2.002\x00' in dialects:
                 respSMBCommand['DialectRevision'] = smb2.SMB2_DIALECT_002
+                connData['Dialect'] = smb2.SMB2_DIALECT_002
             else:
-                # Client does not support SMB2 fallbacking
                 raise Exception('SMB2 not supported, fallbacking')
         else:
-            respSMBCommand['DialectRevision'] = smb2.SMB2_DIALECT_002
+            negRequest = smb2.SMB2Negotiate(recvPacket['Data'])
+            offered = set(negRequest['Dialects'])
+            selected = next((d for d in _SUPPORTED_DIALECTS if d in offered), smb2.SMB2_DIALECT_002)
+            respSMBCommand['DialectRevision'] = selected
+            connData['Dialect'] = selected
+
         respSMBCommand['ServerGuid'] = b'A' * 16
         respSMBCommand['Capabilities'] = 0
         respSMBCommand['MaxTransactSize'] = 65536
@@ -2886,11 +2969,75 @@ class SMB2Commands:
         respSMBCommand['Buffer'] = blob.getData()
         respSMBCommand['SecurityBufferLength'] = len(respSMBCommand['Buffer'])
 
-        respPacket['Data'] = respSMBCommand
+        if connData.get('Dialect') == smb2.SMB2_DIALECT_311:
+            SMB2Commands._smb311_negotiate(connData, recvPacket, respSMBCommand, respPacket)
+        else:
+            respPacket['Data'] = respSMBCommand
 
         smbServer.setConnectionData(connId, connData)
 
         return None, [respPacket], STATUS_SUCCESS
+
+    @staticmethod
+    def _smb311_negotiate(connData: dict, recvPacket, respSMBCommand, respPacket) -> None:
+        """Handle SMB 3.1.1 negotiate: initialise pre-auth hash chain, respond with negotiate contexts.
+
+        Parses the client's NegotiateContextList to discover offered ciphers, selects AES-128-GCM
+        when available (falling back to AES-128-CCM), and advertises it in the response alongside
+        the mandatory pre-authentication integrity context.
+
+        MS-SMB2 §3.3.5.4, Receiving an SMB2 NEGOTIATE Request:
+        https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/b39f253e-4963-40df-8dff-2f9040ebbeb1
+        """
+        connData['PreauthIntegrityHashValue'] = _preauth_hash_update(
+            _PREAUTH_HASH_ZERO, recvPacket.rawData)
+
+        # Parse the client's NegotiateContextList to check for encryption support.
+        # SMB2Negotiate.Dialects ('*<H') consumes all remaining bytes, so NegotiateContextList
+        # is always empty after structure parsing. Read the offset from the raw body instead.
+        # In SMB 3.1.1, bytes 28-31 of the negotiate body are NegotiateContextOffset (the
+        # first 4 bytes of the ClientStartTime union), which is the offset from the SMB2 header.
+        # MS-SMB2 §3.3.5.4 step 4: if SMB2_ENCRYPTION_CAPABILITIES is present, select a cipher.
+        raw_body = bytes(recvPacket['Data'])
+        neg_ctx_offset = struct.unpack_from('<L', raw_body, 28)[0]
+        client_contexts = _parse_negotiate_contexts(raw_body[neg_ctx_offset - 64:]) if neg_ctx_offset else {}
+        cipher_id = 0
+        if smb2.SMB2_ENCRYPTION_CAPABILITIES in client_contexts:
+            enc_data = client_contexts[smb2.SMB2_ENCRYPTION_CAPABILITIES]
+            count = struct.unpack_from('<H', enc_data, 0)[0]
+            offered = [struct.unpack_from('<H', enc_data, 2 + i * 2)[0] for i in range(count)]
+            # Prefer AES-128-GCM (faster on modern hardware); fall back to AES-128-CCM.
+            if smb2.SMB2_ENCRYPTION_AES128_GCM in offered:
+                cipher_id = smb2.SMB2_ENCRYPTION_AES128_GCM
+            elif smb2.SMB2_ENCRYPTION_AES128_CCM in offered:
+                cipher_id = smb2.SMB2_ENCRYPTION_AES128_CCM
+        connData['CipherId'] = cipher_id
+
+        preauth_ctx = _build_smb311_preauth_context()
+        sec_buf_len = len(respSMBCommand['Buffer'])
+        ctx_pad = (8 - sec_buf_len % 8) % 8
+        respSMBCommand['NegotiateContextOffset'] = 0x80 + sec_buf_len + ctx_pad
+        respSMBCommand['Padding'] = b'\x00' * ctx_pad
+
+        if cipher_id:
+            # Pad preauth context to 8-byte boundary before appending encryption context.
+            preauth_pad = (8 - len(preauth_ctx) % 8) % 8
+            ctx_list = preauth_ctx + b'\x00' * preauth_pad + _build_smb311_encrypt_context(cipher_id)
+            respSMBCommand['NegotiateContextCount'] = 2
+            respSMBCommand['Capabilities'] |= smb2.SMB2_GLOBAL_CAP_ENCRYPTION
+        else:
+            ctx_list = preauth_ctx
+            respSMBCommand['NegotiateContextCount'] = 1
+
+        respSMBCommand['NegotiateContextList'] = ctx_list
+        respPacket['Data'] = respSMBCommand
+
+        # Include the 8-byte alignment padding that processRequest appends when sending,
+        # so the hash matches what the client receives and hashes on its side.
+        resp_bytes = respPacket.getData()
+        pad = (-len(resp_bytes)) % 8
+        connData['PreauthIntegrityHashValue'] = _preauth_hash_update(
+            connData['PreauthIntegrityHashValue'], resp_bytes + b'\x00' * pad)
 
     @staticmethod
     def _kerberos_auth(token, connData, smbServer):
@@ -3247,11 +3394,64 @@ class SMB2Commands:
         else:
             smbServer.log("Unknown or unsupported security blob type", logging.ERROR, connData=connData)
             return [SMB2Commands.generic_negTokenResp()], None, STATUS_MORE_PROCESSING_REQUIRED
-        
+
+        is_311 = (connData.get('Dialect') == smb2.SMB2_DIALECT_311)
+
+        if is_311:
+            # MS-SMB2 §3.3.5.5.3, Handling GSS-API Authentication:
+            # the session pre-auth hash is forked from the connection hash at the first
+            # SESSION_SETUP round and updated with each request/response pair.
+            # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/5ed93f06-a1d2-4837-8954-fa8b833c2654
+            is_ntlm_round1 = (token[:8] == b'NTLMSSP\x00' and len(token) >= 12
+                              and struct.unpack('<L', token[8:12])[0] == 0x01)
+            if is_ntlm_round1 or 'SessionPreauthIntegrityHashValue' not in connData:
+                connData['SessionPreauthIntegrityHashValue'] = connData.get('PreauthIntegrityHashValue', _PREAUTH_HASH_ZERO)
+            connData['SessionPreauthIntegrityHashValue'] = _preauth_hash_update(
+                connData['SessionPreauthIntegrityHashValue'], recvPacket.rawData)
+
         if authType in [TypesMech['MS KRB5 - Microsoft Kerberos 5'], TypesMech['KRB5 - Kerberos 5'], TypesMech['KRB5 - Kerberos 5 - User to User']]:
             respSMBCommand, errorCode = SMB2Commands._kerberos_auth(token, connData, smbServer)
         elif authType == TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
             respSMBCommand, errorCode = SMB2Commands._ntlm_auth(token, connData, smbServer, rawNTLM)
+
+        if is_311:
+            if errorCode == STATUS_MORE_PROCESSING_REQUIRED:
+                resp_pkt = smb2.SMB2Packet()
+                resp_pkt['Flags'] = smb2.SMB2_FLAGS_SERVER_TO_REDIR
+                resp_pkt['Status'] = errorCode
+                resp_pkt['CreditRequestResponse'] = recvPacket['CreditRequestResponse']
+                resp_pkt['Command'] = recvPacket['Command']
+                resp_pkt['CreditCharge'] = recvPacket['CreditCharge']
+                resp_pkt['Reserved'] = recvPacket['Reserved']
+                resp_pkt['SessionID'] = connData['Uid']
+                resp_pkt['MessageID'] = recvPacket['MessageID']
+                resp_pkt['TreeID'] = recvPacket['TreeID']
+                resp_pkt['Data'] = respSMBCommand.getData()
+                resp_bytes = resp_pkt.getData()
+                pad = (-len(resp_bytes)) % 8
+                connData['SessionPreauthIntegrityHashValue'] = _preauth_hash_update(
+                    connData['SessionPreauthIntegrityHashValue'], resp_bytes + b'\x00' * pad)
+            elif errorCode == STATUS_SUCCESS:
+                # Derive SMB 3.1.1 session keys via SP 800-108 counter-mode KBKDF.
+                # MS-SMB2 §3.1.4.2, Generating Cryptographic Keys:
+                # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/da4e579e-02ce-4e27-bbce-3fc816a3ff92
+                # NIST SP 800-108r1, KDF in Counter Mode (referenced from §3.1.4.2 as [SP800-108]):
+                # https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-108r1.pdf
+                session_key = connData.get('SigningSessionKey', b'')
+                if session_key:
+                    preauth_hash = connData['SessionPreauthIntegrityHashValue']
+                    connData['SigningSessionKey'] = crypto.KDF_CounterMode(
+                        session_key, b'SMBSigningKey\x00', preauth_hash, 128)
+                    if connData.get('CipherId', 0):
+                        # Derive server-to-client and client-to-server encryption keys.
+                        # Labels from MS-SMB2 §3.1.4.2, table "Label" column.
+                        connData['SessionEncryptionKey'] = crypto.KDF_CounterMode(
+                            session_key, b'SMBS2CCipherKey\x00', preauth_hash, 128)
+                        connData['SessionDecryptionKey'] = crypto.KDF_CounterMode(
+                            session_key, b'SMBC2SCipherKey\x00', preauth_hash, 128)
+                        connData['EncryptData'] = True
+                        existing_flags = respSMBCommand.fields.get('SessionFlags', 0)
+                        respSMBCommand['SessionFlags'] = existing_flags | smb2.SMB2_SESSION_FLAG_ENCRYPT_DATA
 
         # From now on, the client can ask for other commands
         connData['Authenticated'] = True
@@ -3324,7 +3524,10 @@ class SMB2Commands:
 
         # Sign the packet if needed
         if connData['SignatureEnabled']:
-            smbServer.signSMBv2(respPacket, connData['SigningSessionKey'])
+            if connData.get('Dialect', smb2.SMB2_DIALECT_002) >= smb2.SMB2_DIALECT_30:
+                smbServer.signSMBv3(respPacket, connData['SigningSessionKey'])
+            else:
+                smbServer.signSMBv2(respPacket, connData['SigningSessionKey'])
         smbServer.setConnectionData(connId, connData)
 
         return None, [respPacket], errorCode
@@ -4143,7 +4346,7 @@ class Ioctls:
         validateNegotiateInfoResponse['Capabilities'] = 0
         validateNegotiateInfoResponse['Guid'] = b'A' * 16
         validateNegotiateInfoResponse['SecurityMode'] = 1
-        validateNegotiateInfoResponse['Dialect'] = smb2.SMB2_DIALECT_002
+        validateNegotiateInfoResponse['Dialect'] = connData.get('Dialect', smb2.SMB2_DIALECT_002)
 
         smbServer.setConnectionData(connId, connData)
         return validateNegotiateInfoResponse.getData(), errorCode
@@ -4350,7 +4553,7 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         }
 
         self.__smb2Commands = {
-            smb2.SMB2_NEGOTIATE: self.__smb2CommandsHandler.smb2Negotiate,
+            smb2.SMB2_NEGOTIATE: self.__smb2CommandsHandler.smbNegotiate,
             smb2.SMB2_SESSION_SETUP: self.__smb2CommandsHandler.smb2SessionSetup,
             smb2.SMB2_LOGOFF: self.__smb2CommandsHandler.smb2Logoff,
             smb2.SMB2_TREE_CONNECT: self.__smb2CommandsHandler.smb2TreeConnect,
@@ -4659,9 +4862,78 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         packetData = packet.getData() + b'\x00' * padLength
         signature = hmac.new(signingSessionKey, packetData, hashlib.sha256).digest()
         packet['Signature'] = signature[:16]
-        # print "%s" % packet['Signature'].encode('hex')
+
+    def signSMBv3(self, packet, signingKey, padLength=0):
+        """Sign an SMB 3.x packet with AES-CMAC using the derived signing key.
+
+        MS-SMB2 §3.1.4.1, Signing an Outgoing Message (SMB 3.x uses AES-CMAC per RFC 4493):
+        https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/a3e9ea1e-53c8-4cff-94bd-d98fb20417c0
+        """
+        packet['Signature'] = b'\x00' * 16
+        packet['Flags'] |= smb2.SMB2_FLAGS_SIGNED
+        packetData = packet.getData() + b'\x00' * padLength
+        signature = crypto.AES_CMAC(signingKey, packetData, len(packetData))
+        packet['Signature'] = signature[:16]
+
+    def _decryptSMB3(self, connId, data: bytes) -> bytes:
+        """Decrypt an SMB2_TRANSFORM_HEADER-wrapped message (MS-SMB2 §3.3.5.2.1).
+
+        Supports AES-128-GCM and AES-128-CCM depending on the negotiated cipher.
+
+        MS-SMB2 §3.1.4.4, Decrypting the Message:
+        https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/d1c2b61f-6ad4-4eaa-a5fb-c6df3e32a1e5
+        """
+        conn_data = self.getConnectionData(connId, False)
+        key = conn_data.get('SessionDecryptionKey', b'')
+        cipher_id = struct.unpack_from('<H', data, 42)[0]
+        nonce = data[20:36]
+        # AAD: all transform header fields except ProtocolId and Signature (bytes 20..52).
+        aad = data[20:52]
+        ciphertext = data[52:]
+        if cipher_id == smb2.SMB2_ENCRYPTION_AES128_GCM:
+            cipher = AES.new(key, AES.MODE_GCM, nonce=nonce[:12])
+        else:
+            cipher = AES.new(key, AES.MODE_CCM, nonce=nonce[:11])
+        cipher.update(aad)
+        return cipher.decrypt(ciphertext)
+
+    def _encryptSMB3(self, connId, plain_data: bytes) -> bytes:
+        """Wrap plain SMB2 bytes in an SMB2_TRANSFORM_HEADER encrypted with AES (MS-SMB2 §3.1.4.3).
+
+        MS-SMB2 §3.1.4.3, Encrypting the Message:
+        https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/0c6a2a95-c1e0-4a52-af59-3b6c6de4bcf6
+        """
+        conn_data = self.getConnectionData(connId, False)
+        key = conn_data.get('SessionEncryptionKey', b'')
+        cipher_id = conn_data.get('CipherId', smb2.SMB2_ENCRYPTION_AES128_CCM)
+        transform = smb2.SMB2_TRANSFORM_HEADER()
+        if cipher_id == smb2.SMB2_ENCRYPTION_AES128_GCM:
+            nonce = os.urandom(12) + b'\x00' * 4
+        else:
+            nonce = os.urandom(11) + b'\x00' * 5
+        transform['Nonce'] = nonce
+        transform['OriginalMessageSize'] = len(plain_data)
+        transform['EncryptionAlgorithm'] = cipher_id
+        transform['SessionID'] = conn_data.get('Uid', 0)
+        # AAD: transform header bytes starting after ProtocolId and Signature (offset 20).
+        aad = transform.getData()[20:]
+        if cipher_id == smb2.SMB2_ENCRYPTION_AES128_GCM:
+            cipher = AES.new(key, AES.MODE_GCM, nonce=nonce[:12])
+        else:
+            cipher = AES.new(key, AES.MODE_CCM, nonce=nonce[:11])
+        cipher.update(aad)
+        ciphertext = cipher.encrypt(plain_data)
+        transform['Signature'] = cipher.digest()
+        return transform.getData() + ciphertext
 
     def processRequest(self, connId, data):
+
+        # Decrypt SMB2_TRANSFORM_HEADER-wrapped packets before any parsing.
+        # Must happen here, before the SMB1/SMB2 detection try/except below.
+        # MS-SMB2 §3.3.5.2.1:
+        # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/d1c2b61f-6ad4-4eaa-a5fb-c6df3e32a1e5
+        if data[:4] == b'\xfdSMB':
+            data = self._decryptSMB3(connId, data)
 
         # TODO: Process batched commands.
         isSMB2 = False
@@ -4881,7 +5153,7 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
                 packetsToSend = respPackets
 
         if isSMB2 is True:
-            # Let's build a compound answer and sign it
+            # Let's build a compound answer, sign or encrypt each packet.
             finalData = []
             totalPackets = len(packetsToSend)
             for idx, packet in enumerate(packetsToSend):
@@ -4889,13 +5161,24 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
                 if idx + 1 < totalPackets:
                     packet['NextCommand'] = len(packet) + padLen
 
-                if connData['SignatureEnabled']:
-                    self.signSMBv2(packet, connData['SigningSessionKey'], padLength=padLen)
-
-                if hasattr(packet, 'getData'):
-                    finalData.append(packet.getData() + padLen * b'\x00')
+                # Encrypt all post-session-setup packets when the session requires it.
+                # SESSION_SETUP responses are signed (not encrypted) even for encrypted sessions,
+                # so the client can read the SMB2_SESSION_FLAG_ENCRYPT_DATA flag.
+                # MS-SMB2 §3.3.5.5.3 step 12 and §3.1.4.3:
+                # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/0c6a2a95-c1e0-4a52-af59-3b6c6de4bcf6
+                if connData.get('EncryptData') and packet['Command'] != smb2.SMB2_SESSION_SETUP:
+                    plain = packet.getData() if hasattr(packet, 'getData') else packet
+                    finalData.append(self._encryptSMB3(connId, plain + padLen * b'\x00'))
                 else:
-                    finalData.append(packet + padLen * b'\x00')
+                    if connData['SignatureEnabled']:
+                        if connData.get('Dialect', smb2.SMB2_DIALECT_002) >= smb2.SMB2_DIALECT_30:
+                            self.signSMBv3(packet, connData['SigningSessionKey'], padLength=padLen)
+                        else:
+                            self.signSMBv2(packet, connData['SigningSessionKey'], padLength=padLen)
+                    if hasattr(packet, 'getData'):
+                        finalData.append(packet.getData() + padLen * b'\x00')
+                    else:
+                        finalData.append(packet + padLen * b'\x00')
 
             packetsToSend = [b"".join(finalData)]
 
