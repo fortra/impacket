@@ -1096,7 +1096,7 @@ class LDAPAttack(ProtocolAttack):
                 else:
                     base = os.path.join(self.config.lootdir, 'domain_users_userinfo')
 
-                    # .grep — tab-separated, newlines in values collapsed to spaces
+                    # .grep - tab-separated, newlines in values collapsed to spaces
                     with open(base + '.grep', 'w', encoding='utf-8') as f:
                         f.write('sAMAccountName\tmemberOf\tinfo\n')
                         for e in entries:
