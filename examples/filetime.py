@@ -78,10 +78,10 @@ LastAccessTime: {last_access_time}
 LastWriteTime: {last_write_time}
 ChangeTime: {change_time}
 """.format(
-        creation_time="N/A" if self.creation_time is None else datetime.datetime.fromtimestamp(wintime.filetime_to_posix(self.creation_time)).isoformat(),
-        last_access_time="N/A" if self.last_access_time is None else datetime.datetime.fromtimestamp(wintime.filetime_to_posix(self.last_access_time)).isoformat(),
-        last_write_time="N/A" if self.last_write_time is None else datetime.datetime.fromtimestamp(wintime.filetime_to_posix(self.last_write_time)).isoformat(),
-        change_time="N/A" if self.change_time is None else datetime.datetime.fromtimestamp(wintime.filetime_to_posix(self.change_time)).isoformat(),
+        creation_time="N/A" if self.creation_time is None else wintime.filetime_to_datetime(self.creation_time).isoformat(),
+        last_access_time="N/A" if self.last_access_time is None else wintime.filetime_to_datetime(self.last_access_time).isoformat(),
+        last_write_time="N/A" if self.last_write_time is None else wintime.filetime_to_datetime(self.last_write_time).isoformat(),
+        change_time="N/A" if self.change_time is None else wintime.filetime_to_datetime(self.change_time).isoformat(),
     )
 
 def filetime_query(connection: smbconnection.SMBConnection, tid: int, fid: int) -> FileTimes:

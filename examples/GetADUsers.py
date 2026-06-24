@@ -89,12 +89,12 @@ class GetADUsers:
                     if str(attribute['vals'][0]) == '0':
                         pwdLastSet = '<never>'
                     else:
-                        pwdLastSet = str(datetime.fromtimestamp(wintime.filetime_to_posix(int(str(attribute['vals'][0])))))
+                        pwdLastSet = str(wintime.filetime_to_datetime(int(str(attribute['vals'][0]))))
                 elif str(attribute['type']) == 'lastLogon':
                     if str(attribute['vals'][0]) == '0':
                         lastLogon = '<never>'
                     else:
-                        lastLogon = str(datetime.fromtimestamp(wintime.filetime_to_posix(int(str(attribute['vals'][0])))))
+                        lastLogon = str(wintime.filetime_to_datetime(int(str(attribute['vals'][0]))))
                 elif str(attribute['type']) == 'mail':
                     mail = str(attribute['vals'][0])
 

@@ -1,8 +1,22 @@
 # Windows FILETIME <-> POSIX timestamp conversions.
 
+from datetime import datetime, timedelta
+
 # The FILETIME epoch starts on January 1, 1601 (UTC); POSIX on January 1, 1970 (UTC).
-# The offset between them is 116444736000000000 100-nanosecond ticks (11644473600 seconds).
-_FILETIME_EPOCH_DELTA = 116444736000000000
+# 10_000_000 = 100-nanosecond ticks per second; 11_644_473_600 = seconds between the two epochs.
+_FILETIME_EPOCH_DELTA = 10_000_000 * 11_644_473_600
+_FILETIME_EPOCH = datetime(1601, 1, 1)
+
+
+def filetime_to_datetime(t):
+    """Convert a Windows FILETIME value to a naive UTC datetime.
+
+    Returns datetime(1601, 1, 1) for t=0 (uninitialised/never-set fields).
+
+    :param int t: FILETIME timestamp (100-nanosecond ticks since 1601-01-01 UTC).
+    :return datetime: naive UTC datetime.
+    """
+    return _FILETIME_EPOCH + timedelta(microseconds=t // 10)
 
 
 def filetime_to_posix(t):

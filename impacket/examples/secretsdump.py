@@ -2155,7 +2155,7 @@ class LSASecrets(OfflineRegistry):
                 userName = plainText[:record['UserLength']].decode('utf-16le')
                 plainText = plainText[self.__pad(record['UserLength']) + self.__pad(record['DomainNameLength']):]
                 domainLong = plainText[:self.__pad(record['DnsDomainNameLength'])].decode('utf-16le')
-                timestamp = datetime.fromtimestamp(wintime.filetime_to_posix(record['LastWrite']), tz=timezone.utc)
+                timestamp = wintime.filetime_to_datetime(record['LastWrite'])
 
                 if self.__vistaStyle is True:
                     answer = "%s/%s:$DCC2$%s#%s#%s: (%s)" % (domainLong, userName, iterationCount, userName, hexlify(encHash).decode('utf-8'), timestamp)

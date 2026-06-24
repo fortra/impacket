@@ -655,7 +655,7 @@ class AttributeStandardInfo:
 
     def getFileTime(self):
         if self.StandardInfo['LastDataChangeTime'] > 0:
-            return datetime.fromtimestamp(wintime.filetime_to_posix(self.StandardInfo['LastDataChangeTime']))
+            return wintime.filetime_to_datetime(self.StandardInfo['LastDataChangeTime'])
         else:
             return 0
 
@@ -1029,7 +1029,7 @@ class INODE:
                         #inode = INODE(self.NTFSVolume)
                         #inode.FileAttributes = fn['FileAttributes']
                         #inode.FileSize = fn['DataSize']
-                        #inode.LastDataChangeTime = datetime.fromtimestamp(wintime.filetime_to_posix(fn['LastDataChangeTime']))
+                        #inode.LastDataChangeTime = wintime.filetime_to_datetime(fn['LastDataChangeTime'])
                         #inode.INodeNumber = entry.getINodeNumber()
                         #inode.FileName = fn['FileName'].decode('utf-16le')
                         #inode.displayName()
@@ -1342,7 +1342,7 @@ class MiniShell(cmd.Cmd):
             inode = INODE(self.volume)
             inode.FileAttributes = entry['FileAttributes']
             inode.FileSize = entry['DataSize']
-            inode.LastDataChangeTime = datetime.fromtimestamp(wintime.filetime_to_posix(entry['LastDataChangeTime']))
+            inode.LastDataChangeTime = wintime.filetime_to_datetime(entry['LastDataChangeTime'])
             inode.FileName = entry['FileName'].decode('utf-16le')
             if display is True:
                 inode.displayName()

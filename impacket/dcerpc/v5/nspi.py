@@ -25,7 +25,6 @@
 from __future__ import division
 from __future__ import print_function
 from struct import unpack
-from datetime import datetime
 from six import PY2
 import binascii
 
@@ -1080,8 +1079,7 @@ def simplifyPropertyRow(rowSetElem):
                 array.append(value['Data'][:-1])
             row[PropTag] = array
         elif isinstance(prop_value, FILETIME):
-            row[PropTag] = datetime.fromtimestamp( \
-                wintime.filetime_to_posix(unpack('<Q', prop_value.getData())[0]))
+            row[PropTag] = wintime.filetime_to_datetime(unpack('<Q', prop_value.getData())[0])
         else:
             row[PropTag] = prop_value
 

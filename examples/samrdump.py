@@ -94,7 +94,7 @@ class SAMRDump:
             if pwdLastSet == 0:
                 pwdLastSet = '<never>'
             else:
-                pwdLastSet = str(datetime.fromtimestamp(wintime.filetime_to_posix(pwdLastSet)))
+                pwdLastSet = str(wintime.filetime_to_datetime(pwdLastSet))
 
             if user['UserAccountControl'] & samr.USER_DONT_EXPIRE_PASSWORD:
                 dontExpire = 'True'

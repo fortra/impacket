@@ -217,7 +217,7 @@ class GetLAPSPassword:
                         lapsPassword = r["p"]
                     elif str(attribute['type']) == 'ms-Mcs-AdmPwdExpirationTime' or str(attribute['type']) == 'msLAPS-PasswordExpirationTime':
                         if str(attribute['vals'][0]) != '0':
-                            lapsPasswordExpiration = datetime.fromtimestamp(wintime.filetime_to_posix(int(str(attribute['vals'][0])))).strftime('%Y-%m-%d %H:%M:%S')
+                            lapsPasswordExpiration = wintime.filetime_to_datetime(int(str(attribute['vals'][0]))).strftime('%Y-%m-%d %H:%M:%S')
                     elif str(attribute['type']) == 'ms-Mcs-AdmPwd':
                         lapsPassword = attribute['vals'][0].asOctets().decode('utf-8')
                 if sAMAccountName is not None and lapsPassword is not None:
