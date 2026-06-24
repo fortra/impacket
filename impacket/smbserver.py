@@ -5139,7 +5139,12 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
                         respPacket['CreditCharge'] = packet['CreditCharge']
                         # respPacket['CreditCharge'] = 0
                         respPacket['Reserved'] = packet['Reserved']
-                        respPacket['SessionID'] = connData['Uid']
+                        # MS-SMB2 §3.3.4.1: for SESSION_SETUP the server assigns a new SessionId;
+                        # for all other commands it MUST echo the request's SessionId.
+                        if packet['Command'] == smb2.SMB2_SESSION_SETUP:
+                            respPacket['SessionID'] = connData['Uid']
+                        else:
+                            respPacket['SessionID'] = packet['SessionID']
                         respPacket['MessageID'] = packet['MessageID']
                         respPacket['TreeID'] = packet['TreeID']
                         if hasattr(respCommand, 'getData'):
