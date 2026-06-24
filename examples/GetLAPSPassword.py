@@ -34,6 +34,7 @@ from impacket.dpapi_ng import EncryptedPasswordBlob, KeyIdentifier, compute_kek,
 from impacket.examples import logger
 from impacket.examples.utils import parse_identity, ldap_login
 from impacket.ldap import ldap, ldapasn1
+from impacket import wintime
 from pyasn1.codec.der import decoder
 from pyasn1_modules import rfc5652
 import argparse
@@ -155,12 +156,6 @@ class GetLAPSPassword:
         cek = unwrap_cek(kek, bytes(kek_recipient_info['encryptedKey']))
         return decrypt_plaintext(cek, iv, remaining)
 
-    @staticmethod
-    def getUnixTime(t):
-        t -= 116444736000000000
-        t /= 10000000
-        return t
-
     def run(self):
         # Connect to LDAP
         ldapConnection = ldap_login(self.__target, self.baseDN, self.__kdcIP, self.__kdcHost, self.__doKerberos, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, self.__ldaps_flag)
@@ -222,7 +217,7 @@ class GetLAPSPassword:
                         lapsPassword = r["p"]
                     elif str(attribute['type']) == 'ms-Mcs-AdmPwdExpirationTime' or str(attribute['type']) == 'msLAPS-PasswordExpirationTime':
                         if str(attribute['vals'][0]) != '0':
-                            lapsPasswordExpiration = datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))).strftime('%Y-%m-%d %H:%M:%S')
+                            lapsPasswordExpiration = wintime.filetime_to_datetime(int(str(attribute['vals'][0]))).strftime('%Y-%m-%d %H:%M:%S')
                     elif str(attribute['type']) == 'ms-Mcs-AdmPwd':
                         lapsPassword = attribute['vals'][0].asOctets().decode('utf-8')
                 if sAMAccountName is not None and lapsPassword is not None:

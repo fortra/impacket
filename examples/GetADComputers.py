@@ -40,6 +40,7 @@ from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE
 from impacket.examples import logger
 from impacket.examples.utils import parse_identity, ldap_login
 from impacket.ldap import ldap, ldapasn1
+from impacket import wintime
 
 
 class GetADComputers:
@@ -81,12 +82,6 @@ class GetADComputers:
             # Since we won't process all rows at once, this will be fixed lengths
             self.__colLen = [15, 35, 15, 20]
             self.__outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(self.__colLen)])
-
-    @staticmethod
-    def getUnixTime(t):
-        t -= 116444736000000000
-        t /= 10000000
-        return t
 
     def processRecord(self, item):
         if isinstance(item, ldapasn1.SearchResultEntry) is not True:
