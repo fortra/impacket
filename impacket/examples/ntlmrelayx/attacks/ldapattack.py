@@ -27,6 +27,8 @@ import re
 import dns.resolver
 import ldap3
 import ldapdomaindump
+import csv
+import html
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
 from ldap3.protocol.microsoft import security_descriptor_control
 from ldap3.protocol.formatters.formatters import format_sid
@@ -1079,23 +1081,25 @@ class LDAPAttack(ProtocolAttack):
                     LOG.info("Successfully dumped %d gMSA passwords through relayed account %s" % (count, self.username))
                     fd.close()
 
-        # Dump user info attributes
-        if self.config.dumpuserinfo:
+        # Dump user and group domain objects info attributes
+        if self.config.dumpinfoattr:
             LOG.info("Attempting to dump user info attributes")
-            success = self.client.search(
+            entries = list(self.client.extend.standard.paged_search(
                 domainDumper.root,
                 '(&(info=*)(|(objectCategory=person)(objectCategory=group)))',
-                search_scope=ldap3.SUBTREE,
-                attributes=['sAMAccountName', 'memberOf', 'info']
-            )
-            if success:
-                entries = [e for e in self.client.response
-                           if e.get('type') == 'searchResEntry' and e['attributes'].get('info')]
-                if not entries:
-                    LOG.info("No user info attributes found readable by %s" % self.username)
-                else:
-                    base = os.path.join(self.config.lootdir, 'domain_users_userinfo')
+                attributes=['sAMAccountName', 'memberOf', 'info'],
+                generator=True,
+            ))
+            entries = [e for e in entries
+                       if e.get('type') == 'searchResEntry' and e.get('raw_attributes', {}).get('info') is not None]
+            if not entries:
+                LOG.info("No user info attributes found readable by %s" % self.username)
+            else:
+                os.makedirs(self.config.lootdir, exist_ok=True)
+                stamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+                base = os.path.join(self.config.lootdir, 'domain_objects_info_' + stamp)
 
+<<<<<<< HEAD
                     # .grep - tab-separated, newlines in values collapsed to spaces
                     with open(base + '.grep', 'w', encoding='utf-8') as f:
                         f.write('sAMAccountName\tmemberOf\tinfo\n')
@@ -1104,18 +1108,29 @@ class LDAPAttack(ProtocolAttack):
                             dn   = e['attributes']['memberOf'] or ''
                             info = (e['attributes']['info'] or '').replace('\n', ' ').replace('\r', '')
                             f.write('%s\t%s\t%s\n' % (sam, dn, info))
+=======
+                # .csv - for grepable output with tab delimiter
+                with open(base + '.grep', 'w', encoding='utf-8') as f:
+                    writer = csv.writer(f, delimiter='\t')
+                    writer.writerow(['sAMAccountName', 'memberOf', 'info'])
+                    for e in entries:
+                        sam  = e['attributes']['sAMAccountName'] or ''
+                        dn   = e['attributes']['memberOf'] or ''
+                        info = (e['attributes']['info'] or '').replace('\n', ' ').replace('\r', '')
+                        writer.writerow([sam, dn, info])
+>>>>>>> a2b86944 (Renamed option to --dump-info-attr and updated code.)
 
-                    # .json — array of dicts
-                    with open(base + '.json', 'w', encoding='utf-8') as f:
-                        out = [{'sAMAccountName': e['attributes']['sAMAccountName'],
-                                'memberOf': e['attributes']['memberOf'],
-                                'info': e['attributes']['info']}
-                               for e in entries]
-                        json.dump(out, f, indent=2, default=str)
+                # .json - array of dicts
+                with open(base + '.json', 'w', encoding='utf-8') as f:
+                    out = [{'sAMAccountName': e['attributes']['sAMAccountName'],
+                            'memberOf': e['attributes']['memberOf'],
+                            'info': e['attributes']['info']}
+                           for e in entries]
+                    json.dump(out, f, indent=2, default=str)
 
-                    # .html — table matching ldapdomaindump style
+                    # .html - table matching ldapdomaindump style
                     def _he(s):
-                        return str(s).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                        return html.escape(str(s))
 
                     with open(base + '.html', 'w', encoding='utf-8') as f:
                         f.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'
@@ -1126,7 +1141,7 @@ class LDAPAttack(ProtocolAttack):
                                 'tr:nth-child(even){background:#f2f2f2}'
                                 '</style></head><body>\n'
                                 '<table><thead>'
-                                '<tr><td colspan="3"><b>Domain users - info attribute</b></td></tr>'
+                                '<tr><td colspan="3"><b>Domain user and group objects - info attribute</b></td></tr>'
                                 '<tr><th>sAMAccountName</th><th>memberOf</th><th>info</th></tr>'
                                 '</thead><tbody>\n')
                         for e in entries:
@@ -1136,8 +1151,7 @@ class LDAPAttack(ProtocolAttack):
                                 _he(e['attributes']['info'])))
                         f.write('</tbody></table></body></html>\n')
 
-                    LOG.info("Dumped info attribute for %d user(s) to %s.{grep,json,html}" % (
-                        len(entries), base))
+                LOG.info("Dumped info attribute for %d domain object(s) to %s.{grep,json,html}" % (len(entries), base))
 
         if not dumpedAdcs and self.config.dumpadcs:
             dumpedAdcs = True
