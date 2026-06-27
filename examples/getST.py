@@ -784,10 +784,22 @@ class GETST:
         # Do we have a TGT cached?
         domain, _, TGT, _ = CCache.parseFile(self.__domain)
 
-        # ToDo: Check this TGT belogns to the right principal
+
         if TGT is not None:
-            tgt, cipher, sessionKey = TGT['KDC_REP'], TGT['cipher'], TGT['sessionKey']
-            oldSessionKey = sessionKey
+            expectedUser = Principal((self.__user, self.__domain.upper()), type=constants.PrincipalNameType.NT_UNKNOWN.value)
+            cachedUser = TGT['client']
+
+            # Ignore principal type; only verify the requested user within the selected realm.
+            if expectedUser != cachedUser:
+                logging.warning(
+                    "Cached TGT belongs to '%s', "
+                    "but the requested principal is '%s@%s'. "
+                    "Ignoring cached TGT and requesting a new one.",
+                    cachedUser, self.__user, self.__domain
+                )
+            else:
+                tgt, cipher, sessionKey = TGT['KDC_REP'], TGT['cipher'], TGT['sessionKey']
+                oldSessionKey = sessionKey
             
         if tgt is None:
             # Still no TGT
