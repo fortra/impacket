@@ -1099,16 +1099,6 @@ class LDAPAttack(ProtocolAttack):
                 stamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
                 base = os.path.join(self.config.lootdir, 'domain_objects_info_' + stamp)
 
-<<<<<<< HEAD
-                    # .grep - tab-separated, newlines in values collapsed to spaces
-                    with open(base + '.grep', 'w', encoding='utf-8') as f:
-                        f.write('sAMAccountName\tmemberOf\tinfo\n')
-                        for e in entries:
-                            sam  = e['attributes']['sAMAccountName'] or ''
-                            dn   = e['attributes']['memberOf'] or ''
-                            info = (e['attributes']['info'] or '').replace('\n', ' ').replace('\r', '')
-                            f.write('%s\t%s\t%s\n' % (sam, dn, info))
-=======
                 # .csv - for grepable output with tab delimiter
                 with open(base + '.grep', 'w', encoding='utf-8') as f:
                     writer = csv.writer(f, delimiter='\t')
@@ -1118,7 +1108,6 @@ class LDAPAttack(ProtocolAttack):
                         dn   = e['attributes']['memberOf'] or ''
                         info = (e['attributes']['info'] or '').replace('\n', ' ').replace('\r', '')
                         writer.writerow([sam, dn, info])
->>>>>>> a2b86944 (Renamed option to --dump-info-attr and updated code.)
 
                 # .json - array of dicts
                 with open(base + '.json', 'w', encoding='utf-8') as f:
