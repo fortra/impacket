@@ -1099,7 +1099,7 @@ class LDAPAttack(ProtocolAttack):
                 stamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
                 base = os.path.join(self.config.lootdir, 'domain_objects_info_' + stamp)
 
-                # .csv - for grepable output with tab delimiter
+                # .grep - for grepable output with tab delimiter
                 with open(base + '.grep', 'w', encoding='utf-8') as f:
                     writer = csv.writer(f, delimiter='\t')
                     writer.writerow(['sAMAccountName', 'memberOf', 'info'])
