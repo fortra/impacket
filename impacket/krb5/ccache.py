@@ -235,6 +235,7 @@ class Credential:
                 self.addresses.append(ad)
             num_authdata = unpack('!L', data[:4])[0]
             data = data[calcsize('!L'):]
+            self.authData = []
             for authdata in range(num_authdata):
                 ad = AuthData(data)
                 data = data[len(ad):]
