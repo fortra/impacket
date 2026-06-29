@@ -149,6 +149,7 @@ class LDAPConnection:
             ctx.set_options(SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION)
             self._socket = SSL.Connection(ctx, self._socket)
             self._socket.connect(sa)
+            self._socket.settimeout(None)   # do_handshake() on a non-blocking (timeout-mode) socket raises WantReadError
             self._socket.do_handshake()
 
             # From: https://github.com/ly4k/ldap3/commit/87f5760e5a68c2f91eac8ba375f4ea3928e2b9e0#diff-c782b790cfa0a948362bf47d72df8ddd6daac12e5757afd9d371d89385b27ef6R1383
