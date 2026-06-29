@@ -1796,7 +1796,6 @@ class SMB3:
             path, ctx = self.timestampForSnapshot(path)
             createContexts.append(ctx)
 
-        # ToDo: Handle situations where share is password protected
         path = path.replace('/', '\\')
         path = ntpath.normpath(path)
         if len(path) > 0 and path[0] == '\\':
@@ -1841,7 +1840,6 @@ class SMB3:
         return files
 
     def mkdir(self, shareName, pathName, password = None):
-        # ToDo: Handle situations where share is password protected
         pathName = pathName.replace('/', '\\')
         pathName = ntpath.normpath(pathName)
         if len(pathName) > 0 and pathName[0] == '\\':
@@ -1861,7 +1859,6 @@ class SMB3:
         return True
 
     def rmdir(self, shareName, pathName, password = None):
-        # ToDo: Handle situations where share is password protected
         pathName = pathName.replace('/', '\\')
         pathName = ntpath.normpath(pathName)
         if len(pathName) > 0 and pathName[0] == '\\':
@@ -1887,7 +1884,6 @@ class SMB3:
         return True
 
     def remove(self, shareName, pathName, password = None):
-        # ToDo: Handle situations where share is password protected
         pathName = pathName.replace('/', '\\')
         pathName = ntpath.normpath(pathName)
         if len(pathName) > 0 and pathName[0] == '\\':
@@ -1913,7 +1909,6 @@ class SMB3:
             path, ctx = self.timestampForSnapshot(path)
             createContexts.append(ctx)
 
-        # ToDo: Handle situations where share is password protected
         path = path.replace('/', '\\')
         path = ntpath.normpath(path)
         if len(path) > 0 and path[0] == '\\':
@@ -1946,7 +1941,6 @@ class SMB3:
             self.disconnectTree(treeId)
 
     def storeFile(self, shareName, path, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ):
-        # ToDo: Handle situations where share is password protected
         path = path.replace('/', '\\')
         path = ntpath.normpath(path)
         if len(path) > 0 and path[0] == '\\':
