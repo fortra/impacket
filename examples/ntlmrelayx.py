@@ -195,7 +195,7 @@ def start_servers(options, threads):
         c.setLootdir(options.lootdir)
         c.setOutputFile(options.output_file)
         c.setdumpHashes(options.dump_hashes)
-        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid, options.add_dns_record)
+        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.add_computer_container, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid, options.add_dns_record)
         c.setRPCOptions(options.rpc_mode, options.rpc_use_smb, options.auth_smb, options.hashes_smb, options.rpc_smb_port, options.icpr_ca_name)
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
@@ -405,6 +405,8 @@ if __name__ == '__main__':
     commonoptions = parser.add_argument_group("Common options for SMB and LDAP")
     commonoptions.add_argument('--add-computer', action='store', metavar=('COMPUTERNAME', 'PASSWORD'), required=False, nargs='*', help='Attempt to add a new computer account via SMB or LDAP, depending on the specified target. '
         'This argument can be used either with the LDAP or the SMB service, as long as the target is a domain controller.')
+    commonoptions.add_argument('--add-computer-container', action='store', required=False, help='LDAP parent DN where the new computer account will be created when using --add-computer. '
+        'If omitted, the domain default computer container will be used.')
 
     #IMAP options
     imapoptions = parser.add_argument_group("IMAP client options")
