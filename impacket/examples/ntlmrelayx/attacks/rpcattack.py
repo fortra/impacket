@@ -136,8 +136,13 @@ class ICPRRPCAttack:
 
         LOG.debug("Generating a CSR for user %s and template %s" % (self.username, current_template))
 
-        csr = ADCSAttack.generate_csr(key, self.username, self.config.altName, crypto.FILETYPE_ASN1)
-        LOG.info("CSR generated!")
+        altSid = getattr(self.config, 'altSid', None)
+        csr = ADCSAttack.generate_csr(key, self.username, self.config.altName,
+                                      crypto.FILETYPE_ASN1, altSid=altSid)
+        if altSid:
+            LOG.info("CSR generated with SID extension: %s" % altSid)
+        else:
+            LOG.info("CSR generated!")
 
         attributes = ["CertificateTemplate:%s" % current_template]
 

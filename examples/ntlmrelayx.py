@@ -220,6 +220,7 @@ def start_servers(options, threads):
         c.setSCCMDPOptions(options.sccm_dp_extensions, options.sccm_dp_files)
         
         c.setAltName(options.altname)
+        c.setAltSid(options.altSid)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
@@ -421,6 +422,10 @@ if __name__ == '__main__':
     adcsoptions.add_argument('--adcs', action='store_true', required=False, help='Enable AD CS relay attack')
     adcsoptions.add_argument('--template', action='store', metavar="TEMPLATE", required=False, help='AD CS template. Defaults to Machine or User whether relayed account name ends with `$`. Relaying a DC should require specifying `DomainController`')
     adcsoptions.add_argument('--altname', action='store', metavar="ALTNAME", required=False, help='Subject Alternative Name to use when performing ESC1 or ESC6 attacks.')
+    adcsoptions.add_argument('--altSid', action='store', metavar="SID", required=False,
+                             help='Object SID to embed in szOID_NTDS_CA_SECURITY_EXT (1.3.6.1.4.1.311.25.2). '
+                                  'Required when StrongCertificateBindingEnforcement >= 1 (default on updated DCs since Feb 2025). '
+                                  'Obtain with: lookupsid.py DOMAIN/user:pass@DC | grep " 500$"')
     adcsoptions.add_argument('--enum-templates', action='store_true', required=False, help='Enumerate enabled AD CS templates that the relayed account has access to')
 
     # Shadow Credentials attack options

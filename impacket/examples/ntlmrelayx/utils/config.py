@@ -100,6 +100,7 @@ class NTLMRelayxConfig:
         self.isADCSAttack = False
         self.template = None
         self.altName = None
+        self.altSid = None
         self.enumTemplates = False
 
         # Shadow Credentials attack options
@@ -287,6 +288,9 @@ class NTLMRelayxConfig:
 
     def setAltName(self, altName):
         self.altName = altName
+
+    def setAltSid(self, altSid):
+        self.altSid = altSid
 
 def parse_listening_ports(value):
     ports = set()
