@@ -335,7 +335,7 @@ class DumpSecrets:
                                                skipUser=self.__skipUser, ldapFilter=self.__ldapFilter,
                                                printUserStatus=self.__printUserStatus, localDomainSid=localDomainSid,
                                                trustKeys=self.__trustKeys, domainFQDN=self.__domain,
-                                               justTrustKeys=self.__justTrustKeys)
+                                               justTrustKeys=self.__justTrustKeys, securityHive=self.__securityHive)
                 try:
                     self.__NTDSHashes.dump()
                 except Exception as e:
@@ -513,6 +513,10 @@ if __name__ == '__main__':
         # Dumping only the trust keys implies the trust-keys logic and skips SAM/LSA/account secrets.
         options.trust_keys = True
         options.just_dc = True
+
+    if (options.trust_keys is True or options.just_trust_keys is True) and options.use_keylist is True:
+        logging.error('-trust-keys/-just-trust-keys are not supported together with -use-keylist')
+        sys.exit(1)
 
     if (options.use_vss is True or options.use_remoteSSWMI_NTDS is True) and options.resumefile is not None:
         logging.error('resuming a previous NTDS.DIT dump session is not supported in VSS mode nor WMI VSS mode')

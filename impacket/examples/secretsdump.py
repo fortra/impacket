@@ -2617,6 +2617,27 @@ def _format_trust_secrets(partner, rawSecret, domain, isIncoming, previous=False
     return lines
 
 
+def _getDomainFQDNFromSecurityHive(securityHiveFile):
+    # PolDnDDN stores the local domain FQDN as an LSA_UNICODE_STRING, in cleartext, so it can be
+    # read from an offline SECURITY hive without the boot key.
+    def decode_lsa_unicode(raw):
+        if len(raw) < 8:
+            return ''
+        length = unpack('<H', raw[:2])[0]
+        return raw[8:8 + length].decode('utf-16-le').rstrip('\x00')
+
+    try:
+        registry = OfflineRegistry(securityHiveFile)
+        dnDdnValue = registry.getValue('\\Policy\\PolDnDDN\\default')
+        if dnDdnValue is None:
+            return None
+        domain = decode_lsa_unicode(dnDdnValue[1])
+        return domain or None
+    except Exception:
+        LOG.debug('Exception reading domain FQDN from SECURITY hive', exc_info=True)
+        return None
+
+
 class NTDSHashes:
     class MissingPekIndex(Exception):
         pass
@@ -2747,7 +2768,7 @@ class NTDSHashes:
     def __init__(self, ntdsFile, bootKey, isRemote=False, history=False, noLMHash=True, remoteOps=None,
                  useVSSMethod=False, remoteSSMethodWMINTDS=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None,
                  justUser=None, skipUser=None, ldapFilter=None, printUserStatus=False, localDomainSid=None,
-                 trustKeys=False, domainFQDN=None, justTrustKeys=False,
+                 trustKeys=False, domainFQDN=None, justTrustKeys=False, securityHive=None,
                  perSecretCallback = lambda secretType, secret : _print_helper(secret),
                  resumeSessionMgr=ResumeSessionMgrInFile):
         self.__bootKey = bootKey
@@ -2756,6 +2777,7 @@ class NTDSHashes:
         self.__justTrustKeys = justTrustKeys
         self.__trustKeys = trustKeys or justTrustKeys
         self.__domainFQDN = domainFQDN
+        self.__securityHive = securityHive
         self.__history = history
         self.__noLMHash = noLMHash
         self.__useVSSMethod = useVSSMethod
@@ -3361,12 +3383,19 @@ class NTDSHashes:
             plainText = self.__removeRC4Layer(cipherText)
         return plainText
 
-    def __dumpTrustKeysOffline(self):
+    def __dumpTrustKeysOffline(self, outputFile=None):
         # Offline (VSS / local .dit) trusted domain key dump. Scans the datatable for
         # trustedDomain objects and derives the inter-realm Kerberos keys from trustAuth*.
-        if self.__domainFQDN is None:
-            LOG.error('Cannot derive trust keys offline without the local domain FQDN (-trust-keys needs it)')
+        domain = self.__domainFQDN
+        if not domain and self.__securityHive is not None:
+            domain = _getDomainFQDNFromSecurityHive(self.__securityHive)
+            if domain:
+                LOG.debug('Derived local domain FQDN from SECURITY hive: %s' % domain)
+        if not domain:
+            LOG.error('Cannot derive trust keys offline without the local domain FQDN: pass it explicitly '
+                      '(e.g. -just-trust-keys a.local/@LOCAL) or supply -security so it can be read from the hive')
             return
+        self.__domainFQDN = domain
         LOG.info('Searching NTDS.dit for trusted domain objects')
         cursor = self.__ESEDB.openTable('datatable')
         filterTables = {
@@ -3403,20 +3432,26 @@ class NTDSHashes:
                     continue
                 for line in _format_trust_secrets(partner, currentSecret, self.__domainFQDN, isIncoming):
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
+                    if outputFile is not None:
+                        self.__writeOutput(outputFile, line + '\n')
                     count += 1
                 if previousSecret:
                     for line in _format_trust_secrets(partner, previousSecret, self.__domainFQDN, isIncoming, previous=True):
                         self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
+                        if outputFile is not None:
+                            self.__writeOutput(outputFile, line + '\n')
                         count += 1
+        if outputFile is not None:
+            outputFile.flush()
         LOG.info('Dumped keys for trusted domain object(s) (%d secret line(s))' % count)
 
-    def __dumpTrustKeysOnline(self):
+    def __dumpTrustKeysOnline(self, outputFile=None):
         # Online (DRSUAPI) trusted domain key dump. Discovery is over LSARPC, then each
         # trustedDomain object is replicated and its trustAuth* attributes are decrypted.
         if self.__remoteOps is None:
             return
         domain = self.__domainFQDN
-        if domain is None:
+        if not domain:
             try:
                 domain = self.__remoteOps.getMachineNameAndDomain()[1]
             except Exception:
@@ -3437,12 +3472,14 @@ class NTDSHashes:
         drsr = self.__remoteOps.getDrsr()
         for partner in trusts:
             try:
-                self.__dumpTrustKeyOnlineOne(partner, baseDN, domain, drsr)
+                self.__dumpTrustKeyOnlineOne(partner, baseDN, domain, drsr, outputFile=outputFile)
             except Exception as e:
                 LOG.debug('Exception', exc_info=True)
                 LOG.error('Failed to dump trust %s: %s' % (partner, str(e)))
+        if outputFile is not None:
+            outputFile.flush()
 
-    def __dumpTrustKeyOnlineOne(self, partner, baseDN, domain, drsr):
+    def __dumpTrustKeyOnlineOne(self, partner, baseDN, domain, drsr, outputFile=None):
         # Resolve the TDO object DN to its GUID with DRSCrackNames (no LDAP).
         dn = 'CN=%s,CN=System,%s' % (partner, baseDN)
         cracked = self.__remoteOps.DRSCrackNames(drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME,
@@ -3495,9 +3532,13 @@ class NTDSHashes:
             if currentSecret:
                 for line in _format_trust_secrets(partner, currentSecret, domain, isIncoming):
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
+                    if outputFile is not None:
+                        self.__writeOutput(outputFile, line + '\n')
             if previousSecret:
                 for line in _format_trust_secrets(partner, previousSecret, domain, isIncoming, previous=True):
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
+                    if outputFile is not None:
+                        self.__writeOutput(outputFile, line + '\n')
 
     def dump(self):
         hashesOutputFile = None
@@ -3624,7 +3665,7 @@ class NTDSHashes:
 
                     if self.__trustKeys:
                         try:
-                            self.__dumpTrustKeysOffline()
+                            self.__dumpTrustKeysOffline(outputFile=hashesOutputFile)
                         except Exception as e:
                             LOG.debug('Exception', exc_info=True)
                             LOG.error('Trusted domain key dump failed: %s' % str(e))
@@ -3831,7 +3872,7 @@ class NTDSHashes:
             # from the .dit inside the branch above instead.
             if self.__trustKeys and not self.__useVSSMethod and not self.__remoteSSMethodWMINTDS:
                 try:
-                    self.__dumpTrustKeysOnline()
+                    self.__dumpTrustKeysOnline(outputFile=hashesOutputFile)
                 except Exception as e:
                     LOG.debug('Exception', exc_info=True)
                     LOG.error('Trusted domain key dump failed: %s' % str(e))
