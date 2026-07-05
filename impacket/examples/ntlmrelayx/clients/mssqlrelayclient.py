@@ -32,6 +32,7 @@ from impacket.tds import MSSQL, DummyPrint, TDS_ENCRYPT_OFF, \
 from impacket.ntlm import NTLMAuthChallenge
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
 from impacket.spnego import SPNEGO_NegTokenResp
+from impacket import LOG
 
 PROTOCOL_CLIENT_CLASS = "MSSQLRelayClient"
 
