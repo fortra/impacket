@@ -233,6 +233,9 @@ class WCFRelayServer(Thread):
             if not rawNTLM:
                 # remove SPNEGO wrapping
                 blob = SPNEGO_NegTokenResp(ntlmssp_auth)
+                if blob.isNegoExSelected():
+                    LOG.info("(WCF): NEGOEX/PKU2U selected in auth response, which is not currently supported for relay")
+                    return
                 ntlmssp_auth = blob['ResponseToken']
 
             if not ntlmssp_auth.startswith(b"NTLMSSP\0\3"):  # NTLMSSP_AUTH: message type 3
