@@ -38,6 +38,7 @@ if __name__ == '__main__':
     parser.add_argument('-db', action='store', help='MSSQL database instance (default None)')
     parser.add_argument('-windows-auth', action='store_true', default=False, help='whether or not to use Windows '
                                                                                   'Authentication (default False)')
+    parser.add_argument('-named-pipe', action='store', default=False, help='Connect to the specified SMB named pipe')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-show', action='store_true', help='show the queries')
@@ -91,7 +92,16 @@ if __name__ == '__main__':
     if options.aesKey is not None:
         options.k = True
 
-    ms_sql = tds.MSSQL(options.target_ip, int(options.port), remoteName, workstation_id=options.host_name, application_name=options.app_name, client_interface_name=options.client_interface_name)
+    ms_sql = tds.MSSQL(
+        options.target_ip, 
+        options.named_pipe,
+        int(options.port), 
+        remoteName, 
+        workstation_id=options.host_name,
+        application_name=options.app_name, 
+        client_interface_name=options.client_interface_name
+    )
+
     ms_sql.connect()
     try:
         if options.k is True:
