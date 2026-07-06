@@ -185,7 +185,8 @@ class DPAPI:
                     return
 
             elif self.options.pvk and dk:
-                pvkfile = open(self.options.pvk, 'rb').read()
+                with open(self.options.pvk, 'rb') as f:
+                    pvkfile = f.read()
                 key = PRIVATE_KEY_BLOB(pvkfile[len(PVK_FILE_HDR()):])
                 private = privatekeyblob_to_pkcs1(key)
                 cipher = PKCS1_v1_5.new(private)
@@ -351,7 +352,8 @@ class DPAPI:
                     backupkey = backup_key['Data']
                     if self.options.export:
                         logging.debug("Exporting key to file {}".format(name + ".key"))
-                        open(name + ".key", 'wb').write(backupkey)
+                        with open(name + ".key", 'wb') as f:
+                            f.write(backupkey)
                     else:
                         print("Legacy key:")
                         print("0x%s" % hexlify(backupkey).decode('latin-1'))
@@ -375,9 +377,11 @@ class DPAPI:
                     backupkey = backupkey_pvk
                     if self.options.export:
                         logging.debug("Exporting certificate to file {}".format(name + ".der"))
-                        open(name + ".der", 'wb').write(cert)
+                        with open(name + ".der", 'wb') as f:
+                            f.write(cert)
                         logging.debug("Exporting private key to file {}".format(name + ".pvk"))
-                        open(name + ".pvk", 'wb').write(backupkey)
+                        with open(name + ".pvk", 'wb') as f:
+                            f.write(backupkey)
                     else:
                         print("Preferred key:")
                         header.dump()
@@ -387,8 +391,8 @@ class DPAPI:
 
 
         elif self.options.action.upper() == 'CREDENTIAL':
-            fp = open(options.file, 'rb')
-            data = fp.read()
+            with open(options.file, 'rb') as fp:
+                data = fp.read()
             cred = CredentialFile(data)
             blob = DPAPI_BLOB(cred['Data'])
 
