@@ -638,6 +638,7 @@ class LdapShell(cmd.Cmd):
         try:
             old_values = target['msDS-KeyCredentialLink'].raw_values
             new_values = [shadow_credentials.toDNWithBinary2String(keyCredential.dumpBinary(), target.entry_dn)]
+            self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_DELETE, []]})
             self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
             print("Shadow credentials successfully added!")
             if self.client.result['result'] == 0:
