@@ -93,8 +93,8 @@ class DPAPI:
 
     def run(self):
         if self.options.action.upper() == 'MASTERKEY':
-            fp = open(options.file, 'rb')
-            data = fp.read()
+            with open(options.file, 'rb') as fp:
+                data = fp.read()
             mkf= MasterKeyFile(data)
             mkf.dump()
             data = data[len(mkf):]
@@ -412,8 +412,8 @@ class DPAPI:
                 print('You must specify either -vcrd or -vpol parameter. Type --help for more info')
                 return
             if options.vcrd is not None:
-                fp = open(options.vcrd, 'rb')
-                data = fp.read()
+                with open(options.vcrd, 'rb') as fp:
+                    data = fp.read()
                 blob = VAULT_VCRD(data)
 
                 if self.options.key is not None:
@@ -443,8 +443,8 @@ class DPAPI:
                     blob.dump()
 
             elif options.vpol is not None:
-                fp = open(options.vpol, 'rb')
-                data = fp.read()
+                with open(options.vpol, 'rb') as fp:
+                    data = fp.read()
                 vpol = VAULT_VPOL(data)
                 vpol.dump()
 
@@ -457,16 +457,15 @@ class DPAPI:
                         keys.dump()
                         return
         elif self.options.action.upper() == 'UNPROTECT':
-            fp = open(options.file, 'rb')
-            data = fp.read()
+            with open(options.file, 'rb') as fp:
+                data = fp.read()
             blob = DPAPI_BLOB(data)
 
             if self.options.key is not None:
                 key = unhexlify(self.options.key[2:])
                 if self.options.entropy_file is not None:
-                    fp2 = open(self.options.entropy_file, 'rb')
-                    entropy = fp2.read()
-                    fp2.close()
+                    with open(self.options.entropy_file, 'rb') as fp2:
+                        entropy = fp2.read()
                 elif self.options.entropy is not None:
                     entropy = b(self.options.entropy)
                 else:
@@ -482,8 +481,8 @@ class DPAPI:
                 blob.dump()
 
         elif self.options.action.upper() == 'CREDHIST':
-            fp = open(self.options.file, 'rb')
-            data = fp.read()
+            with open(self.options.file, 'rb') as fp:
+                data = fp.read()
             chf = CREDHIST_FILE(data)
 
             if len(chf.credhist_entries_list) == 0:
