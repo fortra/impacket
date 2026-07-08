@@ -168,6 +168,61 @@ class TDSTests(unittest.TestCase):
         self.assertEqual(second_response["Type"], tds.TDS_TABULAR)
         self.assertEqual(second_response["Data"], b"second")
 
+    @staticmethod
+    def _text_pointer_row_data(payload):
+        pointer = b"PTR!"
+        return (
+            bytes([len(pointer)])
+            + pointer
+            + (b"\x00" * 8)
+            + struct.pack("<L", len(payload))
+            + payload
+        )
+
+    def _parse_single_column_row(self, col_type, data):
+        client = tds.MSSQL("server")
+        client.colMeta = [{"Type": col_type, "Name": "value"}]
+        consumed = client.parseRow({"TokenType": tds.TDS_ROW_TOKEN, "Data": data})
+
+        self.assertEqual(consumed, len(data))
+        return client.rows[-1]["value"]
+
+    def test_parse_row_decodes_big_binary_hex_as_string(self):
+        value = self._parse_single_column_row(
+            tds.TDS_BIGVARBINTYPE,
+            struct.pack("<H", 3) + b"\x01\xab\xff",
+        )
+
+        self.assertEqual(value, "01abff")
+        self.assertIsInstance(value, str)
+
+    def test_parse_row_decodes_image_hex_as_string(self):
+        value = self._parse_single_column_row(
+            tds.TDS_IMAGETYPE,
+            self._text_pointer_row_data(b"\x01\xab\xff"),
+        )
+
+        self.assertEqual(value, "01abff")
+        self.assertIsInstance(value, str)
+
+    def test_parse_row_decodes_text_as_string(self):
+        value = self._parse_single_column_row(
+            tds.TDS_TEXTTYPE,
+            self._text_pointer_row_data(b"caf\xe9"),
+        )
+
+        self.assertEqual(value, "caf\xe9")
+        self.assertIsInstance(value, str)
+
+    def test_parse_row_decodes_big_char_as_string(self):
+        value = self._parse_single_column_row(
+            tds.TDS_BIGCHARTYPE,
+            struct.pack("<H", 10) + b"7         ",
+        )
+
+        self.assertEqual(value, "7         ")
+        self.assertIsInstance(value, str)
+
 
 class MSSQLSocksRelayTests(unittest.TestCase):
     @staticmethod

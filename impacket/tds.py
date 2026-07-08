@@ -2153,12 +2153,7 @@ class MSSQL:
                     raw = data[:charLen]
                     data = data[charLen:]
 
-                    # SQL Server stores VARCHAR in server codepage, not UTF-8
-                    # latin-1 is the safest reversible mapping
-                    try:
-                        value = raw.decode("latin-1")
-                    except UnicodeDecodeError:
-                        value = raw.decode("utf-8", errors="replace")
+                    value = raw.decode("latin-1")
                 else:
                     value = None
 
@@ -2204,10 +2199,7 @@ class MSSQL:
                     if charLen != 0xFFFF:
                         raw = data[:charLen]
                         data = data[charLen:]
-                        try:
-                            value = raw.decode("latin-1")
-                        except UnicodeDecodeError:
-                            value = raw.decode("utf-8", errors="replace")
+                        value = raw.decode("latin-1")
                     else:
                         value = None
 
@@ -2338,10 +2330,7 @@ class MSSQL:
                 data = data[struct.calcsize("<H") :]
                 raw = data[:charLen]
                 data = data[charLen:]
-                try:
-                    value = raw.decode("latin-1")
-                except UnicodeDecodeError:
-                    value = raw.decode("utf-8", errors="replace")
+                value = raw.decode("latin-1")
 
             elif _type == TDS_INT8TYPE:
                 value = struct.unpack("<q", data[:8])[0]
