@@ -57,7 +57,7 @@ class LDAPRelayClient(ProtocolClient):
             conn.search(search_base='',
                         search_filter='(objectClass=*)',
                         search_scope='BASE',
-                        attributes=['*'])
+                        attributes=['*', '+'])
             self.sessionData['LDAP_INFO'] = conn.entries[0]
 
     def killConnection(self):

@@ -2,6 +2,7 @@ import select
 from pyasn1.codec.ber import encoder, decoder
 from pyasn1.error import SubstrateUnderrunError
 from pyasn1.type import univ
+from ldap3.core.exceptions import LDAPKeyError
 
 from impacket import LOG, ntlm
 from impacket.examples.ntlmrelayx.servers.socksserver import SocksRelay
@@ -138,7 +139,25 @@ class LDAPSocksRelay(SocksRelay):
                         # Received a SASL NTLM bindRequest
 
                         # Parsing authentication method
-                        saslCredentials = msg_component['authentication']['sasl']['credentials'].asOctets()
+                        saslCredentialsField = msg_component['authentication']['sasl']['credentials']
+                        if not saslCredentialsField.isValue:
+                            LOG.error('LDAP: Received SASL bind request without credentials')
+                            bindresponse = BindResponse()
+                            bindresponse['resultCode'] = ResultCode('protocolError')
+                            bindresponse['matchedDN'] = LDAPDN('')
+                            bindresponse['diagnosticMessage'] = LDAPString('SASL credentials are required')
+                            self.send_ldap_msg(bindresponse, message['messageID'])
+                            return False
+
+                        saslCredentials = saslCredentialsField.asOctets()
+                        if len(saslCredentials) == 0:
+                            LOG.error('LDAP: Received SASL bind request with empty credentials')
+                            bindresponse = BindResponse()
+                            bindresponse['resultCode'] = ResultCode('protocolError')
+                            bindresponse['matchedDN'] = LDAPDN('')
+                            bindresponse['diagnosticMessage'] = LDAPString('SASL credentials are required')
+                            self.send_ldap_msg(bindresponse, message['messageID'])
+                            return False
 
                         if saslCredentials[0] == 0x60: # SPNEGO_NEG_TOKEN_INIT
                             LOG.debug('LDAP: Got SASL bind request')
@@ -241,19 +260,7 @@ class LDAPSocksRelay(SocksRelay):
                         elif msg_component['scope'] == Scope('baseObject') and msg_component['baseObject'] == LDAPDN(''):
                             # RootDSE Query
                             LOG.debug('LDAP: Client performed RootDSE query')
-                            response = SearchResultEntry()
-                            response['objectName'] = LDAPDN('')
-                            response['attributes'] = PartialAttributeList()
-
-                            # Return all requested attributes
-                            for attribute in msg_component['attributes']:
-                                reqAttrStr = attribute.asOctets().decode('utf-8')
-                                attrVal = self.sessionData['LDAP_INFO'][reqAttrStr]
-                                partialAttr = PartialAttribute()
-                                partialAttr.setComponentByName('type', attribute)
-                                partialAttr.setComponentByName('vals', univ.SetOf(componentType=AttributeValue()))
-                                partialAttr.getComponentByName('vals').setComponentByPosition(0, AttributeValue(str(attrVal).encode('utf-8')))
-                                response['attributes'].append(partialAttr)
+                            response = self.build_RootDSE_response(msg_component['attributes'])
                         else:
                             # Any other message triggers the closing of client connection
                             return False
@@ -398,6 +405,114 @@ class LDAPSocksRelay(SocksRelay):
             pass
 
         return True
+
+    def build_RootDSE_response(self, requested_attributes):
+        response = SearchResultEntry()
+        response['objectName'] = LDAPDN('')
+        response['attributes'] = PartialAttributeList()
+
+        for attribute_name in self.get_RootDSE_attribute_names(requested_attributes):
+            values = self.get_RootDSE_attribute_values(attribute_name)
+            if values is None:
+                LOG.debug('LDAP: Skipping unavailable RootDSE attribute %s' % attribute_name)
+                continue
+
+            partialAttr = PartialAttribute()
+            partialAttr.setComponentByName('type', attribute_name)
+            partialAttr.setComponentByName('vals', univ.SetOf(componentType=AttributeValue()))
+            for pos, value in enumerate(values):
+                partialAttr.getComponentByName('vals').setComponentByPosition(pos, AttributeValue(value))
+            response['attributes'].append(partialAttr)
+
+        return response
+
+    def get_RootDSE_attribute_names(self, requested_attributes):
+        if len(requested_attributes) == 0:
+            return self.get_cached_RootDSE_attribute_names()
+
+        attribute_names = []
+        for attribute in requested_attributes:
+            attribute_name = attribute.asOctets().decode('utf-8')
+            if attribute_name == '1.1':
+                return []
+            elif attribute_name in ('*', '+'):
+                attribute_names.extend(self.get_cached_RootDSE_attribute_names())
+            else:
+                attribute_names.append(attribute_name)
+
+        seen = set()
+        unique_attribute_names = []
+        for attribute_name in attribute_names:
+            lower_attribute_name = attribute_name.lower()
+            if lower_attribute_name not in seen:
+                seen.add(lower_attribute_name)
+                unique_attribute_names.append(attribute_name)
+
+        return unique_attribute_names
+
+    def get_cached_RootDSE_attribute_names(self):
+        rootDSE = self.sessionData['LDAP_INFO']
+        if isinstance(rootDSE, dict):
+            return list(rootDSE.keys())
+        elif hasattr(rootDSE, 'entry_attributes'):
+            return list(rootDSE.entry_attributes)
+        elif hasattr(rootDSE, 'entry_raw_attributes'):
+            return list(rootDSE.entry_raw_attributes.keys())
+        else:
+            return []
+
+    def get_RootDSE_attribute_values(self, attribute_name):
+        rootDSE = self.sessionData['LDAP_INFO']
+
+        if attribute_name.lower() == 'supportedcapabilities':
+            return [
+                b'1.2.840.113556.1.4.800',
+                b'1.2.840.113556.1.4.1670',
+                b'1.2.840.113556.1.4.1791',
+                b'1.2.840.113556.1.4.1935',
+                b'1.2.840.113556.1.4.2080',
+                b'1.2.840.113556.1.4.2237',
+            ]
+        elif attribute_name.lower() == 'supportedsaslmechanisms':
+            # Force NTLMSSP to avoid parsing every type of authentication.
+            return [b'NTLM']
+
+        try:
+            attribute_value = rootDSE[attribute_name]
+        except (KeyError, LDAPKeyError):
+            attribute_value = self.get_case_insensitive_RootDSE_attribute(attribute_name)
+
+        if attribute_value is None:
+            return None
+
+        if hasattr(attribute_value, 'raw_values'):
+            values = attribute_value.raw_values
+        elif hasattr(attribute_value, 'values'):
+            values = attribute_value.values
+        elif isinstance(attribute_value, (list, tuple, set)):
+            values = attribute_value
+        else:
+            values = [attribute_value]
+
+        return [self.encode_RootDSE_attribute_value(value) for value in values]
+
+    def get_case_insensitive_RootDSE_attribute(self, attribute_name):
+        rootDSE = self.sessionData['LDAP_INFO']
+        if not isinstance(rootDSE, dict):
+            return None
+
+        for key, value in rootDSE.items():
+            if key.lower() == attribute_name.lower():
+                return value
+
+        return None
+
+    @staticmethod
+    def encode_RootDSE_attribute_value(value):
+        if isinstance(value, bytes):
+            return value
+        else:
+            return str(value).encode('utf-8')
 
     def build_NTLM_challenge(self, isSicily):
         # Reuse the challenge message from the real authentication with the server
