@@ -2153,12 +2153,7 @@ class MSSQL:
                     raw = data[:charLen]
                     data = data[charLen:]
 
-                    # SQL Server stores VARCHAR in server codepage, not UTF-8
-                    # latin-1 is the safest reversible mapping
-                    try:
-                        value = raw.decode("latin-1")
-                    except UnicodeDecodeError:
-                        value = raw.decode("utf-8", errors="replace")
+                    value = raw.decode("latin-1")
                 else:
                     value = None
 
@@ -2186,7 +2181,7 @@ class MSSQL:
                         if _type == TDS_NTEXTTYPE:
                             value = data[:charLen].decode("utf-16le")
                         else:
-                            value = binascii.b2a_hex(data[:charLen])
+                            value = binascii.b2a_hex(data[:charLen]).decode("ascii")
                         data = data[charLen:]
                     else:
                         value = None
@@ -2202,8 +2197,9 @@ class MSSQL:
                     charLen = struct.unpack("<L", data[: struct.calcsize("<L")])[0]
                     data = data[struct.calcsize("<L") :]
                     if charLen != 0xFFFF:
-                        value = data[:charLen]
+                        raw = data[:charLen]
                         data = data[charLen:]
+                        value = raw.decode("latin-1")
                     else:
                         value = None
 
@@ -2211,7 +2207,7 @@ class MSSQL:
                 charLen = struct.unpack("<H", data[: struct.calcsize("<H")])[0]
                 data = data[struct.calcsize("<H") :]
                 if charLen != 0xFFFF:
-                    value = binascii.b2a_hex(data[:charLen])
+                    value = binascii.b2a_hex(data[:charLen]).decode("ascii")
                     data = data[charLen:]
                 else:
                     value = None
@@ -2330,11 +2326,11 @@ class MSSQL:
                     value = None
 
             elif _type == TDS_BIGCHARTYPE:
-                # print "BIGC"
                 charLen = struct.unpack("<H", data[: struct.calcsize("<H")])[0]
                 data = data[struct.calcsize("<H") :]
-                value = data[:charLen]
+                raw = data[:charLen]
                 data = data[charLen:]
+                value = raw.decode("latin-1")
 
             elif _type == TDS_INT8TYPE:
                 value = struct.unpack("<q", data[:8])[0]
