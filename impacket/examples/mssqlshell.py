@@ -63,6 +63,7 @@ class SQLSHELL(cmd.Cmd):
     enable_xp_cmdshell         - you know what it means
     disable_xp_cmdshell        - you know what it means
     enum_db                    - enum databases
+    enum_tables                - enum tables in the current database
     enum_links                 - enum linked servers
     enum_impersonate           - check logins that can be impersonated
     enum_logins                - enum login users
@@ -341,6 +342,15 @@ class SQLSHELL(cmd.Cmd):
             self.sql.printRows()
         except:
             pass
+
+    def do_enum_tables(self, line):
+        try:
+            query = f"SELECT SCHEMA_NAME(schema_id) AS [Schema], name AS [Table], type_desc AS [Type] FROM [{self.sql.currentDB}].sys.tables ORDER BY [Schema], [Table]"
+            self.sql_query(query)
+            self.print_replies()
+            self.sql.printRows()
+        except Exception as e:
+            print("[-] Error enumerating tables:", e)
 
     def do_enum_owner(self, line):
         try:
