@@ -137,3 +137,12 @@ Whether you want to report a bug, send a patch, or give some suggestions
 on this package, reach out to us at https://www.coresecurity.com/about/contact.
 
 For security-related questions check our [security policy](SECURITY.md).
+
+
+## Known Issues and Workarounds
+
+The maintainers are aware of the following issues:
+
+- Issue mentioned in the bug tracker
+- Users should follow the recommended practices
+- See the documentation for more details
