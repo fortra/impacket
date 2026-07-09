@@ -310,9 +310,11 @@ class GetUserNoPreAuth:
 
     def request_users_file_TGTs(self):
         with open(self.__usersFile) as fi:
-            usernames = [line.strip() for line in fi]
+          def _usernames(fi):
+            for line in fi:
+              yield line
 
-        self.request_multiple_TGTs(usernames)
+          self.request_multiple_TGTs(_usernames(fi))
 
     def request_multiple_TGTs(self, usernames):
         if self.__outputFileName is not None:
