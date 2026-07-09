@@ -316,6 +316,12 @@ if __name__ == '__main__':
     group.add_argument('-hashes-transport', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for passwords')
 
+    group = parser.add_argument_group('SOCKS Proxy Options')
+    group.add_argument('-socks', action='store_true', default=False,
+                        help='Use a SOCKS proxy for the connection')
+    group.add_argument('-socks-address', default='127.0.0.1', help='SOCKS5 server address')
+    group.add_argument('-socks-port', default=1080, type=int, help='SOCKS5 server port')
+
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
@@ -323,6 +329,15 @@ if __name__ == '__main__':
     options = parser.parse_args()
     # Init the example's logger theme
     logger.init(options.ts, options.debug)
+
+    # Relay connections through a socks proxy
+    if (options.socks):
+        logging.info('Relaying connections through SOCKS proxy (%s:%s)', options.socks_address, options.socks_port)
+        import socket
+        import socks
+
+        socks.set_default_proxy(socks.SOCKS5, options.socks_address, options.socks_port)
+        socket.socket = socks.socksocket
 
     rpcdomain, rpcuser, rpcpass, _, _, _ = parse_identity(options.auth_rpc, options.hashes_rpc, options.no_pass, getpass_msg='Password for MSRPC communication:')
     transportdomain, transportuser, transportpass, _, _, _ = parse_identity(options.auth_transport, options.hashes_transport, options.no_pass, getpass_msg='Password for RPC transport (SMB or HTTP):')
