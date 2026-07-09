@@ -85,7 +85,6 @@ from six import PY2, StringIO, BytesIO, b, assertRaisesRegex, assertCountEqual
 from impacket.smb import SMB_DIALECT
 from impacket.smbserver import normalize_path, isInFileJail, SimpleSMBServer, SMBSERVER
 from impacket.smbconnection import SMBConnection, SessionError, compute_lmhash, compute_nthash
-from threading import Thread
 
 import select
 import socket
@@ -262,12 +261,7 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
         """Starts the SimpleSMBServer process.
         """
         self.server = server
-        #self.server_process = Process(target=server.start)
-        # avoid using Process beacuse of bug in python3.13 https://github.com/python/cpython/issues/134381
-        # TODO: remove these changes once a bugfix gets backported.
-        self.server_process = Thread(target=server.start)
-        self.server_process.daemon = True
-        self.server_process.start()
+        self.server_process = Process(target=server.start)
 
     def stop_smbserver(self):
         """Stops the SimpleSMBServer process and wait for insider threads to join.
