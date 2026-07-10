@@ -93,9 +93,9 @@ if __name__ == '__main__':
         options.k = True
 
     ms_sql = tds.MSSQL(
-        options.target_ip, 
+        options.target_ip,
+        int(options.port),
         options.named_pipe,
-        int(options.port), 
         remoteName, 
         workstation_id=options.host_name,
         application_name=options.app_name, 

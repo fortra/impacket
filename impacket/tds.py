@@ -1202,8 +1202,8 @@ class MSSQL:
     def __init__(
         self,
         address,
-        pipe_name=None,
         port=1433,
+        pipe_name=None,
         remoteName="",
         workstation_id: str = "",
         application_name: str = "",
