@@ -215,8 +215,8 @@ class Credential:
         )
 
     def __init__(self, data=None, ccache_version=None):
-        self.addresses = ()
-        self.authData = ()
+        self.addresses = []
+        self.authData = []
         self.header = None
         self.ticket = None
         self.secondTicket = None
