@@ -12,8 +12,7 @@
 #   [MS-CAPR] Interface implementation
 #
 #   MS-CAPR as a protocol The Central Access Policy Identifier (ID) Retrieval Protocol enables an administrative tool to query the
-#   Central Access Policies (CAPs) configured on a remote computer. It defines only one opnum and thus only one helper function to\
-#   to this.
+#   Central Access Policies (CAPs) configured on a remote computer. It defines only one opnum and thus only one helper function exist to extract IDs
 #
 # Author: Abdul Mhanni
 #
