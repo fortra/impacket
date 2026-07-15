@@ -93,6 +93,8 @@ class DumpSecrets:
         self.__NTDSHashes = None
         self.__LSASecrets = None
         self.__KeyListSecrets = None
+        self.__trustKeys = options.trust_keys
+        self.__justTrustKeys = options.just_trust_keys
         self.__rodc = options.rodcNo
         self.__systemHive = options.system
         self.__bootkey = options.bootkey
@@ -331,7 +333,9 @@ class DumpSecrets:
                                                pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
                                                outputFileName=self.__outputFileName, justUser=self.__justUser,
                                                skipUser=self.__skipUser, ldapFilter=self.__ldapFilter,
-                                               printUserStatus=self.__printUserStatus, localDomainSid=localDomainSid)
+                                               printUserStatus=self.__printUserStatus, localDomainSid=localDomainSid,
+                                               trustKeys=self.__trustKeys, domainFQDN=self.__domain,
+                                               justTrustKeys=self.__justTrustKeys, securityHive=self.__securityHive)
                 try:
                     self.__NTDSHashes.dump()
                 except Exception as e:
@@ -450,6 +454,11 @@ if __name__ == '__main__':
                        help='Extract only NTDS.DIT data (NTLM hashes and Kerberos keys)')
     group.add_argument('-just-dc-ntlm', action='store_true', default=False,
                        help='Extract only NTDS.DIT data (NTLM hashes only)')
+    group.add_argument('-trust-keys', action='store_true', default=False,
+                       help='Dump trusted domain object (TDO) secrets and derive the inter-realm '
+                            'Kerberos keys (AES + RC4) for each trust direction')
+    group.add_argument('-just-trust-keys', action='store_true', default=False,
+                       help='Like -trust-keys but dump ONLY the trust keys, skipping every account secret')
     group.add_argument('-skip-user', action='store', help='Do NOT extract NTDS.DIT data for the user specified. '
                        'Can provide comma-separated list of users to skip, or text file with one user per line')
     group.add_argument('-pwd-last-set', action='store_true', default=False,
@@ -499,6 +508,15 @@ if __name__ == '__main__':
         else:
             # Having this switch on implies not asking for anything else.
             options.just_dc = True
+
+    if options.just_trust_keys is True:
+        # Dumping only the trust keys implies the trust-keys logic and skips SAM/LSA/account secrets.
+        options.trust_keys = True
+        options.just_dc = True
+
+    if (options.trust_keys is True or options.just_trust_keys is True) and options.use_keylist is True:
+        logging.error('-trust-keys/-just-trust-keys are not supported together with -use-keylist')
+        sys.exit(1)
 
     if (options.use_vss is True or options.use_remoteSSWMI_NTDS is True) and options.resumefile is not None:
         logging.error('resuming a previous NTDS.DIT dump session is not supported in VSS mode nor WMI VSS mode')
