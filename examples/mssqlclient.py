@@ -97,6 +97,7 @@ if __name__ == '__main__':
         int(options.port),
         options.named_pipe,
         remoteName, 
+        options.target_ip,
         workstation_id=options.host_name,
         application_name=options.app_name, 
         client_interface_name=options.client_interface_name

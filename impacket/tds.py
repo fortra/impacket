@@ -1118,8 +1118,9 @@ class TDS_SSVARIANT(Structure):
 # interface a plain TCP socket exposes, so the rest of the MSSQL class (sendTDS/recvTDS/socketSendall/socketRecv) does not need to
 # know whether it is talking to a socket or to a pipe.
 class NamedPipeTransport:
-    def __init__(self, address, pipe_name=None):
-        self.address = address
+    def __init__(self, remoteName, remoteHost, pipe_name=None):
+        self.remoteName = remoteName
+        self.remoteHost = remoteHost
         self.pipe_name = pipe_name
         self._smb = None
         self._tid = None
@@ -1127,7 +1128,7 @@ class NamedPipeTransport:
         self._recv_buf = b""
 
     def connect(self, timeout=30):
-        self._smb = SMBConnection(self.address, self.address, timeout=timeout)
+        self._smb = SMBConnection(self.remoteName, self.remoteHost, timeout=timeout)
 
     def authenticate_ntlm(self, username, password, domain, lmhash="", nthash=""):
         self._smb.login(username, password, domain, lmhash, nthash)
@@ -1143,9 +1144,9 @@ class NamedPipeTransport:
             self._fid = self._smb.openFile(self._tid, self.pipe_name, desiredAccess=0x0012019F)
         except SessionError as e:
             if e.getErrorCode() == STATUS_OBJECT_NAME_NOT_FOUND:
-                raise ConnectionError(f"Specified named pipe '{self.pipe_name}' not found on {self.address}, check -named-pipe argument")
+                raise ConnectionError(f"Specified named pipe '{self.pipe_name}' not found on {self.remoteName}, check -named-pipe argument")
             raise
-        LOG.info(f"Connected to {self.address}\{self.pipe_name} ")
+        LOG.info(f"Connected to {self.remoteName}\{self.pipe_name} ")
 
     def sendall(self, data):
         try:
@@ -1205,6 +1206,7 @@ class MSSQL:
         port=1433,
         pipe_name=None,
         remoteName="",
+        remoteHost="",
         workstation_id: str = "",
         application_name: str = "",
         client_interface_name: str = "",
@@ -1214,6 +1216,7 @@ class MSSQL:
         self.packetSize = 32763
         self.server = address
         self.remoteName = remoteName
+        self.remoteHost = remoteHost
         self.port = port
         self.socket = 0
         self.replies = {}
@@ -1368,7 +1371,7 @@ class MSSQL:
         useCache=True,
         timeout=30,
     ):
-        transport = NamedPipeTransport(self.server, self.pipe_name)
+        transport = NamedPipeTransport(self.remoteName, self.remoteHost, self.pipe_name)
         transport.connect(timeout)
 
         if kerberos:
