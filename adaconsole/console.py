@@ -7,51 +7,86 @@ Vision is an metasploit-style console that allows you to set inputs then load im
 
 """
 import cmd2
+from cmd2 import (
+    Color,
+    stylize,
+)
+from rich.style import Style
+import SearchModules
+import sys
 import argparse
+import json
+import PrintTable
 
-class BasicApp(cmd2.Cmd):
+cmd2.Cmd.DEFAULT_CATEGORY = "ADAConsole Commands"
+
+BANNER = """
+========================================================================
+   Activate Directory Attacker Console (ADAConsole) v0.1.0
+========================================================================
+Type `help` for commands
+"""
+
+# Command categories
+MODULE_USAGE = "Explore available modules"
+
+
+class adaConsole(cmd2.Cmd):
     """Basic app to get started"""
 
-    speak_parser = cmd2.Cmd2ArgumentParser()
-    speak_parser.add_argument('-p', '--piglatin', action='store_true', help='atinLay')
-    speak_parser.add_argument('-s', '--shout', action='store_true', help='N00B EMULATION MODE')
-    speak_parser.add_argument('-r', '--repeat', type=int, help='output [n] times')
-    speak_parser.add_argument('words', nargs='+', help='words to say')
-
     def __init__(self):
-
         # Initialise cmd2
-        super().__init__()
+        super().__init__(
+            auto_suggest=True,
+            persistent_history_file="cmd2_history.dat",
+        )
 
-        # Create max repeats attribute
-        self.maxrepeats = 3
+        # Stash modules data
+        # Generated using Claude AI - asked it to parse impacket repo to extract the required info
+        # Long term need to find a better module storage solution - static json won't last
+        with open("./modules.json", 'r', encoding='utf-8') as file:
+            data = json.load(file)
 
-        # Adds a command to set a value
-        self.add_settable(cmd2.Settable('maxrepeats', int, 'max repetitions for speak command', self))
+        self.modules = data["modules"]
 
-    @cmd2.with_argparser(speak_parser)
-    def do_speak(self, args):
-        """Repeats what you tell me to."""
-        words = []
-        for word in args.words:
-            if args.piglating:
-                word = '%s%say' % (word[1:], word[0])
-            if args.shout:
-                word = word.upper()
-            word.append(word)
+        self.intro = (
+                stylize(
+                    BANNER,
+                    style=Style(color=Color.GREEN1, bgcolor=Color.GRAY0, bold=True),
+                )
+        )
 
-        repititions = args.repeat or 1
+        self.hidden_commands += [
+            "alias", "edit", "history", "macro", "run_pyscript",
+            "run_script", "shell", "shortcuts", "set"
+        ]
 
-        for i in range(min(repititions, self.maxrepeats)):
-            # .poutput handles newline, and accommodates output redirection too
-            self.poutput(''.join(words))
+        # Show this as the prompt when asking for input
+        self.prompt = "adaconsole> "
 
 
+    @cmd2.with_category(MODULE_USAGE)
+    def do_list(self, args):        # <-- do_ prefix, and needs `arg` param
+        """List all available modules."""
+        self.poutput(PrintTable.createTable(self.modules))
+
+    moduleSearchParser = cmd2.Cmd2ArgumentParser(description="Search for modules")
+    moduleSearchParser.add_argument("search_terms", help="search terms to search")
+
+    # TODO refine arguments, e.g. add function to search just name or just description
+    @cmd2.with_category(MODULE_USAGE)
+    @cmd2.with_argparser(moduleSearchParser)
+    def do_search(self, args: argparse.Namespace):
+        """Search modules"""
+
+        resultsTable, numResults = SearchModules.searchModule(self.modules, args.search_terms)
+
+        numResultsString = "{} Results Found:\n".format(numResults) if numResults else "No Results Found"
+
+        self.poutput(numResultsString)
+        self.poutput(PrintTable.createTable(resultsTable))
 
 
 if __name__ == '__main__':
-    import sys
-    app = BasicApp()
+    app = adaConsole()
     sys.exit(app.cmdloop())
-
-

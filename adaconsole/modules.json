@@ -1,0 +1,4493 @@
+{
+  "modules": [
+    {
+      "id": "1",
+      "name": "CheckLDAPStatus.py",
+      "description": "LDAP signing and channel binding enumeration utility.",
+      "path": "impacket/examples/CheckLDAPStatus.py",
+      "required flags": [
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of a domain controller or a DNS resolver for the domain."
+        },
+        {
+          "flag": "-domain",
+          "help": "<domain name>"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-timeout",
+          "help": "DNS timeout"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "name": "DumpNTLMInfo.py",
+      "description": "Do ntlm authentication and parse information.",
+      "path": "impacket/examples/DumpNTLMInfo.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "<targetName or address>"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-port",
+          "help": "Destination port to connect to SMB/RPC Server"
+        },
+        {
+          "flag": "-protocol",
+          "help": "Protocol to use (SMB or RPC). Default is SMB, port 135 uses RPC normally."
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "name": "Get-GPPPassword.py",
+      "description": "Group Policy Preferences passwords finder and decryptor.",
+      "path": "impacket/examples/Get-GPPPassword.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address> or LOCAL (if you want to parse local files)"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-xmlfile",
+          "help": "Group Policy Preferences XML files to parse"
+        },
+        {
+          "flag": "-share",
+          "help": "SMB Share"
+        },
+        {
+          "flag": "-base-dir",
+          "help": "Directory to search in (Default: /)"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "Don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If omitted it will use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-port",
+          "help": "Destination port to connect to SMB Server"
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "name": "GetADComputers.py",
+      "description": "Queries target domain for computer data",
+      "path": "impacket/examples/GetADComputers.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "domain[/username[:password]]"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-user",
+          "help": "Requests data for specific user"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-resolveIP",
+          "help": "Tries to resolve the IP address of computer objects, by performing the nslookup on the DC."
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-dc-host",
+          "help": "Hostname of the domain controller to use. If ommited, the domain part (FQDN) specified in the account parameter will be used"
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "name": "GetADUsers.py",
+      "description": "Queries target domain for users data",
+      "path": "impacket/examples/GetADUsers.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "domain[/username[:password]]"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-user",
+          "help": "Requests data for specific user"
+        },
+        {
+          "flag": "-all",
+          "help": "Return all users, including those with no email addresses and disabled accounts. When used with -user it will return user's info even if the account is disabled"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-dc-host",
+          "help": "Hostname of the domain controller to use. If ommited, the domain part (FQDN) specified in the account parameter will be used"
+        }
+      ]
+    },
+    {
+      "id": "6",
+      "name": "GetLAPSPassword.py",
+      "description": "Extract LAPS passwords from LDAP",
+      "path": "impacket/examples/GetLAPSPassword.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "domain[/username[:password]]"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-computer",
+          "help": "Target a specific computer by its name"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-outputfile",
+          "help": "Outputs to a file."
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CcnAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-dc-host",
+          "help": "Hostname of the domain controller to use. If ommited, the domain part (FQDN) specified in the account parameter will be used"
+        },
+        {
+          "flag": "-ldaps",
+          "help": "Enable LDAPS (LDAP over SSL). Required when querying a Windows Server 2025domain controller with LDAPS enforced."
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "name": "GetNPUsers.py",
+      "description": "Queries target domain for users with 'Do not require Kerberos preauthentication' set and export their TGTs for cracking",
+      "path": "impacket/examples/GetNPUsers.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]]"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-request",
+          "help": "Requests TGT for users and output them in JtR/hashcat format (default False)"
+        },
+        {
+          "flag": "-outputfile",
+          "help": "Output filename to write ciphers in JtR/hashcat format"
+        },
+        {
+          "flag": "-format",
+          "help": "format to save the AS_REQ of users without pre-authentication. Default is hashcat"
+        },
+        {
+          "flag": "-usersfile",
+          "help": "File with user per line to test"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-dc-host",
+          "help": "Hostname of the domain controller to use. If ommited, the domain part (FQDN) specified in the account parameter will be used"
+        }
+      ]
+    },
+    {
+      "id": "8",
+      "name": "GetUserSPNs.py",
+      "description": "Queries target domain for SPNs that are running under a user account",
+      "path": "impacket/examples/GetUserSPNs.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "domain[/username[:password]]"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-target-domain",
+          "help": "Domain to query/request if different than the domain of the user. Allows for Kerberoasting across trusts."
+        },
+        {
+          "flag": "-no-preauth",
+          "help": "account that does not require preauth, to obtain Service Ticket through the AS"
+        },
+        {
+          "flag": "-stealth",
+          "help": "Removes the (servicePrincipalName=*) filter from the LDAP query for added stealth. May cause huge memory consumption / errors on large domains."
+        },
+        {
+          "flag": "-machine-only",
+          "help": "Queries for machine accounts only, by adjusting `objectCategory=person` to `objectCategory=computer`. Active Directory may limit results to 1,000 objects by default. LDAP paging is required to retrieve more."
+        },
+        {
+          "flag": "-usersfile",
+          "help": "File with user per line to test"
+        },
+        {
+          "flag": "-request",
+          "help": "Requests TGS for users and output them in JtR/hashcat format (default False)"
+        },
+        {
+          "flag": "-request-user",
+          "help": "Requests TGS for the SPN associated to the user specified (just the username, no domain needed)"
+        },
+        {
+          "flag": "-request-machine",
+          "help": "Requests TGS for the SPN associated to the machine specified. Example: `workstation01$`"
+        },
+        {
+          "flag": "-save",
+          "help": "Saves TGS requested to disk. Format is <username>.ccache. Auto selects -request"
+        },
+        {
+          "flag": "-outputfile",
+          "help": "Output filename to write ciphers in JtR/hashcat format. Auto selects -request"
+        },
+        {
+          "flag": "-no-rc4",
+          "help": "Does not force RC4-HMAC for the TGT"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output."
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter. Ignoredif -target-domain is specified."
+        },
+        {
+          "flag": "-dc-host",
+          "help": "Hostname of the domain controller to use. If ommited, the domain part (FQDN) specified in the account parameter will be used"
+        }
+      ]
+    },
+    {
+      "id": "9",
+      "name": "addcomputer.py",
+      "description": "Adds a computer account to domain",
+      "path": "impacket/examples/addcomputer.py",
+      "required flags": [
+        {
+          "flag": "account",
+          "help": "[domain/]username[:password] Account used to authenticate to DC."
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-domain-netbios",
+          "help": "Domain NetBIOS name. Required if the DC has multiple domains."
+        },
+        {
+          "flag": "-computer-name",
+          "help": "Name of computer to add.If omitted, a random DESKTOP-[A-Z0-9]{8} will be used."
+        },
+        {
+          "flag": "-computer-pass",
+          "help": "Password to set to computerIf omitted, a random [A-Za-z0-9]{32} will be used."
+        },
+        {
+          "flag": "-no-add",
+          "help": "Don't add a computer, only set password on existing one."
+        },
+        {
+          "flag": "-delete",
+          "help": "Delete an existing computer."
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-method",
+          "help": "Method of adding the computer.SAMR works over SMB.LDAPS has some certificate requirementsand isn't always available."
+        },
+        {
+          "flag": "-port",
+          "help": "Destination port to connect to. SAMR defaults to 445, LDAPS to 636."
+        },
+        {
+          "flag": "-baseDN",
+          "help": "Set baseDN for LDAP.If ommited, the domain part (FQDN) specified in the account parameter will be used."
+        },
+        {
+          "flag": "-computer-group",
+          "help": "Group to which the account will be added.If omitted, CN=Computers will be used,"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on account parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-host",
+          "help": "Hostname of the domain controller to use. If ommited, the domain part (FQDN) specified in the account parameter will be used"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP of the domain controller to use. Useful if you can't translate the FQDN.specified in the account parameter will be used"
+        }
+      ]
+    },
+    {
+      "id": "10",
+      "name": "atexec.py",
+      "description": "ATSVC example for some functions implemented, creates, enums, runs, delete jobs This example executes a command on the target machine through the Task Scheduler service. Returns the output of such command",
+      "path": "impacket/examples/atexec.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        },
+        {
+          "flag": "command",
+          "help": "command to execute at the target"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-session-id",
+          "help": "an existed logon session to use (no output, no cmd.exe)"
+        },
+        {
+          "flag": "-ts",
+          "help": "adds timestamp to every logging output"
+        },
+        {
+          "flag": "-silentcommand",
+          "help": "does not execute cmd.exe to run given command (no output)"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-codec"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If omitted it will use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-keytab",
+          "help": "Read keys for SPN from keytab file"
+        }
+      ]
+    },
+    {
+      "id": "11",
+      "name": "attrib.py",
+      "description": "File Attribute Modification Utility implementation.",
+      "path": "impacket/examples/attrib.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        },
+        {
+          "flag": "share",
+          "help": "The share in which the desired file to query or modify resides."
+        },
+        {
+          "flag": "path",
+          "help": "The path of the desired file whose attributes we wish to query or modify."
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "Don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-p",
+          "help": "Destination port to connect to the SMB Server."
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If omitted it will use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-t",
+          "help": "Set connection timeout (seconds)."
+        },
+        {
+          "flag": "-r",
+          "help": "A file or directory that is read-only. For a file, applications can read the file but cannot write to it or delete it. For a directory, applications cannot delete it, but applications can create and delete files from that directory."
+        },
+        {
+          "flag": "-H",
+          "help": "A file or directory that is hidden. Files and directories marked with this attribute do not appear in an ordinary directory listing."
+        },
+        {
+          "flag": "-s",
+          "help": "A file or directory that the operating system uses a part of or uses exclusively."
+        },
+        {
+          "flag": "-a",
+          "help": "A file or directory that requires to be archived. Applications use this attribute to mark files for backup or removal."
+        },
+        {
+          "flag": "-n",
+          "help": "A file that does not have other attributes set. This flag is used to clear all other flags by specifying it with no other flags set."
+        },
+        {
+          "flag": "-c",
+          "help": "A file or directory that is compressed. For a file, all of the data in the file is compressed. For a directory, compression is the default for newly created files and subdirectories."
+        },
+        {
+          "flag": "-o",
+          "help": "The data in this file is not available immediately. This attribute indicates that the file data is physically moved to offline storage. This attribute is used by Remote Storage, which is hierarchical storage management software."
+        },
+        {
+          "flag": "-e",
+          "help": "A file or directory that is encrypted. For a file, all data streams in the file are encrypted. For a directory, encryption is the default for newly created files and subdirectories."
+        },
+        {
+          "flag": "-u",
+          "help": "This attribute indicates that the file or directory should not be kept fully present locally except when being actively accessed. This attribute is for use with hierarchical storage management software."
+        }
+      ]
+    },
+    {
+      "id": "12",
+      "name": "badsuccessor.py",
+      "description": "dMSA exploitation tool.",
+      "path": "impacket/examples/badsuccessor.py",
+      "required flags": [
+        {
+          "flag": "account",
+          "help": "Account used to authenticate to DC."
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-dmsa-name",
+          "help": "Name of dMSA to add. If omitted, a random dMSA-[A-Z0-9]{8} will be used."
+        },
+        {
+          "flag": "-action",
+          "help": "Action to perform: add (requires -target-ou), delete (requires -dmsa-name, -target-ou), modify (requires -dmsa-name, -target-ou and -target-account), or search a dMSA."
+        },
+        {
+          "flag": "-target-ou",
+          "help": "Specific OU to check for dMSA creation capabilities (e.g., \"OU=weakOU,DC=domain,DC=local\")"
+        },
+        {
+          "flag": "-principals-allowed",
+          "help": "Username allowed to retrieve the managed password. If omitted, current username will be used."
+        },
+        {
+          "flag": "-target-account",
+          "help": "Target user or computer account DN to set for msDS-ManagedAccountPrecededByLink (can target Domain Controllers, Domain Admins, Protected Users, etc.)"
+        },
+        {
+          "flag": "-dns-hostname",
+          "help": "DNS hostname for the dMSA. If omitted, will be generated as dmsaname.domain."
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-method",
+          "help": "Method of adding the computer. LDAPS has some certificate requirements and isn't always available."
+        },
+        {
+          "flag": "-port",
+          "help": "Destination port to connect to. LDAP defaults to 389, LDAPS to 636."
+        },
+        {
+          "flag": "-baseDN",
+          "help": "Set baseDN for LDAP. If ommited, the domain part (FQDN) specified in the account parameter will be used."
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on account parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-host",
+          "help": "Hostname of the domain controller to use. If ommited, the domain part (FQDN) specified in the account parameter will be used"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP of the domain controller to use. Useful if you can't translate the FQDN."
+        }
+      ]
+    },
+    {
+      "id": "13",
+      "name": "changepasswd.py",
+      "description": "Change or reset passwords over different protocols.",
+      "path": "impacket/examples/changepasswd.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<hostname or address>"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-ts",
+          "help": "adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "turn DEBUG output ON"
+        },
+        {
+          "flag": "-newpass",
+          "help": "new password"
+        },
+        {
+          "flag": "-newhashes",
+          "help": "new NTLM hashes, format is NTHASH or LMHASH:NTHASH"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is NTHASH or LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "Don't ask for password (useful for Kerberos, -k)"
+        },
+        {
+          "flag": "-altuser",
+          "help": "Alternative username"
+        },
+        {
+          "flag": "-altpass",
+          "help": "Alternative password"
+        },
+        {
+          "flag": "-althash",
+          "help": "Alternative NT hash, format is NTHASH or LMHASH:NTHASH"
+        },
+        {
+          "flag": "-protocol",
+          "help": "Protocol to use for password change/reset"
+        },
+        {
+          "flag": "-reset",
+          "help": "Try to reset the password with privileges (may bypass some password policies)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller, for Kerberos. If omitted it will use the domain part (FQDN) specified in the target parameter"
+        }
+      ]
+    },
+    {
+      "id": "14",
+      "name": "checkMSSQLStatus.py",
+      "description": "Check whether Channel Binding Token (CBT) is enforced on a MSSQL server.",
+      "path": "impacket/examples/checkMSSQLStatus.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[domain/]username[:password]@target"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-port",
+          "help": "MSSQL port to connect to"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        }
+      ]
+    },
+    {
+      "id": "15",
+      "name": "dacledit.py",
+      "description": "Python editor for a principal's DACL.",
+      "path": "impacket/examples/dacledit.py",
+      "required flags": [
+        {
+          "flag": "identity",
+          "help": "domain.local/username[:password]"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-use-ldaps",
+          "help": "Use LDAPS instead of LDAP"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller or KDC (Key Distribution Center) for Kerberos. If omitted it will use the domain part (FQDN) specified in the identity parameter"
+        },
+        {
+          "flag": "-dc-host",
+          "help": "Hostname of the domain controller or KDC (Key Distribution Center) for Kerberos. If omitted, -dc-ip will be used"
+        },
+        {
+          "flag": "-principal",
+          "help": "sAMAccountName"
+        },
+        {
+          "flag": "-principal-sid",
+          "help": "Security IDentifier"
+        },
+        {
+          "flag": "-principal-dn",
+          "help": "Distinguished Name"
+        },
+        {
+          "flag": "-target",
+          "help": "sAMAccountName"
+        },
+        {
+          "flag": "-target-sid",
+          "help": "Security IDentifier"
+        },
+        {
+          "flag": "-target-dn",
+          "help": "Distinguished Name"
+        },
+        {
+          "flag": "-action",
+          "help": "Action to operate on the DACL"
+        },
+        {
+          "flag": "-file",
+          "help": "Filename/path (optional for -action backup, required for -restore))"
+        },
+        {
+          "flag": "-ace-type",
+          "help": "The ACE Type (access allowed or denied) that must be added or removed (default: allowed)"
+        },
+        {
+          "flag": "-rights",
+          "help": "Rights to write/remove in the target DACL (default: FullControl)"
+        },
+        {
+          "flag": "-rights-guid",
+          "help": "Manual GUID representing the right to write/remove"
+        },
+        {
+          "flag": "-mask",
+          "help": "Force access mask, possible values: readwrite, write, self, allext, 0xXXXXX. Useful with -rights Custom or --rights-guid where the mask is different of read+write."
+        },
+        {
+          "flag": "-inheritance",
+          "help": "Enable the inheritance in the ACE flag with CONTAINER_INHERIT_ACE and OBJECT_INHERIT_ACE. Useful when target is a Container or an OU, ACE will be inherited by objects within the container/OU (except objects with adminCount=1)"
+        }
+      ]
+    },
+    {
+      "id": "16",
+      "name": "dcomexec.py",
+      "description": "Executes a semi-interactive shell using the ShellBrowserWindow DCOM object.",
+      "path": "impacket/examples/dcomexec.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        },
+        {
+          "flag": "command",
+          "help": "command to execute at the target. If empty it will launch a semi-interactive shell"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-share",
+          "help": "share where the output will be grabbed from (default ADMIN$)"
+        },
+        {
+          "flag": "-nooutput",
+          "help": "whether or not to print the output (no SMB connection created)"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-codec"
+        },
+        {
+          "flag": "-object",
+          "help": "DCOM object to be used to execute the shell command (default=ShellWindows)"
+        },
+        {
+          "flag": "-com-version",
+          "help": "DCOM version, format is MAJOR_VERSION:MINOR_VERSION e.g. 5.7"
+        },
+        {
+          "flag": "-shell-type",
+          "help": "choose a command processor for the semi-interactive shell"
+        },
+        {
+          "flag": "-silentcommand",
+          "help": "does not execute cmd.exe to run given command (no output, cannot run dir/cd/etc.)"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-A",
+          "help": "smbclient/mount.cifs-style authentication file. See smbclient man page's -A option."
+        },
+        {
+          "flag": "-keytab",
+          "help": "Read keys for SPN from keytab file"
+        }
+      ]
+    },
+    {
+      "id": "17",
+      "name": "describeTicket.py",
+      "description": "Ticket describer. Parses ticket, decrypts the enc-part, and parses the PAC.",
+      "path": "impacket/examples/describeTicket.py",
+      "required flags": [
+        {
+          "flag": "ticket",
+          "help": "Path to ticket.ccache"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-p",
+          "help": "Cleartext password of the service account"
+        },
+        {
+          "flag": "-hp",
+          "help": "Hex password of the service account"
+        },
+        {
+          "flag": "-u",
+          "help": "Name of the service account"
+        },
+        {
+          "flag": "-d",
+          "help": "FQDN Domain"
+        },
+        {
+          "flag": "-s",
+          "help": "Salt for keys calculation (DOMAIN.LOCALSomeuser for users, DOMAIN.LOCALhostsomemachine.domain.local for machines)"
+        },
+        {
+          "flag": "--rc4",
+          "help": "RC4 KEY (i.e. NT hash)"
+        },
+        {
+          "flag": "--aes",
+          "help": "AES128 or AES256 key"
+        },
+        {
+          "flag": "--asrep-key",
+          "help": "AS reply key for PAC Credentials decryption"
+        }
+      ]
+    },
+    {
+      "id": "18",
+      "name": "dpapi.py",
+      "description": "Example for using the DPAPI/Vault structures to unlock Windows Secrets.",
+      "path": "impacket/examples/dpapi.py",
+      "required flags": [
+        {
+          "flag": "-t",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        },
+        {
+          "flag": "-file",
+          "help": "Master Key File to parse"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If omitted it will use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "--export",
+          "help": "export keys to file"
+        },
+        {
+          "flag": "-sid",
+          "help": "SID of the user"
+        },
+        {
+          "flag": "-pvk",
+          "help": "Domain backup privatekey to use for decryption"
+        },
+        {
+          "flag": "-key",
+          "help": "Specific key to use for decryption"
+        },
+        {
+          "flag": "-password",
+          "help": "User's password. If you specified the SID and not the password it will be prompted"
+        },
+        {
+          "flag": "-system",
+          "help": "SYSTEM hive to parse"
+        },
+        {
+          "flag": "-security",
+          "help": "SECURITY hive to parse"
+        },
+        {
+          "flag": "-vcrd",
+          "help": "Vault Credential file"
+        },
+        {
+          "flag": "-vpol",
+          "help": "Vault Policy file"
+        },
+        {
+          "flag": "-entropy",
+          "help": "String with extra entropy needed for decryption"
+        },
+        {
+          "flag": "-entropy-file",
+          "help": "File with binary entropy contents (overwrites -entropy)"
+        },
+        {
+          "flag": "-entry",
+          "help": "Entry index in CREDHIST"
+        }
+      ]
+    },
+    {
+      "id": "19",
+      "name": "dpapidump.py",
+      "description": "Performs remote extraction of SYSTEM DPAPI credentials and SCCM client secrets.",
+      "path": "impacket/examples/dpapidump.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-creds",
+          "help": "Extract SYSTEM user DPAPI credentials (default: all)"
+        },
+        {
+          "flag": "-sccm",
+          "help": "Extract SCCM client credentials (default: all)"
+        },
+        {
+          "flag": "-userkey",
+          "help": "dpapi_userkey for SYSTEM (e.g. if previously dumped using secretsdump). If not provided an LSA secrets dump will be performed to retrieve it."
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-com-version",
+          "help": "DCOM version, format is MAJOR_VERSION:MINOR_VERSION e.g. 5.7"
+        },
+        {
+          "flag": "-bootkey",
+          "help": "bootkey for SYSTEM hive"
+        },
+        {
+          "flag": "-throttle",
+          "help": "Throttle in seconds between operations"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-keytab",
+          "help": "Read keys for SPN from keytab file"
+        },
+        {
+          "flag": "-rpc-auth-level",
+          "help": "default, integrity (RPC_C_AUTHN_LEVEL_PKT_INTEGRITY) or privacy (RPC_C_AUTHN_LEVEL_PKT_PRIVACY). For example CIM path \"root/MSCluster\" would require privacy level by default)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        }
+      ]
+    },
+    {
+      "id": "20",
+      "name": "esentutl.py",
+      "description": "Extensive Storage Engine utility. Allows dumping catalog, pages and tables.",
+      "path": "impacket/examples/esentutl.py",
+      "required flags": [
+        {
+          "flag": "databaseFile",
+          "help": "ESE to open"
+        },
+        {
+          "flag": "-table",
+          "help": "table to dump"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-page",
+          "help": "page to open"
+        }
+      ]
+    },
+    {
+      "id": "21",
+      "name": "exchanger.py",
+      "description": "A tool to abuse Exchange services",
+      "path": "impacket/examples/exchanger.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG and EXTENDED output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-rpc-hostname",
+          "help": "A name of the server in GUID (preferred) or NetBIOS name format (see description in the beggining of this file)"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-count",
+          "help": "Request total number of records in each table"
+        },
+        {
+          "flag": "-basic",
+          "help": "Authenticate with Basic Auth instead of NTLM"
+        },
+        {
+          "flag": "-lookup-type",
+          "help": "R|Lookup type: MINIMAL - Request limited set of fields (default) EXTENDED - Request extended set of fields FULL - Request all fields for each row GUIDS - Request only GUIDs"
+        },
+        {
+          "flag": "-rows-per-request",
+          "help": "Limit the number of rows per request"
+        },
+        {
+          "flag": "-guid",
+          "help": "Dump table with the specified GUID"
+        },
+        {
+          "flag": "-output-type",
+          "help": "Output format for binary objects"
+        },
+        {
+          "flag": "-output-file",
+          "help": "Output filename"
+        },
+        {
+          "flag": "-guid-file",
+          "help": "Dump objects using GUIDs from file"
+        },
+        {
+          "flag": "-start-dnt",
+          "help": "A DNT to start from"
+        },
+        {
+          "flag": "-stop-dnt",
+          "help": "A DNT to lookup to"
+        },
+        {
+          "flag": "-name",
+          "help": "Dump table with the specified name (inc. GAL)"
+        }
+      ]
+    },
+    {
+      "id": "22",
+      "name": "filetime.py",
+      "description": "File / Directory Timestamp Querying & Modification Utility implementation.",
+      "path": "impacket/examples/filetime.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        },
+        {
+          "flag": "share",
+          "help": "The share in which the desired file / directory to query or modify resides."
+        },
+        {
+          "flag": "path",
+          "help": "The path of the desired file / directory whose timestamps we wish to query or modify."
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "Don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-p",
+          "help": "Destination port to connect to the SMB Server."
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If omitted it will use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-t",
+          "help": "Set connection timeout (seconds)."
+        },
+        {
+          "flag": "-c",
+          "help": "Change the \"CreationTime\" of the file / directory."
+        },
+        {
+          "flag": "-a",
+          "help": "Change the \"LastAccessTime\" of the file / directory."
+        },
+        {
+          "flag": "-w",
+          "help": "Change the \"LastWriteTime\" of the file / directory."
+        },
+        {
+          "flag": "-m",
+          "help": "Change the \"ChangeTime\" of the file / directory."
+        },
+        {
+          "flag": "-r",
+          "help": "Specify a file / directory to reference and copy the timestamps of (format is <share> <path>)."
+        },
+        {
+          "flag": "-v",
+          "help": "Query the file after touching to verify the changes."
+        }
+      ]
+    },
+    {
+      "id": "23",
+      "name": "findDelegation.py",
+      "description": "Queries target domain for delegation relationships ",
+      "path": "impacket/examples/findDelegation.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "domain[/username[:password]]"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-target-domain",
+          "help": "Domain to query/request if different than the domain of the user. Allows for retrieving delegation info across trusts."
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-user",
+          "help": "Requests data for specific user"
+        },
+        {
+          "flag": "-disabled",
+          "help": "Query disabled users too"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter. Ignoredif -target-domain is specified."
+        },
+        {
+          "flag": "-dc-host",
+          "help": "Hostname of the domain controller to use. If ommited, the domain part (FQDN) specified in the account parameter will be used"
+        }
+      ]
+    },
+    {
+      "id": "24",
+      "name": "getArch.py",
+      "description": "Gets the target system's OS architecture version",
+      "path": "impacket/examples/getArch.py",
+      "required flags": [],
+      "optional flags": [
+        {
+          "flag": "-target",
+          "help": "<targetName or address>"
+        },
+        {
+          "flag": "-targets",
+          "help": "input file with targets system to query Arch from (one per line)."
+        },
+        {
+          "flag": "-timeout",
+          "help": "socket timeout out when connecting to the target (default 2 sec)"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        }
+      ]
+    },
+    {
+      "id": "25",
+      "name": "getPac.py",
+      "description": "This script will get the PAC of the specified target user just having a normal authenticated user credentials. It does so by using a mix of [MS-SFU]'s S4USelf + User to User Kerberos Authentication. Original idea (or accidental discovery :) ) of adding U2U capabilities inside a S4USelf by Benjamin Delpy (@gentilkiwi)",
+      "path": "impacket/examples/getPac.py",
+      "required flags": [
+        {
+          "flag": "credentials",
+          "help": "domain/username[:password]. Valid domain credentials to use for grabbing targetUser's PAC"
+        },
+        {
+          "flag": "-targetUser",
+          "help": "the target user to retrieve the PAC of"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        }
+      ]
+    },
+    {
+      "id": "26",
+      "name": "getST.py",
+      "description": "Given a password, hash or aesKey, it will request a Service Ticket and save it as ccache",
+      "path": "impacket/examples/getST.py",
+      "required flags": [
+        {
+          "flag": "identity",
+          "help": "[domain/]username[:password]"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-spn",
+          "help": "SPN (service/server) of the target service the service ticket will be generated for"
+        },
+        {
+          "flag": "-altservice",
+          "help": "New sname/SPN to set in the ticket"
+        },
+        {
+          "flag": "-dmsa",
+          "help": "Use DMSA (Delegated Managed Service Accounts)"
+        },
+        {
+          "flag": "-impersonate",
+          "help": "target username that will be impersonated (thru S4U2Self) for quering the ST. Keep in mind this will only work if the identity provided in this scripts is allowed for delegation to the SPN specified"
+        },
+        {
+          "flag": "-additional-ticket",
+          "help": "include a forwardable service ticket in a S4U2Proxy request for RBCD + KCD Kerberos only"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-u2u",
+          "help": "Request User-to-User ticket"
+        },
+        {
+          "flag": "-self",
+          "help": "Only do S4U2self, no S4U2proxy"
+        },
+        {
+          "flag": "-force-forwardable",
+          "help": "Force the service ticket obtained through S4U2Self to be forwardable. For best results, the -hashes and -aesKey values for the specified -identity should be provided. This allows impresonation of protected users and bypass of \"Kerberos-only\" constrained delegation restrictions. See CVE-2020-17049"
+        },
+        {
+          "flag": "-renew",
+          "help": "Sets the RENEW ticket option to renew the TGT used for authentication. Set -spn to 'krbtgt/DOMAINFQDN'"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If omitted it use the domain part (FQDN) specified in the target parameter"
+        }
+      ]
+    },
+    {
+      "id": "27",
+      "name": "getTGT.py",
+      "description": "Given a password, hash or aesKey, it will request a TGT and save it as ccache",
+      "path": "impacket/examples/getTGT.py",
+      "required flags": [
+        {
+          "flag": "identity",
+          "help": "[domain/]username[:password]"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-service",
+          "help": "Request a Service Ticket directly through an AS-REQ"
+        },
+        {
+          "flag": "-principalType",
+          "help": "PrincipalType of the token, can be one of NT_UNKNOWN, NT_PRINCIPAL, NT_SRV_INST, NT_SRV_HST, NT_SRV_XHST, NT_UID, NT_SMTP_NAME, NT_ENTERPRISE, NT_WELLKNOWN, NT_SRV_HST_DOMAIN, NT_MS_PRINCIPAL, NT_MS_PRINCIPAL_AND_ID, NT_ENT_PRINCIPAL_AND_ID; default is NT_PRINCIPAL,"
+        }
+      ]
+    },
+    {
+      "id": "28",
+      "name": "goldenPac.py",
+      "description": "MS14-068 Exploit. It establishes a SMBConnection and PSEXEcs the target or saves the TGT for later use.",
+      "path": "impacket/examples/goldenPac.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName>"
+        },
+        {
+          "flag": "command",
+          "help": "command (or arguments if -c is used) to execute at the target (w/o path). Defaults to cmd.exe. 'None' will not execute PSEXEC (handy if you just want to save the ticket)"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-c",
+          "help": "uploads the filename for later execution, arguments are passed in the command option"
+        },
+        {
+          "flag": "-w",
+          "help": "writes the golden ticket in CCache format into the <pathname> file"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller (needed to get the users SID). If omitted it will use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target host you want to attack. If omitted it will use the targetName parameter"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        }
+      ]
+    },
+    {
+      "id": "29",
+      "name": "karmaSMB.py",
+      "description": "For every file request received, this module will return the pathname contents",
+      "path": "impacket/examples/karmaSMB.py",
+      "required flags": [
+        {
+          "flag": "fileName",
+          "help": "Pathname's contents to deliver to SMB clients"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "--help",
+          "help": "show this help message and exit"
+        },
+        {
+          "flag": "-config",
+          "help": "config file name to map extensions to files to deliver. For those extensions not present, pathname will be delivered"
+        },
+        {
+          "flag": "-smb2support",
+          "help": "SMB2 Support (experimental!)"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        }
+      ]
+    },
+    {
+      "id": "30",
+      "name": "keylistattack.py",
+      "description": "Performs the KERB-KEY-LIST-REQ attack to dump secrets from the remote machine without executing any agent there.",
+      "path": "impacket/examples/keylistattack.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<KDC HostName or IP address> (Use this credential to authenticate to SMB and list domain users (low-privilege account) or LIST (if you want to parse a target file)"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-rodcNo",
+          "help": "Number of the RODC krbtgt account"
+        },
+        {
+          "flag": "-rodcKey",
+          "help": "AES key of the Read Only Domain Controller"
+        },
+        {
+          "flag": "-full",
+          "help": "Run the attack against all domain users. Noisy! It could lead to more TGS requests being rejected"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-domain",
+          "help": "The fully qualified domain name (only works with LIST)"
+        },
+        {
+          "flag": "-kdc",
+          "help": "KDC HostName or FQDN (only works with LIST)"
+        },
+        {
+          "flag": "-t",
+          "help": "Attack only the username specified (only works with LIST)"
+        },
+        {
+          "flag": "-tf",
+          "help": "File that contains a list of target usernames (only works with LIST)"
+        },
+        {
+          "flag": "-hashes",
+          "help": "Use NTLM hashes to authenticate to SMB and list domain users."
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos to authenticate to SMB and list domain users. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        }
+      ]
+    },
+    {
+      "id": "31",
+      "name": "kintercept.py",
+      "description": "Intercept TCP streams",
+      "path": "impacket/examples/kintercept.py",
+      "required flags": [
+        {
+          "flag": "server",
+          "help": "Target server address"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "--server-port",
+          "help": "Target server port"
+        },
+        {
+          "flag": "--listen-port",
+          "help": "Port to listen on"
+        },
+        {
+          "flag": "--listen-addr",
+          "help": "Address to listen on"
+        },
+        {
+          "flag": "--request-handler",
+          "help": "Example: s4u2else:user"
+        },
+        {
+          "flag": "--reply-handler",
+          "help": "Example: tgs-rep-user:user"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        }
+      ]
+    },
+    {
+      "id": "32",
+      "name": "lookupsid.py",
+      "description": "DCE/RPC lookup sid brute forcer example",
+      "path": "impacket/examples/lookupsid.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "maxRid",
+          "help": "max Rid to check (default 4000)"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-port",
+          "help": "Destination port to connect to SMB Server"
+        },
+        {
+          "flag": "-domain-sids",
+          "help": "Enumerate Domain SIDs (will likely forward requests to the DC)"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful when proxying through smbrelayx)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        }
+      ]
+    },
+    {
+      "id": "33",
+      "name": "machine_role.py",
+      "description": "Retrieve a host's role along with its primary domain details.",
+      "path": "impacket/examples/machine_role.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If ommited it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-port",
+          "help": "Destination port to connect to SMB Server"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        }
+      ]
+    },
+    {
+      "id": "34",
+      "name": "mimikatz.py",
+      "description": "SMB client implementation.",
+      "path": "impacket/examples/mimikatz.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-file",
+          "help": "input file with commands to execute in the mini shell"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If omitted it will use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        }
+      ]
+    },
+    {
+      "id": "35",
+      "name": "mqtt_check.py",
+      "description": "MQTT login check",
+      "path": "impacket/examples/mqtt_check.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName>"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "--help",
+          "help": "show this help message and exit"
+        },
+        {
+          "flag": "-client-id",
+          "help": "Client ID used when authenticating (default random)"
+        },
+        {
+          "flag": "-ssl",
+          "help": "turn SSL on"
+        },
+        {
+          "flag": "-port",
+          "help": "port to connect to (default 1883)"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        }
+      ]
+    },
+    {
+      "id": "36",
+      "name": "mssqlclient.py",
+      "description": "TDS client implementation (SSL supported).",
+      "path": "impacket/examples/mssqlclient.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-db",
+          "help": "MSSQL database instance (default None)"
+        },
+        {
+          "flag": "-windows-auth",
+          "help": "whether or not to use Windows Authentication (default False)"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-show",
+          "help": "show the queries"
+        },
+        {
+          "flag": "-command",
+          "help": "Commands to execute in the SQL shell. Multiple commands can be passed."
+        },
+        {
+          "flag": "-file",
+          "help": "input file with commands to execute in the SQL shell"
+        },
+        {
+          "flag": "--host-name",
+          "help": "HostName property to use when connecting to the MSSQLServer"
+        },
+        {
+          "flag": "--app-name",
+          "help": "AppName property to use when connecting to the MSSQLServer"
+        },
+        {
+          "flag": "--client-interface-name",
+          "help": "CltIntName property to use when connecting to the MSSQLServer"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-port",
+          "help": "target MSSQL port (default 1433)"
+        }
+      ]
+    },
+    {
+      "id": "37",
+      "name": "mssqlinstance.py",
+      "description": "Asks the remote host for its running MSSQL Instances.",
+      "path": "impacket/examples/mssqlinstance.py",
+      "required flags": [
+        {
+          "flag": "host",
+          "help": "target host"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-timeout",
+          "help": "timeout to wait for an answer"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        }
+      ]
+    },
+    {
+      "id": "38",
+      "name": "net.py",
+      "description": "SAMR rpc client implementation.",
+      "path": "impacket/examples/net.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-name",
+          "help": "Display single user information."
+        },
+        {
+          "flag": "-create",
+          "help": "Add new user account to domain/computer."
+        },
+        {
+          "flag": "-remove",
+          "help": "Remove existing user account from domain/computer."
+        },
+        {
+          "flag": "-newPasswd",
+          "help": "New password to set for creating account."
+        },
+        {
+          "flag": "-enable",
+          "help": "Enables account."
+        },
+        {
+          "flag": "-disable",
+          "help": "Disables account."
+        },
+        {
+          "flag": "-join",
+          "help": "Add user account to specific group."
+        },
+        {
+          "flag": "-unjoin",
+          "help": "Remove user account from specific group."
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If omitted it will use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-port",
+          "help": "Destination port to connect to SMB Server"
+        }
+      ]
+    },
+    {
+      "id": "39",
+      "name": "netview.py",
+      "description": "The idea of this script is to get a list of the sessions opened at the remote hosts and keep track of them. Coincidentally @mubix did something similar a few years ago so credit goes to him (and the script's name ;)). Check it out at https://github.com/mubix/netview The main difference with our approach is we keep looping over the hosts found and keep track of who logged in/out from remote servers. Plus, we keep the connections with the target systems and just send a few DCE-RPC packets. One VERY IMPORTANT thing is: YOU HAVE TO BE ABLE TO RESOLV THE DOMAIN MACHINES NETBIOS NAMES. That's usually solved by setting your DNS to the domain DNS (and the right search domain). Some examples of usage are: netview.py -target 192.168.1.10 beto This will show the sessions on 192.168.1.10 and will authenticate as 'beto' (password will be prompted) netview.py FREEFLY.NET/beto This will download all machines from FREEFLY.NET, authenticated as 'beto' and will gather the session information for those machines that appear to be up. There is a background thread checking aliveness of the targets at all times. netview.py -users /tmp/users -dc-ip freefly-dc.freefly.net -k FREEFLY.NET/beto This will download all machines from FREEFLY.NET, authenticating using Kerberos (that's why -dc-ip parameter is needed), and filter the output based on the list of users specified in /tmp/users file.",
+      "path": "impacket/examples/netview.py",
+      "required flags": [
+        {
+          "flag": "identity",
+          "help": "[domain/]username[:password]"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-user",
+          "help": "Filter output by this user"
+        },
+        {
+          "flag": "-users",
+          "help": "input file with list of users to filter to output for"
+        },
+        {
+          "flag": "-target",
+          "help": "target system to query info from. If not specified script will run in domain mode."
+        },
+        {
+          "flag": "-targets",
+          "help": "input file with targets system to query info from (one per line). If not specified script will run in domain mode."
+        },
+        {
+          "flag": "-noloop",
+          "help": "Stop after the first probe"
+        },
+        {
+          "flag": "-delay",
+          "help": "seconds delay between starting each batch probe (default 10 seconds)"
+        },
+        {
+          "flag": "-max-connections",
+          "help": "Max amount of connections to keep opened (default 1000)"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        }
+      ]
+    },
+    {
+      "id": "40",
+      "name": "ntfs-read.py",
+      "description": "NTFS explorer (read-only)",
+      "path": "impacket/examples/ntfs-read.py",
+      "required flags": [
+        {
+          "flag": "volume",
+          "help": "NTFS volume to open (e.g. \\\\.\\C: or /dev/disk1s1)"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-extract",
+          "help": "extracts pathname (e.g. \\windows\\system32\\config\\sam)"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        }
+      ]
+    },
+    {
+      "id": "41",
+      "name": "ntlmrelayx.py",
+      "description": "For every connection received, this module will try to relay that connection to specified target(s) system or the original client",
+      "path": "impacket/examples/ntlmrelayx.py",
+      "required flags": [],
+      "optional flags": [
+        {
+          "flag": "-h",
+          "help": "show this help message and exit"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-t",
+          "help": "Target to relay the credentials to, can be an IP, hostname or URL like domain\\username@host:port (domain\\username and port are optional, and don't forget to escape the '\\'). If unspecified, it will relay back to the client')"
+        },
+        {
+          "flag": "-tf",
+          "help": "File that contains targets by hostname or full URL, one per line"
+        },
+        {
+          "flag": "-w",
+          "help": "Watch the target file for changes and update target list automatically (only valid with -tf)"
+        },
+        {
+          "flag": "-i",
+          "help": "Launch an smbclient, LDAP console or SQL shell insteadof executing a command after a successful relay. This console will listen locally on a tcp port and can be reached with for example netcat."
+        },
+        {
+          "flag": "-ip",
+          "help": "IP address of interface to bind relay servers (\"0.0.0.0\" or \"::\" if omitted)"
+        },
+        {
+          "flag": "--no-smb-server",
+          "help": "Disables the SMB server"
+        },
+        {
+          "flag": "--no-http-server",
+          "help": "Disables the HTTP server"
+        },
+        {
+          "flag": "--no-wcf-server",
+          "help": "Disables the WCF server"
+        },
+        {
+          "flag": "--no-raw-server",
+          "help": "Disables the RAW server"
+        },
+        {
+          "flag": "--no-rpc-server",
+          "help": "Disables the RPC server"
+        },
+        {
+          "flag": "--no-winrm-server",
+          "help": "Disables the WinRM server"
+        },
+        {
+          "flag": "--no-mssql-server",
+          "help": "Disables the MSSQL server"
+        },
+        {
+          "flag": "--no-rdp-server",
+          "help": "Disables the RDP server"
+        },
+        {
+          "flag": "--smb-port",
+          "help": "Port to listen on smb server"
+        },
+        {
+          "flag": "--http-port",
+          "help": "Port(s) to listen on HTTP server. Can specify multiple ports by separating them with `,`, and ranges with `-`. Ex: `80,8000-8010`"
+        },
+        {
+          "flag": "--wcf-port",
+          "help": "Port to listen on wcf server"
+        },
+        {
+          "flag": "--raw-port",
+          "help": "Port to listen on raw server"
+        },
+        {
+          "flag": "--rpc-port",
+          "help": "Port to listen on rpc server"
+        },
+        {
+          "flag": "--mssql-port",
+          "help": "Port to listen on mssql server"
+        },
+        {
+          "flag": "--rdp-port",
+          "help": "Port to listen on rdp server"
+        },
+        {
+          "flag": "--no-multirelay",
+          "help": "If set, disable multi-host relay (SMB and HTTP servers)"
+        },
+        {
+          "flag": "--keep-relaying",
+          "help": "If set, keeps relaying to a target even after a successful connection on it"
+        },
+        {
+          "flag": "-ra",
+          "help": "Randomize target selection"
+        },
+        {
+          "flag": "-r",
+          "help": "Redirect HTTP requests to a file:// path on SMBSERVER"
+        },
+        {
+          "flag": "-l",
+          "help": "Loot directory in which gathered loot such as SAM dumps will be stored (default: current directory)."
+        },
+        {
+          "flag": "-of",
+          "help": "base output filename for encrypted hashes. Suffixes will be added for ntlm and ntlmv2"
+        },
+        {
+          "flag": "-dh",
+          "help": "show encrypted hashes in the console"
+        },
+        {
+          "flag": "-codec"
+        },
+        {
+          "flag": "-smb2support",
+          "help": "SMB2 Support"
+        },
+        {
+          "flag": "-ntlmchallenge",
+          "help": "Specifies the NTLM server challenge used by the SMB Server (16 hex bytes long. eg: 1122334455667788)"
+        },
+        {
+          "flag": "-socks",
+          "help": "Launch a SOCKS proxy for the connection relayed"
+        },
+        {
+          "flag": "-socks-address",
+          "help": "SOCKS5 server address (also used for HTTP API)"
+        },
+        {
+          "flag": "-socks-port",
+          "help": "SOCKS5 server port"
+        },
+        {
+          "flag": "-http-api-port",
+          "help": "SOCKS5 HTTP API port"
+        },
+        {
+          "flag": "-wh",
+          "help": "Enable serving a WPAD file for Proxy Authentication attack, setting the proxy host to the one supplied."
+        },
+        {
+          "flag": "-wa",
+          "help": "Prompt for authentication N times for clients without MS16-077 installed before serving a WPAD file. (default=1)"
+        },
+        {
+          "flag": "-6",
+          "help": "Listen on IPv6"
+        },
+        {
+          "flag": "--remove-mic",
+          "help": "Remove MIC (exploit CVE-2019-1040)"
+        },
+        {
+          "flag": "--remove-sign-seal",
+          "help": "Remove SIGN/SEAL-related NTLM negotiate flags (exploit CVE-2025-33073)"
+        },
+        {
+          "flag": "--serve-image",
+          "help": "local path of the image that will we returned to clients"
+        },
+        {
+          "flag": "-c",
+          "help": "Command to execute on target system (for SMB and RPC). If not specified for SMB, hashes will be dumped (secretsdump.py must be in the same directory). For RPC no output will be provided."
+        },
+        {
+          "flag": "--mssql-db",
+          "help": "Database for MSSQL relay"
+        },
+        {
+          "flag": "-e",
+          "help": "File to execute on the target system. If not specified, hashes will be dumped (secretsdump.py must be in the same directory)"
+        },
+        {
+          "flag": "--enum-local-admins",
+          "help": "If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)"
+        },
+        {
+          "flag": "--rpc-attack",
+          "help": "Select the attack to perform over RPC over named pipes."
+        },
+        {
+          "flag": "-rpc-mode",
+          "help": "Protocol to attack"
+        },
+        {
+          "flag": "-rpc-use-smb",
+          "help": "Relay DCE/RPC to SMB pipes"
+        },
+        {
+          "flag": "-auth-smb",
+          "help": "Use this credential to authenticate to SMB (low-privilege account)"
+        },
+        {
+          "flag": "-hashes-smb"
+        },
+        {
+          "flag": "-rpc-smb-port",
+          "help": "Destination port to connect to SMB"
+        },
+        {
+          "flag": "-icpr-ca-name",
+          "help": "Name of the CA for ICPR attack"
+        },
+        {
+          "flag": "-q",
+          "help": "MSSQL query to execute(can specify multiple)"
+        },
+        {
+          "flag": "-machine-account",
+          "help": "Domain machine account to use when interacting with the domain to grab a session key for signing, format is domain/machine_name"
+        },
+        {
+          "flag": "-machine-hashes",
+          "help": "Domain machine hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-domain",
+          "help": "Domain FQDN or IP to connect using NETLOGON"
+        },
+        {
+          "flag": "-remove-target",
+          "help": "Try to remove the target in the challenge message (in case CVE-2019-1019 patch is not installed)"
+        },
+        {
+          "flag": "--no-dump",
+          "help": "Do not attempt to dump LDAP information"
+        },
+        {
+          "flag": "--no-da",
+          "help": "Do not attempt to add a Domain Admin"
+        },
+        {
+          "flag": "--no-acl",
+          "help": "Disable ACL attacks"
+        },
+        {
+          "flag": "--no-validate-privs",
+          "help": "Do not attempt to enumerate privileges, assume permissions are granted to escalate a user via ACL attacks"
+        },
+        {
+          "flag": "--escalate-user",
+          "help": "Escalate privileges of this user instead of creating a new one"
+        },
+        {
+          "flag": "--delegate-access",
+          "help": "Delegate access on relayed computer account to the specified account"
+        },
+        {
+          "flag": "--sid",
+          "help": "Use a SID to delegate access rather than an account name"
+        },
+        {
+          "flag": "--dump-laps",
+          "help": "Attempt to dump any LAPS passwords readable by the user"
+        },
+        {
+          "flag": "--dump-gmsa",
+          "help": "Attempt to dump any gMSA passwords readable by the user"
+        },
+        {
+          "flag": "--dump-adcs",
+          "help": "Attempt to dump ADCS enrollment services and certificate templates info"
+        },
+        {
+          "flag": "--dump-info-attr",
+          "help": "Attempt to dump the info attribute of all user and group domain objects (may contain credentials)"
+        },
+        {
+          "flag": "--add-dns-record",
+          "help": "Add the <NAME> record to DNS via LDAP pointing to <IPADDR>"
+        },
+        {
+          "flag": "--add-computer",
+          "help": "Attempt to add a new computer account via SMB or LDAP, depending on the specified target. This argument can be used either with the LDAP or the SMB service, as long as the target is a domain controller."
+        },
+        {
+          "flag": "-k",
+          "help": "IMAP keyword to search for. If not specified, will search for mails containing \"password\""
+        },
+        {
+          "flag": "-m",
+          "help": "Mailbox name to dump. Default: INBOX"
+        },
+        {
+          "flag": "-a",
+          "help": "Instead of searching for keywords, dump all emails"
+        },
+        {
+          "flag": "-im",
+          "help": "Max number of emails to dump (0 = unlimited, default: no limit)"
+        },
+        {
+          "flag": "--adcs",
+          "help": "Enable AD CS relay attack"
+        },
+        {
+          "flag": "--template",
+          "help": "AD CS template. Defaults to Machine or User whether relayed account name ends with `$`. Relaying a DC should require specifying `DomainController`"
+        },
+        {
+          "flag": "--altname",
+          "help": "Subject Alternative Name to use when performing ESC1 or ESC6 attacks."
+        },
+        {
+          "flag": "--altsid",
+          "help": "Object SID to embed in szOID_NTDS_CA_SECURITY_EXT (1.3.6.1.4.1.311.25.2). Required when StrongCertificateBindingEnforcement >= 1 (default on updated DCs since Feb 2025). Obtain with: lookupsid.py DOMAIN/user:pass@DC | grep \" 500$\""
+        },
+        {
+          "flag": "--enum-templates",
+          "help": "Enumerate enabled AD CS templates that the relayed account has access to"
+        },
+        {
+          "flag": "--shadow-credentials",
+          "help": "Enable Shadow Credentials relay attack (msDS-KeyCredentialLink manipulation for PKINIT pre-authentication)"
+        },
+        {
+          "flag": "--shadow-target",
+          "help": "target account (user or computer$) to populate msDS-KeyCredentialLink from"
+        },
+        {
+          "flag": "--pfx-password",
+          "help": "password for the PFX stored self-signed certificate (will be random if not set, not needed when exporting to PEM)"
+        },
+        {
+          "flag": "--export-type",
+          "help": "choose to export cert+private key in PEM or PFX (i.e. #PKCS12) (default: PFX))"
+        },
+        {
+          "flag": "--cert-outfile-path",
+          "help": "filename to store the generated self-signed PEM or PFX certificate and key"
+        },
+        {
+          "flag": "--sccm-policies",
+          "help": "Enable SCCM policies attack. Performs SCCM secret policies dump from a Management Point by registering a device. Works best when relaying a machine account. Expects as target 'http://<MP>/ccm_system_windowsauth/request'"
+        },
+        {
+          "flag": "--sccm-policies-clientname",
+          "help": "The name of the client that will be registered in order to dump secret policies. Defaults to the relayed account's name"
+        },
+        {
+          "flag": "--sccm-policies-sleep",
+          "help": "The number of seconds to sleep after the client registration before requesting secret policies"
+        },
+        {
+          "flag": "--sccm-dp",
+          "help": "Enable SCCM Distribution Point attack. Perform package file dump from an SCCM Distribution Point. Expects as target 'http://<DP>/sms_dp_smspkg$/Datalib'"
+        },
+        {
+          "flag": "--sccm-dp-extensions",
+          "help": "A custom list of extensions to look for when downloading files from the SCCM Distribution Point. If not provided, defaults to .ps1,.bat,.xml,.txt,.pfx"
+        },
+        {
+          "flag": "--sccm-dp-files",
+          "help": "The path to a file containing a list of specific URLs to download from the Distribution Point, instead of downloading by extensions. Providing this argument will skip file indexing"
+        }
+      ]
+    },
+    {
+      "id": "42",
+      "name": "owneredit.py",
+      "description": "Python editor for a principal's DACL.",
+      "path": "impacket/examples/owneredit.py",
+      "required flags": [
+        {
+          "flag": "identity",
+          "help": "domain.local/username[:password]"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-use-ldaps",
+          "help": "Use LDAPS instead of LDAP"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller or KDC (Key Distribution Center) for Kerberos. If omitted it will use the domain part (FQDN) specified in the identity parameter"
+        },
+        {
+          "flag": "-dc-host",
+          "help": "Hostname of the domain controller or KDC (Key Distribution Center) for Kerberos. If omitted, -dc-ip will be used"
+        },
+        {
+          "flag": "-new-owner",
+          "help": "sAMAccountName"
+        },
+        {
+          "flag": "-new-owner-sid",
+          "help": "Security IDentifier"
+        },
+        {
+          "flag": "-new-owner-dn",
+          "help": "Distinguished Name"
+        },
+        {
+          "flag": "-target",
+          "help": "sAMAccountName"
+        },
+        {
+          "flag": "-target-sid",
+          "help": "Security IDentifier"
+        },
+        {
+          "flag": "-target-dn",
+          "help": "Distinguished Name"
+        },
+        {
+          "flag": "-action",
+          "help": "Action to operate on the owner attribute"
+        }
+      ]
+    },
+    {
+      "id": "43",
+      "name": "ping.py",
+      "description": "Simple ICMP ping. This implementation of ping uses the ICMP echo and echo-reply packets to check the status of a host. If the remote host is up, it should reply to the echo probe with an echo-reply packet. Note that this isn't a definite test, as in the case the remote host is up but refuses to reply the probes. Also note that the user must have special access to be able to open a raw socket, which this program requires.",
+      "path": "impacket/examples/ping.py",
+      "required flags": [
+        {
+          "flag": "<src"
+        },
+        {
+          "flag": "ip>"
+        },
+        {
+          "flag": "<dst"
+        },
+        {
+          "flag": "ip>"
+        }
+      ],
+      "optional flags": []
+    },
+    {
+      "id": "44",
+      "name": "ping6.py",
+      "description": "Simple ICMP6 ping. This implementation of ping uses the ICMP echo and echo-reply packets to check the status of a host. If the remote host is up, it should reply to the echo probe with an echo-reply packet. Note that this isn't a definite test, as in the case the remote host is up but refuses to reply the probes. Also note that the user must have special access to be able to open a raw socket, which this program requires.",
+      "path": "impacket/examples/ping6.py",
+      "required flags": [
+        {
+          "flag": "<src"
+        },
+        {
+          "flag": "ip>"
+        },
+        {
+          "flag": "<dst"
+        },
+        {
+          "flag": "ip>"
+        }
+      ],
+      "optional flags": []
+    },
+    {
+      "id": "45",
+      "name": "psexec.py",
+      "description": "PSEXEC like functionality example using RemComSvc.",
+      "path": "impacket/examples/psexec.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        },
+        {
+          "flag": "command",
+          "help": "command (or arguments if -c is used) to execute at the target (w/o path) - (default:cmd.exe)"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-c",
+          "help": "copy the filename for later execution, arguments are passed in the command option"
+        },
+        {
+          "flag": "-path",
+          "help": "path of the command to execute"
+        },
+        {
+          "flag": "-file",
+          "help": "alternative RemCom binary (be sure it doesn't require CRT)"
+        },
+        {
+          "flag": "-ts",
+          "help": "adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-codec"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-keytab",
+          "help": "Read keys for SPN from keytab file"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If omitted it will use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-port",
+          "help": "Destination port to connect to SMB Server"
+        },
+        {
+          "flag": "-service-name",
+          "help": "The name of the service used to trigger the payload"
+        },
+        {
+          "flag": "-remote-binary-name",
+          "help": "This will be the name of the executable uploaded on the target"
+        }
+      ]
+    },
+    {
+      "id": "46",
+      "name": "raiseChild.py",
+      "description": "Privilege Escalation from a child domain up to its forest",
+      "path": "impacket/examples/raiseChild.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "domain/username[:password]"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-w",
+          "help": "writes the golden ticket in CCache format into the <pathname> file"
+        },
+        {
+          "flag": "-target-exec",
+          "help": "Target host you want to PSEXEC against once the main attack finished"
+        },
+        {
+          "flag": "-targetRID",
+          "help": "Target user RID you want to dump credentials. Administrator (500) by default."
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        }
+      ]
+    },
+    {
+      "id": "47",
+      "name": "rbcd.py",
+      "description": "Python (re)setter for property msDS-AllowedToActOnBehalfOfOtherIdentity for Kerberos RBCD attacks.",
+      "path": "impacket/examples/rbcd.py",
+      "required flags": [
+        {
+          "flag": "identity",
+          "help": "domain.local/username[:password]"
+        },
+        {
+          "flag": "-delegate-to",
+          "help": "Target account the DACL is to be read/edited/etc."
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-delegate-from",
+          "help": "Attacker controlled account to write on the rbcd property of -delegate-to (only when using `-action write`)"
+        },
+        {
+          "flag": "-action",
+          "help": "Action to operate on msDS-AllowedToActOnBehalfOfOtherIdentity"
+        },
+        {
+          "flag": "-use-ldaps",
+          "help": "Use LDAPS instead of LDAP"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller or KDC (Key Distribution Center) for Kerberos. If omitted it will use the domain part (FQDN) specified in the identity parameter"
+        },
+        {
+          "flag": "-dc-host",
+          "help": "Hostname of the domain controller or KDC (Key Distribution Center) for Kerberos. If omitted, -dc-ip will be used"
+        }
+      ]
+    },
+    {
+      "id": "48",
+      "name": "rdp_check.py",
+      "description": "Test whether an account is valid on the target host using the RDP protocol.",
+      "path": "impacket/examples/rdp_check.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-6",
+          "help": "Test on IPv6"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        }
+      ]
+    },
+    {
+      "id": "49",
+      "name": "reg.py",
+      "description": "Windows Register manipulation script.",
+      "path": "impacket/examples/reg.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        },
+        {
+          "flag": "-keyName",
+          "help": "Specifies the full path of the subkey. The keyName must include a valid root key. Valid root keys for the local computer are: HKLM, HKU, HKCU, HKCR."
+        },
+        {
+          "flag": "-o",
+          "help": "Output UNC path the target system must export the registry saves to"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-v",
+          "help": "Specifies the registry value name that is to be queried. If omitted, all value names for keyName are returned."
+        },
+        {
+          "flag": "-ve",
+          "help": "Queries for the default value or empty value name"
+        },
+        {
+          "flag": "-s",
+          "help": "Specifies to query all subkeys and value names recursively."
+        },
+        {
+          "flag": "-vt",
+          "help": "Specifies the registry type name that is to be set. Default is REG_SZ. Valid types are: REG_NONE, REG_SZ, REG_EXPAND_SZ, REG_BINARY, REG_DWORD, REG_DWORD_BIG_ENDIAN, REG_LINK, REG_MULTI_SZ, REG_QWORD"
+        },
+        {
+          "flag": "-vd",
+          "help": "Specifies the registry value data that is to be set. In case of adding a REG_MULTI_SZ value, set this option once for each line you want to add."
+        },
+        {
+          "flag": "--persistent",
+          "help": "Specify that the created key is intended to be persistent through reboot. Default is volatile key creation"
+        },
+        {
+          "flag": "-va",
+          "help": "Delete all values under this key."
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If omitted it will use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-port",
+          "help": "Destination port to connect to SMB Server"
+        }
+      ]
+    },
+    {
+      "id": "50",
+      "name": "registry-read.py",
+      "description": "Reads data from registry hives.",
+      "path": "impacket/examples/registry-read.py",
+      "required flags": [
+        {
+          "flag": "hive",
+          "help": "registry hive to open"
+        },
+        {
+          "flag": "-name",
+          "help": "registry key"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-recursive",
+          "help": "recursive search (default False)"
+        }
+      ]
+    },
+    {
+      "id": "51",
+      "name": "regsecrets.py",
+      "description": "Performs various techniques to dump secrets from the remote machine without executing any agent there.",
+      "path": "impacket/examples/regsecrets.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-system",
+          "help": "SYSTEM hive to parse"
+        },
+        {
+          "flag": "-bootkey",
+          "help": "bootkey for SYSTEM hive"
+        },
+        {
+          "flag": "-nosam",
+          "help": "Do not retrieve SAM information"
+        },
+        {
+          "flag": "-nocache",
+          "help": "Do not retrieve MSCache information"
+        },
+        {
+          "flag": "-nolsa",
+          "help": "Do not retrieve LSASecrets"
+        },
+        {
+          "flag": "-throttle",
+          "help": "Throttle in seconds between operations"
+        },
+        {
+          "flag": "-outputfile",
+          "help": "base output filename. Extensions will be added for sam, secrets and cached"
+        },
+        {
+          "flag": "-history",
+          "help": "Dump password history (NTDS and SAM hashes), and LSA secrets OldVal"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-keytab",
+          "help": "Read keys for SPN from keytab file"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        }
+      ]
+    },
+    {
+      "id": "52",
+      "name": "rpcdump.py",
+      "description": "Dumps the remote RPC enpoints information via epmapper.",
+      "path": "impacket/examples/rpcdump.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If ommited it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-port",
+          "help": "Destination port to connect to RPC Endpoint Mapper"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        }
+      ]
+    },
+    {
+      "id": "53",
+      "name": "rpcmap.py",
+      "description": "Lookups listening MSRPC interfaces.",
+      "path": "impacket/examples/rpcmap.py",
+      "required flags": [
+        {
+          "flag": "stringbinding",
+          "help": "R|String binding to connect to MSRPC interface, for example: ncacn_ip_tcp:192.168.0.1[135] ncacn_np:192.168.0.1[\\pipe\\spoolss] ncacn_http:192.168.0.1[593] ncacn_http:[6001,RpcProxy=exchange.contoso.com:443] ncacn_http:localhost[3388,RpcProxy=rds.contoso:443]"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-brute-uuids",
+          "help": "Bruteforce UUIDs even if MGMT interface is available"
+        },
+        {
+          "flag": "-brute-opnums",
+          "help": "Bruteforce opnums for found UUIDs"
+        },
+        {
+          "flag": "-brute-versions",
+          "help": "Bruteforce major versions of found UUIDs"
+        },
+        {
+          "flag": "-opnum-max",
+          "help": "Bruteforce opnums from 0 to N, default 64"
+        },
+        {
+          "flag": "-version-max",
+          "help": "Bruteforce versions from 0 to N, default 64"
+        },
+        {
+          "flag": "-auth-level",
+          "help": "MS-RPCE auth level, from 1 to 6, default 6 (RPC_C_AUTHN_LEVEL_PKT_PRIVACY)"
+        },
+        {
+          "flag": "-uuid",
+          "help": "Test only this UUID"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-port",
+          "help": "Destination port to connect to SMB Server"
+        },
+        {
+          "flag": "-auth-rpc",
+          "help": "[domain/]username[:password]"
+        },
+        {
+          "flag": "-auth-transport",
+          "help": "[domain/]username[:password]"
+        },
+        {
+          "flag": "-hashes-rpc",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-hashes-transport",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for passwords"
+        }
+      ]
+    },
+    {
+      "id": "54",
+      "name": "sambaPipe.py",
+      "description": "Samba Pipe exploit",
+      "path": "impacket/examples/sambaPipe.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        },
+        {
+          "flag": "-so",
+          "help": "so filename to upload and load"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If omitted it will use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-port",
+          "help": "Destination port to connect to SMB Server"
+        }
+      ]
+    },
+    {
+      "id": "55",
+      "name": "samedit.py",
+      "description": "In-place edits a local user's password in a SAM hive file",
+      "path": "impacket/examples/samedit.py",
+      "required flags": [
+        {
+          "flag": "user",
+          "help": "Name of the user account to replace the password"
+        },
+        {
+          "flag": "sam",
+          "help": "SAM hive file to edit"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-password",
+          "help": "New password to be set"
+        },
+        {
+          "flag": "-hashes",
+          "help": "Replace NTLM hash directly (LM hash is optional)"
+        },
+        {
+          "flag": "-system",
+          "help": "SYSTEM hive file containing the bootkey for password encryption"
+        },
+        {
+          "flag": "-bootkey",
+          "help": "Bootkey used to encrypt and decrypt SAM passwords"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        }
+      ]
+    },
+    {
+      "id": "56",
+      "name": "samrdump.py",
+      "description": "This script downloads the list of users for the target system.",
+      "path": "impacket/examples/samrdump.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-csv",
+          "help": "Turn CSV output"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If ommited it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-port",
+          "help": "Destination port to connect to SMB Server"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        }
+      ]
+    },
+    {
+      "id": "57",
+      "name": "secretsdump.py",
+      "description": "Performs various techniques to dump secrets from the remote machine without executing any agent there.",
+      "path": "impacket/examples/secretsdump.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address> or LOCAL (if you want to parse local files)"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-system",
+          "help": "SYSTEM hive to parse (only binary REGF, as .reg text file lacks the metadata to compute the bootkey)"
+        },
+        {
+          "flag": "-bootkey",
+          "help": "bootkey for SYSTEM hive"
+        },
+        {
+          "flag": "-security",
+          "help": "SECURITY hive to parse"
+        },
+        {
+          "flag": "-sam",
+          "help": "SAM hive to parse"
+        },
+        {
+          "flag": "-ntds",
+          "help": "NTDS.DIT file to parse"
+        },
+        {
+          "flag": "-resumefile",
+          "help": "resume file name to resume NTDS.DIT session dump (only available to DRSUAPI approach). This file will also be used to keep updating the session's state"
+        },
+        {
+          "flag": "-skip-sam",
+          "help": "Do NOT parse the SAM hive on remote system"
+        },
+        {
+          "flag": "-skip-security",
+          "help": "Do NOT parse the SECURITY hive on remote system"
+        },
+        {
+          "flag": "-outputfile",
+          "help": "base output filename. Extensions will be added for sam, secrets, cached and ntds"
+        },
+        {
+          "flag": "-use-vss",
+          "help": "Use the NTDSUTIL VSS method instead of default DRSUAPI"
+        },
+        {
+          "flag": "-rodcNo",
+          "help": "Number of the RODC krbtgt account (only avaiable for Kerb-Key-List approach)"
+        },
+        {
+          "flag": "-rodcKey",
+          "help": "AES key of the Read Only Domain Controller (only avaiable for Kerb-Key-List approach)"
+        },
+        {
+          "flag": "-use-keylist",
+          "help": "Use the Kerb-Key-List method instead of default DRSUAPI"
+        },
+        {
+          "flag": "-exec-method",
+          "help": "Remote exec method to use at target (only when using -use-vss). Default: smbexec"
+        },
+        {
+          "flag": "-use-remoteSSWMI",
+          "help": "Remotely create Shadow Snapshot via WMI and download SAM, SYSTEM and SECURITY from it, the parse locally"
+        },
+        {
+          "flag": "-use-remoteSSWMI-NTDS",
+          "help": "Dump NTDS.DIT also when using the Remote Shadow Snapshot Method via WMI. Use it with dumping from a DC. IMPORTANT: this flag only works when also using -use-remoteSSWMI"
+        },
+        {
+          "flag": "-remoteSSWMI-remote-volume",
+          "help": "Remote Volume to perform the Shadow Snapshot and download SAM, SYSTEM and SECURITY. It defaults to C:\\"
+        },
+        {
+          "flag": "-remoteSSWMI-local-path",
+          "help": "Local path to download SAM, SYSTEM and SECURITY from Shadow Snapshot. It defaults to current path"
+        },
+        {
+          "flag": "-just-dc-user",
+          "help": "Extract only NTDS.DIT data for the user specified. Only available for DRSUAPI approach. Implies also -just-dc switch"
+        },
+        {
+          "flag": "-ldapfilter",
+          "help": "Extract only NTDS.DIT data for specific users based on an LDAP filter. Only available for DRSUAPI approach. Implies also -just-dc switch"
+        },
+        {
+          "flag": "-just-dc",
+          "help": "Extract only NTDS.DIT data (NTLM hashes and Kerberos keys)"
+        },
+        {
+          "flag": "-just-dc-ntlm",
+          "help": "Extract only NTDS.DIT data (NTLM hashes only)"
+        },
+        {
+          "flag": "-trust-keys",
+          "help": "Dump trusted domain object (TDO) secrets and derive the inter-realm Kerberos keys (AES + RC4) for each trust direction"
+        },
+        {
+          "flag": "-just-trust-keys",
+          "help": "Like -trust-keys but dump ONLY the trust keys, skipping every account secret"
+        },
+        {
+          "flag": "-skip-user",
+          "help": "Do NOT extract NTDS.DIT data for the user specified. Can provide comma-separated list of users to skip, or text file with one user per line"
+        },
+        {
+          "flag": "-pwd-last-set",
+          "help": "Shows pwdLastSet attribute for each NTDS.DIT account. Doesn't apply to -outputfile data"
+        },
+        {
+          "flag": "-user-status",
+          "help": "Display whether or not the user is disabled"
+        },
+        {
+          "flag": "-history",
+          "help": "Dump password history (NTDS and SAM hashes), and LSA secrets OldVal"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-keytab",
+          "help": "Read keys for SPN from keytab file"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        }
+      ]
+    },
+    {
+      "id": "58",
+      "name": "services.py",
+      "description": "Windows Service manipulation script.",
+      "path": "impacket/examples/services.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        },
+        {
+          "flag": "-name",
+          "help": "service name"
+        },
+        {
+          "flag": "-display",
+          "help": "display name"
+        },
+        {
+          "flag": "-path",
+          "help": "binary path"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-service_type",
+          "help": "service type"
+        },
+        {
+          "flag": "-start_type",
+          "help": "service start type"
+        },
+        {
+          "flag": "-start_name",
+          "help": "string that specifies the name of the account under which the service should run"
+        },
+        {
+          "flag": "-password",
+          "help": "string that contains the password of the account whose name was specified by the start_name parameter"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If ommited it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-port",
+          "help": "Destination port to connect to SMB Server"
+        }
+      ]
+    },
+    {
+      "id": "59",
+      "name": "smbclient.py",
+      "description": "SMB client implementation.",
+      "path": "impacket/examples/smbclient.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-inputfile",
+          "help": "input file with commands to execute in the mini shell"
+        },
+        {
+          "flag": "-outputfile",
+          "help": "Output file to log smbclient actions in"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dfs-follow",
+          "help": "Automatically follow DFS links by creating new SMB connections to target servers. Disabled by default for OPSEC reasons (use dfs_mode command in shell to toggle at runtime)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If omitted it will use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-port",
+          "help": "Destination port to connect to SMB Server"
+        }
+      ]
+    },
+    {
+      "id": "60",
+      "name": "smbexec.py",
+      "description": "A similar approach to psexec w/o using RemComSvc. The technique is described here https://web.archive.org/web/20190515131124/https://www.optiv.com/blog/owning-computers-without-shell-access Our implementation goes one step further, instantiating a local smbserver to receive the output of the commands. This is useful in the situation where the target machine does NOT have a writeable share available. Keep in mind that, although this technique might help avoiding AVs, there are a lot of event logs generated and you can't expect executing tasks that will last long since Windows will kill the process since it's not responding as a Windows service. Certainly not a stealthy way. This script works in two ways: 1) share mode: you specify a share, and everything is done through that share. 2) server mode: if for any reason there's no share available, this script will launch a local SMB server, so the output of the commands executed are sent back by the target machine into a locally shared folder. Keep in mind you would need root access to bind to port 445 in the local machine.",
+      "path": "impacket/examples/smbexec.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-share",
+          "help": "share where the output will be grabbed from (default C$)"
+        },
+        {
+          "flag": "-mode",
+          "help": "mode to use (default SHARE, SERVER needs root!)"
+        },
+        {
+          "flag": "-ts",
+          "help": "adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-codec"
+        },
+        {
+          "flag": "-shell-type",
+          "help": "choose a command processor for the semi-interactive shell"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If omitted it will use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If ommited it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-port",
+          "help": "Destination port to connect to SMB Server"
+        },
+        {
+          "flag": "-service-name",
+          "help": "The name of theservice used to trigger the payload"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-keytab",
+          "help": "Read keys for SPN from keytab file"
+        }
+      ]
+    },
+    {
+      "id": "61",
+      "name": "smbserver.py",
+      "description": "This script will launch a SMB Server and add a share specified as an argument. Usually, you need to be root in order to bind to port 445. For optional authentication, it is possible to specify username and password or the NTLM hash. Example: smbserver.py -comment 'My share' TMP /tmp",
+      "path": "impacket/examples/smbserver.py",
+      "required flags": [
+        {
+          "flag": "shareName",
+          "help": "name of the share to add"
+        },
+        {
+          "flag": "sharePath",
+          "help": "path of the share to add"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-comment",
+          "help": "share's comment to display when asked for shares"
+        },
+        {
+          "flag": "-username",
+          "help": "Username to authenticate clients"
+        },
+        {
+          "flag": "-password",
+          "help": "Password for the Username"
+        },
+        {
+          "flag": "-computeraccountname",
+          "help": "computer account name to authenticate arbitrary clients with signing via NetLogon/Kerberos"
+        },
+        {
+          "flag": "-computeraccounthash",
+          "help": "computer account NT hash to authenticate arbitrary clients with signing via NetLogon/Kerberos"
+        },
+        {
+          "flag": "-computeraccountaes",
+          "help": "computer account AES key to authenticate arbitrary clients with signing via NetLogon/Kerberos"
+        },
+        {
+          "flag": "-computeraccountpassword",
+          "help": "computer account NT hash to authenticate arbitrary clients with signing via NetLogon/Kerberos"
+        },
+        {
+          "flag": "-computeraccountdomain",
+          "help": "computer account domain to authenticate arbitrary clients with signing via NetLogon/Kerberos"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP of domain controller to authenticate arbitrary clients with signing via NetLogon/Kerberos"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes for the Username, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ip",
+          "help": "ip address of listening interface (\"0.0.0.0\" or \"::\" if omitted)"
+        },
+        {
+          "flag": "-readonly",
+          "help": "Only allow reading of files"
+        },
+        {
+          "flag": "-disablekerberos",
+          "help": "Do not offer Kerberos authentication"
+        },
+        {
+          "flag": "-disablentlm",
+          "help": "Do not offer NTLM authentication"
+        },
+        {
+          "flag": "-port",
+          "help": "TCP port for listening incoming connections (default 445)"
+        },
+        {
+          "flag": "-dropssp",
+          "help": "Disable NTLM ESS/SSP during negotiation"
+        },
+        {
+          "flag": "-6",
+          "help": "Listen on IPv6"
+        },
+        {
+          "flag": "-smb2support",
+          "help": "SMB2 Support (experimental!)"
+        },
+        {
+          "flag": "-outputfile",
+          "help": "Output file to log smbserver output messages"
+        }
+      ]
+    },
+    {
+      "id": "62",
+      "name": "sniff.py",
+      "description": "Simple packet sniffer. This packet sniffer uses the pcap library to listen for packets in transit over the specified interface. The returned packages can be filtered according to a BPF filter (see tcpdump(3) for further information on BPF filters). Note that the user might need special permissions to be able to use pcap.",
+      "path": "impacket/examples/sniff.py",
+      "required flags": [],
+      "optional flags": [
+        {
+          "flag": "filter",
+          "help": "BPF-style capture filter expression, e.g. 'tcp port 445' (optional, captures everything if omitted)"
+        }
+      ]
+    },
+    {
+      "id": "63",
+      "name": "sniffer.py",
+      "description": "Simple packet sniffer. This packet sniffer uses a raw socket to listen for packets in transit corresponding to the specified protocols. Note that the user might need special permissions to be able to use raw sockets.",
+      "path": "impacket/examples/sniffer.py",
+      "required flags": [],
+      "optional flags": [
+        {
+          "flag": "proto1 [proto2] ...",
+          "help": "List of protocol names to listen for (space separated). Defaults to a built-in protocol set if omitted."
+        }
+      ]
+    },
+    {
+      "id": "64",
+      "name": "split.py",
+      "description": "Pcap dump splitter This tools splits pcap capture files into smaller ones, one for each different TCP/IP connection found in the original.",
+      "path": "impacket/examples/split.py",
+      "required flags": [
+        {
+          "flag": "<filename>"
+        }
+      ],
+      "optional flags": []
+    },
+    {
+      "id": "65",
+      "name": "ticketConverter.py",
+      "description": "This script will convert kirbi files (commonly used by mimikatz) into ccache files used by impacket, and vice versa. Examples: ./ticket_converter.py admin.ccache admin.kirbi ./ticket_converter.py admin.kirbi admin.ccache",
+      "path": "impacket/examples/ticketConverter.py",
+      "required flags": [
+        {
+          "flag": "input_file",
+          "help": "File in kirbi (KRB-CRED) or ccache format"
+        },
+        {
+          "flag": "output_file",
+          "help": "Output file"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-b",
+          "help": "Decode input ticket from base64 with unwrap support"
+        }
+      ]
+    },
+    {
+      "id": "66",
+      "name": "ticketer.py",
+      "description": "Creates a Kerberos golden/silver tickets based on user options",
+      "path": "impacket/examples/ticketer.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "username for the newly created ticket"
+        },
+        {
+          "flag": "-domain",
+          "help": "the fully qualified domain name (e.g. contoso.com)"
+        },
+        {
+          "flag": "-domain-sid",
+          "help": "Domain SID of the target domain the ticker will be generated for"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-spn",
+          "help": "SPN (service/server) of the target service the silver ticket will be generated for. if omitted, golden ticket will be created"
+        },
+        {
+          "flag": "-request",
+          "help": "Requests ticket to domain and clones it changing only the supplied information. It requires specifying -user"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key used for signing the ticket (128 or 256 bits)"
+        },
+        {
+          "flag": "-nthash",
+          "help": "NT hash used for signing the ticket"
+        },
+        {
+          "flag": "-keytab",
+          "help": "Read keys for SPN from keytab file (silver ticket only)"
+        },
+        {
+          "flag": "-groups",
+          "help": "comma separated list of groups user will belong to (default = 513, 512, 520, 518, 519)"
+        },
+        {
+          "flag": "-user-id",
+          "help": "user id for the user the ticket will be created for (default = 500)"
+        },
+        {
+          "flag": "-extra-sid",
+          "help": "Comma separated list of ExtraSids to be included inside the ticket's PAC"
+        },
+        {
+          "flag": "-extra-pac",
+          "help": "Populate your ticket with extra PAC (UPN_DNS)"
+        },
+        {
+          "flag": "-old-pac",
+          "help": "Use the old PAC structure to create your ticket (exclude PAC_ATTRIBUTES_INFO and PAC_REQUESTOR"
+        },
+        {
+          "flag": "-duration",
+          "help": "Amount of hours till the ticket expires (default = 24*365*10). Ignored with -request, which preserves the KDC-issued lifetime"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-user",
+          "help": "domain/username to be used if -request is chosen (it can be different from domain/username"
+        },
+        {
+          "flag": "-password",
+          "help": "password for domain/username"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-impersonate",
+          "help": "Sapphire ticket. target username that will be impersonated (through S4U2Self+U2U) for querying the ST and extracting the PAC, which will be included in the new ticket"
+        }
+      ]
+    },
+    {
+      "id": "67",
+      "name": "tstool.py",
+      "description": "Terminal Services manipulation tool.",
+      "path": "impacket/examples/tstool.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        },
+        {
+          "flag": "-source",
+          "help": "Source SessionId"
+        },
+        {
+          "flag": "-dest",
+          "help": "Destination SessionId"
+        },
+        {
+          "flag": "-session",
+          "help": "SessionId to disconnect"
+        },
+        {
+          "flag": "-message",
+          "help": "Contents of the MessageBox"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-v",
+          "help": "Turn VERBOSE output ON"
+        },
+        {
+          "flag": "-pid",
+          "help": "Specifies process id (PID)"
+        },
+        {
+          "flag": "-name",
+          "help": "Specifies process name (ImageName). Internally it willexecute tasklist to retrieve PID by ImageName."
+        },
+        {
+          "flag": "-password",
+          "help": "Destination Session's password"
+        },
+        {
+          "flag": "-logoff",
+          "help": "Forces sessions to logoff."
+        },
+        {
+          "flag": "-shutdown",
+          "help": "Shuts down the system."
+        },
+        {
+          "flag": "-reboot",
+          "help": "Reboots after shutdown."
+        },
+        {
+          "flag": "-poweroff",
+          "help": "Powers off after shutdown."
+        },
+        {
+          "flag": "-title",
+          "help": "Title of the MessageBox [Optional]"
+        },
+        {
+          "flag": "-control",
+          "help": "Request control of the session (default is view only)"
+        },
+        {
+          "flag": "-prompt",
+          "help": "Request user permission (default is silent)"
+        },
+        {
+          "flag": "-file",
+          "help": "Save invitation to file"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If omitted it will use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-port",
+          "help": "Destination port to connect to SMB Server"
+        }
+      ]
+    },
+    {
+      "id": "68",
+      "name": "wmiexec.py",
+      "description": "Executes a semi-interactive shell using Windows Management Instrumentation.",
+      "path": "impacket/examples/wmiexec.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        },
+        {
+          "flag": "command",
+          "help": "command to execute at the target. If empty it will launch a semi-interactive shell"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-share",
+          "help": "share where the output will be grabbed from (default ADMIN$)"
+        },
+        {
+          "flag": "-nooutput",
+          "help": "whether or not to print the output (no SMB connection created)"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-silentcommand",
+          "help": "does not execute cmd.exe to run given command (no output)"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-codec"
+        },
+        {
+          "flag": "-shell-type",
+          "help": "choose a command processor for the semi-interactive shell"
+        },
+        {
+          "flag": "-com-version",
+          "help": "DCOM version, format is MAJOR_VERSION:MINOR_VERSION e.g. 5.7"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-target-ip",
+          "help": "IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it"
+        },
+        {
+          "flag": "-A",
+          "help": "smbclient/mount.cifs-style authentication file. See smbclient man page's -A option."
+        },
+        {
+          "flag": "-keytab",
+          "help": "Read keys for SPN from keytab file"
+        }
+      ]
+    },
+    {
+      "id": "69",
+      "name": "wmipersist.py",
+      "description": "Creates/Removes a WMI Event Consumer/Filter and link between both to execute Visual Basic based on the WQL filter or timer specified.",
+      "path": "impacket/examples/wmipersist.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[domain/][username[:password]@]<address>"
+        },
+        {
+          "flag": "-name",
+          "help": "event name"
+        },
+        {
+          "flag": "-vbs",
+          "help": "VBS filename containing the script you want to run"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-com-version",
+          "help": "DCOM version, format is MAJOR_VERSION:MINOR_VERSION e.g. 5.7"
+        },
+        {
+          "flag": "-filter",
+          "help": "the WQL filter string that will trigger the script"
+        },
+        {
+          "flag": "-timer",
+          "help": "the amount of milliseconds after the script will be triggered"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        }
+      ]
+    },
+    {
+      "id": "70",
+      "name": "wmiquery.py",
+      "description": "Executes WQL queries and gets object descriptions using Windows Management Instrumentation.",
+      "path": "impacket/examples/wmiquery.py",
+      "required flags": [
+        {
+          "flag": "target",
+          "help": "[[domain/]username[:password]@]<targetName or address>"
+        }
+      ],
+      "optional flags": [
+        {
+          "flag": "-namespace",
+          "help": "namespace name (default //./root/cimv2)"
+        },
+        {
+          "flag": "-file",
+          "help": "input file with commands to execute in the WQL shell"
+        },
+        {
+          "flag": "-debug",
+          "help": "Turn DEBUG output ON"
+        },
+        {
+          "flag": "-ts",
+          "help": "Adds timestamp to every logging output"
+        },
+        {
+          "flag": "-com-version",
+          "help": "DCOM version, format is MAJOR_VERSION:MINOR_VERSION e.g. 5.7"
+        },
+        {
+          "flag": "-hashes",
+          "help": "NTLM hashes, format is LMHASH:NTHASH"
+        },
+        {
+          "flag": "-no-pass",
+          "help": "don't ask for password (useful for -k)"
+        },
+        {
+          "flag": "-k",
+          "help": "Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line"
+        },
+        {
+          "flag": "-aesKey",
+          "help": "AES key to use for Kerberos Authentication (128 or 256 bits)"
+        },
+        {
+          "flag": "-dc-ip",
+          "help": "IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter"
+        },
+        {
+          "flag": "-rpc-auth-level",
+          "help": "default, integrity (RPC_C_AUTHN_LEVEL_PKT_INTEGRITY) or privacy (RPC_C_AUTHN_LEVEL_PKT_PRIVACY). For example CIM path \"root/MSCluster\" would require privacy level by default)"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+"""ADAConsole unit/functional testing"""
+

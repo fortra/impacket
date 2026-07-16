@@ -73,3 +73,6 @@ target/
 
 # Test cases configuration
 tests/dcetests.cfg
+
+# ADAConsole config:
+adaconsole/cmd2_history.dat

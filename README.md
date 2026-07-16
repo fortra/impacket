@@ -1,5 +1,7 @@
-Impacket - Console
+Active Directory Attacker Console
 ========
+
+ADAConsole - "Aye Dee Aye Console"
 
 The goal of this project is to create a msfconsole-like console for AD red-teaming.
 
@@ -11,3 +13,8 @@ Down the line:
 - Docker version - run impacket on docker rather than with python on your machine
 - Search feature - e.g. "Kerberoast" will return the GetUserSPN module with the request flag
 - Link to helpful resources such as HackRecipes
+
+
+Objective:
+- Personal growth in software development and AD red teaming
+- Make AD engagements more streamline
