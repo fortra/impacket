@@ -38,6 +38,7 @@ from datetime import datetime
 from impacket.examples import logger
 from impacket import version
 from impacket.structure import Structure, hexdump
+from impacket import wintime
 
 
 # Reserved/fixed MFTs
@@ -314,10 +315,6 @@ class NTFS_ATTRIBUTE_LIST_ENTRY(Structure):
         ('AttributeID', '<H=0'),
     )
 
-def getUnixTime(t):
-    t -= 116444736000000000
-    t //= 10000000
-    return t
 
 
 class Attribute:
@@ -658,7 +655,7 @@ class AttributeStandardInfo:
 
     def getFileTime(self):
         if self.StandardInfo['LastDataChangeTime'] > 0:
-            return datetime.fromtimestamp(getUnixTime(self.StandardInfo['LastDataChangeTime']))
+            return wintime.filetime_to_datetime(self.StandardInfo['LastDataChangeTime'])
         else:
             return 0
 
@@ -1032,7 +1029,7 @@ class INODE:
                         #inode = INODE(self.NTFSVolume)
                         #inode.FileAttributes = fn['FileAttributes']
                         #inode.FileSize = fn['DataSize']
-                        #inode.LastDataChangeTime = datetime.fromtimestamp(getUnixTime(fn['LastDataChangeTime']))
+                        #inode.LastDataChangeTime = wintime.filetime_to_datetime(fn['LastDataChangeTime'])
                         #inode.INodeNumber = entry.getINodeNumber()
                         #inode.FileName = fn['FileName'].decode('utf-16le')
                         #inode.displayName()
@@ -1345,7 +1342,7 @@ class MiniShell(cmd.Cmd):
             inode = INODE(self.volume)
             inode.FileAttributes = entry['FileAttributes']
             inode.FileSize = entry['DataSize']
-            inode.LastDataChangeTime = datetime.fromtimestamp(getUnixTime(entry['LastDataChangeTime']))
+            inode.LastDataChangeTime = wintime.filetime_to_datetime(entry['LastDataChangeTime'])
             inode.FileName = entry['FileName'].decode('utf-16le')
             if display is True:
                 inode.displayName()

@@ -51,7 +51,7 @@ from six.moves import configparser, socketserver
 from pyasn1.codec.der import encoder, decoder
 
 # For signing
-from impacket import smb, nmb, ntlm, uuid
+from impacket import smb, nmb, ntlm, uuid, wintime
 from impacket import smb3structs as smb2
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, MechTypes, SPNEGO_NegTokenResp, ASN1_AID, \
     ASN1_SUPPORTED_MECH
@@ -80,10 +80,7 @@ STATUS_SMB_BAD_TID = 0x00050002
 # TODO: Return NT ERROR Codes
 
 def getFileTime(t):
-    return smb.POSIXtoFT(t)
-
-def getUnixTime(t):
-    return smb.FTtoPOSIX(t)
+    return wintime.posix_to_filetime(t)
 
 def computeNTLMv2(identity, lmhash, nthash, serverChallenge, authenticateMessage, ntlmChallenge, type1):
     # Let's calculate the NTLMv2 Response
@@ -361,7 +358,7 @@ def queryFsInformation(path, filename, level=None, pktFlags=smb.SMB.FLAGS2_UNICO
     elif level == smb.SMB_QUERY_FS_VOLUME_INFO or level == smb2.SMB2_FILESYSTEM_VOLUME_INFO:
         data = smb.SMBQueryFsVolumeInfo()
         data['VolumeLabel'] = ''
-        data['VolumeCreationTime'] = smb.POSIXtoFT(ctime)
+        data['VolumeCreationTime'] = wintime.posix_to_filetime(ctime)
         return data.getData()
     elif level == smb.SMB_QUERY_FS_SIZE_INFO:
         data = smb.SMBQueryFsSizeInfo()
@@ -463,10 +460,10 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
             item['EaSize'] = 0
             item['EndOfFile'] = size
             item['AllocationSize'] = size
-            item['CreationTime'] = smb.POSIXtoFT(ctime)
-            item['LastAccessTime'] = smb.POSIXtoFT(atime)
-            item['LastWriteTime'] = smb.POSIXtoFT(mtime)
-            item['LastChangeTime'] = smb.POSIXtoFT(mtime)
+            item['CreationTime'] = wintime.posix_to_filetime(ctime)
+            item['LastAccessTime'] = wintime.posix_to_filetime(atime)
+            item['LastWriteTime'] = wintime.posix_to_filetime(mtime)
+            item['LastChangeTime'] = wintime.posix_to_filetime(mtime)
             item['ShortName'] = '\x00' * 24
             item['FileName'] = os.path.basename(i).encode(encoding)
             padLen = (8 - (len(item) % 8)) % 8
@@ -474,10 +471,10 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
         elif level in [smb.SMB_FIND_FILE_DIRECTORY_INFO, smb2.SMB2_FILE_DIRECTORY_INFO]:
             item['EndOfFile'] = size
             item['AllocationSize'] = size
-            item['CreationTime'] = smb.POSIXtoFT(ctime)
-            item['LastAccessTime'] = smb.POSIXtoFT(atime)
-            item['LastWriteTime'] = smb.POSIXtoFT(mtime)
-            item['LastChangeTime'] = smb.POSIXtoFT(mtime)
+            item['CreationTime'] = wintime.posix_to_filetime(ctime)
+            item['LastAccessTime'] = wintime.posix_to_filetime(atime)
+            item['LastWriteTime'] = wintime.posix_to_filetime(mtime)
+            item['LastChangeTime'] = wintime.posix_to_filetime(mtime)
             item['FileName'] = os.path.basename(i).encode(encoding)
             padLen = (8 - (len(item) % 8)) % 8
             item['NextEntryOffset'] = len(item) + padLen
@@ -486,10 +483,10 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags=smb.SMB.FLAGS2_
             item['EaSize'] = 0
             item['EndOfFile'] = size
             item['AllocationSize'] = size
-            item['CreationTime'] = smb.POSIXtoFT(ctime)
-            item['LastAccessTime'] = smb.POSIXtoFT(atime)
-            item['LastWriteTime'] = smb.POSIXtoFT(mtime)
-            item['LastChangeTime'] = smb.POSIXtoFT(mtime)
+            item['CreationTime'] = wintime.posix_to_filetime(ctime)
+            item['LastAccessTime'] = wintime.posix_to_filetime(atime)
+            item['LastWriteTime'] = wintime.posix_to_filetime(mtime)
+            item['LastChangeTime'] = wintime.posix_to_filetime(mtime)
             padLen = (8 - (len(item) % 8)) % 8
             item['NextEntryOffset'] = len(item) + padLen
         elif level == smb.SMB_FIND_INFO_STANDARD:
@@ -537,17 +534,17 @@ def queryPathInformation(path, filename, level):
 
             if level == smb.SMB_QUERY_FILE_BASIC_INFO:
                 infoRecord = smb.SMBQueryFileBasicInfo()
-                infoRecord['CreationTime'] = smb.POSIXtoFT(ctime)
-                infoRecord['LastAccessTime'] = smb.POSIXtoFT(atime)
-                infoRecord['LastWriteTime'] = smb.POSIXtoFT(mtime)
-                infoRecord['LastChangeTime'] = smb.POSIXtoFT(mtime)
+                infoRecord['CreationTime'] = wintime.posix_to_filetime(ctime)
+                infoRecord['LastAccessTime'] = wintime.posix_to_filetime(atime)
+                infoRecord['LastWriteTime'] = wintime.posix_to_filetime(mtime)
+                infoRecord['LastChangeTime'] = wintime.posix_to_filetime(mtime)
                 infoRecord['ExtFileAttributes'] = fileAttributes
             elif level == smb2.SMB2_FILE_BASIC_INFO:
                 infoRecord = smb2.FILE_BASIC_INFORMATION()
-                infoRecord['CreationTime'] = smb.POSIXtoFT(ctime)
-                infoRecord['LastAccessTime'] = smb.POSIXtoFT(atime)
-                infoRecord['LastWriteTime'] = smb.POSIXtoFT(mtime)
-                infoRecord['ChangeTime'] = smb.POSIXtoFT(mtime)
+                infoRecord['CreationTime'] = wintime.posix_to_filetime(ctime)
+                infoRecord['LastAccessTime'] = wintime.posix_to_filetime(atime)
+                infoRecord['LastWriteTime'] = wintime.posix_to_filetime(mtime)
+                infoRecord['ChangeTime'] = wintime.posix_to_filetime(mtime)
                 infoRecord['FileAttributes'] = fileAttributes
             elif level == smb.SMB_QUERY_FILE_STANDARD_INFO:
                 infoRecord = smb.SMBQueryFileStandardInfo()
@@ -568,10 +565,10 @@ def queryPathInformation(path, filename, level):
                     infoRecord['Directory'] = 0
             elif level == smb.SMB_QUERY_FILE_ALL_INFO:
                 infoRecord = smb.SMBQueryFileAllInfo()
-                infoRecord['CreationTime'] = smb.POSIXtoFT(ctime)
-                infoRecord['LastAccessTime'] = smb.POSIXtoFT(atime)
-                infoRecord['LastWriteTime'] = smb.POSIXtoFT(mtime)
-                infoRecord['LastChangeTime'] = smb.POSIXtoFT(mtime)
+                infoRecord['CreationTime'] = wintime.posix_to_filetime(ctime)
+                infoRecord['LastAccessTime'] = wintime.posix_to_filetime(atime)
+                infoRecord['LastWriteTime'] = wintime.posix_to_filetime(mtime)
+                infoRecord['LastChangeTime'] = wintime.posix_to_filetime(mtime)
                 infoRecord['ExtFileAttributes'] = fileAttributes
                 infoRecord['AllocationSize'] = size
                 infoRecord['EndOfFile'] = size
@@ -591,10 +588,10 @@ def queryPathInformation(path, filename, level):
                 infoRecord['ModeInformation'] = smb2.FILE_MODE_INFORMATION()
                 infoRecord['AlignmentInformation'] = smb2.FILE_ALIGNMENT_INFORMATION()
                 infoRecord['NameInformation'] = smb2.FILE_NAME_INFORMATION()
-                infoRecord['BasicInformation']['CreationTime'] = smb.POSIXtoFT(ctime)
-                infoRecord['BasicInformation']['LastAccessTime'] = smb.POSIXtoFT(atime)
-                infoRecord['BasicInformation']['LastWriteTime'] = smb.POSIXtoFT(mtime)
-                infoRecord['BasicInformation']['ChangeTime'] = smb.POSIXtoFT(mtime)
+                infoRecord['BasicInformation']['CreationTime'] = wintime.posix_to_filetime(ctime)
+                infoRecord['BasicInformation']['LastAccessTime'] = wintime.posix_to_filetime(atime)
+                infoRecord['BasicInformation']['LastWriteTime'] = wintime.posix_to_filetime(mtime)
+                infoRecord['BasicInformation']['ChangeTime'] = wintime.posix_to_filetime(mtime)
                 if os.path.isdir(pathName):
                     infoRecord['BasicInformation']['FileAttributes'] = smb.SMB_FILE_ATTRIBUTE_DIRECTORY
                     infoRecord['StandardInformation']['Directory'] = 1
@@ -616,10 +613,10 @@ def queryPathInformation(path, filename, level):
                 infoRecord['NameInformation']['FileNameLength'] = len(fileName.encode('utf-16le'))
             elif level == smb2.SMB2_FILE_NETWORK_OPEN_INFO:
                 infoRecord = smb.SMBFileNetworkOpenInfo()
-                infoRecord['CreationTime'] = smb.POSIXtoFT(ctime)
-                infoRecord['LastAccessTime'] = smb.POSIXtoFT(atime)
-                infoRecord['LastWriteTime'] = smb.POSIXtoFT(mtime)
-                infoRecord['ChangeTime'] = smb.POSIXtoFT(mtime)
+                infoRecord['CreationTime'] = wintime.posix_to_filetime(ctime)
+                infoRecord['LastAccessTime'] = wintime.posix_to_filetime(atime)
+                infoRecord['LastWriteTime'] = wintime.posix_to_filetime(mtime)
+                infoRecord['ChangeTime'] = wintime.posix_to_filetime(mtime)
                 infoRecord['AllocationSize'] = size
                 infoRecord['EndOfFile'] = size
                 infoRecord['FileAttributes'] = fileAttributes
@@ -786,12 +783,12 @@ class TRANS2Commands:
                     if atime == 0:
                         atime = -1
                     else:
-                        atime = smb.FTtoPOSIX(atime)
+                        atime = wintime.filetime_to_posix(atime)
                     mtime = infoRecord['LastWriteTime']
                     if mtime == 0:
                         mtime = -1
                     else:
-                        mtime = smb.FTtoPOSIX(mtime)
+                        mtime = wintime.filetime_to_posix(mtime)
                     if mtime != -1 or atime != -1:
                         os.utime(pathName, (atime, mtime))
                 else:
@@ -839,12 +836,12 @@ class TRANS2Commands:
                     if atime == 0:
                         atime = -1
                     else:
-                        atime = smb.FTtoPOSIX(atime)
+                        atime = wintime.filetime_to_posix(atime)
                     mtime = infoRecord['LastWriteTime']
                     if mtime == 0:
                         mtime = -1
                     else:
-                        mtime = smb.FTtoPOSIX(mtime)
+                        mtime = wintime.filetime_to_posix(mtime)
                     os.utime(fileName, (atime, mtime))
                 elif informationLevel == smb.SMB_SET_FILE_END_OF_FILE_INFO:
                     fileHandle = connData['OpenedFiles'][setFileInfoParameters['FID']]['FileHandle']
@@ -2869,8 +2866,8 @@ class SMB2Commands:
         respSMBCommand['MaxTransactSize'] = 65536
         respSMBCommand['MaxReadSize'] = 65536
         respSMBCommand['MaxWriteSize'] = 65536
-        respSMBCommand['SystemTime'] = smb.POSIXtoFT(calendar.timegm(time.gmtime()))
-        respSMBCommand['ServerStartTime'] = smb.POSIXtoFT(calendar.timegm(time.gmtime()))
+        respSMBCommand['SystemTime'] = wintime.posix_to_filetime(calendar.timegm(time.gmtime()))
+        respSMBCommand['ServerStartTime'] = wintime.posix_to_filetime(calendar.timegm(time.gmtime()))
         respSMBCommand['SecurityBufferOffset'] = 0x80
 
         blob = SPNEGO_NegTokenInit()
@@ -3669,12 +3666,12 @@ class SMB2Commands:
                         if atime == 0:
                             atime = -1
                         else:
-                            atime = smb.FTtoPOSIX(atime)
+                            atime = wintime.filetime_to_posix(atime)
                         mtime = infoRecord['ChangeTime']
                         if mtime == 0:
                             mtime = -1
                         else:
-                            mtime = smb.FTtoPOSIX(mtime)
+                            mtime = wintime.filetime_to_posix(mtime)
                         if atime > 0 and mtime > 0:
                             os.utime(pathName, (atime, mtime))
                     elif informationLevel == smb2.SMB2_FILE_END_OF_FILE_INFO:
