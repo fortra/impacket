@@ -1146,7 +1146,7 @@ class NamedPipeTransport:
             if e.getErrorCode() == STATUS_OBJECT_NAME_NOT_FOUND:
                 raise ConnectionError(f"Specified named pipe '{self.pipe_name}' not found on {self.remoteName}, check -named-pipe argument")
             raise
-        LOG.info(f"Connected to {self.remoteName}\{self.pipe_name} ")
+        LOG.info(f"Connected to {self.remoteName}\pipe\{self.pipe_name} ")
 
     def sendall(self, data):
         try:
