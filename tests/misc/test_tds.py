@@ -204,6 +204,40 @@ class TDSTests(unittest.TestCase):
 
         self.assertNotIn("ENCRYPT_STRICT", str(cm.exception))
 
+    def test_named_pipe_login_can_use_separate_smb_credentials(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+        response = {"Encryption": tds.TDS_ENCRYPT_REQ}
+        client._create_named_pipe_transport = mock.Mock()
+        client._negotiate_encryption = mock.Mock(return_value=response)
+        client.sendTDS = mock.Mock()
+        client.recvTDS = mock.Mock(return_value={"Data": b""})
+        client.parseReply = mock.Mock(return_value={tds.TDS_LOGINACK_TOKEN: []})
+
+        result = client.login(
+            None,
+            "sql_user",
+            "sql_pass",
+            "",
+            useWindowsAuth=False,
+            smbUsername="smb_user",
+            smbPassword="smb_pass",
+            smbDomain="SMBDOM",
+        )
+
+        self.assertTrue(result)
+        client._create_named_pipe_transport.assert_called_once_with(
+            "smb_user",
+            "smb_pass",
+            "SMBDOM",
+            "",
+            "",
+            kerberos=False,
+        )
+
 
 class MSSQLSocksRelayTests(unittest.TestCase):
     @staticmethod

@@ -2003,6 +2003,10 @@ class MSSQL:
         hashes=None,
         useWindowsAuth=False,
         cbt_fake_value=None,
+        smbUsername=None,
+        smbPassword=None,
+        smbDomain=None,
+        smbHashes=None,
     ):
 
         if hashes is not None:
@@ -2015,7 +2019,21 @@ class MSSQL:
 
         if self.pipe_name:
             # Authenticates through the SMB named pipe directly.
-            self._create_named_pipe_transport(username, password, domain, lmhash, nthash, kerberos=False)
+            if smbHashes is not None:
+                smbLMHash, smbNTHash = smbHashes.split(":")
+                smbLMHash = binascii.a2b_hex(smbLMHash)
+                smbNTHash = binascii.a2b_hex(smbNTHash)
+            else:
+                smbLMHash = lmhash
+                smbNTHash = nthash
+            self._create_named_pipe_transport(
+                username if smbUsername is None else smbUsername,
+                password if smbPassword is None else smbPassword,
+                domain if smbDomain is None else smbDomain,
+                smbLMHash,
+                smbNTHash,
+                kerberos=False,
+            )
 
         resp = self._negotiate_encryption()
 

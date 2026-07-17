@@ -25,7 +25,7 @@ import logging
 
 from impacket.examples import logger
 from impacket.examples.mssqlshell import SQLSHELL
-from impacket.examples.utils import parse_target
+from impacket.examples.utils import parse_credentials, parse_target
 from impacket import version, tds
 
 
@@ -52,6 +52,10 @@ if __name__ == '__main__':
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-auth-smb', action="store", metavar='[domain/]username[:password]',
+                       help='SMB credentials for named pipe transport when different from SQL credentials')
+    group.add_argument('-hashes-smb', action="store", metavar="LMHASH:NTHASH",
+                       help='SMB NTLM hashes for named pipe transport, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
                        '(KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the '
@@ -92,6 +96,17 @@ if __name__ == '__main__':
     if options.aesKey is not None:
         options.k = True
 
+    smb_domain = None
+    smb_username = None
+    smb_password = None
+    if options.auth_smb is not None:
+        smb_domain, smb_username, smb_password = parse_credentials(options.auth_smb)
+        if smb_domain is None:
+            smb_domain = ''
+        if smb_password == '' and smb_username != '' and options.hashes_smb is None and options.no_pass is False:
+            from getpass import getpass
+            smb_password = getpass("SMB Password:")
+
     ms_sql = tds.MSSQL(
         options.target_ip,
         port=int(options.port),
@@ -109,7 +124,10 @@ if __name__ == '__main__':
             res = ms_sql.kerberosLogin(options.db, username, password, domain, options.hashes, options.aesKey,
                                        kdcHost=options.dc_ip)
         else:
-            res = ms_sql.login(options.db, username, password, domain, options.hashes, options.windows_auth)
+            res = ms_sql.login(
+                options.db, username, password, domain, options.hashes, options.windows_auth,
+                smbUsername=smb_username, smbPassword=smb_password, smbDomain=smb_domain, smbHashes=options.hashes_smb
+            )
         ms_sql.printReplies()
     except Exception as e:
         logging.debug("Exception:", exc_info=True)
