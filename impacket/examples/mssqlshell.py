@@ -47,6 +47,11 @@ class SQLSHELL(cmd.Cmd):
         self.set_prompt()
         self.intro = '[!] Press help for extra shell commands'
 
+    @staticmethod
+    def escape_sql_literal(value):
+        """Escape single quotes in a value to be safely embedded in a SQL string literal."""
+        return value.replace("'", "''")
+
     def print_replies(self):
         # to condense all calls to sql.printReplies with right logger in this context
         self.sql.printReplies(error_logger=print, info_logger=print)
@@ -58,6 +63,7 @@ class SQLSHELL(cmd.Cmd):
     enable_xp_cmdshell         - you know what it means
     disable_xp_cmdshell        - you know what it means
     enum_db                    - enum databases
+    enum_tables                - enum tables in the current database
     enum_links                 - enum linked servers
     enum_impersonate           - check logins that can be impersonated
     enum_logins                - enum login users
@@ -112,11 +118,11 @@ class SQLSHELL(cmd.Cmd):
             self.print_replies()
 
     def do_exec_as_login(self, s):
-        exec_as = "execute as login='%s';" % s
+        exec_as = "execute as login='%s';" % self.escape_sql_literal(s)
         self.execute_as(exec_as)
 
     def do_exec_as_user(self, s):
-        exec_as = "execute as user='%s';" % s
+        exec_as = "execute as user='%s';" % self.escape_sql_literal(s)
         self.execute_as(exec_as)
 
     def do_use_link(self, s):
@@ -147,6 +153,7 @@ class SQLSHELL(cmd.Cmd):
             args = shlex.split(line, posix=False)
             remote_path = args[0]
             local_path = args[1]
+            remote_path_safe = self.escape_sql_literal(remote_path)
 
             # check permission
             result = self.sql_query("SELECT HAS_PERMS_BY_NAME(NULL, NULL, 'ADMINISTER BULK OPERATIONS') AS HasBulkAdminPermission")
@@ -155,7 +162,7 @@ class SQLSHELL(cmd.Cmd):
                 return
 
             # download file
-            result = self.sql_query("SELECT * FROM sys.dm_os_file_exists('" + remote_path + "')")
+            result = self.sql_query("SELECT * FROM sys.dm_os_file_exists('%s')" % remote_path_safe)
             # This iters through the dict returned by MSSQL and gets the first key which stores if the file exists or not
             first_key = next(iter(result[0]))
             # If the value is not 1, the file doesn't exist
@@ -163,7 +170,7 @@ class SQLSHELL(cmd.Cmd):
                 print("[-] File does not exist")
                 return
             print("[+] File exists, downloading...")
-            result = self.sql_query("SELECT * FROM OPENROWSET(BULK N'" + remote_path + "', SINGLE_BLOB) AS HexContent")
+            result = self.sql_query("SELECT * FROM OPENROWSET(BULK N'%s', SINGLE_BLOB) AS HexContent" % remote_path_safe)
             if len(result) == 0:
                 print("[-] Error downloading file. File is either empty or access is denied")
                 return
@@ -191,6 +198,7 @@ class SQLSHELL(cmd.Cmd):
             args = shlex.split(line, posix=False)
             local_path = args[0]
             remote_path = args[1]
+            remote_path_safe = self.escape_sql_literal(remote_path)
 
             # upload file
             with open(local_path, 'rb') as f:
@@ -201,8 +209,8 @@ class SQLSHELL(cmd.Cmd):
             print("[+] Uploading...")
             for i in range(0, len(b64enc_data), BUFFER_SIZE):
                 cmd = 'echo ' + b64enc_data[i:i+BUFFER_SIZE] + ' >> "' + remote_path + '.b64"'
-                self.sql_query("EXEC xp_cmdshell '" + cmd + "'")
-            result = self.sql_query("EXEC xp_fileexist '" + remote_path + ".b64'")
+                self.sql_query("EXEC xp_cmdshell '%s'" % self.escape_sql_literal(cmd))
+            result = self.sql_query("EXEC xp_fileexist '%s.b64'" % remote_path_safe)
             # This iters through the dict returned by MSSQL and gets the first key which stores if the file exists or not
             first_key = next(iter(result[0]))
             # If the value is not 1, the file doesn't exist
@@ -213,17 +221,17 @@ class SQLSHELL(cmd.Cmd):
 
             # decode
             cmd = 'certutil -decode "' + remote_path + '.b64" "' + remote_path + '"'
-            self.sql_query("EXEC xp_cmdshell '" + cmd + "'")
+            self.sql_query("EXEC xp_cmdshell '%s'" % self.escape_sql_literal(cmd))
             print("[+] " + cmd)
 
             # remove encoded
             cmd = 'del "' + remote_path + '.b64"'
-            self.sql_query("EXEC xp_cmdshell '" + cmd + "'")
+            self.sql_query("EXEC xp_cmdshell '%s'" % self.escape_sql_literal(cmd))
             print("[+] " + cmd)
 
             # validate hash
             cmd = 'certutil -hashfile "' + remote_path + '" MD5'
-            result = self.sql_query("EXEC xp_cmdshell '" + cmd + "'")
+            result = self.sql_query("EXEC xp_cmdshell '%s'" % self.escape_sql_literal(cmd))
             print("[+] " + cmd)
             md5sum_uploaded = result[1].get('output').replace(" ", "")
             if md5sum == md5sum_uploaded:
@@ -236,7 +244,7 @@ class SQLSHELL(cmd.Cmd):
 
     def do_xp_dirtree(self, s):
         try:
-            self.sql_query("exec master.sys.xp_dirtree '%s',1,1" % s)
+            self.sql_query("exec master.sys.xp_dirtree '%s',1,1" % self.escape_sql_literal(s))
             self.print_replies()
             self.sql.printRows()
         except:
@@ -244,7 +252,7 @@ class SQLSHELL(cmd.Cmd):
 
     def do_xp_cmdshell(self, s):
         try:
-            self.sql_query("exec master..xp_cmdshell '%s'" % s)
+            self.sql_query("exec master..xp_cmdshell '%s'" % self.escape_sql_literal(s))
             self.print_replies()
             self.sql.colMeta[0]['TypeData'] = 80*2
             self.sql.printRows()
@@ -260,7 +268,7 @@ class SQLSHELL(cmd.Cmd):
                                 "EXEC msdb..sp_add_jobstep @job_name=@job,@step_id=1,@step_name='Defragmentation',"
                                 "@subsystem='CMDEXEC',@command='%s',@on_success_action=1;"
                                 "EXEC msdb..sp_add_jobserver @job_name=@job;"
-                                "EXEC msdb..sp_start_job @job_name=@job;" % s)
+                                "EXEC msdb..sp_start_job @job_name=@job;" % self.escape_sql_literal(s))
             self.print_replies()
             self.sql.printRows()
         except:
@@ -304,7 +312,7 @@ class SQLSHELL(cmd.Cmd):
             print("[-] Usage: enable_rpc <linked_server>")
             return
         try:
-            self.sql_query("EXEC sp_serveroption @server='%s', @optname='rpc out', @optvalue='true'" % s)
+            self.sql_query("EXEC sp_serveroption @server='%s', @optname='rpc out', @optvalue='true'" % self.escape_sql_literal(s))
             self.print_replies()
             self.sql.printRows()
         except:
@@ -316,7 +324,7 @@ class SQLSHELL(cmd.Cmd):
             print("[-] Usage: disable_rpc <linked_server>")
             return
         try:
-            self.sql_query("EXEC sp_serveroption @server='%s', @optname='rpc out', @optvalue='false'" % s)
+            self.sql_query("EXEC sp_serveroption @server='%s', @optname='rpc out', @optvalue='false'" % self.escape_sql_literal(s))
             self.print_replies()
             self.sql.printRows()
         except:
@@ -334,6 +342,15 @@ class SQLSHELL(cmd.Cmd):
             self.sql.printRows()
         except:
             pass
+
+    def do_enum_tables(self, line):
+        try:
+            query = f"SELECT SCHEMA_NAME(schema_id) AS [Schema], name AS [Table], type_desc AS [Type] FROM [{self.sql.currentDB}].sys.tables ORDER BY [Schema], [Table]"
+            self.sql_query(query)
+            self.print_replies()
+            self.sql.printRows()
+        except Exception as e:
+            print("[-] Error enumerating tables:", e)
 
     def do_enum_owner(self, line):
         try:

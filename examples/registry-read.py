@@ -74,7 +74,7 @@ def getValue(reg, keyValue):
         return
 
     print("Value for %s:\n    " % regValue, end=' ')
-    reg.printValue(value[0],value[1])
+    reg.printValue(value[0], value[1], multiSzSeparator='\n     ')
 
 def enumValues(reg, searchKey):
     key = reg.findKey(searchKey)
