@@ -1146,41 +1146,41 @@ class NamedPipeTransport:
             if e.getErrorCode() == STATUS_OBJECT_NAME_NOT_FOUND:
                 raise ConnectionError(f"Specified named pipe '{self.pipe_name}' not found on {self.remoteName}, check -named-pipe argument")
             raise
-        LOG.info(f"Connected to {self.remoteName}\pipe\{self.pipe_name} ")
+        LOG.info(f"Connected to {self.remoteName}\\pipe\\{self.pipe_name}")
 
     def sendall(self, data):
         try:
             self._smb.writeFile(self._tid, self._fid, data)
         except SessionError as e:
             if e.getErrorCode() == STATUS_PIPE_DISCONNECTED:
-                raise ConnectionError("Named pipe closed by the server while writing. MSSQL server enforces ENCRYPT_STRICT which is not supported by named pipes")
+                raise ConnectionError("Named pipe closed by the server while writing")
             raise
- 
+
     def recv(self, bufsize):
         if self._recv_buf:
             chunk = self._recv_buf[:bufsize]
             self._recv_buf = self._recv_buf[bufsize:]
             return chunk
- 
+
         try:
             data = self._smb.readFile(self._tid, self._fid, bytesToRead=bufsize)
         except SessionError as e:
             if e.getErrorCode() == STATUS_PIPE_DISCONNECTED:
-                raise ConnectionError("Named pipe closed by the server while writing. MSSQL server enforces ENCRYPT_STRICT which is not supported by named pipes")
+                raise ConnectionError("Named pipe closed by the server while reading")
             raise
- 
+
         if not data:
             return b""
- 
+
         if len(data) > bufsize:
             self._recv_buf = data[bufsize:]
             return data[:bufsize]
- 
+
         return data
 
     def settimeout(self, timeout):
-        # The SMB named pipe already manages its own timeout
-        pass
+        if self._smb is not None:
+            self._smb.setTimeout(timeout)
 
     def close(self):
         try:

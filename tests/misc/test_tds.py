@@ -14,6 +14,7 @@ import struct
 import socket
 import unittest
 from unittest import mock
+from impacket.smbconnection import SessionError
 
 from impacket import tds
 from impacket.examples.ntlmrelayx.servers.socksplugins.mssql import MSSQLSocksRelay
@@ -184,6 +185,24 @@ class TDSTests(unittest.TestCase):
 
         self.assertEqual(client.remoteName, "sql.example.com")
         self.assertEqual(client.remoteHost, "10.0.0.5")
+
+    def test_named_pipe_transport_settimeout_forwards_to_smb(self):
+        transport = tds.NamedPipeTransport("sql.example.com", "10.0.0.5", "pipe")
+        transport._smb = mock.Mock()
+
+        transport.settimeout(7)
+
+        transport._smb.setTimeout.assert_called_once_with(7)
+
+    def test_named_pipe_disconnect_write_error_is_generic(self):
+        transport = tds.NamedPipeTransport("sql.example.com", "10.0.0.5", "pipe")
+        transport._smb = mock.Mock()
+        transport._smb.writeFile.side_effect = SessionError(tds.STATUS_PIPE_DISCONNECTED)
+
+        with self.assertRaisesRegex(ConnectionError, "while writing") as cm:
+            transport.sendall(b"data")
+
+        self.assertNotIn("ENCRYPT_STRICT", str(cm.exception))
 
 
 class MSSQLSocksRelayTests(unittest.TestCase):
