@@ -1204,13 +1204,13 @@ class MSSQL:
         self,
         address,
         port=1433,
-        pipe_name=None,
         remoteName="",
-        remoteHost="",
         workstation_id: str = "",
         application_name: str = "",
         client_interface_name: str = "",
         rowsPrinter=DummyPrint(),
+        pipe_name=None,
+        remoteHost="",
     ):
         # self.packetSize = 32764
         self.packetSize = 32763

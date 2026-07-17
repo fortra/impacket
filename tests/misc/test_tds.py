@@ -168,6 +168,13 @@ class TDSTests(unittest.TestCase):
         self.assertEqual(second_response["Type"], tds.TDS_TABULAR)
         self.assertEqual(second_response["Data"], b"second")
 
+    def test_mssql_constructor_preserves_legacy_positional_remote_name(self):
+        client = tds.MSSQL("server", 1444, "sql.example.com")
+
+        self.assertEqual(client.port, 1444)
+        self.assertEqual(client.remoteName, "sql.example.com")
+        self.assertIsNone(client.pipe_name)
+
 
 class MSSQLSocksRelayTests(unittest.TestCase):
     @staticmethod
