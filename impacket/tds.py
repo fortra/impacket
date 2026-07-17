@@ -1216,7 +1216,7 @@ class MSSQL:
         self.packetSize = 32763
         self.server = address
         self.remoteName = remoteName
-        self.remoteHost = remoteHost
+        self.remoteHost = remoteHost or address
         self.port = port
         self.socket = 0
         self.replies = {}
@@ -1237,6 +1237,8 @@ class MSSQL:
         self.mssql_version = ""
 
         self.pipe_name = pipe_name
+        if self.pipe_name and not self.remoteName:
+            self.remoteName = address
 
         self._workstation_id = workstation_id or f"DESKTOP-{uuid4().hex[:8].upper()}"
         self._application_name = (

@@ -175,6 +175,16 @@ class TDSTests(unittest.TestCase):
         self.assertEqual(client.remoteName, "sql.example.com")
         self.assertIsNone(client.pipe_name)
 
+    def test_named_pipe_constructor_defaults_remote_host_to_address(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+
+        self.assertEqual(client.remoteName, "sql.example.com")
+        self.assertEqual(client.remoteHost, "10.0.0.5")
+
 
 class MSSQLSocksRelayTests(unittest.TestCase):
     @staticmethod
