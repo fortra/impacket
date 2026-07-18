@@ -17,6 +17,7 @@ import sys
 import argparse
 import json
 import PrintTable
+from impacket.examples.utils import target_regex
 
 cmd2.Cmd.DEFAULT_CATEGORY = "ADAConsole Commands"
 
@@ -28,8 +29,8 @@ Type `help` for commands
 """
 
 # Command categories
-MODULE_USAGE = "Explore available modules"
-
+MODULE_EXPLORATION = "Explore available modules"
+MODULE_USAGE = "Use a specified module"
 
 class adaConsole(cmd2.Cmd):
     """Basic app to get started"""
@@ -62,10 +63,12 @@ class adaConsole(cmd2.Cmd):
         ]
 
         # Show this as the prompt when asking for input
-        self.prompt = "adaconsole> "
+        self.prompt = "console> "
+
+        self.selectedModule = None
 
 
-    @cmd2.with_category(MODULE_USAGE)
+    @cmd2.with_category(MODULE_EXPLORATION)
     def do_list(self, args):        # <-- do_ prefix, and needs `arg` param
         """List all available modules."""
         self.poutput(PrintTable.createTable(self.modules))
@@ -74,7 +77,7 @@ class adaConsole(cmd2.Cmd):
     moduleSearchParser.add_argument("search_terms", help="search terms to search")
 
     # TODO refine arguments, e.g. add function to search just name or just description
-    @cmd2.with_category(MODULE_USAGE)
+    @cmd2.with_category(MODULE_EXPLORATION)
     @cmd2.with_argparser(moduleSearchParser)
     def do_search(self, args: argparse.Namespace):
         """Search modules"""
@@ -85,6 +88,38 @@ class adaConsole(cmd2.Cmd):
 
         self.poutput(numResultsString)
         self.poutput(PrintTable.createTable(resultsTable))
+
+
+    moduleUseParser = cmd2.Cmd2ArgumentParser(description="Select a module to use by name or id")
+    moduleUseParser.add_argument("module", help="Module name (e.g. secretsdump) or numeric id (e.g. 5)", type=str)
+
+    @cmd2.with_category(MODULE_USAGE)
+    @cmd2.with_argparser(moduleUseParser)
+    def do_use(self, args: argparse.Namespace):
+        targetModule = args.module
+
+        moduleName = "Not found"
+
+        # Get the name or id depending on input - and perform the search logic
+        if targetModule.isdigit():
+            moduleId = int(targetModule)
+            if moduleId:
+                moduleName = SearchModules.searchModuleId(self.modules, moduleId)["name"]
+
+
+        else:
+            moduleName = targetModule
+
+            searchResults, numResults = SearchModules.searchModule(self.modules, moduleName)
+
+            # Check if 0, 1 or 1+ results are returned
+
+        self.poutput("Selected: " + moduleName)
+
+    def do_options(self):
+        pass
+
+
 
 
 if __name__ == '__main__':

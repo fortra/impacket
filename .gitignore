@@ -75,4 +75,4 @@ target/
 tests/dcetests.cfg
 
 # ADAConsole config:
-adaconsole/cmd2_history.dat
+console/cmd2_history.dat

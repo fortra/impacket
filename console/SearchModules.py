@@ -17,3 +17,14 @@ def searchModule(modules, searchString):
             results.append(module)
 
     return results, len(results)
+
+# Search for module based on id
+def searchModuleId(modules, searchId ):
+
+    for module in modules:
+        if module["id"] == searchId:
+            return module
+        else:
+            return None
+
+    return None
