@@ -453,7 +453,23 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
 
     message = encoder.encode(tgsReq)
 
-    r = sendReceive(message, domain, kdcHost)
+    try:
+        r = sendReceive(message, domain, kdcHost)
+    except KerberosError as e:
+        # The requested etypes (derived from the TGT session key) are not supported by the
+        # target service, e.g. an RC4 TGT against an AES-only account. Retry advertising AES
+        # so a valid TGT can still obtain a ticket (RC4-capable targets already succeeded above,
+        # so this preserves the RC4 preference and only kicks in when RC4 is refused).
+        if e.getErrorCode() != constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
+            raise
+        seq_set_iter(reqBody, 'etype',
+                          (
+                              int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
+                              int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value),
+                          )
+                    )
+        message = encoder.encode(tgsReq)
+        r = sendReceive(message, domain, kdcHost)
 
     # Get the session key
 
