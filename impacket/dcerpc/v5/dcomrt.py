@@ -32,6 +32,7 @@
 
 from __future__ import division
 from __future__ import print_function
+import ipaddress
 import socket
 from struct import pack
 from threading import Timer, current_thread
@@ -1249,6 +1250,12 @@ class INTERFACE:
 
     def set_cinstance(self, cinstance):
         self.__cinstance = cinstance
+    
+    def is_target_loopback(self):
+        try:
+            return ipaddress.ip_address(self.get_target()).is_loopback
+        except ValueError:
+            return False
 
     def is_fqdn(self):
         # I will assume the following
@@ -1257,7 +1264,7 @@ class INTERFACE:
         # an FQDN with ':'
         # Is it isn't both, then it is a FQDN
         try:
-            socket.inet_aton(self.__target)
+            socket.inet_aton(self.get_target())
         except:
             # Not an IPv4
             try:
@@ -1268,9 +1275,8 @@ class INTERFACE:
         return False
 
     def connect(self, iid = None):
-        if (self.__target in INTERFACE.CONNECTIONS) is True:
-            if current_thread().name in INTERFACE.CONNECTIONS[self.__target] and \
-                            (self.__oxid in INTERFACE.CONNECTIONS[self.__target][current_thread().name]) is True:
+        if self.__target in INTERFACE.CONNECTIONS:
+            if current_thread().name in INTERFACE.CONNECTIONS[self.__target] and self.__oxid in INTERFACE.CONNECTIONS[self.__target][current_thread().name]:
                 dce = INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['dce']
                 currentBinding = INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['currentBinding']
                 if currentBinding == iid:
@@ -1281,6 +1287,7 @@ class INTERFACE:
                     INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['dce'] = newDce
                     INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['currentBinding'] = iid
             else:
+                # No existing connection, create a new one.
                 stringBindings = self.get_cinstance().get_string_bindings()
                 # No OXID present, we should create a new connection and store it
                 stringBinding = None
@@ -1291,6 +1298,8 @@ class INTERFACE:
                     # 1) it's an IPv4 address
                     # 2) it's an IPv6 address
                     # 3) it's a NetBios Name
+                    # 4) it's 127.0.0.1 - not resolved via epmapper.
+                    #    if it really is a loopback address - return true on any stringbinding.
                     # we should handle all this cases accordingly
                     # Does this match exactly what get_target() returns?
                     LOG.debug('StringBinding: %s' % strBinding['aNetworkAddr'])
@@ -1303,9 +1312,17 @@ class INTERFACE:
                             binding = strBinding['aNetworkAddr']
                             bindingPort = ''
 
+                        if self.is_target_loopback():
+                            # The endpoint mapper does not advertise loopback addresses, but
+                            # this connection was explicitly requested for one. Reuse its port.
+                            LOG.debug('Detected loopback DCOM connection attempt, using first available StringBinding.')
+                            stringBinding = 'ncacn_ip_tcp:%s%s' % (self.get_target(), bindingPort)
+                            break
+                        
                         if binding.upper().find(self.get_target().upper()) >= 0:
                             stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
                             break
+                        
                         # If get_target() is a FQDN, does it match the hostname?
                         elif isTargetFQDN and binding.upper().find(self.get_target().upper().partition('.')[0]) >= 0:
                             # Here we replace the aNetworkAddr with self.get_target()
