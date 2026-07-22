@@ -32,6 +32,7 @@
 
 from __future__ import division
 from __future__ import print_function
+import ipaddress
 import socket
 from struct import pack
 from threading import Timer, current_thread
@@ -1251,15 +1252,10 @@ class INTERFACE:
         self.__cinstance = cinstance
     
     def is_target_loopback(self):
-        """
-        Detect all loopback IP addresses.
-        This is assuming 127.0.0.0/8 is IPv4 loopback.
-        Also accounting for IPv6 loopback addresses.
-        This should only be used to filter user input and automatically redirect any DCOM connections
-         from local machines to correct string-bindings on the local endpoint mapper.
-        """
-        return self.get_target().startswith('127.') \
-            or self.get_target() == '::1' or self.get_target() == '0:0:0:0:0:0:0:1' # IPv6 loopback addresses.
+        try:
+            return ipaddress.ip_address(self.get_target()).is_loopback
+        except ValueError:
+            return False
 
     def is_fqdn(self):
         # I will assume the following
@@ -1317,13 +1313,10 @@ class INTERFACE:
                             bindingPort = ''
 
                         if self.is_target_loopback():
-                            # Accept the first matched string-binding.
-                            # This is because we know we want to connect no matter what.
+                            # The endpoint mapper does not advertise loopback addresses, but
+                            # this connection was explicitly requested for one. Reuse its port.
                             LOG.debug('Detected loopback DCOM connection attempt, using first available StringBinding.')
-                            stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
-                            # TODO: Decide if we also want to change our self.__target accordingly...?
-                            # Notice - it breaks stuff.
-                            # self.__target = binding
+                            stringBinding = 'ncacn_ip_tcp:%s%s' % (self.get_target(), bindingPort)
                             break
                         
                         if binding.upper().find(self.get_target().upper()) >= 0:
