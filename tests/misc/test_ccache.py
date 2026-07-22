@@ -21,7 +21,7 @@ if PY2:
     FileNotFoundError = IOError
 else:
     from unittest import mock
-from impacket.krb5.ccache import CCache, Credential
+from impacket.krb5.ccache import AuthData, CCache, CountedOctetString, Credential
 
 
 class CCACHETests(unittest.TestCase):
@@ -115,6 +115,28 @@ class CCACHETests(unittest.TestCase):
                 self.assertEqual(username, self.username)
                 self.assertIsNone(TGS)
                 self.assertIsNotNone(TGT)
+
+    def test_credential_with_authdata_roundtrip(self):
+        # Regression test for a credential that carries authorization data.
+        # Credential.authData started as a tuple and was never turned into a
+        # list, so parsing any credential with auth-data raised
+        # AttributeError: 'tuple' object has no attribute 'append'.
+        ccache = CCache.loadFile(self.cache_v4_file)
+        cred = ccache.credentials[0]
+
+        octet = CountedOctetString()
+        octet["data"] = b"\xde\xad\xbe\xef"
+        octet["length"] = len(octet["data"])
+        ad = AuthData()
+        ad["authtype"] = 1
+        ad["authdata"] = octet
+        cred.authData = [ad]
+
+        reparsed = Credential(cred.getData())
+
+        self.assertEqual(len(reparsed.authData), 1)
+        self.assertEqual(reparsed.authData[0]["authtype"], 1)
+        self.assertEqual(reparsed.authData[0]["authdata"]["data"], b"\xde\xad\xbe\xef")
 
 
 if __name__ == "__main__":
