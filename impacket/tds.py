@@ -17,12 +17,11 @@
 #       - Implement in memory handshake via native SSL
 #       - Implement Channel Binding via tls-unique
 #       - Code comments for easier reading
+#   Mayyhem (@_Mayyhem) added support to TDS8.0
+#   Aurélien Chalot (@Defte_) added support for MSSQL via named pipe
 #
 # ToDo:
-#   [ ] Implement TDS 8 which means
-#       - Reimplementing TDS packet's structures
-#       - Implement a simple TCP/TLS socket
-#       - Implement Channel Binding with tls-exporter (not implemented in ssl yet)
+#   [ ] Implement Channel Binding with tls-exporter (not implemented in ssl yet)
 #   [ ] Add all the tokens left
 #   [ ] parseRow should be rewritten and add support for all the SQL types in a
 #       good way. Right now it just supports a few types.
@@ -44,7 +43,6 @@ import select
 import random
 import binascii
 import errno
-import math
 import datetime
 from decimal import Decimal, getcontext
 from uuid import uuid4
@@ -53,6 +51,10 @@ from impacket import ntlm, uuid, LOG
 from impacket.structure import Structure
 from impacket.mssql.version import MSSQL_VERSION
 
+# Needed in case we want to communicate with a named pipe
+from impacket.smbconnection import SMBConnection, SessionError
+STATUS_PIPE_DISCONNECTED = 0xC00000B0
+STATUS_OBJECT_NAME_NOT_FOUND = 0xC0000034
 
 # We need to have a fake Logger to be compatible with the way Impact
 # prints information. Outside Impact it's just a print. Inside
@@ -1112,6 +1114,91 @@ class TDS_SSVARIANT(Structure):
             return f"<parse_error: {str(e)}, hex: {binascii.b2a_hex(data).decode('ascii')}>"
 
 
+# Wraps a SQL Server named pipe (\\<host>\pipe\sql\query, or a custom instance pipe) behind the same sendall()/recv()/close()
+# interface a plain TCP socket exposes, so the rest of the MSSQL class (sendTDS/recvTDS/socketSendall/socketRecv) does not need to
+# know whether it is talking to a socket or to a pipe.
+class NamedPipeTransport:
+    def __init__(self, remoteName, remoteHost, pipe_name=None):
+        self.remoteName = remoteName
+        self.remoteHost = remoteHost
+        self.pipe_name = pipe_name
+        self._smb = None
+        self._tid = None
+        self._fid = None
+        self._recv_buf = b""
+
+    def connect(self, timeout=30):
+        self._smb = SMBConnection(self.remoteName, self.remoteHost, timeout=timeout)
+
+    def authenticate_ntlm(self, username, password, domain, lmhash="", nthash=""):
+        self._smb.login(username, password, domain, lmhash, nthash)
+        self._open_pipe()
+
+    def authenticate_kerberos(self, username, password, domain, lmhash="", nthash="", aesKey="", kdcHost=None, TGT=None, TGS=None, useCache=True):
+        self._smb.kerberosLogin(username, password, domain, lmhash, nthash, aesKey, kdcHost, TGT, TGS, useCache)
+        self._open_pipe()
+
+    def _open_pipe(self):
+        try:
+            self._tid = self._smb.connectTree("IPC$")
+            self._fid = self._smb.openFile(self._tid, self.pipe_name, desiredAccess=0x0012019F)
+        except SessionError as e:
+            if e.getErrorCode() == STATUS_OBJECT_NAME_NOT_FOUND:
+                raise ConnectionError(f"Specified named pipe '{self.pipe_name}' not found on {self.remoteName}, check -named-pipe argument")
+            raise
+        LOG.info(f"Connected to {self.remoteName}\\pipe\\{self.pipe_name}")
+
+    def sendall(self, data):
+        try:
+            self._smb.writeFile(self._tid, self._fid, data)
+        except SessionError as e:
+            if e.getErrorCode() == STATUS_PIPE_DISCONNECTED:
+                raise ConnectionError("Named pipe closed by the server while writing")
+            raise
+
+    def recv(self, bufsize):
+        if self._recv_buf:
+            chunk = self._recv_buf[:bufsize]
+            self._recv_buf = self._recv_buf[bufsize:]
+            return chunk
+
+        try:
+            data = self._smb.readFile(self._tid, self._fid, bytesToRead=bufsize)
+        except SessionError as e:
+            if e.getErrorCode() == STATUS_PIPE_DISCONNECTED:
+                raise ConnectionError("Named pipe closed by the server while reading")
+            raise
+
+        if not data:
+            return b""
+
+        if len(data) > bufsize:
+            self._recv_buf = data[bufsize:]
+            return data[:bufsize]
+
+        return data
+
+    def settimeout(self, timeout):
+        if self._smb is not None:
+            self._smb.setTimeout(timeout)
+
+    def close(self):
+        try:
+            if self._fid:
+                self._smb.closeFile(self._tid, self._fid)
+            if self._tid:
+                self._smb.disconnectTree(self._tid)
+            if self._smb:
+                self._smb.logoff()
+                self._smb.close()
+        except Exception as e:
+            LOG.debug(f"close error: {e}")
+        finally:
+            self._fid = None
+            self._tid = None
+            self._smb = None
+
+
 class MSSQL:
     def __init__(
         self,
@@ -1122,11 +1209,14 @@ class MSSQL:
         application_name: str = "",
         client_interface_name: str = "",
         rowsPrinter=DummyPrint(),
+        pipe_name=None,
+        remoteHost="",
     ):
         # self.packetSize = 32764
         self.packetSize = 32763
         self.server = address
         self.remoteName = remoteName
+        self.remoteHost = remoteHost or address
         self.port = port
         self.socket = 0
         self.replies = {}
@@ -1145,6 +1235,10 @@ class MSSQL:
         self.login_tds_version = TDS_LOGIN7_VERSION_71
         self.__rowsPrinter = rowsPrinter
         self.mssql_version = ""
+
+        self.pipe_name = pipe_name
+        if self.pipe_name and not self.remoteName:
+            self.remoteName = address
 
         self._workstation_id = workstation_id or f"DESKTOP-{uuid4().hex[:8].upper()}"
         self._application_name = (
@@ -1261,8 +1355,43 @@ class MSSQL:
             parser = TDS_DONEINPROC if inproc else TDS_DONE
         return parser(tokens)
 
+    # Opening the pipe requires SMB credentials, which connect() does not receive. login()/kerberosLogin() 
+    # call this at the top instead, before doing the TDS-level PRELOGIN/LOGIN7 exchange. self.socket ends
+    # up holding a NamedPipeTransport instance, which sendTDS/recvTDS use exactly like a real socket via socketSendall()/socketRecv().
+    def _create_named_pipe_transport(
+        self,
+        username,
+        password,
+        domain,
+        lmhash="",
+        nthash="",
+        kerberos=False,
+        aesKey="",
+        kdcHost=None,
+        TGT=None,
+        TGS=None,
+        useCache=True,
+        timeout=30,
+    ):
+        transport = NamedPipeTransport(self.remoteName, self.remoteHost, self.pipe_name)
+        transport.connect(timeout)
+
+        if kerberos:
+            transport.authenticate_kerberos(username, password, domain, lmhash, nthash, aesKey, kdcHost, TGT, TGS, useCache)
+        else:
+            transport.authenticate_ntlm(username, password, domain, lmhash, nthash)
+        
+        self.socket = transport
+        self._reset_tls_state()
+        return transport
+
     def connect(self, timeout=30):
         self._reset_tls_state()
+
+        if self.pipe_name:
+            # The SMB session backing the pipe needs credentials, which are only available once login()/kerberosLogin()
+            return None
+
         af, socktype, proto, canonname, sa = socket.getaddrinfo(
             self.server, self.port, 0, socket.SOCK_STREAM
         )[0]
@@ -1328,6 +1457,7 @@ class MSSQL:
     def socketSendall(self, data):
         if self.tlsSocket is None:
             # socket.sendall() is the basic function used to send data over the network
+            # (also works for NamedPipeTransport, which exposes the same call)
             return self.socket.sendall(data)
         else:
             # tls_send is the one to use when dealing with TLS
@@ -1504,6 +1634,11 @@ class MSSQL:
 
     def _setup_tds8(self):
         """Wrap the TCP socket in TLS for TDS 8.0 strict encryption."""
+        if self.pipe_name:
+            # TDS 8.0 ENCRYPT_STRICT wraps the raw TCP socket in TLS before # any TDS traffic happens. There is no equivalent for a named
+            # pipe transport. This should not happen but just in case...
+            raise NotImplementedError("TDS 8.0 strict encryption (ENCRYPT_STRICT) is not supported over a named pipe transport")
+
         LOG.debug("(TDS8) Setting up TDS 8.0 strict encryption")
         context = ssl.SSLContext()
         context.set_ciphers('ALL:@SECLEVEL=0')
@@ -1522,7 +1657,7 @@ class MSSQL:
         # Retrieve tls-unique for EPA channel binding
         self.tls_unique = self.socket.get_channel_binding("tls-unique")
         if self.tls_unique:
-            LOG.debug("(TDS8) tls-unique: %s" % self.tls_unique.hex())
+            LOG.debug(f"(TDS8) tls-unique: {self.tls_unique.hex()}")
         else:
             LOG.warning("(TDS8) No tls-unique available — EPA will fail if required")
         LOG.info("(TDS8) TDS 8.0 TLS connection established")
@@ -1551,13 +1686,10 @@ class MSSQL:
         try:
             resp = self.preLogin()
         except Exception as e:
-            if not self._should_retry_prelogin_as_tds8(e):
+            if self.pipe_name or not self._should_retry_prelogin_as_tds8(e):
                 raise
 
-            LOG.debug(
-                "Plain TDS preLogin failed (%s: %s), trying TDS 8.0"
-                % (type(e).__name__, e)
-            )
+            LOG.debug(f"Plain TDS preLogin failed ({type(e).__name__}: {e}), trying TDS 8.0")
             try:
                 self.disconnect()
             except Exception:
@@ -1568,6 +1700,10 @@ class MSSQL:
 
         # Handle server encryption response
         if resp["Encryption"] == TDS_ENCRYPT_STRICT:
+            if self.pipe_name:
+                # See _setup_tds8(): there is no TDS 8.0 strict encryption over named pipes. If the target enforces it, plain TDS
+                # login over the pipe is not possible.
+                raise NotImplementedError("Server requires TDS 8.0 strict encryption (ENCRYPT_STRICT), which is not supported over a named pipe transport")
             LOG.info("Server requires TDS 8.0 (ENCRYPT_STRICT), reconnecting with TLS")
             self.disconnect()
             self.connect()
@@ -1599,6 +1735,14 @@ class MSSQL:
         else:
             lmhash = ""
             nthash = ""
+
+        if self.pipe_name:
+            # Authenticates through the SMB named pipe directly.
+            self._create_named_pipe_transport(
+                username, password, domain, lmhash, nthash,
+                kerberos=True, aesKey=aesKey, kdcHost=kdcHost,
+                TGT=TGT, TGS=TGS, useCache=useCache,
+            )
 
         resp = self._negotiate_encryption()
 
@@ -1859,6 +2003,10 @@ class MSSQL:
         hashes=None,
         useWindowsAuth=False,
         cbt_fake_value=None,
+        smbUsername=None,
+        smbPassword=None,
+        smbDomain=None,
+        smbHashes=None,
     ):
 
         if hashes is not None:
@@ -1868,6 +2016,24 @@ class MSSQL:
         else:
             lmhash = ""
             nthash = ""
+
+        if self.pipe_name:
+            # Authenticates through the SMB named pipe directly.
+            if smbHashes is not None:
+                smbLMHash, smbNTHash = smbHashes.split(":")
+                smbLMHash = binascii.a2b_hex(smbLMHash)
+                smbNTHash = binascii.a2b_hex(smbNTHash)
+            else:
+                smbLMHash = lmhash
+                smbNTHash = nthash
+            self._create_named_pipe_transport(
+                username if smbUsername is None else smbUsername,
+                password if smbPassword is None else smbPassword,
+                domain if smbDomain is None else smbDomain,
+                smbLMHash,
+                smbNTHash,
+                kerberos=False,
+            )
 
         resp = self._negotiate_encryption()
 

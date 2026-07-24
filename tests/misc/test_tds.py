@@ -14,6 +14,7 @@ import struct
 import socket
 import unittest
 from unittest import mock
+from impacket.smbconnection import SessionError
 
 from impacket import tds
 from impacket.examples.ntlmrelayx.servers.socksplugins.mssql import MSSQLSocksRelay
@@ -167,6 +168,75 @@ class TDSTests(unittest.TestCase):
         self.assertEqual(first_response["Data"], b"first")
         self.assertEqual(second_response["Type"], tds.TDS_TABULAR)
         self.assertEqual(second_response["Data"], b"second")
+
+    def test_mssql_constructor_preserves_legacy_positional_remote_name(self):
+        client = tds.MSSQL("server", 1444, "sql.example.com")
+
+        self.assertEqual(client.port, 1444)
+        self.assertEqual(client.remoteName, "sql.example.com")
+        self.assertIsNone(client.pipe_name)
+
+    def test_named_pipe_constructor_defaults_remote_host_to_address(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+
+        self.assertEqual(client.remoteName, "sql.example.com")
+        self.assertEqual(client.remoteHost, "10.0.0.5")
+
+    def test_named_pipe_transport_settimeout_forwards_to_smb(self):
+        transport = tds.NamedPipeTransport("sql.example.com", "10.0.0.5", "pipe")
+        transport._smb = mock.Mock()
+
+        transport.settimeout(7)
+
+        transport._smb.setTimeout.assert_called_once_with(7)
+
+    def test_named_pipe_disconnect_write_error_is_generic(self):
+        transport = tds.NamedPipeTransport("sql.example.com", "10.0.0.5", "pipe")
+        transport._smb = mock.Mock()
+        transport._smb.writeFile.side_effect = SessionError(tds.STATUS_PIPE_DISCONNECTED)
+
+        with self.assertRaisesRegex(ConnectionError, "while writing") as cm:
+            transport.sendall(b"data")
+
+        self.assertNotIn("ENCRYPT_STRICT", str(cm.exception))
+
+    def test_named_pipe_login_can_use_separate_smb_credentials(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+        response = {"Encryption": tds.TDS_ENCRYPT_REQ}
+        client._create_named_pipe_transport = mock.Mock()
+        client._negotiate_encryption = mock.Mock(return_value=response)
+        client.sendTDS = mock.Mock()
+        client.recvTDS = mock.Mock(return_value={"Data": b""})
+        client.parseReply = mock.Mock(return_value={tds.TDS_LOGINACK_TOKEN: []})
+
+        result = client.login(
+            None,
+            "sql_user",
+            "sql_pass",
+            "",
+            useWindowsAuth=False,
+            smbUsername="smb_user",
+            smbPassword="smb_pass",
+            smbDomain="SMBDOM",
+        )
+
+        self.assertTrue(result)
+        client._create_named_pipe_transport.assert_called_once_with(
+            "smb_user",
+            "smb_pass",
+            "SMBDOM",
+            "",
+            "",
+            kerberos=False,
+        )
 
     @staticmethod
     def _text_pointer_row_data(payload):
