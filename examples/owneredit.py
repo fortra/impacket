@@ -26,7 +26,7 @@ from impacket.ldap import ldap, ldapasn1, ldaptypes
 from impacket.ldap.ldap import escape_filter_chars, get_entry_dn, get_entry_value
 
 from impacket.examples.utils import (ldap_login, parse_identity,
-                                      as_bytes, as_string, as_sid_string,
+                                      ldap_value_to_bytes, as_string, as_sid_string,
                                       search_entries, log_ldap_error)
 
 
@@ -128,7 +128,7 @@ class OwnerEdit(object):
             # Searching for target account with its security descriptor
             self.search_target_principal_security_descriptor()
             # Extract security descriptor data
-            self.target_principal_raw_security_descriptor = as_bytes(get_entry_value(self.target_principal, 'nTSecurityDescriptor'))
+            self.target_principal_raw_security_descriptor = ldap_value_to_bytes(get_entry_value(self.target_principal, 'nTSecurityDescriptor'))
             self.target_principal_security_descriptor = ldaptypes.SR_SECURITY_DESCRIPTOR(data=self.target_principal_raw_security_descriptor)
 
         # Searching for the owner SID if any owner argument was given and new_owner_SID wasn't

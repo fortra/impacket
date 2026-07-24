@@ -30,7 +30,7 @@ from impacket.ldap import ldap, ldaptypes
 from impacket.ldap.ldap import escape_filter_chars, get_entry_dn, get_entry_value
 
 from impacket.examples.utils import (ldap_login, parse_identity,
-                                      as_bytes, as_string, as_sid_string,
+                                      ldap_value_to_bytes, as_string, as_sid_string,
                                       search_entries, log_ldap_error)
 
 def create_empty_sd():
@@ -204,8 +204,11 @@ class RBCD(object):
             return
 
         try:
-            raw_sd = as_bytes(get_entry_value(targetuser, 'msDS-AllowedToActOnBehalfOfOtherIdentity'))
-            sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=raw_sd)
+            raw_sd = ldap_value_to_bytes(get_entry_value(targetuser, 'msDS-AllowedToActOnBehalfOfOtherIdentity'))
+            if raw_sd is None:
+                sd = create_empty_sd()
+            else:
+                sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=raw_sd)
             if len(sd['Dacl'].aces) > 0:
                 logging.info('Accounts allowed to act on behalf of other identity:')
                 for ace in sd['Dacl'].aces:

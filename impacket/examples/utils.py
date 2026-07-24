@@ -253,7 +253,7 @@ from impacket.ldap.ldaptypes import LDAP_SID
 import logging
 
 
-def as_bytes(value):
+def ldap_value_to_bytes(value):
     """Coerce an LDAP attribute value to bytes."""
     if value is None:
         return None
@@ -285,7 +285,7 @@ def as_sid_string(value):
         return None
     if isinstance(value, str) and value.startswith('S-'):
         return value
-    sid_bytes = as_bytes(value)
+    sid_bytes = ldap_value_to_bytes(value)
     if sid_bytes is None:
         return None
     return LDAP_SID(data=sid_bytes).formatCanonical()

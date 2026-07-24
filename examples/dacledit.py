@@ -38,7 +38,7 @@ from impacket.msada_guids import SCHEMA_OBJECTS, EXTENDED_RIGHTS
 from impacket.uuid import string_to_bin, bin_to_string
 
 from impacket.examples.utils import (ldap_login, parse_identity,
-                                      as_bytes, as_string, as_sid_string,
+                                      ldap_value_to_bytes, as_string, as_sid_string,
                                       search_entries, log_ldap_error)
 
 OBJECT_TYPES_GUID = {}
@@ -262,7 +262,7 @@ class DACLedit(object):
             # Searching for target account with its security descriptor
             self.search_target_principal_security_descriptor()
             # Extract security descriptor data
-            self.principal_raw_security_descriptor = as_bytes(get_entry_value(self.target_principal, 'nTSecurityDescriptor'))
+            self.principal_raw_security_descriptor = ldap_value_to_bytes(get_entry_value(self.target_principal, 'nTSecurityDescriptor'))
             self.principal_security_descriptor = ldaptypes.SR_SECURITY_DESCRIPTOR(data=self.principal_raw_security_descriptor)
 
         # Searching for the principal SID if any principal argument was given and principal_SID wasn't
@@ -402,7 +402,7 @@ class DACLedit(object):
         # Searching for target account with its security descriptor
         self.search_target_principal_security_descriptor()
         # Extract security descriptor data
-        self.principal_raw_security_descriptor = as_bytes(get_entry_value(self.target_principal, 'nTSecurityDescriptor'))
+        self.principal_raw_security_descriptor = ldap_value_to_bytes(get_entry_value(self.target_principal, 'nTSecurityDescriptor'))
         self.principal_security_descriptor = ldaptypes.SR_SECURITY_DESCRIPTOR(data=self.principal_raw_security_descriptor)
 
         # Do a backup of the actual DACL and push the restoration

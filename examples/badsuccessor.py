@@ -30,7 +30,7 @@ import sys
 from impacket import version
 from impacket.examples import logger
 from impacket.examples.utils import (parse_identity, parse_target, ldap_login,
-                                      as_bytes, as_string, as_sid_string,
+                                      ldap_value_to_bytes, as_string, as_sid_string,
                                       search_entries)
 from impacket.ldap import ldap, ldapasn1, ldaptypes
 import uuid #needed for proper GUID conversion
@@ -255,7 +255,7 @@ class BADSUCCESSOR:
             for entry in ou_entries:
                 try:
                     ou_dn = get_entry_dn(entry)
-                    sd_data = as_bytes(get_entry_value(entry, 'nTSecurityDescriptor'))
+                    sd_data = ldap_value_to_bytes(get_entry_value(entry, 'nTSecurityDescriptor'))
                     if not sd_data:
                         continue
 
