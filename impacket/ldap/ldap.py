@@ -425,6 +425,9 @@ class LDAPConnection:
             # NTLM Challenge
             serverSaslCreds = response['bindResponse']['serverSaslCreds']
             spnegoTokenResp = SPNEGO_NegTokenResp(serverSaslCreds.asOctets())
+            if spnegoTokenResp.isNegoExSelected():
+                raise LDAPSessionError(errorString='NEGOEX / PKU2U authentication is not implemented yet')
+                #should this be a LDAPSessionError or an NotImplementedError?
             type2 = spnegoTokenResp['ResponseToken']
             
             # channel binding

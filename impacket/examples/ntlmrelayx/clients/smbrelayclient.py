@@ -534,6 +534,9 @@ class SMBRelayClient(ProtocolClient):
         if unpack('B', authenticateMessageBlob[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
             # We need to unwrap SPNEGO and get the NTLMSSP
             respToken = SPNEGO_NegTokenResp(authenticateMessageBlob)
+            if respToken.isNegoExSelected():
+                LOG.info("Target selected NEGOEX/PKU2U authentication, relay currently not supported for this mechanism")
+                raise Exception("NEGOEX/PKU2U relay is not supported")
             authData = respToken['ResponseToken']
         else:
             authData = authenticateMessageBlob
@@ -560,6 +563,9 @@ class SMBRelayClient(ProtocolClient):
         if unpack('B', authenticateMessageBlob[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
             # We need to unwrap SPNEGO and get the NTLMSSP
             respToken = SPNEGO_NegTokenResp(authenticateMessageBlob)
+            if respToken.isNegoExSelected():
+                LOG.info("Target selected NEGOEX/PKU2U authentication, relay currently not supported for this mechanism")
+                raise Exception("NEGOEX/PKU2U relay is not supported")
             authData = respToken['ResponseToken']
         else:
             authData = authenticateMessageBlob

@@ -340,10 +340,16 @@ class SMBSocksRelay(SocksRelay):
                 if unpack('B', sessionSetupData['SecurityBlob'][0:1])[0] != ASN1_AID:
                     # If there no GSSAPI ID, it must be an AUTH packet
                     blob = SPNEGO_NegTokenResp(sessionSetupData['SecurityBlob'])
+                    if blob.isNegoExSelected():
+                        LOG.info("NEGOEX/PKU2U was selected in authentication response,which is currently not supported for SOCKS relay")
+                        return
                     token = blob['ResponseToken']
                 else:
                     # NEGOTIATE packet
                     blob = SPNEGO_NegTokenInit(sessionSetupData['SecurityBlob'])
+                    if blob.isNegoExOffered():
+                        LOG.info("NEGOEX/PKU2U authentication was offered by client, which is currently not supported for SOCKS relay")
+                        return
                     token = blob['MechToken']
 
                 # Now we should've received a type 3 message
@@ -419,6 +425,8 @@ class SMBSocksRelay(SocksRelay):
                     # Is this GSSAPI NTLM or something else we don't support?
                     mechType = blob['MechTypes'][0]
                     if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
+                        if blob.isNegoExOffered():
+                            LOG.info("NEGOEX/PKU2U authentication offered by client, which is currently not supported for relay")
                         # Nope, do we know it?
                         if mechType in MechTypes:
                             mechStr = MechTypes[mechType]

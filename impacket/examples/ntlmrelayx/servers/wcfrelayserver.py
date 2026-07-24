@@ -155,6 +155,8 @@ class WCFRelayServer(Thread):
                         # Is this GSSAPI NTLM or something else we don't support?
                         mechType = blob['MechTypes'][0]
                         if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
+                            if blob.isNegoExOffered():
+                                LOG.info("(WCF): NEGOEX/PKU2U authentication offered by client, which is not currently supported for relay, requesting NTLM")
                             # Nope, do we know it?
                             if mechType in MechTypes:
                                 mechStr = MechTypes[mechType]
@@ -231,6 +233,9 @@ class WCFRelayServer(Thread):
             if not rawNTLM:
                 # remove SPNEGO wrapping
                 blob = SPNEGO_NegTokenResp(ntlmssp_auth)
+                if blob.isNegoExSelected():
+                    LOG.info("(WCF): NEGOEX/PKU2U selected in auth response, which is not currently supported for relay")
+                    return
                 ntlmssp_auth = blob['ResponseToken']
 
             if not ntlmssp_auth.startswith(b"NTLMSSP\0\3"):  # NTLMSSP_AUTH: message type 3
