@@ -440,6 +440,7 @@ class SMBRelayClient(ProtocolClient):
 
             sessionSetup['Parameters']['MaxBuffer'] = 65535
             sessionSetup['Parameters']['MaxMpxCount'] = 2
+            sessionSetup['Parameters']['VCNumber'] = os.getpid()
             sessionSetup['Parameters']['SessionKey'] = v1client._dialects_parameters['SessionKey']
             sessionSetup['Parameters']['AnsiPwdLength'] = len(sessionSetupData['AnsiPwd'])
             sessionSetup['Parameters']['UnicodePwdLength'] = len(sessionSetupData['UnicodePwd'])

@@ -781,7 +781,7 @@ class SMBRelayServer(Thread):
         self.authUser = authenticateMessage.getUserString()
 
         if self.config.disableMulti:
-            return self.smbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
+            return self.origsmbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
         # Uncommenting this will stop at the first connection relayed and won't relaying until all targets
         # are processed. There might be a use case for this
         # if 'relayToHost' in connData:
@@ -800,7 +800,7 @@ class SMBRelayServer(Thread):
                 else:
                     # No more targets to process, just let the victim to fail later
                     LOG.info('(SMB): Connection from %s@%s controlled, but there are no more targets left!' % (self.authUser, connData['ClientIP']))
-                    return self.origsmbComTreeConnectAndX(connId, smbServer, recvPacket)
+                    return self.origsmbComTreeConnectAndX (connId, smbServer, recvPacket)
 
             LOG.info('(SMB): Connection from %s@%s controlled, attacking target %s://%s' % (self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc))
 
