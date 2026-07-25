@@ -684,10 +684,10 @@ class SMBRelayServer(Thread):
                 respToken = SPNEGO_NegTokenResp()
                 # accept-completed
                 respToken['NegState'] = b'\x00'
-                connData['relayToHost'] = False
 
                 # Done with the relay for now.
                 connData['Authenticated'] = True
+                connData['relayToHost'] = False
 
                 # Status SUCCESS
                 errorCode = STATUS_SUCCESS
@@ -784,7 +784,7 @@ class SMBRelayServer(Thread):
             return self.origsmbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
         # Uncommenting this will stop at the first connection relayed and won't relaying until all targets
         # are processed. There might be a use case for this
-        # if 'relayToHost' in connData:
+        #if 'relayToHost' in connData:
         #    # Connection already relayed, let's just answer the request (that will return object not found)
         #    return self.smbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
 
