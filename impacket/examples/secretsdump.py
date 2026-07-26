@@ -2604,16 +2604,17 @@ def _derive_trust_kerberos_keys(rawSecret, domain, partner, isIncoming):
     return out
 
 
-def _format_trust_secrets(partner, rawSecret, domain, isIncoming, previous=False):
-    # Returns the output lines for one trust key (RC4 + AES256 + AES128).
+def _format_trust_secrets(partner, rawSecret, domain, isIncoming, previous=False, justNTLM=False):
+    # Returns the output lines for one trust key (RC4, plus AES256/AES128 unless justNTLM).
     # previous=True labels the trustAuthInfo PreviousValue (the trust's old password).
     direction = 'Incoming' if isIncoming else 'Outgoing'
     if previous:
         direction += ', previous'
     ntHash = hexlify(MD4.new(rawSecret).digest()).decode('utf-8')
     lines = ['%s (%s):rc4_hmac:%s' % (partner, direction, ntHash)]
-    for typename, keyHex in _derive_trust_kerberos_keys(rawSecret, domain, partner, isIncoming):
-        lines.append('%s (%s):%s:%s' % (partner, direction, typename, keyHex))
+    if not justNTLM:
+        for typename, keyHex in _derive_trust_kerberos_keys(rawSecret, domain, partner, isIncoming):
+            lines.append('%s (%s):%s:%s' % (partner, direction, typename, keyHex))
     return lines
 
 
@@ -3430,13 +3431,13 @@ class NTDSHashes:
                 except Exception:
                     LOG.debug('Exception', exc_info=True)
                     continue
-                for line in _format_trust_secrets(partner, currentSecret, self.__domainFQDN, isIncoming):
+                for line in _format_trust_secrets(partner, currentSecret, self.__domainFQDN, isIncoming, justNTLM=self.__justNTLM):
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
                     if outputFile is not None:
                         self.__writeOutput(outputFile, line + '\n')
                     count += 1
                 if previousSecret:
-                    for line in _format_trust_secrets(partner, previousSecret, self.__domainFQDN, isIncoming, previous=True):
+                    for line in _format_trust_secrets(partner, previousSecret, self.__domainFQDN, isIncoming, previous=True, justNTLM=self.__justNTLM):
                         self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
                         if outputFile is not None:
                             self.__writeOutput(outputFile, line + '\n')
@@ -3530,12 +3531,12 @@ class NTDSHashes:
                 continue
             currentSecret, previousSecret = parsed
             if currentSecret:
-                for line in _format_trust_secrets(partner, currentSecret, domain, isIncoming):
+                for line in _format_trust_secrets(partner, currentSecret, domain, isIncoming, justNTLM=self.__justNTLM):
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
                     if outputFile is not None:
                         self.__writeOutput(outputFile, line + '\n')
             if previousSecret:
-                for line in _format_trust_secrets(partner, previousSecret, domain, isIncoming, previous=True):
+                for line in _format_trust_secrets(partner, previousSecret, domain, isIncoming, previous=True, justNTLM=self.__justNTLM):
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
                     if outputFile is not None:
                         self.__writeOutput(outputFile, line + '\n')
