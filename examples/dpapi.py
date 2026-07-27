@@ -70,13 +70,16 @@ class DPAPI:
         self.dpapiSystem = {}
         pass
 
+    def parseHexKey(self, key):
+        return unhexlify(key.removeprefix("0x"))
+
     def getDPAPI_SYSTEM(self,secretType, secret):
         if secret.startswith("dpapi_machinekey:"):
             machineKey, userKey = secret.split('\n')
             machineKey = machineKey.split(':')[1]
             userKey = userKey.split(':')[1]
-            self.dpapiSystem['MachineKey'] = unhexlify(machineKey.removeprefix("0x"))
-            self.dpapiSystem['UserKey'] = unhexlify(userKey.removeprefix("0x"))
+            self.dpapiSystem['MachineKey'] = self.parseHexKey(machineKey)
+            self.dpapiSystem['UserKey'] = self.parseHexKey(userKey)
 
     def getLSA(self):
         localOperations = LocalOperations(self.options.system)
@@ -164,7 +167,7 @@ class DPAPI:
                     print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
                     return
             elif self.options.key and self.options.sid:
-                key = unhexlify(self.options.key.removeprefix("0x"))
+                key = self.parseHexKey(self.options.key)
                 key1, key2 = deriveKeysFromUserkey(self.options.sid, key)
                 decryptedKey = mk.decrypt(key1)
                 if decryptedKey:
@@ -177,7 +180,7 @@ class DPAPI:
                     print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
                     return
             elif self.options.key:
-                key = unhexlify(self.options.key.removeprefix("0x"))
+                key = self.parseHexKey(self.options.key)
                 decryptedKey = mk.decrypt(key)
                 if decryptedKey:
                     print('Decrypted key with key provided')
@@ -393,7 +396,7 @@ class DPAPI:
             blob = DPAPI_BLOB(cred['Data'])
 
             if self.options.key is not None:
-                key = unhexlify(self.options.key.removeprefix("0x"))
+                key = self.parseHexKey(self.options.key)
                 decrypted = blob.decrypt(key)
                 if decrypted is not None:
                     creds = CREDENTIAL_BLOB(decrypted)
@@ -413,7 +416,7 @@ class DPAPI:
                 blob = VAULT_VCRD(data)
 
                 if self.options.key is not None:
-                    key = unhexlify(self.options.key.removeprefix("0x"))
+                    key = self.parseHexKey(self.options.key)
 
                     cleartext = None
                     for i, entry in enumerate(blob.attributesLen):
@@ -445,7 +448,7 @@ class DPAPI:
                 vpol.dump()
 
                 if self.options.key is not None:
-                    key = unhexlify(self.options.key.removeprefix("0x"))
+                    key = self.parseHexKey(self.options.key)
                     blob = vpol['Blob']
                     data = blob.decrypt(key)
                     if data is not None:
@@ -458,7 +461,7 @@ class DPAPI:
             blob = DPAPI_BLOB(data)
 
             if self.options.key is not None:
-                key = unhexlify(self.options.key.removeprefix("0x"))
+                key = self.parseHexKey(self.options.key)
                 if self.options.entropy_file is not None:
                     fp2 = open(self.options.entropy_file, 'rb')
                     entropy = fp2.read()
@@ -492,7 +495,7 @@ class DPAPI:
 
             # Handle key options
             if self.options.key:
-                key = unhexlify(self.options.key.removeprefix("0x"))
+                key = self.parseHexKey(self.options.key)
                 keys = deriveKeysFromUserkey(chf.credhist_entries_list[0].sid, key)
 
             # Only other option is using a password
