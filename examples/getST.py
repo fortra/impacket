@@ -786,7 +786,7 @@ class GETST:
 
         if TGT is not None:
             cachedClientPrincipal = TGT['client']
-            cachedUser = cachedClientPrincipal.components[0]['data'].decode('utf-8')
+            cachedUser = "/".join(component["data"].decode("utf-8") for component in cachedClientPrincipal.components)
             cachedDomain = cachedClientPrincipal.realm['data'].decode('utf-8')
 
             if (self.__user.lower() != cachedUser.lower()) or (self.__domain.lower() != cachedDomain.lower()):
