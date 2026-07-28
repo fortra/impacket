@@ -320,6 +320,7 @@ class Credential:
         tgt['KDC_REP'] = encoder.encode(tgt_rep)
         tgt['cipher'] = cipher
         tgt['sessionKey'] = crypto.Key(cipher.enctype, self['key']['keyvalue'])
+        tgt['client'] = self['client']
         return tgt
 
     def toTGS(self, newSPN=None):
