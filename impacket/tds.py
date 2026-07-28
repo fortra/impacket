@@ -1183,16 +1183,23 @@ class NamedPipeTransport:
             self._smb.setTimeout(timeout)
 
     def close(self):
+        smb = self._smb
         try:
-            if self._fid:
-                self._smb.closeFile(self._tid, self._fid)
-            if self._tid:
-                self._smb.disconnectTree(self._tid)
-            if self._smb:
-                self._smb.logoff()
-                self._smb.close()
-        except Exception as e:
-            LOG.debug(f"close error: {e}")
+            if self._fid is not None and smb is not None:
+                try:
+                    smb.closeFile(self._tid, self._fid)
+                except Exception as e:
+                    LOG.debug(f"named pipe close error: {e}")
+            if self._tid is not None and smb is not None:
+                try:
+                    smb.disconnectTree(self._tid)
+                except Exception as e:
+                    LOG.debug(f"IPC$ disconnect error: {e}")
+            if smb is not None:
+                try:
+                    smb.close()
+                except Exception as e:
+                    LOG.debug(f"SMB close error: {e}")
         finally:
             self._fid = None
             self._tid = None
@@ -1356,7 +1363,7 @@ class MSSQL:
             parser = TDS_DONEINPROC if inproc else TDS_DONE
         return parser(tokens)
 
-    # Opening the pipe requires SMB credentials, which connect() does not receive. login()/kerberosLogin() 
+    # Opening the pipe requires SMB credentials, which connect() does not receive. login()/kerberosLogin()
     # call this at the top instead, before doing the TDS-level PRELOGIN/LOGIN7 exchange. self.socket ends
     # up holding a NamedPipeTransport instance, which sendTDS/recvTDS use exactly like a real socket via socketSendall()/socketRecv().
     def _create_named_pipe_transport(
@@ -1378,13 +1385,29 @@ class MSSQL:
             timeout = self._connection_timeout
 
         transport = NamedPipeTransport(self.remoteName, self.remoteHost, self.pipe_name)
-        transport.connect(timeout)
+        try:
+            transport.connect(timeout)
+            if kerberos:
+                transport.authenticate_kerberos(
+                    username,
+                    password,
+                    domain,
+                    lmhash,
+                    nthash,
+                    aesKey,
+                    kdcHost,
+                    TGT,
+                    TGS,
+                    useCache,
+                )
+            else:
+                transport.authenticate_ntlm(
+                    username, password, domain, lmhash, nthash
+                )
+        except Exception:
+            transport.close()
+            raise
 
-        if kerberos:
-            transport.authenticate_kerberos(username, password, domain, lmhash, nthash, aesKey, kdcHost, TGT, TGS, useCache)
-        else:
-            transport.authenticate_ntlm(username, password, domain, lmhash, nthash)
-        
         self.socket = transport
         self._reset_tls_state()
         return transport

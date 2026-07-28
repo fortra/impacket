@@ -207,6 +207,27 @@ class TDSTests(unittest.TestCase):
 
         transport_class.return_value.connect.assert_called_once_with(7)
 
+    def test_named_pipe_transport_is_closed_when_authentication_fails(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+
+        with mock.patch.object(tds, "NamedPipeTransport") as transport_class:
+            transport = transport_class.return_value
+            transport.authenticate_ntlm.side_effect = RuntimeError(
+                "authentication failed"
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "authentication failed"):
+                client._create_named_pipe_transport(
+                    "user", "password", "DOMAIN"
+                )
+
+        transport.close.assert_called_once_with()
+        self.assertEqual(client.socket, 0)
+
     def test_named_pipe_disconnect_write_error_is_generic(self):
         transport = tds.NamedPipeTransport("sql.example.com", "10.0.0.5", "pipe")
         transport._smb = mock.Mock()
