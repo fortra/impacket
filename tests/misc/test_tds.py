@@ -194,6 +194,19 @@ class TDSTests(unittest.TestCase):
 
         transport._smb.setTimeout.assert_called_once_with(7)
 
+    def test_named_pipe_transport_uses_timeout_from_connect(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+        client.connect(timeout=7)
+
+        with mock.patch.object(tds, "NamedPipeTransport") as transport_class:
+            client._create_named_pipe_transport("user", "password", "DOMAIN")
+
+        transport_class.return_value.connect.assert_called_once_with(7)
+
     def test_named_pipe_disconnect_write_error_is_generic(self):
         transport = tds.NamedPipeTransport("sql.example.com", "10.0.0.5", "pipe")
         transport._smb = mock.Mock()

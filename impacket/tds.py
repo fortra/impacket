@@ -1233,6 +1233,7 @@ class MSSQL:
         self.out_bio = None
         self._recv_buffer = b""
         self.login_tds_version = TDS_LOGIN7_VERSION_71
+        self._connection_timeout = 30
         self.__rowsPrinter = rowsPrinter
         self.mssql_version = ""
 
@@ -1371,8 +1372,11 @@ class MSSQL:
         TGT=None,
         TGS=None,
         useCache=True,
-        timeout=30,
+        timeout=None,
     ):
+        if timeout is None:
+            timeout = self._connection_timeout
+
         transport = NamedPipeTransport(self.remoteName, self.remoteHost, self.pipe_name)
         transport.connect(timeout)
 
@@ -1387,6 +1391,7 @@ class MSSQL:
 
     def connect(self, timeout=30):
         self._reset_tls_state()
+        self._connection_timeout = timeout
 
         if self.pipe_name:
             # The SMB session backing the pipe needs credentials, which are only available once login()/kerberosLogin()
