@@ -782,15 +782,22 @@ class GETST:
         tgt = None
 
         # Do we have a TGT cached?
-        domain, username, TGT, _ = CCache.parseFile(self.__domain)
+        domain, _, TGT, _ = CCache.parseFile(self.__domain)
 
         if TGT is not None:
-            if self.__user.lower() != username.lower():
+            cachedClientPrincipal = TGT['client']
+            cachedUser = cachedClientPrincipal.components[0]['data'].decode('utf-8')
+            cachedDomain = cachedClientPrincipal.realm['data'].decode('utf-8')
+
+            if (self.__user.lower() != cachedUser.lower()) or (self.__domain.lower() != cachedDomain.lower()):
                 logging.warning(
                     "Cached TGT belongs to '%s@%s', "
-                    "but the requested principal is for '%s@%s'. "
+                    "but the requested principal is '%s@%s'. "
                     "Ignoring cached TGT and requesting a new one.",
-                    username, domain, self.__user, self.__domain
+                    cachedUser,
+                    cachedDomain,
+                    self.__user,
+                    self.__domain,
                 )
             else:
                 tgt, cipher, sessionKey = TGT['KDC_REP'], TGT['cipher'], TGT['sessionKey']
