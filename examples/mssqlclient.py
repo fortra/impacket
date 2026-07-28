@@ -53,7 +53,9 @@ if __name__ == '__main__':
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-auth-smb', action="store", metavar='[domain/]username[:password]',
-                       help='SMB credentials for named pipe transport when different from SQL credentials')
+                       help='SMB NTLM credentials for named pipe transport when different from SQL credentials. '
+                            'With -windows-auth or -k over a named pipe, this Windows identity becomes the '
+                            'effective SQL login')
     group.add_argument('-hashes-smb', action="store", metavar="LMHASH:NTHASH",
                        help='SMB NTLM hashes for named pipe transport, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
@@ -96,6 +98,12 @@ if __name__ == '__main__':
     if options.aesKey is not None:
         options.k = True
 
+    if options.named_pipe and options.auth_smb is not None and (options.windows_auth or options.k):
+        logging.warning(
+            "SQL Server uses the SMB-authenticated Windows identity for Windows authentication over named pipes. "
+            "The identity supplied in the target may not become the effective SQL login."
+        )
+
     smb_domain = None
     smb_username = None
     smb_password = None
@@ -121,8 +129,19 @@ if __name__ == '__main__':
     ms_sql.connect()
     try:
         if options.k is True:
-            res = ms_sql.kerberosLogin(options.db, username, password, domain, options.hashes, options.aesKey,
-                                       kdcHost=options.dc_ip)
+            res = ms_sql.kerberosLogin(
+                options.db,
+                username,
+                password,
+                domain,
+                options.hashes,
+                options.aesKey,
+                kdcHost=options.dc_ip,
+                smbUsername=smb_username,
+                smbPassword=smb_password,
+                smbDomain=smb_domain,
+                smbHashes=options.hashes_smb,
+            )
         else:
             res = ms_sql.login(
                 options.db, username, password, domain, options.hashes, options.windows_auth,

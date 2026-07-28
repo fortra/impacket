@@ -238,6 +238,75 @@ class TDSTests(unittest.TestCase):
             kerberos=False,
         )
 
+    def test_named_pipe_kerberos_does_not_reuse_mssql_tgs_for_smb(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+        sql_tgt = object()
+        sql_tgs = object()
+        client._create_named_pipe_transport = mock.Mock()
+        client._negotiate_encryption = mock.Mock(
+            side_effect=RuntimeError("stop after SMB setup")
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "stop after SMB setup"):
+            client.kerberosLogin(
+                None,
+                "sql_user",
+                "sql_pass",
+                "DOMAIN",
+                TGT=sql_tgt,
+                TGS=sql_tgs,
+                useCache=False,
+            )
+
+        client._create_named_pipe_transport.assert_called_once_with(
+            "sql_user",
+            "sql_pass",
+            "DOMAIN",
+            "",
+            "",
+            kerberos=True,
+            aesKey="",
+            kdcHost=None,
+            TGT=sql_tgt,
+            TGS=None,
+            useCache=False,
+        )
+
+    def test_named_pipe_kerberos_can_use_separate_smb_credentials(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+        client._create_named_pipe_transport = mock.Mock()
+        client._negotiate_encryption = mock.Mock(
+            side_effect=RuntimeError("stop after SMB setup")
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "stop after SMB setup"):
+            client.kerberosLogin(
+                None,
+                "sql_user",
+                "sql_pass",
+                "DOMAIN",
+                smbUsername="smb_user",
+                smbPassword="smb_pass",
+                smbDomain="SMBDOM",
+            )
+
+        client._create_named_pipe_transport.assert_called_once_with(
+            "smb_user",
+            "smb_pass",
+            "SMBDOM",
+            "",
+            "",
+            kerberos=False,
+        )
+
     @staticmethod
     def _text_pointer_row_data(payload):
         pointer = b"PTR!"

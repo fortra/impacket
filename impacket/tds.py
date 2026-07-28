@@ -1727,7 +1727,22 @@ class MSSQL:
         TGS=None,
         useCache=True,
         cbt_fake_value=None,
+        smbUsername=None,
+        smbPassword=None,
+        smbDomain=None,
+        smbHashes=None,
     ):
+        """Authenticate to SQL Server with Kerberos Windows authentication.
+
+        When using a named-pipe transport, SMB authentication opens the outer
+        transport before the TDS login. TGT and TGS are used only for the SQL
+        MSSQLSvc authentication; SMB obtains its own cifs/<host> service ticket.
+
+        The optional smbUsername, smbPassword, smbDomain, and smbHashes values
+        provide separate NTLM credentials for the SMB transport. SQL Server
+        Windows authentication over named pipes uses the SMB-authenticated
+        Windows identity as the effective SQL login.
+        """
         if hashes is not None:
             lmhash, nthash = hashes.split(":")
             lmhash = binascii.a2b_hex(lmhash)
@@ -1737,12 +1752,42 @@ class MSSQL:
             nthash = ""
 
         if self.pipe_name:
-            # Authenticates through the SMB named pipe directly.
-            self._create_named_pipe_transport(
-                username, password, domain, lmhash, nthash,
-                kerberos=True, aesKey=aesKey, kdcHost=kdcHost,
-                TGT=TGT, TGS=TGS, useCache=useCache,
+            separate_smb_credentials = any(
+                value is not None
+                for value in (smbUsername, smbPassword, smbDomain, smbHashes)
             )
+            if separate_smb_credentials:
+                if smbHashes is not None:
+                    smbLMHash, smbNTHash = smbHashes.split(":")
+                    smbLMHash = binascii.a2b_hex(smbLMHash)
+                    smbNTHash = binascii.a2b_hex(smbNTHash)
+                else:
+                    smbLMHash = ""
+                    smbNTHash = ""
+                self._create_named_pipe_transport(
+                    username if smbUsername is None else smbUsername,
+                    password if smbPassword is None else smbPassword,
+                    domain if smbDomain is None else smbDomain,
+                    smbLMHash,
+                    smbNTHash,
+                    kerberos=False,
+                )
+            else:
+                # A TGS supplied to this method is for MSSQLSvc. The SMB layer
+                # must acquire its own cifs/<host> ticket, using the TGT or cache.
+                self._create_named_pipe_transport(
+                    username,
+                    password,
+                    domain,
+                    lmhash,
+                    nthash,
+                    kerberos=True,
+                    aesKey=aesKey,
+                    kdcHost=kdcHost,
+                    TGT=TGT,
+                    TGS=None,
+                    useCache=useCache,
+                )
 
         resp = self._negotiate_encryption()
 
@@ -2008,6 +2053,15 @@ class MSSQL:
         smbDomain=None,
         smbHashes=None,
     ):
+        """Authenticate to SQL Server with SQL or NTLM Windows authentication.
+
+        When using a named-pipe transport, the optional smbUsername,
+        smbPassword, smbDomain, and smbHashes values authenticate the outer SMB
+        connection. With useWindowsAuth=True, SQL Server uses that
+        SMB-authenticated Windows identity as the effective SQL login. With
+        SQL-native authentication, the SMB and SQL identities remain
+        independent.
+        """
 
         if hashes is not None:
             lmhash, nthash = hashes.split(":")
