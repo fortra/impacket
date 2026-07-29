@@ -503,8 +503,13 @@ class RPCClientShell(cmd.Cmd):
         print('Deleted group: %s' % ident)
 
     def do_addgroupmem(self, line):
-        """addgroupmem <group rid|name> <user rid|name> - Add a user to a domain global group"""
-        parts = line.split()
+        """addgroupmem <group rid|name> <user rid|name> - Add a user to a domain global group.
+        Quote multi-word group names: addgroupmem "Domain Admins" jdoe"""
+        try:
+            parts = shlex.split(line)
+        except ValueError as e:
+            print('error: %s' % e)
+            return
         if len(parts) != 2:
             print('usage: addgroupmem <group rid|name> <user rid|name>')
             return
@@ -523,8 +528,13 @@ class RPCClientShell(cmd.Cmd):
             samr.hSamrCloseHandle(dce, resp['GroupHandle'])
 
     def do_delgroupmem(self, line):
-        """delgroupmem <group rid|name> <user rid|name> - Remove a user from a domain global group"""
-        parts = line.split()
+        """delgroupmem <group rid|name> <user rid|name> - Remove a user from a domain global group.
+        Quote multi-word group names: delgroupmem "Domain Admins" jdoe"""
+        try:
+            parts = shlex.split(line)
+        except ValueError as e:
+            print('error: %s' % e)
+            return
         if len(parts) != 2:
             print('usage: delgroupmem <group rid|name> <user rid|name>')
             return
