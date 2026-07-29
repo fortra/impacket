@@ -221,6 +221,7 @@ def start_servers(options, threads):
         
         c.setAltName(options.altname)
         c.setAltSid(options.altSid)
+        c.setHTTPS(options.https, options.certfile, options.keyfile)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
@@ -387,6 +388,12 @@ if __name__ == '__main__':
     httpoptions.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
     httpoptions.add_argument('-remove-target', action='store_true', default=False,
                             help='Try to remove the target in the challenge message (in case CVE-2019-1019 patch is not installed)')
+    httpoptions.add_argument('--https', action='store_true',
+                            help='Enable TLS (HTTPS) on the HTTP relay server')
+    httpoptions.add_argument('--certfile', action='store', metavar='FILE',
+                            help='Path to server certificate (PEM format) for HTTPS')
+    httpoptions.add_argument('--keyfile', action='store', metavar='FILE',
+                            help='Path to private key (PEM format) for HTTPS, if not included in the certificate file')
 
     #LDAP options
     ldapoptions = parser.add_argument_group("LDAP client options")
@@ -456,6 +463,9 @@ if __name__ == '__main__':
     except Exception as e:
        logging.error(str(e))
        sys.exit(1)
+
+    if options.https and options.certfile is None:
+        parser.error('--https requires --certfile')
 
     if options.rpc_use_smb and not options.auth_smb:
        logging.error("Set -auth-smb to relay DCE/RPC to SMB pipes")
