@@ -393,7 +393,7 @@ if __name__ == '__main__':
     httpoptions.add_argument('--certfile', action='store', metavar='FILE',
                             help='Path to server certificate (PEM format) for HTTPS')
     httpoptions.add_argument('--keyfile', action='store', metavar='FILE',
-                            help='Path to private key (PEM format) for HTTPS')
+                            help='Path to private key (PEM format) for HTTPS, if not included in the certificate file')
 
     #LDAP options
     ldapoptions = parser.add_argument_group("LDAP client options")
@@ -464,8 +464,8 @@ if __name__ == '__main__':
        logging.error(str(e))
        sys.exit(1)
 
-    if options.https and (not options.certfile or not options.keyfile):
-        parser.error('--https requires --certfile and --keyfile')
+    if options.https and options.certfile is None:
+        parser.error('--https requires --certfile')
 
     if options.rpc_use_smb and not options.auth_smb:
        logging.error("Set -auth-smb to relay DCE/RPC to SMB pipes")
