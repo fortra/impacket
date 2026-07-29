@@ -27,7 +27,7 @@ import ssl
 import struct
 import string
 from threading import Thread
-from six import PY2, b
+from six import b
 
 from impacket import ntlm, LOG
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
@@ -162,16 +162,10 @@ class HTTPRelayServer(Thread):
         def strip_blob(self, proxy):
             # Get the body of the request if any
             # Otherwise, successive requests will not be handled properly
-            if PY2:
-                if proxy:
-                    proxyAuthHeader = self.headers.getheader('Proxy-Authorization')
-                else:
-                    autorizationHeader = self.headers.getheader('Authorization')
+            if proxy:
+                proxyAuthHeader = self.headers.get('Proxy-Authorization')
             else:
-                if proxy:
-                    proxyAuthHeader = self.headers.get('Proxy-Authorization')
-                else:
-                    autorizationHeader = self.headers.get('Authorization')
+                autorizationHeader = self.headers.get('Authorization')
 
             if (proxy and proxyAuthHeader is None) or (not proxy and autorizationHeader is None):
                 self.do_AUTHHEAD(message = b'NTLM',proxy=proxy)
@@ -498,8 +492,7 @@ class HTTPRelayServer(Thread):
                 else:
                     # Relay worked, do whatever we want here...
                     self.client.setClientId()
-                    LOG.info("HTTPD(%s): Authenticating connection from %s@%s against %s://%s SUCCEED" % (
-                        self.server.server_address[1], self.authUser, self.client_address[0], self.target.scheme, self.target.netloc))
+                    LOG.info("(HTTP): Authenticating connection from %s@%s against %s://%s SUCCEED [%s]" % (self.authUser, self.client_address[0], self.target.scheme, self.target.netloc, self.client.client_id))
 
                     ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
                                                         authenticateMessage['user_name'],
