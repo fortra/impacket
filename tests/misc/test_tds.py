@@ -14,6 +14,7 @@ import struct
 import socket
 import unittest
 from unittest import mock
+from impacket.smbconnection import SessionError
 
 from impacket import tds
 from impacket.examples.ntlmrelayx.servers.socksplugins.mssql import MSSQLSocksRelay
@@ -167,6 +168,178 @@ class TDSTests(unittest.TestCase):
         self.assertEqual(first_response["Data"], b"first")
         self.assertEqual(second_response["Type"], tds.TDS_TABULAR)
         self.assertEqual(second_response["Data"], b"second")
+
+    def test_mssql_constructor_preserves_legacy_positional_remote_name(self):
+        client = tds.MSSQL("server", 1444, "sql.example.com")
+
+        self.assertEqual(client.port, 1444)
+        self.assertEqual(client.remoteName, "sql.example.com")
+        self.assertIsNone(client.pipe_name)
+
+    def test_named_pipe_constructor_defaults_remote_host_to_address(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+
+        self.assertEqual(client.remoteName, "sql.example.com")
+        self.assertEqual(client.remoteHost, "10.0.0.5")
+
+    def test_named_pipe_transport_settimeout_forwards_to_smb(self):
+        transport = tds.NamedPipeTransport("sql.example.com", "10.0.0.5", "pipe")
+        transport._smb = mock.Mock()
+
+        transport.settimeout(7)
+
+        transport._smb.setTimeout.assert_called_once_with(7)
+
+    def test_named_pipe_transport_uses_timeout_from_connect(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+        client.connect(timeout=7)
+
+        with mock.patch.object(tds, "NamedPipeTransport") as transport_class:
+            client._create_named_pipe_transport("user", "password", "DOMAIN")
+
+        transport_class.return_value.connect.assert_called_once_with(7)
+
+    def test_named_pipe_transport_is_closed_when_authentication_fails(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+
+        with mock.patch.object(tds, "NamedPipeTransport") as transport_class:
+            transport = transport_class.return_value
+            transport.authenticate_ntlm.side_effect = RuntimeError(
+                "authentication failed"
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "authentication failed"):
+                client._create_named_pipe_transport(
+                    "user", "password", "DOMAIN"
+                )
+
+        transport.close.assert_called_once_with()
+        self.assertEqual(client.socket, 0)
+
+    def test_named_pipe_disconnect_write_error_is_generic(self):
+        transport = tds.NamedPipeTransport("sql.example.com", "10.0.0.5", "pipe")
+        transport._smb = mock.Mock()
+        transport._smb.writeFile.side_effect = SessionError(tds.STATUS_PIPE_DISCONNECTED)
+
+        with self.assertRaisesRegex(ConnectionError, "while writing") as cm:
+            transport.sendall(b"data")
+
+        self.assertNotIn("ENCRYPT_STRICT", str(cm.exception))
+
+    def test_named_pipe_login_can_use_separate_smb_credentials(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+        response = {"Encryption": tds.TDS_ENCRYPT_REQ}
+        client._create_named_pipe_transport = mock.Mock()
+        client._negotiate_encryption = mock.Mock(return_value=response)
+        client.sendTDS = mock.Mock()
+        client.recvTDS = mock.Mock(return_value={"Data": b""})
+        client.parseReply = mock.Mock(return_value={tds.TDS_LOGINACK_TOKEN: []})
+
+        result = client.login(
+            None,
+            "sql_user",
+            "sql_pass",
+            "",
+            useWindowsAuth=False,
+            smbUsername="smb_user",
+            smbPassword="smb_pass",
+            smbDomain="SMBDOM",
+        )
+
+        self.assertTrue(result)
+        client._create_named_pipe_transport.assert_called_once_with(
+            "smb_user",
+            "smb_pass",
+            "SMBDOM",
+            "",
+            "",
+            kerberos=False,
+        )
+
+    def test_named_pipe_kerberos_does_not_reuse_mssql_tgs_for_smb(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+        sql_tgt = object()
+        sql_tgs = object()
+        client._create_named_pipe_transport = mock.Mock()
+        client._negotiate_encryption = mock.Mock(
+            side_effect=RuntimeError("stop after SMB setup")
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "stop after SMB setup"):
+            client.kerberosLogin(
+                None,
+                "sql_user",
+                "sql_pass",
+                "DOMAIN",
+                TGT=sql_tgt,
+                TGS=sql_tgs,
+                useCache=False,
+            )
+
+        client._create_named_pipe_transport.assert_called_once_with(
+            "sql_user",
+            "sql_pass",
+            "DOMAIN",
+            "",
+            "",
+            kerberos=True,
+            aesKey="",
+            kdcHost=None,
+            TGT=sql_tgt,
+            TGS=None,
+            useCache=False,
+        )
+
+    def test_named_pipe_kerberos_can_use_separate_smb_credentials(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+        client._create_named_pipe_transport = mock.Mock()
+        client._negotiate_encryption = mock.Mock(
+            side_effect=RuntimeError("stop after SMB setup")
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "stop after SMB setup"):
+            client.kerberosLogin(
+                None,
+                "sql_user",
+                "sql_pass",
+                "DOMAIN",
+                smbUsername="smb_user",
+                smbPassword="smb_pass",
+                smbDomain="SMBDOM",
+            )
+
+        client._create_named_pipe_transport.assert_called_once_with(
+            "smb_user",
+            "smb_pass",
+            "SMBDOM",
+            "",
+            "",
+            kerberos=False,
+        )
 
     @staticmethod
     def _text_pointer_row_data(payload):
