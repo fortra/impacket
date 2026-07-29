@@ -93,7 +93,7 @@ from impacket.krb5.asn1 import Ticket as TicketAsn1, EncTicketPart, AP_REQ, seq_
     seq_set_iter, TGS_REP, EncTGSRepPart, KERB_KEY_LIST_REP
 from impacket.krb5.constants import ProtocolVersionNumber, TicketFlags, PrincipalNameType, encodeFlags, EncryptionTypes
 from impacket.krb5.crypto import string_to_key, Key, _enctype_table
-from impacket.krb5.kerberosv5 import sendReceive
+from impacket.krb5.kerberosv5 import getKerberosTGSRequestEnctypes, sendReceive
 from impacket.krb5.types import KerberosTime, Principal, Ticket
 try:
     from Cryptodome.Cipher import DES, ARC4, AES
@@ -4093,15 +4093,11 @@ class KeyListSecrets:
 
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = rand.getrandbits(31)
-        seq_set_iter(reqBody, 'etype',
-                     (
-                         int(cipher.enctype),
-                         int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value),
-                         int(constants.EncryptionTypes.rc4_hmac.value),
-                         int(constants.EncryptionTypes.rc4_hmac_exp.value),
-                         int(constants.EncryptionTypes.rc4_hmac_old_exp.value)
-                     )
-                     )
+        requestEtypes = getKerberosTGSRequestEnctypes() + (
+            int(constants.EncryptionTypes.rc4_hmac_exp.value),
+            int(constants.EncryptionTypes.rc4_hmac_old_exp.value),
+        )
+        seq_set_iter(reqBody, 'etype', requestEtypes)
 
         message = encoder.encode(tgsReq)
         # Let's send our TGS Request, the response will include the FULL TGT with the keys!!!

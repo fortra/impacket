@@ -45,7 +45,7 @@ from impacket.krb5 import constants
 from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, seq_set, seq_set_iter, PA_FOR_USER_ENC, \
     EncTicketPart, AD_IF_RELEVANT, Ticket as TicketAsn1
 from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, Enctype
-from impacket.krb5.kerberosv5 import getKerberosTGT, sendReceive
+from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGSRequestEnctypes, sendReceive
 from impacket.krb5.pac import PACTYPE, PAC_INFO_BUFFER, KERB_VALIDATION_INFO, PAC_CLIENT_INFO_TYPE, PAC_CLIENT_INFO, \
     PAC_SERVER_CHECKSUM, PAC_SIGNATURE_DATA, PAC_PRIVSVR_CHECKSUM, PAC_UPN_DNS_INFO, UPN_DNS_INFO
 from impacket.krb5.types import Principal, KerberosTime, Ticket
@@ -242,8 +242,7 @@ class S4U2SELF:
 
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.getrandbits(31)
-        seq_set_iter(reqBody, 'etype',
-                      (int(cipher.enctype),int(constants.EncryptionTypes.rc4_hmac.value)))
+        seq_set_iter(reqBody, 'etype', getKerberosTGSRequestEnctypes())
 
         # If you comment these two lines plus enc_tkt_in_skey as option, it is bassically a S4USelf
         myTicket = ticket.to_asn1(TicketAsn1())

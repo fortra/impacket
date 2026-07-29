@@ -74,7 +74,7 @@ from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, 
 from impacket.krb5.ccache import CCache, Credential
 from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, _AES256CTS, Enctype, string_to_key, _get_checksum_profile, Cksumtype
 from impacket.krb5.constants import TicketFlags, encodeFlags, ApplicationTagNumbers
-from impacket.krb5.kerberosv5 import getKerberosTGS, getKerberosTGT, sendReceive
+from impacket.krb5.kerberosv5 import getKerberosTGS, getKerberosTGT, getKerberosTGSRequestEnctypes, sendReceive
 from impacket.krb5.types import Principal, KerberosTime, Ticket
 from impacket.ntlm import compute_nthash
 from impacket.winregistry import hexdump
@@ -348,14 +348,7 @@ class GETST:
 
             reqBody['till'] = KerberosTime.to_asn1(now)
             reqBody['nonce'] = random.getrandbits(31)
-            seq_set_iter(reqBody, 'etype',
-                         (
-                             int(constants.EncryptionTypes.rc4_hmac.value),
-                             int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
-                             int(constants.EncryptionTypes.des_cbc_md5.value),
-                             int(cipher.enctype)
-                         )
-                         )
+            seq_set_iter(reqBody, 'etype', getKerberosTGSRequestEnctypes())
             message = encoder.encode(tgsReq)
 
             logging.info('Requesting S4U2Proxy')
@@ -535,8 +528,7 @@ class GETST:
 
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.getrandbits(31)
-        seq_set_iter(reqBody, 'etype',
-                     (int(cipher.enctype), int(constants.EncryptionTypes.rc4_hmac.value)))
+        seq_set_iter(reqBody, 'etype', getKerberosTGSRequestEnctypes())
 
         if self.__options.u2u:
             seq_set_iter(reqBody, 'additional-tickets', (ticket.to_asn1(TicketAsn1()),))
@@ -764,14 +756,7 @@ class GETST:
 
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.getrandbits(31)
-        seq_set_iter(reqBody, 'etype',
-                     (
-                         int(constants.EncryptionTypes.rc4_hmac.value),
-                         int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
-                         int(constants.EncryptionTypes.des_cbc_md5.value),
-                         int(cipher.enctype)
-                     )
-                     )
+        seq_set_iter(reqBody, 'etype', getKerberosTGSRequestEnctypes())
         message = encoder.encode(tgsReq)
 
         logging.info('Requesting S4U2Proxy')

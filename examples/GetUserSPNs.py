@@ -47,7 +47,7 @@ from impacket.examples.utils import parse_identity, ldap_login
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import TGS_REP, AS_REP
 from impacket.krb5.ccache import CCache
-from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
+from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, RC4_PREFERRED_TGS_ENCTYPES
 from impacket.krb5.types import Principal
 from impacket.ldap import ldap, ldapasn1
 from impacket.ntlm import compute_lmhash, compute_nthash
@@ -374,7 +374,8 @@ class GetUserSPNs:
                         tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
                                                                                 self.__kdcIP,
                                                                                 TGT['KDC_REP'], TGT['cipher'],
-                                                                                TGT['sessionKey'])
+                                                                                TGT['sessionKey'],
+                                                                                etypes=RC4_PREFERRED_TGS_ENCTYPES)
                         self.outputTGS(tgs, oldSessionKey, sessionKey, sAMAccountName,
                                        self.__targetDomain + "/" + sAMAccountName, fd)
                     except Exception as e:
@@ -433,7 +434,8 @@ class GetUserSPNs:
                     tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
                                                                             self.__kdcIP,
                                                                             TGT['KDC_REP'], TGT['cipher'],
-                                                                            TGT['sessionKey'])
+                                                                            TGT['sessionKey'],
+                                                                            etypes=RC4_PREFERRED_TGS_ENCTYPES)
                     self.outputTGS(tgs, oldSessionKey, sessionKey, username, username, fd)
                 except Exception as e:
                     logging.debug("Exception:", exc_info=True)
