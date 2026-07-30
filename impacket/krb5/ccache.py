@@ -610,13 +610,15 @@ class CCache:
         f.close()
 
     @classmethod
-    def parseFile(cls, domain='', username='', target=''):
+    def parseFile(cls, domain='', username='', target='', anySPN=True):
         """
         parses the CCache file specified in the KRB5CCNAME environment variable
 
         :param domain: an optional domain name of a user
         :param username: an optional username of a user
         :param target: an optional SPN of a target system
+        :param anySPN: whether a ticket for another service on the same host can
+                       satisfy the target lookup
 
         :return: domain, username, TGT, TGS
         """
@@ -634,13 +636,13 @@ class CCache:
         creds = None
         if target != '':
             principal = '%s@%s' % (target.upper(), domain.upper())
-            creds = ccache.getCredential(principal)
+            creds = ccache.getCredential(principal, anySPN=anySPN)
 
         TGT = None
         TGS = None
         if creds is None:
             principal = 'krbtgt/%s@%s' % (domain.upper(), domain.upper())
-            creds = ccache.getCredential(principal)
+            creds = ccache.getCredential(principal, anySPN=anySPN)
             if creds is not None:
                 LOG.debug('Using TGT from cache')
                 TGT = creds.toTGT()
