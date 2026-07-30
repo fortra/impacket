@@ -1295,6 +1295,23 @@ class MSSQL:
 
         return resp
 
+    def _get_mssql_service_spn(self, domain=""):
+        if not self.pipe_name:
+            return "MSSQLSvc/%s:%d" % (self.remoteName, self.port)
+
+        hostname = self.remoteName
+        if "." not in hostname and domain:
+            hostname = "%s.%s" % (hostname, domain)
+
+        # The conventional pipe for a named instance contains
+        # MSSQL$<instance>. Without that component, no instance name is
+        # available, so use the host-only SPN.
+        for component in self.pipe_name.replace("/", "\\").split("\\"):
+            if component.upper().startswith("MSSQL$") and len(component) > 6:
+                return "MSSQLSvc/%s:%s" % (hostname, component[6:])
+
+        return "MSSQLSvc/%s" % hostname
+
     # This is where we compute the pre login TDS packet
     def preLogin(self):
         # First we initiate the structure
@@ -1880,14 +1897,15 @@ class MSSQL:
         )
 
         if useCache:
+            mssqlSpn = self._get_mssql_service_spn(domain)
             domain, username, TGT, TGS = CCache.parseFile(
                 domain,
                 username,
-                "MSSQLSvc/%s:%d" % (self.remoteName, self.port),
+                mssqlSpn,
                 anySPN=not bool(self.pipe_name),
             )
 
-            if TGS is None:
+            if TGS is None and not self.pipe_name:
                 # search for the port's instance name instead (instance name based SPN)
                 LOG.debug(
                     "Searching target's instances to look for port number %s"
@@ -1964,9 +1982,16 @@ class MSSQL:
                 #         FQDN is the fully qualified domain name of the server.
                 #         port is the TCP port number.
                 #         instancename is the name of the SQL Server instance.
+                if self.pipe_name:
+                    serviceSpn = self._get_mssql_service_spn(domain)
+                else:
+                    serviceSpn = "MSSQLSvc/%s.%s:%d" % (
+                        self.remoteName.split(".")[0],
+                        domain,
+                        self.port,
+                    )
                 serverName = Principal(
-                    "MSSQLSvc/%s.%s:%d"
-                    % (self.remoteName.split(".")[0], domain, self.port),
+                    serviceSpn,
                     type=constants.PrincipalNameType.NT_SRV_INST.value,
                 )
                 try:
