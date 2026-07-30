@@ -312,6 +312,49 @@ class NTLMTests(unittest.TestCase):
         self.assertNotIn(ntlm.NTLMSSP_AV_DNS_DOMAINNAME,av_pairs)
         self.assertEqual(list(av_pairs), [ntlm.NTLMSSP_AV_DOMAINNAME])
 
+    def test_high_level_functions_decode_bytes_arguments(self):
+        class TrackedBytes(bytes):
+            def __new__(cls, value):
+                instance = super(TrackedBytes, cls).__new__(cls, value)
+                instance.decode_called = False
+                return instance
+
+            def decode(self, encoding):
+                self.decode_called = True
+                return super(TrackedBytes, self).decode(encoding)
+
+        workstation = TrackedBytes(b'workstation')
+        type1_domain = TrackedBytes(b'domain')
+        type1 = ntlm.getNTLMSSPType1(workstation, type1_domain)
+        self.assertEqual(type1.getWorkstation(), 'workstation')
+        self.assertTrue(workstation.decode_called)
+        self.assertTrue(type1_domain.decode_called)
+
+        user = TrackedBytes(b'user')
+        password = TrackedBytes(b'password')
+        type3_domain = TrackedBytes(b'domain')
+
+        class NormalizationComplete(Exception):
+            pass
+
+        def stop_after_normalization(_):
+            raise NormalizationComplete()
+
+        original_challenge = ntlm.NTLMAuthChallenge
+        ntlm.NTLMAuthChallenge = stop_after_normalization
+        try:
+            with self.assertRaises(NormalizationComplete):
+                ntlm.getNTLMSSPType3(type1, None, user, password, type3_domain)
+        finally:
+            ntlm.NTLMAuthChallenge = original_challenge
+
+        self.assertTrue(user.decode_called)
+        self.assertTrue(password.decode_called)
+        self.assertTrue(type3_domain.decode_called)
+
+    def test_compute_nthash_accepts_text_and_bytes(self):
+        self.assertEqual(ntlm.compute_nthash('Password'), ntlm.compute_nthash(b'Password'))
+
     def __pack_and_parse(self, message, expected):
         data = message.getData()
         hexdump(data)

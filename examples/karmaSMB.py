@@ -381,12 +381,10 @@ class KarmaSMBServer(Thread):
             targetFile = '/'
         
         # 2. We change the filename in the request for our targetFile
-        try:
-            ntCreateRequest['Buffer'] = targetFile.encode('utf-16le')
-        except UnicodeDecodeError:
-            import sys
-            ntCreateRequest['Buffer'] = targetFile.decode(sys.getfilesystemencoding()).encode('utf-16le')
-        ntCreateRequest['NameLength'] = len(targetFile)*2
+        if isinstance(targetFile, bytes):
+            targetFile = targetFile.decode(sys.getfilesystemencoding())
+        ntCreateRequest['Buffer'] = targetFile.encode('utf-16le')
+        ntCreateRequest['NameLength'] = len(ntCreateRequest['Buffer'])
         recvPacket['Data'] = ntCreateRequest.getData()
 
         # 3. We call the original call with our modified data

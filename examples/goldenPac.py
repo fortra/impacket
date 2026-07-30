@@ -571,11 +571,11 @@ class MS14_068:
         # 2) PAC_CLIENT_INFO
         pacClientInfo = PAC_CLIENT_INFO()
         pacClientInfo['ClientId'] = unixTime
-        try:
-            name = self.__username.encode('utf-16le')
-        except UnicodeDecodeError:
+        username = self.__username
+        if isinstance(username, bytes):
             import sys
-            name = self.__username.decode(sys.getfilesystemencoding()).encode('utf-16le')
+            username = username.decode(sys.getfilesystemencoding())
+        name = username.encode('utf-16le')
         pacClientInfo['NameLength'] = len(name)
         pacClientInfo['Name'] = name
         pacClientInfoBlob = pacClientInfo.getData()
