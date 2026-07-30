@@ -745,6 +745,7 @@ class SMB3:
         if TGT is None:
             if TGS is None:
                 tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
+                TGT = {'KDC_REP': tgt, 'cipher': cipher, 'sessionKey': sessionKey}
         else:
             tgt = TGT['KDC_REP']
             cipher = TGT['cipher']
@@ -769,6 +770,7 @@ class SMB3:
         if TGS is None:
             serverName = Principal('cifs/%s' % (self._Connection['ServerName']), type=constants.PrincipalNameType.NT_SRV_INST.value)
             tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
+            TGS = {'KDC_REP': tgs, 'cipher': cipher, 'sessionKey': sessionKey}
         else:
             tgs = TGS['KDC_REP']
             cipher = TGS['cipher']
@@ -934,6 +936,11 @@ class SMB3:
                                                                              b"ServerOut\x00", 128)
 
             self._Session['CalculatePreAuthHash'] = False
+
+            # Persist the TGT/ST so callers can reuse them through getCredentials()
+            self.__TGT = TGT
+            self.__TGS = TGS
+
             return True
         else:
             # We clean the stuff we used in case we want to authenticate again
@@ -1789,7 +1796,6 @@ class SMB3:
             path, ctx = self.timestampForSnapshot(path)
             createContexts.append(ctx)
 
-        # ToDo: Handle situations where share is password protected
         path = path.replace('/', '\\')
         path = ntpath.normpath(path)
         if len(path) > 0 and path[0] == '\\':
@@ -1834,7 +1840,6 @@ class SMB3:
         return files
 
     def mkdir(self, shareName, pathName, password = None):
-        # ToDo: Handle situations where share is password protected
         pathName = pathName.replace('/', '\\')
         pathName = ntpath.normpath(pathName)
         if len(pathName) > 0 and pathName[0] == '\\':
@@ -1854,7 +1859,6 @@ class SMB3:
         return True
 
     def rmdir(self, shareName, pathName, password = None):
-        # ToDo: Handle situations where share is password protected
         pathName = pathName.replace('/', '\\')
         pathName = ntpath.normpath(pathName)
         if len(pathName) > 0 and pathName[0] == '\\':
@@ -1880,7 +1884,6 @@ class SMB3:
         return True
 
     def remove(self, shareName, pathName, password = None):
-        # ToDo: Handle situations where share is password protected
         pathName = pathName.replace('/', '\\')
         pathName = ntpath.normpath(pathName)
         if len(pathName) > 0 and pathName[0] == '\\':
@@ -1906,7 +1909,6 @@ class SMB3:
             path, ctx = self.timestampForSnapshot(path)
             createContexts.append(ctx)
 
-        # ToDo: Handle situations where share is password protected
         path = path.replace('/', '\\')
         path = ntpath.normpath(path)
         if len(path) > 0 and path[0] == '\\':
@@ -1939,7 +1941,6 @@ class SMB3:
             self.disconnectTree(treeId)
 
     def storeFile(self, shareName, path, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ):
-        # ToDo: Handle situations where share is password protected
         path = path.replace('/', '\\')
         path = ntpath.normpath(path)
         if len(path) > 0 and path[0] == '\\':

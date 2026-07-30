@@ -25,9 +25,6 @@
 #   [ ]: Complete the process of joining a client computer to a domain via the SAMR protocol
 #
 
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
 
 from impacket import version
 from impacket.examples import logger
@@ -35,16 +32,15 @@ from impacket.examples.utils import parse_identity
 from impacket.dcerpc.v5 import samr, epm, transport
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
-from impacket.examples.utils import init_ldap_session, ldap3_kerberos_login
-
-import ldap3
 import argparse
 import logging
 import sys
 import string
 import random
-import ssl
-from binascii import unhexlify
+
+from impacket.ldap import ldap 
+from impacket.ldap import ldapasn1
+from impacket.examples.utils import ldap_login
 
 
 class ADDCOMPUTER:
@@ -148,32 +144,34 @@ class ADDCOMPUTER:
 
     def run_ldaps(self):
         try:
-            ldapServer, ldapConn = init_ldap_session(self.__domain, self.__username, self.__password, self.__lmhash, self.__nthash, self.__doKerberos, self.__targetIp, self.__target, self.__aesKey, True)
+            ldapConn = ldap_login(self.__target, self.__baseDN, self.__targetIp, self.__target, self.__doKerberos, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, ldaps_flag=True)
 
             if self.__noAdd or self.__delete:
                 if not self.LDAPComputerExists(ldapConn, self.__computerName):
                     raise Exception("Account %s not found in %s!" % (self.__computerName, self.__baseDN))
 
-                computer = self.LDAPGetComputer(ldapConn, self.__computerName)
+                computerDn = self.LDAPGetComputerDN(ldapConn, self.__computerName)
 
                 if self.__delete:
-                    res = ldapConn.delete(computer.entry_dn)
                     message = "delete"
                 else:
-                    res = ldapConn.modify(computer.entry_dn, {'unicodePwd': [(ldap3.MODIFY_REPLACE, ['"{}"'.format(self.__computerPassword).encode('utf-16-le')])]})
                     message = "set password for"
 
-
-                if not res:
-                    if ldapConn.result['result'] == ldap3.core.results.RESULT_INSUFFICIENT_ACCESS_RIGHTS:
+                try:
+                    if self.__delete:
+                        ldapConn.delete(computerDn)
+                    else:
+                        ldapConn.modify(computerDn, {'unicodePwd': [(ldap.MODIFY_REPLACE, ['"{}"'.format(self.__computerPassword).encode('utf-16-le')])]})
+                except ldap.LDAPSessionError as e:
+                    if e.getErrorCode() == 50:  # insufficientAccessRights
                         raise Exception("User %s doesn't have right to %s %s!" % (self.__username, message, self.__computerName))
                     else:
-                        raise Exception(str(ldapConn.result))
+                        raise Exception(str(e))
+
+                if self.__noAdd:
+                    logging.info("Succesfully set password of %s to %s." % (self.__computerName, self.__computerPassword))
                 else:
-                    if self.__noAdd:
-                        logging.info("Succesfully set password of %s to %s." % (self.__computerName, self.__computerPassword))
-                    else:
-                        logging.info("Succesfully deleted %s." % self.__computerName)
+                    logging.info("Succesfully deleted %s." % self.__computerName)
 
             else:
                 if self.__computerName is not None:
@@ -204,18 +202,19 @@ class ADDCOMPUTER:
                     'unicodePwd': ('"%s"' % self.__computerPassword).encode('utf-16-le')
                 }
 
-                res = ldapConn.add(computerDn, ['top','person','organizationalPerson','user','computer'], ucd)
-                if not res:
-                    if ldapConn.result['result'] == ldap3.core.results.RESULT_UNWILLING_TO_PERFORM:
-                        error_code = int(ldapConn.result['message'].split(':')[0].strip(), 16)
+                try:
+                    ldapConn.add(computerDn, ['top','person','organizationalPerson','user','computer'], ucd)
+                except ldap.LDAPSessionError as e:
+                    if e.getErrorCode() == 53:  # unwillingToPerform
+                        error_code = int(e.getErrorString().split(':')[1].strip(), 16)
                         if error_code == 0x216D:
                             raise Exception("User %s machine quota exceeded!" % self.__username)
                         else:
-                            raise Exception(str(ldapConn.result))
-                    elif ldapConn.result['result'] == ldap3.core.results.RESULT_INSUFFICIENT_ACCESS_RIGHTS:
+                            raise Exception(str(e))
+                    elif e.getErrorCode() == 50:  # insufficientAccessRights
                         raise Exception("User %s doesn't have right to create a machine account!" % self.__username)
                     else:
-                        raise Exception(str(ldapConn.result))
+                        raise Exception(str(e))
                 else:
                     logging.info("Successfully added machine account %s with password %s." % (self.__computerName, self.__computerPassword))
         except Exception as e:
@@ -227,12 +226,16 @@ class ADDCOMPUTER:
 
 
     def LDAPComputerExists(self, connection, computerName):
-        connection.search(self.__baseDN, '(sAMAccountName=%s)' % computerName)
-        return len(connection.entries) ==1
+        results = connection.search(searchBase=self.__baseDN, searchFilter='(sAMAccountName=%s)' % computerName)
+        entries = [item for item in results if isinstance(item, ldapasn1.SearchResultEntry)]
+        return len(entries) == 1
 
-    def LDAPGetComputer(self, connection, computerName):
-        connection.search(self.__baseDN, '(sAMAccountName=%s)' % computerName)
-        return connection.entries[0]
+    def LDAPGetComputerDN(self, connection, computerName):
+        results = connection.search(searchBase=self.__baseDN, searchFilter='(sAMAccountName=%s)' % computerName)
+        for item in results:
+            if isinstance(item, ldapasn1.SearchResultEntry):
+                return str(item['objectName'])
+        return None
 
     def generateComputerName(self):
         return 'DESKTOP-' + (''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8)) + '$')

@@ -52,6 +52,7 @@ __all__ = [
     'LDAPConnection', 'LDAPFilterSyntaxError', 'LDAPFilterInvalidException', 'LDAPSessionError', 'LDAPSearchError',
     'Control', 'SimplePagedResultsControl', 'ResultCode', 'Scope', 'DerefAliases', 'Operation',
     'CONTROL_PAGEDRESULTS', 'KNOWN_CONTROLS', 'NOTIFICATION_DISCONNECT', 'KNOWN_NOTIFICATIONS',
+    'escape_filter_chars', 'get_entry_dn', 'get_entry_values', 'get_entry_value',
 ]
 
 # https://tools.ietf.org/search/rfc4515#section-3
@@ -74,8 +75,37 @@ MODIFY_DELETE = 1
 MODIFY_REPLACE = 2
 MODIFY_INCREMENT = 3
 
+
+def escape_filter_chars(value):
+    """Escape special characters in an LDAP filter value per RFC 4515."""
+    escaped = value.replace('\\', '\\5c')
+    escaped = escaped.replace('*', '\\2a')
+    escaped = escaped.replace('(', '\\28')
+    escaped = escaped.replace(')', '\\29')
+    escaped = escaped.replace('\x00', '\\00')
+    return escaped
+
+
+def get_entry_dn(entry):
+    """Return the DN of a SearchResultEntry."""
+    return str(entry['objectName'])
+
+
+def get_entry_values(entry, attribute_name):
+    """Return the list of raw values for the named attribute in a SearchResultEntry."""
+    for attribute in entry['attributes']:
+        if str(attribute['type']).lower() == attribute_name.lower():
+            return list(attribute['vals'])
+    return []
+
+
+def get_entry_value(entry, attribute_name):
+    """Return the first value for the named attribute, or None."""
+    values = get_entry_values(entry, attribute_name)
+    return values[0] if values else None
+
 class LDAPConnection:
-    def __init__(self, url, baseDN='', dstIp=None, signing=True, certfile=None, keyfile=None):
+    def __init__(self, url, baseDN='', dstIp=None, signing=True, certfile=None, keyfile=None, timeout=None):
         """
         LDAPConnection class
 
@@ -84,6 +114,7 @@ class LDAPConnection:
         :param string dstIp:
         :param string certfile: PEM client certificate file used for Schannel authentication over LDAPS
         :param string keyfile: PEM private key file matching certfile
+        :param timeout: connection timeout in seconds (None = blocking)
 
         :return: a LDAP instance, if not raises a LDAPSessionError exception
         """
@@ -143,6 +174,7 @@ class LDAPConnection:
         except socket.error as e:
             raise socket.error('Connection error (%s:%d)' % (targetHost, self._dstPort), e)
 
+        self._socket.settimeout(timeout)
         if self._SSL is False:
             self._socket.connect(sa)
         else:
@@ -150,8 +182,10 @@ class LDAPConnection:
             ctx = self.build_tls_context()
             self._socket = SSL.Connection(ctx, self._socket)
             self._socket.connect(sa)
+            self._socket.settimeout(None)   # do_handshake() on a non-blocking (timeout-mode) socket raises WantReadError
             self._socket.do_handshake()
             self.compute_channel_binding()
+        self._socket.settimeout(None)
 
     def build_tls_context(self):
         ctx = SSL.Context(SSL.TLS_METHOD)

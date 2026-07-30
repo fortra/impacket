@@ -195,7 +195,7 @@ def start_servers(options, threads):
         c.setLootdir(options.lootdir)
         c.setOutputFile(options.output_file)
         c.setdumpHashes(options.dump_hashes)
-        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid, options.add_dns_record)
+        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid, options.add_dns_record, options.dump_info_attr)
         c.setRPCOptions(options.rpc_mode, options.rpc_use_smb, options.auth_smb, options.hashes_smb, options.rpc_smb_port, options.icpr_ca_name)
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
@@ -220,6 +220,8 @@ def start_servers(options, threads):
         c.setSCCMDPOptions(options.sccm_dp_extensions, options.sccm_dp_files)
         
         c.setAltName(options.altname)
+        c.setAltSid(options.altSid)
+        c.setHTTPS(options.https, options.certfile, options.keyfile)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
@@ -386,6 +388,12 @@ if __name__ == '__main__':
     httpoptions.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
     httpoptions.add_argument('-remove-target', action='store_true', default=False,
                             help='Try to remove the target in the challenge message (in case CVE-2019-1019 patch is not installed)')
+    httpoptions.add_argument('--https', action='store_true',
+                            help='Enable TLS (HTTPS) on the HTTP relay server')
+    httpoptions.add_argument('--certfile', action='store', metavar='FILE',
+                            help='Path to server certificate (PEM format) for HTTPS')
+    httpoptions.add_argument('--keyfile', action='store', metavar='FILE',
+                            help='Path to private key (PEM format) for HTTPS, if not included in the certificate file')
 
     #LDAP options
     ldapoptions = parser.add_argument_group("LDAP client options")
@@ -399,6 +407,7 @@ if __name__ == '__main__':
     ldapoptions.add_argument('--dump-laps', action='store_true', required=False, help='Attempt to dump any LAPS passwords readable by the user')
     ldapoptions.add_argument('--dump-gmsa', action='store_true', required=False, help='Attempt to dump any gMSA passwords readable by the user')
     ldapoptions.add_argument('--dump-adcs', action='store_true', required=False, help='Attempt to dump ADCS enrollment services and certificate templates info')
+    ldapoptions.add_argument('--dump-info-attr', action='store_true', required=False, help='Attempt to dump the info attribute of all user and group domain objects (may contain credentials)')
     ldapoptions.add_argument('--add-dns-record', nargs=2, action='store', metavar=('NAME', 'IPADDR'), required=False, help='Add the <NAME> record to DNS via LDAP pointing to <IPADDR>')
 
     #Common options for SMB and LDAP
@@ -421,6 +430,10 @@ if __name__ == '__main__':
     adcsoptions.add_argument('--adcs', action='store_true', required=False, help='Enable AD CS relay attack')
     adcsoptions.add_argument('--template', action='store', metavar="TEMPLATE", required=False, help='AD CS template. Defaults to Machine or User whether relayed account name ends with `$`. Relaying a DC should require specifying `DomainController`')
     adcsoptions.add_argument('--altname', action='store', metavar="ALTNAME", required=False, help='Subject Alternative Name to use when performing ESC1 or ESC6 attacks.')
+    adcsoptions.add_argument('--altsid', action='store', dest='altSid', metavar="SID", required=False,
+                             help='Object SID to embed in szOID_NTDS_CA_SECURITY_EXT (1.3.6.1.4.1.311.25.2). '
+                                  'Required when StrongCertificateBindingEnforcement >= 1 (default on updated DCs since Feb 2025). '
+                                  'Obtain with: lookupsid.py DOMAIN/user:pass@DC | grep " 500$"')
     adcsoptions.add_argument('--enum-templates', action='store_true', required=False, help='Enumerate enabled AD CS templates that the relayed account has access to')
 
     # Shadow Credentials attack options
@@ -450,6 +463,9 @@ if __name__ == '__main__':
     except Exception as e:
        logging.error(str(e))
        sys.exit(1)
+
+    if options.https and options.certfile is None:
+        parser.error('--https requires --certfile')
 
     if options.rpc_use_smb and not options.auth_smb:
        logging.error("Set -auth-smb to relay DCE/RPC to SMB pipes")

@@ -604,6 +604,13 @@ if __name__ == '__main__':
         if CODEC is None:
             CODEC = 'utf-8'
 
+    if options.k or options.aesKey is not None or options.keytab is not None:
+        logging.error("Kerberos authentication is not supported by dcomexec.py's current DCOM objects "
+                      "(ShellWindows, ShellBrowserWindow, MMC20). These objects are hosted in the user context "
+                      "and do not accept HOST/<target> Kerberos tickets. Use wmiexec.py -k for Kerberos command "
+                      "execution, or use dcomexec.py with NTLM password/hash authentication.")
+        sys.exit(1)
+
     if ' '.join(options.command) == ' ' and options.nooutput is True:
         logging.error("-nooutput switch and interactive shell not supported")
         sys.exit(1)

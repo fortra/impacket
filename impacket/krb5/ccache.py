@@ -215,8 +215,8 @@ class Credential:
         )
 
     def __init__(self, data=None, ccache_version=None):
-        self.addresses = ()
-        self.authData = ()
+        self.addresses = []
+        self.authData = []
         self.header = None
         self.ticket = None
         self.secondTicket = None
@@ -228,7 +228,6 @@ class Credential:
                 self.header = self.CredentialHeaderV4(data)
 
             data = data[len(self.header):]
-            self.addresses = []
             for address in range(self.header['num_address']):
                 ad = Address(data)
                 data = data[len(ad):]
@@ -321,6 +320,7 @@ class Credential:
         tgt['KDC_REP'] = encoder.encode(tgt_rep)
         tgt['cipher'] = cipher
         tgt['sessionKey'] = crypto.Key(cipher.enctype, self['key']['keyvalue'])
+        tgt['client'] = self['client']
         return tgt
 
     def toTGS(self, newSPN=None):
