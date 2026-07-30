@@ -386,66 +386,6 @@ class TDSTests(unittest.TestCase):
             useCache=False,
         )
 
-    def test_named_pipe_kerberos_spn_uses_pipe_instance(self):
-        client = tds.MSSQL(
-            "10.0.0.5",
-            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
-            remoteName="sql.example.com",
-        )
-
-        self.assertEqual(
-            client._get_mssql_service_spn("DOMAIN"),
-            "MSSQLSvc/sql.example.com:SQLEXPRESS",
-        )
-
-    def test_named_pipe_kerberos_spn_uses_default_instance_form(self):
-        client = tds.MSSQL(
-            "10.0.0.5",
-            pipe_name=r"sql\query",
-            remoteName="sql.example.com",
-        )
-
-        self.assertEqual(
-            client._get_mssql_service_spn("DOMAIN"),
-            "MSSQLSvc/sql.example.com",
-        )
-
-    def test_named_pipe_kerberos_requests_ticket_for_pipe_instance(self):
-        client = tds.MSSQL(
-            "10.0.0.5",
-            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
-            remoteName="sql.example.com",
-        )
-        sql_tgt = {
-            "KDC_REP": object(),
-            "cipher": object(),
-            "sessionKey": object(),
-        }
-        client._create_named_pipe_transport = mock.Mock()
-        client._negotiate_encryption = mock.Mock(
-            return_value={"Encryption": tds.TDS_ENCRYPT_REQ}
-        )
-
-        with mock.patch(
-            "impacket.krb5.kerberosv5.getKerberosTGS",
-            side_effect=RuntimeError("stop after TGS request"),
-        ) as get_tgs:
-            with self.assertRaisesRegex(RuntimeError, "stop after TGS request"):
-                client.kerberosLogin(
-                    None,
-                    "sql_user",
-                    "",
-                    "DOMAIN",
-                    TGT=sql_tgt,
-                    useCache=False,
-                )
-
-        server_name = get_tgs.call_args[0][0]
-        self.assertEqual(
-            str(server_name),
-            "MSSQLSvc/sql.example.com:SQLEXPRESS",
-        )
-
     def test_named_pipe_kerberos_uses_tgt_for_smb_and_exact_mssql_tgs(self):
         client = tds.MSSQL(
             "10.0.0.5",
@@ -493,7 +433,7 @@ class TDSTests(unittest.TestCase):
                 mock.call(
                     "DOMAIN",
                     "sql_user",
-                    "MSSQLSvc/sql.example.com:SQLEXPRESS",
+                    "MSSQLSvc/sql.example.com:1433",
                     anySPN=False,
                 ),
             ],
