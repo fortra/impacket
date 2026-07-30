@@ -428,7 +428,24 @@ class CCache:
                 # Let's search for any TGT/TGS that matches the server w/o the SPN's service type/port, returns
                 # the first one
                 # If server has no '/' we assume it's a ST from S4U2Self without a service type
-                if c['server'].prettyPrint().find(b'/') >=0:
+                if c['server'].prettyPrint().count(b'/') >= 2:
+                    # 3-part SPN: service/host/domain@REALM
+                    # Seen when a service ticket is dumped from LSASS memory (e.g. via
+                    # Rubeus' `dump` command) rather than requested fresh - Windows caches
+                    # such tickets with the domain suffix appended as an extra SPN
+                    # component, e.g. LDAP/dc.domain.local/domain.local@REALM
+                    cachedParts = c['server'].prettyPrint().upper().split(b'/')
+                    cachedHost = cachedParts[1].split(b'@')[0].split(b':')[0].split(b'.')[0]
+                    cachedRealm = cachedParts[-1].split(b'@')[-1]
+
+                    serverParts = server.upper().split('/')
+                    searchHost = serverParts[1].split('@')[0].split(':')[0].split('.')[0]
+                    searchRealm = serverParts[-1].split('@')[-1]
+
+                    if cachedHost == b(searchHost) and cachedRealm == b(searchRealm):
+                        LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper().decode('utf-8'))
+                        return c
+                elif c['server'].prettyPrint().find(b'/') >=0:
                     # Let's take the port out for comparison
                     cachedSPN = (c['server'].prettyPrint().upper().split(b'/')[1].split(b'@')[0].split(b':')[0] + b'@' + c['server'].prettyPrint().upper().split(b'/')[1].split(b'@')[1])
                     searchSPN = '%s@%s' % (server.upper().split('/')[1].split('@')[0].split(':')[0],
