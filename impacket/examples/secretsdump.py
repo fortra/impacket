@@ -3903,9 +3903,22 @@ class KeyListSecrets:
         keyAuth = Key(cipher.enctype, bytes(sessionKey))
         decryptedTGSRepPart = cipher.decrypt(keyAuth, 8, encTGSRepPart['cipher'])
         decodedTGSRepPart = decoder.decode(decryptedTGSRepPart, asn1Spec=EncTGSRepPart())[0]
-        encPaData1 = decodedTGSRepPart['encrypted_pa_data'][0]
-        decodedPaData1 = decoder.decode(encPaData1['padata-value'], asn1Spec=KERB_KEY_LIST_REP())[0]
-        key = decodedPaData1[0]['keyvalue'].prettyPrint()
+
+        # encrypted_pa_data may hold several PA-DATA in any order (e.g. also
+        # PA-SUPPORTED-ENCTYPES), so find KERB-KEY-LIST-REP (162) by type.
+        keyListPaData = None
+        for paData in decodedTGSRepPart['encrypted_pa_data']:
+            if int(paData['padata-type']) == constants.PreAuthenticationDataTypes.KERB_KEY_LIST_REP.value:
+                keyListPaData = paData
+                break
+
+        if keyListPaData is None:
+            returnedTypes = [int(paData['padata-type']) for paData in decodedTGSRepPart['encrypted_pa_data']]
+            raise Exception("KDC response does not contain KERB-KEY-LIST-REP (type 162); "
+                            "PA-DATA types returned: %s" % returnedTypes)
+
+        decodedKeyList = decoder.decode(keyListPaData['padata-value'], asn1Spec=KERB_KEY_LIST_REP())[0]
+        key = decodedKeyList[0]['keyvalue'].prettyPrint()
 
         return key
 
