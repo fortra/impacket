@@ -129,7 +129,7 @@ class TSCH_EXEC:
 
         registrationInfo = ''
         if self.__overflow is True:
-            logging.info('Using Author overflow (%d bytes) for Task Scheduler log tampering' % AUTHOR_OVERFLOW_LEN)
+            logging.info('Using Author overflow (%d characters) for Task Scheduler log tampering' % AUTHOR_OVERFLOW_LEN)
             registrationInfo = """  <RegistrationInfo>
     <Author>%s</Author>
   </RegistrationInfo>
