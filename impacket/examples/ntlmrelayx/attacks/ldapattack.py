@@ -696,7 +696,7 @@ class LDAPAttack(ProtocolAttack):
         pre2k_candidates = []
         existing_sams = set()
 
-        def addPre2kCandidates(predicate=None):
+        def addPre2kCandidates(detection_reason, confidence, predicate=None):
             for entry in self.client.response:
                 if entry['type'] != 'searchResEntry':
                     continue
@@ -710,7 +710,7 @@ class LDAPAttack(ProtocolAttack):
                     pwd_last_set = entry['attributes']['pwdLastSet']
                     when_created = entry['attributes']['whenCreated']
                     dn = entry['attributes']['distinguishedName']
-                    os_name = entry['attributes'].get('operatingSystem', 'N/A')
+                    os_name = entry['attributes'].get('operatingSystem') or 'N/A'
 
                     pre2k_candidates.append({
                         'sAMAccountName': sam,
@@ -720,13 +720,15 @@ class LDAPAttack(ProtocolAttack):
                         'whenCreated': str(when_created),
                         'operatingSystem': os_name,
                         'predictedPassword': sam.rstrip('$').lower(),
+                        'detectionReason': detection_reason,
+                        'confidence': confidence,
                     })
                     existing_sams.add(sam)
                 except (KeyError, IndexError):
                     continue
 
         if success:
-            addPre2kCandidates()
+            addPre2kCandidates('PASSWD_NOTREQD flag set', 'medium')
 
         # Also search for computer accounts where password was never changed (pwdLastSet == 0)
         search_filter2 = '(&(objectCategory=computer)(pwdLastSet=0)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))'
@@ -738,7 +740,7 @@ class LDAPAttack(ProtocolAttack):
         )
 
         if success2:
-            addPre2kCandidates()
+            addPre2kCandidates('pwdLastSet == 0', 'medium')
 
         # whenCreated has whole-second precision while pwdLastSet can include fractions of a
         # second, so compare the values client-side with a small tolerance.
@@ -751,7 +753,7 @@ class LDAPAttack(ProtocolAttack):
         )
 
         if success3:
-            addPre2kCandidates(_password_set_at_account_creation)
+            addPre2kCandidates('pwdLastSet within 1s of whenCreated', 'low', _password_set_at_account_creation)
 
         if not pre2k_candidates:
             LOG.info("No Pre-Windows 2000 vulnerable computer accounts found")
@@ -767,9 +769,11 @@ class LDAPAttack(ProtocolAttack):
 
         for candidate in pre2k_candidates:
             LOG.info(
-                "  %-30s Password: %-25s OS: %s" % (
+                "  %-30s Password: %-25s Confidence: %-6s Reason: %-40s OS: %s" % (
                     candidate['sAMAccountName'],
                     candidate['predictedPassword'],
+                    candidate['confidence'],
+                    candidate['detectionReason'],
                     candidate['operatingSystem'],
                 )
             )
