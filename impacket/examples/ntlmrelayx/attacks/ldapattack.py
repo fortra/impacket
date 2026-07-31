@@ -65,6 +65,23 @@ alreadyEscalated = False
 alreadyAddedComputer = False
 delegatePerformed = []
 
+PRE2K_TIMESTAMP_TOLERANCE = datetime.timedelta(seconds=1)
+
+
+def _password_set_at_account_creation(attributes):
+    """Return whether pwdLastSet and whenCreated represent the same second."""
+    pwd_last_set = attributes.get('pwdLastSet')
+    when_created = attributes.get('whenCreated')
+
+    if not isinstance(pwd_last_set, datetime.datetime) or not isinstance(when_created, datetime.datetime):
+        return False
+
+    try:
+        return abs(pwd_last_set - when_created) <= PRE2K_TIMESTAMP_TOLERANCE
+    except TypeError:
+        # Do not compare offset-aware and offset-naive timestamps.
+        return False
+
 #gMSA structure
 class MSDS_MANAGEDPASSWORD_BLOB(Structure):
     structure = (
@@ -679,11 +696,13 @@ class LDAPAttack(ProtocolAttack):
         pre2k_candidates = []
         existing_sams = set()
 
-        def addPre2kCandidates():
+        def addPre2kCandidates(predicate=None):
             for entry in self.client.response:
                 if entry['type'] != 'searchResEntry':
                     continue
                 try:
+                    if predicate is not None and not predicate(entry['attributes']):
+                        continue
                     sam = entry['attributes']['sAMAccountName']
                     if sam in existing_sams:
                         continue
@@ -720,6 +739,19 @@ class LDAPAttack(ProtocolAttack):
 
         if success2:
             addPre2kCandidates()
+
+        # whenCreated has whole-second precision while pwdLastSet can include fractions of a
+        # second, so compare the values client-side with a small tolerance.
+        search_filter3 = '(&(objectCategory=computer)(pwdLastSet=*)(whenCreated=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))'
+        success3 = self.client.search(
+            domainDumper.root,
+            search_filter3,
+            search_scope=ldap3.SUBTREE,
+            attributes=attributes
+        )
+
+        if success3:
+            addPre2kCandidates(_password_set_at_account_creation)
 
         if not pre2k_candidates:
             LOG.info("No Pre-Windows 2000 vulnerable computer accounts found")
