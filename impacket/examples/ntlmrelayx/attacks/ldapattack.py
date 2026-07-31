@@ -65,6 +65,23 @@ alreadyEscalated = False
 alreadyAddedComputer = False
 delegatePerformed = []
 
+PRE2K_TIMESTAMP_TOLERANCE = datetime.timedelta(seconds=1)
+
+
+def _password_set_at_account_creation(attributes):
+    """Return whether pwdLastSet and whenCreated represent the same second."""
+    pwd_last_set = attributes.get('pwdLastSet')
+    when_created = attributes.get('whenCreated')
+
+    if not isinstance(pwd_last_set, datetime.datetime) or not isinstance(when_created, datetime.datetime):
+        return False
+
+    try:
+        return abs(pwd_last_set - when_created) <= PRE2K_TIMESTAMP_TOLERANCE
+    except TypeError:
+        # Do not compare offset-aware and offset-naive timestamps.
+        return False
+
 #gMSA structure
 class MSDS_MANAGEDPASSWORD_BLOB(Structure):
     structure = (
@@ -647,6 +664,128 @@ class LDAPAttack(ProtocolAttack):
         # If none of these match, the ACE does not apply to this object
         return False
 
+    def dumpPre2k(self, domainDumper):
+        """
+        Enumerate computer accounts potentially vulnerable to pre-Windows 2000 authentication.
+        These accounts have a predictable password (lowercase machine name without trailing $).
+        Detection: PASSWD_NOTREQD flag (0x0020) in userAccountControl, or pwdLastSet equals whenCreated
+        (password was never changed since account creation).
+        """
+        LOG.info("Enumerating computer accounts potentially vulnerable to Pre-Windows 2000 authentication")
+
+        # UF_WORKSTATION_TRUST_ACCOUNT = 0x1000 (4096)
+        # UF_PASSWD_NOTREQD = 0x0020 (32)
+        # Search for computer accounts with PASSWD_NOTREQD flag set
+        search_filter = '(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=32))'
+        attributes = [
+            'sAMAccountName',
+            'userAccountControl',
+            'pwdLastSet',
+            'whenCreated',
+            'distinguishedName',
+            'operatingSystem',
+        ]
+
+        success = self.client.search(
+            domainDumper.root,
+            search_filter,
+            search_scope=ldap3.SUBTREE,
+            attributes=attributes
+        )
+
+        pre2k_candidates = []
+        existing_sams = set()
+
+        def addPre2kCandidates(detection_reason, confidence, predicate=None):
+            for entry in self.client.response:
+                if entry['type'] != 'searchResEntry':
+                    continue
+                try:
+                    if predicate is not None and not predicate(entry['attributes']):
+                        continue
+                    sam = entry['attributes']['sAMAccountName']
+                    if sam in existing_sams:
+                        continue
+                    uac = entry['attributes']['userAccountControl']
+                    pwd_last_set = entry['attributes']['pwdLastSet']
+                    when_created = entry['attributes']['whenCreated']
+                    dn = entry['attributes']['distinguishedName']
+                    os_name = entry['attributes'].get('operatingSystem') or 'N/A'
+
+                    pre2k_candidates.append({
+                        'sAMAccountName': sam,
+                        'distinguishedName': dn,
+                        'userAccountControl': uac,
+                        'pwdLastSet': str(pwd_last_set),
+                        'whenCreated': str(when_created),
+                        'operatingSystem': os_name,
+                        'predictedPassword': sam.rstrip('$').lower(),
+                        'detectionReason': detection_reason,
+                        'confidence': confidence,
+                    })
+                    existing_sams.add(sam)
+                except (KeyError, IndexError):
+                    continue
+
+        if success:
+            addPre2kCandidates('PASSWD_NOTREQD flag set', 'medium')
+
+        # Also search for computer accounts where password was never changed (pwdLastSet == 0)
+        search_filter2 = '(&(objectCategory=computer)(pwdLastSet=0)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))'
+        success2 = self.client.search(
+            domainDumper.root,
+            search_filter2,
+            search_scope=ldap3.SUBTREE,
+            attributes=attributes
+        )
+
+        if success2:
+            addPre2kCandidates('pwdLastSet == 0', 'medium')
+
+        # whenCreated has whole-second precision while pwdLastSet can include fractions of a
+        # second, so compare the values client-side with a small tolerance.
+        search_filter3 = '(&(objectCategory=computer)(pwdLastSet=*)(whenCreated=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))'
+        success3 = self.client.search(
+            domainDumper.root,
+            search_filter3,
+            search_scope=ldap3.SUBTREE,
+            attributes=attributes
+        )
+
+        if success3:
+            addPre2kCandidates('pwdLastSet within 1s of whenCreated', 'low', _password_set_at_account_creation)
+
+        if not pre2k_candidates:
+            LOG.info("No Pre-Windows 2000 vulnerable computer accounts found")
+            return
+
+        LOG.info("Found %d potentially vulnerable Pre-Windows 2000 computer account(s):" % len(pre2k_candidates))
+
+        fd = None
+        filename = os.path.join(
+            self.config.lootdir,
+            "pre2k-dump-%s-%d.json" % (self.username, random.randint(0, 99999))
+        )
+
+        for candidate in pre2k_candidates:
+            LOG.info(
+                "  %-30s Password: %-25s Confidence: %-6s Reason: %-40s OS: %s" % (
+                    candidate['sAMAccountName'],
+                    candidate['predictedPassword'],
+                    candidate['confidence'],
+                    candidate['detectionReason'],
+                    candidate['operatingSystem'],
+                )
+            )
+
+        try:
+            fd = open(filename, "w")
+            json.dump(pre2k_candidates, fd, indent=2)
+            fd.close()
+            LOG.info("Pre-Windows 2000 results saved to %s" % filename)
+        except Exception as e:
+            LOG.error("Failed to save Pre-Windows 2000 results: %s" % str(e))
+
     def dumpADCS(self):
 
         def is_template_for_authentification(entry):
@@ -1146,6 +1285,10 @@ class LDAPAttack(ProtocolAttack):
             dumpedAdcs = True
             self.dumpADCS()
             LOG.info("Done dumping ADCS info")
+
+        # Dump Pre-Windows 2000 vulnerable computer accounts
+        if self.config.dumppre2k:
+            self.dumpPre2k(domainDumper)
 
         if self.config.adddnsrecord:
             name = self.config.adddnsrecord[0]
