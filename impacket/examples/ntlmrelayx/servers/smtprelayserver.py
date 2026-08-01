@@ -15,7 +15,7 @@ import re
 import base64
 import hashlib
 import time
-from typing import List
+from typing import List, Optional
 
 
 class SMTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
@@ -383,7 +383,7 @@ class SMTPHandler(socketserver.BaseRequestHandler):
             LOG.error('[SMTP] Error parsing NTLM: %s' % str(e))
             return False
     
-    def do_ntlm_negotiate(self, token: bytes) -> bytes | None:
+    def do_ntlm_negotiate(self, token: bytes) -> Optional[bytes]:
         self.client = self.server.config.protocolClients[self.target.scheme.upper()](self.server.config, self.target)
         # If connection failed -> return False
         if not self.client.initConnection():
@@ -400,7 +400,7 @@ class SMTPHandler(socketserver.BaseRequestHandler):
             return None
         return self.challengeMessage
     
-    def do_ntlm_auth(self, token: bytes) -> bytes | None:
+    def do_ntlm_auth(self, token: bytes) -> Optional[bytes]:
         self.authenticateMessage = ntlm.NTLMAuthChallengeResponse()
         self.authenticateMessage.fromString(token)
         self.authUser = self.authenticateMessage.getUserString()

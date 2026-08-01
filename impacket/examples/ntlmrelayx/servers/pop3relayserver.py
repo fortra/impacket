@@ -15,6 +15,7 @@ import re
 import os
 import traceback
 import base64
+from typing import Optional
 
 
 class POP3Server(socketserver.ThreadingMixIn, socketserver.TCPServer):
@@ -329,7 +330,7 @@ class POP3Handler(socketserver.BaseRequestHandler):
             traceback.print_exc()
             return False
     
-    def do_ntlm_negotiate(self, token: bytes) -> bytes | None:
+    def do_ntlm_negotiate(self, token: bytes) -> Optional[bytes]:
         self.client = self.server.config.protocolClients[self.target.scheme.upper()](self.server.config, self.target)
         # If connection failed -> return False
         if not self.client.initConnection():
@@ -346,7 +347,7 @@ class POP3Handler(socketserver.BaseRequestHandler):
             return None
         return self.challengeMessage
     
-    def do_ntlm_auth(self, token: bytes) -> bytes | None:
+    def do_ntlm_auth(self, token: bytes) -> Optional[bytes]:
         self.authenticateMessage = ntlm.NTLMAuthChallengeResponse()
         self.authenticateMessage.fromString(token)
         self.authUser = self.authenticateMessage.getUserString()

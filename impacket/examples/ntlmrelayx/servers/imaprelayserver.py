@@ -13,7 +13,7 @@ from OpenSSL import SSL, crypto
 import socket
 import re
 import base64
-from typing import List
+from typing import Optional
 
 
 class IMAPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
@@ -344,7 +344,7 @@ class IMAPHandler(socketserver.BaseRequestHandler):
             LOG.error(f"Error when handle NTLM Auth: {e}")
             return False
             
-    def do_ntlm_negotiate(self, token: bytes) -> bytes | None:
+    def do_ntlm_negotiate(self, token: bytes) -> Optional[bytes]:
         self.client = self.server.config.protocolClients[self.target.scheme.upper()](self.server.config, self.target)
         # If connection failed -> return False
         if not self.client.initConnection():
@@ -361,7 +361,7 @@ class IMAPHandler(socketserver.BaseRequestHandler):
             return None
         return self.challengeMessage
     
-    def do_ntlm_auth(self, token: bytes) -> bytes | None:
+    def do_ntlm_auth(self, token: bytes) -> Optional[bytes]:
         self.authenticateMessage = ntlm.NTLMAuthChallengeResponse()
         self.authenticateMessage.fromString(token)
         self.authUser = self.authenticateMessage.getUserString()
