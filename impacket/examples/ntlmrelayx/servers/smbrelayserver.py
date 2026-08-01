@@ -737,6 +737,7 @@ class SMBRelayServer(Thread):
             sessionSetupData['AnsiPwdLength'] = sessionSetupParameters['AnsiPwdLength']
             sessionSetupData['UnicodePwdLength'] = sessionSetupParameters['UnicodePwdLength']
             sessionSetupData.fromString(SMBCommand['Data'])
+            connData['Capabilities'] = sessionSetupParameters['Capabilities']
 
             client = connData['SMBClient']
             _, errorCode = client.sendStandardSecurityAuth(sessionSetupData)
@@ -826,7 +827,7 @@ class SMBRelayServer(Thread):
                 else:
                     # No more targets to process, just let the victim to fail later
                     LOG.info('(SMB): Connection from %s@%s controlled, but there are no more targets left!' % (self.authUser, connData['ClientIP']))
-                    return self.origsmbComTreeConnectAndX (connId, smbServer, recvPacket)
+                    return self.origsmbComTreeConnectAndX (connId, smbServer, SMBCommand, recvPacket)
 
             LOG.info('(SMB): Connection from %s@%s controlled, attacking target %s://%s' % (self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc))
 
