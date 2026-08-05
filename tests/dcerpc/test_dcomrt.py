@@ -26,6 +26,7 @@ from __future__ import print_function
 
 import pytest
 import unittest
+from unittest.mock import Mock, patch
 from tests import RemoteTestCase
 from tests.dcerpc import DCERPCTests
 
@@ -36,6 +37,17 @@ from impacket.dcerpc.v5.dcom import scmp, vds, oaut, comev
 
 
 class InterfaceTests(unittest.TestCase):
+    def setUp(self):
+        self._portmaps = dcomrt.DCOMConnection.PORTMAPS.copy()
+        self._connections = dcomrt.INTERFACE.CONNECTIONS.copy()
+        dcomrt.DCOMConnection.PORTMAPS.clear()
+        dcomrt.INTERFACE.CONNECTIONS.clear()
+
+    def tearDown(self):
+        dcomrt.DCOMConnection.PORTMAPS.clear()
+        dcomrt.DCOMConnection.PORTMAPS.update(self._portmaps)
+        dcomrt.INTERFACE.CONNECTIONS.clear()
+        dcomrt.INTERFACE.CONNECTIONS.update(self._connections)
 
     def test_is_target_loopback(self):
         interface = dcomrt.INTERFACE.__new__(dcomrt.INTERFACE)
@@ -47,6 +59,49 @@ class InterfaceTests(unittest.TestCase):
         for target in ('192.0.2.1', '2001:db8::1', 'server.example.test'):
             interface._INTERFACE__target = target
             self.assertFalse(interface.is_target_loopback())
+
+    def test_interface_keeps_connection_info_after_portmap_is_removed(self):
+        target = 'issue-2212-target'
+        credentials = ('user', 'password', 'domain', '', '', '', None, None)
+        rpcTransport = Mock()
+        rpcTransport.get_kerberos.return_value = False
+        rpcTransport.get_kdcHost.return_value = None
+        portmap = Mock()
+        portmap.get_rpc_transport.return_value = rpcTransport
+        portmap.get_credentials.return_value = credentials
+        dce = Mock()
+        dcomInterface = Mock()
+        dcomInterface.get_dce_rpc.return_value = dce
+
+        orpc = dcomrt.ORPCTHIS()
+        orpc['extensions'] = dcomrt.NULL
+        orpc['flags'] = 1
+        classInstance = dcomrt.CLASS_INSTANCE(
+            orpc,
+            [{'wTowerId': 7, 'aNetworkAddr': target + '[49667]\x00'}],
+            portmap,
+        )
+        interface = dcomrt.INTERFACE(
+            classInstance,
+            None,
+            ipidRemUnknown=b'\x00' * 16,
+            iPid=b'\x11' * 16,
+            oxid=0x2222,
+            oid=0x3333,
+            target=target,
+        )
+
+        dcomrt.DCOMConnection.PORTMAPS[target] = portmap
+        del dcomrt.DCOMConnection.PORTMAPS[target]
+
+        with patch.object(dcomrt.transport, 'DCERPCTransportFactory', return_value=dcomInterface):
+            interface.connect(dcomrt.IID_IRemUnknown)
+
+        dcomInterface.set_credentials.assert_called_once_with(*credentials)
+        dcomInterface.set_kerberos.assert_called_once_with(False, None)
+        dcomInterface.set_connect_timeout.assert_called_once_with(300)
+        dce.connect.assert_called_once_with()
+        dce.bind.assert_called_once_with(dcomrt.IID_IRemUnknown)
 
 
 class DCOMTests(DCERPCTests):
