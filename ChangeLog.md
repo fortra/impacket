@@ -5,6 +5,13 @@ Project owner's main page is at www.coresecurity.com.
 Complete list of changes can be found at:
 https://github.com/fortra/impacket/commits/master
 
+## Unreleased:
+
+1. Examples improvements
+
+    * [atexec.py](examples/atexec.py):
+        * Added mutually exclusive `-author-log` and `-overflow` options to poison or overflow the Task Scheduler Security Event 4698 Author field via task XML RegistrationInfo.
+
 ## Impacket v0.13.1 (May 2026):
 
 1. Library improvements
@@ -52,8 +59,6 @@ https://github.com/fortra/impacket/commits/master
         * Added Basic Authentication support. ([#2077](https://github.com/fortra/impacket/issues/2077))
     * [reg.py](examples/reg.py):
         * Added support for persistent registry key creation. ([#2113](https://github.com/fortra/impacket/issues/2113))
-    * [atexec.py](examples/atexec.py):
-        * Added mutually exclusive `-author-log` and `-overflow` options to poison or overflow the Task Scheduler Security Event 4698 Author field via task XML RegistrationInfo.
 
 3. New examples
 
