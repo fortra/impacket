@@ -435,14 +435,21 @@ class CCache:
                     # such tickets with the domain suffix appended as an extra SPN
                     # component, e.g. LDAP/dc.domain.local/domain.local@REALM
                     cachedParts = c['server'].prettyPrint().upper().split(b'/')
-                    cachedHost = cachedParts[1].split(b'@')[0].split(b':')[0].split(b'.')[0]
+                    cachedHost = cachedParts[1].split(b'@')[0].split(b':', 1)[0]
                     cachedRealm = cachedParts[-1].split(b'@')[-1]
 
                     serverParts = server.upper().split('/')
-                    searchHost = serverParts[1].split('@')[0].split(':')[0].split('.')[0]
-                    searchRealm = serverParts[-1].split('@')[-1]
+                    searchHost = b(serverParts[1].split('@')[0].split(':', 1)[0])
+                    searchRealm = b(serverParts[-1].split('@')[-1])
 
-                    if cachedHost == b(searchHost) and cachedRealm == b(searchRealm):
+                    hostsMatch = cachedHost == searchHost
+
+                    # Allow short-name/FQDN matching only when at least one
+                    # side is actually an unqualified hostname.
+                    if not hostsMatch and (b'.' not in cachedHost or b'.' not in searchHost):
+                        hostsMatch = cachedHost.split(b'.', 1)[0] == searchHost.split(b'.', 1)[0]
+
+                    if hostsMatch and cachedRealm == searchRealm:
                         LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper().decode('utf-8'))
                         return c
                 elif c['server'].prettyPrint().find(b'/') >=0:
