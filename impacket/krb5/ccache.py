@@ -589,6 +589,12 @@ class CCache:
         credential.secondTicket['length'] = 0
         self.credentials.append(credential)
 
+    @staticmethod
+    def normalizeFileName(fileName):
+        if fileName and fileName.upper().startswith('FILE:'):
+            fileName = fileName[5:]
+        return fileName
+
     @classmethod
     def loadFile(cls, fileName):
         if fileName is None:
@@ -596,6 +602,7 @@ class CCache:
             LOG.debug('The specified path is not correct or the KRB5CCNAME environment variable is not defined')
             return None
 
+        fileName = cls.normalizeFileName(fileName)
         try:
             f = open(fileName, 'rb')
             data = f.read()
