@@ -72,7 +72,7 @@ from impacket.krb5 import constants, types, crypto, ccache
 from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, seq_set, seq_set_iter, PA_FOR_USER_ENC, \
     Ticket as TicketAsn1, EncTGSRepPart, PA_PAC_OPTIONS, EncTicketPart, S4UUserID, PA_S4U_X509_USER, KERB_DMSA_KEY_PACKAGE
 from impacket.krb5.ccache import CCache, Credential
-from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, _AES256CTS, Enctype, string_to_key, _get_checksum_profile, Cksumtype
+from impacket.krb5.crypto import Key, _enctype_table, _AES256CTS, Enctype, string_to_key, _get_checksum_profile, Cksumtype
 from impacket.krb5.constants import TicketFlags, encodeFlags, ApplicationTagNumbers
 from impacket.krb5.kerberosv5 import getKerberosTGS, getKerberosTGT, sendReceive
 from impacket.krb5.types import Principal, KerberosTime, Ticket
@@ -473,11 +473,24 @@ class GETST:
             padatatype = int(constants.PreAuthenticationDataTypes.PA_S4U_X509_USER.value)
             paencoded = encoder.encode(pa_s4u_x509_user)
         else:
-            # Finally cksum is computed by calling the KERB_CHECKSUM_HMAC_MD5 hash
-            # with the following three parameters: the session key of the TGT of
-            # the service performing the S4U2Self request, the message type value
-            # of 17, and the byte array S4UByteArray.
-            checkSum = _HMACMD5.checksum(sessionKey, 17, S4UByteArray)
+            # The PA-FOR-USER checksum is computed over S4UByteArray with the
+            # session key of the TGT and key usage 17. The cksumtype should
+            # match the session key's enctype family: KDCs (observed on
+            # Windows Server 2025) otherwise reject the TGS-REQ with
+            # KRB_AP_ERR_MODIFIED.
+            if sessionKey.enctype == Enctype.AES256:
+                cksumtype = Cksumtype.SHA1_AES256
+            elif sessionKey.enctype == Enctype.AES128:
+                cksumtype = Cksumtype.SHA1_AES128
+            elif sessionKey.enctype == Enctype.RC4:
+                cksumtype = Cksumtype.HMAC_MD5
+            else:
+                raise Exception(
+                    "Unsupported session key enctype %d for PA-FOR-USER checksum"
+                    % sessionKey.enctype
+                )
+            checksum_profile = _get_checksum_profile(cksumtype)
+            checkSum = checksum_profile.checksum(sessionKey, 17, S4UByteArray)
 
             if logging.getLogger().level == logging.DEBUG:
                 logging.debug('CheckSum')
@@ -487,7 +500,7 @@ class GETST:
             seq_set(paForUserEnc, 'userName', clientName.components_to_asn1)
             paForUserEnc['userRealm'] = self.__domain
             paForUserEnc['cksum'] = noValue
-            paForUserEnc['cksum']['cksumtype'] = int(constants.ChecksumTypes.hmac_md5.value)
+            paForUserEnc['cksum']['cksumtype'] = int(cksumtype)
             paForUserEnc['cksum']['checksum'] = checkSum
             paForUserEnc['auth-package'] = 'Kerberos'
 
