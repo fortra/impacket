@@ -1272,16 +1272,19 @@ class SMB3:
         self.GlobalFileTable[pathName] = fileEntry
 
         if self._Connection['Dialect'] >= SMB2_DIALECT_30 and self._Connection['SupportsDirectoryLeasing'] is True:
-           # Is this file NOT on the root directory?
+           # Is this file NOT on the root directory? The parent-directory lease
+           # entry only applies to non-root paths; guard the whole block so
+           # 'parentDir' is never referenced unbound for root-level files
+           # (otherwise UnboundLocalError vs servers advertising dir leasing).
            if len(fileName.split('\\')) > 2:
                parentDir = ntpath.dirname(pathName)
-           if parentDir in self.GlobalFileTable:
-               raise Exception("Don't know what to do now! :-o")
-           else:
-               parentEntry = copy.deepcopy(FILE)
-               parentEntry['LeaseKey']   = uuid.generate()
-               parentEntry['LeaseState'] = SMB2_LEASE_NONE
-               self.GlobalFileTable[parentDir] = parentEntry
+               if parentDir in self.GlobalFileTable:
+                   raise Exception("Don't know what to do now! :-o")
+               else:
+                   parentEntry = copy.deepcopy(FILE)
+                   parentEntry['LeaseKey']   = uuid.generate()
+                   parentEntry['LeaseState'] = SMB2_LEASE_NONE
+                   self.GlobalFileTable[parentDir] = parentEntry
 
         packet = self.SMB_PACKET()
         packet['Command'] = SMB2_CREATE
