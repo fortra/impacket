@@ -25,11 +25,10 @@
 from __future__ import division
 from __future__ import print_function
 from struct import unpack
-from datetime import datetime
 from six import PY2
 import binascii
 
-from impacket import hresult_errors, mapi_constants, uuid
+from impacket import hresult_errors, mapi_constants, uuid, wintime
 from impacket.uuid import EMPTY_UUID
 from impacket.structure import Structure
 from impacket.dcerpc.v5.dtypes import NULL, STR, DWORD, LPDWORD, UUID, PUUID, LONG, ULONG, \
@@ -1022,10 +1021,6 @@ class EXCH_SID(LDAP_SID):
 class ExchBinaryObject(bytes):
     pass
 
-def getUnixTime(t):
-    t -= 116444736000000000
-    t //= 10000000
-    return t
 
 def simplifyPropertyRow(rowSetElem):
     row = {}
@@ -1084,8 +1079,7 @@ def simplifyPropertyRow(rowSetElem):
                 array.append(value['Data'][:-1])
             row[PropTag] = array
         elif isinstance(prop_value, FILETIME):
-            row[PropTag] = datetime.fromtimestamp( \
-                getUnixTime(unpack('<Q', prop_value.getData())[0]))
+            row[PropTag] = wintime.filetime_to_datetime(unpack('<Q', prop_value.getData())[0])
         else:
             row[PropTag] = prop_value
 

@@ -34,6 +34,7 @@ from impacket import version
 from impacket.nt_errors import STATUS_MORE_ENTRIES
 from impacket.dcerpc.v5 import transport, samr
 from impacket.dcerpc.v5.rpcrt import DCERPCException
+from impacket import wintime
 
 class ListUsersException(Exception):
     pass
@@ -55,12 +56,6 @@ class SAMRDump:
 
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
-
-    @staticmethod
-    def getUnixTime(t):
-        t -= 116444736000000000
-        t /= 10000000
-        return t
 
     def dump(self, remoteName, remoteHost):
         """Dumps the list of users and shares registered present at
@@ -99,7 +94,7 @@ class SAMRDump:
             if pwdLastSet == 0:
                 pwdLastSet = '<never>'
             else:
-                pwdLastSet = str(datetime.fromtimestamp(self.getUnixTime(pwdLastSet)))
+                pwdLastSet = str(wintime.filetime_to_datetime(pwdLastSet))
 
             if user['UserAccountControl'] & samr.USER_DONT_EXPIRE_PASSWORD:
                 dontExpire = 'True'

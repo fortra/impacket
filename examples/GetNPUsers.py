@@ -47,6 +47,7 @@ from impacket.krb5.asn1 import AS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, AS_REP, s
 from impacket.krb5.kerberosv5 import sendReceive, KerberosError
 from impacket.krb5.types import KerberosTime, Principal
 from impacket.ldap import ldap, ldapasn1
+from impacket import wintime
 
 
 class GetUserNoPreAuth:
@@ -94,12 +95,6 @@ class GetUserNoPreAuth:
             self.baseDN += 'dc=%s,' % i
         # Remove last ','
         self.baseDN = self.baseDN[:-1]
-
-    @staticmethod
-    def getUnixTime(t):
-        t -= 116444736000000000
-        t /= 10000000
-        return t
 
     def getTGT(self, userName, requestPAC=True):
 
@@ -284,12 +279,12 @@ class GetUserNoPreAuth:
                         if str(attribute['vals'][0]) == '0':
                             pwdLastSet = '<never>'
                         else:
-                            pwdLastSet = str(datetime.datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
+                            pwdLastSet = str(wintime.filetime_to_datetime(int(str(attribute['vals'][0]))))
                     elif str(attribute['type']) == 'lastLogon':
                         if str(attribute['vals'][0]) == '0':
                             lastLogon = '<never>'
                         else:
-                            lastLogon = str(datetime.datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
+                            lastLogon = str(wintime.filetime_to_datetime(int(str(attribute['vals'][0]))))
                 if mustCommit is True:
                     answers.append([sAMAccountName,memberOf, pwdLastSet, lastLogon, userAccountControl])
             except Exception as e:

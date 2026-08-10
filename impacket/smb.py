@@ -628,33 +628,7 @@ class UnsupportedFeature(Exception):
     pass
 
 # Add basic filetime conversion helper methods.
-def POSIXtoFT(t):
-    """
-    Helper method that converts POSIX timestamps to FILETIME timestamps.
-    
-    :param int t: POSIX timestamp - can be retrieved from datetime library.
-    
-    :return int: FILETIME timestamp representing the given POSIX timestamp.
-    """
-    
-    t *= 10000000
-    t += 116444736000000000
-    
-    return int(t)
-
-def FTtoPOSIX(t):
-    """
-    Helper method that converts FILETIME timestamps to POSIX timestamps.
-    
-    :param int t: FILETIME timestamp.
-    
-    :return int: POSIX timestamp representing the given FILETIME timestamp.
-    """
-    
-    t -= 116444736000000000
-    t //= 10000000
-    
-    return int(t)
+from impacket.wintime import filetime_to_posix, posix_to_filetime
 
 # Define SMB Standard DateTime Data according to (2.2.1.4 Time)
 class SMBDateStruct(BigEndianStructure):

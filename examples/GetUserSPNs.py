@@ -51,6 +51,7 @@ from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
 from impacket.krb5.types import Principal
 from impacket.ldap import ldap, ldapasn1
 from impacket.ntlm import compute_lmhash, compute_nthash
+from impacket import wintime
 
 
 class GetUserSPNs:
@@ -114,12 +115,6 @@ class GetUserSPNs:
             logging.warning('KDC IP address and hostname will be ignored because of cross-domain targeting.')
             self.__kdcIP = None
             self.__kdcHost = None
-
-    @staticmethod
-    def getUnixTime(t):
-        t -= 116444736000000000
-        t /= 10000000
-        return t
 
     def getTGT(self):
         domain, _, TGT, _ = CCache.parseFile(self.__domain)
@@ -325,12 +320,12 @@ class GetUserSPNs:
                         if str(attribute['vals'][0]) == '0':
                             pwdLastSet = '<never>'
                         else:
-                            pwdLastSet = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
+                            pwdLastSet = str(wintime.filetime_to_datetime(int(str(attribute['vals'][0]))))
                     elif str(attribute['type']) == 'lastLogon':
                         if str(attribute['vals'][0]) == '0':
                             lastLogon = '<never>'
                         else:
-                            lastLogon = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
+                            lastLogon = str(wintime.filetime_to_datetime(int(str(attribute['vals'][0]))))
                     elif str(attribute['type']) == 'servicePrincipalName':
                         for spn in attribute['vals']:
                             SPNs.append(spn.asOctets().decode('utf-8'))
