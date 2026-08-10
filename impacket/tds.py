@@ -1801,20 +1801,39 @@ class MSSQL:
                     kerberos=False,
                 )
             else:
+                from impacket.krb5.ccache import CCache
+
                 # A TGS supplied to this method is for MSSQLSvc. The SMB layer
-                # must acquire its own cifs/<host> ticket, using the TGT or cache.
+                # must use an exact cifs/<host> ticket or acquire one from a TGT.
+                smbCacheDomain = domain
+                smbCacheUsername = username
+                smbTGT = TGT
+                smbTGS = None
+                if useCache and smbTGT is None:
+                    (
+                        smbCacheDomain,
+                        smbCacheUsername,
+                        smbTGT,
+                        smbTGS,
+                    ) = CCache.parseFile(
+                        domain,
+                        username,
+                        "cifs/%s" % self.remoteName,
+                        anySPN=False,
+                    )
+
                 self._create_named_pipe_transport(
-                    username,
+                    smbCacheUsername,
                     password,
-                    domain,
+                    smbCacheDomain,
                     lmhash,
                     nthash,
                     kerberos=True,
                     aesKey=aesKey,
                     kdcHost=kdcHost,
-                    TGT=TGT,
-                    TGS=None,
-                    useCache=useCache,
+                    TGT=smbTGT,
+                    TGS=smbTGS,
+                    useCache=False,
                 )
 
         resp = self._negotiate_encryption()
@@ -1862,7 +1881,10 @@ class MSSQL:
 
         if useCache:
             domain, username, TGT, TGS = CCache.parseFile(
-                domain, username, "MSSQLSvc/%s:%d" % (self.remoteName, self.port)
+                domain,
+                username,
+                "MSSQLSvc/%s:%d" % (self.remoteName, self.port),
+                anySPN=not bool(self.pipe_name),
             )
 
             if TGS is None:
@@ -1886,6 +1908,7 @@ class MSSQL:
                         username,
                         "MSSQLSvc/%s.%s:%s"
                         % (self.remoteName.split(".")[0], domain, instanceName),
+                        anySPN=not bool(self.pipe_name),
                     )
 
         # First of all, we need to get a TGT for the user
