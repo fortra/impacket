@@ -256,6 +256,11 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
         key = Key(cipher.enctype, nthash)
     elif aesKey != b'':
         key = Key(cipher.enctype, aesKey)
+    elif enctype not in encryptionTypesData:
+        # No salt for this etype (e.g. no AES key on the account), fall back to RC4.
+        from impacket.ntlm import compute_lmhash, compute_nthash
+        return getKerberosTGT(clientName, password, domain, compute_lmhash(password), compute_nthash(password),
+                              aesKey, kdcHost, requestPAC, serverName, kerberoast_no_preauth)
     else:
         key = cipher.string_to_key(password, encryptionTypesData[enctype], None)
 
