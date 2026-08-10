@@ -954,7 +954,12 @@ def computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, d
     # This is set at Local Security Policy -> Local Policies -> Security Options -> Server SPN target name validation
     # level
     if TEST_CASE is False:
-        av_pairs[NTLMSSP_AV_TARGET_NAME] = f"{service}/".encode('utf-16le') + av_pairs[NTLMSSP_AV_DNS_HOSTNAME][1]
+        # The DNS computer name AV pair is optional (e.g. servers reached by IP
+        # may omit it); fall back to the NetBIOS computer name, then to no host,
+        # instead of crashing on a missing pair.
+        hostAv = av_pairs[NTLMSSP_AV_DNS_HOSTNAME] or av_pairs[NTLMSSP_AV_HOSTNAME]
+        hostName = hostAv[1] if hostAv is not None else b''
+        av_pairs[NTLMSSP_AV_TARGET_NAME] = f"{service}/".encode('utf-16le') + hostName
         if av_pairs[NTLMSSP_AV_TIME] is not None:
            aTime = av_pairs[NTLMSSP_AV_TIME][1]
         else:
