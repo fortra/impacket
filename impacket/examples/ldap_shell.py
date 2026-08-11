@@ -19,6 +19,9 @@ import string
 import sys
 import cmd
 import random
+import os
+import json
+import codecs
 import ldap3
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
 from ldap3.utils.conv import escape_filter_chars
@@ -656,8 +659,15 @@ class LdapShell(cmd.Cmd):
             print('Attribute msDS-KeyCredentialLink does not exist')
         return
 
-    def do_clear_shadow_creds(self, target):
-        success = self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(target), attributes=['objectSid', 'msDS-KeyCredentialLink'])
+    def do_clear_shadow_creds(self, line):
+        args = shlex.split(line)
+
+        if len(args) != 1:
+            raise Exception("Error expecting target name for shadow credentials cleanup. Received %d arguments instead." % len(args))
+
+        target_name = args[0]
+
+        success = self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(target_name), attributes=['objectSid', 'msDS-KeyCredentialLink'])
         if success is False or len(self.client.entries) != 1:
             raise Exception("Error expected only one search result got %d results", len(self.client.entries))
 
@@ -676,6 +686,43 @@ class LdapShell(cmd.Cmd):
                 raise Exception('Could not modify object, the server reports a constrained violation: %s', self.client.result['message'])
             else:
                 raise Exception('The server returned an error: %s', self.client.result['message'])
+
+    def do_backup_shadow_creads(self, line):
+        args = shlex.split(line)
+
+        if len(args) not in (1, 2):
+            raise Exception("Error expecting target name and optional output file. Received %d arguments instead." % len(args))
+
+        target_name = args[0]
+        output_file = args[1] if len(args) == 2 else None
+
+        success = self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(target_name), attributes=['objectSid', 'msDS-KeyCredentialLink'])
+        if success is False or len(self.client.entries) != 1:
+            raise Exception("Error expected only one search result got %d results", len(self.client.entries))
+
+        target = self.client.entries[0]
+        print("Found Target DN: %s" % target.entry_dn)
+
+        if output_file is None:
+            sanitized_target_name = target_name.replace('\\', '_').replace('/', '_').replace(':', '_')
+            output_file = '%s-keycredential.json' % sanitized_target_name
+        elif not output_file.lower().endswith('.json'):
+            output_file = '%s.json' % output_file
+
+        output_dir = os.path.dirname(output_file)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+
+        key_credentials = []
+        for key_credential_value in target['msDS-KeyCredentialLink'].raw_values:
+            if isinstance(key_credential_value, bytes):
+                key_credential_value = key_credential_value.decode('utf-8', errors='replace')
+            key_credentials.append(key_credential_value)
+
+        with codecs.open(output_file, 'w', encoding='utf-8') as backup_file:
+            json.dump({'keyCredentials': key_credentials}, backup_file, indent=4)
+
+        print("Exported %d KeyCredential(s) to %s" % (len(key_credentials), output_file))
 
     def search(self, query, *attributes):
         self.client.search(self.domain_dumper.root, query, attributes=attributes)
@@ -736,6 +783,7 @@ class LdapShell(cmd.Cmd):
  change_password user [password] - Attempt to change a given user's password. Requires LDAPS.
  clear_rbcd target - Clear the resource based constrained delegation configuration information.
  clear_shadow_creds target - Clear shadow credentials on the target (sAMAccountName).
+ backup_shadow_creads target [outfile] - Backup shadow credentials from the target (sAMAccountName) into a single JSON file.
  disable_account user - Disable the user's account.
  enable_account user - Enable the user's account.
  dump - Dumps the domain.
