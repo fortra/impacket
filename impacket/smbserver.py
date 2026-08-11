@@ -4902,18 +4902,25 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         transform = smb2.SMB2_TRANSFORM_HEADER()
         if cipher_id == smb2.SMB2_ENCRYPTION_AES128_GCM:
             nonce = os.urandom(12) + b'\x00' * 4
-        else:
+        elif cipher_id == smb2.SMB2_ENCRYPTION_AES128_CCM:
             nonce = os.urandom(11) + b'\x00' * 5
+        else:
+            raise ValueError('Unsupported SMB2 encryption cipher')
         transform['Nonce'] = nonce
         transform['OriginalMessageSize'] = len(plain_data)
-        transform['EncryptionAlgorithm'] = cipher_id
+        # This structure field is named EncryptionAlgorithm for SMB 3.0 compatibility,
+        # but for SMB 3.1.1 it is the Flags field and MUST contain 0x0001. The cipher
+        # itself is selected from the negotiated connection state.
+        transform['EncryptionAlgorithm'] = 0x0001
         transform['SessionID'] = conn_data.get('Uid', 0)
         # AAD: transform header bytes starting after ProtocolId and Signature (offset 20).
         aad = transform.getData()[20:]
         if cipher_id == smb2.SMB2_ENCRYPTION_AES128_GCM:
             cipher = AES.new(key, AES.MODE_GCM, nonce=nonce[:12])
-        else:
+        elif cipher_id == smb2.SMB2_ENCRYPTION_AES128_CCM:
             cipher = AES.new(key, AES.MODE_CCM, nonce=nonce[:11])
+        else:
+            raise ValueError('Unsupported SMB2 encryption cipher')
         cipher.update(aad)
         ciphertext = cipher.encrypt(plain_data)
         transform['Signature'] = cipher.digest()
