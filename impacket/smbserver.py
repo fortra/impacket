@@ -5130,32 +5130,34 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
                 packetsToSend = respPackets
 
         if isSMB2 is True:
-            # Let's build a compound answer, sign or encrypt each packet.
+            # Build the complete compound answer before encrypting. A single transform
+            # header wraps the whole compound chain, per MS-SMB2 3.1.4.3.
             finalData = []
             totalPackets = len(packetsToSend)
+            # SESSION_SETUP responses are signed but not encrypted, so the client can
+            # read SMB2_SESSION_FLAG_ENCRYPT_DATA before switching to encryption.
+            encryptResponse = connData.get('EncryptData') and all(
+                packet['Command'] != smb2.SMB2_SESSION_SETUP for packet in packetsToSend)
             for idx, packet in enumerate(packetsToSend):
                 padLen = -len(packet) % 8
                 if idx + 1 < totalPackets:
                     packet['NextCommand'] = len(packet) + padLen
 
-                # Encrypt all post-session-setup packets when the session requires it.
-                # SESSION_SETUP responses are signed but not encrypted, so the client can
-                # read SMB2_SESSION_FLAG_ENCRYPT_DATA before switching to encryption.
-                if connData.get('EncryptData') and packet['Command'] != smb2.SMB2_SESSION_SETUP:
-                    plain = packet.getData() if hasattr(packet, 'getData') else packet
-                    finalData.append(self._encryptSMB3(connId, plain + padLen * b'\x00'))
-                else:
+                if not encryptResponse:
                     if connData['SignatureEnabled']:
                         if connData.get('Dialect', smb2.SMB2_DIALECT_002) >= smb2.SMB2_DIALECT_30:
                             self.signSMBv3(packet, connData['SigningSessionKey'], padLength=padLen)
                         else:
                             self.signSMBv2(packet, connData['SigningSessionKey'], padLength=padLen)
-                    if hasattr(packet, 'getData'):
-                        finalData.append(packet.getData() + padLen * b'\x00')
-                    else:
-                        finalData.append(packet + padLen * b'\x00')
+                if hasattr(packet, 'getData'):
+                    finalData.append(packet.getData() + padLen * b'\x00')
+                else:
+                    finalData.append(packet + padLen * b'\x00')
 
-            packetsToSend = [b"".join(finalData)]
+            finalData = b"".join(finalData)
+            if encryptResponse:
+                finalData = self._encryptSMB3(connId, finalData)
+            packetsToSend = [finalData]
 
         # We clear the compound requests
         connData['LastRequest'] = {}
