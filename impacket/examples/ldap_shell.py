@@ -633,6 +633,9 @@ class LdapShell(cmd.Cmd):
         print("Found Target DN: %s" % target.entry_dn)
         print("Target SID: %s\n" % target_sid)
 
+        existing_key_credential_count = len(target['msDS-KeyCredentialLink'].raw_values)
+        print("Found %d existing KeyCredential(s)" % existing_key_credential_count)
+
         key, certificate = shadow_credentials.createSelfSignedX509Certificate(subject=target_name)
         device_id = shadow_credentials.getDeviceId()
         keyCredential = shadow_credentials.KeyCredential(key, deviceId=device_id, currentTime=shadow_credentials.getTicksNow())
@@ -676,6 +679,9 @@ class LdapShell(cmd.Cmd):
         print("Found Target DN: %s" % target.entry_dn)
         print("Target SID: %s\n" % target_sid)
 
+        existing_key_credential_count = len(target['msDS-KeyCredentialLink'].raw_values)
+        print("Found %d existing KeyCredential(s)" % existing_key_credential_count)
+
         self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink':[ldap3.MODIFY_REPLACE, []]})
         if self.client.result['result'] == 0:
             print('Shadow credentials cleared successfully!')
@@ -703,6 +709,14 @@ class LdapShell(cmd.Cmd):
         target = self.client.entries[0]
         print("Found Target DN: %s" % target.entry_dn)
 
+        key_credentials = []
+        for key_credential_value in target['msDS-KeyCredentialLink'].raw_values:
+            if isinstance(key_credential_value, bytes):
+                key_credential_value = key_credential_value.decode('utf-8', errors='replace')
+            key_credentials.append(key_credential_value)
+
+        print("Found %d existing KeyCredential(s)" % len(key_credentials))
+
         if output_file is None:
             sanitized_target_name = target_name.replace('\\', '_').replace('/', '_').replace(':', '_')
             output_file = '%s-keycredential.json' % sanitized_target_name
@@ -712,12 +726,6 @@ class LdapShell(cmd.Cmd):
         output_dir = os.path.dirname(output_file)
         if output_dir and not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
-
-        key_credentials = []
-        for key_credential_value in target['msDS-KeyCredentialLink'].raw_values:
-            if isinstance(key_credential_value, bytes):
-                key_credential_value = key_credential_value.decode('utf-8', errors='replace')
-            key_credentials.append(key_credential_value)
 
         with codecs.open(output_file, 'w', encoding='utf-8') as backup_file:
             json.dump({'keyCredentials': key_credentials}, backup_file, indent=4)
