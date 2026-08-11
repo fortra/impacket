@@ -2929,8 +2929,16 @@ class SMB2Commands:
                 raise Exception('SMB2 not supported, fallbacking')
         else:
             negRequest = smb2.SMB2Negotiate(recvPacket['Data'])
-            offered = set(negRequest['Dialects'])
-            selected = next((d for d in _SUPPORTED_DIALECTS if d in offered), smb2.SMB2_DIALECT_002)
+            # SMB2Negotiate.Dialects consumes all remaining bytes, including SMB 3.1.1
+            # negotiate contexts, so only consider the number of dialects declared by
+            # the request.
+            offered = set(negRequest['Dialects'][:negRequest['DialectCount']])
+            selected = next((d for d in _SUPPORTED_DIALECTS if d in offered), None)
+            if selected is None:
+                respPacket['Status'] = STATUS_NOT_SUPPORTED
+                respPacket['Data'] = smb2.SMB2Error()
+                smbServer.setConnectionData(connId, connData)
+                return None, [respPacket], STATUS_NOT_SUPPORTED
             respSMBCommand['DialectRevision'] = selected
             connData['Dialect'] = selected
 
