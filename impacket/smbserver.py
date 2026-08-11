@@ -4861,17 +4861,32 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
         Supports AES-128-GCM and AES-128-CCM depending on the negotiated cipher.
         """
+        if len(data) <= len(smb2.SMB2_TRANSFORM_HEADER()):
+            raise ValueError('Invalid SMB2 transform size')
+
         conn_data = self.getConnectionData(connId, False)
         key = conn_data.get('SessionDecryptionKey', b'')
-        cipher_id = struct.unpack_from('<H', data, 42)[0]
+        # EncryptionAlgorithm is repurposed as Flags for SMB 3.1.1 and MUST be 0x0001.
+        # The actual cipher is negotiated out-of-band and lives in the connection state.
+        flags = struct.unpack_from('<H', data, 42)[0]
+        if flags != 0x0001:
+            raise ValueError('Invalid SMB2 transform flags')
+
+        session_id = struct.unpack_from('<Q', data, 44)[0]
+        if session_id != conn_data.get('Uid', 0):
+            raise ValueError('Invalid SMB2 transform session ID')
+
+        cipher_id = conn_data.get('CipherId', 0)
         nonce = data[20:36]
         # AAD: all transform header fields except ProtocolId and Signature (bytes 20..52).
         aad = data[20:52]
         ciphertext = data[52:]
         if cipher_id == smb2.SMB2_ENCRYPTION_AES128_GCM:
             cipher = AES.new(key, AES.MODE_GCM, nonce=nonce[:12])
-        else:
+        elif cipher_id == smb2.SMB2_ENCRYPTION_AES128_CCM:
             cipher = AES.new(key, AES.MODE_CCM, nonce=nonce[:11])
+        else:
+            raise ValueError('Unsupported SMB2 encryption cipher')
         cipher.update(aad)
         plain_data = cipher.decrypt_and_verify(ciphertext, data[4:20])
         original_size = struct.unpack_from('<L', data, 36)[0]
