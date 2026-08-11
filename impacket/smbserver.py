@@ -4894,7 +4894,7 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
             raise ValueError('Invalid SMB2 transform original message size')
         return plain_data
 
-    def _encryptSMB3(self, connId, plain_data: bytes) -> bytes:
+    def _encryptSMB3(self, connId, plain_data: bytes, session_id: int) -> bytes:
         """Wrap plain SMB2 bytes in an SMB2_TRANSFORM_HEADER encrypted with AES."""
         conn_data = self.getConnectionData(connId, False)
         key = conn_data.get('SessionEncryptionKey', b'')
@@ -4912,7 +4912,7 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         # but for SMB 3.1.1 it is the Flags field and MUST contain 0x0001. The cipher
         # itself is selected from the negotiated connection state.
         transform['EncryptionAlgorithm'] = 0x0001
-        transform['SessionID'] = conn_data.get('Uid', 0)
+        transform['SessionID'] = session_id
         # AAD: transform header bytes starting after ProtocolId and Signature (offset 20).
         aad = transform.getData()[20:]
         if cipher_id == smb2.SMB2_ENCRYPTION_AES128_GCM:
@@ -4947,6 +4947,10 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
             isSMB2 = True
 
         connData = self.getConnectionData(connId, False)
+        # Captured now: a command in this request (e.g. LOGOFF) may clear connData['Uid']
+        # before the compound response is encrypted below, and the transform header must
+        # still carry the session the request was authenticated under.
+        sessionId = connData.get('Uid', 0)
 
         # We might have compound requests
         compoundedPacketsResponse = []
@@ -5182,7 +5186,7 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
             finalData = b"".join(finalData)
             if encryptResponse:
-                finalData = self._encryptSMB3(connId, finalData)
+                finalData = self._encryptSMB3(connId, finalData, sessionId)
             packetsToSend = [finalData]
 
         # We clear the compound requests
