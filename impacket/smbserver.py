@@ -4873,7 +4873,11 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
         else:
             cipher = AES.new(key, AES.MODE_CCM, nonce=nonce[:11])
         cipher.update(aad)
-        return cipher.decrypt(ciphertext)
+        plain_data = cipher.decrypt_and_verify(ciphertext, data[4:20])
+        original_size = struct.unpack_from('<L', data, 36)[0]
+        if len(plain_data) != original_size:
+            raise ValueError('Invalid SMB2 transform original message size')
+        return plain_data
 
     def _encryptSMB3(self, connId, plain_data: bytes) -> bytes:
         """Wrap plain SMB2 bytes in an SMB2_TRANSFORM_HEADER encrypted with AES."""
