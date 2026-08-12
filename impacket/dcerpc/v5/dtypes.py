@@ -71,11 +71,10 @@ class WIDESTR(NDRUniFixedArray):
 
     def __setitem__(self, key, value):
         if key == 'Data':
-            try:
-                self.fields[key] = value.encode('utf-16le')
-            except UnicodeDecodeError:
+            if isinstance(value, bytes):
                 import sys
-                self.fields[key] = value.decode(sys.getfilesystemencoding()).encode('utf-16le')
+                value = value.decode(sys.getfilesystemencoding())
+            self.fields[key] = value.encode('utf-16le')
 
             self.data = None        # force recompute
         else:
@@ -112,15 +111,11 @@ class STR(NDRSTRUCT):
 
     def __setitem__(self, key, value):
         if key == 'Data':
-            try:
-                if not isinstance(value, binary_type):
-                    self.fields[key] = value.encode('utf-8')
-                else:
-                    # if it is a binary type (str in Python 2, bytes in Python 3), then we assume it is a raw buffer
-                    self.fields[key] = value
-            except UnicodeDecodeError:
-                import sys
-                self.fields[key] = value.decode(sys.getfilesystemencoding()).encode('utf-8')
+            if not isinstance(value, binary_type):
+                self.fields[key] = value.encode('utf-8')
+            else:
+                # If it is bytes, then we assume it is a raw buffer.
+                self.fields[key] = value
             self.fields['MaximumCount'] = None
             self.fields['ActualCount'] = None
             self.data = None        # force recompute
@@ -173,11 +168,10 @@ class WSTR(NDRSTRUCT):
 
     def __setitem__(self, key, value):
         if key == 'Data':
-            try:
-                self.fields[key] = value.encode('utf-16le')
-            except UnicodeDecodeError:
+            if isinstance(value, bytes):
                 import sys
-                self.fields[key] = value.decode(sys.getfilesystemencoding()).encode('utf-16le')
+                value = value.decode(sys.getfilesystemencoding())
+            self.fields[key] = value.encode('utf-16le')
             self.fields['MaximumCount'] = None
             self.fields['ActualCount'] = None
             self.data = None        # force recompute
@@ -376,9 +370,7 @@ class RPC_UNICODE_STRING(NDRSTRUCT):
 
     def __setitem__(self, key, value):
         if key == 'Data' and isinstance(value, NDR) is False:
-            try:
-                value.encode('utf-16le')
-            except UnicodeDecodeError:
+            if isinstance(value, bytes):
                 import sys
                 value = value.decode(sys.getfilesystemencoding())
             self['Length'] = len(value)*2
