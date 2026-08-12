@@ -3699,6 +3699,8 @@ class KeyListSecrets:
         # ticket). userRid/domainSid come from SAMR (dump mode) or -domain-sid (LIST
         # mode); fall back to a placeholder identity when they are unavailable.
         if userRid is None:
+            logging.warning("No RID for user %s; the PAC requestor will use a placeholder "
+                            "identity. PAC-hardened DCs may reject it -- provide username:rid.", userName)
             userRid = 1000
         if domainSid is None:
             domainSid = 'S-1-5-21-0-0-0'

@@ -119,6 +119,15 @@ class TestKeyListPac(unittest.TestCase):
         reSig = pac.PAC_SIGNATURE_DATA(reInfos[pac.PAC_SERVER_CHECKSUM])
         self.assertEqual(bytes(embedded['Signature']), bytes(reSig['Signature']))
 
+    def test_missing_rid_logs_warning(self):
+        # A missing RID falls back to a placeholder requestor SID -- warn the operator.
+        kl = KeyListSecrets(self.DOMAIN, 'dc01.%s' % self.DOMAIN,
+                            self.RODC_NO, self.RODC_KEY, None)
+        userName = Principal(self.USER, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+        with self.assertLogs(level='WARNING') as cm:
+            kl.createPartialTGT(userName, None, self.DOMAIN_SID)
+        self.assertTrue(any('RID' in m for m in cm.output))
+
 
 class TestKeyListGetKey(unittest.TestCase):
     # getKey() must find KERB-KEY-LIST-REP by PA-DATA type, not assume it is the
