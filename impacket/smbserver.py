@@ -2158,11 +2158,13 @@ class SMBCommands:
             errorCode = STATUS_SMB_BAD_UID
         else:
             errorCode = STATUS_SUCCESS
+            # The session is closed, but the Uid is kept so the response can
+            # still carry the same Uid as the request. The actual teardown is
+            # done in processRequest() once the response has been built.
+            connData['SessionClosed'] = True
 
         respSMBCommand['Parameters'] = respParameters
         respSMBCommand['Data'] = respData
-        connData['Uid'] = 0
-        connData['Authenticated'] = False
 
         smbServer.setConnectionData(connId, connData)
 
@@ -4230,9 +4232,11 @@ class SMB2Commands:
             errorCode = STATUS_SMB_BAD_UID
         else:
             errorCode = STATUS_SUCCESS
-
-        connData['Uid'] = 0
-        connData['Authenticated'] = False
+            # The session is closed, but the Uid is kept so the response can
+            # still carry the same SessionID as the request. The actual
+            # teardown is done in processRequest() once the response has been
+            # built.
+            connData['SessionClosed'] = True
 
         smbServer.setConnectionData(connId, connData)
         return [respSMBCommand], None, errorCode
@@ -5188,6 +5192,13 @@ class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
             if encryptResponse:
                 finalData = self._encryptSMB3(connId, finalData, sessionId)
             packetsToSend = [finalData]
+
+        # A LogOff request was processed. The response has been built and
+        # signed with the session's state, so we can close the session now.
+        if connData.get('SessionClosed') is True:
+            connData['Uid'] = 0
+            connData['Authenticated'] = False
+            del connData['SessionClosed']
 
         # We clear the compound requests
         connData['LastRequest'] = {}

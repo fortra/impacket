@@ -83,10 +83,10 @@ from multiprocessing import Process
 from six import PY2, StringIO, BytesIO, b, assertRaisesRegex, assertCountEqual
 
 from impacket.smb import SMB_DIALECT
+from impacket import smb, smb3structs as smb2
 from impacket.smbserver import normalize_path, isInFileJail, SimpleSMBServer, SMBSERVER, SMB2Commands
 from impacket.smbconnection import SMBConnection, SessionError, compute_lmhash, compute_nthash
 from impacket.nt_errors import STATUS_NOT_SUPPORTED
-from impacket import smb3structs as smb2
 from threading import Thread
 
 import select
@@ -955,6 +955,81 @@ class SMB2Server311UnitTests(unittest.TestCase):
         transform = smb2.SMB2_TRANSFORM_HEADER(responses[0])
         self.assertEqual(transform['SessionID'], sessionId)
         self.assertEqual(self._connData()['Uid'], 0)
+
+
+class SMBServerLogOffUnitTests(unittest.TestCase):
+    """Unit tests for the LogOff command handling (see issue #1829).
+
+    The LogOff response must carry the same SessionID/Uid as the request, as
+    the client uses it to locate the session and validate the response
+    signature. The session teardown must only happen once the response has
+    been built.
+    """
+
+    def setUp(self):
+        self.server = SMBSERVERForTests(("127.0.0.1", 0))
+        self.connId = "logoff-test-conn"
+        self.sessionId = 0x1337
+        self.server.addConnection(self.connId, "127.0.0.1", 1234)
+        self.server._SMBSERVER__SMB2Support = True
+        connData = self.server.getConnectionData(self.connId, checkStatus=False)
+        connData['Uid'] = self.sessionId
+        connData['Authenticated'] = True
+        self.server.setConnectionData(self.connId, connData)
+
+    def tearDown(self):
+        self.server.server_close()
+
+    def test_smb2_logoff_response_echoes_session_id(self):
+        request = smb2.SMB2Packet()
+        request['Command'] = smb2.SMB2_LOGOFF
+        request['SessionID'] = self.sessionId
+        request['MessageID'] = 0x100
+
+        response = self.server.processRequest(self.connId, request.getData())
+
+        respPacket = smb2.SMB2Packet(data=response[0])
+        self.assertEqual(respPacket['SessionID'], self.sessionId)
+        self.assertEqual(respPacket['Status'], 0)
+
+        connData = self.server.getConnectionData(self.connId, checkStatus=False)
+        self.assertEqual(connData['Uid'], 0)
+        self.assertFalse(connData['Authenticated'])
+
+    def test_smb2_logoff_bad_uid_keeps_session(self):
+        request = smb2.SMB2Packet()
+        request['Command'] = smb2.SMB2_LOGOFF
+        request['SessionID'] = 0xDEAD
+        request['MessageID'] = 0x100
+
+        response = self.server.processRequest(self.connId, request.getData())
+
+        # Per MS-SMB2 the response echoes the request's SessionId (also on
+        # error), so the client can match it to its session; the session
+        # itself must survive the rejected LogOff.
+        respPacket = smb2.SMB2Packet(data=response[0])
+        self.assertEqual(respPacket['SessionID'], 0xDEAD)
+        self.assertNotEqual(respPacket['Status'], 0)
+
+        connData = self.server.getConnectionData(self.connId, checkStatus=False)
+        self.assertEqual(connData['Uid'], self.sessionId)
+        self.assertTrue(connData['Authenticated'])
+
+    def test_smb1_logoff_response_echoes_uid(self):
+        request = smb.NewSMBPacket()
+        request['Uid'] = self.sessionId
+        request['Mid'] = 0x100
+        request.addCommand(smb.SMBCommand(smb.SMB.SMB_COM_LOGOFF_ANDX))
+
+        response = self.server.processRequest(self.connId, request.getData())
+
+        respPacket = response[0]
+        self.assertEqual(respPacket['Uid'], self.sessionId)
+        self.assertEqual(respPacket['ErrorCode'], 0)
+
+        connData = self.server.getConnectionData(self.connId, checkStatus=False)
+        self.assertEqual(connData['Uid'], 0)
+        self.assertFalse(connData['Authenticated'])
 
 
 if __name__ == "__main__":
