@@ -1009,7 +1009,7 @@ class MS14_068:
                         from impacket.krb5.ccache import CCache
                         ccache = CCache()
                         ccache.fromTGS(tgs, oldSessionKey, sessionKey)
-                        ccache.saveFile(self.__writeTGT)
+                        ccache.saveFile(self.__writeTGT, chmod=0o600)
                     break
             if exception is None:
                 # Success!
