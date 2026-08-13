@@ -24,6 +24,7 @@ import random
 import inspect
 from struct import pack, unpack_from, calcsize
 from six import with_metaclass, PY3
+from binascii import hexlify
 
 from impacket import LOG
 from impacket.dcerpc.v5.enum import Enum
@@ -143,7 +144,7 @@ class NDR(object):
         return self.fields[key]
 
     def __str__(self):
-        return self.getData()
+        return str(hexlify(self.getData()).decode("ascii"))
 
     def __len__(self):
         # XXX: improve
