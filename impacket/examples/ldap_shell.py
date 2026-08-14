@@ -693,7 +693,7 @@ class LdapShell(cmd.Cmd):
             else:
                 raise Exception('The server returned an error: %s', self.client.result['message'])
 
-    def do_backup_shadow_creads(self, line):
+    def do_backup_shadow_creds(self, line):
         args = shlex.split(line)
 
         if len(args) not in (1, 2):
