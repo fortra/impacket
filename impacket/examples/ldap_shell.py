@@ -791,7 +791,7 @@ class LdapShell(cmd.Cmd):
  change_password user [password] - Attempt to change a given user's password. Requires LDAPS.
  clear_rbcd target - Clear the resource based constrained delegation configuration information.
  clear_shadow_creds target - Clear shadow credentials on the target (sAMAccountName).
- backup_shadow_creads target [outfile] - Backup shadow credentials from the target (sAMAccountName) into a single JSON file.
+ backup_shadow_creds target [outfile] - Backup shadow credentials from the target (sAMAccountName) into a single JSON file.
  disable_account user - Disable the user's account.
  enable_account user - Enable the user's account.
  dump - Dumps the domain.
