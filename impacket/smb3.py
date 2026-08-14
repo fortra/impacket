@@ -1261,10 +1261,13 @@ class SMB3:
             if fileName[0] == '\\':
                 fileName = fileName[1:]
 
-        if self._Session['TreeConnectTable'][treeId]['IsDfsShare'] is True:
+        treeEntry = self._Session['TreeConnectTable'][treeId]
+        if treeEntry['IsDfsShare'] is True:
             pathName = fileName
         else:
-            pathName = '\\\\' + self._Connection['ServerName'] + '\\' + fileName
+            pathName = '\\\\' + self._Connection['ServerName'] + '\\' + treeEntry['ShareName']
+            if fileName:
+                pathName += '\\' + fileName
 
         fileEntry = copy.deepcopy(FILE)
         fileEntry['LeaseKey']   = uuid.generate()
@@ -1272,8 +1275,8 @@ class SMB3:
         self.GlobalFileTable[pathName] = fileEntry
 
         if self._Connection['Dialect'] >= SMB2_DIALECT_30 and self._Connection['SupportsDirectoryLeasing'] is True:
-            # Root-level files do not have a parent directory to track.
-            if ntpath.dirname(fileName):
+            # The share root itself has no parent directory to track.
+            if fileName:
                 parentDir = ntpath.dirname(pathName)
                 if parentDir not in self.GlobalFileTable:
                     parentEntry = copy.deepcopy(FILE)

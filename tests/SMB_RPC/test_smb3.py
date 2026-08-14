@@ -24,10 +24,10 @@ class _SendReached(Exception):
 class SMB3CreateTests(unittest.TestCase):
 
     @staticmethod
-    def create_client(global_file_table=None):
+    def create_client(global_file_table=None, share_name='share'):
         client = object.__new__(SMB3)
         client._Session = {
-            'TreeConnectTable': {1: {'IsDfsShare': False}},
+            'TreeConnectTable': {1: {'IsDfsShare': False, 'ShareName': share_name}},
             'OpenTable': {},
         }
         client._Connection = {
@@ -46,7 +46,8 @@ class SMB3CreateTests(unittest.TestCase):
 
     def test_directory_leasing_parent_tracking(self):
         cases = (
-            (r'\lsarpc', False),
+            ('', False),
+            (r'\lsarpc', True),
             (r'folder\file.txt', True),
             (r'folder\child\file.txt', True),
         )
@@ -56,8 +57,10 @@ class SMB3CreateTests(unittest.TestCase):
                 client = self.create_client()
                 self.assert_create_reaches_send(client, file_name)
 
-                normalized_name = ntpath.normpath(file_name).lstrip('\\')
-                path_name = '\\\\server\\' + normalized_name
+                path_name = r'\\server\share'
+                if file_name:
+                    normalized_name = ntpath.normpath(file_name).lstrip('\\')
+                    path_name += '\\' + normalized_name
                 self.assertIn(path_name, client.GlobalFileTable)
 
                 if has_parent:
@@ -68,7 +71,7 @@ class SMB3CreateTests(unittest.TestCase):
 
     def test_existing_parent_entry_is_reused(self):
         file_name = r'folder\file.txt'
-        path_name = '\\\\server\\' + file_name
+        path_name = '\\\\server\\share\\' + file_name
         parent_dir = ntpath.dirname(path_name)
         parent_entry = object()
         client = self.create_client({parent_dir: parent_entry})
