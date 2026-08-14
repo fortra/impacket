@@ -77,14 +77,16 @@
 import unittest
 from time import sleep
 from os.path import exists, join
-from os import mkdir, rmdir, remove
+from os import mkdir, rmdir, remove, urandom
 from multiprocessing import Process
 
 from six import PY2, StringIO, BytesIO, b, assertRaisesRegex, assertCountEqual
 
 from impacket.smb import SMB_DIALECT
-from impacket.smbserver import normalize_path, isInFileJail, SimpleSMBServer, SMBSERVER
+from impacket.smbserver import normalize_path, isInFileJail, SimpleSMBServer, SMBSERVER, SMB2Commands
 from impacket.smbconnection import SMBConnection, SessionError, compute_lmhash, compute_nthash
+from impacket.nt_errors import STATUS_NOT_SUPPORTED
+from impacket import smb3structs as smb2
 from threading import Thread
 
 import select
@@ -688,6 +690,7 @@ class SimpleSMBServer2FuncTestsClientFallBack(SimpleSMBServerFuncTests):
 class SimpleSMBServer2FuncTests(SimpleSMBServerFuncTests):
 
     server_smb2_support = True
+    client_preferred_dialect = smb2.SMB2_DIALECT_002
 
     # When listing files in a share, SMB2 response doesn't include "." and ".."
     share_list = [SimpleSMBServerFuncTests.share_file,
@@ -724,6 +727,234 @@ class SimpleSMBServer2FuncTests(SimpleSMBServerFuncTests):
             client.deleteDirectory(self.share_name, "unexistent")
 
         client.close()
+
+
+class SimpleSMBServer21FuncTests(SimpleSMBServer2FuncTests):
+
+    client_preferred_dialect = smb2.SMB2_DIALECT_21
+
+
+class SimpleSMBServer311FuncTests(SimpleSMBServer2FuncTests):
+    """Runs the full SimpleSMBServerFuncTests/SimpleSMBServer2FuncTests suite over SMB 3.1.1.
+
+    impacket's own SMBConnection client only ever negotiates AES-128-CCM (see smb3.py's
+    SMB2EncryptionCapabilities), so this exercises the encrypted request/response path with
+    that cipher end to end: negotiate, session setup, encrypted reads/writes/deletes and the
+    LOGOFF at teardown all flow through _encryptSMB3/_decryptSMB3 and the compound-response
+    finalization in processRequest. AES-128-GCM and the byte-level transform header checks
+    are covered separately in SMB2Server311UnitTests, since the client can't negotiate GCM.
+    """
+
+    server_smb2_support = True
+    client_preferred_dialect = smb2.SMB2_DIALECT_311
+
+
+class SMB2Server311UnitTests(unittest.TestCase):
+    """Unit tests for the SMB 3.1.1 additions to SMB2Commands and SMBSERVER.
+
+    These call the negotiate handler and the transform header encrypt/decrypt methods
+    directly against a live SMBSERVER instance, without going over the network, so they
+    can exercise both ciphers and inject malformed input that a real client wouldn't send.
+    """
+
+    address = "127.0.0.1"
+    port = 14461
+    conn_id = "unit-test-connection"
+
+    def setUp(self):
+        self.smbserver = SimpleSMBServer(listenAddress=self.address, listenPort=self.port,
+                                         smbserverclass=SMBSERVERForTests)
+        self.smbserver.setSMB2Support(True)
+        self.server = self.smbserver.getServer()
+        self.server.addConnection(self.conn_id, self.address, 55555)
+
+    def tearDown(self):
+        self.smbserver.stop()
+
+    def _connData(self):
+        return self.server.getConnectionData(self.conn_id, False)
+
+    @staticmethod
+    def _negotiateRequest(dialects, dialectCount=None):
+        negotiate = smb2.SMB2Negotiate()
+        negotiate['SecurityMode'] = 0
+        negotiate['Capabilities'] = 0
+        negotiate['ClientGuid'] = b'\x00' * 16
+        negotiate['ClientStartTime'] = b'\x00' * 8
+        negotiate['DialectCount'] = len(dialects) if dialectCount is None else dialectCount
+        negotiate['Dialects'] = dialects
+
+        packet = smb2.SMB2Packet()
+        packet['Command'] = smb2.SMB2_NEGOTIATE
+        packet['MessageID'] = 0
+        packet['Data'] = negotiate.getData()
+        return packet
+
+    def test_negotiate_rejects_dialect_the_client_never_offered(self):
+        """A request offering only an unsupported dialect must get STATUS_NOT_SUPPORTED,
+        not a silent downgrade to 2.002 (see fortra/impacket#2216 review comment).
+        """
+        recvPacket = self._negotiateRequest([smb2.SMB2_DIALECT_30])
+
+        respCommands, respPackets, errorCode = SMB2Commands.smbNegotiate(
+            self.conn_id, self.server, recvPacket, isSMB1=False)
+
+        self.assertIsNone(respCommands)
+        self.assertEqual(errorCode, STATUS_NOT_SUPPORTED)
+        self.assertEqual(len(respPackets), 1)
+        self.assertEqual(respPackets[0]['Status'], STATUS_NOT_SUPPORTED)
+
+    def test_negotiate_ignores_dialects_leaking_past_dialect_count(self):
+        """SMB2Negotiate.Dialects is a greedy array that consumes all remaining bytes,
+        including the SMB 3.1.1 negotiate contexts appended after it. A request declaring
+        one unsupported dialect, followed by bytes that happen to look like a supported
+        one, must still be rejected: only DialectCount entries are real dialects.
+        """
+        recvPacket = self._negotiateRequest([smb2.SMB2_DIALECT_30, smb2.SMB2_DIALECT_311], dialectCount=1)
+
+        respCommands, respPackets, errorCode = SMB2Commands.smbNegotiate(
+            self.conn_id, self.server, recvPacket, isSMB1=False)
+
+        self.assertEqual(errorCode, STATUS_NOT_SUPPORTED)
+
+    def test_encrypt_transform_flags_are_always_0x0001(self):
+        """The transform header's Flags/EncryptionAlgorithm field is fixed at 0x0001 for
+        SMB 3.1.1 regardless of the negotiated cipher: the cipher itself is carried in the
+        connection state, not in this field (MS-SMB2 3.1.4.3, 3.1.4.1.1).
+        """
+        for cipherId in (smb2.SMB2_ENCRYPTION_AES128_CCM, smb2.SMB2_ENCRYPTION_AES128_GCM):
+            with self.subTest(cipherId=cipherId):
+                connData = self._connData()
+                connData['SessionEncryptionKey'] = urandom(16)
+                connData['CipherId'] = cipherId
+                self.server.setConnectionData(self.conn_id, connData)
+
+                wireData = self.server._encryptSMB3(self.conn_id, b'plaintext SMB2 payload', 0xAABBCCDD)
+                transform = smb2.SMB2_TRANSFORM_HEADER(wireData)
+
+                self.assertEqual(transform['EncryptionAlgorithm'], 0x0001)
+                self.assertEqual(transform['SessionID'], 0xAABBCCDD)
+
+    def test_encrypt_decrypt_round_trip_both_ciphers(self):
+        """A message encrypted for a given cipher must decrypt back to the same plaintext."""
+        for cipherId in (smb2.SMB2_ENCRYPTION_AES128_CCM, smb2.SMB2_ENCRYPTION_AES128_GCM):
+            with self.subTest(cipherId=cipherId):
+                key = urandom(16)
+                connData = self._connData()
+                connData['SessionEncryptionKey'] = key
+                connData['SessionDecryptionKey'] = key
+                connData['CipherId'] = cipherId
+                connData['Uid'] = 0x1122334455667788
+                self.server.setConnectionData(self.conn_id, connData)
+
+                plainText = b'legitimate SMB2 response payload'
+                wireData = self.server._encryptSMB3(self.conn_id, plainText, connData['Uid'])
+                recovered = self.server._decryptSMB3(self.conn_id, wireData)
+
+                self.assertEqual(recovered, plainText)
+
+    def test_decrypt_rejects_corrupted_ciphertext(self):
+        """A single flipped bit in the ciphertext must be rejected, not silently decrypted
+        into garbage and processed further (MS-SMB2 3.3.5.2.1: signature verification).
+        """
+        key = urandom(16)
+        connData = self._connData()
+        connData['SessionEncryptionKey'] = key
+        connData['SessionDecryptionKey'] = key
+        connData['CipherId'] = smb2.SMB2_ENCRYPTION_AES128_GCM
+        connData['Uid'] = 0x1122334455667788
+        self.server.setConnectionData(self.conn_id, connData)
+
+        wireData = self.server._encryptSMB3(self.conn_id, b'legitimate SMB2 response payload', connData['Uid'])
+
+        tampered = bytearray(wireData)
+        tampered[-1] ^= 0xFF
+
+        with self.assertRaises(ValueError):
+            self.server._decryptSMB3(self.conn_id, bytes(tampered))
+
+    def test_compound_response_uses_a_single_transform_header(self):
+        """An encrypted compound response must be one TRANSFORM_HEADER wrapping the whole
+        chain, not one TRANSFORM_HEADER per command (MS-SMB2 3.1.4.3): decrypting the wire
+        data once should yield both SMB2 responses, linked by NextCommand.
+        """
+        connData = self._connData()
+        key = urandom(16)
+        connData['Authenticated'] = True
+        connData['SignatureEnabled'] = False
+        connData['SessionEncryptionKey'] = key
+        connData['SessionDecryptionKey'] = key
+        connData['CipherId'] = smb2.SMB2_ENCRYPTION_AES128_GCM
+        connData['EncryptData'] = True
+        connData['Dialect'] = smb2.SMB2_DIALECT_311
+        connData['Uid'] = 0x99
+        self.server.setConnectionData(self.conn_id, connData)
+
+        def echoRequest(messageId):
+            packet = smb2.SMB2Packet()
+            packet['Command'] = smb2.SMB2_ECHO
+            packet['MessageID'] = messageId
+            packet['CreditCharge'] = 1
+            packet['CreditRequestResponse'] = 1
+            packet['Data'] = smb2.SMB2Echo()
+            return packet
+
+        first = echoRequest(0)
+        firstBytes = first.getData()
+        padLen = (-len(firstBytes)) % 8
+        first['NextCommand'] = len(firstBytes) + padLen
+        firstBytes = first.getData() + padLen * b'\x00'
+
+        secondBytes = echoRequest(1).getData()
+
+        responses = self.server.processRequest(self.conn_id, firstBytes + secondBytes)
+
+        self.assertEqual(len(responses), 1)
+        self.assertEqual(responses[0][:4], b'\xfdSMB')
+
+        plainText = self.server._decryptSMB3(self.conn_id, responses[0])
+        firstResponse = smb2.SMB2Packet(plainText)
+        self.assertEqual(firstResponse['Command'], smb2.SMB2_ECHO)
+        self.assertNotEqual(firstResponse['NextCommand'], 0)
+
+        secondResponse = smb2.SMB2Packet(plainText[firstResponse['NextCommand']:])
+        self.assertEqual(secondResponse['Command'], smb2.SMB2_ECHO)
+
+    def test_encrypted_logoff_response_keeps_the_real_session_id(self):
+        """smb2Logoff() clears connData['Uid'] before the response is encrypted later in
+        processRequest, so an encrypted LOGOFF response used to carry SessionId 0 in its
+        transform header instead of the session that was actually logged off.
+        """
+        sessionId = 0x1122334455667788
+        connData = self._connData()
+        key = urandom(16)
+        connData['Authenticated'] = True
+        connData['SignatureEnabled'] = False
+        connData['SessionEncryptionKey'] = key
+        connData['SessionDecryptionKey'] = key
+        connData['CipherId'] = smb2.SMB2_ENCRYPTION_AES128_GCM
+        connData['EncryptData'] = True
+        connData['Dialect'] = smb2.SMB2_DIALECT_311
+        connData['Uid'] = sessionId
+        self.server.setConnectionData(self.conn_id, connData)
+
+        logoffRequest = smb2.SMB2Packet()
+        logoffRequest['Command'] = smb2.SMB2_LOGOFF
+        logoffRequest['MessageID'] = 0
+        logoffRequest['SessionID'] = sessionId
+        logoffRequest['Data'] = smb2.SMB2Logoff()
+
+        responses = self.server.processRequest(self.conn_id, logoffRequest.getData())
+
+        self.assertEqual(len(responses), 1)
+        self.assertEqual(responses[0][:4], b'\xfdSMB')
+
+        # connData['Uid'] is 0 by now (smb2Logoff already cleared it), so the transform
+        # header is checked directly rather than through _decryptSMB3's own session
+        # lookup, which is written for validating incoming requests against live sessions.
+        transform = smb2.SMB2_TRANSFORM_HEADER(responses[0])
+        self.assertEqual(transform['SessionID'], sessionId)
+        self.assertEqual(self._connData()['Uid'], 0)
 
 
 if __name__ == "__main__":
