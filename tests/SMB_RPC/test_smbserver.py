@@ -690,6 +690,7 @@ class SimpleSMBServer2FuncTestsClientFallBack(SimpleSMBServerFuncTests):
 class SimpleSMBServer2FuncTests(SimpleSMBServerFuncTests):
 
     server_smb2_support = True
+    client_preferred_dialect = smb2.SMB2_DIALECT_002
 
     # When listing files in a share, SMB2 response doesn't include "." and ".."
     share_list = [SimpleSMBServerFuncTests.share_file,
@@ -726,6 +727,11 @@ class SimpleSMBServer2FuncTests(SimpleSMBServerFuncTests):
             client.deleteDirectory(self.share_name, "unexistent")
 
         client.close()
+
+
+class SimpleSMBServer21FuncTests(SimpleSMBServer2FuncTests):
+
+    client_preferred_dialect = smb2.SMB2_DIALECT_21
 
 
 class SimpleSMBServer311FuncTests(SimpleSMBServer2FuncTests):
