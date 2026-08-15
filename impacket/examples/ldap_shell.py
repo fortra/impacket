@@ -19,6 +19,9 @@ import string
 import sys
 import cmd
 import random
+import os
+import json
+import codecs
 import ldap3
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
 from ldap3.utils.conv import escape_filter_chars
@@ -713,6 +716,51 @@ class LdapShell(cmd.Cmd):
 
         print("Exported %d KeyCredential(s) to %s" % (backup_count, output_file))
 
+    def do_restore_shadow_creds(self, line):
+        args = shlex.split(line)
+
+        if len(args) not in (1, 2):
+            raise Exception("Error expecting target name and optional backup JSON file. Received %d arguments instead." % len(args))
+
+        target_name = args[0]
+        backup_file = args[1] if len(args) == 2 else None
+
+        if backup_file is None:
+            sanitized_target_name = target_name.replace('\\', '_').replace('/', '_').replace(':', '_')
+            backup_file = '%s-keycredential.json' % sanitized_target_name
+        elif not backup_file.lower().endswith('.json'):
+            backup_file = '%s.json' % backup_file
+
+        if not os.path.exists(backup_file):
+            raise Exception("Backup file %s does not exist" % backup_file)
+
+        with codecs.open(backup_file, 'r', encoding='utf-8') as backup_filehandle:
+            backup_data = json.load(backup_filehandle)
+
+        key_credentials = backup_data.get('keyCredentials', [])
+        if not key_credentials:
+            raise Exception("No keyCredentials found in backup file %s" % backup_file)
+
+        print("Found %d KeyCredential(s) in %s" % (len(key_credentials), backup_file))
+
+        success = self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(target_name), attributes=['objectSid', 'msDS-KeyCredentialLink'])
+        if success is False or len(self.client.entries) != 1:
+            raise Exception("Error expected only one search result got %d results", len(self.client.entries))
+
+        target = self.client.entries[0]
+        print("Found Target DN: %s" % target.entry_dn)
+
+        self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, key_credentials]})
+        if self.client.result['result'] == 0:
+            print('Shadow credentials restored successfully!')
+        else:
+            if self.client.result['result'] == 50:
+                raise Exception('Could not modify object, the server reports insufficient rights: %s', self.client.result['message'])
+            elif self.client.result['result'] == 19:
+                raise Exception('Could not modify object, the server reports a constrained violation: %s', self.client.result['message'])
+            else:
+                raise Exception('The server returned an error: %s', self.client.result['message'])
+
     def search(self, query, *attributes):
         self.client.search(self.domain_dumper.root, query, attributes=attributes)
         for entry in self.client.entries:
@@ -773,6 +821,7 @@ class LdapShell(cmd.Cmd):
  clear_rbcd target - Clear the resource based constrained delegation configuration information.
  clear_shadow_creds target - Clear shadow credentials on the target (sAMAccountName).
  backup_shadow_creads target [outfile] - Backup shadow credentials from the target (sAMAccountName) into a single JSON file.
+ restore_shadow_creds target [backupfile] - Restore shadow credentials on the target (sAMAccountName) from a backup JSON file.
  disable_account user - Disable the user's account.
  enable_account user - Enable the user's account.
  dump - Dumps the domain.
