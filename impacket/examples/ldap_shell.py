@@ -19,9 +19,6 @@ import string
 import sys
 import cmd
 import random
-import os
-import json
-import codecs
 import ldap3
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
 from ldap3.utils.conv import escape_filter_chars
@@ -709,28 +706,12 @@ class LdapShell(cmd.Cmd):
         target = self.client.entries[0]
         print("Found Target DN: %s" % target.entry_dn)
 
-        key_credentials = []
-        for key_credential_value in target['msDS-KeyCredentialLink'].raw_values:
-            if isinstance(key_credential_value, bytes):
-                key_credential_value = key_credential_value.decode('utf-8', errors='replace')
-            key_credentials.append(key_credential_value)
+        existing_values = target['msDS-KeyCredentialLink'].raw_values
+        print("Found %d existing KeyCredential(s)" % len(existing_values))
 
-        print("Found %d existing KeyCredential(s)" % len(key_credentials))
+        backup_count, output_file = shadow_credentials.backupKeyCredentialsToJSON(target_name, existing_values, output_file)
 
-        if output_file is None:
-            sanitized_target_name = target_name.replace('\\', '_').replace('/', '_').replace(':', '_')
-            output_file = '%s-keycredential.json' % sanitized_target_name
-        elif not output_file.lower().endswith('.json'):
-            output_file = '%s.json' % output_file
-
-        output_dir = os.path.dirname(output_file)
-        if output_dir and not os.path.exists(output_dir):
-            os.makedirs(output_dir, exist_ok=True)
-
-        with codecs.open(output_file, 'w', encoding='utf-8') as backup_file:
-            json.dump({'keyCredentials': key_credentials}, backup_file, indent=4)
-
-        print("Exported %d KeyCredential(s) to %s" % (len(key_credentials), output_file))
+        print("Exported %d KeyCredential(s) to %s" % (backup_count, output_file))
 
     def search(self, query, *attributes):
         self.client.search(self.domain_dumper.root, query, attributes=attributes)

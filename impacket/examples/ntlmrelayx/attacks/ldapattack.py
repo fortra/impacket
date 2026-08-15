@@ -276,29 +276,6 @@ class LDAPAttack(ProtocolAttack):
         else:
             LOG.error('Failed to add user to %s group: %s' % (groupName, str(self.client.result)))
 
-    def _backupShadowCredentials(self, target_name, existing_values):
-        backup_path = self.config.ShadowCredentialsBackupPath
-        if not backup_path:
-            sanitized_target_name = target_name.replace('\\', '_').replace('/', '_').replace(':', '_')
-            backup_path = '%s-keycredential.json' % sanitized_target_name
-        elif not backup_path.lower().endswith('.json'):
-            backup_path = '%s.json' % backup_path
-
-        backup_dir = os.path.dirname(backup_path)
-        if backup_dir and not os.path.exists(backup_dir):
-            os.makedirs(backup_dir, exist_ok=True)
-
-        key_credentials = []
-        for key_credential_value in existing_values:
-            if isinstance(key_credential_value, bytes):
-                key_credential_value = key_credential_value.decode('utf-8', errors='replace')
-            key_credentials.append(key_credential_value)
-
-        with codecs.open(backup_path, 'w', encoding='utf-8') as backup_file:
-            json.dump({'keyCredentials': key_credentials}, backup_file, indent=4)
-
-        LOG.info('Exported %d existing KeyCredential(s) to %s', len(key_credentials), backup_path)
-
     def _handleShadowCredentialModifyError(self):
         if self.client.result['result'] == 50:
             LOG.error('Could not modify object, the server reports insufficient rights: %s' % self.client.result['message'])
@@ -355,7 +332,9 @@ class LDAPAttack(ProtocolAttack):
             LOG.info('Found %d existing KeyCredential(s) on target object', len(existing_values))
             if self.config.ShadowCredentialsBackupAndClear:
                 if len(existing_values) > 0:
-                    self._backupShadowCredentials(currentShadowCredentialsTarget, existing_values)
+                    backup_count, backup_path = shadow_credentials.backupKeyCredentialsToJSON(
+                        currentShadowCredentialsTarget, existing_values, self.config.ShadowCredentialsBackupPath)
+                    LOG.info('Exported %d existing KeyCredential(s) to %s', backup_count, backup_path)
 
                     LOG.info('Clearing existing msDS-KeyCredentialLink values')
                     self.client.modify(target_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, []]})
