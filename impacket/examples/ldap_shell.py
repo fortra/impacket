@@ -817,10 +817,10 @@ class LdapShell(cmd.Cmd):
  rename_computer current_name new_name - Sets the SAMAccountName attribute on a computer object to a new value.
  add_user new_user [parent] - Creates a new user.
  add_user_to_group user group - Adds a user to a group.
+ backup_shadow_creds target [outfile] - Backup shadow credentials from the target (sAMAccountName) into a single JSON file.
  change_password user [password] - Attempt to change a given user's password. Requires LDAPS.
  clear_rbcd target - Clear the resource based constrained delegation configuration information.
  clear_shadow_creds target - Clear shadow credentials on the target (sAMAccountName).
- backup_shadow_creds target [outfile] - Backup shadow credentials from the target (sAMAccountName) into a single JSON file.
  disable_account user - Disable the user's account.
  enable_account user - Enable the user's account.
  dump - Dumps the domain.
@@ -829,9 +829,10 @@ class LdapShell(cmd.Cmd):
  get_group_users group - Retrieves all members of a group.
  get_laps_password computer - Retrieves the LAPS passwords associated with a given computer (sAMAccountName).
  grant_control [search_base] target grantee - Grant full control on a given target object (sAMAccountName or search filter, optional search base) to the grantee (sAMAccountName).
+ restore_shadow_creds target [backupfile] - Restore shadow credentials on the target (sAMAccountName) from a backup JSON file.
  set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
  set_rbcd target grantee - Grant the grantee (sAMAccountName) the ability to perform RBCD to the target (sAMAccountName).
-set_shadow_creds target - Set shadow credentials on the target object (sAMAccountName).
+ set_shadow_creds target - Set shadow credentials on the target object (sAMAccountName).
  start_tls - Send a StartTLS command to upgrade from LDAP to LDAPS. Use this to bypass channel binding for operations necessitating an encrypted channel.
  write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
  whoami - get connected user
