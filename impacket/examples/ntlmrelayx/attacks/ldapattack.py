@@ -330,7 +330,7 @@ class LDAPAttack(ProtocolAttack):
         try:
             existing_values = results['raw_attributes'].get('msDS-KeyCredentialLink', [])
             LOG.info('Found %d existing KeyCredential(s) on target object', len(existing_values))
-            if self.config.ShadowCredentialsBackupAndClear:
+            if self.config.ShadowCredentialsReplace:
                 if len(existing_values) > 0:
                     backup_count, backup_path = shadow_credentials.backupKeyCredentialsToJSON(
                         currentShadowCredentialsTarget, existing_values, self.config.ShadowCredentialsBackupPath)

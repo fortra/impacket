@@ -213,7 +213,7 @@ def start_servers(options, threads):
         c.setEnumTemplates(options.enum_templates)
         c.setIsShadowCredentialsAttack(options.shadow_credentials)
         c.setShadowCredentialsOptions(options.shadow_target, options.pfx_password, options.export_type,
-                          options.cert_outfile_path, options.backup_and_clear,
+                          options.cert_outfile_path, options.shadow_replace,
                           options.backup_path)
         c.setIsSCCMPoliciesAttack(options.sccm_policies)
         c.setIsSCCMDPAttack(options.sccm_dp)
@@ -448,10 +448,10 @@ if __name__ == '__main__':
     shadowcredentials.add_argument('--export-type', action='store', required=False, choices=["PEM", "PFX"], type=lambda choice: choice.upper(), default="PFX",
                                    help='choose to export cert+private key in PEM or PFX (i.e. #PKCS12) (default: PFX))')
     shadowcredentials.add_argument('--cert-outfile-path', action='store', required=False, help='filename to store the generated self-signed PEM or PFX certificate and key')
-    shadowcredentials.add_argument('--backup-and-clear', action='store_true', required=False,
-                                   help='Backup existing KeyCredentials to JSON, clear msDS-KeyCredentialLink and then set only the new KeyCredential')
+    shadowcredentials.add_argument('--shadow-replace', action='store_true', required=False,
+                                   help='Overwrite existing KeyCredentials with the new one instead of appending. Existing KeyCredentials are backed up to JSON first (see --backup-path)')
     shadowcredentials.add_argument('--backup-path', action='store', required=False,
-                                   help='Path to backup JSON file used with --backup-and-clear. If .json is omitted it is appended automatically')
+                                   help='Path to backup JSON file used with --shadow-replace. If .json is omitted it is appended automatically')
 
     # SCCM policies options
     sccmpoliciesoptions = parser.add_argument_group("SCCM Policies attack options")
