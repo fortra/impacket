@@ -175,6 +175,8 @@ TABLE_CURSOR = {
     'FatherDataPageNumber': 0,
     'CurrentPageData' : b'',
     'CurrentTag' : 0,
+    'CurrentPageNumber' : 0,
+    'VisitedPages' : None,
 }
 
 class ESENT_JET_SIGNATURE(Structure):
@@ -756,6 +758,10 @@ class ESENT_DB:
             cursor['FatherDataPageNumber'] = catalogEntry['FatherDataPageNumber']
             cursor['CurrentPageData'] = page
             cursor['CurrentTag']  = page.firstDataTag - 1
+            cursor['CurrentPageNumber'] = pageNum
+            # Track the leaf pages we walk so we can bail out if the NextPageNumber
+            # chain ever loops back on itself (see getNextRow)
+            cursor['VisitedPages'] = {pageNum}
             return cursor
         else:
             return None
@@ -792,11 +798,26 @@ class ESENT_DB:
         if tag is None:
             # No more tags in this page, search for the next one on the right
             page = cursor['CurrentPageData']
-            if page.record['NextPageNumber'] == 0:
+            nextPageNumber = page.record['NextPageNumber']
+            if nextPageNumber == 0:
                 # No more pages, chau
                 return None
+            elif cursor['VisitedPages'] is not None and nextPageNumber in cursor['VisitedPages']:
+                # A healthy ESE leaf chain is acyclic and ends at NextPageNumber == 0.
+                # A back-edge to an already-visited page (e.g. a dirty-shutdown ntds.dit
+                # whose B-tree pointers were never committed) would loop forever and emit
+                # every row once per lap. Stop here: every reachable page has already been
+                # walked exactly once, so the table read is complete.
+                LOG.error('ESE leaf-page cycle detected: page %d links back to '
+                          'already-visited page %d. Stopping table walk to avoid an infinite '
+                          'loop and duplicate rows (database may be in a dirty-shutdown / '
+                          'inconsistent state).' % (cursor['CurrentPageNumber'], nextPageNumber))
+                return None
             else:
-                cursor['CurrentPageData'] = self.getPage(page.record['NextPageNumber'])
+                if cursor['VisitedPages'] is not None:
+                    cursor['VisitedPages'].add(nextPageNumber)
+                cursor['CurrentPageNumber'] = nextPageNumber
+                cursor['CurrentPageData'] = self.getPage(nextPageNumber)
                 cursor['CurrentTag'] = cursor['CurrentPageData'].firstDataTag - 1
                 return self.getNextRow(cursor, filter_tables = filter_tables)
         else:
