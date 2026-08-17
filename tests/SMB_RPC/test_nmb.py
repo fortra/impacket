@@ -125,7 +125,7 @@ class NMBRemoteTests(RemoteTestCase, unittest.TestCase):
     def test_getnetbiosname(self):
         n = nmb.NetBIOS()
         res = n.getnetbiosname(self.machine)
-        print(repr(res))
+        # print(repr(res))
         self.assertEqual(self.serverName, res)
 
     def test_getnodestatus(self):
@@ -133,32 +133,33 @@ class NMBRemoteTests(RemoteTestCase, unittest.TestCase):
         resp = n.getnodestatus(self.serverName.upper(), self.machine)
         for r in resp:
             r.dump()
-        print(resp)
+        # print(resp)
+        self.assertIsNone(resp)
 
     def test_gethostbyname(self):
         n = nmb.NetBIOS()
         n.set_nameserver(self.serverName)
         resp = n.gethostbyname(self.serverName, nmb.TYPE_SERVER)
         print(resp.entries)
+        self.assertIsNotNone(resp.entries)
 
     def test_name_registration_request(self):
         n = nmb.NetBIOS()
         # ToDo: Look at this
         #resp = n.name_registration_request('*SMBSERVER', self.serverName, nmb.TYPE_WORKSTATION, None,nmb.NB_FLAGS_G, '1.1.1.1')
-        try:
+
+        with self.assertRaises(Exception) as context:
             resp = n.name_registration_request('*JSMBSERVER', self.serverName, nmb.TYPE_WORKSTATION, None,nmb.NB_FLAGS_ONT_P, '1.1.1.2')
             resp.dump()
-        except Exception as e:
-            print(str(e))
-            if str(e).find('NETBIOS') <= 0:
-                raise e
+        self.assertIn('NETBIOS', str(context.exception))
 
     def test_name_query_request(self):
         n = nmb.NetBIOS()
         # ToDo: Look at this
         # resp = n.name_registration_request('*SMBSERVER', self.serverName, nmb.TYPE_WORKSTATION, None,nmb.NB_FLAGS_G, '1.1.1.1')
         resp = n.name_query_request(self.serverName, self.machine)
-        print(resp.entries)
+        # print(resp.entries)
+        self.assertIsNotNone(resp.entries)
 
 
 if __name__ == "__main__":
