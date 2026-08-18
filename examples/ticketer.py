@@ -532,7 +532,10 @@ class TICKETER:
         # Diamond ticket: preserve original PAC_REQUESTOR/PAC_ATTRIBUTES from
         # the real KDC-issued TGT so that KB5020009 enforcement passes during
         # cross-realm referral TGS-REQ.
-        if self.__options.request is True and not self.__options.impersonate:
+        if (self.__options.request is True and not self.__options.impersonate
+                and not self.__options.old_pac
+                and self.__options.user.lower() == self.__target.lower()):
+
             originalPacFields = self._extractOriginalPacFields(kdcRep)
             if PAC_REQUESTOR_INFO in originalPacFields:
                 pacInfos[PAC_REQUESTOR_INFO] = originalPacFields[PAC_REQUESTOR_INFO]
