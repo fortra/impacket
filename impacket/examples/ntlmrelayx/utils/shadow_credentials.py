@@ -7,6 +7,8 @@ import time
 import hashlib
 import binascii
 import os
+import json
+import codecs
 
 # code based on:
 # 
@@ -122,6 +124,29 @@ class KeyCredential():
 def toDNWithBinary2String( binaryData, owner ):
     hexdata = binascii.hexlify(binaryData).decode("UTF-8")
     return "B:%d:%s:%s" % (len(binaryData)*2,hexdata,owner)
+
+def backupKeyCredentialsToJSON(target_name, existing_values, output_path=None):
+    if output_path is None:
+        sanitized_target_name = target_name.replace('\\', '_').replace('/', '_').replace(':', '_')
+        output_path = '%s-keycredential.json' % sanitized_target_name
+    elif not output_path.lower().endswith('.json'):
+        output_path = '%s.json' % output_path
+
+    backup_dir = os.path.dirname(output_path)
+    if backup_dir and not os.path.exists(backup_dir):
+        os.makedirs(backup_dir, exist_ok=True)
+
+    key_credentials = []
+    for key_credential_value in existing_values:
+        if isinstance(key_credential_value, bytes):
+            key_credential_value = key_credential_value.decode('utf-8', errors='replace')
+        key_credentials.append(key_credential_value)
+
+    with codecs.open(output_path, 'w', encoding='utf-8') as backup_file:
+        json.dump({'keyCredentials': key_credentials}, backup_file, indent=4)
+
+    return len(key_credentials), output_path
+
 
 def exportPFX(certificate,key,path_to_file,password):
     if len(os.path.dirname(path_to_file)) != 0:
