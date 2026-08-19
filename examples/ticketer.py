@@ -80,7 +80,7 @@ from impacket.krb5.pac import KERB_SID_AND_ATTRIBUTES, PAC_SIGNATURE_DATA, PAC_L
     VALIDATION_INFO, PAC_CLIENT_INFO, KERB_VALIDATION_INFO, UPN_DNS_INFO_FULL, PAC_REQUESTOR_INFO, PAC_UPN_DNS_INFO, PAC_ATTRIBUTES_INFO, PAC_REQUESTOR, \
     PAC_ATTRIBUTE_INFO
 from impacket.krb5.types import KerberosTime, Principal
-from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
+from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, getKerberosTGSRequestEnctypes
 
 from impacket.krb5 import constants, pac
 from impacket.krb5.asn1 import AP_REQ, TGS_REQ, Authenticator, seq_set, seq_set_iter, PA_FOR_USER_ENC, Ticket as TicketAsn1
@@ -604,8 +604,7 @@ class TICKETER:
 
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.getrandbits(31)
-        seq_set_iter(reqBody, 'etype',
-                     (int(cipher.enctype), int(constants.EncryptionTypes.rc4_hmac.value)))
+        seq_set_iter(reqBody, 'etype', getKerberosTGSRequestEnctypes())
 
         seq_set_iter(reqBody, 'additional-tickets', (ticket.to_asn1(TicketAsn1()),))
 
