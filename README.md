@@ -5,6 +5,7 @@ Impacket
 
 [![Latest Version](https://img.shields.io/pypi/v/impacket.svg)](https://pypi.python.org/pypi/impacket/)
 [![Build and test Impacket](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml/badge.svg)](https://github.com/fortra/impacket/actions/workflows/build_and_test.yml)
+[![inspect.software](https://raw.githubusercontent.com/inspect-software/badges/main/v1/f/fortra/impacket.svg)](https://inspect.software/software/fortra/impacket)
 
 Copyright Fortra, LLC and its affiliated companies. All rights reserved.
 
