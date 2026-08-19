@@ -259,6 +259,8 @@ class SMBRelayServer(Thread):
                # Is this GSSAPI NTLM or something else we don't support?
                mechType = blob['MechTypes'][0]
                if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
+                   if blob.isNegoExOffered():
+                       smbServer.log("NEGOEX/PKU2U authentication offered by client, currently not supported for relay", logging.INFO)
                    # Nope, do we know it?
                    if mechType in MechTypes:
                        mechStr = MechTypes[mechType]
