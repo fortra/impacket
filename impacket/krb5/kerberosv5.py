@@ -80,7 +80,7 @@ def getKerberosTGSRequestEnctypes(etypes=None):
     return normalizedEtypes
 
 
-def sendReceive(data, host, kdcHost, port=88):
+def sendReceive(data, host, kdcHost, port=88, timeout=None):
     if kdcHost is None:
         targetHost = host
     else:
@@ -92,7 +92,9 @@ def sendReceive(data, host, kdcHost, port=88):
     try:
         af, socktype, proto, canonname, sa = socket.getaddrinfo(targetHost, port, 0, socket.SOCK_STREAM)[0]
         s = socket.socket(af, socktype, proto)
+        s.settimeout(timeout)
         s.connect(sa)
+        s.settimeout(None)
     except socket.error as e:
         raise socket.error("Connection error (%s:%s)" % (targetHost, port), e)
 
@@ -124,7 +126,7 @@ def sendReceive(data, host, kdcHost, port=88):
 
     return r
 
-def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True, serverName=None, kerberoast_no_preauth=False):
+def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True, serverName=None, kerberoast_no_preauth=False, timeout=None):
 
     # Convert to binary form, just in case we're receiving strings
     if isinstance(lmhash, str):
@@ -217,14 +219,14 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     message = encoder.encode(asReq)
 
     try:
-        r = sendReceive(message, domain, kdcHost)
+        r = sendReceive(message, domain, kdcHost, timeout=timeout)
     except KerberosError as e:
         if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
             if supportedCiphers[0] in (constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value, constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value) and aesKey == b'':
                 supportedCiphers = (int(constants.EncryptionTypes.rc4_hmac.value),)
                 seq_set_iter(reqBody, 'etype', supportedCiphers)
                 message = encoder.encode(asReq)
-                r = sendReceive(message, domain, kdcHost)
+                r = sendReceive(message, domain, kdcHost, timeout=timeout)
             else:
                 raise
         else:
@@ -290,7 +292,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
         # No salt for this etype (e.g. no AES key on the account), fall back to RC4.
         from impacket.ntlm import compute_lmhash, compute_nthash
         return getKerberosTGT(clientName, password, domain, compute_lmhash(password), compute_nthash(password),
-                              aesKey, kdcHost, requestPAC, serverName, kerberoast_no_preauth)
+                              aesKey, kdcHost, requestPAC, serverName, kerberoast_no_preauth, timeout)
     else:
         key = cipher.string_to_key(password, encryptionTypesData[enctype], None)
 
@@ -355,14 +357,14 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
         seq_set_iter(reqBody, 'etype', ( (int(cipher.enctype),)))
 
         try:
-            tgt = sendReceive(encoder.encode(asReq), domain, kdcHost)
+            tgt = sendReceive(encoder.encode(asReq), domain, kdcHost, timeout=timeout)
         except Exception as e:
             if str(e).find('KDC_ERR_ETYPE_NOSUPP') >= 0:
                 if lmhash == b'' and nthash == b'' and (aesKey == b'' or aesKey is None):
                     from impacket.ntlm import compute_lmhash, compute_nthash
                     lmhash = compute_lmhash(password)
                     nthash = compute_nthash(password)
-                    return getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey, kdcHost, requestPAC)
+                    return getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey, kdcHost, requestPAC, timeout=timeout)
             raise
 
 
@@ -401,7 +403,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
     return tgt, cipher, key, sessionKey
 
-def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew = False, etypes = None):
+def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew = False, etypes = None, timeout=None):
 
     requestEtypes = getKerberosTGSRequestEnctypes(etypes)
 
@@ -482,7 +484,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
     seq_set_iter(reqBody, 'etype', requestEtypes)
 
     message = encoder.encode(tgsReq)
-    r = sendReceive(message, domain, kdcHost)
+    r = sendReceive(message, domain, kdcHost, timeout=timeout)
 
     # Get the session key
 
@@ -512,7 +514,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
     else:
         # Let's extract the Ticket, change the domain and keep asking
         domain = spn.components[1]
-        return getKerberosTGS(serverName, domain, kdcHost, r, cipher, newSessionKey, etypes=requestEtypes)
+        return getKerberosTGS(serverName, domain, kdcHost, r, cipher, newSessionKey, etypes=requestEtypes, timeout=timeout)
 
 ################################################################################
 # DCE RPC Helpers
