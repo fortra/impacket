@@ -50,6 +50,36 @@ except NotImplementedError:
     rand = random
     pass
 
+# TGS request etypes describe the session keys the client can use for the
+# requested ticket. They are independent from the enctype of the TGT session
+# key used to protect the request.
+DEFAULT_TGS_ENCTYPES = (
+    int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
+    int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value),
+    int(constants.EncryptionTypes.rc4_hmac.value),
+    int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
+    int(constants.EncryptionTypes.des_cbc_md5.value),
+)
+
+RC4_PREFERRED_TGS_ENCTYPES = (
+    int(constants.EncryptionTypes.rc4_hmac.value),
+    int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
+    int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value),
+    int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
+    int(constants.EncryptionTypes.des_cbc_md5.value),
+)
+
+
+def getKerberosTGSRequestEnctypes(etypes=None):
+    if etypes is None:
+        return DEFAULT_TGS_ENCTYPES
+
+    normalizedEtypes = tuple(int(getattr(etype, 'value', etype)) for etype in etypes)
+    if len(normalizedEtypes) == 0:
+        raise ValueError('At least one TGS request enctype must be specified')
+    return normalizedEtypes
+
+
 def sendReceive(data, host, kdcHost, port=88):
     if kdcHost is None:
         targetHost = host
@@ -256,6 +286,11 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
         key = Key(cipher.enctype, nthash)
     elif aesKey != b'':
         key = Key(cipher.enctype, aesKey)
+    elif enctype not in encryptionTypesData:
+        # No salt for this etype (e.g. no AES key on the account), fall back to RC4.
+        from impacket.ntlm import compute_lmhash, compute_nthash
+        return getKerberosTGT(clientName, password, domain, compute_lmhash(password), compute_nthash(password),
+                              aesKey, kdcHost, requestPAC, serverName, kerberoast_no_preauth)
     else:
         key = cipher.string_to_key(password, encryptionTypesData[enctype], None)
 
@@ -366,7 +401,9 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
     return tgt, cipher, key, sessionKey
 
-def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew = False):
+def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew = False, etypes = None):
+
+    requestEtypes = getKerberosTGSRequestEnctypes(etypes)
 
     # Decode the TGT
     try:
@@ -442,34 +479,10 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
 
     reqBody['till'] = KerberosTime.to_asn1(now)
     reqBody['nonce'] = rand.getrandbits(31)
-    seq_set_iter(reqBody, 'etype',
-                      (
-                          int(constants.EncryptionTypes.rc4_hmac.value),
-                          int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
-                          int(constants.EncryptionTypes.des_cbc_md5.value),
-                          int(cipher.enctype)
-                       )
-                )
+    seq_set_iter(reqBody, 'etype', requestEtypes)
 
     message = encoder.encode(tgsReq)
-
-    try:
-        r = sendReceive(message, domain, kdcHost)
-    except KerberosError as e:
-        # The requested etypes (derived from the TGT session key) are not supported by the
-        # target service, e.g. an RC4 TGT against an AES-only account. Retry advertising AES
-        # so a valid TGT can still obtain a ticket (RC4-capable targets already succeeded above,
-        # so this preserves the RC4 preference and only kicks in when RC4 is refused).
-        if e.getErrorCode() != constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
-            raise
-        seq_set_iter(reqBody, 'etype',
-                          (
-                              int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
-                              int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value),
-                          )
-                    )
-        message = encoder.encode(tgsReq)
-        r = sendReceive(message, domain, kdcHost)
+    r = sendReceive(message, domain, kdcHost)
 
     # Get the session key
 
@@ -499,7 +512,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
     else:
         # Let's extract the Ticket, change the domain and keep asking
         domain = spn.components[1]
-        return getKerberosTGS(serverName, domain, kdcHost, r, cipher, newSessionKey)
+        return getKerberosTGS(serverName, domain, kdcHost, r, cipher, newSessionKey, etypes=requestEtypes)
 
 ################################################################################
 # DCE RPC Helpers

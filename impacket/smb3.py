@@ -350,6 +350,21 @@ class SMB3:
         calculatedHash.update(data)
         self._Session['PreauthIntegrityHashValue'] = calculatedHash.digest()
 
+    def __nonceLength(self):
+        # Nonce field is 16 bytes total, but CCM only uses the first 11, GCM the first 12
+        # (rest is reserved padding). MS-SMB2 2.2.41 SMB2_TRANSFORM_HEADER:
+        # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/d6ce2327-a4c9-4793-be66-7b5bad2175fa
+        if self._Connection.get('CipherId') == SMB2_ENCRYPTION_AES128_GCM:
+            return 12
+        return 11
+
+    def __transformCipher(self, key, nonce):
+        # Connection.Dialect < "3.1.1" only ever supports AES-128-CCM (no cipher negotiation
+        # exists before 3.1.1), so CipherId being unset/0 there is the correct CCM fallback.
+        if self._Connection.get('CipherId') == SMB2_ENCRYPTION_AES128_GCM:
+            return AES.new(key, AES.MODE_GCM, nonce[:12])
+        return AES.new(key, AES.MODE_CCM, nonce[:11])
+
     def getKerberos(self):
         return self._doKerberos
 
@@ -487,11 +502,15 @@ class SMB3:
         if (self._Session['SessionFlags'] & SMB2_SESSION_FLAG_ENCRYPT_DATA) or ( packet['TreeID'] != 0 and self._Session['TreeConnectTable'][packet['TreeID']]['EncryptData'] is True):
             plainText = packet.getData()
             transformHeader = SMB2_TRANSFORM_HEADER()
-            transformHeader['Nonce'] = ''.join([rand.choice(string.ascii_letters) for _ in range(11)])
+            transformHeader['Nonce'] = ''.join([rand.choice(string.ascii_letters) for _ in range(self.__nonceLength())])
             transformHeader['OriginalMessageSize'] = len(plainText)
+            # For 3.0/3.0.2 this field really is the cipher (only CCM=0x0001 is defined); for
+            # 3.1.1 it's repurposed as Flags and must stay 0x0001 regardless of cipher, so the
+            # same constant is correct either way. MS-SMB2 2.2.41 SMB2_TRANSFORM_HEADER:
+            # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/d6ce2327-a4c9-4793-be66-7b5bad2175fa
             transformHeader['EncryptionAlgorithm'] = SMB2_ENCRYPTION_AES128_CCM
             transformHeader['SessionID'] = self._Session['SessionID']
-            cipher = AES.new(self._Session['EncryptionKey'], AES.MODE_CCM,  b(transformHeader['Nonce']))
+            cipher = self.__transformCipher(self._Session['EncryptionKey'], b(transformHeader['Nonce']))
             cipher.update(transformHeader.getData()[20:])
             cipherText = cipher.encrypt(plainText)
             transformHeader['Signature'] = cipher.digest()
@@ -517,10 +536,13 @@ class SMB3:
         if data.get_trailer().startswith(b'\xfdSMB'):
             # Packet is encrypted
             transformHeader = SMB2_TRANSFORM_HEADER(data.get_trailer())
-            cipher = AES.new(self._Session['DecryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'][:11])
+            cipher = self.__transformCipher(self._Session['DecryptionKey'], transformHeader['Nonce'])
             cipher.update(transformHeader.getData()[20:])
-            plainText = cipher.decrypt(data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):])
-            #cipher.verify(transformHeader['Signature'])
+            # Verify the signature, not just decrypt: a tampered message must be rejected,
+            # not silently handed back as plaintext. MS-SMB2 3.2.5.1.1.1 Decrypting the Message:
+            # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/d3c03e33-7dc7-4d58-8428-0a1484c5c874
+            plainText = cipher.decrypt_and_verify(data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):],
+                                                   transformHeader['Signature'])
             packet = SMB2Packet(plainText)
         else:
             # In all SMB dialects for a response this field is interpreted as the Status field.
@@ -538,10 +560,12 @@ class SMB3:
                 else:
                     # Packet is encrypted
                     transformHeader = SMB2_TRANSFORM_HEADER(data.get_trailer())
-                    cipher = AES.new(self._Session['DecryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'][:11])
+                    cipher = self.__transformCipher(self._Session['DecryptionKey'], transformHeader['Nonce'])
                     cipher.update(transformHeader.getData()[20:])
-                    plainText = cipher.decrypt(data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):])
-                    #cipher.verify(transformHeader['Signature'])
+                    # See the tag-verification note above: same MS-SMB2 3.2.5.1.1.1 requirement
+                    # applies to encrypted STATUS_PENDING interim responses.
+                    plainText = cipher.decrypt_and_verify(data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):],
+                                                           transformHeader['Signature'])
                     packet = SMB2Packet(plainText)
                 status = packet['Status']
 
@@ -623,9 +647,14 @@ class SMB3:
                 negotiateContext2 = SMB2NegotiateContext()
                 negotiateContext2['ContextType'] = SMB2_ENCRYPTION_CAPABILITIES
 
+                # Ciphers must be listed most-preferred first. GCM is faster on AES-NI hardware,
+                # CCM is the fallback for servers without 3.1.1's cipher negotiation.
+                # MS-SMB2 2.2.3.1.2 SMB2_ENCRYPTION_CAPABILITIES:
+                # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/16693be7-2b27-4d3b-804b-f605bde5bcdd
                 encryptionCapabilities = SMB2EncryptionCapabilities()
-                encryptionCapabilities['CipherCount'] = 1
-                encryptionCapabilities['Ciphers'] = b'\x01\x00'
+                encryptionCapabilities['CipherCount'] = 2
+                encryptionCapabilities['Ciphers'] = struct.pack('<HH', SMB2_ENCRYPTION_AES128_GCM,
+                                                                 SMB2_ENCRYPTION_AES128_CCM)
 
                 negotiateContext2['Data'] = encryptionCapabilities.getData()
                 negotiateContext2['DataLength'] = len(negotiateContext2['Data'])
