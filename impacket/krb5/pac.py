@@ -16,8 +16,8 @@
 #
 from binascii import Error as BinasciiError, unhexlify
 
-from impacket.dcerpc.v5.dtypes import ULONG, RPC_UNICODE_STRING, FILETIME, PRPC_SID, USHORT, RPC_SID, SID
-from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER
+from impacket.dcerpc.v5.dtypes import ULONG, RPC_UNICODE_STRING, FILETIME, PRPC_SID, USHORT, RPC_SID, SID, LONG64, LPWSTR
+from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER, NDRUNION
 from impacket.dcerpc.v5.nrpc import USER_SESSION_KEY, CHAR_FIXED_8_ARRAY, PUCHAR_ARRAY, PRPC_UNICODE_STRING_ARRAY
 from impacket.dcerpc.v5.rpcrt import TypeSerialization1
 from impacket.krb5 import constants
@@ -37,6 +37,9 @@ PAC_PRIVSVR_CHECKSUM = 7
 PAC_CLIENT_INFO_TYPE = 10
 PAC_DELEGATION_INFO  = 11
 PAC_UPN_DNS_INFO     = 12
+PAC_CLIENT_CLAIMS_INFO_TYPE = 13
+PAC_DEVICE_INFO_TYPE        = 14
+PAC_DEVICE_CLAIMS_INFO_TYPE = 15
 PAC_ATTRIBUTES_INFO  = 17
 PAC_REQUESTOR_INFO   = 18
 
@@ -45,6 +48,138 @@ PAC_REQUESTOR_INFO   = 18
 ################################################################################
 
 PISID = PRPC_SID
+
+################################################################################
+# [MS-ADTS] 2.2.18 CLAIMS_SET (PAC client/device claims — buffers 13 and 15)
+################################################################################
+# CLAIM_TYPE (2.2.18.6)
+CLAIM_TYPE_INT64   = 1
+CLAIM_TYPE_UINT64  = 2
+CLAIM_TYPE_STRING  = 3
+CLAIM_TYPE_BOOLEAN = 6
+# CLAIMS_SOURCE_TYPE (2.2.18.5)
+CLAIMS_SOURCE_TYPE_AD          = 1
+CLAIMS_SOURCE_TYPE_CERTIFICATE = 2
+# CLAIMS_COMPRESSION_FORMAT (2.2.18.4)
+CLAIMS_COMPRESSION_FORMAT_NONE        = 0
+CLAIMS_COMPRESSION_FORMAT_LZNT1       = 2
+CLAIMS_COMPRESSION_FORMAT_XPRESS      = 3
+CLAIMS_COMPRESSION_FORMAT_XPRESS_HUFF = 4
+
+class CLAIMS_ULONG64(NDRSTRUCT):
+    align = 8
+    structure = (('Data', '<Q=0'),)
+class CLAIMS_UCHAR(NDRSTRUCT):
+    align = 1
+    structure = (('Data', '<B=0'),)
+class CLAIMS_UCHAR_ARRAY(NDRUniConformantArray):
+    item = CLAIMS_UCHAR
+class PCLAIMS_UCHAR_ARRAY(NDRPOINTER):
+    referent = (('Data', CLAIMS_UCHAR_ARRAY),)
+
+class LPWSTR_ARRAY(NDRUniConformantArray):
+    item = LPWSTR
+class PLPWSTR_ARRAY(NDRPOINTER):
+    referent = (('Data', LPWSTR_ARRAY),)
+class LONG64_ARRAY(NDRUniConformantArray):
+    item = LONG64
+class PLONG64_ARRAY(NDRPOINTER):
+    referent = (('Data', LONG64_ARRAY),)
+class CLAIMS_ULONG64_ARRAY(NDRUniConformantArray):
+    item = CLAIMS_ULONG64
+class PCLAIMS_ULONG64_ARRAY(NDRPOINTER):
+    referent = (('Data', CLAIMS_ULONG64_ARRAY),)
+
+class CLAIM_ENTRY_INT64(NDRSTRUCT):
+    structure = (('ValueCount', ULONG), ('Int64Values', PLONG64_ARRAY),)
+class CLAIM_ENTRY_UINT64(NDRSTRUCT):
+    structure = (('ValueCount', ULONG), ('Uint64Values', PCLAIMS_ULONG64_ARRAY),)
+class CLAIM_ENTRY_STRING(NDRSTRUCT):
+    structure = (('ValueCount', ULONG), ('StringValues', PLPWSTR_ARRAY),)
+class CLAIM_ENTRY_BOOLEAN(NDRSTRUCT):
+    structure = (('ValueCount', ULONG), ('BooleanValues', PCLAIMS_ULONG64_ARRAY),)
+
+class CLAIM_ENTRY_VALUES(NDRUNION):
+    commonHdr = (('tag', USHORT),)
+    union = {
+        CLAIM_TYPE_INT64:   ('int64',   CLAIM_ENTRY_INT64),
+        CLAIM_TYPE_UINT64:  ('uint64',  CLAIM_ENTRY_UINT64),
+        CLAIM_TYPE_STRING:  ('string',  CLAIM_ENTRY_STRING),
+        CLAIM_TYPE_BOOLEAN: ('boolean', CLAIM_ENTRY_BOOLEAN),
+    }
+
+class CLAIM_ENTRY(NDRSTRUCT):
+    structure = (('Id', LPWSTR), ('Values', CLAIM_ENTRY_VALUES),)
+class CLAIM_ENTRY_ARRAY(NDRUniConformantArray):
+    item = CLAIM_ENTRY
+class PCLAIM_ENTRY_ARRAY(NDRPOINTER):
+    referent = (('Data', CLAIM_ENTRY_ARRAY),)
+
+class CLAIMS_ARRAY(NDRSTRUCT):
+    structure = (('usClaimsSourceType', USHORT), ('ulClaimsCount', ULONG),
+                 ('ClaimEntries', PCLAIM_ENTRY_ARRAY),)
+class CLAIMS_ARRAY_ARRAY(NDRUniConformantArray):
+    item = CLAIMS_ARRAY
+class PCLAIMS_ARRAY_ARRAY(NDRPOINTER):
+    referent = (('Data', CLAIMS_ARRAY_ARRAY),)
+
+class CLAIMS_SET(NDRSTRUCT):
+    structure = (('ulClaimsArrayCount', ULONG), ('ClaimsArrays', PCLAIMS_ARRAY_ARRAY),
+                 ('usReservedType', USHORT), ('ulReservedFieldSize', ULONG),
+                 ('ReservedField', PCLAIMS_UCHAR_ARRAY),)
+class PCLAIMS_SET(NDRPOINTER):
+    referent = (('Data', CLAIMS_SET),)
+class CLAIMS_SET_TYPE(TypeSerialization1):
+    structure = (('Data', PCLAIMS_SET),)
+
+class CLAIMS_SET_METADATA(NDRSTRUCT):
+    structure = (('ClaimsSetSize', ULONG), ('ClaimsSet', PCLAIMS_UCHAR_ARRAY),
+                 ('usCompressionFormat', USHORT), ('ulUncompressedClaimsSetSize', ULONG),
+                 ('usReservedType', USHORT), ('ulReservedFieldSize', ULONG),
+                 ('ReservedField', PCLAIMS_UCHAR_ARRAY),)
+class PCLAIMS_SET_METADATA(NDRPOINTER):
+    referent = (('Data', CLAIMS_SET_METADATA),)
+class CLAIMS_SET_METADATA_TYPE(TypeSerialization1):
+    structure = (('Data', PCLAIMS_SET_METADATA),)
+
+CLAIM_TYPE_NAME    = {1: 'int64', 2: 'uint64', 3: 'string', 6: 'boolean'}
+CLAIMS_SOURCE_NAME = {1: 'AD', 2: 'CERTIFICATE'}
+
+def _claims_parse_ts(cls, blob):
+    # TypeSerialization1-wrapped pointer type: flat pass, then referent pass.
+    obj = cls()
+    obj.fromString(blob)
+    obj.fromStringReferents(blob[len(obj.getData()):])
+    return obj
+
+def _claims_wstr(x):
+    return (x if isinstance(x, str) else x['Data']).rstrip('\x00')
+
+def parse_claims_set(blob):
+    """Decode a PAC_CLIENT_CLAIMS_INFO / PAC_DEVICE_CLAIMS_INFO ['Claims'] blob
+    (CLAIMS_SET_METADATA -> CLAIMS_SET). Returns a list of
+    {'source', 'id', 'type', 'values'} dicts. Raises NotImplementedError if the
+    CLAIMS_SET is compressed (XPRESS-Huffman decompression not yet supported)."""
+    meta = _claims_parse_ts(CLAIMS_SET_METADATA_TYPE, blob)['Data']
+    fmt = meta['usCompressionFormat']
+    if fmt != CLAIMS_COMPRESSION_FORMAT_NONE:
+        raise NotImplementedError(
+            "CLAIMS_SET is compressed (format %d) - decompression not yet supported" % fmt)
+    cs_bytes = bytes(u['Data'] for u in meta['ClaimsSet'])
+    cs = _claims_parse_ts(CLAIMS_SET_TYPE, cs_bytes)['Data']
+    claims = []
+    for arr in cs['ClaimsArrays']:
+        src = CLAIMS_SOURCE_NAME.get(arr['usClaimsSourceType'], arr['usClaimsSourceType'])
+        for ent in arr['ClaimEntries']:
+            t = ent['Values']['tag']; u = ent['Values']
+            if   t == CLAIM_TYPE_STRING:  vals = [_claims_wstr(x) for x in u['string']['StringValues']]
+            elif t == CLAIM_TYPE_INT64:   vals = [x['Data'] for x in u['int64']['Int64Values']]
+            elif t == CLAIM_TYPE_UINT64:  vals = [x['Data'] for x in u['uint64']['Uint64Values']]
+            elif t == CLAIM_TYPE_BOOLEAN: vals = [bool(x['Data']) for x in u['boolean']['BooleanValues']]
+            else: vals = []
+            claims.append({'source': src, 'id': _claims_wstr(ent['Id']),
+                           'type': CLAIM_TYPE_NAME.get(t, t), 'values': vals})
+    return claims
 
 # 2.2.1 KERB_SID_AND_ATTRIBUTES
 class KERB_SID_AND_ATTRIBUTES(NDRSTRUCT):

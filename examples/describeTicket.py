@@ -486,6 +486,21 @@ def parse_pac(pacType, args):
             parsed_data['Reserved3'] = kerbdata['Reserved3']
             parsed_tuPAC.append({"LoginInfo": parsed_data})
 
+        elif infoBuffer['ulType'] in (pac.PAC_CLIENT_CLAIMS_INFO_TYPE, pac.PAC_DEVICE_CLAIMS_INFO_TYPE):
+            # Parsing [MS-ADTS] 2.2.18 CLAIMS_SET (client/device claims)
+            label = "Client Claims" if infoBuffer['ulType'] == pac.PAC_CLIENT_CLAIMS_INFO_TYPE else "Device Claims"
+            parsed_data = {}
+            try:
+                claims = pac.parse_claims_set(data)
+                if not claims:
+                    parsed_data['  (none)'] = ''
+                for claim in claims:
+                    key = "  [%s] %s (%s)" % (claim['source'], claim['id'], claim['type'])
+                    parsed_data[key] = ', '.join(str(v) for v in claim['values'])
+            except NotImplementedError as e:
+                parsed_data['  <not decoded>'] = str(e)
+            parsed_tuPAC.append({label: parsed_data})
+
         elif infoBuffer['ulType'] == pac.PAC_CLIENT_INFO_TYPE:
             clientInfo = pac.PAC_CLIENT_INFO()
             clientInfo.fromString(data)
