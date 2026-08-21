@@ -2860,14 +2860,14 @@ def hSamrUnicodeChangePasswordUser2(dce, serverName='\x00', userName='', oldPass
         except:
             pass
 
+    if isinstance(newPassword, bytes):
+        import sys
+        newPassword = newPassword.decode(sys.getfilesystemencoding())
+
     newPwdHashNT = ntlm.NTOWFv1(newPassword)
 
     samUser = SAMPR_USER_PASSWORD()
-    try:
-        encoded_password = newPassword.encode('utf-16le')
-    except UnicodeDecodeError:
-        import sys
-        encoded_password = newPassword.decode(sys.getfilesystemencoding()).encode('utf-16le')
+    encoded_password = newPassword.encode('utf-16le')
 
     samUser['Buffer'] = b'A' * (512 - len(encoded_password)) + encoded_password
 

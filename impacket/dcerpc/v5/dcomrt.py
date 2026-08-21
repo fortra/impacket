@@ -1132,15 +1132,29 @@ class DCOMConnection:
         #print INTERFACE.CONNECTIONS
 
 class CLASS_INSTANCE:
-    def __init__(self, ORPCthis, stringBinding):
+    def __init__(self, ORPCthis, stringBinding, portmap=None):
         self.__stringBindings = stringBinding
         self.__ORPCthis = ORPCthis
         self.__authType = RPC_C_AUTHN_WINNT
         self.__authLevel = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+        self.__connectionInfo = None
+        if portmap is not None:
+            self.set_connection_info(portmap)
     def get_ORPCthis(self):
         return self.__ORPCthis
     def get_string_bindings(self):
         return self.__stringBindings
+    def set_connection_info(self, portmap):
+        rpcTransport = portmap.get_rpc_transport()
+        kerberos = rpcTransport.get_kerberos()
+        remoteHost = None
+        remoteName = None
+        if kerberos:
+            remoteHost = rpcTransport.getRemoteHost()
+            remoteName = rpcTransport.getRemoteName()
+        self.__connectionInfo = (portmap.get_credentials(), kerberos, rpcTransport.get_kdcHost(), remoteHost, remoteName)
+    def get_connection_info(self):
+        return self.__connectionInfo
     def get_auth_level(self):
         if RPC_C_AUTHN_LEVEL_NONE < self.__authLevel < RPC_C_AUTHN_LEVEL_PKT_PRIVACY:
             if self.__authType == RPC_C_AUTHN_WINNT:
@@ -1340,15 +1354,19 @@ class INTERFACE:
 
                 dcomInterface = transport.DCERPCTransportFactory(stringBinding)
 
-                if DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().get_kerberos():
-                    dcomInterface.setRemoteHost(DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().getRemoteHost())
-                    dcomInterface.setRemoteName(DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().getRemoteName())
+                connectionInfo = self.__cinstance.get_connection_info()
+                if connectionInfo is None:
+                    self.__cinstance.set_connection_info(DCOMConnection.PORTMAPS[self.__target])
+                    connectionInfo = self.__cinstance.get_connection_info()
+                credentials, kerberos, kdcHost, remoteHost, remoteName = connectionInfo
+                if kerberos:
+                    dcomInterface.setRemoteHost(remoteHost)
+                    dcomInterface.setRemoteName(remoteName)
 
                 if hasattr(dcomInterface, 'set_credentials'):
                     # This method exists only for selected protocol sequences.
-                    dcomInterface.set_credentials(*DCOMConnection.PORTMAPS[self.__target].get_credentials())
-                    dcomInterface.set_kerberos(DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().get_kerberos(),
-                                               DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().get_kdcHost())
+                    dcomInterface.set_credentials(*credentials)
+                    dcomInterface.set_kerberos(kerberos, kdcHost)
                 dcomInterface.set_connect_timeout(300)
                 dce = dcomInterface.get_dce_rpc()
 
@@ -1640,7 +1658,7 @@ class IActivation:
                 secBinding = SECURITYBINDING(securityBindings)
                 securityBindings = securityBindings[len(secBinding):]
 
-        classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
+        classInstance = CLASS_INSTANCE(ORPCthis, stringBindings, self.__portmap)
         return IRemUnknown2(INTERFACE(classInstance, b''.join(resp['ppInterfaceData'][0]['abData']), ipidRemUnknown,
                                       target=self.__portmap.get_rpc_transport().getRemoteName()))
 
@@ -1804,7 +1822,7 @@ class IRemoteSCMActivator:
         size = propsOut.fromString(propOutput)
         propsOut.fromStringReferents(propOutput[size:])
 
-        classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
+        classInstance = CLASS_INSTANCE(ORPCthis, stringBindings, self.__portmap)
         classInstance.set_auth_level(scmr['remoteReply']['authnHint'])
         classInstance.set_auth_type(self.__portmap.get_auth_type())
         return IRemUnknown2(INTERFACE(classInstance, b''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown,
@@ -1968,7 +1986,7 @@ class IRemoteSCMActivator:
         size = propsOut.fromString(propOutput)
         propsOut.fromStringReferents(propOutput[size:])
 
-        classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
+        classInstance = CLASS_INSTANCE(ORPCthis, stringBindings, self.__portmap)
         classInstance.set_auth_level(scmr['remoteReply']['authnHint'])
         classInstance.set_auth_type(self.__portmap.get_auth_type())
         return IRemUnknown2(INTERFACE(classInstance, b''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown,
