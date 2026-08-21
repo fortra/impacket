@@ -966,7 +966,10 @@ class BootpDecoder(Decoder):
         d = dhcp.BootpPacket(aBuffer)
         self.set_decoded_protocol( d )
         off = len(d.getData())
-        if dhcp.DhcpPacket(aBuffer[off:])['cookie'] == dhcp.DhcpPacket.MAGIC_NUMBER:
+        # A plain BOOTP packet may carry no vendor-specific/DHCP options area at all
+        # (RFC 951). Only try to parse the DHCP magic cookie when there are enough
+        # trailing bytes for it, otherwise DhcpPacket() raises struct.error. See issue #1900.
+        if len(aBuffer) - off >= 4 and dhcp.DhcpPacket(aBuffer[off:])['cookie'] == dhcp.DhcpPacket.MAGIC_NUMBER:
             self.data_decoder = DHCPDecoder()
             packet = self.data_decoder.decode(aBuffer[off:])
             d.contains(packet)
