@@ -12,7 +12,7 @@
 #   Implementation of MS-FSRVP: File server remote VSS Protocol.
 #
 # Authors:
-#   Andrei Solodiankin <soload@yandex.ru> / https://github.com/AndreySolod
+#   Andrei Solodiankin https://github.com/AndreySolod
 #
 
 
