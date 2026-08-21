@@ -143,7 +143,7 @@ class NDR(object):
         return self.fields[key]
 
     def __str__(self):
-        return self.getData()
+        return str(self.getData())
 
     def __len__(self):
         # XXX: improve
