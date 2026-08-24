@@ -490,6 +490,9 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
 ################################################################################
 def getKerberosType3(cipher, sessionKey, auth_data):
     negTokenResp = SPNEGO_NegTokenResp(auth_data)
+    if negTokenResp.isNegoExSelected():
+        raise NotImplementedError('NEGOEX authentication is not supported in Kerberos Type 3 processing')
+
     # If DCE_STYLE = FALSE
     #ap_rep = decoder.decode(negTokenResp['ResponseToken'][16:], asn1Spec=AP_REP())[0]
     try:

@@ -254,21 +254,16 @@ class SMBRelayServer(Thread):
         if struct.unpack('B',securityBlob[0:1])[0] == ASN1_AID:
            # NEGOTIATE packet
            blob =  SPNEGO_NegTokenInit(securityBlob)
-           token = blob['MechToken']
-           if len(blob['MechTypes'][0]) > 0:
-               # Is this GSSAPI NTLM or something else we don't support?
-               mechType = blob['MechTypes'][0]
-               if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
-                   if blob.isNegoExOffered():
-                       smbServer.log("NEGOEX/PKU2U authentication offered by client, currently not supported for relay", logging.INFO)
-                   # Nope, do we know it?
-                   if mechType in MechTypes:
-                       mechStr = MechTypes[mechType]
-                   else:
-                       mechStr = hexlify(mechType)
-                   smbServer.log("Unsupported MechType '%s'" % mechStr, logging.DEBUG)
-                   # We don't know the token, we answer back again saying
-                   # we just support NTLM.
+           token = blob['MechToken'] if 'MechToken' in blob.fields else b''
+
+           mechTypes = blob['MechTypes'] if 'MechTypes' in blob.fields else []
+           negoexOffered = TypesMech['NEGOEX - SPNEGO Extended Negotiation Security Mechanism'] in mechTypes
+           ntlmOffered = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider'] in mechTypes
+
+           if negoexOffered:
+               smbServer.log("NEGOEX/PKU2U authentication offered by client, currently not supported for relay", logging.INFO)
+               # Only reject the flow if NEGOEX is offered without NTLM; if NTLM is also present, keep the existing NTLM path.
+               if negoexOffered and not ntlmOffered:
                    respToken = SPNEGO_NegTokenResp()
                    respToken['NegState'] = b'\x03'  # request-mic
                    respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
@@ -276,7 +271,6 @@ class SMBRelayServer(Thread):
                    respSMBCommand['SecurityBufferOffset'] = 0x48
                    respSMBCommand['SecurityBufferLength'] = len(respToken)
                    respSMBCommand['Buffer'] = respToken
-
                    return [respSMBCommand], None, STATUS_MORE_PROCESSING_REQUIRED
         elif struct.unpack('B',securityBlob[0:1])[0] == ASN1_SUPPORTED_MECH:
            # AUTH packet

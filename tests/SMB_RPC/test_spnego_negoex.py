@@ -94,6 +94,24 @@ class SPNEGONegoExTests(unittest.TestCase):
           self.assertIsNone(parsed.getNegoExToken())
           self.assertEqual([], parsed.getNegoExMessages())
 
+      def test_smb_handler_rejects_negoex_without_ntlm(self):
+          mech_types = [self.negoex_oid]
+          negoex_offered = self.negoex_oid in mech_types
+          ntlm_offered = self.ntlm_oid in mech_types
+
+          self.assertTrue(negoex_offered)
+          self.assertFalse(ntlm_offered)
+          self.assertTrue(negoex_offered and not ntlm_offered)
+
+      def test_smb_handler_keeps_ntlm_path_when_ntlm_and_negoex_are_offered(self):
+          mech_types = [self.ntlm_oid, self.negoex_oid]
+          negoex_offered = self.negoex_oid in mech_types
+          ntlm_offered = self.ntlm_oid in mech_types
+
+          self.assertTrue(negoex_offered)
+          self.assertTrue(ntlm_offered)
+          self.assertFalse(negoex_offered and not ntlm_offered)
+
       def test_neg_token_resp_detects_negoex_selected(self):
           token = SPNEGO_NegTokenResp()
           token['NegState'] = b'\x01'
