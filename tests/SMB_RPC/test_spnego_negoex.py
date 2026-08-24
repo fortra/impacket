@@ -69,6 +69,31 @@ class SPNEGONegoExTests(unittest.TestCase):
           self.assertIsNone(parsed.getNegoExToken())
           self.assertEqual([], parsed.getNegoExMessages())
 
+      def test_neg_token_init_malformed_negoex_payload_is_non_fatal_without_strict(self):
+          token = SPNEGO_NegTokenInit()
+          token['MechTypes'] = [self.negoex_oid, self.ntlm_oid]
+          token['MechToken'] = b'not-a-negoex-token'
+
+          parsed = SPNEGO_NegTokenInit(token.getData())
+
+          self.assertTrue(parsed.isNegoExOffered())
+          self.assertEqual(b'not-a-negoex-token', parsed.getNegoExToken())
+          self.assertEqual([], parsed.getNegoExMessages())
+
+          with self.assertRaises(Exception):
+              parsed.getNegoExMessages(strict=True)
+
+      def test_neg_token_init_requires_preferred_mech_or_signature_for_mechtoken(self):
+          token = SPNEGO_NegTokenInit()
+          token['MechTypes'] = [self.ntlm_oid, self.negoex_oid]
+          token['MechToken'] = b'NTLMSSP\x00\x01\x00\x00\x00'
+
+          parsed = SPNEGO_NegTokenInit(token.getData())
+
+          self.assertTrue(parsed.isNegoExOffered())
+          self.assertIsNone(parsed.getNegoExToken())
+          self.assertEqual([], parsed.getNegoExMessages())
+
       def test_neg_token_resp_detects_negoex_selected(self):
           token = SPNEGO_NegTokenResp()
           token['NegState'] = b'\x01'

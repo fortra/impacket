@@ -21,7 +21,6 @@ from struct import pack, unpack, calcsize
 
 from impacket import ntlm
 from Cryptodome.Cipher import ARC4
-from impacket.negoex import parseNegoExToken
 
 ############### GSS Stuff ################
 GSS_API_SPNEGO_UUID              = b'\x2b\x06\x01\x05\x05\x02'
@@ -340,12 +339,20 @@ class SPNEGO_NegTokenResp:
         if self.isNegoExSelected() and 'ResponseToken' in self.fields:
             return self['ResponseToken']
         return None
-    
+
     def getNegoExMessages(self, strict=False):
         token = self.getNegoExToken()
         if not token:
             return []
-        return parseNegoExToken(token)
+
+        from impacket.negoex import NegoExParseError, parseNegoExToken
+
+        try:
+            return parseNegoExToken(token)
+        except NegoExParseError:
+            if strict:
+                raise
+            return []
     
 
 class SPNEGO_NegTokenInit(GSSAPI):
@@ -449,15 +456,37 @@ class SPNEGO_NegTokenInit(GSSAPI):
             return False
         return self.hasMechType(TypesMech['NEGOEX - SPNEGO Extended Negotiation Security Mechanism'])
 
+    def _hasNegoExMechToken(self):
+        if 'MechToken' not in self.fields:
+            return False
+
+        token = self['MechToken']
+        if not token:
+            return False
+
+        if self['MechTypes'] and self['MechTypes'][0] == TypesMech['NEGOEX - SPNEGO Extended Negotiation Security Mechanism']:
+            return True
+
+        return token.startswith(b'NEGOEXTS')
+
     def getNegoExToken(self):
-        if self.isNegoExOffered() and 'MechToken' in self.fields:
+        if self._hasNegoExMechToken():
             return self['MechToken']
         return None
+
     def getNegoExMessages(self, strict=False):
         token = self.getNegoExToken()
         if not token:
             return []
-        return parseNegoExToken(token)
+
+        from impacket.negoex import NegoExParseError, parseNegoExToken
+
+        try:
+            return parseNegoExToken(token)
+        except NegoExParseError:
+            if strict:
+                raise
+            return []
 
 class SPNEGOCipher:
     def __init__(self, flags, randomSessionKey):
