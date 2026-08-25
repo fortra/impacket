@@ -52,7 +52,7 @@ PISID = PRPC_SID
 ################################################################################
 # [MS-ADTS] 2.2.18 CLAIMS_SET (PAC client/device claims — buffers 13 and 15)
 ################################################################################
-# CLAIM_TYPE (2.2.18.6)
+# CLAIM_TYPE (2.2.18.2)
 CLAIM_TYPE_INT64   = 1
 CLAIM_TYPE_UINT64  = 2
 CLAIM_TYPE_STRING  = 3
