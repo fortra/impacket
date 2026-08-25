@@ -556,6 +556,26 @@ def parse_pac(pacType, args):
                 parsed_data["UserSid"] = Sid.formatCanonical()
             parsed_tuPAC.append({"UpnDns": parsed_data})
 
+        elif infoBuffer['ulType'] == pac.PAC_DEVICE_INFO_TYPE:
+            # [MS-PAC] 2.12 PAC_DEVICE_INFO (the armor device behind device claims)
+            parsed_data = {}
+            try:
+                type1 = TypeSerialization1(data)
+                newdata = data[len(type1) + 4:]
+                devinfo = pac.PAC_DEVICE_INFO()
+                devinfo.fromString(newdata)
+                devinfo.fromStringReferents(newdata[len(devinfo.getData()):])
+                parsed_data['Device RID']          = devinfo['UserId']
+                parsed_data['Primary Group Id']    = devinfo['PrimaryGroupId']
+                parsed_data['Account Domain SID']  = devinfo['AccountDomainId'].formatCanonical()
+                parsed_data['Account Group Count'] = devinfo['AccountGroupCount']
+                parsed_data['Account Group RIDs']  = [g['RelativeId'] for g in devinfo['AccountGroupIds']]
+                parsed_data['SID Count']           = devinfo['SidCount']
+                parsed_data['Extra SIDs']          = [s['Sid'].formatCanonical() for s in devinfo['ExtraSids']]
+            except Exception as e:
+                parsed_data['<present, not decoded>'] = "%d bytes (%s)" % (len(data), e)
+            parsed_tuPAC.append({"Device Info": parsed_data})
+
         elif infoBuffer['ulType'] == pac.PAC_SERVER_CHECKSUM:
             signatureData = pac.PAC_SIGNATURE_DATA(data)
             parsed_data = {}
