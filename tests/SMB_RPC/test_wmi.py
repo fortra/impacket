@@ -260,6 +260,35 @@ class WMITests(RemoteTestCase, unittest.TestCase):
             _ = iWbemServices.DeleteClass(className)
             dcom.disconnect()
 
+    def test_IWbemServices_GetObject_uint8_array(self):
+        dcom, iWbemServices = self._connect_wmi()
+        className = "DummyClass_%s" % uuid.uuid4().hex
+        propertyName = "Bytes"
+        expectedValue = [0, 1, 127, 255]
+        cimType = wmi.CIM_TYPE_ENUM.CIM_ARRAY_UINT8.value
+        previousCimTypeName = wmi.CIM_TYPE_TO_NAME.get(cimType)
+        try:
+            # The class serializer needs this type name to construct the remote fixture.
+            wmi.CIM_TYPE_TO_NAME[cimType] = 'uint8'
+            dummyClass, _ = iWbemServices.GetObject('')
+            dummyClass.setClassName(className)
+            dummyClass.addNewAttribute(
+                propertyName, wmi.CIM_TYPE_ENUM.CIM_ARRAY_UINT8, expectedValue
+            )
+            iWbemServices.PutClass(dummyClass.marshalMe(), wmi.WBEM_FLAG_CREATE_ONLY)
+
+            createdClass, _ = iWbemServices.GetObject(className)
+            propertyValue = createdClass.getProperties()[propertyName]
+            self.assertEqual(propertyValue['type'], cimType)
+            self.assertEqual(propertyValue['value'], str(expectedValue))
+        finally:
+            _ = iWbemServices.DeleteClass(className)
+            if previousCimTypeName is None:
+                del wmi.CIM_TYPE_TO_NAME[cimType]
+            else:
+                wmi.CIM_TYPE_TO_NAME[cimType] = previousCimTypeName
+            dcom.disconnect()
+
 
     def test_IWbemServices_DeleteClass_missing(self):
         dcom, iWbemServices = self._connect_wmi()
