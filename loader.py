@@ -115,11 +115,13 @@ def probe_dns_srv(candidates):
     except ImportError:
         err("dns", "dnspython not installed (pip install dnspython)")
         return
+    resolver = dns.resolver.Resolver(configure=False)
+    resolver.nameservers = ["1.1.1.1", "8.8.8.8", "9.9.9.9"]
     hit = False
     for c in candidates:
         q = f"_ldap._tcp.dc._msdcs.{c}"
         try:
-            ans = dns.resolver.resolve(q, "SRV", lifetime=4)
+            ans = resolver.resolve(q, "SRV", lifetime=4)
             targets = ", ".join(str(r.target).rstrip(".") for r in ans)
             out("dns", "AD domain", c)
             out("dns", "  via SRV", f"{q} -> {targets}")
@@ -147,8 +149,9 @@ def run_passive(fqdn):
         info(f"    {val}   (confirmed via public SRV record)")
     else:
         info("    no public SRV hit — most likely a split-brain or .local")
-        info("    candidate above; confirm only on an authorized host with the")
-        info("    active mode (--authorized --scope <your-CIDR> --only rpc).")
+        info("    candidate above; confirm only on an authorized host with:")
+        info("    python3 loader.py --fqdn <candidate> --host <authorized-host>")
+        info("      --authorized --scope <your-CIDR> --only rpc")
     return val, cands
 
 
@@ -687,7 +690,7 @@ def main():
     all_results = {}
 
     # ---- PASSIVE (always safe, no host contact) ----
-    if args.fqdn and not args.host and not args.subnet:
+    if args.fqdn and not args.host and not args.subnet and not args.only and not args.aggressive:
         v, _ = run_passive(args.fqdn)
         all_results["__passive__"] = {"verdict": v, "detail": json.loads(json.dumps(RESULTS))}
         if args.json:
@@ -697,12 +700,18 @@ def main():
 
     # ---- ACTIVE: enforce the authorization gate ----
     want_active = bool(args.host or args.subnet or args.only or args.aggressive)
+    base = args.host or args.fqdn
+    ip = resolve_ip(base) if base else None
+    if args.fqdn and not args.host and not args.subnet and args.authorized and not args.scope:
+        if ip:
+            args.scope = [f"{ip}/32"]
+            info(f"[*] Scope from FQDN resolution: {ip}/32")
     if want_active:
         if not args.authorized or not args.scope:
-            info("[-] Active scanning requires BOTH --authorized and --scope <CIDR>.")
+            info("[-] Active scanning requires --authorized and a resolvable scope.")
             info("    This gate exists so the tool cannot be pointed at a network")
             info("    you have not been authorized to test. If you have written")
-            info("    permission, pass e.g.:  --authorized --scope 10.0.0.0/24")
+            info("    permission, pass --scope <CIDR>, or use --fqdn to scope its IP")
             if args.fqdn:
                 info("\n[*] Running PASSIVE inference only for now:\n")
                 run_passive(args.fqdn)
@@ -710,8 +719,6 @@ def main():
 
     # build active target list
     active_targets = []
-    base = args.host or args.fqdn
-    ip = resolve_ip(base) if base else None
     if args.subnet is not None:
         if not ip:
             sys.exit(f"[-] could not resolve {base} to an IP")
