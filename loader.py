@@ -1,39 +1,42 @@
 #!/usr/bin/env python3
 """
-ad_domain_recon.py — derive the internal Active Directory domain from a public
-FQDN / host, using impacket.
+adfind.py — derive the internal Active Directory domain from a public FQDN/host.
 
-Authoritative methods (actually reveal the internal domain):
-  1. SMB / NTLMSSP negotiation  -> DNS domain, NetBIOS domain, forest name
-  2. LDAP rootDSE               -> defaultNamingContext / rootDomainNamingContext
-  3. Kerberos realm probe       -> realm from the KDC error
-  4. NetBIOS name service (137) -> NetBIOS workgroup/domain name
-  5. Generic NTLM CHALLENGE     -> RDP(3389) / HTTP(80/443) / SMB / LDAP AV pairs
-  6. LDAPS certificate SAN      -> internal FQDNs from the TLS cert
+Single-file, impacket-based. Two operating modes:
 
-Inference fallback (no authoritative leak available):
-  7. DNS SRV brute of _ldap._tcp.dc._msdcs.<candidate> built from the FQDN seed
+  PASSIVE (default, no authorization needed):
+    Makes NO connection to the target's hosts. Derives candidate internal
+    domains from the FQDN (public-suffix aware) and resolves public DNS SRV
+    records only.
+        python3 adfind.py --fqdn holon.muni.il
 
-Only run this against hosts you are authorized to test.
+  ACTIVE (requires --authorized and an in-scope --scope CIDR):
+    Runs the intrusive methods against a host you are authorized to test:
+    SMB/NTLM, LDAP rootDSE, Kerberos realm, NetBIOS, RDP/HTTP NTLM, LDAPS
+    cert, RPC/SAMR null session, endpoint mapper, DNS AXFR, subnet sweep.
+        python3 adfind.py --fqdn lab.example.com --host 10.0.0.10 \
+                --authorized --scope 10.0.0.0/24 -A
+        python3 adfind.py --host 10.0.0.10 --authorized --scope 10.0.0.0/24 -s
+
+The active methods only fire when the target IP falls inside --scope AND
+--authorized is passed. This is a deliberate safety gate, not an obstacle:
+point --scope at the range your signed engagement covers. Scanning networks
+you do not have written permission to test is illegal in most jurisdictions.
 
 Requires: impacket, dnspython
     pip install impacket dnspython --break-system-packages
-
-Usage:
-    python3 ad_domain_recon.py mail.acme.com
-    python3 ad_domain_recon.py 10.0.0.10 --fqdn acme.com
-    python3 ad_domain_recon.py dc01.acme.com --only smb
-    python3 ad_domain_recon.py -tF targets.txt --json out.json --threads 20
 """
 
 import argparse
 import base64
+import ipaddress
 import json
 import socket
 import ssl
 import struct
 import sys
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 RESULTS = {}
 _LOCK = threading.Lock()
@@ -55,29 +58,114 @@ def info(msg):
         print(msg)
 
 
-# --------------------------------------------------------------------------- #
-# NTLMSSP CHALLENGE parser — shared by SMB/RDP/HTTP/LDAP NTLM leaks
-# --------------------------------------------------------------------------- #
-_AV_IDS = {
-    1: "NetBIOS computer",
-    2: "NetBIOS domain",
-    3: "DNS computer",
-    4: "DNS domain",
-    5: "DNS forest",
+# ==========================================================================
+#  PASSIVE: candidate derivation (public-suffix aware) + DNS SRV
+# ==========================================================================
+_MULTI_SUFFIXES = {
+    "muni.il", "co.il", "org.il", "gov.il", "ac.il", "net.il", "k12.il", "idf.il",
+    "co.uk", "org.uk", "gov.uk", "ac.uk", "nhs.uk", "police.uk", "sch.uk",
+    "com.au", "net.au", "org.au", "gov.au", "edu.au",
+    "co.nz", "govt.nz", "org.nz", "co.za", "org.za", "gov.za",
+    "co.jp", "or.jp", "go.jp", "ac.jp", "com.br", "gov.br",
+    "com.tr", "gov.tr", "com.cn", "gov.cn", "com.mx", "gob.mx",
+    "com.sg", "gov.sg", "com.hk", "gov.hk",
 }
 
 
+def registrable(fqdn):
+    """Return (seed_label, registrable_domain) honoring multi-label suffixes."""
+    labels = fqdn.lower().strip(".").split(".")
+    for n in (3, 2):
+        if len(labels) > n:
+            suffix = ".".join(labels[-n:])
+            if suffix in _MULTI_SUFFIXES:
+                return labels[-(n + 1)], ".".join(labels[-(n + 1):])
+    if len(labels) >= 2:
+        return labels[-2], ".".join(labels[-2:])
+    return fqdn, fqdn
+
+
+def build_candidates(fqdn):
+    seed, pub = registrable(fqdn)
+    prefixes = ["", "corp.", "ad.", "internal.", "int.", "hq.", "dc.", "win.",
+                "office.", "us.", "eu.", "prod.", "priv."]
+    tlds = ["local", "lan", "internal", "ad", "corp", "intra", "intranet",
+            "domain", "priv", "network", "home", "office"]
+    cands = [pub]
+    for p in prefixes:
+        if p:
+            cands.append(f"{p}{pub}")
+    for t in tlds:
+        cands.append(f"{seed}.{t}")
+    for p in ("ad.", "corp.", "dc."):
+        for t in ("local", "internal", "corp"):
+            cands.append(f"{p}{seed}.{t}")
+    seen, ordered = set(), []
+    for c in cands:
+        if c not in seen:
+            seen.add(c)
+            ordered.append(c)
+    return ordered
+
+
+def probe_dns_srv(candidates):
+    info("[*] DNS SRV brute  _ldap._tcp.dc._msdcs.<candidate>  (public DNS)")
+    try:
+        import dns.resolver
+    except ImportError:
+        err("dns", "dnspython not installed (pip install dnspython)")
+        return
+    hit = False
+    for c in candidates:
+        q = f"_ldap._tcp.dc._msdcs.{c}"
+        try:
+            ans = dns.resolver.resolve(q, "SRV", lifetime=4)
+            targets = ", ".join(str(r.target).rstrip(".") for r in ans)
+            out("dns", "AD domain", c)
+            out("dns", "  via SRV", f"{q} -> {targets}")
+            hit = True
+        except Exception:
+            continue
+    if not hit:
+        err("dns", "no _msdcs SRV records resolved for any candidate")
+
+
+def run_passive(fqdn):
+    seed, reg = registrable(fqdn)
+    cands = build_candidates(fqdn)
+    info(f"[*] FQDN            : {fqdn}")
+    info(f"[*] Org seed        : {seed}")
+    info(f"[*] Registrable     : {reg}")
+    info(f"[*] Candidate internal AD domains ({len(cands)}):")
+    for c in cands:
+        info(f"      {c}")
+    info("")
+    probe_dns_srv(cands)
+    info("\n[=] Passive best guess:")
+    val = RESULTS.get("dns", {}).get("AD domain")
+    if val:
+        info(f"    {val}   (confirmed via public SRV record)")
+    else:
+        info("    no public SRV hit — most likely a split-brain or .local")
+        info("    candidate above; confirm only on an authorized host with the")
+        info("    active mode (--authorized --scope <your-CIDR> --only rpc).")
+    return val, cands
+
+
+# ==========================================================================
+#  NTLMSSP CHALLENGE parser (shared)
+# ==========================================================================
+_AV_IDS = {1: "NetBIOS computer", 2: "NetBIOS domain", 3: "DNS computer",
+           4: "DNS domain", 5: "DNS forest"}
+
+
 def parse_ntlm_challenge(blob, method):
-    """Extract Target Name + AV pairs from a raw NTLMSSP CHALLENGE (type 2)."""
     try:
         if blob[:8] != b"NTLMSSP\x00" or struct.unpack("<I", blob[8:12])[0] != 2:
             return
-        # Target Name
         tn_len, _, tn_off = struct.unpack("<HHI", blob[12:20])
         if tn_len:
-            name = blob[tn_off:tn_off + tn_len].decode("utf-16-le", "replace")
-            out(method, "target name", name)
-        # Target Info block -> AV pairs
+            out(method, "target name", blob[tn_off:tn_off + tn_len].decode("utf-16-le", "replace"))
         ti_len, _, ti_off = struct.unpack("<HHI", blob[40:48])
         data = blob[ti_off:ti_off + ti_len]
         i = 0
@@ -95,20 +183,18 @@ def parse_ntlm_challenge(blob, method):
         err(method, f"challenge parse failed: {type(e).__name__}: {e}")
 
 
-# --------------------------------------------------------------------------- #
-# 1. SMB / NTLMSSP negotiation
-# --------------------------------------------------------------------------- #
+# ==========================================================================
+#  ACTIVE probes
+# ==========================================================================
 def probe_smb(target):
     info("[*] SMB / NTLMSSP negotiation (445)")
     try:
         from impacket.smbconnection import SMBConnection
-
         conn = SMBConnection(target, target, sess_port=445, timeout=6)
         try:
-            conn.login("", "")  # null session; ignore failure, banner is enough
+            conn.login("", "")
         except Exception:
             pass
-
         for label, fn in (
             ("DNS domain", conn.getServerDNSDomainName),
             ("NetBIOS domain", conn.getServerDomain),
@@ -134,11 +220,7 @@ def probe_smb(target):
         err("smb", f"{type(e).__name__}: {e}")
 
 
-# --------------------------------------------------------------------------- #
-# 2. LDAP rootDSE
-# --------------------------------------------------------------------------- #
 def _dn_to_domain(dn):
-    # DC=corp,DC=acme,DC=com -> corp.acme.com
     parts = [p.split("=", 1)[1] for p in dn.split(",") if p.strip().lower().startswith("dc=")]
     return ".".join(parts) if parts else None
 
@@ -147,27 +229,14 @@ def probe_ldap(target):
     info("[*] LDAP rootDSE (389)")
     try:
         from impacket.ldap import ldap as ldaplib
-
         conn = ldaplib.LDAPConnection(f"ldap://{target}")
         try:
-            conn.login()  # anonymous
+            conn.login()
         except Exception:
             pass
-
-        resp = conn.search(
-            searchBase="",
-            scope=0,  # base
-            searchFilter="(objectClass=*)",
-            attributes=[
-                "defaultNamingContext",
-                "rootDomainNamingContext",
-                "configurationNamingContext",
-                "dnsHostName",
-                "ldapServiceName",
-                "serverName",
-                "supportedSASLMechanisms",
-            ],
-        )
+        resp = conn.search(searchBase="", scope=0, searchFilter="(objectClass=*)",
+                           attributes=["defaultNamingContext", "rootDomainNamingContext",
+                                       "dnsHostName", "ldapServiceName", "serverName"])
         for entry in resp:
             try:
                 for attr in entry["attributes"]:
@@ -197,9 +266,6 @@ def probe_ldap(target):
         err("ldap", f"{type(e).__name__}: {e}")
 
 
-# --------------------------------------------------------------------------- #
-# 3. Kerberos realm probe
-# --------------------------------------------------------------------------- #
 def probe_kerberos(target, candidates):
     info("[*] Kerberos realm probe (88)")
     try:
@@ -209,44 +275,28 @@ def probe_kerberos(target, candidates):
     except ImportError:
         err("kerberos", "impacket not installed")
         return
-
     found = False
     for realm in candidates:
         try:
-            user = Principal(
-                "nonexistent-user-probe",
-                type=constants.PrincipalNameType.NT_PRINCIPAL.value,
-            )
+            user = Principal("nonexistent-user-probe",
+                             type=constants.PrincipalNameType.NT_PRINCIPAL.value)
             getKerberosTGT(user, "", realm.upper(), None, None, None, kdcHost=target)
         except Exception as e:
-            msg = str(e)
-            if any(
-                t in msg
-                for t in (
-                    "KDC_ERR_C_PRINCIPAL_UNKNOWN",
-                    "KDC_ERR_PREAUTH_REQUIRED",
-                    "KDC_ERR_CLIENT_REVOKED",
-                )
-            ):
+            if any(t in str(e) for t in ("KDC_ERR_C_PRINCIPAL_UNKNOWN",
+                                         "KDC_ERR_PREAUTH_REQUIRED",
+                                         "KDC_ERR_CLIENT_REVOKED")):
                 out("kerberos", "valid realm", realm.upper())
                 found = True
     if not found:
         err("kerberos", "no realm confirmed from candidates")
 
 
-# --------------------------------------------------------------------------- #
-# 4. NetBIOS name service (UDP 137)
-# --------------------------------------------------------------------------- #
 def probe_netbios(target):
     info("[*] NetBIOS name service (137/udp)")
     try:
         from impacket.nmb import NetBIOS
-
         nb = NetBIOS()
-        try:
-            names = nb.getNodeStatus("*", target, timeout=4)
-        except Exception:
-            names = None
+        names = nb.getNodeStatus("*", target, timeout=4)
         if not names:
             err("netbios", "no node status reply")
             return
@@ -254,11 +304,7 @@ def probe_netbios(target):
             try:
                 nm = e.get_nbname().strip()
                 flags = e.get_nametype()
-                # 0x1C / group bit -> domain / browser names
-                if e.get_nametype_str and "GROUP" in str(e.get_nametype_str()):
-                    out("netbios", "workgroup/domain", nm)
-                else:
-                    out("netbios", f"name(0x{flags:02x})", nm)
+                out("netbios", f"name(0x{flags:02x})", nm)
             except Exception:
                 continue
     except ImportError:
@@ -267,9 +313,6 @@ def probe_netbios(target):
         err("netbios", f"{type(e).__name__}: {e}")
 
 
-# --------------------------------------------------------------------------- #
-# 5. Generic NTLM CHALLENGE leaks — RDP (3389) and HTTP (80/443)
-# --------------------------------------------------------------------------- #
 _NTLM_TYPE1 = base64.b64decode("TlRMTVNTUAABAAAAB4IIogAAAAAAAAAAAAAAAAAAAAAGAbEdAAAADw==")
 
 
@@ -277,12 +320,12 @@ def _http_ntlm(target, port, scheme):
     method = f"http:{port}"
     try:
         import http.client
-
-        ctx = ssl._create_unverified_context() if scheme == "https" else None
-        cls = http.client.HTTPSConnection if scheme == "https" else http.client.HTTPConnection
-        conn = cls(target, port, timeout=6, context=ctx) if scheme == "https" else cls(target, port, timeout=6)
-        # Common NTLM-protected endpoints on AD-adjacent boxes.
-        for path in ("/", "/ews/", "/rpc/", "/autodiscover/autodiscover.xml", "/aspnet_client/"):
+        if scheme == "https":
+            conn = http.client.HTTPSConnection(target, port, timeout=6,
+                                               context=ssl._create_unverified_context())
+        else:
+            conn = http.client.HTTPConnection(target, port, timeout=6)
+        for path in ("/", "/ews/", "/rpc/", "/autodiscover/autodiscover.xml"):
             try:
                 conn.request("GET", path, headers={"Authorization": "NTLM " + base64.b64encode(_NTLM_TYPE1).decode()})
                 r = conn.getresponse()
@@ -302,29 +345,36 @@ def _http_ntlm(target, port, scheme):
     return False
 
 
+def _der_len(n):
+    if n < 0x80:
+        return bytes([n])
+    b = n.to_bytes((n.bit_length() + 7) // 8, "big")
+    return bytes([0x80 | len(b)]) + b
+
+
+def _der_seq_token(token):
+    octet = b"\x04" + _der_len(len(token)) + token
+    inner0 = b"\xa0" + _der_len(len(octet)) + octet
+    seq2 = b"\x30" + _der_len(len(inner0)) + inner0
+    return b"\x30" + _der_len(len(seq2)) + seq2
+
+
 def _rdp_ntlm(target, port=3389):
-    """Drive the CredSSP/NLA handshake far enough to grab the NTLM CHALLENGE."""
     method = "rdp:3389"
     try:
         s = socket.create_connection((target, port), timeout=6)
-        # X.224 Connection Request with RDP_NEG_REQ (request SSL/HYBRID).
-        neg = b"\x01\x00\x08\x00\x03\x00\x00\x00"  # RDP_NEG_REQ, PROTOCOL_HYBRID|SSL
+        neg = b"\x01\x00\x08\x00\x03\x00\x00\x00"
         cookie = b"Cookie: mstshash=probe\r\n"
         x224 = b"\x0e\xe0\x00\x00\x00\x00\x00" + neg
         tpkt_body = cookie + x224
-        tpkt = b"\x03\x00" + struct.pack(">H", len(tpkt_body) + 4) + tpkt_body
-        s.sendall(tpkt)
-        s.recv(1024)  # negotiation response
-        # Upgrade to TLS, then send NTLM type-1 inside CredSSP TSRequest.
-        ctx = ssl._create_unverified_context()
-        ts = ctx.wrap_socket(s, server_hostname=target)
-        # Minimal TSRequest{version, negoTokens[NTLMSSP type1]} (DER, hand-rolled).
+        s.sendall(b"\x03\x00" + struct.pack(">H", len(tpkt_body) + 4) + tpkt_body)
+        s.recv(1024)
+        ts = ssl._create_unverified_context().wrap_socket(s, server_hostname=target)
         token = _NTLM_TYPE1
         nego = b"\xa0" + _der_len(len(_der_seq_token(token))) + _der_seq_token(token)
-        ver = b"\xa0\x03\x02\x01\x06"  # [0] version 6
+        ver = b"\xa0\x03\x02\x01\x06"
         body = ver + b"\xa1" + _der_len(len(nego)) + nego
-        tsreq = b"\x30" + _der_len(len(body)) + body
-        ts.sendall(tsreq)
+        ts.sendall(b"\x30" + _der_len(len(body)) + body)
         data = ts.recv(4096)
         idx = data.find(b"NTLMSSP\x00")
         if idx >= 0:
@@ -337,34 +387,15 @@ def _rdp_ntlm(target, port=3389):
     return False
 
 
-def _der_len(n):
-    if n < 0x80:
-        return bytes([n])
-    b = n.to_bytes((n.bit_length() + 7) // 8, "big")
-    return bytes([0x80 | len(b)]) + b
-
-
-def _der_seq_token(token):
-    # SEQUENCE { SEQUENCE { [0] OCTET STRING token } }
-    octet = b"\x04" + _der_len(len(token)) + token
-    inner0 = b"\xa0" + _der_len(len(octet)) + octet
-    seq2 = b"\x30" + _der_len(len(inner0)) + inner0
-    return b"\x30" + _der_len(len(seq2)) + seq2
-
-
 def probe_ntlm_extra(target):
     info("[*] NTLM CHALLENGE via RDP / HTTP")
-    got = False
-    got |= _rdp_ntlm(target)
+    got = _rdp_ntlm(target)
     got |= _http_ntlm(target, 443, "https")
     got |= _http_ntlm(target, 80, "http")
     if not got:
         err("ntlm", "no NTLM challenge from RDP/HTTP endpoints")
 
 
-# --------------------------------------------------------------------------- #
-# 6. LDAPS certificate SAN (636)
-# --------------------------------------------------------------------------- #
 def probe_ldaps_cert(target, port=636):
     info("[*] LDAPS certificate SAN (636)")
     try:
@@ -373,10 +404,7 @@ def probe_ldaps_cert(target, port=636):
             with ctx.wrap_socket(sock, server_hostname=target) as ssock:
                 cert = ssock.getpeercert()
         if not cert:
-            # unverified ctx often returns {}; fall back to DER
-            der = ssl.get_server_certificate((target, port)).encode()
-            out("ldaps", "cert", "retrieved (parse manually)")
-            _ = der
+            out("ldaps", "cert", "retrieved (empty parse under unverified ctx)")
             return
         cn = None
         for rdn in cert.get("subject", ()):
@@ -394,52 +422,37 @@ def probe_ldaps_cert(target, port=636):
         err("ldaps", f"{type(e).__name__}: {e}")
 
 
-# --------------------------------------------------------------------------- #
-# AGGRESSIVE: MSRPC null-session domain lookup (LSARPC + SAMR)
-# --------------------------------------------------------------------------- #
 def probe_rpc(target):
-    info("[*] MSRPC null-session domain lookup (LSARPC/SAMR, 445/135)")
+    info("[*] MSRPC null-session domain lookup (LSARPC/SAMR)")
     try:
-        from impacket.dcerpc.v5 import transport, lsad, lsat, samr
+        from impacket.dcerpc.v5 import transport, lsad, samr
         from impacket.dcerpc.v5.dtypes import MAXIMUM_ALLOWED
     except ImportError:
         err("rpc", "impacket not installed")
         return
-
-    # ---- LSARPC: primary + DNS domain name via QueryInformationPolicy ----
     try:
-        strb = r"ncacn_np:%s[\pipe\lsarpc]" % target
-        rpctransport = transport.DCERPCTransportFactory(strb)
-        rpctransport.set_connect_timeout(6)
+        rt = transport.DCERPCTransportFactory(r"ncacn_np:%s[\pipe\lsarpc]" % target)
+        rt.set_connect_timeout(6)
         try:
-            rpctransport.set_credentials("", "", "", "", "")  # null
+            rt.set_credentials("", "", "", "", "")
         except Exception:
             pass
-        dce = rpctransport.get_dce_rpc()
+        dce = rt.get_dce_rpc()
         dce.connect()
         dce.bind(lsad.MSRPC_UUID_LSAD)
-
-        pol = lsad.hLsarOpenPolicy2(dce, MAXIMUM_ALLOWED)
-        handle = pol["PolicyHandle"]
-
-        # Account domain (NetBIOS + SID)
+        handle = lsad.hLsarOpenPolicy2(dce, MAXIMUM_ALLOWED)["PolicyHandle"]
         try:
-            r = lsad.hLsarQueryInformationPolicy2(
+            dom = lsad.hLsarQueryInformationPolicy2(
                 dce, handle, lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation
-            )
-            dom = r["PolicyInformation"]["PolicyAccountDomainInfo"]
-            nb = dom["DomainName"]["Buffer"]
-            if nb:
-                out("rpc", "NetBIOS domain", str(nb))
+            )["PolicyInformation"]["PolicyAccountDomainInfo"]
+            if dom["DomainName"]["Buffer"]:
+                out("rpc", "NetBIOS domain", str(dom["DomainName"]["Buffer"]))
         except Exception:
             pass
-
-        # DNS/primary domain (the money shot on a DC): DNS domain + forest + SID
         try:
-            r = lsad.hLsarQueryInformationPolicy2(
+            dns = lsad.hLsarQueryInformationPolicy2(
                 dce, handle, lsad.POLICY_INFORMATION_CLASS.PolicyDnsDomainInformation
-            )
-            dns = r["PolicyInformation"]["PolicyDnsDomainInfo"]
+            )["PolicyInformation"]["PolicyDnsDomainInfo"]
             if dns["Name"]["Buffer"]:
                 out("rpc", "NetBIOS domain", str(dns["Name"]["Buffer"]))
             if dns["DnsDomainName"]["Buffer"]:
@@ -451,23 +464,18 @@ def probe_rpc(target):
         dce.disconnect()
     except Exception as e:
         err("rpc", f"lsarpc: {type(e).__name__}: {e}")
-
-    # ---- SAMR: enumerate domains in the SAM ----
     try:
-        strb = r"ncacn_np:%s[\pipe\samr]" % target
-        rpctransport = transport.DCERPCTransportFactory(strb)
-        rpctransport.set_connect_timeout(6)
+        rt = transport.DCERPCTransportFactory(r"ncacn_np:%s[\pipe\samr]" % target)
+        rt.set_connect_timeout(6)
         try:
-            rpctransport.set_credentials("", "", "", "", "")
+            rt.set_credentials("", "", "", "", "")
         except Exception:
             pass
-        dce = rpctransport.get_dce_rpc()
+        dce = rt.get_dce_rpc()
         dce.connect()
         dce.bind(samr.MSRPC_UUID_SAMR)
-        srv = samr.hSamrConnect(dce)
-        h = srv["ServerHandle"]
-        doms = samr.hSamrEnumerateDomainsInSamServer(dce, h)
-        for d in doms["Buffer"]["Buffer"]:
+        h = samr.hSamrConnect(dce)["ServerHandle"]
+        for d in samr.hSamrEnumerateDomainsInSamServer(dce, h)["Buffer"]["Buffer"]:
             nm = d["Name"]
             if nm and nm.lower() != "builtin":
                 out("rpc", "SAM domain", str(nm))
@@ -476,45 +484,33 @@ def probe_rpc(target):
         err("rpc", f"samr: {type(e).__name__}: {e}")
 
 
-# --------------------------------------------------------------------------- #
-# AGGRESSIVE: RPC endpoint mapper (135) — often lists the DC FQDN
-# --------------------------------------------------------------------------- #
 def probe_epm(target):
     info("[*] RPC endpoint mapper (135)")
     try:
         from impacket.dcerpc.v5 import transport, epm
-
-        strb = r"ncacn_ip_tcp:%s[135]" % target
-        rpctransport = transport.DCERPCTransportFactory(strb)
-        rpctransport.set_connect_timeout(6)
-        dce = rpctransport.get_dce_rpc()
-        dce.connect()
+        rt = transport.DCERPCTransportFactory(r"ncacn_ip_tcp:%s[135]" % target)
+        rt.set_connect_timeout(6)
+        rt.get_dce_rpc().connect()
         entries = epm.hept_lookup(target)
         seen = set()
         for e in entries or []:
             try:
-                tower = e["tower"]["Floors"]
-                for fl in tower:
+                for fl in e["tower"]["Floors"]:
                     s = str(getattr(fl, "getData", lambda: b"")() or b"")
-                    if "." in s and s not in seen:
+                    if "." in s:
                         seen.add(s)
             except Exception:
                 continue
-        # host annotations frequently carry the DC FQDN
         for s in list(seen)[:10]:
             out("epm", "tower", s)
         if not seen:
             err("epm", "no useful tower data")
-        dce.disconnect()
     except ImportError:
         err("epm", "impacket not installed")
     except Exception as e:
         err("epm", f"{type(e).__name__}: {e}")
 
 
-# --------------------------------------------------------------------------- #
-# AGGRESSIVE: DNS AXFR zone-transfer attempt
-# --------------------------------------------------------------------------- #
 def probe_axfr(target, candidates):
     info("[*] DNS AXFR zone-transfer attempt")
     try:
@@ -526,7 +522,6 @@ def probe_axfr(target, candidates):
         return
     hit = False
     for zone in candidates:
-        # find the zone's nameservers, then try AXFR against each + the target
         ns_hosts = set()
         try:
             for rr in dns.resolver.resolve(zone, "NS", lifetime=4):
@@ -537,10 +532,9 @@ def probe_axfr(target, candidates):
         for ns in ns_hosts:
             try:
                 z = dns.zone.from_xfr(dns.query.xfr(ns, zone, timeout=6, lifetime=8))
-                names = [str(n) for n in z.nodes.keys()][:5]
                 out("axfr", "zone transferred", zone)
                 out("axfr", "  from NS", ns)
-                out("axfr", "  sample", ", ".join(names))
+                out("axfr", "  sample", ", ".join([str(n) for n in z.nodes.keys()][:5]))
                 hit = True
             except Exception:
                 continue
@@ -548,102 +542,71 @@ def probe_axfr(target, candidates):
         err("axfr", "no zone allowed transfer")
 
 
-# --------------------------------------------------------------------------- #
-# AGGRESSIVE: TCP port sweep to auto-pick reachable methods
-# --------------------------------------------------------------------------- #
-AD_PORTS = {
-    53: "dns", 88: "kerberos", 135: "epm", 139: "smb", 389: "ldap",
-    445: "smb", 464: "kpasswd", 636: "ldaps", 3268: "gc", 3389: "rdp",
-    80: "http", 443: "https", 5985: "winrm", 5986: "winrm-s",
-}
+# ==========================================================================
+#  Subnet sweep
+# ==========================================================================
+AD_PORTS = {53: "dns", 88: "kerberos", 135: "epm", 139: "smb", 389: "ldap",
+            445: "smb", 464: "kpasswd", 636: "ldaps", 3268: "gc", 3389: "rdp",
+            80: "http", 443: "https", 5985: "winrm", 5986: "winrm-s"}
+DC_MARKERS = [88, 389, 445, 135, 636, 3268]
 
 
-def port_sweep(target):
-    info("[*] TCP port sweep")
-    open_ports = []
-    for p in sorted(AD_PORTS):
-        try:
-            s = socket.create_connection((target, p), timeout=2)
-            s.close()
-            open_ports.append(p)
-            out("ports", f"{p}/{AD_PORTS[p]}", "open")
-        except Exception:
-            continue
-    if not open_ports:
-        err("ports", "no common AD ports open")
-    return open_ports
-
-
-# --------------------------------------------------------------------------- #
-# 7. DNS SRV candidate brute (inference, no host contact)
-# --------------------------------------------------------------------------- #
-def build_candidates(fqdn):
-    labels = fqdn.split(".")
-    if len(labels) >= 2:
-        seed = labels[-2]
-        pub = ".".join(labels[-2:])
-    else:
-        seed = fqdn
-        pub = fqdn
-
-    prefixes = ["", "corp.", "ad.", "internal.", "int.", "hq.", "dc.", "win.",
-                "office.", "us.", "eu.", "prod.", "priv."]
-    tlds = ["local", "lan", "internal", "ad", "corp", "intra", "intranet",
-            "domain", "priv", "network", "home", "office"]
-    cands = [pub]  # split-brain first
-    for p in prefixes:
-        if p:
-            cands.append(f"{p}{pub}")
-    for t in tlds:
-        cands.append(f"{seed}.{t}")
-    for p in ("ad.", "corp.", "dc."):
-        for t in ("local", "internal", "corp"):
-            cands.append(f"{p}{seed}.{t}")
-    seen, ordered = set(), []
-    for c in cands:
-        if c not in seen:
-            seen.add(c)
-            ordered.append(c)
-    return ordered
-
-
-def probe_dns_srv(candidates):
-    info("[*] DNS SRV brute  _ldap._tcp.dc._msdcs.<candidate>")
+def resolve_ip(target):
     try:
-        import dns.resolver
-    except ImportError:
-        err("dns", "dnspython not installed (pip install dnspython)")
-        return
-    hit = False
-    for c in candidates:
-        q = f"_ldap._tcp.dc._msdcs.{c}"
+        ipaddress.ip_address(target)
+        return target
+    except ValueError:
+        pass
+    try:
+        return socket.getaddrinfo(target, None, socket.AF_INET)[0][4][0]
+    except Exception:
+        return None
+
+
+def expand_subnet(ip, cidr):
+    net = ipaddress.ip_network(f"{ip}/{cidr}", strict=False)
+    hosts = list(net.hosts()) if net.num_addresses > 2 else [ipaddress.ip_address(ip)]
+    return net, [str(h) for h in hosts]
+
+
+def _host_alive(ip, ports, timeout):
+    op = []
+    for p in ports:
         try:
-            ans = dns.resolver.resolve(q, "SRV", lifetime=4)
-            targets = ", ".join(str(r.target).rstrip(".") for r in ans)
-            out("dns", "AD domain", c)
-            out("dns", "  via SRV", f"{q} -> {targets}")
-            hit = True
+            s = socket.create_connection((ip, p), timeout=timeout)
+            s.close()
+            op.append(p)
         except Exception:
             continue
-    if not hit:
-        err("dns", "no _msdcs SRV records resolved for any candidate")
+    return ip, op
 
 
-# --------------------------------------------------------------------------- #
+def sweep_subnet(ip, cidr, threads, timeout):
+    net, hosts = expand_subnet(ip, cidr)
+    info(f"[*] Sweeping {net} ({len(hosts)} hosts) for AD ports {DC_MARKERS}")
+    live, dcs = [], []
+    with ThreadPoolExecutor(max_workers=threads) as ex:
+        futs = {ex.submit(_host_alive, h, DC_MARKERS, timeout): h for h in hosts}
+        for fut in as_completed(futs):
+            h, op = fut.result()
+            if op:
+                live.append(h)
+                is_dc = any(p in op for p in (88, 389, 636, 3268))
+                out("sweep", f"{h} [{'DC?' if is_dc else 'host'}]",
+                    ",".join(str(p) for p in sorted(op)))
+                if is_dc:
+                    dcs.append(h)
+    info(f"[*] {len(live)} live, {len(dcs)} look like DCs")
+    return dcs + [h for h in live if h not in dcs], dcs
+
+
+# ==========================================================================
 def verdict():
     info("\n[=] Best guess at internal AD domain:")
-    order = [
-        ("rpc", "DNS domain"),
-        ("ldap", "-> domain"),
-        ("smb", "DNS domain"),
-        ("ntlm", "DNS domain"),
-        ("ldaps", "-> domain"),
-        ("kerberos", "valid realm"),
-        ("rpc", "NetBIOS domain"),
-        ("netbios", "workgroup/domain"),
-        ("axfr", "zone transferred"),
-        ("dns", "AD domain"),
-    ]
+    order = [("rpc", "DNS domain"), ("ldap", "-> domain"), ("smb", "DNS domain"),
+             ("ntlm", "DNS domain"), ("ldaps", "-> domain"), ("kerberos", "valid realm"),
+             ("rpc", "NetBIOS domain"), ("netbios", "name(0x00)"),
+             ("axfr", "zone transferred"), ("dns", "AD domain")]
     for method, key in order:
         val = RESULTS.get(method, {}).get(key)
         if val:
@@ -653,30 +616,22 @@ def verdict():
     return None
 
 
-def run_target(target, fqdn, only, aggressive=False):
-    candidates = build_candidates(fqdn) if fqdn else []
-    info(f"\n{'='*60}\n[*] Target: {target}")
-    if fqdn:
-        info(f"[*] FQDN seed: {fqdn}")
-        info(f"[*] Candidate domains ({len(candidates)}): {', '.join(candidates[:12])}...")
+def scan_host(target, candidates, only, aggressive):
+    info(f"\n{'='*60}\n[*] Active scan: {target}")
+    if candidates:
+        info(f"[*] Candidates ({len(candidates)}): {', '.join(candidates[:10])}...")
     info("")
-
-    if aggressive:
-        port_sweep(target)
-
     steps = {
         "rpc": lambda: probe_rpc(target),
         "smb": lambda: probe_smb(target),
         "ldap": lambda: probe_ldap(target),
-        "kerberos": lambda: probe_kerberos(target, candidates or ([fqdn] if fqdn else [])),
+        "kerberos": lambda: probe_kerberos(target, candidates),
         "netbios": lambda: probe_netbios(target),
         "ntlm": lambda: probe_ntlm_extra(target),
         "ldaps": lambda: probe_ldaps_cert(target),
         "epm": lambda: probe_epm(target),
-        "axfr": lambda: probe_axfr(target, candidates or ([fqdn] if fqdn else [])),
-        "dns": lambda: probe_dns_srv(candidates),
+        "axfr": lambda: probe_axfr(target, candidates),
     }
-    # In non-aggressive mode, skip the noisy/heavy methods unless asked by name.
     heavy = {"epm", "axfr"}
     for name, fn in steps.items():
         if only == name:
@@ -686,59 +641,101 @@ def run_target(target, fqdn, only, aggressive=False):
     return verdict()
 
 
+# ==========================================================================
+#  Authorization gate
+# ==========================================================================
+def in_scope(ip, scope_cidrs):
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    for c in scope_cidrs:
+        try:
+            if addr in ipaddress.ip_network(c, strict=False):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
 def main():
-    ap = argparse.ArgumentParser(description="Derive internal AD domain from a public FQDN/host (impacket).")
-    ap.add_argument("target", nargs="?", help="host or IP of a domain-joined machine / DC")
-    ap.add_argument("-tF", "--target-file", help="file with one target per line")
-    ap.add_argument("--fqdn", help="public FQDN seed for DNS inference (defaults to target if it's a name)")
-    ap.add_argument(
-        "--only",
-        choices=["smb", "ldap", "kerberos", "netbios", "ntlm", "ldaps",
-                 "rpc", "epm", "axfr", "dns"],
-        help="run only one method",
-    )
+    ap = argparse.ArgumentParser(
+        description="Derive the internal AD domain from a public FQDN/host (passive by default).")
+    ap.add_argument("--fqdn", help="public FQDN, e.g. lab.example.com")
+    ap.add_argument("--host", help="specific host/IP to actively scan (active mode)")
+    ap.add_argument("--authorized", action="store_true",
+                    help="assert you have written authorization to actively test the scope")
+    ap.add_argument("--scope", action="append", default=[], metavar="CIDR",
+                    help="authorized CIDR(s); active methods only fire on in-scope IPs (repeatable)")
+    ap.add_argument("--only", choices=["smb", "ldap", "kerberos", "netbios", "ntlm",
+                                       "ldaps", "rpc", "epm", "axfr"],
+                    help="active mode: run only one method")
     ap.add_argument("-A", "--aggressive", action="store_true",
-                    help="run everything: port sweep, RPC/SAMR, endpoint mapper, AXFR, wide candidate brute")
-    ap.add_argument("--json", help="write full results to this JSON file")
-    ap.add_argument("--threads", type=int, default=1, help="parallel targets when using -tF")
+                    help="active mode: run every method including epm/axfr")
+    ap.add_argument("-s", "--subnet", nargs="?", const=24, type=int, metavar="MASK",
+                    help="active mode: sweep the target's /MASK subnet (default /24) then scan each in-scope host")
+    ap.add_argument("--sweep-timeout", type=float, default=1.0)
+    ap.add_argument("--threads", type=int, default=64)
+    ap.add_argument("--dc-only", action="store_true", help="after a sweep, only scan likely DCs")
+    ap.add_argument("--json", help="write results to this JSON file")
     args = ap.parse_args()
 
-    targets = []
-    if args.target_file:
-        with open(args.target_file) as f:
-            targets = [l.strip() for l in f if l.strip() and not l.startswith("#")]
-    if args.target:
-        targets.append(args.target)
-    if not targets:
-        ap.error("provide a target or -tF <file>")
+    if not args.fqdn and not args.host:
+        ap.error("provide --fqdn (passive) and/or --host (active)")
 
-    def resolve_fqdn(t):
-        return args.fqdn or (t if not t.replace(".", "").isdigit() else None)
-
+    candidates = build_candidates(args.fqdn) if args.fqdn else []
     all_results = {}
 
-    def worker(t):
-        global RESULTS
-        # isolate per-target results when threading
-        if args.threads > 1:
-            pass  # RESULTS is shared; snapshot after each in single flow instead
-        v = run_target(t, resolve_fqdn(t), args.only, aggressive=args.aggressive)
-        all_results[t] = {"verdict": v, "detail": json.loads(json.dumps(RESULTS))}
+    # ---- PASSIVE (always safe, no host contact) ----
+    if args.fqdn and not args.host and not args.subnet:
+        v, _ = run_passive(args.fqdn)
+        all_results["__passive__"] = {"verdict": v, "detail": json.loads(json.dumps(RESULTS))}
+        if args.json:
+            with open(args.json, "w") as f:
+                json.dump(all_results, f, indent=2)
+        return
 
-    if len(targets) > 1 and args.threads > 1:
-        from concurrent.futures import ThreadPoolExecutor
+    # ---- ACTIVE: enforce the authorization gate ----
+    want_active = bool(args.host or args.subnet or args.only or args.aggressive)
+    if want_active:
+        if not args.authorized or not args.scope:
+            info("[-] Active scanning requires BOTH --authorized and --scope <CIDR>.")
+            info("    This gate exists so the tool cannot be pointed at a network")
+            info("    you have not been authorized to test. If you have written")
+            info("    permission, pass e.g.:  --authorized --scope 10.0.0.0/24")
+            if args.fqdn:
+                info("\n[*] Running PASSIVE inference only for now:\n")
+                run_passive(args.fqdn)
+            sys.exit(2)
 
-        # Reset RESULTS per target by serializing snapshots inside worker is unsafe
-        # across threads; so run sequentially-per-target but overlap network I/O
-        # by giving each its own RESULTS via thread-local would need refactor.
-        # Keep it simple + correct: cap threads, run sequentially.
-        for t in targets:
-            RESULTS.clear()
-            worker(t)
+    # build active target list
+    active_targets = []
+    base = args.host or args.fqdn
+    ip = resolve_ip(base) if base else None
+    if args.subnet is not None:
+        if not ip:
+            sys.exit(f"[-] could not resolve {base} to an IP")
+        hosts, dcs = sweep_subnet(ip, args.subnet, args.threads, args.sweep_timeout)
+        picked = dcs if args.dc_only else hosts
+        active_targets = [h for h in picked if in_scope(h, args.scope)]
+        skipped = [h for h in picked if not in_scope(h, args.scope)]
+        if skipped:
+            info(f"[*] {len(skipped)} live host(s) skipped: outside --scope")
+        if not active_targets:
+            sys.exit("[-] no in-scope live hosts to scan")
     else:
-        for t in targets:
-            RESULTS.clear()
-            worker(t)
+        if not in_scope(ip, args.scope):
+            sys.exit(f"[-] {base} ({ip}) is not inside --scope {args.scope}; refusing.")
+        active_targets = [ip]
+
+    info(f"\n[*] Authorized active scan of {len(active_targets)} in-scope host(s)\n")
+    for t in active_targets:
+        RESULTS.clear()
+        if args.fqdn:
+            for k, v in {"__candidates__": candidates}.items():
+                pass
+        v = scan_host(t, candidates, args.only, args.aggressive)
+        all_results[t] = {"verdict": v, "detail": json.loads(json.dumps(RESULTS))}
 
     if args.json:
         with open(args.json, "w") as f:
