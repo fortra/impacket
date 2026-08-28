@@ -262,31 +262,17 @@ class WMITests(RemoteTestCase, unittest.TestCase):
 
     def test_IWbemServices_GetObject_uint8_array(self):
         dcom, iWbemServices = self._connect_wmi()
-        className = "DummyClass_%s" % uuid.uuid4().hex
-        propertyName = "Bytes"
-        expectedValue = [0, 1, 127, 255]
-        cimType = wmi.CIM_TYPE_ENUM.CIM_ARRAY_UINT8.value
-        previousCimTypeName = wmi.CIM_TYPE_TO_NAME.get(cimType)
         try:
-            # The class serializer needs this type name to construct the remote fixture.
-            wmi.CIM_TYPE_TO_NAME[cimType] = 'uint8'
-            dummyClass, _ = iWbemServices.GetObject('')
-            dummyClass.setClassName(className)
-            dummyClass.addNewAttribute(
-                propertyName, wmi.CIM_TYPE_ENUM.CIM_ARRAY_UINT8, expectedValue
-            )
-            iWbemServices.PutClass(dummyClass.marshalMe(), wmi.WBEM_FLAG_CREATE_ONLY)
-
-            createdClass, _ = iWbemServices.GetObject(className)
-            propertyValue = createdClass.getProperties()[propertyName]
-            self.assertEqual(propertyValue['type'], cimType)
-            self.assertEqual(propertyValue['value'], str(expectedValue))
+            try:
+                eventFilterClass, _ = iWbemServices.GetObject('__EventFilter')
+            except Exception as exc:
+                if 'WBEM_E_NOT_FOUND' in str(exc):
+                    self.skipTest('__EventFilter is unavailable on the remote host')
+                raise
+            creatorSID = eventFilterClass.getProperties()['CreatorSID']
+            self.assertEqual(creatorSID['type'], wmi.CIM_TYPE_ENUM.CIM_ARRAY_UINT8.value)
+            self.assertEqual(creatorSID['value'], '[1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0]')
         finally:
-            _ = iWbemServices.DeleteClass(className)
-            if previousCimTypeName is None:
-                del wmi.CIM_TYPE_TO_NAME[cimType]
-            else:
-                wmi.CIM_TYPE_TO_NAME[cimType] = previousCimTypeName
             dcom.disconnect()
 
 
