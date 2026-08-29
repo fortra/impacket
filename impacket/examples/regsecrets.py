@@ -5,7 +5,7 @@ import time
 import re
 import json
 import codecs
-from datetime import datetime
+from datetime import datetime, timedelta
 from struct import unpack, pack
 from six import b
 
@@ -19,7 +19,7 @@ from impacket.structure import hexdump
 from impacket.krb5 import constants
 from impacket.krb5.crypto import string_to_key
 
-from impacket.examples.secretsdump import  CryptoCommon, _print_helper, DOMAIN_ACCOUNT_F, SAM_KEY_DATA, SAM_KEY_DATA_AES, ARC4, DES, AES, USER_ACCOUNT_V, SAM_HASH, SAM_HASH_AES, LSA_SECRET_XP, HMAC, MD4, MD5, LSA_SECRET, LSA_SECRET_BLOB, NL_RECORD, DPAPI_SYSTEM, NTDSHashes
+from impacket.examples.secretsdump import  CryptoCommon, _print_helper, DOMAIN_ACCOUNT_F, DOMAIN_ACCOUNT_V, SAM_KEY_DATA, SAM_KEY_DATA_AES, ARC4, DES, AES, USER_ACCOUNT_V, USER_ACCOUNT_F, SAM_HASH, SAM_HASH_AES, LSA_SECRET_XP, HMAC, MD4, MD5, LSA_SECRET, LSA_SECRET_BLOB, NL_RECORD, DPAPI_SYSTEM, NTDSHashes
 from binascii import unhexlify, hexlify
 
 # Helper to create files for exporting
@@ -350,7 +350,7 @@ class RemoteOperations:
             pass
 
 class SAMHashes():
-    def __init__(self, bootKey, perSecretCallback = lambda secret: _print_helper(secret), remoteOps:RemoteOperations=None, history=False, throttle=0):
+    def __init__(self, bootKey, perSecretCallback = lambda secret: _print_helper(secret), remoteOps:RemoteOperations=None, history=False, throttle=0, printUserStatus=False):
         self.__remoteOps = remoteOps
         self.__hashedBootKey = b''
         self.__bootKey = bootKey
@@ -360,6 +360,43 @@ class SAMHashes():
         self.__history = history
         self.__historyItems = []
         self.__throttle = throttle
+        self.__printUserStatus = printUserStatus
+
+    def binary_to_sid(self, binary_data, without_prefix=False):
+        if len(binary_data) < 12:
+            return ""
+
+        if len(binary_data) == 12:
+            if not without_prefix:
+                rev = binary_data[0]
+                authid = hexlify(binary_data[2:8]).decode().lstrip("0")
+                sub = unpack("<L", binary_data[8:12])[0]
+                return f"S-{rev}-{authid}-{sub}"
+            else:
+                sections = [binary_data[i:i + 4][::-1] for i in range(0, 12, 4)]
+                decimals = [int.from_bytes(section, byteorder='big') for section in sections]
+                return f"S-1-5-21-{decimals[0]}-{decimals[1]}-{decimals[2]}"
+
+        if len(binary_data) > 12:
+            rev = binary_data[0]
+            authid = hexlify(binary_data[2:8]).decode().lstrip("0")
+            sub = "-".join(map(str, unpack("<LLLL", binary_data[8:24])))
+            rid = unpack("<L", binary_data[24:28])[0]
+            return f"S-{rev}-{authid}-{sub}-{rid}"
+
+        return ""
+
+    def nt_time_to_datetime(self, nt_time):
+        # NT Time is in 100-nanosecond intervals since 1601-01-01 (UTC)
+        # The difference between 1601 and 1970 is 11644473600 seconds
+        nt_time = int.from_bytes(nt_time, byteorder='little')  # Convert byte string to integer
+
+        # datetime on windows can't handle negative timestamps (i.e. before 1970), therefore we must return the 0 time directly
+        if nt_time == 0:
+            return datetime(1601, 1, 1, 0, 0, 0)
+        else:
+            unix_time = (nt_time - 116444736000000000) // 10000000  # Convert to Unix time (seconds)
+            return datetime.utcfromtimestamp(unix_time)
 
     def MD5(self, data):
         md5 = hashlib.new('md5')
@@ -544,13 +581,79 @@ class SAMHashes():
         empty_lm_hex = hexlify(ntlm.LMOWFv1('', '')).decode('utf-8')
         empty_nt_hex = hexlify(ntlm.NTOWFv1('', '')).decode('utf-8')
 
+
+# ---- Read domain-level values once (same for all users) ----
+        domainDataV = DOMAIN_ACCOUNT_V(self.__remoteOps.retrieveSubKey(
+            r'SAM\SAM\Domains\Account', 'V', throttle=self.__throttle)[1])
+        system_sid = self.binary_to_sid(domainDataV['SystemSid'], without_prefix=True)
+
+        domainFRaw = self.__remoteOps.retrieveSubKey(
+            r'SAM\SAM\Domains\Account', 'F', throttle=self.__throttle)[1]
+        domainData = DOMAIN_ACCOUNT_F(domainFRaw)
+        LockoutThreshold = domainData['LockoutThreshold']
+        LockoutDuration = domainData['LockoutDuration']
+        LockoutDurationMinutes = timedelta(
+            microseconds=abs(LockoutDuration) // 10).total_seconds() / 60
+
+        # ---- Enumerate local admin SIDs ----
+        local_admins = set()
+        try:
+            adminsKey = r'SAM\SAM\Domains\Builtin\Aliases\00000220'
+            adminC = self.__remoteOps.retrieveSubKey(
+                adminsKey, 'C', throttle=self.__throttle)[1]
+            offset = 0
+            while offset < len(adminC):
+                if adminC[offset:offset+1] == b'\x01' and offset + 8 <= len(adminC):
+                    sub_count = adminC[offset + 1]
+                    sid_len = 8 + (sub_count * 4)
+                    if offset + sid_len <= len(adminC):
+                        try:
+                            sid_str = self.binary_to_sid(adminC[offset:offset + sid_len])
+                            if sid_str.startswith('S-1-5-21-'):
+                                local_admins.add(sid_str)
+                                offset += sid_len
+                                continue
+                        except Exception:
+                            pass
+                offset += 1
+        except Exception as e:
+            LOG.debug('Could not enumerate local Administrators group: %s' % str(e))
+
         for rid in rids:
-            userAccount = USER_ACCOUNT_V(self.__remoteOps.retrieveSubKey(ntpath.join(usersKey, rid), 'V', throttle=self.__throttle)[1])
-            rid = int(rid, 16)
+            disabled = locked_out = auto_locked = is_admin = False
+
+            rid_hex = rid  # preserve hex string for registry paths
+            userAccount = USER_ACCOUNT_V(self.__remoteOps.retrieveSubKey(
+                ntpath.join(usersKey, rid_hex), 'V', throttle=self.__throttle)[1])
+            rid = int(rid_hex, 16)
 
             V = userAccount['Data']
-
             userName = V[userAccount['NameOffset']:userAccount['NameOffset']+userAccount['NameLength']].decode('utf-16le')
+
+            # Read per-user F value (UAC flags, lockout info, timestamps)
+            userAccountF = USER_ACCOUNT_F(self.__remoteOps.retrieveSubKey(
+                ntpath.join(usersKey, rid_hex), 'F', throttle=self.__throttle)[1])
+            InvalidPWDCount = userAccountF['InvalidPWDCount']
+            LastIncorrectPasswordTimestamp = userAccountF['LastIncorrectPasswordTimestamp']
+            LastIncorrectPasswordTimestamp_datetime = self.nt_time_to_datetime(
+                LastIncorrectPasswordTimestamp)
+            UserNumber = userAccountF['UserNumber']
+            user_sid = f"{system_sid}-{UserNumber}"
+
+            is_admin = user_sid in local_admins
+            locked = LockoutThreshold > 0 and InvalidPWDCount >= LockoutThreshold
+
+            if locked:  # Check if the LockoutDuration has passed
+                lockout_expiry_time = (LastIncorrectPasswordTimestamp_datetime
+                    + timedelta(minutes=LockoutDurationMinutes))
+                now = datetime.utcnow()
+                locked = now < lockout_expiry_time
+
+            grouped_data = userAccountF['GroupedData']
+            disabled = bool(grouped_data & 0x0001)
+            auto_locked = bool(grouped_data & 0x0400)
+            locked_out = locked
+
 
             if userAccount['NTHashLength'] == 0:
                 logging.error('SAM hashes extraction for user %s failed. The account doesn\'t have hash information.' % userName)
@@ -588,6 +691,10 @@ class SAMHashes():
                 ntHash = ntlm.NTOWFv1('','')
 
             answer =  "%s:%d:%s:%s:::" % (userName, rid, hexlify(lmHash).decode('utf-8'), hexlify(ntHash).decode('utf-8'))
+            
+            if self.__printUserStatus is True:
+                answer = f"{answer} (Enabled={'False' if disabled else 'True'}) (Locked={'True' if locked_out or auto_locked else 'False'}) (Admin={'True' if is_admin else 'False'})"
+
             self.__itemsFound[rid] = answer
             self.__perSecretCallback(answer)
 
