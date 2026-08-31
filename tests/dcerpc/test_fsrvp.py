@@ -30,13 +30,14 @@
 SHARE_NAME = "Windows"
 
 from tests.dcerpc import DCERPCTests
-
+import pytest
 from impacket.dcerpc.v5 import fsrvp, rpcrt
 from impacket.uuid import string_to_bin
 import uuid
 import unittest
 
 
+@pytest.mark.remote
 class FSRVPTests(DCERPCTests, unittest.TestCase):
     iface_uuid = fsrvp.MSRPC_UUID_FSRVP
     authn = True
