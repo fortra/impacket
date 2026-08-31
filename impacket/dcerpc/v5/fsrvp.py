@@ -27,12 +27,12 @@ from impacket.dcerpc.v5.rpcrt import DCERPCException, DCERPC_v5
 from impacket.uuid import uuidtup_to_bin, string_to_bin
 
 MSRPC_UUID_FSRVP       = uuidtup_to_bin(('a8e0653c-2744-4389-a61d-7373df8b2292', '1.0'))
-MSRPC_NAMED_PIPE_FSRVP = "\\\\pipe\\FssagentRpc"
+MSRPC_NAMED_PIPE_FSRVP = "\\pipe\\FssagentRpc"
 
 FSRVP_ERROR_MESSAGES = {
     0x80042301 : ("FSRVP_E_BAD_STATE", "A method call was invalid because of the state of the server. (For example, calling AddToShadowCopySet (Opnum 3) before StartShadowCopySet (Opnum 2).)"),
     0x80042316 : ("FSRVP_E_SHADOW_COPY_SET_IN_PROGRESS", "A call was made to either SetContext (Opnum 1) or StartShadowCopySet (Opnum 2) while the creation of another shadow copy set is in progress."),
-    0x8004230C : ("FSRVP_E_WAIT_TIMEOUT", "The wait for a shadow copy commit or expose operation has timed out."),
+    0x8004230C : ("FSRVP_E_NOT_SUPPORTED", "The file store which contains the share to be shadow copied is not supported by the server."),
     0xFFFFFFFF : ("FSRVP_E_WAIT_FAILED", "The wait for a shadow copy commit expose operation has failed."),
     0x8004230D : ("FSRVP_E_OBJECT_ALREADY_EXISTS", "The specified object already exists."),
     0x80042308 : ("FSRVP_E_OBJECT_NOT_FOUND", "The specified object does not exist."),
