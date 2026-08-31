@@ -22,8 +22,6 @@
 # Author:
 #   Alberto Solino (@agsolino)
 #
-from __future__ import division
-from __future__ import print_function
 from struct import unpack, calcsize, pack
 from functools import partial
 import collections

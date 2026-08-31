@@ -18,8 +18,6 @@
 #   Alberto Solino (@agsolino)
 #   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #
-from __future__ import division
-from __future__ import print_function
 from threading import Thread
 try:
     import ConfigParser

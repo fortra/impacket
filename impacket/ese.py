@@ -26,8 +26,6 @@
 #   [ ] Support long values properly
 #
 
-from __future__ import division
-from __future__ import print_function
 from impacket import LOG
 from collections import OrderedDict
 from impacket.structure import Structure, hexdump

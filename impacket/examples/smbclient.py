@@ -17,8 +17,6 @@
 # Reference for:
 #   SMB DCE/RPC
 #
-from __future__ import division
-from __future__ import print_function
 from io import BytesIO
 import sys
 import time
