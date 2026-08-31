@@ -242,8 +242,8 @@ class WinRMTests(unittest.TestCase):
                 transport = module.create_transport(options)
 
         self.assertIsInstance(transport, module.KerberosFallbackTransport)
-        self.assertEqual(captured['lmhash'], '')
-        self.assertEqual(captured['nthash'], '00112233445566778899AABBCCDDEEFF')
+        self.assertEqual(captured['lmhash'], b'')
+        self.assertEqual(captured['nthash'], bytes.fromhex('00112233445566778899AABBCCDDEEFF'))
 
     def test_kerberos_transport_falls_back_on_first_auth_failure(self):
         module = self._load_winrmexec_module()
