@@ -3573,6 +3573,7 @@ class NTDSHashes:
         hashesOutputFile = None
         keysOutputFile = None
         clearTextOutputFile = None
+        trustOutputFile = None
         skipUsers = []
 
         if self.__skipUser:
@@ -3622,6 +3623,10 @@ class NTDSHashes:
                 if self.__justNTLM is False:
                     keysOutputFile = openFile(self.__outputFileName+'.ntds.kerberos',mode)
                     clearTextOutputFile = openFile(self.__outputFileName+'.ntds.cleartext',mode)
+                if self.__trustKeys:
+                    # Trust keys are not account secrets and do not follow the pwdump line
+                    # format, so they get their own file to keep .ntds parseable.
+                    trustOutputFile = openFile(self.__outputFileName+'.ntds.trustkeys',mode)
 
             if not self.__justTrustKeys:
                 LOG.info('Dumping Domain Credentials (domain\\uid:rid:lmhash:nthash)')
@@ -3694,7 +3699,7 @@ class NTDSHashes:
 
                     if self.__trustKeys:
                         try:
-                            self.__dumpTrustKeysOffline(outputFile=hashesOutputFile)
+                            self.__dumpTrustKeysOffline(outputFile=trustOutputFile)
                         except Exception as e:
                             LOG.debug('Exception', exc_info=True)
                             LOG.error('Trusted domain key dump failed: %s' % str(e))
@@ -3901,7 +3906,7 @@ class NTDSHashes:
             # from the .dit inside the branch above instead.
             if self.__trustKeys and not self.__useVSSMethod and not self.__remoteSSMethodWMINTDS:
                 try:
-                    self.__dumpTrustKeysOnline(outputFile=hashesOutputFile)
+                    self.__dumpTrustKeysOnline(outputFile=trustOutputFile)
                 except Exception as e:
                     LOG.debug('Exception', exc_info=True)
                     LOG.error('Trusted domain key dump failed: %s' % str(e))
@@ -3915,6 +3920,9 @@ class NTDSHashes:
 
             if clearTextOutputFile is not None:
                 clearTextOutputFile.close()
+
+            if trustOutputFile is not None:
+                trustOutputFile.close()
 
             self.__resumeSession.endTransaction()
 
