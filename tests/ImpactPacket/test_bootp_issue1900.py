@@ -15,13 +15,35 @@ from impacket import dhcp
 
 
 class TestBootpTruncated(unittest.TestCase):
-    def test_truncated_bootp_without_cookie(self):
-        """A truncated BOOTP message carrying only the 236-byte fixed header is
-        shorter than the 300-octet minimum of RFC 1542 section 2.1 and has no
-        vend/DHCP options area at all. Decoding it is deliberate best-effort
-        behaviour: the fixed fields are returned instead of raising
-        struct.error, and a warning reports the undersized message (issue
-        #1900)."""
+    """Best-effort decoding of truncated BOOTP messages.
+
+    RFC 1542 section 2.1 requires a BOOTP message to be at least 300 octets (the
+    236-byte fixed header of RFC 951 plus its 64-byte vend field) and says that
+    shorter messages MUST be discarded. Rather than discarding them, the decoder
+    deliberately decodes what is present and warns, instead of raising
+    struct.error. These are truncated messages, not RFC-valid plain BOOTP.
+    """
+
+    def test_incomplete_fixed_header_is_zero_padded(self):
+        """The 235-byte message reported in issue #1900 stops one byte inside the
+        128-byte 'file' field, so BootpPacket() used to raise struct.error. It
+        must now be zero-padded and decoded best-effort, with a warning."""
+        packet = b'\x01\x01\x01\x00' + b'\x00' * 231
+        self.assertEqual(len(packet), 235)
+        with self.assertLogs('impacket', level='WARNING') as logs:
+            decoded = ImpactDecoder.BootpDecoder().decode(packet)
+        self.assertTrue(any('zero-padding' in message for message in logs.output))
+        self.assertIsInstance(decoded, dhcp.BootpPacket)
+        # The fields that did arrive are decoded normally.
+        self.assertEqual(decoded['op'], 1)
+        self.assertEqual(decoded['htype'], 1)
+        self.assertEqual(decoded['hlen'], 1)
+        self.assertIsNone(decoded.child())
+
+    def test_fixed_header_only_without_cookie(self):
+        """A 236-byte message holds the complete fixed header but carries no
+        vend/DHCP options area, so there is no magic cookie to read. It must
+        decode without raising struct.error, and warn that it is undersized."""
         packet = b'\x01\x01\x01\x00' + b'\x00' * 232
         self.assertEqual(len(packet), 236)
         with self.assertLogs('impacket', level='WARNING') as logs:

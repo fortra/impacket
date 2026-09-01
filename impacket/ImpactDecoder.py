@@ -963,16 +963,24 @@ class BootpDecoder(Decoder):
         pass
 
     def decode(self, aBuffer):
+        # RFC 1542 section 2.1 requires a BOOTP message to be at least 300 octets (the
+        # 236-byte fixed header of RFC 951 plus its 64-byte vend field) and says shorter
+        # messages MUST be discarded. Decode them on a best-effort basis instead of
+        # crashing, but warn that the message is non-conformant. See issue #1900.
+        if len(aBuffer) < 236:
+            # Not even the fixed header is complete, so BootpPacket() would raise
+            # struct.error part-way through unpacking it. Zero-pad the message so the
+            # fields that did arrive can still be decoded.
+            LOG.warning('BOOTP message is %d bytes and does not hold the complete 236-byte fixed '
+                        'header; zero-padding it to decode the fields that are present '
+                        '(RFC 1542 section 2.1 requires at least 300 octets)' % len(aBuffer))
+            aBuffer = bytes(aBuffer) + b'\x00' * (236 - len(aBuffer))
+        elif len(aBuffer) < 300:
+            LOG.warning('BOOTP message is %d bytes, shorter than the 300-octet minimum required by '
+                        'RFC 1542 section 2.1; decoding it on a best-effort basis' % len(aBuffer))
         d = dhcp.BootpPacket(aBuffer)
         self.set_decoded_protocol( d )
         off = len(d.getData())
-        # RFC 1542 section 2.1 requires a BOOTP message to be at least 300 octets
-        # (the 236-byte fixed header plus the 64-byte vend field of RFC 951). Shorter
-        # messages are truncated/non-conformant; decode the fixed header on a best-effort
-        # basis instead of crashing, but warn so the caller knows. See issue #1900.
-        if len(aBuffer) < 300:
-            LOG.warning('BOOTP message is %d bytes, shorter than the 300-octet minimum required by '
-                        'RFC 1542 section 2.1; decoding the fixed header on a best-effort basis' % len(aBuffer))
         # A truncated message may not carry the 4-byte DHCP magic cookie at all, so only
         # read it when enough trailing bytes are present, otherwise DhcpPacket() raises
         # struct.error while unpacking the cookie field.
