@@ -966,9 +966,16 @@ class BootpDecoder(Decoder):
         d = dhcp.BootpPacket(aBuffer)
         self.set_decoded_protocol( d )
         off = len(d.getData())
-        # A plain BOOTP packet may carry no vendor-specific/DHCP options area at all
-        # (RFC 951). Only try to parse the DHCP magic cookie when there are enough
-        # trailing bytes for it, otherwise DhcpPacket() raises struct.error. See issue #1900.
+        # RFC 1542 section 2.1 requires a BOOTP message to be at least 300 octets
+        # (the 236-byte fixed header plus the 64-byte vend field of RFC 951). Shorter
+        # messages are truncated/non-conformant; decode the fixed header on a best-effort
+        # basis instead of crashing, but warn so the caller knows. See issue #1900.
+        if len(aBuffer) < 300:
+            LOG.warning('BOOTP message is %d bytes, shorter than the 300-octet minimum required by '
+                        'RFC 1542 section 2.1; decoding the fixed header on a best-effort basis' % len(aBuffer))
+        # A truncated message may not carry the 4-byte DHCP magic cookie at all, so only
+        # read it when enough trailing bytes are present, otherwise DhcpPacket() raises
+        # struct.error while unpacking the cookie field.
         if len(aBuffer) - off >= 4 and dhcp.DhcpPacket(aBuffer[off:])['cookie'] == dhcp.DhcpPacket.MAGIC_NUMBER:
             self.data_decoder = DHCPDecoder()
             packet = self.data_decoder.decode(aBuffer[off:])
