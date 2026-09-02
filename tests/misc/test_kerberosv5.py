@@ -54,7 +54,7 @@ class KerberosTGSEnctypeTests(TestCase):
     def _assert_request_enctypes(self, requestedEtypes, expectedEtypes):
         requests = []
 
-        def capture_request(data, domain, kdcHost):
+        def capture_request(data, domain, kdcHost, timeout=None):
             tgsReq = decoder.decode(data, asn1Spec=TGS_REQ())[0]
             requests.append(tuple(int(etype) for etype in tgsReq['req-body']['etype']))
             raise KerberosError(constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value)
