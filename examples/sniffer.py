@@ -26,6 +26,7 @@
 #   ImpactDecoder
 #
 
+import argparse
 from select import select
 import socket
 import sys
@@ -34,11 +35,26 @@ from impacket import ImpactDecoder
 
 DEFAULT_PROTOCOLS = ('icmp', 'tcp', 'udp')
 
-if len(sys.argv) == 1:
-    toListen = DEFAULT_PROTOCOLS
-    print("Using default set of protocols. A list of protocols can be supplied from the command line, eg.: %s <proto1> [proto2] ..." % sys.argv[0])
-else:
-    toListen = sys.argv[1:]
+parser = argparse.ArgumentParser(add_help=True, description='Simple packet sniffer.')
+parser.add_argument('protocols', nargs='*', help='A list of protocols', default=DEFAULT_PROTOCOLS)
+
+group = parser.add_argument_group('SOCKS Proxy Options')
+group.add_argument('-socks', action='store_true', default=False,
+                    help='Use a SOCKS proxy for the connection')
+group.add_argument('-socks-address', default='127.0.0.1', help='SOCKS5 server address')
+group.add_argument('-socks-port', default=1080, type=int, help='SOCKS5 server port')
+
+options = parser.parse_args()
+toListen = options.protocols
+
+# Relay connections through a socks proxy
+if (options.socks):
+    print('Relaying connections through SOCKS proxy (%s:%s)', options.socks_address, options.socks_port)
+    import socket
+    import socks
+
+    socks.set_default_proxy(socks.SOCKS5, options.socks_address, options.socks_port)
+    socket.socket = socks.socksocket
 
 # Open one socket for each specified protocol.
 # A special option is set on the socket so that IP headers are included with
