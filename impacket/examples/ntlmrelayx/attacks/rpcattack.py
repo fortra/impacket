@@ -19,9 +19,10 @@ import time
 import string
 import random
 
-from OpenSSL import crypto
 from cryptography.x509 import load_der_x509_certificate
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.serialization import Encoding
 
 from impacket import LOG
 from impacket.dcerpc.v5 import tsch, icpr
@@ -123,8 +124,7 @@ class TSCHRPCAttack:
 
 class ICPRRPCAttack:
     def _run(self):
-        key = crypto.PKey()
-        key.generate_key(crypto.TYPE_RSA, 4096)
+        key = rsa.generate_private_key(public_exponent=65537, key_size=4096)
 
         if self.username in ELEVATED:
             LOG.info('Skipping user %s since attack was already performed' % self.username)
@@ -138,7 +138,7 @@ class ICPRRPCAttack:
 
         altSid = getattr(self.config, 'altSid', None)
         csr = ADCSAttack.generate_csr(key, self.username, self.config.altName,
-                                      crypto.FILETYPE_ASN1, altSid=altSid)
+                                      csr_type=Encoding.DER, altSid=altSid)
         if altSid:
             LOG.info("CSR generated with SID extension: %s" % altSid)
         else:
@@ -165,7 +165,7 @@ class ICPRRPCAttack:
 
         cert_obj = load_der_x509_certificate(certificate, backend=default_backend())
         pfx_filename = ADCSAttack._sanitize_filename(self.username or ADCSAttack._extract_certificate_identity(cert_obj) or "certificate")
-        certificate_store = ADCSAttack.generate_pfx(key.to_cryptography_key(), cert_obj)
+        certificate_store = ADCSAttack.generate_pfx(key, cert_obj)
         output_path = os.path.join(self.config.lootdir, "{}.pfx".format(pfx_filename))
         LOG.info("Writing PKCS#12 certificate to %s" % output_path)
         try:
