@@ -19,6 +19,7 @@
 from __future__ import division
 from __future__ import print_function
 import enum
+from typing import Optional, Union
 
 from impacket import nt_errors
 from impacket.dcerpc.v5.dtypes import LONG, DWORD, WSTR, LPWSTR, ULONG, GUID, LONGLONG, BOOL
@@ -358,7 +359,7 @@ def hGetSupportedVersion(dce: DCERPC_v5) -> GetSupportedVersionResponse:
     return dce.request(gsv)
 
 
-def hSetContext(dce: DCERPC_v5, context: ShadowCopyAttributes | int) -> SetContextResponse:
+def hSetContext(dce: DCERPC_v5, context: Union[ShadowCopyAttributes, int]) -> SetContextResponse:
     set_context = SetContext()
     ctx = context if isinstance(context, int) else context.value
     set_context['Context'] = ctx
@@ -405,13 +406,13 @@ def hAbortShadowCopySet(dce: DCERPC_v5, ShadowCopySetId: bytes) -> AbortShadowCo
     return dce.request(request)
 
 
-def hIsPathSupported(dce: DCERPC_v5, ShareName: str | None) -> IsPathSupportedResponse:
+def hIsPathSupported(dce: DCERPC_v5, ShareName: Optional[str]) -> IsPathSupportedResponse:
     request = IsPathSupported()
     request['ShareName'] = checkNullString(ShareName)
     return dce.request(request)
 
 
-def hIsPathShadowCopied(dce: DCERPC_v5, ShareName: str | None) -> IsPathShadowCopiedResponse:
+def hIsPathShadowCopied(dce: DCERPC_v5, ShareName: Optional[str]) -> IsPathShadowCopiedResponse:
     request = IsPathShadowCopied()
     request['ShareName'] = checkNullString(ShareName)
     return dce.request(request)
