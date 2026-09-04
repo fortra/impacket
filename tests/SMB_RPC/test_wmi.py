@@ -260,6 +260,21 @@ class WMITests(RemoteTestCase, unittest.TestCase):
             _ = iWbemServices.DeleteClass(className)
             dcom.disconnect()
 
+    def test_IWbemServices_GetObject_uint8_array(self):
+        dcom, iWbemServices = self._connect_wmi()
+        try:
+            try:
+                eventFilterClass, _ = iWbemServices.GetObject('__EventFilter')
+            except Exception as exc:
+                if 'WBEM_E_NOT_FOUND' in str(exc):
+                    self.skipTest('__EventFilter is unavailable on the remote host')
+                raise
+            creatorSID = eventFilterClass.getProperties()['CreatorSID']
+            self.assertEqual(creatorSID['type'], wmi.CIM_TYPE_ENUM.CIM_ARRAY_UINT8.value)
+            self.assertEqual(creatorSID['value'], '[1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0]')
+        finally:
+            dcom.disconnect()
+
 
     def test_IWbemServices_DeleteClass_missing(self):
         dcom, iWbemServices = self._connect_wmi()
