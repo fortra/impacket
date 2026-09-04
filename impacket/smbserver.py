@@ -2559,20 +2559,14 @@ class SMBCommands:
             if struct.unpack('B', sessionSetupData['SecurityBlob'][0:1])[0] == ASN1_AID:
                 # NEGOTIATE packet
                 blob = SPNEGO_NegTokenInit(sessionSetupData['SecurityBlob'])
-                token = blob['MechToken']
-                if len(blob['MechTypes'][0]) > 0:
-                    # Is this GSSAPI NTLM or something else we don't support?
-                    mechType = blob['MechTypes'][0]
-                    if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
-                        # Nope, do we know it?
-                        if mechType in MechTypes:
-                            mechStr = MechTypes[mechType]
-                        else:
-                            mechStr = hexlify(mechType)
-                        smbServer.log("Unsupported MechType '%s'" % mechStr, logging.DEBUG, connData=connData)
-                        # We don't know the token, we answer back again saying
-                        # we just support NTLM.
-                        # ToDo: Build this into a SPNEGO_NegTokenResp()
+                mechTypes = blob['MechTypes'] if 'MechTypes' in blob.fields else []
+                negoexOffered = TypesMech['NEGOEX - SPNEGO Extended Negotiation Security Mechanism'] in mechTypes
+                ntlmOffered = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider'] in mechTypes
+
+                if negoexOffered:
+                    smbServer.log("NEGOEX was offered by the client but NEGOEX/PKU2U is not supported yet", logging.DEBUG, connData=connData)
+                    # Only reject the flow if NEGOEX is offered without NTLM; if NTLM is also present, keep the normal NTLM path.
+                    if negoexOffered and not ntlmOffered:
                         respToken = b'\xa1\x15\x30\x13\xa0\x03\x0a\x01\x03\xa1\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
                         respParameters['SecurityBlobLength'] = len(respToken)
                         respData['SecurityBlobLength'] = respParameters['SecurityBlobLength']
@@ -2582,6 +2576,8 @@ class SMBCommands:
                         respSMBCommand['Parameters'] = respParameters
                         respSMBCommand['Data'] = respData
                         return [respSMBCommand], None, STATUS_MORE_PROCESSING_REQUIRED
+
+                token = blob['MechToken'] if 'MechToken' in blob.fields else b''
 
             elif struct.unpack('B', sessionSetupData['SecurityBlob'][0:1])[0] == ASN1_SUPPORTED_MECH:
                 # AUTH packet
@@ -3349,6 +3345,9 @@ class SMB2Commands:
         if struct.unpack('B', securityBlob[0:1])[0] == ASN1_AID:
             # NEGOTIATE packet
             blob = SPNEGO_NegTokenInit(securityBlob)
+            #Check if NEGOEX was offered by the client for now, as we havent implemented/supported yet
+            if blob.isNegoExOffered():
+                smbServer.log("NEGOEX was offered by the client but NEGOEX/PKU2U is not supported yet", logging.DEBUG, connData=connData)
             token = blob['MechToken']
             if len(blob['MechTypes'][0]) > 0:
                 # Is this GSSAPI NTLM or something else we don't support?
