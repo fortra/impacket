@@ -64,7 +64,8 @@ class SMB3CreateTests(unittest.TestCase):
                 self.assertIn(path_name, client.GlobalFileTable)
 
                 if has_parent:
-                    self.assertIn(ntpath.dirname(path_name), client.GlobalFileTable)
+                    parent_dir = ntpath.dirname(path_name).rstrip('\\')
+                    self.assertIn(parent_dir, client.GlobalFileTable)
                     self.assertEqual(len(client.GlobalFileTable), 2)
                 else:
                     self.assertEqual(list(client.GlobalFileTable), [path_name])
@@ -79,6 +80,17 @@ class SMB3CreateTests(unittest.TestCase):
         self.assert_create_reaches_send(client, file_name)
 
         self.assertIs(client.GlobalFileTable[parent_dir], parent_entry)
+
+    def test_root_entry_is_reused_for_root_level_file(self):
+        client = self.create_client(share_name='IPC$')
+
+        self.assert_create_reaches_send(client, '')
+        self.assert_create_reaches_send(client, r'\lsarpc')
+
+        self.assertEqual(
+            set(client.GlobalFileTable),
+            {r'\\server\IPC$', r'\\server\IPC$\lsarpc'},
+        )
 
 
 if __name__ == '__main__':

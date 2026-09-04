@@ -1277,7 +1277,9 @@ class SMB3:
         if self._Connection['Dialect'] >= SMB2_DIALECT_30 and self._Connection['SupportsDirectoryLeasing'] is True:
             # The share root itself has no parent directory to track.
             if fileName:
-                parentDir = ntpath.dirname(pathName)
+                # ntpath.dirname preserves the trailing separator for a UNC
+                # share root, while pathName stores the root without it.
+                parentDir = ntpath.dirname(pathName).rstrip('\\')
                 if parentDir not in self.GlobalFileTable:
                     parentEntry = copy.deepcopy(FILE)
                     parentEntry['LeaseKey']   = uuid.generate()
