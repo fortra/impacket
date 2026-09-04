@@ -616,6 +616,14 @@ class LdapShell(cmd.Cmd):
             else:
                 raise Exception('The server returned an error: %s', self.client.result['message'])
 
+    def _format_shadow_credentials_modify_error(self, action):
+        result = self.client.result
+        if result['result'] == 50:
+            return 'Could not %s, the server reports insufficient rights: %s' % (action, result['message'])
+        if result['result'] == 19:
+            return 'Could not %s, the server reports a constrained violation: %s' % (action, result['message'])
+        return 'Could not %s, the server returned an error: %s' % (action, result['message'])
+
     def do_set_shadow_creds(self, line):
         args = shlex.split(line)
 
@@ -644,20 +652,21 @@ class LdapShell(cmd.Cmd):
         try:
             new_values = target['msDS-KeyCredentialLink'].raw_values + [shadow_credentials.toDNWithBinary2String(keyCredential.dumpBinary(), target.entry_dn)]
             self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
-            print("Shadow credentials successfully added!")
             if self.client.result['result'] == 0:
+                print("Shadow credentials successfully added!")
                 path = ''.join(random.choice(string.ascii_letters + string.digits) for i in range(8))
                 password = ''.join(random.choice(string.ascii_letters + string.digits) for i in range(20))
                 shadow_credentials.exportPFX(certificate, key, password=password, path_to_file=path)
                 print("Saved PFX (#PKCS12) certificate & key at path: %s" % path + ".pfx")
                 print("Must be used with password: %s" % password)
             else:
-                if self.client.result['result'] == 50:
-                    print('Could not modify object, the server reports insufficient rights: %s' % self.client.result['message'])
-                elif self.client.result['result'] == 19:
-                    print('Could not modify object, the server reports a constrained violation: %s' % self.client.result['message'])
-                else:
-                    print('The server returned an error: %s' % self.client.result['message'])
+                print(self._format_shadow_credentials_modify_error('add shadow credentials'))
+                if existing_key_credential_count > 0:
+                    print(
+                        'The target already contains KeyCredentials. If replacing them is intended, '
+                        'back them up with backup_shadow_creds, clear them with clear_shadow_creds, '
+                        'and retry this command.'
+                    )
         except IndexError as e:
             print('Attribute msDS-KeyCredentialLink does not exist')
         return
@@ -686,12 +695,7 @@ class LdapShell(cmd.Cmd):
         if self.client.result['result'] == 0:
             print('Shadow credentials cleared successfully!')
         else:
-            if self.client.result['result'] == 50:
-                raise Exception('Could not modify object, the server reports insufficient rights: %s', self.client.result['message'])
-            elif self.client.result['result'] == 19:
-                raise Exception('Could not modify object, the server reports a constrained violation: %s', self.client.result['message'])
-            else:
-                raise Exception('The server returned an error: %s', self.client.result['message'])
+            raise Exception(self._format_shadow_credentials_modify_error('clear shadow credentials'))
 
     def do_backup_shadow_creds(self, line):
         args = shlex.split(line)
@@ -737,9 +741,12 @@ class LdapShell(cmd.Cmd):
         with codecs.open(backup_file, 'r', encoding='utf-8') as backup_filehandle:
             backup_data = json.load(backup_filehandle)
 
-        key_credentials = backup_data.get('keyCredentials', [])
-        if not key_credentials:
-            raise Exception("No keyCredentials found in backup file %s" % backup_file)
+        if not isinstance(backup_data, dict) or 'keyCredentials' not in backup_data:
+            raise Exception("No keyCredentials list found in backup file %s" % backup_file)
+
+        key_credentials = backup_data['keyCredentials']
+        if not isinstance(key_credentials, list) or not all(isinstance(value, str) for value in key_credentials):
+            raise Exception("Invalid keyCredentials list in backup file %s" % backup_file)
 
         print("Found %d KeyCredential(s) in %s" % (len(key_credentials), backup_file))
 
@@ -750,16 +757,33 @@ class LdapShell(cmd.Cmd):
         target = self.client.entries[0]
         print("Found Target DN: %s" % target.entry_dn)
 
+        existing_key_credential_count = len(target['msDS-KeyCredentialLink'].raw_values)
+        print("Found %d existing KeyCredential(s) on target" % existing_key_credential_count)
+
+        cleared_existing_values = False
+        if existing_key_credential_count > 0:
+            print('Clearing existing msDS-KeyCredentialLink values before restoring the backup')
+            self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, []]})
+            if self.client.result['result'] != 0:
+                raise Exception(self._format_shadow_credentials_modify_error('clear the existing KeyCredentials'))
+            cleared_existing_values = True
+
+        if not key_credentials:
+            print('Shadow credentials restored successfully! The attribute is empty as recorded in the backup.')
+            return
+
         self.client.modify(target.entry_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, key_credentials]})
         if self.client.result['result'] == 0:
             print('Shadow credentials restored successfully!')
         else:
-            if self.client.result['result'] == 50:
-                raise Exception('Could not modify object, the server reports insufficient rights: %s', self.client.result['message'])
-            elif self.client.result['result'] == 19:
-                raise Exception('Could not modify object, the server reports a constrained violation: %s', self.client.result['message'])
-            else:
-                raise Exception('The server returned an error: %s', self.client.result['message'])
+            error = self._format_shadow_credentials_modify_error('restore the shadow-credentials backup')
+
+            if cleared_existing_values:
+                error += (
+                    ' The existing KeyCredentials were cleared, so the target attribute is now empty. '
+                    'Recovery data remains available in %s.' % backup_file
+                )
+            raise Exception(error)
 
     def search(self, query, *attributes):
         self.client.search(self.domain_dumper.root, query, attributes=attributes)
