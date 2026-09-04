@@ -1287,10 +1287,13 @@ class SMB3:
             if fileName[0] == '\\':
                 fileName = fileName[1:]
 
-        if self._Session['TreeConnectTable'][treeId]['IsDfsShare'] is True:
+        treeEntry = self._Session['TreeConnectTable'][treeId]
+        if treeEntry['IsDfsShare'] is True:
             pathName = fileName
         else:
-            pathName = '\\\\' + self._Connection['ServerName'] + '\\' + fileName
+            pathName = '\\\\' + self._Connection['ServerName'] + '\\' + treeEntry['ShareName']
+            if fileName:
+                pathName += '\\' + fileName
 
         fileEntry = copy.deepcopy(FILE)
         fileEntry['LeaseKey']   = uuid.generate()
@@ -1298,16 +1301,16 @@ class SMB3:
         self.GlobalFileTable[pathName] = fileEntry
 
         if self._Connection['Dialect'] >= SMB2_DIALECT_30 and self._Connection['SupportsDirectoryLeasing'] is True:
-           # Is this file NOT on the root directory?
-           if len(fileName.split('\\')) > 2:
-               parentDir = ntpath.dirname(pathName)
-           if parentDir in self.GlobalFileTable:
-               raise Exception("Don't know what to do now! :-o")
-           else:
-               parentEntry = copy.deepcopy(FILE)
-               parentEntry['LeaseKey']   = uuid.generate()
-               parentEntry['LeaseState'] = SMB2_LEASE_NONE
-               self.GlobalFileTable[parentDir] = parentEntry
+            # The share root itself has no parent directory to track.
+            if fileName:
+                # ntpath.dirname preserves the trailing separator for a UNC
+                # share root, while pathName stores the root without it.
+                parentDir = ntpath.dirname(pathName).rstrip('\\')
+                if parentDir not in self.GlobalFileTable:
+                    parentEntry = copy.deepcopy(FILE)
+                    parentEntry['LeaseKey']   = uuid.generate()
+                    parentEntry['LeaseState'] = SMB2_LEASE_NONE
+                    self.GlobalFileTable[parentDir] = parentEntry
 
         packet = self.SMB_PACKET()
         packet['Command'] = SMB2_CREATE
