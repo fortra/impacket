@@ -18,8 +18,6 @@
 #   [X] Unions and rest of the structured types
 #   [ ] Documentation for this library, especially the support for Arrays
 #
-from __future__ import division
-from __future__ import print_function
 import random
 import inspect
 from struct import pack, unpack_from, calcsize

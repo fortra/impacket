@@ -14,7 +14,6 @@
 # Author:
 #   Gefen Altshuler (@gaffner)
 #
-from __future__ import print_function
 import unittest
 from unittest import mock
 from unittest.mock import MagicMock, patch

@@ -21,9 +21,6 @@
 #   LDAP
 #
 
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
 from datetime import datetime
 from impacket import version
 from impacket.dcerpc.v5 import transport
