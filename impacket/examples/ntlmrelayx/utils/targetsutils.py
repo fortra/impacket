@@ -179,7 +179,7 @@ class TargetsProcessor:
         if len(self.generalCandidates) == 0:
             if len(self.namedCandidates) == 0:
                 # We are here, which means all the targets are already exhausted by the client
-                LOG.info("All targets processed!")
+                LOG.debug("All targets processed!")
             elif identity is not None:
                 # This user has no more targets
                 LOG.debug("No more targets for user %s" % identity)
