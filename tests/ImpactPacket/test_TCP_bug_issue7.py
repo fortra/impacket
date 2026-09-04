@@ -41,7 +41,7 @@ class TestTCP(unittest.TestCase):
         thread_hangs.start()
 
         thread_hangs.join(1.0)  # 1 seconds timeout
-        self.assertEqual(thread_hangs.is_alive(), False)
+        self.assertFalse(thread_hangs.is_alive())
 
 
 if __name__ == '__main__':

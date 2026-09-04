@@ -23,40 +23,30 @@ class TestDot11ManagementDisassociationFrames(unittest.TestCase):
         self.rawframe=b"\x00\x00\x1c\x00\xef\x18\x00\x00\xe7\x8a\xec\xb8\x3b\x00\x00\x00\x10\x02\x85\x09\xa0\x00\xb5\x9d\x60\x00\x00\x18\xa0\x00\x3a\x01\x00\x18\xf8\x6c\x76\x42\x70\x1a\x04\x54\xe3\x86\x00\x18\xf8\x6c\x76\x42\x70\x92\x08\x00\xbf\x1b\xa3\xa8"
         self.radiotap_decoder = RadioTapDecoder()
         radiotap=self.radiotap_decoder.decode(self.rawframe)
+        self.dot11=radiotap.child()
+        self.management_base=self.dot11.child()
+        self.management_disassociation=self.management_base.child()
+            
+    def test_setups(self):
+        radiotap = self.radiotap_decoder.decode(self.rawframe)
 
         if PY2:
             self.assertEqual(str(radiotap.__class__), "impacket.dot11.RadioTap")
+            self.assertEqual(str(self.dot11.__class__), "impacket.dot11.Dot11")
+            self.assertEqual(str(self.management_base.__class__), "impacket.dot11.Dot11ManagementFrame")
+            self.assertEqual(str(self.management_disassociation.__class__),
+                             "impacket.dot11.Dot11ManagementDisassociation")
         else:
             self.assertEqual(str(radiotap.__class__), "<class 'impacket.dot11.RadioTap'>")
-
-        self.dot11=radiotap.child()
-        if PY2:
-            self.assertEqual(str(self.dot11.__class__), "impacket.dot11.Dot11")
-        else:
             self.assertEqual(str(self.dot11.__class__), "<class 'impacket.dot11.Dot11'>")
-
-        type = self.dot11.get_type()
-        self.assertEqual(type,Dot11Types.DOT11_TYPE_MANAGEMENT)
-        
-        subtype = self.dot11.get_subtype()
-        self.assertEqual(subtype,Dot11Types.DOT11_SUBTYPE_MANAGEMENT_DISASSOCIATION)
-        
-        typesubtype = self.dot11.get_type_n_subtype()
-        self.assertEqual(typesubtype,Dot11Types.DOT11_TYPE_MANAGEMENT_SUBTYPE_DISASSOCIATION)
-        
-        self.management_base=self.dot11.child()
-        if PY2:
-            self.assertEqual(str(self.management_base.__class__), "impacket.dot11.Dot11ManagementFrame")
-        else:
             self.assertEqual(str(self.management_base.__class__), "<class 'impacket.dot11.Dot11ManagementFrame'>")
-        
-        self.management_disassociation=self.management_base.child()
-        if PY2:
-            self.assertEqual(str(self.management_disassociation.__class__), "impacket.dot11.Dot11ManagementDisassociation")
-        else:
-            self.assertEqual(str(self.management_disassociation.__class__), "<class 'impacket.dot11.Dot11ManagementDisassociation'>")
-            
-        
+            self.assertEqual(str(self.management_disassociation.__class__),
+                             "<class 'impacket.dot11.Dot11ManagementDisassociation'>")
+
+        self.assertEqual(self.dot11.get_type(), Dot11Types.DOT11_TYPE_MANAGEMENT)
+        self.assertEqual(self.dot11.get_subtype(), Dot11Types.DOT11_SUBTYPE_MANAGEMENT_DISASSOCIATION)
+        self.assertEqual(self.dot11.get_type_n_subtype(), Dot11Types.DOT11_TYPE_MANAGEMENT_SUBTYPE_DISASSOCIATION)
+
     def test_01(self):
         'Test Header and Tail Size field'
         self.assertEqual(self.management_base.get_header_size(), 22)
