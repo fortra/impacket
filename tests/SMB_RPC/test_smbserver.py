@@ -87,6 +87,7 @@ from impacket.smbserver import normalize_path, isInFileJail, SimpleSMBServer, SM
 from impacket.smbconnection import SMBConnection, SessionError, compute_lmhash, compute_nthash
 from impacket.nt_errors import STATUS_NOT_SUPPORTED
 from impacket import smb3structs as smb2
+from impacket.dcerpc.v5 import transport, srvs
 from threading import Thread
 
 import select
@@ -341,6 +342,7 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
         """Test listing shares.
         """
         server = self.get_smbserver()
+        server.addShare("printer", self.share_path, shareType="1")
         self.start_smbserver(server)
 
         client = self.get_smbclient()
@@ -353,7 +355,31 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
         client.login(self.username, self.password)
         shares = client.listShares()
         shares_names = [share['shi1_netname'][:-1] for share in shares]
-        assertCountEqual(self, [self.share_name.upper(), "IPC$"], shares_names)
+        assertCountEqual(self, [self.share_name.upper(), "PRINTER", "IPC$"], shares_names)
+
+        shares_by_name = {share['shi1_netname'][:-1]: share for share in shares}
+        self.assertEqual(srvs.STYPE_DISKTREE, shares_by_name[self.share_name.upper()]['shi1_type'])
+        self.assertEqual(srvs.STYPE_PRINTQ, shares_by_name["PRINTER"]['shi1_type'])
+        self.assertEqual(srvs.STYPE_IPC, shares_by_name["IPC$"]['shi1_type'])
+
+        client.close()
+
+    def test_smbserver_get_share_info_type(self):
+        """Test getting a non-disk share type.
+        """
+        server = self.get_smbserver()
+        server.addShare("printer", self.share_path, shareType="1")
+        self.start_smbserver(server)
+
+        client = self.get_smbclient()
+        client.login(self.username, self.password)
+        rpc_transport = transport.SMBTransport(self.address, self.address, filename=r'\srvsvc',
+                                               smb_connection=client)
+        dce = rpc_transport.get_dce_rpc()
+        dce.connect()
+        dce.bind(srvs.MSRPC_UUID_SRVS)
+        share = srvs.hNetrShareGetInfo(dce, "PRINTER\x00", 1)
+        self.assertEqual(srvs.STYPE_PRINTQ, share['InfoStruct']['ShareInfo1']['shi1_type'])
 
         client.close()
 
