@@ -84,6 +84,7 @@ class PreAuthenticationDataTypes(Enum):
     PA_PK_AS_REP_OLD           = 15
     PA_PK_AS_REQ               = 16
     PA_PK_AS_REP               = 17
+    PA_PK_OCSP_RESPONSE        = 18
     PA_ETYPE_INFO2             = 19
     PA_USE_SPECIFIED_KVNO      = 20
     PA_SAM_REDIRECT            = 21
@@ -102,6 +103,7 @@ class PreAuthenticationDataTypes(Enum):
     TD_APP_DEFINED_ERROR       = 106
     TD_REQ_NONCE               = 107
     TD_REQ_SEQ                 = 108
+    TD_DH_PARAMETERS           = 109
     PA_PAC_REQUEST             = 128
     PA_FOR_USER                = 129
     PA_S4U_X509_USER           = 130
@@ -141,7 +143,8 @@ class AuthorizationDataType(Enum):
     AD_MANDATORY_TICKET_EXTENSIONS     = 6
     AD_IN_TICKET_EXTENSIONS            = 7
     AD_MANDATORY_FOR_KDC               = 8
-    #Reserved values                    = 9-63
+    AD_INITIAL_VERIFIED_CAS            = 9  # RFC 4556
+    #Reserved values                   = 10-63
     OSF_DCE                            = 64
     SESAME                             = 65
     AD_OSF_DCE_PKI_CERTID              = 66 
