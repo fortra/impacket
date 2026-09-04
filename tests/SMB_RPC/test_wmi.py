@@ -65,8 +65,8 @@ class WMITests(RemoteTestCase, unittest.TestCase):
         super(WMITests, self).setUp()
         self.set_transport_config()
 
-    def _connect_wmi(self):
-        namespace = '\\\\%s\\root\\cimv2' % self.machine
+    def _connect_wmi(self, namespace='root\\cimv2'):
+        namespace = '\\\\%s\\%s' % (self.machine, namespace)
         dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
         iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
@@ -216,6 +216,56 @@ class WMITests(RemoteTestCase, unittest.TestCase):
         #print obj.getProperties()
 
         dcom.disconnect()
+
+    def test_IWbemServices_ExecMethod_kwargs_partial_params(self):
+        # Kwargs-only call: unspecified InParams are sent as null through the NdTable
+        # (same semantics as `wmic path <class> call <method> <param>=<value>`),
+        # instead of requiring the full positional signature
+        dcom, iWbemServices = self._connect_wmi()
+        try:
+            classObject, _ = iWbemServices.GetObject('Win32_Process')
+            resp = classObject.Create(CommandLine='cmd.exe /c exit 0')
+            props = resp.getProperties()
+            self.assertEqual(props['ReturnValue']['value'], 0)
+            self.assertGreater(props['ProcessId']['value'], 0)
+        finally:
+            dcom.disconnect()
+
+    def test_IWbemServices_ExecMethod_kwargs_order_independent(self):
+        # Kwargs are bound by name, so the order in the call does not matter
+        dcom, iWbemServices = self._connect_wmi()
+        try:
+            classObject, _ = iWbemServices.GetObject('Win32_Process')
+            resp = classObject.Create(CurrentDirectory='c:\\', CommandLine='cmd.exe /c exit 0')
+            props = resp.getProperties()
+            self.assertEqual(props['ReturnValue']['value'], 0)
+            self.assertGreater(props['ProcessId']['value'], 0)
+        finally:
+            dcom.disconnect()
+
+    def test_IWbemServices_ExecMethod_kwargs_string_array(self):
+        # String-array InParams are marshalled as heap-referenced encoded strings;
+        # round-trip a REG_MULTI_SZ value through StdRegProv using kwargs calls only
+        dcom, iWbemServices = self._connect_wmi('root\\default')
+        try:
+            stdRegProv, _ = iWbemServices.GetObject('StdRegProv')
+            hklm = 2147483650
+            subKey = 'SOFTWARE\\impacket_kwarg_test_%s' % uuid.uuid4().hex
+            values = ['impacket', 'kwargs', 'multi', 'string']
+            stdRegProv.CreateKey(hDefKey=hklm, sSubKeyName=subKey)
+            try:
+                resp = stdRegProv.SetMultiStringValue(hDefKey=hklm, sSubKeyName=subKey,
+                                                      sValueName='MultiString', sValue=values)
+                self.assertEqual(resp.ReturnValue, 0)
+
+                fetched = stdRegProv.GetMultiStringValue(hDefKey=hklm, sSubKeyName=subKey,
+                                                         sValueName='MultiString')
+                self.assertEqual(fetched.ReturnValue, 0)
+                self.assertEqual(fetched.sValue, values)
+            finally:
+                stdRegProv.DeleteKey(hDefKey=hklm, sSubKeyName=subKey)
+        finally:
+            dcom.disconnect()
 
     def test_IWbemServices_PutClass(self):
         dcom, iWbemServices = self._connect_wmi() 
