@@ -57,6 +57,7 @@ import ntpath
 import os
 import re
 import random
+import secrets
 import string
 import time
 from binascii import unhexlify, hexlify
@@ -1098,13 +1099,15 @@ class RemoteOperations:
 
     def __smbExec(self, command):
         self.__serviceDeleted = False
+        LOG.info('Creating temporary SCMR service %s' % self.__tmpServiceName)
+        LOG.debug('SCMR binary path: %s' % command)
         resp = scmr.hRCreateServiceW(self.__scmr, self.__scManagerHandle, self.__tmpServiceName, self.__tmpServiceName,
                                      lpBinaryPathName=command)
         service = resp['lpServiceHandle']
         try:
             scmr.hRStartServiceW(self.__scmr, service)
-        except:
-            pass
+        except Exception as e:
+            LOG.warning('StartService(%s) returned: %s' % (self.__tmpServiceName, e))
         scmr.hRDeleteService(self.__scmr, service)
         self.__serviceDeleted = True
         scmr.hRCloseServiceHandle(self.__scmr, service)
@@ -1250,7 +1253,7 @@ class RemoteOperations:
         dcom.disconnect()
 
     def __executeRemote(self, data):
-        self.__tmpServiceName = ''.join([random.choice(string.ascii_letters) for _ in range(8)])
+        self.__tmpServiceName = 'RelaySvc_' + secrets.token_hex(6)
         command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' > ' + self.__batchFile + ' & ' + \
                   self.__shell + self.__batchFile
         command += ' & ' + 'del ' + self.__batchFile

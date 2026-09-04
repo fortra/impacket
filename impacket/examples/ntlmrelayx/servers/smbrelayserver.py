@@ -153,7 +153,7 @@ class SMBRelayServer(Thread):
                     self.config.target.reloadTargets(full_reload=True)
                     self.target = self.targetprocessor.getTarget(multiRelay=False)
                 else:
-                    LOG.info('(SMB): Connection from %s controlled, but there are no more targets left!' % connData['ClientIP'])
+                    LOG.debug('(SMB): Connection from %s controlled, but there are no more targets left!' % connData['ClientIP'])
                     respPacket['Status'] = STATUS_BAD_NETWORK_NAME
                     respPacket['Data'] = SMB2Error()
                     return None, [respPacket], STATUS_BAD_NETWORK_NAME
@@ -443,7 +443,7 @@ class SMBRelayServer(Thread):
                     self.target = self.targetprocessor.getTarget(multiRelay=False)
                 else:
                     # No more targets to process, just let the victim to fail later
-                    LOG.info('(SMB): Connection from %s@%s controlled, but there are no more targets left!' % (self.authUser, connData['ClientIP']))
+                    LOG.debug('(SMB): Connection from %s@%s controlled, but there are no more targets left!' % (self.authUser, connData['ClientIP']))
                     return self.origsmb2TreeConnect (connId, smbServer, recvPacket)
 
             LOG.info('(SMB): Connection from %s@%s controlled, attacking target %s://%s' % (self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc))
@@ -517,7 +517,7 @@ class SMBRelayServer(Thread):
                     self.config.target.reloadTargets(full_reload=True)
                     self.target = self.targetprocessor.getTarget(multiRelay=False)
                 else:
-                    LOG.info('(SMB): Connection from %s controlled, but there are no more targets left!' % connData['ClientIP'])
+                    LOG.debug('(SMB): Connection from %s controlled, but there are no more targets left!' % connData['ClientIP'])
                     return [smb.SMBCommand(smb.SMB.SMB_COM_NEGOTIATE)], None, STATUS_BAD_NETWORK_NAME
 
             LOG.info("(SMB): Received connection from %s, attacking target %s://%s" % (connData['ClientIP'], self.target.scheme, self.target.netloc))
@@ -826,7 +826,7 @@ class SMBRelayServer(Thread):
                     self.target = self.targetprocessor.getTarget(multiRelay=False)
                 else:
                     # No more targets to process, just let the victim to fail later
-                    LOG.info('(SMB): Connection from %s@%s controlled, but there are no more targets left!' % (self.authUser, connData['ClientIP']))
+                    LOG.debug('(SMB): Connection from %s@%s controlled, but there are no more targets left!' % (self.authUser, connData['ClientIP']))
                     return self.origsmbComTreeConnectAndX (connId, smbServer, SMBCommand, recvPacket)
 
             LOG.info('(SMB): Connection from %s@%s controlled, attacking target %s://%s' % (self.authUser, connData['ClientIP'], self.target.scheme, self.target.netloc))
@@ -957,4 +957,3 @@ class SMBRelayServer(Thread):
     def run(self):
         LOG.info("Setting up SMB Server on port %s" % self.server.server_address[1])
         self._start()
-
