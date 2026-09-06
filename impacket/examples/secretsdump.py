@@ -61,7 +61,7 @@ from binascii import unhexlify, hexlify
 from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
 from struct import unpack, pack
-from six import b, PY2
+from six import b
 
 from impacket import LOG
 from impacket import system_errors
@@ -1431,10 +1431,7 @@ class CryptoCommon:
         key = pack('<L',baseKey)
         key1 = [key[0] , key[1] , key[2] , key[3] , key[0] , key[1] , key[2]]
         key2 = [key[3] , key[0] , key[1] , key[2] , key[3] , key[0] , key[1]]
-        if PY2:
-            return transformKey(b''.join(key1)),transformKey(b''.join(key2))
-        else:
-            return transformKey(bytes(key1)),transformKey(bytes(key2))
+        return transformKey(bytes(key1)),transformKey(bytes(key2))
 
     @staticmethod
     def decryptAES(key, value, iv=b'\x00'*16):

@@ -60,7 +60,7 @@ from Cryptodome.Cipher import AES, DES3, ARC4, DES
 from Cryptodome.Hash import HMAC, MD4, MD5, SHA
 from Cryptodome.Protocol.KDF import PBKDF2
 from Cryptodome.Util.number import GCD as gcd
-from six import b, PY3, indexbytes, binary_type
+from six import b, indexbytes, binary_type
 from impacket.krb5 import constants
 import logging
 
@@ -321,10 +321,7 @@ class _DESCBC(_SimplifiedEnctype):
             temp56 = list()
             #removeMSBits
             for byte in block:
-                if PY3:
-                    temp56.append(byte&0b01111111)
-                else:
-                    temp56.append(ord(byte)&0b01111111)
+                temp56.append(byte&0b01111111)
             
             #reverse
             if odd is False:
