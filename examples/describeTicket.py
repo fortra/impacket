@@ -486,6 +486,24 @@ def parse_pac(pacType, args):
             parsed_data['Reserved3'] = kerbdata['Reserved3']
             parsed_tuPAC.append({"LoginInfo": parsed_data})
 
+        elif infoBuffer['ulType'] in (pac.PAC_CLIENT_CLAIMS_INFO_TYPE, pac.PAC_DEVICE_CLAIMS_INFO_TYPE):
+            # Parsing [MS-ADTS] 2.2.18 CLAIMS_SET (client/device claims)
+            label = "Client Claims" if infoBuffer['ulType'] == pac.PAC_CLIENT_CLAIMS_INFO_TYPE else "Device Claims"
+            parsed_data = {}
+            if not data:
+                parsed_data['  (none)'] = ''
+            else:
+                try:
+                    claims = pac.parse_claims_set(data)
+                    if not claims:
+                        parsed_data['  (none)'] = ''
+                    for claim in claims:
+                        key = "  [%s] %s (%s)" % (claim['source'], claim['id'], claim['type'])
+                        parsed_data[key] = ', '.join(str(v) for v in claim['values'])
+                except NotImplementedError as e:
+                    parsed_data['  <not decoded>'] = str(e)
+            parsed_tuPAC.append({label: parsed_data})
+
         elif infoBuffer['ulType'] == pac.PAC_CLIENT_INFO_TYPE:
             clientInfo = pac.PAC_CLIENT_INFO()
             clientInfo.fromString(data)
@@ -540,6 +558,26 @@ def parse_pac(pacType, args):
                 parsed_data["SamAccountName"] = SamName
                 parsed_data["UserSid"] = Sid.formatCanonical()
             parsed_tuPAC.append({"UpnDns": parsed_data})
+
+        elif infoBuffer['ulType'] == pac.PAC_DEVICE_INFO_TYPE:
+            # [MS-PAC] 2.12 PAC_DEVICE_INFO (the armor device behind device claims)
+            parsed_data = {}
+            try:
+                type1 = TypeSerialization1(data)
+                newdata = data[len(type1) + 4:]
+                devinfo = pac.PAC_DEVICE_INFO()
+                devinfo.fromString(newdata)
+                devinfo.fromStringReferents(newdata[len(devinfo.getData()):])
+                parsed_data['Device RID']          = devinfo['UserId']
+                parsed_data['Primary Group Id']    = devinfo['PrimaryGroupId']
+                parsed_data['Account Domain SID']  = devinfo['AccountDomainId'].formatCanonical()
+                parsed_data['Account Group Count'] = devinfo['AccountGroupCount']
+                parsed_data['Account Group RIDs']  = [g['RelativeId'] for g in devinfo['AccountGroupIds']]
+                parsed_data['SID Count']           = devinfo['SidCount']
+                parsed_data['Extra SIDs']          = [s['Sid'].formatCanonical() for s in devinfo['ExtraSids']]
+            except Exception as e:
+                parsed_data['<present, not decoded>'] = "%d bytes (%s)" % (len(data), e)
+            parsed_tuPAC.append({"Device Info": parsed_data})
 
         elif infoBuffer['ulType'] == pac.PAC_SERVER_CHECKSUM:
             signatureData = pac.PAC_SIGNATURE_DATA(data)

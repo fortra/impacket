@@ -18,8 +18,6 @@
 # Author:
 #   Alberto Solino (@agsolino)
 #
-from __future__ import division
-from __future__ import print_function
 from datetime import datetime, timezone
 import os
 from struct import pack, unpack, calcsize

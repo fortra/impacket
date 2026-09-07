@@ -30,8 +30,6 @@
 #       not used, returning RPC_E_DISCONNECTED
 #
 
-from __future__ import division
-from __future__ import print_function
 import ipaddress
 import socket
 from struct import pack

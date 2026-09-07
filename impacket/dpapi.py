@@ -24,8 +24,6 @@
 #   -  https://www.passcape.com/windows_password_recovery_dpapi_master_key
 #
 
-from __future__ import division
-from __future__ import print_function
 import sys
 
 from struct import unpack

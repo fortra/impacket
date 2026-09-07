@@ -43,8 +43,6 @@
 # 
 # Shouldn't dump errors against a win7
 #
-from __future__ import division
-from __future__ import print_function
 
 import zlib
 import base64

@@ -15,8 +15,6 @@
 #   Alberto Solino (@agsolino)
 #
 
-from __future__ import division
-from __future__ import print_function
 from struct import pack, unpack, calcsize
 
 from impacket import ntlm

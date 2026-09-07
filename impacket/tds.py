@@ -28,10 +28,6 @@
 #   [ ] printRows is crappy, just an easy way to print the rows. It should be
 #       rewritten to output like a normal SQL client
 
-
-from __future__ import division
-from __future__ import print_function
-
 # Native SSL support for in memory handshake
 import ssl
 
