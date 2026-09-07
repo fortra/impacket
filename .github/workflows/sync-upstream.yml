@@ -1,0 +1,63 @@
+name: Sync Fork with Upstream
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # daily at 3am UTC — adjust as needed
+  workflow_dispatch:        # allows manual trigger from Actions tab
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: git remote add upstream https://github.com/fortra/impacket.git
+
+      - name: Fetch upstream
+        run: git fetch upstream
+
+      - name: Attempt merge into a sync branch
+        id: merge
+        run: |
+          git checkout -b sync-upstream
+          if git merge upstream/master --no-edit; then
+            echo "conflict=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
+            git merge --abort
+          fi
+
+      - name: Push sync branch
+        if: steps.merge.outputs.conflict == 'false'
+        run: git push origin sync-upstream --force
+
+      - name: Create Pull Request
+        if: steps.merge.outputs.conflict == 'false'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: sync-upstream
+          title: "Sync with upstream"
+          body: "Automated sync from upstream master. Review and merge if everything looks good."
+          base: master
+
+      - name: Fail loudly if conflict
+        if: steps.merge.outputs.conflict == 'true'
+        run: |
+          echo "::error::Merge conflict detected — manual resolution required. Sync was not pushed."
+          exit 1
