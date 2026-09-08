@@ -360,7 +360,7 @@ class ENCODED_VALUE(Structure):
                         array.append(unit)
                         heapData = heapData[msb['EncodingLength']+4:]
                 elif cimType == CIM_TYPE_ENUM.CIM_ARRAY_UINT8.value:
-                    array = list(heapData)[:(dataSizeArray*numItems)]
+                    array = list(heapData[:dataSizeArray*numItems])
                 else:
                     for item in range(numItems):
                         # ToDo: Learn to unpack the rest of the array of things
