@@ -2,7 +2,15 @@
 
 import unittest
 import uuid
+from types import SimpleNamespace
+from unittest.mock import Mock
 
+from impacket import smb
+from impacket.examples.ntlmrelayx.clients.smbrelayclient import SMBRelayClient
+from impacket.nt_errors import STATUS_MORE_PROCESSING_REQUIRED
+from impacket.ntlm import getNTLMSSPType1
+from impacket.smbconnection import SMB_DIALECT
+from impacket.smbserver import SMBCommands
 from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, TypesMech
 from impacket.negoex import (
       AUTH_SCHEME_PKU2U,
@@ -94,23 +102,74 @@ class SPNEGONegoExTests(unittest.TestCase):
           self.assertIsNone(parsed.getNegoExToken())
           self.assertEqual([], parsed.getNegoExMessages())
 
-      def test_smb_handler_rejects_negoex_without_ntlm(self):
-          mech_types = [self.negoex_oid]
-          negoex_offered = self.negoex_oid in mech_types
-          ntlm_offered = self.ntlm_oid in mech_types
+      def _run_smb1_session_setup(self, mech_types, mech_token):
+          token = SPNEGO_NegTokenInit()
+          token['MechTypes'] = mech_types
+          token['MechToken'] = mech_token
+          security_blob = token.getData()
 
-          self.assertTrue(negoex_offered)
-          self.assertFalse(ntlm_offered)
-          self.assertTrue(negoex_offered and not ntlm_offered)
+          parameters = smb.SMBSessionSetupAndX_Extended_Parameters()
+          parameters['MaxBufferSize'] = 65535
+          parameters['MaxMpxCount'] = 2
+          parameters['VcNumber'] = 1
+          parameters['SessionKey'] = 0
+          parameters['SecurityBlobLength'] = len(security_blob)
+          parameters['Capabilities'] = smb.SMB.CAP_EXTENDED_SECURITY
 
-      def test_smb_handler_keeps_ntlm_path_when_ntlm_and_negoex_are_offered(self):
-          mech_types = [self.ntlm_oid, self.negoex_oid]
-          negoex_offered = self.negoex_oid in mech_types
-          ntlm_offered = self.ntlm_oid in mech_types
+          data = smb.SMBSessionSetupAndX_Extended_Data()
+          data['SecurityBlob'] = security_blob
+          data['NativeOS'] = ''
+          data['NativeLanMan'] = ''
 
-          self.assertTrue(negoex_offered)
-          self.assertTrue(ntlm_offered)
-          self.assertFalse(negoex_offered and not ntlm_offered)
+          command = smb.SMBCommand(smb.SMB.SMB_COM_SESSION_SETUP_ANDX)
+          command['Parameters'] = parameters.getData()
+          command['Data'] = data.getData()
+          command = smb.SMBCommand(command.getData())
+
+          server = Mock()
+          server.getConnectionData.return_value = {}
+          server.getServerOS.return_value = 'Unix'
+          return SMBCommands.smbComSessionSetupAndX('connection', server, command, {'Flags2': 0})
+
+      def test_smb1_handler_requests_ntlm_for_non_ntlm_first_offer(self):
+          kerberos_oid = TypesMech['MS KRB5 - Microsoft Kerberos 5']
+          cases = (
+              ([self.negoex_oid, self.ntlm_oid], b'NEGOEXTS' + b'\x00' * 40),
+              ([kerberos_oid, self.ntlm_oid], b'kerberos-optimistic-token'),
+          )
+
+          for mech_types, mech_token in cases:
+              with self.subTest(first_mech=mech_types[0]):
+                  responses, packets, status = self._run_smb1_session_setup(mech_types, mech_token)
+
+                  self.assertEqual(STATUS_MORE_PROCESSING_REQUIRED, status)
+                  self.assertIsNone(packets)
+                  response = responses[0]
+                  parsed = SPNEGO_NegTokenResp(response['Data']['SecurityBlob'])
+                  self.assertEqual(b'\x03', parsed['NegState'])
+                  self.assertEqual(self.ntlm_oid, parsed['SupportedMech'])
+                  self.assertNotIn('ResponseToken', parsed.fields)
+
+      def test_smb_relay_client_rejects_target_negoex_selection_during_negotiate(self):
+          selection = SPNEGO_NegTokenResp()
+          selection['NegState'] = b'\x01'
+          selection['SupportedMech'] = self.negoex_oid
+          target_response = selection.getData()
+          negotiate_message = getNTLMSSPType1('', '').getData()
+
+          for dialect, method_name in ((SMB_DIALECT, 'sendNegotiatev1'), ('SMB2', 'sendNegotiatev2')):
+              with self.subTest(dialect=dialect):
+                  client = SMBRelayClient.__new__(SMBRelayClient)
+                  client.serverConfig = SimpleNamespace(remove_mic=False)
+                  client.session = Mock()
+                  client.session.getDialect.return_value = dialect
+                  send_negotiate = Mock(return_value=target_response)
+                  setattr(client, method_name, send_negotiate)
+
+                  with self.assertRaisesRegex(Exception, 'NEGOEX/PKU2U relay is not supported'):
+                      client.sendNegotiate(negotiate_message)
+
+                  send_negotiate.assert_called_once()
 
       def test_neg_token_resp_detects_negoex_selected(self):
           token = SPNEGO_NegTokenResp()
@@ -123,6 +182,17 @@ class SPNEGONegoExTests(unittest.TestCase):
           self.assertTrue(parsed.isNegoExSelected())
           self.assertEqual(self.negoex_oid, parsed.getSupportedMech())
           self.assertEqual(self.nego_message, parsed.getNegoExToken())
+
+      def test_neg_token_resp_parses_selection_without_response_token(self):
+          token = SPNEGO_NegTokenResp()
+          token['NegState'] = b'\x01'
+          token['SupportedMech'] = self.negoex_oid
+
+          parsed = SPNEGO_NegTokenResp(token.getData())
+
+          self.assertTrue(parsed.isNegoExSelected())
+          self.assertEqual(self.negoex_oid, parsed.getSupportedMech())
+          self.assertNotIn('ResponseToken', parsed.fields)
 
       def test_neg_token_resp_parses_negoex_response_token_messages(self):
           token = SPNEGO_NegTokenResp()

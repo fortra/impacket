@@ -2499,21 +2499,33 @@ class SMBCommands:
                 blob = SPNEGO_NegTokenInit(sessionSetupData['SecurityBlob'])
                 mechTypes = blob['MechTypes'] if 'MechTypes' in blob.fields else []
                 negoexOffered = TypesMech['NEGOEX - SPNEGO Extended Negotiation Security Mechanism'] in mechTypes
-                ntlmOffered = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider'] in mechTypes
 
                 if negoexOffered:
                     smbServer.log("NEGOEX was offered by the client but NEGOEX/PKU2U is not supported yet", logging.DEBUG, connData=connData)
-                    # Only reject the flow if NEGOEX is offered without NTLM; if NTLM is also present, keep the normal NTLM path.
-                    if negoexOffered and not ntlmOffered:
-                        respToken = b'\xa1\x15\x30\x13\xa0\x03\x0a\x01\x03\xa1\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
-                        respParameters['SecurityBlobLength'] = len(respToken)
-                        respData['SecurityBlobLength'] = respParameters['SecurityBlobLength']
-                        respData['SecurityBlob'] = respToken
-                        respData['NativeOS'] = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
-                        respData['NativeLanMan'] = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
-                        respSMBCommand['Parameters'] = respParameters
-                        respSMBCommand['Data'] = respData
-                        return [respSMBCommand], None, STATUS_MORE_PROCESSING_REQUIRED
+
+                mechType = mechTypes[0] if mechTypes else None
+                ntlmMech = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
+                if mechType != ntlmMech:
+                    if mechType in MechTypes:
+                        mechStr = MechTypes[mechType]
+                    elif mechType is not None:
+                        mechStr = hexlify(mechType)
+                    else:
+                        mechStr = 'none'
+                    smbServer.log("Unsupported MechType '%s'" % mechStr, logging.DEBUG, connData=connData)
+
+                    respToken = SPNEGO_NegTokenResp()
+                    respToken['NegState'] = b'\x03'  # request-mic
+                    respToken['SupportedMech'] = ntlmMech
+                    respToken = respToken.getData()
+                    respParameters['SecurityBlobLength'] = len(respToken)
+                    respData['SecurityBlobLength'] = respParameters['SecurityBlobLength']
+                    respData['SecurityBlob'] = respToken
+                    respData['NativeOS'] = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
+                    respData['NativeLanMan'] = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
+                    respSMBCommand['Parameters'] = respParameters
+                    respSMBCommand['Data'] = respData
+                    return [respSMBCommand], None, STATUS_MORE_PROCESSING_REQUIRED
 
                 token = blob['MechToken'] if 'MechToken' in blob.fields else b''
 
