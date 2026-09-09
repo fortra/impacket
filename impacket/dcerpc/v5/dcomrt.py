@@ -30,8 +30,7 @@
 #       not used, returning RPC_E_DISCONNECTED
 #
 
-from __future__ import division
-from __future__ import print_function
+import ipaddress
 import socket
 from struct import pack
 from threading import Timer, current_thread
@@ -1131,15 +1130,29 @@ class DCOMConnection:
         #print INTERFACE.CONNECTIONS
 
 class CLASS_INSTANCE:
-    def __init__(self, ORPCthis, stringBinding):
+    def __init__(self, ORPCthis, stringBinding, portmap=None):
         self.__stringBindings = stringBinding
         self.__ORPCthis = ORPCthis
         self.__authType = RPC_C_AUTHN_WINNT
         self.__authLevel = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+        self.__connectionInfo = None
+        if portmap is not None:
+            self.set_connection_info(portmap)
     def get_ORPCthis(self):
         return self.__ORPCthis
     def get_string_bindings(self):
         return self.__stringBindings
+    def set_connection_info(self, portmap):
+        rpcTransport = portmap.get_rpc_transport()
+        kerberos = rpcTransport.get_kerberos()
+        remoteHost = None
+        remoteName = None
+        if kerberos:
+            remoteHost = rpcTransport.getRemoteHost()
+            remoteName = rpcTransport.getRemoteName()
+        self.__connectionInfo = (portmap.get_credentials(), kerberos, rpcTransport.get_kdcHost(), remoteHost, remoteName)
+    def get_connection_info(self):
+        return self.__connectionInfo
     def get_auth_level(self):
         if RPC_C_AUTHN_LEVEL_NONE < self.__authLevel < RPC_C_AUTHN_LEVEL_PKT_PRIVACY:
             if self.__authType == RPC_C_AUTHN_WINNT:
@@ -1249,6 +1262,12 @@ class INTERFACE:
 
     def set_cinstance(self, cinstance):
         self.__cinstance = cinstance
+    
+    def is_target_loopback(self):
+        try:
+            return ipaddress.ip_address(self.get_target()).is_loopback
+        except ValueError:
+            return False
 
     def is_fqdn(self):
         # I will assume the following
@@ -1257,7 +1276,7 @@ class INTERFACE:
         # an FQDN with ':'
         # Is it isn't both, then it is a FQDN
         try:
-            socket.inet_aton(self.__target)
+            socket.inet_aton(self.get_target())
         except:
             # Not an IPv4
             try:
@@ -1268,9 +1287,8 @@ class INTERFACE:
         return False
 
     def connect(self, iid = None):
-        if (self.__target in INTERFACE.CONNECTIONS) is True:
-            if current_thread().name in INTERFACE.CONNECTIONS[self.__target] and \
-                            (self.__oxid in INTERFACE.CONNECTIONS[self.__target][current_thread().name]) is True:
+        if self.__target in INTERFACE.CONNECTIONS:
+            if current_thread().name in INTERFACE.CONNECTIONS[self.__target] and self.__oxid in INTERFACE.CONNECTIONS[self.__target][current_thread().name]:
                 dce = INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['dce']
                 currentBinding = INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['currentBinding']
                 if currentBinding == iid:
@@ -1281,6 +1299,7 @@ class INTERFACE:
                     INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['dce'] = newDce
                     INTERFACE.CONNECTIONS[self.__target][current_thread().name][self.__oxid]['currentBinding'] = iid
             else:
+                # No existing connection, create a new one.
                 stringBindings = self.get_cinstance().get_string_bindings()
                 # No OXID present, we should create a new connection and store it
                 stringBinding = None
@@ -1291,6 +1310,8 @@ class INTERFACE:
                     # 1) it's an IPv4 address
                     # 2) it's an IPv6 address
                     # 3) it's a NetBios Name
+                    # 4) it's 127.0.0.1 - not resolved via epmapper.
+                    #    if it really is a loopback address - return true on any stringbinding.
                     # we should handle all this cases accordingly
                     # Does this match exactly what get_target() returns?
                     LOG.debug('StringBinding: %s' % strBinding['aNetworkAddr'])
@@ -1303,9 +1324,17 @@ class INTERFACE:
                             binding = strBinding['aNetworkAddr']
                             bindingPort = ''
 
+                        if self.is_target_loopback():
+                            # The endpoint mapper does not advertise loopback addresses, but
+                            # this connection was explicitly requested for one. Reuse its port.
+                            LOG.debug('Detected loopback DCOM connection attempt, using first available StringBinding.')
+                            stringBinding = 'ncacn_ip_tcp:%s%s' % (self.get_target(), bindingPort)
+                            break
+                        
                         if binding.upper().find(self.get_target().upper()) >= 0:
                             stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
                             break
+                        
                         # If get_target() is a FQDN, does it match the hostname?
                         elif isTargetFQDN and binding.upper().find(self.get_target().upper().partition('.')[0]) >= 0:
                             # Here we replace the aNetworkAddr with self.get_target()
@@ -1323,15 +1352,19 @@ class INTERFACE:
 
                 dcomInterface = transport.DCERPCTransportFactory(stringBinding)
 
-                if DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().get_kerberos():
-                    dcomInterface.setRemoteHost(DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().getRemoteHost())
-                    dcomInterface.setRemoteName(DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().getRemoteName())
+                connectionInfo = self.__cinstance.get_connection_info()
+                if connectionInfo is None:
+                    self.__cinstance.set_connection_info(DCOMConnection.PORTMAPS[self.__target])
+                    connectionInfo = self.__cinstance.get_connection_info()
+                credentials, kerberos, kdcHost, remoteHost, remoteName = connectionInfo
+                if kerberos:
+                    dcomInterface.setRemoteHost(remoteHost)
+                    dcomInterface.setRemoteName(remoteName)
 
                 if hasattr(dcomInterface, 'set_credentials'):
                     # This method exists only for selected protocol sequences.
-                    dcomInterface.set_credentials(*DCOMConnection.PORTMAPS[self.__target].get_credentials())
-                    dcomInterface.set_kerberos(DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().get_kerberos(),
-                                               DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().get_kdcHost())
+                    dcomInterface.set_credentials(*credentials)
+                    dcomInterface.set_kerberos(kerberos, kdcHost)
                 dcomInterface.set_connect_timeout(300)
                 dce = dcomInterface.get_dce_rpc()
 
@@ -1623,7 +1656,7 @@ class IActivation:
                 secBinding = SECURITYBINDING(securityBindings)
                 securityBindings = securityBindings[len(secBinding):]
 
-        classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
+        classInstance = CLASS_INSTANCE(ORPCthis, stringBindings, self.__portmap)
         return IRemUnknown2(INTERFACE(classInstance, b''.join(resp['ppInterfaceData'][0]['abData']), ipidRemUnknown,
                                       target=self.__portmap.get_rpc_transport().getRemoteName()))
 
@@ -1787,7 +1820,7 @@ class IRemoteSCMActivator:
         size = propsOut.fromString(propOutput)
         propsOut.fromStringReferents(propOutput[size:])
 
-        classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
+        classInstance = CLASS_INSTANCE(ORPCthis, stringBindings, self.__portmap)
         classInstance.set_auth_level(scmr['remoteReply']['authnHint'])
         classInstance.set_auth_type(self.__portmap.get_auth_type())
         return IRemUnknown2(INTERFACE(classInstance, b''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown,
@@ -1951,7 +1984,7 @@ class IRemoteSCMActivator:
         size = propsOut.fromString(propOutput)
         propsOut.fromStringReferents(propOutput[size:])
 
-        classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
+        classInstance = CLASS_INSTANCE(ORPCthis, stringBindings, self.__portmap)
         classInstance.set_auth_level(scmr['remoteReply']['authnHint'])
         classInstance.set_auth_type(self.__portmap.get_auth_type())
         return IRemUnknown2(INTERFACE(classInstance, b''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown,

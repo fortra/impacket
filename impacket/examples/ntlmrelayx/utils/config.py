@@ -48,6 +48,9 @@ class NTLMRelayxConfig:
         self.remove_sign_seal = False
         self.disableMulti = False
         self.keepRelaying = False
+        self.https = False
+        self.certfile = None
+        self.keyfile = None
 
         self.command = None
 
@@ -100,6 +103,7 @@ class NTLMRelayxConfig:
         self.isADCSAttack = False
         self.template = None
         self.altName = None
+        self.altSid = None
         self.enumTemplates = False
 
         # Shadow Credentials attack options
@@ -107,6 +111,8 @@ class NTLMRelayxConfig:
         self.ShadowCredentialsPFXPassword = None
         self.ShadowCredentialsExportType = None
         self.ShadowCredentialsOutfilePath = None
+        self.ShadowCredentialsReplace = False
+        self.ShadowCredentialsBackupPath = None
 
         # SCCM attacks options
         self.isSCCMPoliciesAttack = False
@@ -193,7 +199,7 @@ class NTLMRelayxConfig:
     def setRandomTargets(self, randomtargets):
         self.randomtargets = randomtargets
 
-    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser, addcomputer, delegateaccess, dumplaps, dumpgmsa, dumpadcs, sid, adddnsrecord):
+    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser, addcomputer, delegateaccess, dumplaps, dumpgmsa, dumpadcs, sid, adddnsrecord, dumpinfoattr, dumppre2k=False):
         self.dumpdomain = dumpdomain
         self.addda = addda
         self.aclattack = aclattack
@@ -206,6 +212,8 @@ class NTLMRelayxConfig:
         self.dumpadcs = dumpadcs
         self.sid = sid
         self.adddnsrecord = adddnsrecord
+        self.dumpinfoattr = dumpinfoattr
+        self.dumppre2k = dumppre2k
 
     def setMSSQLOptions(self, queries):
         self.queries = queries
@@ -247,6 +255,11 @@ class NTLMRelayxConfig:
         self.remove_target = remove_target
         self.remove_sign_seal = remove_sign_seal
 
+    def setHTTPS(self, https, certfile, keyfile):
+        self.https = https
+        self.certfile = certfile
+        self.keyfile = keyfile
+
     def setWebDAVOptions(self, serve_image):
         self.serve_image = serve_image
 
@@ -262,11 +275,15 @@ class NTLMRelayxConfig:
     def setIsShadowCredentialsAttack(self, IsShadowCredentialsAttack):
         self.IsShadowCredentialsAttack = IsShadowCredentialsAttack
 
-    def setShadowCredentialsOptions(self, ShadowCredentialsTarget, ShadowCredentialsPFXPassword, ShadowCredentialsExportType, ShadowCredentialsOutfilePath):
+    def setShadowCredentialsOptions(self, ShadowCredentialsTarget, ShadowCredentialsPFXPassword, ShadowCredentialsExportType,
+                                    ShadowCredentialsOutfilePath, ShadowCredentialsReplace=False,
+                                    ShadowCredentialsBackupPath=None):
         self.ShadowCredentialsTarget = ShadowCredentialsTarget
         self.ShadowCredentialsPFXPassword = ShadowCredentialsPFXPassword
         self.ShadowCredentialsExportType = ShadowCredentialsExportType
         self.ShadowCredentialsOutfilePath = ShadowCredentialsOutfilePath
+        self.ShadowCredentialsReplace = ShadowCredentialsReplace
+        self.ShadowCredentialsBackupPath = ShadowCredentialsBackupPath
     
     def setIsSCCMPoliciesAttack(self, isSCCMPoliciesAttack):
         self.isSCCMPoliciesAttack = isSCCMPoliciesAttack
@@ -287,6 +304,9 @@ class NTLMRelayxConfig:
 
     def setAltName(self, altName):
         self.altName = altName
+
+    def setAltSid(self, altSid):
+        self.altSid = altSid
 
 def parse_listening_ports(value):
     ports = set()

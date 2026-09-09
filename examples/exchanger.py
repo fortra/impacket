@@ -25,7 +25,6 @@
 #   - https://swarm.ptsecurity.com/attacking-ms-exchange-web-interfaces/
 #
 
-from __future__ import print_function
 import base64
 import codecs
 import logging

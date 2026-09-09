@@ -18,8 +18,6 @@
 #   Javier Kohen (jkohen)
 #
 
-from __future__ import division
-from __future__ import print_function
 import array
 import struct
 import socket
@@ -891,6 +889,24 @@ class IP(Header):
 
     def set_ip_tos(self,value):
         self.set_byte(1, value)
+
+    # RFC 2474/3168 split the old ToS byte into a 6 bit DSCP field
+    # (high bits) and a 2 bit ECN field (low bits).
+    def get_ip_dscp(self):
+        return self.get_byte(1) >> 2
+
+    def set_ip_dscp(self, value):
+        n = self.get_byte(1) & 0x03
+        n |= (value & 0x3F) << 2
+        self.set_byte(1, n)
+
+    def get_ip_ecn(self):
+        return self.get_byte(1) & 0x03
+
+    def set_ip_ecn(self, value):
+        n = self.get_byte(1) & 0xFC
+        n |= value & 0x03
+        self.set_byte(1, n)
 
     def get_ip_len(self):
         if self.is_BSD:

@@ -52,6 +52,7 @@ __all__ = [
     'LDAPConnection', 'LDAPFilterSyntaxError', 'LDAPFilterInvalidException', 'LDAPSessionError', 'LDAPSearchError',
     'Control', 'SimplePagedResultsControl', 'ResultCode', 'Scope', 'DerefAliases', 'Operation',
     'CONTROL_PAGEDRESULTS', 'KNOWN_CONTROLS', 'NOTIFICATION_DISCONNECT', 'KNOWN_NOTIFICATIONS',
+    'escape_filter_chars', 'get_entry_dn', 'get_entry_values', 'get_entry_value',
 ]
 
 # https://tools.ietf.org/search/rfc4515#section-3
@@ -74,14 +75,44 @@ MODIFY_DELETE = 1
 MODIFY_REPLACE = 2
 MODIFY_INCREMENT = 3
 
+
+def escape_filter_chars(value):
+    """Escape special characters in an LDAP filter value per RFC 4515."""
+    escaped = value.replace('\\', '\\5c')
+    escaped = escaped.replace('*', '\\2a')
+    escaped = escaped.replace('(', '\\28')
+    escaped = escaped.replace(')', '\\29')
+    escaped = escaped.replace('\x00', '\\00')
+    return escaped
+
+
+def get_entry_dn(entry):
+    """Return the DN of a SearchResultEntry."""
+    return str(entry['objectName'])
+
+
+def get_entry_values(entry, attribute_name):
+    """Return the list of raw values for the named attribute in a SearchResultEntry."""
+    for attribute in entry['attributes']:
+        if str(attribute['type']).lower() == attribute_name.lower():
+            return list(attribute['vals'])
+    return []
+
+
+def get_entry_value(entry, attribute_name):
+    """Return the first value for the named attribute, or None."""
+    values = get_entry_values(entry, attribute_name)
+    return values[0] if values else None
+
 class LDAPConnection:
-    def __init__(self, url, baseDN='', dstIp=None, signing=True):
+    def __init__(self, url, baseDN='', dstIp=None, signing=True, timeout=None):
         """
         LDAPConnection class
 
         :param string url:
         :param string baseDN:
         :param string dstIp:
+        :param timeout: connection timeout in seconds (None = blocking)
 
         :return: a LDAP instance, if not raises a LDAPSessionError exception
         """
@@ -137,6 +168,7 @@ class LDAPConnection:
         except socket.error as e:
             raise socket.error('Connection error (%s:%d)' % (targetHost, self._dstPort), e)
 
+        self._socket.settimeout(timeout)
         if self._SSL is False:
             self._socket.connect(sa)
         else:
@@ -147,6 +179,7 @@ class LDAPConnection:
             ctx.set_options(SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION)
             self._socket = SSL.Connection(ctx, self._socket)
             self._socket.connect(sa)
+            self._socket.settimeout(None)   # do_handshake() on a non-blocking (timeout-mode) socket raises WantReadError
             self._socket.do_handshake()
 
             # From: https://github.com/ly4k/ldap3/commit/87f5760e5a68c2f91eac8ba375f4ea3928e2b9e0#diff-c782b790cfa0a948362bf47d72df8ddd6daac12e5757afd9d371d89385b27ef6R1383
@@ -154,7 +187,7 @@ class LDAPConnection:
             # Ugly but effective, to get the digest of the X509 DER in bytes
             peer_cert_digest_str = self._socket.get_peer_certificate().digest('sha256').decode()
             peer_cert_digest_bytes = bytes.fromhex(peer_cert_digest_str.replace(':', ''))
-        
+
             channel_binding_struct = b''
             initiator_address = b'\x00'*8
             acceptor_address = b'\x00'*8
@@ -168,6 +201,7 @@ class LDAPConnection:
             channel_binding_struct += acceptor_address
             channel_binding_struct += application_data
             self.channel_binding_value = md5(channel_binding_struct).digest()
+        self._socket.settimeout(None)
 
     def kerberosLogin(self, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost=None, TGT=None,
                       TGS=None, useCache=True):

@@ -9,8 +9,6 @@
 # for more information.
 #
 
-from __future__ import division
-from __future__ import print_function
 import base64
 import struct
 import calendar
@@ -599,13 +597,9 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlm
     import sys
     encoding = sys.getfilesystemencoding()
     if encoding is not None:
-        try:
-            workstation.encode('utf-16le')
-        except:
+        if isinstance(workstation, bytes):
             workstation = workstation.decode(encoding)
-        try:
-            domain.encode('utf-16le')
-        except:
+        if isinstance(domain, bytes):
             domain = domain.decode(encoding)
 
     # Let's prepare a Type 1 NTLMSSP Message
@@ -640,18 +634,12 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
     import sys
     encoding = sys.getfilesystemencoding()
     if encoding is not None:
-        try:
-            user.encode('utf-16le')
-        except:
+        if isinstance(user, bytes):
             user = user.decode(encoding)
-        try:
-            password.encode('utf-16le')
-        except:
+        if isinstance(password, bytes):
             password = password.decode(encoding)
-        try:
-            domain.encode('utf-16le')
-        except:
-            domain = user.decode(encoding)
+        if isinstance(domain, bytes):
+            domain = domain.decode(encoding)
 
     ntlmChallenge = NTLMAuthChallenge(type2)
 
@@ -804,11 +792,10 @@ def LMOWFv1(password, lmhash = '', nthash=''):
 
 def compute_nthash(password):
     # This is done according to Samba's encryption specification (docs/html/ENCRYPTION.html)
-    try:
-        password = str(password).encode('utf_16le')
-    except UnicodeDecodeError:
+    if isinstance(password, bytes):
         import sys
-        password = password.decode(sys.getfilesystemencoding()).encode('utf_16le')
+        password = password.decode(sys.getfilesystemencoding())
+    password = str(password).encode('utf_16le')
 
     hash = MD4.new()
     hash.update(password)

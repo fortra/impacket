@@ -22,8 +22,6 @@
 #   [ ] Check errors
 #
 
-from __future__ import division
-from __future__ import print_function
 import sys
 import argparse
 import logging
@@ -223,11 +221,10 @@ class SVCCTL:
             if self.__options.password is not None:
                 s = rpctransport.get_smb_connection()
                 key = s.getSessionKey()
-                try:
-                    password = (self.__options.password+'\x00').encode('utf-16le')
-                except UnicodeDecodeError:
-                    import sys
-                    password = (self.__options.password+'\x00').decode(sys.getfilesystemencoding()).encode('utf-16le')
+                password = self.__options.password
+                if isinstance(password, bytes):
+                    password = password.decode(sys.getfilesystemencoding())
+                password = (password + '\x00').encode('utf-16le')
                 password = encryptSecret(key, password)
             else:
                 password = NULL

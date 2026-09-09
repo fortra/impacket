@@ -21,7 +21,9 @@ if PY2:
     FileNotFoundError = IOError
 else:
     from unittest import mock
-from impacket.krb5.ccache import CCache, Credential
+from impacket.krb5 import types
+from impacket.krb5.ccache import AuthData, CCache, CountedOctetString, Credential, Principal
+from impacket.krb5.constants import PrincipalNameType
 
 
 class CCACHETests(unittest.TestCase):
@@ -115,6 +117,49 @@ class CCACHETests(unittest.TestCase):
                 self.assertEqual(username, self.username)
                 self.assertIsNone(TGS)
                 self.assertIsNotNone(TGT)
+
+    def test_credential_with_authdata_roundtrip(self):
+        # Regression test for a credential that carries authorization data.
+        # Credential.authData started as a tuple and was never turned into a
+        # list, so parsing any credential with auth-data raised
+        # AttributeError: 'tuple' object has no attribute 'append'.
+        ccache = CCache.loadFile(self.cache_v4_file)
+        cred = ccache.credentials[0]
+
+        octet = CountedOctetString()
+        octet["data"] = b"\xde\xad\xbe\xef"
+        octet["length"] = len(octet["data"])
+        ad = AuthData()
+        ad["authtype"] = 1
+        ad["authdata"] = octet
+        cred.authData = [ad]
+
+        reparsed = Credential(cred.getData())
+
+        self.assertEqual(len(reparsed.authData), 1)
+        self.assertEqual(reparsed.authData[0]["authtype"], 1)
+        self.assertEqual(reparsed.authData[0]["authdata"]["data"], b"\xde\xad\xbe\xef")
+
+    def test_ccache_getCredential_three_part_spn(self):
+        # Regression test for the 3-part SPN fix (service/host/domain@REALM),
+        # seen in multi domain forests ldap tickets
+        realm = "FOREST.LOCAL"
+        cached_spn = "LDAP/DC01.CHILD-A.LOCAL/CHILD-A.LOCAL@{}".format(realm)
+
+        ccache = CCache()
+        cred = Credential()
+        cred["server"] = Principal()
+        cred["server"].fromPrincipal(types.Principal(cached_spn, type=PrincipalNameType.NT_SRV_INST.value))
+        ccache.credentials.append(cred)
+
+        # Exact same 3-part SPN -> should match
+        self.assertIsNotNone(ccache.getCredential(cached_spn))
+
+        # Short hostname request for the same host -> should match
+        self.assertIsNotNone(ccache.getCredential("LDAP/DC01/CHILD-A.LOCAL@{}".format(realm)))
+
+        # Same short hostname, different child domain -> must not match
+        self.assertIsNone(ccache.getCredential("LDAP/DC01.CHILD-B.LOCAL/CHILD-B.LOCAL@{}".format(realm)))
 
 
 if __name__ == "__main__":

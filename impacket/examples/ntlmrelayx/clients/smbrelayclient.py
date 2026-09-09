@@ -431,6 +431,7 @@ class SMBRelayClient(ProtocolClient):
         flags2 = v1client.get_flags()[1]
         v1client.set_flags(flags2=flags2 & (~SMB.FLAGS2_EXTENDED_SECURITY))
         if sessionSetupData['Account'] != '':
+            LOG.debug("(SMB) sessionnSetupData Account is not empty. Send them to server")
             smb = NewSMBPacket()
             smb['Flags1'] = 8
 
@@ -440,7 +441,7 @@ class SMBRelayClient(ProtocolClient):
 
             sessionSetup['Parameters']['MaxBuffer'] = 65535
             sessionSetup['Parameters']['MaxMpxCount'] = 2
-            sessionSetup['Parameters']['VCNumber'] = os.getpid()
+            sessionSetup['Parameters']['VCNumber'] = os.getpid() & 0xFFFF
             sessionSetup['Parameters']['SessionKey'] = v1client._dialects_parameters['SessionKey']
             sessionSetup['Parameters']['AnsiPwdLength'] = len(sessionSetupData['AnsiPwd'])
             sessionSetup['Parameters']['UnicodePwdLength'] = len(sessionSetupData['UnicodePwd'])
@@ -466,6 +467,7 @@ class SMBRelayClient(ProtocolClient):
                 return smb, STATUS_SUCCESS
         else:
             # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials
+            LOG.debug("(SMB1) Anonymous login, send STATUS_ACCESS_DENIED")
             clientResponse = None
             errorCode = STATUS_ACCESS_DENIED
 

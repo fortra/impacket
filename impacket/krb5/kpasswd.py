@@ -283,7 +283,7 @@ def decodeKPasswdReply(encoded, cipher, subKey):
 
 def changePassword(clientName, domain, newPasswd,
                    oldPasswd="", oldLmhash="", oldNthash="", aesKey="", TGT=None,
-                   kdcHost=None, kpasswdHost=None, kpasswdPort=KRB5_KPASSWD_PORT, subKey=None):
+                   kdcHost=None, kpasswdHost=None, kpasswdPort=KRB5_KPASSWD_PORT, subKey=None, timeout=None):
     """
     Change the password of the requesting user with RFC 3244 Kerberos Change-Password protocol.
 
@@ -304,19 +304,21 @@ def changePassword(clientName, domain, newPasswd,
     :param int kpasswdPort:     TCP port where kpasswd is exposed (Default: 464)
     :param string subKey:       Subkey to use to encrypt the password change request
                                 (Default: generate a random one)
+    :param int timeout:         connection timeout in seconds, for both the TGT retrieval and the
+                                kpasswd exchange (Default: None, blocks indefinitely)
 
     :return void:               Raise an KPasswdError exception on error.
     """
     setPassword(
         clientName, domain, None, None, newPasswd,
         oldPasswd, oldLmhash, oldNthash, aesKey, TGT,
-        kdcHost, kpasswdHost, kpasswdPort, subKey
+        kdcHost, kpasswdHost, kpasswdPort, subKey, timeout
     )
 
 
 def setPassword(clientName, domain, targetName, targetDomain, newPasswd,
                 oldPasswd="", oldLmhash="", oldNthash="", aesKey="", TGT=None,
-                kdcHost=None, kpasswdHost=None, kpasswdPort=KRB5_KPASSWD_PORT, subKey=None):
+                kdcHost=None, kpasswdHost=None, kpasswdPort=KRB5_KPASSWD_PORT, subKey=None, timeout=None):
     """
     Set the password of a target account with RFC 3244 Kerberos Set-Password protocol.
     Requires "Reset password" permission on the target, for the user.
@@ -341,6 +343,8 @@ def setPassword(clientName, domain, targetName, targetDomain, newPasswd,
     :param int kpasswdPort:     TCP port where kpasswd is exposed (Default: 464)
     :param string subKey:       Subkey to use to encrypt the password change request
                                 (Default: generate a random one)
+    :param int timeout:         connection timeout in seconds, for both the TGT retrieval and the
+                                kpasswd exchange (Default: None, blocks indefinitely)
 
     :return bool:               True if successful, raise an KPasswdError exception on error.
     """
@@ -370,7 +374,8 @@ def setPassword(clientName, domain, targetName, targetDomain, newPasswd,
 
     if TGT is None:
         tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(
-            userName, oldPasswd, domain, oldLmhash, oldNthash, aesKey, kdcHost, serverName=KRB5_KPASSWD_TGT_SPN
+            userName, oldPasswd, domain, oldLmhash, oldNthash, aesKey, kdcHost, serverName=KRB5_KPASSWD_TGT_SPN,
+            timeout=timeout
         )
     else:
         tgt = TGT["KDC_REP"]
@@ -393,7 +398,7 @@ def setPassword(clientName, domain, targetName, targetDomain, newPasswd,
     )
 
     # Send the request to KPASSWD
-    kpasswordRep = sendReceive(kpasswordReq, domain, kpasswdHost, kpasswdPort)
+    kpasswordRep = sendReceive(kpasswordReq, domain, kpasswdHost, kpasswdPort, timeout=timeout)
 
     # Decode the result
     success, resultCode, resultCodeMessage, message = decodeKPasswdReply(kpasswordRep, cipher, subKey)

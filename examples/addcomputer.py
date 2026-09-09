@@ -25,9 +25,6 @@
 #   [ ]: Complete the process of joining a client computer to a domain via the SAMR protocol
 #
 
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
 
 from impacket import version
 from impacket.examples import logger
@@ -35,16 +32,15 @@ from impacket.examples.utils import parse_identity
 from impacket.dcerpc.v5 import samr, epm, transport
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
-from impacket.examples.utils import init_ldap_session, ldap3_kerberos_login
-
-import ldap3
 import argparse
 import logging
 import sys
 import string
 import random
-import ssl
-from binascii import unhexlify
+
+from impacket.ldap import ldap 
+from impacket.ldap import ldapasn1
+from impacket.examples.utils import ldap_login
 
 
 class ADDCOMPUTER:
@@ -74,13 +70,13 @@ class ADDCOMPUTER:
         if self.__targetIp is not None:
             self.__kdcHost = self.__targetIp
 
-        if self.__method not in ['SAMR', 'LDAPS']:
+        if self.__method not in ['SAMR', 'LDAPS', 'SAMR_LDAP', 'LDAP_FINALIZE']:
             raise ValueError("Unsupported method %s" % self.__method)
 
         if self.__doKerberos and cmdLineOptions.dc_host is None:
             raise ValueError("Kerberos auth requires DNS name of the target DC. Use -dc-host.")
 
-        if self.__method == 'LDAPS' and not '.' in self.__domain:
+        if self.__method in ['LDAPS', 'SAMR_LDAP', 'LDAP_FINALIZE'] and not '.' in self.__domain:
                 logging.warning('\'%s\' doesn\'t look like a FQDN. Generating baseDN will probably fail.' % self.__domain)
 
         if cmdLineOptions.hashes is not None:
@@ -106,13 +102,15 @@ class ADDCOMPUTER:
         if self.__port is None:
             if self.__method == 'SAMR':
                 self.__port = 445
-            elif self.__method == 'LDAPS':
+            elif self.__method in ['LDAPS', 'LDAP_FINALIZE']:
                 self.__port = 636
+            elif self.__method == 'SAMR_LDAP':
+                self.__port = 445
 
         if self.__domainNetbios is None:
             self.__domainNetbios = self.__domain
 
-        if self.__method == 'LDAPS' and self.__baseDN is None:
+        if self.__method in ['LDAPS', 'SAMR_LDAP', 'LDAP_FINALIZE'] and self.__baseDN is None:
              # Create the baseDN
             domainParts = self.__domain.split('.')
             self.__baseDN = ''
@@ -148,32 +146,34 @@ class ADDCOMPUTER:
 
     def run_ldaps(self):
         try:
-            ldapServer, ldapConn = init_ldap_session(self.__domain, self.__username, self.__password, self.__lmhash, self.__nthash, self.__doKerberos, self.__targetIp, self.__target, self.__aesKey, True)
+            ldapConn = ldap_login(self.__target, self.__baseDN, self.__targetIp, self.__target, self.__doKerberos, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, ldaps_flag=True)
 
             if self.__noAdd or self.__delete:
                 if not self.LDAPComputerExists(ldapConn, self.__computerName):
                     raise Exception("Account %s not found in %s!" % (self.__computerName, self.__baseDN))
 
-                computer = self.LDAPGetComputer(ldapConn, self.__computerName)
+                computerDn = self.LDAPGetComputerDN(ldapConn, self.__computerName)
 
                 if self.__delete:
-                    res = ldapConn.delete(computer.entry_dn)
                     message = "delete"
                 else:
-                    res = ldapConn.modify(computer.entry_dn, {'unicodePwd': [(ldap3.MODIFY_REPLACE, ['"{}"'.format(self.__computerPassword).encode('utf-16-le')])]})
                     message = "set password for"
 
-
-                if not res:
-                    if ldapConn.result['result'] == ldap3.core.results.RESULT_INSUFFICIENT_ACCESS_RIGHTS:
+                try:
+                    if self.__delete:
+                        ldapConn.delete(computerDn)
+                    else:
+                        ldapConn.modify(computerDn, {'unicodePwd': [(ldap.MODIFY_REPLACE, ['"{}"'.format(self.__computerPassword).encode('utf-16-le')])]})
+                except ldap.LDAPSessionError as e:
+                    if e.getErrorCode() == 50:  # insufficientAccessRights
                         raise Exception("User %s doesn't have right to %s %s!" % (self.__username, message, self.__computerName))
                     else:
-                        raise Exception(str(ldapConn.result))
+                        raise Exception(str(e))
+
+                if self.__noAdd:
+                    logging.info("Succesfully set password of %s to %s." % (self.__computerName, self.__computerPassword))
                 else:
-                    if self.__noAdd:
-                        logging.info("Succesfully set password of %s to %s." % (self.__computerName, self.__computerPassword))
-                    else:
-                        logging.info("Succesfully deleted %s." % self.__computerName)
+                    logging.info("Succesfully deleted %s." % self.__computerName)
 
             else:
                 if self.__computerName is not None:
@@ -186,36 +186,32 @@ class ADDCOMPUTER:
                             break
 
 
-                computerHostname = self.__computerName[:-1]
+                computerHostname = self.getComputerHostname()
                 computerDn = ('CN=%s,%s' % (computerHostname, self.__computerGroup))
 
                 # Default computer SPNs
-                spns = [
-                    'HOST/%s' % computerHostname,
-                    'HOST/%s.%s' % (computerHostname, self.__domain),
-                    'RestrictedKrbHost/%s' % computerHostname,
-                    'RestrictedKrbHost/%s.%s' % (computerHostname, self.__domain),
-                ]
+                spns = self.buildDefaultComputerSPNs(computerHostname)
                 ucd = {
-                    'dnsHostName': '%s.%s' % (computerHostname, self.__domain),
+                    'dnsHostName': self.buildComputerDnsHostname(computerHostname),
                     'userAccountControl': 0x1000,
                     'servicePrincipalName': spns,
                     'sAMAccountName': self.__computerName,
                     'unicodePwd': ('"%s"' % self.__computerPassword).encode('utf-16-le')
                 }
 
-                res = ldapConn.add(computerDn, ['top','person','organizationalPerson','user','computer'], ucd)
-                if not res:
-                    if ldapConn.result['result'] == ldap3.core.results.RESULT_UNWILLING_TO_PERFORM:
-                        error_code = int(ldapConn.result['message'].split(':')[0].strip(), 16)
+                try:
+                    ldapConn.add(computerDn, ['top','person','organizationalPerson','user','computer'], ucd)
+                except ldap.LDAPSessionError as e:
+                    if e.getErrorCode() == 53:  # unwillingToPerform
+                        error_code = int(e.getErrorString().split(':')[1].strip(), 16)
                         if error_code == 0x216D:
                             raise Exception("User %s machine quota exceeded!" % self.__username)
                         else:
-                            raise Exception(str(ldapConn.result))
-                    elif ldapConn.result['result'] == ldap3.core.results.RESULT_INSUFFICIENT_ACCESS_RIGHTS:
+                            raise Exception(str(e))
+                    elif e.getErrorCode() == 50:  # insufficientAccessRights
                         raise Exception("User %s doesn't have right to create a machine account!" % self.__username)
                     else:
-                        raise Exception(str(ldapConn.result))
+                        raise Exception(str(e))
                 else:
                     logging.info("Successfully added machine account %s with password %s." % (self.__computerName, self.__computerPassword))
         except Exception as e:
@@ -227,15 +223,70 @@ class ADDCOMPUTER:
 
 
     def LDAPComputerExists(self, connection, computerName):
-        connection.search(self.__baseDN, '(sAMAccountName=%s)' % computerName)
-        return len(connection.entries) ==1
+        results = connection.search(searchBase=self.__baseDN, searchFilter='(sAMAccountName=%s)' % computerName)
+        entries = [item for item in results if isinstance(item, ldapasn1.SearchResultEntry)]
+        return len(entries) == 1
 
-    def LDAPGetComputer(self, connection, computerName):
-        connection.search(self.__baseDN, '(sAMAccountName=%s)' % computerName)
-        return connection.entries[0]
+    def LDAPGetComputerDN(self, connection, computerName):
+        results = connection.search(searchBase=self.__baseDN, searchFilter='(sAMAccountName=%s)' % computerName)
+        for item in results:
+            if isinstance(item, ldapasn1.SearchResultEntry):
+                return str(item['objectName'])
+        return None
 
     def generateComputerName(self):
         return 'DESKTOP-' + (''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8)) + '$')
+
+    def getComputerHostname(self):
+        return self.__computerName[:-1]
+
+    def buildComputerDnsHostname(self, computerHostname):
+        return '%s.%s' % (computerHostname, self.__domain)
+
+    def buildDefaultComputerSPNs(self, computerHostname):
+        return [
+            'HOST/%s' % computerHostname,
+            'HOST/%s.%s' % (computerHostname, self.__domain),
+            'RestrictedKrbHost/%s' % computerHostname,
+            'RestrictedKrbHost/%s.%s' % (computerHostname, self.__domain),
+        ]
+
+    def LDAPFinalizeComputerAccount(self):
+        if self.__method != 'LDAP_FINALIZE' and (self.__noAdd or self.__delete):
+            return
+
+        if self.__computerName is None:
+            raise ValueError("You have to provide a computer name when using LDAP_FINALIZE.")
+
+        if self.__baseDN is None:
+            raise ValueError("Unable to determine baseDN. Use -baseDN or provide a FQDN domain.")
+
+        computerHostname = self.getComputerHostname()
+        dnsHostname = self.buildComputerDnsHostname(computerHostname)
+        spns = self.buildDefaultComputerSPNs(computerHostname)
+
+        ldapConn = ldap_login(self.__target, self.__baseDN, self.__targetIp, self.__target, self.__doKerberos,
+                              self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
+                              self.__aesKey, ldaps_flag=True)
+
+        if not self.LDAPComputerExists(ldapConn, self.__computerName):
+            raise Exception("Account %s was created over SAMR but was not found over LDAP in %s!" %
+                            (self.__computerName, self.__baseDN))
+
+        computerDn = self.LDAPGetComputerDN(ldapConn, self.__computerName)
+        changes = {
+            'dnsHostName': [(ldap.MODIFY_REPLACE, [dnsHostname])],
+            'servicePrincipalName': [(ldap.MODIFY_REPLACE, spns)],
+        }
+        try:
+            ldapConn.modify(computerDn, changes)
+        except ldap.LDAPSessionError as e:
+            if e.getErrorCode() == 50:  # insufficientAccessRights
+                raise Exception("User %s doesn't have right to finalize LDAP attributes on %s!" %
+                                (self.__username, self.__computerName))
+            raise Exception(str(e))
+
+        logging.info("Successfully finalized LDAP attributes of %s (dnsHostName/SPNs)." % self.__computerName)
 
     def doSAMRAdd(self, rpctransport):
         dce = rpctransport.get_dce_rpc()
@@ -341,6 +392,8 @@ class ADDCOMPUTER:
                     req['tag'] = samr.USER_INFORMATION_CLASS.UserControlInformation
                     req['Control']['UserAccountControl'] = samr.USER_WORKSTATION_TRUST_ACCOUNT
                     samr.hSamrSetInformationUser2(dce, userHandle, req)
+                    if self.__method == 'SAMR_LDAP':
+                        self.LDAPFinalizeComputerAccount()
                     logging.info("Successfully added machine account %s with password %s." % (self.__computerName, self.__computerPassword))
 
         except Exception as e:
@@ -359,10 +412,12 @@ class ADDCOMPUTER:
             dce.disconnect()
 
     def run(self):
-        if self.__method == 'SAMR':
+        if self.__method in ['SAMR', 'SAMR_LDAP']:
             self.run_samr()
         elif self.__method == 'LDAPS':
             self.run_ldaps()
+        elif self.__method == 'LDAP_FINALIZE':
+            self.LDAPFinalizeComputerAccount()
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -383,8 +438,10 @@ if __name__ == '__main__':
     parser.add_argument('-delete', action='store_true', help='Delete an existing computer.')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
-    parser.add_argument('-method', choices=['SAMR', 'LDAPS'], default='SAMR', help='Method of adding the computer.'
+    parser.add_argument('-method', choices=['SAMR', 'LDAPS', 'SAMR_LDAP', 'LDAP_FINALIZE'], default='SAMR', help='Method of adding the computer.'
                                                                                 'SAMR works over SMB.'
+                                                                                'SAMR_LDAP creates over SAMR and finalizes dnsHostName/SPNs over LDAPS.'
+                                                                                'LDAP_FINALIZE only finalizes dnsHostName/SPNs over LDAPS for an existing account.'
                                                                                 'LDAPS has some certificate requirements'
                                                                                 'and isn\'t always available.')
 
