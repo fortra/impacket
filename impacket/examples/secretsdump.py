@@ -3462,7 +3462,7 @@ class NTDSHashes:
                     if outputFile is not None:
                         self.__writeOutput(outputFile, line + '\n')
                     count += 1
-                if previousSecret:
+                if previousSecret and self.__history:
                     for line in _format_trust_secrets(partner, previousSecret, self.__domainFQDN, isIncoming, previous=True, justNTLM=self.__justNTLM):
                         self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
                         if outputFile is not None:
@@ -3561,7 +3561,7 @@ class NTDSHashes:
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
                     if outputFile is not None:
                         self.__writeOutput(outputFile, line + '\n')
-            if previousSecret:
+            if previousSecret and self.__history:
                 for line in _format_trust_secrets(partner, previousSecret, domain, isIncoming, previous=True, justNTLM=self.__justNTLM):
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
                     if outputFile is not None:
