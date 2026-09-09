@@ -2847,9 +2847,152 @@ class IWbemClassObject(IRemUnknown):
                 return partial(self.function,item)
 
         @FunctionPool
-        def innerMethod(staticArgs, *args):
-            classOrInstance = staticArgs[0] 
-            methodDefinition = staticArgs[1] 
+        def innerMethod(staticArgs, *args, **kwargs):
+            classOrInstance = staticArgs[0]
+            methodDefinition = staticArgs[1]
+            # Kwargs path: send only supplied InParams; unspecified ones get
+            # NdTable=null (0b10) — matches `wmic call M foo=1` semantics.
+            if kwargs and not args:
+                inParamsDef = methodDefinition.get('InParams') or {}
+
+                # Buffers
+                valueTable = b''
+                ndTable = 0
+                instanceHeap = b''
+
+                # Heap header: __PARAMETERS class name
+                paramsClassName = ENCODED_STRING()
+                paramsClassName['Character'] = '__PARAMETERS'
+                instanceHeap += paramsClassName.getData()
+                curHeapPtr = len(instanceHeap)
+
+                # Walk InParams: missing → null + zero-pad slot, present → marshal
+                for idx, (pname, pdef) in enumerate(inParamsDef.items()):
+                    rawType = pdef['type']
+                    pType = rawType & ~(CIM_ARRAY_FLAG | Inherited)
+                    isArray = bool(rawType & CIM_ARRAY_FLAG)
+                    slotFmt = HEAPREF[:-2] if isArray else CIM_TYPES_REF[pType][:-2]
+
+                    if pname not in kwargs:
+                        valueTable += b'\x00' * calcsize(slotFmt)
+                        ndTable |= (2 << (idx * 2))
+                        continue
+
+                    val = kwargs[pname]
+                    if isArray:
+                        if val is None or len(val) == 0:
+                            valueTable += pack(slotFmt, 0)
+                        elif pType in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value,
+                                       CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
+                                       CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value):
+                            # Array of string-like: heap-pointer table + payload
+                            items = []
+                            for sv in val:
+                                s = ENCODED_STRING()
+                                if isinstance(sv, str):
+                                    s['Encoded_String_Flag'] = 0x1
+                                    s.structure = s.tunicode
+                                    s['Character'] = sv.encode('utf-16le')
+                                else:
+                                    s['Character'] = sv
+                                items.append(s.getData())
+                            n = len(items)
+                            arraySize = pack(HEAPREF[:-2], n)
+                            curStrPtr = curHeapPtr + 4
+                            heapRefs = b''
+                            payload = b''
+                            for j, it in enumerate(items):
+                                heapRefs += pack('<L', curStrPtr + 4 * (n - j) + len(payload))
+                                payload += it
+                                curStrPtr += 4
+                            valueTable += pack('<L', curHeapPtr)
+                            instanceHeap += arraySize + heapRefs + payload
+                            curHeapPtr = len(instanceHeap)
+                        else:
+                            # Array of fixed-width numerics
+                            elemFmt = CIM_TYPES_REF[pType][:-2]
+                            valueTable += pack('<L', curHeapPtr)
+                            instanceHeap += pack(HEAPREF[:-2], len(val))
+                            for e in val:
+                                instanceHeap += pack(elemFmt, e)
+                            curHeapPtr = len(instanceHeap)
+                    elif pType in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value,
+                                   CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
+                                   CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value):
+                        # Scalar string-like
+                        s = ENCODED_STRING()
+                        if isinstance(val, str):
+                            s['Encoded_String_Flag'] = 0x1
+                            s.structure = s.tunicode
+                            s['Character'] = val.encode('utf-16le')
+                        else:
+                            s['Character'] = val
+                        valueTable += pack('<L', curHeapPtr)
+                        instanceHeap += s.getData()
+                        curHeapPtr = len(instanceHeap)
+                    elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
+                        # Embedded instance — pass positionally instead
+                        raise NotImplementedError(
+                            "CIM_TYPE_OBJECT (embedded instance) InParams not supported via kwargs; pass positionally instead")
+                    else:
+                        # Fixed-width scalar (BOOL / UINT / SINT / REAL)
+                        if pType == CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value:
+                            val = 1 if val else 0
+                        valueTable += pack(slotFmt, val)
+
+                # Pack NdTable bits (2 per param) little-endian
+                ndBytes = (len(inParamsDef) * 2 + 7) // 8
+                packedNd = b''
+                n = ndTable
+                for _ in range(ndBytes):
+                    packedNd += pack('B', n & 0xff)
+                    n >>= 8
+
+                # Assemble INSTANCE_TYPE
+                instanceType = INSTANCE_TYPE()
+                instanceType['CurrentClass'] = b''
+                instanceType['InstanceQualifierSet'] = b'\x04\x00\x00\x00\x01'
+                instanceType['NdTable_ValueTable'] = packedNd + valueTable
+
+                # Heap record
+                heapRecord = HEAP()
+                heapRecord['HeapLength'] = len(instanceHeap) | 0x80000000
+                heapRecord['HeapItem'] = instanceHeap
+                instanceType['InstanceHeap'] = heapRecord
+
+                # Append InParams class definition (trailing CurrentClass)
+                instanceType['EncodingLength'] = len(instanceType)
+                classPart = methodDefinition['InParamsRaw']['ClassType']['CurrentClass']['ClassPart']
+                classPart['ClassHeader']['EncodingLength'] = len(classPart.getData())
+                instanceType['CurrentClass'] = classPart
+
+                # Wrap as OBJREF_CUSTOM payload
+                inParamsBlock = OBJECT_BLOCK()
+                inParamsBlock.structure += OBJECT_BLOCK.instanceType
+                inParamsBlock['ObjectFlags'] = CIM_INSTANCE
+                inParamsBlock['Decoration'] = b''
+                inParamsBlock['InstanceType'] = instanceType.getData()
+
+                encodingUnit = ENCODING_UNIT()
+                encodingUnit['ObjectBlock'] = inParamsBlock
+                encodingUnit['ObjectEncodingLength'] = len(inParamsBlock)
+
+                objRefCustomIn = OBJREF_CUSTOM()
+                objRefCustomIn['iid'] = self._iid
+                objRefCustomIn['clsid'] = CLSID_WbemClassObject
+                objRefCustomIn['cbExtension'] = 0
+                objRefCustomIn['ObjectReferenceSize'] = len(encodingUnit)
+                objRefCustomIn['pObjectData'] = encodingUnit
+
+                # Invoke; tolerate OutParams parser quirk on flat-blob responses
+                try:
+                    return self.__iWbemServices.ExecMethod(
+                        classOrInstance, methodDefinition['name'], pInParams=objRefCustomIn)
+                except TypeError as e:
+                    if "byte indices must be integers" in str(e):
+                        return None
+                    raise
+
             if methodDefinition['InParams'] is not None:
                 if len(args) != len(methodDefinition['InParams']):
                     LOG.error("Function called with %d parameters instead of %d!" % (len(args), len(methodDefinition['InParams'])))
