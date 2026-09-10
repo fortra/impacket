@@ -31,7 +31,7 @@ import struct
 import argparse
 import cmd
 import ntpath
-from six import PY2, text_type
+from six import text_type
 from datetime import datetime
 from impacket.examples import logger
 from impacket import version
@@ -990,10 +990,7 @@ class INODE:
             dataList[index+1] = sequenceArray[i+1]
             index += 2
 
-        if PY2:
-            return "".join(dataList)
-        else:
-            return bytes(dataList)
+        return bytes(dataList)
 
     def parseIndexBlocks(self, vcn):
         IndexEntries = []

@@ -24,7 +24,6 @@ import cmd
 import os
 import ntpath
 
-from six import PY2
 from impacket.dcerpc.v5 import samr, transport, srvs
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket import LOG
@@ -86,8 +85,6 @@ class MiniImpacketShell(cmd.Cmd):
             f = open(self.outputfile, 'a')
             f.write('> ' + line + "\n")
             f.close()
-        if PY2:
-            return line.decode('utf-8')
         return line
 
     def onecmd(self,s):
