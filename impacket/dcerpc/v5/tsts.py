@@ -337,10 +337,6 @@ def ZEROPAD(data, size = None):
     data += '\0' * ( size - len(data) )
     return data
 
-def getUnixTime(t):
-    t -= 116444736000000000
-    t /= 10000000
-    return t
 
 def enum2value(enum, key):
     return enum.enumItems._value2member_map_[key]._name_
