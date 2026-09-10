@@ -252,28 +252,33 @@ class SMBRelayServer(Thread):
         if struct.unpack('B',securityBlob[0:1])[0] == ASN1_AID:
            # NEGOTIATE packet
            blob =  SPNEGO_NegTokenInit(securityBlob)
-           token = blob['MechToken']
-           if len(blob['MechTypes'][0]) > 0:
-               # Is this GSSAPI NTLM or something else we don't support?
-               mechType = blob['MechTypes'][0]
-               if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
-                   # Nope, do we know it?
-                   if mechType in MechTypes:
-                       mechStr = MechTypes[mechType]
-                   else:
-                       mechStr = hexlify(mechType)
-                   smbServer.log("Unsupported MechType '%s'" % mechStr, logging.DEBUG)
-                   # We don't know the token, we answer back again saying
-                   # we just support NTLM.
-                   respToken = SPNEGO_NegTokenResp()
-                   respToken['NegState'] = b'\x03'  # request-mic
-                   respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
-                   respToken = respToken.getData()
-                   respSMBCommand['SecurityBufferOffset'] = 0x48
-                   respSMBCommand['SecurityBufferLength'] = len(respToken)
-                   respSMBCommand['Buffer'] = respToken
+           token = blob['MechToken'] if 'MechToken' in blob.fields else b''
 
-                   return [respSMBCommand], None, STATUS_MORE_PROCESSING_REQUIRED
+           mechTypes = blob['MechTypes'] if 'MechTypes' in blob.fields else []
+           negoexOffered = TypesMech['NEGOEX - SPNEGO Extended Negotiation Security Mechanism'] in mechTypes
+           if negoexOffered:
+               smbServer.log("NEGOEX/PKU2U authentication offered by client, currently not supported for relay", logging.INFO)
+
+           mechType = mechTypes[0] if mechTypes else None
+           ntlmMech = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
+           if mechType != ntlmMech:
+               if mechType in MechTypes:
+                   mechStr = MechTypes[mechType]
+               elif mechType is not None:
+                   mechStr = hexlify(mechType)
+               else:
+                   mechStr = 'none'
+               smbServer.log("Unsupported MechType '%s'" % mechStr, logging.DEBUG)
+               # Ask the client to continue using NTLM instead of attempting
+               # to parse an optimistic token for another mechanism as NTLM.
+               respToken = SPNEGO_NegTokenResp()
+               respToken['NegState'] = b'\x03'  # request-mic
+               respToken['SupportedMech'] = ntlmMech
+               respToken = respToken.getData()
+               respSMBCommand['SecurityBufferOffset'] = 0x48
+               respSMBCommand['SecurityBufferLength'] = len(respToken)
+               respSMBCommand['Buffer'] = respToken
+               return [respSMBCommand], None, STATUS_MORE_PROCESSING_REQUIRED
         elif struct.unpack('B',securityBlob[0:1])[0] == ASN1_SUPPORTED_MECH:
            # AUTH packet
            blob = SPNEGO_NegTokenResp(securityBlob)
@@ -955,4 +960,3 @@ class SMBRelayServer(Thread):
     def run(self):
         LOG.info("Setting up SMB Server on port %s" % self.server.server_address[1])
         self._start()
-

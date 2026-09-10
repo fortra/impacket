@@ -240,6 +240,8 @@ class SPNEGO_NegTokenResp:
 
                 decode_data = decode_data[1:]
                 decode_data = decode_data[total_bytes:]
+                if len(decode_data) == 0:
+                    return
                 next_byte = unpack('B', decode_data[:1])[0]
                 if next_byte != ASN1_RESPONSE_TOKEN:
                     raise Exception('Response token tag not found %x' % next_byte)
@@ -322,6 +324,36 @@ class SPNEGO_NegTokenResp:
                     asn1encode(
                     pack('B', ASN1_OCTET_STRING) + asn1encode(self['ResponseToken']))))
         return ans
+    
+    def isNegoExSelected(self):
+        if 'SupportedMech' not in self.fields:
+            return False
+        return self['SupportedMech'] == TypesMech['NEGOEX - SPNEGO Extended Negotiation Security Mechanism']
+    
+    def getSupportedMech(self):
+        if 'SupportedMech' not in self.fields:
+            return None
+        return self['SupportedMech']
+
+    def getNegoExToken(self):
+        if self.isNegoExSelected() and 'ResponseToken' in self.fields:
+            return self['ResponseToken']
+        return None
+
+    def getNegoExMessages(self, strict=False):
+        token = self.getNegoExToken()
+        if not token:
+            return []
+
+        from impacket.negoex import NegoExParseError, parseNegoExToken
+
+        try:
+            return parseNegoExToken(token)
+        except NegoExParseError:
+            if strict:
+                raise
+            return []
+    
 
 class SPNEGO_NegTokenInit(GSSAPI):
     # https://tools.ietf.org/html/rfc4178#page-8
@@ -408,6 +440,53 @@ class SPNEGO_NegTokenInit(GSSAPI):
 
         self['Payload'] = ans
         return GSSAPI.getData(self)
+
+    def hasMechType(self, mech_oid):
+        if 'MechTypes' not in self.fields:
+            return False
+        return mech_oid in self['MechTypes']
+    
+    def getSupportedMech(self):
+        if 'MechTypes' not in self.fields:
+            return []
+        return [MechTypes.get(oid, oid) for oid in self['MechTypes']]
+
+    def isNegoExOffered(self):
+        if 'MechTypes' not in self.fields:
+            return False
+        return self.hasMechType(TypesMech['NEGOEX - SPNEGO Extended Negotiation Security Mechanism'])
+
+    def _hasNegoExMechToken(self):
+        if 'MechToken' not in self.fields:
+            return False
+
+        token = self['MechToken']
+        if not token:
+            return False
+
+        if self['MechTypes'] and self['MechTypes'][0] == TypesMech['NEGOEX - SPNEGO Extended Negotiation Security Mechanism']:
+            return True
+
+        return token.startswith(b'NEGOEXTS')
+
+    def getNegoExToken(self):
+        if self._hasNegoExMechToken():
+            return self['MechToken']
+        return None
+
+    def getNegoExMessages(self, strict=False):
+        token = self.getNegoExToken()
+        if not token:
+            return []
+
+        from impacket.negoex import NegoExParseError, parseNegoExToken
+
+        try:
+            return parseNegoExToken(token)
+        except NegoExParseError:
+            if strict:
+                raise
+            return []
 
 class SPNEGOCipher:
     def __init__(self, flags, randomSessionKey):

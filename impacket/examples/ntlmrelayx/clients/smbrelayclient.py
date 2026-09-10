@@ -322,11 +322,20 @@ class SMBRelayClient(ProtocolClient):
 
         negotiateMessage = negoMessage.getData()
 
-        challenge = NTLMAuthChallenge()
         if self.session.getDialect() == SMB_DIALECT:
-            challenge.fromString(self.sendNegotiatev1(negotiateMessage))
+            targetResponse = self.sendNegotiatev1(negotiateMessage)
         else:
-            challenge.fromString(self.sendNegotiatev2(negotiateMessage))
+            targetResponse = self.sendNegotiatev2(negotiateMessage)
+
+        if unpack('B', targetResponse[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+            respToken = SPNEGO_NegTokenResp(targetResponse)
+            if respToken.isNegoExSelected():
+                LOG.info("Target selected NEGOEX/PKU2U authentication, relay currently not supported for this mechanism")
+                raise Exception("NEGOEX/PKU2U relay is not supported")
+            targetResponse = respToken['ResponseToken']
+
+        challenge = NTLMAuthChallenge()
+        challenge.fromString(targetResponse)
 
         self.negotiateMessage = negotiateMessage
         self.challengeMessage = challenge.getData()
