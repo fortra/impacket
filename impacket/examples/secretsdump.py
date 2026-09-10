@@ -2616,11 +2616,12 @@ TRUST_NAME_TO_ATTRTYP = {
 
 
 def _derive_trust_kerberos_keys(rawSecret, domain, partner, isIncoming):
-    # Inter-realm salt: {FROM}krbtgt{DEST} with the partner FQDN, upper-cased.
+    # Inter-realm salt: {REALM_FQDN}krbtgt{PARTNER_NETBIOS}. The component after 'krbtgt' is the
+    # trust TGT principal name (krbtgt/<flatName>), i.e. the NetBIOS/flat name, NOT the FQDN.
     if isIncoming:
-        salt = ('%skrbtgt%s' % (domain.upper(), partner.upper())).encode('utf-8')
+        salt = ('%skrbtgt%s' % (domain.upper(), partner.split('.')[0].upper())).encode('utf-8')
     else:
-        salt = ('%skrbtgt%s' % (partner.upper(), domain.upper())).encode('utf-8')
+        salt = ('%skrbtgt%s' % (partner.upper(), domain.split('.')[0].upper())).encode('utf-8')
     secret = rawSecret.decode('utf-16-le', 'replace').encode('utf-8', 'replace')
     out = []
     for etype in (int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
