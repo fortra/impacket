@@ -130,10 +130,10 @@ practices, as well as generate and track the respective indicators of
 compromise according to your needs.
 
 
-Contact Us
-==========
+## Contact Us
 
-Whether you want to report a bug, send a patch, or give some suggestions
-on this package, reach out to us at https://www.coresecurity.com/about/contact.
+For general questions, bug reports, or feature requests, please use GitHub issues.
 
-For security-related questions check our [security policy](SECURITY.md).
+Contributions are welcome. If you would like to contribute a fix, improvement, or new feature, please open a GitHub pull request with a clear description of the proposed change.
+
+If you believe you have discovered a security vulnerability in Impacket, or if you believe Impacket is being abused or misused, please do **not** report it through a public GitHub issue, discussion, or pull request. Instead, follow the instructions in our [Security Policy](SECURITY.md).
