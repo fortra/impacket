@@ -5409,7 +5409,7 @@ class SRVSServer(DCERPCServer):
 
             answer['InfoStruct']['tag'] = 1
             answer['InfoStruct']['ShareInfo1']['shi1_netname'] = s + '\x00'
-            answer['InfoStruct']['ShareInfo1']['shi1_type'] = share['share type']
+            answer['InfoStruct']['ShareInfo1']['shi1_type'] = int(share['share type'])
             answer['InfoStruct']['ShareInfo1']['shi1_remark'] = share['comment'] + '\x00'
             answer['ErrorCode'] = 0
         else:
@@ -5449,7 +5449,7 @@ class SRVSServer(DCERPCServer):
         for i in self._shares:
             shareInfo = SHARE_INFO_1()
             shareInfo['shi1_netname'] = i + '\x00'
-            shareInfo['shi1_type'] = self._shares[i]['share type']
+            shareInfo['shi1_type'] = int(self._shares[i]['share type'])
             shareInfo['shi1_remark'] = self._shares[i]['comment'] + '\x00'
             shareEnum['InfoStruct']['ShareInfo']['Level1']['Buffer'].append(shareInfo)
 
