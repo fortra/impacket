@@ -182,11 +182,26 @@ class LDAPConnection:
             self._socket.settimeout(None)   # do_handshake() on a non-blocking (timeout-mode) socket raises WantReadError
             self._socket.do_handshake()
 
-            # From: https://github.com/ly4k/ldap3/commit/87f5760e5a68c2f91eac8ba375f4ea3928e2b9e0#diff-c782b790cfa0a948362bf47d72df8ddd6daac12e5757afd9d371d89385b27ef6R1383
+            # From https://github.com/ThePirateWhoSmellsOfSunflowers/ldap3/blob/0181dbec0c0671237f96d9acf4a71044001acaf2/ldap3/core/connection.py#L1414
+            from cryptography import x509
+            from cryptography.hazmat.backends import default_backend
+            from cryptography.hazmat.primitives import hashes
             from hashlib import md5
-            # Ugly but effective, to get the digest of the X509 DER in bytes
-            peer_cert_digest_str = self._socket.get_peer_certificate().digest('sha256').decode()
-            peer_cert_digest_bytes = bytes.fromhex(peer_cert_digest_str.replace(':', ''))
+
+            # RFC 5929 section 4.1 hashes list
+            rfc5929_hashes_list = (hashes.MD5, hashes.SHA1)
+            
+            der_cert = crypto.dump_certificate(crypto.FILETYPE_ASN1, self._socket.get_peer_certificate())
+            peer_certificate = x509.load_der_x509_certificate(der_cert, default_backend())
+            peer_certificate_hash_algorithm = peer_certificate.signature_hash_algorithm
+            
+            # section 4.1 hash function selection
+            if isinstance(peer_certificate_hash_algorithm, rfc5929_hashes_list):
+                digest = hashes.Hash(hashes.SHA256(), default_backend())
+            else:
+                digest = hashes.Hash(peer_certificate_hash_algorithm, default_backend())
+            digest.update(der_cert)
+            peer_cert_digest_bytes = digest.finalize()
 
             channel_binding_struct = b''
             initiator_address = b'\x00'*8
