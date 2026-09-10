@@ -23,10 +23,8 @@
 #   DeleteShareMapping
 #   PrepareShadowCopySet
 #
-# Install the service:
-# Add-WindowsFeature -Name File-Services,FS-VSS-Agent
-# Set-Service -Name "FSSAgent" -StartupType Automatic
-# Also, you need to expose share, for example, "Windows". We can't make shadow copies for special share like C$
+# Prerequisites and run commands: TESTING.md, "FSRVP: file-server shadow copies".
+# Set this to a regular SMB share on the configured target (not an administrative share).
 SHARE_NAME = "Windows"
 
 from tests.dcerpc import DCERPCTests
@@ -37,12 +35,28 @@ import uuid
 import unittest
 
 
-@pytest.mark.remote
-class FSRVPTests(DCERPCTests, unittest.TestCase):
+class FSRVPTests(DCERPCTests):
     iface_uuid = fsrvp.MSRPC_UUID_FSRVP
     authn = True
     authn_level = rpcrt.RPC_C_AUTHN_LEVEL_PKT_PRIVACY
     string_binding = r"ncacn_np:{0.machine}[%s]" % fsrvp.MSRPC_NAMED_PIPE_FSRVP
+
+    def test_GetSupportedVersion(self):
+        dce, transport = self.connect()
+        self.addCleanup(dce.disconnect)
+        request = fsrvp.GetSupportedVersion()
+        resp = dce.request(request)
+        resp.dump()
+        self.assertEqual(resp['MinVersion'], 1)
+        self.assertEqual(resp['MaxVersion'], 1)
+
+    def test_hGetSupportedVersion(self):
+        dce, transport = self.connect()
+        self.addCleanup(dce.disconnect)
+        resp = fsrvp.hGetSupportedVersion(dce)
+        resp.dump()
+        self.assertEqual(resp['MinVersion'], 1)
+        self.assertEqual(resp['MaxVersion'], 1)
 
     def test_fsrvp(self):
         global SHARE_NAME
@@ -91,6 +105,11 @@ class FSRVPTests(DCERPCTests, unittest.TestCase):
         start_shadow_copy_set = fsrvp.hStartShadowCopySet(dce, client_set_id)
         shadow_copy_set_id = start_shadow_copy_set['pShadowCopySetId']
         fsrvp.hAbortShadowCopySet(dce, shadow_copy_set_id)
+
+
+@pytest.mark.remote
+class FSRVPTestsSMBTransport(FSRVPTests, unittest.TestCase):
+    transfer_syntax = DCERPCTests.TRANSFER_SYNTAX_NDR
 
 
 # Process command-line arguments.
