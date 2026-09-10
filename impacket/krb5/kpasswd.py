@@ -398,6 +398,7 @@ def setPassword(clientName, domain, targetName, targetDomain, newPasswd,
     )
 
     # Send the request to KPASSWD
+    LOG.info("Sending password change request to {}:{}".format(kpasswdHost or domain, kpasswdPort))
     kpasswordRep = sendReceive(kpasswordReq, domain, kpasswdHost, kpasswdPort, timeout=timeout)
 
     # Decode the result
