@@ -276,7 +276,8 @@ class NTDSHashesUnitTests(unittest.TestCase):
                 self.returned = True
                 return self.record
 
-        for history, expected_lines in ((False, 3), (True, 6)):
+        # per trust value: rc4 + aes256 + aes256(trust account) + aes128 + aes128(trust account)
+        for history, expected_lines in ((False, 5), (True, 10)):
             with self.subTest(history=history):
                 esedb = FakeESEDB()
                 esedb.record = {
