@@ -2616,17 +2616,25 @@ TRUST_NAME_TO_ATTRTYP = {
 
 
 def _derive_trust_kerberos_keys(rawSecret, domain, partner, isIncoming):
-    # Inter-realm salt: {FROM}krbtgt{DEST} with the partner FQDN, upper-cased.
+    # Two keys are derived from the same trust secret, differing only by salt:
+    #  - salt_fqdn ({REALM_FQDN}krbtgt{PARTNER_FQDN}): the inter-realm key used on the wire to
+    #    encrypt/sign cross-realm referral tickets (what mimikatz/tdo_dump emit, used for forging).
+    #  - salt_nb   ({REALM_FQDN}krbtgt{PARTNER_FLAT}): the trust account (<PARTNER>$) login key,
+    #    only meaningful when such an account exists (intra-forest/external trusts).
     if isIncoming:
-        salt = ('%skrbtgt%s' % (domain.upper(), partner.upper())).encode('utf-8')
+        salt_fqdn = ('%skrbtgt%s' % (domain.upper(), partner.upper())).encode('utf-8')
+        salt_nb = ('%skrbtgt%s' % (domain.upper(), partner.split('.')[0].upper())).encode('utf-8')
     else:
-        salt = ('%skrbtgt%s' % (partner.upper(), domain.upper())).encode('utf-8')
+        salt_fqdn = ('%skrbtgt%s' % (partner.upper(), domain.upper())).encode('utf-8')
+        salt_nb = ('%skrbtgt%s' % (partner.upper(), domain.split('.')[0].upper())).encode('utf-8')
     secret = rawSecret.decode('utf-16-le', 'replace').encode('utf-8', 'replace')
     out = []
     for etype in (int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
                   int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value)):
-        key = string_to_key(etype, secret, salt, None)
-        out.append((_TRUST_KERBEROS_TYPE[etype], hexlify(key.contents).decode('utf-8')))
+        keyFqdn = string_to_key(etype, secret, salt_fqdn, None)
+        keyNb = string_to_key(etype, secret, salt_nb, None)
+        out.append((_TRUST_KERBEROS_TYPE[etype], hexlify(keyFqdn.contents).decode('utf-8')))
+        out.append((_TRUST_KERBEROS_TYPE[etype] + ' (trust account)', hexlify(keyNb.contents).decode('utf-8')))
     return out
 
 
