@@ -341,6 +341,117 @@ class TDSTests(unittest.TestCase):
             kerberos=False,
         )
 
+    def test_named_pipe_kerberos_uses_exact_cifs_cache_ticket(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+        smb_tgt = object()
+        smb_tgs = object()
+        client._create_named_pipe_transport = mock.Mock()
+        client._negotiate_encryption = mock.Mock(
+            side_effect=RuntimeError("stop after SMB setup")
+        )
+
+        with mock.patch(
+            "impacket.krb5.ccache.CCache.parseFile",
+            return_value=("DOMAIN", "cache_user", smb_tgt, smb_tgs),
+        ) as parse_file:
+            with self.assertRaisesRegex(RuntimeError, "stop after SMB setup"):
+                client.kerberosLogin(
+                    None,
+                    "sql_user",
+                    "",
+                    "DOMAIN",
+                )
+
+        parse_file.assert_called_once_with(
+            "DOMAIN",
+            "sql_user",
+            "cifs/sql.example.com",
+            anySPN=False,
+        )
+        client._create_named_pipe_transport.assert_called_once_with(
+            "cache_user",
+            "",
+            "DOMAIN",
+            "",
+            "",
+            kerberos=True,
+            aesKey="",
+            kdcHost=None,
+            TGT=smb_tgt,
+            TGS=smb_tgs,
+            useCache=False,
+        )
+
+    def test_named_pipe_kerberos_uses_tgt_for_smb_and_exact_mssql_tgs(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+        smb_tgt = object()
+        sql_tgs = {
+            "KDC_REP": b"not-an-asn1-ticket",
+            "cipher": object(),
+            "sessionKey": object(),
+        }
+        client._create_named_pipe_transport = mock.Mock()
+        client._negotiate_encryption = mock.Mock(
+            return_value={"Encryption": tds.TDS_ENCRYPT_REQ}
+        )
+
+        with mock.patch(
+            "impacket.krb5.ccache.CCache.parseFile",
+            side_effect=[
+                ("DOMAIN", "cache_user", smb_tgt, None),
+                ("DOMAIN", "cache_user", None, sql_tgs),
+            ],
+        ) as parse_file, mock.patch(
+            "pyasn1.codec.der.decoder.decode",
+            side_effect=RuntimeError("stop after cache lookup"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "stop after cache lookup"):
+                client.kerberosLogin(
+                    None,
+                    "sql_user",
+                    "",
+                    "DOMAIN",
+                )
+
+        self.assertEqual(
+            parse_file.call_args_list,
+            [
+                mock.call(
+                    "DOMAIN",
+                    "sql_user",
+                    "cifs/sql.example.com",
+                    anySPN=False,
+                ),
+                mock.call(
+                    "DOMAIN",
+                    "sql_user",
+                    "MSSQLSvc/sql.example.com:1433",
+                    anySPN=False,
+                ),
+            ],
+        )
+        client._create_named_pipe_transport.assert_called_once_with(
+            "cache_user",
+            "",
+            "DOMAIN",
+            "",
+            "",
+            kerberos=True,
+            aesKey="",
+            kdcHost=None,
+            TGT=smb_tgt,
+            TGS=None,
+            useCache=False,
+        )
+
     @staticmethod
     def _text_pointer_row_data(payload):
         pointer = b"PTR!"
