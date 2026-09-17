@@ -227,6 +227,12 @@ def parse_args():
     group.add_argument("-target-ip", action="store", metavar="ip address", help="IP Address of the target machine. If omitted it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it")
     group.add_argument("-port", choices=["139", "445"], nargs="?", default="445", metavar="destination port", help="Destination port to connect to SMB Server")
 
+    group = parser.add_argument_group('SOCKS Proxy Options')
+    group.add_argument('-socks', action='store_true', default=False,
+                        help='Use a SOCKS proxy for the connection')
+    group.add_argument('-socks-address', default='127.0.0.1', help='SOCKS5 server address')
+    group.add_argument('-socks-port', default=1080, type=int, help='SOCKS5 server port')
+
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
@@ -283,6 +289,15 @@ if __name__ == '__main__':
     print(version.BANNER)
     args = parse_args()
     logger.init(args.ts, args.debug)
+
+    # Relay connections through a socks proxy
+    if (args.socks):
+        logging.info('Relaying connections through SOCKS proxy (%s:%s)', args.socks_address, args.socks_port)
+        import socket
+        import socks
+
+        socks.set_default_proxy(socks.SOCKS5, args.socks_address, args.socks_port)
+        socket.socket = socks.socksocket
 
     if args.target.upper() == "LOCAL":
         if args.xmlfile is not None:

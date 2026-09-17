@@ -58,6 +58,12 @@ if __name__ == '__main__':
     parser.add_argument('-smb2support', action='store_true', default=False, help='SMB2 Support (experimental!)')
     parser.add_argument('-outputfile', action='store', default=None, help='Output file to log smbserver output messages')
 
+    group = parser.add_argument_group('SOCKS Proxy Options')
+    group.add_argument('-socks', action='store_true', default=False,
+                        help='Use a SOCKS proxy for the connection')
+    group.add_argument('-socks-address', default='127.0.0.1', help='SOCKS5 server address')
+    group.add_argument('-socks-port', default=1080, type=int, help='SOCKS5 server port')
+
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
@@ -69,6 +75,15 @@ if __name__ == '__main__':
        sys.exit(1)
 
     logger.init(options.ts, options.debug)
+
+    # Relay connections through a socks proxy
+    if (options.socks):
+        logging.info('Relaying connections through SOCKS proxy (%s:%s)', options.socks_address, options.socks_port)
+        import socket
+        import socks
+
+        socks.set_default_proxy(socks.SOCKS5, options.socks_address, options.socks_port)
+        socket.socket = socks.socksocket
 
     if options.comment is None:
         comment = ''
