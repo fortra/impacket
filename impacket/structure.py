@@ -13,7 +13,7 @@ import re
 from struct import pack, unpack, calcsize
 
 import six
-from six import b, PY3
+from six import b
 from binascii import hexlify
 
 
@@ -373,10 +373,7 @@ class Structure:
         if format == 'z':
             if data[-1:] != self.b('\x00'):
                 raise Exception("%s 'z' field is not NUL terminated: %r" % (field, data))
-            if PY3:
-                return data[:-1].decode('latin-1')
-            else:
-                return data[:-1]
+            return data[:-1].decode('latin-1')
 
         # unicode specifier
         if format == 'u':
