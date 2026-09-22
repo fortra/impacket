@@ -213,7 +213,7 @@ class saveRegistryParser(Registry):
             self.fd = self.__hive
             self.__hive.open()
         else:
-            self.fd = open(hive,'r+b')
+            self.fd = open(hive,'rb')
         data = self.fd.read(4096)
         self.__regf = REG_REGF(data)
         self.indent = ''
