@@ -49,6 +49,11 @@ class TargetsProcessor:
         # other ones will never finish.
         self.finishedAttacks = []
         self.failedAttacks = []
+        # Full history of every successful attack, across --keep-relaying cycles. Unlike
+        # finishedAttacks (which reloadTargets(full_reload=True) clears so targets can be
+        # re-attacked), this is never cleared, so the `finished_attacks` socks command can
+        # still show attacks from earlier cycles.
+        self.allFinishedAttacks = []
         self.protocolClients = protocolClients
         if targetListFile is None:
             self.filename = None
@@ -111,6 +116,7 @@ class TargetsProcessor:
         if target.username is not None:
             if gotRelay:
                 self.finishedAttacks.append(target)
+                self.allFinishedAttacks.append(target)
             else:
                 self.failedAttacks.append(target)
         elif gotUsername is not None:
@@ -123,6 +129,7 @@ class TargetsProcessor:
                 newTarget = urlparse('%s://%s@%s%s' % (target.scheme, gotUsername.replace('/','\\'), target.netloc, target.path))
             if gotRelay:
                 self.finishedAttacks.append(newTarget)
+                self.allFinishedAttacks.append(newTarget)
             else:
                 self.failedAttacks.append(newTarget)
 
