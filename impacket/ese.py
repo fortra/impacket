@@ -429,10 +429,7 @@ class ESENT_CATALOG_DATA_DEFINITION_ENTRY(Structure):
         Structure.__init__(self,data)
 
 
-def getUnixTime(t):
-    t -= 116444736000000000
-    t //= 10000000
-    return t
+
 
 class ESENT_PAGE:
     def __init__(self, db, data=None):
