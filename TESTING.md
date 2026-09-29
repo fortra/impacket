@@ -95,8 +95,10 @@ Active Directory Setup and Configuration
 
 In order to run remote test cases, a target Active Directory need to be properly
 configured with the expected objects. Current remote test cases are expected to
-work against a Windows Server 2012 R2 Domain Controller. The following are the
-main steps required:
+work against a Windows Server 2012 R2 Domain Controller. Some protocol tests need
+additional server roles or newer Windows versions; see
+[Protocol-specific remote test prerequisites](#protocol-specific-remote-test-prerequisites).
+The following are the main steps required:
 
 1. Make sure to disable the firewall on the interface you want to use for connecting
    to the Domain Controller.
@@ -231,7 +233,7 @@ do that by running Mimikatz with an elevated user and executing:
 Configure Remote Test Cases
 ---------------------------
 
-Create a copy of the [dcetest.cfg.template](tests/dcetests.cfg.template) file and
+Create a copy of the [dcetests.cfg.template](tests/dcetests.cfg.template) file and
 configure it with the necessary information associated to the Active Directory you
 configured. Path to the configuration file to use when running tests can be then
 specified in the following ways:
@@ -239,7 +241,7 @@ specified in the following ways:
   * Using the pytest `--remote-config` command-line option.
   * Using the pytest `remote-config` option in `tox.ini`.  
   * Using the `REMOTE_CONFIG` environment variable.
-  * Default to loading from `tests/dcetests.cg`.
+  * Default to loading from `tests/dcetests.cfg`.
 
 For example, you can keep configuration of different environments in
 separate files, and specify which one you want the test to run against:
@@ -257,3 +259,67 @@ resolve DNS queries for the Active Directory Domain configured. If you don't wan
 change your test machine's DNS settings to point to the AD DNS server, you can
 configure your system to statically resolve (e.g. via `/etc/hosts` file) the host
 and domain FQDN to the server's IP address.
+
+
+Protocol-specific remote test prerequisites
+------------------------------------------
+
+Some RPC interfaces require additional Windows roles or a newer operating system
+than the Windows Server 2012 R2 environment described above. Configure the target
+for each interface as follows, then specify its connection information as
+described in [Configure Remote Test Cases](#configure-remote-test-cases).
+
+### SCMR: RCreateWowService and ROpenSCManager2
+
+For the `RCreateWowService` and `ROpenSCManager2` cases in
+[test_scmr.py](tests/dcerpc/test_scmr.py):
+
+These cases skip automatically when the target reports an unsupported RPC
+operation or `ERROR_CALL_NOT_IMPLEMENTED`. Other errors, including access denied
+and connection failures, still fail the tests. No version flag is required.
+
+1. Prepare a Windows host supporting these methods, such as Windows 11.
+   A domain controller is not required for these cases. Refer to the
+   [MS-SCMR product behavior notes](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-scmr/041d2a89-9d7d-4f79-91a1-c336d0a668f6)
+   for version restrictions. In particular, `ROpenSCManager2` is unavailable on
+   Windows 10 version 1809 and earlier and Windows Server version 1809 and earlier.
+
+1. Configure an administrator account with network logon access and permission
+   to open the SCM database and create, query, and delete services.
+
+1. Allow SMB connections on TCP 445. For the TCP transport cases, also allow
+   TCP 135 and the dynamic RPC ports used by the server.
+
+1. Set the account and target details in the remote configuration file's
+   `[TCPTransport]` section, which is used by both transport classes. For a local
+   account on a standalone host, set `domain` to the target computer name and
+   `username` to the local account name.
+
+### FSRVP: file-server shadow copies
+
+For [test_fsrvp.py](tests/dcerpc/test_fsrvp.py), prepare a Windows Server with
+storage that supports shadow copies through FSRVP. Run the following setup steps
+in an elevated PowerShell session on the target:
+
+1. Install the File Server VSS Agent Service role service. Complete any restart
+   requested by the installation before continuing.
+
+        PS C:\> Install-WindowsFeature -Name File-Services,FS-VSS-Agent
+
+1. Enable and start the `FSSAgent` service.
+
+        PS C:\> Set-Service -Name FSSAgent -StartupType Automatic
+        PS C:\> Start-Service -Name FSSAgent
+
+1. Create a regular SMB share named `Windows`, matching the `SHARE_NAME` constant
+   in the test module. Administrative shares such as `C$` cannot be used. For
+   example, create a test directory and share it with the test administrator:
+
+        PS C:\> New-Item -Path C:\FSRVPTest -ItemType Directory
+        PS C:\> New-SmbShare -Name Windows -Path C:\FSRVPTest -FullAccess '<Domain>\<Admin User Name>'
+
+1. Ensure the test administrator has access to both the share and its underlying
+   directory, and allow SMB connections on TCP 445.
+
+1. Configure the target address and administrator credentials in the remote
+   test configuration file.
