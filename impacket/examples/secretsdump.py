@@ -2100,9 +2100,9 @@ class LSASecrets(OfflineRegistry):
             currentControlSet = winreg.getValue('\\Select\\Current')[1]
             currentControlSet = "ControlSet%03d" % currentControlSet
 
-            user = winreg.getValue('\\%s\\Services\\%s\\ObjectName' % (currentControlSet, svcName))
-            if user is not None:
-                user = user[1].decode('utf-16-le').rstrip('\x00')
+            username = winreg.getValue('\\%s\\Services\\%s\\ObjectName' % (currentControlSet, svcName))
+            if username is not None:
+                user = username[1].decode('utf-16-le').rstrip('\x00')
         except:
             pass
 
@@ -2201,7 +2201,7 @@ class LSASecrets(OfflineRegistry):
                 # We have to get the account the service
                 # runs under
                 if self.__systemHive:
-                    secret = self.getServiceUser(name[4:]) + ':'
+                    secret = self.getServiceUser(name[4:].removesuffix("_history")) + ':'
                 elif hasattr(self.__remoteOps, 'getServiceAccount'):
                     account = self.__remoteOps.getServiceAccount(name[4:])
                     if account is None:
