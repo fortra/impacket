@@ -846,7 +846,7 @@ class RCreateServiceW(NDRCALL):
 
 class RCreateServiceWResponse(NDRCALL):
     structure = (
-        ('lpdwTagId',LPWSTR),
+        ('lpdwTagId',LPDWORD),
         ('lpServiceHandle',SC_RPC_HANDLE),
         ('ErrorCode', DWORD),
     )
@@ -1090,7 +1090,7 @@ class RCreateServiceWOW64W(NDRCALL):
 
 class RCreateServiceWOW64WResponse(NDRCALL):
     structure = (
-        ('lpdwTagId',LPWSTR),
+        ('lpdwTagId',LPDWORD),
         ('lpServiceHandle',SC_RPC_HANDLE),
         ('ErrorCode', DWORD),
     )
@@ -1192,7 +1192,7 @@ class RCreateWowService(NDRCALL):
 
 class RCreateWowServiceResponse(NDRCALL):
     structure = (
-        ('lpdwTagId',LPWSTR),
+        ('lpdwTagId',LPDWORD),
         ('lpServiceHandle',SC_RPC_HANDLE),
         ('ErrorCode', DWORD),
     )
