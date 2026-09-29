@@ -7,12 +7,7 @@ https://github.com/fortra/impacket/commits/master
 
 ## Unreleased:
 
-1. Library improvements
-
-    * WMI: Fixed `IEnumWbemClassObject.Next()` silently dropping the final partial batch of objects. When fewer than `uCount` objects remain, the server returns the trailing objects together with a `WBEM_S_FALSE` status in the same response, and the generic DCERPC layer raised on that status before the objects could be read; they are now recovered from the decoded packet, while `WBEM_S_FALSE` is still surfaced once the enumeration is exhausted.
-    * WMI: Made `IWbemClassObject` dynamic method dispatch propagate `ExecMethod` failures and argument-count mismatches instead of logging them and returning `None`, so a failed remote method call is no longer indistinguishable from a successful one.
-
-2. Examples improvements
+1. Examples improvements
 
     * [atexec.py](examples/atexec.py):
         * Added mutually exclusive `-author-log` and `-overflow` options to poison or overflow the Task Scheduler Security Event 4698 Author field via task XML RegistrationInfo.

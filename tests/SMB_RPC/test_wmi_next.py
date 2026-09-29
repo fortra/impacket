@@ -9,95 +9,88 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Host-free unit tests for IEnumWbemClassObject.Next() partial-batch handling.
-#
-# Tested so far:
-#   IEnumWbemClassObject::Next (final partial batch recovery on WBEM_S_FALSE)
-#
-# These tests do not require a remote target: the DCERPC request layer and the
-# per-object interface construction are mocked, so only Next()'s own decision
-# logic is exercised.
+# Remote regression tests for IEnumWbemClassObject.Next(). Configure the target
+# using tests/dcetests.cfg or pytest's --remote-config option, as in test_wmi.py.
 #
 import unittest
-from unittest import mock
 
+import pytest
+
+from tests import RemoteTestCase
 from impacket.dcerpc.v5.dcom import wmi
-
-WBEM_S_FALSE = wmi.WBEMSTATUS.enumItems.WBEM_S_FALSE.value
-WBEM_E_FAILED = wmi.WBEMSTATUS.enumItems.WBEM_E_FAILED.value
-
-
-def _make_enum():
-    """Build an IEnumWbemClassObject without touching the network."""
-    enum = wmi.IEnumWbemClassObject.__new__(wmi.IEnumWbemClassObject)
-    enum._iid = wmi.IID_IEnumWbemClassObject
-    # Name-mangled attribute set by __init__ in normal operation.
-    enum._IEnumWbemClassObject__iWbemServices = None
-    # Interface plumbing Next() calls into; irrelevant once IWbemClassObject
-    # and INTERFACE are patched out below.
-    enum.get_iPid = mock.Mock(return_value=b"")
-    enum.get_cinstance = mock.Mock(return_value=object())
-    enum.get_ipidRemUnknown = mock.Mock(return_value=b"")
-    enum.get_oxid = mock.Mock(return_value=0)
-    enum.get_target = mock.Mock(return_value="host")
-    return enum
+from impacket.dcerpc.v5.dcomrt import DCOMConnection
+from impacket.dcerpc.v5.dtypes import NULL
 
 
-def _fake_response(count):
-    """A minimal stand-in for IEnumWbemClassObject_NextResponse."""
-    return {
-        "ErrorCode": 0,
-        "puReturned": count,
-        "apObjects": [{"abData": [b""]} for _ in range(count)],
-    }
+@pytest.mark.remote
+class WMINextTests(RemoteTestCase, unittest.TestCase):
+    def setUp(self):
+        super(WMINextTests, self).setUp()
+        self.set_transport_config()
+        dcom = DCOMConnection(
+            self.machine, self.username, self.password, self.domain,
+            self.lmhash, self.nthash,
+        )
+        self.addCleanup(dcom.disconnect)
+        interface = dcom.CoCreateInstanceEx(
+            wmi.CLSID_WbemLevel1Login, wmi.IID_IWbemLevel1Login,
+        )
+        login = wmi.IWbemLevel1Login(interface)
+        try:
+            self.services = login.NTLMLogin(
+                r'\\%s\root\cimv2' % self.machine, NULL, NULL,
+            )
+            self.addCleanup(self.services.RemRelease)
+        finally:
+            login.RemRelease()
 
+    def _query(self, query='SELECT * FROM Win32_OperatingSystem'):
+        enum = self.services.ExecQuery(query)
+        self.addCleanup(enum.RemRelease)
+        return enum
 
-def _false_response(count):
-    resp = _fake_response(count)
-    resp["ErrorCode"] = WBEM_S_FALSE
-    return resp
+    def _assert_operating_system(self, objects):
+        # Win32_OperatingSystem has one instance for the running OS, so the
+        # result count does not depend on processes or services starting/stopping.
+        self.assertEqual(len(objects), 1)
+        self.assertIsInstance(objects[0], wmi.IWbemClassObject)
+        self.assertEqual(objects[0].getClassName(), 'Win32_OperatingSystem')
+        self.assertTrue(objects[0].getProperties()['Name']['value'])
 
+    def _assert_exhausted(self, enum, count):
+        with self.assertRaises(wmi.DCERPCSessionError) as ctx:
+            enum.Next(0xffffffff, count)
+        self.assertEqual(
+            ctx.exception.get_error_code(),
+            wmi.WBEMSTATUS.enumItems.WBEM_S_FALSE.value,
+        )
+        packet = ctx.exception.get_packet()
+        self.assertIsNotNone(packet)
+        self.assertEqual(packet['puReturned'], 0)
+        self.assertEqual(len(packet['apObjects']), 0)
 
-class WMINextTests(unittest.TestCase):
     def test_next_returns_all_objects_on_success(self):
-        enum = _make_enum()
-        enum.request = mock.Mock(return_value=_fake_response(3))
-        with mock.patch.object(wmi, "IWbemClassObject", side_effect=lambda *a, **k: object()), \
-             mock.patch.object(wmi, "INTERFACE", side_effect=lambda *a, **k: object()):
-            result = enum.Next(0xffffffff, 5)
-        self.assertEqual(len(result), 3)
+        enum = self._query()
+        self._assert_operating_system(enum.Next(0xffffffff, 1))
 
     def test_next_recovers_final_partial_batch(self):
-        # Server returned 2 trailing objects *and* WBEM_S_FALSE in one response.
-        # Before the fix these rows were dropped; Next() must now return them.
-        enum = _make_enum()
-        exc = wmi.DCERPCSessionError(packet=_false_response(2), error_code=WBEM_S_FALSE)
-        enum.request = mock.Mock(side_effect=exc)
-        with mock.patch.object(wmi, "IWbemClassObject", side_effect=lambda *a, **k: object()), \
-             mock.patch.object(wmi, "INTERFACE", side_effect=lambda *a, **k: object()):
-            result = enum.Next(0xffffffff, 5)
-        self.assertEqual(len(result), 2)
+        enum = self._query()
+        # Requesting two objects from this singleton class forces the server
+        # to return one object together with WBEM_S_FALSE. Before the fix,
+        # Next() raised here and lost that object.
+        self._assert_operating_system(enum.Next(0xffffffff, 2))
+        self._assert_exhausted(enum, 2)
 
     def test_next_reraises_on_exhaustion(self):
-        # WBEM_S_FALSE with no trailing objects is genuine end-of-enumeration;
-        # the historical exception must still be raised so existing callers that
-        # break on it keep working.
-        enum = _make_enum()
-        exc = wmi.DCERPCSessionError(packet=_false_response(0), error_code=WBEM_S_FALSE)
-        enum.request = mock.Mock(side_effect=exc)
-        with self.assertRaises(wmi.DCERPCSessionError) as ctx:
-            enum.Next(0xffffffff, 5)
-        self.assertEqual(ctx.exception.get_error_code(), WBEM_S_FALSE)
-        self.assertIn("S_FALSE", str(ctx.exception))
+        enum = self._query()
+        self._assert_operating_system(enum.Next(0xffffffff, 1))
+        self._assert_exhausted(enum, 1)
 
-    def test_next_reraises_other_errors(self):
-        enum = _make_enum()
-        exc = wmi.DCERPCSessionError(error_code=WBEM_E_FAILED)
-        enum.request = mock.Mock(side_effect=exc)
-        with self.assertRaises(wmi.DCERPCSessionError) as ctx:
-            enum.Next(0xffffffff, 5)
-        self.assertEqual(ctx.exception.get_error_code(), WBEM_E_FAILED)
+    def test_next_reraises_for_empty_query(self):
+        # Name is a key property, so it cannot be NULL.
+        enum = self._query('SELECT * FROM Win32_OperatingSystem WHERE Name IS NULL')
+        self._assert_exhausted(enum, 2)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main(verbosity=1)
