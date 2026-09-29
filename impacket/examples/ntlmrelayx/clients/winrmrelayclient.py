@@ -111,6 +111,9 @@ class WinRMSRelayClient(ProtocolClient):
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
         if unpack("B", authenticateMessageBlob[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
             respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
+            if respToken2.isNegoExSelected():
+                LOG.info("Target selected NEGOEX/PKU2U authentication, relay currently not supported for this mechanism")
+                raise Exception("NEGOEX/PKU2U relay is not supported")
             token = respToken2["ResponseToken"]
         else:
             token = authenticateMessageBlob
