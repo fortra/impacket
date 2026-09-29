@@ -110,6 +110,7 @@ class DumpSecrets:
         self.__justDCNTLM = options.just_dc_ntlm
         self.__justUser = options.just_dc_user
         self.__ldapFilter = options.ldapfilter
+        self.__ldaps = options.ldaps
         self.__skipUser = options.skip_user
         self.__pwdLastSet = options.pwd_last_set
         self.__printUserStatus = options.user_status
@@ -155,14 +156,15 @@ class DumpSecrets:
         self.baseDN = self.baseDN[:-1]
 
         try:
-            self.__ldapConnection = LDAPConnection('ldap://%s' % self.__target, self.baseDN, self.__kdcHost)
+            protocol = 'ldaps' if self.__ldaps else 'ldap'
+            self.__ldapConnection = LDAPConnection('%s://%s' % (protocol, self.__target), self.baseDN, self.__kdcHost)
             if self.__doKerberos is not True:
                 self.__ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
             else:
                 self.__ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
                                                     self.__aesKey, kdcHost=self.__kdcHost)
         except LDAPSessionError as e:
-            if str(e).find('strongerAuthRequired') >= 0:
+            if not self.__ldaps and str(e).find('strongerAuthRequired') >= 0:
                 # We need to try SSL
                 self.__ldapConnection = LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcHost)
                 if self.__doKerberos is not True:
@@ -482,6 +484,8 @@ if __name__ == '__main__':
     group.add_argument('-target-ip', action='store', metavar="ip address",
                        help='IP Address of the target machine. If omitted it will use whatever was specified as target. '
                             'This is useful when target is the NetBIOS name and you cannot resolve it')
+    group.add_argument('-ldaps', '-use-ldaps', dest='ldaps', action='store_true',
+                       help='Use LDAPS instead of LDAP for directory queries')
 
     if len(sys.argv) == 1:
         parser.print_help()
