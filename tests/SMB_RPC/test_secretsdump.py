@@ -276,11 +276,14 @@ class NTDSHashesUnitTests(unittest.TestCase):
                 self.returned = True
                 return self.record
 
-        for history, expected_lines in ((False, 3), (True, 6)):
+        # per trust value, with an authoritative flat name: rc4 + aes256 + aes256(trust account)
+        # + aes128 + aes128(trust account)
+        for history, expected_lines in ((False, 5), (True, 10)):
             with self.subTest(history=history):
                 esedb = FakeESEDB()
                 esedb.record = {
                     NTDSHashes.NAME_TO_INTERNAL['trustPartner']: 'partner.example',
+                    NTDSHashes.NAME_TO_INTERNAL['flatName']: 'PARTNER',
                     NTDSHashes.NAME_TO_INTERNAL['trustAuthIncoming']: b'encrypted',
                     NTDSHashes.NAME_TO_INTERNAL['trustAuthOutgoing']: None,
                 }
