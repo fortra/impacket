@@ -53,6 +53,7 @@ class NTLMRelayxConfig:
         self.keyfile = None
 
         self.command = None
+        self.dumpLSA = False
 
         # WPAD options
         self.serve_wpad = False
@@ -158,6 +159,9 @@ class NTLMRelayxConfig:
 
     def setCommand(self, command):
         self.command = command
+
+    def setDumpLSA(self, dumpLSA):
+        self.dumpLSA = dumpLSA
 
     def setEnumLocalAdmins(self, enumLocalAdmins):
         self.enumLocalAdmins = enumLocalAdmins
