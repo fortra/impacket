@@ -29,14 +29,14 @@ from pyasn1.type.useful import GeneralizedTime
 from six import b
 from binascii import unhexlify, hexlify
 
-from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, AS_REP, TGS_REP, \
+from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KDC_REQ_BODY, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, AS_REP, TGS_REP, \
     EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_set, seq_set_iter, KERB_ERROR_DATA, METHOD_DATA, \
     ETYPE_INFO2, ETYPE_INFO, AP_REP, EncAPRepPart, KERB_SUPERSEDED_BY_USER
 from impacket.krb5.types import KerberosTime, Principal, Ticket
 from impacket.krb5.gssapi import CheckSumField, GSS_C_DCE_STYLE, GSS_C_MUTUAL_FLAG, GSS_C_REPLAY_FLAG, \
     GSS_C_SEQUENCE_FLAG, GSS_C_CONF_FLAG, GSS_C_INTEG_FLAG
 from impacket.krb5 import constants
-from impacket.krb5.crypto import Key, _enctype_table, InvalidChecksum
+from impacket.krb5.crypto import Key, _enctype_table, InvalidChecksum, make_checksum
 from impacket.smbconnection import SessionError
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_OID, asn1encode, ASN1_AID
 from impacket.krb5.gssapi import KRB5_AP_REQ
@@ -393,7 +393,10 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
             else:
                 raise SessionKeyDecryptionError(error_msg, asRep, cipher, key, cipherText)
         raise
-    encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
+    # MIT krb5 encodes the encrypted part of AS-REP with the EncTGSRepPart
+    # application tag for backwards compatibility. The content is identical.
+    encPartSpec = EncTGSRepPart() if plainText[:1] == b'\x7a' else EncASRepPart()
+    encASRepPart = decoder.decode(plainText, asn1Spec=encPartSpec)[0]
 
     # Get the session key and the ticket
     cipher = _enctype_table[encASRepPart['key']['keytype']]
@@ -403,7 +406,8 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
     return tgt, cipher, key, sessionKey
 
-def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew = False, etypes = None, timeout=None):
+def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew = False, etypes = None, timeout=None,
+                   request_body_checksum=False):
 
     requestEtypes = getKerberosTGSRequestEnctypes(etypes)
 
@@ -483,6 +487,24 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
     reqBody['nonce'] = rand.getrandbits(31)
     seq_set_iter(reqBody, 'etype', requestEtypes)
 
+    if request_body_checksum:
+        checksumTypes = {
+            constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value:
+                constants.ChecksumTypes.hmac_sha1_96_aes128.value,
+            constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value:
+                constants.ChecksumTypes.hmac_sha1_96_aes256.value,
+            constants.EncryptionTypes.rc4_hmac.value: constants.ChecksumTypes.hmac_md5.value,
+        }
+        try:
+            checksumType = checksumTypes[cipher.enctype]
+        except KeyError as exc:
+            raise ValueError('Unsupported TGS request-body checksum enctype %d' % cipher.enctype) from exc
+        authenticator['cksum']['cksumtype'] = checksumType
+        body = reqBody.clone(tagSet=KDC_REQ_BODY.tagSet, cloneValueFlag=True)
+        authenticator['cksum']['checksum'] = make_checksum(checksumType, sessionKey, 6, encoder.encode(body))
+        apReq['authenticator']['cipher'] = cipher.encrypt(sessionKey, 7, encoder.encode(authenticator), None)
+        tgsReq['padata'][0]['padata-value'] = encoder.encode(apReq)
+
     message = encoder.encode(tgsReq)
     r = sendReceive(message, domain, kdcHost, timeout=timeout)
 
@@ -514,7 +536,8 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
     else:
         # Let's extract the Ticket, change the domain and keep asking
         domain = spn.components[1]
-        return getKerberosTGS(serverName, domain, kdcHost, r, cipher, newSessionKey, etypes=requestEtypes, timeout=timeout)
+        return getKerberosTGS(serverName, domain, kdcHost, r, cipher, newSessionKey, etypes=requestEtypes,
+                              timeout=timeout, request_body_checksum=request_body_checksum)
 
 ################################################################################
 # DCE RPC Helpers
