@@ -618,6 +618,23 @@ class CCache:
             LOG.debug('The specified path is not correct or the KRB5CCNAME environment variable is not defined')
             return None
 
+        # KRB5CCNAME (and any path passed here) may be a Kerberos cache
+        # identifier in TYPE:residual form (e.g. from MIT krb5 tools), not
+        # necessarily a bare filesystem path. Only the FILE: cache type maps
+        # directly to a path on disk; other types aren't backed by a single
+        # flat file impacket can read, so fail with a clear message instead
+        # of trying (and failing) to open the identifier itself as a path.
+        if ':' in fileName:
+            cacheType, _, residual = fileName.partition(':')
+            cacheType = cacheType.upper()
+            if cacheType == 'FILE':
+                fileName = residual
+            elif cacheType in ('DIR', 'KEYRING', 'KCM', 'MEMORY', 'API'):
+                LOG.critical("Unsupported Kerberos cache type '%s:' (only FILE: caches are supported). "
+                              "Export the cache to a file, e.g. 'kdestroy -c %s; kinit -c FILE:/tmp/krb5cc' "
+                              "and point KRB5CCNAME at the FILE: cache." % (cacheType, fileName))
+                return None
+
         try:
             f = open(fileName, 'rb')
             data = f.read()
