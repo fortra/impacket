@@ -98,7 +98,7 @@ class MiniShell(cmd.Cmd):
         return
 
     def do_finished_attacks(self, line):
-        for url in self.relayConfig.target.finishedAttacks:
+        for url in self.relayConfig.target.allFinishedAttacks:
             print (url.geturl())
         return
 
