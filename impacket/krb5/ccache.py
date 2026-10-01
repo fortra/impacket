@@ -513,7 +513,9 @@ class CCache:
         # (Section 5.4.2)
         plainText = cipher.decrypt(oldSessionKey, 3, cipherText)
 
-        encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
+        # MIT krb5 also uses the EncTGSRepPart tag for AS-REP encrypted data.
+        encPartSpec = EncTGSRepPart() if plainText[:1] == b'\x7a' else EncASRepPart()
+        encASRepPart = decoder.decode(plainText, asn1Spec=encPartSpec)[0]
         credential = Credential()
         server = types.Principal()
         server.from_asn1(encASRepPart, 'srealm', 'sname')
@@ -531,7 +533,8 @@ class CCache:
 
         credential['time'] = Times()
         credential['time']['authtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['authtime']))
-        credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['starttime']))
+        starttime = encASRepPart['starttime'] if encASRepPart['starttime'].hasValue() else encASRepPart['authtime']
+        credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(starttime))
         credential['time']['endtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['endtime']))
         # After KB4586793 for CVE-2020-17049 this timestamp may be omitted
         if encASRepPart['renew-till'].hasValue():
@@ -592,7 +595,8 @@ class CCache:
 
         credential['time'] = Times()
         credential['time']['authtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['authtime']))
-        credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['starttime']))
+        starttime = encTGSRepPart['starttime'] if encTGSRepPart['starttime'].hasValue() else encTGSRepPart['authtime']
+        credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(starttime))
         credential['time']['endtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['endtime']))
         # After KB4586793 for CVE-2020-17049 this timestamp may be omitted
         if encTGSRepPart['renew-till'].hasValue():
