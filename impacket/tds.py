@@ -173,6 +173,83 @@ TDS_LEGACY_LOGIN7_VERSIONS = (
 def login7_uses_72_plus_token_layout(tds_version):
     return tds_version not in TDS_LEGACY_LOGIN7_VERSIONS
 
+
+def loginack_to_login7_version(tds_version):
+    """Convert the server's LOGINACK version to the corresponding LOGIN7 value."""
+    return {
+        TDS_VERSION_71: TDS_LOGIN7_VERSION_71,
+        TDS_VERSION_72: TDS_LOGIN7_VERSION_72,
+        TDS_VERSION_73A: TDS_LOGIN7_VERSION_73A,
+        TDS_VERSION_73B: TDS_LOGIN7_VERSION_73B,
+        TDS_VERSION_74: TDS_LOGIN7_VERSION_74,
+        TDS_VERSION_80: TDS_LOGIN7_VERSION_80,
+    }.get(tds_version)
+
+
+def translate_pre_loginack_tokens(data, source_version, target_version):
+    """Translate LOGIN response tokens across the TDS 7.1/7.2 layout boundary."""
+    source_modern = login7_uses_72_plus_token_layout(source_version)
+    target_modern = login7_uses_72_plus_token_layout(target_version)
+    if source_modern == target_modern:
+        return data
+
+    translated = bytearray()
+    offset = 0
+    length_prefixed_tokens = {
+        TDS_ENVCHANGE_TOKEN, TDS_ERROR_TOKEN, TDS_INFO_TOKEN, TDS_LOGINACK_TOKEN,
+    }
+    done_tokens = {TDS_DONE_TOKEN, TDS_DONEPROC_TOKEN, TDS_DONEINPROC_TOKEN}
+
+    while offset < len(data):
+        token_type = data[offset]
+        if token_type == TDS_LOGINACK_TOKEN:
+            translated.extend(data[offset:])
+            return bytes(translated)
+
+        if token_type in length_prefixed_tokens:
+            if offset + 3 > len(data):
+                raise ValueError("Truncated TDS token header before LOGINACK")
+            token_length = struct.unpack_from("<H", data, offset + 1)[0]
+            token_end = offset + 3 + token_length
+            if token_end > len(data):
+                raise ValueError("Truncated TDS token before LOGINACK")
+            token = bytearray(data[offset:token_end])
+            if token_type in (TDS_ERROR_TOKEN, TDS_INFO_TOKEN):
+                if source_modern:
+                    line_number = struct.unpack_from("<L", token, len(token) - 4)[0]
+                    if line_number > 0xFFFF:
+                        raise ValueError("TDS line number does not fit the legacy layout")
+                    token[-4:] = struct.pack("<H", line_number)
+                else:
+                    line_number = struct.unpack_from("<H", token, len(token) - 2)[0]
+                    token[-2:] = struct.pack("<L", line_number)
+                struct.pack_into("<H", token, 1, len(token) - 3)
+            translated.extend(token)
+            offset = token_end
+            continue
+
+        if token_type in done_tokens:
+            source_size = 13 if source_modern else 9
+            token_end = offset + source_size
+            if token_end > len(data):
+                raise ValueError("Truncated TDS DONE token before LOGINACK")
+            token = bytearray(data[offset:token_end])
+            if source_modern:
+                row_count = struct.unpack_from("<Q", token, 5)[0]
+                if row_count > 0xFFFFFFFF:
+                    raise ValueError("TDS row count does not fit the legacy layout")
+                token[5:] = struct.pack("<L", row_count)
+            else:
+                row_count = struct.unpack_from("<L", token, 5)[0]
+                token[5:] = struct.pack("<Q", row_count)
+            translated.extend(token)
+            offset = token_end
+            continue
+
+        raise ValueError("Unsupported TDS token 0x%02x before LOGINACK" % token_type)
+
+    return bytes(translated)
+
 # Option 2 Flags
 TDS_INTEGRATED_SECURITY_ON = 0x80
 TDS_INIT_LANG_FATAL = 0x01
@@ -1338,7 +1415,27 @@ class MSSQL:
     def _get_default_login7_tds_version(self):
         # TDS 8.0 is negotiated by the TLS handshake, but the LOGIN7 payload still
         # needs to use the modern 7.4-era layout and extensions.
-        return TDS_LOGIN7_VERSION_74 if self.tds8 else TDS_LOGIN7_VERSION_71
+        if self.tds8:
+            return TDS_LOGIN7_VERSION_74
+
+        # PRELOGIN exposes the server product version before LOGIN7. Match the
+        # newest TDS revision supported by that SQL Server generation so relayed
+        # sessions and direct Impacket clients use the same token layout as
+        # modern drivers connecting through the SOCKS plugin.
+        server_version = getattr(self, "mssql_version", None)
+        if server_version is None or not hasattr(server_version, "major"):
+            return TDS_LOGIN7_VERSION_71
+        if server_version.major >= 11:
+            return TDS_LOGIN7_VERSION_74
+        if server_version.major == 10:
+            return (
+                TDS_LOGIN7_VERSION_73B
+                if server_version.minor >= 50
+                else TDS_LOGIN7_VERSION_73A
+            )
+        if server_version.major == 9:
+            return TDS_LOGIN7_VERSION_72
+        return TDS_LOGIN7_VERSION_71
 
     def _set_session_login7_tds_version(self, tds_version):
         self.login_tds_version = tds_version
@@ -1353,7 +1450,7 @@ class MSSQL:
     def _parse_done_token(self, tokens, inproc=False):
         # Once the session is using a coherent LOGIN7 version, DONE rowcount width
         # follows that negotiated login version directly.
-        if self._uses_72_plus_token_layout():
+        if self.tds8 or self._uses_72_plus_token_layout():
             parser = TDS_DONEINPROC72 if inproc else TDS_DONE72
         else:
             parser = TDS_DONEINPROC if inproc else TDS_DONE
@@ -2834,6 +2931,9 @@ class MSSQL:
                 token = TDS_FEATUREEXTACK(tokens)
             elif tokenID == TDS_LOGINACK_TOKEN:
                 token = TDS_LOGIN_ACK(tokens)
+                negotiated_version = loginack_to_login7_version(token["TDSVersion"])
+                if negotiated_version is not None:
+                    self._set_session_login7_tds_version(negotiated_version)
             elif tokenID == TDS_ENVCHANGE_TOKEN:
                 token = TDS_ENVCHANGE(tokens)
                 if token["Type"] is TDS_ENVCHANGE_PACKETSIZE:
@@ -2891,13 +2991,13 @@ class MSSQL:
         return all_headers
 
     def _wrap_sql_batch_data(self, sql_text):
-        """Prepend TDS 8.0 ALL_HEADERS to an already-encoded SQL_BATCH body."""
-        if self.tds8:
+        """Prepend the ALL_HEADERS required by TDS 7.2 and newer."""
+        if self.tds8 or self._uses_72_plus_token_layout():
             return self._build_tds8_sql_batch_headers() + sql_text
         return sql_text
 
     def _build_batch_data(self, cmd):
-        """Build SQL_BATCH packet data, prepending ALL_HEADERS for TDS 8.0."""
+        """Build SQL_BATCH packet data, including version-required headers."""
         sql_text = (cmd + "\r\n").encode("utf-16le")
         return self._wrap_sql_batch_data(sql_text)
 

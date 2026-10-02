@@ -51,6 +51,9 @@ class MYMSSQL(MSSQL):
         login = TDS_LOGIN()
         login['TDSVersion'] = self._get_default_login7_tds_version()
         self._set_session_login7_tds_version(login['TDSVersion'])
+        self.sessionData['LOGIN7_TDS_VERSION'] = login['TDSVersion']
+        if self.resp is not None:
+            self.sessionData['PRELOGIN_VERSION'] = self.resp['Version']
 
         login['HostName'] = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
         login['AppName']  = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')

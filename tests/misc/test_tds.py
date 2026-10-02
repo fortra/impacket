@@ -77,6 +77,70 @@ class TDSTests(unittest.TestCase):
 
         self.assertEqual(struct.unpack_from("<H", data, 1)[0], len(data) - 3)
 
+    @staticmethod
+    def _info_token(token_class, line_number=7):
+        token = token_class()
+        token["TokenType"] = tds.TDS_INFO_TOKEN
+        token["Number"] = 5701
+        token["State"] = 1
+        token["Class"] = 10
+        token["MsgText"] = "Changed database context".encode("utf-16le")
+        token["MsgTextLen"] = len(token["MsgText"]) // 2
+        token["ServerName"] = "SQLSERVER".encode("utf-16le")
+        token["ServerNameLen"] = len(token["ServerName"]) // 2
+        token["ProcName"] = b""
+        token["ProcNameLen"] = 0
+        token["LineNumber"] = line_number
+        return token.getData()
+
+    @staticmethod
+    def _loginack_token(version):
+        token = tds.TDS_LOGIN_ACK()
+        token["TokenType"] = tds.TDS_LOGINACK_TOKEN
+        token["Length"] = 10
+        token["Interface"] = 1
+        token["TDSVersion"] = version
+        token["ProgNameLen"] = 0
+        token["ProgName"] = b""
+        token["MajorVer"] = 16
+        token["MinorVer"] = 0
+        token["BuildNumHi"] = 0
+        token["BuildNumLow"] = 1
+        return token.getData()
+
+    def test_translate_legacy_login_response_for_modern_client(self):
+        loginack = self._loginack_token(tds.TDS_VERSION_71)
+        original = self._info_token(tds.TDS_INFO_ERROR) + loginack
+        translated = tds.translate_pre_loginack_tokens(
+            original, tds.TDS_LOGIN7_VERSION_71, tds.TDS_LOGIN7_VERSION_74
+        )
+        info = tds.TDS_INFO_ERROR72(translated)
+        self.assertEqual(info["LineNumber"], 7)
+        self.assertEqual(translated[len(info):], loginack)
+
+    def test_translate_modern_login_response_for_legacy_client(self):
+        loginack = self._loginack_token(tds.TDS_VERSION_74)
+        original = self._info_token(tds.TDS_INFO_ERROR72) + loginack
+        translated = tds.translate_pre_loginack_tokens(
+            original, tds.TDS_LOGIN7_VERSION_74, tds.TDS_LOGIN7_VERSION_71
+        )
+        info = tds.TDS_INFO_ERROR(translated)
+        self.assertEqual(info["LineNumber"], 7)
+        self.assertEqual(translated[len(info):], loginack)
+
+    def test_loginack_updates_parser_layout(self):
+        client = tds.MSSQL("server")
+        client._set_session_login7_tds_version(tds.TDS_LOGIN7_VERSION_71)
+        reply = self._loginack_token(tds.TDS_VERSION_74)
+        done = tds.TDS_DONE72()
+        done["TokenType"] = tds.TDS_DONE_TOKEN
+        done["Status"] = 0
+        done["CurCmd"] = 0
+        done["DoneRowCount"] = 1
+        replies = client.parseReply(reply + done.getData())
+        self.assertEqual(client.login_tds_version, tds.TDS_LOGIN7_VERSION_74)
+        self.assertEqual(replies[tds.TDS_DONE_TOKEN][0]["DoneRowCount"], 1)
+
     def test_login_uses_default_tds_version_when_serializing(self):
         login = tds.TDS_LOGIN()
 
@@ -85,6 +149,21 @@ class TDSTests(unittest.TestCase):
         self.assertEqual(
             struct.unpack_from(">L", data, 4)[0], tds.TDS_LOGIN7_VERSION_71
         )
+
+    def test_default_login_version_tracks_server_generation(self):
+        cases = (
+            (b"\x08\x00\x08\x00\x00\x00", tds.TDS_LOGIN7_VERSION_71),
+            (b"\x09\x00\x05\x77\x00\x00", tds.TDS_LOGIN7_VERSION_72),
+            (b"\x0a\x00\x06\x40\x00\x00", tds.TDS_LOGIN7_VERSION_73A),
+            (b"\x0a\x32\x06\x40\x00\x00", tds.TDS_LOGIN7_VERSION_73B),
+            (b"\x0b\x00\x08\x34\x00\x00", tds.TDS_LOGIN7_VERSION_74),
+            (b"\x10\x00\x0f\xff\x00\x00", tds.TDS_LOGIN7_VERSION_74),
+        )
+        for raw_version, expected in cases:
+            with self.subTest(raw_version=raw_version):
+                client = tds.MSSQL("server")
+                client.mssql_version = tds.MSSQL_VERSION(raw_version)
+                self.assertEqual(client._get_default_login7_tds_version(), expected)
 
     def test_negotiate_encryption_does_not_retry_tds8_on_timeout(self):
         client = tds.MSSQL("server")
@@ -140,6 +219,18 @@ class TDSTests(unittest.TestCase):
         sql_text = "SELECT 1\r\n".encode("utf-16le")
 
         self.assertIs(client._wrap_sql_batch_data(sql_text), sql_text)
+
+    def test_wrap_sql_batch_data_adds_headers_for_tds74_sessions(self):
+        client = tds.MSSQL("server")
+        client._set_session_login7_tds_version(tds.TDS_LOGIN7_VERSION_74)
+        sql_text = "SELECT 1\r\n".encode("utf-16le")
+
+        data = client._wrap_sql_batch_data(sql_text)
+
+        self.assertEqual(data[:4], struct.pack("<I", 22))
+        self.assertEqual(data[4:8], struct.pack("<I", 18))
+        self.assertEqual(data[8:10], struct.pack("<H", 2))
+        self.assertEqual(data[22:], sql_text)
 
     def test_recv_tds_reassembles_partial_tls_reads(self):
         client = tds.MSSQL("server")
