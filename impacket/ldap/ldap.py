@@ -143,6 +143,7 @@ class LDAPConnection:
 
         self.__binded = False
         self.channel_binding_value = None
+        self._channel_binding_error = None
 
         ### SASL Auth LDAP Signing arguments
         self.sequenceNumber = 0
@@ -190,33 +191,51 @@ class LDAPConnection:
 
             # RFC 5929 section 4.1 hashes list
             rfc5929_hashes_list = (hashes.MD5, hashes.SHA1)
-            
+
             der_cert = crypto.dump_certificate(crypto.FILETYPE_ASN1, self._socket.get_peer_certificate())
             peer_certificate = x509.load_der_x509_certificate(der_cert, default_backend())
             peer_certificate_hash_algorithm = peer_certificate.signature_hash_algorithm
-            
-            # section 4.1 hash function selection
-            if isinstance(peer_certificate_hash_algorithm, rfc5929_hashes_list):
-                digest = hashes.Hash(hashes.SHA256(), default_backend())
+
+            # RFC 5929 section 4.1 leaves tls-server-end-point undefined when
+            # the certificate signature does not use a separate hash function.
+            if peer_certificate_hash_algorithm is None:
+                self._channel_binding_error = (
+                    'Cannot compute tls-server-end-point channel binding: '
+                    'the certificate signature algorithm does not use a separate hash function'
+                )
+                LOG.debug(self._channel_binding_error)
             else:
-                digest = hashes.Hash(peer_certificate_hash_algorithm, default_backend())
-            digest.update(der_cert)
-            peer_cert_digest_bytes = digest.finalize()
+                # RFC 5929 section 4.1 hash function selection
+                if isinstance(peer_certificate_hash_algorithm, rfc5929_hashes_list):
+                    digest = hashes.Hash(hashes.SHA256(), default_backend())
+                else:
+                    digest = hashes.Hash(peer_certificate_hash_algorithm, default_backend())
+                digest.update(der_cert)
+                peer_cert_digest_bytes = digest.finalize()
 
-            channel_binding_struct = b''
-            initiator_address = b'\x00'*8
-            acceptor_address = b'\x00'*8
+                channel_binding_struct = b''
+                initiator_address = b'\x00'*8
+                acceptor_address = b'\x00'*8
 
-            # https://datatracker.ietf.org/doc/html/rfc5929#section-4
-            application_data_raw = b'tls-server-end-point:' + peer_cert_digest_bytes
-            len_application_data = len(application_data_raw).to_bytes(4, byteorder='little', signed = False)
-            application_data = len_application_data
-            application_data += application_data_raw
-            channel_binding_struct += initiator_address
-            channel_binding_struct += acceptor_address
-            channel_binding_struct += application_data
-            self.channel_binding_value = md5(channel_binding_struct).digest()
+                # https://datatracker.ietf.org/doc/html/rfc5929#section-4
+                application_data_raw = b'tls-server-end-point:' + peer_cert_digest_bytes
+                len_application_data = len(application_data_raw).to_bytes(4, byteorder='little', signed = False)
+                application_data = len_application_data
+                application_data += application_data_raw
+                channel_binding_struct += initiator_address
+                channel_binding_struct += acceptor_address
+                channel_binding_struct += application_data
+                self.channel_binding_value = md5(channel_binding_struct).digest()
         self._socket.settimeout(None)
+
+    def _get_channel_binding_value(self):
+        if not self._SSL:
+            return b''
+
+        if self._channel_binding_error is not None:
+            raise LDAPSessionError(errorString=self._channel_binding_error)
+
+        return self.channel_binding_value or b''
 
     def kerberosLogin(self, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost=None, TGT=None,
                       TGS=None, useCache=True):
@@ -324,8 +343,8 @@ class LDAPConnection:
 
         # If TLS is used, setup channel binding
         
-        if self._SSL and self.channel_binding_value is not None:
-            chkField['Bnd'] = self.channel_binding_value
+        if self._SSL:
+            chkField['Bnd'] = self._get_channel_binding_value()
         if self.__signing:
             chkField['Flags'] |= GSS_C_CONF_FLAG
             chkField['Flags'] |= GSS_C_INTEG_FLAG
@@ -427,9 +446,7 @@ class LDAPConnection:
             type2 = response['bindResponse']['matchedDN']
 
             # If TLS is used, setup channel binding
-            channel_binding_value = b''
-            if self._SSL and self.channel_binding_value is not None:
-                channel_binding_value = self.channel_binding_value
+            channel_binding_value = self._get_channel_binding_value()
 
             # NTLM Auth
             type3, exportedSessionKey = getNTLMSSPType3(negotiate, bytes(type2), user, password, domain, lmhash, nthash, channel_binding_value=channel_binding_value)
@@ -473,9 +490,7 @@ class LDAPConnection:
             type2 = spnegoTokenResp['ResponseToken']
             
             # channel binding
-            channel_binding_value = b''
-            if self._SSL and self.channel_binding_value is not None:
-                channel_binding_value = self.channel_binding_value
+            channel_binding_value = self._get_channel_binding_value()
             
             # NTLM Auth
             type3, exportedSessionKey = getNTLMSSPType3(negotiate, type2, user, password, domain, lmhash, nthash, service='ldap', version=self.version, use_ntlmv2=True, channel_binding_value=channel_binding_value)
