@@ -32,28 +32,34 @@
 #       * If using NTLM hashes, the new password is flagged as expired
 #       * If using password reset with a NTLM hash, password policy and history is ignored
 #       * When using hashes for change or reset, Kerberos keys are not created
+#       * -timeout can be used to avoid blocking indefinitely on an unreachable or filtered server
 #   - MS-SAMR over MS-RPC:
 #       * RPC communication over TCP/135 and random ports
 #       * Cannot get a handle on user object with default AD configuration:
 #           - cannot use hSamrChangePasswordUser to change password with hashes only
 #           - cannot use hSamrSetInformationUser to reset the password
 #       * Password policy is enforced
+#       * -timeout can be used to avoid blocking indefinitely on an unreachable or filtered server
 #   - Kerberos Change Password: (kpasswd)
 #       * Must use Kerberos authentication
 #       * Must have a valid TGT/key or valid password for the user
 #       * Must provide the new password as plaintext
 #       * Password policy is enforced
+#       * -timeout can be used to avoid blocking indefinitely on an unreachable or filtered KDC
 #   - Kerberos Set Password:
 #       * Must use Kerberos authentication
 #       * Must have a valid TGT/key or valid password for the admin
 #       * Must provide the new password as plaintext
+#       * -timeout can be used to avoid blocking indefinitely on an unreachable or filtered KDC
 #   - LDAP password change:
 #       * The server must support TLS. If the DC is misconfigured, you cannot connect
 #       * Must provide the old and new passwords as plaintext
 #       * Password policy is enforced
+#       * -timeout can be used to avoid blocking indefinitely on an unreachable or filtered DC
 #   - LDAP password set:
 #       * The server must support TLS. If the DC is misconfigured, you cannot connect
 #       * Must provide the new password as plaintext
+#       * -timeout can be used to avoid blocking indefinitely on an unreachable or filtered DC
 #
 #   Examples:
 #     SAMR protocol over SMB transport to change passwords (like smbpasswd, -protocol smb-samr is implied)
@@ -148,6 +154,7 @@ class PasswordHandler:
         doKerberos=False,
         aesKey="",
         kdcHost=None,
+        timeout=None,
     ):
         """
         Instantiate password change or reset with the credentials of the account making the changes.
@@ -162,6 +169,7 @@ class PasswordHandler:
         :param bool doKerberos: use Kerberos authentication instead of NTLM
         :param string aesKey:   AES key for Kerberos authentication
         :param string kdcHost:  KDC host
+        :param int timeout:     connection timeout in seconds, honored by all the protocol handlers
         """
 
         self.address = address
@@ -173,6 +181,7 @@ class PasswordHandler:
         self.doKerberos = doKerberos
         self.aesKey = aesKey
         self.kdcHost = kdcHost
+        self.timeout = timeout
 
     def _changePassword(
         self, targetUsername, targetDomain, oldPassword, newPassword, oldPwdHashLM, oldPwdHashNT, newPwdHashLM, newPwdHashNT
@@ -262,6 +271,7 @@ class KPassword(PasswordHandler):
             logging.critical("KPassword requires the new password as plaintext")
             return False
 
+        logging.info(f"Connecting to KDC ({self.kdcHost or targetDomain}) to change the password of {targetDomain}\\{targetUsername}")
         try:
             logging.debug(
                 (
@@ -284,8 +294,9 @@ class KPassword(PasswordHandler):
                 oldPwdHashNT,
                 aesKey=self.aesKey,
                 kdcHost=self.kdcHost,
+                timeout=self.timeout,
             )
-        except (kerberosv5.KerberosError, kpasswd.KPasswdError) as e:
+        except (kerberosv5.KerberosError, kpasswd.KPasswdError, OSError) as e:
             logging.error(f"Password not changed: {e}")
             return False
 
@@ -297,6 +308,7 @@ class KPassword(PasswordHandler):
             logging.critical("KPassword requires the new password as plaintext")
             return False
 
+        logging.info(f"Connecting to KDC ({self.kdcHost or self.domain}) to set the password of {targetDomain}\\{targetUsername}")
         try:
             kpasswd.setPassword(
                 self.username,
@@ -309,8 +321,9 @@ class KPassword(PasswordHandler):
                 self.pwdHashNT,
                 aesKey=self.aesKey,
                 kdcHost=self.kdcHost,
+                timeout=self.timeout,
             )
-        except (kerberosv5.KerberosError, kpasswd.KPasswdError) as e:
+        except (kerberosv5.KerberosError, kpasswd.KPasswdError, OSError) as e:
             logging.error(f"Password not changed for {targetDomain}\\{targetUsername}: {e}")
             return False
 
@@ -341,7 +354,13 @@ class SamrPassword(PasswordHandler):
         :return dce: DCE/RPC, bound to SAMR
         """
 
+        as_user = "null session" if anonymous else f"{self.domain}\\{self.username}"
+        logging.info(f"Connecting to DCE/RPC as {as_user}")
+
         rpctransport = self.rpctransport()
+
+        if self.timeout is not None:
+            rpctransport.set_connect_timeout(self.timeout)
 
         if hasattr(rpctransport, "set_credentials"):
             # This method exists only for selected protocol sequences.
@@ -363,9 +382,6 @@ class SamrPassword(PasswordHandler):
         else:
             self.anonymous = False
             rpctransport.set_kerberos(self.doKerberos, self.kdcHost)
-
-        as_user = "null session" if anonymous else f"{self.domain}\\{self.username}"
-        logging.info(f"Connecting to DCE/RPC as {as_user}")
 
         dce = rpctransport.get_dce_rpc()
         dce.connect()
@@ -417,6 +433,9 @@ class SamrPassword(PasswordHandler):
             elif "STATUS_ACCOUNT_DISABLED" in str(e):
                 logging.critical("The account is currently disabled.")
                 logging.debug(str(e))
+                return False
+            elif isinstance(e, OSError) or "Could not connect" in str(e):
+                logging.error(f"Cannot connect to {self.address}: {e}")
                 return False
             else:
                 raise e
@@ -486,7 +505,7 @@ class SamrPassword(PasswordHandler):
                 raise e
 
         if resp["ErrorCode"] == 0:
-            logging.info("Password was changed successfully.")
+            logging.info(f"Password was {'changed' if _change else 'set'} successfully.")
             return True
 
         logging.error("Non-zero return code, something weird happened.")
@@ -565,7 +584,7 @@ class SamrPassword(PasswordHandler):
 
 class RpcPassword(SamrPassword):
     def rpctransport(self):
-        stringBinding = epm.hept_map(self.address, samr.MSRPC_UUID_SAMR, protocol="ncacn_ip_tcp")
+        stringBinding = epm.hept_map(self.address, samr.MSRPC_UUID_SAMR, protocol="ncacn_ip_tcp", timeout=self.timeout)
         rpctransport = transport.DCERPCTransportFactory(stringBinding)
         rpctransport.setRemoteHost(self.address)
         return rpctransport
@@ -608,9 +627,18 @@ class LdapPassword(PasswordHandler):
         ldapURI = "ldaps://" + self.address
         self.baseDN = "DC=" + ",DC=".join(targetDomain.split("."))
 
-        logging.debug(f"Connecting to {ldapURI} as {self.domain}\\{self.username}")
+        logging.info(f"Connecting to {ldapURI}" + (f" (timeout={self.timeout}s)" if self.timeout else ""))
         try:
-            ldapConnection = ldap.LDAPConnection(ldapURI, self.baseDN, self.address)
+            ldapConnection = ldap.LDAPConnection(ldapURI, self.baseDN, self.address, timeout=self.timeout)
+        except (ldap.LDAPSessionError, OpenSSL.SSL.SysCallError, OSError) as e:
+            logging.error(f"Cannot connect to {ldapURI}: {e}")
+            return False
+
+        logging.info(
+            f"Authenticating to {ldapURI} as {self.domain}\\{self.username} using "
+            + ("Kerberos" if self.doKerberos else "NTLM")
+        )
+        try:
             if not self.doKerberos:
                 ldapConnection.login(self.username, self.password, self.domain, self.pwdHashLM, self.pwdHashNT)
             else:
@@ -624,7 +652,7 @@ class LdapPassword(PasswordHandler):
                     kdcHost=self.kdcHost,
                 )
         except (ldap.LDAPSessionError, OpenSSL.SSL.SysCallError) as e:
-            logging.error(f"Cannot connect to {ldapURI} as {self.domain}\\{self.username}: {e}")
+            logging.error(f"Cannot authenticate to {ldapURI} as {self.domain}\\{self.username}: {e}")
             return False
 
         self.ldapConnection = ldapConnection
@@ -641,6 +669,7 @@ class LdapPassword(PasswordHandler):
     def findTargetDN(self, targetUsername, targetDomain):
         """Find the DN of the targeted user"""
 
+        logging.info(f"Searching LDAP for target user {targetDomain}\\{targetUsername}")
         answers = self.ldapConnection.search(
             searchFilter=f"(sAMAccountName={targetUsername})",
             searchBase=self.baseDN,
@@ -682,6 +711,7 @@ class LdapPassword(PasswordHandler):
             request["changes"][0]["modification"]["type"] = "unicodePwd"
             request["changes"][0]["modification"]["vals"][0] = newPasswordEncoded
 
+        logging.info(f"Sending modify request to {targetDN}")
         logging.debug(f"Sending: {str(request)}")
 
         response = self.ldapConnection.sendReceive(request)[0]
@@ -693,7 +723,7 @@ class LdapPassword(PasswordHandler):
         diagMessage = str(response["protocolOp"]["modifyResponse"]["diagnosticMessage"])
 
         if result == "success":
-            logging.info(f"Password was changed successfully for {targetDN}")
+            logging.info(f"Password was {'changed' if change else 'set'} successfully for {targetDN}")
             return True
 
         if result == "constraintViolation":
@@ -793,6 +823,14 @@ def parse_args():
         "-admin",
         action="store_true",
         help="Try to reset the password with privileges (may bypass some password policies)",
+    )
+    group.add_argument(
+        "-timeout",
+        action="store",
+        type=int,
+        default=None,
+        metavar="seconds",
+        help="Connection timeout in seconds (default: no timeout, blocks indefinitely)",
     )
 
     group = parser.add_argument_group(
@@ -953,6 +991,7 @@ if __name__ == "__main__":
         doKerberos,
         options.aesKey,
         kdcHost=options.dc_ip,
+        timeout=options.timeout,
     )
 
     # Attempt the password change/reset
