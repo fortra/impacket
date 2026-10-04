@@ -56,7 +56,7 @@ import logging
 import os
 import sys
 
-from impacket import version
+from impacket import version, winregistry
 from impacket.examples import logger
 from impacket.examples.utils import parse_target
 from impacket.smbconnection import SMBConnection
@@ -69,6 +69,33 @@ try:
     input = raw_input
 except NameError:
     pass
+
+
+class LocalOperationsWithServiceAccount(LocalOperations):
+    def __init__(self, systemHive):
+        LocalOperations.__init__(self, systemHive)
+        self.__systemHive = systemHive
+
+    def getServiceAccount(self, serviceName):
+        try:
+            winreg = winregistry.get_registry_parser(self.__systemHive, False)
+            currentControlSet = winreg.getValue('\\Select\\Current')[1]
+            currentControlSet = 'ControlSet%03d' % currentControlSet
+            value = winreg.getValue('\\%s\\Services\\%s\\ObjectName' % (currentControlSet, serviceName))
+            if value is None:
+                return None
+            account = value[1]
+            if isinstance(account, bytes):
+                account = account.decode('utf-16le').rstrip('\x00')
+            else:
+                account = account.rstrip('\x00')
+            if account.startswith('.\\'):
+                account = account[2:]
+            return account
+        except Exception as e:
+            if serviceName.endswith("_history") is False:
+                logging.debug('Failed to get service account for %s: %s' % (serviceName, str(e)))
+            return None
 
 
 class DumpSecrets:
@@ -176,6 +203,7 @@ class DumpSecrets:
                 raise
 
     def dump(self):
+        localOperations = None
         try:
             localDomainSid = None
             # Almost like LOCAL but create (and deletes it after finishing) a Shadow Snapshot at target and download SAM, SYSTEM and SECURITY from the SS. No Code Execution.
@@ -206,7 +234,7 @@ class DumpSecrets:
                 self.__securityHive = security_path
                 self.__ntdsFile = ntds_path[0] if ntds_path else None
 
-                localOperations = LocalOperations(self.__systemHive)
+                localOperations = LocalOperationsWithServiceAccount(self.__systemHive)
                 bootKey = localOperations.getBootKey()
                 if self.__ntdsFile is not None:
                     # Let's grab target's configuration about LM Hashes storage
@@ -217,7 +245,7 @@ class DumpSecrets:
                 self.__useVSSMethod = True
 
                 if self.__systemHive:
-                    localOperations = LocalOperations(self.__systemHive)
+                    localOperations = LocalOperationsWithServiceAccount(self.__systemHive)
                     bootKey = localOperations.getBootKey()
                     if self.__ntdsFile is not None:
                         # Let's grab target's configuration about LM Hashes storage
@@ -295,7 +323,8 @@ class DumpSecrets:
                             else:
                                 SECURITYFileName = self.__securityHive
 
-                            self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps,
+                            operations = self.__remoteOps if self.__isRemote else localOperations
+                            self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, operations,
                                                            isRemote=self.__isRemote, history=self.__history)
                             self.__LSASecrets.dumpCachedHashes()
                             if self.__outputFileName is not None:
