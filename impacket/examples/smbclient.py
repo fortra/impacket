@@ -38,7 +38,7 @@ import charset_normalizer as chardet
 
 
 class MiniImpacketShell(cmd.Cmd):
-    def __init__(self, smbClient, tcpShell=None, outputfile=None, dfs_auto_follow=False):
+    def __init__(self, smbClient, tcpShell=None, outputfile=None, dfs_auto_follow=False, client_name=None):
         #If the tcpShell parameter is passed (used in ntlmrelayx),
         # all input and output is redirected to a tcp socket
         # instead of to stdin / stdout
@@ -68,6 +68,7 @@ class MiniImpacketShell(cmd.Cmd):
         self.kdcHost = getattr(smbClient, '_kdcHost', None)
         # DFS support
         self.dfs_auto_follow = dfs_auto_follow
+        self.client_name = client_name
         self.dfs_connections = {}
         self.dfs_referral_cache = {}
         self.dfs_context_stack = []  # Stack of {smb, tid, share, pwd, dfs_target_info}
@@ -174,9 +175,9 @@ class MiniImpacketShell(cmd.Cmd):
 
 
         if port == 139:
-            self.smb = SMBConnection('*SMBSERVER', host, sess_port=port)
+            self.smb = SMBConnection('*SMBSERVER', host, sess_port=port, myName=self.client_name)
         else:
-            self.smb = SMBConnection(host, host, sess_port=port)
+            self.smb = SMBConnection(host, host, sess_port=port, myName=self.client_name)
 
         dialect = self.smb.getDialect()
         if dialect == SMB_DIALECT:
@@ -1049,7 +1050,7 @@ class MiniImpacketShell(cmd.Cmd):
                         target_smb = None
 
                 if target_smb is None:
-                    target_smb = SMBConnection(target_server, target_server, sess_port=445)
+                    target_smb = SMBConnection(target_server, target_server, sess_port=445, myName=self.client_name)
                     if self.use_kerberos:
                         target_smb.kerberosLogin(self.username, self.password, self.domain,
                                                  self.lmhash, self.nthash, self.aesKey,

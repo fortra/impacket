@@ -2552,6 +2552,8 @@ class SMBNTLMDialect_Data(Structure):
 
 class SMB(object):
 
+    DEFAULT_CLIENT_NAME = 'FILESERVER01'
+
     class HostnameValidationException(Exception):
         pass
 
@@ -2700,11 +2702,13 @@ class SMB(object):
     SMB_SHARE_IS_IN_DFS                     = 0x02
 
     def __init__(self, remote_name, remote_host, my_name=None, host_type=nmb.TYPE_SERVER, sess_port=445, timeout=None,
-                 UDP=0, session=None, negPacket=None):
+                 UDP=0, session=None, negPacket=None, nativeOS='Windows 10.0', nativeLanMan='Windows 10.0'):
         # The uid attribute will be set when the client calls the login() method
         self._uid = 0
         self.__server_name = ''
         self.__client_name = ''
+        self.__native_os = nativeOS
+        self.__native_lanman = nativeLanMan
         self.__server_os = ''
         self.__server_os_major = None
         self.__server_os_minor = None
@@ -2770,7 +2774,7 @@ class SMB(object):
         if sess_port == 445 and remote_name == '*SMBSERVER':
            self.__remote_name = remote_host
 
-        # This is on purpose. I'm still not convinced to do a socket.gethostname() if not specified
+        # Keep the NTLM workstation empty unless the caller explicitly supplies one.
         if my_name is None:
             self.__client_name = b''
         else:
@@ -2778,11 +2782,9 @@ class SMB(object):
 
         if session is None:
             if not my_name:
-                # If destination port is 139 yes, there's some client disclosure
-                my_name = socket.gethostname()
-                i = my_name.find('.')
-                if i > -1:
-                    my_name = my_name[:i]
+                my_name = self.DEFAULT_CLIENT_NAME
+            if sess_port == nmb.NETBIOS_SESSION_PORT:
+                LOG.info("SMB NetBIOS client name: %s", my_name)
 
             if UDP:
                 self._sess = nmb.NetBIOSUDPSession(my_name, remote_name, remote_host, host_type, sess_port, self.__timeout)
@@ -3575,9 +3577,13 @@ class SMB(object):
         sessionSetup['Parameters'].getData()
         sessionSetup['Data']['SecurityBlob']       = blob.getData()
 
-        # Fake Data here, don't want to get us fingerprinted
-        sessionSetup['Data']['NativeOS']      = 'Unix'
-        sessionSetup['Data']['NativeLanMan']  = 'Samba'
+        # [MS-CIFS] 2.2.4.6:
+        # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-cifs/81e15dee-8fb6-4102-8644-7eaa7ded63f7
+        # NativeOS represents the native operating system of the CIFS client.
+        # These Windows-style defaults can be overridden for another client.
+        sessionSetup['Data']['NativeOS']      = self.__native_os
+        sessionSetup['Data']['NativeLanMan']  = self.__native_lanman
+        LOG.debug("SMB1 session setup: NativeOS=%r NativeLanMan=%r", self.__native_os, self.__native_lanman)
 
         smb.addCommand(sessionSetup)
         self.sendSMB(smb)
@@ -3656,9 +3662,9 @@ class SMB(object):
         sessionSetup['Parameters'].getData()
         sessionSetup['Data']['SecurityBlob']       = blob.getData()
 
-        # Fake Data here, don't want to get us fingerprinted
-        sessionSetup['Data']['NativeOS']      = 'Unix'
-        sessionSetup['Data']['NativeLanMan']  = 'Samba'
+        sessionSetup['Data']['NativeOS']      = self.__native_os
+        sessionSetup['Data']['NativeLanMan']  = self.__native_lanman
+        LOG.debug("SMB1 session setup: NativeOS=%r NativeLanMan=%r", self.__native_os, self.__native_lanman)
 
         smb.addCommand(sessionSetup)
         self.sendSMB(smb)
@@ -3874,8 +3880,9 @@ class SMB(object):
         sessionSetup['Data']['UnicodePwd']    = pwd_unicode
         sessionSetup['Data']['Account']       = str(user)
         sessionSetup['Data']['PrimaryDomain'] = str(domain)
-        sessionSetup['Data']['NativeOS']      = str(os.name)
-        sessionSetup['Data']['NativeLanMan']  = 'pysmb'
+        sessionSetup['Data']['NativeOS']      = self.__native_os
+        sessionSetup['Data']['NativeLanMan']  = self.__native_lanman
+        LOG.debug("SMB1 session setup: NativeOS=%r NativeLanMan=%r", self.__native_os, self.__native_lanman)
         smb.addCommand(sessionSetup)
 
         self.sendSMB(smb)

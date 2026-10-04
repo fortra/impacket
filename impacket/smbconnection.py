@@ -51,6 +51,10 @@ class SMBConnection:
                            If the later, and port is 139, the library will try to get the target's server name.
     :param str remoteHost: Target server's remote address (IPv4, IPv6) or FQDN
     :param optional str myName: The client's NETBIOS name
+    :param optional str nativeOS: The client's SMB native operating system name.
+                                  Defaults to ``Windows 10.0`` and is sent by SMB1 clients.
+    :param optional str nativeLanMan: The client's SMB native LAN manager name.
+                                      Defaults to ``Windows 10.0`` and is sent by SMB1 clients.
     :param optional int sess_port: A target port to connect
     :param optional int timeout: Timeout in seconds when receiving packets
     :param optional int/str preferredDialect: The dialect desired to talk with the target server. If not specified the highest
@@ -61,13 +65,15 @@ class SMBConnection:
     :raise SessionError: If encountered an error.
     """
     def __init__(self, remoteName='', remoteHost='', myName=None, sess_port=nmb.SMB_SESSION_PORT, timeout=60, preferredDialect=None,
-                 existingConnection=None, manualNegotiate=False):
+                 existingConnection=None, manualNegotiate=False, nativeOS='Windows 10.0', nativeLanMan='Windows 10.0'):
 
         self._SMBConnection = 0
         self._dialect       = ''
         self._nmbSession    = 0
         self._sess_port     = sess_port
         self._myName        = myName
+        self._nativeOS      = nativeOS
+        self._nativeLanMan  = nativeLanMan
         self._remoteHost    = remoteHost
         self._remoteName    = remoteName
         self._timeout       = timeout
@@ -142,16 +148,22 @@ class SMBConnection:
                 # Answer is SMB packet, sticking to SMBv1
                 self._SMBConnection = smb.SMB(self._remoteName, self._remoteHost, self._myName, hostType,
                                               self._sess_port, self._timeout, session=self._nmbSession,
-                                              negPacket=packet)
+                                              negPacket=packet, nativeOS=self._nativeOS,
+                                              nativeLanMan=self._nativeLanMan)
         else:
             if preferredDialect == smb.SMB_DIALECT:
                 self._SMBConnection = smb.SMB(self._remoteName, self._remoteHost, self._myName, hostType,
-                                              self._sess_port, self._timeout)
+                                              self._sess_port, self._timeout,
+                                              nativeOS=self._nativeOS, nativeLanMan=self._nativeLanMan)
             elif preferredDialect in [SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30, SMB2_DIALECT_311]:
                 self._SMBConnection = smb3.SMB3(self._remoteName, self._remoteHost, self._myName, hostType,
                                                 self._sess_port, self._timeout, preferredDialect=preferredDialect)
             else:
                 raise Exception("Unknown dialect %s")
+
+        LOG.info("SMB dialect selected: %s", self._SMBConnection.getDialect())
+        if self._sess_port != nmb.NETBIOS_SESSION_PORT:
+            LOG.info("SMB client name: %s", self._myName or "not specified")
 
         # propagate flags to the smb sub-object, except for Unicode (if server supports)
         # does not affect smb3 objects
@@ -168,10 +180,9 @@ class SMBConnection:
         # (including SMB1) is supported on the other end.
 
         if not myName:
-            myName = socket.gethostname()
-            i = myName.find('.')
-            if i > -1:
-                myName = myName[:i]
+            myName = smb.SMB.DEFAULT_CLIENT_NAME
+        if sess_port == nmb.NETBIOS_SESSION_PORT:
+            LOG.info("SMB NetBIOS client name: %s", myName)
 
         tries = 0
         smbp = smb.NewSMBPacket()
@@ -284,6 +295,7 @@ class SMBConnection:
         :return: None
         :raise SessionError: If encountered an error (e.g. authentication failure, or invalid/truncated server response).
         """
+        LOG.info("SMB authentication: NTLM")
         self._ntlmFallback = ntlmFallback
         try:
             if self.getDialect() == smb.SMB_DIALECT:
@@ -314,6 +326,7 @@ class SMBConnection:
         :return: None
         :raise SessionError: If encountered an error.
         """
+        LOG.info("SMB authentication: Kerberos")
         from impacket.krb5.ccache import CCache
         from impacket.krb5.kerberosv5 import KerberosError
         from impacket.krb5 import constants
