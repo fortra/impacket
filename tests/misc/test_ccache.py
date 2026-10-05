@@ -118,6 +118,41 @@ class CCACHETests(unittest.TestCase):
                 self.assertIsNone(TGS)
                 self.assertIsNotNone(TGT)
 
+    @pytest.mark.skipif(PY2, reason="requires python 3.3 or higher")
+    def test_ccache_parseFile_can_require_exact_spn(self):
+        if not PY2:
+            ccache = mock.Mock()
+            tgt_credential = mock.Mock()
+            tgt = object()
+            tgt_credential.toTGT.return_value = tgt
+            ccache.getCredential.side_effect = [None, tgt_credential]
+
+            with mock.patch.object(CCache, "loadFile", return_value=ccache):
+                domain, username, TGT, TGS = CCache.parseFile(
+                    self.domain,
+                    self.username,
+                    "cifs/server.innovation.rocks",
+                    anySPN=False,
+                )
+
+            self.assertEqual(domain, self.domain)
+            self.assertEqual(username, self.username)
+            self.assertIs(TGT, tgt)
+            self.assertIsNone(TGS)
+            self.assertEqual(
+                ccache.getCredential.call_args_list,
+                [
+                    mock.call(
+                        "CIFS/SERVER.INNOVATION.ROCKS@INNOVATION.ROCKS",
+                        anySPN=False,
+                    ),
+                    mock.call(
+                        "krbtgt/INNOVATION.ROCKS@INNOVATION.ROCKS",
+                        anySPN=False,
+                    ),
+                ],
+            )
+
     def test_credential_with_authdata_roundtrip(self):
         # Regression test for a credential that carries authorization data.
         # Credential.authData started as a tuple and was never turned into a
