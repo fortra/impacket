@@ -187,6 +187,38 @@ class TargetsProcessor:
         else:
             return self.getTarget(identity, multiRelay)
 
+class CESTargetsProcessor(TargetsProcessor):
+    """HTTP(S)-only targets that remain available after failed authentication."""
+
+    def __init__(self, *args, **kwargs):
+        self._ces_initial_load = True
+        super().__init__(*args, **kwargs)
+        self._ces_initial_load = False
+
+    @staticmethod
+    def processTarget(target, protocolClients):
+        from impacket.examples.ntlmrelayx.utils.ces import validate_ces_target
+        validate_ces_target(target)
+        return TargetsProcessor.processTarget(target, protocolClients)
+
+    def readTargets(self):
+        previous = list(getattr(self, 'originalTargets', []))
+        try:
+            return super().readTargets()
+        except ValueError as exc:
+            self.originalTargets = previous
+            self.reloadTargets()
+            if self._ces_initial_load:
+                raise
+            LOG.error("CES targets file update rejected: %s", exc)
+
+    def registerTarget(self, target, gotRelay=False, gotUsername=None):
+        if gotRelay:
+            return super().registerTarget(target, gotRelay, gotUsername)
+        LOG.debug("Keeping failed CES target available for another authentication attempt: %s", target.geturl())
+        self.reloadTargets()
+
+
 class TargetsFileWatcher(Thread):
     def __init__(self,targetprocessor):
         Thread.__init__(self)

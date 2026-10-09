@@ -9,6 +9,9 @@ https://github.com/fortra/impacket/commits/master
 
 1. Examples improvements
 
+    * [ntlmrelayx.py](examples/ntlmrelayx.py):
+        * Added `--adcs-ces` support for relaying to AD CS Certificate Enrollment Services (CES/WSTEP). CES mode reuses the existing target, template, listener, and SMB2 options; generates its CSR automatically; and writes DER, PKCS#7, and encrypted PFX artifacts to the startup working directory. Outbound HTTPS certificate verification follows ntlmrelayx's existing behavior and is disabled.
+
     * [atexec.py](examples/atexec.py):
         * Added mutually exclusive `-author-log` and `-overflow` options to poison or overflow the Task Scheduler Security Event 4698 Author field via task XML RegistrationInfo.
 

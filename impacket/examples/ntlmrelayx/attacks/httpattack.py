@@ -19,6 +19,7 @@
 
 from impacket.examples.ntlmrelayx.attacks import ProtocolAttack
 from impacket.examples.ntlmrelayx.attacks.httpattacks.adcsattack import ADCSAttack
+from impacket.examples.ntlmrelayx.attacks.httpattacks.cesattack import CESAttack
 from impacket.examples.ntlmrelayx.attacks.httpattacks.sccmpoliciesattack import SCCMPoliciesAttack
 from impacket.examples.ntlmrelayx.attacks.httpattacks.sccmdpattack import SCCMDPAttack
 
@@ -27,7 +28,7 @@ from impacket.examples.ntlmrelayx.attacks.httpattacks.sccmdpattack import SCCMDP
 PROTOCOL_ATTACK_CLASS = "HTTPAttack"
 
 
-class HTTPAttack(ProtocolAttack, ADCSAttack, SCCMPoliciesAttack, SCCMDPAttack):
+class HTTPAttack(ProtocolAttack, ADCSAttack, CESAttack, SCCMPoliciesAttack, SCCMDPAttack):
     """
     This is the default HTTP attack. This attack only dumps the root page, though
     you can add any complex attack below. self.client is an instance of urrlib.session
@@ -38,7 +39,9 @@ class HTTPAttack(ProtocolAttack, ADCSAttack, SCCMPoliciesAttack, SCCMDPAttack):
 
     def run(self):
 
-        if self.config.isADCSAttack:
+        if self.config.isCESAttack:
+            CESAttack._run(self)
+        elif self.config.isADCSAttack:
             ADCSAttack._run(self)
         elif self.config.isSCCMPoliciesAttack:
             SCCMPoliciesAttack._run(self)
