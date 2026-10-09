@@ -169,9 +169,13 @@ class HTTPRelayClient(ProtocolClient):
         response, _ = self._cesEmptyPost()
         offered = self._wwwAuthenticate(response)
         if response.status != 401:
-            LOG.info('Status code returned to unauthenticated CES POST: %d' % response.status)
+            LOG.error(
+                'CES target did not request authentication for POST %s (HTTP %d %s)'
+                % (self._cesPath(), response.status, response.reason)
+            )
+            return False
         if not offered:
-            LOG.error('No authentication requested by the CES endpoint for url %s' % self.targetHost)
+            LOG.error('CES target returned HTTP 401 without WWW-Authenticate for url %s' % self.targetHost)
             return False
         if 'NTLM' not in offered.upper() and 'NEGOTIATE' not in offered.upper():
             LOG.error('NTLM/Negotiate not offered by CES URL, offered protocols: %s' % offered)

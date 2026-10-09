@@ -215,6 +215,14 @@ class CESHTTPClientTests(unittest.TestCase):
         self.assertTrue(all(request[1] == "/service.svc/CES?q=1" for request in client.session.requests))
         self.assertTrue(all(response.read_called for response in responses))
 
+    def test_ces_invalid_endpoint_fails_on_first_relay_attempt(self):
+        response = self.Response(404)
+        client = self.client(True, [response])
+        self.assertFalse(client.sendNegotiate(b"negotiate"))
+        self.assertEqual(len(client.session.requests), 1)
+        self.assertEqual(client.session.requests[0][0], "POST")
+        self.assertTrue(response.read_called)
+
     def test_ces_malformed_challenge_and_final_401_fail_closed(self):
         malformed = self.client(True, [
             self.Response(401, ["Negotiate"]), self.Response(401, ["Negotiate !!!"])
