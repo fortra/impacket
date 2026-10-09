@@ -15,12 +15,10 @@ import binascii
 import os
 import re
 import secrets
-import ssl
 import threading
 import uuid
 import xml.etree.ElementTree as ET
 from html import escape
-from http.client import HTTPConnection, HTTPSConnection
 from urllib.parse import urlparse, urlunparse
 
 from cryptography import x509
@@ -88,11 +86,6 @@ def validate_ces_targets_file(filename):
         raise CESConfigurationError("CES targets file contains no targets: %s" % filename)
 
 
-def _request_path(parsed):
-    path = parsed.path or "/"
-    return path + (("?" + parsed.query) if parsed.query else "")
-
-
 def soap_http_headers(content_length):
     return {
         "Content-Type": "application/soap+xml; charset=utf-8",
@@ -102,44 +95,6 @@ def soap_http_headers(content_length):
         "Pragma": "no-cache",
         "Content-Length": str(content_length),
     }
-
-
-def preflight_ces_target(target, timeout=10):
-    """Confirm that an empty POST receives an NTLM-capable challenge.
-
-    HTTPS intentionally follows ntlmrelayx's existing outbound behavior and does
-    not verify the target certificate.
-    """
-    parsed = validate_ces_target(target)
-    port = parsed.port or (443 if parsed.scheme.lower() == "https" else 80)
-    if parsed.scheme.lower() == "https":
-        connection = HTTPSConnection(
-            parsed.hostname, port, timeout=timeout,
-            context=ssl._create_unverified_context(),
-        )
-    else:
-        connection = HTTPConnection(parsed.hostname, port, timeout=timeout)
-    try:
-        connection.request("POST", _request_path(parsed), body=b"", headers=soap_http_headers(0))
-        response = connection.getresponse()
-        response.read()
-        offered = response.getheader("WWW-Authenticate") or ""
-        if response.status != 401:
-            raise CESConfigurationError(
-                "CES preflight expected HTTP 401 for POST %s, received HTTP %d %s" %
-                (_request_path(parsed), response.status, response.reason)
-            )
-        if "NTLM" not in offered.upper() and "NEGOTIATE" not in offered.upper():
-            raise CESConfigurationError(
-                "CES target did not advertise NTLM or Negotiate authentication: %s" %
-                (offered or "header absent")
-            )
-    except CESConfigurationError:
-        raise
-    except Exception as exc:
-        raise CESConfigurationError("CES target preflight failed for %s: %s" % (target, exc)) from exc
-    finally:
-        connection.close()
 
 
 def derive_subject_cn(relayed_username):

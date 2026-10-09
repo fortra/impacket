@@ -57,7 +57,7 @@ from impacket.examples import logger
 from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer, WCFRelayServer, RAWRelayServer, RPCRelayServer, WinRMRelayServer, WinRMSRelayServer, MSSQLRelayServer, RDPRelayServer 
 from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig, parse_listening_ports
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, CESTargetsProcessor, TargetsFileWatcher
-from impacket.examples.ntlmrelayx.utils.ces import preflight_ces_target, validate_ces_target, validate_ces_targets_file
+from impacket.examples.ntlmrelayx.utils.ces import validate_ces_target, validate_ces_targets_file
 from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS
 
 RELAY_SERVERS = []
@@ -504,7 +504,6 @@ if __name__ == '__main__':
         try:
             if options.target is not None:
                 validate_ces_target(options.target)
-                preflight_ces_target(options.target, timeout=10)
             elif not os.path.isfile(options.tf):
                 parser.error('CES targets file does not exist: %s' % options.tf)
             else:

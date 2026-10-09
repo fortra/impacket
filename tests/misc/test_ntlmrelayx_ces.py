@@ -24,7 +24,6 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.serialization import pkcs12, pkcs7
 from cryptography.x509.oid import NameOID
 
-from impacket.examples.ntlmrelayx.utils import ces as ces_module
 from impacket.examples.ntlmrelayx.utils.ces import (
     ADDR_NS,
     AUTHZ_NS,
@@ -40,7 +39,6 @@ from impacket.examples.ntlmrelayx.utils.ces import (
     derive_subject_cn,
     extract_response_tokens,
     generate_csr,
-    preflight_ces_target,
     secure_write,
     target_url,
     validate_ces_target,
@@ -64,34 +62,6 @@ class CESHelperTests(unittest.TestCase):
             with self.subTest(invalid=invalid), self.assertRaises(CESConfigurationError):
                 validate_ces_target(invalid)
         self.assertEqual(validate_ces_target("https://server:8443/service.svc/CES").port, 8443)
-
-    def test_single_target_preflight_uses_empty_post_and_drains(self):
-        class Response:
-            status = 401
-            reason = "Unauthorized"
-
-            def __init__(self):
-                self.drained = False
-
-            def read(self):
-                self.drained = True
-                return b""
-
-            def getheader(self, name):
-                return "Negotiate" if name == "WWW-Authenticate" else None
-
-        response = Response()
-        connection = SimpleNamespace(
-            request=lambda *args, **kwargs: setattr(connection, "request_args", (args, kwargs)),
-            getresponse=lambda: response,
-            close=lambda: setattr(connection, "closed", True),
-            closed=False,
-        )
-        with patch.object(ces_module, "HTTPConnection", return_value=connection):
-            preflight_ces_target("http://ca.example.test/service.svc/CES?q=1")
-        self.assertEqual(connection.request_args[0][:2], ("POST", "/service.svc/CES?q=1"))
-        self.assertTrue(response.drained)
-        self.assertTrue(connection.closed)
 
     def test_subject_and_generated_csr(self):
         self.assertEqual(derive_subject_cn("DOMAIN\\machine$"), "machine$")
