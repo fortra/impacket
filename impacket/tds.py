@@ -1093,11 +1093,11 @@ class TDS_SSVARIANT(Structure):
                 numBytes = data[1:]
                 value = int.from_bytes(numBytes, byteorder="little", signed=False)
 
-                getcontext().prec = precision
-
-                number = Decimal(value)
-                if scale:
-                    number /= Decimal(10) ** scale
+                with localcontext() as ctx:
+                    ctx.prec = precision
+                    number = Decimal(value)
+                    if scale:
+                        number /= Decimal(10) ** scale
 
                 if sign < 0:
                     number = -number
