@@ -2634,7 +2634,7 @@ class MSSQL:
                         value = None
 
             elif (_type == TDS_BIGVARBINTYPE) | (_type == TDS_BIGBINARYTYPE):
-                if _type == TDS_BIGVARBINTYPE and col["TypeData"] == 0xFFFF:
+                if _type == TDS_BIGVARBINTYPE and col.get("TypeData") == 0xFFFF:
                     # VARBINARY(MAX): PLP encoding
                     value, data = self._read_plp(data)
                 else:

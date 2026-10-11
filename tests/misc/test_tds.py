@@ -360,23 +360,23 @@ class TDSTests(unittest.TestCase):
         self.assertEqual(consumed, len(data))
         return client.rows[-1]["value"]
 
-    def test_parse_row_decodes_big_binary_hex_as_string(self):
+    def test_parse_row_decodes_big_binary_as_bytes(self):
         value = self._parse_single_column_row(
             tds.TDS_BIGVARBINTYPE,
             struct.pack("<H", 3) + b"\x01\xab\xff",
         )
 
-        self.assertEqual(value, "01abff")
-        self.assertIsInstance(value, str)
+        self.assertEqual(value, b"\x01\xab\xff")
+        self.assertIsInstance(value, bytes)
 
-    def test_parse_row_decodes_image_hex_as_string(self):
+    def test_parse_row_decodes_image_as_bytes(self):
         value = self._parse_single_column_row(
             tds.TDS_IMAGETYPE,
             self._text_pointer_row_data(b"\x01\xab\xff"),
         )
 
-        self.assertEqual(value, "01abff")
-        self.assertIsInstance(value, str)
+        self.assertEqual(value, b"\x01\xab\xff")
+        self.assertIsInstance(value, bytes)
 
     def test_parse_row_decodes_text_as_string(self):
         value = self._parse_single_column_row(
