@@ -10,10 +10,14 @@
 # for more information.
 #
 
+import datetime
 import struct
 import socket
 import unittest
+from decimal import Decimal
 from unittest import mock
+from uuid import UUID
+
 from impacket.smbconnection import SessionError
 
 from impacket import tds
@@ -395,6 +399,241 @@ class TDSTests(unittest.TestCase):
 
         self.assertEqual(value, "7         ")
         self.assertIsInstance(value, str)
+
+    def _parse_col(self, col_type, data, **meta):
+        client = tds.MSSQL("server")
+        client.colMeta = [{"Type": col_type, "Name": "value", **meta}]
+        client.parseRow({"TokenType": tds.TDS_ROW_TOKEN, "Data": data})
+        return client.rows[-1]["value"]
+
+    # ------------------------------------------------------------------
+    # _collation_to_codec
+    # ------------------------------------------------------------------
+
+    def test_collation_to_codec_returns_cp1252_for_none(self):
+        self.assertEqual(tds.MSSQL._collation_to_codec(None), "cp1252")
+
+    def test_collation_to_codec_returns_cp1252_for_empty_bytes(self):
+        self.assertEqual(tds.MSSQL._collation_to_codec(b""), "cp1252")
+
+    def test_collation_to_codec_maps_english_lcid_to_cp1252(self):
+        # LCID 0x0409 = English (United States) -> cp1252
+        collation = struct.pack("<L", 0x0409) + b"\x00"
+        self.assertEqual(tds.MSSQL._collation_to_codec(collation), "cp1252")
+
+    def test_collation_to_codec_falls_back_to_cp1252_for_unknown_lcid(self):
+        collation = struct.pack("<L", 0xFFFFF) + b"\x00"
+        self.assertEqual(tds.MSSQL._collation_to_codec(collation), "cp1252")
+
+    # ------------------------------------------------------------------
+    # _decode_scaled_time
+    # ------------------------------------------------------------------
+
+    def test_decode_scaled_time_midnight_scale0(self):
+        self.assertEqual(tds.MSSQL._decode_scaled_time(0, 0), (0, 0, 0, 0))
+
+    def test_decode_scaled_time_noon_scale0(self):
+        # 12 * 3600 = 43200 seconds since midnight
+        self.assertEqual(tds.MSSQL._decode_scaled_time(43200, 0), (12, 0, 0, 0))
+
+    def test_decode_scaled_time_max_scale7(self):
+        # 863999999999 * 100ns = 23:59:59.9999999; truncated to microseconds = 999999
+        self.assertEqual(tds.MSSQL._decode_scaled_time(863999999999, 7), (23, 59, 59, 999999))
+
+    # ------------------------------------------------------------------
+    # _read_plp
+    # ------------------------------------------------------------------
+
+    def test_read_plp_null_header_returns_none(self):
+        data = struct.pack("<Q", 0xFFFFFFFFFFFFFFFF)
+        value, remaining = tds.MSSQL._read_plp(data)
+        self.assertIsNone(value)
+        self.assertEqual(remaining, b"")
+
+    def test_read_plp_single_chunk(self):
+        payload = b"hello"
+        data = (
+            struct.pack("<Q", len(payload))
+            + struct.pack("<L", len(payload))
+            + payload
+            + struct.pack("<L", 0)
+        )
+        value, remaining = tds.MSSQL._read_plp(data)
+        self.assertEqual(value, b"hello")
+        self.assertEqual(remaining, b"")
+
+    def test_read_plp_multiple_chunks(self):
+        data = (
+            struct.pack("<Q", 0xFFFFFFFFFFFFFFFE)  # unknown total length
+            + struct.pack("<L", 3) + b"hel"
+            + struct.pack("<L", 2) + b"lo"
+            + struct.pack("<L", 0)
+        )
+        value, remaining = tds.MSSQL._read_plp(data)
+        self.assertEqual(value, b"hello")
+        self.assertEqual(remaining, b"")
+
+    # ------------------------------------------------------------------
+    # parseRow - fixed-size types
+    # ------------------------------------------------------------------
+
+    def test_parse_row_guid_returns_uuid(self):
+        guid = UUID("12345678-1234-5678-1234-567812345678")
+        data = bytes([16]) + guid.bytes_le
+        value = self._parse_single_column_row(tds.TDS_GUIDTYPE, data)
+        self.assertIsInstance(value, UUID)
+        self.assertEqual(value, guid)
+
+    def test_parse_row_guid_null_returns_none(self):
+        value = self._parse_single_column_row(tds.TDS_GUIDTYPE, bytes([0]))
+        self.assertIsNone(value)
+
+    def test_parse_row_bittype_true_returns_bool(self):
+        value = self._parse_single_column_row(tds.TDS_BITTYPE, b"\x01")
+        self.assertIs(value, True)
+        self.assertIsInstance(value, bool)
+
+    def test_parse_row_bittype_false_returns_bool(self):
+        value = self._parse_single_column_row(tds.TDS_BITTYPE, b"\x00")
+        self.assertIs(value, False)
+        self.assertIsInstance(value, bool)
+
+    def test_parse_row_int1type_returns_int_not_bool(self):
+        # TINYINT 0 must be int(0), not False
+        value = self._parse_single_column_row(tds.TDS_INT1TYPE, b"\x00")
+        self.assertEqual(value, 0)
+        self.assertNotIsInstance(value, bool)
+
+    def test_parse_row_datetimetype_negative_days(self):
+        # days=-1 from base 1900-01-01 must give 1899-12-31, not ~1752
+        data = struct.pack("<l", -1) + struct.pack("<L", 0)
+        value = self._parse_single_column_row(tds.TDS_DATETIMETYPE, data)
+        self.assertEqual(value.date(), datetime.date(1899, 12, 31))
+
+    def test_parse_row_datetimetype_epoch(self):
+        # days=0 = 1900-01-01
+        data = struct.pack("<l", 0) + struct.pack("<L", 0)
+        value = self._parse_single_column_row(tds.TDS_DATETIMETYPE, data)
+        self.assertEqual(value.date(), datetime.date(1900, 1, 1))
+
+    # ------------------------------------------------------------------
+    # parseRow - nullable types
+    # ------------------------------------------------------------------
+
+    def test_parse_row_bitntype_null(self):
+        value = self._parse_single_column_row(tds.TDS_BITNTYPE, b"\x00")
+        self.assertIsNone(value)
+
+    def test_parse_row_bitntype_true(self):
+        value = self._parse_single_column_row(tds.TDS_BITNTYPE, b"\x01\x01")
+        self.assertIs(value, True)
+        self.assertIsInstance(value, bool)
+
+    def test_parse_row_bitntype_false(self):
+        value = self._parse_single_column_row(tds.TDS_BITNTYPE, b"\x01\x00")
+        self.assertIs(value, False)
+        self.assertIsInstance(value, bool)
+
+    def test_parse_row_intntype_4byte(self):
+        data = b"\x04" + struct.pack("<l", -42)
+        value = self._parse_single_column_row(tds.TDS_INTNTYPE, data)
+        self.assertEqual(value, -42)
+        self.assertIsInstance(value, int)
+
+    def test_parse_row_intntype_null(self):
+        value = self._parse_single_column_row(tds.TDS_INTNTYPE, b"\x00")
+        self.assertIsNone(value)
+
+    def test_parse_row_fltntype_null(self):
+        value = self._parse_single_column_row(tds.TDS_FLTNTYPE, b"\x00")
+        self.assertIsNone(value)
+
+    def test_parse_row_fltntype_4byte(self):
+        data = b"\x04" + struct.pack("<f", 1.5)
+        value = self._parse_single_column_row(tds.TDS_FLTNTYPE, data)
+        self.assertAlmostEqual(value, 1.5, places=5)
+        self.assertIsInstance(value, float)
+
+    def test_parse_row_moneyntype_smallmoney(self):
+        # 12345 units of 1/10000 = 1.2345
+        data = b"\x04" + struct.pack("<l", 12345)
+        value = self._parse_single_column_row(tds.TDS_MONEYNTYPE, data)
+        self.assertEqual(value, Decimal("1.2345"))
+        self.assertIsInstance(value, Decimal)
+
+    def test_parse_row_moneyntype_null(self):
+        value = self._parse_single_column_row(tds.TDS_MONEYNTYPE, b"\x00")
+        self.assertIsNone(value)
+
+    def test_parse_row_datentype_returns_date(self):
+        # datetime.date(2000, 1, 1).toordinal() = 730120 = 0x0B2408
+        data = b"\x03" + struct.pack("<L", 730120)[:3]
+        value = self._parse_col(tds.TDS_DATENTYPE, data)
+        self.assertEqual(value, datetime.date(2000, 1, 1))
+        self.assertIsInstance(value, datetime.date)
+
+    def test_parse_row_datentype_null(self):
+        value = self._parse_col(tds.TDS_DATENTYPE, b"\x00")
+        self.assertIsNone(value)
+
+    def test_parse_row_timentype_noon_scale0(self):
+        # scale=0: value in seconds; 43200 = 12:00:00; 3 bytes for scale 0-2
+        data = b"\x03" + struct.pack("<L", 43200)[:3]
+        value = self._parse_col(tds.TDS_TIMENTYPE, data, TypeData=0)
+        self.assertEqual(value, datetime.time(12, 0, 0))
+        self.assertIsInstance(value, datetime.time)
+
+    def test_parse_row_timentype_null(self):
+        value = self._parse_col(tds.TDS_TIMENTYPE, b"\x00", TypeData=0)
+        self.assertIsNone(value)
+
+    # ------------------------------------------------------------------
+    # parseRow - decimal / numeric
+    # ------------------------------------------------------------------
+
+    def test_parse_row_decimalntype_positive(self):
+        # DECIMAL(5,2): 123.45 -> integer 12345, sign=1, 2 bytes
+        type_data = b"\x11\x05\x02"  # max_size=17, precision=5, scale=2
+        data = b"\x03\x01" + struct.pack("<H", 12345)
+        value = self._parse_col(tds.TDS_DECIMALNTYPE, data, TypeData=type_data)
+        self.assertEqual(value, Decimal("123.45"))
+        self.assertIsInstance(value, Decimal)
+
+    def test_parse_row_decimalntype_negative(self):
+        type_data = b"\x11\x05\x02"
+        data = b"\x03\x00" + struct.pack("<H", 12345)
+        value = self._parse_col(tds.TDS_DECIMALNTYPE, data, TypeData=type_data)
+        self.assertEqual(value, Decimal("-123.45"))
+
+    def test_parse_row_decimalntype_null(self):
+        type_data = b"\x11\x05\x02"
+        value = self._parse_col(tds.TDS_DECIMALNTYPE, b"\x00", TypeData=type_data)
+        self.assertIsNone(value)
+
+    # ------------------------------------------------------------------
+    # parseRow - char types
+    # ------------------------------------------------------------------
+
+    def test_parse_row_nvarchartype_returns_str(self):
+        payload = "hello".encode("utf-16le")
+        data = struct.pack("<H", len(payload)) + payload
+        value = self._parse_col(tds.TDS_NVARCHARTYPE, data, TypeData=20)
+        self.assertEqual(value, "hello")
+        self.assertIsInstance(value, str)
+
+    def test_parse_row_nvarchartype_null(self):
+        value = self._parse_col(tds.TDS_NVARCHARTYPE, struct.pack("<H", 0xFFFF), TypeData=20)
+        self.assertIsNone(value)
+
+    def test_parse_row_bigvarchrtype_returns_str(self):
+        data = struct.pack("<H", 5) + b"hello"
+        value = self._parse_col(tds.TDS_BIGVARCHRTYPE, data, TypeData=100)
+        self.assertEqual(value, "hello")
+        self.assertIsInstance(value, str)
+
+    def test_parse_row_bigvarchrtype_null(self):
+        value = self._parse_col(tds.TDS_BIGVARCHRTYPE, struct.pack("<H", 0xFFFF), TypeData=100)
+        self.assertIsNone(value)
 
 
 class MSSQLSocksRelayTests(unittest.TestCase):
