@@ -20,8 +20,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 from Cryptodome.IO import PEM
-from cryptography.hazmat.primitives.serialization import pkcs12
-
+from cryptography.hazmat.primitives.serialization import pkcs12, _KeySerializationEncryption, PrivateFormat
 
 def getTicksNow():
     # https://learn.microsoft.com/en-us/dotnet/api/system.datetime.ticks?view=net-5.0#system-datetime-ticks
@@ -159,7 +158,7 @@ def exportPFX(certificate,key,path_to_file,password):
         key=key,
         cert=certificate,
         cas=None,
-        encryption_algorithm=serialization.BestAvailableEncryption(password.encode())
+        encryption_algorithm=_KeySerializationEncryption(PrivateFormat.PKCS12, password.encode(), kdf_rounds=None, hmac_hash=None, key_cert_algorithm=None)
     )
 
     with open(path_to_file + ".pfx", "wb") as f:
