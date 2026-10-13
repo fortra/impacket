@@ -21,6 +21,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 from Cryptodome.IO import PEM
 from cryptography.hazmat.primitives.serialization import pkcs12, _KeySerializationEncryption, PrivateFormat
+from pyasn1.type.char import UTF8String
+from pyasn1.codec.der.encoder import encode as der_encode
 
 def getTicksNow():
     # https://learn.microsoft.com/en-us/dotnet/api/system.datetime.ticks?view=net-5.0#system-datetime-ticks
@@ -32,7 +34,7 @@ def getTicksNow():
 def getDeviceId():
     return uuid.uuid4().bytes
 
-def createSelfSignedX509Certificate(subject,kSize=2048):
+def createSelfSignedX509Certificate(subject, kSize=2048, domain=""):
     key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=kSize,
@@ -59,7 +61,18 @@ def createSelfSignedX509Certificate(subject,kSize=2048):
         now + datetime.timedelta(days=3650)  # 10 years
     ).add_extension(
         x509.BasicConstraints(ca=True, path_length=None), critical=True,
-    ).sign(key, hashes.SHA256()
+    )
+
+    if domain != "":
+        san = x509.SubjectAlternativeName([
+            x509.OtherName(
+                x509.ObjectIdentifier("1.3.6.1.4.1.311.20.2.3"),
+                der_encode(UTF8String(f"{subject}@{domain}"))
+            )
+        ])
+        cert = cert.add_extension(san, critical=False)
+    
+    cert = cert.sign(key, hashes.SHA256()
     )
 
     return key,cert
