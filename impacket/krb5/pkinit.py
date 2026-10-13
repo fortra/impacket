@@ -237,11 +237,16 @@ def octetstring2key(x, cipher):
 class DiffieHellman:
     """MODP Diffie-Hellman key agreement (RFC 4556 3.2.3.1)."""
 
-    def __init__(self, group=14, prime=None, generator=2):
+    def __init__(self, group=14, prime=None, generator=None):
         if prime is None:
             if group not in DH_GROUPS:
                 raise PKINITError('Unsupported Diffie-Hellman group %s' % group)
-            prime, generator = DH_GROUPS[group]
+            # an explicit generator still takes precedence over the one of the group
+            prime, groupGenerator = DH_GROUPS[group]
+            if generator is None:
+                generator = groupGenerator
+        elif generator is None:
+            generator = 2
         self.group = group
         self.prime = prime
         self.generator = generator
