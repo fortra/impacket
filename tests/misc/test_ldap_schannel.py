@@ -22,8 +22,9 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
+from OpenSSL import crypto
 
-from impacket.ldap.ldap import LDAPConnection, LDAPSessionError, load_pkcs12
+from impacket.ldap.ldap import LDAPConnection, LDAPSessionError, certificate_file_type, load_pkcs12
 
 
 def generate_certificate(commonName):
@@ -52,6 +53,9 @@ class LDAPSchannelTests(unittest.TestCase):
             serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
         self.otherKeyfile = self.write_file('other_key.pem', self.otherKey.private_bytes(
             serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+        self.derCertfile = self.write_file('cert.der', self.certificate.public_bytes(serialization.Encoding.DER))
+        self.derKeyfile = self.write_file('key.der', self.key.private_bytes(
+            serialization.Encoding.DER, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
 
     def tearDown(self):
         shutil.rmtree(self.directory, ignore_errors=True)
@@ -116,6 +120,24 @@ class LDAPSchannelTests(unittest.TestCase):
 
     def test_context_with_pem_pair(self):
         connection = self.build_connection(certfile=self.certfile, keyfile=self.keyfile)
+        connection.build_tls_context()
+        self.assertTrue(connection._client_cert_loaded)
+
+    def test_certificate_file_type(self):
+        self.assertEqual(certificate_file_type(self.certfile), crypto.FILETYPE_PEM)
+        self.assertEqual(certificate_file_type(self.keyfile), crypto.FILETYPE_PEM)
+        self.assertEqual(certificate_file_type(self.derCertfile), crypto.FILETYPE_ASN1)
+        self.assertEqual(certificate_file_type(self.derKeyfile), crypto.FILETYPE_ASN1)
+        with self.assertRaises(LDAPSessionError):
+            certificate_file_type(os.path.join(self.directory, 'nonexistent.pem'))
+
+    def test_context_with_der_pair(self):
+        connection = self.build_connection(certfile=self.derCertfile, keyfile=self.derKeyfile)
+        connection.build_tls_context()
+        self.assertTrue(connection._client_cert_loaded)
+
+    def test_context_with_mixed_pem_and_der(self):
+        connection = self.build_connection(certfile=self.derCertfile, keyfile=self.keyfile)
         connection.build_tls_context()
         self.assertTrue(connection._client_cert_loaded)
 

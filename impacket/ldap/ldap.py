@@ -106,6 +106,16 @@ def get_entry_value(entry, attribute_name):
     return values[0] if values else None
 
 
+def certificate_file_type(path):
+    try:
+        with open(path, 'rb') as fd:
+            header = fd.read(10)
+    except OSError as e:
+        raise LDAPSessionError(errorString="Could not read '%s': %s" % (path, e))
+
+    return crypto.FILETYPE_PEM if header.startswith(b'-----BEGIN') else crypto.FILETYPE_ASN1
+
+
 def load_pkcs12(pfxfile, password=None):
     """Return the (certificate, private key) pair held in a PKCS#12 file, as pyOpenSSL objects."""
     if isinstance(password, str):
@@ -252,8 +262,8 @@ class LDAPConnection:
             raise LDAPSessionError(errorString='Both certfile and keyfile are required, use pfxfile for a PKCS#12 bundle')
         else:
             try:
-                ctx.use_certificate_file(self._certfile)
-                ctx.use_privatekey_file(self._keyfile)
+                ctx.use_certificate_file(self._certfile, certificate_file_type(self._certfile))
+                ctx.use_privatekey_file(self._keyfile, certificate_file_type(self._keyfile))
             except (SSL.Error, OSError) as e:
                 raise LDAPSessionError(errorString="Could not load the client certificate '%s' and key '%s': %s" %
                                                    (self._certfile, self._keyfile, e))
@@ -349,12 +359,7 @@ class LDAPConnection:
 
     def check_certificate_mapping(self):
         """Fail when the server did not map the client certificate presented during the handshake to an account."""
-        try:
-            identity = self.whoami()
-        except LDAPSessionError as e:
-            LOG.debug('Could not verify the client certificate mapping: %s' % e)
-            return
-
+        identity = self.whoami()
         if not identity:
             raise LDAPSessionError(errorString='The server did not map the client certificate to an account, '
                                                'the connection is anonymous')
