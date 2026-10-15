@@ -94,7 +94,7 @@ def is_ccache_file(filename):
 
 def convert_kirbi_to_ccache(input_filename, output_filename):
     ccache = CCache.loadKirbiFile(input_filename)
-    ccache.saveFile(output_filename)
+    ccache.saveFile(output_filename, chmod=0o600)
 
 
 def convert_ccache_to_kirbi(input_filename, output_filename):
