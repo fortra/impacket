@@ -28,6 +28,13 @@ from impacket.examples.smbclient import MiniImpacketShell
 from impacket import version
 from impacket.smbconnection import SMBConnection
 
+def client_name(value):
+    if not 1 <= len(value) <= 15:
+        raise argparse.ArgumentTypeError('NetBIOS name must be between 1 and 15 characters long')
+    if not value.isascii():
+        raise argparse.ArgumentTypeError('NetBIOS name must contain only ASCII characters')
+    return value
+
 def main():
     print(version.BANNER)
     parser = argparse.ArgumentParser(add_help = True, description = "SMB client implementation.")
@@ -65,6 +72,9 @@ def main():
                             'This is useful when target is the NetBIOS name and you cannot resolve it')
     group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port",
                        help='Destination port to connect to SMB Server')
+    group.add_argument('--client-name', type=client_name, metavar='NAME',
+                       help='Client name for SMB connections; used as the NetBIOS name on port 139 and as the '
+                           'NTLM workstation name when applicable (1-15 ASCII characters)')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -96,13 +106,14 @@ def main():
         nthash = ''
 
     try:
-        smbClient = SMBConnection(address, options.target_ip, sess_port=int(options.port))
+        smbClient = SMBConnection(address, options.target_ip, sess_port=int(options.port), myName=options.client_name)
         if options.k is True:
             smbClient.kerberosLogin(username, password, domain, lmhash, nthash, options.aesKey, options.dc_ip )
         else:
             smbClient.login(username, password, domain, lmhash, nthash)
 
-        shell = MiniImpacketShell(smbClient, None, options.outputfile, dfs_auto_follow=options.dfs_follow)
+        shell = MiniImpacketShell(smbClient, None, options.outputfile, dfs_auto_follow=options.dfs_follow,
+                                  client_name=options.client_name)
 
         if options.outputfile is not None:
             f = open(options.outputfile, 'a')
