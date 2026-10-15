@@ -154,6 +154,20 @@ class TDSTests(unittest.TestCase):
         self.assertEqual(response["Type"], tds.TDS_PRE_LOGIN)
         self.assertEqual(response["Data"], b"partial-header")
 
+    def test_recv_tds_reassembles_multi_packet_message(self):
+        client = tds.MSSQL("server")
+        first = self._build_tds_packet(tds.TDS_TABULAR, b"first-", tds.TDS_STATUS_NORMAL)
+        middle = self._build_tds_packet(tds.TDS_TABULAR, b"middle-", tds.TDS_STATUS_NORMAL)
+        last = self._build_tds_packet(tds.TDS_TABULAR, b"last", tds.TDS_STATUS_EOM)
+        client.socket = mock.Mock()
+        client.socket.recv = mock.Mock(side_effect=[first, middle, last])
+
+        response = client.recvTDS(packetSize=4096)
+
+        self.assertEqual(response["Type"], tds.TDS_TABULAR)
+        self.assertEqual(response["Data"], b"first-middle-last")
+        self.assertEqual(response["Length"], len(b"first-middle-last") + 8)
+
     def test_recv_tds_preserves_buffered_bytes_for_next_packet(self):
         client = tds.MSSQL("server")
         first = self._build_tds_packet(tds.TDS_PRE_LOGIN, b"first")
