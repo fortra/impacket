@@ -1510,13 +1510,15 @@ class MSSQL:
             packetSize = self.packetSize
 
         packet = self._recv_tds_packet(packetSize)
-        status = packet["Status"]
-        while status != TDS_STATUS_EOM:
-            tmpPacket = self._recv_tds_packet(packetSize)
-            status = tmpPacket["Status"]
-            packet["Data"] += tmpPacket["Data"]
-            packet["Length"] += tmpPacket["Length"] - 8
+        fragment = packet
+        chunks = [packet["Data"]]
 
+        while not (fragment["Status"] & TDS_STATUS_EOM):
+            fragment = self._recv_tds_packet(packetSize)
+            chunks.append(fragment["Data"])
+
+        packet["Data"] = b"".join(chunks)
+        packet["Length"] = len(packet["Data"]) + 8
         return packet
 
     def _recv_chunk(self, packetSize):
