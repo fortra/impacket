@@ -30,6 +30,7 @@ from binascii import unhexlify
 import random
 import six
 
+from cryptography.hazmat.primitives.serialization import pkcs12
 from pyasn1.codec.ber import encoder, decoder
 from pyasn1.error import SubstrateUnderrunError
 from pyasn1.type.univ import noValue
@@ -37,7 +38,7 @@ from pyasn1.type.univ import noValue
 from impacket import LOG
 from impacket.ldap.ldapasn1 import Filter, Control, SimplePagedResultsControl, ResultCode, Scope, DerefAliases, Operation, \
     KNOWN_CONTROLS, CONTROL_PAGEDRESULTS, NOTIFICATION_DISCONNECT, KNOWN_NOTIFICATIONS, BindRequest, SearchRequest, \
-    SearchResultDone, LDAPMessage, AddRequest, ModifyRequest, ModifyDNRequest, DelRequest
+    SearchResultDone, LDAPMessage, AddRequest, ModifyRequest, ModifyDNRequest, DelRequest, ExtendedRequest
 from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3, VERSION, hmac_md5, NTLMAuthChallenge
 from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, SPNEGOCipher, TypesMech
 
@@ -52,7 +53,7 @@ __all__ = [
     'LDAPConnection', 'LDAPFilterSyntaxError', 'LDAPFilterInvalidException', 'LDAPSessionError', 'LDAPSearchError',
     'Control', 'SimplePagedResultsControl', 'ResultCode', 'Scope', 'DerefAliases', 'Operation',
     'CONTROL_PAGEDRESULTS', 'KNOWN_CONTROLS', 'NOTIFICATION_DISCONNECT', 'KNOWN_NOTIFICATIONS',
-    'escape_filter_chars', 'get_entry_dn', 'get_entry_values', 'get_entry_value',
+    'escape_filter_chars', 'get_entry_dn', 'get_entry_values', 'get_entry_value', 'load_pkcs12',
 ]
 
 # https://tools.ietf.org/search/rfc4515#section-3
@@ -104,8 +105,41 @@ def get_entry_value(entry, attribute_name):
     values = get_entry_values(entry, attribute_name)
     return values[0] if values else None
 
+
+def certificate_file_type(path):
+    try:
+        with open(path, 'rb') as fd:
+            header = fd.read(10)
+    except OSError as e:
+        raise LDAPSessionError(errorString="Could not read '%s': %s" % (path, e))
+
+    return crypto.FILETYPE_PEM if header.startswith(b'-----BEGIN') else crypto.FILETYPE_ASN1
+
+
+def load_pkcs12(pfxfile, password=None):
+    """Return the (certificate, private key) pair held in a PKCS#12 file, as pyOpenSSL objects."""
+    if isinstance(password, str):
+        password = password.encode('utf-8')
+    if not password:
+        password = None   # cryptography expects None, not an empty password, for an unencrypted bundle
+
+    try:
+        with open(pfxfile, 'rb') as fd:
+            privateKey, certificate, _ = pkcs12.load_key_and_certificates(fd.read(), password)
+    except OSError as e:
+        raise LDAPSessionError(errorString="Could not read the PKCS#12 file '%s': %s" % (pfxfile, e))
+    except ValueError as e:
+        raise LDAPSessionError(errorString="Could not parse the PKCS#12 file '%s' (wrong password?): %s" % (pfxfile, e))
+
+    if certificate is None or privateKey is None:
+        raise LDAPSessionError(errorString="PKCS#12 file '%s' does not hold both a certificate and a private key" % pfxfile)
+
+    return crypto.X509.from_cryptography(certificate), crypto.PKey.from_cryptography_key(privateKey)
+
+
 class LDAPConnection:
-    def __init__(self, url, baseDN='', dstIp=None, signing=True, timeout=None):
+    def __init__(self, url, baseDN='', dstIp=None, signing=True, timeout=None, *, certfile=None, keyfile=None,
+                 pfxfile=None, pfxpass=None):
         """
         LDAPConnection class
 
@@ -113,6 +147,10 @@ class LDAPConnection:
         :param string baseDN:
         :param string dstIp:
         :param timeout: connection timeout in seconds (None = blocking)
+        :param string certfile: PEM or DER client certificate file used for Schannel authentication over TLS
+        :param string keyfile: PEM or DER private key file matching certfile
+        :param string pfxfile: PKCS#12 file holding both the client certificate and its private key
+        :param pfxpass: password protecting pfxfile, None when it is not encrypted
 
         :return: a LDAP instance, if not raises a LDAPSessionError exception
         """
@@ -145,6 +183,13 @@ class LDAPConnection:
         self.channel_binding_value = None
         self._channel_binding_error = None
 
+        # Schannel client certificate, presented during the TLS handshake (LDAPS or StartTLS)
+        self._certfile = certfile
+        self._keyfile = keyfile
+        self._pfxfile = pfxfile
+        self._pfxpass = pfxpass
+        self._client_cert_loaded = False
+
         ### SASL Auth LDAP Signing arguments
         self.sequenceNumber = 0
         
@@ -174,58 +219,13 @@ class LDAPConnection:
             self._socket.connect(sa)
         else:
             # Switching to TLS now
-            ctx = SSL.Context(SSL.TLS_METHOD)
-            ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
-            SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION = 0x00040000
-            ctx.set_options(SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION)
+            ctx = self.build_tls_context()
             self._socket = SSL.Connection(ctx, self._socket)
             self._socket.connect(sa)
             self._socket.settimeout(None)   # do_handshake() on a non-blocking (timeout-mode) socket raises WantReadError
             self._socket.do_handshake()
+            self.compute_channel_binding()
 
-            # From https://github.com/ThePirateWhoSmellsOfSunflowers/ldap3/blob/0181dbec0c0671237f96d9acf4a71044001acaf2/ldap3/core/connection.py#L1414
-            from cryptography import x509
-            from cryptography.hazmat.backends import default_backend
-            from cryptography.hazmat.primitives import hashes
-            from hashlib import md5
-
-            # RFC 5929 section 4.1 hashes list
-            rfc5929_hashes_list = (hashes.MD5, hashes.SHA1)
-
-            der_cert = crypto.dump_certificate(crypto.FILETYPE_ASN1, self._socket.get_peer_certificate())
-            peer_certificate = x509.load_der_x509_certificate(der_cert, default_backend())
-            peer_certificate_hash_algorithm = peer_certificate.signature_hash_algorithm
-
-            # RFC 5929 section 4.1 leaves tls-server-end-point undefined when
-            # the certificate signature does not use a separate hash function.
-            if peer_certificate_hash_algorithm is None:
-                self._channel_binding_error = (
-                    'Cannot compute tls-server-end-point channel binding: '
-                    'the certificate signature algorithm does not use a separate hash function'
-                )
-                LOG.debug(self._channel_binding_error)
-            else:
-                # RFC 5929 section 4.1 hash function selection
-                if isinstance(peer_certificate_hash_algorithm, rfc5929_hashes_list):
-                    digest = hashes.Hash(hashes.SHA256(), default_backend())
-                else:
-                    digest = hashes.Hash(peer_certificate_hash_algorithm, default_backend())
-                digest.update(der_cert)
-                peer_cert_digest_bytes = digest.finalize()
-
-                channel_binding_struct = b''
-                initiator_address = b'\x00'*8
-                acceptor_address = b'\x00'*8
-
-                # https://datatracker.ietf.org/doc/html/rfc5929#section-4
-                application_data_raw = b'tls-server-end-point:' + peer_cert_digest_bytes
-                len_application_data = len(application_data_raw).to_bytes(4, byteorder='little', signed = False)
-                application_data = len_application_data
-                application_data += application_data_raw
-                channel_binding_struct += initiator_address
-                channel_binding_struct += acceptor_address
-                channel_binding_struct += application_data
-                self.channel_binding_value = md5(channel_binding_struct).digest()
         self._socket.settimeout(None)
 
     def _get_channel_binding_value(self):
@@ -236,6 +236,134 @@ class LDAPConnection:
             raise LDAPSessionError(errorString=self._channel_binding_error)
 
         return self.channel_binding_value or b''
+
+    def build_tls_context(self):
+        ctx = SSL.Context(SSL.TLS_METHOD)
+        ctx.set_cipher_list('ALL:@SECLEVEL=0'.encode('utf-8'))
+        SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION = 0x00040000
+        ctx.set_options(SSL_OP_ALLOW_UNSAFE_LEGACY_RENEGOTIATION)
+        self.load_client_certificate(ctx)
+        return ctx
+
+    def load_client_certificate(self, ctx):
+        """Load the Schannel client certificate into ctx, from a PKCS#12 file or a certificate/key file pair."""
+        self._client_cert_loaded = False
+        if self._pfxfile is None and self._certfile is None and self._keyfile is None:
+            return
+
+        if self._pfxfile is not None:
+            certificate, privateKey = load_pkcs12(self._pfxfile, self._pfxpass)
+            try:
+                ctx.use_certificate(certificate)
+                ctx.use_privatekey(privateKey)
+            except (SSL.Error, crypto.Error) as e:
+                raise LDAPSessionError(errorString="Could not use the client certificate from '%s': %s" % (self._pfxfile, e))
+        elif self._certfile is None or self._keyfile is None:
+            raise LDAPSessionError(errorString='Both certfile and keyfile are required, use pfxfile for a PKCS#12 bundle')
+        else:
+            try:
+                ctx.use_certificate_file(self._certfile, certificate_file_type(self._certfile))
+                ctx.use_privatekey_file(self._keyfile, certificate_file_type(self._keyfile))
+            except (SSL.Error, OSError) as e:
+                raise LDAPSessionError(errorString="Could not load the client certificate '%s' and key '%s': %s" %
+                                                   (self._certfile, self._keyfile, e))
+
+        try:
+            ctx.check_privatekey()
+        except SSL.Error as e:
+            raise LDAPSessionError(errorString='Client certificate and private key do not match: %s' % e)
+
+        self._client_cert_loaded = True
+
+    def compute_channel_binding(self):
+        """Compute the LDAP channel binding token from the negotiated TLS server certificate."""
+        self._channel_binding_error = None
+        # From https://github.com/ThePirateWhoSmellsOfSunflowers/ldap3/blob/0181dbec0c0671237f96d9acf4a71044001acaf2/ldap3/core/connection.py#L1414
+        from cryptography import x509
+        from cryptography.hazmat.backends import default_backend
+        from cryptography.hazmat.primitives import hashes
+        from hashlib import md5
+
+        # RFC 5929 section 4.1 hashes list
+        rfc5929_hashes_list = (hashes.MD5, hashes.SHA1)
+
+        der_cert = crypto.dump_certificate(crypto.FILETYPE_ASN1, self._socket.get_peer_certificate())
+        peer_certificate = x509.load_der_x509_certificate(der_cert, default_backend())
+        peer_certificate_hash_algorithm = peer_certificate.signature_hash_algorithm
+
+        # RFC 5929 section 4.1 leaves tls-server-end-point undefined when
+        # the certificate signature does not use a separate hash function.
+        if peer_certificate_hash_algorithm is None:
+            self._channel_binding_error = (
+                'Cannot compute tls-server-end-point channel binding: '
+                'the certificate signature algorithm does not use a separate hash function'
+            )
+            LOG.debug(self._channel_binding_error)
+        else:
+            # RFC 5929 section 4.1 hash function selection
+            if isinstance(peer_certificate_hash_algorithm, rfc5929_hashes_list):
+                digest = hashes.Hash(hashes.SHA256(), default_backend())
+            else:
+                digest = hashes.Hash(peer_certificate_hash_algorithm, default_backend())
+            digest.update(der_cert)
+            peer_cert_digest_bytes = digest.finalize()
+
+            channel_binding_struct = b''
+            initiator_address = b'\x00'*8
+            acceptor_address = b'\x00'*8
+
+            # https://datatracker.ietf.org/doc/html/rfc5929#section-4
+            application_data_raw = b'tls-server-end-point:' + peer_cert_digest_bytes
+            len_application_data = len(application_data_raw).to_bytes(4, byteorder='little', signed = False)
+            application_data = len_application_data
+            application_data += application_data_raw
+            channel_binding_struct += initiator_address
+            channel_binding_struct += acceptor_address
+            channel_binding_struct += application_data
+            self.channel_binding_value = md5(channel_binding_struct).digest()
+
+    def startTLS(self):
+        """Upgrade a plaintext LDAP connection (ldap://) to TLS using the StartTLS extended operation."""
+        if self._SSL:
+            return
+
+        request = ExtendedRequest()
+        request['requestName'] = '1.3.6.1.4.1.1466.20037'  # StartTLS OID
+        response = self.sendReceive(request)[0]['protocolOp']
+        if response['extendedResp']['resultCode'] != ResultCode('success'):
+            raise LDAPSessionError(
+                errorString='Error in StartTLS request -> %s: %s' % (response['extendedResp']['resultCode'].prettyPrint(),
+                                                                     response['extendedResp']['diagnosticMessage'])
+            )
+
+        ctx = self.build_tls_context()
+        self._socket = SSL.Connection(ctx, self._socket)
+        self._socket.set_connect_state()
+        self._socket.do_handshake()
+        self._SSL = True
+        self.compute_channel_binding()
+
+    def whoami(self):
+        """Return the identity the server bound this connection to, empty when the connection is anonymous."""
+        request = ExtendedRequest()
+        request['requestName'] = '1.3.6.1.4.1.4203.1.11.3'  # RFC 4532 "Whoami?" OID
+        response = self.sendReceive(request)[0]['protocolOp']['extendedResp']
+        if response['resultCode'] != ResultCode('success'):
+            raise LDAPSessionError(
+                errorString='Error in whoami request -> %s: %s' % (response['resultCode'].prettyPrint(),
+                                                                   response['diagnosticMessage'])
+            )
+
+        identity = response['responseValue']
+        return bytes(identity).decode('utf-8') if identity.hasValue() else ''
+
+    def check_certificate_mapping(self):
+        """Fail when the server did not map the client certificate presented during the handshake to an account."""
+        identity = self.whoami()
+        if not identity:
+            raise LDAPSessionError(errorString='The server did not map the client certificate to an account, '
+                                               'the connection is anonymous')
+        LOG.debug('Client certificate mapped to %s' % identity)
 
     def kerberosLogin(self, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost=None, TGT=None,
                       TGS=None, useCache=True):
@@ -396,7 +524,8 @@ class LDAPConnection:
         :param string domain: domain where the account is valid for
         :param string lmhash: LMHASH used to authenticate using hashes (password is not used)
         :param string nthash: NTHASH used to authenticate using hashes (password is not used)
-        :param string authenticationChoice: type of authentication protocol to use (default NTLM)
+        :param string authenticationChoice: type of authentication protocol to use (default NTLM), 'external' binds
+               with the TLS client certificate given to LDAPConnection (Schannel)
 
         :return: True, raises a LDAPSessionError if error.
         """
@@ -510,6 +639,33 @@ class LDAPConnection:
             bindRequest['authentication']['sasl']['mechanism'] = 'GSS-SPNEGO'
             bindRequest['authentication']['sasl']['credentials'] = blob.getData()
             response = self.sendReceive(bindRequest)[0]['protocolOp']
+        elif authenticationChoice == 'external':
+            self.__signing = False
+            # The client certificate is only presented once the socket is wrapped in TLS
+            handshake_bound = self._SSL
+            if not handshake_bound:
+                self.startTLS()
+
+            if not self._client_cert_loaded:
+                raise LDAPSessionError(errorString='SASL EXTERNAL requires a client certificate: pass pfxfile, '
+                                                   'or both certfile and keyfile, to LDAPConnection')
+
+            # Active Directory answers authMethodNotSupported to an EXTERNAL bind over LDAPS, the handshake bound it
+            if handshake_bound:
+                self.check_certificate_mapping()
+            else:
+                bindRequest['name'] = ''
+                bindRequest['authentication']['sasl']['mechanism'] = 'EXTERNAL'
+                response = self.sendReceive(bindRequest)[0]['protocolOp']
+                if response['bindResponse']['resultCode'] != ResultCode('success'):
+                    raise LDAPSessionError(
+                        errorString='Error in bindRequest -> %s: %s' % (response['bindResponse']['resultCode'].prettyPrint(),
+                                                                        response['bindResponse']['diagnosticMessage'])
+                    )
+
+            self.__auth_type = authenticationChoice
+            self.__binded = True
+            return True
         else:
             raise LDAPSessionError(errorString="Unknown authenticationChoice: '%s'" % authenticationChoice)
 
