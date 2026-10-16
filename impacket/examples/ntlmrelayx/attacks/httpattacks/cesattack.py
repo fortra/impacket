@@ -39,7 +39,6 @@ REQUEST_TYPE_ISSUE = WST_NS + "/Issue"
 VALUE_TYPE_PKCS10 = ENROLL_NS + "#PKCS10"
 ENCODING_BASE64 = WSS_NS + "#base64binary"
 CES_ACTION = ENROLL_NS + "/RST/wstep"
-CES_TEMPLATE_DEFAULT = "Machine"
 CES_MAX_RESPONSE = 10 * 1024 * 1024
 
 _WHITESPACE_RE = re.compile(r"\s+")
@@ -81,7 +80,7 @@ def _has_explicit_port(netloc):
     return ":" in authority
 
 
-def build_ces_soap(target_url, csr_b64, template=CES_TEMPLATE_DEFAULT, message_id=None):
+def build_ces_soap(target_url, csr_b64, template, message_id=None):
     if not csr_b64:
         raise CESConfigurationError("CSR data is required")
     if not template:
