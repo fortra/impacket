@@ -1947,6 +1947,7 @@ class SMB3:
 
         treeId = self.connectTree(shareName)
         fileId = None
+        readFailed = False
         from impacket import smb
         try:
             fileId = self.create(treeId, path, FILE_READ_DATA, shareAccessMode, FILE_NON_DIRECTORY_FILE, mode, 0, createContexts=createContexts)
@@ -1966,10 +1967,19 @@ class SMB3:
                     written += len(data)
                     offset  += len(data)
                     callback(data)
+        except Exception:
++            readFailed = True
++            raise
         finally:
-            if fileId is not None:
-                self.close(treeId, fileId)
-            self.disconnectTree(treeId)
+            if readFailed:
++                try:
++                    self._NetBIOSSession.close()
++                except Exception:
++                    pass
++            else:
++                if fileId is not None:
++                    self.close(treeId, fileId)
++                self.disconnectTree(treeId)
 
     def storeFile(self, shareName, path, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ):
         path = path.replace('/', '\\')
