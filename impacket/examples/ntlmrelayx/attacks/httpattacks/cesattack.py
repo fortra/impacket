@@ -20,7 +20,6 @@ from impacket import LOG
 from impacket.examples.ntlmrelayx.attacks.httpattacks.adcsattack import ADCSAttack
 from impacket.examples.ntlmrelayx.utils.ces import (
     CES_MAX_RESPONSE,
-    CES_TEMPLATE_DEFAULT,
     build_ces_soap,
     decode_certificate,
     decode_pkcs7,
@@ -44,7 +43,7 @@ class CESAttack:
 
     def _run(self):
         identity = "%s\\%s" % (self.domain, self.username) if self.domain else self.username
-        template = self.config.template or CES_TEMPLATE_DEFAULT
+        template = ADCSAttack.get_template(self.username, self.config.template)
         try:
             key = rsa.generate_private_key(public_exponent=65537, key_size=4096)
             csr = ADCSAttack.generate_csr(key, derive_subject_cn(identity), None, csr_type=Encoding.DER)

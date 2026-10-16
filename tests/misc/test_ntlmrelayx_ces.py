@@ -170,6 +170,7 @@ class CESAttackTests(unittest.TestCase):
             method, path, body, headers = connection.requests[0]
             self.assertEqual((method, path), ("POST", "/service.svc/CES?q=1"))
             self.assertEqual(headers["Content-Length"], str(len(body)))
+            self.assertIn(b"<Value>Machine</Value>", body)
             self.assertEqual(sorted(os.listdir(directory)), [
                 "DOMAIN_machine.cer", "DOMAIN_machine.p7b", "DOMAIN_machine.pfx"
             ])

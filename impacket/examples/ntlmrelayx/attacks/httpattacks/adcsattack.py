@@ -111,9 +111,7 @@ class ADCSAttack:
             LOG.info("Certificate enumeration complete!")
             return
 
-        current_template = self.config.template
-        if current_template is None:
-            current_template = "Machine" if self.username.endswith("$") else "User"
+        current_template = self.get_template(self.username, self.config.template)
 
         # Template name might be UTF-8
         original_template = current_template
@@ -183,6 +181,12 @@ class ADCSAttack:
 
         if self.config.altName:
             LOG.info("This certificate can also be used for user : {}".format(self.config.altName))
+
+    @staticmethod
+    def get_template(username, template=None):
+        if template is not None:
+            return template
+        return "Machine" if username.endswith("$") else "User"
 
     @staticmethod
     def generate_csr(key, CN, altName, csr_type=Encoding.PEM, altSid=None):
