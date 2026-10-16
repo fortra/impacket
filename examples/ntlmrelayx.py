@@ -41,7 +41,6 @@ import argparse
 import sys
 import logging
 import cmd
-import os
 try:
     from urllib.request import ProxyHandler, build_opener, Request
 except ImportError:
@@ -57,7 +56,6 @@ from impacket.examples import logger
 from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer, WCFRelayServer, RAWRelayServer, RPCRelayServer, WinRMRelayServer, WinRMSRelayServer, MSSQLRelayServer, RDPRelayServer 
 from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig, parse_listening_ports
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, TargetsFileWatcher
-from impacket.examples.ntlmrelayx.attacks.httpattacks.cesattack import validate_ces_target, validate_ces_targets_file
 from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS
 
 RELAY_SERVERS = []
@@ -496,15 +494,6 @@ if __name__ == '__main__':
             parser.error('--adcs-ces accepts either -t or -tf, not both')
         if options.socks or options.interactive or options.r is not None:
             parser.error('--adcs-ces cannot be combined with SOCKS, interactive, or HTTP-to-SMB redirect mode')
-        try:
-            if options.target is not None:
-                validate_ces_target(options.target)
-            elif not os.path.isfile(options.tf):
-                parser.error('CES targets file does not exist: %s' % options.tf)
-            else:
-                validate_ces_targets_file(options.tf)
-        except ValueError as exc:
-            parser.error(str(exc))
 
     if options.https and options.certfile is None:
         parser.error('--https requires --certfile')

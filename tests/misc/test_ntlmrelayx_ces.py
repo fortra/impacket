@@ -30,7 +30,6 @@ from impacket.examples.ntlmrelayx.attacks.httpattacks.cesattack import (
     AUTHZ_NS,
     CES_ACTION,
     CESAttack,
-    CESConfigurationError,
     SOAP_NS,
     WSS_NS,
     build_ces_soap,
@@ -39,17 +38,10 @@ from impacket.examples.ntlmrelayx.attacks.httpattacks.cesattack import (
     derive_subject_cn,
     extract_response_tokens,
     target_url,
-    validate_ces_target,
 )
 
 
 class CESHelperTests(unittest.TestCase):
-    def test_target_validation_requires_explicit_http_url(self):
-        for invalid in ("server", "smb://server/path", "ALL://server/path", "https:///path"):
-            with self.subTest(invalid=invalid), self.assertRaises(CESConfigurationError):
-                validate_ces_target(invalid)
-        self.assertEqual(validate_ces_target("https://server:8443/service.svc/CES").port, 8443)
-
     def test_subject_common_name_derivation(self):
         self.assertEqual(derive_subject_cn("DOMAIN\\machine$"), "machine$")
         self.assertEqual(derive_subject_cn("DOMAIN/user@example.test"), "user")

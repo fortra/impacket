@@ -49,38 +49,6 @@ class CESConfigurationError(ValueError):
     pass
 
 
-def validate_ces_target(target):
-    """Validate an explicit HTTP(S) CES URL without making a request."""
-    try:
-        parsed = urlparse(target)
-        port = parsed.port
-    except (TypeError, ValueError) as exc:
-        raise CESConfigurationError("Invalid CES target URL %r: %s" % (target, exc)) from exc
-    if parsed.scheme.lower() not in ("http", "https") or not parsed.hostname:
-        raise CESConfigurationError("CES targets must be explicit HTTP or HTTPS URLs: %s" % target)
-    if parsed.scheme.lower() == "all":
-        raise CESConfigurationError("ALL:// targets are not supported in CES mode")
-    if port is not None and not 1 <= port <= 65535:
-        raise CESConfigurationError("Invalid port in CES target: %s" % target)
-    return parsed
-
-
-def validate_ces_targets_file(filename):
-    target_count = 0
-    with open(filename, "r") as targets_file:
-        for line_number, line in enumerate(targets_file, 1):
-            target = line.strip()
-            if not target or target.startswith("#"):
-                continue
-            target_count += 1
-            try:
-                validate_ces_target(target)
-            except CESConfigurationError as exc:
-                raise CESConfigurationError("%s:%d: %s" % (filename, line_number, exc)) from exc
-    if target_count == 0:
-        raise CESConfigurationError("CES targets file contains no targets: %s" % filename)
-
-
 def soap_http_headers(content_length):
     return {
         "Content-Type": "application/soap+xml; charset=utf-8",
@@ -118,7 +86,7 @@ def build_ces_soap(target_url, csr_b64, template=CES_TEMPLATE_DEFAULT, message_i
         raise CESConfigurationError("CSR data is required")
     if not template:
         raise CESConfigurationError("Certificate template is required")
-    parsed = validate_ces_target(target_url)
+    parsed = urlparse(target_url)
     # Rebuild the URL without any identity/userinfo. Keep path, query and an
     # explicitly supplied port, including an explicit default port.
     host = parsed.hostname
