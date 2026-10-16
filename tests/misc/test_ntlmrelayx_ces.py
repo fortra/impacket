@@ -25,10 +25,11 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import pkcs12, pkcs7
 from cryptography.x509.oid import NameOID
 
-from impacket.examples.ntlmrelayx.utils.ces import (
+from impacket.examples.ntlmrelayx.attacks.httpattacks.cesattack import (
     ADDR_NS,
     AUTHZ_NS,
     CES_ACTION,
+    CESAttack,
     CESConfigurationError,
     SOAP_NS,
     WSS_NS,
@@ -40,10 +41,6 @@ from impacket.examples.ntlmrelayx.utils.ces import (
     target_url,
     validate_ces_target,
 )
-try:
-    from impacket.examples.ntlmrelayx.attacks.httpattacks.cesattack import CESAttack
-except ImportError:
-    CESAttack = None
 
 
 class CESHelperTests(unittest.TestCase):
@@ -120,7 +117,6 @@ class CESHelperTests(unittest.TestCase):
         self.assertEqual(target_url(target), "https://[2001:db8::1]:443/service.svc/CES?q=1")
 
 
-@unittest.skipIf(CESAttack is None, "optional ntlmrelayx test dependencies are unavailable")
 class CESAttackTests(unittest.TestCase):
     class Response:
         status = 200
