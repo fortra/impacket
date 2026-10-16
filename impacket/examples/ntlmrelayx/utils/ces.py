@@ -12,20 +12,14 @@
 
 import base64
 import binascii
-import os
 import re
-import secrets
-import threading
 import uuid
 import xml.etree.ElementTree as ET
 from html import escape
 from urllib.parse import urlparse, urlunparse
 
 from cryptography import x509
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.serialization import pkcs12, pkcs7
-from cryptography.x509.oid import NameOID
+from cryptography.hazmat.primitives.serialization import pkcs7
 
 
 SOAP_NS = "http://www.w3.org/2003/05/soap-envelope"
@@ -42,12 +36,8 @@ ENCODING_BASE64 = WSS_NS + "#base64binary"
 CES_ACTION = ENROLL_NS + "/RST/wstep"
 CES_TEMPLATE_DEFAULT = "Machine"
 CES_MAX_RESPONSE = 10 * 1024 * 1024
-CES_PFX_FRIENDLY_NAME = b"ntlm-ces-relay-issued-certificate"
 
-_SAFE_FILENAME_RE = re.compile(r"[^A-Za-z0-9_.@$-]+")
 _WHITESPACE_RE = re.compile(r"\s+")
-_ARTIFACT_LOCK = threading.Lock()
-_ALLOCATED_PREFIXES = set()
 
 
 class CESConfigurationError(ValueError):
@@ -102,23 +92,6 @@ def derive_subject_cn(relayed_username):
         return "CES-Enrollment"
     value = relayed_username.split("\\")[-1].split("/")[-1].split("@")[0]
     return value or "CES-Enrollment"
-
-
-def sanitize_identity(relayed_identity):
-    value = (relayed_identity or "relayed").replace("\\", "_").replace("/", "_")
-    value = _SAFE_FILENAME_RE.sub("_", value).strip("._")
-    return value or "relayed"
-
-
-def generate_csr(relayed_username):
-    """Return a base64 DER PKCS#10 request and its generated RSA key."""
-    key = rsa.generate_private_key(public_exponent=65537, key_size=4096)
-    csr = (
-        x509.CertificateSigningRequestBuilder()
-        .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, derive_subject_cn(relayed_username))]))
-        .sign(key, hashes.SHA256())
-    )
-    return base64.b64encode(csr.public_bytes(serialization.Encoding.DER)).decode("ascii"), key
 
 
 def build_additional_context(template):
@@ -236,48 +209,3 @@ def decode_pkcs7(value):
     except (binascii.Error, ValueError) as exc:
         raise RuntimeError("CES returned an invalid PKCS#7 token") from exc
     return data
-
-
-def create_encrypted_pfx(certificate, key):
-    cert_public = certificate.public_key().public_bytes(
-        serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
-    )
-    key_public = key.public_key().public_bytes(
-        serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo
-    )
-    if cert_public != key_public:
-        raise RuntimeError("Issued certificate does not match the generated private key")
-    password = secrets.token_urlsafe(18)
-    data = pkcs12.serialize_key_and_certificates(
-        name=CES_PFX_FRIENDLY_NAME, key=key, cert=certificate, cas=None,
-        encryption_algorithm=serialization.BestAvailableEncryption(password.encode("utf-8")),
-    )
-    return data, password
-
-
-def allocate_artifact_paths(output_dir, identity):
-    output_dir = os.path.abspath(output_dir)
-    if not os.path.isdir(output_dir):
-        raise OSError("CES output directory does not exist: %s" % output_dir)
-    base = sanitize_identity(identity)
-    with _ARTIFACT_LOCK:
-        suffix = 0
-        while True:
-            prefix = base if suffix == 0 else "%s-%d" % (base, suffix)
-            paths = {ext: os.path.join(output_dir, prefix + "." + ext) for ext in ("cer", "p7b", "pfx")}
-            marker = os.path.join(output_dir, prefix)
-            if marker not in _ALLOCATED_PREFIXES and not any(os.path.exists(path) for path in paths.values()):
-                _ALLOCATED_PREFIXES.add(marker)
-                return paths
-            suffix += 1
-
-
-def secure_write(path, data):
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    try:
-        with os.fdopen(descriptor, "wb") as output:
-            descriptor = None
-            output.write(data)
-    finally:
-        if descriptor is not None:
-            os.close(descriptor)

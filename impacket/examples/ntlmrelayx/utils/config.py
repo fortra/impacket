@@ -103,7 +103,6 @@ class NTLMRelayxConfig:
         # AD CS attack options
         self.isADCSAttack = False
         self.isCESAttack = False
-        self.cesOutputDir = None
         self.template = None
         self.altName = None
         self.altSid = None
@@ -275,9 +274,8 @@ class NTLMRelayxConfig:
     def setIsADCSAttack(self, isADCSAttack):
         self.isADCSAttack = isADCSAttack
 
-    def setIsCESAttack(self, isCESAttack, outputDir=None):
+    def setIsCESAttack(self, isCESAttack):
         self.isCESAttack = isCESAttack
-        self.cesOutputDir = outputDir
 
     def setEnumTemplates(self, enumTemplates):
         self.enumTemplates = enumTemplates

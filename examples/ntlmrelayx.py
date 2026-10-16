@@ -56,7 +56,7 @@ from impacket import version
 from impacket.examples import logger
 from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer, WCFRelayServer, RAWRelayServer, RPCRelayServer, WinRMRelayServer, WinRMSRelayServer, MSSQLRelayServer, RDPRelayServer 
 from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig, parse_listening_ports
-from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, CESTargetsProcessor, TargetsFileWatcher
+from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, TargetsFileWatcher
 from impacket.examples.ntlmrelayx.utils.ces import validate_ces_target, validate_ces_targets_file
 from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS
 
@@ -182,9 +182,7 @@ def start_servers(options, threads):
     for server in RELAY_SERVERS:
         #Set up config
         c = NTLMRelayxConfig()
-        protocolClients = ({name: client for name, client in PROTOCOL_CLIENTS.items() if name in ('HTTP', 'HTTPS')}
-                           if options.adcs_ces else PROTOCOL_CLIENTS)
-        c.setProtocolClients(protocolClients)
+        c.setProtocolClients(PROTOCOL_CLIENTS)
         c.setRunSocks(options.socks, socksServer)
         c.setTargets(targetSystem)
         c.setExeFile(options.e)
@@ -214,7 +212,7 @@ def start_servers(options, threads):
         c.setExploitOptions(options.remove_mic, options.remove_target, options.remove_sign_seal)
         c.setWebDAVOptions(options.serve_image)
         c.setIsADCSAttack(options.adcs)
-        c.setIsCESAttack(options.adcs_ces, options.ces_output_dir)
+        c.setIsCESAttack(options.adcs_ces)
         c.setADCSOptions(options.template)
         c.setEnumTemplates(options.enum_templates)
         c.setIsShadowCredentialsAttack(options.shadow_credentials)
@@ -498,9 +496,6 @@ if __name__ == '__main__':
             parser.error('--adcs-ces accepts either -t or -tf, not both')
         if options.socks or options.interactive or options.r is not None:
             parser.error('--adcs-ces cannot be combined with SOCKS, interactive, or HTTP-to-SMB redirect mode')
-        if options.no_smb_server and options.no_http_server:
-            parser.error('--adcs-ces requires the SMB listener, HTTP listener, or both')
-        options.ces_output_dir = os.path.abspath(os.getcwd())
         try:
             if options.target is not None:
                 validate_ces_target(options.target)
@@ -510,8 +505,6 @@ if __name__ == '__main__':
                 validate_ces_targets_file(options.tf)
         except ValueError as exc:
             parser.error(str(exc))
-    else:
-        options.ces_output_dir = None
 
     if options.https and options.certfile is None:
         parser.error('--https requires --certfile')
@@ -534,8 +527,6 @@ if __name__ == '__main__':
 
     # Init the example's logger theme
     logger.init(options.ts, options.debug)
-    if options.adcs_ces and options.lootdir != '.':
-        logging.info('CES certificate output ignores --lootdir and is fixed to %s', options.ces_output_dir)
 
     # Let's register the protocol clients we have
     # ToDo: Do this better somehow
@@ -555,12 +546,7 @@ if __name__ == '__main__':
     if options.target is not None:
         logging.info("Running in relay mode to single host")
         mode = 'RELAY'
-        if options.adcs_ces:
-            cesProtocolClients = {name: client for name, client in PROTOCOL_CLIENTS.items() if name in ('HTTP', 'HTTPS')}
-            targetSystem = CESTargetsProcessor(singleTarget=options.target, protocolClients=cesProtocolClients, randomize=options.random)
-            options.no_multirelay = True
-        else:
-            targetSystem = TargetsProcessor(singleTarget=options.target, protocolClients=PROTOCOL_CLIENTS, randomize=options.random)
+        targetSystem = TargetsProcessor(singleTarget=options.target, protocolClients=PROTOCOL_CLIENTS, randomize=options.random)
         # Disabling multirelay feature (Single host + general candidate)
         if targetSystem.generalCandidates:
             options.no_multirelay = True
@@ -571,12 +557,7 @@ if __name__ == '__main__':
                 logging.info("To add a machine account through SMB only the Domain Controller must be specified as target")
                 sys.exit(1)
             logging.info("Running in relay mode to hosts in targetfile")
-            if options.adcs_ces:
-                cesProtocolClients = {name: client for name, client in PROTOCOL_CLIENTS.items() if name in ('HTTP', 'HTTPS')}
-                targetSystem = CESTargetsProcessor(targetListFile=options.tf, protocolClients=cesProtocolClients, randomize=options.random)
-                options.no_multirelay = True
-            else:
-                targetSystem = TargetsProcessor(targetListFile=options.tf, protocolClients=PROTOCOL_CLIENTS, randomize=options.random)
+            targetSystem = TargetsProcessor(targetListFile=options.tf, protocolClients=PROTOCOL_CLIENTS, randomize=options.random)
             mode = 'RELAY'
         else:
             logging.info("Running in reflection mode")
@@ -597,23 +578,23 @@ if __name__ == '__main__':
         if options.r is not None:
             logging.info("Running HTTP server in redirect mode")
 
-    if not options.no_wcf_server and not options.adcs_ces:
+    if not options.no_wcf_server:
         RELAY_SERVERS.append(WCFRelayServer)
 
-    if not options.no_raw_server and not options.adcs_ces:
+    if not options.no_raw_server:
         RELAY_SERVERS.append(RAWRelayServer)
     
-    if not options.no_winrm_server and not options.adcs_ces:
+    if not options.no_winrm_server:
         RELAY_SERVERS.append(WinRMRelayServer)
         RELAY_SERVERS.append(WinRMSRelayServer)
 
-    if not options.no_rpc_server and not options.adcs_ces:
+    if not options.no_rpc_server:
         RELAY_SERVERS.append(RPCRelayServer)
         
-    if not options.no_mssql_server and not options.adcs_ces:
+    if not options.no_mssql_server:
         RELAY_SERVERS.append(MSSQLRelayServer)
 
-    if not options.no_rdp_server and not options.adcs_ces:
+    if not options.no_rdp_server:
         RELAY_SERVERS.append(RDPRelayServer)
 
     if targetSystem is not None and options.tf is not None and options.w:
