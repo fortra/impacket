@@ -436,7 +436,7 @@ if __name__ == '__main__':
     adcsoptions = parser.add_argument_group("AD CS attack options")
     adcsoptions.add_argument('--adcs', action='store_true', required=False, help='Enable AD CS relay attack')
     adcsoptions.add_argument('--adcs-ces', action='store_true', default=False, help='Enable AD CS Certificate Enrollment Services (CES/WSTEP) relay attack')
-    adcsoptions.add_argument('--template', action='store', metavar="TEMPLATE", required=False, help='AD CS template. Classic AD CS defaults to Machine or User based on the relayed account; CES defaults to Machine')
+    adcsoptions.add_argument('--template', action='store', metavar="TEMPLATE", required=False, help='AD CS template. Defaults to Machine for computer accounts and User for user accounts.')
     adcsoptions.add_argument('--altname', action='store', metavar="ALTNAME", required=False, help='Subject Alternative Name to use when performing ESC1 or ESC6 attacks.')
     adcsoptions.add_argument('--altsid', action='store', dest='altSid', metavar="SID", required=False,
                              help='Object SID to embed in szOID_NTDS_CA_SECURITY_EXT (1.3.6.1.4.1.311.25.2). '
