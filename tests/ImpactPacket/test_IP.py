@@ -9,12 +9,34 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
+import array
 import unittest
 
-from impacket.ImpactPacket import IP
+from impacket.ImpactPacket import IP, IPOption
 
 
 class TestIP(unittest.TestCase):
+
+    def test_get_packet_with_options_is_repeatable(self):
+        # Issue #504: get_packet() must not append the options to the
+        # header buffer, or every call adds them again.
+        ip = IP()
+        ip.set_ip_src('10.0.0.1')
+        ip.set_ip_dst('10.0.0.2')
+        ip.add_option(IPOption(IPOption.IPOPT_NOP))
+        first = ip.get_packet()
+        second = ip.get_packet()
+        self.assertEqual(first, second)
+        self.assertEqual(len(second), 24)
+        self.assertEqual(ip.get_ip_hl(), 6)
+        self.assertEqual(ip.get_header_size(), 24)
+        self.assertEqual(ip.compute_checksum(array.array('B', second)), 0)
+
+    def test_get_packet_of_decoded_options_is_repeatable(self):
+        raw = bytes.fromhex('4600001800000000ff00a5e30a0000010a00000201000000')
+        ip = IP(raw)
+        self.assertEqual(ip.get_packet(), raw)
+        self.assertEqual(ip.get_packet(), raw)
 
     def test_fragment_by_size_without_payload(self):
         ip = IP()
