@@ -94,6 +94,9 @@ for name, values in DIGEST_ALGORITHMS.items():
     SIGNATURE_OIDS[values[2]] = name
 SIGNATURE_OIDS[ID_RSA_ENCRYPTION] = None  # digest carried by digestAlgorithm
 
+# The draft mandates SHA-2 for paChecksum2, SHA-256 being the only digest every KDC has to support
+PA_CHECKSUM2_DIGEST = 'sha256'
+
 # MODP groups usable for the Diffie-Hellman key agreement method (RFC 4556 3.2.1), as (prime, generator)
 DH_GROUPS = {
     2: (int(
@@ -960,7 +963,13 @@ class PKINIT:
         pkAuthenticator['ctime'] = KerberosTime.to_asn1(now)
         # Windows KDCs echo this nonce back as the AS-REP nonce, so it must match the KDC-REQ-BODY one
         pkAuthenticator['nonce'] = self.nonce
-        pkAuthenticator['paChecksum'] = sha1(getReqBodyBytes(reqBody)).digest()
+        reqBodyBytes = getReqBodyBytes(reqBody)
+        pkAuthenticator['paChecksum'] = sha1(reqBodyBytes).digest()
+        # KDCs with SHA-1 disabled reject the paChecksum alone with KDC_ERR_PA_CHECKSUM_MUST_BE_INCLUDED
+        paChecksum2 = pkAuthenticator['paChecksum2']
+        paChecksum2['checksum'] = DIGEST_ALGORITHMS[PA_CHECKSUM2_DIGEST][3](reqBodyBytes).digest()
+        # Filled in place: the component is context tagged, a plain AlgorithmIdentifier does not fit it
+        paChecksum2['algorithmIdentifier']['algorithm'] = univ.ObjectIdentifier(DIGEST_ALGORITHMS[PA_CHECKSUM2_DIGEST][0])
 
         if self.keyExchange is not None:
             publicKeyInfo = self.keyExchange.getSubjectPublicKeyInfo()

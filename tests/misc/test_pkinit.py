@@ -20,7 +20,7 @@ from __future__ import print_function
 import datetime
 import unittest
 from binascii import hexlify, unhexlify
-from hashlib import sha1
+from hashlib import sha1, sha256
 
 from Cryptodome.Cipher import AES, DES3
 from cryptography import x509
@@ -38,7 +38,7 @@ from impacket.krb5.ccache import CCache
 from impacket.krb5.asn1 import AS_REP, AS_REQ, AuthPack, EncASRepPart, KDCDHKeyInfo, METHOD_DATA, \
     PA_PK_AS_REP, PA_PK_AS_REQ, PKOcspData, ReplyKeyPack, TD_DH_PARAMETERS, TYPED_DATA, seq_set, seq_set_iter
 from impacket.krb5.crypto import Cksumtype, Enctype, Key, _enctype_table, make_checksum
-from impacket.krb5.pkinit import DH_GROUPS, DIGEST_ALGORITHMS, EC_CURVES, EC_CURVE_OIDS, ID_AES256_CBC, ID_DES_EDE3_CBC, \
+from impacket.krb5.pkinit import DH_GROUPS, DIGEST_ALGORITHMS, DIGEST_OIDS, EC_CURVES, EC_CURVE_OIDS, ID_AES256_CBC, ID_DES_EDE3_CBC, \
     ID_ENVELOPED_DATA, decryptEnvelopedData, \
     ID_DH_PUBLIC_NUMBER, ID_EC_PUBLIC_KEY, ID_MS_SAN_SC_LOGON_UPN, ID_PKINIT_AUTHDATA, \
     ID_PKINIT_DHKEYDATA, ID_PKINIT_KP_KDC, ID_PKINIT_RKEYDATA, ID_PKINIT_SAN, ID_RSA_ENCRYPTION, DiffieHellman, \
@@ -170,8 +170,15 @@ class KDC:
         content, certificate, _ = verifySignedData(bytes(paPkAsReq['signedAuthPack']), ID_PKINIT_AUTHDATA)
         authPack = decoder.decode(content, asn1Spec=AuthPack())[0]
 
-        expected = sha1(getReqBodyBytes(asReq['req-body'])).digest()
-        assert bytes(authPack['pkAuthenticator']['paChecksum']) == expected, 'bad paChecksum'
+        reqBodyBytes = getReqBodyBytes(asReq['req-body'])
+        assert bytes(authPack['pkAuthenticator']['paChecksum']) == sha1(reqBodyBytes).digest(), 'bad paChecksum'
+
+        paChecksum2 = authPack['pkAuthenticator']['paChecksum2']
+        assert paChecksum2.hasValue(), 'no paChecksum2 in the PKAuthenticator'
+        algorithm = paChecksum2['algorithmIdentifier']
+        assert not algorithm['parameters'].hasValue(), 'the paChecksum2 digest carries parameters'
+        digest = DIGEST_OIDS[str(algorithm['algorithm'])]
+        assert bytes(paChecksum2['checksum']) == DIGEST_ALGORITHMS[digest][3](reqBodyBytes).digest(), 'bad paChecksum2'
         return authPack, certificate
 
     def buildDHInfo(self, authPack):
@@ -793,6 +800,21 @@ class ASExchangeTests(unittest.TestCase):
         kdc = KDC(otherPki)
         _, _, replyKey, _ = self.getTGT(kdc, self.credentials(verifyKDC=False))
         self.assertEqual(replyKey.contents, kdc.replyKey.contents)
+
+    def test_paChecksum2IsASha256DigestOfTheRequestBody(self):
+        pkinit = PKINIT(Principal(CLIENT, type=constants.PrincipalNameType.NT_PRINCIPAL.value), REALM,
+                        self.credentials())
+        pkinit.keyExchange = pkinit.newKeyExchange()
+        asReq = decoder.decode(pkinit.buildAsReq(), asn1Spec=AS_REQ())[0]
+        padata = {int(entry['padata-type']): entry['padata-value'] for entry in asReq['padata']}
+        paPkAsReq = decoder.decode(padata[constants.PreAuthenticationDataTypes.PA_PK_AS_REQ.value],
+                                   asn1Spec=PA_PK_AS_REQ())[0]
+        content, _, _ = verifySignedData(bytes(paPkAsReq['signedAuthPack']), ID_PKINIT_AUTHDATA)
+        paChecksum2 = decoder.decode(content, asn1Spec=AuthPack())[0]['pkAuthenticator']['paChecksum2']
+
+        self.assertEqual(bytes(paChecksum2['checksum']), sha256(getReqBodyBytes(asReq['req-body'])).digest())
+        self.assertEqual(str(paChecksum2['algorithmIdentifier']['algorithm']), DIGEST_ALGORITHMS['sha256'][0])
+        self.assertFalse(paChecksum2['algorithmIdentifier']['parameters'].hasValue())
 
 
 class CredentialsTests(unittest.TestCase):

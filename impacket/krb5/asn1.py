@@ -600,12 +600,20 @@ class KRB5PrincipalName(univ.Sequence):
         _sequence_component('principalName', 1, PrincipalName())
         )
 
+# draft-rische-kitten-pkinit-crypto-deprec: the checksum KDCs ask for once SHA-1 is disabled
+class PAChecksum2(univ.Sequence):
+    componentType = namedtype.NamedTypes(
+        _sequence_component('checksum', 0, univ.OctetString()),
+        _sequence_component('algorithmIdentifier', 1, AlgorithmIdentifier())
+        )
+
 class PKAuthenticator(univ.Sequence):
     componentType = namedtype.NamedTypes(
         _sequence_component('cusec', 0, Microseconds()),
         _sequence_component('ctime', 1, KerberosTime()),
         _sequence_component('nonce', 2, UInt32()),
-        _sequence_optional_component('paChecksum', 3, univ.OctetString())
+        _sequence_optional_component('paChecksum', 3, univ.OctetString()),
+        _sequence_optional_component('paChecksum2', 5, PAChecksum2())
         )
 
 class AuthPack(univ.Sequence):
