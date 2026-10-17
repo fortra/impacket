@@ -82,6 +82,38 @@ class AESTests(unittest.TestCase):
         k = string_to_key(Enctype.AES256, string, salt, params)
         self.assertEqual(k.contents, kb)
 
+    def test_AES_string_to_key_rfc3962(self):
+        # RFC 3962 Appendix B: pass phrase, salt, iteration count, 128-bit key, 256-bit key
+        vectors = (
+            ('password', b'ATHENA.MIT.EDUraeburn', '00000001',
+             '42263C6E89F4FC28B8DF68EE09799F15',
+             'FE697B52BC0D3CE14432BA036A92E65BBB52280990A2FA27883998D72AF30161'),
+            ('password', b'ATHENA.MIT.EDUraeburn', '00000002',
+             'C651BF29E2300AC27FA469D693BDDA13',
+             'A2E16D16B36069C135D5E9D2E25F896102685618B95914B467C67622225824FF'),
+            ('password', b'ATHENA.MIT.EDUraeburn', '000004B0',
+             '4C01CD46D632D01E6DBE230A01ED642A',
+             '55A6AC740AD17B4846941051E1E8B0A7548D93B0AB30A8BC3FF16280382B8C2A'),
+            ('password', h('1234567878563412'), '00000005',
+             'E9B23D52273747DD5C35CB55BE619D8E',
+             '97A4E786BE20D81A382D5EBC96D5909CABCDADC87CA48F574504159F16C36E31'),
+            ('X' * 64, b'pass phrase equals block size', '000004B0',
+             '59D1BB789A828B1AA54EF9C2883F69ED',
+             '89ADEE3608DB8BC71F1BFBFE459486B05618B70CBAE22092534E56C553BA4B34'),
+            ('X' * 65, b'pass phrase exceeds block size', '000004B0',
+             'CB8005DC5F90179A7F02104C0018751D',
+             'D78C5C9CB872A8C9DAD4697F0BB5B2D21496C82BEB2CAEDA2112FCEEA057401B'),
+            # g-clef (U+1D11E), UTF-8 encoded by string_to_key
+            ('\U0001D11E', b'EXAMPLE.COMpianist', '00000032',
+             'F149C1F2E154A73452D43E7FE62A56E5',
+             '4B6D9839F84406DF1F09CC166DB4B83C571848B784A3D6BDC346589A3E393F9E'),
+        )
+        for string, salt, params, kb128, kb256 in vectors:
+            for enctype, kb in ((Enctype.AES128, kb128), (Enctype.AES256, kb256)):
+                with self.subTest(enctype=enctype, salt=salt, params=params):
+                    k = string_to_key(enctype, string, salt, h(params))
+                    self.assertEqual(k.contents, h(kb))
+
     def test_AES128_prf(self):
         # AES128 prf
         kb = h('77B39A37A868920F2A51F9DD150C5717')

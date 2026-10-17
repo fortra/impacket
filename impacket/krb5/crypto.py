@@ -57,7 +57,7 @@ from os import urandom
 from struct import pack, unpack
 
 from Cryptodome.Cipher import AES, DES3, ARC4, DES
-from Cryptodome.Hash import HMAC, MD4, MD5, SHA
+from Cryptodome.Hash import HMAC, MD4, MD5, SHA, SHA1
 from Cryptodome.Protocol.KDF import PBKDF2
 from Cryptodome.Util.number import GCD as gcd
 from six import b, PY3, indexbytes, binary_type
@@ -452,8 +452,8 @@ class _AESEnctype(_SimplifiedEnctype):
             salt = salt.encode("utf-8")
 
         (iterations,) = unpack('>L', params or b'\x00\x00\x10\x00')
-        prf = lambda p, s: HMAC.new(p, s, SHA).digest()
-        seed = PBKDF2(string, salt, cls.seedsize, iterations, prf)
+        # A prf callable or the legacy SHA alias would make PBKDF2 use its pure-Python loop
+        seed = PBKDF2(string, salt, cls.seedsize, iterations, hmac_hash_module=SHA1)
         tkey = cls.random_to_key(seed)
         return cls.derive(tkey, b'kerberos')
 
