@@ -44,7 +44,7 @@ from pyasn1_modules import rfc3279, rfc5280, rfc5652
 from impacket import LOG
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import AS_REP, AS_REQ, AuthPack, EncASRepPart, KDCDHKeyInfo, KERB_PA_PAC_REQUEST, \
-    KRB5PrincipalName, METHOD_DATA, PA_PK_AS_REP, PA_PK_AS_REQ, PKOcspData, ReplyKeyPack, \
+    KRB5PrincipalName, KRB_ERROR, METHOD_DATA, PA_PK_AS_REP, PA_PK_AS_REQ, PKOcspData, ReplyKeyPack, \
     TD_DH_PARAMETERS, TYPED_DATA, seq_set, seq_set_iter
 from impacket.krb5.crypto import Cksumtype, Enctype, InvalidChecksum, Key, _enctype_table, verify_checksum
 from impacket.krb5.types import KerberosTime, Principal
@@ -945,6 +945,7 @@ class PKINIT:
         self.digest = credentials.digest
         self.keyExchange = None
         self.nonce = 0
+        self.freshnessToken = b''
         self.asReq = b''
         self.ocspResponses = []
 
@@ -963,6 +964,8 @@ class PKINIT:
         pkAuthenticator['ctime'] = KerberosTime.to_asn1(now)
         # Windows KDCs echo this nonce back as the AS-REP nonce, so it must match the KDC-REQ-BODY one
         pkAuthenticator['nonce'] = self.nonce
+        if self.freshnessToken:
+            pkAuthenticator['freshnessToken'] = self.freshnessToken
         reqBodyBytes = getReqBodyBytes(reqBody)
         pkAuthenticator['paChecksum'] = sha1(reqBodyBytes).digest()
         # KDCs with SHA-1 disabled reject the paChecksum alone with KDC_ERR_PA_CHECKSUM_MUST_BE_INCLUDED
@@ -1023,19 +1026,17 @@ class PKINIT:
         pacRequest = KERB_PA_PAC_REQUEST()
         pacRequest['include-pac'] = self.requestPAC
 
-        asReq['padata'] = univ.noValue
-        asReq['padata'][0] = univ.noValue
-        asReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_PK_AS_REQ.value)
-        asReq['padata'][0]['padata-value'] = encoder.encode(paPkAsReq)
-        asReq['padata'][1] = univ.noValue
-        asReq['padata'][1]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_PAC_REQUEST.value)
-        asReq['padata'][1]['padata-value'] = encoder.encode(pacRequest)
-
+        padata = [(constants.PreAuthenticationDataTypes.PA_PK_AS_REQ.value, encoder.encode(paPkAsReq)),
+                  (constants.PreAuthenticationDataTypes.PA_PAC_REQUEST.value, encoder.encode(pacRequest)),
+                  (constants.PreAuthenticationDataTypes.PA_AS_FRESHNESS.value, b'')]  # RFC 8070 2.1: an empty value advertises support
         if self.credentials.requestOCSP:
-            asReq['padata'][2] = univ.noValue
-            asReq['padata'][2]['padata-type'] = int(
-                constants.PreAuthenticationDataTypes.PA_PK_OCSP_RESPONSE.value)
-            asReq['padata'][2]['padata-value'] = encoder.encode(PKOcspData())
+            padata.append((constants.PreAuthenticationDataTypes.PA_PK_OCSP_RESPONSE.value, encoder.encode(PKOcspData())))
+
+        asReq['padata'] = univ.noValue
+        for index, (padataType, padataValue) in enumerate(padata):
+            asReq['padata'][index] = univ.noValue
+            asReq['padata'][index]['padata-type'] = int(padataType)
+            asReq['padata'][index]['padata-value'] = padataValue
 
         return encoder.encode(asReq)
 
@@ -1044,14 +1045,18 @@ class PKINIT:
         from impacket.krb5.kerberosv5 import KerberosError, sendReceive
 
         self.keyExchange = self.newKeyExchange()
-        # One retry per recoverable error: rejected domain parameters and rejected digest (RFC 4556 3.2.2)
-        for attempt in range(3):
+        # One retry per recoverable error: rejected domain parameters, rejected digest (RFC 4556 3.2.2)
+        # and the freshness token a realm that requires it only hands out in an error (RFC 8070 2.4)
+        for attempt in range(4):
             self.asReq = self.buildAsReq()
             try:
                 response = sendReceive(self.asReq, self.domain, self.kdcHost, timeout=self.timeout)
-                break
+                krbError = self.asKerberosError(response)
+                if krbError is None:
+                    break
+                raise krbError
             except KerberosError as e:
-                if attempt == 2:
+                if attempt == 3:
                     raise
                 self.handleError(e)
 
@@ -1072,8 +1077,22 @@ class PKINIT:
         sessionKey = Key(sessionCipher.enctype, encASRepPart['key']['keyvalue'].asOctets())
         return response, sessionCipher, replyKey, sessionKey
 
+    def asKerberosError(self, response):
+        """Return the KRB-ERROR a KDC reply holds, or None if the reply is an AS-REP.
+
+        sendReceive hands KDC_ERR_PREAUTH_REQUIRED back instead of raising it, because the
+        password flow reads the salt from it. A realm that requires freshness answers our
+        AS-REQ with that very error, so the PKINIT client has to recognise it too.
+        """
+        from impacket.krb5.kerberosv5 import KerberosError
+        try:
+            packet = decoder.decode(response, asn1Spec=KRB_ERROR())[0]
+        except PyAsn1Error:
+            return None
+        return KerberosError(packet=packet)
+
     def handleError(self, error):
-        """Recover from the errors RFC 4556 3.2.2 lets the client retry after."""
+        """Recover from the errors the client may retry after (RFC 4556 3.2.2, RFC 8070 2.4)."""
         errorCode = error.getErrorCode()
         if errorCode == constants.ErrorCodes.KDC_ERR_KEY_TOO_WEAK.value:
             # 65 is KDC_ERR_DH_KEY_PARAMETERS_NOT_ACCEPTED in RFC 4556 3.1.3, not KDC_ERR_KEY_TOO_WEAK
@@ -1084,6 +1103,15 @@ class PKINIT:
                 raise error
             LOG.debug('KDC rejected the %s digest, retrying with sha1' % self.digest)
             self.digest = 'sha1'
+        elif errorCode in (constants.ErrorCodes.KDC_ERR_PREAUTH_REQUIRED.value,
+                           constants.ErrorCodes.KDC_ERR_PREAUTH_FAILED.value,
+                           constants.ErrorCodes.KDC_ERR_PREAUTH_EXPIRED.value):
+            # Windows answers KDC_ERR_PREAUTH_REQUIRED where RFC 8070 2.4 asks for KDC_ERR_PREAUTH_FAILED
+            freshnessToken = self.getFreshnessToken(error)
+            if not freshnessToken:
+                raise error
+            LOG.debug('The KDC requires a freshness token, retrying with the one it sent')
+            self.freshnessToken = freshnessToken
         elif errorCode in (constants.ErrorCodes.KDC_ERR_PUBLIC_KEY_ENCRYPTION_NOT_SUPPORTED.value,
                            constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value) and self.credentials.keyExchange == 'rsa':
             # Windows KDCs implement no CMS algorithm for this method and answer KDC_ERR_ETYPE_NOSUPP
@@ -1091,6 +1119,16 @@ class PKINIT:
                               'key delivery method instead')
         else:
             raise error
+
+    def getFreshnessToken(self, error):
+        """Return the freshness token of a KRB-ERROR, if it carries one (RFC 8070 2.4)."""
+        eData = error.getErrorPacket()['e-data']
+        if not eData.hasValue():
+            return b''
+        for dataType, dataValue in self.parseErrorData(eData.asOctets()):
+            if dataType == constants.PreAuthenticationDataTypes.PA_AS_FRESHNESS.value:
+                return dataValue
+        return b''
 
     def getAcceptedKeyExchange(self, error):
         """Pick a key exchange from the domain parameters the KDC proposed.

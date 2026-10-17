@@ -124,7 +124,8 @@ class KDC:
     def __init__(self, pki, enctype=Enctype.AES256, useEncKeyPack=False, rejectDHGroup=None, nonceOverride=None,
                  rejectDigest=None, ocspStatus=None, contentEncryption='aes256-CBC', reuseDHKeys=False,
                  dhKeyLifetime=3600, serverDHNonce=None, rejectCurve=None, proposeCurve=None, useTypedData=False,
-                 ocspResponder=None, ocspExpired=False, answerDHWithoutRequest=False):
+                 ocspResponder=None, ocspExpired=False, answerDHWithoutRequest=False, freshnessToken=None,
+                 withholdFreshnessToken=False):
         self.pki = pki
         self.cipher = _enctype_table[enctype]
         self.useEncKeyPack = useEncKeyPack
@@ -142,12 +143,17 @@ class KDC:
         self.ocspResponder = ocspResponder
         self.ocspExpired = ocspExpired
         self.answerDHWithoutRequest = answerDHWithoutRequest
+        self.freshnessToken = freshnessToken
+        self.withholdFreshnessToken = withholdFreshnessToken
         self.replyKey = None
         self.ocspRequested = False
         self.sessionKey = Key(enctype, b'S' * self.cipher.keysize)
 
     def sendReceive(self, data, host, kdcHost, port=88, timeout=None):
         asReq = decoder.decode(data, asn1Spec=AS_REQ())[0]
+        if self.freshnessToken is not None and not self.sentFreshnessToken(asReq):
+            # Windows returns this error instead of raising it, as sendReceive does for the password flow
+            return self.buildFreshnessError()
         authPack, clientCertificate = self.verifyRequest(asReq)
 
         if self.useEncKeyPack:
@@ -329,7 +335,27 @@ class KDC:
             errorData[0]['padata-value'] = accepted
         self.raiseError(constants.ErrorCodes.KDC_ERR_KEY_TOO_WEAK.value, encoder.encode(errorData))
 
-    def raiseError(self, errorCode, eData=None):
+    def sentFreshnessToken(self, asReq):
+        padata = {int(entry['padata-type']): entry['padata-value'] for entry in asReq['padata']}
+        request = padata.get(constants.PreAuthenticationDataTypes.PA_PK_AS_REQ.value)
+        if request is None:
+            return False
+        paPkAsReq = decoder.decode(request, asn1Spec=PA_PK_AS_REQ())[0]
+        content, _, _ = verifySignedData(bytes(paPkAsReq['signedAuthPack']), ID_PKINIT_AUTHDATA)
+        authPack = decoder.decode(content, asn1Spec=AuthPack())[0]
+        freshnessToken = authPack['pkAuthenticator']['freshnessToken']
+        return freshnessToken.hasValue() and bytes(freshnessToken) == self.freshnessToken
+
+    def buildFreshnessError(self):
+        """Hand out a freshness token the way a realm that requires one does (RFC 8070 2.4)."""
+        errorData = METHOD_DATA()
+        errorData.setComponentByPosition(0, univ.noValue)
+        errorData[0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_AS_FRESHNESS.value)
+        errorData[0]['padata-value'] = b'' if self.withholdFreshnessToken else self.freshnessToken
+        return encoder.encode(self.buildError(constants.ErrorCodes.KDC_ERR_PREAUTH_REQUIRED.value,
+                                              encoder.encode(errorData)))
+
+    def buildError(self, errorCode, eData=None):
         from impacket.krb5.asn1 import KRB_ERROR
 
         krbError = KRB_ERROR()
@@ -343,7 +369,10 @@ class KDC:
                 Principal('krbtgt/%s' % REALM, type=constants.PrincipalNameType.NT_SRV_INST.value).components_to_asn1)
         if eData is not None:
             krbError['e-data'] = eData
-        raise kerberosv5.KerberosError(packet=krbError)
+        return krbError
+
+    def raiseError(self, errorCode, eData=None):
+        raise kerberosv5.KerberosError(packet=self.buildError(errorCode, eData))
 
     def buildOCSPResponse(self):
         """Build the OCSP response for the KDC certificate, as RFC 4557 3 allows."""
@@ -800,6 +829,27 @@ class ASExchangeTests(unittest.TestCase):
         kdc = KDC(otherPki)
         _, _, replyKey, _ = self.getTGT(kdc, self.credentials(verifyKDC=False))
         self.assertEqual(replyKey.contents, kdc.replyKey.contents)
+
+    def test_freshnessTokenIsSignedIntoTheRetriedRequest(self):
+        kdc = KDC(self.pki, freshnessToken=b'FRESH' * 8)
+        _, _, replyKey, _ = self.getTGT(kdc, self.credentials())
+        self.assertEqual(replyKey.contents, kdc.replyKey.contents)
+
+    def test_freshnessErrorWithoutATokenIsReported(self):
+        kdc = KDC(self.pki, freshnessToken=b'FRESH' * 8, withholdFreshnessToken=True)
+        with self.assertRaises(kerberosv5.KerberosError) as raised:
+            self.getTGT(kdc, self.credentials())
+        self.assertEqual(raised.exception.getErrorCode(), constants.ErrorCodes.KDC_ERR_PREAUTH_REQUIRED.value)
+
+    def test_freshnessSupportIsAdvertised(self):
+        pkinit = PKINIT(Principal(CLIENT, type=constants.PrincipalNameType.NT_PRINCIPAL.value), REALM,
+                        self.credentials())
+        pkinit.keyExchange = pkinit.newKeyExchange()
+        asReq = decoder.decode(pkinit.buildAsReq(), asn1Spec=AS_REQ())[0]
+        padata = {int(entry['padata-type']): entry['padata-value'] for entry in asReq['padata']}
+
+        self.assertIn(constants.PreAuthenticationDataTypes.PA_AS_FRESHNESS.value, padata)
+        self.assertEqual(bytes(padata[constants.PreAuthenticationDataTypes.PA_AS_FRESHNESS.value]), b'')
 
     def test_paChecksum2IsASha256DigestOfTheRequestBody(self):
         pkinit = PKINIT(Principal(CLIENT, type=constants.PrincipalNameType.NT_PRINCIPAL.value), REALM,

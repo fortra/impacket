@@ -613,6 +613,7 @@ class PKAuthenticator(univ.Sequence):
         _sequence_component('ctime', 1, KerberosTime()),
         _sequence_component('nonce', 2, UInt32()),
         _sequence_optional_component('paChecksum', 3, univ.OctetString()),
+        _sequence_optional_component('freshnessToken', 4, univ.OctetString()),
         _sequence_optional_component('paChecksum2', 5, PAChecksum2())
         )
 
