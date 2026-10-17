@@ -169,7 +169,11 @@ class RemoteOperations:
                 scmr.hRChangeServiceConfigW(self.__scmr, self.__serviceHandle, dwStartType = 0x3)
             LOG.info('Starting service %s' % self.__serviceName)
             scmr.hRStartServiceW(self.__scmr,self.__serviceHandle)
-            time.sleep(1)
+            # Wait (up to 5 seconds) for the service to be running before connecting to winreg
+            for _ in range(50):
+                if scmr.hRQueryServiceStatus(self.__scmr, self.__serviceHandle)['lpServiceStatus']['dwCurrentState'] == scmr.SERVICE_RUNNING:
+                    break
+                time.sleep(0.1)
 
     def enableRegistry(self):
         self.__connectSvcCtl()
