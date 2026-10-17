@@ -126,7 +126,12 @@ def sendReceive(data, host, kdcHost, port=88, timeout=None):
 
     return r
 
-def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True, serverName=None, kerberoast_no_preauth=False, timeout=None):
+def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True, serverName=None, kerberoast_no_preauth=False, timeout=None, certificate=None):
+
+    if certificate is not None:
+        # PKINIT : the reply key comes from the certificate exchange, there is no long term key involved
+        from impacket.krb5.pkinit import getKerberosTGTPKINIT
+        return getKerberosTGTPKINIT(clientName, domain, certificate, kdcHost=kdcHost, requestPAC=requestPAC, serverName=serverName, timeout=timeout)
 
     # Convert to binary form, just in case we're receiving strings
     if isinstance(lmhash, str):
