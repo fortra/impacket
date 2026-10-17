@@ -257,8 +257,9 @@ class HTTPRelayServer(Thread):
             proxy = True
             token, messageType = self.strip_blob(proxy)
 
-            # We can't do the multirelay trick so we just relay the connection
-            self.do_relay(messageType, token, proxy)
+            # Route through do_multirelay so target and identity are
+            # resolved the same way as for GET/POST requests.
+            self.do_multirelay(messageType, token, proxy)
             return
 
         def do_GET(self):
@@ -316,6 +317,9 @@ class HTTPRelayServer(Thread):
             return self.do_local_auth(messageType, token, proxy)
 
         def do_ntlm_negotiate(self, token, proxy):
+            if self.target is None:
+                LOG.error('(HTTP): No target available for NTLM negotiation')
+                return False
             if self.target.scheme.upper() in self.server.config.protocolClients:
                 self.client = self.server.config.protocolClients[self.target.scheme.upper()](self.server.config, self.target)
                 # If connection failed, return
@@ -429,7 +433,10 @@ class HTTPRelayServer(Thread):
                 try:
                     ntlm_negotiate_response = self.do_ntlm_negotiate(token, proxy=proxy)
                 except Exception as e:
-                    LOG.error('(HTTP): Exception while Negotiating NTLM with %s://%s: "%s"' % (self.target.scheme, self.target.netloc, str(e)))
+                    if self.target is not None:
+                        LOG.error('(HTTP): Exception while Negotiating NTLM with %s://%s: "%s"' % (self.target.scheme, self.target.netloc, str(e)))
+                    else:
+                        LOG.error('(HTTP): Exception while Negotiating NTLM (no target): "%s"' % str(e))
                     ntlm_negotiate_response = False
 
                 if not ntlm_negotiate_response:
