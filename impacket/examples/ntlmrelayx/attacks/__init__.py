@@ -16,8 +16,9 @@
 #  Alberto Solino (@agsolino)
 #  Dirk-jan Mollema (@_dirkjan) / Fox-IT (https://www.fox-it.com)
 #
-import os, sys
-from importlib.resources import files
+import sys
+import importlib
+import pkgutil
 from impacket import LOG
 from threading import Thread
 
@@ -70,19 +71,15 @@ class ProtocolAttack(Thread):
     def run(self):
         raise RuntimeError('Virtual Function')
 
-attacks_path = files('impacket.examples.ntlmrelayx').joinpath('attacks')
-for file in [f.name for f in attacks_path.iterdir() if f.is_file()]:
-    if file.find('__') >= 0 or file.endswith('.py') is False:
+# Load all available attack plugins. We enumerate submodules with
+# pkgutil.iter_modules instead of walking the directory on disk so this keeps
+# working when impacket is bundled into a frozen executable (e.g. PyInstaller),
+# where submodules live inside an archive rather than as .py files on disk.
+for _, module_name, _ in pkgutil.iter_modules(__path__, __name__ + '.'):
+    if '__' in module_name.rsplit('.', 1)[-1]:
         continue
-    # This seems to be None in some case (py3 only)
-    # __spec__ is py3 only though, but I haven't seen this being None on py2
-    # so it should cover all cases.
-    try:
-        package = __spec__.name  # Python 3
-    except NameError:
-        package = __package__    # Python 2
-    __import__(package + '.' + os.path.splitext(file)[0])
-    module = sys.modules[package + '.' + os.path.splitext(file)[0]]
+    importlib.import_module(module_name)
+    module = sys.modules[module_name]
     try:
         pluginClasses = set()
         try:
