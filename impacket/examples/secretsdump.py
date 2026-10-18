@@ -2171,7 +2171,7 @@ class LSASecrets(OfflineRegistry):
                 self.__cachedItems.append(answer)
                 self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA_HASHED, answer)
 
-    def __printSecret(self, name, secretItem):
+    def __printSecret(self, name, secretItem, isHistory=False):
         # Based on [MS-LSAD] section 3.1.1.4
 
         # First off, let's discard NULL secrets.
@@ -2201,7 +2201,11 @@ class LSASecrets(OfflineRegistry):
                 # We have to get the account the service
                 # runs under
                 if self.__systemHive:
-                    secret = self.getServiceUser(name[4:].removesuffix("_history")) + ':'
+                    if isHistory:
+                        # remove _history suffix (8 characters)
+                        secret = self.getServiceUser(name[4:-8]) + ':'
+                    else:
+                        secret = self.getServiceUser(name[4:]) + ':'
                 elif hasattr(self.__remoteOps, 'getServiceAccount'):
                     account = self.__remoteOps.getServiceAccount(name[4:])
                     if account is None:
@@ -2360,6 +2364,7 @@ class LSASecrets(OfflineRegistry):
                 valueTypeList.append('OldVal')
 
             for valueType in valueTypeList:
+                isHistory = False
                 value = self.getValue('\\Policy\\Secrets\\{}\\{}\\default'.format(key,valueType))
                 if value is not None and value[1] != 0:
                     if self.__vistaStyle is True:
@@ -2375,7 +2380,8 @@ class LSASecrets(OfflineRegistry):
                     # also be consistent with NTDS history
                     if valueType == 'OldVal':
                         key += '_history'
-                    self.__printSecret(key, secret)
+                        isHistory = True
+                    self.__printSecret(key, secret, isHistory)
 
     def exportSecrets(self, baseFileName, openFileFunc = None):
         if len(self.__secretItems) > 0:
