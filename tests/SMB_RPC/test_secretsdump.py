@@ -17,6 +17,9 @@ from tests import RemoteTestCase
 from impacket.examples.secretsdump import LocalOperations, RemoteOperations, SAMHashes, LSASecrets, NTDSHashes
 from impacket.smbconnection import SMBConnection
 
+LOCAL_SYSTEM_HIVE = os.path.join("tests", "data", "secretsdump_local_SYSTEM")
+LOCAL_SECURITY_HIVE = os.path.join("tests", "data", "secretsdump_local_SECURITY")
+
 
 def _print_helper(*args, **kwargs):
     try:
@@ -308,6 +311,43 @@ class Tests(SecretsDumpTests, unittest.TestCase):
     def setUp(self):
         super(Tests, self).setUp()
         self.set_transport_config(aes_keys=True)
+
+
+class LocalServiceAccountSecretsTests(unittest.TestCase):
+    """Offline test for the local service-account LSA secret decryption.
+
+    Replicates:
+        secretsdump.py local -system SYSTEM -security SECURITY -history
+
+    using the minimal SYSTEM/SECURITY fixtures, and checks that the
+    _SC_UevAgentService secret (current and history) decrypts to the expected
+    account/password, with the service account resolved from the SYSTEM hive.
+    """
+
+    EXPECTED = [
+        ".\\Services:Totobolo123",          # _SC_UevAgentService (CurrVal)
+        ".\\Services:Password123",          # _SC_UevAgentService_history (OldVal)
+    ]
+
+    def test_local_service_decryption(self):
+        secrets = []
+
+        def callback(secretType, secret):
+            if secretType == LSASecrets.SECRET_TYPE.LSA:
+                secrets.append(secret)
+
+        bootKey = LocalOperations(LOCAL_SYSTEM_HIVE).getBootKey()
+        self.assertEqual(bootKey.hex(), "4c695b55f0f423fa70a87bbe173edfc6")
+
+        lsa = LSASecrets(LOCAL_SECURITY_HIVE, bootKey, isRemote=False,
+                         history=True, perSecretCallback=callback,
+                         systemHive=LOCAL_SYSTEM_HIVE)
+        lsa.dumpCachedHashes()
+        lsa.dumpSecrets()
+        lsa.finish()
+
+        for expected in self.EXPECTED:
+            self.assertIn(expected, secrets)
 
 
 if __name__ == "__main__":
