@@ -390,6 +390,25 @@ class LocalServiceAccountSecretsTests(unittest.TestCase):
 
         self.assertEqual(secrets, ['(Unknown User):password'])
 
+    def test_empty_remote_service_account_uses_unknown_user(self):
+        secrets = []
+        remote_ops = mock.Mock()
+        remote_ops.getServiceAccount.return_value = ''
+        lsa = LSASecrets(
+            None,
+            b'',
+            remoteOps=remote_ops,
+            perSecretCallback=lambda _, secret: secrets.append(secret),
+        )
+
+        lsa._LSASecrets__printSecret(
+            '_SC_missing',
+            'password'.encode('utf-16-le'),
+        )
+
+        remote_ops.getServiceAccount.assert_called_once_with('missing')
+        self.assertEqual(secrets, ['(Unknown User):password'])
+
     def test_service_name_ending_in_history(self):
         secrets = []
         lsa = LSASecrets(

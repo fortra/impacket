@@ -2210,7 +2210,7 @@ class LSASecrets(OfflineRegistry):
                     secret = self.getServiceUser(name) + ':'
                 elif hasattr(self.__remoteOps, 'getServiceAccount'):
                     account = self.__remoteOps.getServiceAccount(name)
-                    if account is None:
+                    if not account:
                         secret = self.UNKNOWN_USER + ':'
                     else:
                         secret =  "%s:" % account
