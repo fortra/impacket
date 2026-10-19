@@ -12,7 +12,7 @@ import os
 import logging
 import pytest
 import unittest
-from unittest.mock import patch
+from unittest import mock
 from tests import RemoteTestCase
 
 from impacket.examples.secretsdump import LocalOperations, RemoteOperations, SAMHashes, LSASecrets, NTDSHashes
@@ -379,7 +379,7 @@ class LocalServiceAccountSecretsTests(unittest.TestCase):
         )
 
         registry = FakeServiceRegistry({})
-        with patch(
+        with mock.patch(
             'impacket.examples.secretsdump.winregistry.get_registry_parser',
             return_value=registry,
         ):
@@ -403,7 +403,7 @@ class LocalServiceAccountSecretsTests(unittest.TestCase):
             'backup': 'wrong-user',
             'backup_history': 'right-user',
         })
-        with patch(
+        with mock.patch(
             'impacket.examples.secretsdump.winregistry.get_registry_parser',
             return_value=registry,
         ):
