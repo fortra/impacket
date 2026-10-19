@@ -2198,16 +2198,18 @@ class LSASecrets(OfflineRegistry):
             except:
                 pass
             else:
+                if isHistory:
+                    # remove _SC_ prefix (4 chars) and _history suffix (8 characters)
+                    name = name[4:-8]
+                else:
+                    # remove _SC_ prefix (4 chars)
+                    name = name[4:]
                 # We have to get the account the service
                 # runs under
                 if self.__systemHive:
-                    if isHistory:
-                        # remove _history suffix (8 characters)
-                        secret = self.getServiceUser(name[4:-8]) + ':'
-                    else:
-                        secret = self.getServiceUser(name[4:]) + ':'
+                    secret = self.getServiceUser(name) + ':'
                 elif hasattr(self.__remoteOps, 'getServiceAccount'):
-                    account = self.__remoteOps.getServiceAccount(name[4:])
+                    account = self.__remoteOps.getServiceAccount(name)
                     if account is None:
                         secret = self.UNKNOWN_USER + ':'
                     else:
