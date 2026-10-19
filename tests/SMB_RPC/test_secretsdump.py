@@ -12,6 +12,7 @@ import os
 import logging
 import pytest
 import unittest
+from unittest.mock import patch
 from tests import RemoteTestCase
 
 from impacket.examples.secretsdump import LocalOperations, RemoteOperations, SAMHashes, LSASecrets, NTDSHashes
@@ -19,6 +20,25 @@ from impacket.smbconnection import SMBConnection
 
 LOCAL_SYSTEM_HIVE = os.path.join("tests", "data", "secretsdump_local_SYSTEM")
 LOCAL_SECURITY_HIVE = os.path.join("tests", "data", "secretsdump_local_SECURITY")
+
+
+class FakeServiceRegistry:
+    def __init__(self, services):
+        self.services = services
+
+    def getValue(self, path):
+        if path == '\\Select\\Current':
+            return 4, 1
+
+        prefix = '\\ControlSet001\\Services\\'
+        suffix = '\\ObjectName'
+        if path.startswith(prefix) and path.endswith(suffix):
+            serviceName = path[len(prefix):-len(suffix)]
+            username = self.services.get(serviceName)
+            if username is not None:
+                return 1, (username + '\x00').encode('utf-16-le')
+
+        return None
 
 
 def _print_helper(*args, **kwargs):
@@ -348,6 +368,59 @@ class LocalServiceAccountSecretsTests(unittest.TestCase):
 
         for expected in self.EXPECTED:
             self.assertIn(expected, secrets)
+
+    def test_missing_service_uses_unknown_user(self):
+        secrets = []
+        lsa = LSASecrets(
+            None,
+            b'',
+            systemHive='SYSTEM',
+            perSecretCallback=lambda _, secret: secrets.append(secret),
+        )
+
+        registry = FakeServiceRegistry({})
+        with patch(
+            'impacket.examples.secretsdump.winregistry.get_registry_parser',
+            return_value=registry,
+        ):
+            lsa._LSASecrets__printSecret(
+                '_SC_missing',
+                'password'.encode('utf-16-le'),
+            )
+
+        self.assertEqual(secrets, ['(Unknown User):password'])
+
+    def test_service_name_ending_in_history(self):
+        secrets = []
+        lsa = LSASecrets(
+            None,
+            b'',
+            systemHive='SYSTEM',
+            perSecretCallback=lambda _, secret: secrets.append(secret),
+        )
+
+        registry = FakeServiceRegistry({
+            'backup': 'wrong-user',
+            'backup_history': 'right-user',
+        })
+        with patch(
+            'impacket.examples.secretsdump.winregistry.get_registry_parser',
+            return_value=registry,
+        ):
+            lsa._LSASecrets__printSecret(
+                '_SC_backup_history',
+                'current'.encode('utf-16-le'),
+            )
+            lsa._LSASecrets__printSecret(
+                '_SC_backup_history_history',
+                'old'.encode('utf-16-le'),
+                isHistory=True,
+            )
+
+        self.assertEqual(secrets, [
+            'right-user:current',
+            'right-user:old',
+        ])
 
 
 if __name__ == "__main__":
