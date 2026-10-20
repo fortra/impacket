@@ -74,18 +74,20 @@
 #         [ ] smb2Lock
 #         [ ] smb2Cancel
 #
+import os
 import unittest
 from time import sleep
 from os.path import exists, join
 from os import mkdir, rmdir, remove, urandom
 from multiprocessing import Process
+from tempfile import mkdtemp
 
 from six import PY2, StringIO, BytesIO, b, assertRaisesRegex, assertCountEqual
 
 from impacket.smb import SMB_DIALECT
 from impacket.smbserver import normalize_path, isInFileJail, SimpleSMBServer, SMBSERVER, SMB2Commands
 from impacket.smbconnection import SMBConnection, SessionError, compute_lmhash, compute_nthash
-from impacket.nt_errors import STATUS_NOT_SUPPORTED
+from impacket.nt_errors import STATUS_NOT_SUPPORTED, STATUS_SUCCESS, STATUS_INVALID_HANDLE
 from impacket import smb3structs as smb2
 from threading import Thread
 
@@ -955,6 +957,94 @@ class SMB2Server311UnitTests(unittest.TestCase):
         transform = smb2.SMB2_TRANSFORM_HEADER(responses[0])
         self.assertEqual(transform['SessionID'], sessionId)
         self.assertEqual(self._connData()['Uid'], 0)
+
+
+class SMB2CompoundRelatedUnitTests(unittest.TestCase):
+    """Unit tests for FileId resolution in SMB2 compounded related requests.
+
+    These feed a compound request straight into processRequest, without going over the
+    network, against a file that was opened by an SMB2_CREATE sent in an earlier request.
+    """
+
+    address = "127.0.0.1"
+    port = 14462
+    conn_id = "unit-test-connection"
+    tree_id = 1
+    file_id = b'\x01' * 16
+
+    def setUp(self):
+        self.share_path = mkdtemp()
+        self.file_path = join(self.share_path, "file.bin")
+        with open(self.file_path, "wb") as fd:
+            fd.write(b"some data")
+
+        self.smbserver = SimpleSMBServer(listenAddress=self.address, listenPort=self.port,
+                                         smbserverclass=SMBSERVERForTests)
+        self.smbserver.setSMB2Support(True)
+        self.server = self.smbserver.getServer()
+        self.server.addConnection(self.conn_id, self.address, 55555)
+
+        connData = self.server.getConnectionData(self.conn_id, False)
+        connData['Authenticated'] = True
+        connData['ConnectedShares'][self.tree_id] = {'path': self.share_path, 'shareName': 'SHARE'}
+        self.handle = os.open(self.file_path, os.O_RDONLY)
+        connData['OpenedFiles'][self.file_id] = {'FileHandle': self.handle, 'FileName': self.file_path,
+                                                 'DeleteOnClose': False}
+        self.server.setConnectionData(self.conn_id, connData)
+
+    def tearDown(self):
+        self.smbserver.stop()
+        os.close(self.handle)
+        remove(self.file_path)
+        rmdir(self.share_path)
+
+    def _queryInfoRequest(self, messageId, fileId, fileInfoClass, related):
+        queryInfo = smb2.SMB2QueryInfo()
+        queryInfo['InfoType'] = smb2.SMB2_0_INFO_FILE
+        queryInfo['FileInfoClass'] = fileInfoClass
+        queryInfo['OutputBufferLength'] = 65535
+        queryInfo['FileID'] = fileId
+        queryInfo['Buffer'] = b''
+
+        packet = smb2.SMB2Packet()
+        packet['Command'] = smb2.SMB2_QUERY_INFO
+        packet['MessageID'] = messageId
+        packet['TreeID'] = self.tree_id
+        packet['Flags'] = smb2.SMB2_FLAGS_RELATED_OPERATIONS if related else 0
+        packet['Data'] = queryInfo.getData()
+        return packet
+
+    def test_related_request_uses_file_id_of_previous_operation(self):
+        """Inside a compound, FileId 0xFF..FF stands for the FileId used by the previous
+        operation, whatever command it was (MS-SMB2 "Handling Compounded Related Requests").
+        A client opening a file in one request and then sending QUERY_INFO(FileId) +
+        QUERY_INFO(0xFF..FF) used to get STATUS_INVALID_HANDLE for the second one, because
+        only a previous SMB2_CREATE in the same compound was taken into account.
+        """
+        first = self._queryInfoRequest(0, self.file_id, smb2.SMB2_ATTRIBUTE_TAG_INFO, related=False)
+        firstBytes = first.getData()
+        padLen = (-len(firstBytes)) % 8
+        first['NextCommand'] = len(firstBytes) + padLen
+        firstBytes = first.getData() + padLen * b'\x00'
+
+        secondBytes = self._queryInfoRequest(1, b'\xff' * 16, smb2.SMB2_FILE_ALL_INFO, related=True).getData()
+
+        responses = self.server.processRequest(self.conn_id, firstBytes + secondBytes)
+
+        firstResponse = smb2.SMB2Packet(responses[0])
+        secondResponse = smb2.SMB2Packet(responses[0][firstResponse['NextCommand']:])
+        self.assertEqual(firstResponse['Status'], STATUS_SUCCESS)
+        self.assertEqual(secondResponse['Status'], STATUS_SUCCESS)
+
+    def test_related_request_without_previous_file_id_is_invalid_handle(self):
+        """With no previous operation carrying a FileId, a related FileId 0xFF..FF has
+        nothing to refer to and must fail with STATUS_INVALID_HANDLE.
+        """
+        request = self._queryInfoRequest(0, b'\xff' * 16, smb2.SMB2_FILE_ALL_INFO, related=False)
+
+        responses = self.server.processRequest(self.conn_id, request.getData())
+
+        self.assertEqual(smb2.SMB2Packet(responses[0])['Status'], STATUS_INVALID_HANDLE)
 
 
 if __name__ == "__main__":
