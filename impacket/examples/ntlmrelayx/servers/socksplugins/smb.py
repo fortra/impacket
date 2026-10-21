@@ -24,7 +24,7 @@ from struct import unpack
 from binascii import hexlify
 from six import b
 
-from impacket import LOG
+from impacket import LOG, wintime
 from impacket.examples.ntlmrelayx.servers.socksserver import SocksRelay
 from impacket.nmb import NetBIOSTCPSession
 from impacket.nt_errors import STATUS_MORE_PROCESSING_REQUIRED, STATUS_SUCCESS, STATUS_ACCESS_DENIED
@@ -32,7 +32,7 @@ from impacket.ntlm import NTLMAuthChallengeResponse, NTLMSSP_NEGOTIATE_SIGN
 from impacket.smb import NewSMBPacket, SMBCommand, SMB, SMBExtended_Security_Data, \
     SMBExtended_Security_Parameters, SMBNTLMDialect_Parameters, SMBNTLMDialect_Data, \
     SMBSessionSetupAndX_Extended_Response_Parameters, SMBSessionSetupAndX_Extended_Response_Data, \
-    SMBSessionSetupAndX_Extended_Parameters, SMBSessionSetupAndX_Extended_Data, POSIXtoFT
+    SMBSessionSetupAndX_Extended_Parameters, SMBSessionSetupAndX_Extended_Data
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_AID
 from impacket.smb3 import SMB2Packet, SMB2_FLAGS_SERVER_TO_REDIR, SMB2_NEGOTIATE, SMB2Negotiate_Response, \
     SMB2_SESSION_SETUP, SMB2SessionSetup_Response, SMB2SessionSetup, SMB2_LOGOFF, SMB2Logoff_Response, \
@@ -273,8 +273,8 @@ class SMBSocksRelay(SocksRelay):
             respSMBCommand['MaxTransactSize'] = 65536
             respSMBCommand['MaxReadSize'] = 65536
             respSMBCommand['MaxWriteSize'] = 65536
-            respSMBCommand['SystemTime'] = POSIXtoFT(calendar.timegm(time.gmtime()))
-            respSMBCommand['ServerStartTime'] = POSIXtoFT(calendar.timegm(time.gmtime()))
+            respSMBCommand['SystemTime'] = wintime.posix_to_filetime(calendar.timegm(time.gmtime()))
+            respSMBCommand['ServerStartTime'] = wintime.posix_to_filetime(calendar.timegm(time.gmtime()))
             respSMBCommand['SecurityBufferOffset'] = 0x80
 
             blob = SPNEGO_NegTokenInit()
