@@ -181,6 +181,10 @@ class PasswordHandler:
         self.doKerberos = doKerberos
         self.aesKey = aesKey
         self.kdcHost = kdcHost
+
+        # 0 would make the sockets non-blocking and a negative value is rejected by settimeout()
+        if timeout is not None and timeout <= 0:
+            raise ValueError(f"timeout must be a positive number of seconds, got {timeout}")
         self.timeout = timeout
 
     def _changePassword(
@@ -861,7 +865,12 @@ def parse_args():
         parser.print_help()
         sys.exit(1)
 
-    return parser.parse_args()
+    options = parser.parse_args()
+
+    if options.timeout is not None and options.timeout <= 0:
+        parser.error("-timeout must be greater than 0")
+
+    return options
 
 
 if __name__ == "__main__":
