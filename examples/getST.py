@@ -90,6 +90,8 @@ class GETST:
         self.__kdcHost = options.dc_ip
         self.__force_forwardable = options.force_forwardable
         self.__additional_ticket = options.additional_ticket
+        self.__tgt = options.tgt
+        self.__nospn = options.nospn
         self.__dmsa = options.dmsa
         self.__saveFileName = None
         self.__no_s4u2proxy = options.no_s4u2proxy
@@ -502,7 +504,8 @@ class GETST:
         opts.append(constants.KDCOptions.canonicalize.value)
 
 
-        if self.__options.u2u:
+        u2u_s4u2self = self.__options.u2u and self.__nospn is None
+        if u2u_s4u2self:
             opts.append(constants.KDCOptions.renewable_ok.value)
             opts.append(constants.KDCOptions.enc_tkt_in_skey.value)
 
@@ -513,8 +516,8 @@ class GETST:
 
         if self.__dmsa:
             serverName = Principal('krbtgt/%s' % self.__domain, type=constants.PrincipalNameType.NT_SRV_INST.value)
-            logging.debug('DMSA: Targeting krbtgt/%s service (sname)' % self.__domain)            
-        elif self.__options.u2u:
+            logging.debug('DMSA: Targeting krbtgt/%s service (sname)' % self.__domain)
+        elif u2u_s4u2self:
             serverName = Principal(self.__user, self.__domain.upper(), type=constants.PrincipalNameType.NT_UNKNOWN.value)
         else:
             serverName = Principal(self.__user, type=constants.PrincipalNameType.NT_UNKNOWN.value)
@@ -528,14 +531,14 @@ class GETST:
         reqBody['nonce'] = random.getrandbits(31)
         seq_set_iter(reqBody, 'etype', getKerberosTGSRequestEnctypes())
 
-        if self.__options.u2u:
+        if u2u_s4u2self:
             seq_set_iter(reqBody, 'additional-tickets', (ticket.to_asn1(TicketAsn1()),))
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('Final TGS')
             print(tgsReq.prettyPrint())
 
-        logging.info('Requesting S4U2self%s' % ('+U2U' if self.__options.u2u else ''))
+        logging.info('Requesting S4U2self%s' % ('+U2U' if u2u_s4u2self else ''))
         message = encoder.encode(tgsReq)
 
         r = sendReceive(message, self.__domain, kdcHost)
@@ -742,13 +745,33 @@ class GETST:
         opts.append(constants.KDCOptions.forwardable.value)
         opts.append(constants.KDCOptions.renewable.value)
 
+        if self.__nospn is not None:
+            opts.append(constants.KDCOptions.enc_tkt_in_skey.value)
+
         reqBody['kdc-options'] = constants.encodeFlags(opts)
-        service2 = Principal(self.__options.spn, type=constants.PrincipalNameType.NT_SRV_INST.value)
+
+        if self.__nospn is not None:
+            service2 = Principal(self.__nospn, type=constants.PrincipalNameType.NT_UNKNOWN.value)
+        else:
+            service2 = Principal(self.__options.spn, type=constants.PrincipalNameType.NT_SRV_INST.value)
         seq_set(reqBody, 'sname', service2.components_to_asn1)
         reqBody['realm'] = self.__domain
 
         myTicket = ticket.to_asn1(TicketAsn1())
-        seq_set_iter(reqBody, 'additional-tickets', (myTicket,))
+
+        if self.__nospn is not None:
+            u2uCCache = CCache.loadFile(self.__tgt)
+            u2uPrincipal = u2uCCache.credentials[0].header['server'].prettyPrint()
+            u2uCreds = u2uCCache.getCredential(u2uPrincipal.decode())
+            u2uTGT = u2uCreds.toTGT()
+            u2uDecodedTGT = decoder.decode(u2uTGT['KDC_REP'], asn1Spec=AS_REP())[0]
+            u2uTicket = Ticket()
+            u2uTicket.from_asn1(u2uDecodedTGT['ticket'])
+            u2uAsn1 = u2uTicket.to_asn1(TicketAsn1())
+            logging.info('Using target TGT %s for U2U enc_tkt_in_skey' % self.__tgt)
+            seq_set_iter(reqBody, 'additional-tickets', (u2uAsn1, myTicket))
+        else:
+            seq_set_iter(reqBody, 'additional-tickets', (myTicket,))
 
         now = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=1)
 
@@ -848,6 +871,8 @@ if __name__ == '__main__':
                                                              'the identity provided in this scripts is allowed for '
                                                              'delegation to the SPN specified')
     parser.add_argument('-additional-ticket', action='store', metavar='ticket.ccache', help='include a forwardable service ticket in a S4U2Proxy request for RBCD + KCD Kerberos only')
+    parser.add_argument('-nospn', action='store', metavar='username', help='SPNless target user for U2U S4U2Proxy (use with -u2u, -tgt, and -impersonate)')
+    parser.add_argument('-tgt', action='store', dest='tgt', metavar='ticket.ccache', help='target user TGT for U2U S4U2Proxy enc_tkt_in_skey (use with -u2u and -nospn)')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-u2u', dest='u2u', action='store_true', help='Request User-to-User ticket')
@@ -879,8 +904,16 @@ if __name__ == '__main__':
 
     options = parser.parse_args()
 
-    if not options.no_s4u2proxy and options.spn is None:
-        parser.error("argument -spn is required, except when -self is set")
+    if options.nospn is not None:
+        if options.spn is not None:
+            parser.error("-spn and -nospn are mutually exclusive")
+        if options.tgt is None:
+            parser.error("-tgt is required when using -nospn")
+        if not options.u2u:
+            parser.error("-u2u is required when using -nospn")
+
+    if not options.no_s4u2proxy and options.spn is None and options.nospn is None:
+        parser.error("argument -spn or -nospn is required, except when -self is set")
 
     if options.no_s4u2proxy and options.impersonate is None:
         parser.error("argument -impersonate is required when doing S4U2self")
