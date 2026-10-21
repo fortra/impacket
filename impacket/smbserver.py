@@ -2329,6 +2329,11 @@ class SMBCommands:
                             else:
                                 if readOnly:
                                     mode = os.O_RDONLY
+                                elif os.path.isdir(pathName) and not mode & (os.O_CREAT | os.O_TRUNC):
+                                    # POSIX refuses to open a directory for writing (EISDIR) but clients ask for
+                                    # access rights that are valid on a directory, e.g. FILE_ADD_FILE (same bit as
+                                    # FILE_WRITE_DATA), so open it read-only instead of denying the access
+                                    mode = os.O_RDONLY
                                 fid = os.open(pathName, mode)
                     except Exception as e:
                         smbServer.log("NTCreateAndX: %s,%s,%s" % (pathName, mode, e), logging.ERROR, connData=connData)
@@ -3629,6 +3634,11 @@ class SMB2Commands:
                                 sock.connect(smbServer.getRegisteredNamedPipes()[ensure_str(pathName)])
                             else:
                                 if readOnly:
+                                    mode = os.O_RDONLY
+                                elif os.path.isdir(pathName) and not mode & (os.O_CREAT | os.O_TRUNC):
+                                    # POSIX refuses to open a directory for writing (EISDIR) but clients ask for
+                                    # access rights that are valid on a directory, e.g. FILE_ADD_FILE (same bit as
+                                    # FILE_WRITE_DATA), so open it read-only instead of denying the access
                                     mode = os.O_RDONLY
                                 fid = os.open(pathName, mode)
                     except Exception as e:
