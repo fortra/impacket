@@ -907,7 +907,12 @@ class SMB3:
                 apSessionKey = Key(apCipher.enctype, encAPRepPart['subkey']['keyvalue'].asOctets())
 
                 sequenceNumber = int(encAPRepPart['seq-number'])
-                self._Session['SessionKey'] = apSessionKey.contents
+                # [MS-SMB2] 3.2.5.3: Session.SessionKey is the first 16 bytes of the GSS key.
+                # For AES-256 tickets the AP-REP subkey is 32 bytes; using it unsliced makes
+                # every subsequent KDF_CounterMode-derived signing/encryption key wrong and
+                # the first protected request against a signing/encryption-required server
+                # gets rejected/reset. AES-128 masked this since the key is already 16 bytes.
+                self._Session['SessionKey'] = apSessionKey.contents[:16]
 
             else:
                 self._Session['SessionKey']  = sessionKey.contents[:16]
