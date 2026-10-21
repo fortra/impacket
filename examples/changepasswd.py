@@ -32,34 +32,34 @@
 #       * If using NTLM hashes, the new password is flagged as expired
 #       * If using password reset with a NTLM hash, password policy and history is ignored
 #       * When using hashes for change or reset, Kerberos keys are not created
-#       * -timeout can be used to avoid blocking indefinitely on an unreachable or filtered server
+#       * -timeout sets the connection timeout in seconds (default: 30)
 #   - MS-SAMR over MS-RPC:
 #       * RPC communication over TCP/135 and random ports
 #       * Cannot get a handle on user object with default AD configuration:
 #           - cannot use hSamrChangePasswordUser to change password with hashes only
 #           - cannot use hSamrSetInformationUser to reset the password
 #       * Password policy is enforced
-#       * -timeout can be used to avoid blocking indefinitely on an unreachable or filtered server
+#       * -timeout sets the connection timeout in seconds (default: 30)
 #   - Kerberos Change Password: (kpasswd)
 #       * Must use Kerberos authentication
 #       * Must have a valid TGT/key or valid password for the user
 #       * Must provide the new password as plaintext
 #       * Password policy is enforced
-#       * -timeout can be used to avoid blocking indefinitely on an unreachable or filtered KDC
+#       * -timeout sets the connection timeout in seconds (default: 30)
 #   - Kerberos Set Password:
 #       * Must use Kerberos authentication
 #       * Must have a valid TGT/key or valid password for the admin
 #       * Must provide the new password as plaintext
-#       * -timeout can be used to avoid blocking indefinitely on an unreachable or filtered KDC
+#       * -timeout sets the connection timeout in seconds (default: 30)
 #   - LDAP password change:
 #       * The server must support TLS. If the DC is misconfigured, you cannot connect
 #       * Must provide the old and new passwords as plaintext
 #       * Password policy is enforced
-#       * -timeout can be used to avoid blocking indefinitely on an unreachable or filtered DC
+#       * -timeout sets the TCP connection timeout in seconds (default: 30), TLS and LDAP operations are not covered
 #   - LDAP password set:
 #       * The server must support TLS. If the DC is misconfigured, you cannot connect
 #       * Must provide the new password as plaintext
-#       * -timeout can be used to avoid blocking indefinitely on an unreachable or filtered DC
+#       * -timeout sets the TCP connection timeout in seconds (default: 30), TLS and LDAP operations are not covered
 #
 #   Examples:
 #     SAMR protocol over SMB transport to change passwords (like smbpasswd, -protocol smb-samr is implied)
@@ -169,7 +169,7 @@ class PasswordHandler:
         :param bool doKerberos: use Kerberos authentication instead of NTLM
         :param string aesKey:   AES key for Kerberos authentication
         :param string kdcHost:  KDC host
-        :param int timeout:     connection timeout in seconds, honored by all the protocol handlers
+        :param int timeout:     connection timeout in seconds, None keeps each protocol's own default
         """
 
         self.address = address
@@ -631,7 +631,7 @@ class LdapPassword(PasswordHandler):
         ldapURI = "ldaps://" + self.address
         self.baseDN = "DC=" + ",DC=".join(targetDomain.split("."))
 
-        logging.info(f"Connecting to {ldapURI}" + (f" (timeout={self.timeout}s)" if self.timeout else ""))
+        logging.info(f"Connecting to {ldapURI}" + (f" (connect timeout={self.timeout}s)" if self.timeout else ""))
         try:
             ldapConnection = ldap.LDAPConnection(ldapURI, self.baseDN, self.address, timeout=self.timeout)
         except (ldap.LDAPSessionError, OpenSSL.SSL.SysCallError, OSError) as e:
@@ -832,9 +832,9 @@ def parse_args():
         "-timeout",
         action="store",
         type=int,
-        default=None,
+        default=30,
         metavar="seconds",
-        help="Connection timeout in seconds (default: no timeout, blocks indefinitely)",
+        help="Connection timeout in seconds (default: %(default)s). With -protocol ldap, only the TCP connection is covered",
     )
 
     group = parser.add_argument_group(

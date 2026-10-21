@@ -32,8 +32,8 @@ class TimeoutValidationTests(unittest.TestCase):
     def test_cli_accepts_positive_timeout(self):
         self.assertEqual(self._parse("-timeout", "5").timeout, 5)
 
-    def test_cli_timeout_defaults_to_none(self):
-        self.assertIsNone(self._parse().timeout)
+    def test_cli_timeout_defaults_to_30(self):
+        self.assertEqual(self._parse().timeout, 30)
 
     def test_handler_rejects_zero_and_negative_timeout(self):
         for value in (0, -1):
