@@ -22,11 +22,13 @@ from datetime import datetime
 from enum import Enum
 from six import b
 
-from struct import pack, unpack, calcsize
+from struct import unpack
 from binascii import hexlify
 
 from impacket.structure import Structure
 from impacket import LOG
+
+import os
 
 
 class Enctype(Enum):
@@ -281,10 +283,12 @@ class Keytab:
             LOG.warning("No matching key for SPN '%s' in given keytab found!", username)
 
 
-    def saveFile(self, fileName):
+    def saveFile(self, fileName, chmod=0o600):
         f = open(fileName, 'wb+')
         f.write(self.getData())
         f.close()
+        if chmod is not None:
+            os.chmod(fileName, chmod)
 
     def prettyPrint(self):
         print("Keytab Entries:")
