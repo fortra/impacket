@@ -501,5 +501,19 @@ class Test_Issue2099_SessionError_On_Truncated_Response(unittest.TestCase):
                     self.assertIsNotNone(getattr(ctx.exception, 'error', None) or getattr(ctx.exception, 'error_code', None))
 
 
+class Test_SMBNativeMetadata(unittest.TestCase):
+    def test_native_metadata_defaults_and_configurable(self):
+        with patch.object(smb.SMB, '__init__', return_value=None) as smb_client, \
+             patch.object(smb.SMB, 'get_flags', return_value=(0, 0)):
+            SMBConnection('127.0.0.1', '127.0.0.1', preferredDialect=smb.SMB_DIALECT)
+            self.assertEqual(smb_client.call_args.kwargs['nativeOS'], 'Windows 10.0')
+            self.assertEqual(smb_client.call_args.kwargs['nativeLanMan'], 'Windows 10.0')
+
+            SMBConnection('127.0.0.1', '127.0.0.1', preferredDialect=smb.SMB_DIALECT,
+                          nativeOS='Windows', nativeLanMan='NT LAN Manager')
+            self.assertEqual(smb_client.call_args.kwargs['nativeOS'], 'Windows')
+            self.assertEqual(smb_client.call_args.kwargs['nativeLanMan'], 'NT LAN Manager')
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
