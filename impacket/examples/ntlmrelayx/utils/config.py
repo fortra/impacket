@@ -53,6 +53,7 @@ class NTLMRelayxConfig:
         self.keyfile = None
 
         self.command = None
+        self.dumpLSA = False
 
         # WPAD options
         self.serve_wpad = False
@@ -101,6 +102,7 @@ class NTLMRelayxConfig:
 
         # AD CS attack options
         self.isADCSAttack = False
+        self.isCESAttack = False
         self.template = None
         self.altName = None
         self.altSid = None
@@ -158,6 +160,9 @@ class NTLMRelayxConfig:
 
     def setCommand(self, command):
         self.command = command
+
+    def setDumpLSA(self, dumpLSA):
+        self.dumpLSA = dumpLSA
 
     def setEnumLocalAdmins(self, enumLocalAdmins):
         self.enumLocalAdmins = enumLocalAdmins
@@ -268,6 +273,9 @@ class NTLMRelayxConfig:
 
     def setIsADCSAttack(self, isADCSAttack):
         self.isADCSAttack = isADCSAttack
+
+    def setIsCESAttack(self, isCESAttack):
+        self.isCESAttack = isCESAttack
 
     def setEnumTemplates(self, enumTemplates):
         self.enumTemplates = enumTemplates

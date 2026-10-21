@@ -282,6 +282,25 @@ class SMBTests(RemoteTestCase):
         smb.listShares()
         smb.logoff()
 
+    def test_listSharesWithPrivs(self):
+        smb = self.create_connection()
+        smb.login(self.username, self.password, self.domain)
+        try:
+            shares = smb.listSharesWithPrivs()
+            matching_shares = [share for share in shares
+                               if share['shi502_netname'].rstrip('\x00').upper() == self.share.upper()]
+            self.assertEqual(len(matching_shares), 1)
+            share = matching_shares[0]
+            self.assertTrue(share['shi502_path'].rstrip('\x00'))
+            for share in shares:
+                descriptor = share['shi502_security_descriptor']
+                if share['shi502_reserved']:
+                    self.assertEqual(len(descriptor), share['shi502_reserved'])
+                else:
+                    self.assertFalse(descriptor)
+        finally:
+            smb.logoff()
+
     def test_getSessionKey(self):
         smb = self.create_connection()
         smb.login(self.username, self.password, self.domain)

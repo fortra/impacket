@@ -86,6 +86,7 @@ class FindDelegation:
         #[!] in this script the value of -dc-ip option is self.__kdcIP and the value of -dc-host option is self.__kdcHost
         self.__kdcIP = cmdLineOptions.dc_ip
         self.__kdcHost = cmdLineOptions.dc_host
+        self.__ldaps = cmdLineOptions.ldaps
         self.__requestUser = cmdLineOptions.user
         self.__disabled = cmdLineOptions.disabled
         if cmdLineOptions.hashes is not None:
@@ -108,7 +109,7 @@ class FindDelegation:
 
     def run(self):
         # Connect to LDAP
-        ldapConnection = ldap_login(self.__target, self.baseDN, self.__kdcIP, self.__kdcHost, self.__doKerberos, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, target_domain=self.__targetDomain, fqdn=True)
+        ldapConnection = ldap_login(self.__target, self.baseDN, self.__kdcIP, self.__kdcHost, self.__doKerberos, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, ldaps_flag=self.__ldaps, target_domain=self.__targetDomain, fqdn=True)
         # updating "self.__target" as it may have changed in the ldap_login processing
         self.__target = ldapConnection._dstHost
 
@@ -126,16 +127,18 @@ class FindDelegation:
             searchFilter += ')'
 
         try:
+            # Microsoft Active Directory set an hard limit of 1000 entries returned by any search
+            paged_search_control = ldapasn1.SimplePagedResultsControl(criticality=True, size=1000)
+
             resp = ldapConnection.search(searchFilter=searchFilter,
                                          attributes=['sAMAccountName',
                                                      'pwdLastSet', 'userAccountControl', 'objectCategory',
                                                      'msDS-AllowedToActOnBehalfOfOtherIdentity', 'msDS-AllowedToDelegateTo'],
-                                         sizeLimit=999)
+                                         searchControls=[paged_search_control])
         except ldap.LDAPSearchError as e:
             if e.getErrorString().find('sizeLimitExceeded') >= 0:
+                # We should never reach this code as we use paged search now
                 logging.debug('sizeLimitExceeded exception caught, giving up and processing the data received')
-                # We reached the sizeLimit, process the answers we have already and that's it. Until we implement
-                # paged queries
                 resp = e.getAnswers()
                 pass
             else:
@@ -252,6 +255,7 @@ if __name__ == '__main__':
     group.add_argument('-dc-host', action='store', metavar='hostname', help='Hostname of the domain controller to use. '
                                                                               'If ommited, the domain part (FQDN) '
                                                                               'specified in the account parameter will be used')
+    group.add_argument('-ldaps', '-use-ldaps', dest='ldaps', action='store_true', help='Use LDAPS instead of LDAP')
 
     if len(sys.argv)==1:
         parser.print_help()

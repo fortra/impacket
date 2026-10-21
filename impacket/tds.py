@@ -1452,30 +1452,18 @@ class MSSQL:
     # Once the TDS packet is computed, it is send to the socketSendall function that will check
     # whether or not we have to encrypt the packets
     def sendTDS(self, packetType, data, packetID=1):
-        if (len(data) - 8) > self.packetSize:
-            remaining = data[self.packetSize - 8 :]
-            tds = TDSPacket()
-            tds["Type"] = packetType
-            tds["Status"] = TDS_STATUS_NORMAL
-            tds["PacketID"] = packetID
-            tds["Data"] = data[: self.packetSize - 8]
-            self.socketSendall(tds.getData())
+        payload = memoryview(data)
+        packet_data_size = self.packetSize - 8
+        packet_id_modulus = 256
+        packet_offsets = range(0, len(payload), packet_data_size) if payload else (0,)
 
-            while len(remaining) > (self.packetSize - 8):
-                packetID += 1
-                tds["PacketID"] = packetID
-                tds["Data"] = remaining[: self.packetSize - 8]
-                self.socketSendall(tds.getData())
-                remaining = remaining[self.packetSize - 8 :]
-            data = remaining
-            packetID += 1
-
-        tds = TDSPacket()
-        tds["Type"] = packetType
-        tds["Status"] = TDS_STATUS_EOM
-        tds["PacketID"] = packetID
-        tds["Data"] = data
-        self.socketSendall(tds.getData())
+        packet = TDSPacket()
+        packet["Type"] = packetType
+        for packet_index, offset in enumerate(packet_offsets):
+            packet["Status"] = TDS_STATUS_EOM if offset + packet_data_size >= len(payload) else TDS_STATUS_NORMAL
+            packet["PacketID"] = (packetID + packet_index) % packet_id_modulus
+            packet["Data"] = payload[offset : offset + packet_data_size].tobytes()
+            self.socketSendall(packet.getData())
 
     # This function is a wrapper that is used to dispatch packets to send depending of the TLS context
     def socketSendall(self, data):
@@ -1522,13 +1510,15 @@ class MSSQL:
             packetSize = self.packetSize
 
         packet = self._recv_tds_packet(packetSize)
-        status = packet["Status"]
-        while status != TDS_STATUS_EOM:
-            tmpPacket = self._recv_tds_packet(packetSize)
-            status = tmpPacket["Status"]
-            packet["Data"] += tmpPacket["Data"]
-            packet["Length"] += tmpPacket["Length"] - 8
+        fragment = packet
+        chunks = [packet["Data"]]
 
+        while not (fragment["Status"] & TDS_STATUS_EOM):
+            fragment = self._recv_tds_packet(packetSize)
+            chunks.append(fragment["Data"])
+
+        packet["Data"] = b"".join(chunks)
+        packet["Length"] = len(packet["Data"]) + 8
         return packet
 
     def _recv_chunk(self, packetSize):

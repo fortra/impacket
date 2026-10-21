@@ -20,6 +20,28 @@ from impacket.dcerpc.v5 import samr
 from impacket.examples.secretsdump import LocalOperations, RemoteOperations, SAMHashes, LSASecrets, NTDSHashes
 from impacket.smbconnection import SMBConnection
 
+LOCAL_SYSTEM_HIVE = os.path.join("tests", "data", "secretsdump_local_SYSTEM")
+LOCAL_SECURITY_HIVE = os.path.join("tests", "data", "secretsdump_local_SECURITY")
+
+
+class FakeServiceRegistry:
+    def __init__(self, services):
+        self.services = services
+
+    def getValue(self, path):
+        if path == '\\Select\\Current':
+            return 4, 1
+
+        prefix = '\\ControlSet001\\Services\\'
+        suffix = '\\ObjectName'
+        if path.startswith(prefix) and path.endswith(suffix):
+            serviceName = path[len(prefix):-len(suffix)]
+            username = self.services.get(serviceName)
+            if username is not None:
+                return 1, (username + '\x00').encode('utf-16-le')
+
+        return None
+
 
 def _print_helper(*args, **kwargs):
     try:
@@ -276,11 +298,14 @@ class NTDSHashesUnitTests(unittest.TestCase):
                 self.returned = True
                 return self.record
 
-        for history, expected_lines in ((False, 3), (True, 6)):
+        # per trust value, with an authoritative flat name: rc4 + aes256 + aes256(trust account)
+        # + aes128 + aes128(trust account)
+        for history, expected_lines in ((False, 5), (True, 10)):
             with self.subTest(history=history):
                 esedb = FakeESEDB()
                 esedb.record = {
                     NTDSHashes.NAME_TO_INTERNAL['trustPartner']: 'partner.example',
+                    NTDSHashes.NAME_TO_INTERNAL['flatName']: 'PARTNER',
                     NTDSHashes.NAME_TO_INTERNAL['trustAuthIncoming']: b'encrypted',
                     NTDSHashes.NAME_TO_INTERNAL['trustAuthOutgoing']: None,
                 }
@@ -467,6 +492,115 @@ class Tests(SecretsDumpTests, unittest.TestCase):
     def setUp(self):
         super(Tests, self).setUp()
         self.set_transport_config(aes_keys=True)
+
+
+class LocalServiceAccountSecretsTests(unittest.TestCase):
+    """Offline test for the local service-account LSA secret decryption.
+
+    Replicates:
+        secretsdump.py local -system SYSTEM -security SECURITY -history
+
+    using the minimal SYSTEM/SECURITY fixtures, and checks that the
+    _SC_UevAgentService secret (current and history) decrypts to the expected
+    account/password, with the service account resolved from the SYSTEM hive.
+    """
+
+    EXPECTED = [
+        ".\\Services:Totobolo123",          # _SC_UevAgentService (CurrVal)
+        ".\\Services:Password123",          # _SC_UevAgentService_history (OldVal)
+    ]
+
+    def test_local_service_decryption(self):
+        secrets = []
+
+        def callback(secretType, secret):
+            if secretType == LSASecrets.SECRET_TYPE.LSA:
+                secrets.append(secret)
+
+        bootKey = LocalOperations(LOCAL_SYSTEM_HIVE).getBootKey()
+        self.assertEqual(bootKey.hex(), "4c695b55f0f423fa70a87bbe173edfc6")
+
+        lsa = LSASecrets(LOCAL_SECURITY_HIVE, bootKey, isRemote=False,
+                         history=True, perSecretCallback=callback,
+                         systemHive=LOCAL_SYSTEM_HIVE)
+        lsa.dumpCachedHashes()
+        lsa.dumpSecrets()
+        lsa.finish()
+
+        for expected in self.EXPECTED:
+            self.assertIn(expected, secrets)
+
+    def test_missing_service_uses_unknown_user(self):
+        secrets = []
+        lsa = LSASecrets(
+            None,
+            b'',
+            systemHive='SYSTEM',
+            perSecretCallback=lambda _, secret: secrets.append(secret),
+        )
+
+        registry = FakeServiceRegistry({})
+        with mock.patch(
+            'impacket.examples.secretsdump.winregistry.get_registry_parser',
+            return_value=registry,
+        ):
+            lsa._LSASecrets__printSecret(
+                '_SC_missing',
+                'password'.encode('utf-16-le'),
+            )
+
+        self.assertEqual(secrets, ['(Unknown User):password'])
+
+    def test_empty_remote_service_account_uses_unknown_user(self):
+        secrets = []
+        remote_ops = mock.Mock()
+        remote_ops.getServiceAccount.return_value = ''
+        lsa = LSASecrets(
+            None,
+            b'',
+            remoteOps=remote_ops,
+            perSecretCallback=lambda _, secret: secrets.append(secret),
+        )
+
+        lsa._LSASecrets__printSecret(
+            '_SC_missing',
+            'password'.encode('utf-16-le'),
+        )
+
+        remote_ops.getServiceAccount.assert_called_once_with('missing')
+        self.assertEqual(secrets, ['(Unknown User):password'])
+
+    def test_service_name_ending_in_history(self):
+        secrets = []
+        lsa = LSASecrets(
+            None,
+            b'',
+            systemHive='SYSTEM',
+            perSecretCallback=lambda _, secret: secrets.append(secret),
+        )
+
+        registry = FakeServiceRegistry({
+            'backup': 'wrong-user',
+            'backup_history': 'right-user',
+        })
+        with mock.patch(
+            'impacket.examples.secretsdump.winregistry.get_registry_parser',
+            return_value=registry,
+        ):
+            lsa._LSASecrets__printSecret(
+                '_SC_backup_history',
+                'current'.encode('utf-16-le'),
+            )
+            lsa._LSASecrets__printSecret(
+                '_SC_backup_history_history',
+                'old'.encode('utf-16-le'),
+                isHistory=True,
+            )
+
+        self.assertEqual(secrets, [
+            'right-user:current',
+            'right-user:old',
+        ])
 
 
 if __name__ == "__main__":

@@ -29,6 +29,96 @@ class TDSTests(unittest.TestCase):
         packet["Data"] = data
         return packet.getData()
 
+    def _assert_send_tds_packets(self, data, expected_lengths, packet_id=None,
+                                 expected_packet_ids=None, packet_size=4096):
+        client = tds.MSSQL("server")
+        client.packetSize = packet_size
+        client.socketSendall = mock.Mock()
+
+        if packet_id is None:
+            client.sendTDS(tds.TDS_SQL_BATCH, data)
+            packet_id = 1
+        else:
+            client.sendTDS(tds.TDS_SQL_BATCH, data, packet_id)
+
+        packets = [call.args[0] for call in client.socketSendall.call_args_list]
+        self.assertEqual([len(packet) for packet in packets], expected_lengths)
+        if expected_packet_ids is None:
+            expected_packet_ids = list(range(packet_id, packet_id + len(packets)))
+        packet_ids = []
+        for index, packet in enumerate(packets):
+            packet_type, status, length, spid, current_id, window = struct.unpack(
+                ">BBHHBB", packet[:8]
+            )
+            self.assertEqual(packet_type, tds.TDS_SQL_BATCH)
+            self.assertEqual(length, len(packet))
+            self.assertLessEqual(length, client.packetSize)
+            self.assertEqual(spid, 0)
+            self.assertEqual(window, 0)
+            self.assertEqual(
+                status,
+                tds.TDS_STATUS_EOM if index == len(packets) - 1 else tds.TDS_STATUS_NORMAL,
+            )
+            packet_ids.append(current_id)
+        self.assertEqual(packet_ids, expected_packet_ids)
+        self.assertEqual(b"".join(packet[8:] for packet in packets), data)
+
+    def test_send_tds_empty_payload_sends_one_eom_packet(self):
+        self._assert_send_tds_packets(b"", [8])
+
+    def test_send_tds_splits_at_payload_capacity(self):
+        for length, expected_lengths in (
+            (4087, [4095]),
+            (4088, [4096]),
+            (4089, [4096, 9]),
+            (4104, [4096, 24]),
+            (4105, [4096, 25]),
+        ):
+            with self.subTest(length=length):
+                self._assert_send_tds_packets(b"A" * length, expected_lengths)
+
+    def test_send_tds_exact_multiple_has_no_empty_trailing_packet(self):
+        for length, expected_lengths in (
+            (8176, [4096, 4096]),
+            (8177, [4096, 4096, 9]),
+        ):
+            with self.subTest(length=length):
+                self._assert_send_tds_packets(b"A" * length, expected_lengths)
+
+    def test_send_tds_uses_negotiated_packet_size(self):
+        for length, expected_lengths in (
+            (16183, [16191]),
+            (16184, [16192]),
+            (16185, [16192, 9]),
+            (32368, [16192, 16192]),
+            (32369, [16192, 16192, 9]),
+        ):
+            with self.subTest(length=length):
+                self._assert_send_tds_packets(
+                    b"A" * length, expected_lengths, packet_size=16192,
+                )
+
+    def test_send_tds_packet_id_wraps_and_continues_incrementing(self):
+        self._assert_send_tds_packets(
+            b"A" * (4088 * 258),
+            [4096] * 258,
+            expected_packet_ids=list(range(1, 256)) + [0, 1, 2],
+        )
+
+    def test_send_tds_preserves_explicit_starting_packet_id(self):
+        self._assert_send_tds_packets(
+            b"A" * (4088 * 3),
+            [4096] * 3,
+            packet_id=255,
+            expected_packet_ids=[255, 0, 1],
+        )
+
+    def test_send_tds_preserves_binary_payload_across_packets(self):
+        self._assert_send_tds_packets(
+            bytes(range(256)) * 65,
+            [4096, 4096, 4096, 4096, 296],
+        )
+
     def test_prelogin_packs_four_byte_threadid(self):
         token = tds.TDS_PRELOGIN()
         token["Version"] = b"\x0f\x00\x11\x3a\x00\x00"
@@ -153,6 +243,20 @@ class TDSTests(unittest.TestCase):
 
         self.assertEqual(response["Type"], tds.TDS_PRE_LOGIN)
         self.assertEqual(response["Data"], b"partial-header")
+
+    def test_recv_tds_reassembles_multi_packet_message(self):
+        client = tds.MSSQL("server")
+        first = self._build_tds_packet(tds.TDS_TABULAR, b"first-", tds.TDS_STATUS_NORMAL)
+        middle = self._build_tds_packet(tds.TDS_TABULAR, b"middle-", tds.TDS_STATUS_NORMAL)
+        last = self._build_tds_packet(tds.TDS_TABULAR, b"last", tds.TDS_STATUS_EOM)
+        client.socket = mock.Mock()
+        client.socket.recv = mock.Mock(side_effect=[first, middle, last])
+
+        response = client.recvTDS(packetSize=4096)
+
+        self.assertEqual(response["Type"], tds.TDS_TABULAR)
+        self.assertEqual(response["Data"], b"first-middle-last")
+        self.assertEqual(response["Length"], len(b"first-middle-last") + 8)
 
     def test_recv_tds_preserves_buffered_bytes_for_next_packet(self):
         client = tds.MSSQL("server")

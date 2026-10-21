@@ -53,6 +53,7 @@ class GetADComputers:
         #[!] in this script the value of -dc-ip option is self.__kdcIP and the value of -dc-host option is self.__kdcHost
         self.__kdcIP = cmdLineOptions.dc_ip
         self.__kdcHost = cmdLineOptions.dc_host
+        self.__ldaps = cmdLineOptions.ldaps
         self.__requestUser = cmdLineOptions.user
         self.__resolveIP = cmdLineOptions.resolveIP
         if cmdLineOptions.hashes is not None:
@@ -153,7 +154,7 @@ class GetADComputers:
 
     def run(self):
         # Connect to LDAP
-        ldapConnection = ldap_login(self.__target, self.baseDN, self.__kdcIP, self.__kdcHost, self.__doKerberos, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
+        ldapConnection = ldap_login(self.__target, self.baseDN, self.__kdcIP, self.__kdcHost, self.__doKerberos, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, ldaps_flag=self.__ldaps)
         # updating "self.__target" as it may have changed in the ldap_login processing
         self.__target = ldapConnection._dstHost
         logging.info('Querying %s for information about domain.' % self.__target)
@@ -205,6 +206,7 @@ if __name__ == '__main__':
     group.add_argument('-dc-host', action='store', metavar='hostname', help='Hostname of the domain controller to use. '
                                                                               'If ommited, the domain part (FQDN) '
                                                                               'specified in the account parameter will be used')
+    group.add_argument('-ldaps', '-use-ldaps', dest='ldaps', action='store_true', help='Use LDAPS instead of LDAP')
 
     
 

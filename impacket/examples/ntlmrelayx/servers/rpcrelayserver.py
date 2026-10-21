@@ -20,6 +20,7 @@
 
 import socketserver
 import struct
+from impacket import ntlm, LOG
 from impacket.dcerpc.v5.epm import *
 from impacket.dcerpc.v5.rpcrt import *
 from impacket.dcerpc.v5.dcomrt import *
@@ -27,6 +28,13 @@ from impacket.ntlm import NTLMSSP_AUTH_NEGOTIATE, NTLMSSP_AUTH_CHALLENGE_RESPONS
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
 from impacket.nt_errors import ERROR_MESSAGES, STATUS_SUCCESS
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
+from impacket.examples.ntlmrelayx.utils.spnegoutils import (
+    NTLM_MECH,
+    build_ntlm_challenge_token,
+    build_ntlm_fallback_token,
+    get_ntlm_message_type,
+    inspect_spnego_token,
+)
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 from impacket.examples.utils import get_address
 
@@ -50,6 +58,7 @@ class RPCRelayServer(Thread):
             self.request_pdu_data = None
             self.request_sec_trailer = None
             self.challengeMessage = None
+            self.client_uses_spnego = False
             socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
         def setup(self):
@@ -168,10 +177,7 @@ class RPCRelayServer(Thread):
                 LOG.error('(RPC): Packet contains "None" authentication')
                 return self.send_error(MSRPC_STATUS_CODE_RPC_S_BINDING_HAS_NO_AUTH)
             elif auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
-                if req_type == MSRPC_AUTH3:
-                    raise Exception('AUTH3 packet contains "SPNEGO" authentication')
-                # Negotiate NTLM!
-                raise NotImplementedError('SPNEGO auth_type not implemented yet')
+                return self.handle_gss_negotiate(req_type)
             elif auth_type == RPC_C_AUTHN_WINNT or auth_type == RPC_C_AUTHN_DEFAULT:
                 # Great success!
                 if req_type not in (MSRPC_BIND, MSRPC_ALTERCTX, MSRPC_AUTH3):
@@ -185,8 +191,28 @@ class RPCRelayServer(Thread):
             else:
                 raise Exception('Auth type received not supported (yet): %d' % auth_type)
 
-        def negotiate_ntlm_session(self):
-            token = self.request_header['auth_data']
+        def handle_gss_negotiate(self, req_type):
+            token_info = inspect_spnego_token(self.request_header['auth_data'])
+            self.client_uses_spnego = token_info.is_spnego
+            if token_info.negoex_offered:
+                LOG.info("(RPC): NEGOEX authentication offered by client %s, currently not supported for relay" % self.client_address[0])
+            if token_info.negoex_selected:
+                LOG.info("(RPC): NEGOEX selected by client %s, currently not supported for relay" % self.client_address[0])
+                return self.send_error(MSRPC_STATUS_CODE_NCA_S_UNSUPPORTED_AUTHN_LEVEL)
+            if token_info.is_init and (not token_info.mech_types or token_info.mech_types[0] != NTLM_MECH):
+                if req_type not in (MSRPC_BIND, MSRPC_ALTERCTX):
+                    return self.send_error(MSRPC_STATUS_CODE_NCA_S_UNSUPPORTED_AUTHN_LEVEL)
+                return self.bind(build_ntlm_fallback_token())
+
+            token = token_info.inner_token
+            if get_ntlm_message_type(token) is None:
+                LOG.error('(RPC): GSS Negotiate token does not contain NTLM')
+                return self.send_error(MSRPC_STATUS_CODE_NCA_S_UNSUPPORTED_AUTHN_LEVEL)
+            return self.negotiate_ntlm_session(token)
+
+        def negotiate_ntlm_session(self, token=None):
+            if token is None:
+                token = self.request_header['auth_data']
             messageType = struct.unpack('<L', token[len('NTLMSSP\x00'):len('NTLMSSP\x00') + 4])[0]
 
             if messageType == NTLMSSP_AUTH_NEGOTIATE:
@@ -210,7 +236,10 @@ class RPCRelayServer(Thread):
                     self.do_ntlm_negotiate(token)  # Computes the challenge message
                     if not self.challengeMessage or self.challengeMessage is False:
                         raise Exception("Client send negotiated failed.")
-                    return self.bind(self.challengeMessage)
+                    challenge = self.challengeMessage
+                    if self.client_uses_spnego:
+                        challenge = build_ntlm_challenge_token(self.challengeMessage.getData())
+                    return self.bind(challenge)
                 except Exception as e:
                     # Connection failed
                     if self.target is None:

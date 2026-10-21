@@ -620,7 +620,7 @@ class RemoteOperations:
         self.__policyHandle = lsad.hLsarOpenPolicy2(self.__lsa, MAXIMUM_ALLOWED)['PolicyHandle']
 
     def enumTrustedDomains(self):
-        # SMB-only trust discovery over LSARPC. Returns the partner DNS names.
+        # SMB-only trust discovery over LSARPC. Returns (partner DNS name, partner NetBIOS/flat name)
         if self.__lsa is None:
             self.__connectLSA()
 
@@ -635,11 +635,18 @@ class RemoteOperations:
                 break
             buff = resp['EnumerationBuffer']
             for tdo in buff['EnumerationBuffer']:
-                trusts.append(tdo['Name'])
+                trusts.append((tdo['Name'], tdo['FlatName']))
             enumerationContext = resp['EnumerationContext']
             if buff['Entries'] == 0:
                 break
         return trusts
+
+    def getLocalDomainFlatName(self):
+        # Local domain NetBIOS/flat name from LSA (PolicyDnsDomainInformation).
+        if self.__lsa is None:
+            self.__connectLSA()
+        resp = lsad.hLsarQueryInformationPolicy2(self.__lsa, self.__policyHandle, lsad.POLICY_INFORMATION_CLASS.enumItems.PolicyDnsDomainInformation)
+        return resp['PolicyInformation']['PolicyDnsDomainInfo']['Name']
 
     def DRSGetTrustedDomain(self, tdoGuid):
         # Replicate a trustedDomain object requesting only its trustAuth* attributes.
@@ -2093,7 +2100,8 @@ class LSASecrets(OfflineRegistry):
         LSA_KERBEROS = 3
 
     def __init__(self, securityFile, bootKey, remoteOps=None, isRemote=False, history=False,
-                 perSecretCallback=lambda secretType, secret: _print_helper(secret)):
+                 perSecretCallback=lambda secretType, secret: _print_helper(secret),
+                 systemHive=None):
         OfflineRegistry.__init__(self, securityFile, isRemote)
         self.__hashedBootKey = b''
         self.__bootKey = bootKey
@@ -2107,6 +2115,7 @@ class LSASecrets(OfflineRegistry):
         self.__secretItems = []
         self.__perSecretCallback = perSecretCallback
         self.__history = history
+        self.__systemHive = systemHive
 
     def MD5(self, data):
         md5 = hashlib.new('md5')
@@ -2203,6 +2212,22 @@ class LSASecrets(OfflineRegistry):
         else:
             return data
 
+    def getServiceUser(self, svcName):
+        LOG.debug(f'Retrieving {svcName}\'s user')
+        winreg = winregistry.get_registry_parser(self.__systemHive, False)
+        user = '(Unknown User)'
+        try:
+            currentControlSet = winreg.getValue('\\Select\\Current')[1]
+            currentControlSet = "ControlSet%03d" % currentControlSet
+
+            username = winreg.getValue('\\%s\\Services\\%s\\ObjectName' % (currentControlSet, svcName))
+            if username is not None:
+                user = username[1].decode('utf-16-le').rstrip('\x00')
+        except:
+            pass
+
+        return user
+
     def dumpCachedHashes(self):
         if self.__securityFile is None:
             # No SECURITY file provided
@@ -2266,7 +2291,7 @@ class LSASecrets(OfflineRegistry):
                 self.__cachedItems.append(answer)
                 self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA_HASHED, answer)
 
-    def __printSecret(self, name, secretItem):
+    def __printSecret(self, name, secretItem, isHistory=False):
         # Based on [MS-LSAD] section 3.1.1.4
 
         # First off, let's discard NULL secrets.
@@ -2293,11 +2318,19 @@ class LSASecrets(OfflineRegistry):
             except:
                 pass
             else:
+                if isHistory:
+                    # remove _SC_ prefix (4 chars) and _history suffix (8 characters)
+                    name = name[4:-8]
+                else:
+                    # remove _SC_ prefix (4 chars)
+                    name = name[4:]
                 # We have to get the account the service
                 # runs under
-                if hasattr(self.__remoteOps, 'getServiceAccount'):
-                    account = self.__remoteOps.getServiceAccount(name[4:])
-                    if account is None:
+                if self.__systemHive:
+                    secret = self.getServiceUser(name) + ':'
+                elif hasattr(self.__remoteOps, 'getServiceAccount'):
+                    account = self.__remoteOps.getServiceAccount(name)
+                    if not account:
                         secret = self.UNKNOWN_USER + ':'
                     else:
                         secret =  "%s:" % account
@@ -2499,6 +2532,7 @@ class LSASecrets(OfflineRegistry):
                 valueTypeList.append('OldVal')
 
             for valueType in valueTypeList:
+                isHistory = False
                 value = self.getValue('\\Policy\\Secrets\\{}\\{}\\default'.format(key,valueType))
                 if value is not None and value[1] != 0:
                     if self.__vistaStyle is True:
@@ -2514,7 +2548,8 @@ class LSASecrets(OfflineRegistry):
                     # also be consistent with NTDS history
                     if valueType == 'OldVal':
                         key += '_history'
-                    self.__printSecret(key, secret)
+                        isHistory = True
+                    self.__printSecret(key, secret, isHistory)
 
     def exportSecrets(self, baseFileName, openFileFunc = None):
         if len(self.__secretItems) > 0:
@@ -2615,22 +2650,35 @@ TRUST_NAME_TO_ATTRTYP = {
 }
 
 
-def _derive_trust_kerberos_keys(rawSecret, domain, partner, isIncoming):
-    # Inter-realm salt: {FROM}krbtgt{DEST} with the partner FQDN, upper-cased.
+def _derive_trust_kerberos_keys(rawSecret, domain, partner, isIncoming, partnerFlat=None, localFlat=None):
+    # Two keys can be derived from the same trust secret, differing only by salt:
+    #  - salt_fqdn ({REALM_FQDN}krbtgt{PARTNER_FQDN}): the inter-realm key used on the wire to
+    #    encrypt/sign cross-realm referral tickets (what mimikatz/tdo_dump emit, used for forging).
+    #  - salt_nb   ({REALM_FQDN}krbtgt{FLAT}): the trust account (<FLAT>$) login key, where FLAT is
+    #    the NetBIOS/flat name of the partner (incoming) or of the local domain (outgoing). The flat
+    #    name is an independent AD attribute, so it must be the authoritative value; when it is not
+    #    available the trust account key is omitted rather than guessed from the DNS label.
     if isIncoming:
-        salt = ('%skrbtgt%s' % (domain.upper(), partner.upper())).encode('utf-8')
+        flat = partnerFlat
+        salt_fqdn = ('%skrbtgt%s' % (domain.upper(), partner.upper())).encode('utf-8')
+        salt_nb = ('%skrbtgt%s' % (domain.upper(), flat.upper())).encode('utf-8') if flat else None
     else:
-        salt = ('%skrbtgt%s' % (partner.upper(), domain.upper())).encode('utf-8')
+        flat = localFlat
+        salt_fqdn = ('%skrbtgt%s' % (partner.upper(), domain.upper())).encode('utf-8')
+        salt_nb = ('%skrbtgt%s' % (partner.upper(), flat.upper())).encode('utf-8') if flat else None
     secret = rawSecret.decode('utf-16-le', 'replace').encode('utf-8', 'replace')
     out = []
     for etype in (int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
                   int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value)):
-        key = string_to_key(etype, secret, salt, None)
-        out.append((_TRUST_KERBEROS_TYPE[etype], hexlify(key.contents).decode('utf-8')))
+        keyFqdn = string_to_key(etype, secret, salt_fqdn, None)
+        out.append((_TRUST_KERBEROS_TYPE[etype], hexlify(keyFqdn.contents).decode('utf-8')))
+        if salt_nb is not None:
+            keyNb = string_to_key(etype, secret, salt_nb, None)
+            out.append((_TRUST_KERBEROS_TYPE[etype] + ' (trust account)', hexlify(keyNb.contents).decode('utf-8')))
     return out
 
 
-def _format_trust_secrets(partner, rawSecret, domain, isIncoming, previous=False, justNTLM=False):
+def _format_trust_secrets(partner, rawSecret, domain, isIncoming, previous=False, justNTLM=False, partnerFlat=None, localFlat=None):
     # Returns the output lines for one trust key (RC4, plus AES256/AES128 unless justNTLM).
     # previous=True labels the trustAuthInfo PreviousValue (the trust's old password).
     direction = 'Incoming' if isIncoming else 'Outgoing'
@@ -2639,7 +2687,7 @@ def _format_trust_secrets(partner, rawSecret, domain, isIncoming, previous=False
     ntHash = hexlify(MD4.new(rawSecret).digest()).decode('utf-8')
     lines = ['%s (%s):rc4_hmac:%s' % (partner, direction, ntHash)]
     if not justNTLM:
-        for typename, keyHex in _derive_trust_kerberos_keys(rawSecret, domain, partner, isIncoming):
+        for typename, keyHex in _derive_trust_kerberos_keys(rawSecret, domain, partner, isIncoming, partnerFlat=partnerFlat, localFlat=localFlat):
             lines.append('%s (%s):%s:%s' % (partner, direction, typename, keyHex))
     return lines
 
@@ -2698,6 +2746,9 @@ class NTDSHashes:
         'pwdLastSet':b'ATTq589920',
         'instanceType':b'ATTj131073',
         'trustPartner':b'ATTm589957',
+        'flatName':b'ATTm590335',
+        'nETBIOSName':b'ATTm589911',
+        'dnsRoot':b'ATTm589852',
         'trustAuthIncoming':b'ATTk589953',
         'trustAuthOutgoing':b'ATTk589959',
     }
@@ -3410,6 +3461,34 @@ class NTDSHashes:
             plainText = self.__removeRC4Layer(cipherText)
         return plainText
 
+    def __getLocalDomainFlatNameOffline(self, domain):
+        # Local domain NetBIOS/flat name from the crossRef (Partitions container) whose dnsRoot
+        # matches the local domain FQDN. Lets the offline outgoing salt use the authoritative flat
+        # name instead of the FQDN label. Returns None if not found (caller falls back).
+        try:
+            cursor = self.__ESEDB.openTable('datatable')
+        except Exception:
+            return None
+        filterTables = {
+            self.NAME_TO_INTERNAL['nETBIOSName']: 1,
+            self.NAME_TO_INTERNAL['dnsRoot']: 1,
+        }
+        while True:
+            try:
+                record = self.__ESEDB.getNextRow(cursor, filter_tables=filterTables)
+            except Exception:
+                continue
+            if record is None:
+                break
+            netbios = record.get(self.NAME_TO_INTERNAL['nETBIOSName'])
+            if not netbios:
+                continue
+            dnsRoot = record.get(self.NAME_TO_INTERNAL['dnsRoot'])
+            roots = dnsRoot if isinstance(dnsRoot, (list, tuple)) else [dnsRoot]
+            if any(r and str(r).lower() == domain.lower() for r in roots):
+                return netbios
+        return None
+
     def __dumpTrustKeysOffline(self, outputFile=None):
         # Offline (VSS / local .dit) trusted domain key dump. Scans the datatable for
         # trustedDomain objects and derives the inter-realm Kerberos keys from trustAuth*.
@@ -3423,10 +3502,12 @@ class NTDSHashes:
                       '(e.g. -just-trust-keys a.local/@LOCAL) or supply -security so it can be read from the hive')
             return
         self.__domainFQDN = domain
+        localFlat = self.__getLocalDomainFlatNameOffline(domain)
         LOG.info('Searching NTDS.dit for trusted domain objects')
         cursor = self.__ESEDB.openTable('datatable')
         filterTables = {
             self.NAME_TO_INTERNAL['trustPartner']: 1,
+            self.NAME_TO_INTERNAL['flatName']: 1,
             self.NAME_TO_INTERNAL['trustAuthIncoming']: 1,
             self.NAME_TO_INTERNAL['trustAuthOutgoing']: 1,
         }
@@ -3442,6 +3523,8 @@ class NTDSHashes:
             partner = record[self.NAME_TO_INTERNAL['trustPartner']]
             if partner is None:
                 continue
+            # Authoritative partner flat name from the trustedDomain object (local flat name from the crossRef, read above).
+            partnerFlat = record.get(self.NAME_TO_INTERNAL['flatName'])
             for col, isIncoming in ((self.NAME_TO_INTERNAL['trustAuthIncoming'], True),
                                     (self.NAME_TO_INTERNAL['trustAuthOutgoing'], False)):
                 value = record[col]
@@ -3457,13 +3540,13 @@ class NTDSHashes:
                 except Exception:
                     LOG.debug('Exception', exc_info=True)
                     continue
-                for line in _format_trust_secrets(partner, currentSecret, self.__domainFQDN, isIncoming, justNTLM=self.__justNTLM):
+                for line in _format_trust_secrets(partner, currentSecret, self.__domainFQDN, isIncoming, justNTLM=self.__justNTLM, partnerFlat=partnerFlat, localFlat=localFlat):
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
                     if outputFile is not None:
                         self.__writeOutput(outputFile, line + '\n')
                     count += 1
                 if previousSecret and self.__history:
-                    for line in _format_trust_secrets(partner, previousSecret, self.__domainFQDN, isIncoming, previous=True, justNTLM=self.__justNTLM):
+                    for line in _format_trust_secrets(partner, previousSecret, self.__domainFQDN, isIncoming, previous=True, justNTLM=self.__justNTLM, partnerFlat=partnerFlat, localFlat=localFlat):
                         self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
                         if outputFile is not None:
                             self.__writeOutput(outputFile, line + '\n')
@@ -3496,17 +3579,22 @@ class NTDSHashes:
             LOG.info('No trusted domain found')
             return
         LOG.info('Dumping trust keys for %d trusted domain(s)' % len(trusts))
+        localFlat = None
+        try:
+            localFlat = self.__remoteOps.getLocalDomainFlatName()
+        except Exception:
+            LOG.debug('Could not query the local domain flat name; the outgoing trust account key will be omitted', exc_info=True)
         drsr = self.__remoteOps.getDrsr()
-        for partner in trusts:
+        for partner, partnerFlat in trusts:
             try:
-                self.__dumpTrustKeyOnlineOne(partner, baseDN, domain, drsr, outputFile=outputFile)
+                self.__dumpTrustKeyOnlineOne(partner, partnerFlat, localFlat, baseDN, domain, drsr, outputFile=outputFile)
             except Exception as e:
                 LOG.debug('Exception', exc_info=True)
                 LOG.error('Failed to dump trust %s: %s' % (partner, str(e)))
         if outputFile is not None:
             outputFile.flush()
 
-    def __dumpTrustKeyOnlineOne(self, partner, baseDN, domain, drsr, outputFile=None):
+    def __dumpTrustKeyOnlineOne(self, partner, partnerFlat, localFlat, baseDN, domain, drsr, outputFile=None):
         # Resolve the TDO object DN to its GUID with DRSCrackNames (no LDAP).
         dn = 'CN=%s,CN=System,%s' % (partner, baseDN)
         cracked = self.__remoteOps.DRSCrackNames(drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME,
@@ -3557,12 +3645,12 @@ class NTDSHashes:
                 continue
             currentSecret, previousSecret = parsed
             if currentSecret:
-                for line in _format_trust_secrets(partner, currentSecret, domain, isIncoming, justNTLM=self.__justNTLM):
+                for line in _format_trust_secrets(partner, currentSecret, domain, isIncoming, justNTLM=self.__justNTLM, partnerFlat=partnerFlat, localFlat=localFlat):
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
                     if outputFile is not None:
                         self.__writeOutput(outputFile, line + '\n')
             if previousSecret and self.__history:
-                for line in _format_trust_secrets(partner, previousSecret, domain, isIncoming, previous=True, justNTLM=self.__justNTLM):
+                for line in _format_trust_secrets(partner, previousSecret, domain, isIncoming, previous=True, justNTLM=self.__justNTLM, partnerFlat=partnerFlat, localFlat=localFlat):
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, line)
                     if outputFile is not None:
                         self.__writeOutput(outputFile, line + '\n')

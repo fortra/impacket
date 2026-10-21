@@ -402,6 +402,24 @@ class SMBConnection:
         resp = srvs.hNetrShareEnum(dce, 1, serverName="\\\\" + self.getRemoteHost())
         return resp['InfoStruct']['ShareInfo']['Level1']['Buffer']
 
+    def listSharesWithPrivs(self):
+        """
+        (requires Admin priv)
+        Get a list of available shares at the connected target with privileges.
+
+        :return: List containing dict entries for each share and its privs.
+        :raise SessionError: If encountered an error.
+        """
+        # Get the shares through RPC
+        from impacket.dcerpc.v5 import transport, srvs
+        rpctransport = transport.SMBTransport(self.getRemoteName(), self.getRemoteHost(), filename=r'\srvsvc',
+                                              smb_connection=self)
+        dce = rpctransport.get_dce_rpc()
+        dce.connect()
+        dce.bind(srvs.MSRPC_UUID_SRVS)
+        resp = srvs.hNetrShareEnum(dce, 502, serverName="\\\\" + self.getRemoteHost())
+        return resp['InfoStruct']['ShareInfo']['Level502']['Buffer']
+
     def listPath(self, shareName, path, password = None):
         """
         List the files/directories under shareName/path.

@@ -213,7 +213,7 @@ class OwnerEdit(object):
 def parse_args():
     parser = argparse.ArgumentParser(add_help=True, description='Python editor for a principal\'s DACL.')
     parser.add_argument('identity', action='store', help='domain.local/username[:password]')
-    parser.add_argument('-use-ldaps', action='store_true', help='Use LDAPS instead of LDAP')
+    parser.add_argument('-ldaps', '-use-ldaps', dest='ldaps', action='store_true', help='Use LDAPS instead of LDAP')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
@@ -264,7 +264,7 @@ def main():
     try:
         base_dn = ','.join('dc=%s' % part for part in domain.split('.'))
         target = args.dc_host if args.dc_host is not None else domain
-        ldap_session = ldap_login(target, base_dn, args.dc_ip, args.dc_host, args.k, username, password, domain, lmhash, nthash, args.aesKey, ldaps_flag=args.use_ldaps)
+        ldap_session = ldap_login(target, base_dn, args.dc_ip, args.dc_host, args.k, username, password, domain, lmhash, nthash, args.aesKey, ldaps_flag=args.ldaps)
         owneredit = OwnerEdit(ldap_session, base_dn, args)
         if args.action == 'read':
             owneredit.read()
