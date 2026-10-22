@@ -80,6 +80,18 @@ def getKerberosTGSRequestEnctypes(etypes=None):
     return normalizedEtypes
 
 
+def recvExactly(s, n, targetHost, port):
+    # A peer that stops mid-answer returns empty reads forever, so report the disconnection instead of spinning.
+    data = b''
+    while len(data) < n:
+        chunk = s.recv(n - len(data))
+        if not chunk:
+            raise socket.error("Connection error (%s:%s)" % (targetHost, port),
+                               'KDC closed the connection after %d of %d bytes' % (len(data), n))
+        data += chunk
+    return data
+
+
 def sendReceive(data, host, kdcHost, port=88, timeout=None):
     if kdcHost is None:
         targetHost = host
@@ -94,17 +106,21 @@ def sendReceive(data, host, kdcHost, port=88, timeout=None):
         s = socket.socket(af, socktype, proto)
         s.settimeout(timeout)
         s.connect(sa)
-        s.settimeout(None)
     except socket.error as e:
         raise socket.error("Connection error (%s:%s)" % (targetHost, port), e)
 
-    s.sendall(messageLen + data)
+    # The timeout must stay armed past connect: a KDC can accept and then never answer.
+    try:
+        s.sendall(messageLen + data)
 
-    recvDataLen = struct.unpack('!i', s.recv(4))[0]
+        recvDataLen = struct.unpack('!i', recvExactly(s, 4, targetHost, port))[0]
+        if recvDataLen <= 0:
+            raise socket.error("Connection error (%s:%s)" % (targetHost, port),
+                               'KDC announced a %d byte answer' % recvDataLen)
 
-    r = s.recv(recvDataLen)
-    while len(r) < recvDataLen:
-        r += s.recv(recvDataLen-len(r))
+        r = recvExactly(s, recvDataLen, targetHost, port)
+    finally:
+        s.close()
 
     try:
         krbError = KerberosError(packet = decoder.decode(r, asn1Spec = KRB_ERROR())[0])
