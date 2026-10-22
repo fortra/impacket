@@ -27,6 +27,9 @@ class LDAPSSocksRelay(SSLServerMixin, LDAPSocksRelay):
                 # Shut down TLS connection
                 self.socksSocket.shutdown()
                 return False
+        except SSL.ZeroReturnError:
+            LOG.warning('LDAPS: Client closed TLS/SSL connection')
+            return False
         except SSL.SysCallError:
             LOG.warning('Cannot wrap client socket in TLS/SSL')
             return False
