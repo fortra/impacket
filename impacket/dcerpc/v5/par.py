@@ -442,7 +442,7 @@ OPNUMS = {
     #1  : (RpcAsyncAddPrinter, RpcAsyncAddPrinterResponse),
     20 : (RpcAsyncClosePrinter, RpcAsyncClosePrinterResponse),
     38 : (RpcAsyncEnumPrinters, RpcAsyncEnumPrintersResponse),
-    39 : (RpcAsyncAddPrinterDriver, RpcAsyncAddPrinterDriver),
+    39 : (RpcAsyncAddPrinterDriver, RpcAsyncAddPrinterDriverResponse),
     40 : (RpcAsyncEnumPrinterDrivers, RpcAsyncEnumPrinterDriversResponse),
     41 : (RpcAsyncGetPrinterDriverDirectory, RpcAsyncGetPrinterDriverDirectoryResponse)
 }
