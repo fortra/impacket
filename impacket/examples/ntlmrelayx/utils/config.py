@@ -260,10 +260,11 @@ class NTLMRelayxConfig:
         self.remove_target = remove_target
         self.remove_sign_seal = remove_sign_seal
 
-    def setHTTPS(self, https, certfile, keyfile):
+    def setHTTPS(self, https, certfile, keyfile, emudhra=None):
         self.https = https
         self.certfile = certfile
         self.keyfile = keyfile
+        self.emudhra = emudhra
 
     def setWebDAVOptions(self, serve_image):
         self.serve_image = serve_image

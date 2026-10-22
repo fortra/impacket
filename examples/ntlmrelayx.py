@@ -224,7 +224,7 @@ def start_servers(options, threads):
         
         c.setAltName(options.altname)
         c.setAltSid(options.altSid)
-        c.setHTTPS(options.https, options.certfile, options.keyfile)
+        c.setHTTPS(options.https or options.emudhra is not None, options.certfile, options.keyfile, options.emudhra)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
@@ -400,6 +400,8 @@ if __name__ == '__main__':
                             help='Path to server certificate (PEM format) for HTTPS')
     httpoptions.add_argument('--keyfile', action='store', metavar='FILE',
                             help='Path to private key (PEM format) for HTTPS, if not included in the certificate file')
+    httpoptions.add_argument('--emudhra', action='store', metavar='HOSTNAME',
+                            help='Enable HTTPS with the compromised EM OV TLS CA - G3C key')
 
     #LDAP options
     ldapoptions = parser.add_argument_group("LDAP client options")
@@ -494,6 +496,9 @@ if __name__ == '__main__':
             parser.error('--adcs-ces accepts either -t or -tf, not both')
         if options.socks or options.interactive or options.r is not None:
             parser.error('--adcs-ces cannot be combined with SOCKS, interactive, or HTTP-to-SMB redirect mode')
+
+    if options.emudhra is not None and (options.https or options.certfile or options.keyfile):
+        parser.error('--emudhra cannot be combined with --https, --certfile, or --keyfile')
 
     if options.https and options.certfile is None:
         parser.error('--https requires --certfile')
