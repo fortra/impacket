@@ -14,7 +14,32 @@ from tests import RemoteTestCase
 
 from impacket.ldap import ldap, ldapasn1
 import impacket.ldap.ldaptypes
-from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR
+from impacket.ldap.ldaptypes import ACL, SR_SECURITY_DESCRIPTOR
+
+
+class SecurityDescriptorLocalTests(unittest.TestCase):
+
+    def test_security_descriptor_sacl_without_dacl(self):
+        # Self-relative security descriptor holding only a SACL with a single
+        # SYSTEM_AUDIT_ACE for Everyone (S-1-1-0). Owner, group and DACL are absent.
+        data = bytes.fromhex(
+            '01001080'                  # Revision, Sbz1, Control (SE_SELF_RELATIVE | SE_SACL_PRESENT)
+            '0000000000000000'          # OffsetOwner, OffsetGroup
+            '1400000000000000'          # OffsetSacl, OffsetDacl
+            '02001c0001000000'          # ACL: AclRevision, Sbz1, AclSize, AceCount, Sbz2
+            '02c01400'                  # ACE: SYSTEM_AUDIT_ACE, success and failure audit flags, AceSize
+            'ff010f00'                  # Mask
+            '010100000000000100000000'  # Sid
+        )
+        sd = SR_SECURITY_DESCRIPTOR(data=data)
+
+        self.assertEqual(sd['Dacl'], b'')
+        self.assertIsInstance(sd['Sacl'], ACL)
+        self.assertEqual(len(sd['Sacl'].aces), 1)
+        ace = sd['Sacl'].aces[0]
+        self.assertEqual(ace['TypeName'], 'SYSTEM_AUDIT_ACE')
+        self.assertEqual(ace['Ace']['Sid'].formatCanonical(), 'S-1-1-0')
+        self.assertEqual(sd.getData(), data)
 
 
 class LDAPTests(RemoteTestCase):
