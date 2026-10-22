@@ -147,13 +147,15 @@ class SMBServerUnitTests(unittest.TestCase):
         self.assertEqual(normalize_path("//filepath", 'path'), "/filepath")
 
     def test_isInFileJail(self):
-        """Test validation of common prefix path.
+        """Test validation of common path.
         """
         jail_path = "/tmp/jail_path"
         self.assertTrue(isInFileJail(jail_path, "filename"))
         self.assertTrue(isInFileJail(jail_path, "./filename"))
         self.assertTrue(isInFileJail(jail_path, "../jail_path/filename"))
 
+        self.assertFalse(isInFileJail(jail_path, "../jail_path_secret/filename"))
+        self.assertFalse(isInFileJail(jail_path, "../jail_path2/filename"))
         self.assertFalse(isInFileJail(jail_path, "/filename"))
         self.assertFalse(isInFileJail(jail_path, "/tmp/filename"))
         self.assertFalse(isInFileJail(jail_path, "../filename"))
@@ -197,6 +199,9 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
     share_new_file = "jail_new_file"
     share_unjailed_file = "unjailed_file"
     share_unjailed_new_file = "unjailed_new_file"
+    share_prefixed_directory = share_path + "_secret"
+    share_prefixed_file = "prefixed_file"
+    share_prefixed_new_file = "prefixed_new_file"
     share_new_content = "some content"
 
     share_directory = "directory"
@@ -212,11 +217,13 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
         """
         self.server_process = None
         for d in [self.share_path,
+                  self.share_prefixed_directory,
                   self.share_unjailed_directory,
                   join(self.share_path, self.share_directory)]:
             if not exists(d):
                 mkdir(d)
         for f in [self.share_unjailed_file,
+                  join(self.share_prefixed_directory, self.share_prefixed_file),
                   join(self.share_path, self.share_file),
                   join(self.share_path, self.unicode_share_file)]:
             if not exists(f):
@@ -228,6 +235,8 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
         """
         for f in [self.share_unjailed_file,
                   self.share_unjailed_new_file,
+                  join(self.share_prefixed_directory, self.share_prefixed_file),
+                  join(self.share_prefixed_directory, self.share_prefixed_new_file),
                   join(self.share_path, self.share_file),
                   join(self.share_path, self.unicode_share_file),
                   join(self.share_path, self.share_new_file)]:
@@ -235,6 +244,7 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
                 remove(f)
         for d in [self.share_unjailed_directory,
                   self.share_unjailed_new_directory,
+                  self.share_prefixed_directory,
                   join(self.share_path, self.share_directory),
                   join(self.share_path, self.share_new_directory),
                   self.share_path]:
@@ -450,6 +460,13 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
             client.putFile(self.share_name, join("..", self.share_unjailed_new_file), local_file.read)
         self.assertFalse(exists(self.share_unjailed_new_file))
 
+        # A sibling whose name starts with the share name is outside the share.
+        local_file = StringIO(self.share_new_content)
+        prefixed_file = join(self.share_prefixed_directory, self.share_prefixed_new_file)
+        with assertRaisesRegex(self, SessionError, "STATUS_OBJECT_PATH_SYNTAX_BAD"):
+            client.putFile(self.share_name, join("..", prefixed_file), local_file.read)
+        self.assertFalse(exists(prefixed_file))
+
         client.close()
 
     def test_smbserver_get_file(self):
@@ -478,6 +495,13 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
             client.getFile(self.share_name, join("..", self.share_unjailed_file), local_file.write)
         local_file.seek(0)
         self.assertEqual(local_file.read(), b(""))
+
+        # A sibling whose name starts with the share name is outside the share.
+        local_file = BytesIO()
+        prefixed_file = join(self.share_prefixed_directory, self.share_prefixed_file)
+        with assertRaisesRegex(self, SessionError, "STATUS_OBJECT_PATH_SYNTAX_BAD"):
+            client.getFile(self.share_name, join("..", prefixed_file), local_file.write)
+        self.assertEqual(local_file.getvalue(), b(""))
 
         # Check unexistent get file
         with assertRaisesRegex(self, SessionError, "STATUS_NO_SUCH_FILE"):
