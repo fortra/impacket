@@ -68,6 +68,14 @@ class NTLMRelayxConfig:
         self.SMBServerChallenge = None
         self.rpc_attack = None
 
+        # Signing bypass account, shared by the SMB (MS-SMB2 3.3.5.5.2) and LDAP bypasses (LDAP reuses the existing attack options)
+        self.reauth_bypass = False
+        self.reauth_domain = ''
+        self.reauth_user = ''
+        self.reauth_password = ''
+        self.reauth_lmhash = ''
+        self.reauth_nthash = ''
+
         # RPC options
         self.rpc_mode = None
         self.rpc_use_smb = False
@@ -259,6 +267,24 @@ class NTLMRelayxConfig:
         self.remove_mic = remove_mic
         self.remove_target = remove_target
         self.remove_sign_seal = remove_sign_seal
+
+    def setReauthBypassOptions(self, auth_reauth, hashes_reauth=None):
+        if not auth_reauth:
+            return
+        self.reauth_domain, self.reauth_user, self.reauth_password = parse_credentials(auth_reauth)
+
+        if hashes_reauth is not None:
+            if hashes_reauth.count(':') != 1:
+                raise Exception("Hashes for the signing bypass must be in LMHASH:NTHASH format")
+            self.reauth_lmhash, self.reauth_nthash = hashes_reauth.split(':')
+
+        if self.reauth_user == '':
+            raise Exception("You must specify a username for the signing bypass, "
+                            "format is [domain/]username[:password]")
+        if self.reauth_password == '' and self.reauth_nthash == '':
+            raise Exception("You must specify a password or hashes for the signing bypass account")
+
+        self.reauth_bypass = True
 
     def setHTTPS(self, https, certfile, keyfile):
         self.https = https
