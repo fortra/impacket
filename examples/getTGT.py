@@ -30,7 +30,7 @@ from impacket.examples import logger
 from impacket.examples.utils import parse_identity
 from impacket.krb5.kerberosv5 import getKerberosTGT
 from impacket.krb5 import constants
-from impacket.krb5.pkinit import DH_GROUPS, EC_CURVES, PKINITCredentials, readPEMCertificates
+from impacket.krb5.pkinit import DH_GROUPS, EC_CURVES, PKINITCredentials, PKINITError, readPEMCertificates
 from impacket.krb5.types import Principal
 
 
@@ -149,7 +149,12 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init(options.ts, options.debug)
 
-    certificate = GETTGT.loadCertificate(options)
+    try:
+        certificate = GETTGT.loadCertificate(options)
+    except (PKINITError, OSError) as e:
+        logging.critical('Could not load the certificate: %s' % e)
+        sys.exit(1)
+
     if certificate is not None:
         options.no_pass = True
 

@@ -933,7 +933,9 @@ class CredentialsTests(unittest.TestCase):
         data = serialization.pkcs12.serialize_key_and_certificates(
             b'client', self.pki.clientKey, self.pki.clientCertificate, None,
             serialization.BestAvailableEncryption(b'Passw0rd!'))
-        self.assertRaisesRegex(PKINITError, 'Could not load', PKINITCredentials.fromPFXData, data, 'wrong')
+        # A legacy encryption algorithm raises the very same ValueError, so the message must not blame one
+        self.assertRaisesRegex(PKINITError, 'Could not load.*Check the password',
+                               PKINITCredentials.fromPFXData, data, 'wrong')
 
     def test_pfxRoundTrip(self):
         import os

@@ -874,8 +874,9 @@ class PKINITCredentials:
         try:
             privateKey, certificate, chain = pkcs12.load_key_and_certificates(data, password or None)
         except ValueError as e:
-            raise PKINITError('Could not load %s: %s. Certificates encrypted with legacy algorithms must be '
-                              'converted first, e.g. openssl pkcs12 -in old.pfx -out new.pfx -legacy' % (source, e))
+            # cryptography reports a wrong password and an unsupported encryption algorithm with the same error
+            raise PKINITError('Could not load %s: %s. Check the password, a file using legacy algorithms has to be '
+                              'converted, e.g. openssl pkcs12 -in old.pfx -legacy -nodes -out new.pem' % (source, e))
         if privateKey is None or certificate is None:
             raise PKINITError('%s does not hold both a certificate and its private key' % source.capitalize())
         return cls(privateKey, certificate, chain, **kwargs)
