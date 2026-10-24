@@ -30,7 +30,7 @@ from impacket.examples import logger
 from impacket.examples.utils import parse_identity
 from impacket.krb5.kerberosv5 import getKerberosTGT
 from impacket.krb5 import constants
-from impacket.krb5.pkinit import DH_GROUPS, EC_CURVES, PKINITCredentials, PKINITError, readPEMCertificates
+from impacket.krb5.pkinit import DH_GROUPS, EC_CURVES, PKINITCredentials, PKINITError, readCertificates
 from impacket.krb5.types import Principal
 
 
@@ -44,7 +44,10 @@ class GETTGT:
         trustedCAs = []
         if options.ca_cert is not None:
             with open(options.ca_cert, 'rb') as fd:
-                trustedCAs = readPEMCertificates(fd.read())
+                trustedCAs = readCertificates(fd.read())
+            # Without this the KDC certification path would silently go unchecked, as if -ca-cert was not given
+            if not trustedCAs:
+                raise PKINITError('No PEM or DER certificate found in the CA file %s' % options.ca_cert)
 
         settings = {'keyExchange': options.key_exchange, 'dhGroup': options.dh_group, 'curve': options.curve,
                     'trustedCAs': trustedCAs, 'verifyKDC': not options.no_verify_kdc,

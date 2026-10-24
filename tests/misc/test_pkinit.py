@@ -44,7 +44,8 @@ from impacket.krb5.pkinit import DH_GROUPS, DIGEST_ALGORITHMS, DIGEST_OIDS, EC_C
     ID_PKINIT_DHKEYDATA, ID_PKINIT_KP_KDC, ID_PKINIT_RKEYDATA, ID_PKINIT_SAN, ID_RSA_ENCRYPTION, DiffieHellman, \
     EllipticCurveDiffieHellman, KDCCertificateError, PKINIT, PKINITCredentials, PKINITError, buildAlgorithmIdentifier, \
     buildCertificateSet, buildContentInfo, buildSignedData, getReqBodyBytes, getSignatureAlgorithm,\
-    buildSignerIdentifier, signData, octetstring2key, parseSignedData, verifyKDCCertificate, verifySignedData
+    buildSignerIdentifier, signData, octetstring2key, parseSignedData, readCertificates, verifyKDCCertificate, \
+    verifySignedData
 from impacket.krb5.types import KerberosTime, Principal
 
 REALM = 'CONTOSO.COM'
@@ -952,6 +953,20 @@ class CredentialsTests(unittest.TestCase):
             self.assertEqual(credentials.getUPN(), '%s@contoso.com' % CLIENT)
         finally:
             os.unlink(path)
+
+
+    def test_derCertificateIsRead(self):
+        # AD CS publishes its CA certificate in DER, giving an empty bundle before it was handled
+        der = self.pki.caCertificate.public_bytes(serialization.Encoding.DER)
+        self.assertEqual(readCertificates(der), [self.pki.caCertificate])
+
+    def test_pemBundleIsRead(self):
+        pem = b''.join(certificate.public_bytes(serialization.Encoding.PEM)
+                       for certificate in (self.pki.caCertificate, self.pki.clientCertificate))
+        self.assertEqual(readCertificates(pem), [self.pki.caCertificate, self.pki.clientCertificate])
+
+    def test_fileHoldingNoCertificateIsReadAsEmpty(self):
+        self.assertEqual(readCertificates(b'not a certificate at all'), [])
 
 
 class HostileKDCTests(unittest.TestCase):

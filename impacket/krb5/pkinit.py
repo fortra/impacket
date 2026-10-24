@@ -915,6 +915,17 @@ class PKINITCredentials:
         return self.getUPN()
 
 
+def readCertificates(data):
+    """Read a PEM certificate bundle, or the single DER certificate AD CS publishes for its CAs."""
+    certificates = readPEMCertificates(data)
+    if certificates:
+        return certificates
+    try:
+        return [x509.load_der_x509_certificate(data)]
+    except ValueError:
+        return []
+
+
 def readPEMCertificates(data):
     certificates = []
     marker = b'-----BEGIN CERTIFICATE-----'
