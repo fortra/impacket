@@ -75,6 +75,21 @@ class ReauthBypassConfigTests(unittest.TestCase):
         self.assertEqual(config.reauth_domain, '')
         self.assertEqual(config.reauth_user, 'user1')
 
+    def test_anonymous_credential_is_allowed(self):
+        config = NTLMRelayxConfig()
+        config.setReauthBypassOptions(':', None)
+
+        self.assertTrue(config.reauth_bypass)
+        self.assertTrue(config.reauth_anonymous)
+        self.assertEqual(config.reauth_user, '')
+        self.assertEqual(config.reauth_password, '')
+
+    def test_named_account_is_not_anonymous(self):
+        config = NTLMRelayxConfig()
+        config.setReauthBypassOptions('AD.LOCAL/user1:Passw0rd1', None)
+
+        self.assertFalse(config.reauth_anonymous)
+
     def test_credential_without_username_is_rejected(self):
         config = NTLMRelayxConfig()
 

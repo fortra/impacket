@@ -374,8 +374,8 @@ if __name__ == '__main__':
                                  'the captured authentication under its signing key. Against an SMB target this is a '
                                  're-authentication (MS-SMB2 3.3.5.5.2); against an ldap:// target it injects one '
                                  'write chosen with the usual LDAP attack options (--delegate-access, '
-                                 '--shadow-credentials). Needs -smb2support, and is fixed on hosts updated since '
-                                 'September 2026')
+                                 '--shadow-credentials), and a bare ":" (anonymous) often works there. Needs '
+                                 '-smb2support, and is fixed on hosts updated since September 2026')
     smboptions.add_argument('--reauth-bypass-hashes', action='store', required=False, metavar='LMHASH:NTHASH',
                             help='Hashes of the --reauth-bypass account, instead of its password')
     
