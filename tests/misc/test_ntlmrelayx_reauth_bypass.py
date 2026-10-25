@@ -181,12 +181,12 @@ class ReauthBypassLDAPClientTests(unittest.TestCase):
 
     @staticmethod
     def ldapClient(delegate_access=False, shadow_creds=False, escalate_user=None, sid=False,
-                   shadow_outfile=None, shadow_replace=False, backup_path=None):
+                   shadow_outfile=None, shadow_replace=False, backup_path=None, delegate_target=None):
         config = NTLMRelayxConfig()
         config.setReauthBypassOptions('AD.LOCAL/low:Passw0rd1', None)
         # The LDAP bypass reads the standard LDAP attack options, same as a normal relay
         config.setLDAPOptions(True, True, True, True, escalate_user, None, delegate_access,
-                              False, False, False, sid, None, False)
+                              False, False, False, sid, None, False, delegatetarget=delegate_target)
         config.setIsShadowCredentialsAttack(shadow_creds)
         config.setShadowCredentialsOptions(None, None, None, shadow_outfile, shadow_replace, backup_path)
         client = LDAPRelayClient(config, urlparse('ldap://10.0.0.10'))
@@ -220,6 +220,13 @@ class ReauthBypassLDAPClientTests(unittest.TestCase):
         self.assertEqual(self.ldapClient(shadow_creds=True).bypassSelectedAttack(), 'shadow')
         self.assertIsNone(self.ldapClient().bypassSelectedAttack())
         self.assertIsNone(self.ldapClient(delegate_access=True, shadow_creds=True).bypassSelectedAttack())
+
+    def test_delegate_target_is_stored(self):
+        client = self.ldapClient(delegate_access=True, escalate_user='S-1-5-21-1-2-3-1104', sid=True,
+                                 delegate_target='CN=DC01,OU=Domain Controllers,DC=ad,DC=local')
+
+        self.assertEqual(client.serverConfig.delegatetarget, 'CN=DC01,OU=Domain Controllers,DC=ad,DC=local')
+        self.assertEqual(client.bypassSelectedAttack(), 'rbcd')
 
     def test_rbcd_write_with_explicit_sid(self):
         client = self.ldapClient(delegate_access=True, escalate_user='S-1-5-21-1-2-3-1104', sid=True)
