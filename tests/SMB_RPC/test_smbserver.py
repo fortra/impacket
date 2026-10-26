@@ -21,7 +21,7 @@
 #         [ ] lanMan
 #         [ ] transactNamedPipe
 #     [ ] TRANS2Commands
-#         [ ] setPathInformation
+#         [x] setPathInformation
 #         [ ] setFileInformation
 #         [ ] queryPathInformation
 #         [ ] queryFileInformation
@@ -76,16 +76,17 @@
 #
 import unittest
 from time import sleep
-from os.path import exists, join
+from os.path import exists, getmtime, join
 from os import mkdir, rmdir, remove, urandom
 from multiprocessing import Process
 
 from six import PY2, StringIO, BytesIO, b, assertRaisesRegex, assertCountEqual
 
+from impacket import smb
 from impacket.smb import SMB_DIALECT
 from impacket.smbserver import normalize_path, isInFileJail, SimpleSMBServer, SMBSERVER, SMB2Commands
 from impacket.smbconnection import SMBConnection, SessionError, compute_lmhash, compute_nthash
-from impacket.nt_errors import STATUS_NOT_SUPPORTED
+from impacket.nt_errors import STATUS_NOT_SUPPORTED, STATUS_OBJECT_PATH_SYNTAX_BAD
 from impacket import smb3structs as smb2
 from threading import Thread
 
@@ -147,13 +148,15 @@ class SMBServerUnitTests(unittest.TestCase):
         self.assertEqual(normalize_path("//filepath", 'path'), "/filepath")
 
     def test_isInFileJail(self):
-        """Test validation of common prefix path.
+        """Test validation of common path.
         """
         jail_path = "/tmp/jail_path"
         self.assertTrue(isInFileJail(jail_path, "filename"))
         self.assertTrue(isInFileJail(jail_path, "./filename"))
         self.assertTrue(isInFileJail(jail_path, "../jail_path/filename"))
 
+        self.assertFalse(isInFileJail(jail_path, "../jail_path_secret/filename"))
+        self.assertFalse(isInFileJail(jail_path, "../jail_path2/filename"))
         self.assertFalse(isInFileJail(jail_path, "/filename"))
         self.assertFalse(isInFileJail(jail_path, "/tmp/filename"))
         self.assertFalse(isInFileJail(jail_path, "../filename"))
@@ -197,6 +200,9 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
     share_new_file = "jail_new_file"
     share_unjailed_file = "unjailed_file"
     share_unjailed_new_file = "unjailed_new_file"
+    share_prefixed_directory = share_path + "_secret"
+    share_prefixed_file = "prefixed_file"
+    share_prefixed_new_file = "prefixed_new_file"
     share_new_content = "some content"
 
     share_directory = "directory"
@@ -212,11 +218,13 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
         """
         self.server_process = None
         for d in [self.share_path,
+                  self.share_prefixed_directory,
                   self.share_unjailed_directory,
                   join(self.share_path, self.share_directory)]:
             if not exists(d):
                 mkdir(d)
         for f in [self.share_unjailed_file,
+                  join(self.share_prefixed_directory, self.share_prefixed_file),
                   join(self.share_path, self.share_file),
                   join(self.share_path, self.unicode_share_file)]:
             if not exists(f):
@@ -228,6 +236,8 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
         """
         for f in [self.share_unjailed_file,
                   self.share_unjailed_new_file,
+                  join(self.share_prefixed_directory, self.share_prefixed_file),
+                  join(self.share_prefixed_directory, self.share_prefixed_new_file),
                   join(self.share_path, self.share_file),
                   join(self.share_path, self.unicode_share_file),
                   join(self.share_path, self.share_new_file)]:
@@ -235,6 +245,7 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
                 remove(f)
         for d in [self.share_unjailed_directory,
                   self.share_unjailed_new_directory,
+                  self.share_prefixed_directory,
                   join(self.share_path, self.share_directory),
                   join(self.share_path, self.share_new_directory),
                   self.share_path]:
@@ -259,6 +270,30 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
         smbclient = SMBConnection(self.address, self.address, sess_port=int(self.port),
                                   preferredDialect=self.client_preferred_dialect)
         return smbclient
+
+    def set_smb1_path_mtime(self, client, tree_id, file_name, timestamp):
+        smb_client = client.getSMBServer()
+        flags2 = smb_client.get_flags()[1]
+        parameters = smb.SMBSetPathInformation_Parameters(flags=flags2)
+        parameters['InformationLevel'] = smb.SMB_SET_FILE_BASIC_INFO
+        parameters['Reserved'] = 0
+        if flags2 & smb.SMB.FLAGS2_UNICODE:
+            parameters['FileName'] = file_name.encode('utf-16le')
+        else:
+            parameters['FileName'] = file_name
+
+        file_info = smb.SMBSetFileBasicInfo()
+        file_info['CreationTime'] = 0
+        file_info['LastAccessTime'] = smb.POSIXtoFT(timestamp)
+        file_info['LastWriteTime'] = smb.POSIXtoFT(timestamp)
+        file_info['ChangeTime'] = 0
+        file_info['ExtFileAttributes'] = 0
+        file_info['Reserved'] = 0
+
+        smb_client.send_trans2(tree_id, smb.SMB.TRANS2_SET_PATH_INFORMATION, '\x00',
+                               parameters.getData(), file_info.getData())
+        response = smb_client.recvSMB()
+        response.isValidAnswer(smb.SMB.SMB_COM_TRANSACTION2)
 
     def start_smbserver(self, server):
         """Starts the SimpleSMBServer process.
@@ -450,6 +485,13 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
             client.putFile(self.share_name, join("..", self.share_unjailed_new_file), local_file.read)
         self.assertFalse(exists(self.share_unjailed_new_file))
 
+        # A sibling whose name starts with the share name is outside the share.
+        local_file = StringIO(self.share_new_content)
+        prefixed_file = join(self.share_prefixed_directory, self.share_prefixed_new_file)
+        with assertRaisesRegex(self, SessionError, "STATUS_OBJECT_PATH_SYNTAX_BAD"):
+            client.putFile(self.share_name, join("..", prefixed_file), local_file.read)
+        self.assertFalse(exists(prefixed_file))
+
         client.close()
 
     def test_smbserver_get_file(self):
@@ -479,6 +521,13 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
         local_file.seek(0)
         self.assertEqual(local_file.read(), b(""))
 
+        # A sibling whose name starts with the share name is outside the share.
+        local_file = BytesIO()
+        prefixed_file = join(self.share_prefixed_directory, self.share_prefixed_file)
+        with assertRaisesRegex(self, SessionError, "STATUS_OBJECT_PATH_SYNTAX_BAD"):
+            client.getFile(self.share_name, join("..", prefixed_file), local_file.write)
+        self.assertEqual(local_file.getvalue(), b(""))
+
         # Check unexistent get file
         with assertRaisesRegex(self, SessionError, "STATUS_NO_SUCH_FILE"):
             client.getFile(self.share_name, "unexistent", local_file.write)
@@ -500,6 +549,34 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
         self.assertEqual(local_file.read(), b(self.share_new_content))
 
         client.close()
+
+    def test_smbserver_set_path_information(self):
+        """Test SMB1 path metadata updates honor the share jail."""
+        server = self.get_smbserver()
+        self.start_smbserver(server)
+
+        client = self.get_smbclient()
+        try:
+            if client.getDialect() != SMB_DIALECT:
+                self.skipTest("TRANS2_SET_PATH_INFORMATION is an SMB1 operation")
+
+            client.login(self.username, self.password)
+            tree_id = client.connectTree(self.share_name)
+            timestamp = 946684800
+
+            self.set_smb1_path_mtime(client, tree_id, self.share_file, timestamp)
+            self.assertAlmostEqual(getmtime(join(self.share_path, self.share_file)), timestamp, delta=1)
+
+            prefixed_file = join(self.share_prefixed_directory, self.share_prefixed_file)
+            original_mtime = getmtime(prefixed_file)
+            with self.assertRaises(smb.SessionError) as context:
+                self.set_smb1_path_mtime(client, tree_id, join("..", prefixed_file), timestamp)
+            self.assertEqual(context.exception.get_error_code(), STATUS_OBJECT_PATH_SYNTAX_BAD)
+            self.assertEqual(getmtime(prefixed_file), original_mtime)
+
+            client.disconnectTree(tree_id)
+        finally:
+            client.close()
 
     def test_smbserver_delete_file(self):
         """Test deleting files from a shared folder.
