@@ -836,12 +836,16 @@ class TRANS2Commands:
         setPathInfoParameters = smb.SMBSetPathInformation_Parameters(flags=recvPacket['Flags2'], data=parameters)
         if recvPacket['Tid'] in connData['ConnectedShares']:
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
+            readOnly = connData['ConnectedShares'][recvPacket['Tid']]['read only'] == 'yes'
             fileName = normalize_path(decodeSMBString(recvPacket['Flags2'], setPathInfoParameters['FileName']), path)
             pathName = os.path.join(path, fileName)
 
             if not isInFileJail(path, fileName):
                 smbServer.log("Path not in current working directory", connData=connData)
                 errorCode = STATUS_OBJECT_PATH_SYNTAX_BAD
+
+            elif readOnly:
+                errorCode = STATUS_ACCESS_DENIED
 
             elif os.path.exists(pathName):
                 informationLevel = setPathInfoParameters['InformationLevel']
