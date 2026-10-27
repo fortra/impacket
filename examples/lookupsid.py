@@ -40,7 +40,7 @@ class LSALookupSid:
         }
 
     def __init__(self, username='', password='', domain='', port = None,
-                 hashes = None, domain_sids = False, use_kerberos = False, maxRid=4000):
+                 hashes = None, domain_sids = False, use_kerberos = False, maxRid=4000, lookup_domain=None, lookup_names=None):
 
         self.__username = username
         self.__password = password
@@ -50,6 +50,11 @@ class LSALookupSid:
         self.__lmhash = ''
         self.__nthash = ''
         self.__domain_sids = domain_sids
+        self.__lookup_domain = lookup_domain
+        self.__lookup_names = lookup_names
+        if lookup_names and lookup_domain:
+            # Unqualified names default to the -lookup-domain domain
+            self.__lookup_names = [n if '\\' in n or '@' in n else '%s\\%s' % (lookup_domain, n) for n in lookup_names]
         self.__doKerberos = use_kerberos
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
@@ -97,7 +102,43 @@ class LSALookupSid:
         resp = lsad.hLsarOpenPolicy2(dce, MAXIMUM_ALLOWED | lsat.POLICY_LOOKUP_NAMES)
         policyHandle = resp['PolicyHandle']
 
-        if self.__domain_sids: # get the Domain SID
+        if self.__lookup_names: # resolve specific names to SIDs and skip the brute force
+            try:
+                resp = lsat.hLsarLookupNames(dce, policyHandle, self.__lookup_names)
+            except DCERPCException as e:
+                if str(e).find('STATUS_NONE_MAPPED') >= 0:
+                    for name in self.__lookup_names:
+                        print("%s: not found" % name)
+                    dce.disconnect()
+                    return entries
+                elif str(e).find('STATUS_SOME_NOT_MAPPED') >= 0:
+                    resp = e.get_packet()
+                else:
+                    raise
+            for name, item in zip(self.__lookup_names, resp['TranslatedSids']['Sids']):
+                if item['Use'] == SID_NAME_USE.SidTypeUnknown:
+                    print("%s: not found" % name)
+                    continue
+                domain = resp['ReferencedDomains']['Domains'][item['DomainIndex']]
+                sid = domain['Sid'].formatCanonical()
+                if item['Use'] != SID_NAME_USE.SidTypeDomain:
+                    sid += '-%d' % item['RelativeId']
+                print("%s: %s (%s)" % (name, sid, SID_NAME_USE.enumItems(item['Use']).name))
+            dce.disconnect()
+            return entries
+
+        if self.__lookup_domain: # resolve another domain's SID by name (e.g. a trusted domain)
+            try:
+                resp = lsat.hLsarLookupNames(dce, policyHandle, (self.__lookup_domain,))
+            except DCERPCException as e:
+                if str(e).find('STATUS_NONE_MAPPED') >= 0:
+                    raise Exception('Could not resolve domain %s from the target' % self.__lookup_domain)
+                raise
+            item = resp['TranslatedSids']['Sids'][0]
+            if item['Use'] != SID_NAME_USE.SidTypeDomain:
+                raise Exception('%s resolved to a %s, not a domain' % (self.__lookup_domain, SID_NAME_USE.enumItems(item['Use']).name))
+            domainSid = resp['ReferencedDomains']['Domains'][item['DomainIndex']]['Sid'].formatCanonical()
+        elif self.__domain_sids: # get the Domain SID
             resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyPrimaryDomainInformation)
             domainSid =  resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Sid'].formatCanonical()
         else: # Get the target host SID
@@ -166,6 +207,10 @@ if __name__ == '__main__':
     group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port",
                        help='Destination port to connect to SMB Server')
     group.add_argument('-domain-sids', action='store_true', help='Enumerate Domain SIDs (will likely forward requests to the DC)')
+    group.add_argument('-lookup-domain', action='store', metavar='DOMAIN', help='Resolve DOMAIN\'s SID through the target and '
+                       'enumerate it instead (e.g. a trusted domain; requests are forwarded across the trust)')
+    group.add_argument('-lookup-name', action='append', metavar='NAME', help='Resolve NAME (e.g. DOMAIN\\HOST$) to its SID '
+                       'instead of brute forcing. Can be repeated. Names without a domain use -lookup-domain if given')
 
     group = parser.add_argument_group('authentication')
 
@@ -182,6 +227,11 @@ if __name__ == '__main__':
 
     options = parser.parse_args()
 
+    if options.lookup_domain and options.domain_sids:
+        parser.error('-lookup-domain and -domain-sids are mutually exclusive')
+    if options.lookup_name and options.domain_sids:
+        parser.error('-lookup-name cannot be combined with -domain-sids')
+
     # Init the example's logger theme
     logger.init(options.ts, options.debug)
 
@@ -197,7 +247,7 @@ if __name__ == '__main__':
     if options.target_ip is None:
         options.target_ip = remoteName
 
-    lookup = LSALookupSid(username, password, domain, int(options.port), options.hashes, options.domain_sids, options.k, options.maxRid)
+    lookup = LSALookupSid(username, password, domain, int(options.port), options.hashes, options.domain_sids, options.k, options.maxRid, options.lookup_domain, options.lookup_name)
     try:
         lookup.dump(remoteName, options.target_ip)
     except:
