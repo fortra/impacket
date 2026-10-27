@@ -447,6 +447,11 @@ class PAPacOptions(Enum):
     # [MS-SFU] 2.2.5
     resource_based_constrained_delegation = 3
 
+# Kerberos Encryption Type Number Registry
+# IANA etypes: https://www.iana.org/assignments/kerberos-parameters/kerberos-parameters.xhtml
+# Microsoft private-use etypes (KERB_ETYPE_* from ntsecapi.h):
+#   https://learn.microsoft.com/en-us/windows/win32/api/ntsecapi/ns-ntsecapi-kerb_crypto_key
+#   https://learn.microsoft.com/en-us/archive/blogs/alextch/how-to-interpret-encryption-types-definitions-in-krb5kdc-log-on-unix-kdc-during-configuration-of-trust-relationship-between-mit-v5-realm-and-active-directory
 class EncryptionTypes(Enum):
     des_cbc_crc                  = 1
     des_cbc_md4                  = 2
@@ -465,10 +470,42 @@ class EncryptionTypes(Enum):
     des3_cbc_sha1_kd             = 16
     aes128_cts_hmac_sha1_96      = 17
     aes256_cts_hmac_sha1_96      = 18
+    aes128_cts_hmac_sha256_128   = 19
+    aes256_cts_hmac_sha384_192   = 20
     rc4_hmac                     = 23
     rc4_hmac_exp                 = 24
+    camellia128_cts_cmac         = 25
+    camellia256_cts_cmac         = 26
     subkey_keymaterial           = 65
+    # Microsoft private-use etypes (ntsecapi.h)
+    rc4_md4                      = -128
+    rc4_plain2                   = -129
+    rc4_lm                       = -130
+    rc4_sha                      = -131
+    des_plain                    = -132
+    rc4_hmac_old                 = -133
+    rc4_plain_old                = -134
     rc4_hmac_old_exp             = -135
+    rc4_plain_old_exp            = -136
+    rc4_plain                    = -140
+    rc4_plain_exp                = -141
+
+# etype number → IANA/Microsoft display name, keyed by both the signed value
+# and (for negative etypes) the unsigned 32-bit representation that on-wire
+# structures like KERB_KEY_DATA use.
+ENCRYPTION_TYPE_NAMES = {}
+for _e in EncryptionTypes:
+    if _e.name.startswith('_'):
+        continue
+    _name = _e.name.replace('_', '-')
+    ENCRYPTION_TYPE_NAMES[_e.value] = _name
+    if _e.value < 0:
+        ENCRYPTION_TYPE_NAMES[_e.value & 0xffffffff] = _name
+del _e, _name
+
+def etype_display_name(etype_value):
+    """Return the IANA/Microsoft display name for a Kerberos etype number, or None."""
+    return ENCRYPTION_TYPE_NAMES.get(etype_value)
 
 class ChecksumTypes(Enum):
     rsa_md5_des       = 8
