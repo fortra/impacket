@@ -38,11 +38,11 @@ from impacket.krb5.ccache import CCache
 from impacket.krb5.asn1 import AS_REP, AS_REQ, AuthPack, EncASRepPart, KDCDHKeyInfo, METHOD_DATA, \
     PA_PK_AS_REP, PA_PK_AS_REQ, PKOcspData, ReplyKeyPack, TD_DH_PARAMETERS, TYPED_DATA, seq_set, seq_set_iter
 from impacket.krb5.crypto import Cksumtype, Enctype, Key, _enctype_table, make_checksum
-from impacket.krb5.pkinit import DH_GROUPS, DIGEST_ALGORITHMS, DIGEST_OIDS, EC_CURVES, EC_CURVE_OIDS, ID_AES256_CBC, ID_DES_EDE3_CBC, \
+from impacket.krb5.pkinit import CKSUMTYPE_SHA1, DH_GROUPS, DIGEST_ALGORITHMS, DIGEST_OIDS, EC_CURVES, EC_CURVE_OIDS, ID_AES256_CBC, ID_DES_EDE3_CBC, \
     ID_ENVELOPED_DATA, decodeASN1, decryptEnvelopedData, \
     ID_DH_PUBLIC_NUMBER, ID_EC_PUBLIC_KEY, ID_MS_SAN_SC_LOGON_UPN, ID_PKINIT_AUTHDATA, \
     ID_PKINIT_DHKEYDATA, ID_PKINIT_KP_KDC, ID_PKINIT_RKEYDATA, ID_PKINIT_SAN, ID_RSA_ENCRYPTION, DiffieHellman, \
-    EllipticCurveDiffieHellman, KDCCertificateError, PKINIT, PKINITCredentials, PKINITError, buildAlgorithmIdentifier, \
+    EllipticCurveDiffieHellman, KDCCertificateError, PKINIT, PKINITCredentials, PKINITError, PKINIT_RSA_CMS_ETYPES, buildAlgorithmIdentifier, \
     buildCertificateSet, buildContentInfo, buildSignedData, getReqBodyBytes, getSignatureAlgorithm,\
     buildSignerIdentifier, signData, octetstring2key, parseSignedData, readCertificates, verifyKDCCertificate, \
     verifySignedData
@@ -59,6 +59,21 @@ def h(hexstr):
 def setComponent(sequence, name, **kwargs):
     """Set a simple component from raw octets, keeping the context tag of its slot."""
     sequence[name] = sequence[name].clone(**kwargs)
+
+
+def getDERContents(value):
+    """Return the value octets of one definite-length DER value."""
+    assert len(value) >= 2, 'truncated DER value'
+    lengthOctet = value[1]
+    if lengthOctet < 128:
+        headerLength, length = 2, lengthOctet
+    else:
+        lengthOctets = lengthOctet & 0x7f
+        assert lengthOctets and len(value) >= 2 + lengthOctets, 'invalid DER length'
+        headerLength = 2 + lengthOctets
+        length = int.from_bytes(value[2:headerLength], 'big')
+    assert headerLength + length == len(value), 'invalid DER size'
+    return value[headerLength:]
 
 
 def makeKerberosPrincipalName(realm, components):
@@ -126,7 +141,7 @@ class KDC:
                  rejectDigest=None, ocspStatus=None, contentEncryption='aes256-CBC', reuseDHKeys=False,
                  dhKeyLifetime=3600, serverDHNonce=None, rejectCurve=None, proposeCurve=None, useTypedData=False,
                  ocspResponder=None, ocspExpired=False, answerDHWithoutRequest=False, freshnessToken=None,
-                 withholdFreshnessToken=False):
+                 withholdFreshnessToken=False, unkeyedReplyChecksum=False, invalidReplyChecksum=False):
         self.pki = pki
         self.cipher = _enctype_table[enctype]
         self.useEncKeyPack = useEncKeyPack
@@ -146,12 +161,16 @@ class KDC:
         self.answerDHWithoutRequest = answerDHWithoutRequest
         self.freshnessToken = freshnessToken
         self.withholdFreshnessToken = withholdFreshnessToken
+        self.unkeyedReplyChecksum = unkeyedReplyChecksum
+        self.invalidReplyChecksum = invalidReplyChecksum
         self.replyKey = None
         self.ocspRequested = False
+        self.requestedEtypes = []
         self.sessionKey = Key(enctype, b'S' * self.cipher.keysize)
 
     def sendReceive(self, data, host, kdcHost, port=88, timeout=None):
         asReq = decoder.decode(data, asn1Spec=AS_REQ())[0]
+        self.requestedEtypes = [int(value) for value in asReq['req-body']['etype']]
         if self.freshnessToken is not None and not self.sentFreshnessToken(asReq):
             # Windows returns this error instead of raising it, as sendReceive does for the password flow
             return self.buildFreshnessError()
@@ -255,13 +274,22 @@ class KDC:
         replyKeyPack['replyKey']['keytype'] = self.replyKey.enctype
         replyKeyPack['replyKey']['keyvalue'] = self.replyKey.contents
         # key usage 6
-        cksumtype = {Enctype.AES256: Cksumtype.SHA1_AES256, Enctype.AES128: Cksumtype.SHA1_AES128,
-                     Enctype.RC4: Cksumtype.HMAC_MD5}[self.cipher.enctype]
+        if self.unkeyedReplyChecksum:
+            cksumtype = CKSUMTYPE_SHA1
+            checksum = sha1(asReq).digest()
+        else:
+            cksumtype = {Enctype.AES256: Cksumtype.SHA1_AES256, Enctype.AES128: Cksumtype.SHA1_AES128,
+                         Enctype.RC4: Cksumtype.HMAC_MD5}[self.cipher.enctype]
+            checksum = make_checksum(cksumtype, self.replyKey, 6, asReq)
+        if self.invalidReplyChecksum:
+            checksum = bytes([checksum[0] ^ 1]) + checksum[1:]
         replyKeyPack['asChecksum']['cksumtype'] = cksumtype
-        replyKeyPack['asChecksum']['checksum'] = make_checksum(cksumtype, self.replyKey, 6, asReq)
+        replyKeyPack['asChecksum']['checksum'] = checksum
 
-        signedData = buildSignedData(self.pki.kdcKey, self.pki.kdcCertificate, [], ID_PKINIT_RKEYDATA,
-                                     encoder.encode(replyKeyPack), 'sha256')
+        signedDataInfo = buildSignedData(self.pki.kdcKey, self.pki.kdcCertificate, [], ID_PKINIT_RKEYDATA,
+                                         encoder.encode(replyKeyPack), 'sha256')
+        contentInfo = decoder.decode(signedDataInfo, asn1Spec=rfc5652.ContentInfo())[0]
+        signedDataContents = getDERContents(bytes(contentInfo['content']))
 
         if self.contentEncryption == 'des-ede3-cbc':
             contentEncryptionKey, initializationVector, blockSize = b'KEY' * 8, b'IV' * 4, 8
@@ -271,8 +299,8 @@ class KDC:
             contentEncryptionKey, initializationVector, blockSize = b'K' * 32, b'I' * 16, 16
             algorithm = AES.new(contentEncryptionKey, AES.MODE_CBC, initializationVector)
             algorithmOid = ID_AES256_CBC
-        padLength = blockSize - len(signedData) % blockSize
-        encryptedContent = algorithm.encrypt(signedData + bytes([padLength]) * padLength)
+        padLength = blockSize - len(signedDataContents) % blockSize
+        encryptedContent = algorithm.encrypt(signedDataContents + bytes([padLength]) * padLength)
 
         recipientInfo = rfc5652.KeyTransRecipientInfo()
         recipientInfo['version'] = 0
@@ -654,6 +682,7 @@ class ASExchangeTests(unittest.TestCase):
         self.assertEqual(sessionKey.contents, kdc.sessionKey.contents)
         self.assertEqual(cipher.enctype, Enctype.AES256)
         self.assertEqual(decoder.decode(tgt, asn1Spec=AS_REP())[0]['crealm'], REALM)
+        self.assertFalse(set(PKINIT_RSA_CMS_ETYPES) & set(kdc.requestedEtypes))
 
     def test_diffieHellmanWithGroup2(self):
         kdc = KDC(self.pki)
@@ -691,6 +720,17 @@ class ASExchangeTests(unittest.TestCase):
         _, _, replyKey, sessionKey = self.getTGT(kdc, self.credentials(keyExchange='rsa'))
         self.assertEqual(replyKey.contents, kdc.replyKey.contents)
         self.assertEqual(sessionKey.contents, kdc.sessionKey.contents)
+        self.assertEqual(kdc.requestedEtypes[-len(PKINIT_RSA_CMS_ETYPES):], list(PKINIT_RSA_CMS_ETYPES))
+
+    def test_publicKeyEncryptionWithWindowsChecksum(self):
+        kdc = KDC(self.pki, useEncKeyPack=True, unkeyedReplyChecksum=True)
+        _, _, replyKey, _ = self.getTGT(kdc, self.credentials(keyExchange='rsa'))
+        self.assertEqual(replyKey.contents, kdc.replyKey.contents)
+
+    def test_invalidWindowsChecksumIsRejected(self):
+        kdc = KDC(self.pki, useEncKeyPack=True, unkeyedReplyChecksum=True, invalidReplyChecksum=True)
+        with self.assertRaisesRegex(PKINITError, 'SHA-1 asChecksum'):
+            self.getTGT(kdc, self.credentials(keyExchange='rsa'))
 
     def test_publicKeyEncryptionWithTripleDES(self):
         kdc = KDC(self.pki, useEncKeyPack=True, contentEncryption='des-ede3-cbc')

@@ -28,6 +28,7 @@ import datetime
 import os
 from binascii import hexlify
 from hashlib import sha1, sha256, sha384, sha512
+from hmac import compare_digest
 
 from Cryptodome.Cipher import AES, DES3
 from cryptography import x509
@@ -96,6 +97,10 @@ SIGNATURE_OIDS[ID_RSA_ENCRYPTION] = None  # digest carried by digestAlgorithm
 
 # The draft mandates SHA-2 for paChecksum2, SHA-256 being the only digest every KDC has to support
 PA_CHECKSUM2_DIGEST = 'sha256'
+
+# RFC 4556 3.1.4 CMS capability identifiers carried in the AS-REQ etype field. They advertise CMS
+# algorithms and must not be used as EncryptedData encryption types.
+PKINIT_RSA_CMS_ETYPES = (13, 15, 11)  # rsaEncryption, des-ede3-cbc, sha-1WithRSAEncryption
 
 # MODP groups usable for the Diffie-Hellman key agreement method (RFC 4556 3.2.1), as (prime, generator)
 DH_GROUPS = {
@@ -173,6 +178,7 @@ CHECKSUM_FOR_ENCTYPE = {
 }
 
 KEY_USAGE_AS_REQ_CHECKSUM = 6
+CKSUMTYPE_SHA1 = 14  # sha1 (unkeyed), used by Windows for ReplyKeyPack.asChecksum
 
 
 class PKINITError(Exception):
@@ -550,6 +556,13 @@ def verifySignedData(data, expectedContentType):
         raise PKINITError('The signature of "%s" over the SignedData is invalid'
                           % getCertificateName(certificate))
     return content, certificate, certificates
+
+
+def wrapDERSequenceContents(contents):
+    """Restore a DER SEQUENCE around its already encoded value octets."""
+    sequence = univ.Sequence()
+    sequence.setComponentByPosition(0, univ.Any(contents))
+    return encoder.encode(sequence)
 
 
 def getCertificateValidity(certificate):
@@ -954,6 +967,9 @@ class PKINIT:
             int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value),
             int(constants.EncryptionTypes.rc4_hmac.value),
         )
+        if credentials.keyExchange == 'rsa':
+            self.supportedCiphers = tuple(self.supportedCiphers) + tuple(
+                value for value in PKINIT_RSA_CMS_ETYPES if value not in self.supportedCiphers)
         self.digest = credentials.digest
         self.keyExchange = None
         self.nonce = 0
@@ -1258,8 +1274,12 @@ class PKINIT:
         if self.keyExchange is not None:
             raise PKINITError('The KDC answered with an encrypted key pack to a Diffie-Hellman request')
 
-        content, certificate, certificates = verifySignedData(
-            decryptEnvelopedData(encKeyPack, self.credentials.privateKey), ID_PKINIT_RKEYDATA)
+        # EncryptedContentInfo.contentType is id-signedData, so its plaintext holds the value octets of
+        # SignedData: neither its SEQUENCE tag and length nor an outer ContentInfo are encrypted.
+        signedDataContents = decryptEnvelopedData(encKeyPack, self.credentials.privateKey)
+        signedData = wrapDERSequenceContents(signedDataContents)
+        contentInfo = buildContentInfo(ID_SIGNED_DATA, signedData)
+        content, certificate, certificates = verifySignedData(contentInfo, ID_PKINIT_RKEYDATA)
         self.checkKDCCertificate(certificate, certificates)
 
         replyKeyPack = decodeASN1(content, ReplyKeyPack(), 'ReplyKeyPack')
@@ -1271,12 +1291,18 @@ class PKINIT:
 
         checksum = replyKeyPack['asChecksum']
         cksumtype = int(checksum['cksumtype'])
+        checksumValue = checksum['checksum'].asOctets()
+        if cksumtype == CKSUMTYPE_SHA1:
+            # Windows uses the unkeyed SHA-1 checksum here. It is still verified and is covered by the
+            # KDC signature over ReplyKeyPack.
+            if not compare_digest(checksumValue, sha1(self.asReq).digest()):
+                raise PKINITError('The SHA-1 asChecksum of the ReplyKeyPack does not match our AS-REQ')
+            return replyKey
         if cksumtype != CHECKSUM_FOR_ENCTYPE.get(enctype):
             raise PKINITError('The asChecksum uses checksum type %d, which is not the required one for the reply key'
                               % cksumtype)
         try:
-            verify_checksum(cksumtype, replyKey, KEY_USAGE_AS_REQ_CHECKSUM, self.asReq,
-                            checksum['checksum'].asOctets())
+            verify_checksum(cksumtype, replyKey, KEY_USAGE_AS_REQ_CHECKSUM, self.asReq, checksumValue)
         except InvalidChecksum:
             raise PKINITError('The asChecksum of the ReplyKeyPack does not match our AS-REQ')
         return replyKey

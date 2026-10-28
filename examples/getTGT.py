@@ -126,7 +126,7 @@ if __name__ == '__main__':
     group.add_argument('-key-pem', action='store', metavar="FILE", help='Client private key in PEM format')
     group.add_argument('-key-exchange', action='store', choices=['dh', 'ecdh', 'rsa'], default='dh',
                        help='AS reply key delivery method: Diffie-Hellman (default), its elliptic curve variant '
-                            '(RFC 5349) or public key encryption')
+                            '(RFC 5349) or RSA/CMS public key encryption')
     group.add_argument('-dh-group', action='store', type=int, choices=sorted(DH_GROUPS), default=14,
                        help='MODP group to use for the Diffie-Hellman key agreement, default is 14 (2048 bits)')
     group.add_argument('-curve', action='store', choices=sorted(EC_CURVES), default='P-256',
