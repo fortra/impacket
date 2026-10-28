@@ -613,6 +613,19 @@ class KDCCertificateTests(unittest.TestCase):
     def test_pathIsNotValidatedWithoutAnchor(self):
         verifyKDCCertificate(self.pki.kdcCertificate, [], REALM, [])
 
+    def test_allMatchingTrustAnchorsAreTried(self):
+        _, wrongAnchor = makeCertificate('Contoso Root CA', isCA=True)
+        verifyKDCCertificate(self.pki.kdcCertificate, [], REALM,
+                             [wrongAnchor, self.pki.caCertificate])
+
+    def test_allMatchingIntermediatesAreTried(self):
+        rootKey, rootCertificate = makeCertificate('Contoso Root CA', isCA=True)
+        _, wrongIntermediate = makeCertificate('Contoso Issuing CA', rootCertificate, rootKey, isCA=True)
+        intermediateKey, intermediateCertificate = makeCertificate(
+            'Contoso Issuing CA', rootCertificate, rootKey, isCA=True)
+        certificate = self.makeKDCCertificate(intermediateCertificate, intermediateKey)
+        verifyKDCCertificate(certificate, [wrongIntermediate, intermediateCertificate], REALM, [rootCertificate])
+
     def makeKDCCertificate(self, issuerCertificate, issuerKey):
         return makeCertificate('dc01.contoso.com', issuerCertificate, issuerKey,
                                otherName=x509.OtherName(x509.ObjectIdentifier(ID_PKINIT_SAN),

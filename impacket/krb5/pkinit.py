@@ -728,19 +728,35 @@ def verifyCertificateChain(certificate, intermediates, anchors):
         if not notBefore <= now <= notAfter:
             raise KDCCertificateError('Certificate "%s" is not valid at this time' % getCertificateName(current))
 
-        issuers = [anchor for anchor in anchors if anchor.subject == current.issuer]
-        if issuers:
-            verifyCertificateAuthority(issuers[0], pathLength)
-            verifyCertificateSignature(current, issuers[0])
+        candidateError = None
+        for issuer in anchors:
+            if issuer.subject != current.issuer:
+                continue
+            try:
+                verifyCertificateAuthority(issuer, pathLength)
+                verifyCertificateSignature(current, issuer)
+            except KDCCertificateError as e:
+                candidateError = e
+                continue
             return
-        issuers = [intermediate for intermediate in intermediates if intermediate.subject == current.issuer]
-        if not issuers:
+
+        for issuer in intermediates:
+            if issuer.subject != current.issuer:
+                continue
+            try:
+                verifyCertificateAuthority(issuer, pathLength)
+                verifyCertificateSignature(current, issuer)
+            except KDCCertificateError as e:
+                candidateError = e
+                continue
+            current = issuer
+            pathLength += 1
+            break
+        else:
+            if candidateError is not None:
+                raise candidateError
             raise KDCCertificateError('Cannot build a certification path for "%s", issuer "%s" is unknown'
                                       % (getCertificateName(current), current.issuer.rfc4514_string()))
-        verifyCertificateAuthority(issuers[0], pathLength)
-        verifyCertificateSignature(current, issuers[0])
-        current = issuers[0]
-        pathLength += 1
     raise KDCCertificateError('Certification path for "%s" is looping' % getCertificateName(certificate))
 
 
