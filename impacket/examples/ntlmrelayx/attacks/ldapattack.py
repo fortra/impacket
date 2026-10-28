@@ -270,7 +270,7 @@ class LDAPAttack(ProtocolAttack):
             'member': [(ldap3.MODIFY_ADD, [userDn])]})
         if res:
             LOG.info('Adding user: %s to group %s result: OK' % (userName, groupName))
-            LOG.info('Privilege escalation succesful, shutting down...')
+            LOG.info('Privilege escalation successful, shutting down...')
             alreadyEscalated = True
             _thread.interrupt_main()
         else:
@@ -422,7 +422,7 @@ class LDAPAttack(ProtocolAttack):
         sd['Dacl'].aces.append(create_allow_ace(escalate_sid))
         self.client.modify(targetuser['dn'], {'msDS-AllowedToActOnBehalfOfOtherIdentity':[ldap3.MODIFY_REPLACE, [sd.getData()]]})
         if self.client.result['result'] == 0:
-            LOG.info('Delegation rights modified succesfully!')
+            LOG.info('Delegation rights modified successfully!')
             LOG.info('%s can now impersonate users on %s via S4U2Proxy', usersam, targetsam)
             delegatePerformed.append(targetsam)
         else:
