@@ -39,7 +39,7 @@ from impacket.krb5.asn1 import AS_REP, AS_REQ, AuthPack, EncASRepPart, KDCDHKeyI
     PA_PK_AS_REP, PA_PK_AS_REQ, PKOcspData, ReplyKeyPack, TD_DH_PARAMETERS, TYPED_DATA, seq_set, seq_set_iter
 from impacket.krb5.crypto import Cksumtype, Enctype, Key, _enctype_table, make_checksum
 from impacket.krb5.pkinit import DH_GROUPS, DIGEST_ALGORITHMS, DIGEST_OIDS, EC_CURVES, EC_CURVE_OIDS, ID_AES256_CBC, ID_DES_EDE3_CBC, \
-    ID_ENVELOPED_DATA, decryptEnvelopedData, \
+    ID_ENVELOPED_DATA, decodeASN1, decryptEnvelopedData, \
     ID_DH_PUBLIC_NUMBER, ID_EC_PUBLIC_KEY, ID_MS_SAN_SC_LOGON_UPN, ID_PKINIT_AUTHDATA, \
     ID_PKINIT_DHKEYDATA, ID_PKINIT_KP_KDC, ID_PKINIT_RKEYDATA, ID_PKINIT_SAN, ID_RSA_ENCRYPTION, DiffieHellman, \
     EllipticCurveDiffieHellman, KDCCertificateError, PKINIT, PKINITCredentials, PKINITError, buildAlgorithmIdentifier, \
@@ -1172,6 +1172,13 @@ class HostileKDCTests(unittest.TestCase):
             return encoder.encode(asRep)
         with self.assertRaisesRegex(PKINITError, 'does not decrypt the AS-REP'):
             self.getTGT(mutate)
+
+
+class ASN1DecodingTests(unittest.TestCase):
+    def test_oversizedLengthRaisesPKINITError(self):
+        payload = b'\x04\x89' + b'\xff' * 9
+        with self.assertRaisesRegex(PKINITError, 'Could not parse the oversized length'):
+            decodeASN1(payload, univ.OctetString(), 'oversized length')
 
 
 class FuzzedReplyTests(unittest.TestCase):

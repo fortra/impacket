@@ -185,7 +185,7 @@ class KDCCertificateError(PKINITError):
 
 # Malformed input does not consistently raise PyAsn1Error: pyasn1 lets plain builtin errors through
 PARSE_ERRORS = (PyAsn1Error, x509.InvalidVersion, x509.DuplicateExtension, x509.UnsupportedGeneralNameType,
-                UnsupportedAlgorithm, KeyError, IndexError, TypeError, ValueError)
+                UnsupportedAlgorithm, KeyError, IndexError, TypeError, ValueError, OverflowError)
 
 
 def decodeASN1(data, asn1Spec, description):
