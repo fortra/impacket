@@ -1118,6 +1118,8 @@ class IP(Header):
                 op_len = opt_bytes[1]
                 if op_len > len(opt_bytes):
                     raise ImpactPacketException("IP Option length is too high")
+                if op_len < 2:
+                    raise ImpactPacketException("IP Option length is too low")
 
                 new_option = IPOption(op_type, op_len)
                 new_option.set_bytes(opt_bytes[:op_len])
