@@ -907,10 +907,14 @@ if __name__ == '__main__':
     if options.nospn is not None:
         if options.spn is not None:
             parser.error("-spn and -nospn are mutually exclusive")
+        if options.impersonate is None:
+            parser.error("-impersonate is required when using -nospn")
         if options.tgt is None:
             parser.error("-tgt is required when using -nospn")
         if not options.u2u:
             parser.error("-u2u is required when using -nospn")
+        if options.additional_ticket is not None:
+            parser.error("-additional-ticket and -nospn are mutually exclusive")
 
     if not options.no_s4u2proxy and options.spn is None and options.nospn is None:
         parser.error("argument -spn or -nospn is required, except when -self is set")
