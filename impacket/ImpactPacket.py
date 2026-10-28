@@ -804,24 +804,27 @@ class IP(Header):
         if self.auto_checksum:
             self.reset_ip_sum()
 
-        my_bytes = self.get_bytes()
-
+        # Collect the options in their own buffer, so that the header
+        # buffer is not modified and get_packet() can be called again
+        op_bytes = array.array('B')
         for op in self.__option_list:
-            my_bytes.extend(op.get_bytes())
+            op_bytes.extend(op.get_bytes())
 
         # Pad to a multiple of 4 bytes
-        num_pad = (4 - (len(my_bytes) % 4)) % 4
+        num_pad = (4 - ((len(self.get_bytes()) + len(op_bytes)) % 4)) % 4
         if num_pad:
-            array_frombytes(my_bytes, b"\0" * num_pad)
+            array_frombytes(op_bytes, b"\0" * num_pad)
 
         # only change ip_hl value if options are present
         if len(self.__option_list):
-            self.set_ip_hl(len(my_bytes) // 4)
+            self.set_ip_hl((len(self.get_bytes()) + len(op_bytes)) // 4)
 
 
         # set the checksum if the user hasn't modified it
         if self.auto_checksum:
-            self.set_ip_sum(self.compute_checksum(my_bytes))
+            self.set_ip_sum(self.compute_checksum(self.get_bytes() + op_bytes))
+
+        my_bytes = self.get_bytes() + op_bytes
 
         if child_data is None:
             return array_tobytes(my_bytes)
@@ -1115,6 +1118,8 @@ class IP(Header):
                 op_len = opt_bytes[1]
                 if op_len > len(opt_bytes):
                     raise ImpactPacketException("IP Option length is too high")
+                if op_len < 2:
+                    raise ImpactPacketException("IP Option length is too low")
 
                 new_option = IPOption(op_type, op_len)
                 new_option.set_bytes(opt_bytes[:op_len])

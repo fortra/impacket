@@ -98,7 +98,7 @@ class MiniShell(cmd.Cmd):
         return
 
     def do_finished_attacks(self, line):
-        for url in self.relayConfig.target.finishedAttacks:
+        for url in self.relayConfig.target.allFinishedAttacks:
             print (url.geturl())
         return
 
@@ -210,6 +210,7 @@ def start_servers(options, threads):
         c.setExploitOptions(options.remove_mic, options.remove_target, options.remove_sign_seal)
         c.setWebDAVOptions(options.serve_image)
         c.setIsADCSAttack(options.adcs)
+        c.setIsCESAttack(options.adcs_ces)
         c.setADCSOptions(options.template)
         c.setEnumTemplates(options.enum_templates)
         c.setIsShadowCredentialsAttack(options.shadow_credentials)
@@ -434,7 +435,8 @@ if __name__ == '__main__':
     # AD CS options
     adcsoptions = parser.add_argument_group("AD CS attack options")
     adcsoptions.add_argument('--adcs', action='store_true', required=False, help='Enable AD CS relay attack')
-    adcsoptions.add_argument('--template', action='store', metavar="TEMPLATE", required=False, help='AD CS template. Defaults to Machine or User whether relayed account name ends with `$`. Relaying a DC should require specifying `DomainController`')
+    adcsoptions.add_argument('--adcs-ces', action='store_true', default=False, help='Enable AD CS Certificate Enrollment Services (CES/WSTEP) relay attack')
+    adcsoptions.add_argument('--template', action='store', metavar="TEMPLATE", required=False, help='AD CS template. Defaults to Machine for computer accounts and User for user accounts.')
     adcsoptions.add_argument('--altname', action='store', metavar="ALTNAME", required=False, help='Subject Alternative Name to use when performing ESC1 or ESC6 attacks.')
     adcsoptions.add_argument('--altsid', action='store', dest='altSid', metavar="SID", required=False,
                              help='Object SID to embed in szOID_NTDS_CA_SECURITY_EXT (1.3.6.1.4.1.311.25.2). '
@@ -473,6 +475,25 @@ if __name__ == '__main__':
     except Exception as e:
        logging.error(str(e))
        sys.exit(1)
+
+    if options.adcs_ces:
+        incompatible_modes = []
+        if options.adcs:
+            incompatible_modes.append('--adcs')
+        if options.sccm_policies:
+            incompatible_modes.append('--sccm-policies')
+        if options.sccm_dp:
+            incompatible_modes.append('--sccm-dp')
+        if incompatible_modes:
+            parser.error('--adcs-ces cannot be combined with %s' % ', '.join(incompatible_modes))
+        if options.altname or options.altSid or options.enum_templates:
+            parser.error('--altname, --altsid and --enum-templates are not supported with --adcs-ces')
+        if options.target is None and options.tf is None:
+            parser.error('--adcs-ces requires -t or -tf; reflection mode is not supported')
+        if options.target is not None and options.tf is not None:
+            parser.error('--adcs-ces accepts either -t or -tf, not both')
+        if options.socks or options.interactive or options.r is not None:
+            parser.error('--adcs-ces cannot be combined with SOCKS, interactive, or HTTP-to-SMB redirect mode')
 
     if options.https and options.certfile is None:
         parser.error('--https requires --certfile')
@@ -565,7 +586,7 @@ if __name__ == '__main__':
     if not options.no_rdp_server:
         RELAY_SERVERS.append(RDPRelayServer)
 
-    if targetSystem is not None and options.w:
+    if targetSystem is not None and options.tf is not None and options.w:
         watchthread = TargetsFileWatcher(targetSystem)
         watchthread.start()
 
