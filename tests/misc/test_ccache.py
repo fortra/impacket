@@ -161,6 +161,28 @@ class CCACHETests(unittest.TestCase):
         # Same short hostname, different child domain -> must not match
         self.assertIsNone(ccache.getCredential("LDAP/DC01.CHILD-B.LOCAL/CHILD-B.LOCAL@{}".format(realm)))
 
+    def test_ccache_getInterRealmTGT(self):
+        # A ccache holding only krbtgt/TARGET@SOURCE must be usable, impacket used to ignore it
+        def _ccache_with(spn):
+            ccache = CCache()
+            cred = Credential()
+            cred["server"] = Principal()
+            cred["server"].fromPrincipal(types.Principal(spn, type=PrincipalNameType.NT_SRV_INST.value))
+            ccache.credentials.append(cred)
+            return ccache
+
+        referral = _ccache_with("krbtgt/FOREST.LOCAL@{}".format(self.domain))
+        # Issued by the client realm for the foreign one -> returned for the client realm
+        self.assertIsNotNone(referral.getInterRealmTGT(self.domain))
+        self.assertIsNotNone(referral.getInterRealmTGT(self.domain.lower()))
+        # The foreign realm is the service, not the issuer -> no referral TGT there
+        self.assertIsNone(referral.getInterRealmTGT("FOREST.LOCAL"))
+
+        # A same-realm TGT is not an inter-realm TGT
+        self.assertIsNone(_ccache_with(self.server).getInterRealmTGT(self.domain))
+        # A service ticket is not a TGT
+        self.assertIsNone(_ccache_with("cifs/dc01.{}@{}".format(self.domain.lower(), self.domain)).getInterRealmTGT(self.domain))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)
