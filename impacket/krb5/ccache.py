@@ -468,6 +468,27 @@ class CCache:
 
         return None
 
+    def getInterRealmTGT(self, domain):
+        """
+        Returns the first inter-realm (referral) TGT issued by domain, that is a
+        krbtgt/<otherRealm>@<domain> credential. Such a TGT is only usable against
+        <otherRealm>'s KDC, which getKerberosTGS() takes care of.
+
+        :param domain: the realm that issued the referral TGT
+
+        :return: the matching Credential, or None
+        """
+        domain = b(domain.upper())
+        for c in self.credentials:
+            server = c['server'].prettyPrint().upper()
+            if server.count(b'/') != 1 or server.count(b'@') != 1 or not server.startswith(b'KRBTGT/'):
+                continue
+            serviceRealm, ticketRealm = server[len(b'KRBTGT/'):].split(b'@')
+            if ticketRealm == domain and serviceRealm != domain:
+                LOG.debug('Returning inter-realm TGT %s' % server.decode('utf-8'))
+                return c
+        return None
+
     def toTimeStamp(self, dt, epoch=datetime(1970,1,1)):
         td = dt - epoch
         # return td.total_seconds()
@@ -663,6 +684,8 @@ class CCache:
         if creds is None:
             principal = 'krbtgt/%s@%s' % (domain.upper(), domain.upper())
             creds = ccache.getCredential(principal)
+            if creds is None:
+                creds = ccache.getInterRealmTGT(domain)
             if creds is not None:
                 LOG.debug('Using TGT from cache')
                 TGT = creds.toTGT()

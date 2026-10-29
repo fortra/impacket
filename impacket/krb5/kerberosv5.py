@@ -418,6 +418,11 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
     ticket = Ticket()
     ticket.from_asn1(decodedTGT['ticket'])
 
+    # An inter-realm TGT is only accepted by the realm its krbtgt names, not by the realm that issued it
+    tgtService = ticket.service_principal
+    if len(tgtService.components) == 2 and tgtService.components[0].lower() == 'krbtgt' and tgtService.realm.upper() == domain:
+        domain = tgtService.components[1].upper()
+
     apReq = AP_REQ()
     apReq['pvno'] = 5
     apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
