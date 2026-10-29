@@ -12,7 +12,7 @@
 import struct
 import array
 
-from impacket.ImpactPacket import Header, array_frombytes
+from impacket.ImpactPacket import Header, ImpactPacketException, array_frombytes
 from impacket.IP6_Address import IP6_Address
 from impacket.IP6_Extension_Headers import IP6_Extension_Header
 
@@ -28,7 +28,7 @@ class IP6(Header):
     def __init__(self, buffer = None):
         Header.__init__(self, IP6.HEADER_SIZE)
         self.set_ip_v(IP6.IP_PROTOCOL_VERSION)
-        if (buffer):
+        if buffer is not None:
             self.load_header(buffer)
 
     def contains(self, aHeader):
@@ -38,6 +38,14 @@ class IP6(Header):
 
     def get_header_size(self):
         return IP6.HEADER_SIZE
+
+    def load_header(self, buffer):
+        if len(buffer) < IP6.HEADER_SIZE:
+            raise ImpactPacketException('IPv6 header is truncated')
+
+        Header.load_header(self, buffer)
+        if self.get_ip_v() != IP6.IP_PROTOCOL_VERSION:
+            raise ImpactPacketException('IPv6 version must be 6')
 
     def __str__(self):        
         protocol_version = self.get_ip_v()
