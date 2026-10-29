@@ -335,6 +335,8 @@ class LDAPRelayClient(ProtocolClient):
 
     def bypassOpenSession(self):
         # A signed LDAP session as our own account, used for the base session and the read-back
+        # This bypass targets Microsoft AD on LDAP/389. TODO: honor self.targetPort when the
+        # remaining ldap3 code in this client is migrated to impacket.ldap.
         connection = LDAPConnection('ldap://%s' % self.targetHost, dstIp=self.targetHost, signing=True, timeout=10)
         connection.login(self.serverConfig.reauth_user, self.serverConfig.reauth_password,
                          self.serverConfig.reauth_domain, self.serverConfig.reauth_lmhash,
