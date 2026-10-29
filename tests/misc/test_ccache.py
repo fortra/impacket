@@ -161,17 +161,19 @@ class CCACHETests(unittest.TestCase):
         # Same short hostname, different child domain -> must not match
         self.assertIsNone(ccache.getCredential("LDAP/DC01.CHILD-B.LOCAL/CHILD-B.LOCAL@{}".format(realm)))
 
-    def test_ccache_getInterRealmTGT(self):
-        # A ccache holding only krbtgt/TARGET@SOURCE must be usable, impacket used to ignore it
-        def _ccache_with(spn):
-            ccache = CCache()
+    @staticmethod
+    def _ccache_with(*spns):
+        ccache = CCache()
+        for spn in spns:
             cred = Credential()
             cred["server"] = Principal()
             cred["server"].fromPrincipal(types.Principal(spn, type=PrincipalNameType.NT_SRV_INST.value))
             ccache.credentials.append(cred)
-            return ccache
+        return ccache
 
-        referral = _ccache_with("krbtgt/FOREST.LOCAL@{}".format(self.domain))
+    def test_ccache_getInterRealmTGT(self):
+        # A ccache holding only krbtgt/TARGET@SOURCE must be usable, impacket used to ignore it
+        referral = self._ccache_with("krbtgt/FOREST.LOCAL@{}".format(self.domain))
         # Issued by the client realm for the foreign one -> returned for the client realm
         self.assertIsNotNone(referral.getInterRealmTGT(self.domain))
         self.assertIsNotNone(referral.getInterRealmTGT(self.domain.lower()))
@@ -179,9 +181,20 @@ class CCACHETests(unittest.TestCase):
         self.assertIsNone(referral.getInterRealmTGT("FOREST.LOCAL"))
 
         # A same-realm TGT is not an inter-realm TGT
-        self.assertIsNone(_ccache_with(self.server).getInterRealmTGT(self.domain))
+        self.assertIsNone(self._ccache_with(self.server).getInterRealmTGT(self.domain))
         # A service ticket is not a TGT
-        self.assertIsNone(_ccache_with("cifs/dc01.{}@{}".format(self.domain.lower(), self.domain)).getInterRealmTGT(self.domain))
+        self.assertIsNone(self._ccache_with("cifs/dc01.{}@{}".format(self.domain.lower(), self.domain)).getInterRealmTGT(self.domain))
+
+    def test_ccache_getInterRealmTGT_picks_the_target_realm(self):
+        spns = ["krbtgt/FOREST.LOCAL@{}".format(self.domain), "krbtgt/CHILD-A.LOCAL@{}".format(self.domain)]
+
+        for ccache in (self._ccache_with(*spns), self._ccache_with(*reversed(spns))):
+            # The target realm decides, whatever the order the credentials are cached in
+            self.assertEqual(ccache.getInterRealmTGT(self.domain, "forest.local")["server"].prettyPrint(),
+                             "krbtgt/FOREST.LOCAL@{}".format(self.domain).encode())
+            # Without a usable hint the choice must still be stable, not cache-order dependent
+            self.assertEqual(ccache.getInterRealmTGT(self.domain)["server"].prettyPrint(),
+                             ccache.getInterRealmTGT(self.domain, "UNKNOWN.LOCAL")["server"].prettyPrint())
 
 
 if __name__ == "__main__":
