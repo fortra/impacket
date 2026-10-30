@@ -410,7 +410,7 @@ class GetUserSPNs:
                                                                             lmhash=(self.__lmhash),
                                                                             nthash=(self.__nthash),
                                                                             aesKey=self.__aesKey,
-                                                                            kdcHost=self.__kdcHost,
+                                                                            kdcHost=self.__kdcHost or self.__kdcIP,
                                                                             serverName=username,
                                                                             kerberoast_no_preauth=True)
                     self.outputTGS(tgt, oldSessionKey, sessionKey, username, username, fd)
