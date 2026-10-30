@@ -468,6 +468,36 @@ class CCache:
 
         return None
 
+    def getInterRealmTGT(self, domain, targetRealm=None):
+        """
+        Returns an inter-realm (referral) TGT issued by domain, that is a
+        krbtgt/<otherRealm>@<domain> credential. Such a TGT is only usable against
+        <otherRealm>'s KDC, which getKerberosTGS() takes care of.
+
+        :param domain: the realm that issued the referral TGT
+        :param targetRealm: preferred <otherRealm>, to choose when the cache holds several
+
+        :return: the matching Credential, or None
+        """
+        domain = domain.upper()
+        targetRealm = targetRealm.upper() if targetRealm else None
+
+        tgts = {}
+        for c in self.credentials:
+            server = c['server'].prettyPrint().decode('utf-8', 'replace').upper()
+            if server.count('/') != 1 or server.count('@') != 1 or not server.startswith('KRBTGT/'):
+                continue
+            serviceRealm, ticketRealm = server[len('KRBTGT/'):].split('@')
+            if ticketRealm == domain and serviceRealm != domain:
+                tgts.setdefault(serviceRealm, c)
+
+        if not tgts:
+            return None
+
+        serviceRealm = targetRealm if targetRealm in tgts else sorted(tgts)[0]
+        LOG.debug('Returning inter-realm TGT krbtgt/%s@%s' % (serviceRealm, domain))
+        return tgts[serviceRealm]
+
     def toTimeStamp(self, dt, epoch=datetime(1970,1,1)):
         td = dt - epoch
         # return td.total_seconds()
@@ -663,6 +693,11 @@ class CCache:
         if creds is None:
             principal = 'krbtgt/%s@%s' % (domain.upper(), domain.upper())
             creds = ccache.getCredential(principal)
+            if creds is None:
+                targetHost = target.split('/')[-1].split('@')[0]
+                # the target's DNS suffix is only a hint, used to choose between several referral TGTs
+                targetRealm = targetHost.split('.', 1)[1] if '.' in targetHost else None
+                creds = ccache.getInterRealmTGT(domain, targetRealm)
             if creds is not None:
                 LOG.debug('Using TGT from cache')
                 TGT = creds.toTGT()
