@@ -10,6 +10,7 @@
 # for more information.
 #
 import unittest
+from parameterized import parameterized
 from binascii import unhexlify
 
 from impacket.krb5.crypto import (Key, Enctype, encrypt, decrypt,
@@ -53,7 +54,7 @@ class AESTests(unittest.TestCase):
         plain = b'eight nine ten eleven twelve thirteen'
         cksum = h('01A4B088D45628F6946614E3')
         k = Key(Enctype.AES128, kb)
-        verify_checksum(Cksumtype.SHA1_AES128, k, keyusage, plain, cksum)
+        self.assertIsNone(verify_checksum(Cksumtype.SHA1_AES128, k, keyusage, plain, cksum))
 
     def test_AES256_checksum(self):
         # AES256 checksum
@@ -62,7 +63,7 @@ class AESTests(unittest.TestCase):
         plain = b'fourteen'
         cksum = h('E08739E3279E2903EC8E3836')
         k = Key(Enctype.AES256, kb)
-        verify_checksum(Cksumtype.SHA1_AES256, k, keyusage, plain, cksum)
+        self.assertIsNone(verify_checksum(Cksumtype.SHA1_AES256, k, keyusage, plain, cksum))
 
     def test_AES128_string_to_key(self):
         # AES128 string-to-key
@@ -183,18 +184,11 @@ class AESTests(unittest.TestCase):
         k = cf2(Enctype.RC4, k1, k2, b'a', b'b')
         self.assertEqual(k.contents, kb)
 
-    def test_DES_string_to_key(self):
-        # DES string-to-key
-        string = b'password'
-        salt = b'ATHENA.MIT.EDUraeburn'
-        kb = h('cbc22fae235298e3')
-        k = string_to_key(Enctype.DES_MD5, string, salt)
-        self.assertEqual(k.contents, kb)
-
-        # DES string-to-key
-        string = b'potatoe'
-        salt = b'WHITEHOUSE.GOVdanny'
-        kb = h('df3d32a74fd92a01')
+    @parameterized.expand([
+        (b'password', b'ATHENA.MIT.EDUraeburn', h('cbc22fae235298e3')),
+        (b'potatoe', b'WHITEHOUSE.GOVdanny', h('df3d32a74fd92a01'))
+    ])
+    def test_DES_string_to_key(self, string, salt, kb):
         k = string_to_key(Enctype.DES_MD5, string, salt)
         self.assertEqual(k.contents, kb)
 
