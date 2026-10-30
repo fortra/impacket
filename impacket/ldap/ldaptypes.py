@@ -100,7 +100,7 @@ class SR_SECURITY_DESCRIPTOR(Structure):
         if self['OffsetDacl'] != 0:
             self['Dacl'] = ACL(data=data[self['OffsetDacl']:])
         else:
-            self['Sacl'] = b''
+            self['Dacl'] = b''
 
     def getData(self):
         headerlen = 20
