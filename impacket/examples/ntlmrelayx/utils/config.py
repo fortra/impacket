@@ -68,6 +68,15 @@ class NTLMRelayxConfig:
         self.SMBServerChallenge = None
         self.rpc_attack = None
 
+        # Signing bypass account, shared by the SMB (MS-SMB2 3.3.5.5.2) and LDAP bypasses (LDAP reuses the existing attack options)
+        self.reauth_bypass = False
+        self.reauth_anonymous = False
+        self.reauth_domain = ''
+        self.reauth_user = ''
+        self.reauth_password = ''
+        self.reauth_lmhash = ''
+        self.reauth_nthash = ''
+
         # RPC options
         self.rpc_mode = None
         self.rpc_use_smb = False
@@ -82,6 +91,7 @@ class NTLMRelayxConfig:
         self.aclattack = True
         self.validateprivs = True
         self.escalateuser = None
+        self.delegatetarget = None
 
         # MSSQL options
         self.queries = []
@@ -204,7 +214,7 @@ class NTLMRelayxConfig:
     def setRandomTargets(self, randomtargets):
         self.randomtargets = randomtargets
 
-    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser, addcomputer, delegateaccess, dumplaps, dumpgmsa, dumpadcs, sid, adddnsrecord, dumpinfoattr, dumppre2k=False):
+    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser, addcomputer, delegateaccess, dumplaps, dumpgmsa, dumpadcs, sid, adddnsrecord, dumpinfoattr, dumppre2k=False, delegatetarget=None):
         self.dumpdomain = dumpdomain
         self.addda = addda
         self.aclattack = aclattack
@@ -212,6 +222,7 @@ class NTLMRelayxConfig:
         self.escalateuser = escalateuser
         self.addcomputer = addcomputer
         self.delegateaccess = delegateaccess
+        self.delegatetarget = delegatetarget
         self.dumplaps = dumplaps
         self.dumpgmsa = dumpgmsa
         self.dumpadcs = dumpadcs
@@ -259,6 +270,27 @@ class NTLMRelayxConfig:
         self.remove_mic = remove_mic
         self.remove_target = remove_target
         self.remove_sign_seal = remove_sign_seal
+
+    def setReauthBypassOptions(self, auth_reauth, hashes_reauth=None):
+        if not auth_reauth:
+            return
+        self.reauth_domain, self.reauth_user, self.reauth_password = parse_credentials(auth_reauth)
+
+        if hashes_reauth is not None:
+            if hashes_reauth.count(':') != 1:
+                raise Exception("Hashes for the signing bypass must be in LMHASH:NTHASH format")
+            self.reauth_lmhash, self.reauth_nthash = hashes_reauth.split(':')
+
+        # An explicit empty credential (--reauth-bypass ':') is an anonymous session, which some signing-enforced LDAP servers still hand a usable signing key
+        self.reauth_anonymous = self.reauth_user == '' and self.reauth_password == '' and self.reauth_nthash == ''
+        if not self.reauth_anonymous:
+            if self.reauth_user == '':
+                raise Exception("You must specify a username for the signing bypass, "
+                                "format is [domain/]username[:password]")
+            if self.reauth_password == '' and self.reauth_nthash == '':
+                raise Exception("You must specify a password or hashes for the signing bypass account")
+
+        self.reauth_bypass = True
 
     def setHTTPS(self, https, certfile, keyfile):
         self.https = https

