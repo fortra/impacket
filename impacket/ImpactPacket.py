@@ -1362,7 +1362,7 @@ class TCP(Header):
         Header.__init__(self, 20)
         self.set_th_off(5)
         self.__option_list = []
-        if aBuffer:
+        if aBuffer is not None:
             self.load_header(aBuffer)
 
     def add_option(self, option):
@@ -1551,11 +1551,22 @@ class TCP(Header):
             return array_tobytes(bytes)
 
     def load_header(self, aBuffer):
+        if len(aBuffer) < 20:
+            raise ImpactPacketException('TCP header is truncated')
+
         self.set_bytes_from_string(aBuffer[:20])
-        opt_left = (self.get_th_off() - 5) * 4
+        data_offset = self.get_th_off()
+        if data_offset < 5:
+            raise ImpactPacketException('TCP data offset must be at least 5')
+
+        header_size = data_offset * 4
+        if len(aBuffer) < header_size:
+            raise ImpactPacketException('TCP header length exceeds available data')
+        if self.get_th_reserved() != 0:
+            raise ImpactPacketException('TCP reserved bits must be zero')
+
+        opt_left = header_size - 20
         opt_bytes = array.array('B', aBuffer[20:(20 + opt_left)])
-        if len(opt_bytes) != opt_left:
-            raise ImpactPacketException("Cannot load options from truncated packet")
 
         while opt_left:
             op_kind = opt_bytes[0]
@@ -1563,6 +1574,10 @@ class TCP(Header):
                 new_option = TCPOption(op_kind)
                 op_len = 1
             else:
+                if len(opt_bytes) < 2:
+                    raise ImpactPacketException(
+                        'TCP option is missing its length byte'
+                    )
                 op_len = opt_bytes[1]
                 if op_len > len(opt_bytes):
                     raise ImpactPacketException("TCP Option length is too high")
