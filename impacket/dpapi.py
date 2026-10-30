@@ -32,6 +32,7 @@ from binascii import unhexlify, hexlify
 from struct import pack
 from hashlib import pbkdf2_hmac
 from Cryptodome.Hash import HMAC, SHA512, SHA1, MD4
+from hmac import digest as hmac_digest
 from Cryptodome.Cipher import AES, DES3
 from Cryptodome.Util.Padding import unpad
 from Cryptodome.PublicKey import RSA
@@ -303,7 +304,7 @@ class MasterKey(Structure):
         else:
             hashModule = ALGORITHMS_DATA[self['HashAlgo']][1]
 
-        prf = lambda p, s: HMAC.new(p, s, hashModule).digest()
+        prf = lambda p, s: hmac_digest(p, s, {SHA1: 'sha1', SHA512: 'sha512'}[hashModule])
         derivedBlob = self.deriveKey(key, self['Salt'],
                                     ALGORITHMS_DATA[self['CryptAlgo']][0] + ALGORITHMS_DATA[self['CryptAlgo']][3],
                                     count=self['MasterKeyIterationCount'], hashFunction=prf)
@@ -386,7 +387,7 @@ class CREDHIST_ENTRY(Structure):
         else:
             hashModule = ALGORITHMS_DATA[self['HashAlgo']][1]
 
-        prf = lambda p, s: HMAC.new(p, s, hashModule).digest()
+        prf = lambda p, s: hmac_digest(p, s, {SHA1: 'sha1', SHA512: 'sha512'}[hashModule])
 
         derivedBlob = self.deriveKey(key, self['Salt'], ALGORITHMS_DATA[self['CryptAlgo']][0] + ALGORITHMS_DATA[self['CryptAlgo']][3], count=self['Rounds'], hashFunction=prf)
 
