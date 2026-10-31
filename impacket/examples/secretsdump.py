@@ -89,7 +89,8 @@ from impacket.crypto import transformKey
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import Ticket as TicketAsn1, EncTicketPart, AP_REQ, seq_set, Authenticator, TGS_REQ, \
     seq_set_iter, TGS_REP, EncTGSRepPart, KERB_KEY_LIST_REP, AuthorizationData
-from impacket.krb5.constants import ProtocolVersionNumber, TicketFlags, PrincipalNameType, encodeFlags, EncryptionTypes
+from impacket.krb5.constants import ProtocolVersionNumber, TicketFlags, PrincipalNameType, encodeFlags, EncryptionTypes, \
+    ENCRYPTION_TYPE_NAMES, etype_display_name
 from impacket.krb5.crypto import string_to_key, Key, _enctype_table
 from impacket.krb5.kerberosv5 import getKerberosTGSRequestEnctypes, sendReceive
 from impacket.krb5.types import KerberosTime, Principal, Ticket
@@ -2634,8 +2635,6 @@ def _parse_trust_auth_info(blob):
     return currentKey, previousKey
 
 
-_TRUST_KERBEROS_TYPE = {17: 'aes128-cts-hmac-sha1-96', 18: 'aes256-cts-hmac-sha1-96'}
-
 # Attribute identifiers replicated for a trustedDomain object via DRSUAPI.
 TRUST_ATTRTYP_TO_ATTID = {
     'trustPartner': '1.2.840.113556.1.4.133',
@@ -2671,10 +2670,11 @@ def _derive_trust_kerberos_keys(rawSecret, domain, partner, isIncoming, partnerF
     for etype in (int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
                   int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value)):
         keyFqdn = string_to_key(etype, secret, salt_fqdn, None)
-        out.append((_TRUST_KERBEROS_TYPE[etype], hexlify(keyFqdn.contents).decode('utf-8')))
+        typename = etype_display_name(etype)
+        out.append((typename, hexlify(keyFqdn.contents).decode('utf-8')))
         if salt_nb is not None:
             keyNb = string_to_key(etype, secret, salt_nb, None)
-            out.append((_TRUST_KERBEROS_TYPE[etype] + ' (trust account)', hexlify(keyNb.contents).decode('utf-8')))
+            out.append((typename + ' (trust account)', hexlify(keyNb.contents).decode('utf-8')))
     return out
 
 
@@ -2778,13 +2778,7 @@ class NTDSHashes:
         'userAccountControl':'1.2.840.113556.1.4.8',
     }
 
-    KERBEROS_TYPE = {
-        1:'dec-cbc-crc',
-        3:'des-cbc-md5',
-        17:'aes128-cts-hmac-sha1-96',
-        18:'aes256-cts-hmac-sha1-96',
-        0xffffff74:'rc4_hmac',
-    }
+    KERBEROS_TYPE = ENCRYPTION_TYPE_NAMES
 
     INTERNAL_TO_NAME = dict((v,k) for k,v in NAME_TO_INTERNAL.items())
 
