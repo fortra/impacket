@@ -694,7 +694,7 @@ class CCache:
             principal = 'krbtgt/%s@%s' % (domain.upper(), domain.upper())
             creds = ccache.getCredential(principal)
             if creds is None:
-                targetHost = target.split('/')[-1].split('@')[0]
+                targetHost = target.split('/')[-1].split('@')[0].split(':', 1)[0]
                 # the target's DNS suffix is only a hint, used to choose between several referral TGTs
                 targetRealm = targetHost.split('.', 1)[1] if '.' in targetHost else None
                 creds = ccache.getInterRealmTGT(domain, targetRealm)
