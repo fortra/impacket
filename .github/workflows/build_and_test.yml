@@ -40,7 +40,7 @@ jobs:
   test:
     name: Run unit tests and build wheel
     needs: lint
-    runs-on: ${{ matrix.os }}
+    runs-on: runs-on: ${{ matrix.python-version == '3.9' && 'ubuntu-22.04' || matrix.os }}
     if:
       github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
       github.repository
