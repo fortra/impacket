@@ -392,6 +392,27 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
 
         client.close()
 
+    def test_smbserver_list_shares_types(self):
+        """Share types are reported as configured, not always as disk.
+        """
+        server = self.get_smbserver(add_share=False)
+        server.addShare(self.share_name, self.share_path)
+        server.addShare("printer_share", self.share_path, shareType="1")
+        server.addShare("ipc_share", self.share_path, shareType="3")
+        self.start_smbserver(server)
+
+        client = self.get_smbclient()
+        client.login(self.username, self.password)
+        shares = {
+            share['shi1_netname'][:-1]: share['shi1_type']
+            for share in client.listShares()
+        }
+        client.close()
+
+        self.assertEqual(0, shares[self.share_name.upper()])
+        self.assertEqual(1, shares["PRINTER_SHARE"])
+        self.assertEqual(3, shares["IPC_SHARE"])
+
     def test_smbserver_connect_disconnect_tree(self):
         """Test connecting/disconnecting to a share tree.
         """
