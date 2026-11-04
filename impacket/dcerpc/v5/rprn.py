@@ -24,7 +24,7 @@
 #   Alberto Solino (@agsolino)
 #
 from impacket import system_errors
-from impacket.dcerpc.v5.dtypes import ULONGLONG, UINT, USHORT, LPWSTR, DWORD, ULONG, NULL
+from impacket.dcerpc.v5.dtypes import ULONGLONG, UINT, USHORT, LPWSTR, WSTR, DWORD, ULONG, NULL
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRUNION, NDRPOINTER, NDRUniConformantArray
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.uuid import uuidtup_to_bin
@@ -455,8 +455,8 @@ class RpcXcvData(NDRCALL):
     opnum = 88
     structure = (
        ('hXcv', PRINTER_HANDLE),
-       ('pszDataName', LPWSTR),
-       ('pInputData', PBYTE_ARRAY),
+       ('pszDataName', WSTR),
+       ('pInputData', BYTE_ARRAY),
        ('cbInputData', DWORD),
        ('cbOutputData', DWORD),
        ('pdwStatus', DWORD),
@@ -464,7 +464,7 @@ class RpcXcvData(NDRCALL):
 
 class RpcXcvDataResponse(NDRCALL):
     structure = (
-       ('pOutputData', PBYTE_ARRAY),
+       ('pOutputData', BYTE_ARRAY),
        ('pcbOutputNeeded', DWORD),
        ('pdwStatus', DWORD),
        ('ErrorCode', ULONG),
