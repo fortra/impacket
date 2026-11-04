@@ -289,10 +289,7 @@ class MasterKey(Structure):
             derived = bytearray(hashFunction(passphrase, U))
             for r in range(count - 1):
                 actual = bytearray(hashFunction(passphrase, derived))
-                if PY3:
-                    derived = (int.from_bytes(derived, sys.byteorder) ^ int.from_bytes(actual, sys.byteorder)).to_bytes(len(actual), sys.byteorder)
-                else:
-                    derived = bytearray([ chr((a) ^ (b)) for (a,b) in zip(derived, actual) ])
+                derived = (int.from_bytes(derived, sys.byteorder) ^ int.from_bytes(actual, sys.byteorder)).to_bytes(len(actual), sys.byteorder)
             keyMaterial += derived
 
         return keyMaterial[:keylen]
@@ -372,10 +369,7 @@ class CREDHIST_ENTRY(Structure):
             derived = bytearray(hashFunction(passphrase, U))
             for r in range(count - 1):
                 actual = bytearray(hashFunction(passphrase, derived))
-                if PY3:
-                    derived = (int.from_bytes(derived, sys.byteorder) ^ int.from_bytes(actual, sys.byteorder)).to_bytes(len(actual), sys.byteorder)
-                else:
-                    derived = bytearray([ chr((a) ^ (b)) for (a,b) in zip(derived, actual) ])
+                derived = (int.from_bytes(derived, sys.byteorder) ^ int.from_bytes(actual, sys.byteorder)).to_bytes(len(actual), sys.byteorder)
             keyMaterial += derived
 
         return keyMaterial[:keylen]
@@ -1192,9 +1186,7 @@ def privatekeyblob_to_pkcs1(key):
     exp2 = bytes_to_long(key['exponent2'][::-1])
     coefficient = bytes_to_long(key['coefficient'][::-1])
     privateExp = bytes_to_long(key['privateExponent'][::-1]) # d
-    if PY3:
-        long = int
-    pubExp = long(key['rsapubkey']['pubexp']) # e
+    pubExp = int(key['rsapubkey']['pubexp']) # e
     # RSA.Integer(prime2).inverse(prime1) # u
 
     r = RSA.construct((modulus, pubExp, privateExp, prime1, prime2))
