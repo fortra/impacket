@@ -18,39 +18,39 @@ class _RC4Cipher:
         return b'encrypted-authenticator'
 
 
+def _build_rc4_tgt(tgtService='krbtgt/EXAMPLE.COM', ticketRealm='EXAMPLE.COM'):
+    asRep = AS_REP()
+    asRep['pvno'] = 5
+    asRep['msg-type'] = constants.ApplicationTagNumbers.AS_REP.value
+    asRep['crealm'] = ticketRealm
+    seq_set(
+        asRep,
+        'cname',
+        Principal('user', type=constants.PrincipalNameType.NT_PRINCIPAL.value).components_to_asn1,
+    )
+
+    asRep['ticket'] = noValue
+    asRep['ticket']['tkt-vno'] = 5
+    asRep['ticket']['realm'] = ticketRealm
+    seq_set(
+        asRep['ticket'],
+        'sname',
+        Principal(
+            tgtService,
+            type=constants.PrincipalNameType.NT_SRV_INST.value,
+        ).components_to_asn1,
+    )
+    asRep['ticket']['enc-part'] = noValue
+    asRep['ticket']['enc-part']['etype'] = constants.EncryptionTypes.rc4_hmac.value
+    asRep['ticket']['enc-part']['cipher'] = b'ticket'
+
+    asRep['enc-part'] = noValue
+    asRep['enc-part']['etype'] = constants.EncryptionTypes.rc4_hmac.value
+    asRep['enc-part']['cipher'] = b'reply'
+    return encoder.encode(asRep)
+
+
 class KerberosTGSEnctypeTests(TestCase):
-    @staticmethod
-    def _build_rc4_tgt():
-        asRep = AS_REP()
-        asRep['pvno'] = 5
-        asRep['msg-type'] = constants.ApplicationTagNumbers.AS_REP.value
-        asRep['crealm'] = 'EXAMPLE.COM'
-        seq_set(
-            asRep,
-            'cname',
-            Principal('user', type=constants.PrincipalNameType.NT_PRINCIPAL.value).components_to_asn1,
-        )
-
-        asRep['ticket'] = noValue
-        asRep['ticket']['tkt-vno'] = 5
-        asRep['ticket']['realm'] = 'EXAMPLE.COM'
-        seq_set(
-            asRep['ticket'],
-            'sname',
-            Principal(
-                'krbtgt/EXAMPLE.COM',
-                type=constants.PrincipalNameType.NT_SRV_INST.value,
-            ).components_to_asn1,
-        )
-        asRep['ticket']['enc-part'] = noValue
-        asRep['ticket']['enc-part']['etype'] = constants.EncryptionTypes.rc4_hmac.value
-        asRep['ticket']['enc-part']['cipher'] = b'ticket'
-
-        asRep['enc-part'] = noValue
-        asRep['enc-part']['etype'] = constants.EncryptionTypes.rc4_hmac.value
-        asRep['enc-part']['cipher'] = b'reply'
-        return encoder.encode(asRep)
-
     def _assert_request_enctypes(self, requestedEtypes, expectedEtypes):
         requests = []
 
@@ -65,7 +65,7 @@ class KerberosTGSEnctypeTests(TestCase):
                     Principal('cifs/server.example.com', type=constants.PrincipalNameType.NT_SRV_INST.value),
                     'EXAMPLE.COM',
                     None,
-                    self._build_rc4_tgt(),
+                    _build_rc4_tgt(),
                     _RC4Cipher(),
                     object(),
                     etypes=requestedEtypes,
@@ -110,3 +110,49 @@ class KerberosTGSEnctypeTests(TestCase):
 
     def test_rc4_preference_can_be_requested_explicitly(self):
         self._assert_request_enctypes(RC4_PREFERRED_TGS_ENCTYPES, RC4_PREFERRED_TGS_ENCTYPES)
+
+
+class KerberosTGSRealmTests(TestCase):
+    def _request_realm(self, domain, tgtService, ticketRealm='EXAMPLE.COM'):
+        """Returns the realm of the emitted TGS-REQ and the host it was sent to"""
+        sent = []
+
+        def capture_request(data, host, kdcHost, timeout=None):
+            tgsReq = decoder.decode(data, asn1Spec=TGS_REQ())[0]
+            sent.append((str(tgsReq['req-body']['realm']), host))
+            raise KerberosError(constants.ErrorCodes.KDC_ERR_S_PRINCIPAL_UNKNOWN.value)
+
+        with mock.patch('impacket.krb5.kerberosv5.sendReceive', side_effect=capture_request):
+            with self.assertRaises(KerberosError):
+                getKerberosTGS(
+                    Principal('cifs/server.child.example.com', type=constants.PrincipalNameType.NT_SRV_INST.value),
+                    domain,
+                    None,
+                    _build_rc4_tgt(tgtService, ticketRealm),
+                    _RC4Cipher(),
+                    object(),
+                )
+
+        self.assertEqual(len(sent), 1)
+        return sent[0]
+
+    def test_regular_tgt_keeps_the_requested_realm(self):
+        self.assertEqual(self._request_realm('EXAMPLE.COM', 'krbtgt/EXAMPLE.COM'),
+                         ('EXAMPLE.COM', 'EXAMPLE.COM'))
+
+    def test_inter_realm_tgt_is_sent_to_the_realm_it_grants(self):
+        # krbtgt/CHILD.EXAMPLE.COM@EXAMPLE.COM can only be used at CHILD.EXAMPLE.COM's KDC,
+        # asking EXAMPLE.COM's own KDC returns KDC_ERR_WRONG_REALM
+        self.assertEqual(self._request_realm('EXAMPLE.COM', 'krbtgt/CHILD.EXAMPLE.COM'),
+                         ('CHILD.EXAMPLE.COM', 'CHILD.EXAMPLE.COM'))
+        self.assertEqual(self._request_realm('example.com', 'krbtgt/child.example.com'),
+                         ('CHILD.EXAMPLE.COM', 'CHILD.EXAMPLE.COM'))
+
+    def test_realm_explicitly_asked_by_the_caller_is_kept(self):
+        # Referral chasing walks the trust path, the caller's realm must win there
+        self.assertEqual(self._request_realm('OTHER.COM', 'krbtgt/CHILD.EXAMPLE.COM'),
+                         ('OTHER.COM', 'OTHER.COM'))
+
+    def test_service_ticket_used_as_a_tgt_keeps_the_requested_realm(self):
+        self.assertEqual(self._request_realm('EXAMPLE.COM', 'cifs/server.example.com'),
+                         ('EXAMPLE.COM', 'EXAMPLE.COM'))

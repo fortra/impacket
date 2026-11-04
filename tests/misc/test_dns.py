@@ -15,6 +15,10 @@ from impacket.dns import DNS
 
 
 class DNSTests(unittest.TestCase):
+    def test_parse_compressed_message_rejects_cyclic_pointers(self):
+        with self.assertRaisesRegex(Exception, "infinite loop"):
+            DNS().parseCompressedMessage(b"\xc0\x0e\xc0\x0c")
+
     def test_str(self):
         def chk(b, t):
             self.assertEqual(str(DNS(b)), t)

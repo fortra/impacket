@@ -314,20 +314,25 @@ class DNS(ProtocolPacket):
             aux.append((qname, qtype, qclass))
         return (aux, offset)
 
-    def parseCompressedMessage(self, buf, offset=0):
+    def parseCompressedMessage(self, buf, offset=0, visited=None):
         'Parse compressed message defined on rfc1035 4.1.4.'
+        if visited is None:
+            visited = set()
         if offset >= len(buf):
             raise Exception("No more data to parse. Offset is bigger than length of buffer.")
         byte = struct.unpack("B", buf[offset:offset+1])[0]
         #  if the first two bits are ones (11000000=0xC0), the next bits are the offset
         if byte & 0xC0 == 0xC0:
             # It's a pointer
+            if offset in visited:
+                raise Exception("The infinite loop is in DNS decompression. Encountered a cyclic compression pointer.")
+            visited.add(offset)
             pointer = struct.unpack("!H", buf[offset:offset+2])[0] # network unsigned short
             pointer = (pointer & 0x3FFF) - self.__HEADER_BASE_SIZE
             if offset == pointer:
                 raise Exception("The infinite loop is in DNS decompression. Encountered pointer points to the current offset.")
             offset += 2
-            name = self.parseCompressedMessage(buf, pointer)[1]
+            name = self.parseCompressedMessage(buf, pointer, visited)[1]
             return (offset, name)
         else:
             # It's a label
@@ -337,7 +342,7 @@ class DNS(ProtocolPacket):
             offset += 1
             name = buf[offset:offset+byte]
             offset += byte
-            offset, unnamed = self.parseCompressedMessage(buf, offset)
+            offset, unnamed = self.parseCompressedMessage(buf, offset, visited)
             if not unnamed:
                 return (offset, name)
             else:

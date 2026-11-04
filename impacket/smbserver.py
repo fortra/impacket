@@ -336,9 +336,13 @@ def isInFileJail(path, file_name):
     :return whether the file name is inside the base path or not
     :rtype bool
     """
-    path_name = os.path.join(path, file_name)
+    path_name = os.path.realpath(os.path.join(path, file_name))
     share_real_path = os.path.realpath(path)
-    return os.path.commonprefix((os.path.realpath(path_name), share_real_path)) == share_real_path
+    try:
+        return os.path.commonpath((path_name, share_real_path)) == share_real_path
+    except ValueError:
+        # Paths on different drives cannot share a common path.
+        return False
 
 
 def openFile(path, fileName, accessMode, fileAttributes, openMode, readOnly):
@@ -832,12 +836,16 @@ class TRANS2Commands:
         setPathInfoParameters = smb.SMBSetPathInformation_Parameters(flags=recvPacket['Flags2'], data=parameters)
         if recvPacket['Tid'] in connData['ConnectedShares']:
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
+            readOnly = connData['ConnectedShares'][recvPacket['Tid']]['read only'] == 'yes'
             fileName = normalize_path(decodeSMBString(recvPacket['Flags2'], setPathInfoParameters['FileName']), path)
             pathName = os.path.join(path, fileName)
 
-            if isInFileJail(path, fileName):
+            if not isInFileJail(path, fileName):
                 smbServer.log("Path not in current working directory", connData=connData)
                 errorCode = STATUS_OBJECT_PATH_SYNTAX_BAD
+
+            elif readOnly:
+                errorCode = STATUS_ACCESS_DENIED
 
             elif os.path.exists(pathName):
                 informationLevel = setPathInfoParameters['InformationLevel']

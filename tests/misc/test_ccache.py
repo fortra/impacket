@@ -40,17 +40,6 @@ class CCACHETests(unittest.TestCase):
     cache_v3_kirbi_file = "tests/data/ccache-v3-kirbi"
     cache_v4_kirbi_file = "tests/data/ccache-v4-kirbi"
 
-    @staticmethod
-    def _ccache_with_spn(spn):
-        ccache = CCache()
-        credential = Credential()
-        credential["server"] = Principal()
-        credential["server"].fromPrincipal(
-            types.Principal(spn, type=PrincipalNameType.NT_SRV_INST.value)
-        )
-        ccache.credentials.append(credential)
-        return ccache, credential
-
     def assert_ccache(self, ccache):
         ccache.prettyPrint()
         self.assertIsInstance(ccache, CCache)
@@ -192,13 +181,15 @@ class CCACHETests(unittest.TestCase):
 
         for cached_spn, requested_spn in cases:
             with self.subTest(cached_spn=cached_spn, requested_spn=requested_spn):
-                ccache, credential = self._ccache_with_spn(cached_spn)
+                ccache = self._ccache_with(cached_spn)
+                credential = ccache.credentials[0]
                 self.assertIs(ccache.getCredential(requested_spn), credential)
 
     def test_ccache_getCredential_two_part_spn_matching_boundaries(self):
         realm = "FOREST.LOCAL"
         cached_spn = "HOST/SERVER.CHILD-A.LOCAL@{}".format(realm)
-        ccache, credential = self._ccache_with_spn(cached_spn)
+        ccache = self._ccache_with(cached_spn)
+        credential = ccache.credentials[0]
 
         # Relaxed matching must remain bounded by the Kerberos realm.
         self.assertIsNone(
@@ -221,6 +212,77 @@ class CCACHETests(unittest.TestCase):
 
         # The negative lookups above must not alter the cached credential.
         self.assertIs(ccache.getCredential(cached_spn, anySPN=False), credential)
+
+    @staticmethod
+    def _ccache_with(*spns):
+        ccache = CCache()
+        for spn in spns:
+            cred = Credential()
+            cred["server"] = Principal()
+            cred["server"].fromPrincipal(types.Principal(spn, type=PrincipalNameType.NT_SRV_INST.value))
+            ccache.credentials.append(cred)
+        return ccache
+
+    def test_ccache_getInterRealmTGT(self):
+        # A ccache holding only krbtgt/TARGET@SOURCE must be usable, impacket used to ignore it
+        referral = self._ccache_with("krbtgt/FOREST.LOCAL@{}".format(self.domain))
+        # Issued by the client realm for the foreign one -> returned for the client realm
+        self.assertIsNotNone(referral.getInterRealmTGT(self.domain))
+        self.assertIsNotNone(referral.getInterRealmTGT(self.domain.lower()))
+        # The foreign realm is the service, not the issuer -> no referral TGT there
+        self.assertIsNone(referral.getInterRealmTGT("FOREST.LOCAL"))
+
+        # A same-realm TGT is not an inter-realm TGT
+        self.assertIsNone(self._ccache_with(self.server).getInterRealmTGT(self.domain))
+        # A service ticket is not a TGT
+        self.assertIsNone(self._ccache_with("cifs/dc01.{}@{}".format(self.domain.lower(), self.domain)).getInterRealmTGT(self.domain))
+
+    def test_ccache_getInterRealmTGT_picks_the_target_realm(self):
+        spns = ["krbtgt/FOREST.LOCAL@{}".format(self.domain), "krbtgt/CHILD-A.LOCAL@{}".format(self.domain)]
+
+        for ccache in (self._ccache_with(*spns), self._ccache_with(*reversed(spns))):
+            # The target realm decides, whatever the order the credentials are cached in
+            self.assertEqual(ccache.getInterRealmTGT(self.domain, "forest.local")["server"].prettyPrint(),
+                             "krbtgt/FOREST.LOCAL@{}".format(self.domain).encode())
+            # Without a usable hint the choice must still be stable, not cache-order dependent
+            self.assertEqual(ccache.getInterRealmTGT(self.domain)["server"].prettyPrint(),
+                             ccache.getInterRealmTGT(self.domain, "UNKNOWN.LOCAL")["server"].prettyPrint())
+
+    def test_ccache_parseFile_referral_with_port_or_instance(self):
+        preferred = "krbtgt/FOREST.LOCAL@{}".format(self.domain)
+        spns = [preferred, "krbtgt/CHILD-A.LOCAL@{}".format(self.domain)]
+
+        for order in (spns, list(reversed(spns))):
+            ccache = self._ccache_with(*order)
+            # Exercise cache selection; ticket conversion is independent of the SPN hint.
+            with mock.patch.object(CCache, "loadFile", return_value=ccache), \
+                    mock.patch.object(Credential, "toTGT", autospec=True,
+                                      return_value=mock.sentinel.tgt) as to_tgt:
+                for suffix in ("", ":1433", ":SQLEXPRESS"):
+                    with self.subTest(order=order, suffix=suffix):
+                        to_tgt.reset_mock()
+                        _, _, TGT, TGS = CCache.parseFile(
+                            self.domain, self.username, "MSSQLSvc/sql.forest.local" + suffix)
+
+                        self.assertIs(TGT, mock.sentinel.tgt)
+                        self.assertIsNone(TGS)
+                        to_tgt.assert_called_once()
+                        self.assertEqual(to_tgt.call_args[0][0]["server"].prettyPrint(),
+                                         preferred.encode())
+
+    def test_ccache_parseFile_service_ticket_preserves_port(self):
+        target = "MSSQLSvc/sql.{}:1433".format(self.domain.lower())
+        principal = "{}@{}".format(target.upper(), self.domain)
+        ccache = self._ccache_with(principal)
+
+        with mock.patch.object(CCache, "loadFile", return_value=ccache), \
+                mock.patch.object(Credential, "toTGS", autospec=True,
+                                  return_value=mock.sentinel.tgs) as to_tgs:
+            _, _, TGT, TGS = CCache.parseFile(self.domain, self.username, target)
+
+        self.assertIsNone(TGT)
+        self.assertIs(TGS, mock.sentinel.tgs)
+        to_tgs.assert_called_once_with(ccache.credentials[0], principal)
 
 
 if __name__ == "__main__":

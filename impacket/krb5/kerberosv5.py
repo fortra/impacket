@@ -126,7 +126,12 @@ def sendReceive(data, host, kdcHost, port=88, timeout=None):
 
     return r
 
-def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True, serverName=None, kerberoast_no_preauth=False, timeout=None):
+def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True, serverName=None, kerberoast_no_preauth=False, timeout=None, certificate=None):
+
+    if certificate is not None:
+        # PKINIT : the reply key comes from the certificate exchange, there is no long term key involved
+        from impacket.krb5.pkinit import getKerberosTGTPKINIT
+        return getKerberosTGTPKINIT(clientName, domain, certificate, kdcHost=kdcHost, requestPAC=requestPAC, serverName=serverName, timeout=timeout)
 
     # Convert to binary form, just in case we're receiving strings
     if isinstance(lmhash, str):
@@ -417,6 +422,11 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
     # Extract the ticket from the TGT
     ticket = Ticket()
     ticket.from_asn1(decodedTGT['ticket'])
+
+    # An inter-realm TGT is only accepted by the realm its krbtgt names, not by the realm that issued it
+    tgtService = ticket.service_principal
+    if len(tgtService.components) == 2 and tgtService.components[0].lower() == 'krbtgt' and tgtService.realm.upper() == domain:
+        domain = tgtService.components[1].upper()
 
     apReq = AP_REQ()
     apReq['pvno'] = 5

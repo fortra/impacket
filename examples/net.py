@@ -374,32 +374,32 @@ class Net:
         if self.__is_option_present(self.__options, 'create'):
             print("[*] Creating {} account '{}'".format(self.__action, self.__options.create))
             actionObject.Create(self.__options.create, self.__options.newPasswd)
-            print("[+] {} account created succesfully: {}:{}".format(self.__action, self.__options.create, self.__options.newPasswd))
+            print("[+] {} account created successfully: {}:{}".format(self.__action, self.__options.create, self.__options.newPasswd))
 
         elif self.__is_option_present(self.__options, 'remove'):
             print("[*] Deleting {} account '{}'".format(self.__action, self.__options.remove))
             actionObject.Remove(self.__options.remove)
-            print("[+] {} account deleted succesfully!".format(self.__action))
+            print("[+] {} account deleted successfully!".format(self.__action))
 
         elif self.__is_option_present(self.__options, 'enable'):
             print("[*] Enabling {} account '{}'".format(self.__action, self.__options.enable))
             actionObject.SetUserAccountControl(self.__options.enable, "enable")
-            print("[+] {} account enabled succesfully!".format(self.__action))
+            print("[+] {} account enabled successfully!".format(self.__action))
 
         elif self.__is_option_present(self.__options, 'disable'):
             print("[*] Disabling {} account '{}'".format(self.__action, self.__options.disable))
             actionObject.SetUserAccountControl(self.__options.disable, "disable")
-            print("[+] {} account disabled succesfully!".format(self.__action))
+            print("[+] {} account disabled successfully!".format(self.__action))
 
         elif self.__is_option_present(self.__options, 'join'):
             print("[*] Adding user account '{}' to group '{}'".format(self.__options.join,self.__options.name))
             actionObject.Join(self.__options.name, self.__options.join)
-            print("[+] User account added to {} succesfully!".format(self.__options.name))
+            print("[+] User account added to {} successfully!".format(self.__options.name))
 
         elif self.__is_option_present(self.__options, 'unjoin'):
             print("[*] Removing user account '{}' from group '{}'".format(self.__options.unjoin,self.__options.name))
             actionObject.UnJoin(self.__options.name, self.__options.unjoin)
-            print("[+] User account removed from {} succesfully!".format(self.__options.name))
+            print("[+] User account removed from {} successfully!".format(self.__options.name))
 
         elif self.__is_option_present(self.__options, 'name'):
             info = actionObject.Query(self.__options.name)
