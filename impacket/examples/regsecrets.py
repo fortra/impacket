@@ -13,8 +13,9 @@ from impacket import ntlm
 from impacket.ese import getUnixTime
 from impacket import LOG
 from impacket.dcerpc.v5 import transport, rrp, scmr, wkst
+from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.crypto import transformKey
-from impacket.system_errors import ERROR_NO_MORE_ITEMS
+from impacket.system_errors import ERROR_NO_MORE_ITEMS, ERROR_SERVICE_NOT_ACTIVE
 from impacket.structure import hexdump
 from impacket.krb5 import constants
 from impacket.krb5.crypto import string_to_key
@@ -180,10 +181,17 @@ class RemoteOperations:
         # First of all stop the service if it was originally stopped
         if self.__shouldStop is True:
             LOG.info('Stopping service %s' % self.__serviceName)
-            scmr.hRControlService(self.__scmr, self.__serviceHandle, scmr.SERVICE_CONTROL_STOP)
+            try:
+                scmr.hRControlService(self.__scmr, self.__serviceHandle, scmr.SERVICE_CONTROL_STOP)
+            except DCERPCException as e:
+                # Not running (e.g. starting it failed in enableRegistry()): nothing to stop, go on with the restore
+                if e.get_error_code() != ERROR_SERVICE_NOT_ACTIVE:
+                    raise
+            self.__shouldStop = False
         if self.__disabled is True:
             LOG.info('Restoring the disabled state for service %s' % self.__serviceName)
             scmr.hRChangeServiceConfigW(self.__scmr, self.__serviceHandle, dwStartType = 0x4)
+            self.__disabled = False
         if self.__serviceDeleted is False and self.__tmpServiceName is not None:
             # Check again the service we created does not exist, starting a new connection
             # Why?.. Hitting CTRL+C might break the whole existing DCE connection
@@ -203,6 +211,7 @@ class RemoteOperations:
                 resp = scmr.hROpenServiceW(self.__scmr, self.__scManagerHandle, self.__tmpServiceName)
                 service = resp['lpServiceHandle']
                 scmr.hRDeleteService(self.__scmr, service)
+                self.__serviceDeleted = True
                 scmr.hRControlService(self.__scmr, service, scmr.SERVICE_CONTROL_STOP)
                 scmr.hRCloseServiceHandle(self.__scmr, service)
                 scmr.hRCloseServiceHandle(self.__scmr, self.__serviceHandle)
@@ -213,18 +222,25 @@ class RemoteOperations:
                 # If service does not exist it'll trigger an exception
                 # So. we just wanna be sure we delete it, no need to
                 # show this exception message
-                pass
+                if str(e).find('ERROR_SERVICE_DOES_NOT_EXIST') >= 0:
+                    # Nothing left to delete, so a later call must not open a new connection for it
+                    self.__serviceDeleted = True
 
     def finish(self):
+        # Safe to call more than once: each step is marked as done once it succeeds, so a later call only retries what failed
         if self.__regHandle is not None:
             rrp.hBaseRegCloseKey(self.__rrp, self.__regHandle)
+            self.__regHandle = None
         self.__restore()
         if self.__rrp is not None:
             self.__rrp.disconnect()
+            self.__rrp = None
         if self.__drsr is not None:
             self.__drsr.disconnect()
+            self.__drsr = None
         if self.__samr is not None:
             self.__samr.disconnect()
+            self.__samr = None
         if self.__scmr is not None:
             try:
                 self.__scmr.disconnect()
@@ -233,6 +249,20 @@ class RemoteOperations:
                     pass
                 else:
                     raise
+            self.__scmr = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # Restore the remote state (RemoteRegistry service, RPC handles) when leaving the with block, even after an error
+        try:
+            self.finish()
+        except Exception as e:
+            # A cleanup failure must not hide the exception raised inside the with block
+            if exc_type is None:
+                raise
+            LOG.error('Error while restoring the remote state: %s' % str(e))
 
     def getBootKey(self):
         bootKey = b''
