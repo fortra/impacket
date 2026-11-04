@@ -40,6 +40,17 @@ class CCACHETests(unittest.TestCase):
     cache_v3_kirbi_file = "tests/data/ccache-v3-kirbi"
     cache_v4_kirbi_file = "tests/data/ccache-v4-kirbi"
 
+    @staticmethod
+    def _ccache_with_spn(spn):
+        ccache = CCache()
+        credential = Credential()
+        credential["server"] = Principal()
+        credential["server"].fromPrincipal(
+            types.Principal(spn, type=PrincipalNameType.NT_SRV_INST.value)
+        )
+        ccache.credentials.append(credential)
+        return ccache, credential
+
     def assert_ccache(self, ccache):
         ccache.prettyPrint()
         self.assertIsInstance(ccache, CCache)
@@ -160,6 +171,56 @@ class CCACHETests(unittest.TestCase):
 
         # Same short hostname, different child domain -> must not match
         self.assertIsNone(ccache.getCredential("LDAP/DC01.CHILD-B.LOCAL/CHILD-B.LOCAL@{}".format(realm)))
+
+    def test_ccache_getCredential_two_part_spn_short_fqdn_matching(self):
+        realm = "EXAMPLE.TEST"
+
+        cases = (
+            (
+                "HOST/FILESERVER@{}".format(realm),
+                "CIFS/FILESERVER.EXAMPLE.TEST@{}".format(realm),
+            ),
+            (
+                "HOST/FILESERVER.EXAMPLE.TEST@{}".format(realm),
+                "CIFS/FILESERVER@{}".format(realm),
+            ),
+            (
+                "HOST/FILESERVER@{}".format(realm),
+                "CIFS/FILESERVER.EXAMPLE.TEST:445@{}".format(realm),
+            ),
+        )
+
+        for cached_spn, requested_spn in cases:
+            with self.subTest(cached_spn=cached_spn, requested_spn=requested_spn):
+                ccache, credential = self._ccache_with_spn(cached_spn)
+                self.assertIs(ccache.getCredential(requested_spn), credential)
+
+    def test_ccache_getCredential_two_part_spn_matching_boundaries(self):
+        realm = "FOREST.LOCAL"
+        cached_spn = "HOST/SERVER.CHILD-A.LOCAL@{}".format(realm)
+        ccache, credential = self._ccache_with_spn(cached_spn)
+
+        # Relaxed matching must remain bounded by the Kerberos realm.
+        self.assertIsNone(
+            ccache.getCredential("CIFS/SERVER.CHILD-A.LOCAL@OTHER.LOCAL")
+        )
+
+        # Two qualified names must not match only because their first DNS
+        # label is the same.
+        self.assertIsNone(
+            ccache.getCredential("CIFS/SERVER.CHILD-B.LOCAL@{}".format(realm))
+        )
+
+        # Disabling AnySPN must retain exact service and hostname matching.
+        self.assertIsNone(
+            ccache.getCredential(
+                "CIFS/SERVER@{}".format(realm),
+                anySPN=False,
+            )
+        )
+
+        # The negative lookups above must not alter the cached credential.
+        self.assertIs(ccache.getCredential(cached_spn, anySPN=False), credential)
 
 
 if __name__ == "__main__":
