@@ -24,6 +24,7 @@ import sys
 
 from impacket import version
 from impacket.dcerpc.v5 import rprn, transport
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE
 from impacket.examples import logger
 from impacket.examples.utils import parse_target
 from impacket.system_errors import ERROR_ACCESS_DENIED, ERROR_SUCCESS
@@ -59,6 +60,9 @@ class IPPCoerce:
         rpctransport.set_kerberos(self.__doKerberos, self.__kdcHost)
 
         dce = rpctransport.get_dce_rpc()
+        dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
+        if self.__doKerberos is True:
+            dce.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
         hXcv = None
         timedOut = False
         associationStarted = False
