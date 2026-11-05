@@ -37,7 +37,6 @@ from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_GSS_NEGOTIATE, \
     RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from impacket.examples.utils import parse_target
 from impacket.krb5.keytab import Keytab
-from six import PY2
 
 CODEC = sys.stdout.encoding
 AUTHOR_OVERFLOW_LEN = 4000

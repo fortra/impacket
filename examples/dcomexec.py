@@ -45,7 +45,6 @@ import sys
 import time
 from base64 import b64encode
 
-from six import PY2, PY3
 from impacket import version
 from impacket.dcerpc.v5.dcom.oaut import IID_IDispatch, string_to_bin, IDispatch, DISPPARAMS, DISPATCH_PROPERTYGET, \
     VARIANT, VARENUM, DISPATCH_METHOD
@@ -310,10 +309,7 @@ class RemoteShell(cmd.Cmd):
             print(self.__outputBuffer)
             self.__outputBuffer = ''
         else:
-            if PY2:
-                self._pwd = ntpath.normpath(ntpath.join(self._pwd, s.decode(sys.stdin.encoding)))
-            else:
-                self._pwd = ntpath.normpath(ntpath.join(self._pwd, s))
+            self._pwd = ntpath.normpath(ntpath.join(self._pwd, s))
             self.execute_remote('cd ')
             self._pwd = self.__outputBuffer.strip('\r\n')
             self.prompt = (self._pwd + '>')
@@ -402,10 +398,7 @@ class RemoteShell(cmd.Cmd):
         arg1['clSize'] = 5
         arg1['vt'] = VARENUM.VT_BSTR
         arg1['_varUnion']['tag'] = VARENUM.VT_BSTR
-        if PY3:
-            arg1['_varUnion']['bstrVal']['asData'] = command
-        else:
-            arg1['_varUnion']['bstrVal']['asData'] = command.decode(sys.stdin.encoding)
+        arg1['_varUnion']['bstrVal']['asData'] = command
 
         arg2 = VARIANT(None, False)
         arg2['clSize'] = 5
@@ -475,10 +468,7 @@ class RemoteShellMMC20(RemoteShell):
         arg2['clSize'] = 5
         arg2['vt'] = VARENUM.VT_BSTR
         arg2['_varUnion']['tag'] = VARENUM.VT_BSTR
-        if PY3:
-            arg2['_varUnion']['bstrVal']['asData'] = command
-        else:
-            arg2['_varUnion']['bstrVal']['asData'] = command.decode(sys.stdin.encoding)
+        arg2['_varUnion']['bstrVal']['asData'] = command
 
         arg3 = VARIANT(None, False)
         arg3['clSize'] = 5
