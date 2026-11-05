@@ -514,13 +514,7 @@ class RAISECHILD:
         'supplementalCredentials': '1.2.840.113556.1.4.125',
     }
 
-    KERBEROS_TYPE = {
-        1:'dec-cbc-crc',
-        3:'des-cbc-md5',
-        17:'aes128-cts-hmac-sha1-96',
-        18:'aes256-cts-hmac-sha1-96',
-        0xffffff74:'rc4_hmac',
-    }
+    KERBEROS_TYPE = constants.ENCRYPTION_TYPE_NAMES
 
     HMAC_SHA1_96_AES256 = 0x10
 
