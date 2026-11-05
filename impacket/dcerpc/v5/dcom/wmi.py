@@ -2852,8 +2852,10 @@ class IWbemClassObject(IRemUnknown):
             methodDefinition = staticArgs[1] 
             if methodDefinition['InParams'] is not None:
                 if len(args) != len(methodDefinition['InParams']):
-                    LOG.error("Function called with %d parameters instead of %d!" % (len(args), len(methodDefinition['InParams'])))
-                    return None
+                    # Previously this only logged and returned None, silently
+                    # producing a bogus "successful" call with no result.
+                    raise TypeError("%s() takes %d argument(s) but %d were given" % (
+                        methodDefinition['name'], len(methodDefinition['InParams']), len(args)))
                 # In Params
                 encodingUnit = ENCODING_UNIT()
 
@@ -3030,11 +3032,15 @@ class IWbemClassObject(IRemUnknown):
                 return self.__iWbemServices.ExecMethod(classOrInstance, methodDefinition['name'], pInParams = objRefCustomIn )
                 #return self.__iWbemServices.ExecMethod('Win32_Process.Handle="436"', methodDefinition['name'],
                 #                                       pInParams=objRefCustomIn).getObject().ctCurrent['properties']
-            except Exception as e:
+            except Exception:
                 if LOG.level == logging.DEBUG:
                     import traceback
                     traceback.print_exc()
-                LOG.error(str(e))
+                # Previously the error was only logged and None returned, which
+                # made a failed remote method call indistinguishable from a
+                # successful one (callers then hit an opaque AttributeError on
+                # the None result). Propagate it so callers can handle failures.
+                raise
 
         for methodName in methods:
            innerMethod.__name__ = methodName
@@ -3141,7 +3147,20 @@ class IEnumWbemClassObject(IRemUnknown):
         request = IEnumWbemClassObject_Next()
         request['lTimeout'] = lTimeout
         request['uCount'] = uCount
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        try:
+            resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        except DCERPCSessionError as e:
+            # [MS-WMI] 3.1.4.4.2: when fewer than uCount objects are still
+            # available, the server returns the remaining objects together with
+            # a WBEM_S_FALSE status in the *same* response. impacket's DCERPC
+            # layer raises on that non-zero status before Next() can read the
+            # objects, which would silently drop the final partial batch when
+            # uCount > 1. Recover those objects from the decoded packet. When no
+            # objects are returned the enumeration is exhausted, so we re-raise
+            # to preserve the historical WBEM_S_FALSE end-of-iteration signal.
+            resp = e.get_packet()
+            if e.get_error_code() != WBEMSTATUS.enumItems.WBEM_S_FALSE.value or resp is None or not resp['apObjects']:
+                raise
         interfaces = list()
         for interface in resp['apObjects']:
             interfaces.append(IWbemClassObject(
