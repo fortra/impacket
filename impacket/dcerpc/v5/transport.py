@@ -316,6 +316,9 @@ class UDPTransport(DCERPCTransport):
         return 1
 
     def disconnect(self):
+        if not self.__socket:
+            # connect() was never called, or did not succeed
+            return 0
         try:
             self.__socket.close()
         except socket.error:
@@ -339,14 +342,20 @@ class UDPTransport(DCERPCTransport):
 class TCPTransport(DCERPCTransport):
     """Implementation of ncacn_ip_tcp protocol sequence"""
 
+    # Class-level default, HTTPTransport does not call __init__ below
+    __socket = 0
+
     def __init__(self, remoteName, dstport = 135):
         DCERPCTransport.__init__(self, remoteName, dstport)
         self.__socket = 0
         self.set_connect_timeout(30)
 
     def connect(self):
-        af, socktype, proto, canonname, sa = socket.getaddrinfo(self.getRemoteHost(), self.get_dport(), 0, socket.SOCK_STREAM)[0]
-        self.__socket = socket.socket(af, socktype, proto)
+        try:
+            af, socktype, proto, canonname, sa = socket.getaddrinfo(self.getRemoteHost(), self.get_dport(), 0, socket.SOCK_STREAM)[0]
+            self.__socket = socket.socket(af, socktype, proto)
+        except socket.error as msg:
+            raise DCERPCException("Could not connect: %s" % msg)
         try:
             self.__socket.settimeout(self.get_connect_timeout())
             self.__socket.connect(sa)
@@ -356,6 +365,9 @@ class TCPTransport(DCERPCTransport):
         return 1
 
     def disconnect(self):
+        if not self.__socket:
+            # connect() was never called, or did not succeed
+            return 0
         try:
             self.__socket.close()
         except socket.error:
@@ -387,6 +399,8 @@ class TCPTransport(DCERPCTransport):
                     raise DCERPCException("Connection closed by remote host")
         else:
             buffer = self.__socket.recv(8192)
+            if buffer == b'':
+                raise DCERPCException("Connection closed by remote host")
         return buffer
 
     def get_socket(self):
@@ -452,7 +466,7 @@ class HTTPTransport(TCPTransport, RPCProxyClient):
             data = self.get_socket().recv(8192)
 
             if data != b'ncacn_http/1.0':
-                raise DCERPCException("%s:%s service is not ncacn_http" % (self.__remoteName, self.__dstport))
+                raise DCERPCException("%s:%s service is not ncacn_http" % (self.getRemoteName(), self.get_dport()))
         else:
             RPCProxyClient.connect(self)
 
@@ -525,6 +539,9 @@ class SMBTransport(DCERPCTransport):
         return 1
 
     def disconnect(self):
+        if not self.__smb_connection:
+            # connect() was never called, or the connection is already closed
+            return
         self.__smb_connection.disconnectTree(self.__tid)
         # If we created the SMB connection, we close it, otherwise
         # that's up for the caller
@@ -600,4 +617,6 @@ class LOCALTransport(DCERPCTransport):
 
     def recv(self, forceRecv = 0, count = 0 ):
         data = os.read(self.__handle, 65535)
+        if data == b'':
+            raise DCERPCException("Connection closed by remote host")
         return data
