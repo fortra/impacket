@@ -835,9 +835,19 @@ class ESENT_DB:
         prevItemLen = 0
         tagLen = len(tag)
         fixedSizeOffset = len(dataDefinitionHeader)
-        variableSizeOffset = dataDefinitionHeader['VariableSizeOffset'] 
- 
-        columns = cursor['TableData']['Columns'] 
+        variableSizeOffset = dataDefinitionHeader['VariableSizeOffset']
+
+        # The fixed-size data is followed by a null bitmap: one bit per fixed
+        # column, bit 0 of the first byte belonging to the first column. A set
+        # bit means the column is NULL and its slot holds ESE's fill byte
+        # (usually '*') or leftover bytes instead of a value. The bitmap ends
+        # where the variable data starts.
+        fixedNullBitmapLen = (dataDefinitionHeader['LastFixedSize'] + 7) // 8
+        fixedNullBitmap = b''
+        if 0 < fixedNullBitmapLen <= variableSizeOffset - fixedSizeOffset:
+            fixedNullBitmap = tag[variableSizeOffset - fixedNullBitmapLen:variableSizeOffset]
+
+        columns = cursor['TableData']['Columns']
         
         for column in list(columns.keys()):
             if filter_tables is not None:
@@ -847,7 +857,13 @@ class ESENT_DB:
             #columnRecord.dump()
             if columnRecord['Identifier'] <= dataDefinitionHeader['LastFixedSize']:
                 # Fixed Size column data type, still available data
-                record[column] = tag[fixedSizeOffset:][:columnRecord['SpaceUsage']]
+                nullIndex = columnRecord['Identifier'] - 1
+                if (nullIndex // 8 < len(fixedNullBitmap) and
+                        fixedNullBitmap[nullIndex // 8] & (1 << (nullIndex % 8))):
+                    # Column is NULL, the bytes in its slot are not a value
+                    record[column] = None
+                else:
+                    record[column] = tag[fixedSizeOffset:][:columnRecord['SpaceUsage']]
                 fixedSizeOffset += columnRecord['SpaceUsage']
 
             elif 127 < columnRecord['Identifier'] <= dataDefinitionHeader['LastVariableDataType']:
