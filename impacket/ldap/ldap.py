@@ -1110,10 +1110,13 @@ class LDAPConnection:
     @classmethod
     def _processLdapString(cls, ldapstr):
         def replace_escaped_chars(match):
-            return chr(int(match.group(1), 16))  # group(1) == "XX" (valid hex)
+            return bytes([int(match.group(1), 16)])  # group(1) == "XX" (valid hex)
 
-        escaped_chars = re.compile(r'\\([0-9a-fA-F]{2})')  # Capture any sequence of "\XX" (where XX is a valid hex)
-        return re.sub(escaped_chars, replace_escaped_chars, ldapstr)
+        # RFC 4515 escapes are octets, not Unicode code points. Encode unescaped
+        # text as UTF-8 first, then substitute each \XX with its raw byte so that
+        # binary values such as objectGUID and escaped UTF-8 sequences survive.
+        escaped_chars = re.compile(rb'\\([0-9a-fA-F]{2})')  # Capture any sequence of "\XX" (where XX is a valid hex)
+        return re.sub(escaped_chars, replace_escaped_chars, ldapstr.encode('utf-8'))
 
 
 class LDAPFilterSyntaxError(SyntaxError):
