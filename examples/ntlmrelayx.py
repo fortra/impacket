@@ -521,9 +521,9 @@ if __name__ == '__main__':
         if options.socks or options.interactive:
             parser.error('--reauth-bypass against an LDAP target is single-shot; -i and -socks are not supported '
                          '(the SASL seal key becomes the victim\'s after the bind)')
-        if not (options.delegate_access or options.shadow_credentials):
+        if not (options.delegate_access or options.shadow_credentials or options.add_computer is not None):
             parser.error('--reauth-bypass against an LDAP target needs one write attack: '
-                         '--delegate-access or --shadow-credentials')
+                         '--delegate-access, --shadow-credentials, or --add-computer')
         if options.remove_mic or options.remove_sign_seal:
             parser.error('--reauth-bypass against an LDAP target forwards the victim mechListMIC, which '
                          '-remove-mic / -remove-sign-seal strip')
