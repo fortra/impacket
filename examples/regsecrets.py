@@ -86,6 +86,7 @@ class DumpSecrets:
         self.__nocache = options.nocache
         self.__nolsa = options.nolsa
         self.__throttle = options.throttle
+        self.__printUserStatus = options.user_status
 
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
@@ -123,7 +124,7 @@ class DumpSecrets:
 
             if not self.__nosam:
                 try:
-                    self.__SAMHashes = SAMHashes(bootKey, remoteOps=self.__remoteOps, history=self.__history, throttle=self.__throttle)
+                    self.__SAMHashes = SAMHashes(bootKey, remoteOps=self.__remoteOps, history=self.__history, printUserStatus=self.__printUserStatus, throttle=self.__throttle)
                     self.__SAMHashes.dump()
                     if self.__outputFileName is not None:
                         self.__SAMHashes.export(self.__outputFileName)
@@ -191,6 +192,8 @@ if __name__ == '__main__':
     parser.add_argument('-throttle', action='store', help='Throttle in seconds between operations', default=0, type=int)
     parser.add_argument('-outputfile', action='store',
                         help='base output filename. Extensions will be added for sam, secrets and cached')
+    parser.add_argument('-user-status', action='store_true', default=False,
+                       help='Display whether or not the user is disabled, locked, and admin')
 
     group = parser.add_argument_group('display options')
     group.add_argument('-history', action='store_true', help='Dump password history (NTDS and SAM hashes), and LSA secrets OldVal')
