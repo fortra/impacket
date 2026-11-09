@@ -29,7 +29,7 @@ try:
     if call(["git", "branch"], stderr=STDOUT, stdout=open(os.devnull, 'w')) == 0:
         p = Popen("git log -1 --format=%cd --date=format:%Y%m%d.%H%M%S", shell=True, stdin=PIPE, stderr=PIPE, stdout=PIPE)
         (outstr, __) = p.communicate()
-        (VER_CDATE,VER_CTIME) = outstr.strip().decode("utf-8").split('.')
+        (VER_CDATE,VER_CTIME) = outstr.splitlines()[-1].strip().decode("utf-8").split('.')
 
         p = Popen("git rev-parse --short HEAD", shell=True, stdin=PIPE, stderr=PIPE, stdout=PIPE)
         (outstr, __) = p.communicate()
