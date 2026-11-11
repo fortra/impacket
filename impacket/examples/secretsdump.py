@@ -78,7 +78,8 @@ from impacket.dcerpc.v5.dcom.oaut import IID_IDispatch, IDispatch, DISPPARAMS, D
 from impacket.dcerpc.v5.dcomrt import DCOMConnection, OBJREF, FLAGS_OBJREF_CUSTOM, OBJREF_CUSTOM, OBJREF_HANDLER, \
     OBJREF_EXTENDED, OBJREF_STANDARD, FLAGS_OBJREF_HANDLER, FLAGS_OBJREF_STANDARD, FLAGS_OBJREF_EXTENDED, \
     IRemUnknown2, INTERFACE
-from impacket.ese import ESENT_DB, getUnixTime
+from impacket.ese import ESENT_DB
+from impacket import wintime
 from impacket.dpapi import DPAPI_SYSTEM
 from impacket.smb3structs import FILE_READ_DATA, FILE_SHARE_READ
 from impacket.nt_errors import STATUS_MORE_ENTRIES
@@ -970,7 +971,13 @@ class RemoteOperations:
                 scmr.hRChangeServiceConfigW(self.__scmr, self.__serviceHandle, dwStartType = 0x3)
             LOG.info('Starting service %s' % self.__serviceName)
             scmr.hRStartServiceW(self.__scmr,self.__serviceHandle)
-            time.sleep(1)
+            # Wait (up to 5 seconds) for the service to be running before connecting to winreg
+            startTime = time.time()
+            while scmr.hRQueryServiceStatus(self.__scmr, self.__serviceHandle)['lpServiceStatus']['dwCurrentState'] != scmr.SERVICE_RUNNING:
+                if time.time() - startTime > 5:
+                    LOG.warning('Service %s is still not running after 5 seconds' % self.__serviceName)
+                    break
+                time.sleep(0.1)
 
     def enableRegistry(self):
         self.__connectSvcCtl()
@@ -2281,7 +2288,7 @@ class LSASecrets(OfflineRegistry):
                 userName = plainText[:record['UserLength']].decode('utf-16le')
                 plainText = plainText[self.__pad(record['UserLength']) + self.__pad(record['DomainNameLength']):]
                 domainLong = plainText[:self.__pad(record['DnsDomainNameLength'])].decode('utf-16le')
-                timestamp = datetime.fromtimestamp(getUnixTime(record['LastWrite']), tz=timezone.utc)
+                timestamp = wintime.filetime_to_datetime(record['LastWrite'])
 
                 if self.__vistaStyle is True:
                     answer = "%s/%s:$DCC2$%s#%s#%s: (%s)" % (domainLong, userName, iterationCount, userName, hexlify(encHash).decode('utf-8'), timestamp)

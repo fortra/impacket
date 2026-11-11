@@ -25,6 +25,11 @@ class ADCSCertificateSigningRequestTests(unittest.TestCase):
     def setUpClass(cls):
         cls.key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
+    def test_template_defaults_match_relayed_account_type(self):
+        self.assertEqual(ADCSAttack.get_template("alice"), "User")
+        self.assertEqual(ADCSAttack.get_template("WORKSTATION$"), "Machine")
+        self.assertEqual(ADCSAttack.get_template("alice", "CustomTemplate"), "CustomTemplate")
+
     def test_generate_pem_csr_without_subject_or_extensions(self):
         data = ADCSAttack.generate_csr(self.key, None, None)
         request = x509.load_pem_x509_csr(data)

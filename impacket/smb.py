@@ -52,6 +52,7 @@
 
 import os
 import socket
+import warnings
 from binascii import a2b_hex
 import datetime
 from struct import pack, unpack, pack_into, error as StructError
@@ -59,7 +60,7 @@ from ctypes import BigEndianStructure, c_uint32
 from contextlib import contextmanager
 from pyasn1.type.univ import noValue
 
-from impacket import nmb, ntlm, nt_errors, LOG
+from impacket import nmb, ntlm, nt_errors, LOG, wintime
 from impacket.structure import Structure
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_OID, asn1encode, ASN1_AID
 from impacket.krb5.gssapi import KRB5_AP_REQ
@@ -627,32 +628,22 @@ class UnsupportedFeature(Exception):
 
 # Add basic filetime conversion helper methods.
 def POSIXtoFT(t):
-    """
-    Helper method that converts POSIX timestamps to FILETIME timestamps.
-    
-    :param int t: POSIX timestamp - can be retrieved from datetime library.
-    
-    :return int: FILETIME timestamp representing the given POSIX timestamp.
-    """
-    
-    t *= 10000000
-    t += 116444736000000000
-    
-    return int(t)
+    warnings.warn(
+        'POSIXtoFT() is deprecated and will be removed in the next version of Impacket; '
+        'use impacket.wintime.posix_to_filetime() instead.',
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return wintime.posix_to_filetime(t)
 
 def FTtoPOSIX(t):
-    """
-    Helper method that converts FILETIME timestamps to POSIX timestamps.
-    
-    :param int t: FILETIME timestamp.
-    
-    :return int: POSIX timestamp representing the given FILETIME timestamp.
-    """
-    
-    t -= 116444736000000000
-    t //= 10000000
-    
-    return int(t)
+    warnings.warn(
+        'FTtoPOSIX() is deprecated and will be removed in the next version of Impacket; '
+        'use impacket.wintime.filetime_to_posix() instead.',
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return wintime.filetime_to_posix(t)
 
 # Define SMB Standard DateTime Data according to (2.2.1.4 Time)
 class SMBDateStruct(BigEndianStructure):
