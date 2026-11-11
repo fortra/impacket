@@ -3026,15 +3026,7 @@ class IWbemClassObject(IRemUnknown):
             objRefCustom['cbExtension'] = 0
             objRefCustom['ObjectReferenceSize'] = len(encodingUnit)
             objRefCustom['pObjectData'] = encodingUnit
-            try:
-                return self.__iWbemServices.ExecMethod(classOrInstance, methodDefinition['name'], pInParams = objRefCustomIn )
-                #return self.__iWbemServices.ExecMethod('Win32_Process.Handle="436"', methodDefinition['name'],
-                #                                       pInParams=objRefCustomIn).getObject().ctCurrent['properties']
-            except Exception as e:
-                if LOG.level == logging.DEBUG:
-                    import traceback
-                    traceback.print_exc()
-                LOG.error(str(e))
+            return self.__iWbemServices.ExecMethod(classOrInstance, methodDefinition['name'], pInParams = objRefCustomIn )
 
         for methodName in methods:
            innerMethod.__name__ = methodName
