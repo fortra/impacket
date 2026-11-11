@@ -67,7 +67,7 @@ class PARTests(DCERPCTests):
     def add_and_delete_driver(self, use_helper):
         config = get_remote_config()
         if not config.has_section('PAR') or not config.getboolean('PAR', 'driver_lifecycle', fallback=False):
-            self.skipTest('Enable [PAR] driver_lifecycle and configure a driver fixture; see TESTING.md')
+            self.skipTest('Enable [PAR] driver_lifecycle and configure a driver fixture')
         options = ('environment', 'driver_path', 'data_file', 'config_file')
         fixture = {option: config.get('PAR', option) for option in options}
         for option, value in fixture.items():
