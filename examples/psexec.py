@@ -541,10 +541,7 @@ class RemoteShell(cmd.Cmd):
             f = dst_path + '/' + src_file
             pathname = f.replace('/','\\')
             logging.info("Uploading %s to %s\\%s" % (src_file, self.share, dst_path))
-            if PY3:
-                self.transferClient.putFile(self.share, pathname, fh.read)
-            else:
-                self.transferClient.putFile(self.share, pathname.decode(sys.stdin.encoding), fh.read)
+            self.transferClient.putFile(self.share, pathname, fh.read)
             fh.close()
         except Exception as e:
             logging.error(str(e))
@@ -564,10 +561,7 @@ class RemoteShell(cmd.Cmd):
         return
 
     def default(self, line):
-        if PY3:
-            self.send_data(line.encode(CODEC)+b'\r\n')
-        else:
-            self.send_data(line.decode(sys.stdin.encoding).encode(CODEC)+'\r\n')
+        self.send_data(line.encode(CODEC)+b'\r\n')
 
     def send_data(self, data, hideOutput = True):
         if hideOutput is True:

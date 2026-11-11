@@ -80,7 +80,7 @@ from os.path import exists, getmtime, join
 from os import mkdir, rmdir, remove, urandom
 from multiprocessing import Process
 
-from six import PY2, StringIO, BytesIO, b, assertRaisesRegex, assertCountEqual
+from six import StringIO, BytesIO, b, assertRaisesRegex, assertCountEqual
 
 from impacket import smb
 from impacket.smb import SMB_DIALECT
@@ -417,7 +417,6 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
 
         client.close()
 
-    @unittest.skipIf(PY2, "Unicode filename expected failing in Python 2.x")
     def test_smbserver_list_path(self):
         """Test listing files in a shared folder.
         """
@@ -534,7 +533,6 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
 
         client.close()
 
-    @unittest.skipIf(PY2, "Unicode filename expected failing in Python 2.x")
     def test_smbserver_get_unicode_file(self):
         """Test reading unicode files from a shared folder.
         """
