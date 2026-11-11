@@ -19,3 +19,13 @@ domain =
 machineuser =
 # Domain joined machine NetBIOS name hashes (grab them with secretsdump)
 machineuserhashes =
+
+[PAR]
+# Opt in to adding/removing a uniquely named printer driver.
+# Target and administrator credentials come from [TCPTransport] above.
+driver_lifecycle = no
+# Preconfigured version-3 driver files on the target (absolute Windows paths).
+environment = Windows x64
+driver_path =
+data_file =
+config_file =
