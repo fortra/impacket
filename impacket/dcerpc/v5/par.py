@@ -25,7 +25,7 @@
 #   Adam (@cube0x0)
 #
 from impacket import system_errors
-from impacket.dcerpc.v5.dtypes import ULONGLONG, UINT, USHORT, LPWSTR, DWORD, ULONG, NULL
+from impacket.dcerpc.v5.dtypes import ULONGLONG, UINT, USHORT, LPWSTR, WSTR, DWORD, ULONG, NULL
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRUNION, NDRPOINTER, NDRUniConformantArray
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.uuid import uuidtup_to_bin, string_to_bin
@@ -434,6 +434,20 @@ class RpcAsyncAddPrinterDriverResponse(NDRCALL):
        ('ErrorCode', ULONG),
     )
 
+# 3.1.4.2.5 RpcAsyncDeletePrinterDriver (Opnum 42)
+class RpcAsyncDeletePrinterDriver(NDRCALL):
+    opnum = 42
+    structure = (
+       ('pName', STRING_HANDLE),
+       ('pEnvironment', WSTR),
+       ('pDriverName', WSTR),
+    )
+
+class RpcAsyncDeletePrinterDriverResponse(NDRCALL):
+    structure = (
+       ('ErrorCode', ULONG),
+    )
+
 ################################################################################
 # OPNUMs and their corresponding structures
 ################################################################################
@@ -444,7 +458,8 @@ OPNUMS = {
     38 : (RpcAsyncEnumPrinters, RpcAsyncEnumPrintersResponse),
     39 : (RpcAsyncAddPrinterDriver, RpcAsyncAddPrinterDriverResponse),
     40 : (RpcAsyncEnumPrinterDrivers, RpcAsyncEnumPrinterDriversResponse),
-    41 : (RpcAsyncGetPrinterDriverDirectory, RpcAsyncGetPrinterDriverDirectoryResponse)
+    41 : (RpcAsyncGetPrinterDriverDirectory, RpcAsyncGetPrinterDriverDirectoryResponse),
+    42 : (RpcAsyncDeletePrinterDriver, RpcAsyncDeletePrinterDriverResponse)
 }
 
 ################################################################################
@@ -564,6 +579,25 @@ def hRpcAsyncAddPrinterDriver(dce, pName, pDriverContainer, dwFileCopyFlags):
     request['dwFileCopyFlags'] = dwFileCopyFlags
 
     #return request
+    return dce.request(request, MSRPC_UUID_WINSPOOL)
+
+
+def hRpcAsyncDeletePrinterDriver(dce, pName, pEnvironment, pDriverName):
+    """
+    Removes a printer driver from the server's list of supported drivers.
+    Full Documentation: https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-par/f9472bd8-68ff-460b-bd7f-765c7ab235a5
+
+    :param DCERPC_v5 dce: a connected DCE instance.
+    :param pName: NULL or the print server name.
+    :param str pEnvironment: the driver environment, for example 'Windows x64'.
+    :param str pDriverName: the name of the driver to remove.
+
+    :return: a RpcAsyncDeletePrinterDriverResponse instance, raises DCERPCSessionError on error.
+    """
+    request = RpcAsyncDeletePrinterDriver()
+    request['pName'] = checkNullString(pName)
+    request['pEnvironment'] = checkNullString(pEnvironment)
+    request['pDriverName'] = checkNullString(pDriverName)
     return dce.request(request, MSRPC_UUID_WINSPOOL)
 
 
