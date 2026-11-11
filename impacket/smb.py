@@ -52,6 +52,7 @@
 
 import os
 import socket
+import warnings
 from binascii import a2b_hex
 import datetime
 from struct import pack, unpack, pack_into, error as StructError
@@ -59,7 +60,7 @@ from ctypes import BigEndianStructure, c_uint32
 from contextlib import contextmanager
 from pyasn1.type.univ import noValue
 
-from impacket import nmb, ntlm, nt_errors, LOG
+from impacket import nmb, ntlm, nt_errors, LOG, wintime
 from impacket.structure import Structure
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_OID, asn1encode, ASN1_AID
 from impacket.krb5.gssapi import KRB5_AP_REQ
@@ -626,7 +627,23 @@ class UnsupportedFeature(Exception):
     pass
 
 # Add basic filetime conversion helper methods.
-from impacket.wintime import filetime_to_posix, posix_to_filetime
+def POSIXtoFT(t):
+    warnings.warn(
+        'POSIXtoFT() is deprecated and will be removed in the next version of Impacket; '
+        'use impacket.wintime.posix_to_filetime() instead.',
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return wintime.posix_to_filetime(t)
+
+def FTtoPOSIX(t):
+    warnings.warn(
+        'FTtoPOSIX() is deprecated and will be removed in the next version of Impacket; '
+        'use impacket.wintime.filetime_to_posix() instead.',
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return wintime.filetime_to_posix(t)
 
 # Define SMB Standard DateTime Data according to (2.2.1.4 Time)
 class SMBDateStruct(BigEndianStructure):

@@ -42,6 +42,7 @@ import shutil
 import string
 import hashlib
 import hmac
+import warnings
 
 from binascii import unhexlify, hexlify, a2b_hex
 from impacket.dcerpc.v5 import epm, nrpc, transport
@@ -142,7 +143,22 @@ def _build_smb311_encrypt_context(cipher_id: int) -> bytes:
 # TODO: Return NT ERROR Codes
 
 def getFileTime(t):
+    warnings.warn(
+        'getFileTime() is deprecated and will be removed in the next version of Impacket; '
+        'use impacket.wintime.posix_to_filetime() instead.',
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return wintime.posix_to_filetime(t)
+
+def getUnixTime(t):
+    warnings.warn(
+        'getUnixTime() is deprecated and will be removed in the next version of Impacket; '
+        'use impacket.wintime.filetime_to_posix() instead.',
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return wintime.filetime_to_posix(t)
 
 def computeNTLMv2(identity, lmhash, nthash, serverChallenge, authenticateMessage, ntlmChallenge, type1):
     # Let's calculate the NTLMv2 Response
