@@ -15,6 +15,7 @@
 #   Alberto Solino (@agsolino)
 #
 from binascii import Error as BinasciiError, unhexlify
+from struct import unpack_from
 
 from impacket.dcerpc.v5.dtypes import ULONG, RPC_UNICODE_STRING, FILETIME, PRPC_SID, USHORT, RPC_SID, SID, LONG64, LPWSTR
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER, NDRUNION
@@ -223,6 +224,10 @@ class PACTYPE(Structure):
         ('Buffers', ':'),
     )
 
+    def fromString(self, data):
+        validate_pac(data)
+        return super().fromString(data)
+
 # 2.4 PAC_INFO_BUFFER
 class PAC_INFO_BUFFER(Structure):
     structure = (
@@ -408,6 +413,94 @@ class PAC_REQUESTOR(Structure):
     structure = (
         ('UserSid',':',SID),
     )
+
+
+def validate_pac(data):
+    if not isinstance(data, (bytes, bytearray, memoryview)):
+        raise TypeError('PAC data must be a bytes-like object')
+
+    if len(data) < 8:
+        raise ValueError('PAC header is truncated')
+
+    buffer_count, version = unpack_from('<II', data)
+    if version != 0:
+        raise ValueError('unsupported PAC version')
+
+    table_end = 8 + buffer_count * 16
+    if table_end > len(data):
+        raise ValueError('PAC buffer table is truncated')
+
+    buffers = []
+    ranges = []
+    for index in range(buffer_count):
+        buffer_type, buffer_size, offset = unpack_from(
+            '<IIQ', data, 8 + index * 16
+        )
+        if offset % 8 != 0:
+            raise ValueError('PAC buffer offset is not 8-byte aligned')
+        if offset < table_end:
+            raise ValueError('PAC buffer overlaps the descriptor table')
+
+        buffer_end = offset + buffer_size
+        if buffer_end > len(data):
+            raise ValueError('PAC buffer extends past the input')
+        buffers.append((buffer_type, offset, buffer_end))
+        if buffer_size:
+            ranges.append((offset, buffer_end))
+
+    ranges.sort()
+    for previous, current in zip(ranges, ranges[1:]):
+        if current[0] < previous[1]:
+            raise ValueError('PAC buffers overlap')
+
+    for buffer_type, offset, buffer_end in buffers:
+        _validate_pac_buffer(buffer_type, data[offset:buffer_end])
+
+
+def _validate_pac_buffer(buffer_type, data):
+    if buffer_type == PAC_ATTRIBUTES_INFO:
+        if len(data) != 8:
+            raise ValueError('PAC_ATTRIBUTES_INFO has an invalid size')
+        flags_length, flags = unpack_from('<II', data)
+        if flags_length != 2:
+            raise ValueError('PAC_ATTRIBUTES_INFO has an invalid FlagsLength')
+        if flags & ~0x3:
+            raise ValueError('PAC_ATTRIBUTES_INFO contains unknown flags')
+        return
+
+    if buffer_type == PAC_REQUESTOR_INFO:
+        if len(data) < 8:
+            raise ValueError('PAC_REQUESTOR is truncated')
+        revision, sub_authority_count = unpack_from('<BB', data)
+        if revision != 1:
+            raise ValueError(
+                'PAC_REQUESTOR contains an unsupported SID revision'
+            )
+        if len(data) != 8 + sub_authority_count * 4:
+            raise ValueError('PAC_REQUESTOR SID length is inconsistent')
+        return
+
+    if buffer_type not in (PAC_SERVER_CHECKSUM, PAC_PRIVSVR_CHECKSUM):
+        return
+
+    if len(data) < 4:
+        raise ValueError('PAC signature data is truncated')
+    signature_type = unpack_from('<l', data)[0]
+    checksum_profile = _checksum_table.get(signature_type)
+    if checksum_profile is None:
+        checksum_profile = _checksum_table.get(signature_type & 0xffffffff)
+    if checksum_profile is None:
+        raise ValueError('PAC signature uses an unsupported checksum type')
+
+    signature_size = getattr(checksum_profile, 'macsize', None)
+    if signature_size is None:
+        if signature_type != constants.ChecksumTypes.hmac_md5.value:
+            raise ValueError('PAC signature has an unknown checksum size')
+        signature_size = 16
+
+    data_size = len(data) - 4
+    if data_size not in (signature_size, signature_size + 2):
+        raise ValueError('PAC signature length is inconsistent')
 
 
 def get_pad_length(data_length):
