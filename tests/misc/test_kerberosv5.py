@@ -1,13 +1,17 @@
+import datetime
 from unittest import TestCase, mock
 
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type.univ import noValue
 
 from impacket.krb5 import constants
-from impacket.krb5.asn1 import AS_REP, TGS_REQ, seq_set
+from impacket.krb5.asn1 import AP_REP, AS_REP, EncAPRepPart, TGS_REQ, seq_set
+from impacket.krb5.crypto import Key, _enctype_table
+from impacket.krb5.gssapi import GSSAPI
 from impacket.krb5.kerberosv5 import DEFAULT_TGS_ENCTYPES, RC4_PREFERRED_TGS_ENCTYPES, KerberosError, \
-    getKerberosTGS, getKerberosTGSRequestEnctypes
-from impacket.krb5.types import Principal
+    getKerberosTGS, getKerberosTGSRequestEnctypes, getKerberosType3
+from impacket.krb5.types import KerberosTime, Principal
+from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, TypesMech
 
 
 class _RC4Cipher:
@@ -110,3 +114,35 @@ class KerberosTGSEnctypeTests(TestCase):
 
     def test_rc4_preference_can_be_requested_explicitly(self):
         self._assert_request_enctypes(RC4_PREFERRED_TGS_ENCTYPES, RC4_PREFERRED_TGS_ENCTYPES)
+
+
+class KerberosType3Tests(TestCase):
+    def test_last_leg_carries_the_mech_list_mic(self):
+        cipher = _enctype_table[constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value]()
+        session_key = Key(cipher.enctype, b"\x11" * 32)
+        acceptor_subkey = Key(cipher.enctype, b"\x22" * 32)
+
+        enc_ap_rep_part = EncAPRepPart()
+        enc_ap_rep_part["ctime"] = KerberosTime.to_asn1(datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc))
+        enc_ap_rep_part["cusec"] = 0
+        enc_ap_rep_part["subkey"]["keytype"] = acceptor_subkey.enctype
+        enc_ap_rep_part["subkey"]["keyvalue"] = acceptor_subkey.contents
+        enc_ap_rep_part["seq-number"] = 1234
+        ap_rep = AP_REP()
+        ap_rep["pvno"] = 5
+        ap_rep["msg-type"] = int(constants.ApplicationTagNumbers.AP_REP.value)
+        ap_rep["enc-part"]["etype"] = cipher.enctype
+        ap_rep["enc-part"]["cipher"] = cipher.encrypt(session_key, 12, encoder.encode(enc_ap_rep_part), None)
+        server_token = SPNEGO_NegTokenResp()
+        server_token["NegState"] = b"\x01"  # accept-incomplete
+        server_token["SupportedMech"] = TypesMech["MS KRB5 - Microsoft Kerberos 5"]
+        server_token["ResponseToken"] = encoder.encode(ap_rep)
+
+        _, new_session_key, last_leg = getKerberosType3(cipher, session_key, server_token.getData())
+
+        neg_token_init = SPNEGO_NegTokenInit()
+        neg_token_init["MechTypes"] = [TypesMech["MS KRB5 - Microsoft Kerberos 5"]]
+        expected_mic = GSSAPI(cipher).GSS_GetMIC(acceptor_subkey, neg_token_init.getMechTypesDER(), 0, pad=False)
+        self.assertEqual(new_session_key.contents, acceptor_subkey.contents)
+        self.assertTrue(last_leg.endswith(expected_mic))
+
