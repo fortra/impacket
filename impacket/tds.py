@@ -19,14 +19,17 @@
 #       - Code comments for easier reading
 #   Mayyhem (@_Mayyhem) added support to TDS8.0
 #   Aurélien Chalot (@Defte_) added support for MSSQL via named pipe
+#   n3rada (@n3rada) typed row values, full TDS type coverage
 #
 # ToDo:
 #   [ ] Implement Channel Binding with tls-exporter (not implemented in ssl yet)
 #   [ ] Add all the tokens left
-#   [ ] parseRow should be rewritten and add support for all the SQL types in a
-#       good way. Right now it just supports a few types.
 #   [ ] printRows is crappy, just an easy way to print the rows. It should be
 #       rewritten to output like a normal SQL client
+
+# PEP 563: makes all annotations lazy strings, enabling "bytes | None" and
+# lowercase "tuple[...]" generics on Python 3.9 as well as 3.10+.
+from __future__ import annotations
 
 # Native SSL support for in memory handshake
 import ssl
@@ -40,8 +43,8 @@ import random
 import binascii
 import errno
 import datetime
-from decimal import Decimal, getcontext
-from uuid import uuid4
+from decimal import Decimal, localcontext
+from uuid import UUID, uuid4
 
 from impacket import ntlm, uuid, LOG
 from impacket.structure import Structure
@@ -1090,11 +1093,11 @@ class TDS_SSVARIANT(Structure):
                 numBytes = data[1:]
                 value = int.from_bytes(numBytes, byteorder="little", signed=False)
 
-                getcontext().prec = precision
-
-                number = Decimal(value)
-                if scale:
-                    number /= Decimal(10) ** scale
+                with localcontext() as ctx:
+                    ctx.prec = precision
+                    number = Decimal(value)
+                    if scale:
+                        number /= Decimal(10) ** scale
 
                 if sign < 0:
                     number = -number
@@ -2219,6 +2222,129 @@ class MSSQL:
         else:
             return False
 
+    @staticmethod
+    def _display_value(value):
+        if value is None:
+            return "NULL"
+        if isinstance(value, bytes):
+            return value.hex()
+        if isinstance(value, UUID):
+            # SQL Server convention is uppercase for UNIQUEIDENTIFIER display.
+            return str(value).upper()
+        return str(value)
+
+    # LCID to Windows code-page for the most common SQL Server collations.
+    # The LCID occupies the lower 20 bits of the 4-byte LE collation integer.
+    # Spec: MS-TDS section 2.2.5.1.2 (COLLATION), MS-LCID for the LCID/code-page table.
+    # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lcid/
+    # Fallback for unknown LCIDs is cp1252.
+    _LCID_CODEPAGE = {
+        0x0401: "cp1256", 0x0404: "cp950",  0x0405: "cp1250", 0x0406: "cp1252",
+        0x0407: "cp1252", 0x0408: "cp1253", 0x0409: "cp1252", 0x040A: "cp1252",
+        0x040B: "cp1252", 0x040C: "cp1252", 0x040D: "cp1255", 0x040E: "cp1250",
+        0x040F: "cp1252", 0x0410: "cp1252", 0x0411: "cp932",  0x0412: "cp949",
+        0x0413: "cp1252", 0x0414: "cp1252", 0x0415: "cp1250", 0x0416: "cp1252",
+        0x0418: "cp1250", 0x0419: "cp1251", 0x041A: "cp1250", 0x041B: "cp1250",
+        0x041C: "cp1250", 0x041D: "cp1252", 0x041F: "cp1254", 0x0420: "cp1256",
+        0x0422: "cp1251", 0x0423: "cp1251", 0x0424: "cp1250", 0x0425: "cp1257",
+        0x0426: "cp1257", 0x0427: "cp1257", 0x042A: "cp1258", 0x042B: "cp1251",
+        0x042C: "cp1254", 0x0804: "cp936",  0x0809: "cp1252", 0x080A: "cp1252",
+        0x080C: "cp1252", 0x0816: "cp1252", 0x0C04: "cp950",  0x0C0A: "cp1252",
+        0x0C0C: "cp1252",
+    }
+
+    @staticmethod
+    def _collation_to_codec(collation_bytes: bytes | None) -> str:
+        """Return a Python codec name for a 5-byte TDS COLLATION field.
+
+        The first 4 bytes form a little-endian integer whose lower 20 bits
+        (bits 0-19) hold the Windows LCID; the 5th byte carries sort-order
+        flags.  See MS-TDS spec section 2.2.5.1.2 (COLLATION) and the MS-LCID
+        spec for the LCID-to-code-page mapping table.
+
+        Args:
+            collation_bytes (bytes | None): The 5-byte COLLATION field received
+                from the server, or None when the column carries no collation
+                metadata.
+
+        Returns:
+            str: A Python codec name (e.g. "cp1252", "cp932").  Falls back to
+                "cp1252" for unknown or missing LCIDs.
+        """
+        if not collation_bytes or len(collation_bytes) < 4:
+            return "cp1252"
+        # Mask to the lower 20 bits to extract the LCID field.
+        lcid = struct.unpack("<L", collation_bytes[:4])[0] & 0xFFFFF
+        return MSSQL._LCID_CODEPAGE.get(lcid, "cp1252")
+
+    @staticmethod
+    def _decode_scaled_time(time_value: int, scale: int) -> tuple[int, int, int, int]:
+        """Convert a TDS scaled-integer time value to its (hours, minutes, secs, microsecs) components.
+
+        MS-TDS spec section 2.2.5.5.1, Dates and Times: time(n) is stored as an
+        unsigned integer counting 10^(-n) second increments since midnight, using
+        3 bytes for scale 0-2, 4 bytes for scale 3-4, and 5 bytes for scale 5-7.
+
+        Pure integer arithmetic avoids float-precision overflow at scale 7.
+        At scale 7 the maximum time_value (863999999999) has 12 significant digits;
+        multiplying by 1_000_000 exceeds float64 precision (~15.9 digits), so
+        round() produces 86400000000 microseconds (24:00:00) instead of 23:59:59.
+
+        Args:
+            time_value (int): Unsigned integer of 10^(-scale) second increments
+                since midnight.
+            scale (int): Fractional-seconds precision, 0 through 7.
+
+        Returns:
+            tuple[int, int, int, int]: A 4-tuple of (hours, minutes, seconds,
+                microseconds).  Precision beyond microseconds (scale 7) is truncated.
+        """
+        if scale <= 6:
+            total_us = time_value * (10 ** (6 - scale))  # exact upscale to microseconds
+        else:
+            total_us = time_value // 10                   # scale 7: truncate 100 ns to microseconds
+        microsecs = total_us % 1_000_000
+        total_secs = total_us // 1_000_000
+        hours, mod = divmod(total_secs, 3600)
+        minutes, secs = divmod(mod, 60)
+        return int(hours), int(minutes), int(secs), int(microsecs)
+
+    @staticmethod
+    def _read_plp(data: bytes) -> tuple[bytes | None, bytes]:
+        """Read a PLP (Partial Length-Prefixed Bytes) value from the wire buffer.
+
+        PLP is the wire encoding for VARCHAR(MAX), NVARCHAR(MAX) and VARBINARY(MAX)
+        on SQL Server 2019 and earlier.  See MS-TDS spec section 2.2.5.3,
+        Variable-Length Data Types (MAX types).
+
+        Wire layout:
+          8 bytes  total length (0xFFFFFFFFFFFFFFFF = NULL, 0xFFFFFFFFFFFFFFFE = unknown)
+          then one or more chunks, each:
+            4 bytes  chunk length (0 = end-of-chunks terminator)
+            N bytes  chunk payload
+
+        Args:
+            data (bytes): Wire buffer positioned at the start of the PLP header.
+
+        Returns:
+            tuple[bytes | None, bytes]: A 2-tuple of (value, remaining_data).
+                value is None when the total-length header equals 0xFFFFFFFFFFFFFFFF
+                (PLP_NULL).
+        """
+        total_len = struct.unpack("<Q", data[:8])[0]
+        data = data[8:]
+        if total_len == 0xFFFFFFFFFFFFFFFF:
+            return None, data
+        chunks = []
+        while True:
+            chunk_len = struct.unpack("<L", data[:4])[0]
+            data = data[4:]
+            if chunk_len == 0:
+                break
+            chunks.append(data[:chunk_len])
+            data = data[chunk_len:]
+        return b"".join(chunks), data
+
     def processColMeta(self):
         for col in self.colMeta:
             if col["Type"] in [TDS_NVARCHARTYPE, TDS_NCHARTYPE, TDS_NTEXTTYPE]:
@@ -2254,7 +2380,7 @@ class MSSQL:
 
             col["minLenght"] = 0
             for row in self.rows:
-                display = "NULL" if row[col["Name"]] is None else str(row[col["Name"]])
+                display = self._display_value(row[col["Name"]])
                 if len(display) > col["minLenght"]:
                     col["minLenght"] = len(display)
             if col["minLenght"] < col["Length"]:
@@ -2287,7 +2413,7 @@ class MSSQL:
         for row in self.rows:
             for col in self.colMeta:
                 value = row[col["Name"]]
-                display = "NULL" if value is None else value
+                display = self._display_value(value)
                 self.__rowsPrinter.logMessage(
                     col["Format"] % display + self.COL_SEPARATOR
                 )
@@ -2296,6 +2422,23 @@ class MSSQL:
     def printReplies(
         self, error_logger=LOG.error, info_logger=LOG.info, debug_logger=LOG.debug
     ):
+        """Emit all buffered reply tokens to the appropriate log callables.
+
+        Iterates over self.replies and dispatches each token to the logger that
+        matches its severity.  Error tokens set self.lastError to a
+        SQLErrorException so callers can detect failure after the call returns.
+        INFO token 5701 (database-context change) is routed to debug_logger to
+        suppress it from normal output.
+
+        Args:
+            error_logger (callable, optional): Receives TDS_ERROR_TOKEN messages.
+                Defaults to LOG.error.
+            info_logger (callable, optional): Receives TDS_INFO_TOKEN messages
+                (except 5701), TDS_LOGINACK_TOKEN, and TDS_ENVCHANGE_TOKEN.
+                Defaults to LOG.info.
+            debug_logger (callable, optional): Receives TDS_INFO_TOKEN 5701
+                (database context change).  Defaults to LOG.debug.
+        """
         for keys in list(self.replies.keys()):
             for i, key in enumerate(self.replies[keys]):
                 if key["TokenType"] == TDS_ERROR_TOKEN:
@@ -2358,8 +2501,39 @@ class MSSQL:
                         )
 
     def parseRow(self, token, tuplemode=False):
-        # TODO: This REALLY needs to be improved. Right now we don't support correctly all the data types
-        # help would be appreciated ;)
+        """Parse a single TDS ROW token and append the decoded row to self.rows.
+
+        Iterates over self.colMeta and extracts each column value from the
+        token's Data buffer, converting wire bytes to the appropriate Python
+        type.  Typed values (datetime, Decimal, bytes, str, etc.) are stored
+        directly rather than pre-formatted strings.
+
+        Supported types: all integer variants, float, money, char/varchar/
+        nchar/nvarchar/text/ntext (including VARCHAR(MAX)/NVARCHAR(MAX) via
+        PLP), binary/varbinary/image (including VARBINARY(MAX) via PLP), date,
+        time, datetime, datetime2, datetimeoffset, decimal/numeric, bit,
+        uniqueidentifier, sql_variant, XML, CLR UDT, and the pre-TDS 7.0
+        CHAR/VARCHAR/BINARY/VARBINARY (0x2F/0x27/0x2D/0x25) and
+        DECIMAL/NUMERIC (0x37/0x3F) types emitted by SQL Server 6.5 (1996) and earlier.
+
+        Note: SQL Server 2025 (TDS 8.0) sends XML as NTEXTTYPE (0x63) and CLR
+        UDTs (hierarchyid, geometry, geography) as BIGVARBINTYPE (0xA5).  The
+        XMLTYPE (0xF1) and UDTTYPE (0xF0) handlers apply to SQL Server 2019 (2019)
+        and earlier.
+
+        Args:
+            token: A TDS ROW token Structure whose "Data" key holds the raw
+                column bytes for this row.
+            tuplemode (bool, optional): When True the row is appended as a
+                tuple of positional values instead of a column-name dict.
+                Defaults to False.
+
+        Raises:
+            Exception: When an unrecognised TDS type code is encountered.
+
+        Returns:
+            int: Number of bytes consumed from the token's Data buffer.
+        """
         if len(token) == 1:
             return 0
 
@@ -2370,33 +2544,45 @@ class MSSQL:
         for col in self.colMeta:
             _type = col["Type"]
             if (_type == TDS_NVARCHARTYPE) | (_type == TDS_NCHARTYPE):
-                # print "NVAR 0x%x" % _type
-                charLen = struct.unpack("<H", data[: struct.calcsize("<H")])[0]
-                data = data[struct.calcsize("<H") :]
-                if charLen != 0xFFFF:
-                    value = data[:charLen].decode("utf-16le")
-                    data = data[charLen:]
+                if _type == TDS_NVARCHARTYPE and col["TypeData"] == 0xFFFF:
+                    # NVARCHAR(MAX): PLP encoding
+                    raw, data = self._read_plp(data)
+                    value = raw.decode("utf-16le") if raw is not None else None
                 else:
-                    value = None
+                    charLen = struct.unpack("<H", data[: struct.calcsize("<H")])[0]
+                    data = data[struct.calcsize("<H") :]
+                    if charLen != 0xFFFF:
+                        value = data[:charLen].decode("utf-16le")
+                        data = data[charLen:]
+                    else:
+                        value = None
 
             elif _type == TDS_BIGVARCHRTYPE:
-                charLen = struct.unpack("<H", data[:2])[0]
-                data = data[2:]
-
-                if charLen != 0xFFFF:
-                    raw = data[:charLen]
-                    data = data[charLen:]
-
-                    value = raw.decode("latin-1")
+                if col["TypeData"] == 0xFFFF:
+                    # VARCHAR(MAX): PLP encoding
+                    raw, data = self._read_plp(data)
+                    if raw is not None:
+                        value = raw.decode(self._collation_to_codec(col.get("Collation")))
+                    else:
+                        value = None
                 else:
-                    value = None
+                    charLen = struct.unpack("<H", data[:2])[0]
+                    data = data[2:]
+                    if charLen != 0xFFFF:
+                        raw = data[:charLen]
+                        data = data[charLen:]
+                        value = raw.decode(self._collation_to_codec(col.get("Collation")))
+                    else:
+                        value = None
 
             elif _type == TDS_GUIDTYPE:
                 uuidLen = ord(data[0:1])
                 data = data[1:]
                 if uuidLen > 0:
-                    uu = data[:uuidLen]
-                    value = uuid.bin_to_string(uu)
+                    # TDS wire format stores GUID in mixed-endian (bytes_le): the
+                    # first three components are little-endian, the last two are big-
+                    # endian.  Python's UUID(bytes_le=...) matches this layout exactly.
+                    value = UUID(bytes_le=data[:uuidLen])
                     data = data[uuidLen:]
                 else:
                     value = None
@@ -2415,7 +2601,7 @@ class MSSQL:
                         if _type == TDS_NTEXTTYPE:
                             value = data[:charLen].decode("utf-16le")
                         else:
-                            value = binascii.b2a_hex(data[:charLen]).decode("ascii")
+                            value = bytes(data[:charLen])
                         data = data[charLen:]
                     else:
                         value = None
@@ -2433,18 +2619,22 @@ class MSSQL:
                     if charLen != 0xFFFF:
                         raw = data[:charLen]
                         data = data[charLen:]
-                        value = raw.decode("latin-1")
+                        value = raw.decode(self._collation_to_codec(col.get("Collation")))
                     else:
                         value = None
 
             elif (_type == TDS_BIGVARBINTYPE) | (_type == TDS_BIGBINARYTYPE):
-                charLen = struct.unpack("<H", data[: struct.calcsize("<H")])[0]
-                data = data[struct.calcsize("<H") :]
-                if charLen != 0xFFFF:
-                    value = binascii.b2a_hex(data[:charLen]).decode("ascii")
-                    data = data[charLen:]
+                if _type == TDS_BIGVARBINTYPE and col.get("TypeData") == 0xFFFF:
+                    # VARBINARY(MAX): PLP encoding
+                    value, data = self._read_plp(data)
                 else:
-                    value = None
+                    charLen = struct.unpack("<H", data[: struct.calcsize("<H")])[0]
+                    data = data[struct.calcsize("<H") :]
+                    if charLen != 0xFFFF:
+                        value = bytes(data[:charLen])
+                        data = data[charLen:]
+                    else:
+                        value = None
 
             elif (
                 (_type == TDS_DATETIM4TYPE)
@@ -2462,16 +2652,17 @@ class MSSQL:
                     data = data[1:]
                 if _type == TDS_DATETIMETYPE:
                     # datetime is represented in the following sequence:
-                    # * One 4-byte signed integer that represents the number of days since January 1, 1900. Negative
-                    #   numbers are allowed to represents dates since January 1, 1753.
-                    # * One 4-byte unsigned integer that represents the number of one three-hundredths of a second
-                    #  (300 counts per second) elapsed since 12 AM that day.
+                    # * One 4-byte signed integer: days since January 1, 1900.
+                    #   Negative values reach back to January 1, 1753 (minimum).
+                    #   The base is always 1900-01-01 regardless of sign; using
+                    #   1753-01-01 as base for negative values is incorrect and
+                    #   would shift the result by ~147 years.
+                    # * One 4-byte unsigned integer: ticks at 1/300 second since
+                    #   midnight (300 ticks per second).
+                    # MS-TDS spec section 2.2.5.5.1 (Dates and Times).
                     dateValue = struct.unpack("<l", data[:4])[0]
                     data = data[4:]
-                    if dateValue < 0:
-                        baseDate = datetime.date(1753, 1, 1)
-                    else:
-                        baseDate = datetime.date(1900, 1, 1)
+                    baseDate = datetime.date(1900, 1, 1)
                     timeValue = struct.unpack("<L", data[:4])[0]
                     data = data[4:]
                     dateValue = datetime.date.fromordinal(
@@ -2543,28 +2734,30 @@ class MSSQL:
 
             elif _type == TDS_MONEYNTYPE:
                 valueSize = ord(data[:1])
-                if valueSize == 4:
-                    fmt = "<l"
-                elif valueSize == 8:
-                    fmt = "<q"
-
                 data = data[1:]
 
-                if valueSize > 0:
-                    raw = struct.unpack(
-                        "<q" if valueSize == 8 else "<l", data[:valueSize]
-                    )[0]
-                    value = Decimal(raw) / Decimal(10000)
-                    data = data[valueSize:]
-                else:
+                if valueSize == 0:
                     value = None
+                elif valueSize == 4:
+                    # SMALLMONEY: signed 32-bit integer / 10000
+                    raw = struct.unpack("<l", data[:4])[0]
+                    value = Decimal(raw) / Decimal(10000)
+                    data = data[4:]
+                else:
+                    # MONEY: high signed int32 followed by low unsigned int32
+                    high, low = struct.unpack("<lL", data[:8])
+                    value = Decimal((high << 32) + low) / Decimal(10000)
+                    data = data[8:]
 
             elif _type == TDS_BIGCHARTYPE:
                 charLen = struct.unpack("<H", data[: struct.calcsize("<H")])[0]
                 data = data[struct.calcsize("<H") :]
-                raw = data[:charLen]
-                data = data[charLen:]
-                value = raw.decode("latin-1")
+                if charLen != 0xFFFF:
+                    raw = data[:charLen]
+                    data = data[charLen:]
+                    value = raw.decode(self._collation_to_codec(col.get("Collation")))
+                else:
+                    value = None
 
             elif _type == TDS_INT8TYPE:
                 value = struct.unpack("<q", data[:8])[0]
@@ -2599,12 +2792,34 @@ class MSSQL:
                 else:
                     value = None
 
-            elif (_type == TDS_BITTYPE) | (_type == TDS_INT1TYPE):
-                # print "BITTYPE"
+            elif _type in (TDS_CHARTYPE, TDS_VARCHARTYPE):
+                # Pre-TDS 7.0 (SQL Server 6.5, 1996) CHAR/VARCHAR: 2-byte actual length then the bytes.
+                # MS-TDS spec section 2.2.5.5 (pre-TDS 7.0 fixed-length row values).
+                valueLen = struct.unpack("<H", data[:2])[0]
+                data = data[2:]
+                raw = data[:valueLen]
+                data = data[valueLen:]
+                codec = self._collation_to_codec(col.get("Collation"))
+                value = raw.decode(codec, errors="replace")
+
+            elif _type in (TDS_BINARYTYPE, TDS_VARBINARYTYPE):
+                # Pre-TDS 7.0 (SQL Server 6.5, 1996) BINARY/VARBINARY: 2-byte actual length then the bytes.
+                # MS-TDS spec section 2.2.5.5 (pre-TDS 7.0 fixed-length row values).
+                valueLen = struct.unpack("<H", data[:2])[0]
+                data = data[2:]
+                value = data[:valueLen]
+                data = data[valueLen:]
+
+            elif _type == TDS_BITTYPE:
                 value = bool(data[0])
                 data = data[1:]
 
-            elif _type in (TDS_NUMERICNTYPE, TDS_DECIMALNTYPE):
+            elif _type == TDS_INT1TYPE:
+                # TINYINT: unsigned 0-255, not a boolean.
+                value = data[0]
+                data = data[1:]
+
+            elif _type in (TDS_NUMERICNTYPE, TDS_DECIMALNTYPE, TDS_NUMERICTYPE, TDS_DECIMALTYPE):
                 valueLen = data[0]
                 data = data[1:]
 
@@ -2620,23 +2835,22 @@ class MSSQL:
                     sign = 1 if raw[0] == 1 else -1
                     integer = int.from_bytes(raw[1:], byteorder="little", signed=False)
 
-                    getcontext().prec = precision
-                    number = Decimal(integer)
-
-                    if scale:
-                        number /= Decimal(10) ** scale
+                    # localcontext() confines the precision change to this block so
+                    # it cannot corrupt the global Decimal context for later columns
+                    # (e.g. MONEY whose max value needs 19 significant digits).
+                    with localcontext() as ctx:
+                        ctx.prec = precision
+                        number = Decimal(integer)
+                        if scale:
+                            number /= Decimal(10) ** scale
 
                     value = number if sign > 0 else -number
 
             elif _type == TDS_BITNTYPE:
-                # print "BITNTYPE"
                 valueSize = ord(data[:1])
                 data = data[1:]
                 if valueSize > 0:
-                    if valueSize == 1:
-                        value = ord(data[:valueSize])
-                    else:
-                        value = data[:valueSize]
+                    value = bool(data[0])
                 else:
                     value = None
                 data = data[valueSize:]
@@ -2661,6 +2875,88 @@ class MSSQL:
                     data = data[valueSize:]
                 else:
                     value = None
+            elif _type == TDS_TIMENTYPE:
+                valueSize = ord(data[:1])
+                data = data[1:]
+                if valueSize == 0:
+                    value = None
+                else:
+                    scale = col["TypeData"]
+                    raw = data[:valueSize]
+                    data = data[valueSize:]
+                    if valueSize == 3:
+                        timeValue = struct.unpack("<L", raw + b"\x00")[0]
+                    elif valueSize == 4:
+                        timeValue = struct.unpack("<L", raw)[0]
+                    else:
+                        timeValue = struct.unpack("<Q", raw + b"\x00\x00\x00")[0]
+                    h, m, s, us = self._decode_scaled_time(timeValue, scale)
+                    value = datetime.time(h, m, s, us)
+
+            elif _type == TDS_DATETIME2NTYPE:
+                valueSize = ord(data[:1])
+                data = data[1:]
+                if valueSize == 0:
+                    value = None
+                else:
+                    scale = col["TypeData"]
+                    time_byte_count = 3 if scale <= 2 else (4 if scale <= 4 else 5)
+                    time_raw = data[:time_byte_count]
+                    date_raw = data[time_byte_count : time_byte_count + 3]
+                    data = data[valueSize:]
+                    if time_byte_count == 3:
+                        timeValue = struct.unpack("<L", time_raw + b"\x00")[0]
+                    elif time_byte_count == 4:
+                        timeValue = struct.unpack("<L", time_raw)[0]
+                    else:
+                        timeValue = struct.unpack("<Q", time_raw + b"\x00\x00\x00")[0]
+                    dateValue = struct.unpack("<L", date_raw + b"\x00")[0]
+                    h, m, s, us = self._decode_scaled_time(timeValue, scale)
+                    date_obj = datetime.date.fromordinal(dateValue)
+                    value = datetime.datetime(
+                        date_obj.year, date_obj.month, date_obj.day, h, m, s, us
+                    )
+
+            elif _type == TDS_DATETIMEOFFSETNTYPE:
+                valueSize = ord(data[:1])
+                data = data[1:]
+                if valueSize == 0:
+                    value = None
+                else:
+                    scale = col["TypeData"]
+                    time_byte_count = 3 if scale <= 2 else (4 if scale <= 4 else 5)
+                    time_raw = data[:time_byte_count]
+                    date_raw = data[time_byte_count : time_byte_count + 3]
+                    offset_raw = data[time_byte_count + 3 : time_byte_count + 5]
+                    data = data[valueSize:]
+                    if time_byte_count == 3:
+                        timeValue = struct.unpack("<L", time_raw + b"\x00")[0]
+                    elif time_byte_count == 4:
+                        timeValue = struct.unpack("<L", time_raw)[0]
+                    else:
+                        timeValue = struct.unpack("<Q", time_raw + b"\x00\x00\x00")[0]
+                    dateValue = struct.unpack("<L", date_raw + b"\x00")[0]
+                    offsetMinutes = struct.unpack("<h", offset_raw)[0]
+                    h, m, s, us = self._decode_scaled_time(timeValue, scale)
+                    date_obj = datetime.date.fromordinal(dateValue)
+                    dt = datetime.datetime(
+                        date_obj.year, date_obj.month, date_obj.day, h, m, s, us
+                    )
+                    tz = datetime.timezone(datetime.timedelta(minutes=offsetMinutes))
+                    value = dt.replace(tzinfo=tz)
+
+            elif _type == TDS_XMLTYPE:
+                # XML row data is PLP-encoded UTF-16LE text.
+                # MS-TDS spec section 2.2.5.3 (Variable-Length Data Types, MAX types).
+                raw, data = self._read_plp(data)
+                value = raw.decode("utf-16le") if raw is not None else None
+
+            elif _type == TDS_UDTTYPE:
+                # CLR UDT row data is the PLP-encoded binary serialization of the
+                # CLR type (e.g. hierarchyid, geometry, geography).
+                # MS-TDS spec section 2.2.5.3 (Variable-Length Data Types, MAX types).
+                value, data = self._read_plp(data)
+
             elif _type == TDS_SSVARIANTTYPE:
                 totalLength = struct.unpack("<L", data[:4])[0]
 
@@ -2749,18 +3045,52 @@ class MSSQL:
                 (colType == TDS_DECIMALNTYPE)
                 | (colType == TDS_NUMERICNTYPE)
                 | (colType == TDS_DECIMALTYPE)
+                | (colType == TDS_NUMERICTYPE)
             ):
                 typeData = data[:3]
                 data = data[3:]
+            elif colType in (TDS_CHARTYPE, TDS_VARCHARTYPE, TDS_BINARYTYPE, TDS_VARBINARYTYPE):
+                # Pre-TDS 7.0 (SQL Server 6.5, 1996) fixed/variable char and binary types.
+                # Metadata carries a 1-byte max-length field.
+                # MS-TDS spec section 2.2.5.4.1 (pre-TDS 7.0 CHAR/VARCHAR/BINARY/VARBINARY).
+                typeData = data[0]
+                data = data[1:]
             elif (
                 (colType == TDS_IMAGETYPE)
                 | (colType == TDS_TEXTTYPE)
-                | (colType == TDS_XMLTYPE)
                 | (colType == TDS_SSVARIANTTYPE)
                 | (colType == TDS_NTEXTTYPE)
             ):
                 typeData = struct.unpack("<L", data[:4])[0]
                 data = data[4:]
+            elif colType == TDS_XMLTYPE:
+                # SchemaPresent is a single byte (0 = no schema, 1 = schema present).
+                # MS-TDS spec section 2.2.5.4.4 (XMLTYPE metadata).
+                # When a schema is present, three variable-length UTF-16LE names follow:
+                # DbName, SchemaName, and XmlSchemaCollectionName, each preceded by
+                # a 1-byte character count.
+                schema_present = data[0]
+                data = data[1:]
+                if schema_present:
+                    for _ in range(3):
+                        n = data[0]
+                        data = data[1:]
+                        data = data[n * 2:]
+                typeData = schema_present
+            elif colType == TDS_UDTTYPE:
+                # MaxByteSize (2 bytes LE) + DbName + OwnerName + TypeName (each
+                # 1-byte character count + UTF-16LE) + AssemblyQualifiedName
+                # (2-byte character count + UTF-16LE).
+                # MS-TDS spec section 2.2.5.4.6 (CLR UDT type metadata).
+                typeData = struct.unpack("<H", data[:2])[0]
+                data = data[2:]
+                for _ in range(3):  # DbName, OwnerName, TypeName
+                    n = data[0]
+                    data = data[1:]
+                    data = data[n * 2:]
+                n = struct.unpack("<H", data[:2])[0]
+                data = data[2:]
+                data = data[n * 2:]
             else:
                 raise Exception("Unsupported data type: 0x%x" % colType)
 
@@ -2773,7 +3103,8 @@ class MSSQL:
                 | (colType == TDS_NVARCHARTYPE)
                 | (colType == TDS_TEXTTYPE)
             ):
-                # Skip collation
+                # 5-byte collation: 4 bytes (LCID + flags) + 1 byte charset sort id
+                column["Collation"] = data[:5]
                 data = data[5:]
 
             # PartTableName exceptions:
