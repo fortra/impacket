@@ -34,6 +34,7 @@ from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE
 from impacket.examples import logger
 from impacket.examples.utils import parse_identity, ldap_login
 from impacket.ldap import ldap, ldapasn1
+from impacket import wintime
 
 class GetADUsers:
     def __init__(self, username, password, domain, cmdLineOptions):
@@ -66,14 +67,9 @@ class GetADUsers:
         # Let's calculate the header and format
         self.__header = ["Name", "Email", "PasswordLastSet", "LastLogon"]
         # Since we won't process all rows at once, this will be fixed lengths
-        self.__colLen = [20, 30, 19, 19]
+        # Timestamps include up to six fractional digits and the UTC offset.
+        self.__colLen = [20, 30, 32, 32]
         self.__outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(self.__colLen)])
-
-    @staticmethod
-    def getUnixTime(t):
-        t -= 116444736000000000
-        t /= 10000000
-        return t
 
     def processRecord(self, item):
         if isinstance(item, ldapasn1.SearchResultEntry) is not True:
@@ -92,12 +88,12 @@ class GetADUsers:
                     if str(attribute['vals'][0]) == '0':
                         pwdLastSet = '<never>'
                     else:
-                        pwdLastSet = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
+                        pwdLastSet = str(wintime.filetime_to_datetime(int(str(attribute['vals'][0]))))
                 elif str(attribute['type']) == 'lastLogon':
                     if str(attribute['vals'][0]) == '0':
                         lastLogon = '<never>'
                     else:
-                        lastLogon = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
+                        lastLogon = str(wintime.filetime_to_datetime(int(str(attribute['vals'][0]))))
                 elif str(attribute['type']) == 'mail':
                     mail = str(attribute['vals'][0])
 
