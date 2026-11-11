@@ -147,12 +147,13 @@ class GSSAPI_RC4:
             ('Confounder','8s=b""'),
         )
 
-    def GSS_GetMIC(self, sessionKey, data, sequenceNumber, direction = 'init'):
+    def GSS_GetMIC(self, sessionKey, data, sequenceNumber, direction = 'init', pad = True):
         GSS_GETMIC_HEADER = b'\x60\x23\x06\x09\x2a\x86\x48\x86\xf7\x12\x01\x02\x02'
         token = self.MIC()
 
-        pad = _calculateMICPad(data)
-        data += pad
+        # The 4 byte alignment is a DCE/RPC requirement, a plain GSS MIC (e.g. the SPNEGO mechListMIC) has none
+        if pad:
+            data += _calculateMICPad(data)
  
         token['SGN_ALG'] = GSS_HMAC
         if direction == 'init':
@@ -331,11 +332,12 @@ class GSSAPI_AES():
             ('SND_SEQ','8s=b""'),
         )
 
-    def GSS_GetMIC(self, sessionKey, data, sequenceNumber, direction = 'init'):
+    def GSS_GetMIC(self, sessionKey, data, sequenceNumber, direction = 'init', pad = True):
         token = self.MIC()
 
-        pad = _calculateMICPad(data)
-        data += pad
+        # The 4 byte alignment is a DCE/RPC requirement, a plain GSS MIC (e.g. the SPNEGO mechListMIC) has none
+        if pad:
+            data += _calculateMICPad(data)
 
         checkSumProfile = self.checkSumProfile()
 

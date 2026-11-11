@@ -45,7 +45,7 @@ from impacket import nmb, ntlm, uuid, crypto
 from impacket.smb3structs import *
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_MORE_PROCESSING_REQUIRED, STATUS_INVALID_PARAMETER, \
     STATUS_NO_MORE_FILES, STATUS_PENDING, STATUS_NOT_IMPLEMENTED, ERROR_MESSAGES
-from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_OID, asn1encode, ASN1_AID
+from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, SPNEGOCipher, ASN1_OID, asn1encode, ASN1_AID
 from impacket.krb5.gssapi import KRB5_AP_REQ
 
 
@@ -970,7 +970,10 @@ class SMB3:
 
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
-        auth = ntlm.getNTLMSSPType1(self._Connection['ClientName'],domain, self._Connection['RequireSigning'])
+        # NTLMSSP_NEGOTIATE_VERSION is what reserves the AUTHENTICATE MIC field (see NTLMAuthChallengeResponse.checkMIC)
+        clientVersion = ntlm.VERSION()
+        clientVersion['ProductMajorVersion'], clientVersion['ProductMinorVersion'], clientVersion['ProductBuild'] = 10, 0, 19041
+        auth = ntlm.getNTLMSSPType1(self._Connection['ClientName'],domain, self._Connection['RequireSigning'], version=clientVersion)
         blob['MechToken'] = auth.getData()
 
         sessionSetup['SecurityBufferLength'] = len(blob)
@@ -1053,10 +1056,15 @@ class SMB3:
                         self._Session["ServerOSMinor"] = indexbytes(version,1)
                         self._Session["ServerOSBuild"] = struct.unpack('<H',version[2:4])[0]
 
-            type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash)
+            type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash, version=clientVersion)
+
+            type3['MIC'] = b'\x00' * 16   # zeroed: the MIC is computed over the message that carries it
+            type3['MIC'] = ntlm.hmac_md5(exportedSessionKey, auth.getData() + respToken['ResponseToken'] + type3.getData())
 
             respToken2 = SPNEGO_NegTokenResp()
             respToken2['ResponseToken'] = type3.getData()
+            # MS-SPNG 3.3.5.1: the mechListMIC is mandatory once NTLM is the preferred mech, and Windows Server vNext enforces it
+            respToken2['mechListMIC'] = SPNEGOCipher(type3['flags'], exportedSessionKey).sign(blob.getMechTypesDER()).getData()
 
             # Reusing the previous structure
             sessionSetup['SecurityBufferLength'] = len(respToken2)

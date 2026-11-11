@@ -27,6 +27,13 @@ class Test(unittest.TestCase):
 
         self.negTokenResp4 = b'\xa1\x15\x30\x13\xa0\x03\x0a\x01\x03\xa1\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
 
+        self.negTokenResp5 = b'\xa1\x1e\x30\x1c\xa2\x06\x04\x04\xaa\xaa\xaa\xaa\xa3\x12\x04\x10\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb'
+
+        # The MechTypeList the NTLMSSP-only mechListMIC is computed over, as the LDAP GSS-SPNEGO bind hardcodes it
+        self.ntlmsspMechTypesDER = b'\x30\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
+
+        self.twoMechTypesDER = b'\x30\x18\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x1e\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
+
     def test_negTokenInit(self):
         token = smb.SPNEGO_NegTokenInit()
         token.fromString(self.negTokenInit)
@@ -57,6 +64,23 @@ class Test(unittest.TestCase):
         token['NegState'] = b'\x03'  # request-mic
         token['SupportedMech'] = smb.TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
         self.assertEqual(self.negTokenResp4, token.getData())
+
+    def test_negTokenResp_mechListMIC(self):
+        token = smb.SPNEGO_NegTokenResp()
+        token['ResponseToken'] = b'\xaa' * 4
+        token['mechListMIC'] = b'\xbb' * 16
+        self.assertEqual(self.negTokenResp5, token.getData())
+
+    def test_getMechTypesDER(self):
+        token = smb.SPNEGO_NegTokenInit()
+        token['MechTypes'] = [smb.TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
+        self.assertEqual(self.ntlmsspMechTypesDER, token.getMechTypesDER())
+
+    def test_getMechTypesDER_roundtrip(self):
+        token = smb.SPNEGO_NegTokenInit()
+        token.fromString(self.negTokenInit)
+        self.assertEqual(self.twoMechTypesDER, token.getMechTypesDER())
+        self.assertIn(token.getMechTypesDER(), token.getData())
 
 
 if __name__ == "__main__":

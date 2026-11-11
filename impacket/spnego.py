@@ -415,6 +415,14 @@ class SPNEGO_NegTokenInit(GSSAPI):
                     decode_data, total_bytes = asn1decode(decode_data)
                     self['MechToken'] =  decode_data
 
+    def getMechTypesDER(self):
+        # The exact DER MechTypeList bytes a SPNEGO mechListMIC is computed over
+        mechTypes = b''
+        for i in self['MechTypes']:
+            mechTypes += pack('B', ASN1_OID)
+            mechTypes += asn1encode(i)
+        return pack('B', ASN1_SEQUENCE) + asn1encode(mechTypes)
+
     def getData(self):
         mechTypes = b''
         for i in self['MechTypes']:
