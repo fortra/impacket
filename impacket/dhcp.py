@@ -9,6 +9,9 @@
 # for more information.
 #
 
+from struct import error as StructError
+
+from impacket import LOG
 from impacket import structure
 from impacket.ImpactPacket import ProtocolPacket
 
@@ -168,17 +171,40 @@ class DhcpPacket(ProtocolPacket, structure.Structure):
 
     def unpackOptions(self, options):
         # options is a string
-
-        # print '%r' % options
         answer = []
         i = 0
         options = bytearray(options)
-        while i < len(options)-1:
-            name, format = self.getOptionNameAndFormat(options[i])
-            # size = self.calcUnpackSize(format, options[i+1:])
+        while i < len(options):
+            code = options[i]
+            name, format = self.getOptionNameAndFormat(code)
+
+            # RFC 2132 sections 3.1 and 3.2: the pad and end options are a single octet,
+            # they have no length octet. Nothing after the end option is an option.
+            if code == self.options['pad'][0]:
+                i += 1
+                continue
+            if code == self.options['eof'][0]:
+                answer.append((name, None))
+                break
+
+            # Malformed options (issue #1901) must not abort decoding the whole packet:
+            # decode what is present on a best-effort basis and warn, like BootpDecoder.
+            if i + 1 >= len(options):
+                LOG.warning('DHCP option %s (%d) is truncated, its length octet is missing' % (name, code))
+                break
             size = options[i+1]
-            # print i, name, format, size
-            value = self.unpack(format, bytes(options[i+2:i+2+size]))
+            data = bytes(options[i+2:i+2+size])
+            if len(data) < size:
+                LOG.warning('DHCP option %s (%d) declares %d bytes but only %d are present, keeping the raw '
+                            'bytes' % (name, code, size, len(data)))
+                answer.append((name, data))
+                break
+            try:
+                value = self.unpack(format, data)
+            except StructError:
+                LOG.warning('DHCP option %s (%d) has a length of %d bytes, which is invalid for its type, keeping '
+                            'the raw bytes' % (name, code, size))
+                value = data
             answer.append((name, value))
             i += 2+size
 
