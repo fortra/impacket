@@ -19,6 +19,34 @@ class DNSTests(unittest.TestCase):
         with self.assertRaisesRegex(Exception, "infinite loop"):
             DNS().parseCompressedMessage(b"\xc0\x0e\xc0\x0c")
 
+    def test_parse_compressed_message_rejects_pointer_into_header(self):
+        # RFC 1035 4.1.4 compression pointers are absolute offsets from the start
+        # of the DNS message. Values below the fixed header size (12) point inside
+        # the header and are invalid. Before this fix, subtracting
+        # HEADER_BASE_SIZE produced a negative offset that Python negative
+        # indexing wrapped to the end of the buffer, silently parsing unrelated
+        # tail bytes as a name. Verified pre-fix results on master @ 5648c37 with
+        # the exact 17-byte buffers used below (2 pointer bytes + 15-byte tail):
+        #   0xC000 -> returns (2, '')     (buf[-12] is 0x00, read as root label: empty name)
+        #   0xC007 -> returns (2, b'ab')  (buf[-5] is 0x02, read as label "ab")
+        #   0xC003 -> returns (2, '')     (buf[-9] is 0x00, read as root label: empty name)
+        # i.e. no exception at all and a wrong name in every case.
+        tail = b"\x00" * 10 + b"\x02ab" + b"\x00\x00"
+        for pointer in (b"\xc0\x00", b"\xc0\x07", b"\xc0\x03"):
+            with self.subTest(pointer=pointer):
+                with self.assertRaisesRegex(Exception, "Invalid DNS compression pointer"):
+                    DNS().parseCompressedMessage(pointer + tail)
+
+    def test_get_questions_rejects_pointer_into_header(self):
+        # Full packet: qname is a pointer to absolute offset 0 (inside the header).
+        # Verified pre-fix on master @ 5648c37: returns [('', 1, 1)] (empty name), no exception.
+        pkt = (b"\x12\x34\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00"
+               b"\xc0\x00\x00\x01\x00\x01"
+               b"\x03www\x07example\x03com\x00"
+               b"\x00\x01\x00\x01\x00\x00\x00\x3c\x00\x04\x01\x02\x03\x04")
+        with self.assertRaisesRegex(Exception, "Invalid DNS compression pointer"):
+            DNS(pkt).get_questions()
+
     def test_str(self):
         def chk(b, t):
             self.assertEqual(str(DNS(b)), t)

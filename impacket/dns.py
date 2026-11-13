@@ -329,6 +329,13 @@ class DNS(ProtocolPacket):
             visited.add(offset)
             pointer = struct.unpack("!H", buf[offset:offset+2])[0] # network unsigned short
             pointer = (pointer & 0x3FFF) - self.__HEADER_BASE_SIZE
+            if pointer < 0:
+                # RFC 1035 4.1.4 pointers are absolute offsets from the start of the DNS
+                # message; values below the header size point into the fixed header and
+                # are invalid. Without this check the negative offset is silently
+                # interpreted from the end of the buffer (Python negative indexing),
+                # parsing garbage bytes as a name.
+                raise Exception("Invalid DNS compression pointer: offset %d points inside the DNS header." % (pointer + self.__HEADER_BASE_SIZE))
             if offset == pointer:
                 raise Exception("The infinite loop is in DNS decompression. Encountered pointer points to the current offset.")
             offset += 2
