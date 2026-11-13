@@ -175,16 +175,18 @@ class Principal:
     def fromPrincipal(self, principal):
         self.header['name_type'] = principal.type
         self.header['num_components'] = len(principal.components)
+        self.realm = self.toCountedOctetString(principal.realm)
+        self.components = [self.toCountedOctetString(c) for c in principal.components]
+
+    @staticmethod
+    def toCountedOctetString(value):
+        # Principal parts are stored as UTF-8 bytes: length is a byte count, and a str would otherwise be packed as latin-1
+        if not isinstance(value, bytes):
+            value = value.encode('utf-8')
         octetString = CountedOctetString()
-        octetString['length'] = len(principal.realm)
-        octetString['data'] = principal.realm
-        self.realm = octetString
-        self.components = []
-        for c in principal.components:
-            octetString = CountedOctetString()
-            octetString['length'] = len(c)
-            octetString['data'] = c
-            self.components.append(octetString)
+        octetString['length'] = len(value)
+        octetString['data'] = value
+        return octetString
 
     def toPrincipal(self):
         return types.Principal(self.prettyPrint(), type=self.header['name_type'])
