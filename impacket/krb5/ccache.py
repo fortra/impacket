@@ -699,6 +699,32 @@ class CCache:
             LOG.debug('Using TGS from cache')
             TGS = creds.toTGS(principal)
 
+        if creds is not None and username != '':
+            # issue #379: warn when the cache entry about to be used belongs to a
+            # different principal than the one authentication was requested for.
+            # The check is diagnostic only: if the client principal cannot be
+            # read, stay silent and never disturb the lookup.
+            try:
+                pretty_client = creds['client'].prettyPrint().decode('utf-8', 'replace')
+            except (KeyError, AttributeError):
+                pretty_client = None
+            if pretty_client is not None:
+                if '@' in pretty_client:
+                    cached_name, cached_realm = pretty_client.rsplit('@', 1)
+                else:
+                    cached_name, cached_realm = pretty_client, None
+                requested_name, requested_realm = username, None
+                if '@' in username:
+                    requested_name, requested_realm = username.rsplit('@', 1)
+                # AD resolves principal and realm names case-insensitively, so
+                # case-only differences are the same identity and stay quiet
+                mismatch = cached_name.lower() != requested_name.lower()
+                if not mismatch and requested_realm is not None and cached_realm is not None:
+                    mismatch = cached_realm.upper() != requested_realm.upper()
+                if mismatch:
+                    LOG.warning('Cached credential for %s belongs to %s, not to requested user %s - '
+                                'the ticket of a different user will be used' % (principal, pretty_client, username))
+
         if username == '' and creds is not None:
             username = creds['client'].prettyPrint().split(b'@')[0].decode('utf-8')
             LOG.debug('Username retrieved from CCache: %s' % username)
