@@ -140,6 +140,19 @@ class CCACHETests(unittest.TestCase):
         self.assertEqual(reparsed.authData[0]["authtype"], 1)
         self.assertEqual(reparsed.authData[0]["authdata"]["data"], b"\xde\xad\xbe\xef")
 
+    def test_principal_with_non_ascii_name_roundtrip(self):
+        # Regression test: str principal parts were packed as latin-1 with a character count, corrupting non-ASCII names.
+        name = u"Администратор"
+        principal = Principal()
+        principal.fromPrincipal(types.Principal([[name], self.domain], type=PrincipalNameType.NT_PRINCIPAL.value))
+
+        reparsed = Principal(principal.getData())
+
+        self.assertEqual(reparsed.components[0]["length"], len(name.encode("utf-8")))
+        self.assertEqual(reparsed.components[0]["data"].decode("utf-8"), name)
+        self.assertEqual(reparsed.realm["data"], self.domain.encode("utf-8"))
+        self.assertEqual(reparsed.toPrincipal().components[0], name)
+
     def test_ccache_getCredential_three_part_spn(self):
         # Regression test for the 3-part SPN fix (service/host/domain@REALM),
         # seen in multi domain forests ldap tickets
