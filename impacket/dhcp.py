@@ -185,13 +185,15 @@ class DhcpPacket(ProtocolPacket, structure.Structure):
         return answer
 
     def unpackParameterRequestList(self, options):
-        return [self.getOptionNameAndFormat(ord(opt))[0] for opt in options]
+        # options may be bytes (py3 ints when iterated) or str
+        return [self.getOptionNameAndFormat(opt if isinstance(opt, int) else ord(opt))[0] for opt in options]
 
     def isAskingForProxyAutodiscovery(self):
         for opt in self.fields['options']:
             if opt[0] == 'parameter-request-list':
                 for optCode in opt[1]:
-                    if ord(optCode) == 252:
+                    code = optCode if isinstance(optCode, int) else ord(optCode)
+                    if code == 252:
                         return True
         return False
 
