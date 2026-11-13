@@ -21,6 +21,7 @@ if PY2:
     FileNotFoundError = IOError
 else:
     from unittest import mock
+from impacket import LOG
 from impacket.krb5 import types
 from impacket.krb5.ccache import AuthData, CCache, CountedOctetString, Credential, Principal
 from impacket.krb5.constants import PrincipalNameType
@@ -51,6 +52,36 @@ class CCACHETests(unittest.TestCase):
         self.assertIsNone(ccache.getCredential("krbtgt/UNEXISTENT.COM@UNEXISTENT.COM", False))
         self.assertIsNotNone(ccache.getCredential(self.server, True))
         self.assertIsNotNone(ccache.getCredential(self.server, False))
+
+    def test_ccache_parseFile_warns_on_user_mismatch(self):
+        # issue #379: using a cache entry that belongs to a different user than
+        # requested must emit a warning (selection behaviour unchanged)
+        with mock.patch.dict(os.environ, {'KRB5CCNAME': self.cache_v4_file}):
+            with mock.patch.object(LOG, 'warning') as warning:
+                CCache.parseFile(domain=self.domain, username='admin', target='')
+            self.assertTrue(warning.called)
+            self.assertIn('belongs to', warning.call_args[0][0])
+
+    def test_ccache_parseFile_no_warn_on_user_match(self):
+        # issue #379: exact, realm-qualified and case-variant forms of the cache
+        # owner are the same identity and must stay quiet
+        with mock.patch.dict(os.environ, {'KRB5CCNAME': self.cache_v4_file}):
+            for requested in ('user01', 'user01@INNOVATION.ROCKS', 'USER01@innovation.rocks'):
+                with mock.patch.object(LOG, 'warning') as warning:
+                    CCache.parseFile(domain=self.domain, username=requested, target='')
+                warning.assert_not_called()
+            # no requested user stays quiet
+            with mock.patch.object(LOG, 'warning') as warning:
+                CCache.parseFile(domain=self.domain, username='', target='')
+            warning.assert_not_called()
+
+    def test_ccache_parseFile_warns_on_realm_mismatch(self):
+        # issue #379: the same user name in a different realm is a different
+        # identity and must warn
+        with mock.patch.dict(os.environ, {'KRB5CCNAME': self.cache_v4_file}):
+            with mock.patch.object(LOG, 'warning') as warning:
+                CCache.parseFile(domain=self.domain, username='user01@WRONG.REALM', target='')
+            self.assertTrue(warning.called)
 
     def test_ccache_loadFile(self):
         with self.assertRaises(FileNotFoundError):
