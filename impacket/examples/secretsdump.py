@@ -2990,6 +2990,19 @@ class NTDSHashes:
 
         return self.__getAccountDomainSid(objectSid) == self.__localDomainSid
 
+    def __isRequestedUser(self, record):
+        # Offline (VSS / WMI shadow snapshot) equivalent of the DRSUAPI -just-dc-user filter
+        if self.__justUser is None:
+            return True
+
+        requestedUser = self.__justUser.replace('/', '\\').split('\\')[-1]
+
+        sAMAccountName = record[self.NAME_TO_INTERNAL['sAMAccountName']]
+        if sAMAccountName is None:
+            return False
+
+        return sAMAccountName.lower() == requestedUser.lower()
+
     def getResumeSessionFile(self):
         return self.__resumeSession.getFileName()
 
@@ -3733,6 +3746,8 @@ class NTDSHashes:
                         LOG.info('Reading and decrypting hashes from %s ' % self.__NTDS)
                     # First of all, if we have users already cached, let's decrypt their hashes
                     for record in ([] if self.__justTrustKeys else self.__tmpUsers):
+                        if not self.__isRequestedUser(record):
+                            continue
                         try:
                             self.__decryptHash(record, outputFile=hashesOutputFile)
                             if self.__justNTLM is False:
@@ -3767,7 +3782,7 @@ class NTDSHashes:
                         if record is None:
                             break
                         try:
-                            if self.__isLocalDomainAccount(record):
+                            if self.__isLocalDomainAccount(record) and self.__isRequestedUser(record):
                                 self.__decryptHash(record, outputFile=hashesOutputFile)
                                 if self.__justNTLM is False:
                                     self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
