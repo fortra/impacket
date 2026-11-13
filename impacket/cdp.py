@@ -18,7 +18,7 @@
 from struct import unpack
 import socket
 
-from impacket.ImpactPacket import Header, array_tobytes
+from impacket.ImpactPacket import Header, array_tobytes, ImpactPacketException
 from impacket import LOG
 
 IP_ADDRESS_LENGTH = 4
@@ -55,6 +55,8 @@ class CDP(Header):
         l = []
         while buff:
             elem = CDPElementFactory.create(buff)
+            if elem.get_length() < 4:
+                raise ImpactPacketException("Invalid CDP element length %d" % elem.get_length())
             l.append( elem )
             buff = buff[ elem.get_length() : ]
         return l
@@ -122,7 +124,7 @@ class CDPElement(Header):
         return unpack('!h', aBuffer[2:4])[0]
 
     def get_header_size(self):
-        self._length
+        return self._length
 
     def get_length(self):
         return self.get_word(2)
