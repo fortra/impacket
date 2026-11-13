@@ -334,7 +334,17 @@ class MatchingRuleAssertion(univ.Sequence):
 
 
 class Filter(DefaultSequenceAndSetBaseMixin, univ.Choice):
-    pass
+
+    def clone(self, **kwargs):
+        # pyasn1 snapshots a Choice's componentType into instance state at
+        # creation time and re-applies that snapshot from the read-only
+        # initializers on every clone(). The recursive Filter() references
+        # embedded in the composite alternatives below are created while
+        # Filter.componentType is still the empty class default, so cloning
+        # them would restore an empty componentType and composite filters
+        # would not decode. Always clone against the final class definition.
+        kwargs['componentType'] = Filter.componentType
+        return univ.Choice.clone(self, **kwargs)
 
 
 Filter.componentType = namedtype.NamedTypes(
@@ -380,6 +390,20 @@ Filter.componentType = namedtype.NamedTypes(
         MatchingRuleAssertion().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 9))
     )
 )
+
+# Repair the frozen creation-time snapshots on the three recursive Filter()
+# instances embedded above. This is required, not cosmetic: the BER decoder
+# performs tag dispatch on the embedded spec itself (its tagMap) before
+# cloning it, and Filter.clone() above only fixes the cloned object side -
+# neither one alone is sufficient. The read-only initializers are left
+# untouched on purpose: keeping them free of the recursive reference avoids
+# a cycle in repr(), and Filter.clone() supplies the final componentType
+# instead.
+for _filterAlternative in ('and', 'or', 'not'):
+    _embeddedFilter = Filter.componentType[_filterAlternative][1].componentType
+    _embeddedFilter.__dict__['componentType'] = Filter.componentType
+    _embeddedFilter.__dict__['_componentTypeLen'] = len(Filter.componentType)
+    _embeddedFilter.__dict__['_dynamicNames'] = len(Filter.componentType)
 
 
 class SearchRequest(DefaultSequenceAndSetBaseMixin, univ.Sequence):
