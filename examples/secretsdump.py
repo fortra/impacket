@@ -500,8 +500,8 @@ if __name__ == '__main__':
     domain, username, password, remoteName = parse_target(options.target)
 
     if options.just_dc_user is not None or options.ldapfilter is not None:
-        if options.use_vss is True or options.use_remoteSSWMI_NTDS is True:
-            logging.error('-just-dc-user switch is not supported in VSS mode nor WMI VSS mode')
+        if options.ldapfilter is not None and (options.use_vss is True or options.use_remoteSSWMI_NTDS is True):
+            logging.error('-ldapfilter switch is not supported in VSS mode nor WMI VSS mode')
             sys.exit(1)
         elif options.resumefile is not None:
             logging.error('resuming a previous NTDS.DIT dump session not compatible with -just-dc-user switch')
