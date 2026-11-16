@@ -49,19 +49,18 @@
 #   [ ] Transform the rest of the calls to structure
 #   [X] Implement TRANS/TRANS2 reassembly for list_path
 #
-from __future__ import division
-from __future__ import print_function
 
 import os
 import socket
+import warnings
 from binascii import a2b_hex
 import datetime
-from struct import pack, unpack, pack_into
+from struct import pack, unpack, pack_into, error as StructError
 from ctypes import BigEndianStructure, c_uint32
 from contextlib import contextmanager
 from pyasn1.type.univ import noValue
 
-from impacket import nmb, ntlm, nt_errors, LOG
+from impacket import nmb, ntlm, nt_errors, LOG, wintime
 from impacket.structure import Structure
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_OID, asn1encode, ASN1_AID
 from impacket.krb5.gssapi import KRB5_AP_REQ
@@ -92,6 +91,7 @@ ATTR_READONLY                    = 0x001
 ATTR_TEMPORARY                   = 0x100
 ATTR_DIRECTORY                   = 0x010
 ATTR_SYSTEM                      = 0x004
+ATTR_REPARSE_POINT               = 0x400
 
 # Service Type
 SERVICE_DISK                     = 'A:'
@@ -628,32 +628,22 @@ class UnsupportedFeature(Exception):
 
 # Add basic filetime conversion helper methods.
 def POSIXtoFT(t):
-    """
-    Helper method that converts POSIX timestamps to FILETIME timestamps.
-    
-    :param int t: POSIX timestamp - can be retrieved from datetime library.
-    
-    :return int: FILETIME timestamp representing the given POSIX timestamp.
-    """
-    
-    t *= 10000000
-    t += 116444736000000000
-    
-    return int(t)
+    warnings.warn(
+        'POSIXtoFT() is deprecated and will be removed in the next version of Impacket; '
+        'use impacket.wintime.posix_to_filetime() instead.',
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return wintime.posix_to_filetime(t)
 
 def FTtoPOSIX(t):
-    """
-    Helper method that converts FILETIME timestamps to POSIX timestamps.
-    
-    :param int t: FILETIME timestamp.
-    
-    :return int: POSIX timestamp representing the given FILETIME timestamp.
-    """
-    
-    t -= 116444736000000000
-    t //= 10000000
-    
-    return int(t)
+    warnings.warn(
+        'FTtoPOSIX() is deprecated and will be removed in the next version of Impacket; '
+        'use impacket.wintime.filetime_to_posix() instead.',
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return wintime.filetime_to_posix(t)
 
 # Define SMB Standard DateTime Data according to (2.2.1.4 Time)
 class SMBDateStruct(BigEndianStructure):
@@ -952,6 +942,9 @@ class SharedFile:
 
     def is_system(self):
         return self.__attribs & ATTR_SYSTEM
+
+    def is_reparse_point(self):
+        return self.__attribs & ATTR_REPARSE_POINT
 
     def get_shortname(self):
         return self.__shortname
@@ -2968,11 +2961,19 @@ class SMB(object):
                 self._dialects_parameters = SMBNTLMDialect_Parameters(sessionResponse['Parameters'])
                 self._dialects_data = SMBNTLMDialect_Data()
                 self._dialects_data['ChallengeLength'] = self._dialects_parameters['ChallengeLength']
-                self._dialects_data.fromString(sessionResponse['Data'])
+                try:
+                    self._dialects_data.fromString(sessionResponse['Data'])
+                except (ValueError, StructError) as e:
+                    LOG.debug("Negotiate response parsing failed: %s", e)
+                    raise SessionError("Connection failed: invalid or truncated server response", 0x000D, 0xC000, 1, None)
                 if self._dialects_parameters['Capabilities'] & SMB.CAP_EXTENDED_SECURITY:
                     # Whether we choose it or it is enforced by the server, we go for extended security
                     self._dialects_parameters = SMBExtended_Security_Parameters(sessionResponse['Parameters'])
-                    self._dialects_data = SMBExtended_Security_Data(sessionResponse['Data'])
+                    try:
+                        self._dialects_data = SMBExtended_Security_Data(sessionResponse['Data'])
+                    except (ValueError, StructError) as e:
+                        LOG.debug("Negotiate extended security response parsing failed: %s", e)
+                        raise SessionError("Connection failed: invalid or truncated server response", 0x000D, 0xC000, 1, None)
                     # Let's setup some variable for later use
                     if self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SIGNATURES_REQUIRED:
                          self._SignatureRequired = True
@@ -3480,6 +3481,7 @@ class SMB(object):
         if TGT is None:
             if TGS is None:
                 tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
+                TGT = {'KDC_REP': tgt, 'cipher': cipher, 'sessionKey': sessionKey}
         else:
             tgt = TGT['KDC_REP']
             cipher = TGT['cipher']
@@ -3490,6 +3492,7 @@ class SMB(object):
         if TGS is None:
             serverName = Principal('cifs/%s' % self.__remote_name, type=constants.PrincipalNameType.NT_SRV_INST.value)
             tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
+            TGS = {'KDC_REP': tgs, 'cipher': cipher, 'sessionKey': sessionKey}
         else:
             tgs = TGS['KDC_REP']
             cipher = TGS['cipher']
@@ -3580,7 +3583,11 @@ class SMB(object):
             sessionParameters = SMBSessionSetupAndX_Extended_Response_Parameters(sessionResponse['Parameters'])
             sessionData       = SMBSessionSetupAndX_Extended_Response_Data(flags = smb['Flags2'])
             sessionData['SecurityBlobLength'] = sessionParameters['SecurityBlobLength']
-            sessionData.fromString(sessionResponse['Data'])
+            try:
+                sessionData.fromString(sessionResponse['Data'])
+            except (ValueError, StructError) as e:
+                LOG.debug("Session setup response parsing failed: %s", e)
+                raise SessionError("Authentication failed: invalid or truncated server response", 0x006D, 0xC000, 1, None)
 
             self._action = sessionParameters['Action']
             # If smb sign required, let's enable it for the rest of the connection
@@ -3592,6 +3599,10 @@ class SMB(object):
             # restore unicode flag if needed
             if flags2 & SMB.FLAGS2_UNICODE:
                 self.__flags2 |= SMB.FLAGS2_UNICODE
+
+            # Persist the TGT/ST so callers can reuse them through getCredentials()
+            self.__TGT = TGT
+            self.__TGS = TGS
 
             return 1
         else:
@@ -3653,8 +3664,14 @@ class SMB(object):
             sessionParameters = SMBSessionSetupAndX_Extended_Response_Parameters(sessionResponse['Parameters'])
             sessionData       = SMBSessionSetupAndX_Extended_Response_Data(flags = smb['Flags2'])
             sessionData['SecurityBlobLength'] = sessionParameters['SecurityBlobLength']
-            sessionData.fromString(sessionResponse['Data'])
+            try:
+                sessionData.fromString(sessionResponse['Data'])
+            except (ValueError, StructError) as e:
+                LOG.debug("Session setup response parsing failed: %s", e)
+                raise SessionError("Authentication failed: invalid or truncated server response", 0x006D, 0xC000, 1, None)
             respToken = SPNEGO_NegTokenResp(sessionData['SecurityBlob'])
+            if respToken.isNegoExSelected():
+                raise NotImplementedError('NEGOEX / PKU2U authentication is not implemented yet')
 
             # Let's parse some data and keep it to ourselves in case it is asked
             ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])

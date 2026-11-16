@@ -23,8 +23,6 @@
 # Author:
 #   Alberto Solino (@agsolino)
 #
-from __future__ import division
-from __future__ import print_function
 from binascii import unhexlify
 
 from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRUNION, NDRPOINTER, NDRUniConformantArray, \
@@ -1399,9 +1397,38 @@ class USER_PROPERTIES(Structure):
         ('Reserved3','<H=0'),
         ('Reserved4','96s=""'),
         ('PropertySignature','<H=0x50'),
-        ('PropertyCount','<H=0'),
-        ('UserProperties',':'),
     )
+
+
+def unpack_user_properties(data):
+    user_properties = USER_PROPERTIES(data)
+    property_count_offset = len(user_properties)
+    properties_end = 12 + user_properties['Length']
+
+    # MS-SAMR 3.1.1.8.11.1.1 says PropertyCount is omitted when there are zero
+    # USER_PROPERTY entries and the total structure size becomes 0x6f bytes.
+    # With the fixed 12-byte prefix and trailing Reserved5 byte, that means the
+    # length-delimited portion ends at the PropertySignature for header-only
+    # blobs, so PropertyCount must be parsed conditionally.
+    if properties_end < property_count_offset:
+        raise struct.error("USER_PROPERTIES length shorter than the fixed header")
+
+    if len(data) <= properties_end:
+        raise struct.error("USER_PROPERTIES missing Reserved5")
+
+    if properties_end == property_count_offset:
+        user_properties['PropertyCount'] = 0
+        user_properties['Reserved5'] = data[properties_end:properties_end+1]
+        return user_properties, 0, b''
+
+    if len(data) < property_count_offset + 2:
+        raise struct.error("USER_PROPERTIES missing PropertyCount")
+
+    property_count = struct.unpack('<H', data[property_count_offset:property_count_offset+2])[0]
+    user_properties['PropertyCount'] = property_count
+    user_properties['Reserved5'] = data[properties_end:properties_end+1]
+
+    return user_properties, property_count, data[property_count_offset+2:properties_end]
 
 # 2.2.10.2 USER_PROPERTY
 class USER_PROPERTY(Structure):
@@ -2831,14 +2858,14 @@ def hSamrUnicodeChangePasswordUser2(dce, serverName='\x00', userName='', oldPass
         except:
             pass
 
+    if isinstance(newPassword, bytes):
+        import sys
+        newPassword = newPassword.decode(sys.getfilesystemencoding())
+
     newPwdHashNT = ntlm.NTOWFv1(newPassword)
 
     samUser = SAMPR_USER_PASSWORD()
-    try:
-        encoded_password = newPassword.encode('utf-16le')
-    except UnicodeDecodeError:
-        import sys
-        encoded_password = newPassword.decode(sys.getfilesystemencoding()).encode('utf-16le')
+    encoded_password = newPassword.encode('utf-16le')
 
     samUser['Buffer'] = b'A' * (512 - len(encoded_password)) + encoded_password
 

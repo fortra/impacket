@@ -24,7 +24,6 @@
 #   [ ] Implement QoS = QOS_ASSURED_DELIVERY when publishing messages
 #
 
-from __future__ import print_function
 import logging
 import struct
 import socket

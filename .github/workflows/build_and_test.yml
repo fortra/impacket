@@ -11,7 +11,7 @@ env:
 jobs:
   lint:
     name: Check syntax errors and warnings
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     if:
       github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
       github.repository
@@ -40,7 +40,7 @@ jobs:
   test:
     name: Run unit tests and build wheel
     needs: lint
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.python-version == '3.9' && 'ubuntu-22.04' || matrix.os }}
     if:
       github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
       github.repository
@@ -48,11 +48,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10","3.11","3.12"]
+        python-version: ["3.9", "3.10","3.11","3.12","3.13"]
         experimental: [false]
         os: [ubuntu-latest]
         include:
-          - python-version: "3.13-dev"
+          - python-version: "3.14-dev"
             experimental: true
             os: ubuntu-latest
     continue-on-error: ${{ matrix.experimental }}

@@ -24,8 +24,6 @@
 # Author:
 #   Alberto Solino (@agsolino)
 #
-from __future__ import division
-from __future__ import print_function
 import random
 from struct import pack, unpack
 

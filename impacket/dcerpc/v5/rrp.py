@@ -692,36 +692,28 @@ def checkNullString(string):
         return string
 
 def packValue(valueType, value):
+    if valueType in (REG_EXPAND_SZ, REG_MULTI_SZ, REG_SZ) and isinstance(value, bytes):
+        import sys
+        value = value.decode(sys.getfilesystemencoding())
+
     if valueType == REG_DWORD:
         retData = pack('<L', value)
     elif valueType == REG_DWORD_BIG_ENDIAN:
         retData = pack('>L', value)
     elif valueType == REG_EXPAND_SZ:
-        try:
-            retData = checkNullString(value).encode('utf-16le')
-        except UnicodeDecodeError:
-            import sys
-            retData = value.decode(sys.getfilesystemencoding()).encode('utf-16le')
+        retData = checkNullString(value).encode('utf-16le')
     elif valueType == REG_MULTI_SZ:
-        try:
-            v = checkNullString(value)
-            # REG_MULTI_SZ must end with 2 null-bytes
-            if v[-2:-1] != '\x00':
-                v = v + '\x00'
-            retData = v.encode('utf-16le')
-        except UnicodeDecodeError:
-            import sys
-            retData = value.decode(sys.getfilesystemencoding()).encode('utf-16le')
+        v = checkNullString(value)
+        # REG_MULTI_SZ must end with 2 null-bytes
+        if v[-2:-1] != '\x00':
+            v = v + '\x00'
+        retData = v.encode('utf-16le')
     elif valueType == REG_QWORD:
         retData = pack('<Q', value)
     elif valueType == REG_QWORD_LITTLE_ENDIAN:
         retData = pack('>Q', value)
     elif valueType == REG_SZ:
-        try:
-            retData = checkNullString(value).encode('utf-16le')
-        except UnicodeDecodeError:
-            import sys
-            retData = value.decode(sys.getfilesystemencoding()).encode('utf-16le')
+        retData = checkNullString(value).encode('utf-16le')
     else:
         retData = value
 

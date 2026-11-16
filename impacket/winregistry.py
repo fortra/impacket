@@ -22,8 +22,6 @@
 #   [ ] Parse li records, probable the same as the ri but couldn't find any to probe
 #
 
-from __future__ import division
-from __future__ import print_function
 import sys
 import re
 from binascii import unhexlify
@@ -46,6 +44,15 @@ REG_BINARY      = 0x03
 REG_DWORD       = 0x04
 REG_MULTISZ     = 0x07
 REG_QWORD       = 0x0b
+
+
+def format_multi_sz(valueData, separator='\n  '):
+    if isinstance(valueData, int):
+        return 'NULL'
+    if isinstance(valueData, bytes):
+        valueData = valueData.decode('utf-16le')
+    return valueData.rstrip('\x00').replace('\x00', separator)
+
 
 # Structs
 class REG_REGF(Structure):
@@ -180,7 +187,7 @@ class Registry(ABC):
         pass
 
     @abstractmethod
-    def printValue(self, valueType, valueData):
+    def printValue(self, valueType, valueData, multiSzSeparator='\n  '):
         pass
 
     @abstractmethod
@@ -440,8 +447,13 @@ class saveRegistryParser(Registry):
 
         return parentKey
 
-    def printValue(self, valueType, valueData):
-        if valueType in [REG_SZ, REG_EXPAND_SZ, REG_MULTISZ]:
+    def printValue(self, valueType, valueData, multiSzSeparator='\n  '):
+        if valueType == REG_MULTISZ:
+            if isinstance(valueData, int):
+                print('NULL')
+            else:
+                print("%s" % format_multi_sz(valueData, separator=multiSzSeparator))
+        elif valueType in [REG_SZ, REG_EXPAND_SZ]:
             if isinstance(valueData, int):
                 print('NULL')
             else:
@@ -695,8 +707,13 @@ class exportRegistryParser(Registry):
         for subNode in list(node.childKeys.values()):
             self.__walkSubNodes(subNode)
 
-    def printValue(self, valueType, valueData):
-        if valueType in [REG_SZ, REG_EXPAND_SZ, REG_MULTISZ] :
+    def printValue(self, valueType, valueData, multiSzSeparator='\n  '):
+        if valueType == REG_MULTISZ:
+            if valueData == b'' or valueData == b'\x00\x00':
+                print('NULL')
+            else:
+                print("%s" % format_multi_sz(valueData, separator=multiSzSeparator))
+        elif valueType in [REG_SZ, REG_EXPAND_SZ] :
             if valueData == b'' or valueData == b'\x00\x00':
                 print('NULL')
             else:

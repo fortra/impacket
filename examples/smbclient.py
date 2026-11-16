@@ -19,8 +19,6 @@
 #   SMB DCE/RPC
 #
 
-from __future__ import division
-from __future__ import print_function
 import sys
 import logging
 import argparse
@@ -50,6 +48,12 @@ def main():
                                                        'line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
                                                                             '(128 or 256 bits)')
+
+    group = parser.add_argument_group('dfs')
+
+    group.add_argument('-dfs-follow', action='store_true', default=False,
+                       help='Automatically follow DFS links by creating new SMB connections to target servers. '
+                            'Disabled by default for OPSEC reasons (use dfs_mode command in shell to toggle at runtime)')
 
     group = parser.add_argument_group('connection')
 
@@ -98,7 +102,7 @@ def main():
         else:
             smbClient.login(username, password, domain, lmhash, nthash)
 
-        shell = MiniImpacketShell(smbClient, None, options.outputfile)
+        shell = MiniImpacketShell(smbClient, None, options.outputfile, dfs_auto_follow=options.dfs_follow)
 
         if options.outputfile is not None:
             f = open(options.outputfile, 'a')

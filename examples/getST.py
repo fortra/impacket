@@ -49,8 +49,6 @@
 #   Leandro (@0xdeaddood)
 #   Jake Karnes (@jakekarnes42)
 
-from __future__ import division
-from __future__ import print_function
 import argparse
 import datetime
 import logging
@@ -74,7 +72,7 @@ from impacket.krb5.asn1 import AP_REQ, AS_REP, TGS_REQ, Authenticator, TGS_REP, 
 from impacket.krb5.ccache import CCache, Credential
 from impacket.krb5.crypto import Key, _enctype_table, _HMACMD5, _AES256CTS, Enctype, string_to_key, _get_checksum_profile, Cksumtype
 from impacket.krb5.constants import TicketFlags, encodeFlags, ApplicationTagNumbers
-from impacket.krb5.kerberosv5 import getKerberosTGS, getKerberosTGT, sendReceive
+from impacket.krb5.kerberosv5 import getKerberosTGS, getKerberosTGT, getKerberosTGSRequestEnctypes, sendReceive
 from impacket.krb5.types import Principal, KerberosTime, Ticket
 from impacket.ntlm import compute_nthash
 from impacket.winregistry import hexdump
@@ -348,14 +346,7 @@ class GETST:
 
             reqBody['till'] = KerberosTime.to_asn1(now)
             reqBody['nonce'] = random.getrandbits(31)
-            seq_set_iter(reqBody, 'etype',
-                         (
-                             int(constants.EncryptionTypes.rc4_hmac.value),
-                             int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
-                             int(constants.EncryptionTypes.des_cbc_md5.value),
-                             int(cipher.enctype)
-                         )
-                         )
+            seq_set_iter(reqBody, 'etype', getKerberosTGSRequestEnctypes())
             message = encoder.encode(tgsReq)
 
             logging.info('Requesting S4U2Proxy')
@@ -535,8 +526,7 @@ class GETST:
 
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.getrandbits(31)
-        seq_set_iter(reqBody, 'etype',
-                     (int(cipher.enctype), int(constants.EncryptionTypes.rc4_hmac.value)))
+        seq_set_iter(reqBody, 'etype', getKerberosTGSRequestEnctypes())
 
         if self.__options.u2u:
             seq_set_iter(reqBody, 'additional-tickets', (ticket.to_asn1(TicketAsn1()),))
@@ -764,14 +754,7 @@ class GETST:
 
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.getrandbits(31)
-        seq_set_iter(reqBody, 'etype',
-                     (
-                         int(constants.EncryptionTypes.rc4_hmac.value),
-                         int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
-                         int(constants.EncryptionTypes.des_cbc_md5.value),
-                         int(cipher.enctype)
-                     )
-                     )
+        seq_set_iter(reqBody, 'etype', getKerberosTGSRequestEnctypes())
         message = encoder.encode(tgsReq)
 
         logging.info('Requesting S4U2Proxy')
@@ -784,11 +767,25 @@ class GETST:
         # Do we have a TGT cached?
         domain, _, TGT, _ = CCache.parseFile(self.__domain)
 
-        # ToDo: Check this TGT belogns to the right principal
         if TGT is not None:
-            tgt, cipher, sessionKey = TGT['KDC_REP'], TGT['cipher'], TGT['sessionKey']
-            oldSessionKey = sessionKey
-            
+            cachedClientPrincipal = TGT['client']
+            cachedUser = "/".join(component["data"].decode("utf-8") for component in cachedClientPrincipal.components)
+            cachedDomain = cachedClientPrincipal.realm['data'].decode('utf-8')
+
+            if (self.__user.lower() != cachedUser.lower()) or (self.__domain.lower() != cachedDomain.lower()):
+                logging.warning(
+                    "Cached TGT belongs to '%s@%s', "
+                    "but the requested principal is '%s@%s'. "
+                    "Ignoring cached TGT and requesting a new one.",
+                    cachedUser,
+                    cachedDomain,
+                    self.__user,
+                    self.__domain,
+                )
+            else:
+                tgt, cipher, sessionKey = TGT['KDC_REP'], TGT['cipher'], TGT['sessionKey']
+                oldSessionKey = sessionKey
+
         if tgt is None:
             # Still no TGT
             userName = Principal(self.__user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)

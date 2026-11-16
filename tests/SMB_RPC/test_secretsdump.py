@@ -10,12 +10,37 @@
 #
 import os
 import logging
+import struct
 import pytest
 import unittest
+from unittest import mock
 from tests import RemoteTestCase
 
+from impacket.dcerpc.v5 import samr
 from impacket.examples.secretsdump import LocalOperations, RemoteOperations, SAMHashes, LSASecrets, NTDSHashes
 from impacket.smbconnection import SMBConnection
+
+LOCAL_SYSTEM_HIVE = os.path.join("tests", "data", "secretsdump_local_SYSTEM")
+LOCAL_SECURITY_HIVE = os.path.join("tests", "data", "secretsdump_local_SECURITY")
+
+
+class FakeServiceRegistry:
+    def __init__(self, services):
+        self.services = services
+
+    def getValue(self, path):
+        if path == '\\Select\\Current':
+            return 4, 1
+
+        prefix = '\\ControlSet001\\Services\\'
+        suffix = '\\ObjectName'
+        if path.startswith(prefix) and path.endswith(suffix):
+            serviceName = path[len(prefix):-len(suffix)]
+            username = self.services.get(serviceName)
+            if username is not None:
+                return 1, (username + '\x00').encode('utf-16-le')
+
+        return None
 
 
 def _print_helper(*args, **kwargs):
@@ -259,6 +284,165 @@ class Options(object):
     user_status=False
 
 
+class NTDSHashesUnitTests(unittest.TestCase):
+
+    def test_trust_key_history_is_controlled_by_history_option(self):
+        class FakeESEDB:
+            def openTable(self, table_name):
+                self.returned = False
+                return object()
+
+            def getNextRow(self, cursor, filter_tables=None):
+                if self.returned:
+                    return None
+                self.returned = True
+                return self.record
+
+        # per trust value, with an authoritative flat name: rc4 + aes256 + aes256(trust account)
+        # + aes128 + aes128(trust account)
+        for history, expected_lines in ((False, 5), (True, 10)):
+            with self.subTest(history=history):
+                esedb = FakeESEDB()
+                esedb.record = {
+                    NTDSHashes.NAME_TO_INTERNAL['trustPartner']: 'partner.example',
+                    NTDSHashes.NAME_TO_INTERNAL['flatName']: 'PARTNER',
+                    NTDSHashes.NAME_TO_INTERNAL['trustAuthIncoming']: b'encrypted',
+                    NTDSHashes.NAME_TO_INTERNAL['trustAuthOutgoing']: None,
+                }
+
+                ntds = object.__new__(NTDSHashes)
+                ntds._NTDSHashes__domainFQDN = 'local.example'
+                ntds._NTDSHashes__securityHive = None
+                ntds._NTDSHashes__ESEDB = esedb
+                ntds._NTDSHashes__history = history
+                ntds._NTDSHashes__justNTLM = False
+                output = []
+                ntds._NTDSHashes__perSecretCallback = lambda secret_type, line: output.append(line)
+                ntds._NTDSHashes__decryptTrustAuthBlob = lambda value: b'trust-auth-info'
+
+                with mock.patch('impacket.examples.secretsdump._parse_trust_auth_info',
+                                return_value=(b'current-secret', b'previous-secret')):
+                    ntds._NTDSHashes__dumpTrustKeysOffline()
+
+                self.assertEqual(expected_lines, len(output))
+                self.assertEqual(history, any(', previous)' in line for line in output))
+
+    def test_header_only_supplemental_credentials_are_ignored(self):
+        header_only_properties = (
+            b'\x00\x00\x00\x00'
+            b'\x62\x00\x00\x00'
+            b'\x00\x00'
+            b'\x00\x00'
+            + (b'\x20\x00' * 48)
+            + b'\x50\x00\x00\x01'
+        )
+
+        user_properties, property_count, properties_data = samr.unpack_user_properties(header_only_properties)
+
+        self.assertEqual(98, user_properties['Length'])
+        self.assertEqual(0, property_count)
+        self.assertEqual(b'', properties_data)
+        self.assertEqual(b'\x00', user_properties['Reserved5'])
+
+        ntds = object.__new__(NTDSHashes)
+        ntds._NTDSHashes__useVSSMethod = True
+        ntds._NTDSHashes__remoteSSMethodWMINTDS = False
+        ntds._NTDSHashes__kerberosKeys = {}
+        ntds._NTDSHashes__clearTextPwds = {}
+        ntds._NTDSHashes__perSecretCallback = lambda *args, **kwargs: None
+        ntds._NTDSHashes__removeRC4Layer = lambda cipherText: header_only_properties
+
+        record = {
+            NTDSHashes.NAME_TO_INTERNAL['supplementalCredentials']: b'00' * 32,
+            NTDSHashes.NAME_TO_INTERNAL['userPrincipalName']: None,
+            NTDSHashes.NAME_TO_INTERNAL['sAMAccountName']: 'Administrator',
+        }
+
+        ntds._NTDSHashes__decryptSupplementalInfo(record)
+
+        self.assertEqual({}, ntds._NTDSHashes__kerberosKeys)
+        self.assertEqual({}, ntds._NTDSHashes__clearTextPwds)
+
+    def test_unpack_user_properties_excludes_reserved5_and_padding(self):
+        property_data = (
+            b'\x04\x00'
+            b'\x02\x00'
+            b'\x00\x00'
+            b'A\x00B\x00'
+            b'ff'
+        )
+        user_properties_blob = (
+            b'\x00\x00\x00\x00'
+            + (100 + len(property_data)).to_bytes(4, 'little')
+            + b'\x00\x00'
+            + b'\x00\x00'
+            + (b'\x20\x00' * 48)
+            + b'\x50\x00'
+            + b'\x01\x00'
+            + property_data
+            + b'\x00'
+            + b'\x03\x03\x03'
+        )
+
+        user_properties, property_count, properties_data = samr.unpack_user_properties(user_properties_blob)
+        user_property = samr.USER_PROPERTY(properties_data)
+
+        self.assertEqual(1, property_count)
+        self.assertEqual(112, user_properties['Length'])
+        self.assertEqual(b'\x00', user_properties['Reserved5'])
+        self.assertEqual(property_data, properties_data)
+        self.assertEqual('AB', user_property['PropertyName'].decode('utf-16le'))
+        self.assertEqual(b'ff', user_property['PropertyValue'])
+
+    def test_unpack_user_properties_requires_reserved5_for_header_only_blob(self):
+        header_only_properties = (
+            b'\x00\x00\x00\x00'
+            b'\x62\x00\x00\x00'
+            b'\x00\x00'
+            b'\x00\x00'
+            + (b'\x20\x00' * 48)
+            + b'\x50\x00'
+        )
+
+        with self.assertRaisesRegex(struct.error, 'missing Reserved5'):
+            samr.unpack_user_properties(header_only_properties)
+
+    def test_unpack_user_properties_requires_reserved5_for_property_blob(self):
+        property_data = (
+            b'\x04\x00'
+            b'\x02\x00'
+            b'\x00\x00'
+            b'A\x00B\x00'
+            b'ff'
+        )
+        user_properties_blob = (
+            b'\x00\x00\x00\x00'
+            + (100 + len(property_data)).to_bytes(4, 'little')
+            + b'\x00\x00'
+            + b'\x00\x00'
+            + (b'\x20\x00' * 48)
+            + b'\x50\x00'
+            + b'\x01\x00'
+            + property_data
+        )
+
+        with self.assertRaisesRegex(struct.error, 'missing Reserved5'):
+            samr.unpack_user_properties(user_properties_blob)
+
+    def test_unpack_user_properties_rejects_length_shorter_than_fixed_header(self):
+        invalid_header = (
+            b'\x00\x00\x00\x00'
+            b'\x61\x00\x00\x00'
+            b'\x00\x00'
+            b'\x00\x00'
+            + (b'\x20\x00' * 48)
+            + b'\x50\x00\x00'
+        )
+
+        with self.assertRaisesRegex(struct.error, 'length shorter than the fixed header'):
+            samr.unpack_user_properties(invalid_header)
+
+
 class SecretsDumpTests(RemoteTestCase):
 
     def test_VSS_History(self):
@@ -308,6 +492,115 @@ class Tests(SecretsDumpTests, unittest.TestCase):
     def setUp(self):
         super(Tests, self).setUp()
         self.set_transport_config(aes_keys=True)
+
+
+class LocalServiceAccountSecretsTests(unittest.TestCase):
+    """Offline test for the local service-account LSA secret decryption.
+
+    Replicates:
+        secretsdump.py local -system SYSTEM -security SECURITY -history
+
+    using the minimal SYSTEM/SECURITY fixtures, and checks that the
+    _SC_UevAgentService secret (current and history) decrypts to the expected
+    account/password, with the service account resolved from the SYSTEM hive.
+    """
+
+    EXPECTED = [
+        ".\\Services:Totobolo123",          # _SC_UevAgentService (CurrVal)
+        ".\\Services:Password123",          # _SC_UevAgentService_history (OldVal)
+    ]
+
+    def test_local_service_decryption(self):
+        secrets = []
+
+        def callback(secretType, secret):
+            if secretType == LSASecrets.SECRET_TYPE.LSA:
+                secrets.append(secret)
+
+        bootKey = LocalOperations(LOCAL_SYSTEM_HIVE).getBootKey()
+        self.assertEqual(bootKey.hex(), "4c695b55f0f423fa70a87bbe173edfc6")
+
+        lsa = LSASecrets(LOCAL_SECURITY_HIVE, bootKey, isRemote=False,
+                         history=True, perSecretCallback=callback,
+                         systemHive=LOCAL_SYSTEM_HIVE)
+        lsa.dumpCachedHashes()
+        lsa.dumpSecrets()
+        lsa.finish()
+
+        for expected in self.EXPECTED:
+            self.assertIn(expected, secrets)
+
+    def test_missing_service_uses_unknown_user(self):
+        secrets = []
+        lsa = LSASecrets(
+            None,
+            b'',
+            systemHive='SYSTEM',
+            perSecretCallback=lambda _, secret: secrets.append(secret),
+        )
+
+        registry = FakeServiceRegistry({})
+        with mock.patch(
+            'impacket.examples.secretsdump.winregistry.get_registry_parser',
+            return_value=registry,
+        ):
+            lsa._LSASecrets__printSecret(
+                '_SC_missing',
+                'password'.encode('utf-16-le'),
+            )
+
+        self.assertEqual(secrets, ['(Unknown User):password'])
+
+    def test_empty_remote_service_account_uses_unknown_user(self):
+        secrets = []
+        remote_ops = mock.Mock()
+        remote_ops.getServiceAccount.return_value = ''
+        lsa = LSASecrets(
+            None,
+            b'',
+            remoteOps=remote_ops,
+            perSecretCallback=lambda _, secret: secrets.append(secret),
+        )
+
+        lsa._LSASecrets__printSecret(
+            '_SC_missing',
+            'password'.encode('utf-16-le'),
+        )
+
+        remote_ops.getServiceAccount.assert_called_once_with('missing')
+        self.assertEqual(secrets, ['(Unknown User):password'])
+
+    def test_service_name_ending_in_history(self):
+        secrets = []
+        lsa = LSASecrets(
+            None,
+            b'',
+            systemHive='SYSTEM',
+            perSecretCallback=lambda _, secret: secrets.append(secret),
+        )
+
+        registry = FakeServiceRegistry({
+            'backup': 'wrong-user',
+            'backup_history': 'right-user',
+        })
+        with mock.patch(
+            'impacket.examples.secretsdump.winregistry.get_registry_parser',
+            return_value=registry,
+        ):
+            lsa._LSASecrets__printSecret(
+                '_SC_backup_history',
+                'current'.encode('utf-16-le'),
+            )
+            lsa._LSASecrets__printSecret(
+                '_SC_backup_history_history',
+                'old'.encode('utf-16-le'),
+                isHistory=True,
+            )
+
+        self.assertEqual(secrets, [
+            'right-user:current',
+            'right-user:old',
+        ])
 
 
 if __name__ == "__main__":

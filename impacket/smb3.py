@@ -30,9 +30,6 @@
 #   [ ] Fix up all the 'ToDo' comments inside the code
 #
 
-from __future__ import division
-from __future__ import print_function
-
 import socket
 import ntpath
 import random
@@ -115,55 +112,6 @@ REQUEST = {
 CHANNEL = {
     'SigningKey' : '',
     'Connection' : 0,
-}
-
-# Source:
-# https://en.wikipedia.org/wiki/List_of_Microsoft_Windows_versions
-# https://www.gaijin.at/en/infos/windows-version-numbers
-WIN_VERSIONS = {
-    102:"Windows 3.1",
-    103:"Windows 3.1",
-    153:"Windows 3.2",
-    300:"Windows 3.11",
-    528:"Windows NT 3.1 SP3",
-    807:"Windows NT 3.5",
-    950:"Windows 95",
-    1057:"Windows NT 3.51",
-    1381:"Windows NT 4.0",
-    1998:"Windows 98",
-    2195:"Windows 2000",
-    2222:"Windows 98 Second Edition",
-    2600:"Windows XP",
-    2700:"Windows XP",
-    2710:"Windows XP",
-    3000:"Windows Me",
-    3790:"Windows XP / Server 2003 / Server 2003 R2",
-    6002:"Windows Vista",
-    6003:"Windows Server 2008",
-    7601:"Windows 7 / Server 2008 R2",
-    8400:"Windows Home Server 2011",
-    9200:"Windows 8 / Server 2012",
-    9600:"Windows 8.1 / Server 2012 R2",
-    10240:"Windows 10",
-    10586:"Windows 10",
-    14393:"Windows 10 / Server 2016",
-    15063:"Windows 10",
-    16299:"Windows 10 / Server 2016",
-    17134:"Windows 10 / Server 2016",
-    17763:"Windows 10 / Server 2019",
-    18362:"Windows 10 / Server 2019",
-    18363:"Windows 10 / Server 2019",
-    19041:"Windows 10 / Server 2019",
-    19042:"Windows 10 / Server 2019",
-    19043:"Windows 10",
-    19044:"Windows 10",
-    19045:"Windows 10",
-    20348:"Windows Server 2022",
-    22000:"Windows 11",
-    22621:"Windows 11",
-    22631:"Windows 11",
-    25398:"Windows Server 2022",
-    26100:"Windows 11 / Server 2025",
 }
 
 
@@ -350,6 +298,21 @@ class SMB3:
         calculatedHash.update(data)
         self._Session['PreauthIntegrityHashValue'] = calculatedHash.digest()
 
+    def __nonceLength(self):
+        # Nonce field is 16 bytes total, but CCM only uses the first 11, GCM the first 12
+        # (rest is reserved padding). MS-SMB2 2.2.41 SMB2_TRANSFORM_HEADER:
+        # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/d6ce2327-a4c9-4793-be66-7b5bad2175fa
+        if self._Connection.get('CipherId') == SMB2_ENCRYPTION_AES128_GCM:
+            return 12
+        return 11
+
+    def __transformCipher(self, key, nonce):
+        # Connection.Dialect < "3.1.1" only ever supports AES-128-CCM (no cipher negotiation
+        # exists before 3.1.1), so CipherId being unset/0 there is the correct CCM fallback.
+        if self._Connection.get('CipherId') == SMB2_ENCRYPTION_AES128_GCM:
+            return AES.new(key, AES.MODE_GCM, nonce[:12])
+        return AES.new(key, AES.MODE_CCM, nonce[:11])
+
     def getKerberos(self):
         return self._doKerberos
 
@@ -487,11 +450,15 @@ class SMB3:
         if (self._Session['SessionFlags'] & SMB2_SESSION_FLAG_ENCRYPT_DATA) or ( packet['TreeID'] != 0 and self._Session['TreeConnectTable'][packet['TreeID']]['EncryptData'] is True):
             plainText = packet.getData()
             transformHeader = SMB2_TRANSFORM_HEADER()
-            transformHeader['Nonce'] = ''.join([rand.choice(string.ascii_letters) for _ in range(11)])
+            transformHeader['Nonce'] = ''.join([rand.choice(string.ascii_letters) for _ in range(self.__nonceLength())])
             transformHeader['OriginalMessageSize'] = len(plainText)
+            # For 3.0/3.0.2 this field really is the cipher (only CCM=0x0001 is defined); for
+            # 3.1.1 it's repurposed as Flags and must stay 0x0001 regardless of cipher, so the
+            # same constant is correct either way. MS-SMB2 2.2.41 SMB2_TRANSFORM_HEADER:
+            # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/d6ce2327-a4c9-4793-be66-7b5bad2175fa
             transformHeader['EncryptionAlgorithm'] = SMB2_ENCRYPTION_AES128_CCM
             transformHeader['SessionID'] = self._Session['SessionID']
-            cipher = AES.new(self._Session['EncryptionKey'], AES.MODE_CCM,  b(transformHeader['Nonce']))
+            cipher = self.__transformCipher(self._Session['EncryptionKey'], b(transformHeader['Nonce']))
             cipher.update(transformHeader.getData()[20:])
             cipherText = cipher.encrypt(plainText)
             transformHeader['Signature'] = cipher.digest()
@@ -517,10 +484,13 @@ class SMB3:
         if data.get_trailer().startswith(b'\xfdSMB'):
             # Packet is encrypted
             transformHeader = SMB2_TRANSFORM_HEADER(data.get_trailer())
-            cipher = AES.new(self._Session['DecryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'][:11])
+            cipher = self.__transformCipher(self._Session['DecryptionKey'], transformHeader['Nonce'])
             cipher.update(transformHeader.getData()[20:])
-            plainText = cipher.decrypt(data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):])
-            #cipher.verify(transformHeader['Signature'])
+            # Verify the signature, not just decrypt: a tampered message must be rejected,
+            # not silently handed back as plaintext. MS-SMB2 3.2.5.1.1.1 Decrypting the Message:
+            # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/d3c03e33-7dc7-4d58-8428-0a1484c5c874
+            plainText = cipher.decrypt_and_verify(data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):],
+                                                   transformHeader['Signature'])
             packet = SMB2Packet(plainText)
         else:
             # In all SMB dialects for a response this field is interpreted as the Status field.
@@ -538,10 +508,12 @@ class SMB3:
                 else:
                     # Packet is encrypted
                     transformHeader = SMB2_TRANSFORM_HEADER(data.get_trailer())
-                    cipher = AES.new(self._Session['DecryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'][:11])
+                    cipher = self.__transformCipher(self._Session['DecryptionKey'], transformHeader['Nonce'])
                     cipher.update(transformHeader.getData()[20:])
-                    plainText = cipher.decrypt(data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):])
-                    #cipher.verify(transformHeader['Signature'])
+                    # See the tag-verification note above: same MS-SMB2 3.2.5.1.1.1 requirement
+                    # applies to encrypted STATUS_PENDING interim responses.
+                    plainText = cipher.decrypt_and_verify(data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):],
+                                                           transformHeader['Signature'])
                     packet = SMB2Packet(plainText)
                 status = packet['Status']
 
@@ -623,9 +595,14 @@ class SMB3:
                 negotiateContext2 = SMB2NegotiateContext()
                 negotiateContext2['ContextType'] = SMB2_ENCRYPTION_CAPABILITIES
 
+                # Ciphers must be listed most-preferred first. GCM is faster on AES-NI hardware,
+                # CCM is the fallback for servers without 3.1.1's cipher negotiation.
+                # MS-SMB2 2.2.3.1.2 SMB2_ENCRYPTION_CAPABILITIES:
+                # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-smb2/16693be7-2b27-4d3b-804b-f605bde5bcdd
                 encryptionCapabilities = SMB2EncryptionCapabilities()
-                encryptionCapabilities['CipherCount'] = 1
-                encryptionCapabilities['Ciphers'] = b'\x01\x00'
+                encryptionCapabilities['CipherCount'] = 2
+                encryptionCapabilities['Ciphers'] = struct.pack('<HH', SMB2_ENCRYPTION_AES128_GCM,
+                                                                 SMB2_ENCRYPTION_AES128_CCM)
 
                 negotiateContext2['Data'] = encryptionCapabilities.getData()
                 negotiateContext2['DataLength'] = len(negotiateContext2['Data'])
@@ -745,6 +722,7 @@ class SMB3:
         if TGT is None:
             if TGS is None:
                 tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
+                TGT = {'KDC_REP': tgt, 'cipher': cipher, 'sessionKey': sessionKey}
         else:
             tgt = TGT['KDC_REP']
             cipher = TGT['cipher']
@@ -769,6 +747,7 @@ class SMB3:
         if TGS is None:
             serverName = Principal('cifs/%s' % (self._Connection['ServerName']), type=constants.PrincipalNameType.NT_SRV_INST.value)
             tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
+            TGS = {'KDC_REP': tgs, 'cipher': cipher, 'sessionKey': sessionKey}
         else:
             tgs = TGS['KDC_REP']
             cipher = TGS['cipher']
@@ -934,6 +913,11 @@ class SMB3:
                                                                              b"ServerOut\x00", 128)
 
             self._Session['CalculatePreAuthHash'] = False
+
+            # Persist the TGT/ST so callers can reuse them through getCredentials()
+            self.__TGT = TGT
+            self.__TGS = TGS
+
             return True
         else:
             # We clean the stuff we used in case we want to authenticate again
@@ -1019,6 +1003,8 @@ class SMB3:
             self._Session['Connection']      = self._NetBIOSSession.get_socket()
             sessionSetupResponse = SMB2SessionSetup_Response(ans['Data'])
             respToken = SPNEGO_NegTokenResp(sessionSetupResponse['Buffer'])
+            if respToken.isNegoExSelected():
+                raise NotImplementedError('NEGOEX / PKU2U authentication is not implemented yet')
 
             # Let's parse some data and keep it to ourselves in case it is asked
             ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])
@@ -1254,10 +1240,13 @@ class SMB3:
             if fileName[0] == '\\':
                 fileName = fileName[1:]
 
-        if self._Session['TreeConnectTable'][treeId]['IsDfsShare'] is True:
+        treeEntry = self._Session['TreeConnectTable'][treeId]
+        if treeEntry['IsDfsShare'] is True:
             pathName = fileName
         else:
-            pathName = '\\\\' + self._Connection['ServerName'] + '\\' + fileName
+            pathName = '\\\\' + self._Connection['ServerName'] + '\\' + treeEntry['ShareName']
+            if fileName:
+                pathName += '\\' + fileName
 
         fileEntry = copy.deepcopy(FILE)
         fileEntry['LeaseKey']   = uuid.generate()
@@ -1265,16 +1254,16 @@ class SMB3:
         self.GlobalFileTable[pathName] = fileEntry
 
         if self._Connection['Dialect'] >= SMB2_DIALECT_30 and self._Connection['SupportsDirectoryLeasing'] is True:
-           # Is this file NOT on the root directory?
-           if len(fileName.split('\\')) > 2:
-               parentDir = ntpath.dirname(pathName)
-               if parentDir in self.GlobalFileTable:
-                   raise Exception("Don't know what to do now! :-o")
-               else:
-                   parentEntry = copy.deepcopy(FILE)
-                   parentEntry['LeaseKey']   = uuid.generate()
-                   parentEntry['LeaseState'] = SMB2_LEASE_NONE
-                   self.GlobalFileTable[parentDir] = parentEntry
+            # The share root itself has no parent directory to track.
+            if fileName:
+                # ntpath.dirname preserves the trailing separator for a UNC
+                # share root, while pathName stores the root without it.
+                parentDir = ntpath.dirname(pathName).rstrip('\\')
+                if parentDir not in self.GlobalFileTable:
+                    parentEntry = copy.deepcopy(FILE)
+                    parentEntry['LeaseKey']   = uuid.generate()
+                    parentEntry['LeaseState'] = SMB2_LEASE_NONE
+                    self.GlobalFileTable[parentDir] = parentEntry
 
         packet = self.SMB_PACKET()
         packet['Command'] = SMB2_CREATE
@@ -1789,7 +1778,6 @@ class SMB3:
             path, ctx = self.timestampForSnapshot(path)
             createContexts.append(ctx)
 
-        # ToDo: Handle situations where share is password protected
         path = path.replace('/', '\\')
         path = ntpath.normpath(path)
         if len(path) > 0 and path[0] == '\\':
@@ -1834,7 +1822,6 @@ class SMB3:
         return files
 
     def mkdir(self, shareName, pathName, password = None):
-        # ToDo: Handle situations where share is password protected
         pathName = pathName.replace('/', '\\')
         pathName = ntpath.normpath(pathName)
         if len(pathName) > 0 and pathName[0] == '\\':
@@ -1854,7 +1841,6 @@ class SMB3:
         return True
 
     def rmdir(self, shareName, pathName, password = None):
-        # ToDo: Handle situations where share is password protected
         pathName = pathName.replace('/', '\\')
         pathName = ntpath.normpath(pathName)
         if len(pathName) > 0 and pathName[0] == '\\':
@@ -1880,7 +1866,6 @@ class SMB3:
         return True
 
     def remove(self, shareName, pathName, password = None):
-        # ToDo: Handle situations where share is password protected
         pathName = pathName.replace('/', '\\')
         pathName = ntpath.normpath(pathName)
         if len(pathName) > 0 and pathName[0] == '\\':
@@ -1906,7 +1891,6 @@ class SMB3:
             path, ctx = self.timestampForSnapshot(path)
             createContexts.append(ctx)
 
-        # ToDo: Handle situations where share is password protected
         path = path.replace('/', '\\')
         path = ntpath.normpath(path)
         if len(path) > 0 and path[0] == '\\':
@@ -1939,7 +1923,6 @@ class SMB3:
             self.disconnectTree(treeId)
 
     def storeFile(self, shareName, path, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ):
-        # ToDo: Handle situations where share is password protected
         path = path.replace('/', '\\')
         path = ntpath.normpath(path)
         if len(path) > 0 and path[0] == '\\':

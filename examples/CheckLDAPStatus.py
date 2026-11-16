@@ -49,14 +49,28 @@ class CheckLDAP:
         logging.info(f"Found {len(dc_list)} domain controller(s) in {self.domain}")
         for dc in dc_list:
             signing_required = self.check_ldap_signing(dc)
-            channel_binding_status = self.check_ldaps_cbt(dc)
-            print(f"Hostname: {dc}\n\t> LDAP Signing Required: {signing_required}\n\t> LDAPS Channel Binding Status: {channel_binding_status}")
+            channel_binding_status, signature_algorithm = self.check_ldaps_cbt(dc)
+            print(
+                f"Hostname: {dc}\n"
+                f"\t> LDAP Signing Required: {signing_required}\n"
+                f"\t> LDAPS Channel Binding Status: {channel_binding_status}\n"
+                f"\t> LDAPS Certificate Signature Algorithm: {signature_algorithm}"
+            )
+
+    @staticmethod
+    def get_ldaps_certificate_signature_algorithm(ldap_connection):
+        signature_algorithm = ldap_connection._socket.get_peer_certificate().get_signature_algorithm()
+        if isinstance(signature_algorithm, bytes):
+            return signature_algorithm.decode('ascii')
+        return str(signature_algorithm)
 
     def check_ldaps_cbt(self, hostname):
         cbt_status = "Never"
+        signature_algorithm = "Unavailable"
         ldap_url = f"ldaps://{hostname}"
         try:
             ldap_connection = LDAPConnection(url=ldap_url)
+            signature_algorithm = self.get_ldaps_certificate_signature_algorithm(ldap_connection)
             ldap_connection.channel_binding_value = None
             ldap_connection.login(user=" ", domain=self.domain)
         except LDAPSessionError as e:
@@ -82,7 +96,7 @@ class CheckLDAP:
                 cbt_status = "No TLS cert"
             else:
                 raise
-        return cbt_status
+        return cbt_status, signature_algorithm
 
     def check_ldap_signing(self, hostname):
         signing_required = False

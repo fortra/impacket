@@ -158,6 +158,18 @@ class MSSQL_VERSION:
                 4035 : "(CU4)",
             }),
         }),
+        17 : ("2025", {
+            0 : ("", {
+                1000 : "RTM",
+                4005 : "(CU1 withdrawn)",
+                4006 : "(CU1)",
+                4015 : "(CU2)",
+                4025 : "(CU3)",
+                4035 : "(CU4)",
+                4045 : "(CU5)",
+                4055 : "(CU6)",
+            }),
+        }),
     })
 
     def __init__(self, version):
@@ -178,8 +190,7 @@ class MSSQL_VERSION:
             string += MSSQL_VERSION.VERSION_NAME[1][self.major][1][self.minor][1][self.build]
         except KeyError:
             pass
-        finally:
-            return string
+        return string
 
     def __repr__(self):
         return f"{self.version_name} ({self.version_number})"

