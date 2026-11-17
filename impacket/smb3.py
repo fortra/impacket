@@ -1056,7 +1056,9 @@ class SMB3:
                         self._Session["ServerOSMinor"] = indexbytes(version,1)
                         self._Session["ServerOSBuild"] = struct.unpack('<H',version[2:4])[0]
 
-            type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash, version=clientVersion)
+            type3, exportedSessionKey = ntlm.getNTLMSSPType3(
+                auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash,
+                version=clientVersion, include_mic=True)
 
             type3['MIC'] = b'\x00' * 16   # zeroed: the MIC is computed over the message that carries it
             type3['MIC'] = ntlm.hmac_md5(exportedSessionKey, auth.getData() + respToken['ResponseToken'] + type3.getData())
