@@ -111,6 +111,34 @@ class TestEthernet(unittest.TestCase):
         self.assertEqual(eth_copy.tag_cnt, 2)
         self.assertEqual(eth_copy.get_packet(), self.frame[:12] + tags[0] + tags[2] + self.frame[-2:])
 
+    def test_06(self):
+        """An array of bytes (as returned by get_bytes()) is parsed like a byte
+        string, so VLAN tags are detected instead of silently ignored. See #684."""
+        macs = b'\x54\xab\xa3\xb9\x38\x3d\xe2\xef\x8d\xc7\xa8\x5e'
+        frames = {
+            'untagged': macs + b'\x08\x00',
+            'single tag': macs + b'\x81\x00\xac\xf3' + b'\x08\x00',
+            'QinQ': macs + b'\x88\xa8\x50\x01' + b'\x81\x00\xac\xf3' + b'\x08\x00',
+        }
+        for label, frame in frames.items():
+            from_bytes = Ethernet(frame)
+            from_array = Ethernet(array('B', frame))
+            self.assertEqual(from_array.tag_cnt, from_bytes.tag_cnt, label)
+            self.assertEqual(from_array.get_header_size(), from_bytes.get_header_size(), label)
+            self.assertEqual(from_array.get_ether_type(), 0x0800, label)
+            self.assertEqual(from_array.get_packet(), frame, label)
+
+    def test_07(self):
+        """A buffer shorter than the Ethernet header is zero-padded whether it is a
+        byte string or an array of bytes (the latter used to raise TypeError). See #684."""
+        short = b'\x54\xab\xa3\xb9\x38\x3d\xe2\xef\x8d\xc7'  # 10 bytes, header is 14
+        from_bytes = Ethernet(short)
+        from_array = Ethernet(array('B', short))
+        self.assertEqual(from_array.get_header_size(), 14)
+        self.assertEqual(from_array.tag_cnt, 0)
+        self.assertEqual(from_array.get_packet(), from_bytes.get_packet())
+        self.assertEqual(from_array.get_packet(), short + b'\x00' * 4)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=1)
