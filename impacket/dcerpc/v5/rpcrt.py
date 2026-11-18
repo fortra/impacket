@@ -1693,7 +1693,8 @@ class DCERPC_v5(DCERPC):
                     self.__gss = gssapi.GSSAPI(self.__cipher)
                     self.__sequence = 0
                     self.recv()
-                    self.__sequence = 0
+                    # The SPNEGO mechListMIC sent by getKerberosType3() took the first initiator sequence number
+                    self.__sequence = kerberosv5.KERBEROS_TYPE1_SEQ_NUMBER + 1
                 else:
                     auth3 = MSRPCHeader()
                     auth3['type'] = MSRPC_AUTH3

@@ -33,7 +33,7 @@ from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB
     EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_set, seq_set_iter, KERB_ERROR_DATA, METHOD_DATA, \
     ETYPE_INFO2, ETYPE_INFO, AP_REP, EncAPRepPart, KERB_SUPERSEDED_BY_USER
 from impacket.krb5.types import KerberosTime, Principal, Ticket
-from impacket.krb5.gssapi import CheckSumField, GSS_C_DCE_STYLE, GSS_C_MUTUAL_FLAG, GSS_C_REPLAY_FLAG, \
+from impacket.krb5.gssapi import GSSAPI, CheckSumField, GSS_C_DCE_STYLE, GSS_C_MUTUAL_FLAG, GSS_C_REPLAY_FLAG, \
     GSS_C_SEQUENCE_FLAG, GSS_C_CONF_FLAG, GSS_C_INTEG_FLAG
 from impacket.krb5 import constants
 from impacket.krb5.crypto import Key, _enctype_table, InvalidChecksum
@@ -529,6 +529,10 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey, renew =
 ################################################################################
 # DCE RPC Helpers
 ################################################################################
+# What getKerberosType1() negotiates, getKerberosType3() needs both to compute the SPNEGO mechListMIC
+KERBEROS_TYPE1_MECH_TYPES = [TypesMech['MS KRB5 - Microsoft Kerberos 5']]
+KERBEROS_TYPE1_SEQ_NUMBER = 0
+
 def getKerberosType3(cipher, sessionKey, auth_data):
     negTokenResp = SPNEGO_NegTokenResp(auth_data)
     if negTokenResp.isNegoExSelected():
@@ -577,6 +581,11 @@ def getKerberosType3(cipher, sessionKey, auth_data):
 
     resp = SPNEGO_NegTokenResp()
     resp['ResponseToken'] = encoder.encode(ap_rep)
+    # RFC 4178 5: Windows Server vNext rejects the last leg without a mechListMIC, signed with the acceptor subkey
+    negTokenInit = SPNEGO_NegTokenInit()
+    negTokenInit['MechTypes'] = KERBEROS_TYPE1_MECH_TYPES
+    resp['mechListMIC'] = GSSAPI(cipher).GSS_GetMIC(sessionKey2, negTokenInit.getMechTypesDER(), KERBEROS_TYPE1_SEQ_NUMBER,
+                                                    pad=False)
 
     return cipher, sessionKey2, resp.getData()
 
@@ -668,7 +677,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
     blob = SPNEGO_NegTokenInit()
 
     # Kerberos
-    blob['MechTypes'] = [TypesMech['MS KRB5 - Microsoft Kerberos 5']]
+    blob['MechTypes'] = KERBEROS_TYPE1_MECH_TYPES
 
     # Let's extract the ticket from the TGS
     tgs = decoder.decode(tgs, asn1Spec = TGS_REP())[0]
@@ -704,7 +713,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
     chkField['Flags'] = GSS_C_CONF_FLAG | GSS_C_INTEG_FLAG | GSS_C_SEQUENCE_FLAG | GSS_C_REPLAY_FLAG | GSS_C_MUTUAL_FLAG | GSS_C_DCE_STYLE
     #chkField['Flags'] = GSS_C_INTEG_FLAG | GSS_C_SEQUENCE_FLAG | GSS_C_REPLAY_FLAG | GSS_C_MUTUAL_FLAG | GSS_C_DCE_STYLE
     authenticator['cksum']['checksum'] = chkField.getData()
-    authenticator['seq-number'] = 0
+    authenticator['seq-number'] = KERBEROS_TYPE1_SEQ_NUMBER
     encodedAuthenticator = encoder.encode(authenticator)
 
     # Key Usage 11
