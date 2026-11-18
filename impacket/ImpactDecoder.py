@@ -19,6 +19,7 @@
 #
 
 import array
+import struct
 
 from impacket import ICMP6
 from impacket import IP6
@@ -982,9 +983,10 @@ class BootpDecoder(Decoder):
         self.set_decoded_protocol( d )
         off = len(d.getData())
         # A truncated message may not carry the 4-byte DHCP magic cookie at all, so only
-        # read it when enough trailing bytes are present, otherwise DhcpPacket() raises
-        # struct.error while unpacking the cookie field.
-        if len(aBuffer) - off >= 4 and dhcp.DhcpPacket(aBuffer[off:])['cookie'] == dhcp.DhcpPacket.MAGIC_NUMBER:
+        # read it when enough trailing bytes are present. Read just the cookie rather than
+        # building a DhcpPacket, which would parse (and warn about) the options twice.
+        if len(aBuffer) - off >= 4 and \
+                struct.unpack('!L', bytes(aBuffer[off:off+4]))[0] == dhcp.DhcpPacket.MAGIC_NUMBER:
             self.data_decoder = DHCPDecoder()
             packet = self.data_decoder.decode(aBuffer[off:])
             d.contains(packet)
