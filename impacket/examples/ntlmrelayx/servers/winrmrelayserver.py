@@ -294,11 +294,12 @@ class WinRMRelayServer(Thread):
                 self.send_not_found()
                 return
 
-            # Determine if the user is connecting to our server directly or attempts to use it as a proxy
-            if len(self.path) > 4 and self.path[:4].lower() == 'http':
-                proxy = True
-            else:
-                proxy = False
+            # WinRM clients send an absolute-form request target (RFC 7230
+            # section 5.3.2) even on a direct connection, so the "http" prefix
+            # of self.path cannot be used to detect proxy usage here. A direct
+            # client that receives a 407 drops the connection instead of
+            # retrying, which silently breaks the relay.
+            proxy = False
 
             token, messageType = self.strip_blob(proxy)
 
