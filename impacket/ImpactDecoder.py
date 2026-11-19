@@ -296,7 +296,7 @@ class TCPDecoder(Decoder):
     def decode(self, aBuffer):
         t = ImpactPacket.TCP(aBuffer)
         self.set_decoded_protocol( t )
-        off = t.get_header_size()
+        off = t.get_th_off() * 4
         self.data_decoder = DataDecoder()
         packet = self.data_decoder.decode(aBuffer[off:])
         t.contains(packet)
@@ -979,6 +979,14 @@ class BootpDecoder(Decoder):
             LOG.warning('BOOTP message is %d bytes, shorter than the 300-octet minimum required by '
                         'RFC 1542 section 2.1; decoding it on a best-effort basis' % len(aBuffer))
         d = dhcp.BootpPacket(aBuffer)
+        if d['op'] not in (dhcp.DhcpPacket.BOOTREQUEST, dhcp.DhcpPacket.BOOTREPLY):
+            raise ImpactPacket.ImpactPacketException('BOOTP op must be 1 or 2')
+        if d['htype'] <= 0:
+            raise ImpactPacket.ImpactPacketException('BOOTP hardware type must be positive')
+        if not 1 <= d['hlen'] <= 16:
+            raise ImpactPacket.ImpactPacketException(
+                'BOOTP hardware address length must be between 1 and 16'
+            )
         self.set_decoded_protocol( d )
         off = len(d.getData())
         # A truncated message may not carry the 4-byte DHCP magic cookie at all, so only
