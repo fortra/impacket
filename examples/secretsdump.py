@@ -121,6 +121,7 @@ class DumpSecrets:
         self.__remoteSSWMINTDS = options.use_remoteSSWMI_NTDS
         self.__remoteSSMethodWMIRemoteVolume = options.remoteSSWMI_remote_volume
         self.__remoteSSMethodWMIDownloadPath = options.remoteSSWMI_local_path
+        self.__remoteSSMethodWMINTDSPath = options.remoteSSWMI_ntds_path
         self.__options = options
 
         if options.hashes is not None:
@@ -200,7 +201,9 @@ class DumpSecrets:
                                                     self.__ldapConnection)
                 self.__remoteOps.setExecMethod(self.__options.exec_method)
                 sam_path, system_path, security_path, *ntds_path = self.__remoteOps.createSSandDownloadWMI(self.__remoteSSMethodWMIRemoteVolume,
-                                                                                                           self.__remoteSSMethodWMIDownloadPath, self.__remoteSSWMINTDS)
+                                                                                                           self.__remoteSSMethodWMIDownloadPath,
+                                                                                                           self.__remoteSSWMINTDS,
+                                                                                                           self.__remoteSSMethodWMINTDSPath)
                 self.__samHive = sam_path
                 self.__systemHive = system_path
                 self.__securityHive = security_path
@@ -443,6 +446,9 @@ if __name__ == '__main__':
                         help='Remote Volume to perform the Shadow Snapshot and download SAM, SYSTEM and SECURITY. It defaults to C:\\')
     parser.add_argument('-remoteSSWMI-local-path', action='store', default='.',
                         help='Local path to download SAM, SYSTEM and SECURITY from Shadow Snapshot. It defaults to current path')
+    parser.add_argument('-remoteSSWMI-ntds-path', action='store', default=None,
+                        help='Path to NTDS.dit (e.g. D:\\WINDOWS\\NTDS\\ntds.dit). Its drive letter selects the volume '
+                             'to snapshot. Defaults to the path registered in the SYSTEM hive')
 
     group = parser.add_argument_group('display options')
     group.add_argument('-just-dc-user', action='store', metavar='USERNAME',
