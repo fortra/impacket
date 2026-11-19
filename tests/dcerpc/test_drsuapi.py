@@ -34,38 +34,16 @@ class DRSRTests(DCERPCTests):
     string_binding = r"ncacn_np:{0.machine}[\PIPE\lsass]"
 
     def bind(self, dce):
-        request = drsuapi.DRSBind()
-        request['puuidClientDsa'] = drsuapi.NTDSAPI_CLIENT_GUID
-        drs = drsuapi.DRS_EXTENSIONS_INT()
-        drs['cb'] = len(drs) #- 4
-        drs['dwFlags'] = drsuapi.DRS_EXT_GETCHGREQ_V6 | drsuapi.DRS_EXT_GETCHGREPLY_V6 | drsuapi.DRS_EXT_GETCHGREQ_V8 | drsuapi.DRS_EXT_STRONG_ENCRYPTION
-        drs['SiteObjGuid'] = drsuapi.NULLGUID
-        drs['Pid'] = 0
-        drs['dwReplEpoch'] = 0
-        drs['dwFlagsExt'] = drsuapi.DRS_EXT_RECYCLE_BIN
-        drs['ConfigObjGUID'] = drsuapi.NULLGUID
-        drs['dwExtCaps'] = 0
-        request['pextClient']['cb'] = len(drs.getData())
-        request['pextClient']['rgb'] = list(drs.getData())
-        resp = dce.request(request)
-
-        # Let's dig into the answer to check the dwReplEpoch. This field should match the one we send as part of
-        # DRSBind's DRS_EXTENSIONS_INT(). If not, it will fail later when trying to sync data.
-        drsExtensionsInt = drsuapi.DRS_EXTENSIONS_INT()
-
-        # If dwExtCaps is not included in the answer, let's just add it so we can unpack DRS_EXTENSIONS_INT right.
-        ppextServer = b''.join(resp['ppextServer']['rgb']) + b'\x00' * (
-            len(drsuapi.DRS_EXTENSIONS_INT()) - resp['ppextServer']['cb'])
-        drsExtensionsInt.fromString(ppextServer)
-
-        if drsExtensionsInt['dwReplEpoch'] != 0:
-            # Different epoch, we have to call DRSBind again
-            drs['dwReplEpoch'] = drsExtensionsInt['dwReplEpoch']
-            request['pextClient']['cb'] = len(drs.getData())
-            request['pextClient']['rgb'] = list(drs.getData())
-            resp = dce.request(request)
-
-        resp2 = drsuapi.hDRSDomainControllerInfo(dce,  resp['phDrs'], self.domain, 2)
+        flags = (
+            drsuapi.DRS_EXT_GETCHGREQ_V6 |
+            drsuapi.DRS_EXT_GETCHGREPLY_V6 |
+            drsuapi.DRS_EXT_GETCHGREQ_V8 |
+            drsuapi.DRS_EXT_STRONG_ENCRYPTION
+        )
+        resp = drsuapi.hDRSBind(
+            dce, flags, extCaps=0, flagsExt=drsuapi.DRS_EXT_RECYCLE_BIN
+        )
+        resp2 = drsuapi.hDRSDomainControllerInfo(dce, resp['phDrs'], self.domain, 2)
         return resp['phDrs'], resp2['pmsgOut']['V2']['rItems'][0]['NtdsDsaObjectGuid']
 
     def test_DRSBind(self):
@@ -429,6 +407,54 @@ class DRSRTests(DCERPCTests):
 #            request['pmsgIn']['V10']['uuidInvocIdSrc'] = resp['pmsgOut']['V6']
 #            request['pmsgIn']['V10']['usnvecFrom'] = resp['pmsgOut']['V6']['usnvecTo']
 #            resp = dce.request(request)
+
+
+class DRSUAPIHelpersTests(unittest.TestCase):
+
+    def test_hDRSBind_rebinds_with_server_epoch(self):
+        class FakeDCE:
+            def __init__(self):
+                self.requests = []
+
+            def request(self, request):
+                self.requests.append(request)
+                extensions = drsuapi.DRS_EXTENSIONS_INT()
+                extensions['dwReplEpoch'] = 7 if len(self.requests) == 1 else 0
+                return {
+                    'phDrs': 'handle-%d' % len(self.requests),
+                    'ppextServer': {'rgb': [extensions.getData()]},
+                }
+
+        dce = FakeDCE()
+        response = drsuapi.hDRSBind(dce, drsuapi.DRS_EXT_GETCHGREQ_V8)
+
+        self.assertEqual('handle-2', response['phDrs'])
+        self.assertEqual(2, len(dce.requests))
+        sentExtensions = drsuapi.DRS_EXTENSIONS_INT(
+            bytes(dce.requests[1]['pextClient']['rgb'])
+        )
+        self.assertEqual(7, sentExtensions['dwReplEpoch'])
+
+    def test_client_builds_sid_replication_request(self):
+        class FakeDCE:
+            def request(self, request):
+                self.request = request
+                return {'response': 'raw'}
+
+        dce = FakeDCE()
+        client = drsuapi.DRSUAPIClient(
+            dce, 'example.test', b'handle', b'\x01' * 16
+        )
+        attributes = ('1.2.840.113556.1.4.221', '1.2.840.113556.1.4.146')
+
+        response = client.getRawRecordBySid('S-1-5-21-1-2-3-1000', attributes)
+
+        self.assertEqual({'response': 'raw'}, response)
+        request = dce.request
+        self.assertEqual(drsuapi.EXOP_REPL_OBJ, request['pmsgIn']['V8']['ulExtendedOp'])
+        self.assertEqual(1, request['pmsgIn']['V8']['cMaxObjects'])
+        self.assertEqual(28, request['pmsgIn']['V8']['pNC']['SidLen'])
+        self.assertEqual(2, request['pmsgIn']['V8']['pPartialAttrSet']['cAttrs'])
 
 
 @pytest.mark.remote
