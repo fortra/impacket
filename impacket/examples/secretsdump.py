@@ -1404,11 +1404,31 @@ class RemoteOperations:
 
         return remoteFileName
 
+    def __getSnapshotTokens(self, share):
+        # FSCTL_SRV_ENUMERATE_SNAPSHOTS returns the tokens in the @GMT-YYYY.MM.DD-HH.MM.SS form,
+        # which is the form expected as an SMB path component to access a snapshot.
+        return self.__smbConnection.listSnapshots(self.__smbConnection.connectTree(share), '/')
+
+    def __createShadowAndGetToken(self, volume):
+        # Returns the token of the Shadow Snapshot just created. Enumerating the tokens before and
+        # after the creation avoids picking a pre-existing snapshot, since listSnapshots() may
+        # return older snapshots first.
+        tokensBefore = self.__getSnapshotTokens('ADMIN$')
+
+        ssID = self.__wmiCreateShadow(volume)
+
+        for _ in range(5):
+            tokensAfter = self.__getSnapshotTokens('ADMIN$')
+            newTokens = [t for t in tokensAfter if t not in tokensBefore]
+            if len(newTokens) > 0:
+                return ssID, newTokens[-1]
+            time.sleep(1)
+
+        raise Exception('Could not find the created Shadow Snapshot through SMB')
+
     def createSSandDownloadWMI(self, volume, localPath, NTDS=False):
         LOG.info('Creating SS')
-        ssID = self.__wmiCreateShadow(volume)
-        LOG.info('Getting SMB equivalent PATH to access remotely the SS')
-        gmtSMBPath = self.__smbConnection.listSnapshots(self.__smbConnection.connectTree('ADMIN$'), '/')[0]
+        ssID, gmtSMBPath = self.__createShadowAndGetToken(volume)
         LOG.debug('Got SMB GMT Path: %s' % gmtSMBPath)
         LOG.debug('Performed SS via WMI and got info')
 
@@ -1428,7 +1448,10 @@ class RemoteOperations:
 
         # Return a list of the local paths where SAM, SYSTEM and SECURITY were downloaded
         LOG.debug('Trying to delete ShadowSnapshot')
-        self.__wmiDeleteShadow(ssID)
+        try:
+            self.__wmiDeleteShadow(ssID)
+        except Exception as e:
+            LOG.warning('Could not delete ShadowSnapshot %s: %s' % (ssID, e))
 
         LOG.debug('Downloaded SAM, SYSTEM and SECURITY from Shadow Snapshot. Dumping...')
         return list(zip(*paths))[0]
