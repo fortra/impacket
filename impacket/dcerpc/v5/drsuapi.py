@@ -32,7 +32,7 @@ from six import PY2
 
 from impacket import LOG
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUNION, NDR, NDRENUM
-from impacket.dcerpc.v5.dtypes import PUUID, DWORD, NULL, GUID, LPWSTR, BOOL, ULONG, UUID, LONGLONG, ULARGE_INTEGER, LARGE_INTEGER
+from impacket.dcerpc.v5.dtypes import PUUID, DWORD, NULL, GUID, LPWSTR, BOOL, ULONG, UUID, LONGLONG, ULARGE_INTEGER, LARGE_INTEGER, SID
 from impacket import hresult_errors, system_errors
 from impacket.structure import Structure
 from impacket.uuid import uuidtup_to_bin, string_to_bin
@@ -1336,6 +1336,31 @@ def checkNullString(string):
     else:
         return string
 
+def hDRSBind(dce, flags, extCaps=0xffffffff, flagsExt=0):
+    """Create a DRS context and repeat the bind when the server uses a different replication epoch."""
+    request = DRSBind()
+    request['puuidClientDsa'] = NTDSAPI_CLIENT_GUID
+    extensions = DRS_EXTENSIONS_INT()
+    extensions['dwFlags'] = flags
+    extensions['SiteObjGuid'] = NULLGUID
+    extensions['Pid'] = 0
+    extensions['dwReplEpoch'] = 0
+    extensions['dwFlagsExt'] = flagsExt
+    extensions['ConfigObjGUID'] = NULLGUID
+    extensions['dwExtCaps'] = extCaps
+    request['pextClient']['cb'] = len(extensions)
+    request['pextClient']['rgb'] = list(extensions.getData())
+    response = dce.request(request)
+
+    serverExtensions = DRS_EXTENSIONS_INT()
+    extensionData = b''.join(response['ppextServer']['rgb'])
+    serverExtensions.fromString(extensionData.ljust(len(serverExtensions), b'\x00'))
+    if serverExtensions['dwReplEpoch']:
+        extensions['dwReplEpoch'] = serverExtensions['dwReplEpoch']
+        request['pextClient']['rgb'] = list(extensions.getData())
+        response = dce.request(request)
+    return response
+
 def hDRSUnbind(dce, hDrs):
     request = DRSUnbind()
     request['phDrs'] = hDrs
@@ -1490,6 +1515,282 @@ def OidFromAttid(prefixTable, attr):
     if binaryOID is None:
         return None
     return str(decoder.decode(b'\x06' + pack('B',(len(binaryOID))) + b''.join(binaryOID), asn1Spec = univ.ObjectIdentifier())[0])
+
+
+class DRSUAPIRecord:
+    """One replicated directory object and the prefix table needed to decode it."""
+
+    def __init__(self, entry, prefixTable):
+        self.entry = entry
+        self.prefixTable = prefixTable
+
+    def getAttributeValue(self, oid, attrType):
+        """Return the first value for an attribute identified by its OID or fixed ATTID."""
+        for attribute in self.entry['AttrBlock']['pAttr']:
+            if attribute['attrTyp'] != attrType:
+                try:
+                    if OidFromAttid(self.prefixTable, attribute['attrTyp']) != oid:
+                        continue
+                except Exception:
+                    continue
+            if attribute['AttrVal']['valCount'] == 0:
+                return None
+            value = attribute['AttrVal']['pAVal'][0]['pVal']
+            return bytes(value) if value and isinstance(value[0], int) else b''.join(value)
+        return None
+
+
+class DRSUAPIClient:
+    """
+    Replicate directory objects over a caller-owned DRSUAPI connection.
+
+    Pass a DCE/RPC channel already connected and bound to MSRPC_UUID_DRSUAPI.
+    The client creates the DRS context lazily, resolves individual accounts with
+    DRSCrackNames, and returns decoded records from single-object or paged
+    DRSGetNCChanges calls. The caller retains ownership of the DCE/RPC channel.
+    """
+
+    DEFAULT_MAX_OBJECTS = 200
+    DEFAULT_EXTENSIONS = (
+        DRS_EXT_GETCHGREQ_V6 |
+        DRS_EXT_GETCHGREPLY_V6 |
+        DRS_EXT_GETCHGREQ_V8 |
+        DRS_EXT_STRONG_ENCRYPTION |
+        DRS_EXT_NONDOMAIN_NCS
+    )
+
+    def __init__(self, dce, domainName=None, hDrs=None, ntdsDsaObjectGuid=None,
+                 extensions=None, extCaps=0xffffffff):
+        self.__dce = dce
+        self.__domainName = domainName
+        self.__hDrs = hDrs
+        self.__ntdsDsaObjectGuid = ntdsDsaObjectGuid
+        self.__extensions = self.DEFAULT_EXTENSIONS if extensions is None else extensions
+        self.__extCaps = extCaps
+        self.__partialAttributeSets = {}
+        self.__prefixTable = []
+
+    def getDCE(self):
+        """Return the caller-owned DCE/RPC channel used to decrypt DRS attributes."""
+        return self.__dce
+
+    def getDomainName(self):
+        """Return the DNS domain configured for replication."""
+        return self.__domainName
+
+    def bind(self):
+        """Create the missing DRS context and resolve the server DSA GUID."""
+        if self.__ntdsDsaObjectGuid is None and not self.__domainName:
+            raise ValueError('A domain name is required to resolve the server DSA GUID')
+        if self.__hDrs is None:
+            response = hDRSBind(self.__dce, self.__extensions, self.__extCaps)
+            self.__hDrs = response['phDrs']
+
+        if self.__ntdsDsaObjectGuid is not None:
+            return
+        response = hDRSDomainControllerInfo(
+            self.__dce, self.__hDrs, self.__domainName, 2
+        )
+        if response['pmsgOut']['V2']['cItems'] == 0:
+            raise RuntimeError(
+                'Could not resolve the NTDS DSA object GUID for %s' % self.__domainName
+            )
+        self.__ntdsDsaObjectGuid = response['pmsgOut']['V2']['rItems'][0]['NtdsDsaObjectGuid']
+
+    def unbind(self):
+        """Release the DRS context without disconnecting the caller-owned DCE channel."""
+        if self.__hDrs is not None:
+            hDRSUnbind(self.__dce, self.__hDrs)
+            self.__hDrs = None
+            self.__ntdsDsaObjectGuid = None
+
+    def crackNames(self, formatOffered=DS_NAME_FORMAT.DS_DISPLAY_NAME,
+                   formatDesired=DS_NAME_FORMAT.DS_FQDN_1779_NAME, name=''):
+        """Translate one directory name through the active DRS context."""
+        self.bind()
+        return hDRSCrackNames(
+            self.__dce, self.__hDrs, 0, formatOffered, formatDesired, (name,)
+        )
+
+    def resolveAccount(self, account):
+        """Resolve an account name, SID, or GUID to the object GUID used by DRS."""
+        if account.upper().startswith('S-1-'):
+            formatOffered = DS_NAME_FORMAT.DS_SID_OR_SID_HISTORY_NAME
+        elif account.startswith('{') and account.endswith('}'):
+            formatOffered = DS_NAME_FORMAT.DS_UNIQUE_ID_NAME
+        elif '\\' in account or '/' in account:
+            formatOffered = DS_NAME_FORMAT.DS_NT4_ACCOUNT_NAME
+        else:
+            formatOffered = DS_NT4_ACCOUNT_NAME_SANS_DOMAIN
+
+        response = self.crackNames(
+            formatOffered,
+            DS_NAME_FORMAT.DS_UNIQUE_ID_NAME,
+            account.replace('/', '\\'),
+        )
+        result = response['pmsgOut']['V1']['pResult']
+        if result['cItems'] != 1 or result['rItems'][0]['status'] != 0:
+            status = result['rItems'][0]['status'] if result['cItems'] else 'no result'
+            raise RuntimeError('DRSCrackNames failed for %s: %s' % (account, status))
+        return result['rItems'][0]['pName'].rstrip('\x00')
+
+    def getDomainFlatName(self):
+        """Resolve the DNS domain to its NetBIOS name without using LSA or LDAP."""
+        response = self.crackNames(
+            DS_NAME_FORMAT.DS_FQDN_1779_NAME,
+            DS_NAME_FORMAT.DS_NT4_ACCOUNT_NAME,
+            self.__getDomainDistinguishedName(),
+        )
+        result = response['pmsgOut']['V1']['pResult']
+        if result['cItems'] == 1 and result['rItems'][0]['status'] == 0:
+            return result['rItems'][0]['pName'].rstrip('\x00\\')
+        return None
+
+    def getRecord(self, account, attributes):
+        """Replicate one account selected by name, SID, or GUID."""
+        return self.getRecordByGuid(self.resolveAccount(account), attributes)
+
+    def getRecordByGuid(self, guid, attributes):
+        """Replicate one object selected by GUID with the requested attributes."""
+        return self.__recordFromResponse(self.getRawRecordByGuid(guid, attributes))
+
+    def getRecordBySid(self, sid, attributes):
+        """Resolve a SID to its GUID and replicate the corresponding object."""
+        return self.getRecordByGuid(self.resolveAccount(sid), attributes)
+
+    def getRecordByDN(self, distinguishedName, attributes):
+        """Replicate one object selected by distinguished name."""
+        return self.__recordFromResponse(self.getRawRecordByDN(distinguishedName, attributes))
+
+    def getRawRecordByGuid(self, guid, attributes):
+        """Return the raw DRSGetNCChanges response for an object GUID."""
+        return self.__replicateObject(self.__buildGuidName(guid), attributes)
+
+    def getRawRecordBySid(self, sid, attributes):
+        """Return the raw DRSGetNCChanges response for an object SID."""
+        return self.__replicateObject(self.__buildSidName(sid), attributes)
+
+    def getRawRecordByDN(self, distinguishedName, attributes):
+        """Return the raw DRSGetNCChanges response for a distinguished name."""
+        return self.__replicateObject(self.__buildDistinguishedName(distinguishedName), attributes)
+
+    def iterDomainRecords(self, attributes, maxObjects=DEFAULT_MAX_OBJECTS):
+        """Page through the domain naming context and yield every replicated object."""
+        self.bind()
+        request = self.__buildDomainRequest(attributes, maxObjects)
+        while True:
+            response = self.__dce.request(request)
+            reply = response['pmsgOut']['V%d' % response['pdwOutVersion']]
+            prefixTable = reply['PrefixTableSrc']['pPrefixEntry']
+            current = reply['pObjects']
+            for _ in range(reply['cNumObjects']):
+                yield DRSUAPIRecord(current['Entinf'], prefixTable)
+                current = current['pNextEntInf']
+
+            if not reply['fMoreData']:
+                break
+            request['pmsgIn']['V8']['uuidInvocIdSrc'] = reply['uuidInvocIdSrc']
+            request['pmsgIn']['V8']['usnvecFrom'] = reply['usnvecTo']
+
+    @staticmethod
+    def __recordFromResponse(response):
+        reply = response['pmsgOut']['V%d' % response['pdwOutVersion']]
+        if reply['cNumObjects'] == 0:
+            raise RuntimeError("DRSGetNCChanges didn't return any object")
+        return DRSUAPIRecord(reply['pObjects']['Entinf'], reply['PrefixTableSrc']['pPrefixEntry'])
+
+    def __replicateObject(self, dsName, attributes):
+        self.bind()
+        request = self.__buildRequest(dsName, attributes)
+        request['pmsgIn']['V8']['uuidInvocIdSrc'] = self.__ntdsDsaObjectGuid
+        request['pmsgIn']['V8']['ulFlags'] = DRS_INIT_SYNC | DRS_WRIT_REP
+        request['pmsgIn']['V8']['cMaxObjects'] = 1
+        request['pmsgIn']['V8']['ulExtendedOp'] = EXOP_REPL_OBJ
+        return self.__dce.request(request)
+
+    def __buildDomainRequest(self, attributes, maxObjects):
+        request = self.__buildRequest(self.__buildDomainName(), attributes)
+        request['pmsgIn']['V8']['uuidInvocIdSrc'] = NULLGUID
+        request['pmsgIn']['V8']['ulFlags'] = DRS_INIT_SYNC | DRS_PER_SYNC | DRS_WRIT_REP | DRS_FULL_SYNC_NOW
+        request['pmsgIn']['V8']['cMaxObjects'] = maxObjects
+        request['pmsgIn']['V8']['ulExtendedOp'] = 0
+        return request
+
+    def __buildRequest(self, dsName, attributes):
+        request = DRSGetNCChanges()
+        request['hDrs'] = self.__hDrs
+        request['dwInVersion'] = 8
+        request['pmsgIn']['tag'] = 8
+        request['pmsgIn']['V8']['uuidDsaObjDest'] = self.__ntdsDsaObjectGuid
+        request['pmsgIn']['V8']['pNC'] = dsName
+        request['pmsgIn']['V8']['usnvecFrom']['usnHighObjUpdate'] = 0
+        request['pmsgIn']['V8']['usnvecFrom']['usnHighPropUpdate'] = 0
+        request['pmsgIn']['V8']['pUpToDateVecDest'] = NULL
+        request['pmsgIn']['V8']['cMaxBytes'] = 0
+        self.__setAttributes(request, attributes)
+        return request
+
+    def __setAttributes(self, request, attributes):
+        request['pmsgIn']['V8']['pPartialAttrSet'] = self.__getPartialAttributeSet(attributes)
+        request['pmsgIn']['V8']['PrefixTableDest']['PrefixCount'] = len(self.__prefixTable)
+        request['pmsgIn']['V8']['PrefixTableDest']['pPrefixEntry'] = self.__prefixTable
+        request['pmsgIn']['V8']['pPartialAttrSetEx1'] = NULL
+
+    def __getPartialAttributeSet(self, attributes):
+        attributes = tuple(attributes)
+        if attributes in self.__partialAttributeSets:
+            return self.__partialAttributeSets[attributes]
+        partialAttributeSet = PARTIAL_ATTR_VECTOR_V1_EXT()
+        partialAttributeSet['dwVersion'] = 1
+        partialAttributeSet['cAttrs'] = len(attributes)
+        for attribute in attributes:
+            partialAttributeSet['rgPartialAttr'].append(MakeAttid(self.__prefixTable, attribute))
+        self.__partialAttributeSets[attributes] = partialAttributeSet
+        return partialAttributeSet
+
+    @staticmethod
+    def __buildGuidName(guid):
+        dsName = DSNAME()
+        dsName['SidLen'] = 0
+        dsName['Guid'] = string_to_bin(guid.strip('{}'))
+        dsName['Sid'] = ''
+        dsName['NameLen'] = 0
+        dsName['StringName'] = '\x00'
+        dsName['structLen'] = len(dsName.getData())
+        return dsName
+
+    @staticmethod
+    def __buildSidName(sid):
+        packetSid = SID()
+        packetSid.fromCanonical(sid)
+        packetSid = packetSid.getData()
+        dsName = DSNAME()
+        dsName['SidLen'] = len(packetSid)
+        dsName['Guid'] = 0
+        dsName['Sid'] = packetSid
+        dsName['NameLen'] = 0
+        dsName['StringName'] = '\x00'
+        dsName['structLen'] = len(dsName.getData())
+        return dsName
+
+    @staticmethod
+    def __buildDistinguishedName(distinguishedName):
+        dsName = DSNAME()
+        dsName['SidLen'] = 0
+        dsName['Guid'] = NULLGUID
+        dsName['Sid'] = ''
+        dsName['NameLen'] = len(distinguishedName)
+        dsName['StringName'] = '%s\x00' % distinguishedName
+        dsName['structLen'] = len(dsName.getData())
+        return dsName
+
+    def __buildDomainName(self):
+        return self.__buildDistinguishedName(self.__getDomainDistinguishedName())
+
+    def __getDomainDistinguishedName(self):
+        if not self.__domainName:
+            raise ValueError('A domain name is required to build the naming context')
+        return ','.join('DC=%s' % part for part in self.__domainName.split('.'))
 
 if __name__ == '__main__':
     prefixTable = []

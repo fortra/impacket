@@ -16,8 +16,11 @@ import unittest
 from unittest import mock
 from tests import RemoteTestCase
 
-from impacket.dcerpc.v5 import samr
-from impacket.examples.secretsdump import LocalOperations, RemoteOperations, SAMHashes, LSASecrets, NTDSHashes
+from impacket.dcerpc.v5 import drsuapi, samr
+from impacket.dcerpc.v5.dtypes import SID
+from impacket.examples.secretsdump import (
+    LocalOperations, RemoteOperations, SAMHashes, LSASecrets, NTDSHashes,
+)
 from impacket.smbconnection import SMBConnection
 
 LOCAL_SYSTEM_HIVE = os.path.join("tests", "data", "secretsdump_local_SYSTEM")
@@ -441,6 +444,100 @@ class NTDSHashesUnitTests(unittest.TestCase):
 
         with self.assertRaisesRegex(struct.error, 'length shorter than the fixed header'):
             samr.unpack_user_properties(invalid_header)
+
+
+class TransportIndependentDRSTests(unittest.TestCase):
+
+    class ResumeSession:
+        def __init__(self, _):
+            self.resumeData = None
+            self.written = []
+
+        def hasResumeData(self):
+            return self.resumeData is not None
+
+        def getResumeData(self):
+            return self.resumeData
+
+        def beginTransaction(self):
+            pass
+
+        def writeResumeData(self, sid):
+            self.written.append(sid)
+
+        def clearResumeData(self):
+            self.resumeData = None
+
+        def endTransaction(self):
+            pass
+
+    class Client:
+        def __init__(self, records):
+            self.records = records
+            self.requestedAccount = None
+
+        def bind(self):
+            pass
+
+        def getDCE(self):
+            return None
+
+        def getRecord(self, account, attributes):
+            self.requestedAccount = account
+            return self.records[0]
+
+        def iterDomainRecords(self, attributes):
+            return iter(self.records)
+
+    @staticmethod
+    def makeRecord(name, accountType=NTDSHashes.SAM_NORMAL_USER_ACCOUNT):
+        sid = SID()
+        sid.fromCanonical('S-1-5-21-1-2-3-1000')
+        attributes = {
+            'sAMAccountName': name.encode('utf-16le'),
+            'objectSid': sid.getData(),
+        }
+        if accountType is not None:
+            attributes['sAMAccountType'] = struct.pack('<L', accountType)
+
+        pAttr = []
+        for attributeName, value in attributes.items():
+            pAttr.append({
+                'attrTyp': NTDSHashes.NAME_TO_ATTRTYP[attributeName],
+                'AttrVal': {'valCount': 1, 'pAVal': [{'pVal': list(value)}]},
+            })
+        return drsuapi.DRSUAPIRecord(
+            {'AttrBlock': {'pAttr': pAttr}, 'pName': {'Sid': list(sid.getData())}}, []
+        )
+
+    def makeHashes(self, client, justUser=None):
+        hashes = NTDSHashes(
+            None, None, isRemote=True, justNTLM=True, justUser=justUser,
+            drsClient=client, resumeSessionMgr=self.ResumeSession,
+        )
+        processed = []
+        hashes._NTDSHashes__decryptHash = lambda record, outputFile=None: processed.append(record)
+        return hashes, processed
+
+    def test_selected_account_does_not_require_remote_operations(self):
+        client = self.Client([self.makeRecord('alice')])
+        hashes, processed = self.makeHashes(client, justUser='alice')
+
+        hashes.dump()
+
+        self.assertEqual('alice', client.requestedAccount)
+        self.assertEqual(client.records, processed)
+
+    def test_domain_iteration_filters_non_account_objects(self):
+        account = self.makeRecord('alice')
+        nonAccount = self.makeRecord('domain-object', accountType=None)
+        client = self.Client([nonAccount, account])
+        hashes, processed = self.makeHashes(client)
+
+        hashes.dump()
+
+        self.assertEqual([account], processed)
+        self.assertEqual(['S-1-5-21-1-2-3-1000'], hashes._NTDSHashes__resumeSession.written)
 
 
 class SecretsDumpTests(RemoteTestCase):

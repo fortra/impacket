@@ -46,9 +46,8 @@ from six import PY3
 
 from impacket import wintime
 from impacket.dcerpc.v5 import epm
-from impacket.dcerpc.v5.drsuapi import MSRPC_UUID_DRSUAPI, hDRSDomainControllerInfo, DRSBind, NTDSAPI_CLIENT_GUID, \
-    DRS_EXTENSIONS_INT, DRS_EXT_GETCHGREQ_V6, DRS_EXT_GETCHGREPLY_V6, DRS_EXT_GETCHGREQ_V8, DRS_EXT_STRONG_ENCRYPTION, \
-    NULLGUID
+from impacket.dcerpc.v5.drsuapi import MSRPC_UUID_DRSUAPI, hDRSBind, hDRSDomainControllerInfo, \
+    DRS_EXT_GETCHGREQ_V6, DRS_EXT_GETCHGREPLY_V6, DRS_EXT_GETCHGREQ_V8, DRS_EXT_STRONG_ENCRYPTION
 from impacket.dcerpc.v5.dtypes import RPC_SID, MAXIMUM_ALLOWED
 from impacket.dcerpc.v5.lsad import hLsarQueryInformationPolicy2, POLICY_INFORMATION_CLASS, hLsarOpenPolicy2
 from impacket.dcerpc.v5.lsat import MSRPC_UUID_LSAT, POLICY_LOOKUP_NAMES
@@ -852,20 +851,9 @@ class MS14_068:
         dce.connect()
         dce.bind(MSRPC_UUID_DRSUAPI)
 
-        request = DRSBind()
-        request['puuidClientDsa'] = NTDSAPI_CLIENT_GUID
-        drs = DRS_EXTENSIONS_INT()
-        drs['cb'] = len(drs) #- 4
-        drs['dwFlags'] = DRS_EXT_GETCHGREQ_V6 | DRS_EXT_GETCHGREPLY_V6 | DRS_EXT_GETCHGREQ_V8 | DRS_EXT_STRONG_ENCRYPTION
-        drs['SiteObjGuid'] = NULLGUID
-        drs['Pid'] = 0
-        drs['dwReplEpoch'] = 0
-        drs['dwFlagsExt'] = 0
-        drs['ConfigObjGUID'] = NULLGUID
-        drs['dwExtCaps'] = 127
-        request['pextClient']['cb'] = len(drs.getData())
-        request['pextClient']['rgb'] = list(drs.getData())
-        resp = dce.request(request)
+        extensions = DRS_EXT_GETCHGREQ_V6 | DRS_EXT_GETCHGREPLY_V6 | \
+                     DRS_EXT_GETCHGREQ_V8 | DRS_EXT_STRONG_ENCRYPTION
+        resp = hDRSBind(dce, extensions, extCaps=127)
 
         dcs = hDRSDomainControllerInfo(dce,  resp['phDrs'], self.__domain, 1)
 
