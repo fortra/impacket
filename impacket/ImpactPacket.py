@@ -1208,7 +1208,7 @@ class IPOption(PacketBuffer):
     def append_ip(self, ip):
         op = self.get_code()
         if not (op == IPOption.IPOPT_RR or op == IPOption.IPOPT_LSRR or op == IPOption.IPOPT_SSRR or op == IPOption.IPOPT_TS):
-            raise ImpactPacketException("append_ip() not support for option type %d" % self.opt_type)
+            raise ImpactPacketException("append_ip() not supported for option type %d" % op)
 
         p = self.get_ptr()
         if not p:
@@ -1234,7 +1234,7 @@ class IPOption(PacketBuffer):
             raise ImpactPacketException("Operation only supported on Timestamp option")
         self.set_byte(3, flags)
 
-    def get_flags(self, flags):
+    def get_flags(self, flags=None):
         if not (self.get_code() == IPOption.IPOPT_TS):
             raise ImpactPacketException("Operation only supported on Timestamp option")
         return self.get_byte(3)
