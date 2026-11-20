@@ -877,6 +877,25 @@ class ASExchangeTests(unittest.TestCase):
         self.assertEqual(credential['client'].prettyPrint(), b'%s@%s' % (CLIENT.encode(), REALM.encode()))
         self.assertEqual(credential['server'].prettyPrint(), b'krbtgt/%s@%s' % (REALM.encode(), REALM.encode()))
 
+    def test_getKerberosTGTUsesSelectedExchangeForPKINITRetries(self):
+        kdc = KDC(self.pki, freshnessToken=b'FRESH' * 8)
+        requests = []
+
+        def exchange(data, realm, kdcHost, timeout=None):
+            requests.append((realm, kdcHost, timeout))
+            return kdc.sendReceive(data, realm, kdcHost, timeout=timeout)
+
+        def directKDC(*args, **kwargs):
+            raise AssertionError('direct KDC used')
+
+        kerberosv5.sendReceive = directKDC
+        clientName = Principal(CLIENT, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+        tgt, _, replyKey, _ = kerberosv5.getKerberosTGT(
+            clientName, '', REALM, '', '', certificate=self.credentials(), exchange=exchange, timeout=7)
+        self.assertTrue(tgt)
+        self.assertEqual(replyKey.contents, kdc.replyKey.contents)
+        self.assertEqual(requests, [(REALM, None, 7), (REALM, None, 7)])
+
     def test_kdcVerificationCanBeDisabled(self):
         otherPki = PKI()
         otherPki.clientKey, otherPki.clientCertificate = self.pki.clientKey, self.pki.clientCertificate
