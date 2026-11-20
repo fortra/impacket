@@ -25,7 +25,7 @@ class TestESENTLargePageTags(unittest.TestCase):
     VERSION = 0x620
     REVISION = 0x122
 
-    def _build_page(self, raw_tag_state):
+    def _build_page(self, raw_tag_state, payloads=None):
         tag_count = raw_tag_state & FIRST_AVAILABLE_PAGE_TAG_MASK
         header = ESENT_PAGE_HEADER(self.VERSION, self.REVISION, self.PAGE_SIZE)
         header['FirstAvailableDataOffset'] = tag_count * 4
@@ -37,7 +37,10 @@ class TestESENTLargePageTags(unittest.TestCase):
         page[:len(header_bytes)] = header_bytes
 
         base_offset = len(header_bytes)
-        payloads = [bytes([i, i, i, i]) for i in range(tag_count)]
+        if payloads is None:
+            payloads = [bytes([i, i, i, i]) for i in range(tag_count)]
+        self.assertEqual(len(payloads), tag_count)
+
         tags = []
         offset = 0
         for payload in payloads:
@@ -78,6 +81,16 @@ class TestESENTLargePageTags(unittest.TestCase):
 
         iterated_payloads = [page.getTag(tag_num)[1] for tag_num in page.iterDataTagNums()]
         self.assertEqual(iterated_payloads, payloads[page.firstDataTag:])
+
+    def test_large_page_tag_handles_empty_and_single_byte_values(self):
+        page, _ = self._build_page(0x1003, [
+            b'\x11\x22',
+            b'',
+            b'\xab',
+        ])
+
+        self.assertEqual(page.getTag(1), (0, b''))
+        self.assertEqual(page.getTag(2), (0, b'\xab'))
 
 
 if __name__ == '__main__':
