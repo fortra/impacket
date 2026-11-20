@@ -25,7 +25,7 @@ from impacket.ntlm import compute_lmhash, compute_nthash
 # Propagated imports to clients.
 ## Dialects.
 from impacket.smb import SMB_DIALECT
-from impacket.smb3structs import SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30, SMB2_DIALECT_311
+from impacket.smb3structs import SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30, SMB2_DIALECT_302, SMB2_DIALECT_311
 
 ## Create Disposition.
 from impacket.smb import FILE_OPEN, FILE_OVERWRITE, FILE_OVERWRITE_IF
@@ -147,7 +147,7 @@ class SMBConnection:
             if preferredDialect == smb.SMB_DIALECT:
                 self._SMBConnection = smb.SMB(self._remoteName, self._remoteHost, self._myName, hostType,
                                               self._sess_port, self._timeout)
-            elif preferredDialect in [SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30, SMB2_DIALECT_311]:
+            elif preferredDialect in [SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30, SMB2_DIALECT_302, SMB2_DIALECT_311]:
                 self._SMBConnection = smb3.SMB3(self._remoteName, self._remoteHost, self._myName, hostType,
                                                 self._sess_port, self._timeout, preferredDialect=preferredDialect)
             else:
