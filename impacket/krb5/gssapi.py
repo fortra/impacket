@@ -365,6 +365,9 @@ class GSSAPI_AES():
 
         # Let's pad the data
         pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 15
+        if not data:
+            # DCE/RPC still needs an encrypted data buffer for an empty stub.
+            pad = cipher.blocksize
         padStr = b'\xFF' * pad
         data += padStr
 
