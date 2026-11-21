@@ -28,7 +28,8 @@ from impacket import LOG
 from impacket.examples.ntlmrelayx.servers.socksserver import SocksRelay
 from impacket.examples.ntlmrelayx.utils.ssl import generateImpacketCert
 from impacket.tds import TDSPacket, TDS_STATUS_NORMAL, TDS_STATUS_EOM, TDS_PRE_LOGIN, TDS_ENCRYPT_NOT_SUP, TDS_TABULAR, \
-    TDS_LOGIN, TDS_LOGIN7, TDS_PRELOGIN, TDS_INTEGRATED_SECURITY_ON, TDS_SQL_BATCH, TDS_ENCRYPT_STRICT
+    TDS_LOGIN, TDS_LOGIN7, TDS_PRELOGIN, TDS_INTEGRATED_SECURITY_ON, TDS_SQL_BATCH, TDS_ENCRYPT_STRICT, \
+    translate_pre_loginack_tokens
 from impacket.ntlm import NTLMAuthChallengeResponse
 try:
     from OpenSSL import SSL
@@ -74,6 +75,23 @@ class MSSQLSocksRelay(SocksRelay):
             return TDS_ENCRYPT_STRICT
         return TDS_ENCRYPT_NOT_SUP
 
+    def _get_backend_prelogin_version(self):
+        for user, relay in self.activeRelays.items():
+            if user in ('data', 'scheme'):
+                continue
+            session_data = relay.get('data', {})
+            if 'PRELOGIN_VERSION' in session_data:
+                return session_data['PRELOGIN_VERSION']
+            protocol_client = relay.get('protocolClient')
+            session = getattr(protocol_client, 'session', None)
+            response = getattr(session, 'resp', None)
+            if response is not None:
+                try:
+                    return response['Version']
+                except (KeyError, TypeError):
+                    pass
+        return b"\x08\x00\x01\x55\x00\x00"
+
     def _wrap_client_connection_for_tds8(self):
         cert_path = os.path.join(tempfile.gettempdir(), 'impacket-mssql-socks.pem')
         if not os.path.exists(cert_path):
@@ -109,7 +127,7 @@ class MSSQLSocksRelay(SocksRelay):
             return False
 
         prelogin = TDS_PRELOGIN()
-        prelogin['Version'] = b"\x08\x00\x01\x55\x00\x00"
+        prelogin['Version'] = self._get_backend_prelogin_version()
         prelogin['Encryption'] = self._get_prelogin_encryption()
         prelogin['ThreadID'] = struct.pack('<L',random.randint(0,65535))
         prelogin['Instance'] = b'\x00'
@@ -181,12 +199,21 @@ class MSSQLSocksRelay(SocksRelay):
             return False
 
         # We have a session relayed, let's answer back with the data
-        if login['OptionFlags2'] & TDS_INTEGRATED_SECURITY_ON:
-            TDSResponse = self.sessionData['AUTH_ANSWER']
-            self.sendTDS(TDSResponse['Type'], TDSResponse['Data'], 0)
-        else:
-            TDSResponse = self.sessionData['AUTH_ANSWER']
-            self.sendTDS(TDSResponse['Type'], TDSResponse['Data'], 0)
+        TDSResponse = self.sessionData['AUTH_ANSWER']
+        backend_version = self.sessionData.get(
+            'LOGIN7_TDS_VERSION', getattr(self.session, 'login_tds_version', login['TDSVersion'])
+        )
+        try:
+            response_data = translate_pre_loginack_tokens(
+                TDSResponse['Data'], backend_version, login['TDSVersion']
+            )
+        except ValueError as error:
+            LOG.error(
+                'MSSQL: Cannot adapt cached TDS login response from 0x%08x to 0x%08x: %s',
+                backend_version, login['TDSVersion'], error
+            )
+            return False
+        self.sendTDS(TDSResponse['Type'], response_data, 0)
 
         return True
 
