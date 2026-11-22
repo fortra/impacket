@@ -20,19 +20,15 @@ class TestDot11FrameControlCTS(unittest.TestCase):
         self.frame_orig=b'\xc4\x00\x3b\x12\x00\x19\xe0\x98\x04\xd4\x2b\x8a\x65\x17'
         
         d = Dot11(self.frame_orig)
-        
-        type = d.get_type()
-        self.assertEqual(type,Dot11Types.DOT11_TYPE_CONTROL)
-        
-        subtype = d.get_subtype()
-        self.assertEqual(subtype,Dot11Types.DOT11_SUBTYPE_CONTROL_CLEAR_TO_SEND)
-        
-        typesubtype = d.get_type_n_subtype()
-        self.assertEqual(typesubtype,Dot11Types.DOT11_TYPE_CONTROL_SUBTYPE_CLEAR_TO_SEND)
-            
         self.cts = Dot11ControlFrameCTS(d.get_body_as_string())
             
         d.contains(self.cts)
+
+    def test_setups(self):
+        d = Dot11(self.frame_orig)
+        self.assertEqual(d.get_type(), Dot11Types.DOT11_TYPE_CONTROL)
+        self.assertEqual(d.get_subtype(), Dot11Types.DOT11_SUBTYPE_CONTROL_CLEAR_TO_SEND)
+        self.assertEqual(d.get_type_n_subtype(), Dot11Types.DOT11_TYPE_CONTROL_SUBTYPE_CLEAR_TO_SEND)
         
     def test_01_HeaderTailSize(self):
         'Test Header and Tail Size field'
