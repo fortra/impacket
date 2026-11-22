@@ -28,7 +28,7 @@ from impacket.smbconnection import SMBConnection
 from impacket.smb3structs import FILE_WRITE_DATA, FILE_DIRECTORY_FILE
 
 class ServiceInstall:
-    def __init__(self, SMBObject, exeFile, serviceName='', binary_service_name=None):
+    def __init__(self, SMBObject, exeFile, serviceName='', binary_service_name=None, share=''):
         self._rpctransport = 0
         self.__service_name = serviceName if len(serviceName) > 0  else  ''.join([random.choice(string.ascii_letters) for i in range(4)])
 
@@ -46,7 +46,7 @@ class ServiceInstall:
         else:
             self.connection = SMBObject
 
-        self.share = ''
+        self.share = share
 
     @property
     def serviceName(self):
@@ -171,9 +171,12 @@ class ServiceInstall:
             serviceCreated = False
             # Do the stuff here
             try:
-                # Let's get the shares
-                shares = self.getShares()
-                self.share = self.findWritableShare(shares)
+                # Let's get the shares if not specified
+                if self.share.lower() == '':
+                    shares = self.getShares()
+                    self.share = self.findWritableShare(shares)
+                else:
+                    LOG.info('Specified share %s used' % self.share)
                 if self.share is None:
                     return False
                 self.copy_file(self.__exeFile ,self.share,self.__binary_service_name)
