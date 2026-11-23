@@ -36,7 +36,6 @@ from Cryptodome.Cipher import AES, DES3
 from Cryptodome.Util.Padding import unpad
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Util.number import bytes_to_long
-from six import PY3
 
 from impacket.ese import getUnixTime
 from impacket.structure import Structure, hexdump

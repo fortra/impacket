@@ -885,10 +885,6 @@ if __name__ == '__main__':
             else:
                 return argparse.HelpFormatter._split_lines(self, text, width)
 
-    def localized_arg(bytestring):
-        unicode_string = bytestring.decode(sys.getfilesystemencoding())
-        return unicode_string
-
     parser = argparse.ArgumentParser(add_help=True, description="A tool to abuse Exchange services")
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG and EXTENDED output ON')
