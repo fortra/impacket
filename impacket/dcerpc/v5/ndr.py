@@ -21,7 +21,7 @@
 import random
 import inspect
 from struct import pack, unpack_from, calcsize
-from six import with_metaclass, PY3
+from six import with_metaclass
 from binascii import hexlify
 
 from impacket import LOG
@@ -759,7 +759,7 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
                 if pad > 0:
                     answer += b'\xdd' * pad
                 if dataClass is None:
-                    if item == 'c' and PY3 and isinstance(each, int):
+                    if item == 'c' and isinstance(each, int):
                         # Special case when dealing with PY3, here we have an integer we need to convert
                         each = bytes([each])
                     answer += pack(item, each)
@@ -966,7 +966,7 @@ class NDRVaryingString(NDRUniVaryingArray):
         # If the string element size is one octet, the terminator is a NULL character. 
         # The terminator for a string of multi-byte characters is the array element zero (0).
         if self["Data"][-1:] != b'\x00':
-            if PY3 and isinstance(self["Data"],list) is False:
+            if isinstance(self["Data"],list) is False:
                 self["Data"] = self["Data"] + b'\x00'
             else:
                 self["Data"] = b''.join(self["Data"]) + b'\x00'
