@@ -710,6 +710,26 @@ class SimpleSMBServerFuncTests(unittest.TestCase):
         client.disconnectTree(tree_id)
         client.close()
 
+    def test_smbserver_open_existing_directory_with_write_access(self):
+        """Test opening an existing directory with write-capable SMB access."""
+        server = self.get_smbserver()
+        self.start_smbserver(server)
+
+        client = self.get_smbclient()
+        try:
+            client.login(self.username, self.password)
+            tree_id = client.connectTree(self.share_name)
+            directory_id = client.openFile(
+                tree_id, self.share_directory,
+                desiredAccess=smb2.FILE_READ_DATA | smb2.FILE_WRITE_DATA,
+                creationOption=smb2.FILE_DIRECTORY_FILE,
+                creationDisposition=smb2.FILE_OPEN,
+            )
+            client.closeFile(tree_id, directory_id)
+            client.disconnectTree(tree_id)
+        finally:
+            client.close()
+
     def test_smbserver_query_info_file(self):
         """Test query info on a file in a shared folder.
         """
