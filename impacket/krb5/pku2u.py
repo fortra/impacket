@@ -419,7 +419,8 @@ def buildPKU2UAPReq(sessionKey, ticket, precedingTokens=None, sequenceNumber=Non
     apReq = AP_REQ()
     apReq['pvno'] = 5
     apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
-    apReq['ap-options'] = constants.encodeFlags([])
+    #This could be incorrect, yet to be properly tested but PKU2U’s draft §6.3 flow is mutual (it carries the Finished in the AP-REP) and so I suspect this is better than 
+    apReq['ap-options'] = constants.encodeFlags([constants.APOptions.mutual_required.value])
     apReq.setComponentByName('ticket', ticket)
 
     encodedAuthenticator = encoder.encode(authenticator)
