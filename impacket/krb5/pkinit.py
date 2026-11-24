@@ -10,14 +10,11 @@
 #
 # Description:
 #   PKU2U (Public Key User-to-User) Authentication
-#   Based on draft-zhu-pku2u-09. No other microsoft open specification was found on the protocol.
+#   Based on draft-zhu-pku2u-09. No other microsoft open specification was found on the protocol. Mixture of using @skelsecs code, packet captures and the draft
 #
 #   Implements a GSS-API mechanism using public key cryptography
 #   for peer-to-peer authentication without requiring a KDC.
-#   PKU2U is Negotiated via MS-NEGOEX, which is as of now a work in progress
-#
-#   PKINIT structures and helpers are in pkinit.py (shared with
-#   standard PKINIT-to-KDC authentication).
+#   PKU2U is Negotiated via MS-NEGOEX, which is now fully implemented
 #
 # References:
 #   draft-zhu-pku2u-09 the PKU2U specification
