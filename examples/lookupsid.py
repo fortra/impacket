@@ -61,7 +61,10 @@ class LSALookupSid:
 
     def dump(self, remoteName, remoteHost):
 
-        logging.info('Brute forcing SIDs at %s' % remoteName)
+        if self.__lookup_names:
+            logging.info('Resolving names at %s', remoteName)
+        else:
+            logging.info('Brute forcing SIDs at %s', remoteName)
 
         stringbinding = self.KNOWN_PROTOCOLS[self.__port]['bindstr'] % remoteName
         logging.info('StringBinding %s'%stringbinding)
@@ -207,10 +210,11 @@ if __name__ == '__main__':
     group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port",
                        help='Destination port to connect to SMB Server')
     group.add_argument('-domain-sids', action='store_true', help='Enumerate Domain SIDs (will likely forward requests to the DC)')
-    group.add_argument('-lookup-domain', action='store', metavar='DOMAIN', help='Resolve DOMAIN\'s SID through the target and '
-                       'enumerate it instead (e.g. a trusted domain; requests are forwarded across the trust)')
-    group.add_argument('-lookup-name', action='append', metavar='NAME', help='Resolve NAME (e.g. DOMAIN\\HOST$) to its SID '
-                       'instead of brute forcing. Can be repeated. Names without a domain use -lookup-domain if given')
+    group.add_argument('-lookup-domain', metavar='DOMAIN',
+                       help='Domain to enumerate. With -lookup-name, use DOMAIN as the default qualifier for unqualified names.')
+    group.add_argument('-lookup-name', action='append', metavar='NAME',
+                       help='Resolve NAME to its SID and show the SID type reported by the server. '
+                            'Repeat for multiple names. Skips RID enumeration.')
 
     group = parser.add_argument_group('authentication')
 
@@ -227,6 +231,8 @@ if __name__ == '__main__':
 
     options = parser.parse_args()
 
+    if options.lookup_domain == '':
+        parser.error('-lookup-domain requires a non-empty domain name')
     if options.lookup_domain and options.domain_sids:
         parser.error('-lookup-domain and -domain-sids are mutually exclusive')
     if options.lookup_name and options.domain_sids:
