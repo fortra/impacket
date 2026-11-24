@@ -13,7 +13,7 @@
 #   Utility and helper functions for the example scripts
 #
 import unittest
-from impacket.examples.utils import parse_target, parse_credentials
+from impacket.examples.utils import parse_target, parse_credentials, parse_identity
 
 
 class UtilsTests(unittest.TestCase):
@@ -52,6 +52,29 @@ class UtilsTests(unittest.TestCase):
 
         for cred, result in creds.items():
             self.assertTupleEqual(parse_credentials(cred), result)
+
+    def test_parse_identity_with_hashes(self):
+        domain, username, password, lmhash, nthash, k = parse_identity(
+            'DOMAIN/UserName:Password',
+            'aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0')
+        self.assertTupleEqual((domain, username, password), ('DOMAIN', 'UserName', 'Password'))
+        self.assertEqual(lmhash, 'aad3b435b51404eeaad3b435b51404ee')
+        self.assertEqual(nthash, '31d6cfe0d16ae931b73c59d7e0c089c0')
+        self.assertFalse(k)
+
+    def test_parse_identity_with_empty_lm_hash(self):
+        # An empty LM hash is replaced by the well-known empty value
+        _, _, _, lmhash, nthash, _ = parse_identity(
+            'DOMAIN/UserName:Password', ':31d6cfe0d16ae931b73c59d7e0c089c0')
+        self.assertEqual(lmhash, 'AAD3B435B51404EEAAD3B435B51404EE')
+        self.assertEqual(nthash, '31d6cfe0d16ae931b73c59d7e0c089c0')
+
+    def test_parse_identity_with_invalid_hashes(self):
+        # A value which is not LMHASH:NTHASH must be reported, not unpacked blindly
+        for hashes in ('zzz', 'aa:bb:cc'):
+            with self.assertRaises(ValueError) as ctx:
+                parse_identity('DOMAIN/UserName:Password', hashes)
+            self.assertIn('LMHASH:NTHASH', str(ctx.exception))
 
 
 if __name__ == "__main__":
