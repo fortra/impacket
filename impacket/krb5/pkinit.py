@@ -26,7 +26,7 @@
 import datetime
 import hashlib
 import os
-import random
+import random as rand
 import struct
 
 from pyasn1.type import univ, namedtype, tag
@@ -36,7 +36,7 @@ from pyasn1.type.univ import noValue
 from pyasn1_modules import rfc5280
 
 from impacket.krb5 import constants, crypto
-from impacket.krb5.asn1 import AS_REQ, AS_REP, AP_REQ, AP_REP, KRB_ERROR, Authenticator, EncASRepPart, EncryptedData, Checksum, EncryptionKey, PrincipalName, KerberosTime, AuthorizationData, Int32, UInt32, seq_set, seq_set_iter, _sequence_component, _sequence_optional_component,
+from impacket.krb5.asn1 import AS_REQ, AS_REP, AP_REQ, AP_REP, KRB_ERROR, Authenticator, EncASRepPart, EncryptedData, Checksum, EncryptionKey, PrincipalName, KerberosTime, AuthorizationData, Int32, UInt32, seq_set, seq_set_iter, _sequence_component, _sequence_optional_component
 from impacket.krb5.types import Principal, KerberosTime as KerberosTimeHelper
 from impacket.krb5.crypto import Key, _enctype_table
 from impacket.krb5.gssapi import MechIndepToken
