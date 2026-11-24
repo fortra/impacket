@@ -175,16 +175,18 @@ class Principal:
     def fromPrincipal(self, principal):
         self.header['name_type'] = principal.type
         self.header['num_components'] = len(principal.components)
+        self.realm = self.toCountedOctetString(principal.realm)
+        self.components = [self.toCountedOctetString(c) for c in principal.components]
+
+    @staticmethod
+    def toCountedOctetString(value):
+        # Principal parts are stored as UTF-8 bytes: length is a byte count, and a str would otherwise be packed as latin-1
+        if not isinstance(value, bytes):
+            value = value.encode('utf-8')
         octetString = CountedOctetString()
-        octetString['length'] = len(principal.realm)
-        octetString['data'] = principal.realm
-        self.realm = octetString
-        self.components = []
-        for c in principal.components:
-            octetString = CountedOctetString()
-            octetString['length'] = len(c)
-            octetString['data'] = c
-            self.components.append(octetString)
+        octetString['length'] = len(value)
+        octetString['data'] = value
+        return octetString
 
     def toPrincipal(self):
         return types.Principal(self.prettyPrint(), type=self.header['name_type'])
@@ -426,8 +428,8 @@ class CCache:
                 # Let's search for any TGT/TGS that matches the server w/o the SPN's service type/port, returns
                 # the first one
                 # If server has no '/' we assume it's a ST from S4U2Self without a service type
-                if c['server'].prettyPrint().count(b'/') >= 2:
-                    # 3-part SPN: service/host/domain@REALM
+                if c['server'].prettyPrint().find(b'/') >= 0:
+                    # Match both service/host@REALM and service/host/domain@REALM.
                     # Seen when a service ticket is dumped from LSASS memory (e.g. via
                     # Rubeus' `dump` command) rather than requested fresh - Windows caches
                     # such tickets with the domain suffix appended as an extra SPN
@@ -448,14 +450,6 @@ class CCache:
                         hostsMatch = cachedHost.split(b'.', 1)[0] == searchHost.split(b'.', 1)[0]
 
                     if hostsMatch and cachedRealm == searchRealm:
-                        LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper().decode('utf-8'))
-                        return c
-                elif c['server'].prettyPrint().find(b'/') >=0:
-                    # Let's take the port out for comparison
-                    cachedSPN = (c['server'].prettyPrint().upper().split(b'/')[1].split(b'@')[0].split(b':')[0] + b'@' + c['server'].prettyPrint().upper().split(b'/')[1].split(b'@')[1])
-                    searchSPN = '%s@%s' % (server.upper().split('/')[1].split('@')[0].split(':')[0],
-                                               server.upper().split('/')[1].split('@')[1])
-                    if cachedSPN == b(searchSPN):
                         LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper().decode('utf-8'))
                         return c
                 else:

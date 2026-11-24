@@ -140,6 +140,19 @@ class CCACHETests(unittest.TestCase):
         self.assertEqual(reparsed.authData[0]["authtype"], 1)
         self.assertEqual(reparsed.authData[0]["authdata"]["data"], b"\xde\xad\xbe\xef")
 
+    def test_principal_with_non_ascii_name_roundtrip(self):
+        # Regression test: str principal parts were packed as latin-1 with a character count, corrupting non-ASCII names.
+        name = u"Администратор"
+        principal = Principal()
+        principal.fromPrincipal(types.Principal([[name], self.domain], type=PrincipalNameType.NT_PRINCIPAL.value))
+
+        reparsed = Principal(principal.getData())
+
+        self.assertEqual(reparsed.components[0]["length"], len(name.encode("utf-8")))
+        self.assertEqual(reparsed.components[0]["data"].decode("utf-8"), name)
+        self.assertEqual(reparsed.realm["data"], self.domain.encode("utf-8"))
+        self.assertEqual(reparsed.toPrincipal().components[0], name)
+
     def test_ccache_getCredential_three_part_spn(self):
         # Regression test for the 3-part SPN fix (service/host/domain@REALM),
         # seen in multi domain forests ldap tickets
@@ -160,6 +173,58 @@ class CCACHETests(unittest.TestCase):
 
         # Same short hostname, different child domain -> must not match
         self.assertIsNone(ccache.getCredential("LDAP/DC01.CHILD-B.LOCAL/CHILD-B.LOCAL@{}".format(realm)))
+
+    def test_ccache_getCredential_two_part_spn_short_fqdn_matching(self):
+        realm = "EXAMPLE.TEST"
+
+        cases = (
+            (
+                "HOST/FILESERVER@{}".format(realm),
+                "CIFS/FILESERVER.EXAMPLE.TEST@{}".format(realm),
+            ),
+            (
+                "HOST/FILESERVER.EXAMPLE.TEST@{}".format(realm),
+                "CIFS/FILESERVER@{}".format(realm),
+            ),
+            (
+                "HOST/FILESERVER@{}".format(realm),
+                "CIFS/FILESERVER.EXAMPLE.TEST:445@{}".format(realm),
+            ),
+        )
+
+        for cached_spn, requested_spn in cases:
+            with self.subTest(cached_spn=cached_spn, requested_spn=requested_spn):
+                ccache = self._ccache_with(cached_spn)
+                credential = ccache.credentials[0]
+                self.assertIs(ccache.getCredential(requested_spn), credential)
+
+    def test_ccache_getCredential_two_part_spn_matching_boundaries(self):
+        realm = "FOREST.LOCAL"
+        cached_spn = "HOST/SERVER.CHILD-A.LOCAL@{}".format(realm)
+        ccache = self._ccache_with(cached_spn)
+        credential = ccache.credentials[0]
+
+        # Relaxed matching must remain bounded by the Kerberos realm.
+        self.assertIsNone(
+            ccache.getCredential("CIFS/SERVER.CHILD-A.LOCAL@OTHER.LOCAL")
+        )
+
+        # Two qualified names must not match only because their first DNS
+        # label is the same.
+        self.assertIsNone(
+            ccache.getCredential("CIFS/SERVER.CHILD-B.LOCAL@{}".format(realm))
+        )
+
+        # Disabling AnySPN must retain exact service and hostname matching.
+        self.assertIsNone(
+            ccache.getCredential(
+                "CIFS/SERVER@{}".format(realm),
+                anySPN=False,
+            )
+        )
+
+        # The negative lookups above must not alter the cached credential.
+        self.assertIs(ccache.getCredential(cached_spn, anySPN=False), credential)
 
     @staticmethod
     def _ccache_with(*spns):

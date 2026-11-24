@@ -42,8 +42,8 @@ import string
 import time
 from binascii import unhexlify
 from threading import Thread, Lock
-from six import PY3
 
+from impacket import wintime
 from impacket.dcerpc.v5 import epm
 from impacket.dcerpc.v5.drsuapi import MSRPC_UUID_DRSUAPI, hDRSDomainControllerInfo, DRSBind, NTDSAPI_CLIENT_GUID, \
     DRS_EXTENSIONS_INT, DRS_EXT_GETCHGREQ_V6, DRS_EXT_GETCHGREPLY_V6, DRS_EXT_GETCHGREQ_V8, DRS_EXT_STRONG_ENCRYPTION, \
@@ -363,10 +363,7 @@ class RemoteShell(cmd.Cmd):
             f = dst_path + '/' + src_file
             pathname = f.replace('/','\\')
             logging.info("Uploading %s to %s\\%s" % (src_file, self.share, dst_path))
-            if PY3:
-                self.transferClient.putFile(self.share, pathname, fh.read)
-            else:
-                self.transferClient.putFile(self.share, pathname.decode(sys.stdin.encoding), fh.read)
+            self.transferClient.putFile(self.share, pathname, fh.read)
             fh.close()
         except Exception as e:
             logging.error(str(e))
@@ -390,10 +387,7 @@ class RemoteShell(cmd.Cmd):
         return
 
     def default(self, line):
-        if PY3:
-            self.send_data(line.encode('cp437')+b'\r\n')
-        else:
-            self.send_data(line.decode(sys.stdin.encoding).encode('cp437')+'\r\n')
+        self.send_data(line.encode('cp437')+b'\r\n')
 
     def send_data(self, data, hideOutput = True):
         if hideOutput is True:
@@ -455,7 +449,7 @@ class MS14_068:
         # 1) KERB_VALIDATION_INFO
         aTime = timegm(strptime(str(authTime), '%Y%m%d%H%M%SZ'))
 
-        unixTime = smb.POSIXtoFT(aTime)
+        unixTime = wintime.posix_to_filetime(aTime)
 
         kerbdata = KERB_VALIDATION_INFO()
 

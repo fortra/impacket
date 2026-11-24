@@ -227,6 +227,7 @@ class NTLMTests(unittest.TestCase):
         print("Flags")
         hexdump(struct.pack('<L',flags))
         print("\n")
+
         print("4.2.4.1.1 NTOWFv2 and LMOWFv2")
         res = ntlm.NTOWFv2(self.user,self.password,self.domain)
         hexdump(res)
@@ -302,6 +303,24 @@ class NTLMTests(unittest.TestCase):
         #print (repr(bytearray(str(signature))))
         #raise
         print("\n")
+
+    def test_ntlmv2_mic_is_advertised(self):
+        target_info = ntlm.AV_PAIRS()
+        target_info[ntlm.NTLMSSP_AV_DNS_HOSTNAME] = self.serverName.encode('utf-16le')
+        target_info[ntlm.NTLMSSP_AV_TIME] = self.time
+
+        nt_response, _, _ = ntlm.computeResponseNTLMv2(
+            self.flags, self.serverChallenge, self.clientChallenge, target_info.getData(),
+            self.domain, self.user, self.password, include_mic=True)
+
+        # Skip NTProofStr (16 bytes) and the fixed NTLMv2 client challenge fields (28 bytes).
+        response_av_pairs = ntlm.AV_PAIRS(nt_response[44:])
+        av_flags = struct.unpack('<L', response_av_pairs[ntlm.NTLMSSP_AV_FLAGS][1])[0]
+
+        self.assertEqual(
+            av_flags & ntlm.MSV_AV_FLAGS_MIC_PRESENT,
+            ntlm.MSV_AV_FLAGS_MIC_PRESENT,
+        )
 
     def test_av_pairs_container_protocol(self):
         av_pairs = ntlm.AV_PAIRS()

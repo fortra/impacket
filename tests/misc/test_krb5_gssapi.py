@@ -12,6 +12,7 @@
 import unittest
 
 from impacket.krb5 import constants
+from impacket.krb5.crypto import Key
 from impacket.krb5.gssapi import (
     GSSAPI,
     GSSAPI_AES128,
@@ -108,6 +109,31 @@ class KRB5GSSAPITests(unittest.TestCase):
         self.assertTrue(init_mic.startswith(b"\x60\x23"))
         self.assertTrue(accept_mic.startswith(b"\x60\x23"))
         self.assertNotEqual(init_mic, accept_mic)
+
+    def test_gssapi_aes_getmic_padding_is_optional(self):
+        gssapi = GSSAPI_AES256()
+        session_key = Key(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value, b"\x33" * 32)
+        unaligned, aligned = b"\xaa" * 13, b"\xaa" * 16
+
+        padded_mic = gssapi.GSS_GetMIC(session_key, unaligned, 0)
+        plain_mic = gssapi.GSS_GetMIC(session_key, unaligned, 0, pad=False)
+
+        self.assertNotEqual(padded_mic, plain_mic)
+        self.assertEqual(padded_mic, gssapi.GSS_GetMIC(session_key, unaligned + b"\x03" * 3, 0, pad=False))
+        self.assertEqual(gssapi.GSS_GetMIC(session_key, aligned, 0), gssapi.GSS_GetMIC(session_key, aligned, 0, pad=False))
+        # RFC 4121 4.2.6.1: TOK_ID, Flags (AcceptorSubkey), filler, SND_SEQ, then the 12 byte checksum
+        self.assertEqual(plain_mic[:16], b"\x04\x04\x04" + b"\xff" * 5 + b"\x00" * 8)
+        self.assertEqual(len(plain_mic), 28)
+
+    def test_gssapi_rc4_getmic_padding_is_optional(self):
+        gssapi = GSSAPI_RC4()
+        session_key = _SessionKey(b"\x11" * 16)
+        unaligned = b"\xaa" * 13
+
+        padded_mic = gssapi.GSS_GetMIC(session_key, unaligned, 0)
+
+        self.assertNotEqual(padded_mic, gssapi.GSS_GetMIC(session_key, unaligned, 0, pad=False))
+        self.assertEqual(padded_mic, gssapi.GSS_GetMIC(session_key, unaligned + b"\x03" * 3, 0, pad=False))
 
     def test_gssapi_rc4_wrap_without_encryption_returns_padded_plaintext(self):
         gssapi = GSSAPI_RC4()
