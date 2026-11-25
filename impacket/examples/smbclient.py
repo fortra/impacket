@@ -674,9 +674,12 @@ class MiniImpacketShell(cmd.Cmd):
     def _is_safe_rget_local_path(download_root, local_file):
         """Return whether local_file resolves below download_root."""
         local_root = os.path.normcase(os.path.realpath(download_root))
-        target_path = os.path.normcase(os.path.realpath(os.path.join(download_root, local_file)))
+        local_file_path = os.path.join(download_root, local_file)
+        parent_path = os.path.normcase(os.path.realpath(os.path.dirname(local_file_path)))
+        target_path = os.path.normcase(os.path.realpath(local_file_path))
         try:
-            return os.path.commonpath((local_root, target_path)) == local_root
+            return (os.path.commonpath((local_root, parent_path)) == local_root and
+                    os.path.commonpath((local_root, target_path)) == local_root)
         except ValueError:
             # Paths on different Windows drives cannot be compared safely.
             return False
@@ -704,6 +707,9 @@ class MiniImpacketShell(cmd.Cmd):
                 for file_tuple in self.completion:
                     filename = file_tuple[0]
                     is_directory = file_tuple[1]
+
+                    if filename in ['.', '..']:
+                        continue
 
                     if is_directory:
                         if self._is_safe_rget_directory_name(filename):
