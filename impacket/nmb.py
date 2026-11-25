@@ -976,6 +976,7 @@ class NetBIOSTCPSession(NetBIOSSession):
             timeout = 3600
 
         start_time = time.time()
+        last_recv_time = time.time()
         bytes_left = read_length
 
         while bytes_left > 0:
@@ -987,12 +988,13 @@ class NetBIOSTCPSession(NetBIOSSession):
             except Exception as ex:
                 raise NetBIOSError('Error occurs while reading from remote', ERRCLASS_OS, ex.errno)
 
-            if (time.time() - start_time) > timeout:
+            if (time.time() - last_recv_time) > timeout:
                 raise NetBIOSTimeout
 
             if len(received) == 0:
                 raise NetBIOSError('Error while reading from remote', ERRCLASS_OS, None)
 
+            last_recv_time = time.time()
             data = data + received
             bytes_left = read_length - len(data)
 
